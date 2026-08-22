@@ -2,6 +2,8 @@
 #   galpy.backend._namespaces: helpers mapping backend names to array
 #   namespaces and small namespace-agnostic utilities.
 ###############################################################################
+from functools import wraps
+
 import numpy
 
 from ..util._optional_deps import (
@@ -19,6 +21,26 @@ _TORCH_NAMES = frozenset(("torch", "pytorch"))
 def _is_python_scalar(x):
     """True for plain Python scalars (and None), which carry no backend info."""
     return x is None or isinstance(x, (bool, int, float, complex))
+
+
+def has_concrete_truth_value(x):
+    """True if a Python ``bool`` can be read from the 0-d/scalar ``x`` right now.
+
+    False exactly when ``x`` is a traced value (jax/torch): under a trace a
+    comparison is a tracer with no truth value, so `if` on it raises. That lets a
+    routine keep its eager error path -- raise on an out-of-domain input, where
+    the check is a real check -- and degrade to an elementwise select while
+    tracing, instead of simply failing to trace.
+
+    ``x`` must already be reduced to a scalar/0-d (e.g. via ``xp.all``): a
+    multi-element numpy array has no truth value either, and would be reported
+    here as non-concrete.
+    """
+    try:
+        bool(x)
+    except Exception:
+        return False
+    return True
 
 
 def is_backend_array(x):
@@ -70,6 +92,67 @@ def under_jax_trace(*xs):
     import jax
 
     return any(isinstance(x, jax.core.Tracer) for x in xs)
+
+
+def under_trace(*xs):
+    """True iff one of ``xs`` is being TRACED rather than concretely evaluated.
+
+    The backend-agnostic generalisation of ``under_jax_trace``, for the "do I
+    have a concrete value?" probes that pick an out-of-backend (scipy/numpy)
+    computation when they do. A jax tracer answers by raising from ``float(x)``;
+    a torch tensor under ``torch.compile`` does NOT -- dynamo turns ``float(x)``
+    into a symbolic scalar, so the probe wrongly takes the concrete branch and
+    drags the scipy/numpy code into the graph (where it dies on a data-dependent
+    output shape). ``torch.compiler.is_compiling()`` is dynamo's own answer.
+    False on numpy, and on plain (untraced) jax/torch arrays.
+    """
+    import sys
+
+    if under_jax_trace(*xs):
+        return True
+    if "torch" not in sys.modules:
+        return False
+    import torch
+
+    from ._tracectx import is_compiling
+
+    return is_compiling() and any(isinstance(x, torch.Tensor) for x in xs)
+
+
+def untraceable_setup(method):
+    """Mark a lazy SETUP/table builder so a tracer never traces it.
+
+    The table-backed potentials build their constant backend tables lazily and
+    memoize them on the instance, so numpy-only users never pay for the build.
+    That build is pure numpy/scipy (FITPACK splines, PPoly basis changes,
+    ``scipy.special.comb``, ...) and is not traceable: when the very FIRST call
+    happens to be inside a ``torch.compile`` region, dynamo tries to trace the
+    scipy code and dies (``scipy.special.comb`` -> "'numpy.float64' object does
+    not support item assignment"). It is also pointless to trace -- the result
+    is a dict of constants, identical on every call.
+
+    ``torch.compiler.disable`` tells dynamo to run the builder eagerly (as an
+    opaque call) and feed its constants back into the graph. torch is imported
+    only if it is ALREADY imported, so numpy-only runs never touch it, and the
+    disabled view is built once and reused. jax needs nothing here: a lazy build
+    under ``jax.jit`` sees concrete (untraced) values because the tables depend
+    on nothing traced.
+    """
+    disabled = []
+
+    @wraps(method)
+    def wrapper(*args, **kwargs):
+        import sys
+
+        if "torch" not in sys.modules:
+            return method(*args, **kwargs)
+        if not disabled:
+            import torch
+
+            disabled.append(torch.compiler.disable(method))
+        return disabled[0](*args, **kwargs)
+
+    return wrapper
 
 
 def under_torch_grad(*xs):
@@ -237,6 +320,29 @@ def device_of(*coords):
     return None
 
 
+_DEFAULT_DEVICE = {}
+
+
+def default_device(xp):
+    """Device ``xp`` places a new array on when none is requested.
+
+    Asking an explicit device of ``asarray`` is not free -- it commits the array
+    rather than letting the backend place it, measured at 397.6 us/call against
+    134.6 us/call for ``device=None`` on jax CPU. The coordinate boundary is
+    crossed in a tight loop during an orbit integration, so paying that on every
+    coercion turned a 1.7 s dxdv test into a 300 s timeout (galpy #1300). Callers
+    compare against this to skip the device keyword when it cannot change
+    placement anyway. Cached because asking costs an allocation.
+    """
+    key = getattr(xp, "__name__", None) or repr(xp)
+    if key not in _DEFAULT_DEVICE:
+        try:
+            _DEFAULT_DEVICE[key] = getattr(xp.asarray(0.0), "device", None)
+        except Exception:  # pragma: no cover - namespace without asarray/device
+            _DEFAULT_DEVICE[key] = None
+    return _DEFAULT_DEVICE[key]
+
+
 def _backend_dtype(xp, dtype):
     """Map a numpy dtype to the active backend's dtype.
 
@@ -263,6 +369,21 @@ def _backend_dtype(xp, dtype):
     except TypeError:  # not a dtype numpy understands: leave it
         return dtype
     return getattr(xp, name, dtype)
+
+
+def effective_device(xp, device):
+    """``device``, or None when it is the backend's DEFAULT device.
+
+    Naming the default device COMMITS the placement instead of letting the
+    backend choose, which costs ~3x (see default_device). Every caller that
+    hands a device to ``asarray`` wants this, so the policy lives here once:
+    when it was open-coded per call site, ``as_backend_constant`` was simply
+    missed and paid the cost on all 144 of its call sites (galpy #1300 was the
+    same bug in ``coerce_coords``).
+    """
+    if device is not None and device == default_device(xp):
+        return None
+    return device
 
 
 def asarray_on_device(xp, a, device, dtype=None):
@@ -360,3 +481,25 @@ def namespace_from_arrays(arrays):
     # Non-numpy arrays only reach here (numpy is handled by the fast path above),
     # so this returns the jax / array-api-compat-torch namespace.
     return array_api_compat.array_namespace(*arrs)
+
+
+def restrict_to_single_thread():
+    """Cap the array backends at one compute thread, for a forked child.
+
+    ``galpy.util.multi.parallel_map`` forks (spawn cannot pickle the mapped
+    closures, #457). torch's intra-op thread pool does not survive ``fork``: the
+    child inherits pool state it cannot use and deadlocks on its first parallel
+    region, hanging the parent in ``proc.join()`` forever. Calling this first
+    thing in the child stops the pool from being re-entered -- and one thread per
+    child is the right split anyway, since one process per core already
+    saturates the machine.
+
+    No-op when torch is not loaded. jax has no equivalent knob (it warns at
+    every ``os.fork`` that a deadlock is likely, and the only cure available
+    there is not forking at all), so jax is deliberately not handled here.
+    """
+    import sys
+
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        torch.set_num_threads(1)

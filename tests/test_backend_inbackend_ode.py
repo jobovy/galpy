@@ -442,7 +442,23 @@ def test_orbit_integrate_inbackend_kwargs_jax():
         return o.getOrbit().reshape(-1, len(_IC))[-1, 0]  # final R
 
     h = float(jax.hessian(final_R)(jnp.asarray(0.1)))
-    assert numpy.isfinite(h)
+    # Not just "is finite": the kwargs only pick solver knobs, so the AD Hessian
+    # must MATCH a central finite-difference of jax.grad, h-converged. A wrong
+    # but finite Hessian (e.g. adjoint silently not threading) passed before.
+    g = jax.grad(final_R)
+
+    def fd(step):
+        return float(
+            (g(jnp.asarray(0.1 + step)) - g(jnp.asarray(0.1 - step))) / (2.0 * step)
+        )
+
+    fd_coarse, fd_fine = fd(1e-4), fd(5e-5)
+    assert abs(fd_coarse - fd_fine) <= 1e-3 * (abs(fd_fine) + 1e-8), (
+        f"FD not converged: {fd_coarse:.8g} vs {fd_fine:.8g}"
+    )
+    assert abs(h - fd_fine) <= 1e-5 * (abs(fd_fine) + 1e-8), (
+        f"AD Hessian {h:.8g} != FD-of-grad {fd_fine:.8g}"
+    )
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
@@ -579,3 +595,140 @@ def test_inbackend_1d_batch_jax():
     out = numpy.asarray(integrate_orbit(pot, jnp.asarray(ics), jnp.asarray(_TS)))
     assert out.shape == (len(_TS), 3, 2)
     numpy.testing.assert_allclose(out[-1], ref, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_integrate_inbackend_kwargs_tolerance_jax():
+    # rtol/atol are reachable through inbackend_kwargs, not just as integrate()
+    # arguments. They used to collide with the explicitly-forwarded pair and raise
+    # "got multiple values for keyword argument 'rtol'" -- which made the tolerance
+    # UNREACHABLE for callers that expose only the dict (actionAngleIsochroneApprox's
+    # integrate_kwargs is the motivating one: it has no rtol/atol parameters).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_state(**kw):
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax", **kw)
+        return numpy.asarray(o.getOrbit()).reshape(-1, len(_IC))[-1]
+
+    tight = final_state()  # default rtol=atol=1e-12
+    loose = final_state(inbackend_kwargs={"rtol": 1e-5, "atol": 1e-5})
+    d_loose = numpy.max(numpy.fabs(loose - tight))
+
+    # Two-sided: the knob must actually REACH the solver (a silently-dropped
+    # rtol would give a bit-identical trajectory), and it must behave like a
+    # tolerance rather than garbage.
+    assert d_loose > 1e-9, f"loose tolerance changed nothing: max|d|={d_loose:.3e}"
+    assert d_loose < 1e-2, f"loose tolerance diverged: max|d|={d_loose:.3e}"
+
+    # Passing the SAME loose tolerance the documented way must agree closely with
+    # passing it through the dict -- same knob, two spellings. Both are adaptive
+    # solves with the same controller, so require them to track to 1e-12.
+    via_args = final_state(rtol=1e-5, atol=1e-5)
+    numpy.testing.assert_allclose(loose, via_args, rtol=1e-12, atol=1e-12)
+
+    # Precedence is documented as "inbackend_kwargs overrides": with a tight
+    # explicit pair AND a loose dict, the loose one must win. This is the
+    # discriminating assertion -- if precedence were reversed the result would
+    # equal `tight` instead.
+    override = final_state(
+        rtol=1e-12, atol=1e-12, inbackend_kwargs={"rtol": 1e-5, "atol": 1e-5}
+    )
+    numpy.testing.assert_allclose(override, loose, rtol=1e-12, atol=1e-12)
+    assert numpy.max(numpy.fabs(override - tight)) == pytest.approx(d_loose, rel=1e-9)
+
+    # The dict must be REUSABLE: callers that store it and pass it on every call
+    # (actionAngleIsochroneApprox keeps self._integrate_kwargs) would otherwise get
+    # the tolerance honoured once and silently dropped afterwards. This is why the
+    # implementation pops from a COPY; popping from the caller's dict passes every
+    # assertion above and still breaks here on the second integration.
+    shared = {"rtol": 1e-5, "atol": 1e-5}
+    first = final_state(inbackend_kwargs=shared)
+    second = final_state(inbackend_kwargs=shared)
+    assert shared == {"rtol": 1e-5, "atol": 1e-5}, f"caller dict mutated: {shared}"
+    numpy.testing.assert_allclose(second, first, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(second, loose, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax():
+    """``nsteps`` (constant stepping) fixes reverse-mode AD under ``jax.vmap``.
+
+    diffrax's ``DirectAdjoint`` -- the one needed for second-order AD, e.g. an
+    outer d/d(parameter) through an inner ``jacrev``, as the stream track does --
+    differentiates the solver's OWN operations. With the default adaptive
+    controller, ``jax.vmap`` batch elements choose different step sequences, so
+    the batched reverse pass disagrees with the unbatched one (measured here at
+    1e-3, and 2-13% through a full action-angle map, growing with integration
+    time) even though the FORWARD values agree to ~1e-10. That asymmetry is what
+    made it look like a jacrev-batching bug for a long time; it is not, and
+    plain ``vmap(jacrev)`` is exact in JAX.
+
+    Constant steps remove the step-size dependence entirely. Asserted two ways:
+    the batched Jacobian must match the unbatched one to near machine precision,
+    AND the constant-step trajectory must still agree with the adaptive one, so
+    the fix cannot be "pass by integrating badly".
+    """
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    from galpy.potential import LogarithmicHaloPotential
+
+    # an ARRAY-valued parameter is the differentiable configuration
+    lp = LogarithmicHaloPotential(normalize=1.0, q=jnp.asarray(0.9))
+    ts = jnp.linspace(0.0, 8.0, 60)
+    V = jnp.asarray(
+        [
+            [1.561, 0.351, -1.155, 0.887, -0.477, 0.120],
+            [1.500, 0.300, -1.100, 0.850, -0.450, 0.200],
+        ]
+    )
+
+    def _final(v, **extra):
+        return integrate_orbit(
+            lp,
+            v,
+            ts,
+            rtol=1e-10,
+            atol=1e-10,
+            max_steps=20000,
+            adjoint="direct",
+            **extra,
+        )[-1]
+
+    J = jax.jacrev(lambda v: _final(v, nsteps=2000))
+    seq = numpy.stack([numpy.asarray(J(V[i]), dtype=float) for i in range(V.shape[0])])
+    vm = numpy.asarray(jax.vmap(J)(V), dtype=float)
+    scale = numpy.max(numpy.fabs(seq))
+    assert numpy.all(numpy.fabs(seq - vm) < 1e-11 * scale), (
+        "constant-step batched Jacobian != unbatched: "
+        f"max rel {numpy.max(numpy.fabs(seq - vm)) / scale:.3e}"
+    )
+
+    # ... and the constant-step solve is still the right trajectory
+    ad = numpy.asarray(_final(V[0]), dtype=float)
+    cs = numpy.asarray(_final(V[0], nsteps=2000), dtype=float)
+    assert numpy.all(numpy.fabs(ad - cs) < 1e-8 * numpy.max(numpy.fabs(ad))), (
+        f"constant-step trajectory differs from adaptive: "
+        f"max rel {numpy.max(numpy.fabs(ad - cs)) / numpy.max(numpy.fabs(ad)):.3e}"
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_nsteps_is_rejected_on_torch():
+    """``nsteps`` is a jax/diffrax option; torchdiffeq picks its own steps.
+
+    Passing it on torch must fail loudly rather than being silently ignored --
+    a silently-dropped nsteps would hand back an adaptively-stepped solve while
+    the caller believes the steps are fixed, which is exactly the confusion this
+    option exists to remove.
+    """
+    import torch
+
+    pot = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    vxvv = torch.tensor([1.0, 0.1, 1.1, 0.1, 0.2, 0.0], dtype=torch.float64)
+    ts = torch.linspace(0.0, 1.0, 5, dtype=torch.float64)
+    with pytest.raises(NotImplementedError, match="jax/diffrax option"):
+        integrate_orbit(pot, vxvv, ts, nsteps=100)

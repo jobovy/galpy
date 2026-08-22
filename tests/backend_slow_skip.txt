@@ -9,61 +9,21 @@
 #
 # format: <backend> <nodeid>   (same as backend_xfail.txt)
 #
-# --- jax spherical-DF sampling/quadrature (Track F spherical-DF migration) ---
-# These sample (300k CDF inversions) and integrate the DF by scipy at scalar
-# points; under forced-jax every scalar evaluation dispatches an XLA graph, so
-# each test runs minutes. Selected by measured CI duration >= 90 s on the
-# all-backend runs 27500392935 + 27503988401 (complete shard wall 3111 s ->
-# ~1450 s after skip; slowest survivor 84 s = >3x headroom under 300 s). The
-# Track F spherical-DF backend migration (vectorized sampling + GL quadrature)
-# makes them fast; delete these lines as it lands. (Distinct from Track A #39,
-# which vectorizes the SCF/assoc_legendre *potential* path.)
-jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
-jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dMdE_integral
-jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
-jax tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_meanvr_directint
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_rmin
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_sigmar
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint
-jax tests/test_sphericaldf.py::test_king_sigmar
-jax tests/test_sphericaldf.py::test_king_sigmar_directint
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_beta
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint
-jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile
-jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
-
+# --- jax King-model sigmar: the one spherical-DF test Track F did NOT make fast ---
+# The other 27 jax spherical-DF deferrals were retired once the Track F backend
+# migration landed. This one still exceeds the 300 s per-test timeout by a wide
+# margin: called directly (the slow-skip has no bypass, so pytest would just skip
+# it) it passes in 1028.6 s under forced jax. CI runs ~0.71x this box's wall time
+# on the same code, so that still projects to ~730 s. Needs KingPotential
+# vectorization, not merely the sampling port.
+#
 # --- jax multi-orbit (test_orbits.py): slow battery (Track D/E) ---
 # Surface-of-section, multi-orbit dxdv (Python STM reference), C-fallback,
 # rE/LcE root-finds and Chandrasekhar friction integrate orbits under forced
 # jax and exceed the per-test budget (same eager-per-step cost as single-orbit;
 # numpy covers them). Un-defer as Track D in-backend vectorization lands.
-jax tests/test_orbits.py::test_ChandrasekharDynamicalFrictionForce_constLambda
-jax tests/test_orbits.py::test_LcE
-jax tests/test_orbits.py::test_SOS_2Dx
-jax tests/test_orbits.py::test_SOS_2Dy
-jax tests/test_orbits.py::test_SOS_3D
-jax tests/test_orbits.py::test_bruteSOS_2Dx
-jax tests/test_orbits.py::test_bruteSOS_2Dy
-jax tests/test_orbits.py::test_integrate_Cfallback_nonsymplec
-jax tests/test_orbits.py::test_integrate_Cfallback_symplec
-jax tests/test_orbits.py::test_integration_dxdv_2d
-jax tests/test_orbits.py::test_integration_dxdv_2d_rectInOut
-jax tests/test_orbits.py::test_rE
+jax tests/test_orbits.py::test_ChandrasekharDynamicalFrictionForce_constLambda  # 300s (failed)
+jax tests/test_orbits.py::test_SOS_3D  # 269s -- inside the cap, but within 20% of it
 
 # --- jax/torch FDM dynamical friction (Track A group-b dissipative migration) ---
 # The FDM friction force is not yet backend-vectorized: frictionFactor uses
@@ -74,9 +34,16 @@ jax tests/test_orbits.py::test_rE
 # migrated (backend sici + branchless frictionFactor + interpolated sigma_r,
 # group b); numpy still exercises them. (torch const_FDMfactor is a shorter
 # integration that finishes under the timeout, so only central_limit is deferred.)
-jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
-jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor  # measured 2026-08-21: >700s TIMEOUT
+# RE-DEFERRED 2026-08-09 (gh#1284 removed this line; that was wrong). The comment
+# above says torch central_limit "finishes under the timeout" -- measured, it does
+# not: >438 s on an IDLE 72-core box against the 300 s cap, and it timed out in CI
+# on gh#1286. gh#1284's un-defer rested on a run where the test crashed early on
+# the numpy-on-Tensor collision it was simultaneously fixing (6.47 s to raise
+# TypeError), so the "fast" reading measured a fail-fast, not the work. Torch is
+# the same un-vectorized dissipative path as jax above; it belongs here with them.
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: 619.0s (CI~440s)
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
@@ -90,11 +57,6 @@ jax tests/test_qdf.py::test_meanjz_noaac_issue300
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel_diffngl
-jax tests/test_pv2qdf.py::test_pvRvz_staeckel_diffngl
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel_diffngl
 jax tests/test_qdf.py::test_sampleV_interpolate
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
@@ -109,56 +71,59 @@ jax tests/test_qdf.py::test_sampleV_interpolate
 # runners (proactive defer, same rationale as test_MultipoleExpansion_deepcopy below):
 #  - test_interpolation_potential_c (263 s), _secondderivs_c (274 s)  [test_interp_potential]
 #  - test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs] (263 s)  [test_potential]
+# RE-HOMED here from backend_xfail.txt 2026-08-05: two more of the same family that
+# were mis-filed as xfail. Timed with `--backend jax --runxfail` over the WHOLE file
+# (36 passed, 4 skipped, 0 FAILED -- the 4 skips are the entries already listed here):
+#   PASS 1311.1s test_interpolation_potential_force_c        <- was xfail-ledgered
+#   PASS  989.8s test_interpolation_potential_secondderivs   <- was xfail-ledgered
+#   PASS  203.7s test_interpolation_potential_force_c_vdiffgridsizes
+#   PASS  144.9s test_interpolation_potential
+# They PASS, at 4.4x and 3.3x the 300 s timeout, so they are not numerical gaps --
+# they never finish, time out, record FAILED, and the xfail absorbs it. Every sibling
+# under 300 s is in neither list. Bookkeeping, not burndown: xfail -2, deferred +2;
+# skipping them also returns ~38 min of jax shard time per run.
 # Defer all until interpRZ is backend-vectorized (group d); numpy runs them, values correct.
-jax tests/test_interp_potential.py::test_interpolation_potential_dens
-jax tests/test_interp_potential.py::test_interpolation_potential_force
-jax tests/test_interp_potential.py::test_interpolation_potential_c
-jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs_c
-jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs]
 
-# --- jax actionAngleAdiabatic cylsep timeout (Track E action-angle, not yet jax-migrated) ---
-# test_actionAngleAdiabatic_conserved_actions_cylsep integrates the vertical action over a
-# CylindricallySeparable potential; under forced-jax the integration dispatches eager-jax
-# per step and exceeds the 300 s timeout. AdiabaticGrid_basicAndConserved_actions is its
-# sibling timeout (the AA-native-redesign regen ran without --timeout on a fast box, so it
-# "passed" slowly there and was wrongly dropped from the xfail-ledger; CI's 300 s timeout
-# fails it). Both are clean Timeouts, not wrong values; numpy runs them.
-# Defer until action-angle is backend-migrated/vectorized (Track E).
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_conserved_actions_cylsep
-jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
+# (2026-08-08) The two jax actionAngleAdiabatic timeouts that lived here are
+# un-deferred: they were deferred because the vertical path dispatched eager-jax
+# per integration step, which is exactly what the adapter/closure fixes removed
+# (aAAdiabatic.actions: 4166 -> 251 -> 9 boundary crossings). Measured on this
+# branch, forced jax, C extension loaded:
+#     test_actionAngleAdiabaticGrid_basicAndConserved_actions   59.60 s
+#     test_actionAngleAdiabatic_conserved_actions_cylsep        27.44 s
+# vs the 300 s cap; CI runs jax shards at ~0.71x local, so ~42 s and ~19 s there.
 
-# --- jax diskdf sampling pass-but-slow (AA-native-redesign exposure, Track F: diskdf) ---
-# Making actionAngle run REAL jax flips diskdf sampling onto the jax path; with the
-# orbit 0-d-time len() fix these now PASS but run 39-238 s each under jax-eager (300 s
-# CI timeout risk), as diskdf samples ~300 orbits per call with no vectorization. These
-# are the ones that PASS slowly; the ones that still fail at a deeper diskdf gap are
-# in backend_xfail.txt. Un-skip when diskdf is vectorized for jax (Track F).
-jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnOrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_rrange
-jax tests/test_diskdf.py::test_shudf_sample_powerrise_returnROrbit
+# --- jax test_galpypaper diskdf (Track F: diskdf) ---
+# The five test_diskdf.py sampling entries that used to sit here were MEASURED STALE
+# 2026-08-07 and un-deferred: whole file, entries lifted, `--backend=jax --timeout=300`,
+# 129 passed / 0 failed, all five well inside the 240 s margin --
+#   test_dehnendf_sample_flat_returnROrbit       178.6 s   (60% of cap)
+#   test_shudf_sample_flat_returnROrbit_rrange    64.2 s
+#   test_shudf_sample_powerrise_returnROrbit      60.4 s
+#   test_shudf_sample_flat_returnOrbit            57.3 s
+#   test_shudf_sample_flat_returnROrbit           30.6 s
+# They went fast under the batched in-backend integrator / C-STM routing, NOT under the
+# diskdf boundary fix landing alongside this: an A/B across that fix gives a median
+# ratio of 0.97x on these five (178.6 vs 182.3, 57.3 vs 53.4, ...), i.e. no effect.
+# This one stays: test_galpypaper.py is a different file and was NOT covered by that
+# run, and absence of measurement is not evidence of speed.
 jax tests/test_galpypaper.py::test_diskdf
 
-# --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
-# #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
-# __init__ builds its sigma_r interpolation with per-scalar XLA dispatch, the
-# RZTo*/toVertical conversion tests construct such forces, and MovingObject integrates
-# an embedded Orbit -- all exceed the 300 s timeout (or hit the un-migrated-Orbit
-# interpolation error). Defer until the dissipative forces (Track B group-b) and Orbit
-# (Track D) are backend-migrated; numpy still exercises them.
-jax tests/test_potential.py::test_rforce_dissipative
-jax tests/test_potential.py::test_RZToplanarPotential
-jax tests/test_potential.py::test_RZToverticalPotential
-jax tests/test_potential.py::test_toVerticalPotential
-jax tests/test_potential.py::test_MovingObject_2ndderivs_fd
+# (2026-08-08) Four entries from the #960 dissipative/MovingObject timeout block
+# are un-deferred: measured under forced jax with the C extension, they are
+#     test_toVerticalPotential      1.86 s      test_rforce_dissipative    1.05 s
+#     test_RZToplanarPotential      0.28 s      test_RZToverticalPotential 0.08 s
+# against the 300 s cap -- a >150x margin. Timed in isolation, not in the full
+# test_potential.py shard ([[handpicked-nodeid-batch-is-not-a-context]]); the
+# margin makes context effects implausible, and un-deferring puts them back in
+# the CI shard, which is the full-context check. If any is slow or fails there,
+# re-defer with the shard measurement attached.
 # test_MultipoleExpansion_deepcopy (#980's regression test): deepcopies + fully
 # re-evaluates 4 Multipole potentials (incl. from_density L=4) over a grid x times x
 # 10 methods. PASSES under jax-CPU but takes ~185 s on the dev box (jax-eager Multipole
 # eval) -> risks the 300 s per-test timeout on slower CI runners; slow-skip until
 # SCF/Multipole eval is vectorized on jax. (torch fails this at construction -> xfail-
 # ledger; numpy fully covers the actual scipy>=1.18 deepcopy-of-module regression.)
-jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # --- Big composite-MW / rotated-tilted-wrapper Poisson tests: jax-eager-slow ---
 # These PASS under jax (correct values) but take 580-2641 s each on the dev box
 # (measured on CPU, -n 8): test_DehnenBinney98 ~2641 s, the two AndTilted MWP14 Poisson
@@ -168,15 +133,12 @@ jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
 # jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
 # ledger; numpy exercises all of them.
-jax tests/test_potential.py::test_Cautun20
-jax tests/test_potential.py::test_DehnenBinney98
-jax tests/test_potential.py::test_McMillan17
-jax tests/test_potential.py::test_diskscf_overflow
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax tests/test_potential.py::test_DehnenBinney98  # measured 2026-08-21: 289.3s (CI~205s) -- passes, but only 32% under the cap
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]  # measured 2026-08-21: 371.9s (CI~264s) -- passes, only 12% under the cap
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
 jax tests/test_streamspraydf.py::test_center
 
 # --- jax single-orbit: variational/dxdv/lyapunov battery (Track D) ---
@@ -185,60 +147,38 @@ jax tests/test_streamspraydf.py::test_center
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_SOS_3D
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[const_lnLambda]
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[minr_gate]
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[rhm_coulomb_log]
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[sigma_clamp]
-jax tests/test_orbit.py::test_chandrasekhar_dxdv_phase_volume_law
-jax tests/test_orbit.py::test_dissipative_dxdv_python_raises
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[CorotatingRotationWrapperPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[OblateStaeckelWrapperPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_norot_offset]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_offset]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialGaussianPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_FDMfactor]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_lnLambda_cdm_cutoff]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[intermediate]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[minr_gate]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm_cutoff]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
-jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
-jax tests/test_orbit.py::test_fdm_dxdv_phase_volume_law
-jax tests/test_orbit.py::test_interprz_dxdv_3d
-jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
-jax tests/test_orbit.py::test_liouville_planar
-jax tests/test_orbit.py::test_lyapunov_c_vs_python
-jax tests/test_orbit.py::test_lyapunov_spectrum_api
-jax tests/test_orbit.py::test_lyapunov_spectrum_consistency
-jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
-jax tests/test_orbit.py::test_movingobject_dxdv_3d_c_vs_python
-jax tests/test_orbit.py::test_spherical_dxdv_3d_c_vs_python_extra
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # PASSES in 528.9s (CI~375s) -- re-measured 2026-08-22 post-#1364 in the real CI shard (--splits 5 --group 3); the old '>420s timed out' was a TIMEOUT BOUND, not a time
+jax tests/test_orbit.py::test_liouville_planar  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_lyapunov_spectrum_consistency  # PASSES in 662s (measured 2026-08-15) -- genuinely performance-gated
+jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in 1535s (measured 2026-08-15) -- genuinely performance-gated
 
-# --- jax single-orbit: misc slow (no-C-force potentials + Python-integrator paths) ---
-# energy/Jacobi over no-C-force potentials (Ferrers/*NoC: C integrator falls back to
-# Python force eval) + a few integrate paths that step in Python under jax. Track A
-# force vectorization / Track D in-backend default will let these un-defer.
-jax tests/test_orbit.py::test_energy_conservation_linear[FerrersPotential--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[FerrersPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockSpecialRotatingFlatSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[nestedListPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_integrate_backwards
-jax tests/test_orbit.py::test_integrate_negative_time
-jax tests/test_orbit.py::test_integrate_notevenlyspaced_ok
-jax tests/test_orbit.py::test_zmax
+# --- jax single-orbit: misc slow (Python-integrator paths) ---
+# Integrate paths that step in Python under jax. Track A force vectorization /
+# Track D in-backend default will let this un-defer. The energy/Jacobi and zmax
+# entries that used to sit here were measured fast enough on 2026-08-15 and are
+# now un-deferred.
+jax tests/test_orbit.py::test_integrate_backwards  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_integrate_negative_time  # 389.7s measured 2026-08-20; at the
+# measured CI/local ratio (0.71) that is ~277s against the 300s cap, i.e. ~8% margin, so it
+# passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
+# over Python integrators, so it belongs here too rather than re-run until it happens to be green.
+
+# --- single-orbit: action-angle accessors -- performance-gated, NOT broken ---
+# These were xfail-ledgered as "actionAngleStaeckel_c is not backend-migrated (Track E) ...
+# numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands." Track E
+# HAS landed and the recorded reason no longer holds: measured 2026-08-20 under --runxfail,
+# test_analytic_zmax PASSES (1136.3s) and test_analytic_ecc_rperi_rap does not raise at all,
+# it just never finishes (>1200s). At the measured CI/local ratio for jax shards (0.71) even
+# the passing one is ~807s against the 300s cap, so un-xfailing would only convert it into a
+# timeout FAILED. Deferred on TIME, not capability -- un-defer when the Track A/D orbit
+# vectorization lands, same trigger as the entries above.
+jax tests/test_orbit.py::test_analytic_zmax  # PASSES in 1136.3s (measured 2026-08-20)
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap  # >1200s, timed out (measured 2026-08-20)
+# The torch sibling was ledgered separately, under the REBASE-PREVIEW Phase-2 block, whose
+# comments are about SCF / sphericaldf / streamspraydf and never described this test at all.
+# Measured the same way: it PASSES in 743.1s. Even at the 0.71 CI/local ratio measured for
+# JAX shards (I have no torch-specific ratio) that is ~530s against the 300s cap.
+torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (measured 2026-08-20)
 
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
@@ -246,91 +186,13 @@ jax tests/test_orbit.py::test_zmax
 # >150s and was xfail (which still EXECUTES -> ~300s timeout each, ~65min total ->
 # the torch orbit shard hung near the 4500s cap). slow_skip (NOT executed) instead;
 # numpy covers them. (Same eager-EOM reason as the jax dxdv slow_skips.)
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[const_lnLambda]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[minr_gate]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_phase_volume_law
-torch tests/test_orbit.py::test_dissipative_dxdv_python_raises
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_FDMfactor]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_lnLambda_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[intermediate]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
-torch tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
 
 # --- jax orbit: heavy eager-jax tests (>~45s) -- per-CI-group session-cap fit ---
 # Variational/wrapper/sigint/triaxial-liouville tests run 45-150s each on the dev
 # box (~2.4x on the CI runner); even 5-way duration-split, a group clustering several
 # overflows the 4500s shard cap (jax orbit group 3 timed out). Defer the heaviest
 # until Track D vectorization; the faster majority stays un-deferred. numpy runs all.
-jax tests/test_orbit.py::test_SOS_2Dx
-jax tests/test_orbit.py::test_SOS_2Dy
-jax tests/test_orbit.py::test_apocenter
-jax tests/test_orbit.py::test_bruteSOS_3D
-jax tests/test_orbit.py::test_dehnenbar_dxdv_inside_rb_c_vs_python
-jax tests/test_orbit.py::test_doubleexp_dxdv_3d_c_vs_python
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[GaussianAmplitudeWrapperPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[KuzminKutuzovStaeckelPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[KuzminLikeWrapperPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[LogarithmicHaloPotential_triaxial]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[MN3ExponentialDiskPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[MWPotential2014]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential_static]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SpiralArmsPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TimeDependentAmplitudeWrapperPotential]
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerSphericalPotential]
-jax tests/test_orbit.py::test_energy_conservation_linear[BurkertPotentialNoC--10.0-False]
-jax tests/test_orbit.py::test_energy_conservation_linear[RazorThinExponentialDiskPotential--10.0-False]
-jax tests/test_orbit.py::test_energy_conservation_linear[mockRotatedAndTiltedMWP14WrapperPotential--10.0-False]
-jax tests/test_orbit.py::test_energy_conservation_linear[nestedListPotential--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[AnySphericalPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[DoubleExponentialDiskPotential--6.0--6.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatCorotatingRotationSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationPlanarSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatedAndTiltedMWP14WrapperPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatingFlatSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_integrate_SOS_2D
-jax tests/test_orbit.py::test_integrate_SOS_3D
-jax tests/test_orbit.py::test_integrate_dxdv_3d_base_orbit_integrity
-jax tests/test_orbit.py::test_integrate_dxdv_3d_staeckelwrappers_require_wrapped_hessian
-jax tests/test_orbit.py::test_integrate_indiv_t_3D
-jax tests/test_orbit.py::test_integrate_indiv_t_python_paths
-jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_oblate]
-jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_triaxial]
-jax tests/test_orbit.py::test_liouville_3d[PowerTriaxialPotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialGaussianPotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialHernquistPotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialJaffePotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialNFWPotential]
-jax tests/test_orbit.py::test_liouville_3d[TwoPowerTriaxialPotential]
-jax tests/test_orbit.py::test_liouville_3d_nonaxi_flow
-jax tests/test_orbit.py::test_logspiral_planar_dxdv_c_vs_python
-jax tests/test_orbit.py::test_lyapunov_spectrum_integrable
-jax tests/test_orbit.py::test_oblatestaeckelwrapper_dxdv_planar_c_vs_python
-jax tests/test_orbit.py::test_orbit_LcE
-jax tests/test_orbit.py::test_orbit_LcE_planar
-jax tests/test_orbit.py::test_orbit_c_sigint_full
-jax tests/test_orbit.py::test_orbit_c_sigint_planar
-jax tests/test_orbit.py::test_orbit_c_sigint_planardxdv
-jax tests/test_orbit.py::test_orbit_rE
-jax tests/test_orbit.py::test_orbit_rE_planar
-jax tests/test_orbit.py::test_orbit_rguiding
-jax tests/test_orbit.py::test_orbit_rguiding_planar
-jax tests/test_orbit.py::test_pericenter
-jax tests/test_orbit.py::test_softenedneedlebar_planar_dxdv_c_vs_python
-jax tests/test_orbit.py::test_softenedneedlebar_planar_dxdv_fd_of_flow
-jax tests/test_orbit.py::test_wrapper_complicatedsequence_2d
-jax tests/test_orbit.py::test_wrapper_complicatedsequence_3d
-jax tests/test_orbit.py::test_wrapper_followedbyanotherpotential_2d
-jax tests/test_orbit.py::test_wrapper_followedbyanotherpotential_3d
-jax tests/test_orbits.py::test_bruteSOS_3D
-jax tests/test_orbits.py::test_energy_jacobi_angmom
-jax tests/test_orbits.py::test_rguiding
+jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # >420s (measured 2026-08-15, timed out)
 
 # --- jax NonInertialFrameForce func/vec-omega (eager-XLA timeout) ---
 # The func/vec omega_z frame-force variants build a per-timestep interpolation of
@@ -345,22 +207,22 @@ jax tests/test_orbits.py::test_rguiding
 # funcomega); all func/vec-omega tests that are torch-xfail-ledgered but had no jax
 # entry are slow-skipped together here to stop the recurring per-PR flake.
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz_2D
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
-jax tests/test_noninertial.py::test_cinterp_funcomegaz
-jax tests/test_noninertial.py::test_cinterp_vecfuncomega
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
-jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
+# Re-homed from backend_xfail.txt 2026-08-05: same class as the block above, and
+# the two slowest members of it. Timed under `--backend jax --runxfail` (nothing
+# masked), whole -k arbitraryaxisrotation family:
+#   PASS 581.6s test_arbitraryaxisrotation           <- was xfail-ledgered
+#   PASS 559.9s test_arbitraryaxisrotation_omegafunc <- was xfail-ledgered
+#   PASS 182.0s test_python_vs_c_arbitraryaxisrotation_omegadot
+#   PASS 159.1s test_arbitraryaxisrotation_omegadot_nullpotential
+#   PASS 140.1s test_arbitraryaxisrotation_nullpotential
+#   PASS 116.9s test_python_vs_c_arbitraryaxisrotation
+# Both PASS, at ~2x the 300 s per-test CI timeout -- they are not numerical gaps,
+# they never finish. Every sibling that runs UNDER 300 s is in neither list, so
+# the split is exactly the runtime one. Not a burndown: xfail -2, deferred +2.
+jax tests/test_noninertial.py::test_arbitraryaxisrotation
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes
@@ -371,7 +233,7 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotentia
 # yet vectorized for jax (Track F), so defer the whole file under jax until then.
 # (The 17 jax test_streamdf entries still in backend_xfail.txt are now redundant
 # -- skip wins -- and drop at the next ledger regen, which skips these.)
-jax tests/test_streamdf.py
+jax tests/test_streamdf.py  # 2026-08-21: DEADLOCKS, does not merely run slow -- see note below
 # Backend-aware StreamTrack class (PR #1100): under forced jax a fresh
 # spdf.streamTrack() now integrates + fits the whole stream on jax (real XLA)
 # instead of the pre-#1100 numpy-coerced track -- the per-track eager dispatch
@@ -379,7 +241,16 @@ jax tests/test_streamdf.py
 # timed out next run). Defer the whole file under jax (the numpy StreamTrack path
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
-jax tests/test_streamTrack.py
+#
+# WHY streamTrack IS NOT A BURNDOWN TARGET (measured 2026-08-22, both modes,
+# whole file, post-#1364): 0.96x-1.11x. gh#1364's as_backend_constant guard
+# removes a fixed cost PER as_backend_constant CALL, so it pays in proportion to
+# calls per EVALUATION: RotateAndTilt makes 15/force-eval -> 1.95x on the force
+# call, NonInertialFrameForce 7 -> 1.07x-1.64x on its tests, streamTrack ~0 per
+# evaluation (its stream-module calls are in TRACK SETUP, run a handful of times)
+# -> nothing. Do not re-run this sweep expecting a win from that guard.
+jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 427.2s (CI~303s) re-measured 2026-08-22 post-#1364 (was 408.0s; 0.96x -- the guard does NOT help here)
+jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s) re-measured 2026-08-22 post-#1364 (was 331.7s; 1.02x). STAYS: it straddles the 240s margin on a ~2% wobble, which is noise, not a change
 # jax-eager Staeckel Python-path freqs+angles is borderline >300s in the shard
 # (it passes in isolation and ran <300s in the regen, so it's a DROP from the
 # xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
@@ -396,5 +267,185 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 # timing, which is why the shard was green until an unrelated change shifted it.
 # Skipping means the timeout is never spent. torch runs both fine (107 s worst).
 # Un-skip when the jax dynamical-friction path is vectorized.
-jax tests/test_dynamfric.py::test_dynamfric_c
-jax tests/test_FDMdynamfric.py::test_dynamfric_c
+jax tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_FDMdynamfric.py::test_dynamfric_c  # measured 2026-08-21: 332.0s (CI~236s) -- passes, only 21% under the cap
+# torch test_dynamfric_c: with the assertion-site ndarray/Tensor collision fixed
+# it no longer aborts early, and integrating orbits WITH dynamical friction under
+# torch eager then takes 3598s (measured) -- 12x the 300s per-test CI timeout. A
+# timeout records FAILED and overrides xfail, so this is a slow-skip, not an
+# xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
+torch tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
+
+# torch-jit: interpRZPotential's grid build under torch.compile does not finish
+# inside the 300 s cap. MEASURED 2026-08-07 by an A/B run for the parallel_map
+# fork fix in this same PR: both arms (with and without the fix) gave the
+# IDENTICAL 2 failed / 38 passed at 300.0 s, 1530 s vs 1549 s total -- so this is
+# torch.compile cost, NOT the fork deadlock that fix cures. Nothing trips these
+# today only because backend-tests' normal runs carry no --jit dimension; they
+# are listed here so a workflow_dispatch(jit=true) run does not surface them as
+# a surprise red. Un-defer when the per-force-call overhead work lands.
+
+# --- jax-jit: measured under `--backend jax --jit`, 2026-08-09 ---
+# These exist because the slow-skip list no longer inherits eager entries (see
+# _load_backend_nodeids): a traced run defers only what is measured slow WHEN
+# TRACED. Measured serially -- ALONE on the machine -- because concurrent jax
+# processes each size their thread pool to the core count and oversubscribe,
+# which inflated an earlier set of these numbers by up to 6x.
+#
+# tests/test_noninertial.py, whole file, C extension present:
+#     53 cases -> 53 PASSED, 0 failed.  total 6308 s, median 11.1 s,
+#     9 over the 240 s margin (80% of the 300 s per-test cap).
+#
+# So of the 19 eager `jax` entries for this file, 11 are FAST traced and now run
+# (0.2 s - 210.9 s; nine under 20 s). Only these 9 stay deferred. One of them
+# was never eager-ledgered at all -- tracing made it SLOWER -- which inheritance
+# could not have surfaced.
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation  # 616s traced
+#
+# RE-MEASURED 2026-08-22 as CONTROLLED A/Bs, after the as_backend_constant
+# default-device guard (gh#1364). Whole file, serial, C extension active; the
+# BASE arm is develop without the guard, everything else identical. BASE
+# reproduces this ledger's own historical numbers to 0.85-1.02, so the arms are
+# comparable. CI estimated at the measured CI/local factor 0.71; entries are
+# kept unless they clear the 240 s CI margin.
+#
+#   jax --jit          BASE   FIXED     x     CI~
+#     test_arbitraryaxisrotation          525.6  490.7  1.07  348.4   stays
+#     ..._omegafunc                       523.9  400.5  1.31  284.4   stays
+#     ..._accellsrframe_funcomegaz        502.6  351.9  1.43  249.9   stays
+#     ..._omegadot                        387.3  352.3  1.10  250.1   stays
+#     test_python_vs_c_..._vecomegaz      486.7  297.5  1.64  211.2   un-deferred
+#     ..._accellsrframe_scalarfuncomegaz  399.1  307.1  1.30  218.0   un-deferred
+#     ..._omegafunc_nullpotential         372.8  247.2  1.51  175.5   un-deferred
+#     test_python_vs_c_...funcomega       383.1  243.3  1.57  172.8   un-deferred
+#     test_python_vs_c_..._scalarfunc     340.1  235.3  1.45  167.0   un-deferred
+#
+# The speedup is HETEROGENEOUS (1.07x-1.64x): the two slowest tests barely move,
+# so they stay deferred on their own merits, not on an averaged figure.
+# jax eager (same treatment): 8 -> 5, un-deferring the three at CI~213.7 /
+# 199.1 / 176.7 s.
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # 573s
+jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz  # 529s
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # 454s
+# NOT in the eager jax list: fast eager, 354 s traced. Tracing made it slower.
+# tests/test_streamTrack.py, whole file, serial: 45 cases -> 45 PASSED,
+# total 1215 s, median 8.7 s, 2 over the 240 s margin. The eager `jax` entry is
+# the WHOLE FILE (per-track eager XLA dispatch blows the shard); traced, 43 of
+# 45 run and only these two stay. Serial vs the earlier concurrent numbers moved
+# 498->452 and 348->314 s -- ~10% inflation, not the 6x that test_noninertial
+# saw, because this run had one competitor rather than four. Either way both
+# clear 240 s, so the split is unchanged.
+jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
+jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 326.8s traced (CI~232s) re-measured 2026-08-22 post-#1364 (was 314s; 0.96x). STAYS: straddles the margin on noise, same as its eager twin
+
+# --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
+# gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
+# 54 jax entries across 10 files that had never been measured TRACED. This is
+# that measurement: each file run whole, C extension present, alone on the
+# machine (concurrent jax oversubscribes the XLA CPU pool and inflates timings),
+# with --timeout=300 --timeout-method=signal so a slow test fails and the
+# session still writes its junitxml.
+#
+# Of 17 eager entries across the 8 files measured so far, 8 survive traced and
+# 11 do not. Two of the 8 were NEVER eager entries -- inheritance only
+# propagates eager entries forward, so it could not have found them at all.
+jax-jit tests/test_dynamfric.py::test_dynamfric_c  # 300s cap traced
+jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 300s cap
+jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor  # 300s cap
+jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
+jax-jit tests/test_orbits.py::test_SOS_3D  # 300s cap (269s eager -> SLOWER traced)
+# NOT an eager entry: tracing alone makes these slow, so inheritance could never
+# have produced them.
+jax-jit tests/test_orbits.py::test_bruteSOS_3D  # 277s traced -- the only entry
+                                                # INSIDE the 240-300s band; every
+                                                # other keeper hit the cap
+jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles  # 300s cap
+
+# --- jax-jit: test_orbit, the 10th and last file of the sweep ---
+# 581 cases, 7605 s traced, 0 non-timeout failures. Its eager `jax` list had 25
+# entries; 7 survive traced. Note this file runs OPPOSITE to the sweep average
+# (two-thirds of eager entries elsewhere did NOT survive) -- per-file variation
+# is exactly what a single inheritance rule cannot express.
+jax-jit tests/test_orbit.py::test_zmax  # 300s cap
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap  # 300s cap
+jax-jit tests/test_orbit.py::test_analytic_zmax  # 300s cap
+jax-jit tests/test_orbit.py::test_integrate_backwards  # 300s cap
+jax-jit tests/test_orbit.py::test_integrate_negative_time  # 300s cap
+# Inside the 240-300 s band -- judgement calls, not cap hits. Together with
+# test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
+# on where the margin sits; the other 12 hit the cap outright.
+jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
+jax-jit tests/test_orbit.py::test_liouville_planar  # 265s
+
+# torch-jit: measured by the 2026-08-09 torch sweep (duration vs the 240s
+# margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
+# does not imply under-cap -- these are classified by junitxml time).
+torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+torch-jit tests/test_orbit.py::test_interprz_dxdv_3d
+torch-jit tests/test_orbit.py::test_analytic_zmax
+torch-jit tests/test_orbit.py::test_liouville_planar
+#
+# UN-DEFER (2026-08-21): the nine tests/test_interp_potential.py entries are
+# STALE -- the interpRZPotential grid-build vectorisation made them fast and they
+# were never re-timed. Measured whole-file with the C extension verified ACTIVE
+# (libgalpy loaded AND interpRZPotential(enable_c=True)), per-test durations from
+# junitxml, all 46 tests PASSING in every arm:
+#
+#     --backend jax          46 passed, 242.9s   entries 3.8s .. 43.7s
+#     --backend jax --jit    46 passed,  47.7s   entries 2.6s, 3.0s
+#     --backend torch --jit  46 passed, 144.0s   entries 0.4s, 1.7s
+#
+# Against the 300 s per-test CI cap that is a 10-100x margin; even at a 5x
+# adverse CI/local factor (measured factor is ~0.71 for jax shards, i.e. CI is
+# FASTER) none of them approaches the cap, so the conclusion does not rest on the
+# scaling. test_interp_potential.py is NOT pytest-split and does not appear in
+# .test_orbit_durations, so this is a ledger-only edit (the two-file un-defer rule
+# applies to the split test_orbit.py).
+#
+#
+# SWEEP 2026-08-21 (test_potential.py + dynamical friction). Whole-file runs, C
+# extension verified active, per-test durations from junitxml, attributed by FULL
+# nodeid (both dynamfric files define test_dynamfric_c -- a bare-name view makes
+# the wrong file look stale).
+#
+# UN-DEFERRED, both jax test_potential.py:
+#     test_MovingObject_2ndderivs_fd      0.2s   -- integrates with dop853_c and
+#                                                   does ~150 scalar evaluations
+#     test_MultipoleExpansion_deepcopy   73.9s   (CI~53s)
+#
+# EVERYTHING ELSE MEASURED THIS SWEEP STAYS, and now carries its number inline so
+# the next sweep skips it instead of paying ~2 h to rediscover. Note the four
+# poisson_surfdens wrapper cases are the SLOWEST things in test_potential.py --
+# the opposite of the guess that the surfdens Poisson-fallback rework had made
+# them stale. Two entries pass under the 300 s cap but by only 12% and 32%; they
+# stay deferred deliberately, because an un-deferred test that flakes in CI costs
+# far more than the ledger line it saves.
+#
+#
+# SPLIT A WHOLE-FILE DEFER (2026-08-21). `jax tests/test_streamTrack.py` deferred
+# all 45 tests because 2 are slow. Measured serially (whole file, C extension
+# active, junitxml durations): **45 passed in 1196 s**, and only two exceed the
+# 300 s per-test cap:
+#
+#     test_streamTrack_plot_spread_non_cartesian   408.0s  CI~290s
+#     test_streamTrack_with_progpot                331.7s  CI~236s
+#     the other 43                                <=38.8s  CI<=27.6s
+#
+# Those two are exactly the pair already ledgered under jax-jit (452 s and 314 s
+# traced), which is independent confirmation rather than a coincidence. They stay
+# deferred: 290 s and 236 s are under the cap but not by enough to be safe.
+#
+# NOTE THE COUNT GOES UP: one file entry becomes two test entries, 68 -> 69. The
+# entry count is the wrong metric here -- this puts **43 previously-skipped tests
+# back into the jax CI matrix**. Trading a worse headline number for real coverage
+# is the right way round.
+#
+# AND `jax tests/test_streamdf.py` IS MISCLASSIFIED. It does not run slow, it
+# DEADLOCKS: streamdf uses parallel_map, which forks, and jax's fork deadlock is a
+# known, deliberately-unfixed issue. Two independent runs hung -- one with xdist
+# -n 8 (7186 s) and one strictly serial (>4 h) -- both at load ~0.05, i.e. blocked
+# with idle CPU rather than computing. It is kept deferred here (correct outcome)
+# but the reason is a HANG, not performance, so no amount of vectorisation will
+# retire it; fixing the jax fork path would. Left as a whole-file entry precisely
+# because a deadlock cannot be attributed to individual tests.
+#

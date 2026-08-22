@@ -35,6 +35,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.actionAngle import actionAngleAdiabatic
 from galpy.potential import MiyamotoNagaiPotential
 
@@ -173,8 +175,9 @@ def test_adiabatic_actions_grad_jit():
     if "jax" not in BACKENDS:  # pragma: no cover
         pytest.skip("jax not installed")
     coords = _ORBITS["generic"]
-    f = jax.jit(lambda *a: jnp.sum(_AA(*a)[0]))
-    g = jax.jit(jax.grad(lambda *a: jnp.sum(_AA(*a)[0]), argnums=0))
+    fn = lambda *a: jnp.sum(_AA(*a)[0])  # noqa: E731
     args = [jnp.asarray([x]) for x in coords]
-    assert numpy.isfinite(float(f(*args)))
-    assert numpy.all(numpy.isfinite(numpy.asarray(g(*args))))
+    # "jit survival" means jit must not CHANGE the value, so compare against the
+    # eager result -- a jitted gradient that is wrong but finite passed before.
+    assert_jit_matches_eager(fn, *args, rtol=1e-12, atol=1e-14)
+    assert_jit_matches_eager(jax.grad(fn, argnums=0), *args, rtol=1e-10, atol=1e-12)

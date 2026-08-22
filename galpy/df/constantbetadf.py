@@ -17,7 +17,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, use
-from ..backend.interpolate import interp_linear
+from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
@@ -494,7 +494,10 @@ class constantbetadf(_constantbetadf):
                         self._alpha,
                         self._rphi(Es[indx]),
                     )
-                self._logstartt = interpolate.InterpolatedUnivariateSpline(
+                # numpy queries hit the scipy spline (byte-identical); backend
+                # queries evaluate the frozen table natively, so the traced fE
+                # path can keep its integration limits on-backend
+                self._logstartt = Spline1D(
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
 
@@ -512,24 +515,6 @@ class constantbetadf(_constantbetadf):
         return super().sample(
             R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
-
-    def _ensure_fE_interp(self):
-        """Build the f(E) interpolator if not already built."""
-        if not hasattr(self, "_fE_interp"):
-            Es4interp = numpy.hstack(
-                (
-                    numpy.geomspace(1e-8, 0.5, 101, endpoint=False),
-                    sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
-                )
-            )
-            Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            # scipy spline over the numpy energy grid: pull the (backend) fE
-            # values back to numpy for the frozen interpolator
-            fE4interp = as_numpy(self.fE(Es4interp))
-            iindx = numpy.isfinite(fE4interp)
-            self._fE_interp = interpolate.InterpolatedUnivariateSpline(
-                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
-            )
 
     def _make_func(self, grad):
         """Build the m-th (dens r^2beta)/dPsi^m derivative closure using ``grad``.
@@ -566,7 +551,7 @@ class constantbetadf(_constantbetadf):
         construction: a DF built with jax autodiff may be evaluated under a
         forced-torch run, so the grad operator must match the eval backend.
         """
-        name = "torch" if "torch" in getattr(xp, "__name__", "") else "jax"
+        name = name_of_namespace(xp)
         cache = self.__dict__.setdefault("_gradfunc_cache", {})
         if name not in cache:
             grad, vmap = autodiff_ops(xp)
@@ -671,9 +656,10 @@ class constantbetadf(_constantbetadf):
         Ein = Ein if is_backend_array(Ein) else numpy.ascontiguousarray(Ein)
         Eb = xp.atleast_1d(xp.asarray(Ein) * 1.0)
         indx = (Eb < pinf) & (Eb >= emin)
-        # clamp out-of-bounds E for the frozen numpy interpolators (zeroed below)
-        Enp = as_numpy(xp.where(indx, Eb, xp.ones_like(Eb) * emin))
-        rphiE = xp.asarray(self._rphi(Enp)) * 1.0
+        # clamp out-of-bounds E (zeroed below); rphi/logstartt are both Spline1D,
+        # so the clamped energies stay on-backend and the limits stay traceable
+        Ecl = xp.where(indx, Eb, xp.ones_like(Eb) * emin)
+        rphiE = self._rphi(Ecl) * 1.0
         if self._halfint:
             val = self._deriv(xp, rphiE) / (
                 2.0
@@ -683,7 +669,7 @@ class constantbetadf(_constantbetadf):
             )
             return xp.where(indx, val, xp.zeros_like(val)).reshape(E.shape)
         alpha = self._alpha
-        lo = xp.asarray(10.0 ** self._logstartt(Enp)) * 1.0
+        lo = 10.0 ** self._logstartt(Ecl) * 1.0
         hi = rphiE ** (1.0 - alpha)
         Eb2 = Eb[..., None]
 

@@ -20,6 +20,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     promote_scalars,
 )
 from ..backend._namespaces import (
@@ -79,7 +80,7 @@ def _nanmedian(xp, a):
     (not their average), so torch is handled via ``quantile(.,0.5)`` on the
     NaN-filtered values to match numpy's convention (eager-only; the median
     is a non-differentiable selection)."""
-    if "torch" in getattr(xp, "__name__", ""):
+    if name_of_namespace(xp) == "torch":
         return xp.quantile(a[~xp.isnan(a)], 0.5)
     return xp.nanmedian(a)
 
@@ -658,12 +659,12 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
         )
         return jr, jz, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
         from ..backend._jax.staeckel_c import actions_with_jac
 
         return actions_with_jac(host_jac, (R, vR, vT, z, vz))
-    if "torch" in name:
+    if name == "torch":
         from ..backend._torch.staeckel_c import actions_with_jac
 
         return actions_with_jac(host_jac, R, vR, vT, z, vz)
@@ -702,12 +703,12 @@ def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
         )
         return e, zm, rp, ra, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
         from ..backend._jax.staeckel_c import ecczmax_with_jac
 
         return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
-    if "torch" in name:
+    if name == "torch":
         from ..backend._torch.staeckel_c import ecczmax_with_jac
 
         return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
@@ -745,12 +746,12 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
         Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
         return jr, jz, Or, Op, Oz, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
         from ..backend._jax.staeckel_c import actionsfreqs_with_jac
 
         return actionsfreqs_with_jac(host_jac, (R, vR, vT, z, vz))
-    if "torch" in name:
+    if name == "torch":
         from ..backend._torch.staeckel_c import actionsfreqs_with_jac
 
         return actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz)
@@ -791,12 +792,12 @@ def _staeckel_c_grad_actionsfreqsangles(
         jac = numpy.concatenate((ojac, ajac), axis=1)  # (N,8,5): ojac(5,5) + ajac(3,5)
         return jr, jz, Or, Op, Oz, angler, anglephi, anglez, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
         from ..backend._jax.staeckel_c import actionsfreqsangles_with_jac
 
         return actionsfreqsangles_with_jac(host_jac, (R, vR, vT, z, vz), phi)
-    if "torch" in name:
+    if name == "torch":
         from ..backend._torch.staeckel_c import actionsfreqsangles_with_jac
 
         return actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi)
@@ -2627,10 +2628,14 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
             # array-capable potentials evaluate the whole array at once
             delta2 = _delta2(R, z)
         except (TypeError, RuntimeError):
-            # scalar-only potentials (e.g. DoubleExponentialDisk, which rejects
-            # array inputs on every path) evaluate element-by-element; each scalar
-            # is a backend scalar so the migrated scalar path still runs on the
-            # backend.
+            # potentials whose evaluators reject a whole-array call are done
+            # element-by-element; each scalar is a backend scalar so the migrated
+            # scalar path still runs on the backend. Measured 2026-08-16, the
+            # potential that actually lands here is
+            # AnyAxisymmetricRazorThinDiskPotential -- NOT DoubleExponentialDisk,
+            # which this comment used to name: its scalar-only decorator sits on
+            # the public methods, and the calls above go through the internal
+            # _evaluateRforces/_evaluatezforces, which bypass it.
             delta2 = xp.stack([_delta2(R[ii], z[ii]) for ii in range(len(R))])
         indx = (delta2 < delta0**2.0) & (
             (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)

@@ -1,11 +1,47 @@
+import atexit
 import os
+import shutil
 import signal
 import sys
+import tempfile
 import threading
 import time
 
 import numpy
 import pytest
+
+# torch.compile caches generated kernels on DISK, and that cache changes the
+# verdict of every test that compiles: with it warm, code that fails a cold
+# compile can pass, so consecutive runs disagree. Concurrent xdist workers also
+# collide in the shared directory, which surfaces as an InductorError wrapping
+# an ImportError on a half-written .so. Give every process -- and so every
+# worker, which imports this file itself -- a private, empty cache, so what is
+# measured is always the cold compile a user actually hits. Set here rather than
+# per test module because it must land before torch is imported ANYWHERE, and it
+# applies equally to the always-on jit shard and to `--backend torch --jit`.
+_inductor_cache = tempfile.mkdtemp(prefix="torchinductor_galpy_")
+os.environ["TORCHINDUCTOR_CACHE_DIR"] = _inductor_cache
+atexit.register(shutil.rmtree, _inductor_cache, True)
+
+
+def torch_compiles():
+    """Whether torch.compile actually WORKS on this interpreter.
+
+    dynamo trails the Python release and refuses to run on one it does not
+    support yet, so `import torch` succeeding does not imply that compiling
+    works, and CI runs the backend shards on 3.10 through 3.14. Probing is only
+    reliable this way. Deliberately a function, not a module-level constant, so
+    importing this conftest never drags torch into a numpy-only session.
+    """
+    try:
+        import torch
+    except ImportError:  # pragma: no cover - torch not installed
+        return False
+    try:
+        torch.compile(lambda x: x + 1.0, fullgraph=True)(torch.tensor(1.0))
+        return True
+    except Exception:  # pragma: no cover - interpreter-dependent
+        return False
 
 
 def _to_numpy(x):
@@ -102,12 +138,32 @@ def _strip_param(nodeid):
     return nodeid.split("[", 1)[0]
 
 
-def _load_backend_nodeids(path, backend_name):
+def _load_backend_nodeids(path, backend_name, inherit_eager=True):
     """Parse a "<backend> <nodeid>" file, returning the nodeids for one backend.
 
     Shared by the xfail-ledger and the slow-skip list (same format). Lines may
     carry trailing "# ..." comments; blank/comment-only lines are ignored.
+
+    With `inherit_eager`, a traced backend ("<backend>-jit") also picks up the
+    eager "<backend>" entries, so "<backend>-jit" means "applies ONLY when
+    traced" and the eager list stays the single place a shared entry is written
+    and later pruned.
+
+    That is right for FAILURES and wrong for SLOWNESS, so it is a property of
+    the list being read, not of the backend name:
+
+    * xfail-ledger (inherit): tracing cannot repair an eager failure -- not a
+      numerical gap, a `_reject_backend` guard, or an out-of-scope family.
+    * slow-skip (do NOT inherit): tracing changes the runtime in BOTH
+      directions. The dominant eager cost in this suite is per-call dispatch,
+      which is exactly what tracing removes -- the streamdf and streamTrack
+      entries below name "per-trackpoint XLA dispatch" as their reason and say
+      to un-skip once jit-vectorized. Inheriting made them unmeasurable under
+      --jit: skipped for a cost the traced run may not pay.
     """
+    names = {backend_name}
+    if inherit_eager and backend_name.endswith("-jit"):
+        names.add(backend_name[: -len("-jit")])
     entries = set()
     if not os.path.exists(path):
         return entries
@@ -120,7 +176,7 @@ def _load_backend_nodeids(path, backend_name):
             if len(parts) != 2:
                 continue
             be, nodeid = parts[0].strip(), parts[1].strip()
-            if be == backend_name:
+            if be in names:
                 entries.add(nodeid)
     return entries
 
@@ -130,15 +186,40 @@ def _load_ledger(backend_name):
     return _load_backend_nodeids(_ledger_path(), backend_name)
 
 
+def _regen_entries(backend_name, failed):
+    """Sorted nodeids to write for a regen run of `backend_name`.
+
+    Regen xfails nothing, so a traced run reports the eager failures too. Those
+    are already inherited from the eager list, so writing them again duplicates
+    every entry and leaves two places to prune. Emit only what fails ONLY when
+    traced -- which is what "-jit" means.
+    """
+    failed = set(failed)
+    if backend_name.endswith("-jit"):
+        eager = _load_backend_nodeids(_ledger_path(), backend_name[: -len("-jit")])
+        # A base entry ("::test_y") covers every parametrization of that test,
+        # the same way the xfail hook matches it.
+        failed = {n for n in failed if n not in eager and _strip_param(n) not in eager}
+    return sorted(failed)
+
+
 def _load_slow_skip(backend_name):
-    """Return the set of slow-skip nodeids for the given backend, or empty set."""
-    return _load_backend_nodeids(_slow_skip_path(), backend_name)
+    """Return the set of slow-skip nodeids for the given backend, or empty set.
+
+    No eager inheritance: a traced run defers only what is measured slow WHEN
+    TRACED. See _load_backend_nodeids.
+    """
+    return _load_backend_nodeids(_slow_skip_path(), backend_name, inherit_eager=False)
 
 
-# Tests skipped under a backend because they exercise NO backend-relevant code and
-# depend on a flaky external service (e.g. Orbit.from_name's SIMBAD network lookup),
-# so running them under a forced backend only risks flaking the deterministic
-# all-backend gate for ~zero coverage. Distinct from backend_slow_skip.txt
+# Tests skipped under a backend for a PERMANENT reason -- one no amount of porting
+# work will change. Two kinds qualify: (a) the test exercises NO backend-relevant
+# code and depends on a flaky external service (e.g. Orbit.from_name's SIMBAD
+# network lookup), so running it under a forced backend only risks flaking the
+# deterministic all-backend gate for ~zero coverage; (b) the test belongs to a
+# family that is out of scope for the backend goal and stays _reject_backend-
+# guarded (actionAngleVerticalInverse), so it fails by design and always will.
+# Distinct from backend_slow_skip.txt
 # (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
 # PERMANENT exclusion, not pending work, so they are NOT part of any burndown.
 # numpy still exercises them. Same "<backend> <nodeid>" format.
@@ -154,6 +235,14 @@ def _load_backend_skip(backend_name):
     return _load_backend_nodeids(_backend_skip_path(), backend_name)
 
 
+def _run_backend(config):
+    """Name the burndown lists are keyed by: "jax", or "jax-jit" when traced."""
+    name = config.getoption("--backend")
+    if name != "numpy" and config.getoption("--jit"):
+        return f"{name}-jit"
+    return name
+
+
 def pytest_addoption(parser):
     # Force a single array backend for the whole run (numpy|jax|torch). With
     # numpy (default) this is a no-op, so the existing suite is unchanged.
@@ -162,6 +251,16 @@ def pytest_addoption(parser):
         action="store",
         default="numpy",
         help="Array backend to force for the test run: numpy|jax|torch",
+    )
+    # Run the WHOLE suite traced: every galpy entry point is wrapped in jax.jit
+    # or torch.compile at the @backend_input boundary. The burndown lists are
+    # keyed "<backend>-jit", so eager and traced gaps are tracked separately.
+    parser.addoption(
+        "--jit",
+        action="store_true",
+        default=False,
+        help="Trace every galpy entry point with the --backend framework "
+        "(jax.jit / torch.compile)",
     )
 
 
@@ -208,7 +307,7 @@ def pytest_collection_modifyitems(config, items):
     everything not slow-skipped runs and its real outcome is recorded in
     pytest_sessionfinish.
     """
-    backend_name = config.getoption("--backend")
+    backend_name = _run_backend(config)
     if backend_name == "numpy":
         return
     # Slow-skip applies in all modes (incl. regen) so the unrunnable tests never
@@ -231,7 +330,8 @@ def pytest_collection_modifyitems(config, items):
     if backend_skip:
         exempt_marker = pytest.mark.skip(
             reason=f"backend-skip: not backend-meaningful under {backend_name} "
-            "(external-service/network/flaky); see tests/backend_skip.txt"
+            "(external-service/network/flaky, or an out-of-scope family); "
+            "see tests/backend_skip.txt"
         )
         for item in items:
             if item.nodeid not in skipped_ids and _matches(item.nodeid, backend_skip):
@@ -309,9 +409,9 @@ def pytest_sessionfinish(session, exitstatus):
     terminal summary have been written."""
     # --- regen dump (before the wrapped hooks; unchanged behavior) ---
     if os.environ.get(_REGEN_ENV) == "1":
-        backend_name = session.config.getoption("--backend")
+        backend_name = _run_backend(session.config)
         if backend_name != "numpy":
-            failed = sorted(_REGEN_STORE["failed"])
+            failed = _regen_entries(backend_name, _REGEN_STORE["failed"])
             outfile = _regen_outfile()
             try:
                 os.makedirs(os.path.dirname(outfile), exist_ok=True)
@@ -331,6 +431,13 @@ def pytest_sessionfinish(session, exitstatus):
     # Force-exit after everything is written; gated to jax/torch so the numpy suite
     # -- including the coverage job, which never passes --backend -- is untouched.
     forced = session.config.getoption("--backend") in ("jax", "torch")
+    # ... but never from an xdist WORKER: os._exit there kills the worker before
+    # it reports back, and the controller records "node down: Not properly
+    # terminated" and writes no junit -- losing the whole run's results at 99%.
+    # The hang this guards against is a single-process shutdown problem; under
+    # xdist the controller reaps the workers.
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        forced = False
     if forced:
         # Backstop: arm a daemon timer BEFORE the yield so we still force-exit even
         # if an inner sessionfinish hook (junit/terminal/plugin teardown) itself
@@ -340,10 +447,24 @@ def pytest_sessionfinish(session, exitstatus):
             target=lambda: (time.sleep(60), _backend_force_exit(exitstatus)),
             daemon=True,
         ).start()
-    # --- let junitxml + terminalreporter write everything, THEN force-exit ---
+    # --- let junitxml write, THEN hand off to pytest_unconfigure ---
     yield
     if forced:
-        _backend_force_exit(exitstatus)
+        # NOT here: pytest's short summary ("N passed, M failed") is emitted by
+        # TerminalReporter AFTER this hook unwinds, so force-exiting at this
+        # point silently truncates every forced-backend log to a row of dots --
+        # junit is intact, but a human reading CI sees no counts. Defer to
+        # pytest_unconfigure, which runs last; the 60 s daemon armed above still
+        # covers a hang in the summary itself.
+        session.config._galpy_force_exit_status = exitstatus
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config):
+    """Force-exit the forced-backend run once the terminal summary is out."""
+    status = getattr(config, "_galpy_force_exit_status", None)
+    if status is not None:
+        _backend_force_exit(status)
 
 
 @pytest.fixture(autouse=True)
@@ -362,6 +483,10 @@ def _galpy_force_backend(request):
         import torch
 
         torch.set_default_dtype(torch.float64)
+    if request.config.getoption("--jit"):
+        with backend.use(backend_name, force=True), backend.jit(backend_name):
+            yield
+        return
     with backend.use(backend_name, force=True):
         yield
 

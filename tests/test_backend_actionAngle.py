@@ -38,6 +38,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.actionAngle import (
     actionAngleAdiabatic,
     actionAngleAdiabaticGrid,
@@ -54,6 +56,7 @@ from galpy.actionAngle import (
     estimateDeltaStaeckel,
 )
 from galpy.potential import (
+    AnyAxisymmetricRazorThinDiskPotential,
     HernquistPotential,
     IsochronePotential,
     IsothermalDiskPotential,
@@ -2095,9 +2098,7 @@ def test_staeckelgrid_native_setup_differentiable(backend):
             grad = jax.grad(loss)(baseL)
             dd = float(jnp.sum(grad * jnp.asarray(V)))
             # jit-safe: jax.jit == eager
-            numpy.testing.assert_allclose(
-                float(jax.jit(loss)(baseL)), float(loss(baseL)), rtol=1e-11, atol=1e-11
-            )
+            assert_jit_matches_eager(loss, baseL, rtol=1e-11, atol=1e-11)
 
             def _l(a):
                 return float(loss(jnp.asarray(a)))
@@ -2375,3 +2376,150 @@ def test_isochroneapprox_plot_forced_backend(backend):
             aAIA.plot(obs, type="azaphi", deperiod=True, downsample=True)
     finally:
         pyplot.close("all")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dePeriod_backend_matches_numpy(backend):
+    """dePeriod runs ON the backend and reproduces the original formula exactly.
+
+    One implementation now serves both paths, so this pins what collapsing them
+    could break: the result is a backend array (not silently converted to numpy
+    en route), and both paths equal the pre-migration numpy formula bit-for-bit
+    on data where the -2pi wraps actually fire. Steps are kept well under the
+    -6.0 detection threshold so every wrap registers -- with larger steps a wrap
+    produces a jump of only 2pi - step, which the threshold misses.
+    """
+    import galpy.backend as gb
+    from galpy.actionAngle import dePeriod
+
+    rng = numpy.random.default_rng(20260727)
+    arr = numpy.mod(
+        numpy.cumsum(rng.uniform(0.02, 0.2, size=(3, 900)), axis=1), 2.0 * numpy.pi
+    )
+    wrapped = (arr - numpy.roll(arr, 1, axis=1)) < -6.0
+    nwrap = int(wrapped.sum())
+    assert nwrap > 20, f"test data must exercise the wrap branch, got {nwrap}"
+    # the pre-migration implementation, spelled out as the reference
+    expected = arr + 2.0 * numpy.pi * numpy.cumsum(wrapped.astype(int), axis=1)
+
+    assert numpy.array_equal(dePeriod(arr), expected), (
+        "numpy path is not byte-identical"
+    )
+
+    with gb.use(backend, force=True):
+        got = dePeriod(arr)
+        assert gb.is_backend_array(got), (
+            "dePeriod fell back to numpy under a forced backend"
+        )
+    assert numpy.array_equal(as_numpy(got), expected), (
+        f"max |backend - numpy| = {numpy.abs(as_numpy(got) - expected).max()!r}"
+    )
+
+
+# The C Staeckel entry flags an unbound orbit by returning 9999.99 in EVERY
+# output. Its numpy wrapper protects that sentinel from the final azimuth wrap
+# (actionAngleStaeckel_c.py, `badAngle = Anglephi != 9999.99`); the differentiable
+# jax/torch wrappers around the same C call did not, so anglephi came back as
+# 9999.99 mod 2pi = 3.442 -- indistinguishable from an ordinary angle, and
+# quietly below any "is this unbound?" threshold a caller might use.
+_UNBOUND_ORBIT = (1.0, 0.1, 10.0, 0.1, 0.0, 0.0)  # vT=10 -> unbound in MWPotential
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_unbound_sentinel_survives_the_azimuth_wrap(backend):
+    import galpy.backend as gb
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
+
+    def _flat(out):
+        return [float(numpy.asarray(as_numpy(x)).ravel()[0]) for x in out]
+
+    ref = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
+    with gb.use(backend, force=True):
+        got = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
+    names = ("jr", "Lz", "jz", "Omegar", "Omegaphi", "Omegaz", "ar", "aphi", "az")
+    # Exact: the sentinel is a constant the C code writes, so every output the
+    # backend produces for an unbound orbit must equal numpy's bit for bit --
+    # there is no arithmetic left to disagree about.
+    for name, a, b in zip(names, ref, got):
+        assert a == b, f"{backend}: {name} = {b!r}, numpy gives {a!r}"
+    # and specifically that anglephi was not folded
+    assert got[7] == 9999.99, (
+        f"{backend}: anglephi = {got[7]!r}; 9999.99 mod 2pi is "
+        f"{9999.99 % (2.0 * numpy.pi)!r}, so the sentinel was wrapped"
+    )
+
+
+###############################################################################
+# Boundary-crossing guard for actionAngleVertical's backend path.
+#
+# Its bracketing/root-find closure and quadrature integrands used to call the
+# DECORATED evaluatelinearPotentials, so under a forced backend every bisection
+# iteration re-entered @backend_input: 244 of the crossings in one
+# actionsFreqs() call came from that closure alone.
+#
+# Values stay correct when this regresses -- only time changes -- so this
+# watches the coercion itself, as for the planar/vertical adapters.
+###############################################################################
+
+
+def _mk(backend, v):
+    return jnp.asarray(v) if backend == "jax" else torch.tensor(v, dtype=torch.float64)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_aavertical_backend_path_uses_undecorated_evaluators(backend):
+    from backend_jit_helpers import count_boundary_crossings
+
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    aAV = actionAngleVertical(pot=toVerticalPotential(MWPotential2014, 1.0))
+    x, vx = _mk(backend, [0.1]), _mk(backend, [0.05])
+
+    # The whole backend call still crosses for OTHER reasons (the vertical
+    # adapter, fixed separately), so pin the closure's own contribution: with the
+    # undecorated inner it must be a small constant, not one crossing per
+    # bisection iteration. 244 was the regressed value; the bracketing schedule
+    # is 80 steps, so anything >=80 means the per-iteration crossing is back.
+    n = count_boundary_crossings(lambda: aAV.actionsFreqs(x, vx), backend)
+    assert n < 80, (
+        f"actionAngleVertical backend path crossed the @backend_input boundary "
+        f"{n} times; the bracketing/root-find closure should call the "
+        "undecorated _evaluatelinearPotentials, not the decorated entry point"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateDeltaStaeckel_scalar_only_potential(backend):
+    # A potential whose evaluators reject a whole-array call makes _delta2(R, z)
+    # raise, and estimateDeltaStaeckel falls back to evaluating element by
+    # element. MWPotential2014 in the parity test above is array-capable, so
+    # that fallback had no coverage at all.
+    #
+    # Measured which potential actually takes it, rather than trusting the
+    # source comment: AnyAxisymmetricRazorThinDiskPotential does.
+    # DoubleExponentialDiskPotential -- named in that comment -- does NOT: its
+    # public methods carry the scalar-only decorator, but estimateDeltaStaeckel
+    # goes through the internal _evaluateRforces/_evaluatezforces, which bypass
+    # it, so the array call simply succeeds.
+    pot = AnyAxisymmetricRazorThinDiskPotential(surfdens=lambda R: numpy.exp(-R / 0.3))
+    # Deliberately NOT the _EST_R/_EST_Z grid the parity test uses: on that one
+    # delta^2 goes negative for this potential and both paths return NaN, so an
+    # allclose would compare NaN to NaN and pass while asserting nothing. These
+    # points give finite deltas, and the finiteness is asserted below so a
+    # regression to NaN fails instead of passing vacuously.
+    R = numpy.array([0.4, 0.6, 0.8, 1.0])
+    z = numpy.array([0.3, 0.4, 0.5, 0.6])
+    ref = numpy.asarray(estimateDeltaStaeckel(pot, R, z, no_median=True))
+    got = estimateDeltaStaeckel(pot, _arr(backend, R), _arr(backend, z), no_median=True)
+    assert _is_backend_array(backend, got)
+    assert numpy.all(numpy.isfinite(ref)) and numpy.all(
+        numpy.isfinite(as_numpy(got))
+    ), (
+        "estimateDeltaStaeckel scalar-only fallback returned NaN; the comparison "
+        "below would then be vacuous"
+    )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-8, atol=1e-10)
+    return None

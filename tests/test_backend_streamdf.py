@@ -453,11 +453,21 @@ def test_calcaAJac_ad_equals_fd(aA_iso, backend_name, flags, shape):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_calcaAJac_backend_rejects_lb_coordfunc(aA_iso, backend_name):
-    # lb / coordFunc are unsupported on the backend path; they raise (not misbehave).
+def test_calcaAJac_backend_lb_coordfunc_falls_back_to_numpy(aA_iso, backend_name):
+    # lb / coordFunc have no backend implementation. They used to be unreachable
+    # with a backend xv, so the guard raised; now that the coords chain is
+    # backend-native the stream track reaches here with lb=True, so the call
+    # lands on numpy and takes the finite-difference path -- exactly what it did
+    # before. Assert it MATCHES numpy rather than merely not raising: the
+    # fallback silently gives up AD, so a wrong value would otherwise be
+    # invisible (jax's as_numpy cast is read-only, and the FD path writes in
+    # place -- that bug passed a "does not raise" check on torch).
     for kw in (dict(lb=True), dict(coordFunc=lambda x: x)):
-        with pytest.raises(NotImplementedError):
+        got = as_numpy(
             calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True, **kw)
+        )
+        ref = calcaAJac(numpy.array(_XV), aA_iso, actionsFreqsAngles=True, **kw)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -889,7 +899,16 @@ def test_determine_stream_track_differentiable_potential():
     # ~10% gap to a full numpy-rebuild FD is the frozen frequency-covariance
     # eigendecomposition (_meandO/_dsigomeanProgDirection), a differentiable-__init__
     # (Phase C) follow-up -- not tested here.]
-    nch, tintJ, delta, q0 = 3, 8, 0.5, 0.9
+    # tintJ=30, not 8: at tintJ=8 the isochrone-approx actions are not converged,
+    # so the TRACK is not a settled function of q and this AD-vs-own-FD check
+    # passes only at a sweet-spot step size. Measured central FD in h:
+    #     tintJ=8    1.8e-04, 1.4e-04, then DEGRADES to 8.8e-03 at h=1e-5
+    #     tintJ=30   1.7e-04, 8.7e-06, 6.9e-06            (settles)
+    # and the jax-vs-numpy track at q0 agrees to 4.7% of the track extent at
+    # tintJ=8 versus 1.6e-08 at tintJ=30. On py3.14 the tintJ=8 form was observed
+    # FAIL -> PASS -> FAIL on identical branch content, i.e. genuinely intermittent.
+    # Converging the model is the fix; loosening the 3e-3 bar would only hide it.
+    nch, tintJ, delta, q0 = 3, 30, 0.5, 0.9
     Wn = numpy.random.default_rng(1).standard_normal((nch, 6))
     W = jnp.asarray(Wn)
     sdf = _build_numpy_sdf(q0, nTrackChunks=nch, tintJ=tintJ, deltaAngleTrack=delta)
@@ -898,16 +917,17 @@ def test_determine_stream_track_differentiable_potential():
 
     ad = float(jax.grad(lambda q: loss_q(q, True))(jnp.asarray(q0)))
     assert numpy.isfinite(ad) and abs(ad) > 0
-    best = min(
-        abs(
-            ad
-            - (
-                float(loss_q(jnp.asarray(q0 + h), False))
-                - float(loss_q(jnp.asarray(q0 - h), False))
-            )
-            / (2 * h)
+    # single h: at tintJ=30 the FD has SETTLED (8.7e-06 at h=1e-4, a 300x margin
+    # under the bar), so the min-over-two-h hedge that the unconverged tintJ=8 form
+    # needed is just two extra track evaluations.
+    h = 1e-4
+    best = abs(
+        ad
+        - (
+            float(loss_q(jnp.asarray(q0 + h), False))
+            - float(loss_q(jnp.asarray(q0 - h), False))
         )
-        for h in (1e-3, 1e-4)
+        / (2 * h)
     )
     assert best < 3e-3 * abs(ad), f"q AD={ad:.6e} best|AD-ownFD|={best:.2e}"
 
@@ -919,7 +939,7 @@ def test_determine_stream_track_differentiable_progenitor():
     # enters via _ic_backend -> the auxiliary integration + AD calcaAJac + lax.map
     # assembly); the analytic AD MUST equal a central FD of the SAME backend track,
     # here to ~1e-3 (same stringent grad-vs-FD bar as the potential gradient).
-    nch, tintJ, delta = 3, 8, 0.5
+    nch, tintJ, delta = 3, 30, 0.5
     r0 = _STREAM_IC[0]
     Wn = numpy.random.default_rng(2).standard_normal((nch, 6))
     W = jnp.asarray(Wn)
@@ -929,16 +949,16 @@ def test_determine_stream_track_differentiable_progenitor():
 
     ad = float(jax.grad(lambda r: loss_ic(r, True))(jnp.asarray(r0)))
     assert numpy.isfinite(ad) and abs(ad) > 0
-    best = min(
-        abs(
-            ad
-            - (
-                float(loss_ic(jnp.asarray(r0 + h), False))
-                - float(loss_ic(jnp.asarray(r0 - h), False))
-            )
-            / (2 * h)
+    # single h, as above: converged at tintJ=30, so the second step buys nothing
+    # but two more track evaluations.
+    h = 1e-4
+    best = abs(
+        ad
+        - (
+            float(loss_ic(jnp.asarray(r0 + h), False))
+            - float(loss_ic(jnp.asarray(r0 - h), False))
         )
-        for h in (1e-3, 1e-4)
+        / (2 * h)
     )
     assert best < 3e-3 * abs(ad), f"R0 AD={ad:.6e} best|AD-ownFD|={best:.2e}"
 

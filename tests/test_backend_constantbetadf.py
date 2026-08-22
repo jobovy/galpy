@@ -34,6 +34,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 import galpy.backend
 from galpy.backend import as_numpy
 from galpy.df import constantbetadf, constantbetaHernquistdf, constantbetaPowerLawdf
@@ -283,15 +285,21 @@ def test_sample_numpy_side_forced(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_hyp2f1_domain_limit(backend):
-    # The shared galpy.backend.special.hyp2f1 fallback (Euler labeling requires
-    # a positive parameter B with c-B>=1) cannot reach the general-beta
-    # Hernquist DF for beta>=0.5 (b=1-2beta<=0 after the Pfaff transform); the
-    # numpy path (scipy) is unaffected. This locks that documented boundary.
-    dfh = constantbetaHernquistdf(pot=_HP, beta=0.7)
-    assert numpy.isfinite(dfh.fE(numpy.array([-0.5 * _PSI0]))[0])  # numpy OK
-    with pytest.raises(NotImplementedError):
-        dfh.fE(_arr(backend, numpy.array([-0.5 * _PSI0])))
+@pytest.mark.parametrize("beta", [0.5, 0.7, 0.9])
+def test_general_beta_hernquist_past_the_old_hyp2f1_limit(backend, beta):
+    # beta >= 0.5 gives b = 1-2beta <= 0, so BOTH 2F1 parameters are
+    # non-positive and no Euler labeling exists. The fallback used to raise
+    # NotImplementedError here, which made this whole DF family numpy-only; it
+    # now takes the Pfaff series route (see the hyp2f1 fallback). scipy on the
+    # numpy path is the reference, and the agreement is at double precision --
+    # the series is exact at the |z| these DFs evaluate at -- so this is a tight
+    # bound, not a smoke check.
+    dfh = constantbetaHernquistdf(pot=_HP, beta=beta)
+    Es = numpy.array([-0.8, -0.5, -0.3]) * _PSI0
+    ref = dfh.fE(Es)
+    assert numpy.all(numpy.isfinite(ref))
+    got = as_numpy(dfh.fE(_arr(backend, Es)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -313,6 +321,33 @@ def test_general_constantbetadf_fE_backend(backend):
         assert _is_backend_array(backend, got)
         ref = df.fE(Es)  # numpy default context -> scipy-adaptive, same DF
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=rtol)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_generic_fE_jit_traceable():
+    # The generic constantbetadf reads its fE integration limits off two frozen
+    # interpolators, r(Phi) and log10(startt). Both used to be queried with a
+    # concrete numpy energy (as_numpy of the clamped E), which made fE
+    # untraceable: under jax.jit that clamped energy is a tracer and the
+    # conversion raises. Both are Spline1D now, so the clamp stays on-backend.
+    # Covers both branches -- twobeta=-1 (half-integer, queries only r(Phi)) and
+    # beta=0.25 (the inversion integral, which also queries log10(startt)) --
+    # and the out-of-bounds clamp, which is the line that used to force numpy.
+    for kw in (dict(twobeta=-1), dict(beta=0.25)):
+        with galpy.backend.use("jax", force=True):
+            df = constantbetadf(pot=_DC, **kw)
+            Emin, pinf = float(df._Emin), float(df._potInf)
+            Es = numpy.concatenate(
+                [
+                    Emin + numpy.linspace(0.1, 0.9, 7) * (pinf - Emin),
+                    [pinf + 1.0, Emin - 1.0],  # out of bounds -> exactly zero
+                ]
+            )
+            # tracing must not perturb the value: same kernel, same GL nodes
+            traced = assert_jit_matches_eager(
+                df.fE, jnp.asarray(Es), rtol=1e-12, atol=0.0
+            )
+        assert numpy.all(traced[-2:] == 0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

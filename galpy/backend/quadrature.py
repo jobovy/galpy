@@ -47,12 +47,27 @@ from ._namespaces import (
     device_of,
     is_backend_array,
     match_input_dtype,
+    under_trace,
 )
 
 # Default number of Gauss-Legendre nodes for the public backend ``quad``. High
 # enough that smooth galpy integrands (mass/surface-density profiles) reproduce
 # scipy.integrate.quad to the suite's tolerances; raise ``n`` for stiffer ones.
 _QUAD_N = 100
+
+# Sample points u = b * 10**-k for the residual-log slope in finite_part_quad.
+# The window is measured, not guessed: above k ~ 3 the O(u) part of the residual
+# biases the slope, below k ~ 5 the c/u^2 cancellation noise does. k = 2..4 and
+# k = 4..6 both degrade to ~1e-8 where this window holds ~1e-10.
+_LOG_K = numpy.array([3.0, 3.5, 4.0, 4.5, 5.0])
+_LOG_U = 10.0**-_LOG_K
+# A least-squares slope against -ln(u) collapses to fixed weights: the spacing
+# in -ln(u) is (k - kbar) * ln 10 regardless of b, so only the k's enter. The
+# weights sum to zero, so any constant part of the residual cancels exactly and
+# only the log survives.
+_LOG_W = (_LOG_K - _LOG_K.mean()) / (
+    numpy.log(10.0) * ((_LOG_K - _LOG_K.mean()) ** 2).sum()
+)
 
 # Cache of (nodes, weights) on [0, 1] keyed by order, as numpy float64 constants.
 _GL01_CACHE = {}
@@ -210,6 +225,21 @@ def gauss_legendre_nodes(n, a=0.0, b=1.0):
     return nodes, weights
 
 
+def node_axis(v):
+    """Add a trailing axis so a fixed coordinate broadcasts against quadrature nodes.
+
+    Every rule in this module calls its integrand with a node array carrying a
+    trailing node axis, so any quantity the integrand closes over needs one too
+    once the caller passes arrays rather than scalars. Applying this is a no-op
+    for a scalar or 0-d input -- those already broadcast -- which is what lets a
+    call site adopt it without perturbing its scalar results at all.
+
+    Leaves non-arrays alone: a coordinate may arrive as ``None`` (an integrand
+    that does not need it) or as a plain float.
+    """
+    return v[..., None] if getattr(v, "ndim", 0) else v
+
+
 def _gl01_on(xp, n, dev):
     """[0, 1] GL nodes/weights as backend arrays on device ``dev`` (float64)."""
     x01, w01 = gauss_legendre_01(n)
@@ -280,7 +310,9 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None, vectorized=True):
     return match_input_dtype(result, a, b)
 
 
-def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None):
+def fixed_quad_semiinfinite(
+    xp, integrand, a, *, n=50, kind="recip", scale=None, device=None
+):
     r"""``int_a^inf integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     The semi-infinite range is mapped to a finite one before applying
@@ -311,6 +343,12 @@ def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None
         - ``'tan'``: ``s = a + tan(pi/2 * u)`` for ``u in [0, 1)``,
           ``ds = pi/2 * sec^2(pi/2 * u) du``. Good for slowly decaying /
           oscillatory tails (e.g. ``1/(1+s**2)``).
+    scale : scalar or backend array, optional
+        Transition scale ``L`` of the map, i.e. the width in ``s`` over which
+        the nodes crowd near the lower limit (``s = a - L + L/u**2`` for
+        ``'recip'``, ``s = a + L*tan(pi/2*u)`` for ``'tan'``). Defaults to
+        ``L = 1``. Pass the scale on which the integrand actually varies
+        whenever that is far from unity -- see Notes. Broadcasts against ``a``.
 
     Returns
     -------
@@ -324,27 +362,38 @@ def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None
     interior so those points are never evaluated, but the dead-branch guarding
     convention is still honoured: ``u`` is clamped strictly inside ``(0, 1)``
     before the map so no node can produce inf/NaN that would poison AD.
+
+    ``scale`` matters more than ``n``. Node spacing in ``s`` just above the
+    lower limit is ``O(L/n**2)``, so with the default ``L = 1`` an integrand
+    whose structure sits on a scale ``eps << 1`` is unresolved no matter how
+    many nodes are thrown at it -- accuracy collapses as ``eps -> 0`` rather
+    than converging. Passing ``scale`` makes the map scale-invariant with the
+    problem. Measured on ``df.jeans.sigmar`` (structure on scale ``a = r``):
+    at ``r = 1e-3`` the default map errs by ``1.1e-02`` and ``scale=r`` by
+    ``1.2e-06`` at the same ``n = 50``; at ``n = 100`` the latter reaches
+    ``8.8e-12``, the accuracy of the scipy reference.
     """
     dev = device if device is not None else device_of(a)
     x01, w01 = _gl01_on(xp, n, dev)
     a = asarray_on_device(xp, a, dev) * 1.0
     a_b = a[..., None]
+    L = 1.0 if scale is None else asarray_on_device(xp, scale, dev)[..., None] * 1.0
     if kind == "recip":
-        # s + (1 - a) = 1/u**2  =>  s = a - 1 + 1/u**2 ; ds = -2 u**-3 du.
+        # s + (L - a) = L/u**2  =>  s = a - L + L/u**2 ; ds = -2 L u**-3 du.
         # u=1 -> s=a, u->0 -> s->inf. Clamp u off 0 so 1/u**2 stays finite.
         u = xp.maximum(x01, xp.ones_like(x01) * 1e-300)
         inv_u2 = 1.0 / (u * u)
-        s = a_b - 1.0 + inv_u2
-        jac = 2.0 * inv_u2 / u  # |ds/du| = 2 / u**3
+        s = a_b - L + L * inv_u2
+        jac = 2.0 * L * inv_u2 / u  # |ds/du| = 2 L / u**3
     elif kind == "tan":
-        # s = a + tan(pi/2 * u) ; ds = (pi/2) sec^2(pi/2 * u) du.
+        # s = a + L tan(pi/2 * u) ; ds = L (pi/2) sec^2(pi/2 * u) du.
         # u=0 -> s=a, u->1 -> s->inf. Clamp u off 1 so tan stays finite.
         half_pi = numpy.pi / 2.0
         u = xp.minimum(x01, xp.ones_like(x01) * (1.0 - 1e-15))
         theta = half_pi * u
         tan_t = xp.tan(theta)
-        s = a_b + tan_t
-        jac = half_pi * (1.0 + tan_t * tan_t)  # sec^2 = 1 + tan^2
+        s = a_b + L * tan_t
+        jac = half_pi * L * (1.0 + tan_t * tan_t)  # sec^2 = 1 + tan^2
     else:  # pragma: no cover - guarded API misuse
         raise ValueError(
             f"fixed_quad_semiinfinite: unknown kind {kind!r} (use 'recip' or 'tan')"
@@ -437,6 +486,166 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None, device=N
     int_r = (b - c) * xp.sum(wX * vals_r, axis=-1)
     result = int_l + int_r
     return match_input_dtype(result, a, b, c)
+
+
+def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=None):
+    r"""``int_{-|b|}^{|b|} integrand(s) ds``, for finite **or infinite** ``b``.
+
+    A finite ``b`` is handed to `transformed_quad`, which splits at
+    ``interior_point`` and clusters nodes there. An infinite ``b`` cannot go
+    through any finite-range rule: the affine map sends the nodes to +-inf and
+    the weighted sum is nan. It is split into two semi-infinite halves instead,
+    each mapped by `fixed_quad_semiinfinite`.
+
+    The two halves are integrated separately rather than doubling one of them,
+    because the integrand need not be even in ``s`` -- an offset or tilted
+    wrapper potential is not.
+
+    Only a *concretely* infinite ``b`` takes the split path; a traced ``b`` of
+    unknown magnitude keeps the finite rule, since the choice cannot be made
+    inside a trace.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    integrand : callable
+        Called with the quadrature nodes.
+    b : float or array
+        Limit; the interval is ``[-|b|, |b|]``. May be ``inf``. Pass the RAW
+        limit, not one already mapped through the namespace: the finite/infinite
+        choice is made from it and a namespace op would have made it a tracer.
+    n : int, optional
+        Gauss-Legendre order (default ``_QUAD_N``, as for `quad`). 50 is not
+        enough for the vertical surface-density integrals: measured against
+        mpmath, it degrades to 1.4e-08 at |z|=20 and 2.6e-05 at (R=0.01,
+        |z|=50), where ``_QUAD_N`` stays at machine precision.
+    interior_point : float, optional
+        Split point for the finite branch (default 0.0).
+    device : optional
+        Device to anchor the nodes on.
+    """
+    # Decide on the RAW limit, before it touches the namespace. Inside a trace
+    # ``xp.abs(numpy.inf)`` is already a tracer -- jax traces the op rather than
+    # folding it -- so asking about the converted limit always answers "unknown"
+    # and the infinite branch would be unreachable. A Python/numpy ``b`` is still
+    # concrete here and answers directly.
+    if not under_trace(b) and not bool(numpy.all(numpy.isfinite(numpy.asarray(b)))):
+        zero = asarray_on_device(xp, 0.0, device)
+        return fixed_quad_semiinfinite(
+            xp, integrand, zero, n=n, device=device
+        ) + fixed_quad_semiinfinite(
+            xp, lambda u: integrand(-u), zero, n=n, device=device
+        )
+    absb = numpy.fabs(b) if xp is numpy else xp.abs(b)
+    return transformed_quad(
+        xp, integrand, -absb, absb, n=n, interior_point=interior_point, device=device
+    )
+
+
+def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None):
+    r"""``int_0^b [f(u) + f(-u)] du`` for ``f`` singular as ``c/u^2`` at ``u = 0``.
+
+    The symmetrised integrand is what makes this well posed: an odd ``B/u`` term
+    cancels exactly between ``f(u)`` and ``f(-u)``, so only the even ``c/u^2``
+    part needs handling and ``c`` never involves a derivative of ``f``.
+
+    ``peak_width`` is the scale over which ``f`` varies near the origin (for a
+    razor-thin disk, ``|z|``), and it selects between two regimes:
+
+    * ``peak_width == 0`` -- the integral exists only as a Hadamard finite part:
+      the halves add rather than cancel, so the singular model is subtracted and
+      its finite part ``-2c/b`` added back.
+    * ``peak_width > 0`` -- there is a peak of width ``~peak_width`` instead, and
+      ``u = peak_width * sinh(t)`` gives log-spaced coverage from ``peak_width``
+      out to ``b`` with no endpoint crowding.
+
+    Both branches are evaluated (a traced ``peak_width`` cannot be branched on),
+    so the sinh branch is computed at a guarded width -- ``asinh(b/0)`` would be
+    ``inf`` and would poison the gradient of the branch that is actually taken.
+
+    NOTE ON NODE PLACEMENT. ``f(u) + f(-u) - 2c/u^2`` is a difference of two
+    ``~1/u^2`` quantities, so it loses roughly two digits per decade of ``u`` and
+    is pure noise below ``u ~ 1e-7 b``. Fixed-order Gauss-Legendre is used
+    precisely because its smallest node sits at ``~b/n^2``, just above that
+    floor. Do NOT substitute a rule that clusters harder at the endpoint:
+    tanh-sinh reaches ``u ~ 1e-20 b`` and DIVERGES here (measured: 1e6 relative
+    error at n=200, 1e21 at n=400, nan at n=800). The limit is floating-point
+    cancellation, not the quadrature order.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    integrand : callable
+        ``f(u)``, called with the quadrature nodes (vectorised over a trailing
+        node axis). It is called at both ``+u`` and ``-u``.
+    b : array
+        Upper limit; the interval is ``[0, b]``.
+    c : array
+        Coefficient of the ``1/u^2`` singularity in ``f(u) + f(-u)``, i.e. the
+        symmetrised integrand behaves as ``2c/u^2`` near the origin.
+    peak_width : array
+        Width of the near-origin structure; ``0`` selects the finite part.
+    n : int, optional
+        Gauss-Legendre order.
+    device : optional
+        Device to anchor the nodes on.
+
+    Notes
+    -----
+    - 2026-08-13 - Written - Bovy (UofT)
+    """
+    dev = device if device is not None else device_of(b)
+    zero = asarray_on_device(xp, 0.0, dev)
+
+    def sym(u):
+        return integrand(u) + integrand(-u)
+
+    def residual(u):
+        return sym(u) - 2.0 * c / (u * u)
+
+    # Removing the c/u^2 model kills the pole but generally leaves a LOG:
+    # residual(u) = -lam ln(u) + A + O(u). That is what caps plain GL at 1/n^2
+    # here (measured on AnyAxisym R2deriv: 6.65e-4, 1.67e-4, 4.18e-5, 1.05e-5 at
+    # n = 100, 200, 400, 800 -- algebraic, where GL on a smooth integrand is
+    # exponential). So remove it the same way: subtract lam*ln(u/b), whose exact
+    # integral over [0, b] is -lam*b, and add that back. The remainder is
+    # bounded at the origin and GL is fast again -- 2e-4 -> 6e-11 at the SAME
+    # n=100, i.e. the gain is smoothness, not nodes.
+    #
+    # lam is measured, never derived: it is not a closed form (it runs over
+    # 44.8 to 2e-4 across R for one potential, and both ellipe and ellipkm1
+    # feed it), and it has to hold for an arbitrary caller. This is plain
+    # arithmetic on integrand samples, so it stays traceable and
+    # differentiable. Costs 10 extra integrand evaluations against 2n.
+    lam = xp.sum(
+        asarray_on_device(xp, _LOG_W, dev)
+        * residual(b * asarray_on_device(xp, _LOG_U, dev))
+    )
+    finite_part = (
+        fixed_quad(
+            xp,
+            lambda u: residual(u) + lam * xp.log(u / b),
+            zero,
+            b,
+            n=n,
+            device=device,
+        )
+        + lam * b
+        - 2.0 * c / b
+    )
+    wide = peak_width > 0.0
+    w = xp.where(wide, peak_width, xp.ones_like(peak_width))
+    peaked = fixed_quad(
+        xp,
+        lambda t: sym(w * xp.sinh(t)) * w * xp.cosh(t),
+        zero,
+        xp.asinh(b / w),
+        n=n,
+        device=device,
+    )
+    return xp.where(wide, peaked, finite_part)
 
 
 def nested_quad(xp, integrand, bounds, *, n=50, device=None):

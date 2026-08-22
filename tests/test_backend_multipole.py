@@ -37,6 +37,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager, no_torch_compile_deprecations
 
 from galpy.backend import as_numpy
 from galpy.potential import MiyamotoNagaiPotential, MultipoleExpansionPotential
@@ -317,9 +318,9 @@ def test_jax_jit_matches(pot):
     phi = jnp.asarray(_PHIS)
     for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
         fn = getattr(pot, method)
-        ref = numpy.asarray(fn(R, z, phi))
-        got = numpy.asarray(jax.jit(fn)(R, z, phi))
-        numpy.testing.assert_allclose(got, ref, rtol=1e-15, atol=1e-15)
+        assert_jit_matches_eager(
+            fn, R, z, phi, rtol=1e-15, atol=1e-15, err_msg=f"multipole.{method}"
+        )
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -545,9 +546,9 @@ def test_tdep_jax_jit_matches(pot):
     t = jnp.asarray(1.21)
     for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
         fn = getattr(pot, method)
-        ref = numpy.asarray(fn(R, z, phi, t))
-        got = numpy.asarray(jax.jit(fn)(R, z, phi, t))
-        numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+        assert_jit_matches_eager(
+            fn, R, z, phi, t, rtol=1e-12, atol=1e-13, err_msg=f"tdep.{method}"
+        )
 
 
 @pytest.mark.skipif(jax is None, reason="jax not available")
@@ -621,3 +622,38 @@ def test_from_density_backend_amp_closure(backend_name, symmetry):
         pt = build()
         got = numpy.array([as_numpy(ep(pt, R, z, phi=phi)) for R, z, phi in pts])
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_compile_cold_lazy_table_build():
+    # Regression: the backend constant tables are built lazily and memoized, so
+    # a potential whose FIRST evaluation happens inside a torch.compile region
+    # had dynamo trace the pure-scipy builder (PPoly.from_bernstein_basis ->
+    # scipy.special.comb -> "'numpy.float64' object does not support item
+    # assignment"). ``untraceable_setup`` runs the builder eagerly instead. The
+    # instance is built fresh here so the trace really is the cold path.
+    from galpy.potential import DiskMultipoleExpansionPotential
+
+    def build():
+        return DiskMultipoleExpansionPotential(
+            dens=lambda R, z: (
+                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+            ),
+            Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+            hz={"type": "exp", "h": 1.0 / 27.0},
+            L=3,
+            rgrid=numpy.geomspace(1e-2, 20, 51),
+        )
+
+    R0 = torch.tensor(1.1, dtype=torch.float64)
+    z0 = torch.tensor(0.2, dtype=torch.float64)
+    ref = float(build().Rforce(R0, z0))  # warm/eager reference
+    cold = build()  # never evaluated outside the trace
+    torch._dynamo.reset()
+    with no_torch_compile_deprecations():
+        got = float(
+            torch.compile(
+                lambda R, z: cold.Rforce(R, z), fullgraph=False, dynamic=False
+            )(R0, z0)
+        )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12)

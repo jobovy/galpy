@@ -22,6 +22,7 @@ from ..backend import (
     as_numpy,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     promote_scalars,
 )
 from ..backend import special as _bspecial
@@ -1472,7 +1473,7 @@ class streamdf(df):
             )
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         xp = get_namespace(xv0_prog)
-        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs
@@ -2000,19 +2001,23 @@ class streamdf(df):
         obskwargs["vo"] = vo
         obskwargs["obs"] = obs
         obskwargs["quantity"] = False
+        # as_numpy: the Orbit sky accessors preserve the framework now that the
+        # coords chain is backend-native, but these are host-side scale factors
+        # multiplied into numpy covariance arrays below. streamdf itself is not
+        # backend-migrated, so the boundary is here, explicitly, rather than as
+        # a numpy/Tensor collision deeper in.
+        _dist = as_numpy(self._progenitor.dist(**obskwargs))
+        _vlos = as_numpy(self._progenitor.vlos(**obskwargs))
+        _pmll = as_numpy(self._progenitor.pmll(**obskwargs))
+        _pmbb = as_numpy(self._progenitor.pmbb(**obskwargs))
+        _pm = numpy.sqrt(_pmll**2.0 + _pmbb**2.0)
         self._ErrCovsLBScale = [
             180.0,
             90.0,
-            self._progenitor.dist(**obskwargs),
-            numpy.fabs(self._progenitor.vlos(**obskwargs)),
-            numpy.sqrt(
-                self._progenitor.pmll(**obskwargs) ** 2.0
-                + self._progenitor.pmbb(**obskwargs) ** 2.0
-            ),
-            numpy.sqrt(
-                self._progenitor.pmll(**obskwargs) ** 2.0
-                + self._progenitor.pmbb(**obskwargs) ** 2.0
-            ),
+            _dist,
+            numpy.fabs(_vlos),
+            _pm,
+            _pm,
         ]
         allErrCovsEigvalLB = numpy.empty((len(self._thetasTrack), 6))
         allErrCovsEigvecLB = numpy.empty_like(self._allErrCovs)
@@ -2022,10 +2027,13 @@ class streamdf(df):
         for ii in range(self._nTrackChunks):
             tjacXY = coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
             tjacLB = coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True)
-            tjacLB[:3, :] /= ro
-            tjacLB[3:, :] /= vo
-            for jj in range(6):
-                tjacLB[:, jj] *= self._ErrCovsLBScale[jj]
+            # Out-of-place: lbd_to_XYZ_jac returns a backend array under a forced
+            # backend, and jax arrays reject in-place item assignment. Per element
+            # (i,j) this is still (a_ij / r_i) * s_j -- the same two operations in
+            # the same order as the row-divides and the column-multiply loop it
+            # replaces -- so numpy is byte-identical.
+            tjacLB = tjacLB / numpy.array([ro, ro, ro, vo, vo, vo])[:, numpy.newaxis]
+            tjacLB = tjacLB * numpy.asarray(self._ErrCovsLBScale)
             tjac = numpy.dot(numpy.linalg.inv(tjacLB), tjacXY)
             allErrCovsLB[ii] = numpy.dot(
                 tjac, numpy.dot(self._allErrCovsXY[ii], tjac.T)
@@ -2948,20 +2956,24 @@ class streamdf(df):
                 > 0.0
             ):
                 ll = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[:, 0][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[:, 0][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T
                     * 180.0
                     / numpy.pi
                 )
             else:
                 ll = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[::-1, 0][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[::-1, 0][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T[::-1]
                     * 180.0
                     / numpy.pi
@@ -2974,20 +2986,24 @@ class streamdf(df):
                 > 0.0
             ):
                 bb = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[:, 1][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[:, 1][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T
                     * 180.0
                     / numpy.pi
                 )
             else:
                 bb = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[::-1, 1][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[::-1, 1][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T[::-1]
                     * 180.0
                     / numpy.pi
@@ -4839,17 +4855,30 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     """Map the per-chunk backend track assembly over ``(xv0_all, thetasTrack)``.
 
     jax: ``jax.lax.map`` -- fork-free (no ``parallel_map``), jit-compatible, no
-    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``: ``single``
-    calls ``calcaAJac`` = ``jax.jacrev`` of the AA map (over a diffrax/C-STM
-    integration with no vmap batching rule), and ``jax.vmap`` batches that inner
-    jacrev in a way that silently DROPS the outer d/d(parameter) gradient (the
-    forward value is correct, but jax.grad through the track leaks ~20%). lax.map
-    runs the chunks sequentially in the compiled graph, so the jacrev is never
-    batched and the gradient is exact (matches a finite-difference of the same
-    track to ~1e-4). torch: a Python stack of per-chunk calls (torch.func.vmap
-    cannot trace the torchdiffeq custom-autograd orbit). 6-tuple of stacked arrays.
+    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``, but the
+    reason is NOT that jacrev cannot be batched -- it can (root-caused
+    2026-08-19; the earlier note here blamed jacrev batching and was wrong).
+
+    ``single`` calls ``calcaAJac`` = ``jax.jacrev`` of the AA map over a diffrax
+    integration, and the track's outer d/d(parameter) then differentiates THAT,
+    so the solve runs under diffrax's ``DirectAdjoint``, which differentiates the
+    solver's own operations. The default step-size controller is ADAPTIVE, so
+    under ``jax.vmap`` the batch elements choose different step sequences and the
+    batched reverse pass is wrong by 2-13% (growing with integration time) while
+    the forward value stays right to 1e-10 -- which is exactly why this looked
+    like a silent gradient drop. ``lax.map`` runs the chunks sequentially, so the
+    steps are never batched and the gradient is exact (matches a finite
+    difference of the same track to ~1e-4; measured 0.09% end-to-end).
+
+    Passing ``nsteps`` (constant stepping) to the in-backend ODE removes the
+    step-size dependence and makes the batched Jacobian exact to ~1e-11, so a
+    vmap'd chunk loop becomes viable; see
+    ``test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax``.
+
+    torch: a Python stack of per-chunk calls (torch.func.vmap cannot trace the
+    torchdiffeq custom-autograd orbit). Returns a 6-tuple of stacked arrays.
     """
-    if "jax" in xp.__name__:
+    if name_of_namespace(xp) == "jax":
         import jax
 
         return jax.lax.map(lambda a: single(a[0], a[1]), (xv0_all, thetasTrack))
@@ -5271,7 +5300,18 @@ def calcaAJac(
     - 2013-11-25 - Written - Bovy (IAS)
     """
     # Backend (jax/torch): exact AD Jacobian; numpy path below is byte-identical.
-    if is_backend_array(xv) or is_backend_array(xv[0]):
+    # lb/coordFunc are not implemented on the backend path. They used to be
+    # unreachable there because xv arrived as numpy; now that the coords chain
+    # is backend-native it can arrive as a backend array, so land it on numpy
+    # and take the finite-difference path -- which is exactly what happened
+    # before, rather than raising at the user.
+    _is_backend = is_backend_array(xv) or is_backend_array(xv[0])
+    if _is_backend and (lb or coordFunc is not None):
+        # numpy.array (not as_numpy alone): jax's cast is read-only and the
+        # finite-difference path below writes into xv in place.
+        xv = numpy.array(as_numpy(xv))
+        _is_backend = False
+    if _is_backend:
         return _calcaAJac_backend(
             xv,
             aA,

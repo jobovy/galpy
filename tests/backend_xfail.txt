@@ -1,3 +1,46 @@
+# BURNED BY #1255 (2026-08-05). Six torch actionAngle angle/freq entries -- the
+# ~1e-7 precision cluster that was queued up as a TOLERANCE batch -- are pruned
+# here as a straight fix, with no tolerance touched. #1255 Newton-polishes the
+# root that `brentq` returns, and actionAngleSpherical / actionAngleVertical angle
+# computations are root-find consumers, so a more accurate root closes the gap.
+# Verified by A/B rather than inferred from the coincidence:
+#     pre-#1255  (7696c88e, own C build)  torch --runxfail   FAILED x6
+#     post-#1255 (this tree)              torch --runxfail   passed x6
+# and by the CI artifacts either side of the boundary (skip TYPE read, so an
+# xfail is not confused with a slow-skip):
+#     run 31022290797  base 18ddfd9b = #1255   XPASS x6
+#     run 30997129449  base 7696c88e = #1254   xfail x6
+#     run 30982182601  base 7b6f5ae4 = #1252   xfail x6
+#     run 30953851163  base c34abfa3           xfail x6
+#
+# SOURCE-FIX burn + RE-HOME (2026-08-05). Two entries burned by fixes in this
+# same PR: jax SpiralArms test_Rzderiv (the test's finite-difference reference was
+# built with dx=1e-8, which amplifies a 1.9e-13 float64 reassociation in Rforce by
+# 5e7; dx=1e-6 makes the reference ~150x more accurate) and torch
+# test_constantbeta_interpolatedpotentials_beta (interpSphericalPotential froze
+# _Phi0/_Phimax as Tensors while _total_mass/_rmax stayed numpy). Separately, the
+# 2 jax test_arbitraryaxisrotation{,_omegafunc} entries are RE-HOMED to
+# backend_slow_skip.txt, not pruned: timed under `--backend jax --runxfail` they
+# PASS at 581.6 s and 559.9 s, i.e. ~2x the 300 s per-test CI timeout -- the same
+# TIMEOUT class as their 3 siblings re-homed on 2026-07-23 below, and the two
+# slowest members of it. Re-homing is bookkeeping accuracy, not burndown: the
+# xfail ledger drops 2 and the deferred list gains 2.
+#
+# SOURCE-FIX burn (2026-08-05, map_coordinates boundary mode). The JAX
+# StaeckelGrid_basicAndConserved entry is pruned here: the circular-orbit JR it
+# asserts goes 4.836e-14 -> 6.04e-24 once the evaluator's boundary mode is paired
+# with the mode='mirror' prefilter (assert is < 1e-16). Measured whole-file,
+# --runxfail: jax 3 failures -> 2, no new failures, numpy 209/209 unchanged.
+#
+# The TORCH entry of the same test deliberately STAYS. There the fix clears the JR
+# and Jz asserts but a later eccentricity assert still fails (1.53e-10). That
+# residual is NOT interpolation -- both backends now match scipy to 3.55e-15 --
+# it is setup-time grid construction under a forced backend:
+#     grids built on numpy, called under backend : jax 6.38e-12, torch 6.38e-12
+#     grids BUILT under the forced backend       : jax 0.0,      torch 1.53e-10
+# i.e. the evaluation path is backend-agnostic; construction is not. Separate
+# (deferred setup-path) work, so the torch entry remains ledgered and honest.
+#
 # REGEN-MILESTONE prune (2026-07-23, full-matrix REGEN run 29979778304 on
 # feat/backends c08577ff -- post-#1185; all 44 jax+torch shards ran to
 # completion (conclusion=success), no session-timeout truncation, and the
@@ -86,158 +129,46 @@
 #
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
+#
+# READING THE COUNT (2026-07-30). The headline entry count overstates the
+# remaining migration work, because more than a third of it is ONE class that
+# refuses backends by construction:
+#
+#   total entries        101
+#   actionAngleVerticalInverse  48   (24 jax + 24 torch)
+#   -------------------------------
+#   reducible by fixes   53
+#
+# `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
+# as a backend is active (it builds scipy interpolation / ndimage grids), so those
+# 48 CANNOT be burned down by incremental backend fixes -- they move only if that
+# class is migrated, which is a scoping decision, not a bug hunt. Counting them
+# alongside the reducible 59 makes the ledger look ~56% larger than the work it
+# actually represents. Split it before quoting the number as progress.
+#
+# STALENESS. xfail here is non-strict, so an entry that has since been fixed
+# keeps passing silently (XPASS) and keeps inflating the count -- it does not
+# announce itself, and the shard still exits 0. Entries only leave when someone
+# re-measures, so expect stale ones any time this file is quoted as progress.
+#
+# Cheapest way to re-measure, no extra CI cost: a PR into an integration branch
+# already runs the whole backend matrix, and every shard uploads its JUnit XML as
+# a `backend-junit-<backend>-<files>` artifact. Download a completed run's
+# artifacts and take (ledgered AND passed), where passed = a <testcase> with no
+# skipped/failure/error child. That covers all 44 shards at once. Note the six
+# `-jit` entries will show up as unobserved: this workflow has no --jit dimension,
+# so they are unmeasured rather than stale.
+#
+# Do NOT re-measure on a dev box instead. The backend matrix is python 3.14 and
+# shards test_orbit into 5 pytest-split groups; a local py3.13 unsplit run of the
+# same files disagreed on exactly one entry
+# (test_analytic_ecc_rperi_rap: passes locally, xfails in CI group g3). Same
+# blind spot that made an earlier local regen report false failures.
 
-jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-jax tests/test_actionAngle.py::test_physical_vertical
-jax tests/test_interp_potential.py::test_interpolation_potential_force_c
-jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
-jax tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-jax tests/test_quantity.py::test_potential_function_turnphysicaloff
-jax tests/test_quantity.py::test_potential_method_turnphysicaloff
-jax tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
-jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
-jax tests/test_quantity.py::test_sphericaldf_method_value
-jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
-jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
-jax tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
-jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_FDMdynamfric.py::test_dynamfric_c
-torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
-torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
-torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
-torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-torch tests/test_actionAngle.py::test_physical_vertical
-torch tests/test_dynamfric.py::test_dynamfric_c
-torch tests/test_dynamfric.py::test_dynamfric_c_minr
-torch tests/test_galpypaper.py::test_orbmethods
-torch tests/test_galpypaper.py::test_qdf
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalaromegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
-torch tests/test_orbit.py::test_analytic_zmax
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential_static]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialGaussianPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
-torch tests/test_orbit.py::test_integrate_indiv_t_1D
-torch tests/test_orbit.py::test_integrate_indiv_t_python_paths
-torch tests/test_orbit.py::test_lyapunov_c_vs_python
-torch tests/test_orbit.py::test_lyapunov_spectrum_consistency
-torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
-torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
 torch tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_qdf.py::test_sampleV
-torch tests/test_qdf.py::test_sampleV_interpolate
-torch tests/test_qdf.py::test_sampleV_physical
-torch tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-torch tests/test_quantity.py::test_potential_function_turnphysicaloff
-torch tests/test_quantity.py::test_potential_method_turnphysicaloff
-torch tests/test_quantity.py::test_potential_paramunits
-torch tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
-torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
-torch tests/test_quantity.py::test_quasiisothermaldf_method_returnunit
-torch tests/test_quantity.py::test_quasiisothermaldf_method_value
-torch tests/test_quantity.py::test_quasiisothermaldf_sample
-torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
-torch tests/test_quantity.py::test_sphericaldf_method_value
-torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
-torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
-torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_streamTrack.py::test_streamTrack_cov_basis
-torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
-torch tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
-torch tests/test_streamTrack.py::test_streamTrack_plot_smoke
-torch tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
-torch tests/test_streamdf.py::test_bovy14_callMargXZ
-torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
-torch tests/test_streamdf.py::test_plotting
-torch tests/test_streamdf.py::test_streamTrack_multi_parallel
-jax tests/test_noninertial.py::test_arbitraryaxisrotation
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
-torch tests/test_potential.py::test_rE_MWPotential2014
-
-# --- jax single-orbit: action-angle accessors (Track E) ---
-# o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
-# them route through actionAngleStaeckel_c, which is not yet backend-migrated (Track E):
-# it hits numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands.
-jax tests/test_orbit.py::test_analytic_ecc_rperi_rap
-jax tests/test_orbit.py::test_analytic_zmax
 
 # --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
 # Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
@@ -251,28 +182,140 @@ jax tests/test_orbit.py::test_analytic_zmax
 # still fail at a deeper diskdf-jax gap (physical output is a bare ndarray with
 # no .to() / a differing return type / a sampling mismatch). The diskdf sample
 # tests that now PASS-but-slow are slow-skipped instead (see backend_slow_skip).
-jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnOrbit
-jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_rrange
-jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 
-# --- REBASE-PREVIEW (main->feat/backends merge, 2026-07-07) Phase-2 gaps ---
-# main's new NUMPY-ONLY features arrive un-migrated: time-dependent SCF +
-# from_nbody + SCF<->Multipole translate (#1058/#1061/#1062), sphericaldf
-# negative-df sampling (#1032). Their jax/torch parity/grad tests fail until the
-# Phase-2 backend migration.
-# ExpTruncNFWPotential (#976) is now backend-migrated; the few ExpTruncNFW
-# entries that remain fail only via shared torch-infrastructure tracks, not the
-# potential itself: the Python orbit/dxdv integrator feeds torch forces to the
-# numpy dop853 (like test_dxdv_3d_c_vs_python for 30+ potentials), the spherical
-# DFs are not torch-ready (constantbeta/osipkovmerritt, ~69 siblings ledgered),
-# and two bespoke tests use numpy.all/scipy.quad/float32-FD on torch outputs.
-# (test_actionAngleStaeckel_wSpherical...c[jax] = pre-existing jax-eager flake,
-#  already ledgered for torch.) Removed as each Phase-2 PR lands.
-# streamspraydf backend migration: the integrate=False sampling path is now
-# backend-native (returns a jax/torch array); these two integrate=True tests
-# assign into that array in place (RvR_noint[:,ii]=...), which jax's immutable
-# arrays reject, and exercise the not-yet-backend-native integrate=True path.
-# Un-ledger when the in-backend integrator swap lands (per-particle 2D-time-grid
-# integrate). Already ledgered for torch.
-torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
-torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
+# --- jax-jit: the suite run TRACED (pytest --backend jax --jit) ---
+# tests/test_potential.py, 2026-07-27: 28 of ~1300 tests fail under jax.jit that
+# pass eager (baseline was 100 on 2026-07-25), i.e. ~98% of the potential suite
+# runs fully traced. Cleared: RazorThinExponentialDisk, TwoPowerTriaxial, the log
+# spirals, the noGL ellipsoidals, and the DiskSCF/Multipole fixtures. What
+# remains, and why -- these are NOT all "not migrated yet":
+#   * `test_poisson_surfdens_potential`     ~15  -- `Potential.surfdens`'s Poisson
+#     fallback traces once routed through backend quadrature, but fixed-order GL
+#     needs an order that SCALES WITH THE RANGE (n=100 is 3.7e-4 at |z|=10, n=400
+#     reaches 2.6e-14). A constant order is accurate only inside whatever range
+#     was tested and silently wrong outside it, so this needs a range-aware
+#     scheme, not a swap. Attempted and reverted deliberately.
+#   * AnyAxisymmetricRazorThinDisk           ~4  -- BY DESIGN, not a defect. Its
+#     backend path deliberately uses GL so gradients exist, while concrete input
+#     reuses scipy; the class comment states GL cannot resolve the a=R principal
+#     value or form the z=0 Hadamard-type 2nd derivative. Under a trace the input
+#     IS a tracer, so the traced value is knowingly less accurate there.
+#   * one-offs                               ~9  -- Cautun20, DehnenBinney98,
+#     ExpDisk_special, McMillan17, mass_spheroidal, plotting, ...
+# Only reachable via workflow_dispatch(jit=true); shrink it.
+# test_eccentricity is the same AnyAxisymmetricRazorThinDisk story seen through an
+# orbit: its traced GL forces carry ~1e-6 error, so a circular orbit comes back
+# with e=5.4e-6 against a 1e-8 tolerance. Passes eager jax. Un-ledger if the
+# tolerance is ever made backend-aware.
+jax-jit tests/test_orbit.py::test_eccentricity
+torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
+
+# --- torch --jit: parallel_map's fork is fixed for EAGER torch only ----------
+# The child-side torch.set_num_threads(1) cure (fix/parallel-map-fork-safety)
+# makes eager torch survive parallel_map's fork, and these three are un-ledgered
+# for plain `torch` above. Under `--jit` they still do not work: torch.compile
+# brings its own process/CUDA state across the fork. Measured 2026-08-05 --
+# CUDA torch gives "Cannot re-initialize CUDA in forked subprocess", and with
+# CUDA_VISIBLE_DEVICES='' the run wedged past a 900 s timeout. Keeping them
+# ledgered under torch-jit so a workflow_dispatch(jit=true) stays honest.
+# A units-based density is NOT TRACEABLE, and this is by construction rather
+# than a defect. AnySphericalPotential._backend_dens deliberately evaluates such
+# a density on the numpy node --  astropy Quantity arithmetic strips a jax/torch
+# node to numpy, so the density is inherently non-differentiable -- and anchors
+# the result back (see its docstring). That routes through as_numpy(), i.e.
+# numpy.asarray(), which a tracer cannot satisfy. Eager jax/torch are fine: a
+# concrete array converts.
+#
+# `test_pickling_potential_unitful_dens` was ALSO ledgered here on that
+# reasoning and is now MEASURED PASSING traced -- the 2026-08-18
+# workflow_dispatch(jit=true, regen=true) run (32141815273) does not list it.
+# So the blanket "there is nothing to fix" claim held for the wrapper case only;
+# only `drops_units_wrapper` still hits the untraceable as_numpy() boundary.
+jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
+
+# jax-jit: actionAngleStaeckelGrid, MEASURED 2026-08-07 on the first traced run of
+# test_actionAngle.py (whole file, regen mode). This nodeid is ledgered for EAGER
+# TORCH but NOT for jax, and `-jit` inherits only the SAME backend's eager
+# entries -- so jax-jit was uncovered and would red a workflow_dispatch(jit=true).
+# It is a tolerance case, not a defect: the test asks a COMPUTED circular-orbit
+# eccentricity to vanish to 1e-16.
+#     eager jax   passes (no jax entry in the CI-regenerated ledger)
+#     jax-jit     e = 9.363e-12   vs 1e-16
+#     torch-jit   e = 1.5305e-10  vs 1e-16   (covered, inherits the torch entry)
+# Tracing is entitled to reassociate, so eager and traced landing on different
+# sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
+# backend-aware; the tolerance proposal itself is separate and needs sign-off.
+
+# --- jax-jit: test_potential, surfaced by the 10-file traced sweep (2026-08-09) ---
+# These are NOT new breakage. test_potential.py has only per-test eager
+# slow-skip entries (never a whole-file one), so the rest of the file already
+# ran traced before gh#1279 -- nobody was looking, because no workflow runs
+# --jit. The sweep is the first time the file was measured traced end to end
+# (1385 cases, 3692 s). All 8 pass EAGER; this is traced-only exposure.
+#
+# Three distinct causes, deliberately kept as xfail (burndown) rather than
+# permanent skip, because each is plausibly fixable:
+#
+# 1) RotateAndTiltWrapperPotential refuses array input BY DESIGN
+#    ("Methods in RotateAndTiltWrapperPotential do not accept array inputs.
+#    Please input scalars"), and tracing turns scalars into traced arrays.
+#    The guard in Potential.py is NOT a blanket refusal:
+#
+#        if arrays and not (getattr(self, "_backend_accepts_arrays", False)
+#                           and all(is_backend_array(x) for x in arrays)):
+#
+#    Under tracing the `is_backend_array` half is satisfied, so what actually
+#    trips is that **RotateAndTiltWrapperPotential never sets
+#    `_backend_accepts_arrays`**. So this is a one-flag opt-in, NOT a guard
+#    rewrite -- but the flag must not be flipped without first verifying the
+#    wrapper computes correctly on array input, since the gate exists precisely
+#    to keep arrays out of potentials with bare-numpy/scipy internals. (The
+#    AnyAxisym opt-out is deliberate for exactly that reason; this one looks
+#    unverified rather than intentional, which is why it is xfail and not skip.)
+#    All 5 fail in 0.0-0.1 s -- they refuse immediately, they never compute.
+#
+# 2) jax ConcretizationTypeError -- and the two share ONE root: `mass()` is not
+#    traceable, because it integrates with scipy.integrate.quad, which calls
+#    float() on its limits/result and so rejects a tracer. From the tracebacks:
+#
+#      McMillan17  Potential.mass -> KuijkenDubinskiDiskExpansionPotential._mass
+#                  (L485: `integrate.quad(_integrand, 0.0, numpy.pi)`)
+#                  -> scipy _quadpack_py.py:626 -> ConcretizationTypeError
+#      Cautun20    fails at CONSTRUCTION, not evaluation: mwpotentials.py:86 ->
+#                  Cautun20.py:105 -> AdiabaticContractionWrapperPotential
+#                  .__init__ L95 -> Potential.mass (L2317) -> same wall
+#
+#    So this is not "two composite potentials are odd" -- it is one missing
+#    backend-native mass quadrature, hit once during evaluation and once during
+#    a wrapper's __init__. Fixing mass to use the backend quadrature (as the
+#    other migrations did) should clear both together.
+#
+# 3) AnyAxisym: the TRACED potential is wrong at exactly the disk plane.
+#    Measured at (R,z) = (0.5, 0.0):
+#        eager  Phi(z=0) = -1.7599930722150277  Phi(z=1e-8) = -1.7599930722110944
+#               -> one-sided dPhi/dz = -3.9e-04, consistent
+#        jit    Phi(z=0) = -1.7599195947859025  Phi(z=1e-8) = -1.7599930535685753
+#               -> one-sided dPhi/dz = +7.35e+03, which is what the test reports
+#    i.e. traced Phi at z==0 is off by ~7.3e-5 from its own neighbour, and the
+#    test's ONE-SIDED difference divides that by dz=1e-8. zforce(0.5,0)=0 is
+#    correct; the derivative is the wrong side.
+#    A/B'd against pre-gh#1278 by swapping only that file (verified the two
+#    versions really differ -- dyadic `xp.maximum(Rp * 2**-k, dmin)` vs
+#    geometric `ratio = dmin/half`): byte-identical failure, 7.345878e+03 on
+#    both sides. PRE-EXISTING, not the geometric-grading change.
+#
+#    NOTE the A/B also FALSIFIES the obvious suspect. The z==0 degenerate
+#    ladder (`ratio` is 1 there, so the panels collapse) exists only in the
+#    geometric version -- the dyadic one has no `ratio` at all -- yet both fail
+#    identically. So the cause is common to both ladders and is NOT the grading.
+#    It is eager-vs-traced: eager has Phi(z=0) and Phi(z=1e-8) agreeing to 11
+#    digits, traced does not. Cause not yet identified; do not start from the
+#    quadrature ladder.
+
+# torch-jit defects found by the 2026-08-09 torch sweep.
+# AnyAxisym traced GL forces ~1e-6; reproduces on jax too
+# torch-jit: the RotateAndTilt wrapper rejects the quadrature's node array, so
+# these FAIL fast (35.6 s for all four) -- they are defects, not slow tests. The
+# 2026-08-09 sweep measured them at 300-400 s because its worktree carried the
+# then-unmerged broadcast fix; on a clean tree they never get that far.

@@ -25,9 +25,11 @@ from ..backend import (
     match_input_dtype,
 )
 from ..backend import use as _use_backend
+from ..backend._namespaces import untraceable_setup
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
+from ..util._pickle import SplinePickleMixin
 from ..util.special import compute_legendre, sph_harm_normalization
 from .Potential import Potential
 from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
@@ -51,7 +53,9 @@ if _types.ModuleType not in _copy._deepcopy_dispatch:  # pragma: no branch
     _copy._deepcopy_dispatch[_types.ModuleType] = lambda module, memo: module
 
 
-class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
+class MultipoleExpansionPotential(
+    Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
+):
     r"""Class that implements a gravitational potential computed via multipole expansion of an arbitrary density distribution.
 
     This class decomposes a user-supplied density function into real spherical harmonics on a radial grid,
@@ -107,6 +111,25 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     using piecewise polynomials. This allows efficient evaluation of the potential, forces, and
     second derivatives at arbitrary times within the ``tgrid`` range during orbit integration.
     """
+
+    # Attributes holding scipy piecewise-polynomials. The _sin set exists only
+    # for a non-axisymmetric density, and the *_interp set only for a
+    # time-dependent one, so all four combinations must be listed -- checking a
+    # single configuration finds a fraction of the set. (Measured: a
+    # time-dependent expansion has NO _I_inner_cos at all, only
+    # _I_inner_cos_interp, so the static names alone cover none of it.)
+    _PICKLE_SPLINE_ATTRS = (
+        "_I_inner_cos",
+        "_I_inner_sin",
+        "_I_outer_cos",
+        "_I_outer_sin",
+        "_I_inner_cos_interp",
+        "_I_inner_sin_interp",
+        "_I_outer_cos_interp",
+        "_I_outer_sin_interp",
+        "_rho_cos_interp",
+        "_rho_sin_interp",
+    )
 
     def __init__(
         self,
@@ -2239,6 +2262,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         """Constant numpy tables for the backend path (static or TD layout)."""
         return self._backend_tdep_data() if self._tdep else self._backend_static_data()
 
+    @untraceable_setup
     def _backend_static_data(self):
         """Build (once) the numpy constant tables for the backend path.
 
@@ -2301,6 +2325,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         )
         return self._backend_data
 
+    @untraceable_setup
     def _backend_tdep_data(self):
         """Build (once) the numpy constant tables for the time-dependent
         backend path.

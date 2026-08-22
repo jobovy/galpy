@@ -30,6 +30,8 @@ from ..backend import (
     is_backend_array,
     is_backend_compatible,
 )
+from ..backend import quadrature as _bquad
+from ..backend._namespaces import under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -71,11 +73,23 @@ def check_potential_inputs_not_arrays(func):
 
     @wraps(func)
     def func_wrapper(self, R, z, phi, t):
-        if (
-            (hasattr(R, "shape") and R.shape != () and len(R) > 1)
-            or (hasattr(z, "shape") and z.shape != () and len(z) > 1)
-            or (hasattr(phi, "shape") and phi.shape != () and len(phi) > 1)
-            or (hasattr(t, "shape") and t.shape != () and len(t) > 1)
+        arrays = [
+            x
+            for x in (R, z, phi, t)
+            if hasattr(x, "shape") and x.shape != () and len(x) > 1
+        ]
+        # Opt-in escape hatch: a potential whose BACKEND evaluation broadcasts
+        # over a trailing node axis (``_backend_accepts_arrays``) may be handed
+        # the whole Gauss-Legendre node array, which is what lets the traced
+        # surfdens/mass quadratures evaluate it in one vectorised call instead
+        # of unrolling one traced call per node. Gated on every array argument
+        # being a BACKEND array, so the documented numpy contract -- these
+        # methods take scalars -- is unchanged, and so a numpy array cannot
+        # reach a potential that dispatches to bare-numpy/scipy internals for
+        # non-backend input.
+        if arrays and not (
+            getattr(self, "_backend_accepts_arrays", False)
+            and all(is_backend_array(x) for x in arrays)
         ):
             raise TypeError(
                 f"Methods in {self.__class__.__name__} do not accept array inputs. Please input scalars"
@@ -109,6 +123,32 @@ def potential_positional_arg(func):
         return func(Pot, *args, **kwargs)
 
     return wrapper
+
+
+def _quad_needs_backend(xp, absz):
+    """True only when scipy.integrate.quad CANNOT be used: we are inside a trace.
+
+    The backend Gauss-Legendre rule exists here for exactly one reason -- under a
+    trace scipy is unusable, so the integral must be built from array ops.
+    Outside a trace (numpy, and eager jax/torch alike) scipy is still the better
+    tool: it is adaptive, and it calls the integrand node-by-node so scalar-only
+    potentials keep working.
+
+    Gating on tracedness rather than on "does this potential accept an array"
+    matters because the latter is NOT decidable: `_force_accepts_arrays` sees only
+    the top-level type, and a potential that composes or wraps a scalar-only one
+    forwards through its own undecorated ``_Rforce`` and so looks array-safe.
+
+    ``under_trace`` and NOT a concreteness probe: under ``torch.compile`` dynamo
+    turns ``float(x)`` into a symbolic scalar, so a probe answers "concrete", the
+    scipy branch runs inside the compiled region, and the result was silently
+    wrong -- AnyAxisymmetricRazorThinDisk's surfdens came back 2.2e-15 instead of
+    0.0662, order-dependently. ``under_trace`` asks
+    ``torch.compiler.is_compiling()``, which dynamo cannot fool.
+    """
+    if xp is numpy:
+        return False
+    return under_trace(absz)
 
 
 def _force_accepts_arrays(pot):
@@ -242,8 +282,8 @@ class Potential(Force):
         return None
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def __call__(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
         Evaluate the potential at the specified position and time.
@@ -300,8 +340,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rforce(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the cylindrical radial force F_R.
@@ -330,8 +370,8 @@ class Potential(Force):
         return self._Rforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def zforce(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the vertical force F_z.
@@ -360,8 +400,8 @@ class Potential(Force):
         return self._zforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phitorque(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the azimuthal torque.
@@ -389,8 +429,8 @@ class Potential(Force):
         return self._phitorque_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second radial derivative.
@@ -424,8 +464,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second vertical derivative.
@@ -459,8 +499,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phi2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second azimuthal derivative.
@@ -495,8 +535,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed R,z derivative.
@@ -530,8 +570,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rphideriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed radial, azimuthal derivative.
@@ -566,8 +606,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phizderiv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed azimuthal, vertical derivative.
@@ -603,8 +643,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def r2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second spherical radial derivative.
@@ -642,8 +682,8 @@ class Potential(Force):
         ) * z / r
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("density", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def dens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
         Evaluate the density rho(R,z,t).
@@ -690,8 +730,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def surfdens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
         Evaluate the surface density Sigma(R,z,phi,t) = int_{-z}^{+z} dz' rho(R,z',phi,t).
@@ -700,14 +740,18 @@ class Potential(Force):
         ----------
         R : float or Quantity
             Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
+        z : float, Quantity, or None
+            Vertical height; the integral runs over ``[-z, z]``. Pass ``None`` for
+            the whole line, ``int_{-inf}^{+inf}``. ``None`` rather than ``inf``
+            because the choice must be structural: under a jax/torch trace the
+            magnitude of a ``z=inf`` argument is not inspectable, so asking for the
+            whole line by value cannot work there (it yields NaN).
         phi : float or Quantity, optional
             Azimuth (default: 0.0).
         t : float or Quantity, optional
             Time (default: 0.0).
         forcepoisson : bool, optional
-            If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists (default: False).
+            If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists (default: False). Ignored when ``z is None``, which always integrates the density directly.
 
         Returns
         -------
@@ -720,31 +764,117 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
 
         """
+        if z is None:
+            # Whole line, Sigma(R) = int_{-inf}^{+inf} rho dz'. This is a
+            # STRUCTURAL request -- ``z is None`` is decided on a Python object,
+            # never on a value -- which is the point: under a trace the magnitude
+            # of a ``z=inf`` argument is unknowable, so asking for the whole line
+            # by value cannot work. Integrating the density directly also avoids
+            # the +-inf boundary terms the Poisson route below would need.
+            xp = get_namespace(R, phi, t)
+            if xp is numpy:  # same scipy call the z=inf spelling makes: identical
+                return (
+                    self._amp
+                    * integrate.quad(
+                        lambda x: self._dens(R, x, phi=phi, t=t),
+                        -numpy.inf,
+                        numpy.inf,
+                    )[0]
+                )
+            return self._amp * _bquad.symmetric_quad(
+                xp,
+                lambda x: self._dens(
+                    _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
+                ),
+                numpy.inf,  # a local constant, so concrete even inside a trace
+            )
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
             return self._amp * self._surfdens(R, z, phi=phi, t=t)
         except AttributeError:
-            # Use the Poisson equation to get the surface density
-            return (
-                (
-                    -self.zforce(R, numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + self.zforce(R, -numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + integrate.quad(
-                        lambda x: (
-                            -self.Rforce(R, x, phi=phi, t=t, use_physical=False) / R
-                            + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
-                            + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
-                            / R**2.0
-                        ),
-                        -numpy.fabs(z),
-                        numpy.fabs(z),
-                        epsabs=0.0,
-                    )[0]
-                )
-                / 4.0
-                / numpy.pi
+            return self._surfdens_poisson(R, z, phi=phi, t=t)
+
+    def _surfdens_poisson(self, R, z, phi=0.0, t=0.0):
+        """Surface density from the Poisson equation.
+
+        Split out of ``surfdens`` so a composite can delegate it component-wise
+        (every term below is additive over the components), the same way
+        ``CompositePotential._surfdens`` delegates the direct route.
+        """
+        xp = get_namespace(R, z, phi, t)
+
+        def poisson_integrand(Rv, pv):
+            return lambda x: (
+                -self.Rforce(Rv, x, phi=pv, t=t, use_physical=False) / Rv
+                + self.R2deriv(Rv, x, phi=pv, t=t, use_physical=False)
+                + self.phi2deriv(Rv, x, phi=pv, t=t, use_physical=False) / Rv**2.0
             )
+
+        # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
+        # DeprecationWarning, which the coverage shard turns into an error.
+        absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
+        if not _quad_needs_backend(xp, absz):
+            # epsabs=0 so the criterion is purely RELATIVE. quad's default
+            # epsabs=1.49e-8 is ABSOLUTE, so a vertical integral whose own value is
+            # at or below ~1e-8 in internal units passes the absolute test on the
+            # first crude estimate and returns success while being ~1e-5 wrong --
+            # MWPotential2014[0] at R=1, |z|=5 integrates to 8.2e-9 and came back
+            # 9.6e-6 relative off.
+            inner = integrate.quad(poisson_integrand(R, phi), -absz, absz, epsabs=0.0)[
+                0
+            ]
+        else:
+            # Fixed-order GL over the whole [-z, z] needs an order that grows
+            # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at the
+            # mid-plane and clustering nodes toward the split puts them where a
+            # decaying integrand has its mass, and does so RELATIVE to the
+            # range, so one node count holds at every |z|.
+            # [..., None] so R/phi broadcast against the trailing node axis
+            # (0-d becomes (1,), which broadcasts either way).
+            inner = _bquad.symmetric_quad(
+                xp,
+                poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
+                absz,
+                interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
+            )
+        return (
+            (
+                -self.zforce(R, absz, phi=phi, t=t, use_physical=False)
+                + self.zforce(R, -absz, phi=phi, t=t, use_physical=False)
+                + inner
+            )
+            / 4.0
+            / numpy.pi
+        )
+
+    def _vertical_quad_split(self, R, phi=0.0, t=0.0):
+        """z at which this potential's mid-plane crosses the vertical line at
+        (R, phi) -- where the vertical quadratures below should split.
+
+        Zero unless a subclass displaces or tilts its structure relative to
+        z = 0; see ``RotateAndTiltWrapperPotential``.
+        """
+        return 0.0
+
+    def _vertical_quad_interior(self, xp, R, absz, phi, t):
+        """``_vertical_quad_split`` clamped into the integration range.
+
+        A split outside ``[-|z|, |z|]`` would invert a panel, and clamping it to
+        the boundary is worse than useless: that degenerates one panel to zero
+        width and throws away the clustering entirely. Measured on the tilted
+        (near edge-on) wrappers, where the crossing runs off to large |z|,
+        clamping cost 2-6x accuracy versus just splitting at 0. So fall back to
+        0 whenever the mid-plane does not actually cross the interval.
+        """
+        c = self._vertical_quad_split(R, phi=phi, t=t)
+        # Ordinary potentials keep the literal 0.0 they used before this hook
+        # existed, so their quadrature is untouched.
+        if isinstance(c, float) and c == 0.0:
+            return 0.0
+        # xp.where, not a Python branch: c is traced. Both arms are finite, so
+        # there is no dead-branch NaN to poison reverse-mode AD.
+        return xp.where((c > -absz) & (c < absz), c, 0.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
@@ -772,23 +902,34 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities by Bovy (UofT).
 
         """
-        # epsabs=0 so the criterion is purely RELATIVE. quad's default
-        # epsabs=1.49e-8 is absolute, so a vertical integral whose own value is
-        # at or below ~1e-8 in internal units passes the absolute test on the
-        # first crude estimate and returns immediately, reporting success while
-        # being ~1e-5 wrong. That happens for truncated profiles and for any
-        # potential far from the plane -- MWPotential2014[0] at R=1, |z|=5
-        # integrates to 8.2e-9 and came back 9.6e-6 relative off.
-        return integrate.quad(
-            lambda x: self._dens(R, x, phi=phi, t=t),
-            -numpy.fabs(z),
-            numpy.fabs(z),
-            epsabs=0.0,
-        )[0]
+        # Same dual path as the Poisson branch of surfdens(): numpy keeps scipy
+        # (byte-identical), a backend takes the split-at-the-mid-plane,
+        # node-clustered GL rule so it traces and stays accurate at large |z|.
+        # Scalar-only potentials keep scipy either way -- they reject the node
+        # array. The split matters far more here than in the Poisson branch:
+        # this integrand is the density, which for a displaced disk is sharply
+        # peaked off z=0 (6.4e-2 error vs 1.8e-4) -- see _vertical_quad_split.
+        xp = get_namespace(R, z, phi, t)
+        absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
+        if not _quad_needs_backend(xp, absz):
+            # epsabs=0: purely RELATIVE, see the Poisson branch above.
+            # MWPotential2014[0] at R=1, |z|=5 integrates to 8.2e-9 and came back
+            # 9.6e-6 relative off under quad's default absolute tolerance.
+            return integrate.quad(
+                lambda x: self._dens(R, x, phi=phi, t=t), -absz, absz, epsabs=0.0
+            )[0]
+        return _bquad.symmetric_quad(
+            xp,
+            lambda x: self._dens(
+                _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
+            ),
+            absz,
+            interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
+        )
 
     @potential_physical_input
-    @backend_input("R", "z", "t")
     @physical_conversion("mass", pop=True)
+    @backend_input("R", "z", "t")
     def mass(self, R, z=None, t=0.0, forceint=False):
         """
         Evaluate the mass enclosed.
@@ -901,8 +1042,8 @@ class Potential(Force):
         return rhalf(self, t=t, INF=INF, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("time", pop=True)
+    @backend_input("R", "t")
     def tdyn(self, R, t=0.0):
         """
         Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
@@ -1303,8 +1444,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi", "t")
     def vcirc(self, R, phi=None, t=0.0):
         """
         Calculate the circular velocity at R in this potential.
@@ -1336,8 +1477,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "phi", "t")
     def dvcircdR(self, R, phi=None, t=0.0):
         """
         Calculate the derivative of the circular velocity at R with respect to R in this potential.
@@ -1372,8 +1513,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def omegac(self, R, t=0.0):
         """
         Calculate the circular angular speed at R in this potential.
@@ -1399,8 +1540,8 @@ class Potential(Force):
         return xp.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def epifreq(self, R, t=0.0):
         """
         Calculate the epicycle frequency at R in this potential.
@@ -1429,8 +1570,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def verticalfreq(self, R, t=0.0):
         """
         Calculate the vertical frequency at R in this potential.
@@ -1487,8 +1628,8 @@ class Potential(Force):
         return lindbladR(self, OmegaP, m=m, t=t, use_physical=False, **kwargs)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "t")
     def vesc(self, R, t=0.0):
         """
         Calculate the escape velocity at R for this potential.
@@ -1603,8 +1744,8 @@ class Potential(Force):
         return LcE(self, E, t=t, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R", "z", "t")
     @physical_conversion("dimensionless", pop=True)
+    @backend_input("R", "z", "t")
     def flattening(self, R, z, t=0.0):
         """
         Calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
@@ -1836,8 +1977,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("position", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def rtide(self, R, z, phi=0.0, t=0.0, M=None):
         """
         Calculate the tidal radius for object of mass M assuming a circular orbit
@@ -1884,8 +2025,8 @@ class Potential(Force):
         return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def ttensor(self, R, z, phi=0.0, t=0.0, eigenval=False):
         """
         Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
@@ -2048,8 +2189,8 @@ class PotentialError(Exception):  # pragma: no cover
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
     """
@@ -2097,8 +2238,8 @@ def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("density", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
@@ -2140,8 +2281,8 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("surfacedensity", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
@@ -2184,8 +2325,8 @@ def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "t")
 @physical_conversion("mass", pop=True)
+@backend_input("R", "z", "t")
 @potential_list_of_potentials_input
 def mass(Pot, R, z=None, t=0.0, forceint=False):
     """
@@ -2225,8 +2366,8 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2281,8 +2422,8 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2337,8 +2478,8 @@ def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2393,8 +2534,8 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2443,8 +2584,8 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2483,8 +2624,8 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2523,8 +2664,8 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2563,8 +2704,8 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2603,8 +2744,8 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2643,8 +2784,8 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2683,8 +2824,8 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -3187,8 +3328,8 @@ def plotSurfaceDensities(
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def epifreq(Pot, R, t=0.0):
     """
@@ -3218,8 +3359,8 @@ def epifreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def verticalfreq(Pot, R, t=0.0):
     """
@@ -3249,8 +3390,8 @@ def verticalfreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "t")
 @physical_conversion("dimensionless", pop=True)
+@backend_input("R", "z", "t")
 @potential_list_of_potentials_input
 def flattening(Pot, R, z, t=0.0):
     """
@@ -3612,8 +3753,8 @@ def _lindbladR_eq(R, Pot, OmegaP, m, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def omegac(Pot, R, t=0.0):
     """
@@ -3652,8 +3793,8 @@ def omegac(Pot, R, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("velocity", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def vcirc(Pot, R, phi=None, t=0.0):
     """
@@ -3698,8 +3839,8 @@ def vcirc(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def dvcircdR(Pot, R, phi=None, t=0.0):
     """
@@ -3758,8 +3899,8 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("velocity", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def vesc(Pot, R, t=0.0):
     """
@@ -4477,8 +4618,8 @@ def kms_to_kpcGyrDecorator(func):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("position", pop=True)
+@backend_input("R", "z", "phi", "t")
 def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
     """
     Calculate the tidal radius for object of mass M assuming a circular orbit as
@@ -4530,8 +4671,8 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     """
     Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
@@ -4859,8 +5000,8 @@ def _rhalfFindStart(rh, pot, tot_mass, t=0.0, lower=False):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("time", pop=True)
+@backend_input("R", "t")
 def tdyn(Pot, R, t=0.0):
     """
     Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>].

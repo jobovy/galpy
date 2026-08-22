@@ -23,7 +23,13 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
-from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
 from ..potential import (
     _INF,
     CompositePotential,
@@ -1763,7 +1769,7 @@ class Orbit:
                 _potl = _check_potential_list_and_deprecate(pot)
                 _inbk = (
                     "diffrax"
-                    if "jax" in get_namespace(ic_backend).__name__
+                    if name_of_namespace(get_namespace(ic_backend)) == "jax"
                     else "torchdiffeq"
                 )
                 # C-STM eligibility by phase-space dim: 6D needs the full C 3D
@@ -2172,7 +2178,14 @@ class Orbit:
 
         _rtol = 1e-12 if rtol is None else rtol
         _atol = 1e-12 if atol is None else atol
-        _ibk = inbackend_kwargs or {}
+        # rtol/atol are in-backend solver options like max_steps/solver/adjoint, so
+        # accept them through inbackend_kwargs too (they are the only route callers
+        # that expose just that dict -- e.g. actionAngleIsochroneApprox's
+        # integrate_kwargs -- have to the tolerance). Pop rather than splat: they
+        # are also passed explicitly below, and duplicating a keyword raises.
+        _ibk = dict(inbackend_kwargs or {})
+        _rtol = _ibk.pop("rtol", _rtol)
+        _atol = _ibk.pop("atol", _atol)
         # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
         # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
         # its own times (same length nt), as the C integrators' indiv_t (used by
@@ -2234,7 +2247,7 @@ class Orbit:
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
             ts = xp.asarray(t)
-        if "jax" in xp.__name__:
+        if name_of_namespace(xp) == "jax":
             from ..backend._jax import orbit_stm
         else:
             from ..backend._torch import orbit_stm
@@ -2335,7 +2348,7 @@ class Orbit:
         atol : float, optional
             Absolute tolerance. Default is None.
         inbackend_kwargs : dict, optional
-            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'max_steps', 'solver', and (jax) 'adjoint'. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
@@ -9373,6 +9386,23 @@ class _1DInterp:
         return self._ip(t)[:, None]
 
 
+def _obs_asnumpy(obs):
+    """Land a user-supplied ``obs=`` sequence on numpy.
+
+    ``obs`` is a reference position, and under a forced backend a user builds it
+    the natural way -- ``obs=[o.x(t), o.y(t), 0.]`` -- which yields backend
+    arrays while the integrated orbit state stays numpy. The branches that
+    consume it are written in numpy (``numpy.arctan2``/``numpy.sqrt``/
+    ``numpy.zeros_like``), so a backend element there raises ndarray-vs-Tensor.
+
+    This makes ``obs=`` ACCEPT backend arrays; it does not migrate those
+    accessors, which stay numpy by construction. A no-op for numpy input, so the
+    numpy path is byte-identical, and a read-only cast is fine because obs is
+    only ever read here.
+    """
+    return [as_numpy(o) if is_backend_array(o) else o for o in obs]
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
@@ -9622,9 +9652,11 @@ def _fit_orbit_mlogl(
             Xsun=obs[0] / ro,
             Zsun=obs[2] / ro,
         ).T
+        # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+        # backend-native, and the old masked in-place add sat behind a
+        # data-dependent Python branch. numpy values unchanged.
         bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-        if True in bad_indx:  # pragma: no cover
-            X[bad_indx] += ro / 10000.0
+        X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
         lbdvrpmllpmbb = coords.rectgal_to_sphergal(
             X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
         )
@@ -9733,6 +9765,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0],
                 thiso[3] - numpy.arctan2(obs[1], obs[0]),
@@ -9764,6 +9797,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
                 thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
@@ -9797,9 +9831,14 @@ def _lbd(orb, thiso, *args, **kwargs):
     """Calculate l,b, and d"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z = _helioXYZ(orb, thiso, *args, **kwargs)
+    # nudge the exact origin off itself so the l/b arctan2 is well defined.
+    # Was `if True in bad_indx: X[bad_indx] += 1e-15` -- an in-place masked add
+    # behind a data-dependent Python branch, and X is a backend array now that
+    # galcenrect_to_XYZ is backend-native. xp.where is both out-of-place and
+    # traceable; the numpy values are unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += 1e-15
+    xp = get_namespace(X)
+    X = xp.where(bad_indx, X + 1e-15, X)
     return coords.XYZ_to_lbd(X, Y, Z, degree=True)
 
 
@@ -9816,6 +9855,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
@@ -9902,6 +9942,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
@@ -9983,9 +10024,11 @@ def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     """Calculate l,b,d,vr,pmll,pmbb"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z, vX, vY, vZ = _XYZvxvyvz(orb, thiso, *args, **kwargs)
+    # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+    # backend-native, and the old masked in-place add sat behind a
+    # data-dependent Python branch. numpy values unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += ro / 10000.0
+    X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
     return coords.rectgal_to_sphergal(X, Y, Z, vX, vY, vZ, degree=True)
 
 

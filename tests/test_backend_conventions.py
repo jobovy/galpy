@@ -1,10 +1,12 @@
 ###############################################################################
 # test_backend_conventions.py: enforce the backend namespace-swap conventions on
 # migrated potentials, so a migrated potential can never regress to bare numpy in
-# its compute methods. The allowlist grows PR by PR as potentials are migrated.
+# its compute methods. The checked set is derived from the potentials themselves,
+# so a newly migrated one is covered the day it lands.
 ###############################################################################
 import ast
 import inspect
+import pathlib
 
 import numpy
 import pytest
@@ -33,8 +35,10 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-# Private compute methods that must be backend-agnostic (no bare ``numpy.<fn>``;
-# use ``xp = get_namespace(...)`` then ``xp.<fn>``, or ``math.pi`` for constants).
+# Private compute methods that must be backend-agnostic: no bare ``numpy.<fn>``
+# on a path a backend array can reach. Use ``xp = get_namespace(...)`` then
+# ``xp.<fn>``; bare numpy is fine behind a namespace guard (``if xp is numpy:``)
+# and for scalar constants (see SAFE_NUMPY_ATTRS).
 COMPUTE_METHODS = {
     "_evaluate",
     "_Rforce",
@@ -54,54 +58,269 @@ COMPUTE_METHODS = {
     "_rdens",
 }
 
-# Potentials migrated to the backend convention (extend as PRs land).
-MIGRATED = [
-    "PlummerPotential",
-    "IsochronePotential",
-    "FerrersPotential",
-    "KuzminKutuzovStaeckelPotential",
-    "PseudoIsothermalPotential",
-    "RazorThinExponentialDiskPotential",
-    # P2.6 wrappers (their __init__ machinery is numpy-by-design; only the
-    # private compute methods below are checked)
-    "DehnenSmoothWrapperPotential",
-    "GaussianAmplitudeWrapperPotential",
-    "TimeDependentAmplitudeWrapperPotential",
-    "SolidBodyRotationWrapperPotential",
-    "CorotatingRotationWrapperPotential",
-    "RotateAndTiltWrapperPotential",
-    "KuzminLikeWrapperPotential",
-    "OblateStaeckelWrapperPotential",
-    "CylindricallySeparablePotentialWrapper",
-]
+# ``numpy`` attributes that are plain Python scalars rather than array
+# operations: ``numpy.pi`` is bit-for-bit ``math.pi`` and ``numpy.newaxis`` IS
+# ``None``, so they behave identically under every backend and need no ``xp.``
+# form. Nothing callable may be added here -- see the test below.
+SAFE_NUMPY_ATTRS = frozenset({"pi", "e", "euler_gamma", "inf", "nan", "newaxis"})
 
 
-class _BareNumpyVisitor(ast.NodeVisitor):
+def _numpy_guard(test):
+    """Polarity of a namespace guard.
+
+    ``True``  -- the test holding means we are on the numpy path,
+    ``False`` -- it means we are on a backend path,
+    ``None``  -- the test says nothing about the namespace.
+    """
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = _numpy_guard(test.operand)
+        return None if inner is None else not inner
+    if (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.left, ast.Name)
+        and test.left.id == "xp"
+        and isinstance(test.comparators[0], ast.Name)
+        and test.comparators[0].id == "numpy"
+    ):
+        if isinstance(test.ops[0], ast.Is):
+            return True
+        if isinstance(test.ops[0], ast.IsNot):
+            return False
+    if (
+        isinstance(test, ast.Call)
+        and isinstance(test.func, ast.Name)
+        and test.func.id == "is_backend_array"
+    ):
+        return False
+    return None
+
+
+def _always_exits(body):
+    """True if control can not fall out of the bottom of ``body``."""
+    if not body:
+        return False
+    last = body[-1]
+    if isinstance(last, (ast.Return, ast.Raise)):
+        return True
+    if isinstance(last, ast.If) and last.orelse:
+        return _always_exits(last.body) and _always_exits(last.orelse)
+    return False
+
+
+class _BareNumpyVisitor:
+    """Collect bare ``numpy.<fn>`` uses in compute methods that a backend array
+    can actually reach.
+
+    A migrated potential is allowed a numpy branch alongside its backend branch
+    (that dual path is the documented convention, not a numpy island), so uses
+    inside a region a namespace guard proves is numpy-only are not violations.
+    Tracking that is what lets dual-path modules be checked at all -- and they
+    are the ones where the check earns its keep, since the two branches sit
+    side by side and it is easy to edit the wrong one.
+    """
+
     def __init__(self):
         self.violations = []
 
-    def visit_FunctionDef(self, node):
-        if node.name in COMPUTE_METHODS:
-            for sub in ast.walk(node):
-                if (
-                    isinstance(sub, ast.Attribute)
-                    and isinstance(sub.value, ast.Name)
-                    and sub.value.id == "numpy"
-                ):
-                    self.violations.append((node.name, f"numpy.{sub.attr}", sub.lineno))
-        self.generic_visit(node)
+    def visit(self, tree):
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in COMPUTE_METHODS:
+                self._block(node.body, node.name, False)
+        return self
+
+    def _block(self, stmts, where, numpy_only):
+        for stmt in stmts:
+            if isinstance(stmt, ast.If):
+                polarity = _numpy_guard(stmt.test)
+                self._expr(stmt.test, where, numpy_only)
+                self._block(stmt.body, where, numpy_only or polarity is True)
+                self._block(stmt.orelse, where, numpy_only or polarity is False)
+                # `if <backend>: return ...` with no else: the rest of this
+                # block is only reachable on the numpy path
+                if polarity is False and not stmt.orelse and _always_exits(stmt.body):
+                    numpy_only = True
+                continue
+            for field, value in ast.iter_fields(stmt):
+                items = value if isinstance(value, list) else [value]
+                if field in ("body", "orelse", "finalbody"):
+                    # nested block (loop, with, try, closure): same path
+                    self._block(
+                        [s for s in items if isinstance(s, ast.AST)], where, numpy_only
+                    )
+                else:
+                    for item in items:
+                        if isinstance(item, ast.AST):
+                            self._expr(item, where, numpy_only)
+
+    def _expr(self, node, where, numpy_only):
+        if isinstance(node, ast.IfExp):  # x if <guard> else y
+            polarity = _numpy_guard(node.test)
+            self._expr(node.test, where, numpy_only)
+            self._expr(node.body, where, numpy_only or polarity is True)
+            self._expr(node.orelse, where, numpy_only or polarity is False)
+            return
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "numpy"
+        ):
+            if not numpy_only and node.attr not in SAFE_NUMPY_ATTRS:
+                self.violations.append((where, f"numpy.{node.attr}", node.lineno))
+            return
+        for child in ast.iter_child_nodes(node):
+            self._expr(child, where, numpy_only)
 
 
-@pytest.mark.parametrize("clsname", MIGRATED)
-def test_no_bare_numpy_in_compute_methods(clsname):
-    cls = getattr(potential, clsname)
-    module = inspect.getmodule(cls)
-    tree = ast.parse(inspect.getsource(module))
-    visitor = _BareNumpyVisitor()
-    visitor.visit(tree)
-    assert not visitor.violations, (
-        f"{clsname}: bare numpy.* in compute methods (use xp=get_namespace(...) "
-        f"or math.pi): {visitor.violations}"
+def _declares_backend_compatible(path):
+    """True if a class in this module sets ``self._backend_compatible = True``."""
+    for node in ast.walk(ast.parse(path.read_text())):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and node.value.value is True
+            and any(
+                isinstance(t, ast.Attribute) and t.attr == "_backend_compatible"
+                for t in node.targets
+            )
+        ):
+            return True
+    return False
+
+
+# Derived, not hand-maintained: every module declaring a backend-compatible
+# potential is checked, so a newly migrated potential is covered the day it
+# lands. The allowlist this replaces had drifted to 15 of 48 modules.
+CHECKED_MODULES = sorted(
+    {
+        p
+        for p in pathlib.Path(potential.__file__).parent.glob("*.py")
+        if _declares_backend_compatible(p)
+    }
+    | {
+        # these two inherit the flag from the potential they wrap, so the scan
+        # above cannot see it; they were on the original allowlist
+        pathlib.Path(inspect.getmodule(getattr(potential, _name)).__file__)
+        for _name in (
+            "SolidBodyRotationWrapperPotential",
+            "TimeDependentAmplitudeWrapperPotential",
+        )
+    }
+)
+
+
+@pytest.mark.parametrize("module_path", CHECKED_MODULES, ids=lambda p: p.stem)
+def test_no_bare_numpy_in_compute_methods(module_path):
+    violations = (
+        _BareNumpyVisitor().visit(ast.parse(module_path.read_text())).violations
+    )
+    assert not violations, (
+        f"{module_path.name}: bare numpy.* reachable from a backend path in "
+        f"compute methods. Use xp = get_namespace(...) then xp.<fn>, or put the "
+        f"use behind `if xp is numpy:`. Sites: {violations}"
+    )
+
+
+def test_checked_module_registry_is_populated():
+    """CHECKED_MODULES is derived by an AST scan, so a scan that silently stops
+    matching would empty the parametrization above and make it a vacuous pass.
+    """
+    assert len(CHECKED_MODULES) >= 40, (
+        f"registry collapsed to {len(CHECKED_MODULES)} modules: "
+        f"{sorted(p.stem for p in CHECKED_MODULES)}"
+    )
+    # anchored on the classes, not on file names, so moving a class between
+    # modules cannot quietly drop it from the checked set
+    checked = set(CHECKED_MODULES)
+    for anchor in (
+        "PlummerPotential",
+        "NFWPotential",
+        "MiyamotoNagaiPotential",
+        "RazorThinExponentialDiskPotential",
+        "SolidBodyRotationWrapperPotential",
+    ):
+        home = pathlib.Path(inspect.getmodule(getattr(potential, anchor)).__file__)
+        assert home in checked, f"{anchor} ({home.name}) dropped out of the checked set"
+
+
+def test_safe_numpy_attrs_holds_only_scalar_constants():
+    """The allowlist exists for constants like numpy.pi; letting an array
+    operation in would blind the checker to exactly what it looks for.
+    """
+    for attr in SAFE_NUMPY_ATTRS:
+        value = getattr(numpy, attr)
+        assert value is None or isinstance(value, float), (
+            f"numpy.{attr} is {type(value).__name__}, not a scalar constant"
+        )
+
+
+def _scan(body):
+    return (
+        _BareNumpyVisitor()
+        .visit(ast.parse(f"def _evaluate(self, R):\n{body}"))
+        .violations
+    )
+
+
+# For each namespace-guard form: (numpy use on the numpy side -> exempt,
+# the same guard with the numpy use moved to the BACKEND side -> must be
+# caught). The second half is what stops the exemptions from quietly
+# swallowing the regressions they exist to permit past.
+_GUARD_CASES = {
+    "if_xp_is_numpy": (
+        "    if xp is numpy:\n        return numpy.exp(R)\n    return xp.exp(R)\n",
+        "    if xp is numpy:\n        return xp.exp(R)\n    return numpy.exp(R)\n",
+    ),
+    "early_return_backend": (
+        "    if xp is not numpy:\n        return xp.exp(R)\n    return numpy.exp(R)\n",
+        "    if xp is not numpy:\n        return numpy.exp(R)\n    return xp.exp(R)\n",
+    ),
+    "else_of_is_backend_array": (
+        "    if is_backend_array(R):\n        return xp.exp(R)\n    else:\n        return numpy.exp(R)\n",
+        "    if is_backend_array(R):\n        return numpy.exp(R)\n    else:\n        return xp.exp(R)\n",
+    ),
+    "not_is_backend_array": (
+        "    if not is_backend_array(R):\n        return numpy.exp(R)\n    return xp.exp(R)\n",
+        "    if not is_backend_array(R):\n        return xp.exp(R)\n    return numpy.exp(R)\n",
+    ),
+    "ternary": (
+        "    return numpy.exp(R) if xp is numpy else xp.exp(R)\n",
+        "    return xp.exp(R) if xp is numpy else numpy.exp(R)\n",
+    ),
+    "nested_in_loop": (
+        "    if xp is numpy:\n        for i in range(3):\n            R = numpy.exp(R)\n    return R\n",
+        "    for i in range(3):\n        R = numpy.exp(R)\n    return R\n",
+    ),
+}
+
+
+@pytest.mark.parametrize("form", sorted(_GUARD_CASES))
+def test_numpy_guarded_use_is_not_a_violation(form):
+    assert not _scan(_GUARD_CASES[form][0])
+
+
+@pytest.mark.parametrize("form", sorted(_GUARD_CASES))
+def test_bare_numpy_on_the_backend_side_is_caught(form):
+    violations = _scan(_GUARD_CASES[form][1])
+    assert [(where, name) for where, name, _ in violations] == [
+        ("_evaluate", "numpy.exp")
+    ]
+
+
+def test_scalar_constants_are_allowed_on_a_backend_path():
+    assert not _scan("    return numpy.pi * R + numpy.newaxis\n")
+
+
+def test_unguarded_array_function_is_a_violation():
+    assert [v[1] for v in _scan("    return numpy.exp(R)\n")] == ["numpy.exp"]
+
+
+def test_only_compute_methods_are_checked():
+    """__init__ machinery is numpy-by-design; the check must not spread to it."""
+    assert (
+        not _BareNumpyVisitor()
+        .visit(ast.parse("def __init__(self, R):\n    self._glx = numpy.exp(R)\n"))
+        .violations
     )
 
 
@@ -255,3 +474,130 @@ def test_scalar_only_gate_spares_unmigrated_potential(backend):
         # the scipy scalar path runs and returns a plain float, no crash.
         got = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=0.0)
+
+
+###############################################################################
+# Decorator ORDER: the jit boundary must sit inside the units layer.
+#
+# Decorators apply bottom-up, so a method written
+#
+#     @backend_input("R", "z")      <- jit boundary
+#     @physical_conversion("force")  <- builds the Quantity
+#
+# attaches output units INSIDE the traced region, and Quantity.__new__ calls
+# __array__, which a tracer refuses (TracerArrayConversionError). Putting
+# physical_conversion OUTSIDE means the trace returns a concrete array and the
+# units are attached afterwards, which is both traceable and what the eager
+# path already does. This was 75 sites across 7 files, every one in the wrong
+# order, costing 33 jax --jit failures that had been mis-diagnosed as "astropy
+# and tracing are incompatible by design".
+###############################################################################
+
+_UNITS_DECORATORS = (
+    "physical_conversion",
+    "physical_conversion_tuple",
+    "physical_conversion_actionAngle",
+    "physical_conversion_actionAngleInverse",
+)
+
+
+def _decorator_name(dec):
+    """Bare name of a decorator node, whether or not it is called."""
+    node = dec.func if isinstance(dec, ast.Call) else dec
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _order_violations(path):
+    """(qualname, units_idx, boundary_idx) where the boundary is OUTSIDE units."""
+    out = []
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        names = [_decorator_name(d) for d in node.decorator_list]
+        if "backend_input" not in names:
+            continue
+        units = [ii for ii, n in enumerate(names) if n in _UNITS_DECORATORS]
+        if not units:
+            continue
+        boundary = names.index("backend_input")
+        # decorator_list is source order, i.e. OUTERMOST first: a lower index is
+        # further out. The units decorator must be outside the boundary.
+        if min(units) > boundary:
+            out.append((node.name, min(units), boundary))
+    return out
+
+
+_UNITS_BOUNDARY_FILES = sorted(
+    p
+    for p in pathlib.Path(potential.__file__).parent.parent.rglob("*.py")
+    if "backend_input" in p.read_text() and "physical_conversion" in p.read_text()
+)
+
+
+def test_units_boundary_files_are_found():
+    """Guard the glob: an empty file list would make the check below vacuous."""
+    assert len(_UNITS_BOUNDARY_FILES) >= 5, (
+        f"only {len(_UNITS_BOUNDARY_FILES)} files carry both decorators; the "
+        "search is probably broken"
+    )
+
+
+@pytest.mark.parametrize("module_path", _UNITS_BOUNDARY_FILES, ids=lambda p: p.stem)
+def test_units_decorator_is_outside_the_jit_boundary(module_path):
+    violations = _order_violations(module_path)
+    assert not violations, (
+        f"{module_path.name}: @backend_input is OUTSIDE the units decorator on "
+        f"{[v[0] for v in violations]}. The Quantity would then be built inside "
+        "the jit trace and raise TracerArrayConversionError; put "
+        "@physical_conversion above @backend_input."
+    )
+
+
+def test_no_module_hand_rolls_namespace_detection():
+    """Backend identity is asked via name_of_namespace, not by inspecting __name__.
+
+    galpy.backend.name_of_namespace maps a resolved namespace to "numpy"/"jax"/
+    "torch". Modules that re-derive that from ``xp.__name__`` are re-implementing
+    it, and the re-implementation is only accidentally correct: ``"torch" in
+    xp.__name__`` works, ``xp.__name__.startswith("torch")`` does NOT, because the
+    torch namespace is ``array_api_compat.torch``. That exact slip disabled torch
+    tracing everywhere in galpy/backend/_jit.py and no test noticed -- an untraced
+    call returns the same values a traced one does, so only a coverage delta
+    caught it.
+
+    Asking through the helper makes the invariant structural instead of a
+    convention every author has to remember.
+    """
+    import ast
+    import pathlib
+
+    import galpy
+
+    root = pathlib.Path(galpy.__file__).parent
+    # _namespaces.py DEFINES the mapping, so it is the one place that may look at
+    # __name__ directly.
+    allowed = {"_namespaces.py"}
+    offenders = []
+    for path in sorted(root.rglob("*.py")):
+        if path.name in allowed:
+            continue
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:  # pragma: no cover - galpy always parses
+            continue
+        for node in ast.walk(tree):
+            # `<something>.__name__` compared against, or searched for, a backend
+            # name -- in either argument order.
+            if not isinstance(node, ast.Compare):
+                continue
+            src = ast.unparse(node)
+            if "__name__" not in src:
+                continue
+            if any(f'"{b}"' in src or f"'{b}'" in src for b in ("jax", "torch")):
+                offenders.append(f"{path.relative_to(root)}:{node.lineno}: {src}")
+    assert not offenders, (
+        "modules deriving the backend name from __name__ instead of calling "
+        "galpy.backend.name_of_namespace:\n  " + "\n  ".join(offenders)
+    )

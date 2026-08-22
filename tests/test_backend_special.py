@@ -11,6 +11,7 @@
 import numpy
 import pytest
 import scipy.special as scipy_special
+from conftest import torch_compiles
 
 from galpy.backend import as_numpy
 from galpy.backend import special as gsp
@@ -41,6 +42,7 @@ except ImportError:  # pragma: no cover
     torch = None
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
+_TORCH_COMPILES = torch_compiles()
 
 
 def _asarray(backend, x, requires_grad=False):
@@ -282,7 +284,10 @@ def test_hyp2f1_value_parity(backend, a, b, c):
     z = -_HYP2F1_W
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
-    rtol = 0.0 if backend == "numpy" else 1e-9  # fallback quadrature at r/a<~50
+    # numpy routes to scipy itself (exact); the jax/torch fallback quadrature
+    # measures 1.35e-14 worst-case over this grid, so 1e-12 keeps ~70x headroom
+    # for libm differences across platforms while still pinning real accuracy.
+    rtol = 0.0 if backend == "numpy" else 1e-12
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
 
 
@@ -295,6 +300,27 @@ def test_hyp2f1_extreme_z_bounded_error(backend, a, b, c):
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-4, atol=1e-8)
+
+
+@pytest.mark.skipif("'torch' not in BACKENDS or not _TORCH_COMPILES")
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_survives_inductor_fusion(a, b, c):
+    # Regression: inductor's FUSED expm1 (unlike its standalone one, which is
+    # exact) degenerates to exp(x)-1 for tiny arguments and returns 0 there. The
+    # fallback's first quadrature node sits at XL ~ 1e-49, so T became 0, then
+    # T**(B-1) with B-1 < 0 became inf, and the whole quadrature was inf -- at
+    # EVERY z, not just extreme ones. That made TwoPowerSpherical/-Triaxial
+    # compile to inf while eager was correct, i.e. SILENTLY wrong output rather
+    # than an error. Compare compiled against scipy, not merely against eager,
+    # so a regression that breaks both paths at once still fails.
+    z = -_HYP2F1_W
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    compiled = torch.compile(
+        lambda zz: gsp.hyp2f1(a, b, c, zz), fullgraph=False, dynamic=False
+    )
+    got = as_numpy(compiled(_asarray("torch", z)))
+    assert numpy.all(numpy.isfinite(got)), "inductor reintroduced the inf blow-up"
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -423,6 +449,99 @@ def test_hyp2f1_fallback_alt_labeling(backend):
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+# Parameter sets the Euler integral cannot take directly. galpy's own anisotropic
+# DFs request all three (measured by instrumenting the fallback over
+# test_sphericaldf), and before the transformation/series routes existed each one
+# raised NotImplementedError.
+_HYP2F1_EULER_TRANSFORMED = [
+    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8 < 1
+    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5 < 1, both positive
+]
+_HYP2F1_BOTH_NONPOSITIVE = [
+    (-0.98, -0.04, 2.98),  # |a-b| = 0.94
+    (-0.51, -0.98, 2.51),  # |a-b| = 0.47
+    (-0.5, -0.5, 2.51),  # a == b: |a-b| = 0, the series' worst conditioning
+]
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c", _HYP2F1_EULER_TRANSFORMED, ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED]
+)
+def test_hyp2f1_fallback_euler_transformed(backend, a, b, c):
+    # Euler's transformation, 2F1(a,b;c;z) = (1-z)^(c-a-b) 2F1(c-a,c-b;c;z),
+    # leaves z alone, so the quadrature's z<=0 machinery applies verbatim to the
+    # transformed parameters. Accuracy is therefore the quadrature's own: this
+    # measures 1e-14 across the whole grid, so 1e-12 is a real bound, not a
+    # smoke check. Includes z=0 (where 2F1=1 exactly) and r/a=500.
+    z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 50.0, 500.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c", _HYP2F1_BOTH_NONPOSITIVE, ids=[str(x) for x in _HYP2F1_BOTH_NONPOSITIVE]
+)
+def test_hyp2f1_fallback_both_parameters_nonpositive(backend, a, b, c):
+    # With a and b both non-positive there is no admissible Euler labeling under
+    # ANY of the four standard transformations, so this routes to the Pfaff
+    # series. Over |z| <= 20 that is exact to double precision even for a == b
+    # (measured worst case 9e-13), which is where galpy's DFs actually call it
+    # (|z| < 1). The looser large-|z| behaviour is pinned separately below so
+    # this bound stays tight enough to catch a real regression.
+    z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 20.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_series_route_degrades_but_stays_bounded(backend):
+    # The counterpart: past |z| ~ 50 the series route falls off, because its
+    # convergence is algebraic in the term count rather than spectral. Pin the
+    # documented behaviour (2e-6 at |z|=50, see _SERIES_TERMS) so that neither a
+    # silent accuracy loss nor a divergence goes unnoticed.
+    a, b, c = -0.51, -0.98, 2.51
+    z = -numpy.array([50.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    rel = numpy.max(numpy.fabs(got / ref - 1.0))
+    assert rel < 1e-5, f"series route worse than documented at |z|=50: {rel:.2e}"
+    assert rel > 1e-9, (
+        "series route is now MORE accurate than documented at |z|=50 "
+        f"({rel:.2e}); if _SERIES_TERMS grew, refresh the table in its comment"
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c",
+    _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
+    ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE],
+)
+def test_hyp2f1_new_routes_grad_vs_fd(backend, a, b, c):
+    # Both new routes must differentiate, not merely evaluate: the DFs that need
+    # them are consumed by gradient-based work. Central differences on scipy is
+    # the reference, so this checks the derivative of the RIGHT function and not
+    # just self-consistency of the backend graph.
+    x0, eps = 0.617, 1e-6
+
+    def f_np(w):
+        return float(scipy_special.hyp2f1(a, b, c, -w))
+
+    fd = (f_np(x0 + eps) - f_np(x0 - eps)) / (2 * eps)
+    if backend == "jax":
+        ad = float(jax.grad(lambda w: gsp.hyp2f1(a, b, c, -w))(jnp.asarray(x0)))
+    else:
+        wt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.hyp2f1(a, b, c, -wt).backward()
+        ad = float(wt.grad)
+    assert not numpy.isnan(ad), f"gradient is NaN for ({a}, {b}, {c})"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
 
 
 def test_fallback_unsupported_regimes_raise():
@@ -836,6 +955,42 @@ def test_ellipk_ellipe_negative_m_and_unit(backend):
     numpy.testing.assert_allclose(as_numpy(gsp.ellipe(_asarray(backend, 1.0))), 1.0)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_ellipkm1_stays_exact_where_ellipk_cannot(backend):
+    # K(m) near m=1 can only be reached through the complement: reconstructing
+    # the argument as 1-m1 collapses to exactly 1.0 once m1 drops below an ulp,
+    # and ellipk(1.0) is inf. ellipkm1 takes m1 directly, so it stays finite and
+    # accurate all the way down. (This is how the razor-thin-disk integrands hit
+    # it: their 1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) vanishes as z -> 0 at a = R.)
+    m1 = numpy.array([0.9, 0.5, 1e-3, 1e-9, 1e-15, 1e-16, 1e-20, 1e-100, 1e-300])
+    got = as_numpy(gsp.ellipkm1(_asarray(backend, m1)))
+    numpy.testing.assert_allclose(got, scipy_special.ellipkm1(m1), rtol=1e-13)
+    assert numpy.all(numpy.isfinite(got))
+    # the route this replaces really does fail on the same inputs
+    assert numpy.isinf(scipy_special.ellipk(1.0 - m1[-1]))
+    # and agrees with ellipk wherever ellipk is still usable
+    numpy.testing.assert_allclose(
+        as_numpy(gsp.ellipkm1(_asarray(backend, m1[:3]))),
+        as_numpy(gsp.ellipk(_asarray(backend, 1.0 - m1[:3]))),
+        rtol=1e-13,
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_ellipkm1_grad_matches_closed_form(backend):
+    # dK/dm1 = -dK/dm = -(E(m) - (1-m) K(m)) / (2 m (1-m)), evaluated at m = 1-m1.
+    for x in (0.3, 1e-3, 1e-6):
+        m = 1.0 - x
+        ref = -(scipy_special.ellipe(m) - x * scipy_special.ellipk(m)) / (2.0 * m * x)
+        if backend == "jax":
+            got = float(jax.grad(lambda t: gsp.ellipkm1(t))(jnp.asarray(x)))
+        else:
+            t = torch.tensor(x, dtype=torch.float64, requires_grad=True)
+            gsp.ellipkm1(t).backward()
+            got = float(t.grad)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-11)
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_ellipe_negative_m_grad_finite(backend):
     # dE/dm = (E-K)/(2m) is finite for m<0 (sqrt(m) must not enter the E series).
@@ -892,3 +1047,36 @@ def test_router_promotes_numpy_scalar_params_torch():
     p_py = PSPC(alpha=1.3, rc=2.0)
     p_np = PSPC(alpha=numpy.float64(1.3), rc=2.0)
     assert torch.allclose(p_py._rforce(r), p_np._rforce(r))
+
+
+# 0 < z < 1 was UNTESTED until 2026-08-11: every grid above uses z = -_HYP2F1_W,
+# i.e. z <= 0. The fallback is built for z <= 0 and, applied to positive z, was
+# returning the first-order Taylor series 1 + (ab/c)z -- 5.1e-03 wrong at z=0.1
+# rising to 6.4e-01 at z=0.95, silently. galpy itself only passes z <= 0
+# (TwoPowerSphericalPotential spans -15.8 .. -0.06) so nothing in-tree was
+# affected, which is exactly why no test caught it. It now enters via Pfaff,
+# 2F1(a,b;c;z) = (1-z)^{-a} 2F1(a, c-b; c; z/(z-1)), landing on the z <= 0 domain.
+_HYP2F1_ZPOS = numpy.array([1e-8, 0.05, 0.1, 0.4, 0.8, 0.95, 0.999])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_positive_z_matches_scipy(backend, a, b, c):
+    z = _HYP2F1_ZPOS
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    # Same bar as the z <= 0 parity test: Pfaff reuses that machinery, so the
+    # accuracy is the same modulo the (1-z)^{-a} prefactor. Measured worst case
+    # over this grid is 9.9e-07, on the one parameter set whose z <= 0 accuracy
+    # is itself ~4e-06 (a pre-existing floor, not introduced by the transform),
+    # so 1e-5 pins the transform without re-litigating that floor.
+    rtol = 0.0 if backend == "numpy" else 1e-5
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
+    # And pin the specific failure mode: the old code returned the 2-term series,
+    # so assert we are NOT that. Without this the test would still pass if a
+    # future change silently reverted to a low-order truncation at small z.
+    if backend != "numpy":
+        two_term = 1.0 + (a * b / c) * z
+        assert numpy.max(numpy.abs(got - two_term)) > 1e-3, (
+            "hyp2f1 looks like the first-order Taylor series again"
+        )

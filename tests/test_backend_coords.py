@@ -304,3 +304,226 @@ def test_uv_to_Rz_indiv_delta_forced_backend(backend_name, oblate):
     numpy.testing.assert_allclose(as_numpy(z), zref, rtol=1e-13, atol=1e-14)
     numpy.testing.assert_allclose(as_numpy(R2), Rref2, rtol=1e-13, atol=1e-14)
     numpy.testing.assert_allclose(as_numpy(z2), zref2, rtol=1e-13, atol=1e-14)
+
+
+# --- degreeDecorator's backend branch + lb_to_radec's rotation branch --------
+# Two lines that a numpy-only run can never reach, and the coverage-uploading
+# shards run numpy (see the backend-branch coverage note): degreeDecorator's
+# `if is_backend_array(out): scale = asarray_on_device(...)` and the
+# rotation-matrix branch of lb_to_radec, which numpy skips because astropy is
+# present. Exercised here with a real backend array, which is the only way to
+# reach them.
+_LDEG = numpy.array([12.0, 200.0, 351.0])
+_BDEG = numpy.array([-40.0, 5.0, 62.0])
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_lb_to_radec_backend_branch_matches_numpy(backend_name):
+    # Backend-vs-numpy parity. NOTE the reference path is environment
+    # dependent: with astropy present numpy uses SkyCoord, and on the
+    # astropy-free test_backend shard it uses the same rotation matrix as the
+    # backend. Both agree to roundoff (astropy-vs-rotation measured at
+    # ~1.6e-15 rad), so the assertion holds either way.
+    ref = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+    with use(backend_name, force=True):
+        got = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+        assert is_backend_array(got), "lb_to_radec did not preserve the backend"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_degree_decorator_scales_backend_output(backend_name):
+    # degree=True must scale the output columns for a backend array too; this
+    # is the `is_backend_array(out)` branch of degreeDecorator.
+    ref_deg = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+    ref_rad = coords.lb_to_radec(
+        numpy.radians(_LDEG), numpy.radians(_BDEG), degree=False
+    )
+    with use(backend_name, force=True):
+        got_deg = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+        got_rad = coords.lb_to_radec(
+            numpy.radians(_LDEG), numpy.radians(_BDEG), degree=False
+        )
+    # the degree output is exactly 180/pi times the radian one, elementwise
+    numpy.testing.assert_allclose(
+        as_numpy(got_deg), numpy.degrees(as_numpy(got_rad)), rtol=1e-13, atol=0
+    )
+    numpy.testing.assert_allclose(as_numpy(got_deg), ref_deg, rtol=0, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got_rad), ref_rad, rtol=0, atol=1e-13)
+
+
+# ---------------------------------------------------------------------------
+# The galcenrect -> heliocentric -> sky chain (#184).
+#
+# Each of these was plain @scalarDecorator, so it promoted its inputs through
+# numpy and silently returned numpy even when handed a backend array. That is
+# what made streamTrack's sky-frame cov() raise "Multiple namespaces" on an
+# unforced mixed track and "Can't call numpy() on Tensor that requires grad"
+# under a gradient.
+#
+# These assert the RETURN TYPE, not just the values, and that is deliberate:
+# a byte-identity check cannot distinguish a working migration from one that
+# does nothing, because the numpy path is unchanged either way. During this
+# migration @backendNative was briefly placed as the OUTERMOST decorator, which
+# marks the scalarDecorator wrapper rather than the function scalarDecorator
+# inspects -- every migration was inert and every value check still passed.
+# Only a type assertion catches that.
+# ---------------------------------------------------------------------------
+_CHAIN_CASES = {
+    "galcenrect_to_XYZ": lambda c, a: c.galcenrect_to_XYZ(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "galcenrect_to_vxvyvz": lambda c, a: c.galcenrect_to_vxvyvz(
+        a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
+    ),
+    "XYZ_to_lbd": lambda c, a: c.XYZ_to_lbd(a["x"], a["y"], a["z"], degree=False),
+    "vxvyvz_to_vrpmllpmbb": lambda c, a: c.vxvyvz_to_vrpmllpmbb(
+        a["vx"], a["vy"], a["vz"], a["x"], a["y"], a["z"], XYZ=True, degree=False
+    ),
+    "pmllpmbb_to_pmrapmdec": lambda c, a: c.pmllpmbb_to_pmrapmdec(
+        a["pmll"], a["pmbb"], a["l"], a["b"], degree=False
+    ),
+}
+
+
+def _chain_args():
+    rng = numpy.random.default_rng(19)
+    n = 7
+    return {
+        "x": rng.normal(size=n) + 1.5,
+        "y": rng.normal(size=n),
+        "z": 0.4 * rng.normal(size=n),
+        "vx": rng.normal(size=n),
+        "vy": rng.normal(size=n) + 1.0,
+        "vz": 0.3 * rng.normal(size=n),
+        "l": rng.random(size=n) * 5.0,
+        "b": (rng.random(size=n) - 0.5),
+        "pmll": rng.normal(size=n),
+        "pmbb": rng.normal(size=n),
+    }
+
+
+def _as_backend(backend_name, arr):
+    """A real backend array while the AMBIENT backend stays numpy."""
+    if backend_name == "jax":
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+        import jax.numpy as jnp
+
+        return jnp.asarray(arr)
+    import torch
+
+    return torch.tensor(numpy.asarray(arr, dtype=float), dtype=torch.float64)
+
+
+def _all_backend(res):
+    """True when every array in ``res`` is a backend array (res may be a tuple)."""
+    parts = res if isinstance(res, tuple) else (res,)
+    return all(is_backend_array(a) for a in parts)
+
+
+@pytest.mark.parametrize("shape", ["scalar", "array"])
+@pytest.mark.parametrize("name", sorted(_CHAIN_CASES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sky_chain_preserves_backend_and_matches_numpy(backend_name, name, shape):
+    # Two things this test is careful about, both learned the hard way:
+    #
+    # 1. UNFORCED. Under `use(..., force=True)` these recover even with the
+    #    marker misplaced, because get_namespace reports the caller's intent and
+    #    the body's promote_scalars re-coerces. Forcing hides the bug.
+    # 2. SCALAR inputs. scalarDecorator only rewrites its arguments when they
+    #    are 0-d (`if xp.asarray(args[0]).ndim == 0`), so with array inputs the
+    #    marker is never consulted and the test passes either way. streamTrack
+    #    calls these per-tp with scalars, which is why it was the thing that
+    #    broke. Verified: with @backendNative moved outermost, scalar-in returns
+    #    a tuple of numpy float64 and this test fails; array-in stays Tensor.
+    args = _chain_args()
+    if shape == "scalar":
+        args = {k: v[0] for k, v in args.items()}
+    call = _CHAIN_CASES[name]
+    ref = numpy.asarray(call(coords, args))
+    bargs = {k: _as_backend(backend_name, v) for k, v in args.items()}
+    got = call(coords, bargs)
+    assert _all_backend(got), f"{name} dropped back to numpy ({shape}, unforced)"
+    flat = (
+        numpy.asarray([as_numpy(a) for a in got])
+        if isinstance(got, tuple)
+        else as_numpy(got)
+    )
+    numpy.testing.assert_allclose(
+        flat,
+        ref,
+        rtol=1e-13,
+        atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
+        err_msg=f"{name} backend value does not match numpy ({shape})",
+    )
+
+
+@pytest.mark.parametrize("extra_rot", [True, False])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcen_rot_array_Xsun_and_extra_rot(backend_name, extra_rot):
+    # _galcen_rot has two shapes: a (3, 3) rotation for scalar Xsun/Zsun and a
+    # (3, 3, N) one when they are arrays, and _apply_galcen_rot contracts them
+    # differently (matmul vs a per-point sum). The scalar/default case is
+    # covered above; this exercises the batched branch and _extra_rot=False,
+    # which the streamTrack path never reaches.
+    rng = numpy.random.default_rng(23)
+    n = 6
+    x, y, z = rng.normal(size=n) + 1.5, rng.normal(size=n), 0.3 * rng.normal(size=n)
+    vx, vy, vz = rng.normal(size=n), rng.normal(size=n) + 1.0, 0.2 * rng.normal(size=n)
+    Xarr, Zarr = 1.0 + 0.1 * rng.random(n), 0.02 * rng.random(n)
+    for Xs, Zs, tag in ((1.0, 0.02, "scalar"), (Xarr, Zarr, "array")):
+        ref_x = numpy.asarray(
+            coords.galcenrect_to_XYZ(x, y, z, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot)
+        )
+        ref_v = numpy.asarray(
+            coords.galcenrect_to_vxvyvz(
+                vx, vy, vz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+            )
+        )
+        bx, by, bz = (_as_backend(backend_name, a) for a in (x, y, z))
+        bvx, bvy, bvz = (_as_backend(backend_name, a) for a in (vx, vy, vz))
+        got_x = coords.galcenrect_to_XYZ(
+            bx, by, bz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+        )
+        got_v = coords.galcenrect_to_vxvyvz(
+            bvx, bvy, bvz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+        )
+        assert _all_backend(got_x), (
+            f"XYZ dropped to numpy ({tag}, extra_rot={extra_rot})"
+        )
+        assert _all_backend(got_v), f"v dropped to numpy ({tag}, extra_rot={extra_rot})"
+        for got, ref, what in ((got_x, ref_x, "XYZ"), (got_v, ref_v, "vxvyvz")):
+            numpy.testing.assert_allclose(
+                as_numpy(got),
+                ref,
+                rtol=1e-13,
+                atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
+                err_msg=f"{what} mismatch ({tag}, _extra_rot={extra_rot})",
+            )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_vxvyvz_to_vrpmllpmbb_XYZ_degree_backend(backend_name):
+    # XYZ=True + degree=True is the one combination with its own backend branch:
+    # degreeDecorator has already converted args 3/4 deg->rad, which is wrong when
+    # they are X/Y rather than l/b, so the body undoes it. numpy undoes it in
+    # place (`l *= ...`); backend arrays are immutable, so there is a separate
+    # out-of-place branch. Nothing else in the suite passes both flags with
+    # backend arrays, which left those two lines the only uncovered ones in
+    # coords.py.
+    X = numpy.array([1.2, -0.7, 0.3])
+    Y = numpy.array([-0.4, 0.9, 1.1])
+    Z = numpy.array([0.25, -0.6, 0.8])
+    vx = numpy.array([10.0, -20.0, 5.0])
+    vy = numpy.array([-30.0, 15.0, 25.0])
+    vz = numpy.array([7.0, -3.0, 12.0])
+    ref = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True, degree=True)
+    got = coords.vxvyvz_to_vrpmllpmbb(
+        *[_as_backend(backend_name, a) for a in (vx, vy, vz, X, Y, Z)],
+        XYZ=True,
+        degree=True,
+    )
+    assert _all_backend(got), "XYZ+degree backend path fell back to numpy"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)

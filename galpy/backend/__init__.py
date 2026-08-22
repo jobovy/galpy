@@ -19,15 +19,18 @@ from ._coerce import (
 )
 from ._compat import is_backend_compatible
 from ._input import backend_input
+from ._jit import jit, jit_mode, set_jit
 from ._namespaces import (
     as_numpy,
     asarray_on_device,
     device_of,
     exit_cast,
+    has_concrete_truth_value,
     is_backend_array,
     match_input_dtype,
     name_of_namespace,
     resolve_namespace,
+    restrict_to_single_thread,
 )
 from ._resolver import (
     _seed_from_config,
@@ -44,10 +47,14 @@ _seed_from_config()
 __all__ = [
     "autodiff_ops",
     "backend_input",
+    "jit",
+    "jit_mode",
+    "set_jit",
     "get_namespace",
     "backend",
     "use",
     "set_default_backend",
+    "has_concrete_truth_value",
     "is_backend_array",
     "is_backend_compatible",
     "match_input_dtype",
@@ -57,6 +64,7 @@ __all__ = [
     "as_numpy",
     "exit_cast",
     "resolve_namespace",
+    "restrict_to_single_thread",
     "as_backend_constant",
     "coerce_coords",
     "promote_scalars",

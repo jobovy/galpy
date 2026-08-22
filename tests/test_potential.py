@@ -15,8 +15,9 @@ try:
 except ImportError:
     _PYNBODY_LOADED = False
 from galpy import orbit, potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, get_namespace, is_backend_array
 from galpy.util import _rotate_to_arbitrary_vector, coords
+from galpy.util._optional_deps import _APY_LOADED
 
 try:
     import torch as _torch
@@ -101,6 +102,14 @@ def _make_pots_normalize():
     for p in rmpots:
         pots.remove(p)
     return pots
+
+
+def _make_pots_pickle():
+    # Every default-constructible potential class that galpy itself ships: the
+    # normalize membership minus the mock potentials defined in this module
+    # (which are not attributes of galpy.potential), because this test is about
+    # what the library exports, not about the mocks.
+    return [p for p in _make_pots_normalize() if hasattr(potential, p)]
 
 
 def _make_pots_forceAsDeriv():
@@ -1103,6 +1112,7 @@ _TOVERTICAL_ARRAY_POTS = _make_pots_toVertical_array()
 _AT_ZERO_POTS = _make_pots_potential_at_zero()
 _AT_INFINITY_POTS = _make_pots_potential_at_infinity()
 _TOVERTICAL_TOPLANAR_POTS = _make_pots_toVertical_toPlanar()
+_PICKLE_POTS = _make_pots_pickle()
 
 
 # Test whether the normalization of the potential works
@@ -1160,6 +1170,260 @@ def test_normalize_potential_extra():
     assert (tp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
         "Normalization of %s potential fails" % "RingPotential"
     )
+    return None
+
+
+# Potentials have to survive a pickle round-trip: multiprocessing ships them to
+# worker processes by pickling them, and galpy.util.save_pickles is public API.
+@pytest.mark.parametrize("potname", _PICKLE_POTS)
+def test_pickling_potential(potname):
+    import pickle
+
+    tp = getattr(potential, potname)()
+    up = pickle.loads(pickle.dumps(tp))
+    # Exact equality, not a tolerance: unpickling has to reproduce the object,
+    # so every method has to return the identical float
+    nchecked = 0
+    for R, z in [(0.5, 0.125), (1.0, 0.0), (2.0, -0.75)]:
+        for method in ["__call__", "Rforce", "zforce", "dens"]:
+            try:
+                expected = getattr(tp, method)(R, z)
+            except Exception:  # not supported by this potential/at this point
+                continue
+            got = getattr(up, method)(R, z)
+            # Exact equality, with one carve-out: a NaN has to compare equal to
+            # itself. Under a trace some potentials return NaN off-domain by
+            # design (RazorThinExponentialDisk._R2deriv: the domain cannot be
+            # decided at trace time), and `nan == nan` is False, so a plain ==
+            # fails on two values that in fact agree.
+            both_nan = bool(numpy.isnan(as_numpy(got))) and bool(
+                numpy.isnan(as_numpy(expected))
+            )
+            assert both_nan or got == expected, (
+                f"Unpickled {potname}.{method}({R}, {z}) differs from the original"
+            )
+            nchecked += 1
+    assert nchecked > 0, f"No method of {potname} could be checked after unpickling"
+    return None
+
+
+# The callables the pickling tests below hand to potentials live at module level
+# on purpose: a function defined inside the test body is a local object, which
+# pickle cannot look up by name any more than it can a lambda, so the tests
+# would fail on their own fixtures rather than on the potential.
+def _pickletest_dens(R, z):
+    xp = get_namespace(R, z)
+    return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z))
+
+
+def _pickletest_dens_tdep(R, z, t=0.0):
+    return (1.0 + 0.2 * numpy.sin(0.7 * t)) * _pickletest_dens(R, z)
+
+
+def _pickletest_dens_nonaxi(R, z, phi):
+    return _pickletest_dens(R, z) * (1.0 + 0.05 * numpy.cos(phi))
+
+
+def _pickletest_Sigma(R):
+    return get_namespace(R).exp(-R / 0.3)
+
+
+def _pickletest_dSigmadR(R):
+    return -get_namespace(R).exp(-R / 0.3) / 0.3
+
+
+def _pickletest_d2SigmadR2(R):
+    return get_namespace(R).exp(-R / 0.3) / 0.3**2.0
+
+
+def _pickletest_hz(z):
+    xp = get_namespace(z)
+    return 1.0 / 2.0 / 0.04 * xp.exp(-xp.abs(z) / 0.04)
+
+
+def _pickletest_Hz(z):
+    xp = get_namespace(z)
+    return (xp.exp(-xp.abs(z) / 0.04) - 1.0 + xp.abs(z) / 0.04) * 0.04 / 2.0
+
+
+def _pickletest_dHzdz(z):
+    xp = get_namespace(z)
+    return 0.5 * xp.sign(z) * (1.0 - xp.exp(-xp.abs(z) / 0.04))
+
+
+def _pickletest_spherical_dens(r):
+    return 0.64 / r / (1.0 + r) ** 3.0
+
+
+if _APY_LOADED:
+    from astropy import units as _pickletest_units
+
+    def _pickletest_dens_unit_output(r):
+        return (
+            (0.64 / r / (1.0 + r) ** 3.0)
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**3.0
+        )
+
+    def _pickletest_dens_unit_input(r):
+        return (
+            0.64
+            / (r / _pickletest_units.kpc)
+            / (1.0 + r / _pickletest_units.kpc) ** 3.0
+        )
+
+    def _pickletest_dens_unit_both(r):
+        return (
+            (
+                0.64
+                / (r / _pickletest_units.kpc)
+                / (1.0 + r / _pickletest_units.kpc) ** 3.0
+            )
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**3.0
+        )
+
+
+# The potentials that take user-supplied callables build closures out of them,
+# which pickle cannot look up by name; these are the configurations of those
+# potentials that the default constructor does not reach.
+def test_getstate_leaks_no_scipy_splines():
+    import pickle
+
+    # scipy 1.18 cannot pickle PPoly/BPoly/CubicSpline (it caches the array
+    # namespace -- a module -- on them), so no __getstate__ may leave one in the
+    # state it returns.
+    #
+    # Asserted STRUCTURALLY rather than by listing attribute names. The
+    # name-list approach has now missed the same class of case three times: the
+    # attributes only a TIME-DEPENDENT expansion creates (_I_*_interp, _rho_*_interp
+    # on Multipole; _Acos_interp on SCF) are absent from a static instance, and a
+    # time-dependent potential is not default-constructible so the enumeration in
+    # _make_pots_pickle never sees one.
+    from scipy.interpolate import BPoly, PPoly
+
+    def find_splines(obj):
+        if isinstance(obj, (PPoly, BPoly)):
+            return [obj]
+        if isinstance(obj, (list, tuple)):
+            return [s for item in obj for s in find_splines(item)]
+        if isinstance(obj, dict):
+            return [s for item in obj.values() for s in find_splines(item)]
+        return []
+
+    _mn = potential.MiyamotoNagaiPotential(amp=1.3, a=0.5, b=0.3)
+    _rgrid = numpy.geomspace(0.05, 20.0, 30)
+    _tgrid = numpy.linspace(0.0, 2.0, 5)
+    cases = {
+        "Multipole static": potential.MultipoleExpansionPotential.from_density(
+            _pickletest_dens, L=4, symmetry="axisymmetric", rgrid=_rgrid
+        ),
+        # the configuration that populates the _interp attributes at all
+        "Multipole time-dependent": potential.MultipoleExpansionPotential.from_density(
+            _pickletest_dens_tdep,
+            L=4,
+            symmetry="axisymmetric",
+            rgrid=_rgrid,
+            tgrid=_tgrid,
+        ),
+    }
+    for name, pot in cases.items():
+        state = pot.__getstate__()
+        leaked = find_splines(state)
+        assert not leaked, (
+            f"{name}: __getstate__ leaks {len(leaked)} scipy "
+            f"{type(leaked[0]).__name__} object(s), which scipy 1.18 cannot pickle"
+        )
+        # spline-free is necessary but not sufficient -- the packed attributes
+        # must actually pickle. Whole-object pickling is NOT asserted here:
+        # from_density stores an internal lambda, so any potential built through
+        # it is unpicklable for an unrelated reason (the closure issue), which
+        # would mask exactly what this test is checking.
+        for attr in pot._PICKLE_SPLINE_ATTRS:
+            if attr in state:
+                pickle.dumps(state[attr])
+
+
+def test_pickling_potential_user_callables():
+    import pickle
+
+    dens = _pickletest_dens
+    pots = {
+        # dict-specified profiles: the closures are built by _parse_Sigma_dict /
+        # _parse_hz_dict, so both profile types of each have to be re-derivable
+        "DiskSCF exp/exp": potential.DiskSCFPotential(dens=dens),
+        "DiskSCF expwhole/sech2": potential.DiskSCFPotential(
+            Sigma={"type": "expwhole", "h": 1.0 / 3.0, "amp": 1.0, "Rhole": 0.5},
+            hz={"type": "sech2", "h": 1.0 / 27.0},
+        ),
+        # user-supplied profile callables: kept as-is, only the phiME closure
+        # around them is rebuilt
+        "DiskSCF callables": potential.DiskSCFPotential(
+            Sigma=_pickletest_Sigma,
+            dSigmadR=_pickletest_dSigmadR,
+            d2SigmadR2=_pickletest_d2SigmadR2,
+            Sigma_amp=1.0,
+            hz=_pickletest_hz,
+            Hz=_pickletest_Hz,
+            dHzdz=_pickletest_dHzdz,
+        ),
+        # non-axisymmetric: takes the other branch of _set_dens_funcs
+        "DiskSCF nonaxi": potential.DiskSCFPotential(dens=_pickletest_dens_nonaxi),
+        # non-axisymmetric multipole: the ONLY configuration that populates the
+        # _I_*_sin spline attributes, so an axisymmetric case alone would not
+        # exercise half of what __getstate__ has to pack
+        "DiskMultipole nonaxi": potential.DiskMultipoleExpansionPotential(
+            dens=_pickletest_dens_nonaxi
+        ),
+        "AnySpherical": potential.AnySphericalPotential(
+            dens=_pickletest_spherical_dens
+        ),
+    }
+    for label, tp in pots.items():
+        up = pickle.loads(pickle.dumps(tp))
+        for R, z in [(0.8, 0.05), (1.0, 0.0), (1.3, -0.2)]:
+            for method in ["__call__", "Rforce", "zforce", "dens"]:
+                assert getattr(up, method)(R, z) == getattr(tp, method)(R, z), (
+                    f"Unpickled {label}.{method}({R}, {z}) differs from the original"
+                )
+    return None
+
+
+# A density given in / expecting astropy units is wrapped in a unit-adapting
+# closure, one per combination of (input has units, output has units)
+@pytest.mark.skipif(not _APY_LOADED, reason="astropy not installed")
+def test_pickling_potential_unitful_dens():
+    import pickle
+
+    for label, dens in [
+        ("output", _pickletest_dens_unit_output),
+        ("input", _pickletest_dens_unit_input),
+        ("both", _pickletest_dens_unit_both),
+    ]:
+        tp = potential.AnySphericalPotential(dens=dens, ro=8.0, vo=220.0)
+        up = pickle.loads(pickle.dumps(tp))
+        for r in [0.5, 1.0, 2.0]:
+            assert up.dens(r, 0.0, use_physical=False) == tp.dens(
+                r, 0.0, use_physical=False
+            ), f"Unpickled AnySphericalPotential (units in/out: {label}) dens differs"
+            assert up.Rforce(r, 0.0, use_physical=False) == tp.Rforce(
+                r, 0.0, use_physical=False
+            ), f"Unpickled AnySphericalPotential (units in/out: {label}) Rforce differs"
+    return None
+
+
+# A user-supplied lambda still cannot be pickled -- that is a documented
+# limitation (same as FDMDynamicalFrictionForce's sigmar=), and the fix above
+# must not paper over it by silently dropping the density
+def test_pickling_potential_lambda_raises():
+    import pickle
+
+    for tp in [
+        potential.AnySphericalPotential(dens=lambda r: 0.5 / r**3.0),
+        potential.DiskSCFPotential(dens=lambda R, z: numpy.exp(-R - numpy.fabs(z))),
+    ]:
+        with pytest.raises((AttributeError, pickle.PicklingError)):
+            pickle.dumps(tp)
     return None
 
 
@@ -1284,9 +1548,22 @@ def test_forceAsDeriv_potential(potname):
                 dz = 10.0**-8.0
                 newZ = Zs[jj] + dz
                 dz = newZ - Zs[jj]  # Representable number
-                mpotderivz = (
-                    tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
-                ) / dz
+                if Zs[jj] == 0.0:
+                    # At the midplane Phi may have a |z| KINK -- a razor-thin
+                    # disk's is exactly 2*pi*Sigma(R)*|z| -- and there the
+                    # one-sided difference measures the one-sided slope, which
+                    # is +2*pi*Sigma(R), not dPhi/dz. Phi is even in z about a
+                    # midplane where Fz vanishes, so the CENTRED difference is
+                    # the right probe: it is 0 for the kink and -Fz for a smooth
+                    # potential, and it is O(dz^2) rather than O(dz) accurate.
+                    mpotderivz = (
+                        tp(Rs[ii], Zs[jj] - dz, phi=1.0)
+                        - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
+                    ) / (2.0 * dz)
+                else:
+                    mpotderivz = (
+                        tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
+                    ) / dz
                 tzforce = potential.evaluatezforces(tp, Rs[ii], Zs[jj], phi=1.0)
                 if tzforce**2.0 < 10.0**ttol:
                     assert mpotderivz**2.0 < 10.0**ttol, (
@@ -4085,11 +4362,15 @@ def test_rE_MWPotential2014():
         ) ** 2.0 / 2.0 + potential.evaluatePotentials(potential.MWPotential2014, r, 0.0)
 
     rmin, rmax = 1e-8, 1e5
-    Emin = Ec(rmin)
-    Emax = Ec(rmax)
+    # Ec returns a backend array under a forced backend; land the energy grid on
+    # numpy at the source so linspace does not carry Tensors into the comparison
+    Emin = as_numpy(Ec(rmin))
+    Emax = as_numpy(Ec(rmax))
     Es = numpy.linspace(Emin, Emax, 101)
-    rEs = numpy.array([potential.rE(potential.MWPotential2014, E) for E in Es])
-    Ecs = numpy.array([Ec(rE) for rE in rEs])
+    rEs = numpy.array(
+        [as_numpy(potential.rE(potential.MWPotential2014, E)) for E in Es]
+    )
+    Ecs = numpy.array([as_numpy(Ec(rE)) for rE in rEs])
     assert numpy.amax(numpy.fabs(Ecs - Es)) < 1e-8, (
         "rE method does not give the expected result for MWPotential2014"
     )
@@ -4355,12 +4636,23 @@ def test_ExpDisk_special():
     # Check the PotentialError for z=/=0 evaluation of R2deriv of RazorThinDiskPotential
     rp = potential.RazorThinExponentialDiskPotential(normalize=1.0)
     try:
-        rp.R2deriv(1.0, 0.1)
+        rpR2deriv = rp.R2deriv(1.0, 0.1)
     except potential.PotentialError:
-        pass
+        pass  # off-plane is outside the domain: the documented refusal
     else:
-        raise AssertionError(
-            "RazorThinExponentialDiskPotential's R2deriv did not raise AttributeError for z=/= 0 input"
+        # Under a trace the domain cannot be decided at trace time -- z is a
+        # tracer -- so refusing would mean refusing to trace at all. The chosen
+        # contract there is NaN off-plane instead. That is the ONLY circumstance
+        # in which not raising is acceptable: on numpy the refusal still stands.
+        from galpy.backend import get_namespace
+
+        assert get_namespace(1.0) is not numpy, (
+            "RazorThinExponentialDiskPotential's R2deriv did not raise "
+            "PotentialError for z=/=0 input on the numpy path"
+        )
+        assert numpy.isnan(as_numpy(rpR2deriv)), (
+            "RazorThinExponentialDiskPotential's R2deriv neither raised nor "
+            f"returned NaN for z=/=0 input; got {rpR2deriv!r}"
         )
     return None
 
@@ -6803,9 +7095,11 @@ def test_DiskSCFPotential_againstDoubleExp():
     dscfp = potential.DiskSCFPotential(
         dens=lambda R, z: dp.dens(R, z),
         Sigma_amp=1.0,
-        Sigma=lambda R: numpy.exp(-3.0 * R),
-        dSigmadR=lambda R: -3.0 * numpy.exp(-3.0 * R),
-        d2SigmadR2=lambda R: 9.0 * numpy.exp(-3.0 * R),
+        # namespace-agnostic so the same fixture runs under --jit; xp.exp IS
+        # numpy.exp on the numpy path, so eager values are unchanged
+        Sigma=lambda R: get_namespace(R).exp(-3.0 * R),
+        dSigmadR=lambda R: -3.0 * get_namespace(R).exp(-3.0 * R),
+        d2SigmadR2=lambda R: 9.0 * get_namespace(R).exp(-3.0 * R),
         hz={"type": "exp", "h": 1.0 / 27.0},
         a=1.0,
         N=10,
@@ -12038,32 +12332,63 @@ class altExpwholeDiskSCFPotential(DiskSCFPotential):
         return None
 
 
+def _exp_disk_profile_callables(thp):
+    """dens/Sigma/hz callables shared by the nonaxi DiskSCF and
+    DiskMultipoleExpansion mocks, written namespace-agnostically.
+
+    These are USER-supplied callables. galpy traces whatever the user hands it,
+    so a numpy-only lambda cannot be traced -- that is correct behaviour, not a
+    galpy gap. Resolving the namespace from the argument keeps the numpy path
+    byte-identical (``xp.exp`` IS ``numpy.exp`` for numpy input) while letting
+    the same fixture run under ``--jit``.
+    """
+    from galpy.backend import get_namespace
+
+    def dens(R, z, phi):
+        xp = get_namespace(R, z)
+        return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z)) + thp.dens(
+            R, z, phi=phi
+        )
+
+    def sigma(R):
+        return get_namespace(R).exp(-3.0 * R)
+
+    def dsigmadr(R):
+        return -3.0 * get_namespace(R).exp(-3.0 * R)
+
+    def d2sigmadr2(R):
+        return 9.0 * get_namespace(R).exp(-3.0 * R)
+
+    def hz(z):
+        xp = get_namespace(z)
+        return 13.5 * xp.exp(-27.0 * xp.abs(z))
+
+    def Hz(z):
+        xp = get_namespace(z)
+        return (xp.exp(-27.0 * xp.abs(z)) - 1.0 + 27.0 * xp.abs(z)) / 54.0
+
+    def dHzdz(z):
+        xp = get_namespace(z)
+        return 0.5 * xp.sign(z) * (1.0 - xp.exp(-27.0 * xp.abs(z)))
+
+    return dict(
+        dens=dens,
+        Sigma_amp=[0.5, 0.5],
+        Sigma=[sigma, sigma],
+        dSigmadR=[dsigmadr, dsigmadr],
+        d2SigmadR2=[d2sigmadr2, d2sigmadr2],
+        hz=hz,
+        Hz=Hz,
+        dHzdz=dHzdz,
+    )
+
+
 class nonaxiDiskSCFPotential(DiskSCFPotential):
     def __init__(self):
         thp = triaxialHernquistPotential()
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z, phi: (
-                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
-                + thp.dens(R, z, phi=phi)
-            ),
-            Sigma_amp=[0.5, 0.5],
-            Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
-            dSigmadR=[
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-            ],
-            d2SigmadR2=[
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-            ],
-            hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
-            Hz=lambda z: (
-                (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z)) / 54.0
-            ),
-            dHzdz=lambda z: (
-                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-27.0 * numpy.fabs(z)))
-            ),
+            **_exp_disk_profile_callables(thp),
             N=5,
             L=5,
         )
@@ -12115,27 +12440,7 @@ class nonaxiDiskMultipoleExpansionPotential(DiskMultipoleExpansionPotential):
         thp = triaxialHernquistPotential()
         DiskMultipoleExpansionPotential.__init__(
             self,
-            dens=lambda R, z, phi: (
-                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
-                + thp.dens(R, z, phi=phi)
-            ),
-            Sigma_amp=[0.5, 0.5],
-            Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
-            dSigmadR=[
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-            ],
-            d2SigmadR2=[
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-            ],
-            hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
-            Hz=lambda z: (
-                (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z)) / 54.0
-            ),
-            dHzdz=lambda z: (
-                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-27.0 * numpy.fabs(z)))
-            ),
+            **_exp_disk_profile_callables(thp),
             L=5,
         )
         return None
@@ -12703,6 +13008,15 @@ class testMWPotential(Potential):
     def _surfdens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         return evaluateSurfaceDensities(
             self._potlist, R, z, phi=phi, t=t, forcepoisson=forcepoisson
+        )
+
+    def _surfdens_poisson(self, R, z, phi=0.0, t=0.0):
+        # Completes the delegation: Potential.surfdens(forcepoisson=True) raises
+        # before it reaches _surfdens above, so without this the Poisson route
+        # would integrate at THIS object's mid-plane (0) instead of at each
+        # component's own -- wrong for a displaced or tilted component.
+        return evaluateSurfaceDensities(
+            self._potlist, R, z, phi=phi, t=t, forcepoisson=True
         )
 
     def vcirc(self, R):
@@ -13883,17 +14197,23 @@ def test_anyaxisymrazorthin_smallz_limit():
     # NB an earlier version of this test asserted Fz/z was constant there. That
     # is the wrong physics and it passed *because* the values were garbage: a
     # correct implementation fails it.
+    # as_numpy at every readout: under a forced backend these return Tensors, and
+    # numpy.all/numpy.fabs on a Tensor raise (numpy forwards axis=/out=, which
+    # torch rejects). The assertions below are about VALUES, so cast once here
+    # rather than teaching each one about backends; as_numpy is a no-op on numpy.
     tp = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
     R = 0.5
-    limit = -2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)
+    limit = float(as_numpy(-2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)))
     zs = numpy.array([1e-5, 1e-6, 1e-8, 1e-12, 1e-20, 1e-30])
-    fz = numpy.array([tp.zforce(R, z, use_physical=False) for z in zs])
+    fz = numpy.array([float(as_numpy(tp.zforce(R, z, use_physical=False))) for z in zs])
     assert numpy.all(numpy.fabs(fz / limit - 1.0) < 3e-4), (
         f"zforce does not approach -2 pi Sigma(R) as z->0+: Fz/limit = {fz / limit}"
     )
     # Above the plane the disk pulls back toward it, and Fz is odd in z.
     assert numpy.all(fz < 0.0), f"zforce has the wrong sign above the plane: {fz}"
-    fz_neg = numpy.array([tp.zforce(R, -z, use_physical=False) for z in zs])
+    fz_neg = numpy.array(
+        [float(as_numpy(tp.zforce(R, -z, use_physical=False))) for z in zs]
+    )
     assert numpy.all(numpy.fabs(fz_neg + fz) < 3e-4 * numpy.fabs(limit)), (
         f"zforce is not odd in z: Fz(-z) = {fz_neg}, -Fz(z) = {-fz}"
     )
@@ -13905,7 +14225,7 @@ def test_anyaxisymrazorthin_smallz_limit():
     # contributes. Rforce and the second derivatives have no such prefactor and
     # a naive substitution overflows on their odd-part cancellation.
     for name in ("__call__", "Rforce"):
-        val = getattr(tp, name)(R, 1e-5, use_physical=False)
+        val = float(as_numpy(getattr(tp, name)(R, 1e-5, use_physical=False)))
         assert numpy.isfinite(val), f"{name} non-finite just below the peak scale"
     return None
 
@@ -13958,6 +14278,24 @@ def test_razorthinexponentialdisk_forces_at_the_closedform_handover():
     return None
 
 
+def _anyaxisym_surfdens(R):
+    """Sigma(R) = exp(-R/0.3), usable on every path AnyAxisym evaluates it on.
+
+    Dispatch on ``is_backend_array``, NOT on ``get_namespace``, copying
+    ``AnyAxisymmetricRazorThinDiskPotential._default_surfdens``, whose comment
+    spells out why: under a FORCED backend ``get_namespace`` returns that
+    backend's namespace even for a plain float, and ``torch.exp`` rejects a
+    float where ``jax.numpy.exp`` accepts one. The potential's concrete-scalar
+    branch hands ``_sdens`` a Python float (it reuses scipy's adaptive quad
+    there), so a bare ``get_namespace(R).exp`` raises
+    ``TypeError: exp(): argument 'input' must be Tensor, not float`` on torch --
+    measured, not hypothesised. Guarding this way keeps a numpy / float / Quantity
+    R on ``numpy.exp`` (byte-identical) and sends only a real backend array to
+    the namespace, which is what the traced run needs.
+    """
+    return (get_namespace(R) if is_backend_array(R) else numpy).exp(-R / 0.3)
+
+
 # AnyAxisymmetricRazorThinDiskPotential's second derivatives are Hadamard
 # finite-part integrals: the integrand diverges as C/(a-R)^2 with the SAME sign
 # on both sides of a=R, so the halves add rather than cancel. Evaluating them
@@ -13987,7 +14325,11 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
         2.0: 9.7856791896e-02,
     }
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: numpy.exp(-R / 0.3)
+        # Not bare numpy.exp: it raises TracerArrayConversionError on a tracer,
+        # so the --jit run failed here for a reason that had nothing to do with
+        # the potential. Same function either way, so the mpmath gold values
+        # below (for exactly Sigma(R)=exp(-R/0.3)) are unaffected.
+        surfdens=_anyaxisym_surfdens
     )
     for R, ref in gold_R2.items():
         got = p.R2deriv(R, 0.0, use_physical=False)
@@ -14035,7 +14377,11 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
     every other test stayed green -- exactly the blind spot this closes.
     """
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: numpy.exp(-R / 0.3)
+        # Not bare numpy.exp: it raises TracerArrayConversionError on a tracer,
+        # so the --jit run failed here for a reason that had nothing to do with
+        # the potential. Same function either way, so the mpmath gold values
+        # below (for exactly Sigma(R)=exp(-R/0.3)) are unaffected.
+        surfdens=_anyaxisym_surfdens
     )
     arr = numpy.array([0.8, 1.2])
     for name in ("__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv"):
@@ -14049,4 +14395,30 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
             meth(arr, 0.1, use_physical=False)
         with pytest.raises(TypeError):
             meth(1.0, arr, use_physical=False)
+
+
+# The units wrapper is dropped from the pickled state only when the density
+# needs numpy, and `_dens_needs_numpy` can only become True under astropy -- so
+# the coverage shard, which has no astropy, never reaches that branch. Force the
+# flag instead of requiring the optional dependency, and assert the contract
+# directly: the wrapper leaves the state, the callable it wraps stays, and
+# unpickling rebuilds an equivalent wrapper.
+def test_pickling_potential_drops_units_wrapper():
+    import pickle
+
+    tp = potential.AnySphericalPotential(dens=_pickletest_spherical_dens)
+    tp._dens_needs_numpy = True  # pretend the density came in with units
+    state = tp.__getstate__()
+    assert "_rawdens" not in state, (
+        "the units wrapper must not be pickled -- it is a closure"
+    )
+    assert state["_dens_input"] is _pickletest_spherical_dens, (
+        "the wrapped callable must stay in the state, or the density is lost"
+    )
+    up = pickle.loads(pickle.dumps(tp))
+    assert hasattr(up, "_rawdens"), "__setstate__ must rebuild the wrapper"
+    for r in [0.5, 1.0, 2.0]:
+        assert up.dens(r, 0.0, use_physical=False) == tp.dens(
+            r, 0.0, use_physical=False
+        ), "rebuilt density differs from the original"
     return None

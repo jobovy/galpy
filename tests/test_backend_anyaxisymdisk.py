@@ -16,14 +16,19 @@
 #
 # Design note: a PLAIN concrete backend scalar reuses scipy's accurate value
 # (wrapped as a backend array); native GL runs only when a gradient is actually
-# taken (a tracer, or a grad-tracking torch tensor). GL cannot resolve the
-# small-z sheet structure the derivative FD-probes hit, so the concrete path
-# stays scipy-accurate while the differentiable path stays native.
+# taken (a tracer, or a grad-tracking torch tensor), which keeps a concrete
+# backend value bit-for-bit equal to the numpy one.
+#
+# That split is NOT because GL is the less accurate of the two: with panels
+# graded geometrically to dmin, GL tracks scipy to ~1e-15 wherever scipy is
+# trustworthy and stays correct at |z| = 1e-12, where scipy's own quad steps
+# over the a=R peak and returns nan.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager, no_torch_compile_deprecations
 
 from galpy.backend import get_namespace, is_backend_array
 from galpy.potential import (
@@ -164,10 +169,11 @@ def test_default_surfdens_jit_safe():
     R0, z0 = 1.1, 0.3
     ref = float(evaluateRforces(pot, numpy.float64(R0), numpy.float64(z0)))
     rf = lambda R: evaluateRforces(pot, R, jnp.asarray(z0))
-    jR = float(jax.jit(rf)(jnp.asarray(R0)))
+    # ref= compares the traced array call against the plain-float numpy value;
+    # the helper additionally rejects a trace that folded R away to a constant.
+    assert_jit_matches_eager(rf, jnp.asarray(R0), rtol=1e-10, atol=1e-12, ref=ref)
     gR = float(jax.jacfwd(rf)(jnp.asarray(R0)))
-    assert numpy.isfinite(jR) and numpy.isfinite(gR)
-    numpy.testing.assert_allclose(jR, ref, rtol=1e-10, atol=1e-12)
+    assert numpy.isfinite(gR)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -232,3 +238,319 @@ def test_vcirc_no_longer_crashes(backend_name):
     ref = float(pot.vcirc(1.3, use_physical=False))
     got = float(pot.vcirc(_scalar(backend_name, 1.3), use_physical=False))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_compile_takes_the_backend_gl_path():
+    # Regression: under torch.compile the dispatch must pick the in-backend GL
+    # quadrature, exactly as a jax tracer does. Its concreteness probe is
+    # ``float(R)``, which a jax tracer answers by raising -- but dynamo makes it
+    # a symbolic scalar, so the probe took the scipy branch and dynamo then
+    # traced scipy's adaptive quad and died on numpy.unique's data-dependent
+    # output shape (InductorError: DynamicOutputShapeException aten.unique_dim).
+    # ``under_trace`` asks dynamo directly instead.
+    #
+    # The DEFAULT (inductor) compile backend is deliberate: with backend="eager"
+    # a graph break silently rescues the scipy branch, so the bug would not
+    # show. Only ``_evaluate`` is compiled -- the forces take minutes to codegen
+    # the 3-panel/100-node GL graph and add no coverage.
+    R0 = torch.tensor(1.1, dtype=torch.float64)
+    z0 = torch.tensor(0.2, dtype=torch.float64)
+    ref = float(evaluatePotentials(_POT, R0, z0))  # eager (scipy) value
+    torch._dynamo.reset()
+    with no_torch_compile_deprecations():
+        got = float(
+            torch.compile(
+                lambda R, z: evaluatePotentials(_POT, R, z),
+                fullgraph=False,
+                dynamic=False,
+            )(R0, z0)
+        )
+    # GL vs scipy adaptive quad differ only at the quadrature floor
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+# --- degenerate radii under a trace -----------------------------------------
+# The a=R split makes R=0 and R=inf special: at R=0 the [0,R] and [R,2R] panels
+# have zero width while the integrand is 0/0 there, so they evaluate to 0*nan;
+# at R=inf every panel spans an infinite range. Both returned NaN under a trace
+# while the concrete scipy path was finite. Guarded in _bk_split_quad.
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_radii_traced_match_numpy_jax():
+    """Phi(0) and Phi(inf) trace to the concrete values, not NaN.
+
+    Must jit: eagerly the input is concrete and the scipy branch is taken, so an
+    eager run would never touch the guarded quadrature. Compared by VALUE
+    against the numpy path -- asserting merely 'not NaN' would pass on any
+    finite garbage, and Phi(0) is a real number (~-2.79) worth pinning.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.0, numpy.inf):
+        ref = float(evaluatePotentials(tp, R, 0, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.0),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        assert numpy.isfinite(got), f"R={R}: traced gave {got}"
+        numpy.testing.assert_allclose(got, ref, rtol=1e-8, atol=1e-12)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_finite_radii_unchanged_by_degenerate_guards_jax():
+    """The guards must not perturb ordinary radii -- they only select branches.
+
+    Tolerance is the pre-existing traced-GL vs scipy-adaptive floor for this
+    potential, not a licence for the guards to move anything: a guard that
+    accidentally clamped a finite R would miss by far more than this.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.3, 1.0, 3.0):
+        ref = float(evaluatePotentials(tp, R, 0.2, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.2),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        numpy.testing.assert_allclose(got, ref, rtol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_guards_do_not_break_gradients_jax():
+    """The xp.where guards must not poison AD.
+
+    Both guards evaluate their dead branch (that is what xp.where does eagerly),
+    so a nan there would reach the gradient even though the value is correct.
+    Checked as grad-vs-central-FD with h-convergence rather than
+    finite-and-nonzero: halving h must improve agreement, which a nan-poisoned or
+    merely-plausible derivative would not do.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("jax", force=True):
+
+        def f(R):
+            return evaluatePotentials(
+                tp, R, jnp.asarray(0.2), phi=jnp.asarray(0.0), t=jnp.asarray(0.0)
+            )
+
+        g = jax.grad(f)
+        for R0 in (0.3, 1.0, 3.0):
+            ad = float(g(jnp.asarray(R0)))
+            rels = []
+            for h in (1e-4, 1e-5):
+                fd = float(
+                    (f(jnp.asarray(R0 + h)) - f(jnp.asarray(R0 - h))) / (2.0 * h)
+                )
+                rels.append(abs(ad - fd) / abs(fd))
+            assert rels[-1] < 1e-9, f"R={R0}: AD vs FD rel={rels[-1]:g}"
+            assert rels[-1] < rels[0], f"R={R0}: no h-convergence {rels}"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_degenerate_guards_do_not_break_gradients_torch():
+    """Same gradient check on torch: `requires_grad` also selects the GL path.
+
+    Worth having on both backends rather than trusting jax to speak for torch --
+    the guards are namespace-agnostic, so this is the assertion that says so.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("torch", force=True):
+        z, ph, t = torch.tensor(0.2), torch.tensor(0.0), torch.tensor(0.0)
+
+        def f(Rv):
+            return evaluatePotentials(tp, Rv, z, phi=ph, t=t)
+
+        for R0 in (0.3, 1.0, 3.0):
+            R = torch.tensor(R0, requires_grad=True)
+            f(R).backward()
+            ad = float(R.grad)
+            h = 1e-5
+            fd = float((f(torch.tensor(R0 + h)) - f(torch.tensor(R0 - h))) / (2.0 * h))
+            rel = abs(ad - fd) / abs(fd)
+            assert rel < 1e-9, f"torch R={R0}: AD vs FD rel={rel:g}"
+
+
+# --- small-|z| quadrature: the regime every probe above skips --------------
+# _ZS is [0.15, 0.3, 0.25, 0.4] and the traced 2nd-deriv test uses z=0.25, so no
+# backend test ever entered 0 < |z| << R. That is exactly where the plain
+# two-panel GL split failed: the integrand has a peak of width ~|z| at a=R, and
+# once |z| drops below the Legendre node spacing near the panel edge the peak
+# falls BETWEEN nodes. Measured before the graded split, R=1:
+#     z/R    1e-06     1e-04     1e-03     3e-03
+#     rel    3.67e+03  1.15e+03  8.38e-01  5.79e-04
+# numpy is immune because scipy's quad(..., points=[R]) subdivides adaptively.
+# This reaches users as a wrong GRADIENT too, not just a wrong jit value, since
+# _bk_dispatch routes requires_grad input down the same GL path.
+_SMALL_ZS = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+
+
+def _traced_call(backend_name, fn, R, z):
+    """Evaluate fn on the GL path (jit for jax, requires_grad for torch)."""
+    if backend_name == "jax":
+        return float(
+            jax.jit(lambda RR: fn(_POT, RR, jnp.asarray(z, dtype=jnp.float64)))(
+                jnp.asarray(R, dtype=jnp.float64)
+            )
+        )
+    Rt = torch.tensor(R, dtype=torch.float64, requires_grad=True)
+    return float(fn(_POT, Rt, torch.tensor(z, dtype=torch.float64)))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("z", _SMALL_ZS)
+def test_second_derivs_at_small_z_match_scipy(backend_name, z):
+    """The GL path must track scipy down to |z|/R ~ 1e-6, not just at |z| >= 0.15."""
+    R = 1.0
+    for fn in (evaluateR2derivs, evaluatez2derivs):
+        ref = float(fn(_POT, numpy.float64(R), numpy.float64(z)))
+        got = _traced_call(backend_name, fn, R, z)
+        rel = abs(got - ref) / abs(ref)
+        assert rel < 1e-4, (
+            f"{fn.__name__} on {backend_name} at z={z:g} is off by {rel:.2e}; "
+            "the a=R peak (width ~|z|) is not resolved by the quadrature"
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("z", [0.0, 1e-3, 1e-2, 0.125])
+def test_rforce_finite_difference_in_R_stays_clean(backend_name, z):
+    """A finite difference of Rforce in R must still reproduce R2deriv.
+
+    Panel edges scale with R, so refining them toward a=R can make the
+    quadrature error vary non-smoothly in R -- harmless for the value, fatal for
+    a caller's finite difference, which divides by dr=1e-8. An earlier
+    unconditionally-graded version passed every accuracy check above and was
+    wrong here by 193%. z=0 is the sensitive case and is included deliberately.
+    """
+    R = 1.0
+    dr = 1e-8
+    dr = (R + dr) - R  # representable
+    f0 = _traced_call(backend_name, evaluateRforces, R, z)
+    f1 = _traced_call(backend_name, evaluateRforces, R + dr, z)
+    fd = (f0 - f1) / dr
+    # At z=0 the analytic 2nd derivative is a divergent integral, so compare the
+    # FD against the numpy/scipy value rather than the backend's own.
+    ref = float(evaluateR2derivs(_POT, numpy.float64(R), numpy.float64(z)))
+    rel = abs(fd - ref) / abs(ref)
+    assert rel < 1e-3, (
+        f"FD of Rforce on {backend_name} at z={z:g} gives {fd:.8e} vs "
+        f"R2deriv {ref:.8e} (rel {rel:.2e}) -- the quadrature error is not "
+        "varying smoothly in R"
+    )
+
+
+# The panel ladder graded toward a=R used to be dyadic (R/2, R/4, ... clamped at
+# dmin ~ 4|z|), which bottoms out at R*2**-K: for |z| below that the innermost
+# panel never reaches the peak and the force decays toward zero instead of
+# toward the sheet limit. K=24 is 0.5% low at |z|=1e-10 and ~95% low at 1e-12.
+# Spanning geometrically to dmin instead resolves the peak at any |z| with the
+# same K (so the jit graph does not grow).
+#
+# This is checked against the ANALYTIC sheet limit rather than against numpy:
+# scipy's own quad has the same peak problem here and is nan by |z|=1e-10
+# (galpy #1276 is the sibling defect in RazorThinExponentialDiskPotential), so
+# numpy is not a usable reference this far in.
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("R", [0.7, 1.0, 1.6])
+@pytest.mark.parametrize("z,tol", [(1e-10, 1e-7), (1e-12, 2e-5)])
+def test_zforce_at_tiny_z_reaches_sheet_limit(backend_name, R, z, tol):
+    """zforce -> -2 pi Sigma(R) as |z| -> 0+, on the differentiable GL path.
+
+    Bars are set just above the measured deviation (2.1e-8 at 1e-10, 3.9e-6 at
+    1e-12); the dyadic ladder misses them by 2.2e-3 and 0.92 respectively, so
+    this fails loudly if the grading regresses rather than merely drifting.
+    """
+    limit = -2.0 * numpy.pi * float(_surfdens(numpy.float64(R)))
+    got = _traced_call(backend_name, evaluatezforces, R, z)
+    rel = abs(got / limit - 1.0)
+    assert rel < tol, (
+        f"zforce on {backend_name} at R={R:g}, z={z:g} is {got:.8e} vs the "
+        f"sheet limit {limit:.8e} (rel {rel:.2e}) -- the a=R peak is not "
+        "resolved, so the graded panels are not reaching dmin"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_traced_second_derivs_match_numpy_through_the_midplane(backend_name):
+    # MUST be traced. _bk_dispatch deliberately routes concrete eager input back
+    # to scipy, so an eager version of this test would compare scipy against
+    # scipy and pass no matter how wrong the GL path is -- which is exactly why
+    # the defect below survived: the suite asserted z == 0 only in the eager
+    # test.
+    #
+    # The backend path used to run ONE generic graded-panel rule for all six
+    # methods, while numpy handles the a=R singularity analytically. At z == 0
+    # that integral is a non-integrable c/d^2 divergence, so no amount of panel
+    # grading converges it and traced R2deriv came out ~3.8e+03 relative error --
+    # four orders of magnitude wrong, and reachable from user code, since traced
+    # epifreq() evaluates R2deriv at z=0. Both second derivatives now go through
+    # the same Hadamard finite part numpy uses.
+    #
+    # The tolerances are MEASURED accuracy with modest headroom, not round
+    # numbers: at z == 0 the finite-part integrand is a difference of two
+    # ~1/u**2 quantities, so ~1e-5 is its floor there, tightening rapidly as |z|
+    # lifts off the plane.
+    import warnings
+
+    import galpy.backend
+
+    grid = ((0.0, 1e-4), (1e-10, 1e-4), (1e-8, 1e-6), (1e-6, 1e-8), (1e-4, 1e-10))
+    for fn in (evaluateR2derivs, evaluatez2derivs):
+        for R in (0.5, 1.0, 2.0):
+            # numpy references OUTSIDE the forced context: taken inside, the
+            # boundary coerces them onto the traced path and the comparison
+            # becomes traced-vs-itself.
+            refs = [
+                float(fn(_POT, numpy.float64(R), numpy.float64(z))) for z, _ in grid
+            ]
+            # torch emits its own script_method DeprecationWarning the first
+            # time torch.compile runs in a process. Under the numpy-default run
+            # this test is that first use, and the suite turns warnings into
+            # errors -- so filter that one warning narrowly rather than losing
+            # the torch arm of the assertion.
+            with (
+                warnings.catch_warnings(),
+                galpy.backend.use(backend_name, force=True),
+                galpy.backend.jit(backend_name),
+            ):
+                warnings.filterwarnings(
+                    "ignore", message=".*script_method.*", category=DeprecationWarning
+                )
+                for (z, tol), ref in zip(grid, refs):
+                    got = fn(_POT, _scalar(backend_name, R), _scalar(backend_name, z))
+                    assert is_backend_array(got), (
+                        f"{fn.__name__} fell back off the backend at R={R}, z={z}"
+                    )
+                    rel = abs(1.0 - float(got) / ref)
+                    assert rel < tol, (
+                        f"{backend_name} traced {fn.__name__} at R={R}, z={z}: "
+                        f"rel err {rel:.2e} exceeds {tol:.0e} (numpy {ref:.6e})"
+                    )

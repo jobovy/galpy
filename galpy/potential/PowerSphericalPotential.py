@@ -12,6 +12,7 @@ import numpy
 from scipy import special
 
 from ..backend import coerce_coords, get_namespace
+from ..backend import special as _bspecial
 from ..util import conversion
 from .Potential import Potential
 
@@ -385,7 +386,9 @@ class PowerSphericalPotential(Potential):
             / numpy.pi
             * z
             * R**-self.alpha
-            * special.hyp2f1(0.5, self.alpha / 2.0, 1.5, -((z / R) ** 2))
+            # backend hyp2f1: scipy's cannot take a tracer (the numpy path
+            # routes straight back to scipy, so it stays byte-identical)
+            * _bspecial.hyp2f1(0.5, self.alpha / 2.0, 1.5, -((z / R) ** 2))
         )
 
 

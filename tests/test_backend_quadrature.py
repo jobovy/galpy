@@ -8,6 +8,7 @@ import numpy
 import pytest
 
 from galpy.backend.quadrature import (
+    finite_part_quad,
     fixed_quad,
     fixed_quad_semiinfinite,
     gauss_legendre,
@@ -15,6 +16,7 @@ from galpy.backend.quadrature import (
     gauss_legendre_nodes,
     nested_quad,
     quad,
+    symmetric_quad,
     transformed_quad,
 )
 
@@ -259,6 +261,82 @@ def test_semiinfinite_grad_in_limit(backend):
         ).backward()
         ga = float(at.grad)
     numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("eps", [1.0, 1e-2, 1e-4, 1e-6])
+def test_semiinfinite_scale_makes_the_map_resolve_small_structure(backend, eps):
+    # The map's node spacing in s just above the lower limit is O(L/n**2), so
+    # with the default L=1 an integrand whose structure sits on a scale eps<<1
+    # is simply not sampled -- and no n rescues it. Passing scale=eps makes the
+    # map scale-invariant, so the error becomes INDEPENDENT of eps.
+    #   int_eps^inf ds / (1 + (s/eps)**2) = eps * pi/4
+    xp = _xp(backend)
+    got = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(
+                xp, lambda s: 1.0 / (1.0 + (s / eps) ** 2), eps, n=50, scale=eps
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, eps * numpy.pi / 4.0, rtol=1e-13)
+    #   int_0^inf ds / (eps**2 + s**2) = pi / (2 eps), via the 'tan' map
+    got = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(
+                xp,
+                lambda s: 1.0 / (eps**2 + s**2),
+                0.0,
+                n=50,
+                kind="tan",
+                scale=eps,
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, numpy.pi / (2.0 * eps), rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_semiinfinite_scale_broadcasts_against_the_limit(backend):
+    # One call, three lower limits spanning six decades, each with its own
+    # scale: the whole point is that a batched caller (jeans.sigmar over an r
+    # grid) gets every element resolved, not just the O(1) ones.
+    xp = _xp(backend)
+    eps = xp.asarray([1.0, 1e-3, 1e-6])
+    got = numpy.asarray(
+        fixed_quad_semiinfinite(
+            xp,
+            lambda s: 1.0 / (1.0 + (s / eps[..., None]) ** 2),
+            eps,
+            n=50,
+            scale=eps,
+        )
+    )
+    ref = numpy.asarray([1.0, 1e-3, 1e-6]) * numpy.pi / 4.0
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_semiinfinite_scale_grad_in_limit(backend):
+    # d/da int_a^inf f = -f(a); at a = eps with f = 1/(1+(s/eps)**2) that is
+    # exactly -1/2, independent of eps. Differentiating through a SCALED map is
+    # the path jeans.sigmar's r-gradient takes.
+    eps = 1e-5
+
+    def f(s):
+        return 1.0 / (1.0 + (s / eps) ** 2)
+
+    if backend == "jax":
+        ga = float(
+            jax.grad(lambda a: fixed_quad_semiinfinite(jnp, f, a, n=50, scale=eps))(
+                jnp.asarray(eps)
+            )
+        )
+    else:
+        at = torch.tensor(eps, requires_grad=True)
+        fixed_quad_semiinfinite(txp, f, at, n=50, scale=eps).backward()
+        ga = float(at.grad)
+    numpy.testing.assert_allclose(ga, -0.5, rtol=1e-10)
 
 
 # ---------------------------------------------------------------------------
@@ -508,3 +586,139 @@ def test_device_hint_cuda():
         txp, lambda s: sc * torch.exp(-s), 0.0, 5.0, n=60, device=cuda
     ).backward()
     numpy.testing.assert_allclose(float(sc.grad.cpu()), e5 / 2.0, rtol=1e-6)
+
+
+def test_symmetric_quad_default_order_resolves_extreme_aspect_ratio():
+    """The default order must handle R << |z| on a real galpy integrand.
+
+    This is the case the vertical surface-density quadrature actually ships:
+    ``Potential._surfdens``/``_surfdens_poisson`` integrate the density over
+    ``[-|z|, |z|]`` with this rule, and under a trace there is no scipy to fall
+    back to. At R=0.01, |z|=50 the integrand has structure on scale ~R across a
+    5000:1 range, which is where a fixed-order rule runs out first.
+
+    All three arms are asserted, because the pass alone would not show the bar
+    discriminates:
+
+    * n=200 vs the reference -- validates the ARBITER. scipy is the reference
+      here, so it has to be shown converging to the same value the rule does;
+      otherwise a disagreement could be scipy's fault, not the rule's.
+    * the default order -- the actual contract.
+    * n=50 -- must FAIL the bar. Without this the test would still pass if the
+      default were lowered back to 50, which is exactly the regression it
+      exists to catch.
+    """
+    from scipy import integrate
+
+    from galpy.potential import MWPotential2014
+
+    p = MWPotential2014[0]  # PowerSphericalPotentialwCutoff: cusped and truncated
+    R, Z = 0.01, 50.0
+    f = lambda x: p._dens(R, float(x), phi=0.0, t=0.0)  # noqa: E731
+    fv = lambda s: numpy.array(  # noqa: E731
+        [f(v) for v in numpy.atleast_1d(s).ravel()]
+    ).reshape(numpy.shape(s))
+
+    # epsabs=0 -- a pure RELATIVE criterion. scipy's default epsabs=1.49e-8 is
+    # absolute and silently truncates integrals whose value is near it (galpy
+    # gh#1289); it does not bite at this R, but the reference must not depend on
+    # that luck.
+    ref = integrate.quad(f, -Z, Z, epsabs=0, epsrel=1e-13, limit=2000)[0]
+
+    def rel(**kw):
+        got = float(symmetric_quad(numpy, fv, Z, interior_point=0.0, **kw))
+        return abs(got - ref) / abs(ref)
+
+    assert rel(n=200) < 1e-12, "reference and the rule disagree -- arbiter suspect"
+    # No n= : this asserts on the DEFAULT, which is the thing that can regress.
+    # Passing n=_QUAD_N here instead would still pass if someone lowered the
+    # default, since it would be pinning the constant rather than the default.
+    assert rel() < 1e-9, f"symmetric_quad's DEFAULT order is too low here: {rel():.2e}"
+    assert rel(n=50) > 1e-7, (
+        f"n=50 was supposed to be visibly wrong here ({rel(n=50):.2e}); if it is "
+        "not, this test no longer discriminates and the bar needs re-deriving"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_matches_the_analytic_finite_part(backend):
+    # Construct an integrand whose finite part is known in closed form, rather
+    # than comparing against another quadrature: f(u) = c/u**2 + exp(-u) gives
+    # sym(u) = 2c/u**2 + (exp(-u) + exp(u)), so the rule's subtraction removes
+    # the singular model exactly and
+    #     int_0^b [sym(u) - 2c/u**2] du - 2c/b = 2 sinh(b) - 2c/b.
+    xp = _xp(backend)
+    c, b = 0.75, 1.3
+
+    def f(u):
+        return c / (u * u) + xp.exp(-u)
+
+    got = finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    expected = 2.0 * numpy.sinh(b) - 2.0 * c / b
+    numpy.testing.assert_allclose(float(got), expected, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_removes_a_residual_log(backend):
+    # Subtracting the c/u**2 model kills the pole but not necessarily the rest:
+    # a real integrand (AnyAxisym's R2deriv) leaves a LOG behind, which caps
+    # plain Gauss-Legendre at 1/n**2. Build that case exactly, with a closed
+    # form to check against rather than another quadrature:
+    #     f(u) = c/u**2 - L*ln|u| + exp(-u)
+    #   sym(u) = 2c/u**2 - 2L*ln|u| + 2cosh(u)
+    # so the finite part is
+    #     int_0^b [sym - 2c/u**2] du - 2c/b
+    #       = -2L*(b*ln b - b) + 2 sinh(b) - 2c/b.
+    # At n=200 the old rule (no log handling) was 5.9e-06 off here; the point of
+    # the tolerance below is that it is nowhere near that.
+    xp = _xp(backend)
+    c, b, L = 0.75, 1.3, 2.5
+
+    def f(u):
+        return c / (u * u) - L * xp.log(xp.abs(u)) + xp.exp(-u)
+
+    got = finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    expected = -2.0 * L * (b * numpy.log(b) - b) + 2.0 * numpy.sinh(b) - 2.0 * c / b
+    numpy.testing.assert_allclose(float(got), expected, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_peaked_branch_is_the_plain_integral(backend):
+    # peak_width > 0 selects u = w sinh(t) over [0, asinh(b/w)], which is exactly
+    # int_0^b sym(u) du -- no finite part, because there is no singularity to
+    # subtract. With a smooth f that integral is 2 sinh(b) again, and the answer
+    # must not depend on w: the substitution only redistributes the nodes.
+    xp = _xp(backend)
+    b = 1.3
+
+    def f(u):
+        return xp.exp(-u)
+
+    expected = 2.0 * numpy.sinh(b)
+    for w in (1e-6, 1e-3, 0.5):
+        got = finite_part_quad(
+            xp, f, xp.asarray(b), c=0.0, peak_width=xp.asarray(w), n=200
+        )
+        numpy.testing.assert_allclose(
+            float(got), expected, rtol=1e-9, atol=1e-11, err_msg=f"peak_width={w}"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_finite_part_quad_branches_on_a_traced_peak_width(backend):
+    # peak_width is data, so the branch cannot be a python if. Both arms are
+    # evaluated; the guarded width is what keeps asinh(b/0) from poisoning the
+    # taken arm. Check the selection is right at w == 0 AND that no nan leaks.
+    xp = _xp(backend)
+    c, b = 0.75, 1.3
+
+    def f(u):
+        return c / (u * u) + xp.exp(-u)
+
+    at_zero = float(
+        finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    )
+    assert numpy.isfinite(at_zero)
+    numpy.testing.assert_allclose(
+        at_zero, 2.0 * numpy.sinh(b) - 2.0 * c / b, rtol=1e-10, atol=1e-12
+    )

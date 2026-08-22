@@ -13,13 +13,12 @@ import numpy
 from scipy import integrate, optimize
 
 from ..backend import device_of, get_namespace, promote_scalars
-from ..potential.linearPotential import evaluatelinearPotentials
+from ..potential.linearPotential import (
+    _evaluatelinearPotentials,
+    evaluatelinearPotentials,
+)
 from ..potential.Potential import _check_potential_list_and_deprecate
-from .actionAngle import actionAngle
-
-# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures
-# (matches actionAngleSpherical's choice).
-_BACKEND_GL_ORDER = 50
+from .actionAngle import _BACKEND_GL_ORDER, actionAngle
 
 
 class actionAngleVertical(actionAngle):
@@ -323,9 +322,7 @@ class actionAngleVertical(actionAngle):
     # radial Jr/Or/ar.
 
     def _E_backend(self, x, vx):
-        return vx**2.0 / 2.0 + evaluatelinearPotentials(
-            self._pot, x, use_physical=False
-        )
+        return vx**2.0 / 2.0 + _evaluatelinearPotentials(self._pot, x)
 
     def _calc_xmax_backend(self, x, vx, E):
         """Vectorised turning point xmax (E == Phi(xmax)) via backend brentq."""
@@ -336,7 +333,7 @@ class actionAngleVertical(actionAngle):
         absx = xp.abs(x)
 
         def f(xm, E_):
-            return E_ - evaluatelinearPotentials(self._pot, xm, use_physical=False)
+            return E_ - _evaluatelinearPotentials(self._pot, xm)
 
         # Expanding upper bracket: double from 2|x| (1e-5 at x=0) until f <= 0.
         xend = iterate_bracket(
@@ -358,14 +355,16 @@ class actionAngleVertical(actionAngle):
 
         lim = xp.sqrt(xmax)
 
-        def integrand(s):  # s: (n,) -> (N, n); t = lim*s, x = xmax - t^2
-            t = lim[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
-            rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
-            )
+        def integrand(s):  # s: (n,) -> (..., n); t = lim*s, x = xmax - t^2
+            # `...` not `:` so a 0-d xmax/E works too: under a trace a scalar
+            # input stays 0-d, and `[:, None]` on 0-d raises IndexError. The
+            # nodes broadcast on a NEW TRAILING axis that fixed_quad reduces
+            # (axis=-1), so the input shape is preserved either way.
+            t = lim[..., None] * s
+            xi = xmax[..., None] - t**2.0
+            rad = 2.0 * (E[..., None] - _evaluatelinearPotentials(self._pot, xi))
             rad = xp.where(rad > 0.0, rad, xp.zeros_like(rad))  # clip (AD guard)
-            return xp.sqrt(rad) * 2.0 * t * lim[:, None]  # dx = 2t dt, dt = lim ds
+            return xp.sqrt(rad) * 2.0 * t * lim[..., None]  # dx = 2t dt, dt = lim ds
 
         # device=: scalar limits, so anchor the GL nodes on the input device (xmax)
         # -- else torch raises on CUDA input. No-op on numpy (device_of -> None).
@@ -384,13 +383,11 @@ class actionAngleVertical(actionAngle):
         lim = xp.sqrt(xmax)
 
         def integrand(s):
-            t = lim[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
-            rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
-            )
+            t = lim[..., None] * s
+            xi = xmax[..., None] - t**2.0
+            rad = 2.0 * (E[..., None] - _evaluatelinearPotentials(self._pot, xi))
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))  # 2t->0 there anyway
-            return 2.0 * t / xp.sqrt(rad) * lim[:, None]
+            return 2.0 * t / xp.sqrt(rad) * lim[..., None]
 
         return (
             numpy.pi
@@ -415,13 +412,11 @@ class actionAngleVertical(actionAngle):
         span = hi - lo
 
         def integrand(s):  # t = lo + span*s, xi = xmax - t^2
-            t = lo[:, None] + span[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
-            rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
-            )
+            t = lo[..., None] + span[..., None] * s
+            xi = xmax[..., None] - t**2.0
+            rad = 2.0 * (E[..., None] - _evaluatelinearPotentials(self._pot, xi))
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
-            return 2.0 * t / xp.sqrt(rad) * span[:, None]  # dx = 2t dt, dt = span ds
+            return 2.0 * t / xp.sqrt(rad) * span[..., None]  # dx = 2t dt, dt = span ds
 
         angle = Omega * fixed_quad(
             xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(xmax)
@@ -436,9 +431,7 @@ class actionAngleVertical(actionAngle):
         """Mask of unbound orbits: the bracket expansion found no turning point,
         so E still exceeds Phi(xmax). The numpy path returns the 9999.99 sentinel
         (calcxmax == -9999.99 on overflow); match it for the vectorised path."""
-        return (
-            E - evaluatelinearPotentials(self._pot, xmax, use_physical=False)
-        ) > 1e-7
+        return (E - _evaluatelinearPotentials(self._pot, xmax)) > 1e-7
 
     def _evaluate_backend(self, x, vx):
         xp = get_namespace(x)

@@ -62,11 +62,12 @@ from ._namespaces import (
     _is_floating_dtype,
     asarray_on_device,
     device_of,
+    effective_device,
     is_backend_array,
 )
 
 
-def coerce_coords(xp, *coords):
+def coerce_coords(xp, *coords, device=None):
     """Bring coordinate inputs onto the active backend's array type.
 
     The dominant non-numpy failure mode is "the namespace resolved to a backend
@@ -86,12 +87,22 @@ def coerce_coords(xp, *coords):
         the backend's float64 -- galpy's interior precision; a bare ``asarray``
         of a Python float would give torch float32 and miss the tolerances.
 
+    ``device`` overrides the device the coerced coordinates land on. Without it
+    the anchor is derived from ``coords`` alone, which is only right when the
+    caller passes every coordinate of a call at once: coercing them one at a
+    time gives each its own anchor, so a numpy coordinate anchors to None (the
+    backend default device, i.e. CPU for torch) while its CUDA siblings stay on
+    the GPU, and the evaluator is handed a split-device coordinate set. Callers
+    that coerce coordinate-by-coordinate pass the shared anchor explicitly.
+
     The numpy backend is a strict pass-through (``coords`` returned object-
     identical) -> the numpy path stays byte-identical.
     """
     if xp is numpy:
         return coords
-    dev = device_of(*coords)
+    # Only a NON-default anchor (a CUDA sibling on a CPU-default run) is worth
+    # naming; effective_device drops the rest.
+    dev = effective_device(xp, device_of(*coords) if device is None else device)
     out = []
     for c in coords:
         if c is None:
@@ -144,7 +155,7 @@ def as_backend_constant(xp, value, ref):
     if xp is numpy:
         return value
     dtype = getattr(ref, "dtype", None)
-    device = getattr(ref, "device", None)
+    device = effective_device(xp, getattr(ref, "device", None))
     try:
         return xp.asarray(value, dtype=dtype, device=device)
     except TypeError:  # pragma: no cover - namespace without device= kwarg

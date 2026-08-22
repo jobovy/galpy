@@ -87,6 +87,12 @@ def worker(
     pbar_proc : ?
         process to use to display the progressbar
     """
+    # Forked children must not re-enter an inherited torch thread pool; see
+    # galpy.backend.restrict_to_single_thread. Imported here, not at module
+    # scope, to keep galpy.util.multi importable without galpy.backend.
+    from ..backend import restrict_to_single_thread
+
+    restrict_to_single_thread()
     vals = []
 
     progressbar *= _TQDM_LOADED
@@ -181,6 +187,11 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
         number of cores to use
     progressbar : bool, optional
         if True, display a progress bar
+
+    Notes
+    -----
+    Runs serially, ignoring ``numcores``, on Windows and while galpy is running
+    traced (inside ``galpy.backend.jit``), because ``fork`` is unsafe there.
     """
     if not callable(function):
         raise TypeError("input function '%s' is not callable" % repr(function))
@@ -197,6 +208,20 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
         numcores = _ncpus
 
     if platform.system() == "Windows":  # JB: don't think this works on Win
+        return list(map(function, sequence))
+
+    # Same reason as Windows, different cause: forking is not safe while galpy
+    # is running traced. A child inherits the parent's COMPILED kernels and the
+    # thread pool they execute on, and hangs re-entering that pool -- measured
+    # under `--backend torch --jit`, where every child parked inside the
+    # generated inductor `call`. Capping the child's thread count (see
+    # galpy.backend.restrict_to_single_thread, which does cure the EAGER torch
+    # case) cannot help here: the parallelism is baked into the compiled kernel.
+    # Imported here, not at module scope, to keep galpy.util.multi importable
+    # without galpy.backend.
+    from ..backend import jit_mode
+
+    if jit_mode() != "off":
         return list(map(function, sequence))
 
     # Use fork-based parallelism (because spawn fails with pickling issues, #457)

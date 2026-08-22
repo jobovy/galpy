@@ -10,6 +10,7 @@ from ..backend import (
     as_numpy,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     use,
 )
 from ..df.df import df
@@ -38,6 +39,7 @@ class basestreamspraydf(df):
         center=None,
         centerpot=None,
         progpot=None,
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -136,6 +138,11 @@ class basestreamspraydf(df):
         assert conversion.physical_compatible(self, progenitor), (
             "Physical conversion for the progenitor Orbit object is not consistent with that of the basestreamspraydf object being initialized"
         )
+        # Extra options for the in-backend ODE solves (progenitor, center, sampled
+        # orbits, track curve). Only reach jax/torch integrators -- the numpy/C paths
+        # take none. `adjoint="direct"` is what makes forward-mode and higher-order
+        # AD work: the default checkpointed adjoint is a custom_vjp, i.e. reverse-only.
+        self._integrate_kwargs = integrate_kwargs
         self._orig_progenitor = progenitor  # Store so we can use its ro/vo/etc.
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
@@ -464,10 +471,10 @@ class basestreamspraydf(df):
             # backend track_prog_cart (torch has no negative-step slice -> xp.flip).
             o_f = Orbit(ic)
             o_f.turn_physical_off()
-            o_f.integrate(t_fwd, _track_pot, method=method)
+            o_f.integrate(t_fwd, _track_pot, method=method, **self._ikw(method))
             o_b = Orbit(ic)
             o_b.turn_physical_off()
-            o_b.integrate(t_back, _track_pot, method=method)
+            o_b.integrate(t_back, _track_pot, method=method, **self._ikw(method))
 
             def _cart(o):
                 # Read the integrated states directly (o.orbit at the integration grid)
@@ -702,6 +709,38 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _progenitor_now(self):
+        """The progenitor's present-day ``(R, vR, vT, z, vz, phi)`` as concrete floats.
+
+        Raises when they cannot be realised as floats (a traced IC) -- callers that
+        have a defined answer in that case catch it; callers that do not should fail.
+        """
+        p = self._progenitor
+        return (
+            float(p.R(0.0)),
+            float(p.vR(0.0)),
+            float(p.vT(0.0)),
+            float(p.z(0.0)),
+            float(p.vz(0.0)),
+            float(p.phi(0.0)),
+        )
+
+    def _theta_probe_point(self):
+        """Concrete ``((R, z), phi, v)`` at which to probe the potential for a backend
+        parameter.
+
+        The progenitor's own present-day phase-space point, which is guaranteed to be
+        somewhere the potential can be evaluated. A TRACED progenitor IC has no
+        concrete coordinates, so fall back to a fixed unit-circular point; that case
+        routes in-backend anyway (``ic_concrete`` below), so the probe's answer there
+        only has to be well-defined, not particular.
+        """
+        try:
+            R, vR, vT, z, vz, phi = self._progenitor_now()
+        except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
+            return (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
+        return (R, z), phi, numpy.array([vR, vT, vz])
+
     def _integrate_progenitor(self):
         """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
         by whether the sampling must run on a backend (jax/torch) for differentiable
@@ -718,25 +757,22 @@ class basestreamspraydf(df):
         """
         prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
         ic_backend = is_backend_array(prog_ic)
-        theta_backend = False
-        xp = None
-        if ic_backend:
-            xp = get_namespace(prog_ic)
-        else:
-            _pp = self._progenitor
-            with use("numpy", force=True):
-                _tf = evaluateRforces(
-                    self._pot,
-                    float(_pp.R(0.0)),
-                    float(_pp.z(0.0)),
-                    phi=float(_pp.phi(0.0)),
-                    v=numpy.array(
-                        [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
-                    ),
-                )
-            theta_backend = is_backend_array(_tf)
-            if theta_backend:
-                xp = get_namespace(_tf)
+        xp = get_namespace(prog_ic) if ic_backend else None
+        # Probe for a backend potential PARAMETER (theta) ALWAYS -- not only when the
+        # IC is numpy. The C-STM carries d/d(IC) but NOT d/d(theta), so a
+        # differentiable potential parameter must reach the in-backend ODE. When the
+        # IC was a backend array this probe used to be skipped entirely, leaving
+        # theta_backend False; the dispatch below then chose dop853_c and jax.grad
+        # w.r.t. a potential parameter died in the C parser (as_numpy on the traced
+        # parameter -> TracerArrayConversionError). The probe needs CONCRETE
+        # coordinates; a traced IC has none, but that case already routes in-backend
+        # via ic_concrete below, so a fixed fallback probe point is safe there.
+        _pargs, _pphi, _pv = self._theta_probe_point()
+        with use("numpy", force=True):
+            _tf = evaluateRforces(self._pot, *_pargs, phi=_pphi, v=_pv)
+        theta_backend = is_backend_array(_tf)
+        if theta_backend and xp is None:
+            xp = get_namespace(_tf)
         # A backend progenitor MASS (a differentiable M or M(t)) traces the sampled
         # orbits -- via the tidal radius rtide -- but NOT the mass-independent
         # progenitor curve, so it is its own backend-sampling trigger.
@@ -763,7 +799,7 @@ class basestreamspraydf(df):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
-        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if ic_backend:
             ic = prog_ic
         else:
@@ -807,7 +843,7 @@ class basestreamspraydf(df):
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
-        self._progenitor.integrate(bgrid, self._pot, method=method)
+        self._progenitor.integrate(bgrid, self._pot, method=method, **self._ikw(method))
         self._bsamp = (xp, self._progenitor, method)
 
     def _integrate_center(self):
@@ -855,7 +891,7 @@ class basestreamspraydf(df):
             xp, _, prog_method = bsamp
         else:
             xp = get_namespace(cic_backend) if ic_backend else get_namespace(_cf)
-        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if bsamp is None:
             self._promote_progenitor_backend(xp, inbackend)
             _, _, prog_method = self._bsamp
@@ -887,7 +923,9 @@ class basestreamspraydf(df):
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)  # match the progenitor grid
         self._center = Orbit(ic)
         self._center.turn_physical_off()
-        self._center.integrate(bgrid, self._centerpot, method=method)
+        self._center.integrate(
+            bgrid, self._centerpot, method=method, **self._ikw(method)
+        )
 
     def _promote_progenitor_backend(self, xp, inbackend):
         """Re-integrate a pure-numpy progenitor as a backend orbit (theta/mass-independent
@@ -895,24 +933,24 @@ class basestreamspraydf(df):
         a center-only backend trigger (centerpot theta / center IC) drives differentiable
         center= sampling while ``self._pot`` carries no backend parameter. Sets ``_bsamp``.
         """
-        p = self._progenitor
-        ic = xp.asarray(
-            numpy.array(
-                [
-                    float(p.R(0.0)),
-                    float(p.vR(0.0)),
-                    float(p.vT(0.0)),
-                    float(p.z(0.0)),
-                    float(p.vz(0.0)),
-                    float(p.phi(0.0)),
-                ]
-            )
-        )
+        ic = xp.asarray(numpy.array(self._progenitor_now()))
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
-        self._progenitor.integrate(bgrid, self._pot, method=inbackend)
+        self._progenitor.integrate(
+            bgrid, self._pot, method=inbackend, **self._ikw(inbackend)
+        )
         self._bsamp = (xp, self._progenitor, inbackend)
+
+    def _ikw(self, method):
+        """``inbackend_kwargs`` for an in-backend ODE ``method``, else ``{}``.
+
+        The C and numpy integrators take no solver options, so the extra kwargs are
+        handed only to the jax/torch paths.
+        """
+        if not self._integrate_kwargs or method not in ("diffrax", "torchdiffeq"):
+            return {}
+        return {"inbackend_kwargs": dict(self._integrate_kwargs)}
 
     def _backend_sampling(self):
         """``(xp, backend_progenitor, sample_method)`` when the sampling runs on a
@@ -1062,7 +1100,8 @@ class basestreamspraydf(df):
                 # per-orbit 2-point grid [-dt_i, 0] (not the 10001-point fixed-step
                 # grid the numpy path needs).
                 ts = xp.stack([-xp.asarray(dt), xp.zeros(n)], axis=-1)
-                o.integrate(ts, self._pot, method=sample_method or "dop853_c")
+                _m = sample_method or "dop853_c"
+                o.integrate(ts, self._pot, method=_m, **self._ikw(_m))
             else:
                 ts = xp.linspace(-as_numpy(dt), xp.zeros(n), 10001, axis=-1)
                 o.integrate(ts, self._pot)  # byte-identical numpy default
@@ -1333,6 +1372,7 @@ class chen24spraydf(basestreamspraydf):
         progpot=None,
         mean=None,
         cov=None,
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -1389,6 +1429,7 @@ class chen24spraydf(basestreamspraydf):
             center=center,
             centerpot=centerpot,
             progpot=progpot,
+            integrate_kwargs=integrate_kwargs,
             ro=ro,
             vo=vo,
         )
@@ -1492,6 +1533,7 @@ class fardal15spraydf(basestreamspraydf):
         progpot=None,
         meankvec=[2.0, 0.0, 0.3, 0.0, 0.0, 0.0],
         sigkvec=[0.4, 0.0, 0.4, 0.5, 0.5, 0.0],
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -1549,6 +1591,7 @@ class fardal15spraydf(basestreamspraydf):
             center=center,
             centerpot=centerpot,
             progpot=progpot,
+            integrate_kwargs=integrate_kwargs,
             ro=ro,
             vo=vo,
         )
