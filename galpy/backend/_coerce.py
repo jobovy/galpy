@@ -160,6 +160,10 @@ def as_backend_constant(xp, value, ref):
         return value
     dtype = getattr(ref, "dtype", None)
     device = getattr(ref, "device", None)
+    if device is not None and device == default_device(xp):
+        # naming the default device commits the placement instead of letting the
+        # backend do it (~3x); same guard as coerce_coords -- see default_device.
+        device = None
     try:
         return xp.asarray(value, dtype=dtype, device=device)
     except TypeError:  # pragma: no cover - namespace without device= kwarg
