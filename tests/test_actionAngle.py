@@ -8505,6 +8505,178 @@ def test_actionAngleStaeckelInverse_unresolvable_shell_error():
     return None
 
 
+def test_actionAngleStaeckelInverse_interp_roundtrip():
+    # With setup_interp, arbitrary actions inside the grid are accepted: the
+    # grid supplies the integrals by interpolation alone and the torus is then
+    # constructed exactly, so a round trip through the forward transformation
+    # returns the original phase-space point
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=True, order=200)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=8.0, nLz=7, nE=7, nI3=7
+    )
+    for ic in (
+        [1.1, 0.3, 0.9, 0.25, 0.2, 0.0],
+        [1.0, -0.2, 1.05, -0.15, 0.25, 1.2],  # z<0, vR<0
+        [1.3, 0.5, 0.75, 0.1, 0.35, 2.1],
+    ):
+        jr, jphi, jz = (float(numpy.atleast_1d(x)[0]) for x in aAS(*ic))
+        out = aAS.actionsFreqsAngles(*ic)
+        angles = [float(numpy.atleast_1d(out[ii])[0]) for ii in (6, 7, 8)]
+        Rvv = [
+            float(numpy.atleast_1d(q)[0])
+            for q in aASI(jr, jphi, jz, angles[0], angles[1], angles[2])
+        ]
+        for got, want, name in zip(
+            (Rvv[0], Rvv[1], Rvv[2], Rvv[3], Rvv[4]),
+            (ic[0], ic[1], ic[2], ic[3], ic[4]),
+            ("R", "vR", "vT", "z", "vz"),
+        ):
+            assert numpy.fabs(got - want) < 1e-3, (
+                "Interpolated actionAngleStaeckelInverse does not invert the "
+                "forward transformation for %s (%g vs %g)" % (name, got, want)
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_interp_convergence_and_freqs():
+    # The round-trip error is set by the interpolation of the integrals, so it
+    # must fall steeply as the grid is refined; the interpolated frequencies
+    # must match those of the directly-constructed torus
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=True, order=200)
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    jr, jphi, jz = (float(numpy.atleast_1d(x)[0]) for x in aAS(*ic))
+    out = aAS.actionsFreqsAngles(*ic)
+    angles = [float(numpy.atleast_1d(out[ii])[0]) for ii in (6, 7, 8)]
+    errs = []
+    for n in (5, 9):
+        aASI = actionAngleStaeckelInverse(
+            pot=kkp,
+            setup_interp=True,
+            Rmin=0.7,
+            Rmax=1.6,
+            Rinf=8.0,
+            nLz=n,
+            nE=n,
+            nI3=n,
+        )
+        Rvv = [
+            float(numpy.atleast_1d(q)[0])
+            for q in aASI(jr, jphi, jz, angles[0], angles[1], angles[2])
+        ]
+        errs.append(numpy.fabs(Rvv[0] - ic[0]))
+    assert errs[1] < 0.25 * errs[0], (
+        "Interpolated actionAngleStaeckelInverse does not converge with the "
+        "size of the grid (%g -> %g)" % (errs[0], errs[1])
+    )
+    # frequencies: interpolated instance vs the forward code
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=8.0, nLz=9, nE=9, nI3=9
+    )
+    freqs = aASI.Freqs(jr, jphi, jz)
+    for got, want, name in zip(
+        (freqs[0], freqs[1], freqs[2]),
+        (
+            float(numpy.atleast_1d(out[3])[0]),
+            float(numpy.atleast_1d(out[4])[0]),
+            float(numpy.atleast_1d(out[5])[0]),
+        ),
+        ("Omega_R", "Omega_phi", "Omega_z"),
+    ):
+        assert numpy.fabs(got / want - 1.0) < 1e-4, (
+            "Interpolated actionAngleStaeckelInverse frequency %s does not "
+            "agree with the forward code (%g vs %g)" % (name, got, want)
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_interp_by_integrals():
+    # Tori are often specified by their integrals rather than their actions,
+    # and that entry point needs no inversion at all: the grid coordinates
+    # follow directly from the circular/outer energies and the planar/shell
+    # edges. It must agree with the action entry point and with a directly
+    # constructed torus.
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=True, order=200)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=8.0, nLz=7, nE=7, nI3=7
+    )
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    jr, jphi, jz = (float(numpy.atleast_1d(x)[0]) for x in aAS(*ic))
+    out = aAS.actionsFreqsAngles(*ic)
+    angles = [float(numpy.atleast_1d(out[ii])[0]) for ii in (6, 7, 8)]
+    E, Lz, I3 = _kk_torus_labels(kkp, 1.3, ic)
+    by_int = [
+        float(numpy.atleast_1d(q)[0])
+        for q in aASI._xvFreqs_integrals(E, Lz, I3, *angles)[:6]
+    ]
+    by_act = [
+        float(numpy.atleast_1d(q)[0])
+        for q in aASI(jr, jphi, jz, angles[0], angles[1], angles[2])
+    ]
+    # The two entry points do not agree exactly, and should not: the action
+    # route additionally inverts the action-to-coordinate tables, so it lands
+    # on a slightly different torus. They must agree at the level of that
+    # inversion, and the integral route -- which needs no inversion -- must be
+    # at least as close to the true point.
+    for aa, bb, name in zip(by_int, by_act, ("R", "vR", "vT", "z", "vz", "phi")):
+        assert numpy.fabs(aa - bb) < 1e-3, (
+            "The integral and action entry points of the interpolated "
+            "actionAngleStaeckelInverse disagree for %s (%g vs %g)" % (name, aa, bb)
+        )
+    assert numpy.fabs(by_int[0] - ic[0]) <= numpy.fabs(by_act[0] - ic[0]), (
+        "The integral entry point, which requires no inversion, is less "
+        "accurate than the action entry point"
+    )
+    assert numpy.fabs(by_int[0] - ic[0]) < 1e-3, (
+        "Interpolated actionAngleStaeckelInverse by integrals does not invert "
+        "the forward transformation"
+    )
+    # a torus outside the grid in L_z must still be rejected here
+    with pytest.raises(ValueError, match="outside the grid"):
+        aASI._xvFreqs_integrals(E, 5.0, I3, *angles)
+    # ... and so must one inside the L_z range but below the innermost energy
+    with pytest.raises(ValueError, match="outside the grid"):
+        aASI._xvFreqs_integrals(-1e3, Lz, I3, *angles)
+    # two consecutive evaluations of the same torus: the second must hit the
+    # cache rather than re-interpolating the profiles
+    aASI._xvFreqs_integrals(E, Lz, I3, *angles)
+    again = [
+        float(numpy.atleast_1d(q)[0])
+        for q in aASI._xvFreqs_integrals(E, Lz, I3, *angles)[:6]
+    ]
+    assert numpy.all(numpy.array(again) == numpy.array(by_int)), (
+        "Re-evaluating the same interpolated torus does not reproduce it"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_interp_outside_grid():
+    # Actions outside the grid must be rejected, not silently extrapolated
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=8.0, nLz=5, nE=5, nI3=5
+    )
+    with pytest.raises(ValueError, match="outside the grid"):
+        aASI(0.05, 5.0, 0.05, 0.1, 0.2, 0.3)  # L_z beyond the grid
+    with pytest.raises(ValueError, match="outside the grid"):
+        aASI(50.0, 0.99, 50.0, 0.1, 0.2, 0.3)  # far beyond the outer energy
+    return None
+
+
 def test_actionAngleStaeckelInverse_notorus_errors():
     # Unbound / invalid torus labels raise errors
     from galpy.actionAngle import actionAngleStaeckelInverse
