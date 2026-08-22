@@ -219,6 +219,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     uhi *= 2.0
             self._umins[ii] = brentq(Wu, ulo, uin, xtol=1e-15, rtol=8.9e-16)
             self._umaxs[ii] = brentq(Wu, uout, uhi, xtol=1e-15, rtol=8.9e-16)
+            if (self._umaxs[ii] - self._umins[ii]) < 1e-12 * (1.0 + self._umaxs[ii]):
+                # The two turning points are separated by a few ulp: the
+                # oscillation cannot be resolved in double precision, and
+                # everything built on it (the profiles, and hence the
+                # frequencies) would be noise. Fail loudly rather than
+                # return a plausible-looking zero
+                raise ValueError(
+                    f"u oscillation of torus {ii} is unresolvable in double "
+                    f"precision (u_max - u_min = "
+                    f"{self._umaxs[ii] - self._umins[ii]:e} for "
+                    f"E={E}, Lz={Lz}, I3={I3}); the torus is a shell orbit "
+                    "to within machine precision"
+                )
             if Wv_all[ii, -1] <= 0.0:
                 raise ValueError(
                     f"Midplane not reached for torus {ii}; no valid torus "
@@ -240,20 +253,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     ############################ SETUP: QUADRATURES ###########################
     def _dWu(self, u, E, Lz):
-        """dW_u/du (independent of I3); u may be an array"""
+        """dW_u/du (independent of I3); u may be an array of any shape (the
+        wrapper's derivative only accepts 1D, so it is evaluated flat)"""
+        u = numpy.asarray(u)
+        dUdu = self._staeckelwrap._dUdu(u.ravel()).reshape(u.shape)
         return (
-            2.0
-            * self._delta**2.0
-            * (E * numpy.sinh(2.0 * u) - self._staeckelwrap._dUdu(u))
+            2.0 * self._delta**2.0 * (E * numpy.sinh(2.0 * u) - dUdu)
             + 2.0 * Lz**2.0 * numpy.cosh(u) / numpy.sinh(u) ** 3.0
         )
 
     def _dWv(self, v, E, Lz):
-        """dW_v/dv (independent of I3); v may be an array"""
+        """dW_v/dv (independent of I3); v may be an array of any shape"""
+        v = numpy.asarray(v)
+        dVdv = self._staeckelwrap._dVdv(v.ravel()).reshape(v.shape)
         return (
-            2.0
-            * self._delta**2.0
-            * (E * numpy.sin(2.0 * v) + self._staeckelwrap._dVdv(v))
+            2.0 * self._delta**2.0 * (E * numpy.sin(2.0 * v) + dVdv)
             + 2.0 * Lz**2.0 * numpy.cos(v) / numpy.sin(v) ** 3.0
         )
 
@@ -281,16 +295,40 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             D = qmax - qmin
             # q(chi) at the nodes for all tori: (ntori, nnodes)
             q = qmin[:, None] + D[:, None] * y_nodes[None, :]
-            Q = W_of_q(q) / y1my[None, :]
-            # turning-point limits Q -> |W'| D, switched in where the direct
-            # evaluation is unreliable
-            Qlim = numpy.where(
+            W = W_of_q(q)
+            with numpy.errstate(invalid="ignore", divide="ignore"):
+                Q = W / y1my[None, :]
+            # Near the turning points the direct evaluation of W is a
+            # difference of O(1) terms and is dominated by cancellation, so
+            # reconstruct Q there from the analytic derivative by the
+            # trapezoid W ~ (q - q0) [W'(q0) + W'(q)]/2, whose O(y^2) model
+            # error is far below the switch threshold. The switch has to be
+            # RELATIVE to the size of W on the torus, not a fixed threshold
+            # in the anomaly: the signal near a turning point scales as
+            # W' D y while the cancellation noise does not, so for a very
+            # thin oscillation (a near-shell or near-planar torus) the
+            # noise-dominated region is wider than any fixed anomaly cut,
+            # and a single node left on the wrong side of it makes 1/sqrt(Q)
+            # blow up and destroys the frequencies
+            dWq = dW_of_q(q)
+            Qtp = numpy.where(
                 y_nodes[None, :] < 0.5,
-                (dW_of_q(qmin) * D)[:, None],
-                (-dW_of_q(qmax) * D)[:, None],
+                D[:, None]
+                * (dW_of_q(qmin)[:, None] + dWq)
+                / 2.0
+                / (1.0 - y_nodes[None, :]),
+                D[:, None]
+                * (-dW_of_q(qmax)[:, None] - dWq)
+                / 2.0
+                / numpy.maximum(y_nodes[None, :], 1e-300),
             )
-            Q = numpy.where(y1my[None, :] > 1e-6, Q, Qlim)
-            Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
+            reliable = (y1my[None, :] > 1e-6) & (
+                W > 1e-6 * numpy.nanmax(W, axis=1, keepdims=True)
+            )
+            Q = numpy.where(reliable, Q, Qtp)
+            Q[~numpy.isfinite(Q) | (Q < numpy.finfo(float).tiny)] = numpy.finfo(
+                float
+            ).tiny
             sqQ = numpy.sqrt(Q)
             # action: (D/4) int sqrt(Q) sin^2(chi) dchi
             act_vals = sqQ * (D[:, None] / 4.0) * sin_nodes[None, :] ** 2.0
@@ -322,7 +360,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._umins,
             self._umaxs,
             lambda q: self._Wu(q, Es[:, None], Lzs[:, None], I3s[:, None]),
-            lambda q: self._dWu(q, Es, Lzs),
+            lambda q: self._dWu(
+                q,
+                Es.reshape((-1,) + (1,) * (numpy.ndim(q) - 1)),
+                Lzs.reshape((-1,) + (1,) * (numpy.ndim(q) - 1)),
+            ),
             lambda q: d2 * numpy.sinh(q) ** 2.0,
             lambda q: d2 * numpy.ones_like(q),
             lambda q: Lzs[:, None] / numpy.sinh(q) ** 2.0,
@@ -331,7 +373,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._vmins,
             numpy.pi - self._vmins,
             lambda q: self._Wv(q, Es[:, None], Lzs[:, None], I3s[:, None]),
-            lambda q: self._dWv(q, Es, Lzs),
+            lambda q: self._dWv(
+                q,
+                Es.reshape((-1,) + (1,) * (numpy.ndim(q) - 1)),
+                Lzs.reshape((-1,) + (1,) * (numpy.ndim(q) - 1)),
+            ),
             lambda q: d2 * numpy.sin(q) ** 2.0,
             lambda q: d2 * numpy.ones_like(q),
             lambda q: Lzs[:, None] / numpy.sin(q) ** 2.0,
