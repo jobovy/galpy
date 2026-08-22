@@ -10,6 +10,7 @@
 ###############################################################################
 import numpy
 from scipy.interpolate import InterpolatedUnivariateSpline, RectBivariateSpline
+from scipy.ndimage import map_coordinates, spline_filter1d
 from scipy.optimize import brentq, minimize_scalar
 
 from ..potential import OblateStaeckelWrapperPotential, evaluatePotentials, vcirc
@@ -26,6 +27,100 @@ _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
 # already wrapped; its value is irrelevant for an exactly Staeckel potential
 # (any choice gives the same U, V up to the fixed gauge)
 _U0INTERNAL = 1.15
+
+
+def _bspline_weights(t):
+    """Cubic B-spline weights for the four-point stencil at offset t"""
+    t2 = t * t
+    t3 = t2 * t
+    return numpy.array(
+        [
+            (1.0 - 3.0 * t + 3.0 * t2 - t3) / 6.0,
+            (4.0 - 6.0 * t2 + 3.0 * t3) / 6.0,
+            (1.0 + 3.0 * t + 3.0 * t2 - 3.0 * t3) / 6.0,
+            t3 / 6.0,
+        ]
+    )
+
+
+class _ProfileSet:
+    """Several angle profiles sharing one uniform chi mesh.
+
+    The profiles are stored as cubic B-spline coefficients, padded so the
+    four-point stencil is always in range, and evaluated with an explicit
+    weight formula rather than through a library routine: the Newton
+    iteration needs the same chi for several profiles at a time, and for a
+    single angle the per-call overhead of a library interpolator dominates
+    everything else.
+    """
+
+    def __init__(self, coeffs, dchi):
+        self._c = numpy.concatenate(
+            (coeffs[:, :1], coeffs[:, :1], coeffs, coeffs[:, -1:], coeffs[:, -1:]),
+            axis=1,
+        )
+        self._dchi = dchi
+        self._n = coeffs.shape[1]
+
+    def block(self, which):
+        """The padded coefficients of a subset of the profiles, sliced once
+        so that repeated evaluations do not re-copy them"""
+        return numpy.ascontiguousarray(self._c[which])
+
+    def evaluate(self, block, chi):
+        """Evaluate a block returned by block() at the angles chi"""
+        x = numpy.clip(chi / self._dchi, 0.0, self._n - 1.0)
+        i = x.astype(int)
+        t = x - i
+        j = i + 2
+        t2 = t * t
+        t3 = t2 * t
+        return (
+            (1.0 - 3.0 * t + 3.0 * t2 - t3) * block[:, j - 1]
+            + (4.0 - 6.0 * t2 + 3.0 * t3) * block[:, j]
+            + (1.0 + 3.0 * t + 3.0 * t2 - 3.0 * t3) * block[:, j + 1]
+            + t3 * block[:, j + 2]
+        ) / 6.0
+
+    def __call__(self, chi, which):
+        return self.evaluate(self.block(which), numpy.atleast_1d(chi))
+
+
+def _pad_axis(arr, axis, pad):
+    """Extend arr beyond both ends of axis by quadratic extrapolation from the
+    three nearest slices, vectorized over everything else"""
+    n = arr.shape[axis]
+    out = numpy.moveaxis(arr, axis, 0)
+    flat = out.reshape((n, -1))
+    deg = 2 if n > 2 else 1
+    # one polynomial fit for all columns at once, from the edge slices only:
+    # a global fit would be dominated by the far side of the grid
+    left = numpy.polyfit(numpy.arange(deg + 1), flat[: deg + 1], deg)
+    right = numpy.polyfit(numpy.arange(deg + 1), flat[n - deg - 1 :], deg)
+    lo = numpy.array(
+        [numpy.polyval(left, xx) for xx in numpy.arange(-pad, 0, dtype=float)]
+    )
+    hi = numpy.array(
+        [
+            numpy.polyval(right, xx)
+            for xx in numpy.arange(deg + 1, deg + 1 + pad, dtype=float)
+        ]
+    )
+    ext = numpy.vstack((lo, flat, hi)).reshape((n + 2 * pad,) + out.shape[1:])
+    return numpy.moveaxis(ext, 0, axis)
+
+
+def _prefilter_padded(arr, axes, pad):
+    """Pad arr along axes and return its cubic-spline prefiltered form, ready
+    for map_coordinates with prefilter=False. Only the given axes are
+    prefiltered: the leading axis indexes distinct quantities, and filtering
+    across it would mix them."""
+    out = arr
+    for ax in axes:
+        out = _pad_axis(out, ax, pad)
+    for ax in axes:
+        out = spline_filter1d(out, order=3, axis=ax, mode="nearest")
+    return out
 
 
 class actionAngleStaeckelInverse(actionAngleInverse):
@@ -55,6 +150,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         nE=9,
         nI3=9,
         grid_pad=0.02,
+        nchi_store=201,
         nchi=2001,
         maxiter=60,
         angle_tol=1e-13,
@@ -155,7 +251,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._anglez0 = numpy.pi / 2.0
         self._interp = setup_interp
         if setup_interp:
-            self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad)
+            self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, nchi_store)
             return
         # Setup in three logical stages
         self._find_turning_points()
@@ -513,7 +609,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             hi += 1.0
         return brentq(maxWu, lo, hi, xtol=1e-14)
 
-    def _setup_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad, nchistore):
         """Grid of tori spanning the bound phase space, and the tables that
         recover a torus's integrals from its actions without root finding.
 
@@ -526,6 +622,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         unity in the actions.
         """
         self._nLz, self._nE, self._nI3 = nLz, nE, nI3
+        self._nchistore = nchistore
         self._Lzgrid = numpy.linspace(
             Rmin * vcirc(self._pot, Rmin), Rmax * vcirc(self._pot, Rmax), nLz
         )
@@ -534,6 +631,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         shape = (nLz, nE, nI3)
         Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
         self._Ecs, self._Emaxs = numpy.empty(nLz), numpy.empty(nLz)
+        self._grid_Ish = numpy.empty((nLz, nE))
         sinw = numpy.sin(numpy.pi * self._wIgrid / 2.0) ** 2.0
         for ii, Lz in enumerate(self._Lzgrid):
             self._Ecs[ii] = self._circular_orbit(Lz)[1]
@@ -543,9 +641,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             for jj, wE in enumerate(self._wEgrid):
                 E = self._Ecs[ii] + wE**2.0 * (self._Emaxs[ii] - self._Ecs[ii])
                 Ipl = self._I3_planar(E, Lz)
+                self._grid_Ish[ii, jj] = self._I3_shell(E, Lz)
                 Es[ii, jj] = E
                 Lzs[ii, jj] = Lz
-                I3s[ii, jj] = Ipl + sinw * (self._I3_shell(E, Lz) - Ipl)
+                I3s[ii, jj] = Ipl + sinw * (self._grid_Ish[ii, jj] - Ipl)
         # Build every torus of the grid in one vectorized construction and
         # keep only what the lookup needs: its actions
         grid = actionAngleStaeckelInverse(
@@ -557,6 +656,46 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         self._grid_jr = grid._jr.reshape(shape)
         self._grid_jz = grid._jz.reshape(shape)
+        # Keep what the construction produced: the turning points, the
+        # frequencies, and the six angle profiles with their derivatives,
+        # resampled onto a common (coarser) chi mesh. These are what makes
+        # evaluation cheap -- rebuilding a torus instead costs ~45 ms.
+        self._chistore = numpy.linspace(0.0, numpy.pi, self._nchistore)
+        nprof = self._nchistore
+        prof = numpy.empty((12, grid._ntori, nprof))
+        for kk in range(grid._ntori):
+            for ll in range(3):
+                prof[ll, kk] = grid._Aprof[kk][ll](self._chistore)
+                prof[3 + ll, kk] = grid._Bprof[kk][ll](self._chistore)
+                prof[6 + ll, kk] = grid._dAprof[kk][ll](self._chistore)
+                prof[9 + ll, kk] = grid._dBprof[kk][ll](self._chistore)
+        self._grid_scal = numpy.array(
+            [
+                grid._umins,
+                grid._umaxs,
+                grid._vmins,
+                grid._OmegaR,
+                grid._Omegaz,
+                grid._Omegaphi,
+                Es.ravel(),
+                I3s.ravel(),
+            ]
+        ).reshape((8,) + shape)
+        # Prefilter along chi once here: prefiltering and interpolation
+        # across the grid are both linear, so they commute, and doing it now
+        # keeps it off the per-torus path
+        prof = spline_filter1d(prof, order=3, axis=-1, mode="nearest")
+        self._grid_prof = prof.reshape((12,) + shape + (nprof,))
+        # Pad along the three grid directions by polynomial extrapolation
+        # before prefiltering: spline_filter assumes a vanishing derivative
+        # beyond the edge, which otherwise dominates the error there (7.7e-4
+        # unpadded versus 2.6e-6 padded, measured in fast-orbits#15)
+        self._gpad = 4
+        self._grid_scal_f = _prefilter_padded(self._grid_scal, (1, 2, 3), self._gpad)
+        self._grid_prof_f = _prefilter_padded(self._grid_prof, (1, 2, 3), self._gpad)
+        self._Ish_spl = RectBivariateSpline(self._Lzgrid, self._wEgrid, self._grid_Ish)
+        self._Ec_spl = InterpolatedUnivariateSpline(self._Lzgrid, self._Ecs, k=3)
+        self._Emax_spl = InterpolatedUnivariateSpline(self._Lzgrid, self._Emaxs, k=3)
         self._build_action_lookup()
 
     def _build_action_lookup(self):
@@ -591,6 +730,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         rhat = rho_z / self._rhomax[:, None, :]
         self._rhatmesh = numpy.linspace(numpy.amax(rhat[:, 0, :]), 1.0, nE)
         self._tab_wE, self._tab_wI = (numpy.empty((nLz, nE, nI3)) for _ in range(2))
+        self._rhomax_f = None
         for ii in range(nLz):
             for kk in range(nI3):
                 self._tab_wE[ii, :, kk] = InterpolatedUnivariateSpline(
@@ -599,9 +739,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 self._tab_wI[ii, :, kk] = InterpolatedUnivariateSpline(
                     rhat[ii, :, kk], wI_z[ii, :, kk], k=3
                 )(self._rhatmesh)
+        # prefilter once: rebuilding splines on every call dominated the cost
+        self._tab_f = _prefilter_padded(
+            numpy.array([self._tab_wE, self._tab_wI]), (1, 2, 3), self._gpad
+        )
+        self._rhomax_f = _prefilter_padded(self._rhomax[None], (1, 2), self._gpad)
 
     def _integrals_from_actions(self, jr, jphi, jz):
-        """(J_R, J_phi, J_z) -> (E, L_z, I3), by interpolation only"""
+        """(J_R, J_phi, J_z) -> (E, L_z, I3), by interpolation only: rho and
+        zeta give the position within the rectified action space, and the
+        stored tables convert that to grid coordinates"""
         Lz = jphi
         if Lz < self._Lzgrid[0] or Lz > self._Lzgrid[-1]:
             raise ValueError(
@@ -615,51 +762,82 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             / numpy.pi
             * numpy.arcsin(numpy.sqrt(numpy.clip(jz / (jr + jz), 0.0, 1.0)))
         )
-
-        # interpolate the tables in L_z first, then read (w_E, w_I) off them
-        def alongLz(tab):
-            return numpy.array(
-                [
-                    InterpolatedUnivariateSpline(self._Lzgrid, tab[:, aa, bb], k=3)(Lz)
-                    for aa in range(tab.shape[1])
-                    for bb in range(tab.shape[2])
-                ]
-            ).reshape(tab.shape[1:])
-
-        rhomax = InterpolatedUnivariateSpline(
-            self._zetamesh,
-            numpy.array(
-                [
-                    InterpolatedUnivariateSpline(
-                        self._Lzgrid, self._rhomax[:, kk], k=3
-                    )(Lz)
-                    for kk in range(self._nI3)
-                ]
-            ),
-            k=3,
-        )(zeta)
+        p = self._gpad
+        iLz = numpy.interp(Lz, self._Lzgrid, numpy.arange(self._nLz))
+        izeta = numpy.interp(zeta, self._zetamesh, numpy.arange(self._nI3))
+        rhomax = map_coordinates(
+            self._rhomax_f[0],
+            numpy.array([[iLz + p], [izeta + p]]),
+            order=3,
+            prefilter=False,
+            mode="nearest",
+        )[0]
         rhat = rho / rhomax
-        if not (self._rhatmesh[0] <= rhat <= self._rhatmesh[-1]) or not (
-            self._zetamesh[0] <= zeta <= self._zetamesh[-1]
+        if not (
+            self._rhatmesh[0] <= rhat <= self._rhatmesh[-1]
+            and self._zetamesh[0] <= zeta <= self._zetamesh[-1]
         ):
             raise ValueError(
                 "Given actions lie outside the grid of this "
                 "actionAngleStaeckelInverse instance"
             )
-        wE = RectBivariateSpline(self._rhatmesh, self._zetamesh, alongLz(self._tab_wE))(
-            rhat, zeta
-        )[0, 0]
-        wI = RectBivariateSpline(self._rhatmesh, self._zetamesh, alongLz(self._tab_wI))(
-            rhat, zeta
-        )[0, 0]
-        Ec = InterpolatedUnivariateSpline(self._Lzgrid, self._Ecs, k=3)(Lz)
-        Emax = InterpolatedUnivariateSpline(self._Lzgrid, self._Emaxs, k=3)(Lz)
-        E = Ec + wE**2.0 * (Emax - Ec)
-        Ipl = self._I3_planar(E, Lz)
-        I3 = Ipl + numpy.sin(numpy.pi * wI / 2.0) ** 2.0 * (self._I3_shell(E, Lz) - Ipl)
-        return float(E), float(Lz), float(I3)
+        irhat = numpy.interp(rhat, self._rhatmesh, numpy.arange(self._nE))
+        c = numpy.array([[iLz + p], [irhat + p], [izeta + p]])
+        wE = map_coordinates(
+            self._tab_f[0], c, order=3, prefilter=False, mode="nearest"
+        )[0]
+        wI = map_coordinates(
+            self._tab_f[1], c, order=3, prefilter=False, mode="nearest"
+        )[0]
+        return float(wE), float(wI)
 
-    ############################ EVALUATION ###################################
+    def _coords_from_actions(self, jr, jphi, jz):
+        """(J_R, J_phi, J_z) -> fractional grid index, directly. Going via
+        (E, I3) and back would evaluate the shell edge and the energy limits
+        twice for nothing: the torus quantities that evaluation needs,
+        including E and I3 themselves, are interpolated on the grid."""
+        wE, wI = self._integrals_from_actions(jr, jphi, jz)
+        return self._fractional_index(jphi, wE, wI)
+
+    def _interp_torus(self, idx):
+        """Interpolate the stored torus quantities at a fractional grid index.
+
+        The three grid directions are contracted explicitly with the cubic
+        B-spline weights: calling a library interpolator once per profile
+        instead costs more than everything else in an evaluation. The result
+        is cached, because the usual pattern is many angles on one torus.
+        """
+        key = tuple(idx)
+        if getattr(self, "_torus_cache_key", None) == key:
+            return self._torus_cache
+        p = self._gpad
+        w, base = [], []
+        for aa in range(3):
+            x = idx[aa] + p
+            ii = int(numpy.floor(x))
+            w.append(_bspline_weights(x - ii))
+            base.append(ii - 1)
+        sl = (
+            slice(base[0], base[0] + 4),
+            slice(base[1], base[1] + 4),
+            slice(base[2], base[2] + 4),
+        )
+        Ws = w[0][:, None, None] * w[1][None, :, None] * w[2][None, None, :]
+        scal = numpy.tensordot(
+            self._grid_scal_f[:, sl[0], sl[1], sl[2]], Ws, axes=([1, 2, 3], [0, 1, 2])
+        )
+        # contract the grid axes one at a time: contracting all three at once
+        # forces a copy of the (12, 4, 4, 4, nchi) slice, which costs more
+        # than the arithmetic it saves
+        prof = self._grid_prof_f[:, sl[0], sl[1], sl[2], :]
+        prof = numpy.tensordot(prof, w[0], axes=([1], [0]))
+        prof = numpy.tensordot(prof, w[1], axes=([1], [0]))
+        prof = numpy.tensordot(prof, w[2], axes=([1], [0]))
+        profs = _ProfileSet(prof, self._chistore[1] - self._chistore[0])
+        self._torus_cache_key = key
+        self._torus_cache = (scal, profs)
+        return self._torus_cache
+
     def _torus_index(self, jr, jphi, jz):
         indx = numpy.nanargmin(
             numpy.fabs(jr - self._jr)
@@ -688,60 +866,195 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         w = numpy.mod(w, 2.0 * numpy.pi)
         return numpy.where(w <= numpy.pi, dP(w), dP(2.0 * numpy.pi - w))
 
+    @staticmethod
+    def _fold_set(profs, w, block, half):
+        """Fold several profiles of a _ProfileSet at once.
+
+        The argument is folded BEFORE evaluation -- chi = w on the outgoing
+        branch and 2pi - w on the return branch -- so each profile is
+        evaluated once instead of on both branches, and the half-loop values
+        needed by the reflection are passed in rather than re-evaluated.
+        """
+        w = numpy.mod(w, 2.0 * numpy.pi)
+        out = w <= numpy.pi
+        chi = numpy.where(out, w, 2.0 * numpy.pi - w)
+        vals = profs.evaluate(block, chi)
+        refl = 2.0 * half[:, None] - vals
+        # rows flagged with a NaN half are derivatives: the reflection leaves
+        # them unchanged in the folded argument
+        keep = numpy.isnan(half)
+        refl[keep] = vals[keep]
+        return numpy.where(out, vals, refl)
+
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
-    def _interp_instance(self, jr, jphi, jz):
-        """Single-torus instance for the given actions, from the integrals
-        that the grid supplies; cached, because the usual pattern is many
-        angles on one torus"""
-        key = (jr, jphi, jz)
-        if getattr(self, "_interp_cache_key", None) != key:
-            E, Lz, I3 = self._integrals_from_actions(jr, jphi, jz)
-            self._interp_cache_key = key
-            self._interp_cache = actionAngleStaeckelInverse(
-                pot=self._staeckelwrap,
-                Es=[E],
-                Lzs=[Lz],
-                I3s=[I3],
-                nchi=self._nchi,
-                maxiter=self._maxiter,
-                angle_tol=self._angle_tol,
+    def _grid_coords(self, E, Lz, I3):
+        """(E, L_z, I3) -> fractional grid indices. This direction needs no
+        inversion at all: w_E follows from the circular and outer energies,
+        w_I from the planar and shell edges."""
+        if Lz < self._Lzgrid[0] or Lz > self._Lzgrid[-1]:
+            raise ValueError(
+                f"L_z = {Lz} lies outside the grid of this "
+                f"actionAngleStaeckelInverse instance "
+                f"([{self._Lzgrid[0]}, {self._Lzgrid[-1]}])"
             )
-        return self._interp_cache
+        Ec, Emax = self._Ec_spl(Lz), self._Emax_spl(Lz)
+        wE = numpy.sqrt(numpy.clip((E - Ec) / (Emax - Ec), 0.0, numpy.inf))
+        Ipl = self._I3_planar(E, Lz)
+        Ish = self._Ish_spl(Lz, numpy.clip(wE, self._wEgrid[0], self._wEgrid[-1]))[0, 0]
+        s = numpy.clip((I3 - Ipl) / (Ish - Ipl), 0.0, 1.0)
+        wI = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(s))
+        return self._fractional_index(Lz, float(wE), float(wI))
+
+    def _fractional_index(self, Lz, wE, wI):
+        """Fractional index into the (L_z, w_E, w_I) grid, checking that the
+        torus is inside it"""
+        for val, grid, name in (
+            (Lz, self._Lzgrid, "L_z"),
+            (wE, self._wEgrid, "energy"),
+            (wI, self._wIgrid, "third integral"),
+        ):
+            if val < grid[0] or val > grid[-1]:
+                raise ValueError(
+                    f"Requested torus lies outside the grid of this "
+                    f"actionAngleStaeckelInverse instance in the {name} "
+                    "direction"
+                )
+        return (
+            numpy.interp(Lz, self._Lzgrid, numpy.arange(self._nLz)),
+            numpy.interp(wE, self._wEgrid, numpy.arange(self._nE)),
+            numpy.interp(wI, self._wIgrid, numpy.arange(self._nI3)),
+        )
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         if self._interp:
-            sub = self._interp_instance(jr, jphi, jz)
-            return sub._xvFreqs(
-                sub._jr[0], jphi, sub._jz[0], angler, anglephi, anglez, **kwargs
+            return self._xvFreqs_index(
+                self._coords_from_actions(jr, jphi, jz),
+                jphi,
+                angler,
+                anglephi,
+                anglez,
             )
         ii = self._torus_index(jr, jphi, jz)
-        A, B = self._Aprof[ii], self._Bprof[ii]
-        dA, dB = self._dAprof[ii], self._dBprof[ii]
+        return self._solve_and_map(
+            self._Aprof[ii],
+            self._Bprof[ii],
+            self._dAprof[ii],
+            self._dBprof[ii],
+            self._Es[ii],
+            self._Lzs[ii],
+            self._I3s[ii],
+            self._umins[ii],
+            self._umaxs[ii],
+            self._vmins[ii],
+            self._OmegaR[ii],
+            self._Omegaphi[ii],
+            self._Omegaz[ii],
+            angler,
+            anglephi,
+            anglez,
+        )
+
+    def _xvFreqs_integrals(self, E, Lz, I3, angler, anglephi, anglez, **kwargs):
+        """Evaluate on the interpolated torus carrying these integrals"""
+        return self._xvFreqs_index(
+            self._grid_coords(E, Lz, I3), Lz, angler, anglephi, anglez
+        )
+
+    def _xvFreqs_index(self, idx, Lz, angler, anglephi, anglez):
+        """Evaluate on the interpolated torus at a fractional grid index"""
+        scal, profs = self._interp_torus(idx)
+        return self._solve_and_map(
+            profs,
+            None,
+            None,
+            None,
+            scal[6],
+            Lz,
+            scal[7],
+            scal[0],
+            scal[1],
+            scal[2],
+            scal[3],
+            scal[5],
+            scal[4],
+            angler,
+            anglephi,
+            anglez,
+        )
+
+    def _solve_and_map(
+        self,
+        A,
+        B,
+        dA,
+        dB,
+        E,
+        Lz,
+        I3,
+        umin,
+        umaxx,
+        vmin,
+        OmR,
+        Omphi,
+        Omz,
+        angler,
+        anglephi,
+        anglez,
+    ):
+        """Invert the angle system on one torus and map the result to
+        (R, vR, vT, z, vz, phi); shared by the direct and interpolated paths.
+        A is either a list of profile splines (direct) or a _ProfileSet
+        holding all twelve profiles of an interpolated torus."""
         thR = numpy.atleast_1d(numpy.array(angler, dtype="float"))
         thz = numpy.atleast_1d(numpy.array(anglez, dtype="float"))
         thphi = numpy.atleast_1d(numpy.array(anglephi, dtype="float"))
-        # Solve the additively separable 2x2 system for the extended phases,
-        # iterating only on the angles that have not yet converged (as in the
-        # 1D and spherical inverses): the Newton iteration is quadratically
-        # convergent, so most angles are done in a few steps while a few
-        # near-degenerate ones take longer
+        batched = isinstance(A, _ProfileSet)
+        if batched:
+            profs = A
+            # profile order: A_R,A_z,A_phi,B_R,B_z,B_phi then their derivatives
+            # values and derivatives share the angle and therefore the
+            # weights, so they are evaluated in one call rather than two
+            blku = profs.block(numpy.array([0, 1, 6, 7]))
+            blkv = profs.block(numpy.array([3, 4, 9, 10]))
+            bphiu = profs.block(numpy.array([2]))
+            bphiv = profs.block(numpy.array([5]))
+            allhalf = profs(numpy.array([numpy.pi]), numpy.arange(12))[:, 0]
+            # the reflection applies to the values; the derivatives are
+            # unchanged in the folded argument, so their "half" entries are
+            # set so that the same expression leaves them alone
+            halfu = numpy.array([allhalf[0], allhalf[1], numpy.nan, numpy.nan])
+            halfv = numpy.array([allhalf[3], allhalf[4], numpy.nan, numpy.nan])
+
+            def fu(w):
+                return self._fold_set(profs, w, blku, halfu)
+
+            def fv(w):
+                return self._fold_set(profs, w, blkv, halfv)
+
         wu, wv = numpy.copy(thR), numpy.copy(thz)
         unconv = numpy.ones(wu.shape, dtype="bool")
         for _ in range(self._maxiter):
             twu, twv = wu[unconv], wv[unconv]
-            f0 = self._fold(A[0], twu) + self._fold(B[0], twv) - thR[unconv]
-            f1 = (
-                self._fold(A[1], twu)
-                + self._fold(B[1], twv)
-                + self._anglez0
-                - thz[unconv]
-            )
+            if batched:
+                fA, fB = fu(twu), fv(twv)
+                f0 = fA[0] + fB[0] - thR[unconv]
+                f1 = fA[1] + fB[1] + self._anglez0 - thz[unconv]
+                J00, J01 = fA[2], fB[2]
+                J10, J11 = fA[3], fB[3]
+            else:
+                f0 = self._fold(A[0], twu) + self._fold(B[0], twv) - thR[unconv]
+                f1 = (
+                    self._fold(A[1], twu)
+                    + self._fold(B[1], twv)
+                    + self._anglez0
+                    - thz[unconv]
+                )
+                J00, J01 = self._dfold(dA[0], twu), self._dfold(dB[0], twv)
+                J10, J11 = self._dfold(dA[1], twu), self._dfold(dB[1], twv)
             f0 = (f0 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             f1 = (f1 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            J00, J01 = self._dfold(dA[0], twu), self._dfold(dB[0], twv)
-            J10, J11 = self._dfold(dA[1], twu), self._dfold(dB[1], twv)
             det = J00 * J11 - J01 * J10
             dwu = (J11 * f0 - J01 * f1) / det
             dwv = (-J10 * f0 + J00 * f1) / det
@@ -753,8 +1066,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if not numpy.any(unconv):
                 break
         # phases -> (u, v, p_u, p_v)
-        E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
-        umin, umaxx, vmin = self._umins[ii], self._umaxs[ii], self._vmins[ii]
         Du, Dv = umaxx - umin, numpy.pi - 2.0 * vmin
         wum, wvm = numpy.mod(wu, 2.0 * numpy.pi), numpy.mod(wv, 2.0 * numpy.pi)
         chiu = numpy.where(wum <= numpy.pi, wum, 2.0 * numpy.pi - wum)
@@ -765,7 +1076,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         v = vmin + Dv * numpy.sin(chiv / 2.0) ** 2.0
         pu = su * numpy.sqrt(numpy.clip(self._Wu(u, E, Lz, I3), 0.0, None))
         pv = sv * numpy.sqrt(numpy.clip(self._Wv(v, E, Lz, I3), 0.0, None))
-        phi = thphi - self._fold(A[2], wu) - self._fold(B[2], wv)
+        if batched:
+            phi = (
+                thphi
+                - self._fold_set(profs, wu, bphiu, allhalf[[2]])[0]
+                - self._fold_set(profs, wv, bphiv, allhalf[[5]])[0]
+            )
+        else:
+            phi = thphi - self._fold(A[2], wu) - self._fold(B[2], wv)
         # (u, v, p_u, p_v) -> (R, z, vR, vz)
         sh, ch = numpy.sinh(u), numpy.cosh(u)
         sn, cs = numpy.sin(v), numpy.cos(v)
@@ -781,14 +1099,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             z,
             vz,
             phi % (2.0 * numpy.pi),
-            self._OmegaR[ii],
-            self._Omegaphi[ii],
-            self._Omegaz[ii],
+            OmR,
+            Omphi,
+            Omz,
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         if self._interp:
-            sub = self._interp_instance(jr, jphi, jz)
-            return (sub._OmegaR[0], sub._Omegaphi[0], sub._Omegaz[0])
+            scal = self._interp_torus(self._coords_from_actions(jr, jphi, jz))[0]
+            return (scal[3], scal[5], scal[4])
         ii = self._torus_index(jr, jphi, jz)
         return (self._OmegaR[ii], self._Omegaphi[ii], self._Omegaz[ii])
