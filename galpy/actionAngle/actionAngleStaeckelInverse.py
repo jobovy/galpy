@@ -627,12 +627,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Rmin * vcirc(self._pot, Rmin), Rmax * vcirc(self._pot, Rmax), nLz
         )
         self._wEgrid = numpy.linspace(wpad, 1.0 - wpad, nE)
-        self._wIgrid = numpy.linspace(wpad, 1.0 - wpad, nI3)
+        # w_I spans the CLOSED interval so that J_R = 0 (shell) and J_z = 0
+        # (planar) are grid nodes rather than lying outside the grid. The
+        # construction degenerates exactly there, so those two nodes are
+        # built a small step inside and then corrected to their analytic
+        # limits below.
+        self._wIgrid = numpy.linspace(0.0, 1.0, nI3)
+        self._wIedge = 1e-4
         shape = (nLz, nE, nI3)
         Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
         self._Ecs, self._Emaxs = numpy.empty(nLz), numpy.empty(nLz)
         self._grid_Ish = numpy.empty((nLz, nE))
-        sinw = numpy.sin(numpy.pi * self._wIgrid / 2.0) ** 2.0
+        wIbuild = numpy.clip(self._wIgrid, self._wIedge, 1.0 - self._wIedge)
+        sinw = numpy.sin(numpy.pi * wIbuild / 2.0) ** 2.0
         for ii, Lz in enumerate(self._Lzgrid):
             self._Ecs[ii] = self._circular_orbit(Lz)[1]
             self._Emaxs[ii] = (
@@ -654,8 +661,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             I3s=I3s.ravel(),
             nchi=self._nchi,
         )
-        self._grid_jr = grid._jr.reshape(shape)
-        self._grid_jz = grid._jz.reshape(shape)
+        self._grid_jr = grid._jr.reshape(shape).copy()
+        self._grid_jz = grid._jz.reshape(shape).copy()
+        # the edge nodes represent the degenerate tori exactly, so their
+        # vanishing action is set to zero rather than to the small value of
+        # the torus that was actually built; this is what lets the direction
+        # coordinate zeta reach 0 and 1 and hence J_z = 0 and J_R = 0 be
+        # inside the grid rather than just outside it
+        if self._wIgrid[-1] == 1.0:
+            self._grid_jr[:, :, -1] = 0.0
+        if self._wIgrid[0] == 0.0:
+            self._grid_jz[:, :, 0] = 0.0
         # Keep what the construction produced: the turning points, the
         # frequencies, and the six angle profiles with their derivatives,
         # resampled onto a common (coarser) chi mesh. These are what makes
@@ -669,6 +685,44 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 prof[3 + ll, kk] = grid._Bprof[kk][ll](self._chistore)
                 prof[6 + ll, kk] = grid._dAprof[kk][ll](self._chistore)
                 prof[9 + ll, kk] = grid._dBprof[kk][ll](self._chistore)
+        # Impose the analytic limits on the degenerate oscillation of each
+        # edge. At the shell edge the u oscillation collapses onto the
+        # spheroid u*, and being harmonic in that limit its angle IS its
+        # anomaly, so A_R = chi with the cross profiles A_z, A_phi vanishing;
+        # the v profiles are ordinary and are kept from the constructed torus.
+        # The planar edge is the mirror image, with B_z = chi and B_R, B_phi
+        # vanishing. Measured approach to these limits: A_R - chi is 2e-4 at
+        # 1 - w_I = 1e-4, and the cross profiles are below 1e-5 there.
+        prof = prof.reshape((12,) + shape + (nprof,))
+        chis = self._chistore
+        ones = numpy.ones_like(chis)
+        if self._wIgrid[-1] == 1.0:  # shell edge: J_R = 0
+            prof[0, :, :, -1] = chis
+            prof[6, :, :, -1] = ones
+            for ll in (1, 2):
+                prof[ll, :, :, -1] = 0.0
+                prof[6 + ll, :, :, -1] = 0.0
+        if self._wIgrid[0] == 0.0:  # planar edge: J_z = 0
+            prof[4, :, :, 0] = chis
+            prof[10, :, :, 0] = ones
+            for ll in (0, 2):
+                prof[3 + ll, :, :, 0] = 0.0
+                prof[9 + ll, :, :, 0] = 0.0
+        prof = prof.reshape((12, grid._ntori, nprof))
+        # the degenerate turning points collapse: u_min = u_max at the shell,
+        # v_min = pi/2 at the planar edge
+        umins = grid._umins.reshape(shape).copy()
+        umaxs = grid._umaxs.reshape(shape).copy()
+        vmins = grid._vmins.reshape(shape).copy()
+        if self._wIgrid[-1] == 1.0:
+            mid = 0.5 * (umins[:, :, -1] + umaxs[:, :, -1])
+            umins[:, :, -1] = mid
+            umaxs[:, :, -1] = mid
+        if self._wIgrid[0] == 0.0:
+            vmins[:, :, 0] = numpy.pi / 2.0
+        grid._umins = umins.ravel()
+        grid._umaxs = umaxs.ravel()
+        grid._vmins = vmins.ravel()
         self._grid_scal = numpy.array(
             [
                 grid._umins,
@@ -797,6 +851,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         twice for nothing: the torus quantities that evaluation needs,
         including E and I3 themselves, are interpolated on the grid."""
         wE, wI = self._integrals_from_actions(jr, jphi, jz)
+        # A vanishing action means the corresponding oscillation is absent,
+        # which is exactly an edge of the grid. Snap to it rather than
+        # accepting the table's rounding: otherwise a J_z = 0 torus keeps a
+        # sliver of vertical oscillation, and a J_R = 0 one a sliver of
+        # radial oscillation.
+        if jz <= 0.0:
+            wI = self._wIgrid[0]
+        elif jr <= 0.0:
+            wI = self._wIgrid[-1]
         return self._fractional_index(jphi, wE, wI)
 
     def _interp_torus(self, idx):
@@ -834,6 +897,49 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         prof = numpy.tensordot(prof, w[1], axes=([1], [0]))
         prof = numpy.tensordot(prof, w[2], axes=([1], [0]))
         profs = _ProfileSet(prof, self._chistore[1] - self._chistore[0])
+        # Polish the turning points against the interpolated integrals. They
+        # are interpolated like everything else, so they are not exact roots
+        # of W for the interpolated (E, I3), and the reconstructed momenta
+        # then miss the torus near the turning points: p = sqrt(W) is clipped
+        # where W dips below zero, and the energy along the torus drifts by
+        # ~1e-6 instead of being exact. Two Newton steps on W, using the
+        # analytic derivative, restore machine-level placement for a handful
+        # of potential evaluations. A degenerate oscillation (u_min = u_max at
+        # the shell edge, v_min = pi/2 at the planar edge) is left alone.
+        Lz = self._interp_Lz
+        E = scal[6]
+        if numpy.pi / 2.0 - scal[2] <= 1e-12:
+            # planar torus: the exact condition W_v(pi/2) = 0 fixes I3 in
+            # closed form, which is better than any interpolated value
+            scal[7] = self._I3_planar(E, Lz)
+        elif scal[1] - scal[0] <= 1e-12:
+            # shell torus: W_u must have a DOUBLE root, so I3 is the shell
+            # value for this (E, L_z) -- taken from the stored edge rather
+            # than re-solved -- and u* is the maximum of W_u, which Newton
+            # must therefore chase through the derivative rather than the
+            # function
+            # Both conditions must hold at once -- W_u'(u*) = 0 places the
+            # maximum and W_u(u*) = 0 makes it a double root -- so u* and I3
+            # are solved together. W_u depends on I3 only through -2 delta^2
+            # I3, which makes the second update exact.
+            ustar, I3s_, h = scal[0], scal[7], 1e-5
+            for _ in range(3):
+                d1 = self._dWu(ustar, E, Lz)
+                d2 = (
+                    (self._dWu(ustar + h, E, Lz) - self._dWu(ustar - h, E, Lz))
+                    / 2.0
+                    / h
+                )
+                ustar -= d1 / d2
+                I3s_ += self._Wu(ustar, E, Lz, I3s_) / 2.0 / self._delta**2.0
+            scal[0] = scal[1] = ustar
+            scal[7] = I3s_
+        I3 = scal[7]
+        if scal[1] - scal[0] > 1e-12:
+            for kk in (0, 1):
+                scal[kk] -= self._Wu(scal[kk], E, Lz, I3) / self._dWu(scal[kk], E, Lz)
+        if numpy.pi / 2.0 - scal[2] > 1e-12:
+            scal[2] -= self._Wv(scal[2], E, Lz, I3) / self._dWv(scal[2], E, Lz)
         self._torus_cache_key = key
         self._torus_cache = (scal, profs)
         return self._torus_cache
@@ -910,21 +1016,27 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _fractional_index(self, Lz, wE, wI):
         """Fractional index into the (L_z, w_E, w_I) grid, checking that the
         torus is inside it"""
+        out = []
         for val, grid, name in (
             (Lz, self._Lzgrid, "L_z"),
             (wE, self._wEgrid, "energy"),
             (wI, self._wIgrid, "third integral"),
         ):
-            if val < grid[0] or val > grid[-1]:
+            # a torus exactly on an edge (J_R = 0 or J_z = 0) can land a
+            # rounding step outside it, so clip within a tolerance and only
+            # reject what is genuinely outside
+            tol = 1e-6 * (grid[-1] - grid[0])
+            if val < grid[0] - tol or val > grid[-1] + tol:
                 raise ValueError(
                     f"Requested torus lies outside the grid of this "
                     f"actionAngleStaeckelInverse instance in the {name} "
                     "direction"
                 )
+            out.append(numpy.clip(val, grid[0], grid[-1]))
         return (
-            numpy.interp(Lz, self._Lzgrid, numpy.arange(self._nLz)),
-            numpy.interp(wE, self._wEgrid, numpy.arange(self._nE)),
-            numpy.interp(wI, self._wIgrid, numpy.arange(self._nI3)),
+            numpy.interp(out[0], self._Lzgrid, numpy.arange(self._nLz)),
+            numpy.interp(out[1], self._wEgrid, numpy.arange(self._nE)),
+            numpy.interp(out[2], self._wIgrid, numpy.arange(self._nI3)),
         )
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
@@ -964,6 +1076,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _xvFreqs_index(self, idx, Lz, angler, anglephi, anglez):
         """Evaluate on the interpolated torus at a fractional grid index"""
+        self._interp_Lz = Lz
         scal, profs = self._interp_torus(idx)
         return self._solve_and_map(
             profs,
@@ -1074,8 +1187,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sv = numpy.where(wvm <= numpy.pi, 1.0, -1.0)
         u = umin + Du * numpy.sin(chiu / 2.0) ** 2.0
         v = vmin + Dv * numpy.sin(chiv / 2.0) ** 2.0
-        pu = su * numpy.sqrt(numpy.clip(self._Wu(u, E, Lz, I3), 0.0, None))
-        pv = sv * numpy.sqrt(numpy.clip(self._Wv(v, E, Lz, I3), 0.0, None))
+        # A degenerate oscillation carries no momentum. Saying so explicitly
+        # matters because p = sqrt(W) amplifies the machine-level residual of
+        # W to its square root: at a planar torus W_v(pi/2) is zero only to
+        # ~1e-16, which would otherwise appear as a vertical velocity of
+        # ~1e-8 in an orbit that is supposed to lie exactly in the midplane.
+        pu = (
+            numpy.zeros_like(u)
+            if Du <= 1e-12
+            else su * numpy.sqrt(numpy.clip(self._Wu(u, E, Lz, I3), 0.0, None))
+        )
+        pv = (
+            numpy.zeros_like(v)
+            if Dv <= 1e-12
+            else sv * numpy.sqrt(numpy.clip(self._Wv(v, E, Lz, I3), 0.0, None))
+        )
         if batched:
             phi = (
                 thphi
@@ -1106,6 +1232,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         if self._interp:
+            self._interp_Lz = jphi
             scal = self._interp_torus(self._coords_from_actions(jr, jphi, jz))[0]
             return (scal[3], scal[5], scal[4])
         ii = self._torus_index(jr, jphi, jz)

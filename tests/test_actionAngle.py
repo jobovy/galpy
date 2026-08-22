@@ -8661,6 +8661,52 @@ def test_actionAngleStaeckelInverse_interp_by_integrals():
     return None
 
 
+def test_actionAngleStaeckelInverse_interp_degenerate_edges():
+    # Interpolation must work at the edges of action space, not just inside:
+    # J_R = 0 is a shell orbit (u fixed on a spheroid) and J_z = 0 a planar
+    # one. The construction degenerates exactly there, so those grid nodes
+    # carry the analytic limits -- the degenerate oscillation is harmonic, so
+    # its angle is its anomaly and its cross profiles vanish.
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluatePotentials
+    from galpy.util import coords
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=True, order=200)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=8.0, nLz=7, nE=7, nI3=7
+    )
+    jr, jphi, jz = (
+        float(numpy.atleast_1d(x)[0]) for x in aAS(1.1, 0.3, 0.9, 0.25, 0.2)
+    )
+    th = numpy.linspace(0.05, 2.0 * numpy.pi - 0.05, 32)
+    # J_z = 0: the orbit must lie in the midplane, with no vertical motion
+    R, vR, vT, z, vz, phi = (
+        numpy.atleast_1d(q) for q in aASI(jr, jphi, 0.0, th, th * 0.7, th * 1.3)
+    )
+    assert numpy.amax(numpy.fabs(z)) < 1e-12, (
+        "A J_z = 0 torus is not confined to the midplane"
+    )
+    assert numpy.amax(numpy.fabs(vz)) < 1e-12, "A J_z = 0 torus has vertical motion"
+    H = 0.5 * (vR**2.0 + vz**2.0 + vT**2.0) + evaluatePotentials(kkp, R, z)
+    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-12, (
+        "The Hamiltonian is not constant along an interpolated J_z = 0 torus"
+    )
+    # J_R = 0: a shell orbit, confined to a spheroid of constant u
+    R, vR, vT, z, vz, phi = (
+        numpy.atleast_1d(q) for q in aASI(0.0, jphi, jz, th, th * 0.7, th * 1.3)
+    )
+    u, _ = coords.Rz_to_uv(R, z, delta=1.3)
+    assert numpy.ptp(u) < 1e-6, (
+        "A J_R = 0 torus is not confined to a spheroid of constant u"
+    )
+    H = 0.5 * (vR**2.0 + vz**2.0 + vT**2.0) + evaluatePotentials(kkp, R, z)
+    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-12, (
+        "The Hamiltonian is not constant along an interpolated J_R = 0 torus"
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_interp_outside_grid():
     # Actions outside the grid must be rejected, not silently extrapolated
     from galpy.actionAngle import actionAngleStaeckelInverse
