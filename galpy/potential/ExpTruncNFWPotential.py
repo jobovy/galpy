@@ -180,12 +180,22 @@ class ExpTruncNFWPotential(SphericalPotential):
             # Keep amp = nfw.amp and solve amp * F(a/rc) = mass for rc, where
             # F(alpha) = exp(alpha)(1+alpha)E_1(alpha) - 1 decreases monotonically
             # from +inf (alpha->0) to 0 (alpha->inf), so the root is unique.
-            from scipy.optimize import brentq
+            from ..backend.optimize import brentq
 
             target_F = conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
-            Froot = lambda al: (
-                numpy.exp(al) * (1.0 + al) * _scipy_exp1(al) - 1.0 - target_F
-            )
+            # Namespace-agnostic residual, with target_F passed through ``args``
+            # rather than closed over: galpy's brentq follows the DATA, and only
+            # an argument it can see selects the differentiable backend path.
+            xp = get_namespace(target_F)
+            Froot = lambda al, tF: xp.exp(al) * (1.0 + al) * exp1(al) - 1.0 - tF
+            # numpy stays byte-identical: xp is numpy, exp1 routes to
+            # scipy.special.exp1, and brentq routes to scipy.optimize.brentq.
+            # On a backend target_F the value is a TRACER under jax.grad, so the
+            # bracket pre-check and the advisory warnings below -- both ordinary
+            # Python control flow on the solved value -- are numpy-only. The
+            # trade is deliberate: gradients in exchange for the domain check
+            # and the warnings, which are user guidance rather than correctness.
+            numpy_path = not is_backend_array(target_F)
             # F(alpha) decreases monotonically from +inf (alpha->0, rc->inf, the
             # un-truncated infinite-mass NFW) to 0 (alpha->inf). Any finite mass
             # is therefore reachable, with a larger mass simply giving a larger
@@ -193,16 +203,16 @@ class ExpTruncNFWPotential(SphericalPotential):
             # end: F(690) ~ 2e-6 is the smallest mass we can evaluate before
             # exp(alpha) overflows (rc < a/690).
             a_low, a_high = 1e-150, 690.0  # F(1e-150) ~ 344; exp(690) still finite
-            if Froot(a_high) > 0.0:
+            if numpy_path and Froot(a_high, target_F) > 0.0:
                 raise ValueError(
                     "ExpTruncNFWPotential.from_nfw: the requested mass is too "
                     "small to evaluate -- it implies a truncation sharper than "
                     "rc = a/690, where the closed-form total mass overflows in "
                     "floating point"
                 )
-            alpha = brentq(Froot, a_low, a_high)
+            alpha = brentq(Froot, a_low, a_high, args=(target_F,))
             rc = a / alpha
-            if rc < a:
+            if numpy_path and rc < a:
                 warnings.warn(
                     "ExpTruncNFWPotential.from_nfw: the requested total mass "
                     f"implies a truncation radius rc={rc:g} smaller than the NFW "
@@ -217,7 +227,7 @@ class ExpTruncNFWPotential(SphericalPotential):
                 # divergent) NFW outskirts. rvir needs the overdensity definition
                 # and can fail (e.g. odd unit setups), so guard it.
                 try:
-                    rvir = nfw.rvir(use_physical=False)
+                    rvir = nfw.rvir(use_physical=False) if numpy_path else None
                 except Exception:  # pragma: no cover
                     rvir = None
                 if rvir is not None and rc > 2.0 * rvir:
