@@ -922,24 +922,40 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # maximum and W_u(u*) = 0 makes it a double root -- so u* and I3
             # are solved together. W_u depends on I3 only through -2 delta^2
             # I3, which makes the second update exact.
-            ustar, I3s_, h = scal[0], scal[7], 1e-5
+            ustar, I3s_, h = scal[0], scal[7], 1e-4
             for _ in range(3):
-                d1 = self._dWu(ustar, E, Lz)
-                d2 = (
-                    (self._dWu(ustar + h, E, Lz) - self._dWu(ustar - h, E, Lz))
-                    / 2.0
-                    / h
-                )
+                # W at three points in one call gives both the slope and the
+                # curvature, so the maximum is chased without the analytic
+                # derivative and its three potential-layer calls
+                uu = numpy.array([ustar - h, ustar, ustar + h])
+                Wq = self._Wu(uu, E, Lz, I3s_)
+                d1 = (Wq[2] - Wq[0]) / 2.0 / h
+                d2 = (Wq[2] - 2.0 * Wq[1] + Wq[0]) / h**2.0
                 ustar -= d1 / d2
-                I3s_ += self._Wu(ustar, E, Lz, I3s_) / 2.0 / self._delta**2.0
+                I3s_ += (
+                    self._Wu(numpy.array([ustar]), E, Lz, I3s_)[0]
+                    / 2.0
+                    / self._delta**2.0
+                )
             scal[0] = scal[1] = ustar
             scal[7] = I3s_
         I3 = scal[7]
+        # One vectorized evaluation of W per degree of freedom, differenced
+        # for the slope. The analytic dW would read more tidily but costs
+        # three potential-layer calls against one, and the derivative only
+        # sets the Newton step, not the root it converges to.
+        h = 1e-6
         if scal[1] - scal[0] > 1e-12:
-            for kk in (0, 1):
-                scal[kk] -= self._Wu(scal[kk], E, Lz, I3) / self._dWu(scal[kk], E, Lz)
+            uu = numpy.array(
+                [scal[0] - h, scal[0], scal[0] + h, scal[1] - h, scal[1], scal[1] + h]
+            )
+            Wu = self._Wu(uu, E, Lz, I3)
+            scal[0] -= Wu[1] * 2.0 * h / (Wu[2] - Wu[0])
+            scal[1] -= Wu[4] * 2.0 * h / (Wu[5] - Wu[3])
         if numpy.pi / 2.0 - scal[2] > 1e-12:
-            scal[2] -= self._Wv(scal[2], E, Lz, I3) / self._dWv(scal[2], E, Lz)
+            vv = numpy.array([scal[2] - h, scal[2], scal[2] + h])
+            Wv = self._Wv(vv, E, Lz, I3)
+            scal[2] -= Wv[1] * 2.0 * h / (Wv[2] - Wv[0])
         self._torus_cache_key = key
         self._torus_cache = (scal, profs)
         return self._torus_cache
