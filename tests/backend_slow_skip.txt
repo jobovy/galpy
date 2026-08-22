@@ -34,8 +34,8 @@ jax tests/test_orbits.py::test_SOS_3D  # 269s -- inside the cap, but within 20% 
 # migrated (backend sici + branchless frictionFactor + interpolated sigma_r,
 # group b); numpy still exercises them. (torch const_FDMfactor is a shorter
 # integration that finishes under the timeout, so only central_limit is deferred.)
-jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
-jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor  # measured 2026-08-21: >700s TIMEOUT
 # RE-DEFERRED 2026-08-09 (gh#1284 removed this line; that was wrong). The comment
 # above says torch central_limit "finishes under the timeout" -- measured, it does
 # not: >438 s on an IDLE 72-core box against the 300 s cap, and it timed out in CI
@@ -43,7 +43,7 @@ jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
 # the numpy-on-Tensor collision it was simultaneously fixing (6.47 s to raise
 # TypeError), so the "fast" reading measured a fail-fast, not the work. Torch is
 # the same un-vectorized dissipative path as jax above; it belongs here with them.
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: 619.0s (CI~440s)
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
@@ -118,14 +118,12 @@ jax tests/test_galpypaper.py::test_diskdf
 # margin makes context effects implausible, and un-deferring puts them back in
 # the CI shard, which is the full-context check. If any is slow or fails there,
 # re-defer with the shard measurement attached.
-jax tests/test_potential.py::test_MovingObject_2ndderivs_fd
 # test_MultipoleExpansion_deepcopy (#980's regression test): deepcopies + fully
 # re-evaluates 4 Multipole potentials (incl. from_density L=4) over a grid x times x
 # 10 methods. PASSES under jax-CPU but takes ~185 s on the dev box (jax-eager Multipole
 # eval) -> risks the 300 s per-test timeout on slower CI runners; slow-skip until
 # SCF/Multipole eval is vectorized on jax. (torch fails this at construction -> xfail-
 # ledger; numpy fully covers the actual scipy>=1.18 deepcopy-of-module regression.)
-jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # --- Big composite-MW / rotated-tilted-wrapper Poisson tests: jax-eager-slow ---
 # These PASS under jax (correct values) but take 580-2641 s each on the dev box
 # (measured on CPU, -n 8): test_DehnenBinney98 ~2641 s, the two AndTilted MWP14 Poisson
@@ -135,12 +133,12 @@ jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
 # jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
 # ledger; numpy exercises all of them.
-jax tests/test_potential.py::test_DehnenBinney98
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax tests/test_potential.py::test_DehnenBinney98  # measured 2026-08-21: 289.3s (CI~205s) -- passes, but only 32% under the cap
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]  # measured 2026-08-21: 371.9s (CI~264s) -- passes, only 12% under the cap
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
 jax tests/test_streamspraydf.py::test_center
 
 # --- jax single-orbit: variational/dxdv/lyapunov battery (Track D) ---
@@ -263,14 +261,14 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 # timing, which is why the shard was green until an unrelated change shifted it.
 # Skipping means the timeout is never spent. torch runs both fine (107 s worst).
 # Un-skip when the jax dynamical-friction path is vectorized.
-jax tests/test_dynamfric.py::test_dynamfric_c
-jax tests/test_FDMdynamfric.py::test_dynamfric_c
+jax tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
+jax tests/test_FDMdynamfric.py::test_dynamfric_c  # measured 2026-08-21: 332.0s (CI~236s) -- passes, only 21% under the cap
 # torch test_dynamfric_c: with the assertion-site ndarray/Tensor collision fixed
 # it no longer aborts early, and integrating orbits WITH dynamical friction under
 # torch eager then takes 3598s (measured) -- 12x the 300s per-test CI timeout. A
 # timeout records FAILED and overrides xfail, so this is a slow-skip, not an
 # xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
-torch tests/test_dynamfric.py::test_dynamfric_c
+torch tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
 
 # torch-jit: interpRZPotential's grid build under torch.compile does not finish
 # inside the 300 s cap. MEASURED 2026-08-07 by an A/B run for the parallel_map
@@ -379,4 +377,23 @@ torch-jit tests/test_orbit.py::test_liouville_planar
 # scaling. test_interp_potential.py is NOT pytest-split and does not appear in
 # .test_orbit_durations, so this is a ledger-only edit (the two-file un-defer rule
 # applies to the split test_orbit.py).
+#
+#
+# SWEEP 2026-08-21 (test_potential.py + dynamical friction). Whole-file runs, C
+# extension verified active, per-test durations from junitxml, attributed by FULL
+# nodeid (both dynamfric files define test_dynamfric_c -- a bare-name view makes
+# the wrong file look stale).
+#
+# UN-DEFERRED, both jax test_potential.py:
+#     test_MovingObject_2ndderivs_fd      0.2s   -- integrates with dop853_c and
+#                                                   does ~150 scalar evaluations
+#     test_MultipoleExpansion_deepcopy   73.9s   (CI~53s)
+#
+# EVERYTHING ELSE MEASURED THIS SWEEP STAYS, and now carries its number inline so
+# the next sweep skips it instead of paying ~2 h to rediscover. Note the four
+# poisson_surfdens wrapper cases are the SLOWEST things in test_potential.py --
+# the opposite of the guess that the surfdens Poisson-fallback rework had made
+# them stale. Two entries pass under the 300 s cap but by only 12% and 32%; they
+# stay deferred deliberately, because an un-deferred test that flakes in CI costs
+# far more than the ledger line it saves.
 #
