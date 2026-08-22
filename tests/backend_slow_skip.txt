@@ -147,7 +147,7 @@ jax tests/test_streamspraydf.py::test_center
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # PASSES in 528.9s (CI~375s) -- re-measured 2026-08-22 post-#1364 in the real CI shard (--splits 5 --group 3); the old '>420s timed out' was a TIMEOUT BOUND, not a time
 jax tests/test_orbit.py::test_liouville_planar  # >420s (measured 2026-08-15, timed out)
 jax tests/test_orbit.py::test_lyapunov_spectrum_consistency  # PASSES in 662s (measured 2026-08-15) -- genuinely performance-gated
 jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in 1535s (measured 2026-08-15) -- genuinely performance-gated
@@ -241,8 +241,16 @@ jax tests/test_streamdf.py  # 2026-08-21: DEADLOCKS, does not merely run slow --
 # timed out next run). Defer the whole file under jax (the numpy StreamTrack path
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
-jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # measured 2026-08-21: 408.0s (CI~290s)
-jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # measured 2026-08-21: 331.7s (CI~236s)
+#
+# WHY streamTrack IS NOT A BURNDOWN TARGET (measured 2026-08-22, both modes,
+# whole file, post-#1364): 0.96x-1.11x. gh#1364's as_backend_constant guard
+# removes a fixed cost PER as_backend_constant CALL, so it pays in proportion to
+# calls per EVALUATION: RotateAndTilt makes 15/force-eval -> 1.95x on the force
+# call, NonInertialFrameForce 7 -> 1.07x-1.64x on its tests, streamTrack ~0 per
+# evaluation (its stream-module calls are in TRACK SETUP, run a handful of times)
+# -> nothing. Do not re-run this sweep expecting a win from that guard.
+jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 427.2s (CI~303s) re-measured 2026-08-22 post-#1364 (was 408.0s; 0.96x -- the guard does NOT help here)
+jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s) re-measured 2026-08-22 post-#1364 (was 331.7s; 1.02x). STAYS: it straddles the 240s margin on a ~2% wobble, which is noise, not a change
 # jax-eager Staeckel Python-path freqs+angles is borderline >300s in the shard
 # (it passes in isolation and ran <300s in the regen, so it's a DROP from the
 # xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
@@ -327,8 +335,8 @@ jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # 454s
 # 498->452 and 348->314 s -- ~10% inflation, not the 6x that test_noninertial
 # saw, because this run had one competitor rather than four. Either way both
 # clear 240 s, so the split is unchanged.
-jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 452s traced
-jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 314s traced
+jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
+jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 326.8s traced (CI~232s) re-measured 2026-08-22 post-#1364 (was 314s; 0.96x). STAYS: straddles the margin on noise, same as its eager twin
 
 # --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
 # gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
