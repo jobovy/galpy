@@ -9,10 +9,11 @@
 #   lattice is involved; placement on the torus is exact by construction.
 ###############################################################################
 import numpy
-from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.interpolate import InterpolatedUnivariateSpline, RectBivariateSpline
 from scipy.optimize import brentq, minimize_scalar
 
-from ..potential import OblateStaeckelWrapperPotential
+from ..potential import OblateStaeckelWrapperPotential, evaluatePotentials, vcirc
+from ..potential.Potential import _evaluateRforces
 from ..util import coords
 from .actionAngleInverse import actionAngleInverse
 
@@ -46,6 +47,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Es=[0.5],
         Lzs=[0.5],
         I3s=[0.1],
+        setup_interp=False,
+        Rmin=0.5,
+        Rmax=2.0,
+        Rinf=10.0,
+        nLz=9,
+        nE=9,
+        nI3=9,
+        grid_pad=0.02,
         nchi=2001,
         maxiter=60,
         angle_tol=1e-13,
@@ -69,7 +78,30 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         I3s : list of float
             Third integrals of the tori (in the convention
             p_u^2 = 2 delta^2 [E sinh^2 u - U(u) - I_3] - L_z^2/sinh^2 u
-            with the gauge V(pi/2) = 0).
+            with the gauge V(pi/2) = 0). Ignored when setup_interp is True.
+        setup_interp : bool, optional
+            If True, set up a grid of tori spanning the bound phase space and
+            accept arbitrary actions within it, rather than only the tori
+            listed in Es/Lzs/I3s. The grid locates a torus from its actions by
+            interpolation alone, with no root finding, and the torus itself is
+            then constructed exactly, so the interpolation enters only through
+            the integrals it supplies.
+        Rmin, Rmax : float, optional
+            Radii of the circular orbits that anchor the range of L_z spanned
+            by the grid (only used when setup_interp is True). As in the
+            spherical grid, the range is anchored on radii rather than on L_z
+            directly.
+        Rinf : float, optional
+            Radius setting the outer energy of the grid, through the energy of
+            the planar orbit with this apocenter (only used when setup_interp
+            is True).
+        nLz, nE, nI3 : int, optional
+            Number of grid points in each direction (only used when
+            setup_interp is True).
+        grid_pad : float, optional
+            Fractional inset of the grid from the circular, planar, and shell
+            edges, where the tori become degenerate (only used when
+            setup_interp is True).
         nchi : int, optional
             Number of grid points in the chi anomaly for the stored
             profiles.
@@ -121,6 +153,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # actionAngleStaeckel (the natural profile zero point is the northern
         # turning point, a quarter v-period earlier)
         self._anglez0 = numpy.pi / 2.0
+        self._interp = setup_interp
+        if setup_interp:
+            self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad)
+            return
         # Setup in three logical stages
         self._find_turning_points()
         self._compute_actions_frequencies_profiles()
@@ -444,6 +480,185 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._dAprof.append([a.derivative() for a in A])
             self._dBprof.append([b.derivative() for b in B])
 
+    ############################ SETUP: TORUS GRID ############################
+    def _circular_orbit(self, Lz):
+        """Radius and energy of the circular orbit with this L_z"""
+        Rc = brentq(
+            lambda R: Lz**2.0 / R**3.0 + _evaluateRforces(self._pot, R, 0.0),
+            1e-4,
+            1e4,
+            xtol=1e-14,
+        )
+        return Rc, evaluatePotentials(self._pot, Rc, 0.0) + Lz**2.0 / 2.0 / Rc**2.0
+
+    def _I3_planar(self, E, Lz):
+        """I3 of the J_z = 0 edge: closed form in the V(pi/2) = 0 gauge,
+        because W_v(pi/2) = 2 delta^2 [E + I3] - L_z^2 vanishes there"""
+        return Lz**2.0 / 2.0 / self._delta**2.0 - E
+
+    def _I3_shell(self, E, Lz):
+        """I3 of the J_R = 0 edge, where W_u acquires a double root"""
+
+        def maxWu(I3):
+            return -minimize_scalar(
+                lambda u: -self._Wu(u, E, Lz, I3),
+                bounds=(1e-3, 20.0),
+                method="bounded",
+                options={"xatol": 1e-13},
+            ).fun
+
+        lo = self._I3_planar(E, Lz)
+        hi = lo + 1.0
+        while maxWu(hi) > 0.0:
+            hi += 1.0
+        return brentq(maxWu, lo, hi, xtol=1e-14)
+
+    def _setup_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad):
+        """Grid of tori spanning the bound phase space, and the tables that
+        recover a torus's integrals from its actions without root finding.
+
+        The grid is rectified at every edge, because torus properties vary as
+        the square root of the distance to each: uniform in L_z, quadratic in
+        E away from the circular orbit (as in the spherical grid), and in
+        s = sin^2(pi w_I/2) between the planar (J_z = 0) and shell (J_R = 0)
+        edges, which rectifies both at once. Uniform spacing in (E, I3) is not
+        merely slower to converge but useless, with relative errors of order
+        unity in the actions.
+        """
+        self._nLz, self._nE, self._nI3 = nLz, nE, nI3
+        self._Lzgrid = numpy.linspace(
+            Rmin * vcirc(self._pot, Rmin), Rmax * vcirc(self._pot, Rmax), nLz
+        )
+        self._wEgrid = numpy.linspace(wpad, 1.0 - wpad, nE)
+        self._wIgrid = numpy.linspace(wpad, 1.0 - wpad, nI3)
+        shape = (nLz, nE, nI3)
+        Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
+        self._Ecs, self._Emaxs = numpy.empty(nLz), numpy.empty(nLz)
+        sinw = numpy.sin(numpy.pi * self._wIgrid / 2.0) ** 2.0
+        for ii, Lz in enumerate(self._Lzgrid):
+            self._Ecs[ii] = self._circular_orbit(Lz)[1]
+            self._Emaxs[ii] = (
+                evaluatePotentials(self._pot, Rinf, 0.0) + Lz**2.0 / 2.0 / Rinf**2.0
+            )
+            for jj, wE in enumerate(self._wEgrid):
+                E = self._Ecs[ii] + wE**2.0 * (self._Emaxs[ii] - self._Ecs[ii])
+                Ipl = self._I3_planar(E, Lz)
+                Es[ii, jj] = E
+                Lzs[ii, jj] = Lz
+                I3s[ii, jj] = Ipl + sinw * (self._I3_shell(E, Lz) - Ipl)
+        # Build every torus of the grid in one vectorized construction and
+        # keep only what the lookup needs: its actions
+        grid = actionAngleStaeckelInverse(
+            pot=self._staeckelwrap,
+            Es=Es.ravel(),
+            Lzs=Lzs.ravel(),
+            I3s=I3s.ravel(),
+            nchi=self._nchi,
+        )
+        self._grid_jr = grid._jr.reshape(shape)
+        self._grid_jz = grid._jz.reshape(shape)
+        self._build_action_lookup()
+
+    def _build_action_lookup(self):
+        """Tables giving the grid coordinates (w_E, w_I) of a torus from its
+        actions, by two nested one-dimensional monotone inversions rather
+        than a two-dimensional root find.
+
+        rho = sqrt(J_R + J_z) increases with w_E at fixed w_I, and
+        zeta = (2/pi) arcsin sqrt[J_z/(J_R + J_z)] increases with w_I at
+        fixed w_E. zeta carries the same rectification as the grid: J_z
+        vanishes as w_I^2 at the planar edge (and J_R as [1-w_I]^2 at the
+        shell edge), so w_I would be a square root of the bare action ratio
+        there, while the arcsin makes it linear.
+        """
+        nLz, nE, nI3 = self._nLz, self._nE, self._nI3
+        rho = numpy.sqrt(self._grid_jr + self._grid_jz)
+        eta = self._grid_jz / (self._grid_jr + self._grid_jz)
+        zeta = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(numpy.clip(eta, 0.0, 1.0)))
+        self._zetamesh = numpy.linspace(
+            numpy.amax(zeta.min(axis=2)), numpy.amin(zeta.max(axis=2)), nI3
+        )
+        wI_z, rho_z = numpy.empty((nLz, nE, nI3)), numpy.empty((nLz, nE, nI3))
+        for ii in range(nLz):
+            for jj in range(nE):
+                wI_z[ii, jj] = InterpolatedUnivariateSpline(
+                    zeta[ii, jj], self._wIgrid, k=3
+                )(self._zetamesh)
+                rho_z[ii, jj] = InterpolatedUnivariateSpline(
+                    zeta[ii, jj], rho[ii, jj], k=3
+                )(self._zetamesh)
+        self._rhomax = rho_z[:, -1, :]
+        rhat = rho_z / self._rhomax[:, None, :]
+        self._rhatmesh = numpy.linspace(numpy.amax(rhat[:, 0, :]), 1.0, nE)
+        self._tab_wE, self._tab_wI = (numpy.empty((nLz, nE, nI3)) for _ in range(2))
+        for ii in range(nLz):
+            for kk in range(nI3):
+                self._tab_wE[ii, :, kk] = InterpolatedUnivariateSpline(
+                    rhat[ii, :, kk], self._wEgrid, k=3
+                )(self._rhatmesh)
+                self._tab_wI[ii, :, kk] = InterpolatedUnivariateSpline(
+                    rhat[ii, :, kk], wI_z[ii, :, kk], k=3
+                )(self._rhatmesh)
+
+    def _integrals_from_actions(self, jr, jphi, jz):
+        """(J_R, J_phi, J_z) -> (E, L_z, I3), by interpolation only"""
+        Lz = jphi
+        if Lz < self._Lzgrid[0] or Lz > self._Lzgrid[-1]:
+            raise ValueError(
+                f"J_phi = {Lz} lies outside the grid of this "
+                f"actionAngleStaeckelInverse instance "
+                f"([{self._Lzgrid[0]}, {self._Lzgrid[-1]}])"
+            )
+        rho = numpy.sqrt(jr + jz)
+        zeta = (
+            2.0
+            / numpy.pi
+            * numpy.arcsin(numpy.sqrt(numpy.clip(jz / (jr + jz), 0.0, 1.0)))
+        )
+
+        # interpolate the tables in L_z first, then read (w_E, w_I) off them
+        def alongLz(tab):
+            return numpy.array(
+                [
+                    InterpolatedUnivariateSpline(self._Lzgrid, tab[:, aa, bb], k=3)(Lz)
+                    for aa in range(tab.shape[1])
+                    for bb in range(tab.shape[2])
+                ]
+            ).reshape(tab.shape[1:])
+
+        rhomax = InterpolatedUnivariateSpline(
+            self._zetamesh,
+            numpy.array(
+                [
+                    InterpolatedUnivariateSpline(
+                        self._Lzgrid, self._rhomax[:, kk], k=3
+                    )(Lz)
+                    for kk in range(self._nI3)
+                ]
+            ),
+            k=3,
+        )(zeta)
+        rhat = rho / rhomax
+        if not (self._rhatmesh[0] <= rhat <= self._rhatmesh[-1]) or not (
+            self._zetamesh[0] <= zeta <= self._zetamesh[-1]
+        ):
+            raise ValueError(
+                "Given actions lie outside the grid of this "
+                "actionAngleStaeckelInverse instance"
+            )
+        wE = RectBivariateSpline(self._rhatmesh, self._zetamesh, alongLz(self._tab_wE))(
+            rhat, zeta
+        )[0, 0]
+        wI = RectBivariateSpline(self._rhatmesh, self._zetamesh, alongLz(self._tab_wI))(
+            rhat, zeta
+        )[0, 0]
+        Ec = InterpolatedUnivariateSpline(self._Lzgrid, self._Ecs, k=3)(Lz)
+        Emax = InterpolatedUnivariateSpline(self._Lzgrid, self._Emaxs, k=3)(Lz)
+        E = Ec + wE**2.0 * (Emax - Ec)
+        Ipl = self._I3_planar(E, Lz)
+        I3 = Ipl + numpy.sin(numpy.pi * wI / 2.0) ** 2.0 * (self._I3_shell(E, Lz) - Ipl)
+        return float(E), float(Lz), float(I3)
+
     ############################ EVALUATION ###################################
     def _torus_index(self, jr, jphi, jz):
         indx = numpy.nanargmin(
@@ -476,7 +691,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
+    def _interp_instance(self, jr, jphi, jz):
+        """Single-torus instance for the given actions, from the integrals
+        that the grid supplies; cached, because the usual pattern is many
+        angles on one torus"""
+        key = (jr, jphi, jz)
+        if getattr(self, "_interp_cache_key", None) != key:
+            E, Lz, I3 = self._integrals_from_actions(jr, jphi, jz)
+            self._interp_cache_key = key
+            self._interp_cache = actionAngleStaeckelInverse(
+                pot=self._staeckelwrap,
+                Es=[E],
+                Lzs=[Lz],
+                I3s=[I3],
+                nchi=self._nchi,
+                maxiter=self._maxiter,
+                angle_tol=self._angle_tol,
+            )
+        return self._interp_cache
+
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
+        if self._interp:
+            sub = self._interp_instance(jr, jphi, jz)
+            return sub._xvFreqs(
+                sub._jr[0], jphi, sub._jz[0], angler, anglephi, anglez, **kwargs
+            )
         ii = self._torus_index(jr, jphi, jz)
         A, B = self._Aprof[ii], self._Bprof[ii]
         dA, dB = self._dAprof[ii], self._dBprof[ii]
@@ -548,5 +787,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
+        if self._interp:
+            sub = self._interp_instance(jr, jphi, jz)
+            return (sub._OmegaR[0], sub._Omegaphi[0], sub._Omegaz[0])
         ii = self._torus_index(jr, jphi, jz)
         return (self._OmegaR[ii], self._Omegaphi[ii], self._Omegaz[ii])
