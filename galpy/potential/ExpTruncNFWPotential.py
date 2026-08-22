@@ -194,7 +194,12 @@ class ExpTruncNFWPotential(SphericalPotential):
             # predicate makes xp and the brentq dispatch agree by construction.
             numpy_path = not is_backend_array(target_F)
             xp = numpy if numpy_path else get_namespace(target_F)
-            Froot = lambda al, tF: xp.exp(al) * (1.0 + al) * exp1(al) - 1.0 - tF
+            # exp1 ALSO follows the ambient namespace, so on the numpy path take
+            # scipy's directly: the router would return a torch Tensor for a
+            # Python-float argument under `use("torch", force=True)`, and scipy's
+            # brentq would then be handed a Tensor residual.
+            _e1 = _scipy_exp1 if numpy_path else exp1
+            Froot = lambda al, tF: xp.exp(al) * (1.0 + al) * _e1(al) - 1.0 - tF
             # numpy stays byte-identical: xp is numpy, exp1 routes to
             # scipy.special.exp1, and brentq routes to scipy.optimize.brentq.
             # On a backend target_F the value is a TRACER under jax.grad, so the
