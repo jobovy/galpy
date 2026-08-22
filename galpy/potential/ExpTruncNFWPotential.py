@@ -186,7 +186,14 @@ class ExpTruncNFWPotential(SphericalPotential):
             # Namespace-agnostic residual, with target_F passed through ``args``
             # rather than closed over: galpy's brentq follows the DATA, and only
             # an argument it can see selects the differentiable backend path.
-            xp = get_namespace(target_F)
+            # xp must follow the DATA, not the ambient (possibly FORCED) default:
+            # under `use("torch", force=True)` with a plain-float mass,
+            # get_namespace would say torch while brentq -- which dispatches on
+            # the data -- correctly goes to scipy and hands the residual Python
+            # floats, giving `torch.exp(float)`. Deriving both from the same
+            # predicate makes xp and the brentq dispatch agree by construction.
+            numpy_path = not is_backend_array(target_F)
+            xp = numpy if numpy_path else get_namespace(target_F)
             Froot = lambda al, tF: xp.exp(al) * (1.0 + al) * exp1(al) - 1.0 - tF
             # numpy stays byte-identical: xp is numpy, exp1 routes to
             # scipy.special.exp1, and brentq routes to scipy.optimize.brentq.
@@ -195,7 +202,6 @@ class ExpTruncNFWPotential(SphericalPotential):
             # Python control flow on the solved value -- are numpy-only. The
             # trade is deliberate: gradients in exchange for the domain check
             # and the warnings, which are user guidance rather than correctness.
-            numpy_path = not is_backend_array(target_F)
             # F(alpha) decreases monotonically from +inf (alpha->0, rc->inf, the
             # un-truncated infinite-mass NFW) to 0 (alpha->inf). Any finite mass
             # is therefore reachable, with a larger mass simply giving a larger

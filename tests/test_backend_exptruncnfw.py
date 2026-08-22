@@ -287,3 +287,27 @@ def test_from_nfw_mass_gradient_vs_finite_difference(backend_name):
         f"{backend_name}: d(rc)/d(mass)={got!r} vs finite difference {fd!r} "
         f"(rel err {abs(got - fd) / abs(fd):.3e})"
     )
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_from_nfw_under_forced_backend_with_plain_float_mass(backend_name):
+    """Regression: xp must follow the DATA, not the ambient forced default.
+
+    Under ``use(backend, force=True)`` with a plain-float ``mass``,
+    ``get_namespace`` reports the forced backend while ``brentq`` -- which
+    dispatches on the data -- correctly routes to scipy and hands the residual
+    Python floats. Deriving ``xp`` from the ambient namespace therefore produced
+    ``torch.exp(float) -> TypeError`` (caught by CI on the force-managed
+    test_potential / test_quantity shards, which this module's
+    ``backend_managed`` mark exempts it from).
+    """
+    from galpy import backend as _backend
+    from galpy.potential import NFWPotential
+
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    ref = ExpTruncNFWPotential.from_nfw(nfw, mass=3.0).rc
+    with _backend.use(backend_name, force=True):
+        rc = ExpTruncNFWPotential.from_nfw(nfw, mass=3.0).rc
+    assert abs(float(as_numpy(rc)) - ref) < 1e-10 * ref, (
+        f"{backend_name} forced: rc={rc!r} vs unforced numpy {ref!r}"
+    )
