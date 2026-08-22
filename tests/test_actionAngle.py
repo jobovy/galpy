@@ -8431,14 +8431,19 @@ def test_actionAngleStaeckelInverse_ultrathin_shell_frequencies():
             numpy.sinh(u) ** 2.0 + 1.0
         )
 
-    # Shell-orbit labels (double root of W_u at ustar), then approach them
+    # Shell-orbit labels (double root of W_u at ustar), then approach them.
+    # The tolerance is set by the construction, not by the assertion: the
+    # frequencies hold to 1.2e-4 down to a u-width of 1.4e-4 and 4.5e-4 at
+    # 1.4e-5, then degrade smoothly (6e-3 at 1.4e-6, 6e-2 at 1.4e-7) as the
+    # turning-point solve runs out of digits, so the test stops where the
+    # construction is still trustworthy
     ustar, Lz, du = 1.0, 0.99, 1e-6
     Up = (Uofu(ustar + du) - Uofu(ustar - du)) / (2.0 * du)
     sh, ch = numpy.sinh(ustar), numpy.cosh(ustar)
     Estar = (Up - Lz**2.0 * ch / (delta**2.0 * sh**3.0)) / numpy.sinh(2.0 * ustar)
     I3star = Estar * sh**2.0 - Uofu(ustar) - Lz**2.0 / (2.0 * delta**2.0 * sh**2.0)
     ref = None
-    for dE in (1e-6, 1e-8, 1e-10, 1e-12):
+    for dE in (1e-6, 1e-8, 1e-10):
         aASI = actionAngleStaeckelInverse(
             pot=kkp, Es=[Estar + dE], Lzs=[Lz], I3s=[I3star]
         )
@@ -8448,7 +8453,7 @@ def test_actionAngleStaeckelInverse_ultrathin_shell_frequencies():
         )
         if ref is None:
             ref = aASI._OmegaR[0]
-        assert numpy.fabs(aASI._OmegaR[0] / ref - 1.0) < 1e-2, (
+        assert numpy.fabs(aASI._OmegaR[0] / ref - 1.0) < 1e-3, (
             "Radial frequency of an ultra-thin shell torus does not stay at "
             "the shell-limit value as the torus is thinned (dE = %g)" % dE
         )
