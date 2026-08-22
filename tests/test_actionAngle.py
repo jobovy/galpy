@@ -8443,6 +8443,98 @@ def test_actionAngleStaeckelInverse_thinshell():
     return None
 
 
+def test_actionAngleStaeckelInverse_ultrathin_shell_frequencies():
+    # Very thin u oscillations: the direct evaluation of W_u near the turning
+    # points is pure cancellation noise there, so Q must be reconstructed from
+    # the analytic derivative wherever W is small RELATIVE to its size on the
+    # torus -- a fixed threshold in the anomaly leaves nodes on the wrong side
+    # of the noise floor for a thin torus, and a single such node used to send
+    # 1/sqrt(Q) to ~1e161 and the frequencies to zero
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluatePotentials
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+
+    def Uofu(u):
+        return evaluatePotentials(kkp, delta * numpy.sinh(u), 0.0) * (
+            numpy.sinh(u) ** 2.0 + 1.0
+        )
+
+    # Shell-orbit labels (double root of W_u at ustar), then approach them.
+    # The tolerance is set by the construction, not by the assertion: the
+    # frequencies hold to 1.2e-4 down to a u-width of 1.4e-4 and 4.5e-4 at
+    # 1.4e-5, then degrade smoothly (6e-3 at 1.4e-6, 6e-2 at 1.4e-7) as the
+    # turning-point solve runs out of digits, so the test stops where the
+    # construction is still trustworthy
+    ustar, Lz, du = 1.0, 0.99, 1e-6
+    Up = (Uofu(ustar + du) - Uofu(ustar - du)) / (2.0 * du)
+    sh, ch = numpy.sinh(ustar), numpy.cosh(ustar)
+    Estar = (Up - Lz**2.0 * ch / (delta**2.0 * sh**3.0)) / numpy.sinh(2.0 * ustar)
+    I3star = Estar * sh**2.0 - Uofu(ustar) - Lz**2.0 / (2.0 * delta**2.0 * sh**2.0)
+    ref = None
+    for dE in (1e-6, 1e-8, 1e-10):
+        aASI = actionAngleStaeckelInverse(
+            pot=kkp, Es=[Estar + dE], Lzs=[Lz], I3s=[I3star]
+        )
+        assert numpy.isfinite(aASI._OmegaR[0]) and aASI._OmegaR[0] > 0.0, (
+            "Radial frequency of an ultra-thin shell torus is not finite and "
+            "positive (dE = %g)" % dE
+        )
+        if ref is None:
+            ref = aASI._OmegaR[0]
+        assert numpy.fabs(aASI._OmegaR[0] / ref - 1.0) < 1e-3, (
+            "Radial frequency of an ultra-thin shell torus does not stay at "
+            "the shell-limit value as the torus is thinned (dE = %g)" % dE
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_unresolvable_shell_error():
+    # One ulp below the shell edge the two u turning points are separated by
+    # a few ulp: the oscillation cannot be resolved in double precision and
+    # the frequencies built on it would be noise (they used to come out as a
+    # plausible-looking zero), so setup must fail loudly instead
+    from scipy import optimize
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluatePotentials
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    Lz = 0.99
+    E = -1.5
+
+    def Wu(u, I3):
+        return (
+            2.0
+            * delta**2.0
+            * (
+                E * numpy.sinh(u) ** 2.0
+                - evaluatePotentials(kkp, delta * numpy.sinh(u), 0.0)
+                * (numpy.sinh(u) ** 2.0 + 1.0)
+                - I3
+            )
+            - Lz**2.0 / numpy.sinh(u) ** 2.0
+        )
+
+    def maxWu(I3):
+        return -optimize.minimize_scalar(
+            lambda u: -Wu(u, I3),
+            bounds=(1e-3, 12.0),
+            method="bounded",
+            options={"xatol": 1e-13},
+        ).fun
+
+    # I3 of the shell edge (double root of W_u), then one ulp inside it
+    I3lo = Lz**2.0 / 2.0 / delta**2.0 - E  # the planar edge, where W_u is widest
+    I3shell = optimize.brentq(maxWu, I3lo, I3lo + 200.0, xtol=1e-14)
+    I3 = numpy.nextafter(I3shell, -numpy.inf)
+    with pytest.raises(ValueError, match="unresolvable in double precision"):
+        actionAngleStaeckelInverse(pot=kkp, Es=[E], Lzs=[Lz], I3s=[I3])
+    return None
+
+
 def test_actionAngleStaeckelInverse_notorus_errors():
     # Unbound / invalid torus labels raise errors
     from galpy.actionAngle import actionAngleStaeckelInverse
