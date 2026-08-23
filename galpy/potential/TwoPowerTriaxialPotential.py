@@ -15,7 +15,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..backend import special as _bspecial
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -117,10 +117,17 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         self.twominusalpha = 2.0 - self.alpha
         self.threeminusalpha = 3.0 - self.alpha
         if self.twominusalpha != 0.0:
+            # Routed gamma on coerced exponents, so psi_inf is computed ON the
+            # backend under a force and stays differentiable in alpha/beta;
+            # scipy.special.gamma would return a silently DETACHED tensor. The
+            # exponents are coerced HERE rather than stored coerced, because
+            # self.twominusalpha drives the Python-level branches above and at
+            # _mdens below -- a tensor there would be a tracing hazard.
+            _al, _be = coerce_coords(get_namespace(alpha, beta), alpha, beta)
             self.psi_inf = (
-                special.gamma(self.beta - 2.0)
-                * special.gamma(3.0 - self.alpha)
-                / special.gamma(self.betaminusalpha)
+                _bspecial.gamma(_be - 2.0)
+                * _bspecial.gamma(3.0 - _al)
+                / _bspecial.gamma(_be - _al)
             )
         # Adjust amp
         self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
