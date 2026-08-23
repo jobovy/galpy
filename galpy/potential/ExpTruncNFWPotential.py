@@ -78,8 +78,16 @@ class ExpTruncNFWPotential(SphericalPotential):
         # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
         # r_a_values * _scale, ...), so a coerced backend value there raises
         # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
-        # Keep it numpy; the physical scale stays on the backend.
-        self._scale = float(as_numpy(self.a)) if is_backend_array(self.a) else self.a
+        # Take a concrete value when there is one; under a jax trace there is
+        # not (concretizing a tracer raises), and the grid consumers cannot run
+        # there anyway, so the traced value is kept. The physical scale stays on
+        # the backend either way.
+        try:
+            self._scale = (
+                float(as_numpy(self.a)) if is_backend_array(self.a) else self.a
+            )
+        except Exception:  # a jax tracer has no concrete value to take
+            self._scale = self.a
         # Precompute quantities involving the truncation that are reused by the
         # closed-form mass and potential integrals.
         self._alpha = a / rc

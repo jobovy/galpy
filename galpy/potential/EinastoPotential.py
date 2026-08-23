@@ -97,8 +97,16 @@ class EinastoPotential(SphericalPotential):
         # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
         # r_a_values * _scale, ...), so a coerced backend value there raises
         # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
-        # Keep it numpy; the physical scale stays on the backend.
-        self._scale = float(as_numpy(self.h)) if is_backend_array(self.h) else self.h
+        # Take a concrete value when there is one; under a jax trace there is
+        # not (concretizing a tracer raises), and the grid consumers cannot run
+        # there anyway, so the traced value is kept. The physical scale stays on
+        # the backend either way.
+        try:
+            self._scale = (
+                float(as_numpy(self.h)) if is_backend_array(self.h) else self.h
+            )
+        except Exception:  # a jax tracer has no concrete value to take
+            self._scale = self.h
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
