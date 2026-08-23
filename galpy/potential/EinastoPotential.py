@@ -5,7 +5,7 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
@@ -71,6 +71,12 @@ class EinastoPotential(SphericalPotential):
         .. [2] Retana-Montenegro, E., Van Hese, E., Gentile, G., Baes, M., & Frutos-Alfaro, F. 2012, A&A, 540, A70 ADS: https://ui.adsabs.harvard.edu/abs/2012A&A...540A..70R.
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
+        # Under a forced backend the params still arrive as plain Python floats,
+        # so the d_n solve below would fall through to scipy and the potential
+        # would never be built ON the backend. coerce_coords lifts a float to
+        # the backend's float64 and is a strict pass-through when xp is numpy,
+        # so the numpy path stays byte-identical. Must precede the solve.
+        (n,) = coerce_coords(get_namespace(n), n)
         if rs is not None:
             rs = conversion.parse_length(rs, ro=self._ro, vo=self._vo)
             # convert to h
@@ -87,7 +93,20 @@ class EinastoPotential(SphericalPotential):
             h = conversion.parse_length(h, ro=self._ro, vo=self._vo)
         self.h = h
         self.n = n
-        self._scale = self.h
+        # _scale is grid-construction bookkeeping, not physics: sphericaldf
+        # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
+        # r_a_values * _scale, ...), so a coerced backend value there raises
+        # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
+        # Take a concrete value when there is one; under a jax trace there is
+        # not (concretizing a tracer raises), and the grid consumers cannot run
+        # there anyway, so the traced value is kept. The physical scale stays on
+        # the backend either way.
+        try:
+            self._scale = (
+                float(as_numpy(self.h)) if is_backend_array(self.h) else self.h
+            )
+        except Exception:  # a jax tracer has no concrete value to take
+            self._scale = self.h
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
