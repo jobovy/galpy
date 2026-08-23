@@ -5,7 +5,7 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
@@ -93,7 +93,12 @@ class EinastoPotential(SphericalPotential):
             h = conversion.parse_length(h, ro=self._ro, vo=self._vo)
         self.h = h
         self.n = n
-        self._scale = self.h
+        # _scale is grid-construction bookkeeping, not physics: sphericaldf
+        # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
+        # r_a_values * _scale, ...), so a coerced backend value there raises
+        # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
+        # Keep it numpy; the physical scale stays on the backend.
+        self._scale = float(as_numpy(self.h)) if is_backend_array(self.h) else self.h
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)

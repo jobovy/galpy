@@ -6,7 +6,7 @@ import warnings
 import numpy
 from scipy.special import exp1 as _scipy_exp1
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -74,7 +74,12 @@ class ExpTruncNFWPotential(SphericalPotential):
         a, rc = coerce_coords(get_namespace(a, rc), a, rc)
         self.a = a
         self.rc = rc
-        self._scale = self.a
+        # _scale is grid-construction bookkeeping, not physics: sphericaldf
+        # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
+        # r_a_values * _scale, ...), so a coerced backend value there raises
+        # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
+        # Keep it numpy; the physical scale stays on the backend.
+        self._scale = float(as_numpy(self.a)) if is_backend_array(self.a) else self.a
         # Precompute quantities involving the truncation that are reused by the
         # closed-form mass and potential integrals.
         self._alpha = a / rc
