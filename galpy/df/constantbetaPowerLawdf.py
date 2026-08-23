@@ -5,9 +5,9 @@
 #
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
-from scipy import special
 
-from ..backend import resolve_namespace
+from ..backend import coerce_coords, get_namespace, resolve_namespace
+from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -101,15 +101,24 @@ class constantbetaPowerLawdf(_constantbetadf):
             "Adjust gamma, alpha, or beta."
         )
         # eta = nu_0 * 2^beta * Gamma(p+1) / ((2*pi)^{3/2} * Gamma(1-beta) * Gamma(n+1) * C^p)
+        # Routed gamma on coerced exponents: under a forced backend the DF's
+        # normalization was computed on scipy, so the DF was not built ON the
+        # backend and no derivative could flow (scipy.special.gamma hands back a
+        # DETACHED array). The exponents are coerced HERE rather than stored
+        # coerced -- self._n drives an assert with an f-string format below, and
+        # the raw floats keep every other consumer unchanged.
+        _p, _n, _beta = coerce_coords(
+            get_namespace(self._p, self._n, self._beta), self._p, self._n, self._beta
+        )
         self._fEnorm = (
             self._nu0
-            * 2.0**self._beta
-            * special.gamma(self._p + 1.0)
+            * 2.0**_beta
+            * _bgamma(_p + 1.0)
             / (
                 (2.0 * numpy.pi) ** 1.5
-                * special.gamma(1.0 - self._beta)
-                * special.gamma(self._n + 1.0)
-                * self._C**self._p
+                * _bgamma(1.0 - _beta)
+                * _bgamma(_n + 1.0)
+                * self._C**_p
             )
         )
         self._potInf = evaluatePotentials(self._pot, self._rmax, 0, use_physical=False)
