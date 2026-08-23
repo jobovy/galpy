@@ -5,7 +5,7 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
@@ -71,6 +71,12 @@ class EinastoPotential(SphericalPotential):
         .. [2] Retana-Montenegro, E., Van Hese, E., Gentile, G., Baes, M., & Frutos-Alfaro, F. 2012, A&A, 540, A70 ADS: https://ui.adsabs.harvard.edu/abs/2012A&A...540A..70R.
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
+        # Under a forced backend the params still arrive as plain Python floats,
+        # so the d_n solve below would fall through to scipy and the potential
+        # would never be built ON the backend. coerce_coords lifts a float to
+        # the backend's float64 and is a strict pass-through when xp is numpy,
+        # so the numpy path stays byte-identical. Must precede the solve.
+        (n,) = coerce_coords(get_namespace(n), n)
         if rs is not None:
             rs = conversion.parse_length(rs, ro=self._ro, vo=self._vo)
             # convert to h

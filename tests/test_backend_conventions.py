@@ -359,6 +359,53 @@ _MIGRATED_SAMPLE = [
 ]
 
 
+# Potentials whose CONSTRUCTOR does real numerical work (a root solve, a special
+# function) on its scalar parameters. Under ``use(backend, force=True)`` that work
+# must run ON the backend: the params arrive as plain Python floats, so without a
+# coerce_coords at the top of __init__ the setup silently falls through to scipy
+# and the potential is built on numpy inside a forced-backend run. That is
+# invisible to a test that calls the setup helper with a hand-passed value --
+# it has to go through the CONSTRUCTOR and inspect what the constructor stored.
+# (name, kwargs, attributes that must end up as backend arrays)
+_CONSTRUCTS_ON_BACKEND = [
+    ("EinastoPotential", {"amp": 1.0, "n": 4.0, "rs": 1.0}, ("n", "amp", "h")),
+    (
+        "ExpTruncNFWPotential",
+        {"amp": 1.0, "a": 2.0, "rc": 1.5},
+        ("a", "rc", "_alpha", "_E1_alpha", "_Ftot"),
+    ),
+]
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _CONSTRUCTS_ON_BACKEND)
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_constructor_builds_on_the_forced_backend(clsname, kwargs, attrs, backend):
+    """A forced backend must build the potential ON that backend, not on scipy."""
+    from galpy import backend as _backend
+    from galpy.backend import is_backend_array
+
+    cls = getattr(potential, clsname)
+    with _backend.use(backend, force=True):
+        pot = cls(**kwargs)
+        stored = {a: getattr(pot, a) for a in attrs}
+    numpy_attrs = [a for a, v in stored.items() if not is_backend_array(v)]
+    assert not numpy_attrs, (
+        f"{clsname} under forced {backend}: {numpy_attrs} stayed numpy, so "
+        f"construction fell through to scipy inside a forced-backend run "
+        f"({ {a: type(stored[a]).__name__ for a in numpy_attrs} })"
+    )
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _CONSTRUCTS_ON_BACKEND)
+def test_constructor_coercion_is_a_no_op_without_a_force(clsname, kwargs, attrs):
+    """No force -> coerce_coords is a strict pass-through, numpy path untouched."""
+    from galpy.backend import is_backend_array
+
+    pot = getattr(potential, clsname)(**kwargs)
+    leaked = [a for a in attrs if is_backend_array(getattr(pot, a))]
+    assert not leaked, f"{clsname} unforced: {leaked} became backend arrays"
+
+
 @pytest.mark.parametrize("clsname", _MIGRATED_SAMPLE)
 def test_backend_compatible_true(clsname):
     from galpy.potential import _check_backend_compatible as cbc
