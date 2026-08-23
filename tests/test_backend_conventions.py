@@ -359,6 +359,115 @@ _MIGRATED_SAMPLE = [
 ]
 
 
+# Potentials whose CONSTRUCTOR does real numerical work (a root solve, a special
+# function) on its scalar parameters. Under ``use(backend, force=True)`` that work
+# must run ON the backend: the params arrive as plain Python floats, so without a
+# coerce_coords at the top of __init__ the setup silently falls through to scipy
+# and the potential is built on numpy inside a forced-backend run. That is
+# invisible to a test that calls the setup helper with a hand-passed value --
+# it has to go through the CONSTRUCTOR and inspect what the constructor stored.
+# (name, kwargs, attributes that must end up as backend arrays)
+_CONSTRUCTS_ON_BACKEND = [
+    ("EinastoPotential", {"amp": 1.0, "n": 4.0, "rs": 1.0}, ("n", "amp", "h")),
+    (
+        "ExpTruncNFWPotential",
+        {"amp": 1.0, "a": 2.0, "rc": 1.5},
+        ("a", "rc", "_alpha", "_E1_alpha", "_Ftot"),
+    ),
+]
+
+# (name, kwargs, param differentiated, attribute read back, backends where the
+# gradient is blocked UPSTREAM with the reason). Being a backend array is not
+# enough on its own -- see the test below.
+_CONSTRUCTOR_GRADS = [
+    (
+        "EinastoPotential",
+        {"amp": 1.0, "rs": 1.0},
+        "n",
+        4.0,
+        "amp",
+        # torch implements no derivative for igammac w.r.t. its order, so no
+        # gradient can flow through gammaincc at all on torch.
+        {"torch"},
+    ),
+    ("ExpTruncNFWPotential", {"amp": 1.0, "rc": 1.5}, "a", 2.0, "_Ftot", set()),
+]
+
+
+@pytest.mark.parametrize("clsname,kwargs,pname,pval,attr,blocked", _CONSTRUCTOR_GRADS)
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_constructor_output_is_differentiable_in_its_param(
+    clsname, kwargs, pname, pval, attr, blocked, backend
+):
+    """Being a backend array is NOT enough -- the graph has to be intact.
+
+    ``scipy.special.gamma(tensor)`` RETURNS a tensor (it round-trips through
+    ``__array__``), so a param can look perfectly coerced while the autograd
+    graph is silently cut; on a grad-requiring tensor the same call raises
+    outright. A setup path built on scipy would therefore sail through the
+    is_backend_array check above while delivering no derivative at all. Compare
+    against a central difference computed on the NUMPY path, so this is an
+    independent reference rather than the backend checking itself.
+    """
+    if backend in blocked:
+        pytest.skip(f"{clsname} d/d{pname} is blocked upstream on {backend}")
+    cls = getattr(potential, clsname)
+
+    def build(v):
+        return getattr(cls(**{**kwargs, pname: v}), attr)
+
+    h = 1e-6
+    fd = (float(build(pval + h)) - float(build(pval - h))) / (2.0 * h)
+    if backend == "jax":
+        import jax
+
+        got = float(jax.grad(lambda v: build(v))(_NS["jax"].asarray(pval)))
+    else:
+        import torch
+
+        t = torch.tensor(pval, dtype=torch.float64, requires_grad=True)
+        out = build(t)
+        assert out.grad_fn is not None, (
+            f"{clsname}.{attr} is a backend array but DETACHED from {pname} -- "
+            f"the setup path round-tripped through numpy/scipy"
+        )
+        out.backward()
+        got = float(t.grad)
+    assert abs(got - fd) < 1e-6 * abs(fd), (
+        f"{clsname} d({attr})/d{pname} on {backend}: {got!r} vs finite "
+        f"difference {fd!r} (rel {abs(got - fd) / abs(fd):.3e})"
+    )
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _CONSTRUCTS_ON_BACKEND)
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_constructor_builds_on_the_forced_backend(clsname, kwargs, attrs, backend):
+    """A forced backend must build the potential ON that backend, not on scipy."""
+    from galpy import backend as _backend
+    from galpy.backend import is_backend_array
+
+    cls = getattr(potential, clsname)
+    with _backend.use(backend, force=True):
+        pot = cls(**kwargs)
+        stored = {a: getattr(pot, a) for a in attrs}
+    numpy_attrs = [a for a, v in stored.items() if not is_backend_array(v)]
+    assert not numpy_attrs, (
+        f"{clsname} under forced {backend}: {numpy_attrs} stayed numpy, so "
+        f"construction fell through to scipy inside a forced-backend run "
+        f"({ {a: type(stored[a]).__name__ for a in numpy_attrs} })"
+    )
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _CONSTRUCTS_ON_BACKEND)
+def test_constructor_coercion_is_a_no_op_without_a_force(clsname, kwargs, attrs):
+    """No force -> coerce_coords is a strict pass-through, numpy path untouched."""
+    from galpy.backend import is_backend_array
+
+    pot = getattr(potential, clsname)(**kwargs)
+    leaked = [a for a in attrs if is_backend_array(getattr(pot, a))]
+    assert not leaked, f"{clsname} unforced: {leaked} became backend arrays"
+
+
 @pytest.mark.parametrize("clsname", _MIGRATED_SAMPLE)
 def test_backend_compatible_true(clsname):
     from galpy.potential import _check_backend_compatible as cbc
