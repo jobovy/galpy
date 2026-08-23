@@ -5,9 +5,9 @@
 #
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
-from scipy import special
 
-from ..backend import resolve_namespace
+from ..backend import coerce_coords, get_namespace, resolve_namespace
+from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -86,16 +86,17 @@ class isotropicPowerLawdf(isotropicsphericaldf):
         self._s = self._gamma / (self._alpha_pot - 2.0)
         self._n = self._s - 1.5
         # eta = nu_0 * Gamma(s+1) / (2*sqrt(2) * pi^{3/2} * Gamma(s-1/2) * C^s)
+        # Routed gamma on coerced exponents: under a forced backend the DF's
+        # normalization was computed on scipy, so the DF was not built ON the
+        # backend and no derivative could flow (scipy.special.gamma hands back a
+        # DETACHED array). The exponents are coerced HERE rather than stored
+        # coerced -- self._n drives an assert with an f-string format below, and
+        # the raw floats keep every other consumer unchanged.
+        (_s,) = coerce_coords(get_namespace(self._s), self._s)
         self._fEnorm = (
             self._nu0
-            * special.gamma(self._s + 1.0)
-            / (
-                2.0
-                * numpy.sqrt(2.0)
-                * numpy.pi**1.5
-                * special.gamma(self._s - 0.5)
-                * self._C**self._s
-            )
+            * _bgamma(_s + 1.0)
+            / (2.0 * numpy.sqrt(2.0) * numpy.pi**1.5 * _bgamma(_s - 0.5) * self._C**_s)
         )
         self._potInf = evaluatePotentials(self._pot, self._rmax, 0, use_physical=False)
 
