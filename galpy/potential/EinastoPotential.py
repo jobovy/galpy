@@ -5,7 +5,8 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
+from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
 from ..util import conversion
@@ -152,10 +153,33 @@ class EinastoPotential(SphericalPotential):
         )
 
     def _calculate_dn(self, n, est_dn):
-        # use numerical solver
-        def func(x):
-            gamma_3n = special.gamma(3 * n)
-            gamma_3n_upper = special.gammaincc(3 * n, x) * gamma_3n
-            return 2 * gamma_3n_upper - gamma_3n
+        if not is_backend_array(n):
+            # numpy: unchanged, so this stays byte-identical. The original uses
+            # scipy's fsolve from the series GUESS; routing it through galpy's
+            # bracketing brentq instead would move the last bits, so the numpy
+            # path is deliberately left alone rather than unified.
+            def func(x):
+                gamma_3n = special.gamma(3 * n)
+                gamma_3n_upper = special.gammaincc(3 * n, x) * gamma_3n
+                return 2 * gamma_3n_upper - gamma_3n
 
-        return fsolve(func, est_dn)[0]
+            return fsolve(func, est_dn)[0]
+
+        # Backend: same root, differentiable via the implicit function theorem
+        # (galpy's brentq). n is passed through ``args`` rather than closed over
+        # because brentq follows the DATA -- a closed-over backend value would
+        # dispatch to scipy and be silently non-differentiable.
+        #
+        # The residual is the REGULARIZED form 2*Q(3n,x) - 1. It has the same
+        # root as the numpy form Gamma(3n)*(2Q-1), and the same implicit-diff
+        # gradient (dn'= -(dF/dn)/(dF/dx); the Gamma factor is common to both
+        # partials at the root and cancels), while avoiding the Gamma(3n)
+        # overflow the numpy form hits for n >~ 57.
+        #
+        # Bracket: d_n is the MEDIAN of Gamma(3n), so 0 < d_n < 3n because a
+        # gamma median is below its mean. That holds for EVERY n, unlike a
+        # bracket around the series estimate, which is 14x off at n = 0.1.
+        def froot(x, nn):
+            return 2.0 * _gammaincc(3.0 * nn, x) - 1.0
+
+        return brentq(froot, 1e-12, 3.0 * n, args=(n,))
