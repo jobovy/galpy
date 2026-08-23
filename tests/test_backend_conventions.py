@@ -374,6 +374,19 @@ _CONSTRUCTS_ON_BACKEND = [
         {"amp": 1.0, "a": 2.0, "rc": 1.5},
         ("a", "rc", "_alpha", "_E1_alpha", "_Ftot"),
     ),
+    # gamma-of-a-param normalizations: the param is NOT stored coerced (the
+    # Python-level branches and the numpy.fabs(b-1) check below need raw
+    # floats), so what has to land on the backend is the computed constant.
+    (
+        "FerrersPotential",
+        {"amp": 1.0, "n": 2, "a": 1.0, "b": 0.7, "c": 0.5},
+        ("_rhoc_M",),
+    ),
+    (
+        "TwoPowerTriaxialPotential",
+        {"amp": 1.0, "a": 1.0, "alpha": 1.0, "beta": 4.0},
+        ("psi_inf",),
+    ),
 ]
 
 # (name, kwargs, param differentiated, attribute read back, backends where the
@@ -391,6 +404,22 @@ _CONSTRUCTOR_GRADS = [
         {"torch"},
     ),
     ("ExpTruncNFWPotential", {"amp": 1.0, "rc": 1.5}, "a", 2.0, "_Ftot", set()),
+    (
+        "FerrersPotential",
+        {"amp": 1.0, "a": 1.0, "b": 0.7, "c": 0.5},
+        "n",
+        2.0,
+        "_rhoc_M",
+        set(),
+    ),
+    (
+        "TwoPowerTriaxialPotential",
+        {"amp": 1.0, "a": 1.0, "beta": 4.0},
+        "alpha",
+        1.0,
+        "psi_inf",
+        set(),
+    ),
 ]
 
 

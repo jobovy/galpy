@@ -12,7 +12,6 @@ import math
 
 import numpy
 from scipy import integrate
-from scipy.special import gamma
 
 from ..backend import (
     coerce_coords,
@@ -22,6 +21,7 @@ from ..backend import (
 )
 from ..backend.optimize import brentq
 from ..backend.quadrature import fixed_quad_semiinfinite
+from ..backend.special import gamma
 from ..util import conversion, coords
 from .Potential import Potential
 
@@ -112,7 +112,12 @@ class FerrersPotential(Potential):
         self._force_hash = None
         self._pa = pa
         self._backend_compatible = True
-        self._rhoc_M = gamma(n + 2.5) / gamma(n + 1) / numpy.pi**1.5 / a**3 / b / c
+        # Routed gamma, on a coerced n, so rho_c is computed ON the backend under
+        # a force (scipy would hand back a DETACHED tensor) and stays
+        # differentiable in n. b and c are deliberately NOT coerced: the
+        # numpy.fabs(self._b - 1.0) check below rejects a tensor under -W error.
+        (n_,) = coerce_coords(get_namespace(n), n)
+        self._rhoc_M = gamma(n_ + 2.5) / gamma(n_ + 1) / numpy.pi**1.5 / a**3 / b / c
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
