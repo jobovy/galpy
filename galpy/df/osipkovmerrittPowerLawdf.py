@@ -6,9 +6,9 @@
 #
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
-from scipy import special
 
-from ..backend import resolve_namespace
+from ..backend import coerce_coords, get_namespace, resolve_namespace
+from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -110,17 +110,23 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         self._n2 = self._s2 - 1.5
         # Eddington normalization for each power-law term of the augmented density
         edd_norm = 2.0 * numpy.sqrt(2.0) * numpy.pi**1.5
+        # Routed gamma on coerced exponents: under a forced backend these
+        # normalizations were computed on scipy, so the DF was not built ON the
+        # backend and no derivative could flow (scipy.special.gamma hands back a
+        # DETACHED array). Coerced HERE rather than stored, so every other
+        # consumer of _s1/_s2 keeps its raw float.
+        _s1, _s2 = coerce_coords(get_namespace(self._s1, self._s2), self._s1, self._s2)
         self._A1 = (
             self._nu0
-            / self._C**self._s1
-            * special.gamma(self._s1 + 1.0)
-            / (edd_norm * special.gamma(self._s1 - 0.5))
+            / self._C**_s1
+            * _bgamma(_s1 + 1.0)
+            / (edd_norm * _bgamma(_s1 - 0.5))
         )
         self._A2 = (
             self._nu0
-            / (self._ra2 * self._C**self._s2)
-            * special.gamma(self._s2 + 1.0)
-            / (edd_norm * special.gamma(self._s2 - 0.5))
+            / (self._ra2 * self._C**_s2)
+            * _bgamma(_s2 + 1.0)
+            / (edd_norm * _bgamma(_s2 - 0.5))
         )
         self._potInf = evaluatePotentials(self._pot, self._rmax, 0, use_physical=False)
 
