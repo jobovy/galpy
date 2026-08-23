@@ -788,16 +788,25 @@ def test_einasto_dn_gradient_vs_finite_difference_jax():
 
 
 @pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
-def test_einasto_dn_under_forced_backend_with_plain_float_n(backend_name):
-    """A forced backend must not change the numpy answer for a float n.
+def test_einasto_dn_solves_on_the_backend_inside_a_forced_context(backend_name):
+    """Inside ``use(backend, force=True)`` the solve must run ON the backend.
 
-    ``is_backend_array(n)`` is False for a Python float even under
-    ``use(backend, force=True)``, so the solve stays on scipy and stays
-    byte-identical. This module is ``backend_managed`` (exempt from the global
-    --backend force), so the force has to be applied explicitly here.
+    Deliberately NOT a "stays on numpy" assertion. A forced backend means
+    everything runs there, setup included, so the contract this pins is that
+    the brentq path is reachable under a force -- not that scipy survives it.
+    Coercing the potential's own scalar params so the CONSTRUCTOR reaches this
+    path is the follow-up; this test pins the half that is true today.
     """
     from galpy import backend as _backend
 
+    xp_n = (
+        jnp.asarray(_EIN_N)
+        if backend_name == "jax"
+        else torch.tensor(_EIN_N, dtype=torch.float64)
+    )
     with _backend.use(backend_name, force=True):
-        dn = _ein_dn(_EIN_N)
-    assert dn == _EIN_DN, f"{backend_name} forced: d_n moved to {dn!r}"
+        raw = _ein_dn(xp_n)
+    assert is_backend_array(raw), f"{backend_name} forced: fell to numpy: {raw!r}"
+    got = float(as_numpy(raw))
+    tol = _EIN_TOL_FWD[backend_name]
+    assert abs(got - _EIN_DN) < tol * _EIN_DN, f"{backend_name} forced: {got!r}"
