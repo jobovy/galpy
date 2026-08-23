@@ -23,7 +23,7 @@ import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
     BurkertPotential,
     DehnenCoreSphericalPotential,
@@ -682,3 +682,131 @@ def test_twopower_generic_jax_jit(pot, method):
         ref=ref,
         err_msg=method,
     )
+
+
+###############################################################################
+# EinastoPotential._calculate_dn: the shape parameter d_n is the root of
+# 2*Gamma_upper(3n, x) - Gamma(3n) = 0, solved at construction time. It used
+# scipy.optimize.fsolve on a scipy.special residual, so d(d_n)/dn did not exist
+# on any backend. It now goes through galpy's brentq (implicit function theorem)
+# for backend inputs, while the numpy path keeps fsolve verbatim (routing numpy
+# through a bracketing solver would move its last bits).
+###############################################################################
+
+_EIN_N = 4.0
+_EIN_DN = 11.668363153044764  # numpy fsolve value, pinned for byte-identity
+# Backend-vs-numpy agreement floor for the d_n solve, set from the measured
+# accuracy of each backend's OWN gammaincc rather than picked round: brentq
+# converges to the root of the function it is handed, so the root error is
+# |Q_backend - Q_scipy| / pdf. jax tracks scipy to <=9e-15 for every a here.
+# torch switches igammac algorithm near a=3n~20 and loses ~6 digits above it
+# (|dQ| <= 2.2e-16 for a<=12, but 2.4e-10..4.0e-10 for a>=21), which maps to a
+# 1.6e-10 root shift at n=10. Upstream torch, not the solver: the residual at
+# the returned root sits at torch's own noise floor.
+_EIN_TOL_FWD = {"jax": 1e-12, "torch": 1e-9}
+
+
+def _ein_dn(n, guess_at=_EIN_N):
+    """d_n for index ``n``; ``guess_at`` sets the numpy fsolve starting guess.
+
+    The guess feeds scipy, so it stays a plain float and is kept separate from
+    ``n``, which may be a backend array. The backend path ignores it (it
+    brackets instead of guessing).
+    """
+    from galpy.potential import EinastoPotential
+
+    pot = EinastoPotential(amp=1.0, n=guess_at, rs=1.0)
+    return pot._calculate_dn(n, pot._estimate_dn(guess_at))
+
+
+def test_einasto_dn_numpy_is_byte_identical_and_solves_its_equation():
+    """numpy path untouched: same bits as before, and it really is the root."""
+    from scipy import special
+
+    dn = _ein_dn(_EIN_N)
+    assert dn == _EIN_DN, f"numpy d_n moved: {dn!r} != {_EIN_DN!r}"
+    g = special.gamma(3 * _EIN_N)
+    resid = 2 * (special.gammaincc(3 * _EIN_N, dn) * g) - g
+    assert abs(resid) < 1e-9 * g, f"d_n is not the root: residual {resid!r}"
+
+
+@pytest.mark.parametrize("n", [0.5, 1.0, 4.0, 10.0])
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_einasto_dn_forward_matches_numpy(backend_name, n):
+    """The backend brentq lands on the same root as the numpy fsolve.
+
+    Swept over the index range so the ``[1e-12, 3n]`` bracket is exercised
+    rather than one lucky n: d_n is the MEDIAN of Gamma(3n), which is below the
+    mean 3n for every n>0, so 3n brackets the root from above throughout.
+
+    Covers torch as well as jax: torch's FORWARD solve works, only its gradient
+    is blocked upstream (see the next test's docstring).
+    """
+    ref = _ein_dn(n, guess_at=n)  # the value galpy ships today, via scipy
+    # this module passes dtype explicitly rather than setting a global default
+    # (see the float64 tensors above); a bare torch.tensor(n) would be float32
+    # and land ~2e-6 off -- float32 precision, not a solver error.
+    xp_n = (
+        jnp.asarray(n)
+        if backend_name == "jax"
+        else torch.tensor(n, dtype=torch.float64)
+    )
+    raw = _ein_dn(xp_n, guess_at=n)
+    # the value alone cannot see a numpy fallback: fsolve accepts a backend
+    # array and returns the RIGHT np.float64, so check we stayed on-backend.
+    assert is_backend_array(raw), f"{backend_name} fell back to numpy: {raw!r}"
+    got = float(as_numpy(raw))
+    tol = _EIN_TOL_FWD[backend_name]
+    assert abs(got - ref) < tol * ref, (
+        f"{backend_name} n={n}: {got!r} vs numpy {ref!r} "
+        f"(rel {abs(got - ref) / ref:.3e}, tol {tol:.0e})"
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_einasto_dn_gradient_vs_finite_difference_jax():
+    """d(d_n)/dn by the implicit function theorem vs a central difference.
+
+    jax ONLY, and deliberately so: the implicit-diff gradient needs dQ/da (the
+    derivative of the regularized incomplete gamma w.r.t. its ORDER), and torch
+    does not implement it -- ``NotImplementedError: the derivative for
+    'igammac: input' is not implemented``. That is an upstream torch gap, not a
+    galpy one, and closing it needs a differentiable incomplete gamma in
+    galpy.backend.special (which has no gammainc fallback today) -- a separate
+    change that would serve every gammaincc consumer, not just this one.
+
+    The FD reference is computed on the NUMPY path, so this compares the backend
+    derivative against an independent evaluation rather than against itself.
+    """
+    h = 1e-5
+    fd = (_ein_dn(_EIN_N + h) - _ein_dn(_EIN_N - h)) / (2.0 * h)
+    got = float(jax.grad(_ein_dn)(jnp.asarray(_EIN_N)))
+    assert abs(got - fd) < 1e-7 * abs(fd), (
+        f"d(d_n)/dn={got!r} vs finite difference {fd!r} "
+        f"(rel err {abs(got - fd) / abs(fd):.3e})"
+    )
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_einasto_dn_solves_on_the_backend_inside_a_forced_context(backend_name):
+    """Inside ``use(backend, force=True)`` the solve must run ON the backend.
+
+    Deliberately NOT a "stays on numpy" assertion. A forced backend means
+    everything runs there, setup included, so the contract this pins is that
+    the brentq path is reachable under a force -- not that scipy survives it.
+    Coercing the potential's own scalar params so the CONSTRUCTOR reaches this
+    path is the follow-up; this test pins the half that is true today.
+    """
+    from galpy import backend as _backend
+
+    xp_n = (
+        jnp.asarray(_EIN_N)
+        if backend_name == "jax"
+        else torch.tensor(_EIN_N, dtype=torch.float64)
+    )
+    with _backend.use(backend_name, force=True):
+        raw = _ein_dn(xp_n)
+    assert is_backend_array(raw), f"{backend_name} forced: fell to numpy: {raw!r}"
+    got = float(as_numpy(raw))
+    tol = _EIN_TOL_FWD[backend_name]
+    assert abs(got - _EIN_DN) < tol * _EIN_DN, f"{backend_name} forced: {got!r}"
