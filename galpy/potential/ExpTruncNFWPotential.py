@@ -6,7 +6,7 @@ import warnings
 import numpy
 from scipy.special import exp1 as _scipy_exp1
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -67,15 +67,34 @@ class ExpTruncNFWPotential(SphericalPotential):
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
         rc = conversion.parse_length(rc, ro=self._ro)
+        # Under a forced backend these arrive as plain floats, so alpha below
+        # would be a float and construction would run on scipy -- the potential
+        # would never be built ON the forced backend. coerce_coords is a strict
+        # pass-through when xp is numpy, so the numpy path stays byte-identical.
+        a, rc = coerce_coords(get_namespace(a, rc), a, rc)
         self.a = a
         self.rc = rc
-        self._scale = self.a
+        # _scale is grid-construction bookkeeping, not physics: sphericaldf
+        # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
+        # r_a_values * _scale, ...), so a coerced backend value there raises
+        # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
+        # Take a concrete value when there is one; under a jax trace there is
+        # not (concretizing a tracer raises), and the grid consumers cannot run
+        # there anyway, so the traced value is kept. The physical scale stays on
+        # the backend either way.
+        try:
+            self._scale = (
+                float(as_numpy(self.a)) if is_backend_array(self.a) else self.a
+            )
+        except Exception:  # a jax tracer has no concrete value to take
+            self._scale = self.a
         # Precompute quantities involving the truncation that are reused by the
         # closed-form mass and potential integrals.
         self._alpha = a / rc
-        # data-first: a backend a/rc keeps the potential differentiable w.r.t. the
-        # truncation parameters; a plain float/numpy alpha (incl. under a forced
-        # backend) stays on scipy so construction never leaks onto jax/torch.
+        # data-first: a backend a/rc keeps the potential differentiable w.r.t.
+        # the truncation parameters. Under a forced backend a/rc were coerced
+        # above, so this takes the backend branch there too; an unforced plain
+        # float still stays on scipy and byte-identical.
         if is_backend_array(self._alpha):
             xp = get_namespace(self._alpha)
             self._exp_alpha = xp.exp(self._alpha)
