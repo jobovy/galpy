@@ -376,6 +376,68 @@ _CONSTRUCTS_ON_BACKEND = [
     ),
 ]
 
+# (name, kwargs, param differentiated, attribute read back, backends where the
+# gradient is blocked UPSTREAM with the reason). Being a backend array is not
+# enough on its own -- see the test below.
+_CONSTRUCTOR_GRADS = [
+    (
+        "EinastoPotential",
+        {"amp": 1.0, "rs": 1.0},
+        "n",
+        4.0,
+        "amp",
+        # torch implements no derivative for igammac w.r.t. its order, so no
+        # gradient can flow through gammaincc at all on torch.
+        {"torch"},
+    ),
+    ("ExpTruncNFWPotential", {"amp": 1.0, "rc": 1.5}, "a", 2.0, "_Ftot", set()),
+]
+
+
+@pytest.mark.parametrize("clsname,kwargs,pname,pval,attr,blocked", _CONSTRUCTOR_GRADS)
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_constructor_output_is_differentiable_in_its_param(
+    clsname, kwargs, pname, pval, attr, blocked, backend
+):
+    """Being a backend array is NOT enough -- the graph has to be intact.
+
+    ``scipy.special.gamma(tensor)`` RETURNS a tensor (it round-trips through
+    ``__array__``), so a param can look perfectly coerced while the autograd
+    graph is silently cut; on a grad-requiring tensor the same call raises
+    outright. A setup path built on scipy would therefore sail through the
+    is_backend_array check above while delivering no derivative at all. Compare
+    against a central difference computed on the NUMPY path, so this is an
+    independent reference rather than the backend checking itself.
+    """
+    if backend in blocked:
+        pytest.skip(f"{clsname} d/d{pname} is blocked upstream on {backend}")
+    cls = getattr(potential, clsname)
+
+    def build(v):
+        return getattr(cls(**{**kwargs, pname: v}), attr)
+
+    h = 1e-6
+    fd = (float(build(pval + h)) - float(build(pval - h))) / (2.0 * h)
+    if backend == "jax":
+        import jax
+
+        got = float(jax.grad(lambda v: build(v))(_NS["jax"].asarray(pval)))
+    else:
+        import torch
+
+        t = torch.tensor(pval, dtype=torch.float64, requires_grad=True)
+        out = build(t)
+        assert out.grad_fn is not None, (
+            f"{clsname}.{attr} is a backend array but DETACHED from {pname} -- "
+            f"the setup path round-tripped through numpy/scipy"
+        )
+        out.backward()
+        got = float(t.grad)
+    assert abs(got - fd) < 1e-6 * abs(fd), (
+        f"{clsname} d({attr})/d{pname} on {backend}: {got!r} vs finite "
+        f"difference {fd!r} (rel {abs(got - fd) / abs(fd):.3e})"
+    )
+
 
 @pytest.mark.parametrize("clsname,kwargs,attrs", _CONSTRUCTS_ON_BACKEND)
 @pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
