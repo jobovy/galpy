@@ -389,6 +389,50 @@ _CONSTRUCTS_ON_BACKEND = [
     ),
 ]
 
+# The spherical power-law DFs build their fE normalization the same way, from
+# gamma() of a derived exponent. They take a potential rather than plain kwargs,
+# so they get their own registry: (name, df kwargs, attributes).
+_DF_CONSTRUCTS_ON_BACKEND = [
+    ("isotropicPowerLawdf", {}, ("_fEnorm",)),
+    ("constantbetaPowerLawdf", {"beta": 0.3}, ("_fEnorm",)),
+    ("osipkovmerrittPowerLawdf", {"ra": 1.5}, ("_A1", "_A2")),
+]
+
+
+def _plaw_pot():
+    return potential.PowerSphericalPotential(amp=1.0, alpha=2.5, normalize=False)
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _DF_CONSTRUCTS_ON_BACKEND)
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_df_constructor_builds_on_the_forced_backend(clsname, kwargs, attrs, backend):
+    """A forced backend must build the DF's normalization ON that backend."""
+    from galpy import backend as _backend
+    from galpy import df as _df
+    from galpy.backend import is_backend_array
+
+    cls = getattr(_df, clsname)
+    with _backend.use(backend, force=True):
+        d = cls(pot=_plaw_pot(), **kwargs)
+        stored = {a: getattr(d, a) for a in attrs}
+    numpy_attrs = [a for a, v in stored.items() if not is_backend_array(v)]
+    assert not numpy_attrs, (
+        f"{clsname} under forced {backend}: {numpy_attrs} stayed numpy, so the "
+        f"normalization was computed on scipy inside a forced-backend run"
+    )
+
+
+@pytest.mark.parametrize("clsname,kwargs,attrs", _DF_CONSTRUCTS_ON_BACKEND)
+def test_df_constructor_coercion_is_a_no_op_without_a_force(clsname, kwargs, attrs):
+    """No force -> strict pass-through, the numpy path is untouched."""
+    from galpy import df as _df
+    from galpy.backend import is_backend_array
+
+    d = getattr(_df, clsname)(pot=_plaw_pot(), **kwargs)
+    leaked = [a for a in attrs if is_backend_array(getattr(d, a))]
+    assert not leaked, f"{clsname} unforced: {leaked} became backend arrays"
+
+
 # (name, kwargs, param differentiated, attribute read back, backends where the
 # gradient is blocked UPSTREAM with the reason). Being a backend array is not
 # enough on its own -- see the test below.
