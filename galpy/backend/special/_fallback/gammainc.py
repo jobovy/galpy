@@ -206,10 +206,16 @@ def _torch_autograd(upper):
                 pos = x > 0
                 x_safe = xp.where(pos, x, xp.ones_like(x))  # keep 0 out of the divide
                 dens = _prefix(xp, a, x_safe) / x_safe
+                # Build the limit in the RESULT dtype (dens), never *_like(a):
+                # callers legitimately pass an INTEGER order -- EinastoPotential
+                # does -- and torch.full_like(<int tensor>, inf) raises
+                # "value cannot be converted to type int64_t without overflow".
+                # dens is float by construction, and broadcasts against a.
+                one = xp.ones_like(dens)
                 at_zero = xp.where(
                     a < 1.0,
-                    xp.full_like(a, float("inf")),
-                    xp.where(a == 1.0, xp.ones_like(a), xp.zeros_like(a)),
+                    xp.full_like(dens, float("inf")),
+                    xp.where(a == 1.0, one, xp.zeros_like(dens)),
                 )
                 grad_x = grad_out * sign * xp.where(pos, dens, at_zero)
             if need_a:

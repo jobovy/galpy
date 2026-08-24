@@ -1189,3 +1189,33 @@ def test_gammainc_grad_wrt_argument_at_endpoints(backend):
             assert numpy.isinf(ad) and ad > 0, f"a={a0}: want +inf, got {ad}"
         else:
             numpy.testing.assert_allclose(ad, want, rtol=0, atol=1e-15)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_gammainc_grad_with_an_integer_order_dtype():
+    # The x=0 endpoint limit must be built in the RESULT dtype, not with
+    # *_like(a): callers legitimately pass an INTEGER order -- EinastoPotential
+    # does, via its 3n/dn arguments -- and torch.full_like(<int tensor>, inf)
+    # raises "value cannot be converted to type int64_t without overflow".
+    # The first cut of the endpoint guard used full_like(a, inf) and broke
+    # every Einasto torch gradient; the value tests never saw it because they
+    # only ever passed a float order.
+    for a_int, a_flt in ((3, 3.0), (1, 1.0), (2, 2.0)):
+        ai = torch.tensor(a_int)  # int64 on purpose
+        af = torch.tensor(a_flt, dtype=torch.float64)
+        # away from the endpoint: integer and float order must agree exactly
+        gi, gf = [], []
+        for a in (ai, af):
+            x = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+            gsp.gammainc(a, x).backward()
+            (gi if a is ai else gf).append(float(x.grad))
+        numpy.testing.assert_allclose(gi[0], gf[0], rtol=0, atol=0)
+        # ...and AT the endpoint, where the limit branch actually runs
+        x0 = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        gsp.gammainc(ai, x0).backward()
+        want = 1.0 if a_int == 1 else 0.0  # a >= 1 here, so no +inf case
+        numpy.testing.assert_allclose(float(x0.grad), want, rtol=0, atol=1e-15)
+    # a = 1 at x = 0.5 has a closed form: P(1,x) = 1 - e^-x, so dP/dx = e^-x.
+    x = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+    gsp.gammainc(torch.tensor(1), x).backward()
+    numpy.testing.assert_allclose(float(x.grad), numpy.exp(-0.5), rtol=1e-14)
