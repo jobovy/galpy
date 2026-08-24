@@ -117,6 +117,10 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_poi
 #
 # Plain `jax` is deliberately NOT entered: the eager whole-file slow-skip means
 # it has never been measured, and claiming it would assert past the evidence.
+jax tests/test_streamdf.py::test_bovy14_useTM
+jax tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
+jax tests/test_streamdf.py::test_bovy14_useTM_poterror
+jax tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
 jax-jit tests/test_streamdf.py::test_bovy14_useTM
 jax-jit tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
 jax-jit tests/test_streamdf.py::test_bovy14_useTM_poterror

@@ -503,3 +503,22 @@ def restrict_to_single_thread():
     torch = sys.modules.get("torch")
     if torch is not None:
         torch.set_num_threads(1)
+
+
+def fork_deadlocks_backend():
+    """Whether ``os.fork`` risks deadlocking the array backend in play.
+
+    Companion to `restrict_to_single_thread`, which cures the torch case by
+    capping the forked child to one thread. jax has no equivalent knob: it warns
+    at every ``os.fork`` that a deadlock is likely, and the only cure is not to
+    fork. Callers that fork (`galpy.util.multi.parallel_map`) must run serially
+    when this is True.
+
+    Keyed on the active backend rather than on whether jax is merely imported,
+    so a numpy run that happens to have jax loaded still forks. A numpy-default
+    run that feeds jax arrays to the mapped function is not covered -- deciding
+    that would mean inspecting the sequence.
+    """
+    from ._resolver import backend
+
+    return backend() == "jax"
