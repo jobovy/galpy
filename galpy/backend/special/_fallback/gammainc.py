@@ -41,7 +41,7 @@
 ###############################################################################
 import numpy
 
-from ..._namespaces import _backend_dtype
+from ..._namespaces import _backend_dtype, name_of_namespace
 from .._router import gammaln
 
 _A_STIRLING = 14.0  # Stirling prefix at/above this order, naive exponent below
@@ -151,11 +151,96 @@ def _both(xp, a, x):
     )
 
 
+def _torch_autograd(upper):
+    """Build a torch.autograd.Function: native forward, our backward.
+
+    The series/CF above is ~485x slower than ``torch.special.gammainc`` on a
+    scalar (measured), and ``PowerSphericalPotentialwCutoff`` -- a component of
+    ``MWPotential2014`` -- calls this on nearly every evaluation, with scalars.
+    So the loop must not run on the forward pass. It does not have to:
+
+    * ``dP/dx = x^(a-1) e^-x / Gamma(a) = prefix(a, x) / x`` in CLOSED FORM, and
+      ``prefix`` is exactly the (cheap, loop-free) helper above;
+    * ``dP/da`` has no closed form and does need the series/CF -- but only when
+      the order actually requires grad, which no hot path does.
+
+    Forward is therefore the native call, and the loop is paid only by callers
+    that differentiate with respect to the order.
+    """
+    import torch
+
+    native = torch.special.gammaincc if upper else torch.special.gammainc
+    sign = -1.0 if upper else 1.0
+
+    class _IncGamma(torch.autograd.Function):
+        # functorch needs both of these: generate_vmap_rule so vmap can batch
+        # the op, and the split forward/setup_context form (the modern API): the combined
+        # forward(ctx, ...) form raises under functorch transforms
+        # ("must override the setup_context staticmethod"), and the spherical
+        # DFs reach this through torch.func vmap/grad.
+        generate_vmap_rule = True
+
+        @staticmethod
+        def forward(a, x):
+            return native(a, x)
+
+        @staticmethod
+        def setup_context(ctx, inputs, output):
+            ctx.save_for_backward(*inputs)
+
+        @staticmethod
+        def backward(ctx, grad_out):
+            a, x = ctx.saved_tensors
+            need_a, need_x = ctx.needs_input_grad[:2]
+            grad_a = grad_x = None
+            if need_x:
+                # closed form; no series, no continued fraction
+                import galpy.backend as _gb
+
+                xp = _gb.get_namespace(x)
+                grad_x = grad_out * sign * _prefix(xp, a, x) / x
+            if need_a:
+                # only here does the loop run
+                import galpy.backend as _gb
+
+                xp = _gb.get_namespace(x)
+                with torch.enable_grad():
+                    ad = a.detach().requires_grad_(True)
+                    out = _both(xp, ad, x.detach())[1 if upper else 0]
+                    (grad_a,) = torch.autograd.grad(out, ad, grad_out)
+            return grad_a, grad_x
+
+    return _IncGamma
+
+
+_TORCH_FNS = {}
+
+
+def _dispatch_one(xp, a, x, upper):
+    if name_of_namespace(xp) == "torch":
+        import torch
+
+        a = torch.as_tensor(a)
+        x = torch.as_tensor(x)
+        native = torch.special.gammaincc if upper else torch.special.gammainc
+        if not (a.requires_grad or x.requires_grad):
+            # Nothing to differentiate: hand straight to the native kernel and
+            # skip the autograd.Function entirely. This is the hot path --
+            # MWPotential2014's PowerSphericalPotentialwCutoff lands here on
+            # every evaluation -- and the wrapper alone costs ~5x on a scalar.
+            return native(a, x)
+        if upper not in _TORCH_FNS:
+            _TORCH_FNS[upper] = _torch_autograd(upper)
+        a, x = torch.broadcast_tensors(a, x)
+        return _TORCH_FNS[upper].apply(a, x)
+    return _both(xp, a, x)[1 if upper else 0]
+
+
 def gammainc_fallback(xp, a, x):
     """Regularized lower incomplete gamma P(a,x), differentiable in a AND x."""
-    return _both(xp, a, x)[0]
+    return _dispatch_one(xp, a, x, False)
 
 
 def gammaincc_fallback(xp, a, x):
     """Regularized upper incomplete gamma Q(a,x), differentiable in a AND x."""
-    return _both(xp, a, x)[1]
+    return _dispatch_one(xp, a, x, True)
