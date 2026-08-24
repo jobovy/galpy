@@ -43,6 +43,7 @@ from ._namespaces import (
     device_of,
     is_backend_array,
     name_of_namespace,
+    prefer_backend_namespace,
 )
 from ._resolver import get_namespace
 
@@ -791,8 +792,16 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
         (byte-identical); jax/torch -> a backend array differentiable in the
         query coordinates.
     """
-    if not is_backend_array(coords):
-        # numpy / scalar coords: literal scipy passthrough (byte-identical).
+    # Dispatch on EITHER side being a backend array, not on ``coords`` alone.
+    # The grid carries derivatives too: ``spline_filter`` on a backend grid
+    # returns backend coefficients, and querying those at FIXED numpy points is
+    # the ordinary way to differentiate an interpolant w.r.t. the data it was
+    # built from. Keying on coords sent that case to scipy, which then tried
+    # numpy.asarray(filtered) and raised -- "Can't call numpy() on Tensor that
+    # requires grad" on torch, TracerArrayConversionError under jax.jit.
+    if not is_backend_array(coords) and not is_backend_array(filtered):
+        # numpy / scalar on both sides: literal scipy passthrough
+        # (byte-identical).
         return _scipy_ndimage.map_coordinates(
             numpy.asarray(filtered),
             coords,
@@ -808,9 +817,13 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
         raise NotImplementedError(
             "backend map_coordinates only implements mode='mirror'|'nearest'"
         )
-    import array_api_compat
-
-    xp = array_api_compat.array_namespace(coords)
+    # Whichever side is a backend array decides the namespace; the other is
+    # weak and is promoted onto it (and onto its device) below. Same rule as
+    # the @backend_input boundary -- shared, not re-spelled.
+    xp = prefer_backend_namespace(filtered, coords)
+    dev = device_of(filtered, coords)
+    filtered = asarray_on_device(xp, filtered, dev)
+    coords = asarray_on_device(xp, coords, dev)
     dev = device_of(coords, filtered)
     # A backend ``filtered`` (native prefilter, GPU-resident/differentiable) stays
     # on its backend; a numpy ``filtered`` is materialised onto the coords' device.
