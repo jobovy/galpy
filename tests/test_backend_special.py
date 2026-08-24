@@ -1144,3 +1144,19 @@ def test_gammainc_grad_wrt_argument_still_works(backend):
         gsp.gammainc(torch.tensor(a0, dtype=torch.float64), xt).backward()
         ad = float(xt.grad)
     numpy.testing.assert_allclose(ad, exact, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gammainc_endpoints_zero_and_infinity(backend):
+    # x = inf is a REAL argument: the potential at r = inf and the total mass
+    # both reach it, and an unguarded Lentz recurrence returns NaN there
+    # (b = inf -> d = 0, then h *= d*c = 0*inf). x = 0 is the other endpoint.
+    # Exact values, so compare exactly rather than with a tolerance.
+    for a in (0.5, 1.4, 3.0, 30.0):
+        xs = numpy.array([0.0, numpy.inf])
+        p = as_numpy(gsp.gammainc(_asarray(backend, a), _asarray(backend, xs)))
+        q = as_numpy(gsp.gammaincc(_asarray(backend, a), _asarray(backend, xs)))
+        assert not numpy.any(numpy.isnan(p)), f"gammainc NaN at an endpoint, a={a}"
+        assert not numpy.any(numpy.isnan(q)), f"gammaincc NaN at an endpoint, a={a}"
+        numpy.testing.assert_array_equal(p, [0.0, 1.0])
+        numpy.testing.assert_array_equal(q, [1.0, 0.0])

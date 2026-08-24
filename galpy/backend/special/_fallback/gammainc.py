@@ -128,17 +128,26 @@ def _both(xp, a, x):
     x = xp.astype(xp.asarray(x), f64)
     a, x = xp.broadcast_arrays(a, x)
     use_series = x < a + 1.0
+    # x = inf is a real argument here -- the potential at r = inf and the total
+    # mass both reach it (the exp1 fallback documents the same hazard). Lentz
+    # would give b = inf -> d = 1/inf = 0 and then h *= d*c = 0*inf = NaN, so
+    # infinity is clamped out of the CF and the exact limits are applied after.
+    at_inf = xp.isinf(x)
     # Clamp each branch's argument into its own convergent region wherever the
     # OTHER branch is selected: the series diverges for x >> a and the CF's
     # b = x+1-a passes through zero for x < a, so an unclamped dead branch
     # would overflow or NaN-poison the reverse-mode gradient.
     x_ser = xp.where(use_series, x, a)  # x=a is inside the series' region
-    x_cf = xp.where(use_series, a + 1.0, x)  # a+1 is the CF's boundary
+    x_cf = xp.where(
+        xp.logical_or(use_series, at_inf), a + 1.0, x
+    )  # a+1 is the CF's boundary
     p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser))
     q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf))
+    p_out = xp.where(use_series, p, 1.0 - q)
+    q_out = xp.where(use_series, 1.0 - p, q)
     return (
-        xp.where(use_series, p, 1.0 - q),
-        xp.where(use_series, 1.0 - p, q),
+        xp.where(at_inf, xp.ones_like(p_out), p_out),  # P(a, inf) = 1
+        xp.where(at_inf, xp.zeros_like(q_out), q_out),  # Q(a, inf) = 0
     )
 
 
