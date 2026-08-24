@@ -50,14 +50,13 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  
 # action-angle/quadrature evaluations of a migrated potential under forced-jax
 # and exceeds the 300 s per-test timeout. Defer until the df/actionAngle ports
 # (Track E/F) land; numpy still exercises it.
-jax tests/test_qdf.py::test_meanjz_noaac_issue300
 # qdf Staeckel moment/pv-projection tests that evaluate the backend-migrated
 # moment engine on a grid of points: each point runs the eager-XLA GL quadrature
 # (~5-10 s), so the grid-scale pv-projections + interpolated sampleV exceed the
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_qdf.py::test_sampleV_interpolate
+jax tests/test_qdf.py::test_sampleV_interpolate  # measured 2026-08-24: >900s TIMEOUT. Cost is the nested per-pixel loop in sampleV_interpolate (grid_max_vT), NOT the outlier at (R=8,z=5) -- outliers are handled one-by-one. Sibling test_sampleV runs 160.7s and is NOT deferred, so it is the grid build. Needs the vectorization work (task #130), not a tweak.
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
@@ -107,7 +106,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate
 # ratio of 0.97x on these five (178.6 vs 182.3, 57.3 vs 53.4, ...), i.e. no effect.
 # This one stays: test_galpypaper.py is a different file and was NOT covered by that
 # run, and absence of measurement is not evidence of speed.
-jax tests/test_galpypaper.py::test_diskdf
 
 # (2026-08-08) Four entries from the #960 dissipative/MovingObject timeout block
 # are un-deferred: measured under forced jax with the C extension, they are
@@ -139,7 +137,6 @@ jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTilte
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]  # measured 2026-08-21: >700s TIMEOUT
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]  # measured 2026-08-21: 371.9s (CI~264s) -- passes, only 12% under the cap
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
-jax tests/test_streamspraydf.py::test_center
 
 # --- jax single-orbit: variational/dxdv/lyapunov battery (Track D) ---
 # These integrate the 6D STM or compare the C STM against a *Python* reference
@@ -206,9 +203,9 @@ jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # >420s (measured 
 # whichever runner is slowest (3 confirmed: the two below + arbitraryaxisrotation_
 # funcomega); all func/vec-omega tests that are torch-xfail-ledgered but had no jax
 # entry are slow-skipped together here to stop the recurring per-PR flake.
-jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
+jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz  # measured 2026-08-24: 397.0s (CI~282s) -- PASSES, only ~6% under the cap
+jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # measured 2026-08-24: 343.2s (CI~244s) -- PASSES, but only ~19% under the 300s cap
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # measured 2026-08-24: 391.3s (CI~278s) -- PASSES, only ~7% under the cap
 # Re-homed from backend_xfail.txt 2026-08-05: same class as the block above, and
 # the two slowest members of it. Timed under `--backend jax --runxfail` (nothing
 # masked), whole -k arbitraryaxisrotation family:
@@ -221,8 +218,8 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 # Both PASS, at ~2x the 300 s per-test CI timeout -- they are not numerical gaps,
 # they never finish. Every sibling that runs UNDER 300 s is in neither list, so
 # the split is exactly the runtime one. Not a burndown: xfail -2, deferred +2.
-jax tests/test_noninertial.py::test_arbitraryaxisrotation
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
+jax tests/test_noninertial.py::test_arbitraryaxisrotation  # measured 2026-08-24: >400s (hit the measurement cap, so CI >~284s)
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # measured 2026-08-24: >400s (hit the measurement cap, so CI >~284s)
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes
@@ -262,7 +259,7 @@ jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s)
 # xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
 # FAILED. torch runs it fine (also dropped). Un-skip when the Python Staeckel path
 # is jit-fast under jax.
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles  # measured 2026-08-24: >400s (hit the measurement cap, so CI >~284s)
 # jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
 # which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
 # jax's thread-local trace state as None, and then EVERY later test in the shard
