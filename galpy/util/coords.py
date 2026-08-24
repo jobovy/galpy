@@ -117,6 +117,13 @@ def _galcen_rot(xp, Xsun, Zsun):
     argument. Stacking along axis 0 reproduces ``numpy.array([[...], ...])``
     exactly for this shape pattern, so the numpy path is unchanged.
     """
+    # Float-ify BEFORE promoting. promote_scalars anchors every value on the
+    # dtype of the first BACKEND array, so an integer Xsun (a perfectly ordinary
+    # thing to pass) would drag a python-float Zsun down to int64 -- 0.02 -> 0 --
+    # and the transform would silently return the Zsun = 0 answer. A rotation is
+    # inherently floating-point, so multiplying through by 1.0 is both correct
+    # and dtype-preserving for values that are already float (incl. f32).
+    Xsun, Zsun = Xsun * 1.0, Zsun * 1.0
     Xsun, Zsun = promote_scalars(xp, Xsun, Zsun)
     dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
