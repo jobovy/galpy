@@ -1080,3 +1080,86 @@ def test_hyp2f1_positive_z_matches_scipy(backend, a, b, c):
         assert numpy.max(numpy.abs(got - two_term)) > 1e-3, (
             "hyp2f1 looks like the first-order Taylor series again"
         )
+
+
+# a-grid that CROSSES the a ~ 20 boundary. The pre-existing _A tops out at 3.5,
+# which is why torch's ~6-digit loss above a ~ 21 went unnoticed for so long:
+# the whole failing regime was outside the grid.
+_A_LARGE = numpy.array([12.0, 21.0, 30.0, 60.0, 150.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gammainc_large_order_value_parity(backend):
+    # Crosses a = 20, where torch.special.gammaincc switches algorithm and loses
+    # ~6 digits (|dQ| ~ 5e-10 for a >= 21 vs ~1e-16 below). galpy keeps the
+    # native FORWARD on torch -- the accurate series/CF is ~485x slower on a
+    # scalar and MWPotential2014 calls this constantly -- so this pins native's
+    # own accuracy, not scipy's. Tightening it below 1e-8 would be asserting a
+    # precision galpy does not currently buy on this path; see the module
+    # docstring in _fallback/gammainc.py.
+    for sp_fn, fn in [
+        (scipy_special.gammainc, gsp.gammainc),
+        (scipy_special.gammaincc, gsp.gammaincc),
+    ]:
+        for a in _A_LARGE:
+            x = numpy.array([0.3 * a, 0.7 * a, a, 1.4 * a])
+            ref = sp_fn(a, x)
+            got = as_numpy(fn(_asarray(backend, a), _asarray(backend, x)))
+            rtol = 0.0 if backend == "numpy" else 1e-8
+            numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-300)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammainc_grad_wrt_order(backend):
+    # d/da is the capability the fallback adds: torch has no igamma/igammac
+    # derivative w.r.t. the order at all ("the derivative for 'igamma: input'
+    # is not implemented"), so this raises without it. Checked against a
+    # central difference taken on the scipy path, at h chosen for the ~1e-10
+    # truncation floor of a first-order FD.
+    a0, x0, h = 3.0, 2.0, 1e-5
+    for sp_fn, fn in [
+        (scipy_special.gammainc, gsp.gammainc),
+        (scipy_special.gammaincc, gsp.gammaincc),
+    ]:
+        fd = (sp_fn(a0 + h, x0) - sp_fn(a0 - h, x0)) / (2 * h)
+        if backend == "jax":
+            ad = float(jax.grad(lambda a: fn(a, jnp.asarray(x0)))(jnp.asarray(a0)))
+        else:
+            at = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
+            fn(at, torch.tensor(x0, dtype=torch.float64)).backward()
+            ad = float(at.grad)
+        assert not numpy.isnan(ad)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammainc_grad_wrt_argument_still_works(backend):
+    # Guard the other derivative: the fallback must not regress d/dx, which the
+    # native torch path already had. dP/dx = x^(a-1) e^-x / Gamma(a), exactly.
+    a0, x0 = 3.0, 2.0
+    exact = x0 ** (a0 - 1.0) * numpy.exp(-x0) / scipy_special.gamma(a0)
+    if backend == "jax":
+        ad = float(
+            jax.grad(lambda x: gsp.gammainc(jnp.asarray(a0), x))(jnp.asarray(x0))
+        )
+    else:
+        xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.gammainc(torch.tensor(a0, dtype=torch.float64), xt).backward()
+        ad = float(xt.grad)
+    numpy.testing.assert_allclose(ad, exact, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gammainc_endpoints_zero_and_infinity(backend):
+    # x = inf is a REAL argument: the potential at r = inf and the total mass
+    # both reach it, and an unguarded Lentz recurrence returns NaN there
+    # (b = inf -> d = 0, then h *= d*c = 0*inf). x = 0 is the other endpoint.
+    # Exact values, so compare exactly rather than with a tolerance.
+    for a in (0.5, 1.4, 3.0, 30.0):
+        xs = numpy.array([0.0, numpy.inf])
+        p = as_numpy(gsp.gammainc(_asarray(backend, a), _asarray(backend, xs)))
+        q = as_numpy(gsp.gammaincc(_asarray(backend, a), _asarray(backend, xs)))
+        assert not numpy.any(numpy.isnan(p)), f"gammainc NaN at an endpoint, a={a}"
+        assert not numpy.any(numpy.isnan(q)), f"gammaincc NaN at an endpoint, a={a}"
+        numpy.testing.assert_array_equal(p, [0.0, 1.0])
+        numpy.testing.assert_array_equal(q, [1.0, 0.0])
