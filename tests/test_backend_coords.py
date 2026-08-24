@@ -599,3 +599,27 @@ def test_galcenrect_backend_Xsun_with_numpy_coordinates(backend_name):
     assert is_backend_array(got[0]), "backend Xsun must select the backend path"
     for g, r in zip(got, ref):
         numpy.testing.assert_allclose(float(as_numpy(g)), float(r), rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_integer_Xsun_does_not_truncate_Zsun(backend_name):
+    # SILENT WRONG ANSWER, not a crash. promote_scalars anchors every value on
+    # the dtype of the first BACKEND array, so an INTEGER Xsun (an ordinary
+    # thing to pass) dragged a python-float Zsun down to int64: 0.02 -> 0. The
+    # transform then returned the Zsun = 0 answer with no error at all --
+    # ~7.5e-3 off in X, which is far too small to look obviously broken and far
+    # too large to be roundoff.
+    #
+    # Pin BOTH directions: an integer Xsun must equal the float answer, and it
+    # must NOT equal the Zsun = 0 answer (which is what a re-truncation would
+    # silently give back).
+    x, y, z, Zs = 1.0, 2.0, 3.0, 0.02
+    ref = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=Zs)
+    flat = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=0.0)
+    Xi = _as_backend(backend_name, 8)  # integer dtype on purpose
+    got = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xi, Zsun=Zs)
+    for g, r in zip(got, ref):
+        numpy.testing.assert_allclose(float(as_numpy(g)), float(r), rtol=1e-12)
+    assert not numpy.allclose(
+        [float(as_numpy(g)) for g in got], [float(v) for v in flat], rtol=1e-9
+    ), "integer Xsun silently reproduced the Zsun=0 answer -- Zsun was truncated"
