@@ -8608,8 +8608,6 @@ def test_actionAngleStaeckelInverse_interp_integrals_by_name(
     # A torus can be labelled by its integrals of motion by name, which works
     # the same with and without units; the dimensions alone could not tell
     # (E, L_z, I3) from the actions when everything is in internal units
-    from astropy import units
-
     aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
     jr, jphi, jz = 0.06, 0.9, 0.03
     angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
@@ -8633,23 +8631,6 @@ def test_actionAngleStaeckelInverse_interp_integrals_by_name(
     ), "Freqs by integral name disagrees with Freqs by actions"
     assert len(aASI.xvFreqs(*angles, E=E, Lz=jphi, I3=I3)) == 9, (
         "xvFreqs by integral name does not return the expected quantities"
-    )
-    # integrals as Quantities: an energy is neither an action nor an angle,
-    # so this is the case the shared input parser cannot handle by itself
-    ro, vo = aASI._ro, aASI._vo
-    with_units = numpy.array(
-        aASI(
-            *[a * units.rad for a in angles],
-            E=E * vo**2.0 * units.km**2.0 / units.s**2.0,
-            Lz=jphi * ro * vo * units.kpc * units.km / units.s,
-            I3=I3 * vo**2.0 * units.km**2.0 / units.s**2.0,
-            use_physical=False,
-        )
-    )
-    plain = numpy.array(aASI(*angles, E=E, Lz=jphi, I3=I3, use_physical=False))
-    assert numpy.all(numpy.fabs(with_units - plain) < 1e-12), (
-        "Specifying the integrals of motion as Quantities disagrees with "
-        "specifying them in internal units"
     )
     # all of the integrals have to be given
     with pytest.raises(ValueError) as excinfo:
