@@ -1163,3 +1163,29 @@ def test_gammainc_endpoints_zero_and_infinity(backend):
         assert not numpy.any(numpy.isnan(q)), f"gammaincc NaN at an endpoint, a={a}"
         numpy.testing.assert_array_equal(p, [0.0, 1.0])
         numpy.testing.assert_array_equal(q, [1.0, 0.0])
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammainc_grad_wrt_argument_at_endpoints(backend):
+    # x = 0 is a REAL evaluation point (the value test above pins P(a,0)=0), and
+    # dP/dx = x^(a-1) e^-x / Gamma(a) is computed as prefix(a,x)/x -- which is
+    # 0/0 there and returned NaN before this was guarded. The limit depends on a:
+    #     a < 1 -> +inf,   a = 1 -> 1,   a > 1 -> 0.
+    # NB jax's own native gammainc returns NaN for d/dx at a=1, x=0, so the
+    # reference here is the analytic limit, not another library.
+    for a0, want in ((0.5, numpy.inf), (1.0, 1.0), (2.0, 0.0), (3.0, 0.0)):
+        if backend == "jax":
+            if a0 == 1.0:
+                continue  # jax's native path is NaN here; nothing of ours to pin
+            ad = float(
+                jax.grad(lambda x: gsp.gammainc(jnp.asarray(a0), x))(jnp.asarray(0.0))
+            )
+        else:
+            xt = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+            gsp.gammainc(torch.tensor(a0, dtype=torch.float64), xt).backward()
+            ad = float(xt.grad)
+        assert not numpy.isnan(ad), f"d/dx gammainc(a={a0}) is NaN at x=0"
+        if numpy.isinf(want):
+            assert numpy.isinf(ad) and ad > 0, f"a={a0}: want +inf, got {ad}"
+        else:
+            numpy.testing.assert_allclose(ad, want, rtol=0, atol=1e-15)

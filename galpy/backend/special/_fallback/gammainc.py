@@ -194,11 +194,24 @@ def _torch_autograd(upper):
             need_a, need_x = ctx.needs_input_grad[:2]
             grad_a = grad_x = None
             if need_x:
-                # closed form; no series, no continued fraction
+                # dP/dx = x^(a-1) e^-x / Gamma(a) = prefix(a,x)/x in closed form
+                # -- no series, no continued fraction. But prefix(a,0) = 0, so
+                # prefix/x is 0/0 at the x=0 endpoint and returns NaN there. x=0
+                # is reachable (it is a real evaluation point, and the value path
+                # already pins P(a,0)=0), so take the limit explicitly:
+                #     a < 1 -> +inf,   a = 1 -> 1,   a > 1 -> 0.
                 import galpy.backend as _gb
 
                 xp = _gb.get_namespace(x)
-                grad_x = grad_out * sign * _prefix(xp, a, x) / x
+                pos = x > 0
+                x_safe = xp.where(pos, x, xp.ones_like(x))  # keep 0 out of the divide
+                dens = _prefix(xp, a, x_safe) / x_safe
+                at_zero = xp.where(
+                    a < 1.0,
+                    xp.full_like(a, float("inf")),
+                    xp.where(a == 1.0, xp.ones_like(a), xp.zeros_like(a)),
+                )
+                grad_x = grad_out * sign * xp.where(pos, dens, at_zero)
             if need_a:
                 # only here does the loop run
                 import galpy.backend as _gb
