@@ -41,7 +41,7 @@
 ###############################################################################
 import numpy
 
-from ..._namespaces import _backend_dtype, name_of_namespace
+from ..._namespaces import _backend_dtype
 from .._router import gammaln
 
 _A_STIRLING = 14.0  # Stirling prefix at/above this order, naive exponent below
@@ -217,23 +217,25 @@ _TORCH_FNS = {}
 
 
 def _dispatch_one(xp, a, x, upper):
-    if name_of_namespace(xp) == "torch":
-        import torch
+    # torch is the ONLY backend routed here: jax's natives are accurate and
+    # differentiable in both arguments, and numpy uses scipy, so neither is in
+    # _NEEDS_FALLBACK for these two names. No other-backend branch exists
+    # because none is reachable.
+    import torch
 
-        a = torch.as_tensor(a)
-        x = torch.as_tensor(x)
-        native = torch.special.gammaincc if upper else torch.special.gammainc
-        if not (a.requires_grad or x.requires_grad):
-            # Nothing to differentiate: hand straight to the native kernel and
-            # skip the autograd.Function entirely. This is the hot path --
-            # MWPotential2014's PowerSphericalPotentialwCutoff lands here on
-            # every evaluation -- and the wrapper alone costs ~5x on a scalar.
-            return native(a, x)
-        if upper not in _TORCH_FNS:
-            _TORCH_FNS[upper] = _torch_autograd(upper)
-        a, x = torch.broadcast_tensors(a, x)
-        return _TORCH_FNS[upper].apply(a, x)
-    return _both(xp, a, x)[1 if upper else 0]
+    a = torch.as_tensor(a)
+    x = torch.as_tensor(x)
+    native = torch.special.gammaincc if upper else torch.special.gammainc
+    if not (a.requires_grad or x.requires_grad):
+        # Nothing to differentiate: hand straight to the native kernel and skip
+        # the autograd.Function entirely. This is the hot path -- MWPotential2014's
+        # PowerSphericalPotentialwCutoff lands here on every evaluation -- and the
+        # wrapper alone costs ~2x on a scalar.
+        return native(a, x)
+    if upper not in _TORCH_FNS:
+        _TORCH_FNS[upper] = _torch_autograd(upper)
+    a, x = torch.broadcast_tensors(a, x)
+    return _TORCH_FNS[upper].apply(a, x)
 
 
 def gammainc_fallback(xp, a, x):
