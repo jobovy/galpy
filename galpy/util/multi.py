@@ -190,8 +190,9 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
 
     Notes
     -----
-    Runs serially, ignoring ``numcores``, on Windows and while galpy is running
-    traced (inside ``galpy.backend.jit``), because ``fork`` is unsafe there.
+    Runs serially, ignoring ``numcores``, on Windows, while galpy is running
+    traced (inside ``galpy.backend.jit``), and under the jax backend, because
+    ``fork`` is unsafe there.
     """
     if not callable(function):
         raise TypeError("input function '%s' is not callable" % repr(function))
@@ -219,9 +220,14 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
     # case) cannot help here: the parallelism is baked into the compiled kernel.
     # Imported here, not at module scope, to keep galpy.util.multi importable
     # without galpy.backend.
-    from ..backend import jit_mode
+    from ..backend import fork_deadlocks_backend, jit_mode
 
     if jit_mode() != "off":
+        return list(map(function, sequence))
+
+    # jax deadlocks on fork with no way to cure it in the child (see
+    # galpy.backend.fork_deadlocks_backend); serial is slower, a hang is fatal.
+    if fork_deadlocks_backend():
         return list(map(function, sequence))
 
     # Use fork-based parallelism (because spawn fails with pickling issues, #457)
