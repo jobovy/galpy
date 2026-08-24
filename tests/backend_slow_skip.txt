@@ -233,7 +233,13 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 # yet vectorized for jax (Track F), so defer the whole file under jax until then.
 # (The 17 jax test_streamdf entries still in backend_xfail.txt are now redundant
 # -- skip wins -- and drop at the next ledger regen, which skips these.)
-jax tests/test_streamdf.py  # 2026-08-21: DEADLOCKS, does not merely run slow -- see note below
+# 2026-08-23: the jax whole-file defer of tests/test_streamdf.py is GONE.
+# It was a fork deadlock in parallel_map, not slowness (gh#1372): 14 parked
+# children at load ~0.1, no progress in 9 min. With jax no longer forking the
+# whole file runs 76 passed / 4 skipped in 787s local (~554s CI), against a
+# 6m10s shard and a 90-min job timeout -- torch already runs this same file in
+# this same shard in 11m38s. The 4 are useTM, which reach actionAngleTorus and
+# are out of scope; they move to backend_skip.txt beside their torch twins.
 # Backend-aware StreamTrack class (PR #1100): under forced jax a fresh
 # spdf.streamTrack() now integrates + fits the whole stream on jax (real XLA)
 # instead of the pre-#1100 numpy-coerced track -- the per-track eager dispatch
