@@ -17,7 +17,7 @@ from ..potential import (
     rl,
     vcirc,
 )
-from ..util import coords
+from ..util import conversion, coords
 from .actionAngleInverse import actionAngleInverse
 
 # Nodes/weights for composite 10-point Gauss-Legendre quadrature: applied
@@ -252,9 +252,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 pot=pot, delta=delta, u0=_U0INTERNAL
             )
         self._delta = self._staeckelwrap._delta
-        self._Es = numpy.atleast_1d(numpy.array(Es, dtype="float"))
-        self._Lzs = numpy.atleast_1d(numpy.array(Lzs, dtype="float"))
-        self._I3s = numpy.atleast_1d(numpy.array(I3s, dtype="float"))
+        # I3 has the dimensions of an energy in the convention used here
+        self._Es = conversion._parse_grid_quantity(
+            Es, conversion.parse_energy, vo=self._vo
+        )
+        self._Lzs = conversion._parse_grid_quantity(
+            Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
+        )
+        self._I3s = conversion._parse_grid_quantity(
+            I3s, conversion.parse_energy, vo=self._vo
+        )
         self._ntori = len(self._Es)
         self._nchi = nchi
         self._maxiter = maxiter
@@ -266,6 +273,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._anglez0 = numpy.pi / 2.0
         self._interp = setup_interp
         if setup_interp:
+            Rmin = conversion.parse_length(Rmin, ro=self._ro)
+            Rmax = conversion.parse_length(Rmax, ro=self._ro)
+            Rinf = conversion.parse_length(Rinf, ro=self._ro)
             self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, nchi_store)
             return
         # Setup in three logical stages
