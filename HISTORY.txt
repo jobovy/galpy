@@ -1,6 +1,15 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
+  the focal length when none is given, placing it at R=1 rather than on the
+  symmetry axis. V(v) is built along u=u0 and only represents the wrapped
+  potential near that curve unless the potential is exactly of Staeckel form,
+  so the previous default of u0=0 -- the axis, where a flattened potential
+  looks nothing like it does in the disc -- silently gave a poor Staeckel
+  approximation for exactly the potentials that need wrapping. A fixed u0 also
+  wanders in radius as delta changes, since R = delta sinh(u0).
+
 - The action quadratures of ``actionAngleStaeckel`` are regularized at the
   turning points in both the C and the pure-Python path. The fixed-order
   Gauss-Legendre rule was previously applied against the square-root branch

@@ -7191,6 +7191,44 @@ def test_WrapperPotential_print():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_default_u0():
+    # V(v) is built along the curve u = u0, which sits at R = delta sinh(u0)
+    # in the plane, so a fixed u0 wanders in radius as delta changes and
+    # u0 = 0 is the symmetry axis, where V says nothing about a flattened
+    # potential. The default tracks delta instead, putting the curve at R=1.
+    from galpy import potential
+
+    for delta in (0.3, 0.45, 1.3):
+        asp = potential.OblateStaeckelWrapperPotential(
+            pot=potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True),
+            delta=delta,
+        )
+        assert numpy.fabs(delta * numpy.sinh(asp._u0) - 1.0) < 1e-10, (
+            "The default u0 of OblateStaeckelWrapperPotential does not put the "
+            "reference curve at R=1 for delta=%g" % delta
+        )
+        assert asp._u0 > 0.0, "The default u0 lies on the symmetry axis"
+    # an explicitly given u0 still wins, in both accepted forms
+    mnp = potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True)
+    assert (
+        numpy.fabs(
+            potential.OblateStaeckelWrapperPotential(pot=mnp, delta=0.45, u0=1.2)._u0
+            - 1.2
+        )
+        < 1e-10
+    ), "An explicitly given u0 is not used"
+    assert (
+        numpy.fabs(
+            potential.OblateStaeckelWrapperPotential(
+                pot=mnp, delta=0.45, u0=(1.0, 0.0)
+            )._u0
+            - numpy.arcsinh(1.0 / 0.45)
+        )
+        < 1e-10
+    ), "An explicitly given (R,z) u0 is not converted as expected"
+    return None
+
+
 def test_OblateStaeckelWrapperPotential_againstKuzmin():
     # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
     # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
