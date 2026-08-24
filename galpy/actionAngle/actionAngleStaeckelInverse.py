@@ -956,17 +956,30 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # three potential-layer calls against one, and the derivative only
         # sets the Newton step, not the root it converges to.
         h = 1e-6
-        if scal[1] - scal[0] > 1e-12:
-            uu = numpy.array(
-                [scal[0] - h, scal[0], scal[0] + h, scal[1] - h, scal[1], scal[1] + h]
-            )
-            Wu = self._Wu(uu, E, Lz, I3)
-            scal[0] -= Wu[1] * 2.0 * h / (Wu[2] - Wu[0])
-            scal[1] -= Wu[4] * 2.0 * h / (Wu[5] - Wu[3])
-        if numpy.pi / 2.0 - scal[2] > 1e-12:
-            vv = numpy.array([scal[2] - h, scal[2], scal[2] + h])
-            Wv = self._Wv(vv, E, Lz, I3)
-            scal[2] -= Wv[1] * 2.0 * h / (Wv[2] - Wv[0])
+        # Two steps, not one: the turning points come in with the ~1e-5 error
+        # of the interpolation, and one step leaves a residual around 1e-10,
+        # which is enough to show up in the energy when angles sample close
+        # to a turning point. The second step costs one more vectorized
+        # evaluation and takes the placement back to machine precision.
+        for _ in range(2):
+            if scal[1] - scal[0] > 1e-12:
+                uu = numpy.array(
+                    [
+                        scal[0] - h,
+                        scal[0],
+                        scal[0] + h,
+                        scal[1] - h,
+                        scal[1],
+                        scal[1] + h,
+                    ]
+                )
+                Wu = self._Wu(uu, E, Lz, I3)
+                scal[0] -= Wu[1] * 2.0 * h / (Wu[2] - Wu[0])
+                scal[1] -= Wu[4] * 2.0 * h / (Wu[5] - Wu[3])
+            if numpy.pi / 2.0 - scal[2] > 1e-12:
+                vv = numpy.array([scal[2] - h, scal[2], scal[2] + h])
+                Wv = self._Wv(vv, E, Lz, I3)
+                scal[2] -= Wv[1] * 2.0 * h / (Wv[2] - Wv[0])
         self._torus_cache_key = key
         self._torus_cache = (scal, profs)
         return self._torus_cache
