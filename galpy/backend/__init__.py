@@ -30,6 +30,7 @@ from ._namespaces import (
     is_backend_array,
     match_input_dtype,
     name_of_namespace,
+    prefer_backend_namespace,
     resolve_namespace,
     restrict_to_single_thread,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "asarray_on_device",
     "as_numpy",
     "exit_cast",
+    "prefer_backend_namespace",
     "resolve_namespace",
     "fork_deadlocks_backend",
     "restrict_to_single_thread",

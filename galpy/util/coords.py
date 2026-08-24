@@ -86,6 +86,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    prefer_backend_namespace,
     promote_scalars,
 )
 from ..util import _rotate_to_arbitrary_vector
@@ -97,26 +98,39 @@ _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
 
 
-def _galcen_rot(Xsun, Zsun):
+def _galcen_rot(xp, Xsun, Zsun):
     """Galactocentric -> heliocentric rotation, plus the ``dgc`` offset scalars.
 
-    Depends only on ``Xsun``/``Zsun``, which are configuration, never traced
-    data -- so this stays numpy even on a backend and is a compile-time
-    constant under a trace. Shape (3, 3) for scalar Xsun, (3, 3, N) when
-    Xsun/Zsun are arrays.
+    Shape (3, 3) for scalar Xsun, (3, 3, N) when Xsun/Zsun are arrays.
+
+    ``Xsun``/``Zsun`` are USUALLY configuration, but they are not always: the
+    solar position is a fit parameter, so a caller may legitimately hand in a
+    backend array and differentiate through it. This used to be hard-coded
+    numpy on the assumption that it never happened, which made
+    ``galcenrect_to_XYZ(Xsun=<torch tensor requiring grad>)`` raise "Can't call
+    numpy() on Tensor that requires grad" -- while the JACOBIAN of the same
+    transform (``galcenrect_to_XYZ_jac``) handled it fine. Build it in the
+    caller's namespace instead, which removes that asymmetry.
+
+    ``xp.stack`` rather than ``xp.asarray`` of a nested list: jax arrays are
+    immutable and a nested list of tracers is not an array constructor
+    argument. Stacking along axis 0 reproduces ``numpy.array([[...], ...])``
+    exactly for this shape pattern, so the numpy path is unchanged.
     """
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    Xsun, Zsun = promote_scalars(xp, Xsun, Zsun)
+    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
-    rot = numpy.array(
+    zero = xp.zeros_like(costheta)
+    one = xp.ones_like(costheta)
+    sgn = xp.sign(Xsun)
+    rot = xp.stack(
         [
-            [-costheta, zero, -sintheta],
-            [zero, one, zero],
-            [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+            xp.stack([-costheta, zero, -sintheta]),
+            xp.stack([zero, one, zero]),
+            xp.stack([-sgn * sintheta, zero, sgn * costheta]),
         ]
     )
-    batched = isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+    batched = getattr(costheta, "ndim", 0) > 0
     return rot, dgc, zero, batched
 
 
@@ -1214,9 +1228,12 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    rot, dgc, zero, batched = _galcen_rot(Xsun, Zsun)
-    offset = numpy.array([dgc, zero, zero])
-    xp = get_namespace(X, Y, Z)
+    # Xsun/Zsun join the namespace probe: they are ordinary inputs a caller
+    # may differentiate through, so a backend Xsun with numpy coordinates has
+    # to take the BACKEND path, not fall through to numpy.
+    xp = prefer_backend_namespace(X, Y, Z, Xsun, Zsun)
+    rot, dgc, zero, batched = _galcen_rot(xp, Xsun, Zsun)
+    offset = xp.stack([dgc, zero, zero])
     if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
         out = (
             numpy.einsum(
@@ -1588,8 +1605,8 @@ def galcenrect_to_vxvyvz(
     - 2017-10-24 - Allowed Xsun/Zsun/vsun to be arrays - Bovy (UofT)
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     """
-    rot, _, _, batched = _galcen_rot(Xsun, Zsun)
-    xp = get_namespace(vXg, vYg, vZg)
+    xp = prefer_backend_namespace(vXg, vYg, vZg, Xsun, Zsun)
+    rot, _, _, batched = _galcen_rot(xp, Xsun, Zsun)
     if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
         out = numpy.einsum(
             "ijk,jk->ik" if batched else "ij,jk->ik",

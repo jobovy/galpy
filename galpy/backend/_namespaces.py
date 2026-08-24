@@ -223,6 +223,25 @@ def resolve_namespace(*args):
     return get_namespace(*(a for a in args if is_backend_array(a)))
 
 
+def prefer_backend_namespace(*args):
+    """Namespace of the backend args, falling back to probing ALL of them.
+
+    For entry points whose inputs may legitimately MIX backend arrays with
+    numpy/python ones -- e.g. backend coordinates with a numpy ``Xsun``.
+    Probing the mix raises "Multiple namespaces"; the numpy values are weak and
+    get coerced across, so the backend ones decide.
+
+    Distinct from :func:`resolve_namespace`, which falls back to the
+    context/forced namespace: that is right for a leaf shared by numpy and
+    backend callers, but wrong here, because it would reroute an all-numpy call
+    onto a forced backend rather than following the arguments it was given.
+    """
+    from ._resolver import get_namespace
+
+    on_backend = [a for a in args if is_backend_array(a)]
+    return get_namespace(*(on_backend or args))
+
+
 def _is_floating_dtype(dtype):
     """True for real floating-point dtypes of any backend.
 

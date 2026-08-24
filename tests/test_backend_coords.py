@@ -527,3 +527,75 @@ def test_vxvyvz_to_vrpmllpmbb_XYZ_degree_backend(backend_name):
     )
     assert _all_backend(got), "XYZ+degree backend path fell back to numpy"
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_transforms_differentiate_through_Xsun_Zsun(backend_name):
+    # Xsun/Zsun were assumed to be "configuration, never traced data", so
+    # _galcen_rot built the rotation with hard-coded numpy. But the solar
+    # position is a FIT PARAMETER, so a caller may hand in a backend array and
+    # differentiate through it -- which raised
+    #     RuntimeError: Can't call numpy() on Tensor that requires grad
+    # on torch, and a tracer conversion error under jax.jit. The JACOBIAN of
+    # the same transform (galcenrect_to_XYZ_jac) already handled backend
+    # Xsun/Zsun, so this was an asymmetry within one transform pair.
+    #
+    # Bar is grad-vs-FD, not merely "it returns something": the whole point of
+    # a backend Xsun is the derivative w.r.t. it.
+    X0, Y0, Z0, Xs0, Zs0 = 1.0, 2.0, 3.0, 8.0, 0.02
+
+    def total(fn, xs, zs):
+        return sum(float(v) for v in fn(X0, Y0, Z0, Xsun=xs, Zsun=zs))
+
+    for fn in (coords.galcenrect_to_XYZ, coords.galcenrect_to_vxvyvz):
+        h = 1e-6
+        fd_X = (total(fn, Xs0 + h, Zs0) - total(fn, Xs0 - h, Zs0)) / (2 * h)
+        fd_Z = (total(fn, Xs0, Zs0 + h) - total(fn, Xs0, Zs0 - h)) / (2 * h)
+        if backend_name == "jax":
+            import jax
+
+            def scalar(p):
+                out = fn(
+                    jnp.asarray(X0),
+                    jnp.asarray(Y0),
+                    jnp.asarray(Z0),
+                    Xsun=p[0],
+                    Zsun=p[1],
+                )
+                return out[0] + out[1] + out[2]
+
+            ad = jax.grad(scalar)(jnp.asarray([Xs0, Zs0]))
+            ad_X, ad_Z = float(ad[0]), float(ad[1])
+        else:
+            xs = torch.tensor(Xs0, dtype=torch.float64, requires_grad=True)
+            zs = torch.tensor(Zs0, dtype=torch.float64, requires_grad=True)
+            out = fn(
+                torch.tensor(X0, dtype=torch.float64),
+                torch.tensor(Y0, dtype=torch.float64),
+                torch.tensor(Z0, dtype=torch.float64),
+                Xsun=xs,
+                Zsun=zs,
+            )
+            (out[0] + out[1] + out[2]).backward()
+            ad_X, ad_Z = float(xs.grad), float(zs.grad)
+        # FD with h=1e-6 is good to ~1e-9 here; anything looser would pass on a
+        # wrong-but-plausible gradient.
+        numpy.testing.assert_allclose(ad_X, fd_X, rtol=1e-7, atol=1e-9)
+        numpy.testing.assert_allclose(ad_Z, fd_Z, rtol=1e-7, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_backend_Xsun_with_numpy_coordinates(backend_name):
+    # The namespace probe used to read only the COORDINATES, so a backend
+    # Xsun alongside numpy X/Y/Z silently took the numpy path; and probing the
+    # mix naively raises "Multiple namespaces for array inputs". The rule --
+    # backend args decide, numpy ones are weak and coerce across -- is
+    # galpy.backend.prefer_backend_namespace, shared with the @backend_input
+    # boundary rather than re-spelled here.
+    x, y, z = 1.0, 2.0, 3.0
+    Xs = _as_backend(backend_name, 8.0)
+    ref = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=0.02)
+    got = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xs, Zsun=0.02)
+    assert is_backend_array(got[0]), "backend Xsun must select the backend path"
+    for g, r in zip(got, ref):
+        numpy.testing.assert_allclose(float(as_numpy(g)), float(r), rtol=1e-14)
