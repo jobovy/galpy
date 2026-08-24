@@ -12,6 +12,16 @@ v1.12.1 (expected around 2026-11-01)
   the interpolation of the actions is useless rather than merely less
   accurate.
 
+- The inverse action-angle methods can label a torus by its integrals of
+  motion by name where a class supports it, e.g.,
+  ``aASI(angler,anglephi,anglez,E=E,Lz=Lz,I3=I3)`` for
+  ``actionAngleStaeckelInverse``, rather than by its actions; this saves
+  inverting the actions when the integrals are what one has. Naming the
+  integrals works the same with and without units, unlike relying on their
+  dimensions, because in internal units the integrals of motion cannot be
+  told apart from the actions. ``actionAngleStaeckelInverse`` also accepts
+  Quantity inputs for the tori it is given and for the extent of its grid.
+
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the
   symmetry axis. V(v) is built along u=u0 and only represents the wrapped

@@ -3,6 +3,7 @@
 #                        actionAngle methods
 ###############################################################################
 from ..util.conversion import (
+    actionAngleInverse_integral_input,
     actionAngleInverse_physical_input,
     physical_conversion_actionAngleInverse,
 )
@@ -12,9 +13,15 @@ from .actionAngle import actionAngle
 class actionAngleInverse(actionAngle):
     """actionAngleInverse; top-level class with common routines for inverse actionAngle methods"""
 
+    # Subclasses that can label a torus by its integrals of motion as well as
+    # by its actions list them here as (name, dimension) pairs; see
+    # actionAngleInverse_integral_input
+    _integral_labels = ()
+
     def __init__(self, *args, **kwargs):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
 
+    @actionAngleInverse_integral_input
     @actionAngleInverse_physical_input
     @physical_conversion_actionAngleInverse("__call__", pop=True)
     def __call__(self, *args, **kwargs):
@@ -43,6 +50,16 @@ class actionAngleInverse(actionAngle):
 
         Notes
         -----
+        Notes
+        -----
+        Subclasses that can also label a torus by its integrals of motion
+        accept those by name instead of the actions, e.g., ``E=``, ``Lz=``,
+        ``I3=`` for actionAngleStaeckelInverse; the actions are then omitted
+        and only the angles are given positionally. Naming them works the
+        same with and without units, which their dimensions alone cannot do,
+        because in internal units the integrals are indistinguishable from
+        the actions.
+
         - 2017-11-14 - Written - Bovy (UofT)
 
         """
@@ -53,6 +70,7 @@ class actionAngleInverse(actionAngle):
                 "'__call__' method not implemented for this actionAngle module"
             )
 
+    @actionAngleInverse_integral_input
     @actionAngleInverse_physical_input
     @physical_conversion_actionAngleInverse("xvFreqs", pop=True)
     def xvFreqs(self, *args, **kwargs):
@@ -81,6 +99,14 @@ class actionAngleInverse(actionAngle):
 
         Notes
         -----
+        Subclasses that can also label a torus by its integrals of motion
+        accept those by name instead of the actions, e.g., ``E=``, ``Lz=``,
+        ``I3=`` for actionAngleStaeckelInverse; the actions are then omitted
+        and only the angles are given positionally. Naming them works the
+        same with and without units, which their dimensions alone cannot do,
+        because in internal units the integrals are indistinguishable from
+        the actions.
+
         - 2017-11-15 - Written - Bovy (UofT)
 
         """
@@ -91,6 +117,7 @@ class actionAngleInverse(actionAngle):
                 "'xvFreqs' method not implemented for this actionAngle module"
             )
 
+    @actionAngleInverse_integral_input
     @actionAngleInverse_physical_input
     @physical_conversion_actionAngleInverse("Freqs", pop=True)
     def Freqs(self, *args, **kwargs):
@@ -113,6 +140,14 @@ class actionAngleInverse(actionAngle):
 
         Notes
         -----
+        Subclasses that can also label a torus by its integrals of motion
+        accept those by name instead of the actions, e.g., ``E=``, ``Lz=``,
+        ``I3=`` for actionAngleStaeckelInverse; the actions are then omitted
+        and only the angles are given positionally. Naming them works the
+        same with and without units, which their dimensions alone cannot do,
+        because in internal units the integrals are indistinguishable from
+        the actions.
+
         - 2017-11-15 - Written - Bovy (UofT)
 
         """

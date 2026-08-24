@@ -138,6 +138,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     transformations. Placement on the torus is exact by construction.
     """
 
+    # A Staeckel torus is labelled by (E, L_z, I3) as well as by its actions;
+    # I3 has the dimensions of an energy in the convention used here
+    _integral_labels = (("E", "energy"), ("Lz", "angmom"), ("I3", "energy"))
+
     def __init__(
         self,
         pot=None,
