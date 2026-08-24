@@ -44,7 +44,11 @@ _NATIVE_MISSING = {
 # A tripwire test documents the breakage so these move to native if jax fixes it.
 _NATIVE_UNRELIABLE = {
     "jax": frozenset(("hyp2f1", "hyp1f1")),
-    "torch": frozenset(),
+    # torch.special.gammainc/gammaincc exist but are unusable on two counts:
+    # no derivative w.r.t. the ORDER ("the derivative for 'igamma: input' is
+    # not implemented"), and a discrete algorithm switch at a ~ 20 costing ~6
+    # digits above it (5e-10 vs 1e-16). The backend-op fallback fixes both.
+    "torch": frozenset(("gammainc", "gammaincc")),
 }
 
 # The router routes a function to its fallback iff it is in EITHER set.
@@ -140,12 +144,16 @@ def gamma(x):
 
 def gammainc(a, x):
     # Regularized lower incomplete gamma P(a, x).
-    return _dispatch("gammainc", (a, x), _no_fallback("gammainc"))
+    from ._fallback.gammainc import gammainc_fallback
+
+    return _dispatch("gammainc", (a, x), gammainc_fallback)
 
 
 def gammaincc(a, x):
     # Regularized upper incomplete gamma Q(a, x) = 1 - P(a, x).
-    return _dispatch("gammaincc", (a, x), _no_fallback("gammaincc"))
+    from ._fallback.gammainc import gammaincc_fallback
+
+    return _dispatch("gammaincc", (a, x), gammaincc_fallback)
 
 
 def erf(x):
