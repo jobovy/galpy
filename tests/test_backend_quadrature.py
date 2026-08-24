@@ -722,3 +722,86 @@ def test_finite_part_quad_branches_on_a_traced_peak_width(backend):
     numpy.testing.assert_allclose(
         at_zero, 2.0 * numpy.sinh(b) - 2.0 * c / b, rtol=1e-10, atol=1e-12
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_batches_over_its_limits(backend):
+    # b, c and peak_width are documented as arrays, and the integrand is called
+    # "vectorised over a trailing node axis" -- but every one of them used to be
+    # combined with that node axis unlifted, so a batch raised
+    # "operands could not be broadcast together with shapes (3,100) (3,)".
+    # Same closed form as the scalar test, evaluated as one batch:
+    #     f(u) = c/u**2 + exp(-u)  ->  finite part = 2 sinh(b) - 2c/b.
+    xp = _xp(backend)
+    bs = xp.asarray([1.3, 2.5, 0.4])
+    cs = xp.asarray([0.75, 1.7, 0.05])
+
+    def f(u):  # c varies per batch element, so it carries its own node axis
+        return cs[..., None] / (u * u) + xp.exp(-u)
+
+    got = finite_part_quad(xp, f, bs, c=cs, peak_width=xp.zeros_like(bs), n=200)
+    bs_n, cs_n = numpy.asarray(bs, dtype=float), numpy.asarray(cs, dtype=float)
+    expected = 2.0 * numpy.sinh(bs_n) - 2.0 * cs_n / bs_n
+    numpy.testing.assert_allclose(
+        numpy.asarray(got, dtype=float), expected, rtol=1e-10, atol=1e-12
+    )
+
+    # ...and a batch must agree with the same elements done one at a time, or
+    # the batching is quietly a different rule. This is the assertion that
+    # would catch a wrong-axis reduction (a bare xp.sum() collapsing the batch
+    # into one shared lam) which the closed form above tolerates poorly but
+    # does not pin exactly.
+    per_element = numpy.array(
+        [
+            float(
+                finite_part_quad(
+                    xp,
+                    lambda u, c0=c0: c0 / (u * u) + xp.exp(-u),
+                    xp.asarray(b0),
+                    c=c0,
+                    peak_width=xp.asarray(0.0),
+                    n=200,
+                )
+            )
+            for b0, c0 in zip(bs_n, cs_n)
+        ]
+    )
+    # numpy and jax reduce (batch, n) with the same kernel they use for (n,),
+    # so batched must be BIT-identical there. torch dispatches a different
+    # reduction for the 2-D case and lands ~1e-13 relative away (measured) --
+    # a reduction-order difference, not a different rule, so it gets a tight
+    # rtol rather than an exemption.
+    numpy.testing.assert_allclose(
+        numpy.asarray(got, dtype=float),
+        per_element,
+        rtol=1e-12 if backend == "torch" else 0.0,
+        atol=0,
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_batches_a_mix_of_both_branches(backend):
+    # The branch is per element, so one batch can need the finite part (w == 0)
+    # and the sinh substitution (w > 0) at once. Both arms are evaluated for
+    # every element, so this also checks the guarded width keeps asinh(b/0)
+    # from leaking nan into the elements that take the OTHER arm.
+    xp = _xp(backend)
+    bs = xp.asarray([1.3, 1.3, 1.3])
+    ws = xp.asarray([0.0, 0.25, 0.0])
+    c = 0.75
+
+    def f(u):
+        return c / (u * u) + xp.exp(-u)
+
+    got = numpy.asarray(
+        finite_part_quad(xp, f, bs, c=c, peak_width=ws, n=200), dtype=float
+    )
+    assert numpy.all(numpy.isfinite(got)), f"nan leaked from the untaken arm: {got}"
+    b = 1.3
+    # w == 0 -> the finite part; w > 0 -> the plain integral of sym, which for
+    # this f still carries the c/u**2 pole and so is NOT the finite part: the
+    # two arms must give genuinely different numbers here.
+    numpy.testing.assert_allclose(
+        got[[0, 2]], 2.0 * numpy.sinh(b) - 2.0 * c / b, rtol=1e-10, atol=1e-12
+    )
+    assert abs(got[1] - got[0]) > 1.0, "the two branches returned the same value"
