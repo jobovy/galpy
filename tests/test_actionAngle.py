@@ -8602,6 +8602,40 @@ def test_actionAngleStaeckelInverse_interp_convergence_and_freqs(
     return None
 
 
+def test_actionAngleStaeckelInverse_interp_integrals_roundtrip(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # Reading the integrals off an interpolated torus and asking for that
+    # torus back has to be the identity: the interpolated torus takes E and
+    # I3 from the same grid relations that _grid_coords inverts, so the two
+    # directions are exact inverses rather than agreeing to interpolation
+    # error. Were E interpolated as a stored profile instead, the energy of
+    # the torus returned here would miss the requested one by ~1e-6.
+    from galpy.potential import evaluatePotentials
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    for jr, jphi, jz in [(0.06, 0.9, 0.03), (0.12, 1.1, 0.08), (0.02, 0.8, 0.10)]:
+        idx = aASI._coords_from_actions(jr, jphi, jz)
+        aASI._interp_Lz = jphi
+        scal, _ = aASI._interp_torus(idx)
+        E, I3 = float(scal[6]), float(scal[7])
+        back = aASI._grid_coords(E, jphi, I3)
+        assert numpy.all(numpy.fabs(numpy.array(idx) - numpy.array(back)) < 1e-10), (
+            "Labelling an interpolated torus by its integrals and looking it "
+            "back up does not return the same grid point"
+        )
+        # ... and the torus really does have the energy it is labelled with
+        angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
+        R, vR, vT, z, vz, phi = aASI(E, jphi, I3, *angles, integrals=True)
+        H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
+            kkp, R, z, use_physical=False
+        )
+        assert numpy.all(numpy.fabs(H - E) < 1e-12), (
+            "The interpolated torus requested by its integrals does not have "
+            "the requested energy"
+        )
+
+
 def test_actionAngleStaeckelInverse_interp_by_integrals(
     setup_actionAngleStaeckelInverse_interpolated,
 ):
