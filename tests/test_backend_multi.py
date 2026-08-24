@@ -82,3 +82,39 @@ def test_parallel_map_values_are_exact():
     seq = numpy.arange(8.0)
     got = numpy.array(list(parallel_map(_square, seq, numcores=3)))
     assert numpy.array_equal(got, seq**2.0), f"parallel_map returned {got}"
+
+
+def _child_pid(i):
+    import os
+
+    return os.getpid()
+
+
+def test_parallel_map_does_not_fork_under_jax():
+    # jax has no equivalent of torch's thread cap: a forked child inherits jax
+    # state it cannot use and the parent hangs in proc.join(). The only cure is
+    # not forking, so under jax parallel_map must run in-process. Asserted via
+    # the child pid rather than by waiting on a join that would never return.
+    pytest.importorskip("jax")
+    import os
+
+    from galpy.backend import use
+    from galpy.util.multi import parallel_map
+
+    with use("jax", force=True):
+        pids = list(parallel_map(_child_pid, numpy.arange(4), numcores=2))
+        seq = numpy.arange(8.0)
+        got = numpy.array(list(parallel_map(_square, seq, numcores=3)))
+    assert pids == [os.getpid()] * 4, f"parallel_map forked under jax: {pids}"
+    assert numpy.array_equal(got, seq**2.0), f"parallel_map returned {got}"
+
+
+def test_parallel_map_still_forks_off_jax():
+    # Negative control for the test above: a guard that serialized everything
+    # would satisfy it while silently costing every numpy user their cores.
+    import os
+
+    from galpy.util.multi import parallel_map
+
+    pids = set(parallel_map(_child_pid, numpy.arange(4), numcores=2))
+    assert pids != {os.getpid()}, "numpy parallel_map must still fork"
