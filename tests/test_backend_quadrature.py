@@ -805,3 +805,32 @@ def test_finite_part_quad_batches_a_mix_of_both_branches(backend):
         got[[0, 2]], 2.0 * numpy.sinh(b) - 2.0 * c / b, rtol=1e-10, atol=1e-12
     )
     assert abs(got[1] - got[0]) > 1.0, "the two branches returned the same value"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_symmetric_quad_accepts_a_finite_eager_torch_limit_with_grad():
+    # The finite/infinite branch asked numpy whether b was finite:
+    #     not under_trace(b) and not numpy.all(numpy.isfinite(numpy.asarray(b)))
+    # An EAGER torch tensor is not under_trace, so an ordinary finite limit that
+    # merely requires grad went to numpy.asarray, which RAISES rather than
+    # answering ("Can't call numpy() on Tensor that requires grad"). jax never
+    # hit this: jax.grad makes b a tracer, so under_trace short-circuits.
+    b = torch.tensor(1.0, requires_grad=True)
+    got = symmetric_quad(_xp("torch"), lambda s: s * s, b)
+    numpy.testing.assert_allclose(float(got), 2.0 / 3.0, rtol=1e-13)
+    # Not crashing is not the bar -- the point of an eager grad-tracking limit
+    # is the gradient. d/db int_-b^b s^2 ds = 2 b^2 = 2 at b = 1.
+    got.backward()
+    numpy.testing.assert_allclose(float(b.grad), 2.0, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_symmetric_quad_still_takes_the_infinite_branch_for_a_backend_inf(backend):
+    # Guard on the FIX, not just the bug: the cheap repair is to treat every
+    # backend array as finite, which would silently send an eager backend inf
+    # down the finite branch and integrate over [-inf, inf] as if it were a
+    # bounded interval. Ask the backend for finiteness instead, and this stays
+    # reachable. int_-inf^inf exp(-s^2) ds = sqrt(pi).
+    xp = _xp(backend)
+    got = symmetric_quad(xp, lambda s: xp.exp(-s * s), xp.asarray(float("inf")))
+    numpy.testing.assert_allclose(float(got), numpy.sqrt(numpy.pi), rtol=1e-10)

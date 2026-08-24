@@ -530,7 +530,21 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
     # folding it -- so asking about the converted limit always answers "unknown"
     # and the infinite branch would be unreachable. A Python/numpy ``b`` is still
     # concrete here and answers directly.
-    if not under_trace(b) and not bool(numpy.all(numpy.isfinite(numpy.asarray(b)))):
+    if under_trace(b):
+        # A tracer's finiteness is unknowable, so the finite branch it is.
+        concretely_infinite = False
+    elif is_backend_array(b):
+        # Eager backend array: ask the BACKEND, not numpy. numpy.asarray on a
+        # grad-tracking torch tensor RAISES rather than answering, so an
+        # ordinary finite limit that happens to require grad used to be
+        # rejected outright. isfinite returns a plain bool array with no grad
+        # of its own, so this stays a pure question about the value -- and an
+        # eager backend inf still reaches the semi-infinite branch, which
+        # blanket-treating backend arrays as finite would have broken.
+        concretely_infinite = not bool(xp.all(xp.isfinite(b)))
+    else:
+        concretely_infinite = not bool(numpy.all(numpy.isfinite(numpy.asarray(b))))
+    if concretely_infinite:
         zero = asarray_on_device(xp, 0.0, device)
         return fixed_quad_semiinfinite(
             xp, integrand, zero, n=n, device=device
