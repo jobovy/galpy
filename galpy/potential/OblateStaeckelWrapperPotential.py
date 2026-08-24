@@ -48,7 +48,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     """
 
-    def __init__(self, amp=1.0, pot=None, delta=0.5, u0=0.0, ro=None, vo=None):
+    def __init__(self, amp=1.0, pot=None, delta=0.5, u0=None, ro=None, vo=None):
         """Initialize an OblateStaeckelWrapper Potential.
 
         Parameters
@@ -59,8 +59,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             Potential instance or a combined potential formed using addition (pot1+pot2+…); this potential is made into an oblate Staeckel potential.
         delta : float or Quantity, optional
             The focal length. Default is 0.5.
-        u0 : float or tuple or tuple of Quantity
-            Reference u value; if a tuple is given, this is assumed to be a (R,z) value to be converted to u.
+        u0 : float or tuple or tuple of Quantity, optional
+            Reference u value, the curve along which V(v) is built; if a tuple is given, this is assumed to be a (R,z) value to be converted to u. Defaults to arcsinh(1/delta), the value that places the reference curve at R=1 in the plane, whatever delta is. V(v) only represents the wrapped potential well near the reference curve unless the potential is exactly of Staeckel form, so this should sit near the orbits of interest; u0=0 is the symmetry axis and is degenerate for anything that is not exactly Staeckel.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -71,10 +71,11 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         - 2017-12-15 - Started - Bovy (UofT)
         """
         self._delta = conversion.parse_length(delta, ro=ro)
-        if u0 is None:  # pragma: no cover
-            raise ValueError(
-                "u0= needs to be given to setup OblateStaeckelWrapperPotential"
-            )
+        if u0 is None:
+            # Place the reference curve at R=1, so that it tracks delta rather
+            # than landing at an arbitrary radius; a fixed u0 means
+            # R = delta sinh(u0), which drifts with delta
+            u0 = numpy.arcsinh(1.0 / self._delta)
         if isinstance(u0, (tuple, list, numpy.ndarray)):
             self._u0 = coords.Rz_to_uv(
                 conversion.parse_length(u0[0], ro=ro),
