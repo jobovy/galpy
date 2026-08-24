@@ -25,10 +25,6 @@ from .actionAngleInverse import actionAngleInverse
 # O((pi/nchi)^20), so every stored integral is at machine precision for any
 # reasonable nchi; there is no accuracy knob to tune
 _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
-# Reference u of the internal Staeckel splitting for potentials that are not
-# already wrapped; its value is irrelevant for an exactly Staeckel potential
-# (any choice gives the same U, V up to the fixed gauge)
-_U0INTERNAL = 1.15
 
 
 def _bspline_weights(t):
@@ -252,9 +248,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     "KuzminKutuzovStaeckelPotential); wrap a general "
                     "axisymmetric potential in OblateStaeckelWrapperPotential"
                 )
-            self._staeckelwrap = OblateStaeckelWrapperPotential(
-                pot=pot, delta=delta, u0=_U0INTERNAL
-            )
+            self._staeckelwrap = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
         self._delta = self._staeckelwrap._delta
         # I3 has the dimensions of an energy in the convention used here
         self._Es = conversion._parse_grid_quantity(
