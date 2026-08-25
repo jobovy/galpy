@@ -699,7 +699,7 @@ def test_lambdanu_to_Rz():
     # _____test float input (z=0)_____
     # coordinate transformation:
     l, n = 2.0, -4.0
-    R, z = coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta)
+    R, z = tuple(as_numpy(v) for v in coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta))
     # true values:
     R_true = numpy.sqrt((l + a) * (n + a) / (a - g))
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
@@ -715,7 +715,7 @@ def test_lambdanu_to_Rz():
     # coordinate transformation:
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-4.0, -3.0, -3.5, -3.5])
-    R, z = coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta)
+    R, z = tuple(as_numpy(v) for v in coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta))
     # true values:
     R_true = numpy.sqrt((l + a) * (n + a) / (a - g))
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
@@ -745,8 +745,11 @@ def test_Rz_to_lambdanu():
     # true values:
     l, n = 2.0, -3.0
     # coordinate transformation:
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     # test:
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
@@ -759,8 +762,11 @@ def test_Rz_to_lambdanu():
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-7.0, -3.0, -5.0, -5.0])
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     assert numpy.all(numpy.fabs(lt - l) < 10.0**-10.0), (
         "Rz_to_lambdanu conversion did not work as expected (l array)"
@@ -783,8 +789,11 @@ def test_Rz_to_lambdanu_r2lt0():
     # true values:
     l, n = 2.0, -3.0 + 10.0**-10.0
     # coordinate transformation:
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     # test:
     assert numpy.fabs(lt - l) < 10.0**-8.0, (
@@ -797,8 +806,11 @@ def test_Rz_to_lambdanu_r2lt0():
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-7.0, -3.0 + 10.0**-10.0, -5.0, -5.0])
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     assert numpy.all(numpy.fabs(lt - l) < 10.0**-8.0), (
         "Rz_to_lambdanu conversion did not work as expected (l array)"
