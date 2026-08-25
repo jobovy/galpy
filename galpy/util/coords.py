@@ -88,6 +88,7 @@ from ..backend import (
     is_backend_array,
     prefer_backend_namespace,
     promote_scalars,
+    resolve_namespace,
 )
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
@@ -3065,23 +3066,20 @@ def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
     -----
     - 2015-02-13 - Written - Trick (MPIA)
     """
+    xp = resolve_namespace(l, n, ac, Delta)
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     r2 = (l + a) * (n + a) / (a - g)
     z2 = (l + g) * (n + g) / (g - a)
-    index = (r2 < 0.0) * ((n + a) > 0.0) * ((n + a) < 1e-10)
-    if numpy.any(index):
-        if isinstance(r2, numpy.ndarray):
-            r2[index] = 0.0
-        else:
-            r2 = 0.0
-    index = (z2 < 0.0) * ((n + g) < 0.0) * ((n + g) > -1e-10)
-    if numpy.any(index):
-        if isinstance(z2, numpy.ndarray):
-            z2[index] = 0.0
-        else:
-            z2 = 0.0
-    return (numpy.sqrt(r2), numpy.sqrt(z2))
+    # Clamp the roundoff-negative roots to zero. This was a python ``if`` on the
+    # data plus an in-place ``r2[index] = 0.0``, i.e. untraceable AND unwritable
+    # on jax; xp.where is the same arithmetic without either. The mask is
+    # unchanged, including the deliberately one-sided 1e-10 windows: only a root
+    # that is negative *because* (n+a) / (n+g) sits within roundoff of its
+    # boundary is snapped, never a genuinely negative one.
+    r2 = xp.where((r2 < 0.0) & ((n + a) > 0.0) & ((n + a) < 1e-10), 0.0 * r2, r2)
+    z2 = xp.where((z2 < 0.0) & ((n + g) < 0.0) & ((n + g) > -1e-10), 0.0 * z2, z2)
+    return (xp.sqrt(r2), xp.sqrt(z2))
 
 
 @scalarDecorator

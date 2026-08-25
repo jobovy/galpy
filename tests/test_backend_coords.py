@@ -623,3 +623,47 @@ def test_galcenrect_integer_Xsun_does_not_truncate_Zsun(backend_name):
     assert not numpy.allclose(
         [float(as_numpy(g)) for g in got], [float(v) for v in flat], rtol=1e-9
     ), "integer Xsun silently reproduced the Zsun=0 answer -- Zsun was truncated"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_lambdanu_to_Rz_is_traceable_and_matches_numpy(backend_name):
+    # lambdanu_to_Rz clamped its roundoff-negative roots with a python `if` on
+    # the data plus an in-place `r2[index] = 0.0` -- untraceable AND unwritable
+    # on jax. Exactly the if -> xp.where array-input class. Its FORWARD
+    # direction (Rz_to_lambdanu) was migrated long ago; this is the inverse
+    # catching up.
+    rng = numpy.random.default_rng(3)
+    R = 0.2 + 2.5 * rng.random(7)
+    z = rng.random(7) - 0.5
+    lam, nu = coords.Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0)
+    ref_R, ref_z = coords.lambdanu_to_Rz(lam, nu, ac=5.0, Delta=1.0)
+
+    bl, bn = _as_backend(backend_name, lam), _as_backend(backend_name, nu)
+    got_R, got_z = coords.lambdanu_to_Rz(bl, bn, ac=5.0, Delta=1.0)
+    assert is_backend_array(got_R), "backend input must not fall through to numpy"
+    numpy.testing.assert_allclose(as_numpy(got_R), ref_R, rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(got_z), ref_z, rtol=1e-14)
+
+    if backend_name == "jax":
+        import jax
+
+        # The clamp used to raise TracerBoolConversionError here. Grad-vs-FD
+        # rather than "it traced": a where() with the mask inverted would still
+        # trace happily and give the wrong derivative.
+        def total(lv):
+            return coords.lambdanu_to_Rz(lv, jnp.asarray(nu), ac=5.0, Delta=1.0)[
+                0
+            ].sum()
+
+        ad = numpy.asarray(jax.jit(jax.grad(total))(jnp.asarray(lam)))
+        h = 1e-6
+        fd = numpy.empty_like(lam)
+        for i in range(lam.size):
+            up, dn = lam.copy(), lam.copy()
+            up[i] += h
+            dn[i] -= h
+            fd[i] = (
+                coords.lambdanu_to_Rz(up, nu, ac=5.0, Delta=1.0)[0].sum()
+                - coords.lambdanu_to_Rz(dn, nu, ac=5.0, Delta=1.0)[0].sum()
+            ) / (2 * h)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-9)
