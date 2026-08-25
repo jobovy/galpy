@@ -8670,6 +8670,42 @@ def test_actionAngleStaeckelInverse_interp_integrals_by_name(
     )
 
 
+def test_actionAngleStaeckelInverse_interp_outside_grid_message(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # Actions outside the grid have to say which way they fall out and what
+    # the grid does reach: rho and zeta are rectified coordinates, so a
+    # near-circular torus and a too-energetic one are otherwise reported
+    # identically, with nothing to act on
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    angles = [numpy.array([0.3]) for _ in range(3)]
+    with pytest.raises(ValueError) as excinfo:
+        aASI(1e-7, 0.9, 1e-7, *angles)
+    assert "below" in str(excinfo.value) and "J_R+J_z" in str(excinfo.value), (
+        "A near-circular torus outside the grid does not report that it falls "
+        "below the covered total action"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        aASI(3.0, 0.9, 2.0, *angles)
+    assert "above" in str(excinfo.value) and "J_R+J_z" in str(excinfo.value), (
+        "A too-energetic torus outside the grid does not report that it falls "
+        "above the covered total action"
+    )
+    # the direction of the oscillation can also fall outside the grid, when
+    # the planar and shell edges do not reach zeta = 0 and 1 at every column
+    zetamesh = aASI._zetamesh
+    try:
+        aASI._zetamesh = numpy.linspace(0.4, 0.6, len(zetamesh))
+        with pytest.raises(ValueError) as excinfo:
+            aASI(0.06, 0.9, 0.03, *angles)
+        assert "J_z/(J_R+J_z)" in str(excinfo.value), (
+            "A torus outside the covered range of oscillation directions does "
+            "not report which ratio of actions it has"
+        )
+    finally:
+        aASI._zetamesh = zetamesh
+
+
 def test_actionAngleStaeckelInverse_interp_integrals_roundtrip(
     setup_actionAngleStaeckelInverse_interpolated,
 ):
