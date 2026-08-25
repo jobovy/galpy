@@ -17,7 +17,7 @@ from ..potential import (
     rl,
     vcirc,
 )
-from ..util import coords
+from ..util import conversion, coords
 from .actionAngleInverse import actionAngleInverse
 
 # Nodes/weights for composite 10-point Gauss-Legendre quadrature: applied
@@ -138,6 +138,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     transformations. Placement on the torus is exact by construction.
     """
 
+    # A Staeckel torus is labelled by (E, L_z, I3) as well as by its actions;
+    # I3 has the dimensions of an energy in the convention used here
+    _integral_labels = (("E", "energy"), ("Lz", "angmom"), ("I3", "energy"))
+
     def __init__(
         self,
         pot=None,
@@ -252,9 +256,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 pot=pot, delta=delta, u0=_U0INTERNAL
             )
         self._delta = self._staeckelwrap._delta
-        self._Es = numpy.atleast_1d(numpy.array(Es, dtype="float"))
-        self._Lzs = numpy.atleast_1d(numpy.array(Lzs, dtype="float"))
-        self._I3s = numpy.atleast_1d(numpy.array(I3s, dtype="float"))
+        # I3 has the dimensions of an energy in the convention used here
+        self._Es = conversion._parse_grid_quantity(
+            Es, conversion.parse_energy, vo=self._vo
+        )
+        self._Lzs = conversion._parse_grid_quantity(
+            Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
+        )
+        self._I3s = conversion._parse_grid_quantity(
+            I3s, conversion.parse_energy, vo=self._vo
+        )
         self._ntori = len(self._Es)
         self._nchi = nchi
         self._maxiter = maxiter
@@ -266,6 +277,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._anglez0 = numpy.pi / 2.0
         self._interp = setup_interp
         if setup_interp:
+            Rmin = conversion.parse_length(Rmin, ro=self._ro)
+            Rmax = conversion.parse_length(Rmax, ro=self._ro)
+            Rinf = conversion.parse_length(Rinf, ro=self._ro)
             self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, nchi_store)
             return
         # Setup in three logical stages
@@ -895,7 +909,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # clipped near them and the energy drifts by ~1e-6. A degenerate
         # oscillation is left alone.
         Lz = self._interp_Lz
-        E = scal[6]
+        # E and I3 come from the grid definition evaluated at this index, not
+        # from their interpolated values: the two agree at the nodes but drift
+        # apart by ~1e-6 in between, and taking the definition makes labelling
+        # a torus by its integrals the exact inverse of reading them back off
+        # it. The turning-point polish below then re-roots W at these values,
+        # so the mapping stays consistent with whichever pair is used.
+        wE = numpy.interp(idx[1], numpy.arange(self._nE), self._wEgrid)
+        Ec, Emax = float(self._Ec_spl(Lz)), float(self._Emax_spl(Lz))
+        E = scal[6] = Ec + wE**2.0 * (Emax - Ec)
         if numpy.pi / 2.0 - scal[2] <= 1e-12:
             # planar torus: the exact condition W_v(pi/2) = 0 fixes I3 in
             # closed form, which is better than any interpolated value
@@ -919,6 +941,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             scal[0] = scal[1] = ustar
             scal[7] = I3s_
+        else:
+            # interior torus: sin^2(pi w_I/2) between the two edges, which is
+            # what _grid_coords inverts. Both edges are exact, so a torus on
+            # one of them round-trips through the clip in _grid_coords
+            wI = numpy.interp(idx[2], numpy.arange(self._nI3), self._wIgrid)
+            Ipl = self._I3_planar(E, Lz)
+            Ish = self._Ish_spl(Lz, numpy.clip(wE, self._wEgrid[0], self._wEgrid[-1]))[
+                0, 0
+            ]
+            scal[7] = Ipl + (Ish - Ipl) * numpy.sin(numpy.pi * wI / 2.0) ** 2.0
         I3 = scal[7]
         # One vectorized evaluation of W per degree of freedom, differenced
         # for the slope: the analytic dW costs three potential-layer calls

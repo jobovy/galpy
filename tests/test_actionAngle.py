@@ -8602,6 +8602,78 @@ def test_actionAngleStaeckelInverse_interp_convergence_and_freqs(
     return None
 
 
+def test_actionAngleStaeckelInverse_interp_integrals_by_name(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # A torus can be labelled by its integrals of motion by name, which works
+    # the same with and without units; the dimensions alone could not tell
+    # (E, L_z, I3) from the actions when everything is in internal units
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    jr, jphi, jz = 0.06, 0.9, 0.03
+    angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
+    idx = aASI._coords_from_actions(jr, jphi, jz)
+    aASI._interp_Lz = jphi
+    scal, _ = aASI._interp_torus(idx)
+    E, I3 = float(scal[6]), float(scal[7])
+    by_name = numpy.array(aASI(*angles, E=E, Lz=jphi, I3=I3))
+    by_act = numpy.array(aASI(jr, jphi, jz, *angles))
+    assert numpy.all(numpy.fabs(by_name - by_act) < 1e-10), (
+        "Labelling a torus by its integrals by name disagrees with labelling "
+        "it by its actions"
+    )
+    # the same through Freqs and xvFreqs
+    assert numpy.all(
+        numpy.fabs(
+            numpy.array(aASI.Freqs(E=E, Lz=jphi, I3=I3))
+            - numpy.array(aASI.Freqs(jr, jphi, jz))
+        )
+        < 1e-10
+    ), "Freqs by integral name disagrees with Freqs by actions"
+    assert len(aASI.xvFreqs(*angles, E=E, Lz=jphi, I3=I3)) == 9, (
+        "xvFreqs by integral name does not return the expected quantities"
+    )
+    # all of the integrals have to be given
+    with pytest.raises(ValueError) as excinfo:
+        aASI(*angles, E=E, Lz=jphi)
+    assert "I3" in str(excinfo.value), (
+        "Leaving out one of the integrals of motion does not say which is missing"
+    )
+
+
+def test_actionAngleStaeckelInverse_interp_integrals_roundtrip(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # Reading the integrals off an interpolated torus and asking for that
+    # torus back has to be the identity: the interpolated torus takes E and
+    # I3 from the same grid relations that _grid_coords inverts, so the two
+    # directions are exact inverses rather than agreeing to interpolation
+    # error. Were E interpolated as a stored profile instead, the energy of
+    # the torus returned here would miss the requested one by ~1e-6.
+    from galpy.potential import evaluatePotentials
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    for jr, jphi, jz in [(0.06, 0.9, 0.03), (0.12, 1.1, 0.08), (0.02, 0.8, 0.10)]:
+        idx = aASI._coords_from_actions(jr, jphi, jz)
+        aASI._interp_Lz = jphi
+        scal, _ = aASI._interp_torus(idx)
+        E, I3 = float(scal[6]), float(scal[7])
+        back = aASI._grid_coords(E, jphi, I3)
+        assert numpy.all(numpy.fabs(numpy.array(idx) - numpy.array(back)) < 1e-10), (
+            "Labelling an interpolated torus by its integrals and looking it "
+            "back up does not return the same grid point"
+        )
+        # ... and the torus really does have the energy it is labelled with
+        angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
+        R, vR, vT, z, vz, phi = aASI(E, jphi, I3, *angles, integrals=True)
+        H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
+            kkp, R, z, use_physical=False
+        )
+        assert numpy.all(numpy.fabs(H - E) < 1e-12), (
+            "The interpolated torus requested by its integrals does not have "
+            "the requested energy"
+        )
+
+
 def test_actionAngleStaeckelInverse_interp_by_integrals(
     setup_actionAngleStaeckelInverse_interpolated,
 ):
