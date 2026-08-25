@@ -31,6 +31,7 @@ from ._namespaces import (
     match_input_dtype,
     name_of_namespace,
     prefer_backend_namespace,
+    promote_common_dtype,
     resolve_namespace,
     restrict_to_single_thread,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "is_backend_array",
     "is_backend_compatible",
     "match_input_dtype",
+    "promote_common_dtype",
     "name_of_namespace",
     "device_of",
     "asarray_on_device",

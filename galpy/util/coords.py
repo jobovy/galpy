@@ -87,6 +87,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     prefer_backend_namespace,
+    promote_common_dtype,
     promote_scalars,
     resolve_namespace,
 )
@@ -142,21 +143,6 @@ def _galcen_rot(xp, Xsun, Zsun):
     return rot, dgc, zero, batched
 
 
-def _promote_pair(xp, mat, data, dev):
-    """``mat``, ``data`` on ``dev``, both cast to their common dtype.
-
-    These rotations are float64 -- ``galcen_extra_rot`` is a float64 module
-    constant and ``_galcen_rot`` carries Xsun/Zsun's dtype. numpy promotes a
-    mismatch silently; torch REFUSES to matmul float64 against float32, so
-    with torch's DEFAULT dtype every one of these transforms raised. Promoting
-    via ``result_type`` reproduces numpy's own promotion, so float32 input
-    still returns float64 rather than quietly losing precision.
-    """
-    mat = asarray_on_device(xp, mat, dev)
-    dt = xp.result_type(mat, data)
-    return xp.astype(mat, dt), xp.astype(data, dt)
-
-
 def _to_galcen_rot(xp, Xsun, Zsun):
     """Heliocentric -> galactocentric rotation, plus ``dgc`` and promoted Xsun.
 
@@ -191,7 +177,7 @@ def _as_vsun(xp, vsun, dev):
 
 def _apply_galcen_rot(xp, rot, data, batched, dev):
     """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
-    rot, data = _promote_pair(xp, rot, data, dev)
+    rot, data = promote_common_dtype(xp, rot, data, device=dev)
     if batched:  # (3, 3, N) . (3, N) -> (3, N), i.e. einsum("ijk,jk->ik")
         return xp.sum(rot * data[None, :, :], axis=1)
     return rot @ data
@@ -199,7 +185,7 @@ def _apply_galcen_rot(xp, rot, data, batched, dev):
 
 def _apply_extra_rot(xp, mat, out, dev):
     """``(mat @ out.T).T``, promoted -- the astropy-alignment tweak."""
-    mat, outT = _promote_pair(xp, mat, out.T, dev)
+    mat, outT = promote_common_dtype(xp, mat, out.T, device=dev)
     return (mat @ outT).T
 
 
@@ -1282,7 +1268,9 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     X, Y, Z = promote_scalars(xp, X, Y, Z)
     dev = device_of(X, Y, Z)
     if _extra_rot:
-        mat, data = _promote_pair(xp, galcen_extra_rot, xp.stack([X, Y, Z]), dev)
+        mat, data = promote_common_dtype(
+            xp, galcen_extra_rot, xp.stack([X, Y, Z]), device=dev
+        )
         X, Y, Z = mat @ data
     rot, dgc, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
     data = xp.stack([-X + dgc, Y, xp.sign(Xsun) * Z])
@@ -1614,7 +1602,9 @@ def vxvyvz_to_galcenrect(
     vx, vy, vz = promote_scalars(xp, vx, vy, vz)
     dev = device_of(vx, vy, vz)
     if _extra_rot:
-        mat, data = _promote_pair(xp, galcen_extra_rot, xp.stack([vx, vy, vz]), dev)
+        mat, data = promote_common_dtype(
+            xp, galcen_extra_rot, xp.stack([vx, vy, vz]), device=dev
+        )
         vx, vy, vz = mat @ data
     rot, _, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
     data = xp.stack([-vx, vy, xp.sign(Xsun) * vz])
