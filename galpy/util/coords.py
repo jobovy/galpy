@@ -2252,9 +2252,15 @@ def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
     -----
     - 2026-05-06 - Written - Bovy (UofT)
     """
+    xp = resolve_namespace(R, vR, vT, z, vz, phi)
     x, y, zc = cyl_to_rect(R, phi, z)
     vx, vy, vzc = cyl_to_rect_vec(vR, vT, vz, phi)
-    return numpy.column_stack([x, y, zc, vx, vy, vzc])
+    # column_stack, spelled for any namespace. Reshape-to-(-1,) FIRST rather
+    # than stacking directly: column_stack promotes a scalar column to shape
+    # (1,), so a scalar call must come back (1, 6) and not (6,), and a bare
+    # xp.stack(..., axis=-1) would quietly give the latter.
+    cols = [xp.reshape(v, (-1,)) for v in (x, y, zc, vx, vy, vzc)]
+    return xp.stack(cols, axis=-1)
 
 
 def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz, *, xp=None):
