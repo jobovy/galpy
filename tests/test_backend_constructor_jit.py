@@ -163,10 +163,18 @@ def test_twopower_triaxial_validation_still_raises_when_concrete():
 
 def test_twopower_triaxial_alpha_two_keeps_its_own_closed_form():
     # alpha == 2 makes 2-alpha == 0 and the generic psi has a 1/(2-alpha) pole,
-    # so the degenerate branch must still be taken when alpha is concrete.
-    p = TwoPowerTriaxialPotential(amp=1.0, a=1.0, alpha=2.0, beta=4.0, b=0.9, c=0.8)
-    assert not hasattr(p, "psi_inf")
-    assert numpy.isfinite(p.Rforce(1.2, 0.1))
+    # so the degenerate branch must still be taken when alpha is concrete. Both
+    # halves of that are asserted: psi_inf is not even built, and the POTENTIAL
+    # (which is where _psi is consulted -- Rforce goes through _mdens instead)
+    # is finite rather than the inf/nan the generic form would give.
+    p2 = TwoPowerTriaxialPotential(amp=1.0, a=1.0, alpha=2.0, beta=4.0, b=0.9, c=0.8)
+    assert not hasattr(p2, "psi_inf")
+    assert numpy.isfinite(p2(1.2, 0.1))
+    # ... and the generic branch is still the one taken away from alpha == 2
+    p1 = TwoPowerTriaxialPotential(amp=1.0, a=1.0, alpha=1.0, beta=4.0, b=0.9, c=0.8)
+    assert hasattr(p1, "psi_inf")
+    assert numpy.isfinite(p1(1.2, 0.1))
+    assert p1(1.2, 0.1) != p2(1.2, 0.1)
 
 
 @requires_torch
