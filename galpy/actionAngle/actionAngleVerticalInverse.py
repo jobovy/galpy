@@ -303,12 +303,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # coincide and the tables can be reused as-is)
         self._identity_pt = not self._pt_exact and self._pt_deg == 1
         if canonical is None:
-            canonical = self._interp and self._identity_pt
-        if canonical and not (self._interp and self._identity_pt):
+            canonical = self._interp and not self._pt_exact and not self._pt_only
+        if canonical and not self._interp:
+            raise ValueError("canonical=True requires setup_interp=True")
+        if canonical and self._pt_exact:
             raise ValueError(
-                "canonical=True requires setup_interp=True and no point "
-                "transformation (use_pointtransform=False); the canonical "
-                "mode for point-transformed tori is not implemented yet"
+                'canonical=True is not implemented yet for use_pointtransform="exact"'
+            )
+        if canonical and self._pt_only:  # pragma: no cover
+            raise ValueError(
+                "canonical=True is incompatible with pt_only=True: pt_only "
+                "is an equal-time-gauge construct and the canonical mode "
+                "works in the shear-free gauge, where the exact point "
+                "transformation's mapping coefficients do not vanish"
             )
         self._canonical = canonical
         if self._canonical:
@@ -1315,29 +1322,96 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """Build the exactly-differentiable chains of the canonical mode.
 
         Everything the evaluation uses is either an interpolant paired with
-        its own exact derivative or a closed form: the value table of nSn
-        (B-spline coefficients along the energy axis, evaluated together
-        with their derivative by one four-point stencil), E(j) and its
-        derivative (which is also the frequency: the integrator-consistency
-        contract), and OmegaHO(E) and its derivative for the compensation
-        term. The separately stored dSndJ tables are NOT used: a value table
-        and an independent derivative table only satisfy the symplectic
+        its own exact derivative or a closed form. The mapping coefficients
+        are recomputed here in the shear-free (cotangent-lift) gauge by
+        direct sampling of each torus -- x_a sampled on the auxiliary loop,
+        x = pi(x_a), p_a = v pi'(x_a), so no inversion of the point
+        transformation is ever needed -- and the canonical action labels are
+        the zero modes <J^A>, which are gauge-independent (the loop action).
+        For the identity point transformation this reproduces the stored
+        nSn to quadrature accuracy; for a polynomial point transformation
+        the equal-time-gauge nSn are NOT gauge-compatible and the
+        recomputation is essential. The separately stored dSndJ tables are
+        never used by the canonical evaluation: a value table and an
+        independent derivative table only satisfy the symplectic
         consistency relation when both are exact, and interpolation breaks
         it (the measured symplectic defect of the old mode is at the
         derivative-table interpolation error)."""
+        ntau = 2 * self._nta
+        tau = 2.0 * numpy.pi * (numpy.arange(ntau) + 0.5) / ntau
+        nn = self._nforSn
+        can_nSn = numpy.empty_like(self._nSn)
+        can_js = numpy.empty(self._nE)
+        for ii in range(self._nE):
+            if self._js[ii] < 1e-10:
+                can_nSn[ii] = 0.0
+                can_js[ii] = 0.0
+                continue
+            xa = self._pt_xmaxs[ii] * numpy.sin(tau)
+            x = self._xmaxs[ii] * polynomial.polyval(
+                xa / self._pt_xmaxs[ii], self._pt_coeffs[ii]
+            )
+            piprime = (
+                self._xmaxs[ii]
+                / self._pt_xmaxs[ii]
+                * polynomial.polyval(xa / self._pt_xmaxs[ii], self._pt_deriv_coeffs[ii])
+            )
+            v2 = 2.0 * (
+                self._Es[ii]
+                - evaluatelinearPotentials(self._pot, x, use_physical=False)
+            )
+            v2[v2 < 0.0] = 0.0
+            pa = numpy.sign(numpy.cos(tau)) * numpy.sqrt(v2) * piprime
+            om = self._OmegaHO[ii]
+            jA = 0.5 * (pa**2 + om**2 * xa**2) / om
+            thetaA = numpy.arctan2(om * xa, pa)
+            # Fourier data by the pullback: the tau-grid is regular, theta^A
+            # is not; spectral derivative of the periodic part supplies the
+            # measure and sigma follows from one spectral antiderivative
+            P = numpy.unwrap(thetaA - tau + numpy.pi) - numpy.pi
+            k = numpy.fft.fftfreq(ntau, d=1.0 / ntau)
+            dthetaAdtau = 1.0 + numpy.real(numpy.fft.ifft(1j * k * numpy.fft.fft(P)))
+            can_js[ii] = numpy.mean(jA * dthetaAdtau)
+            g = (jA - can_js[ii]) * dthetaAdtau
+            gh = numpy.fft.fft(g)
+            sh = numpy.zeros(ntau, dtype=complex)
+            sh[1:] = gh[1:] / (1j * k[1:])
+            sigma = numpy.real(numpy.fft.ifft(sh))
+            for q, n in enumerate(nn):
+                c = numpy.mean(sigma * numpy.exp(-1j * n * thetaA) * dthetaAdtau)
+                can_nSn[ii, q] = -n * numpy.imag(c)
+        self._can_nSn = can_nSn
+        self._can_js = can_js
         self._can_nSn_c = ndimage.spline_filter1d(
-            self._nSn, order=3, axis=0, mode="mirror"
+            can_nSn, order=3, axis=0, mode="mirror"
         )
-        self._can_dEdj = self.E.derivative()
+        self._can_E = interpolate.InterpolatedUnivariateSpline(can_js, self._Es, k=3)
+        self._can_J = interpolate.InterpolatedUnivariateSpline(self._Es, can_js, k=3)
+        self._can_dEdj = self._can_E.derivative()
         self._can_dOmHOdE = self.OmegaHO.derivative()
+        # derivative chains of the point-transformation parameter functions,
+        # for the PT compensation term (zero for the identity PT)
+        self._can_xmax = interpolate.InterpolatedUnivariateSpline(
+            self._Es, self._xmaxs, k=3
+        )
+        self._can_ptxmax = interpolate.InterpolatedUnivariateSpline(
+            self._Es, self._pt_xmaxs, k=3
+        )
+        self._can_dxmaxdE = self._can_xmax.derivative()
+        self._can_dptxmaxdE = self._can_ptxmax.derivative()
+        self._can_ptcoeffs_c = ndimage.spline_filter1d(
+            self._pt_coeffs, order=3, axis=0, mode="mirror"
+        )
+        # The canonical labels become the public ones: J(E) and E(j) must be
+        # the same chains the evaluation differentiates, or callers mixing
+        # J(E) with __call__ would straddle two gauges' labelings
+        self.J = self._can_J
+        self.E = self._can_E
         return None
 
-    def _canonical_tables(self, j):
-        """nSn and d(nSn)/dj at action j, as value and exact derivative of
-        one stored interpolant (cubic B-spline along the energy axis chained
-        through E(j))."""
-        tE = float(self.E(j))
-        x = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+    def _can_row(self, table_c, x):
+        """Value and d/d(row) of a row-filtered table at fractional row x,
+        by the four-point cubic B-spline stencil (mirror boundary)."""
         x = min(max(x, 0.0), self._nE - 1.0)
         i0 = int(numpy.floor(x))
         if i0 > self._nE - 2:  # pragma: no cover
@@ -1346,7 +1420,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         taps = numpy.array([i0 - 1, i0, i0 + 1, i0 + 2])
         taps = numpy.abs(taps)
         taps[taps > self._nE - 1] = 2 * (self._nE - 1) - taps[taps > self._nE - 1]
-        C = self._can_nSn_c[taps]
+        C = table_c[taps]
         w = numpy.array(
             [
                 (1.0 - t) ** 3 / 6.0,
@@ -1363,8 +1437,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 t**2 / 2.0,
             ]
         )
-        val = w @ C
-        dval_dE = (wd @ C) * (self._nE - 1.0) / (self._Emax - self._Emin)
+        return w @ C, wd @ C
+
+    def _canonical_tables(self, j):
+        """nSn and d(nSn)/dj at action j, as value and exact derivative of
+        one stored interpolant (cubic B-spline along the energy axis chained
+        through the canonical E(j))."""
+        tE = float(self._can_E(j))
+        x = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+        val, dval_dx = self._can_row(self._can_nSn_c, x)
+        dval_dE = dval_dx * (self._nE - 1.0) / (self._Emax - self._Emin)
         return val, dval_dE * float(self._can_dEdj(j))
 
     def check_canonical_consistency(self, ntheta=256):
@@ -1393,13 +1475,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2026-08-25 - Written - Bovy (UofT)
         """
+        if not self._identity_pt:
+            raise RuntimeError(
+                "check_canonical_consistency compares against the stored "
+                "dSndJ tables, which live in the equal-time gauge; with a "
+                "point transformation the gauges differ and the comparison "
+                "is not meaningful"
+            )
         th = 2.0 * numpy.pi * numpy.arange(ntheta) / ntheta
         mism = 0.0
         for idx in range(2, self._nE - 2):
-            jn = float(self._js[idx])
+            jn = float(self._can_js[idx])
             _, dnSndj = self._canonical_tables(jn)
             dSdj = dnSndj / self._nforSn
-            tE = float(self.E(jn))
+            tE = float(self._can_E(jn))
             om = float(self.OmegaHO(tE))
             domdj = float(self._can_dOmHOdE(tE)) * float(self._can_dEdj(jn))
             ja = jn + 2.0 * numpy.sum(
@@ -1422,34 +1511,55 @@ class actionAngleVerticalInverse(actionAngleInverse):
         nSn, dnSndj = self._canonical_tables(j)
         n = self._nforSn
         dSdj = dnSndj / n
-        tE = float(self.E(j))
+        tE = float(self._can_E(j))
         om = float(self.OmegaHO(tE))
         dEdj = float(self._can_dEdj(j))
         domdj = float(self._can_dOmHOdE(tE)) * dEdj
         pref = domdj / (2.0 * om)
-        anglea = copy.copy(angle)
-        cntr = 0
-        maxda = 2.0 * numpy.pi / 101.0
-        while cntr <= self._maxiter:
+        # point-transformation parameter chains (identity PT: pi(xa) = xa and
+        # all its parameter derivatives vanish)
+        X = float(self._can_xmax(tE))
+        PX = float(self._can_ptxmax(tE))
+        dXdE = float(self._can_dxmaxdE(tE))
+        dPXdE = float(self._can_dptxmaxdE(tE))
+        xrow = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+        cfs, dcfs_dx = self._can_row(self._can_ptcoeffs_c, xrow)
+        dcfs_dE = dcfs_dx * (self._nE - 1.0) / (self._Emax - self._Emin)
+        dcderiv = polynomial.polyder(cfs)
+
+        def _residual(anglea):
             san = numpy.sin(n * numpy.atleast_2d(anglea).T)
             can = numpy.cos(n * numpy.atleast_2d(anglea).T)
             ja = j + 2.0 * numpy.sum(nSn * can, axis=1)
-            F = (
+            xa = numpy.sqrt(2.0 * numpy.fabs(ja) / om) * numpy.sin(anglea)
+            pa = numpy.sqrt(2.0 * numpy.fabs(ja) * om) * numpy.cos(anglea)
+            u = xa / PX
+            piprime = X / PX * polynomial.polyval(u, dcderiv)
+            v = pa / piprime
+            # d pi / dE at fixed xa, through every stored parameter chain
+            dpidE = (
+                dXdE * polynomial.polyval(u, cfs)
+                + X * polynomial.polyval(u, dcfs_dE)
+                - X * polynomial.polyval(u, dcderiv) * u * dPXdE / PX
+            )
+            comp_pt = -v * dpidE * dEdj
+            return (
                 anglea
                 + 2.0 * numpy.sum(dSdj * san, axis=1)
                 + pref * ja * numpy.sin(2.0 * anglea)
+                + comp_pt
                 - angle
             )
-            F = (F + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+
+        anglea = copy.copy(angle)
+        cntr = 0
+        maxda = 2.0 * numpy.pi / 101.0
+        hFD = 1e-7
+        while cntr <= self._maxiter:
+            F = (_residual(anglea) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             if numpy.max(numpy.fabs(F)) < self._angle_tol:
                 break
-            djada = -2.0 * numpy.sum(n * nSn * san, axis=1)
-            dF = (
-                1.0
-                + 2.0 * numpy.sum(n * dSdj * can, axis=1)
-                + pref
-                * (djada * numpy.sin(2.0 * anglea) + 2.0 * ja * numpy.cos(2.0 * anglea))
-            )
+            dF = (_residual(anglea + hFD) - _residual(anglea - hFD)) / (2.0 * hFD)
             da = -F / dF
             da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
                 numpy.fabs(da) > maxda
@@ -1467,8 +1577,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
             nSn * numpy.cos(n * numpy.atleast_2d(anglea).T), axis=1
         )
         hoaainv = actionAngleHarmonicInverse(omega=om)
-        xa, va = hoaainv(ja, anglea)
-        return (xa, va, dEdj)
+        xa, pa = hoaainv(ja, anglea)
+        u = xa / PX
+        x = X * polynomial.polyval(u, cfs)
+        v = pa / (X / PX * polynomial.polyval(u, dcderiv))
+        return (x, v, dEdj)
 
     def _evaluate(self, j, angle, **kwargs):
         """

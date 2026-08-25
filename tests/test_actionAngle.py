@@ -7835,10 +7835,13 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    # The canonical default decomposes the mapping in the shear-free gauge,
+    # whose recomputed tables agree with the equal-time ones at their common
+    # accuracy (~1.5e-7 here), slightly above the old bound of 1e-7
+    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 3e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 3e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     return None
@@ -8209,6 +8212,24 @@ def test_actionAngleVerticalInverse_canonical_consistency():
         "dropping the compensation does not degrade the consistency relation "
         "(%g vs %g): the check is not sharp" % (mism0, mism)
     )
+    # with a point transformation the stored dSndJ live in the other gauge
+    # and the comparison is refused
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    gpt = actionAngleVerticalInverse(
+        pot=vp,
+        Es=numpy.linspace(0.02, 0.3, 7),
+        setup_interp=True,
+        use_pointtransform=True,
+        pt_deg=3,
+    )
+    with pytest.raises(RuntimeError) as excinfo:
+        gpt.check_canonical_consistency()
+    assert "gauge" in str(excinfo.value)
     return None
 
 
@@ -8242,16 +8263,26 @@ def test_actionAngleVerticalInverse_canonical_errors():
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(pot=vp, Es=[0.1, 0.2], canonical=True)
     assert "canonical" in str(excinfo.value)
+    # polynomial point transformations ARE supported (and default to
+    # canonical); the exact point transformation is not yet
+    g = actionAngleVerticalInverse(
+        pot=vp,
+        Es=numpy.linspace(0.02, 0.3, 7),
+        setup_interp=True,
+        use_pointtransform=True,
+        pt_deg=3,
+        canonical=True,
+    )
+    assert g._canonical
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(
             pot=vp,
-            Es=numpy.linspace(0.02, 0.3, 5),
+            Es=numpy.linspace(0.02, 0.3, 7),
             setup_interp=True,
-            use_pointtransform=True,
-            pt_deg=3,
+            use_pointtransform="exact",
             canonical=True,
         )
-    assert "point transformation" in str(excinfo.value)
+    assert "exact" in str(excinfo.value)
     return None
 
 
