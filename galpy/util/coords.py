@@ -189,9 +189,20 @@ def _apply_galcen_rot(xp, rot, data, batched, dev):
 
 
 def _apply_extra_rot(xp, mat, out, dev):
-    """``(mat @ out.T).T``, promoted -- the astropy-alignment tweak."""
+    """``(mat @ out.T).T``, promoted -- the astropy-alignment tweak.
+
+    For an (N, 3) block of already-assembled rows; :func:`_rotate_components`
+    is the same rotation for loose components, which is the shape the FORWARD
+    transforms have it in.
+    """
     mat, outT = promote_common_dtype(xp, mat, out.T, device=dev)
     return (mat @ outT).T
+
+
+def _rotate_components(xp, mat, comps, dev):
+    """``mat @ stack(comps)``, promoted, returned as components again."""
+    mat, data = promote_common_dtype(xp, mat, xp.stack(comps), device=dev)
+    return mat @ data
 
 
 def _scale_angle_rows(xp, m, factor=1.0 / _DEGTORAD, nrows=2):
@@ -1282,10 +1293,7 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     X, Y, Z = promote_scalars(xp, X, Y, Z)
     dev = device_of(X, Y, Z)
     if _extra_rot:
-        mat, data = promote_common_dtype(
-            xp, galcen_extra_rot, xp.stack([X, Y, Z]), device=dev
-        )
-        X, Y, Z = mat @ data
+        X, Y, Z = _rotate_components(xp, galcen_extra_rot, (X, Y, Z), dev)
     rot, dgc, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
     data = xp.stack([-X + dgc, Y, xp.sign(Xsun) * Z])
     return _apply_galcen_rot(xp, rot, data, batched, dev).T
@@ -1618,10 +1626,7 @@ def vxvyvz_to_galcenrect(
     vx, vy, vz = promote_scalars(xp, vx, vy, vz)
     dev = device_of(vx, vy, vz)
     if _extra_rot:
-        mat, data = promote_common_dtype(
-            xp, galcen_extra_rot, xp.stack([vx, vy, vz]), device=dev
-        )
-        vx, vy, vz = mat @ data
+        vx, vy, vz = _rotate_components(xp, galcen_extra_rot, (vx, vy, vz), dev)
     rot, _, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
     data = xp.stack([-vx, vy, xp.sign(Xsun) * vz])
     out = _apply_galcen_rot(xp, rot, data, batched, dev).T
