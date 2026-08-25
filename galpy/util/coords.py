@@ -451,6 +451,7 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
 
 @scalarDecorator
 @degreeDecorator([0, 1], [])
+@backendNative
 def lbd_to_XYZ(l, b, d, degree=False):
     """
     Transform from spherical Galactic coordinates to rectangular Galactic coordinates (works with vector inputs)
@@ -478,13 +479,14 @@ def lbd_to_XYZ(l, b, d, degree=False):
 
     """
     # Whether to use degrees and scalar input is handled by decorators
-    return numpy.array(
-        [
-            d * numpy.cos(b) * numpy.cos(l),
-            d * numpy.cos(b) * numpy.sin(l),
-            d * numpy.sin(b),
-        ]
-    ).T
+    xp = resolve_namespace(l, b, d)
+    # stack(axis=-1) IS the old numpy.array([...]).T: three (N,) columns give
+    # (N, 3) either way. Written as a stack because .T on a freshly built
+    # (3, N) is an extra transpose to trace through for no benefit.
+    cosb = xp.cos(b)
+    return xp.stack(
+        [d * cosb * xp.cos(l), d * cosb * xp.sin(l), d * xp.sin(b)], axis=-1
+    )
 
 
 def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):

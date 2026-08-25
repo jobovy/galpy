@@ -667,3 +667,31 @@ def test_lambdanu_to_Rz_is_traceable_and_matches_numpy(backend_name):
                 - coords.lambdanu_to_Rz(dn, nu, ac=5.0, Delta=1.0)[0].sum()
             ) / (2 * h)
         numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("degree", [True, False])
+def test_lbd_to_XYZ_preserves_the_backend(backend_name, degree):
+    # lbd_to_XYZ carried @scalarDecorator WITHOUT @backendNative, so the
+    # decorator promoted every input through numpy before the body ran --
+    # stripping the framework off a backend array. The body was raw numpy too.
+    # Both had to move: marking the function alone leaves numpy.cos in the body,
+    # and migrating the body alone leaves the decorator stripping the input.
+    #
+    # @backendNative is INNERMOST by construction (scalarDecorator reads the
+    # attribute off the function it wraps); anywhere else it is silently dead.
+    rng = numpy.random.default_rng(5)
+    n = 6
+    lo = rng.random(n) * (360.0 if degree else 6.2)
+    ba = (rng.random(n) - 0.5) * (180.0 if degree else 3.1)
+    da = rng.random(n) * 5 + 0.1
+    ref = coords.lbd_to_XYZ(lo, ba, da, degree=degree)
+
+    got = coords.lbd_to_XYZ(
+        _as_backend(backend_name, lo),
+        _as_backend(backend_name, ba),
+        _as_backend(backend_name, da),
+        degree=degree,
+    )
+    assert is_backend_array(got), "decorator stripped the backend off the input"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
