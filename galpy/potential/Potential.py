@@ -125,7 +125,7 @@ def potential_positional_arg(func):
     return wrapper
 
 
-def _quad_needs_backend(xp, absz):
+def _quad_needs_backend(xp, *coords):
     """True only when scipy.integrate.quad CANNOT be used: we are inside a trace.
 
     The backend Gauss-Legendre rule exists here for exactly one reason -- under a
@@ -145,10 +145,16 @@ def _quad_needs_backend(xp, absz):
     wrong -- AnyAxisymmetricRazorThinDisk's surfdens came back 2.2e-15 instead of
     0.0662, order-dependently. ``under_trace`` asks
     ``torch.compiler.is_compiling()``, which dynamo cannot fool.
+
+    Ask about EVERY coordinate that reaches the integrand, not just the
+    integration limit. Gating on ``absz`` alone meant differentiating w.r.t. R
+    at fixed z fell into scipy and raised a jax concretization error, while the
+    same derivative w.r.t. z worked -- the integrand closes over R, phi and t
+    just as much as the limits depend on z.
     """
     if xp is numpy:
         return False
-    return under_trace(absz)
+    return any(under_trace(c) for c in coords)
 
 
 def _force_accepts_arrays(pot):
@@ -814,7 +820,7 @@ class Potential(Force):
         # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
         # DeprecationWarning, which the coverage shard turns into an error.
         absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
-        if not _quad_needs_backend(xp, absz):
+        if not _quad_needs_backend(xp, absz, R, phi, t):
             # epsabs=0 so the criterion is purely RELATIVE. quad's default
             # epsabs=1.49e-8 is ABSOLUTE, so a vertical integral whose own value is
             # at or below ~1e-8 in internal units passes the absolute test on the
@@ -911,7 +917,7 @@ class Potential(Force):
         # peaked off z=0 (6.4e-2 error vs 1.8e-4) -- see _vertical_quad_split.
         xp = get_namespace(R, z, phi, t)
         absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
-        if not _quad_needs_backend(xp, absz):
+        if not _quad_needs_backend(xp, absz, R, phi, t):
             # epsabs=0: purely RELATIVE, see the Poisson branch above.
             # MWPotential2014[0] at R=1, |z|=5 integrates to 8.2e-9 and came back
             # 9.6e-6 relative off under quad's default absolute tolerance.
