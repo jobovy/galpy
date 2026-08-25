@@ -88,7 +88,9 @@ def test_streamTrack_sample_consistency(_simple_spdf):
     track = _simple_spdf.streamTrack(n=4000, ntp=41, tail="leading")
     # Reproduce the closest-point assignment from the saved particles ->
     # closest point on the dense track itself (a stable, public reference).
-    particles_cart = coords.galcencyl_to_galcenrect(*track.particles)
+    # galcencyl_to_galcenrect is backend-native now, so under a forced backend
+    # this is a Tensor and the numpy reductions below (.std(ddof=...)) reject it.
+    particles_cart = as_numpy(coords.galcencyl_to_galcenrect(*track.particles))
     tp_grid = track.tp_grid()
     track_cart = numpy.column_stack(
         [
