@@ -223,6 +223,25 @@ def resolve_namespace(*args):
     return get_namespace(*(a for a in args if is_backend_array(a)))
 
 
+def prefer_backend_namespace(*args):
+    """Namespace of the backend args, falling back to probing ALL of them.
+
+    For entry points whose inputs may legitimately MIX backend arrays with
+    numpy/python ones -- e.g. backend coordinates with a numpy ``Xsun``.
+    Probing the mix raises "Multiple namespaces"; the numpy values are weak and
+    get coerced across, so the backend ones decide.
+
+    Distinct from :func:`resolve_namespace`, which falls back to the
+    context/forced namespace: that is right for a leaf shared by numpy and
+    backend callers, but wrong here, because it would reroute an all-numpy call
+    onto a forced backend rather than following the arguments it was given.
+    """
+    from ._resolver import get_namespace
+
+    on_backend = [a for a in args if is_backend_array(a)]
+    return get_namespace(*(on_backend or args))
+
+
 def _is_floating_dtype(dtype):
     """True for real floating-point dtypes of any backend.
 
@@ -384,6 +403,25 @@ def effective_device(xp, device):
     if device is not None and device == default_device(xp):
         return None
     return device
+
+
+def promote_common_dtype(xp, *arrays, device=None):
+    """``arrays`` on ``device``, all cast to their common ``result_type`` dtype.
+
+    galpy holds float64 constants -- rotation matrices, expansion-coefficient
+    tables, quadrature nodes -- and combines them with user coordinates. numpy
+    promotes that mismatch silently, but torch REFUSES to matmul float64
+    against float32, so at torch's DEFAULT dtype the combination raises
+    "expected m1 and m2 to have the same dtype" and an all-float64 test suite
+    never sees it. Promoting via ``result_type`` reproduces numpy's own rule,
+    so float32 input still returns the float64 result the numpy path gives
+    rather than quietly losing precision; contrast ``match_input_dtype``,
+    which is the EXIT cast for interiors that deliberately work in float64.
+    The cast goes through the namespace's ``astype``, so autodiff flows.
+    """
+    arrays = tuple(asarray_on_device(xp, a, device) for a in arrays)
+    dt = xp.result_type(*arrays)
+    return tuple(xp.astype(a, dt) for a in arrays)
 
 
 def asarray_on_device(xp, a, device, dtype=None):

@@ -41,7 +41,7 @@ import numpy
 from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
 from ._jit import NOT_TRACED, traced_call
-from ._namespaces import device_of, is_backend_array
+from ._namespaces import device_of, is_backend_array, prefer_backend_namespace
 from ._resolver import get_namespace
 
 _EMPTY = inspect.Parameter.empty
@@ -174,8 +174,7 @@ def backend_input(*coords):
             # coordinates are weak and coerce_coords brings them across below,
             # whereas probing the mix raises "Multiple namespaces". Everything
             # below is skipped on the numpy path, so numpy pays just this probe.
-            on_backend = [val for val in probe if is_backend_array(val)]
-            xp = get_namespace(*(on_backend or probe))
+            xp = prefer_backend_namespace(*probe)
             if xp is not numpy and _backend_ready(args[0]):
                 # ONE device anchor for the whole call. Coercing each coordinate
                 # on its own would let each derive its own: a numpy/python

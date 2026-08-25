@@ -376,6 +376,29 @@ _CHAIN_CASES = {
     "galcenrect_to_vxvyvz": lambda c, a: c.galcenrect_to_vxvyvz(
         a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
     ),
+    # The FORWARD galcen transforms. Their backend branches are only reachable
+    # through a test like this one: the coverage-measuring CI job runs numpy
+    # only, and the --backend shards upload no coverage at all, so a branch
+    # exercised solely under --backend reads as uncovered. Covers
+    # _to_galcen_rot and both _as_vsun branches: the default vsun is a list,
+    # the "vsun_array" case passes it pre-built.
+    "XYZ_to_galcenrect": lambda c, a: c.XYZ_to_galcenrect(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "XYZ_to_galcencyl": lambda c, a: c.XYZ_to_galcencyl(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "vxvyvz_to_galcenrect": lambda c, a: c.vxvyvz_to_galcenrect(
+        a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
+    ),
+    "vxvyvz_to_galcenrect_vsun_array": lambda c, a: c.vxvyvz_to_galcenrect(
+        a["vx"],
+        a["vy"],
+        a["vz"],
+        Xsun=1.0,
+        Zsun=0.02,
+        vsun=numpy.array([-10.0, 240.0, 7.0]),
+    ),
     "XYZ_to_lbd": lambda c, a: c.XYZ_to_lbd(a["x"], a["y"], a["z"], degree=False),
     "vxvyvz_to_vrpmllpmbb": lambda c, a: c.vxvyvz_to_vrpmllpmbb(
         a["vx"], a["vy"], a["vz"], a["x"], a["y"], a["z"], XYZ=True, degree=False
@@ -527,3 +550,237 @@ def test_vxvyvz_to_vrpmllpmbb_XYZ_degree_backend(backend_name):
     )
     assert _all_backend(got), "XYZ+degree backend path fell back to numpy"
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_transforms_differentiate_through_Xsun_Zsun(backend_name):
+    # Xsun/Zsun were assumed to be "configuration, never traced data", so
+    # _galcen_rot built the rotation with hard-coded numpy. But the solar
+    # position is a FIT PARAMETER, so a caller may hand in a backend array and
+    # differentiate through it -- which raised
+    #     RuntimeError: Can't call numpy() on Tensor that requires grad
+    # on torch, and a tracer conversion error under jax.jit. The JACOBIAN of
+    # the same transform (galcenrect_to_XYZ_jac) already handled backend
+    # Xsun/Zsun, so this was an asymmetry within one transform pair.
+    #
+    # Bar is grad-vs-FD, not merely "it returns something": the whole point of
+    # a backend Xsun is the derivative w.r.t. it.
+    X0, Y0, Z0, Xs0, Zs0 = 1.0, 2.0, 3.0, 8.0, 0.02
+
+    def total(fn, xs, zs):
+        return sum(float(v) for v in fn(X0, Y0, Z0, Xsun=xs, Zsun=zs))
+
+    for fn in (coords.galcenrect_to_XYZ, coords.galcenrect_to_vxvyvz):
+        h = 1e-6
+        fd_X = (total(fn, Xs0 + h, Zs0) - total(fn, Xs0 - h, Zs0)) / (2 * h)
+        fd_Z = (total(fn, Xs0, Zs0 + h) - total(fn, Xs0, Zs0 - h)) / (2 * h)
+        if backend_name == "jax":
+            import jax
+
+            def scalar(p):
+                out = fn(
+                    jnp.asarray(X0),
+                    jnp.asarray(Y0),
+                    jnp.asarray(Z0),
+                    Xsun=p[0],
+                    Zsun=p[1],
+                )
+                return out[0] + out[1] + out[2]
+
+            ad = jax.grad(scalar)(jnp.asarray([Xs0, Zs0]))
+            ad_X, ad_Z = float(ad[0]), float(ad[1])
+        else:
+            xs = torch.tensor(Xs0, dtype=torch.float64, requires_grad=True)
+            zs = torch.tensor(Zs0, dtype=torch.float64, requires_grad=True)
+            out = fn(
+                torch.tensor(X0, dtype=torch.float64),
+                torch.tensor(Y0, dtype=torch.float64),
+                torch.tensor(Z0, dtype=torch.float64),
+                Xsun=xs,
+                Zsun=zs,
+            )
+            (out[0] + out[1] + out[2]).backward()
+            ad_X, ad_Z = float(xs.grad), float(zs.grad)
+        # FD with h=1e-6 is good to ~1e-9 here; anything looser would pass on a
+        # wrong-but-plausible gradient.
+        numpy.testing.assert_allclose(ad_X, fd_X, rtol=1e-7, atol=1e-9)
+        numpy.testing.assert_allclose(ad_Z, fd_Z, rtol=1e-7, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_backend_Xsun_with_numpy_coordinates(backend_name):
+    # The namespace probe used to read only the COORDINATES, so a backend
+    # Xsun alongside numpy X/Y/Z silently took the numpy path; and probing the
+    # mix naively raises "Multiple namespaces for array inputs". The rule --
+    # backend args decide, numpy ones are weak and coerce across -- is
+    # galpy.backend.prefer_backend_namespace, shared with the @backend_input
+    # boundary rather than re-spelled here.
+    x, y, z = 1.0, 2.0, 3.0
+    Xs = _as_backend(backend_name, 8.0)
+    ref = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=0.02)
+    got = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xs, Zsun=0.02)
+    assert is_backend_array(got[0]), "backend Xsun must select the backend path"
+    for g, r in zip(got, ref):
+        numpy.testing.assert_allclose(float(as_numpy(g)), float(r), rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcenrect_integer_Xsun_does_not_truncate_Zsun(backend_name):
+    # SILENT WRONG ANSWER, not a crash. promote_scalars anchors every value on
+    # the dtype of the first BACKEND array, so an INTEGER Xsun (an ordinary
+    # thing to pass) dragged a python-float Zsun down to int64: 0.02 -> 0. The
+    # transform then returned the Zsun = 0 answer with no error at all --
+    # ~7.5e-3 off in X, which is far too small to look obviously broken and far
+    # too large to be roundoff.
+    #
+    # Pin BOTH directions: an integer Xsun must equal the float answer, and it
+    # must NOT equal the Zsun = 0 answer (which is what a re-truncation would
+    # silently give back).
+    x, y, z, Zs = 1.0, 2.0, 3.0, 0.02
+    ref = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=Zs)
+    flat = coords.galcenrect_to_XYZ(x, y, z, Xsun=8.0, Zsun=0.0)
+    Xi = _as_backend(backend_name, 8)  # integer dtype on purpose
+    got = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xi, Zsun=Zs)
+    for g, r in zip(got, ref):
+        numpy.testing.assert_allclose(float(as_numpy(g)), float(r), rtol=1e-12)
+    assert not numpy.allclose(
+        [float(as_numpy(g)) for g in got], [float(v) for v in flat], rtol=1e-9
+    ), "integer Xsun silently reproduced the Zsun=0 answer -- Zsun was truncated"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_lambdanu_to_Rz_is_traceable_and_matches_numpy(backend_name):
+    # lambdanu_to_Rz clamped its roundoff-negative roots with a python `if` on
+    # the data plus an in-place `r2[index] = 0.0` -- untraceable AND unwritable
+    # on jax. Exactly the if -> xp.where array-input class. Its FORWARD
+    # direction (Rz_to_lambdanu) was migrated long ago; this is the inverse
+    # catching up.
+    rng = numpy.random.default_rng(3)
+    R = 0.2 + 2.5 * rng.random(7)
+    z = rng.random(7) - 0.5
+    lam, nu = coords.Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0)
+    ref_R, ref_z = coords.lambdanu_to_Rz(lam, nu, ac=5.0, Delta=1.0)
+
+    bl, bn = _as_backend(backend_name, lam), _as_backend(backend_name, nu)
+    got_R, got_z = coords.lambdanu_to_Rz(bl, bn, ac=5.0, Delta=1.0)
+    assert is_backend_array(got_R), "backend input must not fall through to numpy"
+    numpy.testing.assert_allclose(as_numpy(got_R), ref_R, rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(got_z), ref_z, rtol=1e-14)
+
+    if backend_name == "jax":
+        import jax
+
+        # The clamp used to raise TracerBoolConversionError here. Grad-vs-FD
+        # rather than "it traced": a where() with the mask inverted would still
+        # trace happily and give the wrong derivative.
+        def total(lv):
+            return coords.lambdanu_to_Rz(lv, jnp.asarray(nu), ac=5.0, Delta=1.0)[
+                0
+            ].sum()
+
+        ad = numpy.asarray(jax.jit(jax.grad(total))(jnp.asarray(lam)))
+        h = 1e-6
+        fd = numpy.empty_like(lam)
+        for i in range(lam.size):
+            up, dn = lam.copy(), lam.copy()
+            up[i] += h
+            dn[i] -= h
+            fd[i] = (
+                coords.lambdanu_to_Rz(up, nu, ac=5.0, Delta=1.0)[0].sum()
+                - coords.lambdanu_to_Rz(dn, nu, ac=5.0, Delta=1.0)[0].sum()
+            ) / (2 * h)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("degree", [True, False])
+def test_lbd_to_XYZ_preserves_the_backend(backend_name, degree):
+    # lbd_to_XYZ carried @scalarDecorator WITHOUT @backendNative, so the
+    # decorator promoted every input through numpy before the body ran --
+    # stripping the framework off a backend array. The body was raw numpy too.
+    # Both had to move: marking the function alone leaves numpy.cos in the body,
+    # and migrating the body alone leaves the decorator stripping the input.
+    #
+    # @backendNative is INNERMOST by construction (scalarDecorator reads the
+    # attribute off the function it wraps); anywhere else it is silently dead.
+    rng = numpy.random.default_rng(5)
+    n = 6
+    lo = rng.random(n) * (360.0 if degree else 6.2)
+    ba = (rng.random(n) - 0.5) * (180.0 if degree else 3.1)
+    da = rng.random(n) * 5 + 0.1
+    ref = coords.lbd_to_XYZ(lo, ba, da, degree=degree)
+
+    got = coords.lbd_to_XYZ(
+        _as_backend(backend_name, lo),
+        _as_backend(backend_name, ba),
+        _as_backend(backend_name, da),
+        degree=degree,
+    )
+    assert is_backend_array(got), "decorator stripped the backend off the input"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("XYZ", [False, True])
+def test_vrpmllpmbb_to_vxvyvz_preserves_the_backend(backend_name, XYZ):
+    # Same @scalarDecorator/@backendNative pair as lbd_to_XYZ, but the body had
+    # two more blockers: a preallocated numpy.zeros((3,3,N)) filled by nine
+    # INDEXED WRITES (jax arrays are immutable), and `l *= 180/pi` on the
+    # XYZ=True path (in-place on an input). Both are out-of-place now.
+    #
+    # XYZ=True is parametrised precisely because it is the branch with the
+    # in-place mutation -- XYZ=False never reaches it.
+    rng = numpy.random.default_rng(19)
+    n = 5
+    vr, pmll, pmbb = rng.normal(size=n) * 30, rng.normal(size=n), rng.normal(size=n)
+    if XYZ:
+        lo, ba, da = rng.normal(size=n) + 2, rng.normal(size=n), rng.normal(size=n) + 5
+    else:
+        lo, ba, da = (
+            rng.random(n) * 360,
+            (rng.random(n) - 0.5) * 180,
+            rng.random(n) * 5 + 0.5,
+        )
+    ref = coords.vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, lo, ba, da, XYZ=XYZ, degree=True)
+
+    args = [_as_backend(backend_name, a) for a in (vr, pmll, pmbb, lo, ba, da)]
+    got = coords.vrpmllpmbb_to_vxvyvz(*args, XYZ=XYZ, degree=True)
+    assert is_backend_array(got), "decorator stripped the backend off the input"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13)
+
+
+def test_python_scalar_is_not_silently_single_precision():
+    # REGRESSION, torch only. scalarDecorator's @backendNative path tested ndim
+    # with a bare xp.asarray(arg), and torch.asarray(<python float>) follows
+    # torch's DEFAULT dtype -- float32 for anyone who has not changed it. So a
+    # call with plain Python scalars computed the whole transform in single
+    # precision (~1e-7 relative) while the same call with numpy scalars or
+    # arrays stayed float64.
+    #
+    # conftest sets torch.set_default_dtype(float64) for the whole suite, which
+    # is why NOTHING here could see this: the harness silently supplies the
+    # very thing real users lack. This test therefore restores torch's own
+    # default for the duration, which is the configuration a user actually has.
+    #
+    # Pinned on the SPEED INVARIANT, exact independently of any reference: the
+    # (vr, d*pmll*_K, d*pmbb*_K) triad is orthonormal, so |v| is preserved.
+    torch = pytest.importorskip("torch")
+    lo, ba = coords.radec_to_lb(20.0, 30.0, degree=True)
+    vr, pmll, pmbb, dist = 30.0, -3.0, 5.0, 2.0
+    want = vr**2 + (dist * pmll * coords._K) ** 2 + (dist * pmbb * coords._K) ** 2
+
+    prev = torch.get_default_dtype()
+    torch.set_default_dtype(torch.float32)  # what a user actually has
+    try:
+        with use("torch", force=True):
+            got = coords.vrpmllpmbb_to_vxvyvz(
+                vr, pmll, pmbb, float(lo), float(ba), dist, degree=True
+            )
+            # scalarDecorator unpacks a scalar call into a tuple of components
+            speed2 = float(sum(float(as_numpy(c)) ** 2 for c in got))
+    finally:
+        torch.set_default_dtype(prev)
+    assert abs(speed2 - want) / want < 1e-13, (
+        f"python-scalar input fell to single precision: |v|^2 off by "
+        f"{abs(speed2 - want) / want:.2e} (float64 sits at ~2e-16)"
+    )

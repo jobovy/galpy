@@ -300,3 +300,49 @@ def test_amp_gradient(name, backend_name):
     assert abs(grad - fd_fine) <= tol, (
         f"{name}: {backend_name} amp-grad {grad:.8g} != FD {fd_fine:.8g}"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("forcepoisson", [True, False])
+def test_surfdens_differentiates_in_R_not_only_z(backend_name, forcepoisson):
+    # surfdens picks scipy-vs-backend-quadrature with _quad_needs_backend, which
+    # used to ask only about the INTEGRATION LIMIT (absz). The integrand closes
+    # over R, phi and t just as much, so differentiating w.r.t. R at fixed z
+    # fell into scipy and raised a concretization error -- while the very same
+    # derivative w.r.t. z worked. An asymmetry inside one function.
+    #
+    # Both surfdens routes are covered: forcepoisson=True goes through the
+    # Rforce/R2deriv/phi2deriv combination, False through _dens.
+    if backend_name == "torch":
+        pytest.skip(
+            "separate PRE-EXISTING gap: the gate is under_trace, which is False "
+            "for EAGER torch autograd (it asks torch.compiler.is_compiling()), so "
+            "surfdens takes scipy and silently returns a detached float -- no "
+            "torch gradient, in R OR z. Widening the gate to grad-tracking eager "
+            "tensors would route scalar-only potentials into the array-calling GL "
+            "rule, which is the undecidable _force_accepts_arrays problem the "
+            "_quad_needs_backend docstring describes. Its own change."
+        )
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(a=0.5, b=0.1)
+    R0, z0, h = 1.0, 0.3, 1e-5
+
+    def val(R, z):
+        return float(pot.surfdens(R, z, forcepoisson=forcepoisson, use_physical=False))
+
+    fd_R = (val(R0 + h, z0) - val(R0 - h, z0)) / (2 * h)
+    fd_z = (val(R0, z0 + h) - val(R0, z0 - h)) / (2 * h)
+
+    def sd(R, z):
+        return pot.surfdens(R, z, forcepoisson=forcepoisson, use_physical=False)
+
+    jnp = jax.numpy
+    ad_R = float(jax.grad(lambda R: sd(R, jnp.asarray(z0)))(jnp.asarray(R0)))
+    ad_z = float(jax.grad(lambda z: sd(jnp.asarray(R0), z))(jnp.asarray(z0)))
+
+    # h=1e-5 central differences on a smooth integral: good to ~1e-9. d/dz is
+    # the control -- it worked before this fix, so if it ever regresses the
+    # cause is the gate, not the quadrature.
+    numpy.testing.assert_allclose(ad_R, fd_R, rtol=1e-6, atol=1e-9)
+    numpy.testing.assert_allclose(ad_z, fd_z, rtol=1e-6, atol=1e-9)
