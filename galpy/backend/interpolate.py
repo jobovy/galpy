@@ -821,10 +821,9 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     # weak and is promoted onto it (and onto its device) below. Same rule as
     # the @backend_input boundary -- shared, not re-spelled.
     xp = prefer_backend_namespace(filtered, coords)
-    dev = device_of(filtered, coords)
+    dev = device_of(coords, filtered)
     filtered = asarray_on_device(xp, filtered, dev)
     coords = asarray_on_device(xp, coords, dev)
-    dev = device_of(coords, filtered)
     # A backend ``filtered`` (native prefilter, GPU-resident/differentiable) stays
     # on its backend; a numpy ``filtered`` is materialised onto the coords' device.
     filt = filtered if is_backend_array(filtered) else numpy.asarray(filtered)
