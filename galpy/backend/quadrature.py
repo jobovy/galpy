@@ -530,7 +530,21 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
     # folding it -- so asking about the converted limit always answers "unknown"
     # and the infinite branch would be unreachable. A Python/numpy ``b`` is still
     # concrete here and answers directly.
-    if not under_trace(b) and not bool(numpy.all(numpy.isfinite(numpy.asarray(b)))):
+    if under_trace(b):
+        # A tracer's finiteness is unknowable, so the finite branch it is.
+        concretely_infinite = False
+    elif is_backend_array(b):
+        # Eager backend array: ask the BACKEND, not numpy. numpy.asarray on a
+        # grad-tracking torch tensor RAISES rather than answering, so an
+        # ordinary finite limit that happens to require grad used to be
+        # rejected outright. isfinite returns a plain bool array with no grad
+        # of its own, so this stays a pure question about the value -- and an
+        # eager backend inf still reaches the semi-infinite branch, which
+        # blanket-treating backend arrays as finite would have broken.
+        concretely_infinite = not bool(xp.all(xp.isfinite(b)))
+    else:
+        concretely_infinite = not bool(numpy.all(numpy.isfinite(numpy.asarray(b))))
+    if concretely_infinite:
         zero = asarray_on_device(xp, 0.0, device)
         return fixed_quad_semiinfinite(
             xp, integrand, zero, n=n, device=device
@@ -599,11 +613,13 @@ def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None)
     dev = device if device is not None else device_of(b)
     zero = asarray_on_device(xp, 0.0, dev)
 
+    c_n = node_axis(c)
+
     def sym(u):
         return integrand(u) + integrand(-u)
 
     def residual(u):
-        return sym(u) - 2.0 * c / (u * u)
+        return sym(u) - 2.0 * c_n / (u * u)
 
     # Removing the c/u^2 model kills the pole but generally leaves a LOG:
     # residual(u) = -lam ln(u) + A + O(u). That is what caps plain GL at 1/n^2
@@ -621,12 +637,13 @@ def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None)
     # differentiable. Costs 10 extra integrand evaluations against 2n.
     lam = xp.sum(
         asarray_on_device(xp, _LOG_W, dev)
-        * residual(b * asarray_on_device(xp, _LOG_U, dev))
+        * residual(node_axis(b) * asarray_on_device(xp, _LOG_U, dev)),
+        axis=-1,
     )
     finite_part = (
         fixed_quad(
             xp,
-            lambda u: residual(u) + lam * xp.log(u / b),
+            lambda u: residual(u) + node_axis(lam) * xp.log(u / node_axis(b)),
             zero,
             b,
             n=n,
@@ -637,9 +654,10 @@ def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None)
     )
     wide = peak_width > 0.0
     w = xp.where(wide, peak_width, xp.ones_like(peak_width))
+    w_n = node_axis(w)
     peaked = fixed_quad(
         xp,
-        lambda t: sym(w * xp.sinh(t)) * w * xp.cosh(t),
+        lambda t: sym(w_n * xp.sinh(t)) * w_n * xp.cosh(t),
         zero,
         xp.asinh(b / w),
         n=n,
