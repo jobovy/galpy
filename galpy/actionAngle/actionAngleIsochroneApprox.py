@@ -963,6 +963,12 @@ class actionAngleIsochroneApprox(actionAngle):
             R, vR, vT, phi = args
             z, vz = 0.0 * R, 0.0 * vR
         xp = get_namespace(R, vR, vT, z, vz, phi)
+        # get_namespace answers from whichever argument IS a backend array, so a
+        # MIXED set -- some coordinates promoted by a caller, the rest still
+        # numpy scalars -- resolves to the backend and then fails on the numpy
+        # ones ("atleast_1d() received an invalid combination of arguments -
+        # got (numpy.float64)"). Coerce the whole set, do not data-guard.
+        R, vR, vT, z, vz, phi = coerce_coords(xp, R, vR, vT, z, vz, phi)
         R = xp.atleast_1d(R)
         vR, vT = xp.atleast_1d(vR), xp.atleast_1d(vT)
         z, vz, phi = xp.atleast_1d(z), xp.atleast_1d(vz), xp.atleast_1d(phi)
