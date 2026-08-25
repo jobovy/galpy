@@ -1327,3 +1327,34 @@ def test_hyp2f1_traced_parameters_reproduce_the_concrete_route(a, b, c):
         # ... and both are the scipy answer to the concrete route's own accuracy
         ref = scipy_special.hyp2f1(a, b, c, -_HYP2F1_W)
         numpy.testing.assert_allclose(traced, ref, rtol=1e-5, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp1f1_parameter_gradient_matches_finite_difference(backend):
+    # Sibling of the 2F1 case above, same defect: math.gamma(a) ran through
+    # __float__ on a backend a and silently detached the Gamma factor. torch
+    # returned a gradient that was 42% wrong -- finite, requires_grad=True,
+    # grad_fn set -- and jax raised ConcretizationTypeError. Routed, both agree
+    # with scipy's finite difference to ~5e-10.
+    a0, z0 = 1.7, -3.0
+    h = 1e-6
+    ref = (
+        scipy_special.hyp1f1(a0 + h, a0 + h + 1.0, z0)
+        - scipy_special.hyp1f1(a0 - h, a0 - h + 1.0, z0)
+    ) / (2.0 * h)
+    with use(backend, force=True):
+        if backend == "jax":
+            import jax
+            import jax.numpy as jnp
+
+            got = float(
+                jax.grad(lambda av: gsp.hyp1f1(av, av + 1.0, jnp.asarray(z0)))(a0)
+            )
+        else:
+            import torch
+
+            a = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
+            out = gsp.hyp1f1(a, a + 1.0, torch.tensor(z0, dtype=torch.float64))
+            (grad,) = torch.autograd.grad(out, a)
+            got = float(grad)
+    assert got == pytest.approx(ref, rel=1e-7)
