@@ -52,7 +52,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
-        canonical=None,
         **kwargs,
     ):
         """
@@ -84,8 +83,17 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tolerance for angle root-finding (f(x) is within tol of desired value)
         bisect : bool
             if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
-        canonical : bool, optional
-            if True, use the canonical evaluation mode: the angle map uses the exact derivative of the interpolated nSn tables plus the closed-form compensation for the energy-dependent auxiliary frequency, so the assembled (J, angle) -> (x, v) map is exactly symplectic for any stored tables (the separately stored dSndJ tables are kept only as a consistency diagnostic). The mapping coefficients are recomputed at setup in the shear-free (cotangent-lift) gauge for every mode, including the polynomial and exact point transformations, whose parameter chains are compensated in closed form. Default: True for interpolating instances (False for pt_only=True, an equal-time-gauge construct incompatible with the canonical mode).
+        canonical evaluation
+            Interpolating instances always evaluate canonically: the mapping
+            coefficients are recomputed at setup in the shear-free
+            (cotangent-lift) gauge for every point-transformation mode, all
+            derivatives come from the stored interpolants themselves, and
+            every energy-dependent parameter chain is compensated in closed
+            form, so the assembled (J, angle) -> (x, v) map is exactly
+            symplectic for any stored tables. The separately stored dSndJ
+            tables are kept only as a consistency diagnostic. pt_only=True
+            (an equal-time-gauge construct) therefore requires
+            setup_interp=False.
 
         Notes
         -----
@@ -296,24 +304,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._setup_interp()
         else:
             self._interp = False
-        # Canonical evaluation: manifestly symplectic for any stored tables.
-        # Default for interpolating instances without a point transformation,
-        # where the stored nSn are the coefficients of the xi = 0 gauge (the
-        # identity PT has no shear, so the equal-time and cotangent gauges
-        # coincide and the tables can be reused as-is)
+        # Interpolating instances always evaluate canonically (manifestly
+        # symplectic for any stored tables); the per-torus non-interpolating
+        # mode keeps the direct evaluation, which is exact at its nodes
         self._identity_pt = not self._pt_exact and self._pt_deg == 1
-        if canonical is None:
-            canonical = self._interp and not self._pt_only
-        if canonical and not self._interp:
-            raise ValueError("canonical=True requires setup_interp=True")
-        if canonical and self._pt_only:
+        if self._interp and self._pt_only:
             raise ValueError(
-                "canonical=True is incompatible with pt_only=True: pt_only "
-                "is an equal-time-gauge construct and the canonical mode "
-                "works in the shear-free gauge, where the exact point "
-                "transformation's mapping coefficients do not vanish"
+                "pt_only=True requires setup_interp=False: pt_only is an "
+                "equal-time-gauge construct and interpolating instances "
+                "evaluate canonically in the shear-free gauge, where the "
+                "exact point transformation's mapping coefficients do not "
+                "vanish"
             )
-        self._canonical = canonical
+        self._canonical = self._interp
         if self._canonical:
             self._setup_canonical()
         return None
@@ -1646,12 +1649,24 @@ class actionAngleVerticalInverse(actionAngleInverse):
         anglea = copy.copy(angle)
         cntr = 0
         maxda = 2.0 * numpy.pi / 101.0
-        hFD = 1e-7
         while cntr <= self._maxiter:
             F = (_residual(anglea) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             if numpy.max(numpy.fabs(F)) < self._angle_tol:
                 break
-            dF = (_residual(anglea + hFD) - _residual(anglea - hFD)) / (2.0 * hFD)
+            # approximate-analytic Jacobian: the main terms exactly, the
+            # small parameter-compensation derivative dropped -- this only
+            # affects the convergence rate; the residual equation defining
+            # the map is exact, so canonicity is untouched
+            san = numpy.sin(n * numpy.atleast_2d(anglea).T)
+            can = numpy.cos(n * numpy.atleast_2d(anglea).T)
+            ja = j + 2.0 * numpy.sum(nSn * can, axis=1)
+            djada = -2.0 * numpy.sum(n * nSn * san, axis=1)
+            dF = (
+                1.0
+                + 2.0 * numpy.sum(n * dSdj * can, axis=1)
+                + pref
+                * (djada * numpy.sin(2.0 * anglea) + 2.0 * ja * numpy.cos(2.0 * anglea))
+            )
             da = -F / dF
             da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
                 numpy.fabs(da) > maxda
@@ -1724,31 +1739,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         if self._canonical:
             return self._xvFreqs_canonical(j, angle)
-        # Find torus
-        if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js))
-            if numpy.fabs(j - self._js[indx]) > 1e-10:
-                raise ValueError(
-                    "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
-                )
-            tnSn = self._nSn[indx]
-            tdSndJ = self._dSndJ[indx]
-            tOmegaHO = self._OmegaHO[indx]
-            tOmega = self._Omegas[indx]
-            txmax = self._xmaxs[indx]
-            tptxmax = self._pt_xmaxs[indx]
-            tptcoeffs = self._pt_coeffs[indx]
-            tptderivcoeffs = self._pt_deriv_coeffs[indx]
-        else:
-            tE = self.E(j)
-            tnSn = self.nSn(tE)[0]
-            tdSndJ = self.dSndJ(tE)[0]
-            tOmegaHO = self.OmegaHO(tE)
-            tOmega = self.Omega(tE)
-            txmax = self.xmax(tE)
-            tptxmax = self.ptxmax(tE)
-            tptcoeffs = self.pt_coeffs(tE)[0]
-            tptderivcoeffs = self.pt_deriv_coeffs(tE)[0]
+        # Per-torus evaluation at the exact nodes
+        indx = numpy.nanargmin(numpy.fabs(j - self._js))
+        if numpy.fabs(j - self._js[indx]) > 1e-10:
+            raise ValueError(
+                "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
+            )
+        tnSn = self._nSn[indx]
+        tdSndJ = self._dSndJ[indx]
+        tOmegaHO = self._OmegaHO[indx]
+        tOmega = self._Omegas[indx]
+        txmax = self._xmaxs[indx]
+        tptxmax = self._pt_xmaxs[indx]
+        tptcoeffs = self._pt_coeffs[indx]
+        tptderivcoeffs = self._pt_deriv_coeffs[indx]
         if self._pt_exact and self._pt_only:
             # For the exact point transformation, the generating-function
             # mapping (J,theta) -> (JA,thetaA) is the identity, so we can
@@ -1855,13 +1859,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # Row coordinate of this torus in the grid of tori; fractional
             # for interpolated tori, in which case the 2D spline evaluation
             # interpolates the point transformation between the grid tori
-            trowcoord = (
-                float(indx)
-                if not self._interp
-                else float(
-                    (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
-                )
-            )
+            trowcoord = float(indx)
             x = txmax * _ptxa_eval(
                 xa / tptxmax,
                 trowcoord,
@@ -1917,18 +1915,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # the frequency of the interpolated Hamiltonian itself: exactly
             # consistent with the canonical chart (the integrator contract)
             return float(self._can_dEdj(j))
-        # Find torus
-        if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js))
-            if numpy.fabs(j - self._js[indx]) > 1e-10:
-                raise ValueError(
-                    "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
-                )
-            tOmega = self._Omegas[indx]
-        else:
-            tE = self.E(j)
-            tOmega = self.Omega(tE)
-        return tOmega
+        indx = numpy.nanargmin(numpy.fabs(j - self._js))
+        if numpy.fabs(j - self._js[indx]) > 1e-10:
+            raise ValueError(
+                "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
+            )
+        return self._Omegas[indx]
 
 
 def _ptxa_eval(xanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):

@@ -8113,16 +8113,15 @@ def test_actionAngleVerticalInverse_notE_errors():
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
 
 
-def _vertical_canonical_setup(canonical=None, nE=21):
+def _vertical_canonical_setup(nE=21):
     from galpy.actionAngle.actionAngleVerticalInverse import (
         actionAngleVerticalInverse,
     )
     from galpy.potential import MWPotential2014, toVerticalPotential
 
     vp = toVerticalPotential(MWPotential2014, 1.0)
-    kwargs = {} if canonical is None else dict(canonical=canonical)
     return actionAngleVerticalInverse(
-        pot=vp, Es=numpy.linspace(0.02, 0.35, nE), setup_interp=True, nta=128, **kwargs
+        pot=vp, Es=numpy.linspace(0.02, 0.35, nE), setup_interp=True, nta=128
     )
 
 
@@ -8169,26 +8168,19 @@ def test_actionAngleVerticalInverse_canonical_defect_exactpt():
 
 
 def test_actionAngleVerticalInverse_canonical_defect():
-    # The canonical mode's symplectic defect must sit at the finite-difference
-    # floor, orders below the old mode's, which lives at the interpolation
-    # error of its separately stored derivative tables
-    gold = _vertical_canonical_setup(canonical=False)
+    # Interpolating instances always evaluate canonically: the symplectic
+    # defect must sit at the finite-difference floor (the removed old
+    # architecture, with separately stored derivative tables, measured
+    # median 2.5e-4 on this same sweep)
     gnew = _vertical_canonical_setup()
-    assert gnew._canonical, (
-        "canonical does not default to True for an interpolating no-PT instance"
-    )
-    ds_old, ds_new = [], []
+    assert gnew._canonical, "interpolating instance is not canonical"
+    ds_new = []
     for E in numpy.linspace(0.06, 0.30, 4):
         j = float(numpy.atleast_1d(gnew.J(E))[0])
         for th in (0.8, 2.1):
-            ds_old.append(_vertical_symplectic_defect(gold, j, th))
             ds_new.append(_vertical_symplectic_defect(gnew, j, th))
     assert numpy.max(ds_new) < 1e-8, (
         "canonical-mode symplectic defect %g not at the test floor" % numpy.max(ds_new)
-    )
-    assert numpy.median(ds_old) > 1e-6, (
-        "the old mode's defect is unexpectedly small; this test has lost its "
-        "discriminating power"
     )
     return None
 
@@ -8261,11 +8253,9 @@ def test_actionAngleVerticalInverse_canonical_consistency():
 
 
 def test_actionAngleVerticalInverse_canonical_freq():
-    # In the canonical mode the frequency is the exact derivative of the
-    # interpolated E(j) -- consistent with the chart (the integrator
-    # contract) -- and close to, but not identical with, the old mode's
-    # separately interpolated frequency
-    gold = _vertical_canonical_setup(canonical=False)
+    # The frequency is the exact derivative of the interpolated E(j) --
+    # consistent with the chart (the integrator contract) -- and close to,
+    # but not identical with, the separately interpolated true frequency
     gnew = _vertical_canonical_setup()
     for E in (0.1, 0.2):
         j = float(numpy.atleast_1d(gnew.J(E))[0])
@@ -8273,24 +8263,21 @@ def test_actionAngleVerticalInverse_canonical_freq():
         assert numpy.fabs(Onew - float(gnew.E.derivative()(j))) < 1e-14, (
             "canonical frequency is not the E(j) interpolant's own derivative"
         )
-        assert numpy.fabs(Onew / gold._Freqs(j) - 1.0) < 1e-3, (
-            "canonical frequency far from the old mode's"
+        assert numpy.fabs(Onew / float(gnew.Omega(gnew.E(j))) - 1.0) < 1e-3, (
+            "canonical frequency far from the true frequency"
         )
     return None
 
 
 def test_actionAngleVerticalInverse_canonical_errors():
-    # canonical=True requires interpolation and no point transformation
+    # every interpolating configuration is canonical; pt_only (an
+    # equal-time-gauge construct) requires setup_interp=False
     from galpy.actionAngle.actionAngleVerticalInverse import (
         actionAngleVerticalInverse,
     )
     from galpy.potential import MWPotential2014, toVerticalPotential
 
     vp = toVerticalPotential(MWPotential2014, 1.0)
-    with pytest.raises(ValueError) as excinfo:
-        actionAngleVerticalInverse(pot=vp, Es=[0.1, 0.2], canonical=True)
-    assert "canonical" in str(excinfo.value)
-    # both point-transformation modes are supported and default to canonical
     for ptkw in (
         dict(use_pointtransform=True, pt_deg=3),
         dict(use_pointtransform="exact"),
@@ -8299,11 +8286,12 @@ def test_actionAngleVerticalInverse_canonical_errors():
             pot=vp,
             Es=numpy.linspace(0.02, 0.3, 7),
             setup_interp=True,
-            canonical=True,
             **ptkw,
         )
         assert g._canonical
-    # pt_only is an equal-time-gauge construct: incompatible
+        # the PT-table accessors remain available as diagnostics
+        assert numpy.all(numpy.isfinite(g.pt_coeffs(0.1)))
+        assert numpy.all(numpy.isfinite(g.pt_deriv_coeffs(0.1)))
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(
             pot=vp,
@@ -8311,7 +8299,6 @@ def test_actionAngleVerticalInverse_canonical_errors():
             setup_interp=True,
             use_pointtransform="exact",
             pt_only=True,
-            canonical=True,
         )
     assert "pt_only" in str(excinfo.value)
     return None

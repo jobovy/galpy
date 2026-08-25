@@ -30,10 +30,12 @@ v1.12.1 (expected around 2026-11-01)
   compensation for every energy-dependent parameter chain -- the auxiliary
   frequency and the point transformation's shape -- is applied in closed
   form, and the canonical action labels (the gauge-independent loop
-  actions) become the public J(E)/E(j). The old behavior is available with
-  canonical=False; pt_only, an equal-time-gauge construct, is incompatible
-  with the canonical mode; the derivative tables are kept as a consistency
-  diagnostic (check_canonical_consistency).
+  actions) become the public J(E)/E(j). The old interpolated evaluation is
+  removed outright (it was strictly dominated: worse symplectic defect at
+  the same accuracy class); the per-torus non-interpolating mode is
+  unchanged and exact at its nodes; pt_only, an equal-time-gauge construct,
+  now requires setup_interp=False; the derivative tables survive only as a
+  consistency diagnostic (check_canonical_consistency).
 
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the
