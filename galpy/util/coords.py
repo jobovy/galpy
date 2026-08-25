@@ -175,6 +175,11 @@ def _as_vsun(xp, vsun, dev):
     return asarray_on_device(xp, vsun, dev)
 
 
+def _row_or_T(a):
+    """``a.T`` for a 2-D (3, N); ``a`` unchanged for a 1-D (3,)."""
+    return a.T if a.ndim > 1 else a
+
+
 def _apply_galcen_rot(xp, rot, data, batched, dev):
     """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
     rot, data = promote_common_dtype(xp, rot, data, device=dev)
@@ -256,6 +261,15 @@ def scalarDecorator(func):
             if getattr(func, "_galpy_backend_native", False)
             else numpy
         )
+        if xp is not numpy:
+            # coerce_coords, NOT a bare xp.asarray: torch.asarray(<python
+            # float>) is float32, so a scalar call would silently compute the
+            # whole transform in single precision (measured 8.5e-9 relative on
+            # the vrpmllpmbb_to_vxvyvz speed invariant, against 2.3e-16 for
+            # numpy/array input). coerce_coords already owns this rule --
+            # preserve a real floating dtype, lift plain Python scalars to
+            # float64 -- so reuse it rather than re-spelling it here.
+            args = coerce_coords(xp, *args)
         if xp.asarray(args[0]).ndim == 0:
             scalarOut = True
             args = tuple(xp.reshape(xp.asarray(a), (1,)) for a in args)
@@ -1333,7 +1347,9 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     dev = device_of(X)
     out = (
         _apply_galcen_rot(xp, rot, xp.stack([X, Y, Z]), batched, dev).T
-        + asarray_on_device(xp, offset, dev).T
+        # .T only when 2-D: torch deprecates .T for ndim != 2, and a (3,)
+        # offset already broadcasts against the (N, 3) result.
+        + _row_or_T(asarray_on_device(xp, offset, dev))
     )
     if _extra_rot:
         return _apply_extra_rot(xp, galcen_extra_rot.T, out, dev)

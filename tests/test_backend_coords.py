@@ -724,3 +724,40 @@ def test_vrpmllpmbb_to_vxvyvz_preserves_the_backend(backend_name, XYZ):
     got = coords.vrpmllpmbb_to_vxvyvz(*args, XYZ=XYZ, degree=True)
     assert is_backend_array(got), "decorator stripped the backend off the input"
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13)
+
+
+def test_python_scalar_is_not_silently_single_precision():
+    # REGRESSION, torch only. scalarDecorator's @backendNative path tested ndim
+    # with a bare xp.asarray(arg), and torch.asarray(<python float>) follows
+    # torch's DEFAULT dtype -- float32 for anyone who has not changed it. So a
+    # call with plain Python scalars computed the whole transform in single
+    # precision (~1e-7 relative) while the same call with numpy scalars or
+    # arrays stayed float64.
+    #
+    # conftest sets torch.set_default_dtype(float64) for the whole suite, which
+    # is why NOTHING here could see this: the harness silently supplies the
+    # very thing real users lack. This test therefore restores torch's own
+    # default for the duration, which is the configuration a user actually has.
+    #
+    # Pinned on the SPEED INVARIANT, exact independently of any reference: the
+    # (vr, d*pmll*_K, d*pmbb*_K) triad is orthonormal, so |v| is preserved.
+    torch = pytest.importorskip("torch")
+    lo, ba = coords.radec_to_lb(20.0, 30.0, degree=True)
+    vr, pmll, pmbb, dist = 30.0, -3.0, 5.0, 2.0
+    want = vr**2 + (dist * pmll * coords._K) ** 2 + (dist * pmbb * coords._K) ** 2
+
+    prev = torch.get_default_dtype()
+    torch.set_default_dtype(torch.float32)  # what a user actually has
+    try:
+        with use("torch", force=True):
+            got = coords.vrpmllpmbb_to_vxvyvz(
+                vr, pmll, pmbb, float(lo), float(ba), dist, degree=True
+            )
+            # scalarDecorator unpacks a scalar call into a tuple of components
+            speed2 = float(sum(float(as_numpy(c)) ** 2 for c in got))
+    finally:
+        torch.set_default_dtype(prev)
+    assert abs(speed2 - want) / want < 1e-13, (
+        f"python-scalar input fell to single precision: |v|^2 off by "
+        f"{abs(speed2 - want) / want:.2e} (float64 sits at ~2e-16)"
+    )
