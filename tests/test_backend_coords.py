@@ -695,3 +695,32 @@ def test_lbd_to_XYZ_preserves_the_backend(backend_name, degree):
     )
     assert is_backend_array(got), "decorator stripped the backend off the input"
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("XYZ", [False, True])
+def test_vrpmllpmbb_to_vxvyvz_preserves_the_backend(backend_name, XYZ):
+    # Same @scalarDecorator/@backendNative pair as lbd_to_XYZ, but the body had
+    # two more blockers: a preallocated numpy.zeros((3,3,N)) filled by nine
+    # INDEXED WRITES (jax arrays are immutable), and `l *= 180/pi` on the
+    # XYZ=True path (in-place on an input). Both are out-of-place now.
+    #
+    # XYZ=True is parametrised precisely because it is the branch with the
+    # in-place mutation -- XYZ=False never reaches it.
+    rng = numpy.random.default_rng(19)
+    n = 5
+    vr, pmll, pmbb = rng.normal(size=n) * 30, rng.normal(size=n), rng.normal(size=n)
+    if XYZ:
+        lo, ba, da = rng.normal(size=n) + 2, rng.normal(size=n), rng.normal(size=n) + 5
+    else:
+        lo, ba, da = (
+            rng.random(n) * 360,
+            (rng.random(n) - 0.5) * 180,
+            rng.random(n) * 5 + 0.5,
+        )
+    ref = coords.vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, lo, ba, da, XYZ=XYZ, degree=True)
+
+    args = [_as_backend(backend_name, a) for a in (vr, pmll, pmbb, lo, ba, da)]
+    got = coords.vrpmllpmbb_to_vxvyvz(*args, XYZ=XYZ, degree=True)
+    assert is_backend_array(got), "decorator stripped the backend off the input"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13)

@@ -575,6 +575,7 @@ def sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=False):
 
 @scalarDecorator
 @degreeDecorator([3, 4], [])
+@backendNative
 def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
     """
     Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame (can take vector inputs)
@@ -609,31 +610,41 @@ def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
+    xp = resolve_namespace(vr, pmll, pmbb, l, b, d)
     if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
-            l *= 180.0 / numpy.pi
-            b *= 180.0 / numpy.pi
+            # OUT-of-place: `l *= ...` cannot be done to a jax array.
+            l = l * (180.0 / numpy.pi)
+            b = b * (180.0 / numpy.pi)
         lbd = XYZ_to_lbd(l, b, d, degree=False)
         l = lbd[:, 0]
         b = lbd[:, 1]
         d = lbd[:, 2]
-    R = numpy.zeros((3, 3, len(l)))
-    R[0, 0] = numpy.cos(l) * numpy.cos(b)
-    R[1, 0] = -numpy.sin(l)
-    R[2, 0] = -numpy.cos(l) * numpy.sin(b)
-    R[0, 1] = numpy.sin(l) * numpy.cos(b)
-    R[1, 1] = numpy.cos(l)
-    R[2, 1] = -numpy.sin(l) * numpy.sin(b)
-    R[0, 2] = numpy.sin(b)
-    R[2, 2] = numpy.cos(b)
-    invr = numpy.array(
+    cosl, sinl, cosb, sinb = xp.cos(l), xp.sin(l), xp.cos(b), xp.sin(b)
+    # Built by stacking rather than zeros((3,3,N)) + nine indexed writes: jax
+    # arrays are immutable. R[1, 2] was never assigned, so it stays ZERO here
+    # -- that hole is part of the transform, not an oversight.
+    zero = xp.zeros_like(l)
+    R = xp.stack(
         [
-            [vr, vr, vr],
-            [d * pmll * _K, d * pmll * _K, d * pmll * _K],
-            [d * pmbb * _K, d * pmbb * _K, d * pmbb * _K],
+            xp.stack([cosl * cosb, sinl * cosb, sinb]),
+            xp.stack([-sinl, cosl, zero]),
+            xp.stack([-cosl * sinb, -sinl * sinb, cosb]),
         ]
     )
-    return (R.T * invr.T).sum(-1)
+    rowv, rowl, rowb = vr, d * pmll * _K, d * pmbb * _K
+    invr = xp.stack(
+        [
+            xp.stack([rowv, rowv, rowv]),
+            xp.stack([rowl, rowl, rowl]),
+            xp.stack([rowb, rowb, rowb]),
+        ]
+    )
+    # (R.T * invr.T).sum(-1) contracts over the FIRST axis of the untransposed
+    # arrays: out[n, j] = sum_i R[i, j, n] * invr[i, j, n]. Spelled that way
+    # directly, because `.T` on a 3-D array reverses ALL axes and torch
+    # deprecates it for ndim > 2 -- one 2-D transpose at the end is safe.
+    return xp.sum(R * invr, axis=0).T
 
 
 @scalarDecorator
