@@ -157,6 +157,38 @@ def _promote_pair(xp, mat, data, dev):
     return xp.astype(mat, dt), xp.astype(data, dt)
 
 
+def _to_galcen_rot(xp, Xsun, Zsun):
+    """Heliocentric -> galactocentric rotation, plus ``dgc`` and promoted Xsun.
+
+    NOT the transpose of ``_galcen_rot``: here the sign(Xsun) convention lives
+    in the OPERAND rather than in the matrix, which is why the two differ and
+    still invert each other exactly (round trip 1.6e-15 at Xsun = -8). Shared
+    by XYZ_to_galcenrect and vxvyvz_to_galcenrect.
+    """
+    # Float-ify BEFORE promoting, as in _galcen_rot: an integer Xsun would drag
+    # a python-float Zsun to int and silently zero it.
+    Xsun, Zsun = promote_scalars(xp, Xsun * 1.0, Zsun * 1.0)
+    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    zero = xp.zeros_like(costheta)
+    one = xp.ones_like(costheta)
+    rot = xp.stack(
+        [
+            xp.stack([costheta, zero, -sintheta]),
+            xp.stack([zero, one, zero]),
+            xp.stack([sintheta, zero, costheta]),
+        ]
+    )
+    return rot, dgc, Xsun, getattr(costheta, "ndim", 0) > 0
+
+
+def _as_vsun(xp, vsun, dev):
+    """``vsun`` as a backend (3,) or (3, N) array; it may be a list of tracers."""
+    if isinstance(vsun, (list, tuple)):
+        return xp.stack(promote_scalars(xp, *vsun))
+    return asarray_on_device(xp, vsun, dev)
+
+
 def _apply_galcen_rot(xp, rot, data, batched, dev):
     """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
     rot, data = _promote_pair(xp, rot, data, dev)
@@ -501,6 +533,7 @@ def lbd_to_XYZ(l, b, d, degree=False):
     """
     # Whether to use degrees and scalar input is handled by decorators
     xp = resolve_namespace(l, b, d)
+    l, b, d = coerce_coords(xp, l, b, d)
     # stack(axis=-1) IS the old numpy.array([...]).T: three (N,) columns give
     # (N, 3) either way. Written as a stack because .T on a freshly built
     # (3, N) is an extra transpose to trace through for no benefit.
@@ -632,6 +665,7 @@ def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
     """
     # Whether to use degrees and scalar input is handled by decorators
     xp = resolve_namespace(vr, pmll, pmbb, l, b, d)
+    vr, pmll, pmbb, l, b, d = coerce_coords(xp, vr, pmll, pmbb, l, b, d)
     if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
             # OUT-of-place: `l *= ...` cannot be done to a jax array.
@@ -1250,27 +1284,8 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     if _extra_rot:
         mat, data = _promote_pair(xp, galcen_extra_rot, xp.stack([X, Y, Z]), dev)
         X, Y, Z = mat @ data
-    # Float-ify BEFORE promoting, for the same reason as _galcen_rot: an integer
-    # Xsun would otherwise drag a python-float Zsun to int and silently zero it.
-    Xsun, Zsun = promote_scalars(xp, Xsun * 1.0, Zsun * 1.0)
-    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = xp.zeros_like(costheta)
-    one = xp.ones_like(costheta)
-    # This matrix is NOT _galcen_rot's, and deliberately so: the sign(Xsun)
-    # convention lives in the OPERAND below rather than in the matrix, which is
-    # why the two differ and still invert each other exactly (verified: the
-    # galcenrect_to_XYZ round trip is 1.6e-15 at Xsun = -8). Sharing the matrix
-    # builder here would break that. The CONTRACTION is shared instead.
-    rot = xp.stack(
-        [
-            xp.stack([costheta, zero, -sintheta]),
-            xp.stack([zero, one, zero]),
-            xp.stack([sintheta, zero, costheta]),
-        ]
-    )
+    rot, dgc, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
     data = xp.stack([-X + dgc, Y, xp.sign(Xsun) * Z])
-    batched = getattr(costheta, "ndim", 0) > 0
     return _apply_galcen_rot(xp, rot, data, batched, dev).T
 
 
@@ -1457,6 +1472,7 @@ def spher_to_cyl(r, theta, phi):
 
 
 @scalarDecorator
+@backendNative
 def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     Transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates
@@ -1486,10 +1502,13 @@ def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     - 2010-09-24 - Written - Bovy (NYU)
     - 2023-07-19 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
     """
-    XYZ = numpy.atleast_2d(
-        XYZ_to_galcenrect(X, Y, Z, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
-    )
-    return numpy.array(rect_to_cyl(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2])).T
+    XYZ = XYZ_to_galcenrect(X, Y, Z, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
+    xp = prefer_backend_namespace(XYZ)
+    if xp is numpy:
+        XYZ = numpy.atleast_2d(XYZ)
+        return numpy.array(rect_to_cyl(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2])).T
+    XYZ = xp.reshape(XYZ, (-1, 3))  # atleast_2d for a (3,) or (N, 3) result
+    return xp.stack(rect_to_cyl(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2], xp=xp), axis=-1)
 
 
 @scalarDecorator
@@ -1527,6 +1546,7 @@ def galcencyl_to_XYZ(R, phi, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
 
 @scalarDecorator
+@backendNative
 def vxvyvz_to_galcenrect(
     vx, vy, vz, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
@@ -1562,30 +1582,47 @@ def vxvyvz_to_galcenrect(
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     - 2023-07-23 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
     """
+    vsun_probe = tuple(vsun) if isinstance(vsun, (list, tuple)) else (vsun,)
+    xp = prefer_backend_namespace(vx, vy, vz, Xsun, Zsun, *vsun_probe)
+    if xp is numpy:
+        # unchanged arithmetic: the numpy path stays BYTE-IDENTICAL (einsum and
+        # matmul disagree in the last ulp), same split as XYZ_to_galcenrect.
+        if _extra_rot:
+            vx, vy, vz = numpy.dot(galcen_extra_rot, numpy.array([vx, vy, vz]))
+        dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+        costheta, sintheta = Xsun / dgc, Zsun / dgc
+        zero = numpy.zeros_like(costheta)
+        one = numpy.ones_like(costheta)
+        return (
+            numpy.einsum(
+                (
+                    "ijk,jk->ik"
+                    if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+                    else "ij,jk->ik"
+                ),
+                numpy.array(
+                    [
+                        [costheta, zero, -sintheta],
+                        [zero, one, zero],
+                        [sintheta, zero, costheta],
+                    ]
+                ),
+                numpy.array([-vx, vy, numpy.sign(Xsun) * vz]),
+            ).T
+            + numpy.array(vsun).T
+        )
+    vx, vy, vz = promote_scalars(xp, vx, vy, vz)
+    dev = device_of(vx, vy, vz)
     if _extra_rot:
-        vx, vy, vz = numpy.dot(galcen_extra_rot, numpy.array([vx, vy, vz]))
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
-    return (
-        numpy.einsum(
-            (
-                "ijk,jk->ik"
-                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-                else "ij,jk->ik"
-            ),
-            numpy.array(
-                [
-                    [costheta, zero, -sintheta],
-                    [zero, one, zero],
-                    [sintheta, zero, costheta],
-                ]
-            ),
-            numpy.array([-vx, vy, numpy.sign(Xsun) * vz]),
-        ).T
-        + numpy.array(vsun).T
-    )
+        mat, data = _promote_pair(xp, galcen_extra_rot, xp.stack([vx, vy, vz]), dev)
+        vx, vy, vz = mat @ data
+    rot, _, Xsun, batched = _to_galcen_rot(xp, Xsun, Zsun)
+    data = xp.stack([-vx, vy, xp.sign(Xsun) * vz])
+    out = _apply_galcen_rot(xp, rot, data, batched, dev).T
+    vsun = _as_vsun(xp, vsun, dev)
+    # .T only when 2-D: torch deprecates .T on ndim != 2, and a (3,) vsun
+    # broadcasts against the (N, 3) result as-is.
+    return out + (vsun.T if vsun.ndim > 1 else vsun)
 
 
 @scalarDecorator
@@ -2325,6 +2362,7 @@ def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
     - 2026-05-06 - Written - Bovy (UofT)
     """
     xp = resolve_namespace(R, vR, vT, z, vz, phi)
+    R, vR, vT, z, vz, phi = coerce_coords(xp, R, vR, vT, z, vz, phi)
     x, y, zc = cyl_to_rect(R, phi, z)
     vx, vy, vzc = cyl_to_rect_vec(vR, vT, vz, phi)
     # column_stack, spelled for any namespace. Reshape-to-(-1,) FIRST rather
@@ -3145,6 +3183,7 @@ def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
     - 2015-02-13 - Written - Trick (MPIA)
     """
     xp = resolve_namespace(l, n, ac, Delta)
+    l, n, ac, Delta = coerce_coords(xp, l, n, ac, Delta)
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     r2 = (l + a) * (n + a) / (a - g)
