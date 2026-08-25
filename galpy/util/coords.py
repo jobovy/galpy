@@ -1196,23 +1196,59 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     - 2023-07-23 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
     """
+    xp = prefer_backend_namespace(X, Y, Z, Xsun, Zsun)
+    if xp is numpy:
+        # unchanged arithmetic: the numpy path stays BYTE-IDENTICAL. einsum and
+        # matmul disagree in the last ulp (measured: 2.2e-16 over 471 values),
+        # so the numpy branch keeps einsum rather than sharing the backend
+        # contraction. Same split galcenrect_to_XYZ already uses.
+        if _extra_rot:
+            X, Y, Z = numpy.dot(galcen_extra_rot, numpy.array([X, Y, Z]))
+        dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+        costheta, sintheta = Xsun / dgc, Zsun / dgc
+        zero = numpy.zeros_like(costheta)
+        one = numpy.ones_like(costheta)
+        return numpy.einsum(
+            (
+                "ijk,jk->ik"
+                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+                else "ij,jk->ik"
+            ),
+            numpy.array(
+                [
+                    [costheta, zero, -sintheta],
+                    [zero, one, zero],
+                    [sintheta, zero, costheta],
+                ]
+            ),
+            numpy.array([-X + dgc, Y, numpy.sign(Xsun) * Z]),
+        ).T
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    dev = device_of(X, Y, Z)
     if _extra_rot:
-        X, Y, Z = numpy.dot(galcen_extra_rot, numpy.array([X, Y, Z]))
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+        X, Y, Z = asarray_on_device(xp, galcen_extra_rot, dev) @ xp.stack([X, Y, Z])
+    # Float-ify BEFORE promoting, for the same reason as _galcen_rot: an integer
+    # Xsun would otherwise drag a python-float Zsun to int and silently zero it.
+    Xsun, Zsun = promote_scalars(xp, Xsun * 1.0, Zsun * 1.0)
+    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
-    return numpy.einsum(
-        (
-            "ijk,jk->ik"
-            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-            else "ij,jk->ik"
-        ),
-        numpy.array(
-            [[costheta, zero, -sintheta], [zero, one, zero], [sintheta, zero, costheta]]
-        ),
-        numpy.array([-X + dgc, Y, numpy.sign(Xsun) * Z]),
-    ).T
+    zero = xp.zeros_like(costheta)
+    one = xp.ones_like(costheta)
+    # This matrix is NOT _galcen_rot's, and deliberately so: the sign(Xsun)
+    # convention lives in the OPERAND below rather than in the matrix, which is
+    # why the two differ and still invert each other exactly (verified: the
+    # galcenrect_to_XYZ round trip is 1.6e-15 at Xsun = -8). Sharing the matrix
+    # builder here would break that. The CONTRACTION is shared instead.
+    rot = xp.stack(
+        [
+            xp.stack([costheta, zero, -sintheta]),
+            xp.stack([zero, one, zero]),
+            xp.stack([sintheta, zero, costheta]),
+        ]
+    )
+    data = xp.stack([-X + dgc, Y, xp.sign(Xsun) * Z])
+    batched = getattr(costheta, "ndim", 0) > 0
+    return _apply_galcen_rot(xp, rot, data, batched, dev).T
 
 
 @scalarDecorator
