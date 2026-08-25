@@ -15,6 +15,7 @@ from conftest import torch_compiles
 
 from galpy.backend import as_numpy
 from galpy.backend import special as gsp
+from galpy.backend import use
 from galpy.backend.special._router import (
     _NATIVE_MISSING,
     _NATIVE_UNRELIABLE,
@@ -1219,3 +1220,110 @@ def test_gammainc_grad_with_an_integer_order_dtype():
     x = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
     gsp.gammainc(torch.tensor(1), x).backward()
     numpy.testing.assert_allclose(float(x.grad), numpy.exp(-0.5), rtol=1e-14)
+
+
+# --- hyp2f1 with BACKEND (a, b, c): differentiable in the parameters ----------
+# Until now the fallback pinned its parameters to Python floats: math.lgamma for
+# the Gamma prefactor and float(math.ceil(...)) for the substitution exponent. On
+# jax that raised (TracerBoolConversion / Concretization) as soon as an exponent
+# was traced. On torch it did NOT raise -- __float__ ran and silently DETACHED
+# the prefactor, so the gradient came back finite, with requires_grad=True and a
+# grad_fn, and simply wrong: measured d/da 2F1(a,2;3;-5) = -8.98e-03 against a
+# true -8.56e-02, and TwoPowerTriaxial dPhi/dalpha 0.834 against 0.548. Only
+# grad-vs-finite-difference catches that, which is what these do.
+#
+# The bar is per route, because the routes do not differentiate equally well.
+# The value is spectrally accurate only when c - B is an integer (then the
+# (1-t)^{c-B-1} factor is a polynomial and Gauss-Legendre is exact); the
+# DERIVATIVE integrand carries an extra log factor that nothing regularizes, so
+# it converges algebraically. The numbers below are measured, not guessed.
+_HYP2F1_PARAM_GRAD = [
+    # (a, b, c, z, rtol, route)
+    (-3.2, 4.4, 5.2, -5.0, 1e-8, "euler-transformed"),
+    (-0.51, -0.98, 2.51, -5.0, 1e-8, "pfaff-series"),
+    (1.7, 2.3, 3.4, -5.0, 1e-4, "euler, non-integer c-B"),
+    (2.0, 2.0, 3.0, -5.0, 1e-3, "euler, c-a == 1 exactly (galpy's own force call)"),
+]
+
+
+def _hyp2f1_fd(a, b, c, z, idx, h=1e-5):
+    """d/d(param idx) of SCIPY's 2F1 by central differences -- the reference."""
+    up, dn = [a, b, c], [a, b, c]
+    up[idx] += h
+    dn[idx] -= h
+    return (scipy_special.hyp2f1(*up, z) - scipy_special.hyp2f1(*dn, z)) / (2.0 * h)
+
+
+@pytest.mark.parametrize(
+    "a,b,c,z,rtol,route",
+    _HYP2F1_PARAM_GRAD,
+    ids=[x[-1] for x in _HYP2F1_PARAM_GRAD],
+)
+def test_hyp2f1_jax_parameter_gradient_matches_finite_difference(
+    a, b, c, z, rtol, route
+):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    with use("jax", force=True):
+        zb = jnp.asarray(z)
+        for idx, name in ((0, "a"), (1, "b"), (2, "c")):
+            g = float(
+                jax.grad(lambda p: gsp.hyp2f1(p[0], p[1], p[2], zb))(
+                    jnp.array([a, b, c])
+                )[idx]
+            )
+            assert g == pytest.approx(_hyp2f1_fd(a, b, c, z, idx), rel=rtol), (
+                f"d/d{name} on the {route} route"
+            )
+
+
+@pytest.mark.parametrize(
+    "a,b,c,z,rtol,route",
+    _HYP2F1_PARAM_GRAD,
+    ids=[x[-1] for x in _HYP2F1_PARAM_GRAD],
+)
+def test_hyp2f1_torch_parameter_gradient_matches_finite_difference(
+    a, b, c, z, rtol, route
+):
+    torch = pytest.importorskip("torch")
+
+    with use("torch", force=True):
+        zb = torch.tensor(z, dtype=torch.float64)
+        for idx, name in ((0, "a"), (1, "b"), (2, "c")):
+            p = torch.tensor([a, b, c], dtype=torch.float64, requires_grad=True)
+            out = gsp.hyp2f1(p[0], p[1], p[2], zb)
+            (grad,) = torch.autograd.grad(out, p)
+            assert float(grad[idx]) == pytest.approx(
+                _hyp2f1_fd(a, b, c, z, idx), rel=rtol
+            ), f"d/d{name} on the {route} route"
+
+
+@pytest.mark.parametrize(
+    "a,b,c",
+    _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
+    ids=[
+        str(x)
+        for x in _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE
+    ],
+)
+def test_hyp2f1_traced_parameters_reproduce_the_concrete_route(a, b, c):
+    # With traced (a, b, c) the route can no longer be chosen with `if`, so all
+    # of it -- regime test, Euler labelling, series labelling -- is selected with
+    # where(). This asserts that selection lands on the same answer the Python
+    # branches give, for every parameter set the concrete tests cover, i.e. all
+    # three routes. The bar is the series' own truncation noise at |z| = 50,
+    # where the two arms round differently over 512 cancelling terms.
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    with use("jax", force=True):
+        zb = jnp.asarray(-_HYP2F1_W)
+        concrete = as_numpy(gsp.hyp2f1(a, b, c, zb))
+        traced = as_numpy(
+            jax.jit(lambda p: gsp.hyp2f1(p[0], p[1], p[2], zb))(jnp.array([a, b, c]))
+        )
+        numpy.testing.assert_allclose(traced, concrete, rtol=1e-5, atol=1e-13)
+        # ... and both are the scipy answer to the concrete route's own accuracy
+        ref = scipy_special.hyp2f1(a, b, c, -_HYP2F1_W)
+        numpy.testing.assert_allclose(traced, ref, rtol=1e-5, atol=1e-10)
