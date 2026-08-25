@@ -204,14 +204,14 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             if _sdens_unit_input:
                 try:
                     surfdens(1.0 * units.kpc).to(units.Msun / units.pc**2)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
                     _sdens_unit_output = True
             else:
                 try:
                     surfdens(1.0).to(units.Msun / units.pc**2)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
                     _sdens_unit_output = True
