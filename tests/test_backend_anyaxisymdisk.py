@@ -554,3 +554,42 @@ def test_traced_second_derivs_match_numpy_through_the_midplane(backend_name):
                         f"{backend_name} traced {fn.__name__} at R={R}, z={z}: "
                         f"rel err {rel:.2e} exceeds {tol:.0e} (numpy {ref:.6e})"
                     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_construction_accepts_a_surfdens_that_returns_a_backend_array(backend_name):
+    # __init__ decides whether surfdens carries astropy units by DUCK-TYPING on
+    # .to(): call it and see whether the result converts to Msun/pc^2. A torch
+    # tensor HAS a .to() -- with a completely different meaning -- so instead of
+    # the expected AttributeError it raised
+    #     TypeError: to() received an invalid combination of arguments
+    #                - got (CompositeUnit)
+    # which was not in the except clause, and constructing this potential with a
+    # torch-returning surfdens died outright. jax escaped only because jax
+    # arrays have no .to at all.
+    #
+    # The module-level _surfdens does not exercise this: it dispatches on its
+    # ARGUMENT, and __init__ probes with a plain python float, so it comes back
+    # numpy on every backend. The surface density here is what a torch user
+    # actually writes -- backend array out, whatever goes in.
+    if backend_name == "jax":
+
+        def sdens(R):
+            return 1.5 * jnp.exp(-3.0 * jnp.asarray(R))
+
+    else:
+
+        def sdens(R):
+            return 1.5 * torch.exp(-3.0 * torch.as_tensor(R, dtype=torch.float64))
+
+    pot = AnyAxisymmetricRazorThinDiskPotential(surfdens=sdens)
+    # Constructing is most of the point, but not all of it: if the units probe
+    # had gone the OTHER way and decided this surfdens was unit-carrying, the
+    # amplitude would be silently rescaled. Pin the value against the
+    # equivalent numpy-dispatching surface density instead of just smoke-testing.
+    for R, z in ((0.9, 0.3), (1.3, 0.0)):
+        ref = float(evaluateRforces(_POT, numpy.float64(R), numpy.float64(z)))
+        got = float(
+            evaluateRforces(pot, _scalar(backend_name, R), _scalar(backend_name, z))
+        )
+        numpy.testing.assert_allclose(got, ref, rtol=1e-12, err_msg=f"R={R}, z={z}")
