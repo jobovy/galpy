@@ -22,16 +22,18 @@ v1.12.1 (expected around 2026-11-01)
   from the interpolation error of the old separately stored derivative
   tables (median 2.5e-4) to the finite-difference test floor (~1e-10), and
   is invariant under noise injected into the tables. The canonical mode
-  covers instances with and without a polynomial point transformation: the
+  covers every interpolating configuration -- no point transformation, the
+  polynomial one, and the exact one (canonically lifted, preserving its
+  extreme-orbit position map): the
   mapping coefficients are recomputed in the shear-free gauge by direct
   sampling (no inversion of the point transformation is needed), the
   compensation for every energy-dependent parameter chain -- the auxiliary
   frequency and the point transformation's shape -- is applied in closed
   form, and the canonical action labels (the gauge-independent loop
   actions) become the public J(E)/E(j). The old behavior is available with
-  canonical=False; the exact point transformation keeps the old path for
-  now; the derivative tables are kept as a consistency diagnostic
-  (check_canonical_consistency).
+  canonical=False; pt_only, an equal-time-gauge construct, is incompatible
+  with the canonical mode; the derivative tables are kept as a consistency
+  diagnostic (check_canonical_consistency).
 
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the

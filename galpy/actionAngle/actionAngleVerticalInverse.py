@@ -85,7 +85,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         bisect : bool
             if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
         canonical : bool, optional
-            if True, use the canonical evaluation mode: the angle map uses the exact derivative of the interpolated nSn tables plus the closed-form compensation for the energy-dependent auxiliary frequency, so the assembled (J, angle) -> (x, v) map is exactly symplectic for any stored tables (the separately stored dSndJ tables are kept only as a consistency diagnostic). Default: True for interpolating instances without a point transformation (where the stored coefficients are gauge-compatible), False otherwise; canonical=True with a point transformation is not implemented yet.
+            if True, use the canonical evaluation mode: the angle map uses the exact derivative of the interpolated nSn tables plus the closed-form compensation for the energy-dependent auxiliary frequency, so the assembled (J, angle) -> (x, v) map is exactly symplectic for any stored tables (the separately stored dSndJ tables are kept only as a consistency diagnostic). The mapping coefficients are recomputed at setup in the shear-free (cotangent-lift) gauge for every mode, including the polynomial and exact point transformations, whose parameter chains are compensated in closed form. Default: True for interpolating instances (False for pt_only=True, an equal-time-gauge construct incompatible with the canonical mode).
 
         Notes
         -----
@@ -303,14 +303,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # coincide and the tables can be reused as-is)
         self._identity_pt = not self._pt_exact and self._pt_deg == 1
         if canonical is None:
-            canonical = self._interp and not self._pt_exact and not self._pt_only
+            canonical = self._interp and not self._pt_only
         if canonical and not self._interp:
             raise ValueError("canonical=True requires setup_interp=True")
-        if canonical and self._pt_exact:
-            raise ValueError(
-                'canonical=True is not implemented yet for use_pointtransform="exact"'
-            )
-        if canonical and self._pt_only:  # pragma: no cover
+        if canonical and self._pt_only:
             raise ValueError(
                 "canonical=True is incompatible with pt_only=True: pt_only "
                 "is an equal-time-gauge construct and the canonical mode "
@@ -1342,25 +1338,51 @@ class actionAngleVerticalInverse(actionAngleInverse):
         nn = self._nforSn
         can_nSn = numpy.empty_like(self._nSn)
         can_js = numpy.empty(self._nE)
+        if self._pt_exact:
+            # ONE canonical representation of the exact point transformation:
+            # order-3 coefficients of the stored value mesh; pi' and the
+            # torus-direction derivative are ITS exact stencil derivatives
+            # (the legacy quintic value/derivative PAIR is exactly the
+            # contingent storage the canonical mode exists to avoid)
+            self._can_pt_c = ndimage.spline_filter(
+                self._pt_coeffs, order=3, mode="mirror"
+            )
+            self._can_pt_pad = (self._pt_coeffs.shape[1] - self._pt_nmesh) / 2.0
+            self._can_pt_du = 2.0 / (self._pt_nmesh - 1.0)
         for ii in range(self._nE):
             if self._js[ii] < 1e-10:
                 can_nSn[ii] = 0.0
                 can_js[ii] = 0.0
                 continue
             xa = self._pt_xmaxs[ii] * numpy.sin(tau)
-            x = self._xmaxs[ii] * polynomial.polyval(
-                xa / self._pt_xmaxs[ii], self._pt_coeffs[ii]
-            )
-            piprime = (
-                self._xmaxs[ii]
-                / self._pt_xmaxs[ii]
-                * polynomial.polyval(xa / self._pt_xmaxs[ii], self._pt_deriv_coeffs[ii])
-            )
+            if self._pt_exact:
+                f, fu, _, _, _ = self._can_pt_eval(numpy.sin(tau), float(ii))
+                x = self._xmaxs[ii] * f
+                piprime = self._xmaxs[ii] / self._pt_xmaxs[ii] * fu
+            else:
+                x = self._xmaxs[ii] * polynomial.polyval(
+                    xa / self._pt_xmaxs[ii], self._pt_coeffs[ii]
+                )
+                piprime = (
+                    self._xmaxs[ii]
+                    / self._pt_xmaxs[ii]
+                    * polynomial.polyval(
+                        xa / self._pt_xmaxs[ii], self._pt_deriv_coeffs[ii]
+                    )
+                )
             v2 = 2.0 * (
                 self._Es[ii]
                 - evaluatelinearPotentials(self._pot, x, use_physical=False)
             )
             v2[v2 < 0.0] = 0.0
+            # one gauge for every mode: the shear-free cotangent lift,
+            # p_a = v pi'. The equal-time gauge's S ~ 0 virtue for the exact
+            # PT requires its shear generating function Xi explicitly in the
+            # compensation (branch-glued; a possible future refinement); the
+            # cotangent lift of the SAME pi keeps the exact PT's
+            # extreme-orbit position map with the compensation machinery
+            # measured at the floor, at the cost of nonzero (but 1-D-cheap)
+            # mapping coefficients
             pa = numpy.sign(numpy.cos(tau)) * numpy.sqrt(v2) * piprime
             om = self._OmegaHO[ii]
             jA = 0.5 * (pa**2 + om**2 * xa**2) / om
@@ -1402,12 +1424,68 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._can_ptcoeffs_c = ndimage.spline_filter1d(
             self._pt_coeffs, order=3, axis=0, mode="mirror"
         )
+        self._can_glx, self._can_glw = numpy.polynomial.legendre.leggauss(24)
         # The canonical labels become the public ones: J(E) and E(j) must be
         # the same chains the evaluation differentiates, or callers mixing
         # J(E) with __call__ would straddle two gauges' labelings
         self.J = self._can_J
         self.E = self._can_E
         return None
+
+    def _can_pt_eval(self, u, row):
+        """Value and derivatives of the canonical exact-PT table at
+        normalized coordinate(s) u = x_a/ptxmax and fractional torus row:
+        (f, df/du, d2f/du2, df/drow, d2f/dudrow), every one the exact
+        derivative of the ONE stored order-3 interpolant."""
+        u = numpy.atleast_1d(u)
+        mesh = (u + 1.0) / self._can_pt_du + self._can_pt_pad
+        nm = self._can_pt_c.shape[1]
+        i0m = numpy.clip(numpy.floor(mesh).astype(int), 1, nm - 3)
+        tm = mesh - i0m
+        row = min(max(row, 0.0), self._nE - 1.0)
+        i0r = int(numpy.floor(row))
+        if i0r > self._nE - 2:  # pragma: no cover
+            i0r = self._nE - 2
+        tr = row - i0r
+        rtaps = numpy.array([i0r - 1, i0r, i0r + 1, i0r + 2])
+        rtaps = numpy.abs(rtaps)
+        rtaps[rtaps > self._nE - 1] = 2 * (self._nE - 1) - rtaps[rtaps > self._nE - 1]
+
+        def _w(t):
+            return numpy.array(
+                [
+                    (1.0 - t) ** 3 / 6.0,
+                    (4.0 - 6.0 * t**2 + 3.0 * t**3) / 6.0,
+                    (1.0 + 3.0 * t + 3.0 * t**2 - 3.0 * t**3) / 6.0,
+                    t**3 / 6.0,
+                ]
+            )
+
+        def _wd(t):
+            return numpy.array(
+                [
+                    -((1.0 - t) ** 2) / 2.0,
+                    (-12.0 * t + 9.0 * t**2) / 6.0,
+                    (3.0 + 6.0 * t - 9.0 * t**2) / 6.0,
+                    t**2 / 2.0,
+                ]
+            )
+
+        def _wdd(t):
+            return numpy.array([1.0 - t, 3.0 * t - 2.0, 1.0 - 3.0 * t, t])
+
+        wr, wrd = _w(tr), _wd(tr)
+        wm, wmd, wmdd = _w(tm), _wd(tm), _wdd(tm)
+        C4 = self._can_pt_c[rtaps]
+        mtaps = i0m[None, :] + numpy.arange(-1, 3)[:, None]
+        V = C4[:, mtaps]  # (4 row-taps, 4 mesh-taps, npts)
+        du = self._can_pt_du
+        f = numpy.einsum("r,rmp,mp->p", wr, V, wm)
+        fu = numpy.einsum("r,rmp,mp->p", wr, V, wmd) / du
+        fuu = numpy.einsum("r,rmp,mp->p", wr, V, wmdd) / du**2
+        frow = numpy.einsum("r,rmp,mp->p", wrd, V, wm)
+        furow = numpy.einsum("r,rmp,mp->p", wrd, V, wmd) / du
+        return f, fu, fuu, frow, furow
 
     def _can_row(self, table_c, x):
         """Value and d/d(row) of a row-filtered table at fractional row x,
@@ -1523,9 +1601,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         dXdE = float(self._can_dxmaxdE(tE))
         dPXdE = float(self._can_dptxmaxdE(tE))
         xrow = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
-        cfs, dcfs_dx = self._can_row(self._can_ptcoeffs_c, xrow)
-        dcfs_dE = dcfs_dx * (self._nE - 1.0) / (self._Emax - self._Emin)
-        dcderiv = polynomial.polyder(cfs)
+        drowdE = (self._nE - 1.0) / (self._Emax - self._Emin)
+        if not self._pt_exact:
+            cfs, dcfs_dx = self._can_row(self._can_ptcoeffs_c, xrow)
+            dcfs_dE = dcfs_dx * drowdE
+            dcderiv = polynomial.polyder(cfs)
 
         def _residual(anglea):
             san = numpy.sin(n * numpy.atleast_2d(anglea).T)
@@ -1534,6 +1614,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
             xa = numpy.sqrt(2.0 * numpy.fabs(ja) / om) * numpy.sin(anglea)
             pa = numpy.sqrt(2.0 * numpy.fabs(ja) * om) * numpy.cos(anglea)
             u = xa / PX
+            if self._pt_exact:
+                f, fu, _, frow, _ = self._can_pt_eval(u, xrow)
+                piprime = X / PX * fu
+                v = pa / piprime
+                dpidE = dXdE * f + X * (frow * drowdE - fu * u * dPXdE / PX)
+                return (
+                    anglea
+                    + 2.0 * numpy.sum(dSdj * san, axis=1)
+                    + pref * ja * numpy.sin(2.0 * anglea)
+                    - v * dpidE * dEdj
+                    - angle
+                )
             piprime = X / PX * polynomial.polyval(u, dcderiv)
             v = pa / piprime
             # d pi / dE at fixed xa, through every stored parameter chain
@@ -1579,8 +1671,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         hoaainv = actionAngleHarmonicInverse(omega=om)
         xa, pa = hoaainv(ja, anglea)
         u = xa / PX
-        x = X * polynomial.polyval(u, cfs)
-        v = pa / (X / PX * polynomial.polyval(u, dcderiv))
+        if self._pt_exact:
+            f, fu, _, _, _ = self._can_pt_eval(u, xrow)
+            x = X * f
+            v = pa / (X / PX * fu)
+        else:
+            x = X * polynomial.polyval(u, cfs)
+            v = pa / (X / PX * polynomial.polyval(u, dcderiv))
         return (x, v, dEdj)
 
     def _evaluate(self, j, angle, **kwargs):

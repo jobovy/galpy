@@ -8141,6 +8141,33 @@ def _vertical_symplectic_defect(aAVI, j, angle, h=1e-6):
     return numpy.max(numpy.abs(A.T @ Om @ A - Om))
 
 
+def test_actionAngleVerticalInverse_canonical_defect_exactpt():
+    # the exact point transformation, canonically lifted: defect at the floor
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    g = actionAngleVerticalInverse(
+        pot=vp,
+        Es=numpy.linspace(0.02, 0.35, 21),
+        setup_interp=True,
+        nta=128,
+        use_pointtransform="exact",
+    )
+    assert g._canonical
+    ds = []
+    for E in numpy.linspace(0.06, 0.30, 3):
+        j = float(numpy.atleast_1d(g.J(E))[0])
+        for th in (0.8, 2.1):
+            ds.append(_vertical_symplectic_defect(g, j, th))
+    assert numpy.max(ds) < 1e-6, (
+        "canonical exact-PT symplectic defect %g not at the test floor" % numpy.max(ds)
+    )
+    return None
+
+
 def test_actionAngleVerticalInverse_canonical_defect():
     # The canonical mode's symplectic defect must sit at the finite-difference
     # floor, orders below the old mode's, which lives at the interpolation
@@ -8263,26 +8290,30 @@ def test_actionAngleVerticalInverse_canonical_errors():
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(pot=vp, Es=[0.1, 0.2], canonical=True)
     assert "canonical" in str(excinfo.value)
-    # polynomial point transformations ARE supported (and default to
-    # canonical); the exact point transformation is not yet
-    g = actionAngleVerticalInverse(
-        pot=vp,
-        Es=numpy.linspace(0.02, 0.3, 7),
-        setup_interp=True,
-        use_pointtransform=True,
-        pt_deg=3,
-        canonical=True,
-    )
-    assert g._canonical
+    # both point-transformation modes are supported and default to canonical
+    for ptkw in (
+        dict(use_pointtransform=True, pt_deg=3),
+        dict(use_pointtransform="exact"),
+    ):
+        g = actionAngleVerticalInverse(
+            pot=vp,
+            Es=numpy.linspace(0.02, 0.3, 7),
+            setup_interp=True,
+            canonical=True,
+            **ptkw,
+        )
+        assert g._canonical
+    # pt_only is an equal-time-gauge construct: incompatible
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(
             pot=vp,
             Es=numpy.linspace(0.02, 0.3, 7),
             setup_interp=True,
             use_pointtransform="exact",
+            pt_only=True,
             canonical=True,
         )
-    assert "exact" in str(excinfo.value)
+    assert "pt_only" in str(excinfo.value)
     return None
 
 
