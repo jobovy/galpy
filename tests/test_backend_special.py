@@ -1163,3 +1163,59 @@ def test_gammainc_endpoints_zero_and_infinity(backend):
         assert not numpy.any(numpy.isnan(q)), f"gammaincc NaN at an endpoint, a={a}"
         numpy.testing.assert_array_equal(p, [0.0, 1.0])
         numpy.testing.assert_array_equal(q, [1.0, 0.0])
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammainc_grad_wrt_argument_at_endpoints(backend):
+    # x = 0 is a REAL evaluation point (the value test above pins P(a,0)=0), and
+    # dP/dx = x^(a-1) e^-x / Gamma(a) is computed as prefix(a,x)/x -- which is
+    # 0/0 there and returned NaN before this was guarded. The limit depends on a:
+    #     a < 1 -> +inf,   a = 1 -> 1,   a > 1 -> 0.
+    # NB jax's own native gammainc returns NaN for d/dx at a=1, x=0, so the
+    # reference here is the analytic limit, not another library.
+    for a0, want in ((0.5, numpy.inf), (1.0, 1.0), (2.0, 0.0), (3.0, 0.0)):
+        if backend == "jax":
+            if a0 == 1.0:
+                continue  # jax's native path is NaN here; nothing of ours to pin
+            ad = float(
+                jax.grad(lambda x: gsp.gammainc(jnp.asarray(a0), x))(jnp.asarray(0.0))
+            )
+        else:
+            xt = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+            gsp.gammainc(torch.tensor(a0, dtype=torch.float64), xt).backward()
+            ad = float(xt.grad)
+        assert not numpy.isnan(ad), f"d/dx gammainc(a={a0}) is NaN at x=0"
+        if numpy.isinf(want):
+            assert numpy.isinf(ad) and ad > 0, f"a={a0}: want +inf, got {ad}"
+        else:
+            numpy.testing.assert_allclose(ad, want, rtol=0, atol=1e-15)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_gammainc_grad_with_an_integer_order_dtype():
+    # The x=0 endpoint limit must be built in the RESULT dtype, not with
+    # *_like(a): callers legitimately pass an INTEGER order -- EinastoPotential
+    # does, via its 3n/dn arguments -- and torch.full_like(<int tensor>, inf)
+    # raises "value cannot be converted to type int64_t without overflow".
+    # The first cut of the endpoint guard used full_like(a, inf) and broke
+    # every Einasto torch gradient; the value tests never saw it because they
+    # only ever passed a float order.
+    for a_int, a_flt in ((3, 3.0), (1, 1.0), (2, 2.0)):
+        ai = torch.tensor(a_int)  # int64 on purpose
+        af = torch.tensor(a_flt, dtype=torch.float64)
+        # away from the endpoint: integer and float order must agree exactly
+        gi, gf = [], []
+        for a in (ai, af):
+            x = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+            gsp.gammainc(a, x).backward()
+            (gi if a is ai else gf).append(float(x.grad))
+        numpy.testing.assert_allclose(gi[0], gf[0], rtol=0, atol=0)
+        # ...and AT the endpoint, where the limit branch actually runs
+        x0 = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        gsp.gammainc(ai, x0).backward()
+        want = 1.0 if a_int == 1 else 0.0  # a >= 1 here, so no +inf case
+        numpy.testing.assert_allclose(float(x0.grad), want, rtol=0, atol=1e-15)
+    # a = 1 at x = 0.5 has a closed form: P(1,x) = 1 - e^-x, so dP/dx = e^-x.
+    x = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+    gsp.gammainc(torch.tensor(1), x).backward()
+    numpy.testing.assert_allclose(float(x.grad), numpy.exp(-0.5), rtol=1e-14)
