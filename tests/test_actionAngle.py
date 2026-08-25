@@ -8521,3 +8521,365 @@ def test_actionAngle_inner_attributeerror_is_not_masked(public, private):
         f"{public} masked the inner AttributeError; got: {excinfo.value}"
     )
     return None
+
+
+# ---------- actionAngleSphericalCanonical tests: the canonical (PT+Fourier)
+# ---------- spherical inverse (STAECKEL_CANONICAL_MATH.md section 9)
+_aaspc_cache = {}
+
+
+def _spherical_canonical_interp_setup():
+    # small (E, L) interpolation grid in the logarithmic halo, cached
+    if "interp" not in _aaspc_cache:
+        from galpy.actionAngle import actionAngleSphericalCanonical
+        from galpy.potential import LogarithmicHaloPotential
+
+        lp = LogarithmicHaloPotential(normalize=1.0)
+        _aaspc_cache["interp"] = actionAngleSphericalCanonical(
+            pot=lp,
+            setup_interp=True,
+            Rmin=0.7,
+            Rmax=1.4,
+            Rinf=6.0,
+            nE=8,
+            nL=8,
+            ntau=128,
+            nn=12,
+        )
+    return _aaspc_cache["interp"]
+
+
+def _spherical_canonical_discrete_setup():
+    # two discrete tori in the logarithmic halo, cached
+    if "discrete" not in _aaspc_cache:
+        from galpy.actionAngle import actionAngleSphericalCanonical
+        from galpy.potential import LogarithmicHaloPotential
+
+        lp = LogarithmicHaloPotential(normalize=1.0)
+        _aaspc_cache["discrete"] = actionAngleSphericalCanonical(
+            pot=lp, Es=[0.7, 1.1], Ls=[0.9, 0.7], ntau=256, nn=16
+        )
+    return _aaspc_cache["discrete"]
+
+
+def _spherical_canonical_symplectic_defect(xvmapper, jr, jphi, jz, ar, ap, az, h=1e-6):
+    # max |A^T Omega A - Omega| of the 6x6 Jacobian of
+    # (theta_r, theta_phi, theta_z, J_r, J_phi, J_z) -> (q, p) with
+    # q = (R, z, phi), p = (v_R, v_z, R v_T), by central differences
+    def xp(args):
+        R, vR, vT, z, vz, phi = xvmapper(*args)[:6]
+        return numpy.array([R[0], z[0], phi[0], vR[0], vz[0], R[0] * vT[0]])
+
+    x0 = numpy.array([jr, jphi, jz, ar, ap, az], dtype="float")
+    idx = [3, 4, 5, 0, 1, 2]  # (theta, J) ordering of the Jacobian columns
+    A = numpy.empty((6, 6))
+    for col, ii in enumerate(idx):
+        xps = x0.copy()
+        xps[ii] += h
+        xms = x0.copy()
+        xms[ii] -= h
+        A[:, col] = (xp(xps) - xp(xms)) / (2.0 * h)
+    Om = numpy.zeros((6, 6))
+    Om[:3, 3:] = numpy.eye(3)
+    Om[3:, :3] = -numpy.eye(3)
+    return numpy.max(numpy.fabs(A.T @ Om @ A - Om))
+
+
+def test_actionAngleSphericalCanonical_symplectic_defect():
+    # the assembled interpolated (J, theta) -> (x, v) map has to be
+    # symplectic at the finite-difference floor, which the analytic
+    # isochrone inverse calibrates through the same harness
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    aaspc = _spherical_canonical_interp_setup()
+    aainv = actionAngleIsochroneInverse(
+        ip=IsochronePotential(amp=aaspc._GM, b=aaspc._b)
+    )
+    floor = max(
+        _spherical_canonical_symplectic_defect(
+            aainv._xvFreqs, 0.2, 0.6, 0.3, ar, 1.0, 2.0
+        )
+        for ar in (0.5, 2.0, 4.0)
+    )
+    assert floor < 3e-8, (
+        "The analytic-control symplectic defect is unexpectedly large: %g" % floor
+    )
+    jphi = 0.65
+    jz = aaspc._Lgrid[4] - jphi
+    for jr in (0.05, 0.15, 0.3):
+        for ar in (0.5, 2.0, 4.0):
+            defect = _spherical_canonical_symplectic_defect(
+                aaspc._xvFreqs, jr, jphi, jz, ar, 1.0, 2.0
+            )
+            assert defect < 3e-8, (
+                "The interpolated spherical canonical inverse's symplectic "
+                "defect is not at the finite-difference floor: %g at "
+                "(jr, ar) = (%g, %g)" % (defect, jr, ar)
+            )
+    return None
+
+
+def test_actionAngleSphericalCanonical_manifest():
+    # canonicity is manifest: injecting relative noise into every stored
+    # table changes the evaluated map, but leaves the symplectic defect at
+    # the floor; a fresh instance, because its tables get ruined
+    from galpy.actionAngle import actionAngleSphericalCanonical
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aaspc = actionAngleSphericalCanonical(
+        pot=lp,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.4,
+        Rinf=6.0,
+        nE=8,
+        nL=8,
+        ntau=128,
+        nn=12,
+    )
+    jphi = 0.65
+    jz = aaspc._Lgrid[4] - jphi
+    args = (0.15, jphi, jz, 1.7, 1.0, 2.0)
+    x0 = numpy.array(aaspc._xvFreqs(*args)[:6]).flatten()
+    rng = numpy.random.default_rng(4)
+    for tab in (aaspc._jr_tab, aaspc._E_tab, aaspc._Sn_tab):
+        tab *= 1.0 + 1e-5 * rng.standard_normal(tab.shape)
+    aaspc._rebuild_interp()
+    x1 = numpy.array(aaspc._xvFreqs(*args)[:6]).flatten()
+    moved = numpy.max(numpy.fabs(x1 - x0))
+    assert moved > 1e-7, (
+        "The injected table noise did not reach the evaluation "
+        "(moved by %g), so the manifest test tests nothing" % moved
+    )
+    defect = _spherical_canonical_symplectic_defect(aaspc._xvFreqs, *args)
+    assert defect < 3e-8, (
+        "The symplectic defect is not invariant under stored-table noise: %g" % defect
+    )
+    return None
+
+
+def test_actionAngleSphericalCanonical_consistency():
+    # the canonical action labels are the loop actions (the Stokes
+    # identity), the discrete and interpolated machineries agree at a
+    # node torus, and the sine-parity diagnostic sits at the floor
+    from scipy.integrate import quad
+
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aaspc = _spherical_canonical_discrete_setup()
+    for ii, (E, L) in enumerate(zip(aaspc._Es, aaspc._Ls)):
+        rp, ra = aaspc._rps[ii], aaspc._ras[ii]
+        jr_quad = (
+            quad(
+                lambda r: numpy.sqrt(
+                    numpy.amax(
+                        [
+                            2.0 * (E - lp(r, 0.0, use_physical=False)) - L**2 / r**2,
+                            0.0,
+                        ]
+                    )
+                ),
+                rp,
+                ra,
+                limit=200,
+            )[0]
+            / numpy.pi
+        )
+        assert numpy.fabs(aaspc._jrs[ii] - jr_quad) < 1e-8, (
+            "The canonical action label does not equal the loop action "
+            "(the Stokes identity): %g vs %g" % (aaspc._jrs[ii], jr_quad)
+        )
+    assert aaspc._coserr < 1e-12, (
+        "The cosine coefficients of the generating function are not at the "
+        "floor: %g" % aaspc._coserr
+    )
+    # discrete vs interpolated evaluation at an interpolation-grid node
+    aai = _spherical_canonical_interp_setup()
+    from galpy.actionAngle import actionAngleSphericalCanonical
+
+    E, L = aai._E_tab[3, 4], aai._Lgrid[4]
+    aad = actionAngleSphericalCanonical(pot=lp, Es=[E], Ls=[L], ntau=256, nn=16)
+    jr = aad._jrs[0]
+    jphi = 0.65
+    jz = L - jphi
+    angler = numpy.linspace(0.5, 5.8, 7)
+    anglephi = numpy.linspace(1.0, 4.0, 7)
+    anglez = numpy.linspace(2.0, 6.0, 7)
+    xvd = numpy.array(aad._evaluate(jr, jphi, jz, angler, anglephi, anglez))
+    xvi = numpy.array(aai._evaluate(jr, jphi, jz, angler, anglephi, anglez))
+    assert numpy.max(numpy.fabs(xvd - xvi)) < 1e-3, (
+        "Discrete and interpolated evaluation disagree at a node torus "
+        "beyond the interpolation error: %g" % numpy.max(numpy.fabs(xvd - xvi))
+    )
+    return None
+
+
+def test_actionAngleSphericalCanonical_roundtrip():
+    # honest accuracy (as opposed to canonicity): the forward spherical
+    # action-angle code has to recover the requested actions and angles;
+    # at machine/quadrature precision for the discrete construction, at
+    # the interpolation error for the coarse interpolated grid
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aas = actionAngleSpherical(pot=lp)
+    # angles away from the turning points, where the forward code's own
+    # bracketing is fragile
+    angler = numpy.concatenate(
+        (numpy.linspace(0.4, 2.7, 6), numpy.linspace(3.6, 5.9, 5))
+    )
+    anglephi = numpy.linspace(0.0, 5.0, 11) % (2.0 * numpy.pi)
+    anglez = numpy.linspace(2.0, 8.0, 11) % (2.0 * numpy.pi)
+    # discrete
+    aaspc = _spherical_canonical_discrete_setup()
+    jr, L = aaspc._jrs[0], aaspc._Ls[0]
+    jphi = 0.6
+    jz = L - jphi
+    R, vR, vT, z, vz, phi = aaspc._evaluate(jr, jphi, jz, angler, anglephi, anglez)
+    E = 0.5 * (vR**2 + vT**2 + vz**2) + numpy.array(
+        [lp(rr, zz, use_physical=False) for rr, zz in zip(R, z)]
+    )
+    assert numpy.max(numpy.fabs(E - aaspc._Es[0])) < 1e-12, (
+        "The discrete reconstruction does not conserve the torus energy: "
+        "%g" % numpy.max(numpy.fabs(E - aaspc._Es[0]))
+    )
+    ji = aas(R, vR, vT, z, vz, phi)
+    assert numpy.max(numpy.fabs(ji[0] - jr)) < 1e-10
+    assert numpy.max(numpy.fabs(ji[1] - jphi)) < 1e-10
+    assert numpy.max(numpy.fabs(ji[2] - jz)) < 1e-10
+    oo = aas.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    for kk, ang in zip((6, 7, 8), (angler, anglephi, anglez)):
+        da = (numpy.atleast_1d(oo[kk]) - ang + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.max(numpy.fabs(da)) < 1e-7, (
+            "The discrete reconstruction's angles do not round-trip "
+            "through the forward code: %g" % numpy.max(numpy.fabs(da))
+        )
+    # interpolated
+    aai = _spherical_canonical_interp_setup()
+    jphi = 0.65
+    jz = aai._Lgrid[4] - jphi
+    jr = 0.15
+    R, vR, vT, z, vz, phi = aai._evaluate(jr, jphi, jz, angler, anglephi, anglez)
+    ji = aas(R, vR, vT, z, vz, phi)
+    assert numpy.max(numpy.fabs(ji[0] - jr)) < 3e-4, (
+        "The interpolated reconstruction's actions do not round-trip "
+        "within the grid's interpolation error: %g" % numpy.max(numpy.fabs(ji[0] - jr))
+    )
+    oo = aas.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    for kk, ang in zip((6, 7, 8), (angler, anglephi, anglez)):
+        da = (numpy.atleast_1d(oo[kk]) - ang + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.max(numpy.fabs(da)) < 3e-3, (
+            "The interpolated reconstruction's angles do not round-trip "
+            "within the grid's interpolation error: %g" % numpy.max(numpy.fabs(da))
+        )
+    return None
+
+
+def test_actionAngleSphericalCanonical_freq():
+    # the interpolated frequencies are the stored energy interpolant's own
+    # derivatives through the label chain: consistent with a finite
+    # difference of the interpolated Hamiltonian along the family, and
+    # close to the true frequencies
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import LogarithmicHaloPotential
+
+    aai = _spherical_canonical_interp_setup()
+    jphi = 0.65
+    jz = aai._Lgrid[4] - jphi
+    L = jz + numpy.fabs(jphi)
+    jr = 0.15
+    OmR, Omphi, Omz = aai._Freqs(jr, jphi, jz)
+    # implicit-function consistency: H(J_r +- dJ, L) through the stored
+    # interpolants
+    dj = 1e-5
+    Es = []
+    for jj in (jr - dj, jr + dj):
+        u = aai._interp_tables(jj, L)[0]
+        Es.append(aai._E_ip(u, L)[0, 0])
+    OmR_fd = (Es[1] - Es[0]) / (2.0 * dj)
+    assert numpy.fabs(OmR - OmR_fd) < 1e-6 * numpy.fabs(OmR), (
+        "The interpolated radial frequency is not the stored energy "
+        "interpolant's own derivative: %g vs %g" % (OmR, OmR_fd)
+    )
+    # against the true frequencies (interpolation error)
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aas = actionAngleSpherical(pot=lp)
+    R, vR, vT, z, vz, phi = aai._evaluate(
+        jr, jphi, jz, numpy.array([1.7]), numpy.array([1.0]), numpy.array([2.0])
+    )
+    oo = aas.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    assert numpy.fabs(oo[3][0] - OmR) < 1e-3
+    assert numpy.fabs(oo[5][0] - Omz) < 1e-3
+    # node-table quadrature values agree with the chain at a node
+    jr_node = aai._jr_tab[3, 4]
+    OmRn, _, Omzn = aai._Freqs(jr_node, jphi, aai._Lgrid[4] - jphi)
+    assert numpy.fabs(OmRn - aai._OmR_tab[3, 4]) < 1e-3
+    assert numpy.fabs(Omzn - aai._Ompsi_tab[3, 4]) < 1e-3
+    # discrete mode returns the node quadrature frequencies directly
+    aad = _spherical_canonical_discrete_setup()
+    Omd = aad._Freqs(aad._jrs[0], 0.6, aad._Ls[0] - 0.6)
+    assert numpy.fabs(Omd[0] - aad._OmRs[0]) < 1e-14
+    assert numpy.fabs(Omd[2] - aad._Ompsis[0]) < 1e-14
+    return None
+
+
+def test_actionAngleSphericalCanonical_errors():
+    # every guarded misuse raises informatively
+    from galpy.actionAngle import actionAngleSphericalCanonical
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleSphericalCanonical(pot=lp, Es=[0.7, 1.1], Ls=[0.9])
+    assert "same length" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleSphericalCanonical(pot=lp, Es=[0.7], Ls=[0.9], ntau=127)
+    assert "even" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleSphericalCanonical(pot=lp, setup_interp=True, nE=3)
+    assert "nE >= 4" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        # E below the circular orbit's energy at this L
+        actionAngleSphericalCanonical(pot=lp, Es=[0.0], Ls=[1.0])
+    assert "below" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        # E exactly at the circular orbit's energy: degenerate torus
+        actionAngleSphericalCanonical(pot=lp, Es=[0.5], Ls=[1.0])
+    assert "circular" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        # Rinf below the grid's radial range
+        actionAngleSphericalCanonical(
+            pot=lp, setup_interp=True, Rmin=0.7, Rmax=1.4, Rinf=1.0
+        )
+    assert "Rinf" in str(excinfo.value)
+    aai = _spherical_canonical_interp_setup()
+    with pytest.raises(ValueError) as excinfo:
+        aai._Freqs(0.15, 5.0, 0.0)  # L outside the grid
+    assert "outside the interpolation grid" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        aai._Freqs(50.0, 0.65, aai._Lgrid[4] - 0.65)  # J_r outside the family
+    assert "outside the interpolated family" in str(excinfo.value)
+    aad = _spherical_canonical_discrete_setup()
+    with pytest.raises(ValueError) as excinfo:
+        aad._Freqs(0.123, 0.4, 0.2)  # not a set-up torus
+    assert "not one of the set-up tori" in str(excinfo.value)
+    with pytest.raises(RuntimeError) as excinfo:
+        # a single frozen isochrone cannot track the circular-radius curve
+        # of the logarithmic halo over a factor of ~7 in L
+        actionAngleSphericalCanonical(
+            pot=lp,
+            setup_interp=True,
+            Rmin=0.15,
+            Rmax=1.0,
+            Rinf=30.0,
+            nE=4,
+            nL=4,
+            ntau=64,
+            nn=8,
+        )
+    assert "winding" in str(excinfo.value)
+    return None
