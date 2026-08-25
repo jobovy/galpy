@@ -142,12 +142,33 @@ def _galcen_rot(xp, Xsun, Zsun):
     return rot, dgc, zero, batched
 
 
+def _promote_pair(xp, mat, data, dev):
+    """``mat``, ``data`` on ``dev``, both cast to their common dtype.
+
+    These rotations are float64 -- ``galcen_extra_rot`` is a float64 module
+    constant and ``_galcen_rot`` carries Xsun/Zsun's dtype. numpy promotes a
+    mismatch silently; torch REFUSES to matmul float64 against float32, so
+    with torch's DEFAULT dtype every one of these transforms raised. Promoting
+    via ``result_type`` reproduces numpy's own promotion, so float32 input
+    still returns float64 rather than quietly losing precision.
+    """
+    mat = asarray_on_device(xp, mat, dev)
+    dt = xp.result_type(mat, data)
+    return xp.astype(mat, dt), xp.astype(data, dt)
+
+
 def _apply_galcen_rot(xp, rot, data, batched, dev):
     """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
-    rot = asarray_on_device(xp, rot, dev)
+    rot, data = _promote_pair(xp, rot, data, dev)
     if batched:  # (3, 3, N) . (3, N) -> (3, N), i.e. einsum("ijk,jk->ik")
         return xp.sum(rot * data[None, :, :], axis=1)
     return rot @ data
+
+
+def _apply_extra_rot(xp, mat, out, dev):
+    """``(mat @ out.T).T``, promoted -- the astropy-alignment tweak."""
+    mat, outT = _promote_pair(xp, mat, out.T, dev)
+    return (mat @ outT).T
 
 
 def _scale_angle_rows(xp, m, factor=1.0 / _DEGTORAD, nrows=2):
@@ -1162,6 +1183,7 @@ def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
 
 
 @scalarDecorator
+@backendNative
 def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     Transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates.
@@ -1226,7 +1248,8 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     X, Y, Z = promote_scalars(xp, X, Y, Z)
     dev = device_of(X, Y, Z)
     if _extra_rot:
-        X, Y, Z = asarray_on_device(xp, galcen_extra_rot, dev) @ xp.stack([X, Y, Z])
+        mat, data = _promote_pair(xp, galcen_extra_rot, xp.stack([X, Y, Z]), dev)
+        X, Y, Z = mat @ data
     # Float-ify BEFORE promoting, for the same reason as _galcen_rot: an integer
     # Xsun would otherwise drag a python-float Zsun to int and silently zero it.
     Xsun, Zsun = promote_scalars(xp, Xsun * 1.0, Zsun * 1.0)
@@ -1310,7 +1333,7 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
         + asarray_on_device(xp, offset, dev).T
     )
     if _extra_rot:
-        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+        return _apply_extra_rot(xp, galcen_extra_rot.T, out, dev)
     return out
 
 
@@ -1678,7 +1701,7 @@ def galcenrect_to_vxvyvz(
     data = xp.stack([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]])
     out = _apply_galcen_rot(xp, rot, data, batched, dev).T
     if _extra_rot:
-        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+        return _apply_extra_rot(xp, galcen_extra_rot.T, out, dev)
     return out
 
 
