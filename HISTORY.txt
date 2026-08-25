@@ -1,6 +1,17 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``actionAngleStaeckelInverse`` gained ``setup_interp=True``, which sets up
+  a grid of tori spanning the bound phase space and accepts arbitrary actions
+  within it, rather than only the tori listed at initialization. A torus is
+  located from its actions by interpolation alone, with no root finding, and
+  is then constructed exactly, so the interpolation enters only through the
+  integrals it supplies. The grid is rectified at each of its edges (uniform
+  in L_z, quadratic in energy away from the circular orbit, and in an
+  anomaly-like coordinate between the planar and shell edges), without which
+  the interpolation of the actions is useless rather than merely less
+  accurate.
+
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the
   symmetry axis. V(v) is built along u=u0 and only represents the wrapped
