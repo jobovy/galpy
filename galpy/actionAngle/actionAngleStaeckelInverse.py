@@ -836,13 +836,26 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             mode="nearest",
         )[0]
         rhat = rho / rhomax
-        if not (
-            self._rhatmesh[0] <= rhat <= self._rhatmesh[-1]
-            and self._zetamesh[0] <= zeta <= self._zetamesh[-1]
-        ):
+        # Say which way the torus falls out and what the grid does reach:
+        # rho and zeta are rectified coordinates, so quoting them alone leaves
+        # the caller no way to tell a too-energetic torus from a near-circular
+        # one, nor how much of a grid change would take it in
+        if not self._zetamesh[0] <= zeta <= self._zetamesh[-1]:
             raise ValueError(
-                "Given actions lie outside the grid of this "
-                "actionAngleStaeckelInverse instance"
+                f"J_z/(J_R+J_z) = {jz / (jr + jz):g} lies outside the grid of "
+                f"this actionAngleStaeckelInverse instance, which covers "
+                f"[{numpy.sin(numpy.pi * self._zetamesh[0] / 2.0) ** 2.0:g}, "
+                f"{numpy.sin(numpy.pi * self._zetamesh[-1] / 2.0) ** 2.0:g}]"
+            )
+        if not self._rhatmesh[0] <= rhat <= self._rhatmesh[-1]:
+            lo = (self._rhatmesh[0] * rhomax) ** 2.0
+            hi = (self._rhatmesh[-1] * rhomax) ** 2.0
+            raise ValueError(
+                f"J_R+J_z = {jr + jz:g} lies outside the grid of this "
+                f"actionAngleStaeckelInverse instance, "
+                f"{'below' if rhat < self._rhatmesh[0] else 'above'} the total "
+                f"action it covers at J_phi = {Lz:g} and "
+                f"J_z/(J_R+J_z) = {jz / (jr + jz):g} ([{lo:g}, {hi:g}])"
             )
         irhat = numpy.interp(rhat, self._rhatmesh, numpy.arange(self._nE))
         c = numpy.array([[iLz + p], [irhat + p], [izeta + p]])
