@@ -1350,6 +1350,53 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
     return wrapper
 
 
+# Parsers for the dimensions that an integral of motion can have, used to
+# interpret the integrals that actionAngleInverse subclasses accept by name
+_INTEGRAL_PARSERS = {
+    "energy": lambda x, ro, vo: parse_energy(x, vo=vo),
+    "angmom": lambda x, ro, vo: parse_angmom(x, ro=ro, vo=vo),
+}
+
+
+def actionAngleInverse_integral_input(method):
+    """Decorator to let actionAngleInverse methods take the integrals of motion
+    labelling a torus by name, e.g., E=, Lz=, I3=, rather than its actions.
+
+    Subclasses that support this declare the names and dimensions of their
+    integrals in _integral_labels. The integrals are parsed here, ahead of
+    actionAngleInverse_physical_input, because that one understands only
+    actions and angles and would reject an energy; what it sees afterwards is
+    the internal-unit value.
+    """
+
+    @wraps(method)
+    def wrapper(*args, **kwargs):
+        labels = getattr(args[0], "_integral_labels", ())
+        names = tuple(name for name, _ in labels)
+        if names and any(name in kwargs for name in names):
+            missing = [name for name in names if name not in kwargs]
+            if missing:
+                raise ValueError(
+                    "When specifying a torus by its integrals of motion, all "
+                    f"of {', '.join(names)} have to be given; missing "
+                    f"{', '.join(missing)}"
+                )
+            ro = getattr(args[0], "_ro", None)
+            vo = getattr(args[0], "_vo", None)
+            args = (
+                args[0],
+                *(
+                    _INTEGRAL_PARSERS[dim](kwargs.pop(name), ro, vo)
+                    for name, dim in labels
+                ),
+                *args[1:],
+            )
+            kwargs["integrals"] = True
+        return method(*args, **kwargs)
+
+    return wrapper
+
+
 def actionAngleInverse_physical_input(method):
     """Decorator to convert inputs to actionAngleInverse functions from
     physical to internal coordinates"""

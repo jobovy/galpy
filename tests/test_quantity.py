@@ -13943,6 +13943,124 @@ def test_actionAngle_method_inputAsQuantity():
     return None
 
 
+def test_actionAngleStaeckelInverse_method_units():
+    # This class has to live here rather than in test_actionAngle.py: the
+    # astropy-units configuration is set at the top of this file, and the CI
+    # job that runs test_actionAngle.py is configured with REQUIRES_ASTROPY
+    # false, so a Quantity test placed there never runs.
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    ro, vo = 8.0, 220.0
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    E, Lz, I3 = -1.55, 0.9, 1.87
+    # the tori themselves can be given as Quantities; I3 has the dimensions
+    # of an energy in the convention used by the class
+    aA = actionAngleStaeckelInverse(
+        pot=kkp,
+        Es=E * vo**2.0 * units.km**2.0 / units.s**2.0,
+        Lzs=Lz * ro * vo * units.kpc * units.km / units.s,
+        I3s=I3 * vo**2.0 * units.km**2.0 / units.s**2.0,
+        ro=ro,
+        vo=vo,
+    )
+    for got, want, name in (
+        (aA._Es[0], E, "Es"),
+        (aA._Lzs[0], Lz, "Lzs"),
+        (aA._I3s[0], I3, "I3s"),
+    ):
+        assert numpy.fabs(got - want) < 1e-10, (
+            "actionAngleStaeckelInverse does not parse %s as a Quantity" % name
+        )
+    # the evaluation methods return Quantities
+    jr, jphi, jz = float(aA._jr[0]), float(aA._Lzs[0]), float(aA._jz[0])
+    angles = (0.3, 1.1, 2.4)
+    for ii in range(6):
+        assert isinstance(aA(jr, jphi, jz, *angles)[ii], units.Quantity), (
+            "actionAngleStaeckelInverse method __call__ does not return "
+            "Quantity when it should"
+        )
+    for ii in range(9):
+        assert isinstance(aA.xvFreqs(jr, jphi, jz, *angles)[ii], units.Quantity), (
+            "actionAngleStaeckelInverse method xvFreqs does not return "
+            "Quantity when it should"
+        )
+    for ii in range(3):
+        assert isinstance(aA.Freqs(jr, jphi, jz)[ii], units.Quantity), (
+            "actionAngleStaeckelInverse method Freqs does not return Quantity "
+            "when it should"
+        )
+    # the returned Quantities carry the right units
+    out = aA(jr, jphi, jz, *angles)
+    for q, unit in zip(
+        out,
+        (
+            units.kpc,
+            units.km / units.s,
+            units.km / units.s,
+            units.kpc,
+            units.km / units.s,
+            units.rad,
+        ),
+    ):
+        try:
+            q.to(unit)
+        except units.UnitConversionError:
+            raise AssertionError(
+                "actionAngleStaeckelInverse __call__ does not return Quantity "
+                "with the right units"
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_integrals_inputAsQuantity():
+    # An interpolating instance labels a torus by its integrals of motion by
+    # name; an energy is neither an action nor an angle, so this is the case
+    # the shared actionAngleInverse input parser cannot handle by itself.
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    ro, vo = 8.0, 220.0
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    # the extent of the grid is given in length units
+    aA = actionAngleStaeckelInverse(
+        pot=kkp,
+        setup_interp=True,
+        Rmin=0.7 * ro * units.kpc,
+        Rmax=1.6 * ro * units.kpc,
+        Rinf=8.0 * ro * units.kpc,
+        nLz=5,
+        nE=5,
+        nI3=5,
+        ro=ro,
+        vo=vo,
+    )
+    jr, jphi, jz = 0.06, 0.9, 0.03
+    idx = aA._coords_from_actions(jr, jphi, jz)
+    aA._interp_Lz = jphi
+    scal, _ = aA._interp_torus(idx)
+    E, I3 = float(scal[6]), float(scal[7])
+    angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
+    with_units = numpy.array(
+        aA(
+            *[a * units.rad for a in angles],
+            E=E * vo**2.0 * units.km**2.0 / units.s**2.0,
+            Lz=jphi * ro * vo * units.kpc * units.km / units.s,
+            I3=I3 * vo**2.0 * units.km**2.0 / units.s**2.0,
+            use_physical=False,
+        )
+    )
+    plain = numpy.array(aA(*angles, E=E, Lz=jphi, I3=I3, use_physical=False))
+    assert numpy.all(numpy.fabs(with_units - plain) < 1e-12), (
+        "Specifying the integrals of motion as Quantities disagrees with "
+        "specifying them in internal units"
+    )
+    # an integral given in the wrong units is rejected
+    with pytest.raises(units.UnitConversionError):
+        aA(*angles, E=E * units.kpc, Lz=jphi, I3=I3, use_physical=False)
+    return None
+
+
 def test_actionAngleIsochroneApprox_method_ts_units():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
