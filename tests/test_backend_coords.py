@@ -376,6 +376,29 @@ _CHAIN_CASES = {
     "galcenrect_to_vxvyvz": lambda c, a: c.galcenrect_to_vxvyvz(
         a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
     ),
+    # The FORWARD galcen transforms. Their backend branches are only reachable
+    # through a test like this one: the coverage-measuring CI job runs numpy
+    # only, and the --backend shards upload no coverage at all, so a branch
+    # exercised solely under --backend reads as uncovered. Covers
+    # _to_galcen_rot and both _as_vsun branches: the default vsun is a list,
+    # the "vsun_array" case passes it pre-built.
+    "XYZ_to_galcenrect": lambda c, a: c.XYZ_to_galcenrect(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "XYZ_to_galcencyl": lambda c, a: c.XYZ_to_galcencyl(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "vxvyvz_to_galcenrect": lambda c, a: c.vxvyvz_to_galcenrect(
+        a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
+    ),
+    "vxvyvz_to_galcenrect_vsun_array": lambda c, a: c.vxvyvz_to_galcenrect(
+        a["vx"],
+        a["vy"],
+        a["vz"],
+        Xsun=1.0,
+        Zsun=0.02,
+        vsun=numpy.array([-10.0, 240.0, 7.0]),
+    ),
     "XYZ_to_lbd": lambda c, a: c.XYZ_to_lbd(a["x"], a["y"], a["z"], degree=False),
     "vxvyvz_to_vrpmllpmbb": lambda c, a: c.vxvyvz_to_vrpmllpmbb(
         a["vx"], a["vy"], a["vz"], a["x"], a["y"], a["z"], XYZ=True, degree=False
