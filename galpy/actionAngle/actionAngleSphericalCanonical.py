@@ -15,6 +15,7 @@ from scipy.optimize import brentq, minimize
 
 from ..potential import IsochronePotential, evaluatePotentials, rl, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
+from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -134,12 +135,22 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._interp = setup_interp
         self._pt = pt
         if not setup_interp:
-            self._Es = numpy.atleast_1d(numpy.array(Es, dtype="float"))
-            self._Ls = numpy.atleast_1d(numpy.array(Ls, dtype="float"))
+            self._Es = conversion._parse_grid_quantity(
+                Es, conversion.parse_energy, vo=self._vo
+            ).astype("float")
+            self._Ls = conversion._parse_grid_quantity(
+                Ls, conversion.parse_angmom, ro=self._ro, vo=self._vo
+            ).astype("float")
             if len(self._Es) != len(self._Ls):
                 raise ValueError("Es and Ls have to have the same length")
         else:
-            self._setup_grid(Rmin, Rmax, Rinf, nE, nL)
+            self._setup_grid(
+                conversion.parse_length(Rmin, ro=self._ro),
+                conversion.parse_length(Rmax, ro=self._ro),
+                conversion.parse_length(Rinf, ro=self._ro),
+                nE,
+                nL,
+            )
         # sample every torus once (exact placement), then choose the frozen
         # toy (all torus-dependence beyond it lives in the support-matched
         # PT family, whose compensation is closed-form), then compute the
@@ -1014,6 +1025,3 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             ii = self._match_node(jr, L)
             OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
         return (OmR, numpy.sign(jphi) * OmL, OmL)
-
-    def _check_consistent_units(self):
-        pass
