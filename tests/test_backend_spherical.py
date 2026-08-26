@@ -58,6 +58,11 @@ except ImportError:  # pragma: no cover
 try:
     import torch
 
+    # Mirrors the jax_enable_x64 above: galpy's tolerances assume float64, and
+    # the identity checks here are tight enough (rtol=1e-9) to fail at float32.
+    # Not inherited -- the conftest fixture only sets this under --backend torch,
+    # so without it a single-file run of THIS file silently drops to float32.
+    torch.set_default_dtype(torch.float64)
     BACKENDS.append("torch")
 except ImportError:  # pragma: no cover
     torch = None
@@ -763,26 +768,27 @@ def test_einasto_dn_forward_matches_numpy(backend_name, n):
     )
 
 
-@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-def test_einasto_dn_gradient_vs_finite_difference_jax():
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_einasto_dn_gradient_vs_finite_difference(backend_name):
     """d(d_n)/dn by the implicit function theorem vs a central difference.
 
-    jax ONLY, and deliberately so: the implicit-diff gradient needs dQ/da (the
-    derivative of the regularized incomplete gamma w.r.t. its ORDER), and torch
-    does not implement it -- ``NotImplementedError: the derivative for
-    'igammac: input' is not implemented``. That is an upstream torch gap, not a
-    galpy one, and closing it needs a differentiable incomplete gamma in
-    galpy.backend.special (which has no gammainc fallback today) -- a separate
-    change that would serve every gammaincc consumer, not just this one.
+    Both backends. torch gets here through galpy's own ``_IncGamma`` autograd
+    rule in ``backend.special._fallback.gammainc``: ``torch.special.gammainc``
+    taken directly still raises ``NotImplementedError`` for the derivative
+    w.r.t. its ORDER, which is precisely the derivative the implicit-function
+    theorem needs. This test was jax-only until that fallback existed.
 
-    The FD reference is computed on the NUMPY path, so this compares the backend
+    The FD reference runs on the NUMPY path, so this compares the backend
     derivative against an independent evaluation rather than against itself.
+    The h=1e-5 truncation error is the floor: both backends land 1.5e-10 from
+    it (and far closer to each other than either is to it), so the 1e-8 bar
+    measures the AD rather than the finite difference.
     """
     h = 1e-5
     fd = (_ein_dn(_EIN_N + h) - _ein_dn(_EIN_N - h)) / (2.0 * h)
-    got = float(jax.grad(_ein_dn)(jnp.asarray(_EIN_N)))
-    assert abs(got - fd) < 1e-7 * abs(fd), (
-        f"d(d_n)/dn={got!r} vs finite difference {fd!r} "
+    got = _grad_wrt(backend_name, _ein_dn, _EIN_N)
+    assert abs(got - fd) < 1e-8 * abs(fd), (
+        f"{backend_name}: d(d_n)/dn={got!r} vs finite difference {fd!r} "
         f"(rel err {abs(got - fd) / abs(fd):.3e})"
     )
 
