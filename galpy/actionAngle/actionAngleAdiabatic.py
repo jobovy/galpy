@@ -156,10 +156,18 @@ class actionAngleAdiabatic(actionAngle):
             else:
                 if kwargs.get("_justjr", False):
                     kwargs.pop("_justjr")
+                    # atleast_1d to match the _justjz and general returns below.
+                    # The len(R) > 1 branch above loops over points calling this
+                    # scalar branch and then does ojr[ii] = tjr[0], so returning
+                    # a bare float raised TypeError for ANY multi-point _justjr
+                    # call -- reachable from actionAngleAdiabaticGrid whenever
+                    # two or more points fall outside the grid with c=False.
                     return (
-                        self._aAS(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=0.0)[0],
-                        numpy.nan,
-                        numpy.nan,
+                        numpy.atleast_1d(
+                            self._aAS(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=0.0)[0]
+                        ),
+                        numpy.atleast_1d(numpy.nan),
+                        numpy.atleast_1d(numpy.nan),
                     )
                 # Set up the actionAngleVertical object
                 if _dim(self._pot) == 3:
