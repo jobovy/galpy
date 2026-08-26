@@ -9546,9 +9546,6 @@ def test_actionAngleStaeckelInverse_canonical_errors():
             npt=99,
         )
     assert "npt" in str(excinfo.value)
-    with pytest.raises(NotImplementedError) as excinfo:
-        actionAngleStaeckelInverse(pot=kk, canonical=True, setup_interp=True)
-    assert "T2" in str(excinfo.value)
     # the Newton else-raises via maxiter=0 (white-box)
     maxiter = aac._maxiter
     try:

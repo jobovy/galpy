@@ -44,6 +44,19 @@ def _bspline_weights(t):
     )
 
 
+def _bspline_dweights(t):
+    """Derivative of the cubic B-spline weights with respect to the offset"""
+    t2 = t * t
+    return numpy.array(
+        [
+            -0.5 * (1.0 - t) ** 2,
+            -2.0 * t + 1.5 * t2,
+            0.5 + t - 1.5 * t2,
+            0.5 * t2,
+        ]
+    )
+
+
 class _ProfileSet:
     """Several angle profiles sharing one uniform chi mesh.
 
@@ -296,16 +309,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._ncanon = ncanon
         self._npt = npt
         self._nforDm = numpy.arange(1, npt + 1)
-        if canonical and setup_interp:
-            raise NotImplementedError(
-                "canonical=True with setup_interp=True arrives with the "
-                "family PR (T2); the canonical construction currently "
-                "applies to the discrete tori"
-            )
         if setup_interp:
             Rmin = conversion.parse_length(Rmin, ro=self._ro)
             Rmax = conversion.parse_length(Rmax, ro=self._ro)
             Rinf = conversion.parse_length(Rinf, ro=self._ro)
+            if canonical:
+                self._setup_canonical_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad)
+                return
             self._setup_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, nchi_store)
             return
         # Setup in three logical stages
@@ -1750,3 +1760,158 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._Omegaphi[ii],
             self._Omegaz[ii],
         )
+
+    ################## CANONICAL FAMILY (T2) ##################################
+    def _canon_table_eval(self, x, deriv=None):
+        """Evaluate the stacked, prefiltered 3-D canonical tables (and their
+        own derivatives) at fractional grid coordinates x = (xL, xE, xI),
+        vectorized over points; deriv is None or the axis (0, 1, 2) along
+        which to take the tables' own first derivative, in grid-index units"""
+        x = numpy.atleast_2d(x)
+        npts = x.shape[0]
+        vals = numpy.empty((self._canon_tab.shape[0], npts))
+        idx = numpy.floor(x).astype(int)
+        t = x - idx
+        for ax in range(3):
+            idx[:, ax] = numpy.clip(idx[:, ax], 0, self._canon_shape[ax] - 2)
+        t = x - idx
+        wts = []
+        for ax in range(3):
+            w = (
+                _bspline_dweights(t[:, ax])
+                if deriv == ax
+                else _bspline_weights(t[:, ax])
+            )
+            wts.append(w.T)  # (npts, 4)
+        # gather the 4x4x4 neighborhoods: pad offset is 2
+        i0 = idx[:, 0][:, None] + numpy.arange(4)[None, :] + 1
+        i1 = idx[:, 1][:, None] + numpy.arange(4)[None, :] + 1
+        i2 = idx[:, 2][:, None] + numpy.arange(4)[None, :] + 1
+        block = self._canon_tab[
+            :,
+            i0[:, :, None, None],
+            i1[:, None, :, None],
+            i2[:, None, None, :],
+        ]
+        vals = numpy.einsum("qpabc,pa,pb,pc->qp", block, wts[0], wts[1], wts[2])
+        return vals
+
+    def _setup_canonical_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad):
+        """The canonical family: the rectified (L_z, w_E, w_I) node lattice
+        of the direct grid, all node tori built in one vectorized canonical
+        construction, and the family stored as prefiltered 3-D tables whose
+        own derivatives drive every evaluation chain (manifest canonicity:
+        the labels are the stored action tables, inverted implicitly, and
+        no derivative is ever stored separately)"""
+        self._nLz, self._nE, self._nI3 = nLz, nE, nI3
+        self._Lzgrid = numpy.linspace(
+            Rmin * vcirc(self._pot, Rmin, use_physical=False),
+            Rmax * vcirc(self._pot, Rmax, use_physical=False),
+            nLz,
+        )
+        self._wEgrid = numpy.linspace(wpad, 1.0 - wpad, nE)
+        self._wIgrid = numpy.linspace(0.0, 1.0, nI3)
+        self._wIedge = 1e-4
+        shape = (nLz, nE, nI3)
+        self._canon_shape = shape
+        Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
+        wIbuild = numpy.clip(self._wIgrid, self._wIedge, 1.0 - self._wIedge)
+        sinw = numpy.sin(numpy.pi * wIbuild / 2.0) ** 2.0
+        for ii, Lz in enumerate(self._Lzgrid):
+            Ec = self._circular_orbit(Lz)[1]
+            Emax = (
+                evaluatePotentials(self._pot, Rinf, 0.0, use_physical=False)
+                + Lz**2.0 / 2.0 / Rinf**2.0
+            )
+            for jj, wE in enumerate(self._wEgrid):
+                E = Ec + wE**2.0 * (Emax - Ec)
+                Ipl = self._I3_planar(E, Lz)
+                Ish = self._I3_shell(E, Lz)
+                Es[ii, jj] = E
+                Lzs[ii, jj] = Lz
+                I3s[ii, jj] = Ipl + sinw * (Ish - Ipl)
+        grid = actionAngleStaeckelInverse(
+            pot=self._staeckelwrap,
+            Es=Es.ravel(),
+            Lzs=Lzs.ravel(),
+            I3s=I3s.ravel(),
+            nchi=self._nchi,
+            canonical=True,
+            ncanon=self._ncanon,
+            npt=self._npt,
+        )
+        self._canon_node_maxdev = grid._can_maxdev
+        self._canon_node_stokes = grid._can_stokes
+        self._GMc, self._bc = grid._GMc, grid._bc
+        self._aAIc, self._aAIinvc = grid._aAIc, grid._aAIinvc
+        # the stacked tables: labels, energy, supports, and the two anomaly
+        # maps' sine coefficients
+        nq = 6 + 2 * self._npt
+        tab = numpy.empty((nq,) + shape)
+        tab[0] = grid._jr.reshape(shape)
+        tab[1] = grid._jz.reshape(shape)
+        tab[2] = Es
+        tab[3] = grid._umins.reshape(shape)
+        tab[4] = grid._umaxs.reshape(shape)
+        tab[5] = grid._vmins.reshape(shape)
+        tab[6 : 6 + self._npt] = numpy.moveaxis(
+            grid._can_Dmu.reshape(shape + (self._npt,)), -1, 0
+        )
+        tab[6 + self._npt :] = numpy.moveaxis(
+            grid._can_Dmv.reshape(shape + (self._npt,)), -1, 0
+        )
+        # the vanishing action is exactly zero at its edge
+        if self._wIgrid[-1] == 1.0:
+            tab[0, :, :, -1] = 0.0
+        if self._wIgrid[0] == 0.0:
+            tab[1, :, :, 0] = 0.0
+        self._canon_tab_raw = tab
+        self._rebuild_canon_interp()
+        return None
+
+    def _rebuild_canon_interp(self):
+        """(Re)build the prefiltered tables from the raw ones; separate so
+        that table perturbations (the noise-injection manifest test)
+        re-enter through exactly this call"""
+        self._canon_tab = _prefilter_padded(self._canon_tab_raw, (1, 2, 3), 2)
+        return None
+
+    def _canon_coords(self, jr, Lz, jz):
+        """Invert the stored label tables for the fractional grid
+        coordinates: the implicit-inverse labels (exact-in-the-family), by
+        a 2-D Newton in (w_E, w_I) at fixed L_z"""
+        if Lz < self._Lzgrid[0] or Lz > self._Lzgrid[-1]:
+            raise ValueError(
+                f"L_z = {Lz} outside the interpolation grid "
+                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]"
+            )
+        xL = (
+            (Lz - self._Lzgrid[0])
+            / (self._Lzgrid[-1] - self._Lzgrid[0])
+            * (self._nLz - 1)
+        )
+        xE, xI = 0.5 * (self._nE - 1), 0.5 * (self._nI3 - 1)
+        for _ in range(self._maxiter):
+            x = numpy.array([[xL, xE, xI]])
+            v = self._canon_table_eval(x)
+            dE_ = self._canon_table_eval(x, deriv=1)
+            dI_ = self._canon_table_eval(x, deriv=2)
+            f0 = v[0, 0] - jr
+            f1 = v[1, 0] - jz
+            J00, J01 = dE_[0, 0], dI_[0, 0]
+            J10, J11 = dE_[1, 0], dI_[1, 0]
+            det = J00 * J11 - J01 * J10
+            dxE = (J11 * f0 - J01 * f1) / det
+            dxI = (-J10 * f0 + J00 * f1) / det
+            lim = min(1.0, 1.0 / max(abs(dxE), abs(dxI), 1e-30))
+            xE = numpy.clip(xE - dxE * lim, 0.0, self._nE - 1.0)
+            xI = numpy.clip(xI - dxI * lim, 0.0, self._nI3 - 1.0)
+            if max(abs(f0), abs(f1)) < 1e-12 * (1.0 + abs(jr) + abs(jz)):
+                break
+        else:
+            raise ValueError(
+                f"(J_R, J_z) = ({jr}, {jz}) could not be matched inside the "
+                f"interpolation grid at L_z = {Lz}: the torus lies outside "
+                "the interpolated family"
+            )
+        return numpy.array([xL, xE, xI])
