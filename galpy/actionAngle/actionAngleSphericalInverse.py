@@ -1,5 +1,5 @@
 ###############################################################################
-# actionAngleSphericalCanonical.py: inverse action-angle transformation for
+# actionAngleSphericalInverse.py: inverse action-angle transformation for
 #   spherical potentials, built the Staeckel-canonical way: exact node tori
 #   by direct radial quadrature (no auxiliary torus in the construction),
 #   lifted onto a manifestly canonical Fourier transform against an
@@ -43,7 +43,7 @@ def _spec_eval(c, tau, deriv=False):
     return numpy.real(ph @ (w * cc))
 
 
-class actionAngleSphericalCanonical(actionAngleInverse):
+class actionAngleSphericalInverse(actionAngleInverse):
     """Canonical inverse action-angle transformation for spherical potentials.
 
     Node tori are exact (radial turning points and momenta by direct
@@ -75,7 +75,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         **kwargs,
     ):
         """
-        Initialize an actionAngleSphericalCanonical object.
+        Initialize an actionAngleSphericalInverse object.
 
         Parameters
         ----------
@@ -117,7 +117,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         """
         actionAngleInverse.__init__(self, *[], **kwargs)
         if pot is None:
-            raise OSError("Must specify pot= for actionAngleSphericalCanonical")
+            raise OSError("Must specify pot= for actionAngleSphericalInverse")
         self._pot = _check_potential_list_and_deprecate(pot)
         if ntau % 2 == 1:
             raise ValueError("ntau has to be even")
