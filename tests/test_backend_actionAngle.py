@@ -2523,3 +2523,74 @@ def test_estimateDeltaStaeckel_scalar_only_potential(backend):
     )
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-8, atol=1e-10)
     return None
+
+
+# ---------------------------------------------------------------------------
+# actionAngleAdiabaticGrid off-grid fallback (jax/torch).
+#
+# The backend path used to evaluate the interpolation grid ONLY, silently
+# EXTRAPOLATING off-grid where numpy falls back to an exact per-point solve. It
+# now gathers the off-grid points, solves those exactly, and scatters back --
+# the same mask / `sum > 0` / scatter-assign shape numpy already uses.
+#
+# The MIXED case is the one that matters: the pre-existing off-grid test has ALL
+# points off-grid, so a scatter writing to the WRONG POSITIONS would pass it.
+# ---------------------------------------------------------------------------
+_AG_CASES = {
+    "all-on-grid": numpy.array([1.0, 1.2]),
+    "mixed": numpy.array([1.0, 1.2, 3.0]),
+    "all-off-grid": numpy.array([3.0, 3.5]),
+}
+
+
+def _ag_pair():
+    from galpy.actionAngle import actionAngleAdiabaticGrid
+    from galpy.potential import MWPotential
+
+    return actionAngleAdiabaticGrid(pot=MWPotential, Rmax=2.0, zmax=0.2)
+
+
+@pytest.mark.parametrize("case", list(_AG_CASES))
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_adiabaticgrid_offgrid_matches_the_numpy_grid(backend_name, case):
+    from galpy import backend as _backend
+
+    R = _AG_CASES[case]
+    n = len(R)
+    o = numpy.ones(n)
+    aAA = _ag_pair()
+    ref = aAA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)  # numpy grid = the target
+    conv = jnp.asarray if backend_name == "jax" else torch.tensor
+    with _backend.use(backend_name, force=True):
+        got = aAA(conv(R), conv(0.1 * o), conv(1.0 * o), conv(0.1 * o), conv(0.1 * o))
+    for idx, name in ((0, "jr"), (2, "jz")):
+        numpy.testing.assert_allclose(
+            as_numpy(got[idx]),
+            as_numpy(ref[idx]),
+            rtol=1e-10,
+            err_msg=f"{backend_name} {case}: {name} != the numpy grid",
+        )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_adiabaticgrid_offgrid_is_nan_under_a_trace_not_silently_extrapolated():
+    # Under a trace a boolean mask has no concrete size, so the off-grid points
+    # cannot be gathered and the `any` cannot be branched on. Returning the
+    # extrapolated interpolant there would be SILENTLY WRONG, so those entries
+    # come back NaN -- visible. On-grid entries must stay finite.
+    from galpy import backend as _backend
+
+    aAA = _ag_pair()
+    R = jnp.asarray([1.0, 3.0])  # one on-grid, one off-grid
+    o = jnp.ones(2)
+
+    def f(Rv):
+        return aAA(Rv, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)[0]
+
+    with _backend.use("jax", force=True):
+        jr = numpy.asarray(jax.jit(f)(R))
+    assert numpy.isfinite(jr[0]), f"on-grid entry should stay finite, got {jr[0]!r}"
+    assert numpy.isnan(jr[1]), (
+        f"off-grid entry under a trace must be NaN rather than a silently "
+        f"extrapolated value, got {jr[1]!r}"
+    )
