@@ -822,12 +822,13 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     # the @backend_input boundary -- shared, not re-spelled.
     xp = prefer_backend_namespace(filtered, coords)
     dev = device_of(coords, filtered)
-    filtered = asarray_on_device(xp, filtered, dev)
+    # Both sides onto xp and onto dev, once. A backend ``filtered`` (native
+    # prefilter, GPU-resident/differentiable) is already there and stays put; a
+    # numpy one is materialised. The is_backend_array(filtered) test that used
+    # to guard a second materialisation here became dead the moment this
+    # coercion landed -- there is no numpy ``filtered`` left to catch.
+    cb = asarray_on_device(xp, filtered, dev)
     coords = asarray_on_device(xp, coords, dev)
-    # A backend ``filtered`` (native prefilter, GPU-resident/differentiable) stays
-    # on its backend; a numpy ``filtered`` is materialised onto the coords' device.
-    filt = filtered if is_backend_array(filtered) else numpy.asarray(filtered)
-    cb = asarray_on_device(xp, filt, dev)
     shape = cb.shape
     D = cb.ndim
     # coords is (D, M): split into per-dimension rows. base = floor index, frac =

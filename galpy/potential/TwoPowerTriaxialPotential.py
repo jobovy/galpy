@@ -15,7 +15,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, concretely_true, get_namespace
 from ..backend import special as _bspecial
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -107,7 +107,11 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         a = conversion.parse_length(a, ro=self._ro)
         self.a = a
         self._scale = self.a
-        if beta <= 2.0 or alpha >= 3.0:
+        # concretely_true, and one call per clause rather than `or`: under a
+        # trace w.r.t. alpha/beta each comparison is a tracer with no truth
+        # value, so validating here would take down the trace. Identical on
+        # numpy -- concretely_true is bool() there.
+        if concretely_true(beta <= 2.0) or concretely_true(alpha >= 3.0):
             raise OSError(
                 "TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2"
             )
@@ -116,7 +120,11 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         self.betaminusalpha = self.beta - self.alpha
         self.twominusalpha = 2.0 - self.alpha
         self.threeminusalpha = 3.0 - self.alpha
-        if self.twominusalpha != 0.0:
+        # `not concretely_true(== 0)` rather than `!= 0`: alpha == 2 is a
+        # degenerate closed form, and under a trace we cannot prove we are NOT
+        # in it, so take the generic branch -- which is the one that is
+        # differentiable in alpha. _psi below makes the mirrored choice.
+        if not concretely_true(self.twominusalpha == 0.0):
             # Routed gamma on coerced exponents, so psi_inf is computed ON the
             # backend under a force and stays differentiable in alpha/beta;
             # scipy.special.gamma would return a silently DETACHED tensor. The
@@ -148,7 +156,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         r"""\psi(m) = -\int_{m^2}^\infty d m'^2 \rho(m'^2)"""
         # backend hyp2f1 (scipy on numpy, byte-identical): scipy.special.hyp2f1
         # converts a traced/tensor m to numpy, which is not jit-traceable
-        if self.twominusalpha == 0.0:
+        if concretely_true(self.twominusalpha == 0.0):
             return (
                 -2.0
                 * self.a**2
