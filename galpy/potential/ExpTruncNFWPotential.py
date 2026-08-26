@@ -113,7 +113,10 @@ class ExpTruncNFWPotential(SphericalPotential):
         # Threshold below which the closed-form M(<r) suffers cancellation; use
         # the series expansion instead. r/min(a, rc) < eps gives roughly eps^2
         # relative truncation error in F(r).
-        self._small_r_thresh = 1e-3 * min(a, rc)
+        # xp.minimum, not min(): min() needs a truth value, which a TRACED a or
+        # rc does not have (jax.jit(jax.grad(...)) w.r.t. a scale radius raises
+        # TracerBoolConversionError here). Same value on numpy.
+        self._small_r_thresh = 1e-3 * get_namespace(a, rc).minimum(a, rc)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
