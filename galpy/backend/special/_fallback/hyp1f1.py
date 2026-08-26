@@ -16,13 +16,18 @@
 ###############################################################################
 import math
 
+from ..._namespaces import concretely_true, is_backend_array
+
 
 def hyp1f1_fallback(xp, a, b, z):
     r"""1F1(a, b; z) for real z <= 0, restricted to b = a + 1 (galpy's case).
 
     a, b scalars; z a backend array/scalar.
     """
-    if abs(b - (a + 1.0)) >= 1e-12:
+    # concretely_true: with a TRACED a or b the comparison has no truth value, so
+    # the domain check has to skip itself rather than take the trace down. It is
+    # a check on galpy's own call pattern, which no traced call changes.
+    if concretely_true(abs(b - (a + 1.0)) >= 1e-12):
         raise NotImplementedError(
             "galpy.backend.special.hyp1f1 fallback only implements the b=a+1 case "
             f"(galpy's only use); got (a, b)=({a}, {b})"
@@ -36,6 +41,18 @@ def hyp1f1_fallback(xp, a, b, z):
     Xs = xp.maximum(X, xp.ones_like(X) * 1e-12)
     # ``a`` as an array (torch.special.gammainc requires both args be tensors).
     a_arr = xp.ones_like(Xs) * a
-    closed = a * Xs ** (-a) * math.gamma(a) * gammainc(a_arr, Xs)
+    # math.gamma on a BACKEND a runs via __float__ and silently detaches this
+    # factor: measured torch d/da 1F1(a, a+1; -3) came back 42% wrong, with
+    # requires_grad and a grad_fn intact. Route it instead. On jax that makes
+    # d/da correct end to end; on torch it turns the wrong answer into a loud
+    # NotImplementedError from torch.special.gammainc, which has no derivative
+    # w.r.t. its order -- a real gap, and better surfaced than hidden.
+    if is_backend_array(a):
+        from .._router import gamma as _gamma
+
+        gamma_a = _gamma(xp.ones_like(Xs) * a)
+    else:
+        gamma_a = math.gamma(a)
+    closed = a * Xs ** (-a) * gamma_a * gammainc(a_arr, Xs)
     series = 1.0 + a / (a + 1.0) * z + a / (a + 2.0) * z * z / 2.0
     return xp.where(X < 1e-6, series, closed)
