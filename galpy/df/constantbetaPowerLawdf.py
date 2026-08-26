@@ -6,7 +6,12 @@
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
 
-from ..backend import coerce_coords, get_namespace, resolve_namespace
+from ..backend import (
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    resolve_namespace,
+)
 from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
@@ -64,8 +69,14 @@ class constantbetaPowerLawdf(_constantbetadf):
         assert isinstance(pot, PowerSphericalPotential), (
             "pot= must be potential.PowerSphericalPotential"
         )
-        assert pot.alpha > 2.0, "pot.alpha must be > 2 for bound orbits"
-        assert beta < 1.0, "beta must be < 1"
+        # `not concretely_true(<negation>)` rather than the direct comparison:
+        # under a trace w.r.t. alpha or beta the comparison is a tracer with no
+        # truth value, so the check has to skip itself instead of taking the
+        # trace down. Unchanged on numpy.
+        assert not concretely_true(pot.alpha <= 2.0), (
+            "pot.alpha must be > 2 for bound orbits"
+        )
+        assert not concretely_true(beta >= 1.0), "beta must be < 1"
         self._alpha_pot = pot.alpha
         # Resolve tracer density
         if denspot is not None:
@@ -75,7 +86,9 @@ class constantbetaPowerLawdf(_constantbetadf):
             self._gamma = denspot.alpha
         else:
             self._gamma = self._alpha_pot
-        assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
+        assert not concretely_true(self._gamma >= 3.0), (
+            "gamma must be < 3 for finite enclosed mass"
+        )
         _constantbetadf.__init__(
             self, pot=pot, denspot=denspot, beta=beta, rmax=rmax, ro=ro, vo=vo
         )
@@ -96,7 +109,9 @@ class constantbetaPowerLawdf(_constantbetadf):
         # Exponents
         self._p = (self._gamma - 2.0 * self._beta) / (self._alpha_pot - 2.0)
         self._n = self._p + self._beta - 1.5
-        assert self._n > -1.0, (
+        # The f-string is only built when the assert FAILS, which a traced
+        # self._n never does here -- so no tracer ever reaches "{:.3f}".
+        assert not concretely_true(self._n <= -1.0), (
             f"Energy exponent n={self._n:.3f} must be > -1 for the DF to be normalizable. "
             "Adjust gamma, alpha, or beta."
         )

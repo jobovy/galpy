@@ -91,6 +91,15 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     rmin : float
         The rmin value to use (in internal units)
     """
+    # If rmin is explicitly specified, use it. FIRST: everything below is only
+    # consulted to pick an rmin automatically, so with an explicit rmin the
+    # Phi(0) probe is wasted work -- and it is not traceable (it reads a
+    # concrete Phi(0) out of the backend), so it would block building a DF
+    # inside a jitted function that differentiates w.r.t. a potential
+    # parameter.
+    if rmin is not None:
+        return conversion.parse_length(rmin, ro=ro)
+
     # Check if potential diverges at r=0
     xp = get_namespace()  # context/forced default only (inputs are scalars)
     if xp is numpy:
@@ -99,10 +108,6 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         # coerce coords: undecorated potential evals reject scalars (torch)
         phi_at_zero = as_numpy(_evaluatePotentials(pot, xp.asarray(0.0), 0))
     is_divergent = not numpy.isfinite(phi_at_zero)
-
-    # If rmin is explicitly specified, use it
-    if rmin is not None:
-        return conversion.parse_length(rmin, ro=ro)
 
     # Check all potentials for known problematic types
     for p in denspot:
