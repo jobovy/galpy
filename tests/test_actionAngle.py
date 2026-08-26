@@ -8847,6 +8847,9 @@ def test_actionAngleSphericalCanonical_errors():
         actionAngleSphericalCanonical(pot=lp, Es=[0.7], Ls=[0.9], ntau=127)
     assert "even" in str(excinfo.value)
     with pytest.raises(ValueError) as excinfo:
+        actionAngleSphericalCanonical(pot=lp, Es=[0.7], Ls=[0.9], ntau=64, npt=99)
+    assert "npt" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
         actionAngleSphericalCanonical(pot=lp, setup_interp=True, nE=3)
     assert "nE >= 4" in str(excinfo.value)
     with pytest.raises(ValueError) as excinfo:
@@ -8892,9 +8895,9 @@ def test_actionAngleSphericalCanonical_errors():
         )
     assert "winding" in str(excinfo.value)
     with pytest.raises(RuntimeError) as excinfo:
-        # beyond ecc ~0.97 the affine lift's shape mismatch cannot be
-        # bound in any isochrone toy (measured: the overshoot ratio is
-        # GM-invariant), and the failure is reported honestly
+        # at ecc ~0.97 a 31-mode anomaly map is under-resolved and the
+        # failure is reported honestly (the same grid builds fine at
+        # adequate npt/ntau: the boundary is resolution, not structure)
         actionAngleSphericalCanonical(
             pot=lp,
             setup_interp=True,
@@ -8906,7 +8909,7 @@ def test_actionAngleSphericalCanonical_errors():
             ntau=64,
             nn=8,
         )
-    assert "affine" in str(excinfo.value)
+    assert "npt" in str(excinfo.value)
     return None
 
 
@@ -8984,6 +8987,13 @@ def test_actionAngleSphericalCanonical_guards():
         with pytest.raises(RuntimeError) as excinfo:
             aad._toy_radial(numpy.array([0.2]), 0.9, numpy.array([2.0]))
         assert "eccentric anomaly" in str(excinfo.value)
+        with pytest.raises(RuntimeError) as excinfo:
+            aad._tau_of_eta(numpy.array([2.0]), aad._Dms[0])
+        assert "map anomaly" in str(excinfo.value)
+        with pytest.raises(RuntimeError) as excinfo:
+            smp = aad._samples[0]
+            aad._pt_match(smp[0], smp[1], smp[2], smp[3], smp[4], smp[6])
+        assert "momentum-matching" in str(excinfo.value)
     finally:
         aad._maxiter = maxiter
     # an uncached torus falls through the sample cache to a fresh sample
@@ -9046,4 +9056,18 @@ def test_actionAngleSphericalCanonical_nopt():
     )
     ji = aas(R, vR, vT, z, vz, phi)
     assert numpy.max(numpy.fabs(ji[0] - aad._jrs[0])) < 1e-10
+    # the theta^A Newton's safeguarded scalar fallback gives the same
+    # answer as the Newton itself (forced via maxiter=0)
+    x0 = aai._evaluate(
+        0.15, jphi, jz, numpy.array([1.7]), numpy.array([1.0]), numpy.array([2.0])
+    )
+    maxiter = aai._maxiter
+    try:
+        aai._maxiter = 0
+        x1 = aai._evaluate(
+            0.15, jphi, jz, numpy.array([1.7]), numpy.array([1.0]), numpy.array([2.0])
+        )
+    finally:
+        aai._maxiter = maxiter
+    assert numpy.max(numpy.fabs(numpy.array(x1) - numpy.array(x0))) < 1e-10
     return None
