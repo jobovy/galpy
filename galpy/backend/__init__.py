@@ -23,6 +23,7 @@ from ._jit import jit, jit_mode, set_jit
 from ._namespaces import (
     as_numpy,
     asarray_on_device,
+    concretely_true,
     device_of,
     exit_cast,
     fork_deadlocks_backend,
@@ -58,6 +59,7 @@ __all__ = [
     "use",
     "set_default_backend",
     "has_concrete_truth_value",
+    "concretely_true",
     "is_backend_array",
     "is_backend_compatible",
     "match_input_dtype",

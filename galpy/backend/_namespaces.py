@@ -43,6 +43,23 @@ def has_concrete_truth_value(x):
     return True
 
 
+def concretely_true(cond):
+    """True iff ``cond`` has a concrete truth value AND that value is True.
+
+    The guard for a Python-level ``if`` on something that may be TRACED. Under a
+    jax trace ``if cond`` raises ``TracerBoolConversionError``, so a *validation*
+    check (raise on a bad parameter) has to skip itself rather than take down the
+    trace, and a *special-case* branch (a closed form that degenerates at one
+    exponent, say) has to fall through to the generic case. Both read as
+    ``if concretely_true(...)``. On numpy, and on untraced jax/torch values, this
+    is exactly ``bool(cond)``, so those paths are unchanged. Under
+    ``torch.compile`` dynamo answers ``bool()`` from the example value and
+    guards on it, so the branch is specialised rather than skipped -- which is
+    what dynamo does with any Python-level branch and needs no special casing.
+    """
+    return has_concrete_truth_value(cond) and bool(cond)
+
+
 def is_backend_array(x):
     """True if ``x`` is a non-numpy backend array (a jax or torch array/tensor).
 

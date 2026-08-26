@@ -23,7 +23,12 @@
 ###############################################################################
 import math
 
-from ..._namespaces import asarray_on_device, device_of
+from ..._namespaces import (
+    asarray_on_device,
+    device_of,
+    has_concrete_truth_value,
+    is_backend_array,
+)
 from ._quadrature import gauss_legendre_01
 
 # 128 nodes: ~1e-10 or better vs scipy at realistic radii (|z| = r/a <~ 50);
@@ -46,6 +51,22 @@ _NODES = 128
 # terms. galpy's own anisotropic DFs call this branch at |z| < 1 (measured), so
 # the exact range covers real use with a wide margin.
 _SERIES_TERMS = 512
+
+
+def _params_are_backend(*ps):
+    """True when the (a, b, c) parameters must be handled ON the backend.
+
+    Two distinct reasons, and BOTH matter:
+
+    * a tracer -- ``float()`` / ``math.lgamma`` raise, so the code cannot run;
+    * an ordinary (untraced) jax array or torch tensor -- ``math.lgamma`` DOES
+      run, via ``__float__``, and silently DETACHES that factor from the
+      autograd graph. The result still has ``requires_grad=True`` and a
+      ``grad_fn``, so nothing short of grad-vs-finite-difference notices: the
+      measured torch ``d/da 2F1(a, 2, 3; -5)`` was -8.98e-03 against a true
+      -8.56e-02, and ``dPhi/dalpha`` for TwoPowerTriaxial 0.834 against 0.548.
+    """
+    return any(is_backend_array(p) or not has_concrete_truth_value(p > 0.0) for p in ps)
 
 
 def _in_regime(a, b, c):
@@ -89,10 +110,13 @@ def _pfaff_series(xp, a, b, c, z):
     so this is the best conditioning available -- there is no relabeling that
     converges faster.
     """
-    if b > a:
+    if has_concrete_truth_value(b > a):
         A, B, pref_exp = a, c - b, -a
-    else:
-        A, B, pref_exp = c - a, b, -b
+    else:  # TRACED parameters: same choice, selected rather than branched
+        swap = b > a
+        A = xp.where(swap, a, c - a)
+        B = xp.where(swap, c - b, b)
+        pref_exp = xp.where(swap, -a, -b)
     x = z / (z - 1.0)
     term = xp.ones_like(x)
     total = xp.ones_like(x)
@@ -151,8 +175,47 @@ def hyp2f1_fallback(xp, a, b, c, z):
     return xp.where(pos, (1.0 - z) ** (-a) * pfaff, direct)
 
 
+def _in_regime_mask(xp, a, b, c):
+    """_in_regime as an elementwise mask, for traced (a, b, c)."""
+    return ((a > 0) & ((c - a) >= 1.0)) | ((b > 0) & ((c - b) >= 1.0))
+
+
+def _nonpositive_traced(xp, a, b, c, z):
+    """The same three routes for z <= 0, selected rather than branched.
+
+    Reached when a, b or c is a TRACER -- differentiating a potential w.r.t. an
+    exponent, say -- where `if a > 0` has no truth value. Both surviving
+    formulas are evaluated and one is selected, so this costs an Euler
+    quadrature plus a 512-term series per call where the concrete route pays
+    for one of them; that is the price of not knowing which route applies until
+    the values exist.
+
+    The Euler evaluation is fed a SAFE (B, A, c) = (1, 0, 2) wherever no
+    labeling is admissible, rather than the inadmissible one: xp.where evaluates
+    both sides, and T**(B-1) with B <= 0 is inf at the t -> 0 node, which would
+    NaN-poison the gradient of the series result that actually wins there.
+    """
+    ok_ab = _in_regime_mask(xp, a, b, c)
+    ok_tr = _in_regime_mask(xp, c - a, c - b, c)
+    use_tr = (~ok_ab) & ok_tr
+    use_euler = ok_ab | ok_tr
+    ea = xp.where(use_tr, c - a, a)
+    eb = xp.where(use_tr, c - b, b)
+    oka = (ea > 0) & ((c - ea) >= 1.0)
+    B = xp.where(use_euler, xp.where(oka, ea, eb), 1.0)
+    A = xp.where(use_euler, xp.where(oka, eb, ea), 0.0)
+    cc = xp.where(use_euler, c, 2.0)
+    euler = _euler_quad(xp, A, B, cc, z)
+    # Euler's transformation carries a (1-z)^{c-a-b} prefactor; z <= 0 here so
+    # 1-z >= 1 and the unused side is finite.
+    euler = xp.where(use_tr, (1.0 - z) ** (c - a - b), 1.0) * euler
+    return xp.where(use_euler, euler, _pfaff_series(xp, a, b, c, z))
+
+
 def _hyp2f1_nonpositive(xp, a, b, c, z):
     """2F1(a, b; c; z) for real z <= 0 -- the three routes named above."""
+    if not all(has_concrete_truth_value(p > 0.0) for p in (a, b, c)):
+        return _nonpositive_traced(xp, a, b, c, z)
     if not _in_regime(a, b, c):
         if _in_regime(c - a, c - b, c):
             return (1.0 - z) ** (c - a - b) * _euler_integral(xp, c - a, c - b, c, z)
@@ -162,21 +225,45 @@ def _hyp2f1_nonpositive(xp, a, b, c, z):
 
 def _euler_integral(xp, a, b, c, z):
     r"""2F1(a, b; c; z) for real z <= 0 via the boundary-layer Euler integral."""
-    w = -z  # >= 0
     B, A = _euler_labeling(a, b, c)
+    return _euler_quad(xp, A, B, c, z)
+
+
+def _euler_quad(xp, A, B, c, z):
+    """The quadrature itself, on an ALREADY-LABELLED (A, B).
+
+    Split out from _euler_integral so the traced-parameter route below can
+    choose (A, B) with xp.where instead of a Python branch and still reuse this
+    verbatim.
+    """
+    w = -z  # >= 0
     q = c - B  # exponent of (1-t) is q-1
+    dev = device_of(z)
     # X = xi^k regularizes the t^{B-1} endpoint: after the boundary-layer map the
     # integrand carries X^{B-1} near X=0, which is only algebraically integrable
     # for non-integer B. Raise it to xi^{kB-1} with kB >= ~6 so plain GL is
     # spectrally accurate (k=1 already suffices once B-1 is a smooth high power).
     # Capped at 12 (covers B >= 0.5, galpy's range) so X=xi^k cannot underflow.
-    k = min(12.0, max(1.0, float(math.ceil(6.0 / B))))
-    pref = math.exp(math.lgamma(c) - math.lgamma(B) - math.lgamma(q))
+    if not _params_are_backend(A, B, c):
+        k = min(12.0, max(1.0, float(math.ceil(6.0 / B))))
+        pref = math.exp(math.lgamma(c) - math.lgamma(B) - math.lgamma(q))
+    else:
+        # Backend parameters: the same expressions, evaluated ON the backend, so
+        # they neither concretize a tracer nor detach a tensor. ceil is a step,
+        # so its zero gradient is the correct one -- k only shapes the
+        # substitution; the integral's value does not depend on it.
+        from .._router import gammaln
+
+        # every operand on the backend and on z's device: the router's gammaln
+        # dispatches on its ARGUMENT, and torch.special.gammaln rejects a plain
+        # float outright.
+        Bx, cx, qx = (asarray_on_device(xp, v, dev) for v in (B, c, q))
+        k = xp.clip(xp.ceil(6.0 / Bx), 1.0, 12.0)
+        pref = xp.exp(gammaln(cx) - gammaln(Bx) - gammaln(qx))
 
     # node/weight tables stay float64 (precision is the point; the router
     # exit-casts) but must live on the input's device (CUDA support)
     nodes, weights = gauss_legendre_01(_NODES)
-    dev = device_of(z)
     xg = asarray_on_device(xp, nodes, dev)
     wg = asarray_on_device(xp, weights, dev)
     X = xg**k
@@ -203,5 +290,6 @@ def _euler_integral(xp, a, b, c, z):
     dt = xp.exp(XL) * L / wb
     integ = T ** (B - 1.0) * (1.0 - T) ** (q - 1.0) * (1.0 + wb * T) ** (-A) * dt * dX
     val_int = pref * xp.sum(integ * wg, axis=-1)
-    val_series = 1.0 + (a * b / c) * z  # 2F1 = 1 + (ab/c) z + O(z^2)
+    # A*B is a*b: {A, B} is just a relabelling of {a, b}.
+    val_series = 1.0 + (A * B / c) * z  # 2F1 = 1 + (ab/c) z + O(z^2)
     return xp.where(tiny, val_series, val_int)
