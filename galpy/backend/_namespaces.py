@@ -136,6 +136,26 @@ def under_trace(*xs):
     return is_compiling() and any(isinstance(x, torch.Tensor) for x in xs)
 
 
+def requires_backend_grad(*xs):
+    """True iff one of ``xs`` is a torch tensor carrying an autograd graph.
+
+    Companion to ``under_trace``, deliberately separate from it: ``under_trace``
+    means "no concrete value", this means "carries a graph". Call sites that
+    escape to scipy/numpy need BOTH -- a tracer cannot be evaluated there at
+    all, and a grad-tracking tensor silently DETACHES, which is worse because
+    the value stays right while the gradient goes wrong.
+
+    torch-only by construction, and no jax counterpart is needed: jax has no
+    ``requires_grad`` flag because differentiability there IS tracing, so
+    ``jax.grad`` hands you a tracer that ``under_trace`` already catches. Eager
+    torch autograd is the one differentiating mode with no trace behind it.
+
+    Plain ``getattr``, so this costs nothing and needs no torch import: numpy
+    and jax arrays simply do not carry the attribute.
+    """
+    return any(getattr(x, "requires_grad", False) for x in xs)
+
+
 def untraceable_setup(method):
     """Mark a lazy SETUP/table builder so a tracer never traces it.
 
