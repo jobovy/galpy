@@ -1139,6 +1139,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 self._grid_coords(jr, jphi, jz), jphi, angler, anglephi, anglez
             )
         if self._interp:
+            if self._canonical:
+                return self._xvFreqs_canonical_interp(
+                    jr, jphi, jz, angler, anglephi, anglez
+                )
             return self._xvFreqs_index(
                 self._coords_from_actions(jr, jphi, jz),
                 jphi,
@@ -1331,6 +1335,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             scal = self._interp_torus(self._grid_coords(jr, jphi, jz))[0]
             return (scal[3], scal[5], scal[4])
         if self._interp:
+            if self._canonical:
+                x = self._canon_coords(float(jr), float(jphi), float(jz))
+                _, dq = self._canon_family_chains(x)
+                return (dq[2, 0], dq[2, 1], dq[2, 2])
             self._interp_Lz = jphi
             scal = self._interp_torus(self._coords_from_actions(jr, jphi, jz))[0]
             return (scal[3], scal[5], scal[4])
@@ -1695,26 +1703,53 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             for kk in range(6):
                 out[kk, jj] = oo[kk][0]
+        Rt, vRt, vTt, zt, vzt, phit = self._canon_unlift(
+            out,
+            self._can_a[ii],
+            self._can_e[ii],
+            self._can_LA[ii],
+            self._can_thmin[ii],
+            self._can_Dmu[ii],
+            self._can_Dmv[ii],
+            self._umins[ii],
+            self._umaxs[ii],
+            self._vmins[ii],
+            Lz,
+        )
+        return (
+            Rt,
+            vRt,
+            vTt,
+            zt,
+            vzt,
+            phit,
+            self._OmegaR[ii],
+            self._Omegaphi[ii],
+            self._Omegaz[ii],
+        )
+
+    def _canon_unlift(self, out, a, e, LA, thmin, Dmu, Dmv, umin, umax, vmin, Lz):
+        """Map the toy-chart reconstruction to the target chart: per-degree
+        anomaly inversions through the stored maps (closed-form radius and
+        linear polar-angle inversions), momenta through the per-degree
+        action-flux groups (regular at all turning points), then prolate ->
+        cylindrical exactly as the direct path"""
         R, vR, vT, z, vz, phi = out
-        # un-lift per degree through the stored anomaly maps
         rA = numpy.sqrt(R**2 + z**2)
         vrA = (R * vR + z * vz) / rA
         pAth = vR * z - vz * R
-        a, e = self._can_a[ii], self._can_e[ii]
-        LA, thmin = self._can_LA[ii], self._can_thmin[ii]
         # u-degree: eta from the closed-form radius inversion, tau from the
         # stored map, u from the cosine anomaly; p_u through the flux group
         y = (numpy.sqrt(self._bc**2 + rA**2) - self._bc) / a
         coseta = numpy.clip((1.0 - y) / e, -1.0, 1.0)
         sineta = numpy.sign(vrA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
         etau = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
-        tuu = self._tau_of_eta(etau, self._can_Dmu[ii])
-        Du = self._umaxs[ii] - self._umins[ii]
-        u = self._umins[ii] + Du * numpy.sin(tuu / 2.0) ** 2
-        s = numpy.sqrt(self._bc**2 + rA**2)
+        tuu = self._tau_of_eta(etau, Dmu)
+        Du = umax - umin
+        u = umin + Du * numpy.sin(tuu / 2.0) ** 2
         gA = a * e * (y + self._bc / a) / numpy.sqrt(y * (y + 2.0 * self._bc / a))
         ms = self._nforDm
-        detau = 1.0 + numpy.cos(tuu[:, None] * ms[None, :]) @ (ms * self._can_Dmu[ii])
+        detau = 1.0 + numpy.cos(tuu[:, None] * ms[None, :]) @ (ms * Dmu)
         sintu = numpy.sin(tuu)
         sru = numpy.where(
             numpy.fabs(sintu) > 1e-12,
@@ -1730,10 +1765,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         sinetav = numpy.sign(pAth) * numpy.sqrt(numpy.clip(1.0 - cosetav**2, 0.0, None))
         etav = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
-        tvv = self._tau_of_eta(etav, self._can_Dmv[ii])
-        Dv = numpy.pi - 2.0 * self._vmins[ii]
-        v = self._vmins[ii] + Dv * numpy.sin(tvv / 2.0) ** 2
-        detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * self._can_Dmv[ii])
+        tvv = self._tau_of_eta(etav, Dmv)
+        Dv = numpy.pi - 2.0 * vmin
+        v = vmin + Dv * numpy.sin(tvv / 2.0) ** 2
+        detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * Dmv)
         sintv = numpy.sin(tvv)
         srv = numpy.where(
             numpy.fabs(sintv) > 1e-12,
@@ -1749,17 +1784,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         den = self._delta * (sh**2 + sn**2)
         vRt = (pu * ch * sn + pv * sh * cs) / den
         vzt = (pu * sh * cs - pv * ch * sn) / den
-        return (
-            Rt,
-            vRt,
-            Lz / Rt,
-            zt,
-            vzt,
-            phi % (2.0 * numpy.pi),
-            self._OmegaR[ii],
-            self._Omegaphi[ii],
-            self._Omegaz[ii],
-        )
+        return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
 
     ################## CANONICAL FAMILY (T2) ##################################
     def _canon_table_eval(self, x, deriv=None):
@@ -1866,6 +1891,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._wIgrid[0] == 0.0:
             tab[1, :, :, 0] = 0.0
         self._canon_tab_raw = tab
+        self._canon_dLz = (self._Lzgrid[-1] - self._Lzgrid[0]) / (nLz - 1)
         self._rebuild_canon_interp()
         return None
 
@@ -1915,3 +1941,243 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "the interpolated family"
             )
         return numpy.array([xL, xE, xI])
+
+    def _canon_toy_radial(self, JAr, LA, thetaAr):
+        """The radial half of the analytic isochrone inverse: (J^A_r, L^A,
+        theta^A_r) -> (eta, r^A, p^A_r), vectorized over points"""
+        amp, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * amp)
+        H = -2.0 * amp**2 / (2.0 * JAr + LA + sq) ** 2
+        a = -amp / 2.0 / H - bb
+        ab = a + bb
+        e = numpy.sqrt(numpy.clip(1.0 + LA**2 / (2.0 * H * a**2), 0.0, None))
+        ar = numpy.atleast_1d(thetaAr) % (2.0 * numpy.pi)
+        aeab = a * e / ab
+        x = numpy.array(ar)
+        for _ in range(self._maxiter):
+            f = x - aeab * numpy.sin(x) - ar
+            x -= numpy.clip(f / (1.0 - aeab * numpy.cos(x)), -1.0, 1.0)
+            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError(
+                "Newton's method for the toy eccentric anomaly did not converge"
+            )
+        coseta = numpy.cos(x)
+        rA = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * bb / a))
+        pA = numpy.sqrt(amp / ab) * a * e * numpy.sin(x) / rA
+        return x, rA, pA
+
+    def _canon_toy_vert(self, JAr, LA, Lz, thetaAr, thetaAz, eta):
+        """The toy's vertical geometry at given toy angles: the polar angle
+        and vertical momentum from the isochrone's own angle relations
+        (psi = theta^A_z - (omega_z/omega_r) theta^A_r + Lambda(eta)),
+        all closed forms"""
+        amp, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * amp)
+        H = -2.0 * amp**2 / (2.0 * JAr + LA + sq) ** 2
+        a = -amp / 2.0 / H - bb
+        e = numpy.sqrt(numpy.clip(1.0 + LA**2 / (2.0 * H * a**2), 0.0, None))
+        taneta2 = numpy.tan(eta / 2.0)
+        tan11 = numpy.arctan(numpy.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
+        tan12 = numpy.arctan(
+            numpy.sqrt((a * (1.0 + e) + 2.0 * bb) / (a * (1.0 - e) + 2.0 * bb))
+            * taneta2
+        )
+        tan11 = numpy.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
+        tan12 = numpy.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
+        Lambdaeta = tan11 + LA / sq * tan12
+        psi = thetaAz - 0.5 * (1.0 + LA / sq) * thetaAr + Lambdaeta
+        sini = numpy.sqrt(numpy.clip(1.0 - Lz**2 / LA**2, 0.0, None))
+        costh = numpy.sin(psi) * sini  # polar angle: cos(vartheta)
+        sinth = numpy.sqrt(numpy.clip(1.0 - costh**2, 0.0, None))
+        # p^A_theta = -L sin(i) cos(psi)/sin(vartheta), with magnitude
+        # sqrt(L^2 - Lz^2/sin^2 vartheta)
+        pAth = -LA * sini * numpy.cos(psi) / numpy.maximum(sinth, 1e-15)
+        thetaA = numpy.arccos(numpy.clip(costh, -1.0, 1.0))
+        return thetaA, pAth
+
+    def _canon_family_chains(self, x):
+        """All family values and their action chains at fractional grid
+        coordinates x: the stored tables' own derivatives, contracted with
+        the inverse of the label-coordinate matrix (J_R, J_phi, J_z) vs
+        (L_z, w_E-index, w_I-index)"""
+        xx = numpy.atleast_2d(x)
+        v = self._canon_table_eval(xx)[:, 0]
+        dL = self._canon_table_eval(xx, deriv=0)[:, 0] / self._canon_dLz
+        dE_ = self._canon_table_eval(xx, deriv=1)[:, 0]
+        dI_ = self._canon_table_eval(xx, deriv=2)[:, 0]
+        M = numpy.array(
+            [
+                [dL[0], dE_[0], dI_[0]],
+                [1.0, 0.0, 0.0],
+                [dL[1], dE_[1], dI_[1]],
+            ]
+        )
+        Minv = numpy.linalg.inv(M)
+        # chains of every stored quantity along (J_R, J_phi, J_z)
+        dq = numpy.stack((dL, dE_, dI_), axis=1) @ Minv  # (nq, 3)
+        return v, dq
+
+    def _canon_comp(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+        """The two-map compensation terms along the three action chains,
+        every factor grouped through the per-degree action-flux identities
+        so it is closed-form and regular at all turning points; returns
+        (comp_R, comp_phi, comp_z) arrays over the points"""
+        npt = self._npt
+        umin, umax, vmin = v[3], v[4], v[5]
+        dumin, dumax, dvmin = dq[3], dq[4], dq[5]
+        Dmu, Dmv = v[6 : 6 + npt], v[6 + npt :]
+        dDmu, dDmv = dq[6 : 6 + npt], dq[6 + npt :]
+        # closed-form toy-parameter chains: a, e from (J^A_r = J_R, L^A)
+        GM, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
+        CA = 0.5 * (LA + sq)
+        EA = -(GM**2) / (2.0 * (jr + CA) ** 2)
+        a = -GM / (2.0 * EA) - bb
+        e = numpy.sqrt(1.0 + LA**2 / (2.0 * EA * a**2))
+        thmin = numpy.arcsin(numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0))
+        # dLA/d(J_R, J_phi, J_z) and the induced (a, e, thmin) chains
+        dLA = numpy.array([0.0, numpy.sign(Lz), 1.0])
+        dEA = (
+            GM**2
+            / (jr + CA) ** 3
+            * (numpy.array([1.0, 0.0, 0.0]) + 0.5 * (1.0 + LA / sq) * dLA)
+        )
+        da = GM / (2.0 * EA**2) * dEA
+        de = (
+            2.0 * LA * dLA / (2.0 * EA * a**2)
+            - LA**2 * (dEA * a + 2.0 * EA * da) / (2.0 * EA**2 * a**3)
+        ) / (2.0 * e)
+        costhmin = numpy.cos(thmin)
+        dthmin = numpy.array(
+            [
+                0.0,
+                numpy.sign(Lz) * (numpy.sign(Lz) / LA - numpy.fabs(Lz) / LA**2),
+                -numpy.fabs(Lz) / LA**2,
+            ]
+        ) / numpy.maximum(costhmin, 1e-12)
+        dthmin[1] = (
+            numpy.sign(Lz)
+            * (1.0 / LA - numpy.fabs(Lz) / LA**2 * 1.0)
+            / numpy.maximum(costhmin, 1e-12)
+        )
+        # u-degree at the current phases
+        eta_u, rA, pAr = self._canon_toy_radial(jr, LA, thetaAr)
+        tuu = self._tau_of_eta(eta_u, Dmu)
+        ms = self._nforDm
+        s = numpy.sqrt(bb**2 + rA**2)
+        y = (s - bb) / a
+        coseta = numpy.cos(eta_u)
+        sineta = numpy.sin(eta_u)
+        smat_u = numpy.sin(tuu[:, None] * ms[None, :])
+        drAdeta = a * e * sineta * (y + bb / a) / numpy.sqrt(y * (y + 2.0 * bb / a))
+        # dr^A/dJ_i at fixed tau_u, and du/dJ_i at fixed tau_u
+        gA = a * e * (y + bb / a) / numpy.sqrt(y * (y + 2.0 * bb / a))
+        detau = 1.0 + numpy.cos(tuu[:, None] * ms[None, :]) @ (ms * Dmu)
+        sintu = numpy.sin(tuu)
+        sru = numpy.where(
+            numpy.fabs(sintu) > 1e-12,
+            sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
+            1.0,
+        )
+        pu = pAr * gA * sru * detau / (0.5 * (umax - umin))
+        comp = numpy.empty((3, len(thetaAr)))
+        c2u = numpy.cos(tuu / 2.0) ** 2
+        s2u = numpy.sin(tuu / 2.0) ** 2
+        # v-degree phases from the toy's own vertical geometry
+        thetaAv, pAthv = self._canon_toy_vert(jr, LA, Lz, thetaAr, thetaAz, eta_u)
+        cosetav = numpy.clip(
+            (0.5 * numpy.pi - thetaAv) / numpy.maximum(0.5 * numpy.pi - thmin, 1e-12),
+            -1.0,
+            1.0,
+        )
+        sinetav = numpy.sign(pAthv) * numpy.sqrt(
+            numpy.clip(1.0 - cosetav**2, 0.0, None)
+        )
+        eta_v = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
+        tvv = self._tau_of_eta(eta_v, Dmv)
+        smat_v = numpy.sin(tvv[:, None] * ms[None, :])
+        detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * Dmv)
+        sintv = numpy.sin(tvv)
+        srv = numpy.where(
+            numpy.fabs(sintv) > 1e-12,
+            sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
+            1.0,
+        )
+        gth = 0.5 * numpy.pi - thmin
+        pv = pAthv * gth * srv * detav / (0.5 * (numpy.pi - 2.0 * vmin))
+        cv = numpy.cos(tvv)
+        for i in range(3):
+            drA_i = (
+                y * s / rA * da[i]
+                - a * s * coseta / rA * de[i]
+                + drAdeta * (smat_u @ dDmu[:, i])
+            )
+            du_i = dumin[i] * c2u + dumax[i] * s2u
+            dth_i = dthmin[i] * cosetav + gth * sinetav * (smat_v @ dDmv[:, i])
+            dv_i = dvmin[i] * cv
+            comp[i] = (pAr * drA_i - pu * du_i) + (pAthv * dth_i - pv * dv_i)
+        return comp[0], comp[1], comp[2]
+
+    def _xvFreqs_canonical_interp(self, jr, jphi, jz, angler, anglephi, anglez):
+        """The canonical family evaluation: implicit-inverse labels, the
+        compensated 2-D angle Newton (exact residuals, identity-dominated
+        Jacobian), delegation to the analytic isochrone inverse, and the
+        per-degree un-lift with the family-interpolated maps; frequencies
+        are the stored energy table's own derivatives through the label
+        chains (the integrator contract)"""
+        jr, jphi, jz = float(jr), float(jphi), float(jz)
+        Lz = jphi
+        LA = jz + numpy.fabs(Lz)
+        thR = numpy.atleast_1d(numpy.array(angler, dtype="float"))
+        thphi = numpy.atleast_1d(numpy.array(anglephi, dtype="float"))
+        thz = numpy.atleast_1d(numpy.array(anglez, dtype="float"))
+        thR, thphi, thz = numpy.broadcast_arrays(thR, thphi, thz)
+        x = self._canon_coords(jr, Lz, jz)
+        v, dq = self._canon_family_chains(x)
+        thetaAr = numpy.copy(thR)
+        thetaAz = numpy.copy(thz)
+        for _ in range(self._maxiter):
+            cR, cphi, cz = self._canon_comp(thetaAr, thetaAz, jr, LA, Lz, v, dq)
+            f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            f1 = (thetaAz + cz - thz + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            step = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1))
+            lim = numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
+            thetaAr -= f0 * lim
+            thetaAz -= f1 * lim
+            if numpy.max(step) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError("Newton's method for the toy angles did not converge")
+        thetaAphi = thphi - cphi
+        out = numpy.empty((6, len(thR)))
+        for jj in range(len(thR)):
+            oo = self._aAIinvc._xvFreqs(
+                jr, Lz, jz, thetaAr[jj], thetaAphi[jj], thetaAz[jj]
+            )
+            for kk in range(6):
+                out[kk, jj] = oo[kk][0]
+        npt = self._npt
+        GM, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
+        EA = -(GM**2) / (2.0 * (jr + 0.5 * (LA + sq)) ** 2)
+        a = -GM / (2.0 * EA) - bb
+        e = numpy.sqrt(1.0 + LA**2 / (2.0 * EA * a**2))
+        thmin = numpy.arcsin(numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0))
+        Rt, vRt, vTt, zt, vzt, phit = self._canon_unlift(
+            out,
+            a,
+            e,
+            LA,
+            thmin,
+            v[6 : 6 + npt],
+            v[6 + npt :],
+            v[3],
+            v[4],
+            v[5],
+            Lz,
+        )
+        # frequencies: the stored energy table's own derivative chains
+        OmR, Omphi, Omz = dq[2]
+        return (Rt, vRt, vTt, zt, vzt, phit, OmR, Omphi, Omz)
