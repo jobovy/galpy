@@ -734,6 +734,11 @@ class actionAngleAdiabaticGrid(actionAngle):
                 xp.zeros_like(R[m]),
                 xp.sqrt(2.0 * Ez[m]),
                 _justjz=True,
+                # c=False so use_c is False and _evaluate takes its BACKEND
+                # branch. Without it a c=True grid falls through to the C call
+                # with backend arrays, which raises NotImplementedError: the C
+                # extension cannot accept a jax/torch array at all.
+                c=False,
             )[2],
         )
         # Radial action
@@ -773,6 +778,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 xp.zeros_like(thisRL[m]),
                 xp.zeros_like(thisRL[m]),
                 _justjr=True,
+                c=False,  # see the _justjz call above
             )[0],
         )
         return (jr, R * vT, jz)

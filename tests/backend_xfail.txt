@@ -165,6 +165,23 @@
 # (test_analytic_ecc_rperi_rap: passes locally, xfails in CI group g3). Same
 # blind spot that made an earlier local regen report false failures.
 
+# actionAngleAdiabaticGrid_outsidegrid_c: the RECORDED REASON WAS WRONG. It was
+# "the backend path evaluates the grid only (no off-grid fallback)" -- no longer
+# true, the backend now falls back to an exact per-point solve and matches the
+# NUMPY GRID to ~1e-13 for all-on-grid, mixed and all-off-grid inputs.
+#
+# What actually blocks it is gh#1354, the Adiabatic C quadrature defect. This
+# test's reference is actionAngleAdiabatic(c=True), and the backend fallback MUST
+# use the Python solver because the C extension cannot accept a jax/torch array
+# at all. Measured on pure numpy, no backend involved:
+#     C      jr = 0.011117771185
+#     Python jr = 0.011112634625     |C - Python| = 5.137e-06
+# against this test's 1e-8 bar. So the backend can never match a C reference here
+# until gh#1354 is resolved -- and per that issue the C value is the inaccurate
+# one, i.e. the test bar pins the wrong number.
+#
+# The Python-vs-Python equivalent, test_actionAngleAdiabaticGrid_outsidegrid_
+# multiple_python, PASSES on both backends and is not ledgered.
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
