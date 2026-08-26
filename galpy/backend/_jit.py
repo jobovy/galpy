@@ -5,8 +5,8 @@
 #   written to be jit-COMPATIBLE and the user decides when to trace. This module
 #   is how a user -- or the test suite -- says "trace it", once, globally:
 #
-#       galpy.backend.set_jit("jax")      # jax.jit every boundary call
-#       with galpy.backend.jit("torch"):  # torch.compile every boundary call
+#       galpy.backend.set_jit("jax")      # jax.jit at the outermost boundary
+#       with galpy.backend.jit("torch"):  # torch.compile at the outermost one
 #           ...
 #
 #   Every public entry point already carries ``@backend_input(*coords)``, which
@@ -27,22 +27,40 @@ from ._tracectx import TracedContextVar
 
 # "off" | "jax" | "torch". Process-wide, like the backend selection itself.
 _JIT_CTX = TracedContextVar("galpy_jit_mode", default="off")
-# Set while a traced call is on the stack. Entry points call each other
-# (Potential.__call__ -> evaluatePotentials -> ...), and re-tracing at every
-# nested boundary multiplies compile time for no benefit -- the outermost trace
-# already inlines the inner calls.
+# Set while a traced call is on the stack. Entry points call each other --
+# measured: evaluateDensities on a two-component potential reaches the boundary
+# 4 times (once for the call itself, then Potential.dens per component), and
+# evaluateSurfaceDensities twice -- and re-tracing at every nested boundary
+# multiplies compile time for no benefit, since the outermost trace already
+# inlines the inner calls. (Potential.__call__ and evaluateRforces do NOT nest:
+# the adapters were moved onto undecorated evaluators, so those crossings are
+# gone.)
 _TRACING = TracedContextVar("galpy_jit_tracing", default=False)
 
 _VALID = ("off", "jax", "torch")
 
 
 def set_jit(mode):
-    """Trace every boundary call under the named framework ("jax"/"torch"/"off").
+    """Trace boundary calls under the named framework ("jax"/"torch"/"off").
+
+    "Every boundary call" would overstate it; two things stay eager by design,
+    and both are visible in :func:`traced_call`:
+
+    * **Nested entry points.** Only the OUTERMOST boundary is traced. Measured:
+      ``evaluateDensities`` on a two-component potential reaches the boundary
+      4 times and traces 1; ``evaluateSurfaceDensities`` reaches it twice and
+      traces 1. Re-tracing at every hop would multiply compile time for no
+      benefit, since the outer trace already inlines the inner calls.
+    * **A boundary on a different framework.** Coordinates belonging to a
+      backend other than ``mode`` run eager, so that e.g.
+      ``use("torch", force=True)`` inside a ``--backend jax --jit`` run does not
+      hand torch tensors to a ``jax.jit``. numpy coordinates stay traceable --
+      both frameworks accept them.
 
     Parameters
     ----------
     mode : str
-        ``"jax"`` wraps each entry point in ``jax.jit``, ``"torch"`` in
+        ``"jax"`` wraps the outermost entry point in ``jax.jit``, ``"torch"`` in
         ``torch.compile``, ``"off"`` (default) leaves galpy eager.
 
     Notes
