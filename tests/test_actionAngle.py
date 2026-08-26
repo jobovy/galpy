@@ -2260,6 +2260,36 @@ def test_actionAngleAdiabaticGrid_basic_actions_c():
 
 
 # actionAngleAdiabaticGrid actions outside the grid
+def test_actionAngleAdiabaticGrid_outsidegrid_multiple_python():
+    # The pure-Python (c=False) grid raised
+    #   TypeError: 'float' object is not subscriptable
+    # whenever TWO OR MORE points fell outside the grid: actionAngleAdiabatic's
+    # len(R) > 1 branch loops over points calling its own scalar branch and then
+    # does ojr[ii] = tjr[0], but the scalar _justjr return was a bare float
+    # while its _justjz and general siblings both wrapped in numpy.atleast_1d.
+    #
+    # One off-grid point never caught it (that call takes the scalar path and
+    # never reaches the loop), and the only other off-grid test uses c=True,
+    # which returns from the C branch before the loop -- so both arms of the
+    # existing coverage were blind to it.
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleAdiabaticGrid
+    from galpy.potential import MWPotential
+
+    aA = actionAngleAdiabatic(pot=MWPotential, c=False)
+    aAA = actionAngleAdiabaticGrid(pot=MWPotential, c=False, Rmax=2.0, zmax=0.2)
+    for n in (1, 2, 3):  # 1 is the case that always worked; 2+ is the bug
+        R = numpy.array([3.0 + 0.5 * ii for ii in range(n)])
+        o = numpy.ones(n)
+        js = aA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)
+        jsa = aAA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)
+        assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
+            f"actionAngleAdiabaticGrid c=False jr wrong for {n} off-grid points"
+        )
+        assert numpy.all(numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0), (
+            f"actionAngleAdiabaticGrid c=False jz wrong for {n} off-grid points"
+        )
+
+
 def test_actionAngleAdiabaticGrid_outsidegrid_c():
     from galpy.actionAngle import actionAngleAdiabatic, actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
