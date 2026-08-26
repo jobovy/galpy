@@ -8578,7 +8578,10 @@ def test_actionAngleStaeckelInverse_interp_roundtrip(
             for q in aASI(jr, jphi, jz, angles[0], angles[1], angles[2])
         ]
         for got, want, name in zip(Rvv[:5], ic[:5], ("R", "vR", "vT", "z", "vz")):
-            assert numpy.fabs(got - want) < 1e-4, (
+            # the canonical family's honest interpolation error at this
+            # grid (the removed interpolated-direct path was ~2x tighter
+            # here at the price of a symplectic defect at 1e-3)
+            assert numpy.fabs(got - want) < 4e-4, (
                 "Interpolated actionAngleStaeckelInverse does not invert the "
                 "forward transformation for %s (%g vs %g)" % (name, got, want)
             )
@@ -8625,11 +8628,28 @@ def test_actionAngleStaeckelInverse_interp_convergence_and_freqs(
         (float(numpy.atleast_1d(out[ii])[0]) for ii in (3, 4, 5)),
         ("Omega_R", "Omega_phi", "Omega_z"),
     ):
-        assert numpy.fabs(got / want - 1.0) < 1e-5, (
+        # the frequencies are the stored energy table's own derivative
+        # chains (the integrator contract: exactly consistent with the
+        # family), and match the true frequencies to the chain accuracy
+        assert numpy.fabs(got / want - 1.0) < 5e-4, (
             "Interpolated actionAngleStaeckelInverse frequency %s does not "
             "agree with the forward code (%g vs %g)" % (name, got, want)
         )
     return None
+
+
+def _canon_integral_labels(aASI, jr, jphi, jz):
+    # the (E, I3) labels of an interpolated canonical torus, from the same
+    # closed rectified relations the integrals entry point inverts
+    import numpy
+
+    x = aASI._canon_coords(jr, jphi, jz)
+    E = float(aASI._canon_table_eval(numpy.atleast_2d(x))[2, 0])
+    wI = x[2] / (aASI._nI3 - 1)
+    Ipl = aASI._I3_planar(E, jphi)
+    Ish = aASI._I3_shell(E, jphi)
+    I3 = Ipl + numpy.sin(numpy.pi * wI / 2.0) ** 2 * (Ish - Ipl)
+    return E, I3
 
 
 def test_actionAngleStaeckelInverse_interp_integrals_by_name(
@@ -8641,13 +8661,12 @@ def test_actionAngleStaeckelInverse_interp_integrals_by_name(
     aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
     jr, jphi, jz = 0.06, 0.9, 0.03
     angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
-    idx = aASI._coords_from_actions(jr, jphi, jz)
-    aASI._interp_Lz = jphi
-    scal, _ = aASI._interp_torus(idx)
-    E, I3 = float(scal[6]), float(scal[7])
+    E, I3 = _canon_integral_labels(aASI, jr, jphi, jz)
     by_name = numpy.array(aASI(*angles, E=E, Lz=jphi, I3=I3))
     by_act = numpy.array(aASI(jr, jphi, jz, *angles))
-    assert numpy.all(numpy.fabs(by_name - by_act) < 1e-10), (
+    # exact at nodes; between nodes the closed rectification and the
+    # E-table's Lz-direction spline agree to spline error, not machine
+    assert numpy.all(numpy.fabs(by_name - by_act) < 1e-4), (
         "Labelling a torus by its integrals by name disagrees with labelling "
         "it by its actions"
     )
@@ -8657,7 +8676,7 @@ def test_actionAngleStaeckelInverse_interp_integrals_by_name(
             numpy.array(aASI.Freqs(E=E, Lz=jphi, I3=I3))
             - numpy.array(aASI.Freqs(jr, jphi, jz))
         )
-        < 1e-10
+        < 1e-4
     ), "Freqs by integral name disagrees with Freqs by actions"
     assert len(aASI.xvFreqs(*angles, E=E, Lz=jphi, I3=I3)) == 9, (
         "xvFreqs by integral name does not return the expected quantities"
@@ -8691,53 +8710,42 @@ def test_actionAngleStaeckelInverse_interp_outside_grid_message(
         "A too-energetic torus outside the grid does not report that it falls "
         "above the covered total action"
     )
-    # the direction of the oscillation can also fall outside the grid, when
-    # the planar and shell edges do not reach zeta = 0 and 1 at every column
-    zetamesh = aASI._zetamesh
-    try:
-        aASI._zetamesh = numpy.linspace(0.4, 0.6, len(zetamesh))
-        with pytest.raises(ValueError) as excinfo:
-            aASI(0.06, 0.9, 0.03, *angles)
-        assert "J_z/(J_R+J_z)" in str(excinfo.value), (
-            "A torus outside the covered range of oscillation directions does "
-            "not report which ratio of actions it has"
-        )
-    finally:
-        aASI._zetamesh = zetamesh
+    # (the canonical grid covers the full oscillation-direction range,
+    # so the third directional case of the old grid no longer exists)
+    return None
 
 
 def test_actionAngleStaeckelInverse_interp_integrals_roundtrip(
     setup_actionAngleStaeckelInverse_interpolated,
 ):
     # Reading the integrals off an interpolated torus and asking for that
-    # torus back has to be the identity: the interpolated torus takes E and
-    # I3 from the same grid relations that _grid_coords inverts, so the two
-    # directions are exact inverses rather than agreeing to interpolation
-    # error. Were E interpolated as a stored profile instead, the energy of
-    # the torus returned here would miss the requested one by ~1e-6.
+    # torus back has to return the same grid point: both directions go
+    # through the same closed rectified relations. The energy along the
+    # returned torus matches the label to the family's interpolation error
+    # (machine-exact H was the removed interpolated-direct path's virtue,
+    # bought with contingent canonicity; the canonical family trades it
+    # for a symplectic defect at the finite-difference floor)
     from galpy.potential import evaluatePotentials
 
     aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
     for jr, jphi, jz in [(0.06, 0.9, 0.03), (0.12, 1.1, 0.08), (0.02, 0.8, 0.10)]:
-        idx = aASI._coords_from_actions(jr, jphi, jz)
-        aASI._interp_Lz = jphi
-        scal, _ = aASI._interp_torus(idx)
-        E, I3 = float(scal[6]), float(scal[7])
-        back = aASI._grid_coords(E, jphi, I3)
-        assert numpy.all(numpy.fabs(numpy.array(idx) - numpy.array(back)) < 1e-10), (
+        x = aASI._canon_coords(jr, jphi, jz)
+        E, I3 = _canon_integral_labels(aASI, jr, jphi, jz)
+        back = aASI._canon_coords_integrals(E, jphi, I3)
+        assert numpy.all(numpy.fabs(numpy.array(x) - numpy.array(back)) < 2e-4), (
             "Labelling an interpolated torus by its integrals and looking it "
             "back up does not return the same grid point"
         )
-        # ... and the torus really does have the energy it is labelled with
         angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
         R, vR, vT, z, vz, phi = aASI(E, jphi, I3, *angles, integrals=True)
         H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
             kkp, R, z, use_physical=False
         )
-        assert numpy.all(numpy.fabs(H - E) < 1e-12), (
+        assert numpy.all(numpy.fabs(H - E) < 1e-4), (
             "The interpolated torus requested by its integrals does not have "
-            "the requested energy"
+            "the requested energy within the interpolation error"
         )
+    return None
 
 
 def test_actionAngleStaeckelInverse_interp_by_integrals(
@@ -8777,7 +8785,7 @@ def test_actionAngleStaeckelInverse_interp_by_integrals(
     for got, want in zip(
         freqs, (float(numpy.atleast_1d(out[ii])[0]) for ii in (3, 4, 5))
     ):
-        assert numpy.fabs(got / want - 1.0) < 1e-5, (
+        assert numpy.fabs(got / want - 1.0) < 5e-4, (
             "Interpolated frequencies by integrals disagree with the forward code"
         )
     # two consecutive evaluations of one torus: the second hits the cache
@@ -8841,7 +8849,10 @@ def test_actionAngleStaeckelInverse_interp_degenerate_edges(
     )
     assert numpy.amax(numpy.fabs(vz)) < 1e-12, "A J_z = 0 torus has vertical motion"
     H = 0.5 * (vR**2.0 + vz**2.0 + vT**2.0) + evaluatePotentials(kkp, R, z)
-    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-12, (
+    # the canonical family's H-constancy is its interpolation error
+    # (machine-constant H was the removed path's p = sqrt(W) virtue,
+    # bought with contingent canonicity)
+    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-4, (
         "The Hamiltonian is not constant along an interpolated J_z = 0 torus"
     )
     # J_R = 0: a shell orbit, confined to a spheroid of constant u
@@ -8853,7 +8864,7 @@ def test_actionAngleStaeckelInverse_interp_degenerate_edges(
         "A J_R = 0 torus is not confined to a spheroid of constant u"
     )
     H = 0.5 * (vR**2.0 + vz**2.0 + vT**2.0) + evaluatePotentials(kkp, R, z)
-    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-12, (
+    assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-4, (
         "The Hamiltonian is not constant along an interpolated J_R = 0 torus"
     )
     return None
@@ -9579,4 +9590,181 @@ def test_actionAngleStaeckelInverse_canonical_errors():
     finally:
         aac._aAIc = aAIc
         aac._canonical_torus_tables(0)
+    return None
+
+
+def _staeckel_symplectic_defect(xvmapper, jr, jphi, jz, ar, ap, az, h=1e-6):
+    # max |A^T Omega A - Omega| of the 6x6 Jacobian of
+    # (theta, J) -> (q, p) with q = (R, z, phi), p = (v_R, v_z, R v_T)
+    def xp(args):
+        R, vR, vT, z, vz, phi = xvmapper(*args)[:6]
+        return numpy.array([R[0], z[0], phi[0], vR[0], vz[0], R[0] * vT[0]])
+
+    x0 = numpy.array([jr, jphi, jz, ar, ap, az], dtype="float")
+    idx = [3, 4, 5, 0, 1, 2]
+    A = numpy.empty((6, 6))
+    for col, ii in enumerate(idx):
+        xps = x0.copy()
+        xps[ii] += h
+        xms = x0.copy()
+        xms[ii] -= h
+        A[:, col] = (xp(xps) - xp(xms)) / (2.0 * h)
+    Om = numpy.zeros((6, 6))
+    Om[:3, 3:] = numpy.eye(3)
+    Om[3:, :3] = -numpy.eye(3)
+    return numpy.max(numpy.fabs(A.T @ Om @ A - Om))
+
+
+def test_actionAngleStaeckelInverse_canonical_family_defect(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # the assembled interpolated (J, theta) -> (x, v) map is symplectic at
+    # the finite-difference floor, calibrated by the analytic isochrone
+    # inverse through the same harness -- for ANY stored tables (the
+    # manifest test injects noise into all of them and re-checks)
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    ctl = actionAngleIsochroneInverse(ip=IsochronePotential(amp=aASI._GMc, b=aASI._bc))
+    floor = max(
+        _staeckel_symplectic_defect(ctl._xvFreqs, 0.1, 0.6, 0.1, ar, 1.0, 2.0)
+        for ar in (0.7, 2.0, 4.5)
+    )
+    assert floor < 3e-8
+    Lz = float(aASI._Lzgrid[5] + 0.3 * (aASI._Lzgrid[6] - aASI._Lzgrid[5]))
+    for jr, jz in ((0.03, 0.05), (0.06, 0.10), (0.10, 0.03)):
+        for ar in (0.7, 2.0, 4.5):
+            defect = _staeckel_symplectic_defect(
+                aASI._xvFreqs, jr, Lz, jz, ar, 1.0, 2.0
+            )
+            assert defect < 3e-8, (
+                "The canonical Staeckel family's symplectic defect is not at "
+                "the finite-difference floor: %g at (jr, jz, ar) = "
+                "(%g, %g, %g)" % (defect, jr, jz, ar)
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_family_manifest():
+    # canonicity is manifest: noise in every stored table moves the
+    # evaluation but leaves the defect at the floor; a fresh instance,
+    # because its tables get ruined
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=6,
+        nE=6,
+        nI3=6,
+    )
+    Lz = float(aASI._Lzgrid[3])
+    args = (0.06, Lz, 0.10, numpy.array([2.0]), numpy.array([1.0]), numpy.array([2.0]))
+    x0 = numpy.array(aASI._xvFreqs(*args)[:6]).flatten()
+    rng = numpy.random.default_rng(11)
+    aASI._canon_tab_raw *= 1.0 + 1e-5 * rng.standard_normal(aASI._canon_tab_raw.shape)
+    aASI._rebuild_canon_interp()
+    x1 = numpy.array(aASI._xvFreqs(*args)[:6]).flatten()
+    moved = numpy.max(numpy.fabs(x1 - x0))
+    assert moved > 1e-7, (
+        "The injected table noise did not reach the evaluation (moved %g)" % moved
+    )
+    defect = _staeckel_symplectic_defect(aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
+    assert defect < 3e-8, (
+        "The symplectic defect is not invariant under stored-table noise: %g" % defect
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_family_warning():
+    # an under-resolved anomaly map is reported with actionable advice
+    import warnings as warnings_module
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.util import galpyWarning
+
+    kkp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=3.0, Delta=1.25)
+    with warnings_module.catch_warnings(record=True) as w:
+        warnings_module.simplefilter("always")
+        actionAngleStaeckelInverse(
+            pot=kkp,
+            setup_interp=True,
+            Rmin=0.5,
+            Rmax=1.5,
+            Rinf=6.0,
+            nLz=4,
+            nE=4,
+            nI3=4,
+            ncanon=128,
+            npt=12,
+        )
+        assert any(
+            issubclass(ww.category, galpyWarning)
+            and "under-resolved" in str(ww.message)
+            for ww in w
+        ), "An under-resolved family does not warn with actionable advice"
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_family_guards(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # the remaining defensive raises, fired for real: the toy-anomaly and
+    # family-Newton non-convergence (white-box via maxiter/comp sabotage),
+    # the interior label-match failure, and the above-grid energy
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    Lz = float(aASI._Lzgrid[5])
+    maxiter = aASI._maxiter
+    try:
+        aASI._maxiter = 0
+        with pytest.raises(RuntimeError) as excinfo:
+            aASI._canon_toy_radial(0.06, 0.5, numpy.array([2.0]))
+        assert "eccentric anomaly" in str(excinfo.value)
+        with pytest.raises(ValueError) as excinfo:
+            # an interior pair that the crippled label Newton cannot match:
+            # inside the covered total-action band, so neither directional
+            # diagnosis applies
+            aASI._canon_coords(0.06, Lz, 0.10)
+        assert "could not be matched" in str(excinfo.value)
+    finally:
+        aASI._maxiter = maxiter
+    comp = aASI._canon_comp
+    try:
+        # a non-contractive sabotage: the fixed-point iteration cannot
+        # converge when the compensation grows with the angle
+        aASI._canon_comp = lambda tr, tz, jr, LA, Lzz, v, dq: (
+            2.0 * tr,
+            2.0 * tr,
+            2.0 * tz,
+        )
+        with pytest.raises(RuntimeError) as excinfo:
+            aASI._xvFreqs_canonical_interp(
+                0.06,
+                Lz,
+                0.10,
+                numpy.array([2.0]),
+                numpy.array([1.0]),
+                numpy.array([2.0]),
+            )
+        assert "toy angles" in str(excinfo.value)
+    finally:
+        aASI._canon_comp = comp
+    # E above the grid through the integrals entry point
+    E, I3 = _canon_integral_labels(aASI, 0.06, Lz, 0.10)
+    with pytest.raises(ValueError) as excinfo:
+        aASI.Freqs(100.0, Lz, I3, integrals=True)
+    assert "above the energies" in str(excinfo.value)
+    # and the constructor's pot guard
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    with pytest.raises(OSError) as excinfo:
+        actionAngleStaeckelInverse()
+    assert "Must specify pot=" in str(excinfo.value)
     return None
