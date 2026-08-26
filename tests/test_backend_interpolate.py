@@ -1230,3 +1230,60 @@ def test_map_coordinates_rejects_unimplemented_mode(backend):
     filt = spline_filter(_BN_GRID, order=3)
     with pytest.raises(NotImplementedError, match="mirror.*nearest"):
         map_coordinates(filt, _asarray(backend, _BN_NODES), mode="reflect")
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_map_coordinates_backend_grid_with_numpy_query_points(backend_name):
+    # Dispatch was keyed on the QUERY COORDINATES alone, so a backend
+    # prefiltered grid queried at fixed numpy points went to scipy, which then
+    # called numpy.asarray on it and raised -- "Can't call numpy() on Tensor
+    # that requires grad" (torch), TracerArrayConversionError (jax.jit).
+    #
+    # That combination is not exotic: it is how you differentiate an
+    # interpolant w.r.t. the DATA it was built from, with the sample points
+    # held fixed. The grid carries derivatives just as much as the coords do.
+    grid = numpy.sin(numpy.linspace(0.0, 3.0, 12))
+    pts = numpy.array([[2.3, 5.7, 9.1]])
+    ref = map_coordinates(
+        spline_filter(grid), pts, order=3, mode="nearest", prefilter=False
+    )
+
+    if backend_name == "jax":
+        import jax
+
+        def total(g):
+            return map_coordinates(
+                spline_filter(g), pts, order=3, mode="nearest", prefilter=False
+            ).sum()
+
+        got = jax.jit(total)(jnp.asarray(grid))
+        assert numpy.isfinite(float(got))
+        numpy.testing.assert_allclose(float(got), float(ref.sum()), rtol=1e-12)
+        return
+
+    g = torch.tensor(grid, dtype=torch.float64, requires_grad=True)
+    out = map_coordinates(
+        spline_filter(g), pts, order=3, mode="nearest", prefilter=False
+    )
+    # Value parity with the numpy/scipy answer first...
+    numpy.testing.assert_allclose(as_numpy(out.detach()), ref, rtol=1e-12, atol=1e-14)
+    # ...then the gradient this whole path exists for, against central
+    # differences at every grid node rather than "finite and nonzero".
+    out.sum().backward()
+    ad = as_numpy(g.grad)
+
+    def total_np(gv):
+        return float(
+            map_coordinates(
+                spline_filter(gv), pts, order=3, mode="nearest", prefilter=False
+            ).sum()
+        )
+
+    h = 1e-6
+    fd = numpy.empty_like(grid)
+    for i in range(grid.size):
+        up, dn = grid.copy(), grid.copy()
+        up[i] += h
+        dn[i] -= h
+        fd[i] = (total_np(up) - total_np(dn)) / (2 * h)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-8)
