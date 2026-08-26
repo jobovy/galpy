@@ -313,16 +313,6 @@ def test_surfdens_differentiates_in_R_not_only_z(backend_name, forcepoisson):
     #
     # Both surfdens routes are covered: forcepoisson=True goes through the
     # Rforce/R2deriv/phi2deriv combination, False through _dens.
-    if backend_name == "torch":
-        pytest.skip(
-            "separate PRE-EXISTING gap: the gate is under_trace, which is False "
-            "for EAGER torch autograd (it asks torch.compiler.is_compiling()), so "
-            "surfdens takes scipy and silently returns a detached float -- no "
-            "torch gradient, in R OR z. Widening the gate to grad-tracking eager "
-            "tensors would route scalar-only potentials into the array-calling GL "
-            "rule, which is the undecidable _force_accepts_arrays problem the "
-            "_quad_needs_backend docstring describes. Its own change."
-        )
     from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(a=0.5, b=0.1)
@@ -337,12 +327,104 @@ def test_surfdens_differentiates_in_R_not_only_z(backend_name, forcepoisson):
     def sd(R, z):
         return pot.surfdens(R, z, forcepoisson=forcepoisson, use_physical=False)
 
-    jnp = jax.numpy
-    ad_R = float(jax.grad(lambda R: sd(R, jnp.asarray(z0)))(jnp.asarray(R0)))
-    ad_z = float(jax.grad(lambda z: sd(jnp.asarray(R0), z))(jnp.asarray(z0)))
+    # Both backends now. torch reaches this because _quad_needs_backend asks
+    # requires_backend_grad as well as under_trace: eager torch autograd is the
+    # one differentiating mode with no trace behind it, so scipy used to run and
+    # silently detach -- returning a bare float here (forcepoisson=False) or a
+    # tensor whose gradient was 23% wrong in R and 72% in z (forcepoisson=True).
+    ad_R, live_R = _surfdens_ad(backend_name, pot, forcepoisson, "R", R0, z0)
+    ad_z, live_z = _surfdens_ad(backend_name, pot, forcepoisson, "z", R0, z0)
+    assert live_R and live_z, (
+        f"{backend_name} forcepoisson={forcepoisson}: surfdens returned a bare "
+        "float, severing the autograd graph"
+    )
 
     # h=1e-5 central differences on a smooth integral: good to ~1e-9. d/dz is
     # the control -- it worked before this fix, so if it ever regresses the
     # cause is the gate, not the quadrature.
     numpy.testing.assert_allclose(ad_R, fd_R, rtol=1e-6, atol=1e-9)
     numpy.testing.assert_allclose(ad_z, fd_z, rtol=1e-6, atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# surfdens: BOTH routes must stay on the backend and stay differentiable.
+#
+# scipy.integrate.quad cannot be evaluated on a tracer at all, but on an eager
+# grad-tracking torch tensor it does something worse: it silently DETACHES the
+# integrated piece while the algebraic prefactor keeps its graph, so the value
+# stays right and the gradient comes back wrong. Measured on develop, before
+# `_quad_needs_backend` learned to ask `requires_backend_grad`:
+#
+#   forcepoisson=False -> a bare Python float (graph severed entirely)
+#   forcepoisson=True  -> Tensor, requires_grad=True, grad_fn set,
+#                         gradient 23.3% wrong in R and 71.8% wrong in z
+#
+# jax never had this: jax.grad passes a tracer, which `under_trace` already
+# caught. Only eager torch autograd differentiates with no trace behind it.
+# ---------------------------------------------------------------------------
+_SURFDENS_R0, _SURFDENS_Z0 = 1.0, 0.3
+
+
+def _surfdens_ad(backend_name, pot, forcepoisson, wrt, R0, z0):
+    with _ctx(backend_name):
+        if backend_name == "jax":
+            import jax.numpy as jnp
+
+            def f(v):
+                R = v if wrt == "R" else jnp.asarray(R0)
+                z = v if wrt == "z" else jnp.asarray(z0)
+                return pot.surfdens(R, z, forcepoisson=forcepoisson, use_physical=False)
+
+            x0 = R0 if wrt == "R" else z0
+            return float(jax.grad(f)(jnp.asarray(x0))), True
+        leaf = torch.tensor(R0 if wrt == "R" else z0, requires_grad=True)
+        R = leaf if wrt == "R" else torch.tensor(R0)
+        z = leaf if wrt == "z" else torch.tensor(z0)
+        out = pot.surfdens(R, z, forcepoisson=forcepoisson, use_physical=False)
+        # A bare float here IS the bug: the graph was severed, so there is no
+        # gradient to be wrong about. Report it rather than raising obscurely.
+        if not isinstance(out, torch.Tensor):
+            return float("nan"), False
+        (g,) = torch.autograd.grad(out, leaf)
+        return float(g), True
+
+
+def _surfdens_fd(pot, wrt, eps=1e-6):
+    def at(R, z):
+        return float(pot.surfdens(R, z, use_physical=False))
+
+    if wrt == "R":
+        hi, lo = (
+            at(_SURFDENS_R0 + eps, _SURFDENS_Z0),
+            at(_SURFDENS_R0 - eps, _SURFDENS_Z0),
+        )
+    else:
+        hi, lo = (
+            at(_SURFDENS_R0, _SURFDENS_Z0 + eps),
+            at(_SURFDENS_R0, _SURFDENS_Z0 - eps),
+        )
+    return (hi - lo) / (2 * eps)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_surfdens_gradient_for_a_potential_that_opts_out_of_array_forces(
+    backend_name,
+):
+    # AnySphericalPotential sets _force_accepts_arrays = False, the case that
+    # motivated a possible "raise unless array-safe" guard. Measured: it needs
+    # no guard -- the backend quadrature handles it and the gradient is right,
+    # so the simpler predicate-only fix is enough.
+    from galpy.potential import AnySphericalPotential
+
+    pot = AnySphericalPotential(
+        amp=1.0, dens=lambda r: 1.0 / (r * (1.0 + r) ** 3) / (4.0 * numpy.pi)
+    )
+    fd = _surfdens_fd(pot, "R")
+    ad, on_backend = _surfdens_ad(
+        backend_name, pot, False, "R", _SURFDENS_R0, _SURFDENS_Z0
+    )
+    assert on_backend, f"{backend_name}: bare float, graph severed"
+    assert abs(ad - fd) < 1e-7 * abs(fd), (
+        f"{backend_name} opt-out potential d/dR: {ad!r} vs FD {fd!r} "
+        f"(rel {abs(ad - fd) / abs(fd):.3e})"
+    )
