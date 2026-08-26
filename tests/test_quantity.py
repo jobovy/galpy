@@ -13131,17 +13131,17 @@ def test_actionAngleVerticalInverse_units():
     return None
 
 
-def test_actionAngleSphericalCanonical_units():
-    # Unit support of actionAngleSphericalCanonical: Quantity energies,
+def test_actionAngleSphericalInverse_units():
+    # Unit support of actionAngleSphericalInverse: Quantity energies,
     # angular momenta, and radial grid anchors for the instance, Quantity
     # actions and angles for its evaluation, and physical outputs
-    from galpy.actionAngle import actionAngleSphericalCanonical
+    from galpy.actionAngle import actionAngleSphericalInverse
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion
 
     ro, vo = 9.0, 230.0
     E, L = 0.7, 0.9
-    aASC = actionAngleSphericalCanonical(
+    aASC = actionAngleSphericalInverse(
         pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
         Es=[E * (vo * units.km / units.s) ** 2.0],
         Ls=[L * (ro * vo * units.kpc * units.km / units.s)],
@@ -13150,17 +13150,17 @@ def test_actionAngleSphericalCanonical_units():
         ro=ro,
         vo=vo,
     )
-    aASC_int = actionAngleSphericalCanonical(
+    aASC_int = actionAngleSphericalInverse(
         pot=LogarithmicHaloPotential(normalize=1.0), Es=[E], Ls=[L], ntau=128, nn=12
     )
     assert numpy.fabs(aASC._Es[0] - E) < 1e-10, (
-        "actionAngleSphericalCanonical does not parse an energy given as a Quantity"
+        "actionAngleSphericalInverse does not parse an energy given as a Quantity"
     )
     assert numpy.fabs(aASC._Ls[0] - L) < 1e-10, (
-        "actionAngleSphericalCanonical does not parse an angular momentum given as a Quantity"
+        "actionAngleSphericalInverse does not parse an angular momentum given as a Quantity"
     )
     assert numpy.fabs(aASC._jrs[0] - aASC_int._jrs[0]) < 1e-10, (
-        "actionAngleSphericalCanonical with a potential with ro and vo set does not give the same torus as one in internal units"
+        "actionAngleSphericalInverse with a potential with ro and vo set does not give the same torus as one in internal units"
     )
 
     def _value(x, unit):
@@ -13193,7 +13193,7 @@ def test_actionAngleSphericalCanonical_units():
             numpy.fabs(_value(out[ii], unit) / fac - numpy.atleast_1d(out_int[ii])[0])
             < 1e-10
         ), (
-            "actionAngleSphericalCanonical method __call__ does not return the physical version of the internal-unit coordinates"
+            "actionAngleSphericalInverse method __call__ does not return the physical version of the internal-unit coordinates"
         )
     for ii in range(3):
         assert (
@@ -13204,10 +13204,10 @@ def test_actionAngleSphericalCanonical_units():
             )
             < 1e-10
         ), (
-            "actionAngleSphericalCanonical method Freqs does not return the physical version of the internal-unit frequency"
+            "actionAngleSphericalInverse method Freqs does not return the physical version of the internal-unit frequency"
         )
     # Quantity radial anchors for the interpolation grid
-    aASCg = actionAngleSphericalCanonical(
+    aASCg = actionAngleSphericalInverse(
         pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
         setup_interp=True,
         Rmin=0.7 * ro * units.kpc,
@@ -13220,7 +13220,7 @@ def test_actionAngleSphericalCanonical_units():
         ro=ro,
         vo=vo,
     )
-    aASCg_int = actionAngleSphericalCanonical(
+    aASCg_int = actionAngleSphericalInverse(
         pot=LogarithmicHaloPotential(normalize=1.0),
         setup_interp=True,
         Rmin=0.7,
@@ -13232,7 +13232,7 @@ def test_actionAngleSphericalCanonical_units():
         nn=8,
     )
     assert numpy.all(numpy.fabs(aASCg._Lgrid - aASCg_int._Lgrid) < 1e-10), (
-        "actionAngleSphericalCanonical does not parse radial grid anchors given as Quantities"
+        "actionAngleSphericalInverse does not parse radial grid anchors given as Quantities"
     )
     return None
 
