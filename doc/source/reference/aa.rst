@@ -59,6 +59,7 @@ Specific actionAngle modules
 
    actionAngleHarmonicInverse <aaharmonicinverse.rst>
    actionAngleIsochroneInverse <aaisochroneinverse.rst>
+   actionAngleSphericalCanonical <aasphericalcanonical.rst>
    actionAngleTorus <aatorus.rst>
    actionAngleVerticalInverse <aaverticalinverse.rst>
 

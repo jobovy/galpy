@@ -13131,6 +13131,112 @@ def test_actionAngleVerticalInverse_units():
     return None
 
 
+def test_actionAngleSphericalCanonical_units():
+    # Unit support of actionAngleSphericalCanonical: Quantity energies,
+    # angular momenta, and radial grid anchors for the instance, Quantity
+    # actions and angles for its evaluation, and physical outputs
+    from galpy.actionAngle import actionAngleSphericalCanonical
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 9.0, 230.0
+    E, L = 0.7, 0.9
+    aASC = actionAngleSphericalCanonical(
+        pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
+        Es=[E * (vo * units.km / units.s) ** 2.0],
+        Ls=[L * (ro * vo * units.kpc * units.km / units.s)],
+        ntau=128,
+        nn=12,
+        ro=ro,
+        vo=vo,
+    )
+    aASC_int = actionAngleSphericalCanonical(
+        pot=LogarithmicHaloPotential(normalize=1.0), Es=[E], Ls=[L], ntau=128, nn=12
+    )
+    assert numpy.fabs(aASC._Es[0] - E) < 1e-10, (
+        "actionAngleSphericalCanonical does not parse an energy given as a Quantity"
+    )
+    assert numpy.fabs(aASC._Ls[0] - L) < 1e-10, (
+        "actionAngleSphericalCanonical does not parse an angular momentum given as a Quantity"
+    )
+    assert numpy.fabs(aASC._jrs[0] - aASC_int._jrs[0]) < 1e-10, (
+        "actionAngleSphericalCanonical with a potential with ro and vo set does not give the same torus as one in internal units"
+    )
+
+    def _value(x, unit):
+        x = numpy.atleast_1d(x)[0]
+        return x.to(unit).value if isinstance(x, units.Quantity) else x
+
+    jr = aASC_int._jrs[0]
+    jphi, jz = 0.6, L - 0.6
+    Jq = ro * vo * units.kpc * units.km / units.s
+    out = aASC(
+        jr * Jq,
+        jphi * Jq,
+        jz * Jq,
+        1.1 * units.rad,
+        0.2 * units.rad,
+        2.1 * units.rad,
+    )
+    out_int = aASC_int(jr, jphi, jz, 1.1, 0.2, 2.1)
+    for ii, (fac, unit) in enumerate(
+        [
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (vo, units.km / units.s),
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (1.0, units.rad),
+        ]
+    ):
+        assert (
+            numpy.fabs(_value(out[ii], unit) / fac - numpy.atleast_1d(out_int[ii])[0])
+            < 1e-10
+        ), (
+            "actionAngleSphericalCanonical method __call__ does not return the physical version of the internal-unit coordinates"
+        )
+    for ii in range(3):
+        assert (
+            numpy.fabs(
+                _value(aASC.Freqs(jr * Jq, jphi * Jq, jz * Jq)[ii], 1.0 / units.Gyr)
+                / conversion.freq_in_Gyr(vo, ro)
+                - numpy.atleast_1d(aASC_int.Freqs(jr, jphi, jz)[ii])[0]
+            )
+            < 1e-10
+        ), (
+            "actionAngleSphericalCanonical method Freqs does not return the physical version of the internal-unit frequency"
+        )
+    # Quantity radial anchors for the interpolation grid
+    aASCg = actionAngleSphericalCanonical(
+        pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
+        setup_interp=True,
+        Rmin=0.7 * ro * units.kpc,
+        Rmax=1.4 * ro * units.kpc,
+        Rinf=6.0 * ro * units.kpc,
+        nE=4,
+        nL=4,
+        ntau=64,
+        nn=8,
+        ro=ro,
+        vo=vo,
+    )
+    aASCg_int = actionAngleSphericalCanonical(
+        pot=LogarithmicHaloPotential(normalize=1.0),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.4,
+        Rinf=6.0,
+        nE=4,
+        nL=4,
+        ntau=64,
+        nn=8,
+    )
+    assert numpy.all(numpy.fabs(aASCg._Lgrid - aASCg_int._Lgrid) < 1e-10), (
+        "actionAngleSphericalCanonical does not parse radial grid anchors given as Quantities"
+    )
+    return None
+
+
 def test_actionAngleHarmonic_setup_omega_units():
     from galpy.actionAngle import actionAngleHarmonic
     from galpy.util import conversion
