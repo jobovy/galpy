@@ -60,6 +60,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         Es=[0.5, 1.0],
         Ls=[0.9, 1.1],
         setup_interp=False,
+        pt=True,
         Rmin=0.5,
         Rmax=2.0,
         Rinf=25.0,
@@ -85,6 +86,13 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             If True, set up an (E, L) grid of tori spanning the circular
             angular momenta of [Rmin, Rmax] and energies up to the
             potential at Rinf, and interpolate canonically between them.
+        pt : bool, optional
+            If True (the default), align each torus with the toy through
+            the support-matched radial point transformation
+            (cotangent-lifted, so canonical for any stored support
+            tables); this shrinks the generating-function lattice at all
+            eccentricities and removes the frozen toy's winding
+            condition. If False, use the bare frozen-toy correspondence.
         Rmin, Rmax, Rinf : float, optional
             Radial anchors of the interpolation grid.
         nE, nL, ntau, nn : int, optional
@@ -100,7 +108,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         - 2026-08-25 - Started - Bovy (UofT)
         """
         actionAngleInverse.__init__(self, *[], **kwargs)
-        if pot is None:  # pragma: no cover
+        if pot is None:
             raise OSError("Must specify pot= for actionAngleSphericalCanonical")
         self._pot = _check_potential_list_and_deprecate(pot)
         if ntau % 2 == 1:
@@ -111,6 +119,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._interp = setup_interp
+        self._pt = pt
         if not setup_interp:
             self._Es = numpy.atleast_1d(numpy.array(Es, dtype="float"))
             self._Ls = numpy.atleast_1d(numpy.array(Ls, dtype="float"))
@@ -118,16 +127,11 @@ class actionAngleSphericalCanonical(actionAngleInverse):
                 raise ValueError("Es and Ls have to have the same length")
         else:
             self._setup_grid(Rmin, Rmax, Rinf, nE, nL)
-        # sample every torus once (exact placement), then choose the toy,
-        # then compute the tables against it
+        # sample every torus once (exact placement), then choose the frozen
+        # toy (all torus-dependence beyond it lives in the support-matched
+        # PT family, whose compensation is closed-form), then compute the
+        # tables against it
         self._sample_all()
-        # frozen toy for the whole set (S2 brings the varying, compensated
-        # form together with the radial alignment PT): the notes' rule --
-        # unclamped, spherical potentials sit inside the isochrone's
-        # frequency-ratio range -- at the central torus, with GM escalated
-        # until the toy covers every sampled point (E^A < 0 is monotone in
-        # GM, so this terminates; the price is S-size at the extremes,
-        # which is S2's business)
         self._setup_toy()
         self._setup_tori()
         self._check_consistent_units()
@@ -225,6 +229,61 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             if abs(GMn - GM) < 1e-14 * (1.0 + GM):
                 break
             GM = GMn
+        if self._pt:
+            # the support-matched PT removes the winding condition
+            # structurally (the lifted loop is the toy's own support, which
+            # brackets the toy's circular point), so the rc-pinning of the
+            # start point is only a good initial guess. What the lift DOES
+            # need is depth headroom: the equal-action toy torus of the
+            # most eccentric node must sit well below escape, else the
+            # affine lift's shape mismatch crosses E^A = 0. Escalate GM
+            # until every lifted sample clears escape by a fixed fraction
+            # of the central well depth (E^A is monotone in GM, so this
+            # terminates).
+            for _ in range(20):
+                self._GM, self._b = GM, b
+                self._ip = IsochronePotential(amp=GM, b=b)
+                ok = True
+                for stau, sr, spr, srp, sra, sE, sL in self._samples:
+                    Jrq = numpy.mean(
+                        numpy.fabs(spr)
+                        * 0.5
+                        * (sra - srp)
+                        * numpy.fabs(numpy.sin(stau))
+                    )
+                    EAtorus = self._iso_E_of_Jr(Jrq, sL)
+                    rpA, raA = self._iso_turning(EAtorus, sL)
+                    pip = (sra - srp) / (raA - rpA)
+                    rA = rpA + (sr - srp) / pip
+                    pA = spr * pip
+                    EAs = numpy.max(
+                        0.5 * (pA**2 + sL**2 / rA**2)
+                        - GM / (b + numpy.sqrt(b**2 + rA**2))
+                    )
+                    # node-local margin: the lifted curve must clear escape
+                    # by a (small) fraction of its own toy torus's binding
+                    # energy; in-domain grids pass with the initial toy,
+                    # and deepening cannot repair an out-of-domain grid
+                    # (measured: the overshoot ratio is GM-invariant), so
+                    # fail fast rather than churn
+                    if EAs >= -1e-3 * numpy.fabs(EAtorus):
+                        ok = False
+                        break
+                if ok:
+                    break
+                GM *= 1.2
+            else:
+                raise RuntimeError(
+                    "The affine support-matched lift of the most eccentric "
+                    "requested torus is not bound in any isochrone toy: "
+                    "beyond eccentricity ~0.97 the target's radial-momentum "
+                    "profile cannot be matched onto a near-Kepler toy torus "
+                    "by an affine radial map (a profile-matched point "
+                    "transformation would be needed here)"
+                )
+            self._aAI = actionAngleIsochrone(ip=self._ip)
+            self._aAIinv = actionAngleIsochroneInverse(ip=self._ip)
+            return None
         for _ in range(60):
             ip = IsochronePotential(amp=GM, b=b)
             # boundness: every sampled point of every torus bound in the toy
@@ -258,12 +317,72 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._aAIinv = actionAngleIsochroneInverse(ip=self._ip)
         return None
 
+    # ---------- the radial alignment PT (support-matched, cotangent-lifted)
+    def _iso_E_of_Jr(self, Jr, L):
+        """Energy of the toy torus with radial action Jr: the isochrone's
+        closed form"""
+        CA = 0.5 * (L + numpy.sqrt(L**2 + 4.0 * self._GM * self._b))
+        return -(self._GM**2) / (2.0 * (Jr + CA) ** 2)
+
+    def _iso_turning(self, EA, L):
+        """Radial turning points of the toy torus at (E^A, L)"""
+        pr2 = lambda r: (
+            2.0 * (EA + self._GM / (self._b + numpy.sqrt(self._b**2 + r**2)))
+            - L**2 / r**2
+        )
+        rcA = rl(self._ip, L, use_physical=False)
+        rlo, rhi = rcA, rcA
+        while pr2(rlo) > 0.0 and rlo > 1e-12:
+            rlo /= 1.3
+        while pr2(rhi) > 0.0 and rhi < 1e12:
+            rhi *= 1.3
+        return (
+            brentq(pr2, rlo, rcA, xtol=1e-12),
+            brentq(pr2, rcA, rhi, xtol=1e-12),
+        )
+
+    def _pt_supports(self, tau, r, pr, rp, ra, L):
+        """The PT parameters of one torus: the toy support [rpA, raA] of
+        the equal-action toy torus, matched onto the target's [rp, ra];
+        the parametrizing action is the plain loop-action quadrature (any
+        stored parametrization of the family is canonical)"""
+        Jr = numpy.mean(numpy.fabs(pr) * 0.5 * (ra - rp) * numpy.fabs(numpy.sin(tau)))
+        rpA, raA = self._iso_turning(self._iso_E_of_Jr(Jr, L), L)
+        return rpA, raA
+
+    def _toy_radial(self, JAr, L, thetaAr):
+        """The radial half of the analytic isochrone inverse: (J^A_r, L,
+        theta^A_r) -> (r^A, p^A_r), vectorized over points (each target
+        point sits on its own toy torus)"""
+        amp, bb = self._GM, self._b
+        sqrtfourbkL2 = numpy.sqrt(L**2 + 4.0 * bb * amp)
+        H = -2.0 * amp**2 / (2.0 * JAr + L + sqrtfourbkL2) ** 2
+        a = -amp / 2.0 / H - bb
+        ab = a + bb
+        e = numpy.sqrt(1.0 + L**2 / (2.0 * H * a**2))
+        ar = numpy.atleast_1d(thetaAr) % (2.0 * numpy.pi)
+        aeab = a * e / ab
+        x = numpy.array(ar)
+        for _ in range(self._maxiter):
+            f = x - aeab * numpy.sin(x) - ar
+            x -= numpy.clip(f / (1.0 - aeab * numpy.cos(x)), -1.0, 1.0)
+            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError(
+                "Newton's method for the toy eccentric anomaly did not converge"
+            )
+        coseta = numpy.cos(x)
+        rA = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * bb / a))
+        pA = numpy.sqrt(amp / ab) * a * e * numpy.sin(x) / rA
+        return rA, pA
+
     # ---------- the generating-function tables, computed (never fitted)
     def _cached_sample(self, E, L):
         for smp in self._samples:
             if smp[5] == E and smp[6] == L:
                 return smp
-        return self._sample_torus(E, L) + (E, L)  # pragma: no cover
+        return self._sample_torus(E, L) + (E, L)
 
     def _node_tables(self, E, L):
         """One node torus: sample exactly, run the closed-form isochrone
@@ -274,20 +393,38 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         regular quadrature, and the per-torus correspondence tables that
         the discrete evaluation path reads"""
         tau, r, pr, rp, ra, _, _ = self._cached_sample(E, L)
+        if self._pt:
+            # lift the samples to the toy chart through the support-matched
+            # PT: r = pi(r^A) affine through the four support parameters,
+            # p^A = pi' p_r (the cotangent lift)
+            rpA, raA = self._pt_supports(tau, r, pr, rp, ra, L)
+            piprime = (ra - rp) / (raA - rpA)
+            rA = rpA + (r - rp) / piprime
+            pA = pr * piprime
+        else:
+            rpA, raA = rp, ra
+            rA, pA = r, pr
         with numpy.errstate(invalid="ignore"):
             # the samples are planar (j_z = 0), so the toy's inclination
             # angles divide by zero; only o[0], o[6], and o[7] are read,
             # none of which involve the inclination
             o = self._aAI.actionsFreqsAngles(
-                r,
-                pr,
-                L / r,
-                numpy.zeros_like(r),
-                numpy.zeros_like(r),
-                numpy.zeros_like(r),
+                rA,
+                pA,
+                L / rA,
+                numpy.zeros_like(rA),
+                numpy.zeros_like(rA),
+                numpy.zeros_like(rA),
             )
         JA = numpy.atleast_1d(o[0])
         thetaA = numpy.atleast_1d(o[6])
+        if numpy.any(~numpy.isfinite(JA)):
+            # the toy-selection margins prevent this in any __init__ path;
+            # guards against inconsistent externally-modified state
+            raise RuntimeError(
+                f"The toy correspondence failed for the (E, L) = ({E}, {L}) "
+                "torus (unbound lifted samples)"
+            )
         P = numpy.unwrap(thetaA - tau + numpy.pi) - numpy.pi
         k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
         dthdtau = 1.0 + numpy.real(numpy.fft.ifft(1j * k * numpy.fft.fft(P)))
@@ -342,6 +479,8 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             "maxcos": maxcos,
             "rp": rp,
             "ra": ra,
+            "rpA": rpA,
+            "raA": raA,
             "OmR": OmR,
             "Ompsi": Ompsi,
             "cP": _spec_coeffs(P),
@@ -359,6 +498,8 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._Sn = numpy.empty((ntori, self._nn))
         self._rps = numpy.empty(ntori)
         self._ras = numpy.empty(ntori)
+        self._rpAs = numpy.empty(ntori)
+        self._raAs = numpy.empty(ntori)
         self._OmRs = numpy.empty(ntori)
         self._Ompsis = numpy.empty(ntori)
         self._cP = numpy.empty((ntori, nk), dtype=complex)
@@ -372,6 +513,8 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             self._Sn[ii] = node["Sn"]
             self._rps[ii] = node["rp"]
             self._ras[ii] = node["ra"]
+            self._rpAs[ii] = node["rpA"]
+            self._raAs[ii] = node["raA"]
             self._OmRs[ii] = node["OmR"]
             self._Ompsis[ii] = node["Ompsi"]
             self._cP[ii] = node["cP"]
@@ -417,6 +560,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._Sn_tab = numpy.empty((nu, nLg, self._nn))
         self._OmR_tab = numpy.empty((nu, nLg))
         self._Ompsi_tab = numpy.empty((nu, nLg))
+        self._sup_tab = numpy.empty((nu, nLg, 4))  # rp, ra, rpA, raA
         self._coserr = 0.0
         for ii in range(nu):
             for jj in range(nLg):
@@ -425,6 +569,12 @@ class actionAngleSphericalCanonical(actionAngleInverse):
                 self._Sn_tab[ii, jj] = node["Sn"]
                 self._OmR_tab[ii, jj] = node["OmR"]
                 self._Ompsi_tab[ii, jj] = node["Ompsi"]
+                self._sup_tab[ii, jj] = [
+                    node["rp"],
+                    node["ra"],
+                    node["rpA"],
+                    node["raA"],
+                ]
                 self._coserr = max(self._coserr, node["maxcos"])
         self._rebuild_interp()
         return None
@@ -439,6 +589,10 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         self._Sn_ip = [
             RectBivariateSpline(u, Lg, self._Sn_tab[:, :, q], kx=3, ky=3, s=0.0)
             for q in range(self._nn)
+        ]
+        self._sup_ip = [
+            RectBivariateSpline(u, Lg, self._sup_tab[:, :, q], kx=3, ky=3, s=0.0)
+            for q in range(4)
         ]
         return None
 
@@ -479,29 +633,85 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         dSdL = dSn_dL - dSn_du * djr_dL / djr_du
         OmR = dE_du / djr_du
         OmL = dE_dL - dE_du * djr_dL / djr_du
-        return u, Sn, dSdJ, dSdL, OmR, OmL
+        if not self._pt:
+            return u, Sn, dSdJ, dSdL, OmR, OmL, None, None, None
+        sup = numpy.array([ip(u, L)[0, 0] for ip in self._sup_ip])
+        dsup_du = numpy.array([ip(u, L, dx=1)[0, 0] for ip in self._sup_ip])
+        dsup_dL = numpy.array([ip(u, L, dy=1)[0, 0] for ip in self._sup_ip])
+        dsupJ = dsup_du / djr_du
+        dsupL = dsup_dL - dsup_du * djr_dL / djr_du
+        return u, Sn, dSdJ, dSdL, OmR, OmL, sup, dsupJ, dsupL
 
-    def _thetaA_solve(self, thr, dSdJ):
+    @staticmethod
+    def _pi_chain(rA, sup, dsup):
+        """d pi/d alpha at fixed r^A of the affine support map
+        pi(r^A) = rp + (r^A - rpA) c, c = (ra - rp)/(raA - rpA), given the
+        four support parameters and their derivatives along alpha"""
+        rp, ra, rpA, raA = sup
+        drp, dra, drpA, draA = dsup
+        c = (ra - rp) / (raA - rpA)
+        dc = ((dra - drp) - c * (draA - drpA)) / (raA - rpA)
+        return drp + (rA - rpA) * dc - c * drpA
+
+    # the compensation's sign, adjudicated by the symplectic-defect harness
+    # (defect 6e-10 at -1 vs O(1) at +1/0), matching the 1D exact PT's
+    # -v (dpi/dE) E' term
+    _PT_COMP_SIGN = -1.0
+
+    def _thetaA_solve(self, thr, dSdJ, comp=None):
         """Newton solve of theta_r = theta^A + 2 sum dS_n/dJ_r sin(n theta^A)
-        for theta^A, vectorized over the requested angles"""
+        [+ the PT-family compensation p_r (dpi/dJ_r)|_{r^A}] for theta^A,
+        vectorized over the requested angles; the residual is exact, the
+        Jacobian approximates by dropping the compensation's derivative
+        (the 1D-validated approach)"""
         n = self._nforSn
-        x = numpy.array(thr, dtype="float")
-        for _ in range(self._maxiter):
+
+        def _residual(x, target):
             snx = numpy.sin(x[:, None] * n[None, :])
             cnx = numpy.cos(x[:, None] * n[None, :])
-            f = x + 2.0 * snx @ dSdJ - thr
+            f = x + 2.0 * snx @ dSdJ - target
+            if comp is not None:
+                jr, L, Sn, sup, dsupJ = comp
+                JAr = jr + 2.0 * cnx @ (n * Sn)
+                rA, pA = self._toy_radial(JAr, L, x)
+                pr = pA / ((sup[1] - sup[0]) / (sup[3] - sup[2]))
+                f = f + self._PT_COMP_SIGN * pr * self._pi_chain(rA, sup, dsupJ)
+            return f, cnx
+
+        x = numpy.array(thr, dtype="float")
+        for _ in range(self._maxiter):
+            f, cnx = _residual(x, thr)
             fp = 1.0 + 2.0 * cnx @ (n * dSdJ)
             dx = -f / fp
             dx = numpy.clip(dx, -0.5, 0.5)
             x += dx
             if numpy.max(numpy.fabs(f)) < self._angle_tol:
                 break
-        else:  # pragma: no cover
-            raise RuntimeError(
-                "Newton's method for the toy angle did not converge: the "
-                "frozen toy's lattice is too large for this torus (the "
-                "varying toy and the radial alignment PT address this)"
+        else:
+            # the approximate-Jacobian Newton can cycle on hard tori even
+            # where the angle map is monotone; fall back to safeguarded
+            # scalar root-finding per non-converged point. The residual is
+            # x + Q(x) - theta with Q periodic, so [theta - maxQ - eps,
+            # theta + maxQ + eps] is a guaranteed bracket. (Where the
+            # family chart FOLDS -- measured beyond u ~ 0.8 on very wide
+            # grids, the frozen toy's phase mismatch growing too fast
+            # along the family -- the root is not unique, root-finding
+            # returns one branch, and the round trip degrades; the
+            # profile-matched PT is the recorded fix.)
+            f, _ = _residual(x, thr)
+            bad = numpy.flatnonzero(numpy.fabs(f) >= self._angle_tol)
+            xscan = numpy.linspace(0.0, 2.0 * numpy.pi, 256, endpoint=False)
+            s = (
+                numpy.max(numpy.fabs(_residual(xscan, numpy.zeros(256))[0] - xscan))
+                + 0.1
             )
+            for ii in bad:
+                thri = thr[ii]
+
+                def _fi(xx):
+                    return _residual(numpy.array([xx]), numpy.array([thri]))[0][0]
+
+                x[ii] = brentq(_fi, thri - s, thri + s, xtol=1e-15, maxiter=200)
         return x
 
     def _tau_solve(self, ii, thr):
@@ -515,7 +725,7 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             x += dx
             if numpy.max(numpy.fabs(f)) < self._angle_tol:
                 break
-        else:  # pragma: no cover
+        else:
             raise RuntimeError("Newton's method for the anomaly did not converge")
         return x
 
@@ -549,13 +759,21 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         )
         thr = angler % (2.0 * numpy.pi)
         n = self._nforSn
+        sup = None
         if self._interp:
-            u, Sn, dSdJ, dSdL, OmR, OmL = self._interp_tables(jr, L)
-            thetaAr = self._thetaA_solve(thr, dSdJ)
+            u, Sn, dSdJ, dSdL, OmR, OmL, sup, dsupJ, dsupL = self._interp_tables(jr, L)
+            comp = None if not self._pt else (jr, L, Sn, sup, dsupJ)
+            thetaAr = self._thetaA_solve(thr, dSdJ, comp=comp)
             snx = numpy.sin(thetaAr[:, None] * n[None, :])
             cnx = numpy.cos(thetaAr[:, None] * n[None, :])
             JAr = jr + 2.0 * cnx @ (n * Sn)
             Delta = 2.0 * snx @ dSdL
+            if self._pt:
+                # the PT family's L-chain compensates the psi-angles the
+                # same way the J_r-chain compensates theta_r
+                rA, pA = self._toy_radial(JAr, L, thetaAr)
+                pr = pA / ((sup[1] - sup[0]) / (sup[3] - sup[2]))
+                Delta = Delta + self._PT_COMP_SIGN * pr * self._pi_chain(rA, sup, dsupL)
         else:
             ii = self._match_node(jr, L)
             OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
@@ -563,6 +781,10 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             thetaAr = taus + _spec_eval(self._cP[ii], taus)
             JAr = jr + _spec_eval(self._cJ[ii], taus)
             Delta = _spec_eval(self._cD[ii], taus)
+            if self._pt:
+                sup = numpy.array(
+                    [self._rps[ii], self._ras[ii], self._rpAs[ii], self._raAs[ii]]
+                )
         thetaAz = anglez - Delta
         thetaAphi = anglephi - numpy.sign(jphi) * Delta
         out = numpy.empty((6, len(thr)))
@@ -572,6 +794,8 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             )
             for jj in range(6):
                 out[jj, ii] = oo[jj][0]
+        if self._pt:
+            out = self._pt_unlift(out, sup)
         return (
             out[0],
             out[1],
@@ -584,6 +808,34 @@ class actionAngleSphericalCanonical(actionAngleInverse):
             OmL,
         )
 
+    @staticmethod
+    def _pt_unlift(out, sup):
+        """Map the toy-chart reconstruction to the target chart: the
+        radial PT rescales the spherical radius (pi) and the radial
+        momentum (1/pi'), leaves the position direction, the plane, and
+        the azimuth alone, and rescales the tangential speed to keep
+        |L| = r x v exact"""
+        rp, ra, rpA, raA = sup
+        c = (ra - rp) / (raA - rpA)
+        R, vR, vT, z, vz, phi = out
+        rA = numpy.sqrt(R**2 + z**2)
+        vr = (R * vR + z * vz) / rA
+        vth = (vR * z - vz * R) / rA
+        rT = rp + (rA - rpA) * c
+        scale = rT / rA
+        vr2 = vr / c
+        vth2 = vth / scale
+        return numpy.array(
+            [
+                R * scale,
+                vr2 * R / rA + vth2 * z / rA,
+                vT / scale,
+                z * scale,
+                vr2 * z / rA - vth2 * R / rA,
+                phi,
+            ]
+        )
+
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """Frequencies of the (J_r, L) torus: in interpolation mode these
         are the stored energy interpolant's own derivatives through the
@@ -592,7 +844,8 @@ class actionAngleSphericalCanonical(actionAngleInverse):
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         L = jz + numpy.fabs(jphi)
         if self._interp:
-            _, _, _, _, OmR, OmL = self._interp_tables(jr, L)
+            res = self._interp_tables(jr, L)
+            OmR, OmL = res[4], res[5]
         else:
             ii = self._match_node(jr, L)
             OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
