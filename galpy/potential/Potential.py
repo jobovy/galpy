@@ -31,7 +31,7 @@ from ..backend import (
     is_backend_compatible,
 )
 from ..backend import quadrature as _bquad
-from ..backend._namespaces import under_trace
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -154,7 +154,11 @@ def _quad_needs_backend(xp, *coords):
     """
     if xp is numpy:
         return False
-    return any(under_trace(c) for c in coords)
+    # under_trace OR grad-tracking: scipy cannot be evaluated at all on a
+    # tracer, and silently DETACHES a grad-tracking tensor -- the value stays
+    # right while the gradient comes back wrong (surfdens was 23% off in R and
+    # 72% in z on eager torch). jax needs no second test: its grad IS a trace.
+    return any(under_trace(c) or requires_backend_grad(c) for c in coords)
 
 
 def _force_accepts_arrays(pot):
