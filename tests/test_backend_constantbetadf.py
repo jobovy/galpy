@@ -37,7 +37,7 @@ except ImportError:  # pragma: no cover
 from backend_jit_helpers import assert_jit_matches_eager
 
 import galpy.backend
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 from galpy.df import constantbetadf, constantbetaHernquistdf, constantbetaPowerLawdf
 from galpy.potential import (
     DehnenCoreSphericalPotential,
@@ -417,3 +417,47 @@ def _mk_hern(beta):
 
 def _mk_pl(beta):
     return constantbetaPowerLawdf(pot=_PP, beta=beta, rmax=100.0, rmin=1e-4)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "mk,E0,name",
+    [(_mk_hern, -0.1, "Hernquist"), (_mk_pl, -1.0, "PowerLaw")],
+    ids=["Hernquist", "PowerLaw"],
+)
+def test_fE_differentiable_in_beta(backend, mk, E0, name):
+    # d f_E / d beta -- differentiating the DF w.r.t. its own anisotropy
+    # parameter, which is the point of having a constant-beta family.
+    #
+    # The Hernquist variant could not do this: its normalisation calls
+    # scipy.special.gamma on beta, which raises TracerArrayConversionError on a
+    # jax tracer and "Can't call numpy() on Tensor that requires grad" on torch.
+    # The PowerLaw sibling was already routed, which is why only one of the two
+    # worked. Both are checked here so the pair cannot drift apart again.
+    #
+    # E0 is chosen INSIDE the bound range: outside it f_E is identically 0 for
+    # every beta, so the derivative is 0 too and the test would pass while
+    # measuring nothing.
+    b0, h = 0.3, 1e-6
+    val = float(numpy.atleast_1d(mk(b0).fE(numpy.atleast_1d(E0)))[0])
+    assert abs(val) > 1e-12, f"{name}: f_E is 0 at E={E0}; pick a bound energy"
+    ref = (
+        float(numpy.atleast_1d(mk(b0 + h).fE(numpy.atleast_1d(E0)))[0])
+        - float(numpy.atleast_1d(mk(b0 - h).fE(numpy.atleast_1d(E0)))[0])
+    ) / (2.0 * h)
+
+    with use(backend, force=True):
+        if backend == "jax":
+            import jax
+            import jax.numpy as jnp
+
+            got = float(jax.grad(lambda b: mk(b).fE(jnp.asarray(E0)))(b0))
+        else:
+            import torch
+
+            b = torch.tensor(b0, dtype=torch.float64, requires_grad=True)
+            out = mk(b).fE(torch.tensor(E0, dtype=torch.float64))
+            (grad,) = torch.autograd.grad(out, b)
+            got = float(grad)
+    # h=1e-6 central differences on a smooth function: good to ~1e-9
+    assert got == pytest.approx(ref, rel=1e-6), f"{name} d f_E/d beta"
