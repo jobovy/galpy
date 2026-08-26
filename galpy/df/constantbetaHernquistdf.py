@@ -4,7 +4,7 @@ import numpy
 import scipy.integrate
 import scipy.special
 
-from ..backend import resolve_namespace
+from ..backend import is_backend_array, resolve_namespace
 from ..backend import special as bspecial
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
@@ -40,12 +40,20 @@ class constantbetaHernquistdf(_constantbetadf):
         self._psi0 = -evaluatePotentials(self._pot, 0, 0, use_physical=False)
         self._potInf = 0.0
         self._GMa = self._psi0 * self._pot.a**2.0
+        # Routed gamma when beta is a backend value, so the normalisation is
+        # computed ON the backend and stays differentiable in beta.
+        # scipy.special.gamma on a jax tracer raises TracerArrayConversionError
+        # and on a grad-tracking torch tensor "Can't call numpy() on Tensor that
+        # requires grad" -- both here, which is why d f_E/d beta worked for the
+        # PowerLaw sibling (already routed) and not for this one. numpy keeps
+        # scipy, so that path is byte-identical.
+        _gamma = bspecial.gamma if is_backend_array(self._beta) else scipy.special.gamma
         # Final factor is mass to make the DF that of the mass density
         self._fEnorm = (
             (2.0**self._beta / (2.0 * numpy.pi) ** 2.5)
-            * scipy.special.gamma(5.0 - 2.0 * self._beta)
-            / scipy.special.gamma(1.0 - self._beta)
-            / scipy.special.gamma(3.5 - self._beta)
+            * _gamma(5.0 - 2.0 * self._beta)
+            / _gamma(1.0 - self._beta)
+            / _gamma(3.5 - self._beta)
             / self._GMa ** (1.5 - self._beta)
             * self._psi0
             * self._pot.a
