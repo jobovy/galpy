@@ -461,3 +461,54 @@ def test_fE_differentiable_in_beta(backend, mk, E0, name):
             got = float(grad)
     # h=1e-6 central differences on a smooth function: good to ~1e-9
     assert got == pytest.approx(ref, rel=1e-6), f"{name} d f_E/d beta"
+
+
+# (beta, rtol) -- each bar is ~10x the MEASURED numpy-vs-jit agreement, and the
+# spread across betas is not noise: under a trace every beta takes the general
+# hyp2f1 branch, and the fallback's accuracy depends on the (A, B, c) that
+# branch happens to request. beta=0 and 0.3 land on the Gauss-Legendre route
+# (1e-9..1e-10); the others land on parameters it handles exactly.
+_JIT_BETAS = [
+    (0.3, 1e-9),  # -> B=0.4, GL route; measured 7.8e-11
+    (0.0, 1e-8),  # -> B=1.0, GL route; measured 6.8e-10
+    (0.5, 1e-13),  # measured 1.3e-15
+    (-0.5, 1e-13),  # measured 5.7e-15
+    (-1.5, 1e-12),  # measured 2.3e-14
+]
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("beta,rtol", _JIT_BETAS, ids=[str(b) for b, _ in _JIT_BETAS])
+def test_fE_traceable_in_beta_under_external_jit(beta, rtol):
+    # d f_E / d beta works eagerly, but the EXTERNAL-jit contract is stronger:
+    # constructing and evaluating the DF with a dynamic beta inside jax.jit used
+    # to raise TracerBoolConversionError at ``if self._beta == 0.0``. Those
+    # exact-beta closed forms cannot be selected from a tracer, so they now go
+    # through concretely_true and a traced beta falls through to the general
+    # hyp2f1 branch -- of which they are all special cases.
+    #
+    # beta = 0, +-0.5 are parametrized precisely BECAUSE they are the branches
+    # being skipped: they are where falling through could silently give a
+    # different number, and they are checked against the numpy path, which does
+    # take the closed form.
+    with use("jax", force=True):
+        got = jax.jit(lambda b: _mk_hern(b).fE(jnp.asarray(-0.1)))(jnp.asarray(beta))
+    want = float(numpy.atleast_1d(_mk_hern(beta).fE(numpy.atleast_1d(-0.1)))[0])
+    numpy.testing.assert_allclose(float(numpy.ravel(as_numpy(got))[0]), want, rtol=rtol)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_dfE_dbeta_survives_external_jit():
+    # Value parity alone would pass on a path that quietly dropped the graph,
+    # so also differentiate THROUGH the jit and check against finite
+    # differences of the numpy DF.
+    b0, h = 0.3, 1e-6
+    fd = (
+        float(numpy.atleast_1d(_mk_hern(b0 + h).fE(numpy.atleast_1d(-0.1)))[0])
+        - float(numpy.atleast_1d(_mk_hern(b0 - h).fE(numpy.atleast_1d(-0.1)))[0])
+    ) / (2.0 * h)
+    with use("jax", force=True):
+        got = jax.jit(jax.grad(lambda b: _mk_hern(b).fE(jnp.asarray(-0.1)).sum()))(
+            jnp.asarray(b0)
+        )
+    numpy.testing.assert_allclose(float(as_numpy(got)), fd, rtol=1e-6)

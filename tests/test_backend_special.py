@@ -1243,6 +1243,13 @@ _HYP2F1_PARAM_GRAD = [
     (-0.51, -0.98, 2.51, -5.0, 1e-8, "pfaff-series"),
     (1.7, 2.3, 3.4, -5.0, 1e-4, "euler, non-integer c-B"),
     (2.0, 2.0, 3.0, -5.0, 1e-3, "euler, c-a == 1 exactly (galpy's own force call)"),
+    # tanh-sinh route (B < _TS_B_MAX). Without these the route had NO parameter-
+    # gradient coverage at all, and it sizes its own node grid from B -- exactly
+    # the shape that silently detaches if it reaches for float(B). It cannot:
+    # under jax.grad the parameters have concrete truth values but are still
+    # tracers, so the grid is chosen by comparisons only.
+    (-1.010, 0.020, 3.010, -0.6, 1e-6, "tanh-sinh, the real constantbetadf B"),
+    (-1.6, 0.2, 3.2, -2.0, 1e-7, "tanh-sinh, small B"),
 ]
 
 
@@ -1375,11 +1382,14 @@ def test_hyp1f1_parameter_gradient_matches_finite_difference(backend):
 # parameters to 1.5e-16, so the arbiter is not the thing being tested.
 # ---------------------------------------------------------------------------
 _SMALL_B = [
-    # (B, tolerance) -- tolerances are the MEASURED accuracy, not round numbers
+    # (B, tolerance) -- tolerances are the MEASURED accuracy, not round numbers.
+    # All four land at ~1e-15, so one bar covers them; they are kept as separate
+    # cases because the SHIPPING rule degraded steeply across this range
+    # (1.8e-11 -> 7.2e-02) and a single B would not show that it no longer does.
     (0.200, 1e-14),
     (0.100, 1e-14),
     (0.050, 1e-14),
-    (0.020, 1e-05),  # tanh-sinh is 6.8e-07 here; the old rule was 7.2e-02
+    (0.020, 1e-14),  # was 7.2e-02 on the shipping rule
 ]
 
 
@@ -1404,7 +1414,7 @@ def test_hyp2f1_the_real_constantbetadf_request(backend):
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     rel = abs(got / ref - 1.0)
-    assert rel < 1e-05, f"{backend}: rel {rel:.3e} (was 7.18e-02 before the route)"
+    assert rel < 1e-14, f"{backend}: rel {rel:.3e} (was 7.18e-02 before the route)"
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

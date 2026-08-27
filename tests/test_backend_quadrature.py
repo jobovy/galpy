@@ -6,6 +6,7 @@
 ###############################################################################
 import numpy
 import pytest
+import scipy.special
 
 from galpy.backend.quadrature import (
     finite_part_quad,
@@ -834,3 +835,87 @@ def test_symmetric_quad_still_takes_the_infinite_branch_for_a_backend_inf(backen
     xp = _xp(backend)
     got = symmetric_quad(xp, lambda s: xp.exp(-s * s), xp.asarray(float("inf")))
     numpy.testing.assert_allclose(float(got), numpy.sqrt(numpy.pi), rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_symmetric_quad_mixed_finite_and_infinite_limits(backend):
+    # ``b`` is documented as "float or array ... May be inf", but the
+    # finite/infinite dispatch used to be all-or-nothing: ``all(isfinite(b))``.
+    # One inf anywhere in the array sent the WHOLE input down the whole-line
+    # branch -- which ignores ``b`` entirely -- so a mixed array silently came
+    # back as a single scalar (1.7724538509055159 here) and the finite entries
+    # were lost. Not an exception, not a nan: a plausible wrong number of the
+    # wrong shape.
+    xp = _xp(backend)
+    b = xp.asarray([1.0, float("inf"), 2.0])
+    got = symmetric_quad(xp, lambda s: xp.exp(-s * s), b, n=80)
+    want = [
+        numpy.sqrt(numpy.pi) * scipy.special.erf(1.0),
+        numpy.sqrt(numpy.pi),
+        numpy.sqrt(numpy.pi) * scipy.special.erf(2.0),
+    ]
+    assert numpy.shape(numpy.asarray(got)) == (3,), (
+        f"mixed limits collapsed the shape: {numpy.shape(numpy.asarray(got))}"
+    )
+    numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), want, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_symmetric_quad_mixed_limits_keep_a_gradient_at_the_finite_entries(backend):
+    # The finite rule is evaluated at EVERY entry and selected afterwards, so
+    # the infinite entries have to be fed a dummy limit: abs(inf) makes the
+    # nodes inf, and the dead branch then NaN-poisons the gradient of the
+    # entries that do take the finite branch. d/db int_-b^b s^2 ds = 2 b^2.
+    xp = _xp(backend)
+    if backend == "jax":
+        b = jnp.asarray([1.0, jnp.inf, 2.0])
+        got = jax.jacfwd(lambda bb: symmetric_quad(xp, lambda s: s * s, bb))(b)
+        grad = numpy.diag(numpy.asarray(got))
+    else:
+        b = torch.tensor([1.0, float("inf"), 2.0], requires_grad=True)
+        symmetric_quad(xp, lambda s: s * s, b).sum().backward()
+        grad = b.grad.numpy()
+    assert numpy.isfinite(grad[0]) and numpy.isfinite(grad[2]), (
+        f"the infinite entry poisoned its neighbours: {grad}"
+    )
+    numpy.testing.assert_allclose(grad[[0, 2]], [2.0, 8.0], rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_symmetric_quad_all_finite_and_all_infinite_are_unchanged(backend):
+    # The mixed path must not capture the two pure cases: they keep their own
+    # (cheaper) branches, and this is what asserts the fix is additive.
+    xp = _xp(backend)
+    f = lambda s: xp.exp(-s * s)  # noqa: E731
+    allfin = symmetric_quad(xp, f, xp.asarray([1.0, 2.0]), n=80)
+    numpy.testing.assert_allclose(
+        numpy.asarray(allfin, dtype=float),
+        numpy.sqrt(numpy.pi) * scipy.special.erf([1.0, 2.0]),
+        rtol=1e-12,
+    )
+    allinf = symmetric_quad(xp, f, xp.asarray([float("inf"), float("inf")]), n=80)
+    # all-infinite keeps the scalar whole-line answer it always gave
+    numpy.testing.assert_allclose(float(allinf), numpy.sqrt(numpy.pi), rtol=1e-12)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_surfdens_with_mixed_finite_and_infinite_z_is_elementwise():
+    # The reachable consequence of the above. Potential.surfdens passes
+    # ``absz`` straight to symmetric_quad, so z=[1, inf] under a grad-tracking
+    # torch call returned ONE scalar -- the whole-line value -- for a
+    # two-element request, dropping the z=1 column without any error.
+    from galpy.backend import use
+    from galpy.potential import MiyamotoNagaiPotential
+
+    mp = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)
+    want = [
+        mp.surfdens(1.0, 1.0, use_physical=False),
+        mp.surfdens(1.0, numpy.inf, use_physical=False),
+    ]
+    with use("torch", force=True):
+        R = torch.tensor(1.0, requires_grad=True)
+        got = mp.surfdens(R, torch.tensor([1.0, float("inf")]), use_physical=False)
+        assert got.shape == (2,), f"shape collapsed to {tuple(got.shape)}"
+        numpy.testing.assert_allclose(got.detach().numpy(), want, rtol=1e-12)
+        got.sum().backward()
+    assert numpy.isfinite(float(R.grad)) and float(R.grad) != 0.0

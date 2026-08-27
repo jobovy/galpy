@@ -248,8 +248,42 @@ def _euler_integral(xp, a, b, c, z):
 # rule's error first exceeds ~1e-11; above it the GL path is left untouched, so
 # this cannot regress the cases that already work.
 _TS_B_MAX = 0.25
-_TS_NODES = 200
-_TS_HALFWIDTH = 7.5
+_TS_STEP = 0.075  # spacing in u; this is what sets the rule's accuracy
+_TS_DECAY = 40.0  # exp(-40) ~ 4e-18, i.e. below eps against an O(1) integrand
+_TS_MAX_HALFWIDTH = 20.0
+
+
+def _tanh_sinh_grid(B, c):
+    """Half-width and node count for exponents ``B`` and ``c - B``.
+
+    The integrand decays as ``exp(-B pi sinh|u|)`` at the t=0 end and as
+    ``exp(-(c-B) pi sinh u)`` at the t=1 end, so the SMALLER exponent sets how
+    far ``u`` has to run. A fixed half-width silently truncates that tail: at
+    B = 0.01 the t=0 end is still contributing at |u| = 7.8, and cutting it at
+    7.5 costs ~1e-3. The step is held fixed and the node count follows, so
+    widening the range does not coarsen the rule.
+    """
+    # Sized by COMPARISONS, never float(): under jax.grad the parameters have
+    # concrete truth values (so the caller's route guard passes) but are still
+    # tracers, and float() raises ConcretizationTypeError on them. Bucketing to
+    # the decade below only ever widens the range, which costs a few nodes and
+    # cannot lose accuracy.
+    slowest = B if bool(B < (c - B)) else c - B
+    decade = 0
+    while decade < 8 and bool(slowest < 10.0**-decade):
+        decade += 1
+    halfwidth = min(
+        max(math.asinh(_TS_DECAY / (math.pi * 10.0**-decade)), 3.5),
+        _TS_MAX_HALFWIDTH,
+    )
+    return halfwidth, int(math.ceil(2.0 * halfwidth / _TS_STEP))
+
+
+def _log_sigmoid(xp, x):
+    """``log(1/(1+exp(-x)))``, i.e. ``-softplus(-x)``, without overflow."""
+    # min(x, 0) - log1p(exp(-|x|)); spelled with where because torch.maximum /
+    # torch.minimum reject a Python scalar for their second operand.
+    return xp.where(x < 0.0, x, xp.zeros_like(x)) - xp.log1p(xp.exp(-xp.abs(x)))
 
 
 def _tanh_sinh_quad(xp, A, B, c, z):
@@ -271,11 +305,11 @@ def _tanh_sinh_quad(xp, A, B, c, z):
     and differentiable in the parameters; a Gauss-Jacobi rule would move its
     nodes with the exponents and need a differentiable eigenproblem per call.
 
-    Accuracy floor: below B ~ 0.01 this degrades too (2.9e-02 at B = 0.005) --
-    the shipping rule is worse there (5.2e-01), so this is still the better of
-    the two, but neither is accurate and the limitation is real. Measured; the
-    mechanism of that floor is NOT characterized -- it is insensitive to both
-    the node count and the half-width, so it is not ordinary quadrature error.
+    Both the range and the powers have to respect small B: see _tanh_sinh_grid
+    for the range, and the log-space powers below for why forming t first
+    truncates the t=0 tail no matter how far the range runs. Fixing only one of
+    the two changes nothing, which is why the floor first looked insensitive to
+    the node count and the half-width alike.
     """
     dev = device_of(z)
     if not _params_are_backend(A, B, c):
@@ -285,15 +319,24 @@ def _tanh_sinh_quad(xp, A, B, c, z):
 
         Bx, cx = (asarray_on_device(xp, v, dev) for v in (B, c))
         pref = xp.exp(gammaln(cx) - gammaln(Bx) - gammaln(cx - Bx))
-    h = 2.0 * _TS_HALFWIDTH / _TS_NODES
-    u = asarray_on_device(
-        xp, numpy.linspace(-_TS_HALFWIDTH, _TS_HALFWIDTH, _TS_NODES + 1), dev
-    )
+    halfwidth, nodes = _tanh_sinh_grid(B, c)
+    h = 2.0 * halfwidth / nodes
+    u = asarray_on_device(xp, numpy.linspace(-halfwidth, halfwidth, nodes + 1), dev)
     v = (numpy.pi / 2.0) * xp.sinh(u)
-    t = 1.0 / (1.0 + xp.exp(-2.0 * v))
-    omt = 1.0 / (1.0 + xp.exp(2.0 * v))
+    # t**B and (1-t)**(c-B) are formed in LOG space. Forming t first loses the
+    # t=0 tail outright: t**B is still 1e-3 where t ~ 1e-300, so at B = 0.01 the
+    # integrand matters until t ~ exp(-3684) -- thousands of orders below what a
+    # double can hold. t underflows to 0, t**B with it, and the tail is silently
+    # discarded. log t = -softplus(-2v) stays finite there (it is ~ 2v), so the
+    # product B*log(t) is exactly what it should be.
+    log_t = _log_sigmoid(xp, 2.0 * v)
+    log_omt = _log_sigmoid(xp, -2.0 * v)
+    t = xp.exp(log_t)  # only for (1-zt)^-A, which is 1 wherever t underflows
     fw = (
-        numpy.pi * t**B * omt ** (c - B) * (1.0 - z[..., None] * t) ** (-A) * xp.cosh(u)
+        numpy.pi
+        * xp.exp(B * log_t + (c - B) * log_omt)
+        * (1.0 - z[..., None] * t) ** (-A)
+        * xp.cosh(u)
     )
     return pref * h * xp.sum(fw, axis=-1)
 
