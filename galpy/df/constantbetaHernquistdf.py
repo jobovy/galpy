@@ -4,7 +4,7 @@ import numpy
 import scipy.integrate
 import scipy.special
 
-from ..backend import is_backend_array, resolve_namespace
+from ..backend import concretely_true, is_backend_array, resolve_namespace
 from ..backend import special as bspecial
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
@@ -133,10 +133,10 @@ class constantbetaHernquistdf(_constantbetadf):
         Eb = xp.asarray(Ei) * 1.0
         Etilde = -xp.atleast_1d(Eb) / self._psi0
         dead = (Etilde < 0) | (Etilde > 1)
-        if self._beta == 0.0:
+        if concretely_true(self._beta == 0.0):
             dead = dead | (Etilde == 0)
         Etilde = xp.where(dead, 0.5, Etilde)
-        if self._beta == 0.0:  # isotropic case
+        if concretely_true(self._beta == 0.0):  # isotropic case
             sqrtEtilde = xp.sqrt(Etilde)
             fE = (
                 self._psi0
@@ -151,9 +151,9 @@ class constantbetaHernquistdf(_constantbetadf):
                     + ((3.0 * xp.arcsin(sqrtEtilde)) / xp.sqrt(Etilde * (1.0 - Etilde)))
                 )
             )
-        elif self._beta == 0.5:
+        elif concretely_true(self._beta == 0.5):
             fE = (3.0 * Etilde**2.0) / (4.0 * numpy.pi**3.0 * self._pot.a)
-        elif self._beta == -0.5:
+        elif concretely_true(self._beta == -0.5):
             fE = (
                 (20.0 * Etilde**3.0 - 20.0 * Etilde**4.0 + 6.0 * Etilde**5.0)
                 / (1.0 - Etilde) ** 4
