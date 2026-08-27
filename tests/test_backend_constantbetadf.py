@@ -461,3 +461,49 @@ def test_fE_differentiable_in_beta(backend, mk, E0, name):
             got = float(grad)
     # h=1e-6 central differences on a smooth function: good to ~1e-9
     assert got == pytest.approx(ref, rel=1e-6), f"{name} d f_E/d beta"
+
+
+# (beta, rtol) -- each bar is ~10x the MEASURED numpy-vs-jit agreement, and the
+# spread across betas is not noise: under a trace every beta takes the general
+# hyp2f1 branch, and the fallback's accuracy depends on the (A, B, c) that
+# branch happens to request. beta=0 and 0.3 land on the Gauss-Legendre route
+# (1e-9..1e-10); the others land on parameters it handles exactly.
+_JIT_BETAS = [
+    (0.3, 1e-9),  # -> B=0.4, GL route; measured 7.8e-11
+    (0.0, 1e-8),  # -> B=1.0, GL route; measured 6.8e-10
+    (0.5, 1e-13),  # measured 1.3e-15
+    (-0.5, 1e-13),  # measured 5.7e-15
+    (-1.5, 1e-12),  # measured 2.3e-14
+]
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("beta,rtol", _JIT_BETAS, ids=[str(b) for b, _ in _JIT_BETAS])
+def test_fE_traceable_in_beta_under_external_jit(beta, rtol):
+    # d f_E / d beta works eagerly, but the EXTERNAL-jit contract is stronger:
+    # constructing and evaluating the DF with a dynamic beta inside jax.jit used
+    # to raise TracerBoolConversionError at ``if self._beta == 0.0``. Those
+    # exact-beta closed forms cannot be selected from a tracer, so they now go
+    # through concretely_true and a traced beta falls through to the general
+    # hyp2f1 branch -- of which they are all special cases.
+    #
+    # beta = 0, +-0.5 are parametrized precisely BECAUSE they are the branches
+    # being skipped: they are where falling through could silently give a
+    # different number, and they are checked against the numpy path, which does
+    # take the closed form.
+    with use("jax", force=True):
+        got = jax.jit(lambda b: _mk_hern(b).fE(jnp.asarray(-0.1)))(jnp.asarray(beta))
+    want = float(numpy.atleast_1d(_mk_hern(beta).fE(numpy.atleast_1d(-0.1)))[0])
+    numpy.testing.assert_allclose(float(numpy.ravel(as_numpy(got))[0]), want, rtol=rtol)
+
+
+# NOT TESTED HERE: d f_E/d beta THROUGH an external jit, i.e.
+# jax.jit(jax.grad(...)). It is a real contract and it does work, but the trace
+# costs >25 MINUTES to compile on this DF -- measured, after a CI runner died
+# mid-test and made me time what I had already shipped. A 25-minute test does
+# not belong in a shard, and the two halves of what it covered are covered
+# cheaply and separately: the value under jit by the parametrized test above
+# (~3 s per beta), and the gradient by test_fE_differentiable_in_beta (eager
+# grad vs finite differences, both DF classes, both backends). What is left
+# uncovered is specifically grad-composed-with-jit; closing it needs the
+# compile cost brought down first, not a slower test.
