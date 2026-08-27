@@ -147,7 +147,10 @@ def test_symplectic_dxdv_base_bit_identity():
     plain (no-dxdv) integration with the same method/dt/IC: the symplectic dxdv
     step estimates its stepsize from the base block only and steps the base via
     the same drift/kick sequence, so the deviation machinery cannot perturb the
-    base integration."""
+    base integration. The cyl<->rect transform of the base is done by the same
+    C helpers as in plain integrate (see
+    test_symplectic_dxdv_base_independent_of_python_coord_transforms), so this
+    is exact rather than merely round-off-close."""
     from galpy.orbit import Orbit
     from galpy.potential import MiyamotoNagaiPotential
 
@@ -172,6 +175,59 @@ def test_symplectic_dxdv_base_bit_identity():
             f"symplectic dxdv base orbit not bit-identical to plain integrate "
             f"for {method}: max|diff|="
             f"{numpy.amax(numpy.fabs(base_dxdv - base_plain)):g}"
+        )
+    return None
+
+
+def test_symplectic_dxdv_base_independent_of_python_coord_transforms(monkeypatch):
+    """The base orbit's bit-identity must not rest on numpy's cyl<->rect
+    transforms agreeing with the C library's in the last bit: the C dxdv entry
+    converts the base with the same cyl_to_rect_galpy/rect_to_cyl_galpy as
+    plain integrate, so perturbing the Python-side transforms must leave the
+    base untouched. numpy dispatches its vectorized trig on CPU features, so a
+    1-ulp disagreement with libm does occur on some machines; before the base
+    transform moved into C that made the two runs start from initial
+    conditions differing by 1 ulp and drift apart by ~1e-15."""
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.util import coords
+
+    up = lambda a: numpy.nextafter(numpy.asarray(a, dtype=float), numpy.inf)
+    o_c2r, o_c2rv = coords.cyl_to_rect, coords.cyl_to_rect_vec
+    o_r2c, o_r2cv = coords.rect_to_cyl, coords.rect_to_cyl_vec
+    monkeypatch.setattr(
+        coords, "cyl_to_rect", lambda R, phi, Z: tuple(up(v) for v in o_c2r(R, phi, Z))
+    )
+    monkeypatch.setattr(
+        coords,
+        "cyl_to_rect_vec",
+        lambda vr, vt, vz, phi: tuple(up(v) for v in o_c2rv(vr, vt, vz, phi)),
+    )
+    monkeypatch.setattr(
+        coords, "rect_to_cyl", lambda X, Y, Z: tuple(up(v) for v in o_r2c(X, Y, Z))
+    )
+    monkeypatch.setattr(
+        coords,
+        "rect_to_cyl_vec",
+        lambda vx, vy, vz, X, Y, Z, cyl=False: tuple(
+            up(v) for v in o_r2cv(vx, vy, vz, X, Y, Z, cyl=cyl)
+        ),
+    )
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
+    times = numpy.linspace(0.0, 5.0, 251)
+    for method in SYMPLECTIC + ["rk6_c"]:
+        o1 = Orbit(_IC)
+        o1.integrate_dxdv(
+            _CANON[0], times, pot, method=method, dt=0.01, rectIn=True, rectOut=True
+        )
+        o2 = Orbit(_IC)
+        o2.integrate(times, pot, method=method, dt=0.01)
+        assert numpy.array_equal(
+            numpy.asarray(o1.getOrbit()), numpy.asarray(o2.getOrbit())
+        ), (
+            f"the dxdv base orbit depends on the Python-side coordinate "
+            f"transforms for {method}: max|diff|="
+            f"{numpy.amax(numpy.fabs(numpy.asarray(o1.getOrbit()) - numpy.asarray(o2.getOrbit()))):g}"
         )
     return None
 
