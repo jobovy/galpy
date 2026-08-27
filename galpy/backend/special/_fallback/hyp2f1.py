@@ -23,6 +23,8 @@
 ###############################################################################
 import math
 
+import numpy
+
 from ..._namespaces import (
     asarray_on_device,
     device_of,
@@ -229,13 +231,135 @@ def _euler_integral(xp, a, b, c, z):
     return _euler_quad(xp, A, B, c, z)
 
 
+# Below this B the xi^k substitution in _euler_quad cannot regularize the
+# t^{B-1} endpoint: it needs k >= ~6/B, and k is capped at 12 because X = xi^k
+# underflows above that. MEASURED (a=-1.010, c=B+3, z=-0.6), shipping rule vs
+# an uncapped k vs tanh-sinh:
+#
+#     B      k wanted   cap=12     cap=100    tanh-sinh
+#     0.500  12         7.11e-15   7.11e-15   2.22e-16
+#     0.200  30         1.76e-11   6.66e-15   4.44e-16
+#     0.100  60         1.00e-06   5.00e-15   4.44e-16
+#     0.050  120        1.04e-03   nan        8.88e-16
+#     0.020  300        7.21e-02   nan        6.80e-07
+#
+# So raising the cap helps only to B ~ 0.1 before underflowing, while tanh-sinh
+# is better at EVERY B and needs no substitution. 0.25 is where the shipping
+# rule's error first exceeds ~1e-11; above it the GL path is left untouched, so
+# this cannot regress the cases that already work.
+_TS_B_MAX = 0.25
+_TS_STEP = 0.075  # spacing in u; this is what sets the rule's accuracy
+_TS_DECAY = 40.0  # exp(-40) ~ 4e-18, i.e. below eps against an O(1) integrand
+_TS_MAX_HALFWIDTH = 20.0
+
+
+def _tanh_sinh_grid(B, c):
+    """Half-width and node count for exponents ``B`` and ``c - B``.
+
+    The integrand decays as ``exp(-B pi sinh|u|)`` at the t=0 end and as
+    ``exp(-(c-B) pi sinh u)`` at the t=1 end, so the SMALLER exponent sets how
+    far ``u`` has to run. A fixed half-width silently truncates that tail: at
+    B = 0.01 the t=0 end is still contributing at |u| = 7.8, and cutting it at
+    7.5 costs ~1e-3. The step is held fixed and the node count follows, so
+    widening the range does not coarsen the rule.
+    """
+    # Sized by COMPARISONS, never float(): under jax.grad the parameters have
+    # concrete truth values (so the caller's route guard passes) but are still
+    # tracers, and float() raises ConcretizationTypeError on them. Bucketing to
+    # the decade below only ever widens the range, which costs a few nodes and
+    # cannot lose accuracy.
+    slowest = B if bool(B < (c - B)) else c - B
+    decade = 0
+    while decade < 8 and bool(slowest < 10.0**-decade):
+        decade += 1
+    halfwidth = min(
+        max(math.asinh(_TS_DECAY / (math.pi * 10.0**-decade)), 3.5),
+        _TS_MAX_HALFWIDTH,
+    )
+    return halfwidth, int(math.ceil(2.0 * halfwidth / _TS_STEP))
+
+
+def _log_sigmoid(xp, x):
+    """``log(1/(1+exp(-x)))``, i.e. ``-softplus(-x)``, without overflow."""
+    # min(x, 0) - log1p(exp(-|x|)); spelled with where because torch.maximum /
+    # torch.minimum reject a Python scalar for their second operand.
+    return xp.where(x < 0.0, x, xp.zeros_like(x)) - xp.log1p(xp.exp(-xp.abs(x)))
+
+
+def _tanh_sinh_quad(xp, A, B, c, z):
+    """2F1 via the Euler integral on a tanh-sinh (double-exponential) rule.
+
+    Same contract as _euler_quad: (A, B) already labelled, B > 0, c - B >= 1.
+
+    t = sigmoid(2v) with v = (pi/2) sinh(u), so dt/du = pi t (1-t) cosh u. The
+    endpoint singularity is cancelled ANALYTICALLY against that weight:
+
+        t^{B-1} (1-t)^{c-B-1} (1-zt)^{-A} * pi t (1-t) cosh u
+      = pi t^{B} (1-t)^{c-B} (1-zt)^{-A} cosh u
+
+    Both exponents are then positive, so no node blows up and none has to be
+    discarded -- forming f and w separately gives inf*0 = nan at small B and
+    silently drops real contributions.
+
+    Nodes are FIXED (independent of A, B, c), which is why this stays traceable
+    and differentiable in the parameters; a Gauss-Jacobi rule would move its
+    nodes with the exponents and need a differentiable eigenproblem per call.
+
+    Both the range and the powers have to respect small B: see _tanh_sinh_grid
+    for the range, and the log-space powers below for why forming t first
+    truncates the t=0 tail no matter how far the range runs. Fixing only one of
+    the two changes nothing, which is why the floor first looked insensitive to
+    the node count and the half-width alike.
+    """
+    dev = device_of(z)
+    if not _params_are_backend(A, B, c):
+        pref = math.exp(math.lgamma(c) - math.lgamma(B) - math.lgamma(c - B))
+    else:
+        from .._router import gammaln
+
+        Bx, cx = (asarray_on_device(xp, v, dev) for v in (B, c))
+        pref = xp.exp(gammaln(cx) - gammaln(Bx) - gammaln(cx - Bx))
+    halfwidth, nodes = _tanh_sinh_grid(B, c)
+    h = 2.0 * halfwidth / nodes
+    u = asarray_on_device(xp, numpy.linspace(-halfwidth, halfwidth, nodes + 1), dev)
+    v = (numpy.pi / 2.0) * xp.sinh(u)
+    # t**B and (1-t)**(c-B) are formed in LOG space. Forming t first loses the
+    # t=0 tail outright: t**B is still 1e-3 where t ~ 1e-300, so at B = 0.01 the
+    # integrand matters until t ~ exp(-3684) -- thousands of orders below what a
+    # double can hold. t underflows to 0, t**B with it, and the tail is silently
+    # discarded. log t = -softplus(-2v) stays finite there (it is ~ 2v), so the
+    # product B*log(t) is exactly what it should be.
+    log_t = _log_sigmoid(xp, 2.0 * v)
+    log_omt = _log_sigmoid(xp, -2.0 * v)
+    t = xp.exp(log_t)  # only for (1-zt)^-A, which is 1 wherever t underflows
+    fw = (
+        numpy.pi
+        * xp.exp(B * log_t + (c - B) * log_omt)
+        * (1.0 - z[..., None] * t) ** (-A)
+        * xp.cosh(u)
+    )
+    return pref * h * xp.sum(fw, axis=-1)
+
+
 def _euler_quad(xp, A, B, c, z):
     """The quadrature itself, on an ALREADY-LABELLED (A, B).
 
     Split out from _euler_integral so the traced-parameter route below can
     choose (A, B) with xp.where instead of a Python branch and still reuse this
     verbatim.
+
+    Small B goes to tanh-sinh: the xi^k substitution below needs k >= ~6/B and k
+    is capped at 12 (X = xi^k underflows above that), so for B < _TS_B_MAX the
+    t^{B-1} endpoint is simply not regularized and plain GL loses badly -- 7.2e-02
+    at B = 0.02, which is a real galpy request (constantbetaHernquistdf beta=-1.5
+    asks for a=-1.010, b=0.020, c=3.010). See _tanh_sinh_quad for the table.
     """
+    # Concreteness, not a data guard: with traced parameters B has no truth
+    # value, and every galpy caller passes CONCRETE potential/DF parameters --
+    # only z is ever traced. A traced B keeps the historical GL path rather than
+    # silently changing rule mid-trace.
+    if has_concrete_truth_value(B) and bool(B < _TS_B_MAX):
+        return _tanh_sinh_quad(xp, A, B, c, z)
     w = -z  # >= 0
     q = c - B  # exponent of (1-t) is q-1
     dev = device_of(z)
