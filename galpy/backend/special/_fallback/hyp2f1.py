@@ -11,15 +11,12 @@
 #   Method: Euler's integral representation, valid for all z not in [1, inf):
 #       2F1(a,b;c;z) = Gamma(c)/(Gamma(B) Gamma(c-B))
 #                      * int_0^1 t^{B-1} (1-t)^{c-B-1} (1 - z t)^{-A} dt
-#   where {A, B} = {a, b} is chosen so B > 0 and c - B > 0 (preferring
-#   c - B >= 1 so the t=1 endpoint is non-singular). For z <= 0 the factor
-#   (1 - z t) = (1 + |z| t) >= 1 is smooth, but for large |z| it forms a thin
-#   boundary layer near t=0; two substitutions resolve it for fixed-order
-#   Gauss-Legendre quadrature:
-#     1. t = ((1+|z|)^X - 1)/|z| maps the boundary layer to a uniform X-grid;
-#     2. X = xi^k (k = ceil(1/B) when B < 1) regularizes the t^{B-1} endpoint
-#        singularity so plain Gauss-Legendre converges.
-#   Pure arithmetic + log1p/expm1/pow, so it differentiates under jax and torch.
+#   where {A, B} = {a, b} is chosen so B > 0 and c - B > 0 -- just what the Beta
+#   integral needs to converge. The quadrature is a tanh-sinh (double-
+#   exponential) rule that cancels BOTH endpoint singularities analytically
+#   against its own weight, so neither exponent has to be regularized by a
+#   substitution and neither endpoint has to be preferred over the other.
+#   Pure arithmetic + log1p/pow, so it differentiates under jax and torch.
 ###############################################################################
 import math
 
@@ -209,7 +206,13 @@ def _nonpositive_traced(xp, a, b, c, z):
     use_euler = ok_ab | ok_tr
     ea = xp.where(use_tr, c - a, a)
     eb = xp.where(use_tr, c - b, b)
-    oka = (ea > 0) & ((c - ea) >= 1.0)
+    # Must match _in_regime_mask / _euler_labeling EXACTLY: c - P > 0, not the
+    # old >= 1. When it did not, a first label with 0 < c-a < 1 was rejected
+    # here while the concrete path accepted it, so the traced route fell to the
+    # SECOND label even when that one was non-positive -- T**(B-1) with B <= 0
+    # is inf at the t->0 node, and the traced result came back inf or nan while
+    # eager was correct.
+    oka = (ea > 0) & ((c - ea) > 0.0)
     B = xp.where(use_euler, xp.where(oka, ea, eb), 1.0)
     A = xp.where(use_euler, xp.where(oka, eb, ea), 0.0)
     cc = xp.where(use_euler, c, 2.0)
@@ -237,28 +240,14 @@ def _euler_integral(xp, a, b, c, z):
     return _euler_quad(xp, A, B, c, z)
 
 
-# Below this B the xi^k substitution in _euler_quad cannot regularize the
-# t^{B-1} endpoint: it needs k >= ~6/B, and k is capped at 12 because X = xi^k
-# underflows above that. MEASURED (a=-1.010, c=B+3, z=-0.6), shipping rule vs
-# an uncapped k vs tanh-sinh:
-#
-#     B      k wanted   cap=12     cap=100    tanh-sinh
-#     0.500  12         7.11e-15   7.11e-15   2.22e-16
-#     0.200  30         1.76e-11   6.66e-15   4.44e-16
-#     0.100  60         1.00e-06   5.00e-15   4.44e-16
-#     0.050  120        1.04e-03   nan        8.88e-16
-#     0.020  300        7.21e-02   nan        6.80e-07
-#
-# So raising the cap helps only to B ~ 0.1 before underflowing, while tanh-sinh
-# is better at EVERY B and needs no substitution. 0.25 is where the shipping
-# rule's error first exceeds ~1e-11; above it the GL path is left untouched, so
-# this cannot regress the cases that already work.
-# ONE rule, one grid. The half-width is set by the SLOWEST endpoint decay the
-# labelling can hand us: the integrand falls off as exp(-B pi sinh|u|) at t=0
-# and exp(-(c-B) pi sinh u) at t=1, and _euler_labeling guarantees c-B >= 1, so
-# B is the binding one. 12.45 resolves B down to 1e-3 (exp(-40) ~ 4e-18, below
-# eps against an O(1) integrand); the step 0.075 is what sets the accuracy, and
-# the node count follows from the two.
+# ONE rule, one grid. The integrand falls off as exp(-B pi sinh|u|) at t=0 and
+# exp(-(c-B) pi sinh u) at t=1, and the rule is SYMMETRIC in u, so a half-width
+# that resolves one endpoint resolves the other: 12.45 covers EITHER exponent
+# down to 1e-3 (exp(-40) ~ 4e-18, below eps against an O(1) integrand). That
+# symmetry is what makes the relaxed labelling safe -- under c - B > 0 the t=1
+# exponent can now be the small one, which it never could when the bound was
+# c - B >= 1. Measured with c - B down to 1e-4: 2.3e-15. The step 0.075 sets the
+# accuracy and the node count follows from the two.
 #
 # Sizing the grid PER CALL from B was measured and dropped: over 720 cases
 # spanning B = 0.001..5.0 the fixed grid is as accurate as the adaptive one
@@ -280,7 +269,7 @@ def _log_sigmoid(xp, x):
 def _euler_quad(xp, A, B, c, z):
     """2F1 via the Euler integral on a tanh-sinh (double-exponential) rule.
 
-    Operates on an ALREADY-LABELLED (A, B): B > 0 and c - B >= 1, guaranteed by
+    Operates on an ALREADY-LABELLED (A, B): B > 0 and c - B > 0, guaranteed by
     _euler_labeling. Split out from _euler_integral so the traced-parameter
     route can choose (A, B) with xp.where instead of a Python branch and still
     reuse this verbatim.

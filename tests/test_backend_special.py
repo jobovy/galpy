@@ -1445,3 +1445,56 @@ def test_hyp2f1_large_B_is_machine_precision(backend):
             got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
             rel = abs(got / ref - 1.0)
             assert rel < tol, f"{backend} regressed at ({a},{b},{c},{z}): {rel:.3e}"
+
+
+# The traced Euler-label selector must use the SAME admissibility rule as the
+# concrete one. It did not: `_nonpositive_traced` kept `(c - ea) >= 1.0` after
+# the concrete side relaxed to `c - P > 0`, so a first label with 0 < c-a < 1
+# was rejected only under tracing. The traced route then fell through to the
+# SECOND label -- which here is NON-POSITIVE -- and T**(B-1) with B <= 0 is inf
+# at the t->0 node, so jit returned inf/nan while eager was exact.
+#
+# These parameters all have 0 < c-a < 1 AND b <= 0, which is what makes the
+# mismatch reachable: the first label is the only admissible one, so wrongly
+# rejecting it is fatal rather than merely suboptimal.
+_TRACED_LABEL_CASES = [
+    (2.0, -0.2, 2.5, -0.7),  # was inf
+    (2.0, -1.0, 2.5, -0.7),  # was nan
+    (2.0, -0.5, 2.2, -0.7),  # was inf
+    (3.0, -0.2, 3.4, -2.0),  # was inf
+]
+
+
+@pytest.mark.parametrize(
+    "a,b,c,z", _TRACED_LABEL_CASES, ids=[str(x[:3]) for x in _TRACED_LABEL_CASES]
+)
+def test_hyp2f1_traced_label_matches_the_concrete_rule(a, b, c, z):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    with use("jax", force=True):
+        zb = jnp.asarray(z)
+        eager = float(as_numpy(gsp.hyp2f1(a, b, c, zb)))
+        traced = float(
+            as_numpy(jax.jit(lambda aa: gsp.hyp2f1(aa, b, c, zb))(jnp.asarray(a)))
+        )
+    # eager was already right; the point is that the traced arm now agrees.
+    assert numpy.isfinite(traced), f"traced hyp2f1({a},{b},{c},{z}) = {traced}"
+    numpy.testing.assert_allclose(eager, ref, rtol=1e-13)
+    numpy.testing.assert_allclose(traced, ref, rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_small_c_minus_B_is_accurate(backend):
+    # Relaxing the labelling to c - B > 0 lets the t=1 endpoint exponent become
+    # the SMALL one, which it never could under c - B >= 1. The fixed tanh-sinh
+    # grid still resolves it because the rule is symmetric in u -- a half-width
+    # that covers a small B covers a small c-B. Guards that symmetry argument.
+    xp = _asarray  # noqa: F841  (documenting intent; value comes from gsp below)
+    for cmb in (0.5, 0.1, 0.01, 1e-3, 1e-4):
+        for B, A, z in ((0.5, 2.3, -0.588), (2.0, -1.6, -40.0)):
+            c = B + cmb
+            ref = scipy_special.hyp2f1(A, B, c, z)
+            got = as_numpy(gsp.hyp2f1(A, B, c, _asarray(backend, z)))
+            numpy.testing.assert_allclose(got, ref, rtol=1e-13)
