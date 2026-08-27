@@ -460,9 +460,16 @@ def test_hyp2f1_fallback_alt_labeling(backend):
 # DFs request all three (measured by instrumenting the fallback over
 # test_sphericaldf), and before the transformation/series routes existed each one
 # raised NotImplementedError.
-_HYP2F1_EULER_TRANSFORMED = [
-    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8 < 1
-    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5 < 1, both positive
+# These used to reach Euler's TRANSFORM, because c - P < 1 failed the old
+# admissibility bound and the direct route refused them. Under `c - P > 0` the
+# direct route accepts them, and the transform branch is gone entirely (it is
+# unreachable once the regime test is symmetric under (a,b) -> (c-a,c-b)). They
+# are kept because they remain good SMALL c-P cases for the direct route -- but
+# the name had to change, since a test whose title names a route it no longer
+# takes is how coverage rots silently.
+_HYP2F1_SMALL_C_MINUS_P = [
+    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8
+    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5, both positive
 ]
 _HYP2F1_BOTH_NONPOSITIVE = [
     (-0.98, -0.04, 2.98),  # |a-b| = 0.94
@@ -473,12 +480,11 @@ _HYP2F1_BOTH_NONPOSITIVE = [
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 @pytest.mark.parametrize(
-    "a,b,c", _HYP2F1_EULER_TRANSFORMED, ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED]
+    "a,b,c", _HYP2F1_SMALL_C_MINUS_P, ids=[str(x) for x in _HYP2F1_SMALL_C_MINUS_P]
 )
-def test_hyp2f1_fallback_euler_transformed(backend, a, b, c):
-    # Euler's transformation, 2F1(a,b;c;z) = (1-z)^(c-a-b) 2F1(c-a,c-b;c;z),
-    # leaves z alone, so the quadrature's z<=0 machinery applies verbatim to the
-    # transformed parameters. Accuracy is therefore the quadrature's own: this
+def test_hyp2f1_fallback_small_c_minus_P(backend, a, b, c):
+    # Small c - P on the DIRECT Euler route (these once needed the transform;
+    # see the list above). Accuracy is the quadrature's own: this
     # measures 1e-14 across the whole grid, so 1e-12 is a real bound, not a
     # smoke check. Includes z=0 (where 2F1=1 exactly) and r/a=500.
     z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 50.0, 500.0])
@@ -525,8 +531,8 @@ def test_hyp2f1_series_route_degrades_but_stays_bounded(backend):
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 @pytest.mark.parametrize(
     "a,b,c",
-    _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
-    ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE],
+    _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE,
+    ids=[str(x) for x in _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE],
 )
 def test_hyp2f1_new_routes_grad_vs_fd(backend, a, b, c):
     # Both new routes must differentiate, not merely evaluate: the DFs that need
@@ -1318,10 +1324,10 @@ def test_hyp2f1_torch_parameter_gradient_matches_finite_difference(
 
 @pytest.mark.parametrize(
     "a,b,c",
-    _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
+    _HYP2F1_CASES + _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE,
     ids=[
         str(x)
-        for x in _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE
+        for x in _HYP2F1_CASES + _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE
     ],
 )
 def test_hyp2f1_traced_parameters_reproduce_the_concrete_route(a, b, c):
@@ -1445,3 +1451,56 @@ def test_hyp2f1_large_B_is_machine_precision(backend):
             got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
             rel = abs(got / ref - 1.0)
             assert rel < tol, f"{backend} regressed at ({a},{b},{c},{z}): {rel:.3e}"
+
+
+# The traced Euler-label selector must use the SAME admissibility rule as the
+# concrete one. It did not: `_nonpositive_traced` kept `(c - ea) >= 1.0` after
+# the concrete side relaxed to `c - P > 0`, so a first label with 0 < c-a < 1
+# was rejected only under tracing. The traced route then fell through to the
+# SECOND label -- which here is NON-POSITIVE -- and T**(B-1) with B <= 0 is inf
+# at the t->0 node, so jit returned inf/nan while eager was exact.
+#
+# These parameters all have 0 < c-a < 1 AND b <= 0, which is what makes the
+# mismatch reachable: the first label is the only admissible one, so wrongly
+# rejecting it is fatal rather than merely suboptimal.
+_TRACED_LABEL_CASES = [
+    (2.0, -0.2, 2.5, -0.7),  # was inf
+    (2.0, -1.0, 2.5, -0.7),  # was nan
+    (2.0, -0.5, 2.2, -0.7),  # was inf
+    (3.0, -0.2, 3.4, -2.0),  # was inf
+]
+
+
+@pytest.mark.parametrize(
+    "a,b,c,z", _TRACED_LABEL_CASES, ids=[str(x[:3]) for x in _TRACED_LABEL_CASES]
+)
+def test_hyp2f1_traced_label_matches_the_concrete_rule(a, b, c, z):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    with use("jax", force=True):
+        zb = jnp.asarray(z)
+        eager = float(as_numpy(gsp.hyp2f1(a, b, c, zb)))
+        traced = float(
+            as_numpy(jax.jit(lambda aa: gsp.hyp2f1(aa, b, c, zb))(jnp.asarray(a)))
+        )
+    # eager was already right; the point is that the traced arm now agrees.
+    assert numpy.isfinite(traced), f"traced hyp2f1({a},{b},{c},{z}) = {traced}"
+    numpy.testing.assert_allclose(eager, ref, rtol=1e-13)
+    numpy.testing.assert_allclose(traced, ref, rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_small_c_minus_B_is_accurate(backend):
+    # Relaxing the labelling to c - B > 0 lets the t=1 endpoint exponent become
+    # the SMALL one, which it never could under c - B >= 1. The fixed tanh-sinh
+    # grid still resolves it because the rule is symmetric in u -- a half-width
+    # that covers a small B covers a small c-B. Guards that symmetry argument.
+    xp = _asarray  # noqa: F841  (documenting intent; value comes from gsp below)
+    for cmb in (0.5, 0.1, 0.01, 1e-3, 1e-4):
+        for B, A, z in ((0.5, 2.3, -0.588), (2.0, -1.6, -40.0)):
+            c = B + cmb
+            ref = scipy_special.hyp2f1(A, B, c, z)
+            got = as_numpy(gsp.hyp2f1(A, B, c, _asarray(backend, z)))
+            numpy.testing.assert_allclose(got, ref, rtol=1e-13)
