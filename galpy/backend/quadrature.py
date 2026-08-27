@@ -488,6 +488,18 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None, device=N
     return match_input_dtype(result, a, b, c)
 
 
+def _whole_line_quad(xp, integrand, *, n, device):
+    """``int_{-inf}^{inf} f(s) ds`` as two semi-infinite halves.
+
+    The halves are integrated separately rather than doubling one of them,
+    because the integrand need not be even in ``s``.
+    """
+    zero = asarray_on_device(xp, 0.0, device)
+    return fixed_quad_semiinfinite(
+        xp, integrand, zero, n=n, device=device
+    ) + fixed_quad_semiinfinite(xp, lambda u: integrand(-u), zero, n=n, device=device)
+
+
 def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=None):
     r"""``int_{-|b|}^{|b|} integrand(s) ds``, for finite **or infinite** ``b``.
 
@@ -503,7 +515,10 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
 
     Only a *concretely* infinite ``b`` takes the split path; a traced ``b`` of
     unknown magnitude keeps the finite rule, since the choice cannot be made
-    inside a trace.
+    inside a trace. A concrete array that mixes finite and infinite limits gets
+    both rules and an elementwise select -- the split path ignores ``b``, so
+    applying it to the whole array would return a single scalar for an input
+    that asked for several values.
 
     Parameters
     ----------
@@ -512,9 +527,10 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
     integrand : callable
         Called with the quadrature nodes.
     b : float or array
-        Limit; the interval is ``[-|b|, |b|]``. May be ``inf``. Pass the RAW
-        limit, not one already mapped through the namespace: the finite/infinite
-        choice is made from it and a namespace op would have made it a tracer.
+        Limit; the interval is ``[-|b|, |b|]``. May be ``inf``, and an array may
+        mix finite and infinite entries. Pass the RAW limit, not one already
+        mapped through the namespace: the finite/infinite choice is made from it
+        and a namespace op would have made it a tracer.
     n : int, optional
         Gauss-Legendre order (default ``_QUAD_N``, as for `quad`). 50 is not
         enough for the vertical surface-density integrals: measured against
@@ -530,6 +546,7 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
     # folding it -- so asking about the converted limit always answers "unknown"
     # and the infinite branch would be unreachable. A Python/numpy ``b`` is still
     # concrete here and answers directly.
+    mixed = None
     if under_trace(b):
         # A tracer's finiteness is unknowable, so the finite branch it is.
         concretely_infinite = False
@@ -541,16 +558,41 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
         # of its own, so this stays a pure question about the value -- and an
         # eager backend inf still reaches the semi-infinite branch, which
         # blanket-treating backend arrays as finite would have broken.
-        concretely_infinite = not bool(xp.all(xp.isfinite(b)))
+        finite = xp.isfinite(b)
+        concretely_infinite = not bool(xp.all(finite))
+        mixed = finite if concretely_infinite and bool(xp.any(finite)) else None
     else:
-        concretely_infinite = not bool(numpy.all(numpy.isfinite(numpy.asarray(b))))
-    if concretely_infinite:
-        zero = asarray_on_device(xp, 0.0, device)
-        return fixed_quad_semiinfinite(
-            xp, integrand, zero, n=n, device=device
-        ) + fixed_quad_semiinfinite(
-            xp, lambda u: integrand(-u), zero, n=n, device=device
+        finite = numpy.isfinite(numpy.asarray(b))
+        concretely_infinite = not bool(numpy.all(finite))
+        mixed = finite if concretely_infinite and bool(numpy.any(finite)) else None
+    if mixed is not None:
+        # Some limits finite, some infinite. Neither branch alone is right, and
+        # the infinite one is not even the right SHAPE -- it ignores ``b``, so
+        # taking it for the whole array silently returns one scalar where the
+        # caller asked for several values. Evaluate both and select. The finite
+        # rule is fed a dummy limit at the infinite entries: ``abs(inf)`` would
+        # make its nodes inf, and inf-nodes poison the gradient of the entries
+        # that DO take the finite branch (see the xp.where dead-branch rule).
+        # ``b``/``mixed`` may still be numpy here (the raw-limit branch below),
+        # and torch.where will not mix a numpy mask with a tensor. Coerce only
+        # when needed: xp.asarray on a grad-tracking tensor warns.
+        if not is_backend_array(b) and xp is not numpy:
+            b = xp.asarray(b)
+            mixed = xp.asarray(mixed)
+        safe_b = xp.where(mixed, b, xp.ones_like(b))
+        whole_line = _whole_line_quad(xp, integrand, n=n, device=device)
+        finite_part = transformed_quad(
+            xp,
+            integrand,
+            -xp.abs(safe_b),
+            xp.abs(safe_b),
+            n=n,
+            interior_point=interior_point,
+            device=device,
         )
+        return xp.where(mixed, finite_part, whole_line)
+    if concretely_infinite:
+        return _whole_line_quad(xp, integrand, n=n, device=device)
     absb = numpy.fabs(b) if xp is numpy else xp.abs(b)
     return transformed_quad(
         xp, integrand, -absb, absb, n=n, interior_point=interior_point, device=device
