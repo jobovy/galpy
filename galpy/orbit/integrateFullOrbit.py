@@ -942,8 +942,9 @@ def integrateFullOrbit_dxdv(
             this_dyo[ii] = numpy.dot(jac, dyo[ii])
     else:
         this_dyo = dyo
-    _pure_python = int_method.lower() == "dop853" or int_method.lower() == "odeint"
-    if _pure_python:
+    # C integrators are the ones whose name ends in "_c"
+    _c_integrator = int_method.lower().endswith("_c")
+    if not _c_integrator:
         # Go to the rectangular frame here: the pure-Python variational RHS
         # works in (x,y,z,vx,vy,vz)
         X, Y, Z = coords.cyl_to_rect(R, phi, z)
@@ -959,7 +960,7 @@ def integrateFullOrbit_dxdv(
         # last bit (and on some machines does not), leaving the two runs to
         # start from initial conditions differing by ~1 ulp.
         this_yo = numpy.hstack((yo, this_dyo))
-    if _pure_python:
+    if not _c_integrator:
         from ..potential.DissipativeForce import _isDissipative
 
         if _isDissipative(pot):
@@ -1012,7 +1013,7 @@ def integrateFullOrbit_dxdv(
                 integrate_for_map, this_yo, progressbar=progressbar, numcores=numcores
             )
         )
-    if _pure_python:
+    if not _c_integrator:
         # Go back to the cylindrical frame: base state out[...,:6] is
         # rectangular (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi). The C
         # path returns the base already in cylindrical coordinates, converted
