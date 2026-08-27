@@ -1369,15 +1369,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._GMc, self._bc = grid._GMc, grid._bc
         self._aAIc, self._aAIinvc = grid._aAIc, grid._aAIinvc
         # the stacked tables: labels, energy, supports, and the two anomaly
-        # maps' sine coefficients
+        # maps' sine coefficients.  The supports are NOT stored as the
+        # turning points themselves: each oscillation's half-width vanishes
+        # at its degenerate edge, so umax - umin there is the difference of
+        # two interpolants that agree to every digit the grid resolves, and
+        # the cancellation destroys it (50% wrong one cell from the shell
+        # edge).  Stored instead are the midpoint and the SQUARED half-width
+        # divided by the action that drives it -- K_u = (umax-umin)^2/4J_R
+        # and K_v = (pi/2-vmin)^2/J_z -- both bounded and smooth right up to
+        # the edge, where the vanishing is carried entirely by the action
+        # itself, which is known exactly at evaluation time.
         nq = 6 + 2 * self._npt
         tab = numpy.empty((nq,) + shape)
         tab[0] = grid._jr.reshape(shape)
         tab[1] = grid._jz.reshape(shape)
         tab[2] = Es
-        tab[3] = grid._umins.reshape(shape)
-        tab[4] = grid._umaxs.reshape(shape)
-        tab[5] = grid._vmins.reshape(shape)
+        tab[3] = 0.5 * (grid._umins + grid._umaxs).reshape(shape)
+        tab[4] = (0.25 * (grid._umaxs - grid._umins) ** 2.0).reshape(shape) / tab[0]
+        tab[5] = ((0.5 * numpy.pi - grid._vmins) ** 2.0).reshape(shape) / tab[1]
         tab[6 : 6 + self._npt] = numpy.moveaxis(
             grid._can_Dmu.reshape(shape + (self._npt,)), -1, 0
         )
@@ -1385,18 +1394,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             grid._can_Dmv.reshape(shape + (self._npt,)), -1, 0
         )
         # the analytic limits at the degenerate edges: the vanishing action
-        # is exactly zero, the degenerate oscillation's support collapses to
-        # its analytic point (the shell u, the midplane), and its anomaly
-        # map vanishes (both loops are harmonic in the thin limit, so
-        # eta = tau exactly)
+        # is exactly zero, the degenerate oscillation's midpoint sits at its
+        # analytic point (the shell u), and its anomaly map vanishes (both
+        # loops are harmonic in the thin limit, so eta = tau exactly).  The
+        # half-widths need no special case at all: they are reconstructed as
+        # sqrt(K J) and so collapse onto the midpoint exactly when the
+        # action does, with K carrying its finite limit.
         if self._wIgrid[-1] == 1.0:
             tab[0, :, :, -1] = 0.0
             tab[3, :, :, -1] = self._canon_ushell
-            tab[4, :, :, -1] = self._canon_ushell
             tab[6 : 6 + self._npt, :, :, -1] = 0.0
         if self._wIgrid[0] == 0.0:
             tab[1, :, :, 0] = 0.0
-            tab[5, :, :, 0] = 0.5 * numpy.pi
             tab[6 + self._npt :, :, :, 0] = 0.0
         self._canon_tab_raw = tab
         self._canon_dLz = (self._Lzgrid[-1] - self._Lzgrid[0]) / (nLz - 1)
@@ -1593,6 +1602,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Minv = numpy.linalg.inv(M)
         # chains of every stored quantity along (J_R, J_phi, J_z)
         dq = numpy.stack((dL, dE_, dI_), axis=1) @ Minv  # (nq, 3)
+        # turn the stored midpoint-and-K combinations back into the turning
+        # points, differentiating the reconstruction itself so the chains
+        # remain the exact derivatives of what is evaluated.  dq[0] and
+        # dq[1] are the identity rows (1, 0, 0) and (0, 0, 1) by the
+        # construction of M, so J_R's and J_z's own chains enter here
+        # exactly rather than through the interpolation
+        uc, duc = v[3], dq[3]
+        hw = numpy.sqrt(numpy.clip(v[4] * v[0], 0.0, None))
+        hv = numpy.sqrt(numpy.clip(v[5] * v[1], 0.0, None))
+        # below the floor the oscillation is degenerate and the compensation
+        # drops the term outright, so the divergence is never evaluated
+        dhw = (v[4] * dq[0] + v[0] * dq[4]) / (2.0 * numpy.maximum(hw, 1e-14))
+        dhv = (v[5] * dq[1] + v[1] * dq[5]) / (2.0 * numpy.maximum(hv, 1e-14))
+        v[3], v[4], v[5] = uc - hw, uc + hw, 0.5 * numpy.pi - hv
+        dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
         return v, dq
 
     def _canon_comp(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
