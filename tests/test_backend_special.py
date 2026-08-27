@@ -442,14 +442,18 @@ def test_xlogy_fallback_direct(backend):
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_hyp2f1_fallback_alt_labeling(backend):
-    # 2F1 case whose accurate Euler labeling comes from b (c-a < 1 <= c-b), i.e.
-    # the second branch of _euler_labeling -- not exercised by galpy's calls
-    # (which always satisfy c-a >= 1). jax/torch route through the fallback here.
-    a, b, c = 2.0, 0.8, 2.5  # c-a=0.5 (<1), c-b=1.7 (>=1) -> labeling picks b
+    # 2F1 whose Euler labeling has to come from b, i.e. the SECOND branch of
+    # _euler_labeling. The case used to be (2.0, 0.8, 2.5), chosen when the
+    # admissibility test was c - P >= 1: c-a was 0.5 so a was refused. The test
+    # is now c - P > 0, which a satisfies, so that case silently moved to the
+    # FIRST branch and stopped covering this one -- it kept passing, because
+    # either labeling gives the right value. a < 0 is what disqualifies a for
+    # good, whatever the bound on c - P.
+    a, b, c = -1.0, 0.8, 2.5  # a < 0 -> labeling must pick b
     z = -numpy.array([0.0, 0.1, 1.0, 5.0, 30.0])
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
-    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=1e-15)
 
 
 # Parameter sets the Euler integral cannot take directly. galpy's own anisotropic
@@ -551,9 +555,15 @@ def test_fallback_unsupported_regimes_raise():
     from galpy.backend.special._fallback.hyp1f1 import hyp1f1_fallback
     from galpy.backend.special._fallback.hyp2f1 import _euler_labeling
 
-    # 2F1 with c - max(a,b) < 1 (both endpoints awkward): unsupported
+    # 2F1 outside the Euler integral's domain. The bound used to be
+    # c - P >= 1 and (2.0, 2.0, 2.5) sat just under it; with the tanh-sinh rule
+    # the requirement is only what the Beta integral needs, c - P > 0, and that
+    # case is now perfectly well supported. Both ways of being outside are
+    # checked, because they fail for different reasons:
     with pytest.raises(NotImplementedError):
-        _euler_labeling(2.0, 2.0, 2.5)  # c-a=c-b=0.5
+        _euler_labeling(2.0, 3.0, 1.5)  # c - P <= 0 for both
+    with pytest.raises(NotImplementedError):
+        _euler_labeling(-1.0, -2.0, 3.0)  # no positive P at all
     # 1F1 only implements b = a + 1
     with pytest.raises(NotImplementedError):
         hyp1f1_fallback(numpy, 1.0, 3.0, numpy.array([-1.0]))
@@ -1418,19 +1428,17 @@ def test_hyp2f1_the_real_constantbetadf_request(backend):
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
-def test_hyp2f1_large_B_route_is_unchanged(backend):
-    # Above _TS_B_MAX the Gauss-Legendre path must be untouched: the regression
-    # guard for the cases that already worked.
-    #
-    # The bars are that path's OWN measured accuracy, verified identical with
-    # and without the route (base vs branch, same digits). (-1.6, 1.2, 3.6) sits
-    # at 2.4e-09 / 7.4e-09 -- pre-existing GL behaviour, not something this
-    # change introduces, so the bar is set there rather than at 1e-12, which
-    # would fail on unmodified develop too.
+def test_hyp2f1_large_B_is_machine_precision(backend):
+    # These are the large-B cases the Gauss-Legendre rule was kept for. They
+    # used to need loose bars -- (-1.6, 1.2, 3.6) sat at 5.3e-08, which is why
+    # this test once asserted 1e-08 and was named "..._route_is_unchanged".
+    # With one tanh-sinh rule for every B they are at machine precision, so the
+    # bars are tightened to the measured values: a regression here would mean
+    # the single rule had given up something the old two-rule split had.
     for a, b, c, tol in (
-        (-3.2, 4.4, 5.2, 1e-13),
-        (2.0, 2.0, 2.5, 1e-13),
-        (-1.6, 1.2, 3.6, 1e-08),
+        (-3.2, 4.4, 5.2, 1e-14),
+        (2.0, 2.0, 2.5, 1e-14),
+        (-1.6, 1.2, 3.6, 1e-14),
     ):
         for z in (-0.6, -2.0):
             ref = scipy_special.hyp2f1(a, b, c, z)
