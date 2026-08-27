@@ -9354,3 +9354,232 @@ def test_actionAngle_inner_attributeerror_is_not_masked(public, private):
         f"{public} masked the inner AttributeError; got: {excinfo.value}"
     )
     return None
+
+
+# ---------- the canonical (momentum-matched) Staeckel construction (T1;
+# ---------- STAECKEL_CANONICAL_MATH.md section 10)
+_aascanon_cache = {}
+
+
+def _staeckel_canonical_tori():
+    # four valid KK tori spanning mild / eccentric-in-u / near-shell /
+    # near-planar, built through the direct construction's own edge helpers
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    kk = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=3.0, Delta=1.25)
+    probe = actionAngleStaeckelInverse.__new__(actionAngleStaeckelInverse)
+    probe._pot = kk
+    probe._staeckelwrap = OblateStaeckelWrapperPotential(pot=kk, delta=kk._delta)
+    probe._delta = probe._staeckelwrap._delta
+    Es, Lzs, I3s = [], [], []
+    for Lz, dE, f in (
+        (0.9, 0.10, 0.50),
+        (0.45, 0.45, 0.50),
+        (0.6, 0.15, 0.97),
+        (0.9, 0.15, 0.03),
+    ):
+        Rc, Ec = probe._circular_orbit(Lz)
+        E = Ec + dE
+        lo, hi = probe._I3_planar(E, Lz), probe._I3_shell(E, Lz)
+        Es.append(E)
+        Lzs.append(Lz)
+        I3s.append(lo + f * (hi - lo))
+    return kk, Es, Lzs, I3s
+
+
+def _staeckel_canonical_setup():
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    if "canon" not in _aascanon_cache:
+        kk, Es, Lzs, I3s = _staeckel_canonical_tori()
+        _aascanon_cache["pot"] = kk
+        _aascanon_cache["canon"] = actionAngleStaeckelInverse(
+            pot=kk, Es=Es, Lzs=Lzs, I3s=I3s, canonical=True, ncanon=128, npt=32
+        )
+        _aascanon_cache["direct"] = actionAngleStaeckelInverse(
+            pot=kk, Es=Es, Lzs=Lzs, I3s=I3s
+        )
+    return _aascanon_cache["pot"], _aascanon_cache["canon"], _aascanon_cache["direct"]
+
+
+def test_actionAngleStaeckelInverse_canonical_collapse():
+    # the section-10 claim as an executable fact: the momentum-matched
+    # product lift puts each Staeckel torus EXACTLY on its equal-action
+    # isochrone torus (max|J^A - label| at machine noise), and the
+    # zero-mode labels equal the direct quadrature actions (Stokes)
+    _, aac, _ = _staeckel_canonical_setup()
+    assert aac._can_maxdev < 1e-11, (
+        "The canonical lift's action deviation is not at the machine floor: "
+        "%g" % aac._can_maxdev
+    )
+    assert aac._can_stokes < 1e-13, (
+        "The canonical zero-mode labels do not equal the direct quadrature "
+        "actions: %g" % aac._can_stokes
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_vs_direct():
+    # the through-the-toy evaluation (angle Newton -> correspondence
+    # tables -> analytic isochrone inverse -> per-degree un-lift) equals
+    # the exact direct reconstruction pointwise
+    _, aac, aad = _staeckel_canonical_setup()
+    angler = numpy.linspace(0.4, 5.9, 7)
+    anglephi = numpy.linspace(0.0, 5.0, 7)
+    anglez = numpy.linspace(0.3, 6.0, 7)
+    for ii in range(len(aac._Es)):
+        jr, Lz, jz = aac._jr[ii], aac._Lzs[ii], aac._jz[ii]
+        xc = numpy.array(aac._xvFreqs(jr, Lz, jz, angler, anglephi, anglez)[:6])
+        xd = numpy.array(aad._xvFreqs(jr, Lz, jz, angler, anglephi, anglez)[:6])
+        assert numpy.max(numpy.fabs(xc - xd)) < 1e-9, (
+            "Canonical and direct evaluation disagree on torus %d: %g"
+            % (ii, numpy.max(numpy.fabs(xc - xd)))
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_roundtrip():
+    # the forward Staeckel code recovers the requested actions on the
+    # canonically reconstructed points, and the energy is conserved
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import evaluatePotentials
+
+    kk, aac, _ = _staeckel_canonical_setup()
+    aS = actionAngleStaeckel(pot=kk, delta=kk._delta, c=False)
+    angler = numpy.linspace(0.4, 5.9, 5)
+    anglephi = numpy.linspace(0.0, 5.0, 5)
+    anglez = numpy.linspace(0.3, 6.0, 5)
+    for ii in (0, 2):
+        jr, Lz, jz = aac._jr[ii], aac._Lzs[ii], aac._jz[ii]
+        R, vR, vT, z, vz, phi = aac._evaluate(jr, Lz, jz, angler, anglephi, anglez)
+        E = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(
+            kk, R, z, use_physical=False
+        )
+        assert numpy.max(numpy.fabs(E - aac._Es[ii])) < 1e-11, (
+            "The canonical reconstruction does not conserve the torus "
+            "energy: %g" % numpy.max(numpy.fabs(E - aac._Es[ii]))
+        )
+        ji = aS(R, vR, vT, z, vz, phi)
+        assert numpy.max(numpy.fabs(ji[0] - jr)) < 1e-6
+        assert numpy.max(numpy.fabs(ji[1] - Lz)) < 1e-10
+        assert numpy.max(numpy.fabs(ji[2] - jz)) < 1e-6
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_polar():
+    # the required Lz -> 0 edge: the toy vertical loop opens toward
+    # [0, pi] and the v-map's anomaly parametrization must stay clean
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    kk, _, _ = _staeckel_canonical_setup()
+    from galpy.potential import OblateStaeckelWrapperPotential
+
+    probe = actionAngleStaeckelInverse.__new__(actionAngleStaeckelInverse)
+    probe._pot = kk
+    probe._staeckelwrap = OblateStaeckelWrapperPotential(pot=kk, delta=kk._delta)
+    probe._delta = probe._staeckelwrap._delta
+    Es, Lzs, I3s = [], [], []
+    for Lz in (1e-3, 0.05):
+        Rc, Ec = probe._circular_orbit(Lz)
+        E = Ec + 0.2
+        lo, hi = probe._I3_planar(E, Lz), probe._I3_shell(E, Lz)
+        Es.append(E)
+        Lzs.append(Lz)
+        I3s.append(lo + 0.5 * (hi - lo))
+    # the pole boundary layer (width ~ Lz/L^A) needs map resolution; the
+    # measured ladder: maxdev 5.0e-5 / 2.1e-7 / 7.2e-12 at (ncanon, npt) =
+    # (128, 32) / (256, 64) / (512, 128) -- spectral, resolution-controlled
+    aac = actionAngleStaeckelInverse(
+        pot=kk, Es=Es, Lzs=Lzs, I3s=I3s, canonical=True, ncanon=512, npt=128
+    )
+    aad = actionAngleStaeckelInverse(pot=kk, Es=Es, Lzs=Lzs, I3s=I3s)
+    assert aac._can_maxdev < 1e-10, (
+        "The canonical lift fails at the polar edge: %g" % aac._can_maxdev
+    )
+    angler = numpy.linspace(0.4, 5.9, 5)
+    for ii in range(2):
+        jr, Lz, jz = aac._jr[ii], aac._Lzs[ii], aac._jz[ii]
+        xc = numpy.array(
+            aac._xvFreqs(jr, Lz, jz, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0)[:6]
+        )
+        xd = numpy.array(
+            aad._xvFreqs(jr, Lz, jz, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0)[:6]
+        )
+        assert numpy.max(numpy.fabs(xc - xd)) < 1e-10, (
+            "Canonical and direct evaluation disagree at the polar edge: %g"
+            % numpy.max(numpy.fabs(xc - xd))
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_errors():
+    # guarded misuse and the defensive raises, fired for real
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    kk, aac, _ = _staeckel_canonical_setup()
+    _, Es, Lzs, I3s = _staeckel_canonical_tori()
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(
+            pot=kk, Es=Es[:1], Lzs=Lzs[:1], I3s=I3s[:1], canonical=True, ncanon=127
+        )
+    assert "even" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(
+            pot=kk,
+            Es=Es[:1],
+            Lzs=Lzs[:1],
+            I3s=I3s[:1],
+            canonical=True,
+            ncanon=64,
+            npt=99,
+        )
+    assert "npt" in str(excinfo.value)
+    with pytest.raises(NotImplementedError) as excinfo:
+        actionAngleStaeckelInverse(pot=kk, canonical=True, setup_interp=True)
+    assert "T2" in str(excinfo.value)
+    # the Newton else-raises via maxiter=0 (white-box)
+    maxiter = aac._maxiter
+    try:
+        aac._maxiter = 0
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._tau_of_eta(numpy.array([2.0]), aac._can_Dmu[0])
+        assert "map anomaly" in str(excinfo.value)
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._canonical_torus_tables(0)
+        assert "did not converge" in str(excinfo.value)
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._xvFreqs_canonical(
+                0, numpy.array([2.0]), numpy.array([1.0]), numpy.array([2.0])
+            )
+        assert "target angles" in str(excinfo.value)
+    finally:
+        aac._maxiter = maxiter
+        aac._canonical_torus_tables(0)
+    # an externally-inconsistent toy fails the correspondence informatively
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
+
+    aAIc = aac._aAIc
+    try:
+        aac._aAIc = actionAngleIsochrone(
+            ip=IsochronePotential(amp=aac._GMc / 1000.0, b=aac._bc)
+        )
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._canonical_torus_tables(0)
+        assert "unbound lifted samples" in str(excinfo.value)
+    finally:
+        aac._aAIc = aAIc
+        aac._canonical_torus_tables(0)
+    return None

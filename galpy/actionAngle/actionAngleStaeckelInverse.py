@@ -9,9 +9,10 @@
 import numpy
 from scipy.interpolate import InterpolatedUnivariateSpline, RectBivariateSpline
 from scipy.ndimage import map_coordinates, spline_filter1d
-from scipy.optimize import brentq, minimize_scalar
+from scipy.optimize import brentq, minimize, minimize_scalar
 
 from ..potential import (
+    IsochronePotential,
     OblateStaeckelWrapperPotential,
     evaluatePotentials,
     rl,
@@ -19,6 +20,8 @@ from ..potential import (
 )
 from ..util import conversion, coords
 from .actionAngleInverse import actionAngleInverse
+from .actionAngleIsochrone import actionAngleIsochrone
+from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
 # Nodes/weights for composite 10-point Gauss-Legendre quadrature: applied
 # per interval of the nchi-point chi mesh, the error per panel is
@@ -154,6 +157,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         grid_pad=0.02,
         nchi_store=201,
         nchi=2001,
+        canonical=False,
+        ncanon=128,
+        npt=32,
         maxiter=60,
         angle_tol=1e-13,
         **kwargs,
@@ -203,6 +209,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         nchi : int, optional
             Number of grid points in the chi anomaly used when constructing
             a torus.
+        canonical : bool, optional
+            If True, additionally build the canonical (momentum-matched)
+            construction for the discrete tori: each torus is lifted onto
+            its equal-action isochrone torus by per-degree momentum-matched
+            point transformations, and evaluation runs through the analytic
+            isochrone inverse (STAECKEL_CANONICAL_MATH.md section 10).
+        ncanon : int, optional
+            Number of anomaly samples (even) of the canonical
+            correspondence tables per degree of freedom.
+        npt : int, optional
+            Number of sine modes of the stored momentum-matching anomaly
+            maps (at most ncanon/2 - 1).
         nchi_store : int, optional
             Number of grid points in the chi anomaly on which the angle
             profiles of the grid tori are stored for interpolation (only used
@@ -270,6 +288,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # turning point, a quarter v-period earlier)
         self._anglez0 = numpy.pi / 2.0
         self._interp = setup_interp
+        self._canonical = canonical
+        if ncanon % 2 == 1:
+            raise ValueError("ncanon has to be even")
+        if npt > ncanon // 2 - 1:
+            raise ValueError("npt has to be at most ncanon/2 - 1")
+        self._ncanon = ncanon
+        self._npt = npt
+        self._nforDm = numpy.arange(1, npt + 1)
+        if canonical and setup_interp:
+            raise NotImplementedError(
+                "canonical=True with setup_interp=True arrives with the "
+                "family PR (T2); the canonical construction currently "
+                "applies to the discrete tori"
+            )
         if setup_interp:
             Rmin = conversion.parse_length(Rmin, ro=self._ro)
             Rmax = conversion.parse_length(Rmax, ro=self._ro)
@@ -280,6 +312,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._find_turning_points()
         self._compute_actions_frequencies_profiles()
         self._build_angle_profile_splines()
+        if canonical:
+            self._setup_canonical()
 
     ############################ MOMENTA ######################################
     def _Wu(self, u, E, Lz, I3):
@@ -1103,6 +1137,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 anglez,
             )
         ii = self._torus_index(jr, jphi, jz)
+        if self._canonical:
+            return self._xvFreqs_canonical(ii, angler, anglephi, anglez)
         return self._solve_and_map(
             self._Aprof[ii],
             self._Bprof[ii],
@@ -1290,3 +1326,427 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return (scal[3], scal[5], scal[4])
         ii = self._torus_index(jr, jphi, jz)
         return (self._OmegaR[ii], self._Omegaphi[ii], self._Omegaz[ii])
+
+    ################## CANONICAL (momentum-matched) CONSTRUCTION ##############
+    # The Stage-3 canonical path (STAECKEL_CANONICAL_MATH.md section 10): the
+    # torus is lifted onto its equal-action isochrone torus by per-degree
+    # momentum-matched point transformations (cumulative radial/vertical
+    # actions matched; the anomaly maps eta(tau) - tau are pure sine series),
+    # cotangent-lifted, so the lift is exactly canonical for any stored maps
+    # and the 2-D generating-function content collapses to the stored maps'
+    # truncation residual.
+    @staticmethod
+    def _spec_coeffs1(f):
+        """Fourier coefficients on the offset grid tau_j = 2 pi (j+1/2)/N"""
+        N = len(f)
+        k = numpy.arange(N // 2 + 1)
+        return numpy.fft.rfft(f) / N * numpy.exp(-1j * k * numpy.pi / N)
+
+    @staticmethod
+    def _spec_eval1(c, tau, deriv=False):
+        k = numpy.arange(len(c))
+        w = numpy.ones(len(c))
+        w[1:-1] = 2.0
+        cc = c * (1j * k) if deriv else c
+        ph = numpy.exp(1j * numpy.atleast_1d(tau)[:, None] * k[None, :])
+        return numpy.real(ph @ (w * cc))
+
+    @staticmethod
+    def _spec_coeffs2(f):
+        """2-D Fourier coefficients on the offset product grid"""
+        N = f.shape[0]
+        c = numpy.fft.fft2(f) / N**2
+        k = numpy.fft.fftfreq(N, d=1.0 / N)
+        return c * numpy.exp(-1j * numpy.pi / N * (k[:, None] + k[None, :]))
+
+    @staticmethod
+    def _spec_eval2(c, tu, tv):
+        """Evaluate the 2-D series at arbitrary (tau_u, tau_v) pairs"""
+        N = c.shape[0]
+        k = numpy.fft.fftfreq(N, d=1.0 / N)
+        phu = numpy.exp(1j * numpy.atleast_1d(tu)[:, None] * k[None, :])
+        phv = numpy.exp(1j * numpy.atleast_1d(tv)[:, None] * k[None, :])
+        return numpy.real(numpy.einsum("pk,kl,pl->p", phu, c, phv))
+
+    def _iso_E_of_Jr(self, Jr, L):
+        """Energy of the toy torus with radial action Jr: closed form"""
+        CA = 0.5 * (L + numpy.sqrt(L**2 + 4.0 * self._GMc * self._bc))
+        return -(self._GMc**2) / (2.0 * (Jr + CA) ** 2)
+
+    def _toy_r_profile(self, a, e, eta):
+        """Toy radial loop: radius, momentum, dr/deta at anomaly eta"""
+        b = self._bc
+        y = 1.0 - e * numpy.cos(eta)
+        rA = a * numpy.sqrt(y * (y + 2.0 * b / a))
+        pA = numpy.sqrt(self._GMc / (a + b)) * a * e * numpy.sin(eta) / rA
+        drAdeta = (
+            a * e * numpy.sin(eta) * (y + b / a) / numpy.sqrt(y * (y + 2.0 * b / a))
+        )
+        return rA, pA, drAdeta
+
+    @staticmethod
+    def _toy_th_profile(LA, Lz, thmin, eta):
+        """Toy vertical loop: polar angle, momentum, dtheta/deta at eta"""
+        th = 0.5 * numpy.pi - (0.5 * numpy.pi - thmin) * numpy.cos(eta)
+        pth2 = numpy.clip(LA**2 - Lz**2 / numpy.sin(th) ** 2, 0.0, None)
+        pth = numpy.sign(numpy.sin(eta)) * numpy.sqrt(pth2)
+        dthdeta = (0.5 * numpy.pi - thmin) * numpy.sin(eta)
+        return th, pth, dthdeta
+
+    def _cum_match(self, ft, fA, tau):
+        """The momentum-matching anomaly map eta(tau): match the cumulative
+        actions A_t(tau) = A_A(eta) spectrally (both integrands sampled on
+        the same offset grid; equal actions make the linear parts agree, so
+        eta - tau is periodic and, by parity, a pure sine series)"""
+        N = len(tau)
+        k = numpy.fft.fftfreq(N, d=1.0 / N)
+
+        def _antider(f):
+            fh = numpy.fft.fft(f - numpy.mean(f))
+            ah = numpy.zeros_like(fh)
+            ah[1:] = fh[1:] / (1j * k[1:])
+            return numpy.real(numpy.fft.ifft(ah))
+
+        mt, mA = numpy.mean(ft), numpy.mean(fA)
+        scale = mt / mA
+        qt = _antider(ft)
+        At = mt * tau + qt - self._spec_eval1(self._spec_coeffs1(qt), 0.0)[0]
+        qA = _antider(fA)
+        qA0 = self._spec_eval1(self._spec_coeffs1(qA), 0.0)[0]
+        cqA = self._spec_coeffs1(qA)
+        cfA = self._spec_coeffs1(fA)
+        eta = numpy.array(tau)
+        for _ in range(self._maxiter):
+            fres = scale * (mA * eta + self._spec_eval1(cqA, eta) - qA0) - At
+            fp = numpy.maximum(scale * self._spec_eval1(cfA, eta), 1e-10 * mt)
+            de = numpy.clip(-fres / fp, -0.5, 0.5)
+            eta += de
+            if numpy.max(numpy.fabs(fres)) < 1e-13 * max(mt, 1e-10):
+                break
+        else:
+            raise RuntimeError(
+                "Newton's method for the momentum-matching anomaly map did not converge"
+            )
+        smat = numpy.sin(tau[:, None] * self._nforDm[None, :])
+        Dm = 2.0 * numpy.mean((eta - tau)[:, None] * smat, axis=0)
+        return Dm
+
+    def _tau_of_eta(self, eta, Dm):
+        """Invert the stored anomaly map (monotone) for tau"""
+        ms = self._nforDm
+        x = numpy.array(eta, dtype="float")
+        for _ in range(self._maxiter):
+            f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
+            fp = 1.0 + numpy.cos(x[:, None] * ms[None, :]) @ (ms * Dm)
+            dx = numpy.clip(-f / fp, -0.5, 0.5)
+            x += dx
+            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError("Newton's method for the map anomaly did not converge")
+        return x
+
+    def _setup_canonical(self):
+        """The frozen toy (rotation-curve fit over the sampled radial range)
+        and, per torus: the equal-action closure, the two momentum-matched
+        anomaly maps, the truncated-map-consistent lift, the product-grid
+        correspondence through the analytic isochrone, the zero-mode labels
+        (Stokes-checked against the direct quadrature actions), and the
+        2-D correspondence tables the canonical evaluation reads"""
+        N = self._ncanon
+        tau = 2.0 * numpy.pi * (numpy.arange(N) + 0.5) / N
+        # the sampled radial range, in closed prolate forms
+        rlos = self._delta * numpy.sinh(self._umins)
+        rhis = self._delta * numpy.sqrt(
+            numpy.sinh(self._umaxs) ** 2 + numpy.cos(self._vmins) ** 2
+        )
+        rlo = max(numpy.min(rlos), 1e-3 * numpy.max(rhis))
+        rhi = numpy.max(rhis)
+        rf = numpy.geomspace(rlo, rhi, 25)
+        lnvc2 = numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
+
+        def _vc2cost(x):
+            GMf, bf = numpy.exp(x)
+            sf = numpy.sqrt(bf**2 + rf**2)
+            return numpy.sum(
+                (numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2
+            )
+
+        res = minimize(
+            _vc2cost,
+            numpy.log(
+                [
+                    rhi * vcirc(self._pot, rhi, use_physical=False) ** 2,
+                    0.1 * numpy.sqrt(rlo * rhi),
+                ]
+            ),
+            method="Nelder-Mead",
+        )
+        self._GMc, self._bc = numpy.exp(res.x)
+        ipc = IsochronePotential(amp=self._GMc, b=self._bc)
+        self._aAIc = actionAngleIsochrone(ip=ipc)
+        self._aAIinvc = actionAngleIsochroneInverse(ip=ipc)
+        ntori = self._ntori
+        self._can_LA = numpy.empty(ntori)
+        self._can_a = numpy.empty(ntori)
+        self._can_e = numpy.empty(ntori)
+        self._can_thmin = numpy.empty(ntori)
+        self._can_Dmu = numpy.empty((ntori, self._npt))
+        self._can_Dmv = numpy.empty((ntori, self._npt))
+        self._can_labels = numpy.empty((ntori, 2))
+        nk = N
+        self._can_cJr = numpy.empty((ntori, nk, nk), dtype=complex)
+        self._can_cJz = numpy.empty((ntori, nk, nk), dtype=complex)
+        self._can_cDR = numpy.empty((ntori, nk, nk), dtype=complex)
+        self._can_cDz = numpy.empty((ntori, nk, nk), dtype=complex)
+        self._can_cDphi = numpy.empty((ntori, nk, nk), dtype=complex)
+        self._can_maxdev = 0.0
+        self._can_stokes = 0.0
+        for ii in range(ntori):
+            self._canonical_torus_tables(ii)
+        return None
+
+    def _canonical_torus_tables(self, ii):
+        """The canonical tables of one torus: the equal-action closure, the
+        two momentum-matched anomaly maps, the truncated-map-consistent
+        lift, the product-grid correspondence, the zero-mode labels, and
+        the 2-D correspondence tables"""
+        N = self._ncanon
+        tau = 2.0 * numpy.pi * (numpy.arange(N) + 0.5) / N
+        E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
+        Du = self._umaxs[ii] - self._umins[ii]
+        Dv = numpy.pi - 2.0 * self._vmins[ii]
+        u = self._umins[ii] + Du * numpy.sin(tau / 2.0) ** 2
+        v = self._vmins[ii] + Dv * numpy.sin(tau / 2.0) ** 2
+        pu = numpy.where(tau < numpy.pi, 1.0, -1.0) * numpy.sqrt(
+            numpy.clip(self._Wu(u, E, Lz, I3), 0.0, None)
+        )
+        pv = numpy.where(tau < numpy.pi, 1.0, -1.0) * numpy.sqrt(
+            numpy.clip(self._Wv(v, E, Lz, I3), 0.0, None)
+        )
+        dudtau = 0.5 * Du * numpy.sin(tau)
+        dvdtau = 0.5 * Dv * numpy.sin(tau)
+        # equal-action closure, all closed forms
+        LA = self._jz[ii] + numpy.fabs(Lz)
+        EA = self._iso_E_of_Jr(self._jr[ii], LA)
+        a = -self._GMc / (2.0 * EA) - self._bc
+        e = numpy.sqrt(1.0 + LA**2 / (2.0 * EA * a**2))
+        thmin = numpy.arcsin(numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0))
+        # the two anomaly maps and the truncated-map-consistent lifts
+        _, pA_eta, drA_eta = self._toy_r_profile(a, e, tau)
+        Dmu = self._cum_match(pu * dudtau, pA_eta * drA_eta, tau)
+        _, pth_eta, dth_eta = self._toy_th_profile(LA, Lz, thmin, tau)
+        Dmv = self._cum_match(pv * dvdtau, pth_eta * dth_eta, tau)
+        smat = numpy.sin(tau[:, None] * self._nforDm[None, :])
+        cmat = numpy.cos(tau[:, None] * self._nforDm[None, :])
+        etau = tau + smat @ Dmu
+        detau = 1.0 + cmat @ (self._nforDm * Dmu)
+        rA, _, drA_t = self._toy_r_profile(a, e, etau)
+        pAr = pu * dudtau / (drA_t * detau)
+        etav = tau + smat @ Dmv
+        detav = 1.0 + cmat @ (self._nforDm * Dmv)
+        thetaA, _, dth_t = self._toy_th_profile(LA, Lz, thmin, etav)
+        pAth = pv * dvdtau / (dth_t * detav)
+        # product-grid correspondence through the analytic isochrone
+        R2 = rA[:, None] * numpy.sin(thetaA)[None, :]
+        z2 = rA[:, None] * numpy.cos(thetaA)[None, :]
+        vr2 = pAr[:, None] * numpy.ones(N)[None, :]
+        vth2 = numpy.ones(N)[:, None] * pAth[None, :] / rA[:, None]
+        sn2 = numpy.ones(N)[:, None] * numpy.sin(thetaA)[None, :]
+        cs2 = numpy.ones(N)[:, None] * numpy.cos(thetaA)[None, :]
+        vR2 = vr2 * sn2 + vth2 * cs2
+        vz2 = vr2 * cs2 - vth2 * sn2
+        vT2 = Lz / R2
+        with numpy.errstate(invalid="ignore", divide="ignore"):
+            o = self._aAIc.actionsFreqsAngles(
+                R2.ravel(),
+                vR2.ravel(),
+                vT2.ravel(),
+                z2.ravel(),
+                vz2.ravel(),
+                numpy.zeros(N * N),
+            )
+        JAr = numpy.atleast_1d(o[0]).reshape(N, N)
+        JAz = numpy.atleast_1d(o[2]).reshape(N, N)
+        thetaAr = numpy.atleast_1d(o[6]).reshape(N, N)
+        thAphi = numpy.atleast_1d(o[7]).reshape(N, N)
+        thAz = numpy.atleast_1d(o[8]).reshape(N, N)
+        if numpy.any(~numpy.isfinite(JAr + JAz)):
+            raise RuntimeError(
+                "The toy correspondence failed for the (E, Lz, I3) = "
+                f"({E}, {Lz}, {I3}) torus (unbound lifted samples)"
+            )
+        # target angles at the product samples, from the direct engine's
+        # own profiles (exact convention match by construction)
+        A, B = self._Aprof[ii], self._Bprof[ii]
+        thR_t = self._fold(A[0], tau)[:, None] + self._fold(B[0], tau)[None, :]
+        thz_t = (
+            self._fold(A[1], tau)[:, None]
+            + self._fold(B[1], tau)[None, :]
+            + self._anglez0
+        )
+        thphi_t = self._fold(A[2], tau)[:, None] + self._fold(B[2], tau)[None, :]
+
+        # correspondence-difference fields: periodic in both anomalies
+        def _wrap2(f):
+            f = numpy.unwrap(f, axis=0)
+            return numpy.unwrap(f, axis=1)
+
+        DR = _wrap2(thetaAr - thR_t)
+        Dz = _wrap2(thAz - thz_t)
+        Dphi = _wrap2(thAphi - thphi_t)
+        # zero-mode labels with the 2-D angle-measure weight
+        k1 = numpy.fft.fftfreq(N, d=1.0 / N)
+
+        def _ddtau(f, axis):
+            return numpy.real(
+                numpy.fft.ifft(
+                    1j
+                    * (k1.reshape(-1, 1) if axis == 0 else k1.reshape(1, -1))
+                    * numpy.fft.fft(f, axis=axis),
+                    axis=axis,
+                )
+            )
+
+        duu = 1.0 + _ddtau(DR + thR_t - tau[:, None], 0)
+        duv = _ddtau(DR + thR_t, 1)
+        dvu = _ddtau(Dz + thz_t, 0)
+        dvv = 1.0 + _ddtau(Dz + thz_t - tau[None, :], 1)
+        det = duu * dvv - duv * dvu
+        labr = numpy.mean(JAr * det)
+        labz = numpy.mean(JAz * det)
+        self._can_labels[ii] = [labr, labz]
+        self._can_LA[ii] = LA
+        self._can_a[ii] = a
+        self._can_e[ii] = e
+        self._can_thmin[ii] = thmin
+        self._can_Dmu[ii] = Dmu
+        self._can_Dmv[ii] = Dmv
+        self._can_cJr[ii] = self._spec_coeffs2(JAr - labr)
+        self._can_cJz[ii] = self._spec_coeffs2(JAz - labz)
+        self._can_cDR[ii] = self._spec_coeffs2(DR)
+        self._can_cDz[ii] = self._spec_coeffs2(Dz)
+        self._can_cDphi[ii] = self._spec_coeffs2(Dphi)
+        self._can_maxdev = max(
+            self._can_maxdev,
+            float(numpy.max(numpy.fabs(JAr - labr))),
+            float(numpy.max(numpy.fabs(JAz - labz))),
+        )
+        self._can_stokes = max(
+            self._can_stokes,
+            float(numpy.fabs(labr - self._jr[ii])),
+            float(numpy.fabs(labz - self._jz[ii])),
+        )
+        return None
+
+    def _xvFreqs_canonical(self, ii, angler, anglephi, anglez):
+        """Canonical discrete evaluation: solve the target angle system for
+        the two anomalies (the direct engine's own 2-D Newton), read the
+        toy angles and actions from the correspondence tables, delegate the
+        full 3-D reconstruction to the analytic isochrone inverse, and
+        un-lift per degree through the stored anomaly maps"""
+        thR = numpy.atleast_1d(numpy.array(angler, dtype="float"))
+        thphi = numpy.atleast_1d(numpy.array(anglephi, dtype="float"))
+        thz = numpy.atleast_1d(numpy.array(anglez, dtype="float"))
+        thR, thphi, thz = numpy.broadcast_arrays(thR, thphi, thz)
+        A, B = self._Aprof[ii], self._Bprof[ii]
+        dA, dB = self._dAprof[ii], self._dBprof[ii]
+        wu, wv = numpy.copy(thR), numpy.copy(thz)
+        for _ in range(self._maxiter):
+            f0 = self._fold(A[0], wu) + self._fold(B[0], wv) - thR
+            f1 = self._fold(A[1], wu) + self._fold(B[1], wv) + self._anglez0 - thz
+            f0 = (f0 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            f1 = (f1 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            J00, J01 = self._dfold(dA[0], wu), self._dfold(dB[0], wv)
+            J10, J11 = self._dfold(dA[1], wu), self._dfold(dB[1], wv)
+            det = J00 * J11 - J01 * J10
+            dwu = (J11 * f0 - J01 * f1) / det
+            dwv = (-J10 * f0 + J00 * f1) / det
+            step = numpy.maximum(numpy.fabs(dwu), numpy.fabs(dwv))
+            lim = numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
+            wu -= dwu * lim
+            wv -= dwv * lim
+            if numpy.max(step) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError("Newton's method for the target angles did not converge")
+        tu = numpy.mod(wu, 2.0 * numpy.pi)
+        tv = numpy.mod(wv, 2.0 * numpy.pi)
+        JAr = self._can_labels[ii, 0] + self._spec_eval2(self._can_cJr[ii], tu, tv)
+        JAz = self._can_labels[ii, 1] + self._spec_eval2(self._can_cJz[ii], tu, tv)
+        thetaAr = thR + self._spec_eval2(self._can_cDR[ii], tu, tv)
+        thAz = thz + self._spec_eval2(self._can_cDz[ii], tu, tv)
+        thAphi = thphi + self._spec_eval2(self._can_cDphi[ii], tu, tv)
+        Lz = self._Lzs[ii]
+        out = numpy.empty((6, len(tu)))
+        for jj in range(len(tu)):
+            oo = self._aAIinvc._xvFreqs(
+                JAr[jj], Lz, JAz[jj], thetaAr[jj], thAphi[jj], thAz[jj]
+            )
+            for kk in range(6):
+                out[kk, jj] = oo[kk][0]
+        R, vR, vT, z, vz, phi = out
+        # un-lift per degree through the stored anomaly maps
+        rA = numpy.sqrt(R**2 + z**2)
+        vrA = (R * vR + z * vz) / rA
+        pAth = vR * z - vz * R
+        a, e = self._can_a[ii], self._can_e[ii]
+        LA, thmin = self._can_LA[ii], self._can_thmin[ii]
+        # u-degree: eta from the closed-form radius inversion, tau from the
+        # stored map, u from the cosine anomaly; p_u through the flux group
+        y = (numpy.sqrt(self._bc**2 + rA**2) - self._bc) / a
+        coseta = numpy.clip((1.0 - y) / e, -1.0, 1.0)
+        sineta = numpy.sign(vrA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
+        etau = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
+        tuu = self._tau_of_eta(etau, self._can_Dmu[ii])
+        Du = self._umaxs[ii] - self._umins[ii]
+        u = self._umins[ii] + Du * numpy.sin(tuu / 2.0) ** 2
+        s = numpy.sqrt(self._bc**2 + rA**2)
+        gA = a * e * (y + self._bc / a) / numpy.sqrt(y * (y + 2.0 * self._bc / a))
+        ms = self._nforDm
+        detau = 1.0 + numpy.cos(tuu[:, None] * ms[None, :]) @ (ms * self._can_Dmu[ii])
+        sintu = numpy.sin(tuu)
+        sru = numpy.where(
+            numpy.fabs(sintu) > 1e-12,
+            sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
+            1.0,
+        )
+        pu = vrA * gA * sru * detau / (0.5 * Du)
+        # v-degree: theta^A from the position, eta from the linear cosine
+        # inversion, tau from the stored map; p_v through the flux group
+        thetaA = numpy.arccos(numpy.clip(z / rA, -1.0, 1.0))
+        cosetav = numpy.clip(
+            (0.5 * numpy.pi - thetaA) / (0.5 * numpy.pi - thmin), -1.0, 1.0
+        )
+        sinetav = numpy.sign(pAth) * numpy.sqrt(numpy.clip(1.0 - cosetav**2, 0.0, None))
+        etav = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
+        tvv = self._tau_of_eta(etav, self._can_Dmv[ii])
+        Dv = numpy.pi - 2.0 * self._vmins[ii]
+        v = self._vmins[ii] + Dv * numpy.sin(tvv / 2.0) ** 2
+        detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * self._can_Dmv[ii])
+        sintv = numpy.sin(tvv)
+        srv = numpy.where(
+            numpy.fabs(sintv) > 1e-12,
+            sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
+            1.0,
+        )
+        gth = 0.5 * numpy.pi - thmin
+        pv = pAth * gth * srv * detav / (0.5 * Dv)
+        # prolate -> cylindrical, exactly as the direct path
+        sh, ch = numpy.sinh(u), numpy.cosh(u)
+        sn, cs = numpy.sin(v), numpy.cos(v)
+        Rt, zt = coords.uv_to_Rz(u, v, delta=self._delta)
+        den = self._delta * (sh**2 + sn**2)
+        vRt = (pu * ch * sn + pv * sh * cs) / den
+        vzt = (pu * sh * cs - pv * ch * sn) / den
+        return (
+            Rt,
+            vRt,
+            Lz / Rt,
+            zt,
+            vzt,
+            phi % (2.0 * numpy.pi),
+            self._OmegaR[ii],
+            self._Omegaphi[ii],
+            self._Omegaz[ii],
+        )
