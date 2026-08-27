@@ -919,3 +919,22 @@ def test_surfdens_with_mixed_finite_and_infinite_z_is_elementwise():
         numpy.testing.assert_allclose(got.detach().numpy(), want, rtol=1e-12)
         got.sum().backward()
     assert numpy.isfinite(float(R.grad)) and float(R.grad) != 0.0
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_symmetric_quad_mixed_limits_accept_a_raw_numpy_limit(backend):
+    # symmetric_quad's docstring asks for the RAW limit -- "not one already
+    # mapped through the namespace" -- so a plain numpy array handed to a
+    # BACKEND xp is the documented calling convention, not an odd case. The
+    # mixed path has to coerce it before using it: torch.where rejects a numpy
+    # mask outright ("got (numpy.ndarray, Tensor, Tensor)") and torch.ones_like
+    # rejects a numpy array, so without the coercion this shape raises
+    # TypeError instead of integrating. Found because codecov flagged those two
+    # lines as the only uncovered ones in the patch -- every other test here
+    # passes b through xp.asarray first and so never reaches them.
+    xp = _xp(backend)
+    got = symmetric_quad(
+        xp, lambda s: xp.exp(-s * s), numpy.array([1.0, numpy.inf]), n=80
+    )
+    want = [numpy.sqrt(numpy.pi) * scipy.special.erf(1.0), numpy.sqrt(numpy.pi)]
+    numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), want, rtol=1e-12)
