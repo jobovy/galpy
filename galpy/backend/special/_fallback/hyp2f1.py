@@ -23,6 +23,8 @@
 ###############################################################################
 import math
 
+import numpy
+
 from ..._namespaces import (
     asarray_on_device,
     device_of,
@@ -229,13 +231,92 @@ def _euler_integral(xp, a, b, c, z):
     return _euler_quad(xp, A, B, c, z)
 
 
+# Below this B the xi^k substitution in _euler_quad cannot regularize the
+# t^{B-1} endpoint: it needs k >= ~6/B, and k is capped at 12 because X = xi^k
+# underflows above that. MEASURED (a=-1.010, c=B+3, z=-0.6), shipping rule vs
+# an uncapped k vs tanh-sinh:
+#
+#     B      k wanted   cap=12     cap=100    tanh-sinh
+#     0.500  12         7.11e-15   7.11e-15   2.22e-16
+#     0.200  30         1.76e-11   6.66e-15   4.44e-16
+#     0.100  60         1.00e-06   5.00e-15   4.44e-16
+#     0.050  120        1.04e-03   nan        8.88e-16
+#     0.020  300        7.21e-02   nan        6.80e-07
+#
+# So raising the cap helps only to B ~ 0.1 before underflowing, while tanh-sinh
+# is better at EVERY B and needs no substitution. 0.25 is where the shipping
+# rule's error first exceeds ~1e-11; above it the GL path is left untouched, so
+# this cannot regress the cases that already work.
+_TS_B_MAX = 0.25
+_TS_NODES = 200
+_TS_HALFWIDTH = 7.5
+
+
+def _tanh_sinh_quad(xp, A, B, c, z):
+    """2F1 via the Euler integral on a tanh-sinh (double-exponential) rule.
+
+    Same contract as _euler_quad: (A, B) already labelled, B > 0, c - B >= 1.
+
+    t = sigmoid(2v) with v = (pi/2) sinh(u), so dt/du = pi t (1-t) cosh u. The
+    endpoint singularity is cancelled ANALYTICALLY against that weight:
+
+        t^{B-1} (1-t)^{c-B-1} (1-zt)^{-A} * pi t (1-t) cosh u
+      = pi t^{B} (1-t)^{c-B} (1-zt)^{-A} cosh u
+
+    Both exponents are then positive, so no node blows up and none has to be
+    discarded -- forming f and w separately gives inf*0 = nan at small B and
+    silently drops real contributions.
+
+    Nodes are FIXED (independent of A, B, c), which is why this stays traceable
+    and differentiable in the parameters; a Gauss-Jacobi rule would move its
+    nodes with the exponents and need a differentiable eigenproblem per call.
+
+    Accuracy floor: below B ~ 0.01 this degrades too (2.9e-02 at B = 0.005) --
+    the shipping rule is worse there (5.2e-01), so this is still the better of
+    the two, but neither is accurate and the limitation is real. Measured; the
+    mechanism of that floor is NOT characterized -- it is insensitive to both
+    the node count and the half-width, so it is not ordinary quadrature error.
+    """
+    dev = device_of(z)
+    if not _params_are_backend(A, B, c):
+        pref = math.exp(math.lgamma(c) - math.lgamma(B) - math.lgamma(c - B))
+    else:
+        from .._router import gammaln
+
+        Bx, cx = (asarray_on_device(xp, v, dev) for v in (B, c))
+        pref = xp.exp(gammaln(cx) - gammaln(Bx) - gammaln(cx - Bx))
+    h = 2.0 * _TS_HALFWIDTH / _TS_NODES
+    u = asarray_on_device(
+        xp, numpy.linspace(-_TS_HALFWIDTH, _TS_HALFWIDTH, _TS_NODES + 1), dev
+    )
+    v = (numpy.pi / 2.0) * xp.sinh(u)
+    t = 1.0 / (1.0 + xp.exp(-2.0 * v))
+    omt = 1.0 / (1.0 + xp.exp(2.0 * v))
+    fw = (
+        numpy.pi * t**B * omt ** (c - B) * (1.0 - z[..., None] * t) ** (-A) * xp.cosh(u)
+    )
+    return pref * h * xp.sum(fw, axis=-1)
+
+
 def _euler_quad(xp, A, B, c, z):
     """The quadrature itself, on an ALREADY-LABELLED (A, B).
 
     Split out from _euler_integral so the traced-parameter route below can
     choose (A, B) with xp.where instead of a Python branch and still reuse this
     verbatim.
+
+    Small B goes to tanh-sinh: the xi^k substitution below needs k >= ~6/B and k
+    is capped at 12 (X = xi^k underflows above that), so for B < _TS_B_MAX the
+    t^{B-1} endpoint is simply not regularized and plain GL loses badly -- 7.2e-02
+    at B = 0.02, which is a real galpy request (constantbetaHernquistdf beta=-1.5
+    asks for a=-1.010, b=0.020, c=3.010). See _tanh_sinh_quad for the table.
     """
+    # Concreteness, not a data guard: with traced parameters B has no truth
+    # value, and every galpy caller passes CONCRETE potential/DF parameters --
+    # only z is ever traced. A traced B keeps the historical GL path rather than
+    # silently changing rule mid-trace.
+    if has_concrete_truth_value(B) and bool(B < _TS_B_MAX):
+        return _tanh_sinh_quad(xp, A, B, c, z)
     w = -z  # >= 0
     q = c - B  # exponent of (1-t) is q-1
     dev = device_of(z)
