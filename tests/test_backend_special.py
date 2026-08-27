@@ -1243,6 +1243,13 @@ _HYP2F1_PARAM_GRAD = [
     (-0.51, -0.98, 2.51, -5.0, 1e-8, "pfaff-series"),
     (1.7, 2.3, 3.4, -5.0, 1e-4, "euler, non-integer c-B"),
     (2.0, 2.0, 3.0, -5.0, 1e-3, "euler, c-a == 1 exactly (galpy's own force call)"),
+    # tanh-sinh route (B < _TS_B_MAX). Without these the route had NO parameter-
+    # gradient coverage at all, and it sizes its own node grid from B -- exactly
+    # the shape that silently detaches if it reaches for float(B). It cannot:
+    # under jax.grad the parameters have concrete truth values but are still
+    # tracers, so the grid is chosen by comparisons only.
+    (-1.010, 0.020, 3.010, -0.6, 1e-6, "tanh-sinh, the real constantbetadf B"),
+    (-1.6, 0.2, 3.2, -2.0, 1e-7, "tanh-sinh, small B"),
 ]
 
 
@@ -1358,3 +1365,75 @@ def test_hyp1f1_parameter_gradient_matches_finite_difference(backend):
             (grad,) = torch.autograd.grad(out, a)
             got = float(grad)
     assert got == pytest.approx(ref, rel=1e-7)
+
+
+# ---------------------------------------------------------------------------
+# hyp2f1 small-B accuracy: the Euler integral's xi^k substitution needs
+# k >= ~6/B to regularize the t^{B-1} endpoint, and k is capped at 12 because
+# X = xi^k underflows above that. So for small B the endpoint is simply not
+# regularized and plain Gauss-Legendre loses badly. tanh-sinh needs no
+# substitution and is routed in below _TS_B_MAX.
+#
+# B is the parameter the Euler labelling PICKS: a < 0 disqualifies a, forcing
+# B = b. That is not synthetic -- constantbetaHernquistdf(beta=-1.5) asks for
+# (a, b, c) = (-1.010, 0.020, 3.010), where the shipping rule was 7.2e-02 off.
+#
+# Reference is scipy, itself checked against mpmath (dps=50) at these same
+# parameters to 1.5e-16, so the arbiter is not the thing being tested.
+# ---------------------------------------------------------------------------
+_SMALL_B = [
+    # (B, tolerance) -- tolerances are the MEASURED accuracy, not round numbers.
+    # All four land at ~1e-15, so one bar covers them; they are kept as separate
+    # cases because the SHIPPING rule degraded steeply across this range
+    # (1.8e-11 -> 7.2e-02) and a single B would not show that it no longer does.
+    (0.200, 1e-14),
+    (0.100, 1e-14),
+    (0.050, 1e-14),
+    (0.020, 1e-14),  # was 7.2e-02 on the shipping rule
+]
+
+
+@pytest.mark.parametrize("B,tol", _SMALL_B, ids=[f"B={b}" for b, _ in _SMALL_B])
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_small_euler_parameter_is_accurate(backend, B, tol):
+    a, c = -1.010, B + 3.0  # a < 0 forces the labelling onto B = b
+    for z in (-0.6, -2.0, -15.8):
+        ref = scipy_special.hyp2f1(a, B, c, z)
+        got = as_numpy(gsp.hyp2f1(a, B, c, _asarray(backend, z)))
+        rel = abs(got / ref - 1.0)
+        assert rel < tol, (
+            f"{backend} hyp2f1({a},{B},{c},{z}): rel {rel:.3e} > {tol:.0e}"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_the_real_constantbetadf_request(backend):
+    # The exact parameter set constantbetaHernquistdf(beta=-1.5) requests,
+    # recorded by instrumenting the fallback. Shipping rule: 7.18e-02 off.
+    a, b, c, z = -1.010, 0.020, 3.010, -0.6
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    rel = abs(got / ref - 1.0)
+    assert rel < 1e-14, f"{backend}: rel {rel:.3e} (was 7.18e-02 before the route)"
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_large_B_route_is_unchanged(backend):
+    # Above _TS_B_MAX the Gauss-Legendre path must be untouched: the regression
+    # guard for the cases that already worked.
+    #
+    # The bars are that path's OWN measured accuracy, verified identical with
+    # and without the route (base vs branch, same digits). (-1.6, 1.2, 3.6) sits
+    # at 2.4e-09 / 7.4e-09 -- pre-existing GL behaviour, not something this
+    # change introduces, so the bar is set there rather than at 1e-12, which
+    # would fail on unmodified develop too.
+    for a, b, c, tol in (
+        (-3.2, 4.4, 5.2, 1e-13),
+        (2.0, 2.0, 2.5, 1e-13),
+        (-1.6, 1.2, 3.6, 1e-08),
+    ):
+        for z in (-0.6, -2.0):
+            ref = scipy_special.hyp2f1(a, b, c, z)
+            got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+            rel = abs(got / ref - 1.0)
+            assert rel < tol, f"{backend} regressed at ({a},{b},{c},{z}): {rel:.3e}"
