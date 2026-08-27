@@ -10,7 +10,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, set_at
 
 pytestmark = pytest.mark.backend_managed
 
@@ -55,3 +55,44 @@ def test_as_numpy_roundtrip(backend):
     out = as_numpy(x)
     assert isinstance(out, numpy.ndarray)
     numpy.testing.assert_allclose(out, src)
+
+
+# ---------------------------------------------------------------------------
+# set_at: the backend-agnostic scatter. jax arrays are immutable and need
+# .at[].set(); torch tensors are mutable but assigning into one that carries a
+# graph raises, so both go out of place. Production code (the AdiabaticGrid
+# off-grid fallback), and the backend-tests CI job uploads no coverage, so it
+# is exercised explicitly here.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_set_at_replaces_masked_entries_out_of_place(backend):
+    src = numpy.asarray([1.0, 2.0, 3.0, 4.0])
+    mask_np = numpy.asarray([False, True, False, True])
+    if backend == "jax":
+        xp, arr, mask = jnp, jnp.asarray(src), jnp.asarray(mask_np)
+        vals = jnp.asarray([20.0, 40.0])
+    else:
+        xp, arr, mask = torch, torch.tensor(src), torch.tensor(mask_np)
+        vals = torch.tensor([20.0, 40.0])
+    out = set_at(xp, arr, mask, vals)
+    numpy.testing.assert_allclose(as_numpy(out), [1.0, 20.0, 3.0, 40.0])
+    # out of place: the input is untouched, which is what lets callers keep the
+    # original around (and is REQUIRED for jax, whose arrays are immutable).
+    numpy.testing.assert_allclose(as_numpy(arr), src)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_set_at_leaves_a_grad_tracking_input_intact(backend):
+    # torch raises on in-place assignment into a graph-carrying tensor, so the
+    # clone is load-bearing rather than defensive. jax is checked for symmetry.
+    if backend == "jax":
+        arr = jnp.asarray([1.0, 2.0, 3.0])
+        out = set_at(jnp, arr, jnp.asarray([False, True, False]), jnp.asarray([9.0]))
+    else:
+        arr = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+        out = set_at(
+            torch, arr, torch.tensor([False, True, False]), torch.tensor([9.0])
+        )
+        assert arr.requires_grad
+    numpy.testing.assert_allclose(as_numpy(out), [1.0, 9.0, 3.0])
+    numpy.testing.assert_allclose(as_numpy(arr), [1.0, 2.0, 3.0])
