@@ -856,6 +856,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         CA = 0.5 * (L + numpy.sqrt(L**2 + 4.0 * self._GMc * self._bc))
         return -(self._GMc**2) / (2.0 * (Jr + CA) ** 2)
 
+    def _toy_ae(self, JAr, LA):
+        """Semi-major axis and eccentricity of the toy torus (J^A_r, L^A)"""
+        H = self._iso_E_of_Jr(JAr, LA)
+        a = -self._GMc / 2.0 / H - self._bc
+        return a, numpy.sqrt(numpy.clip(1.0 + LA**2 / (2.0 * H * a**2), 0.0, None))
+
     def _toy_r_profile(self, a, e, eta):
         """Toy radial loop: radius, momentum, dr/deta at anomaly eta"""
         b = self._bc
@@ -1762,3 +1768,206 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # frequencies: the stored energy table's own derivative chains
         OmR, Omphi, Omz = dq[2]
         return (Rt, vRt, vTt, zt, vzt, phit, OmR, Omphi, Omz)
+
+    ################## ANALYTIC d/dJ OF THE STORED QUANTITIES #################
+    # STAECKEL_CANONICAL_MATH.md section 10.7. The family reconstructs angles
+    # by differentiating stored map data, so those derivatives must be known
+    # analytically rather than inferred from the interpolant: supports by the
+    # implicit function theorem on W=0, anomaly maps by differentiating the
+    # action-matching condition at fixed tau.
+    def _canon_dsup_dJ(self, ii):
+        """d(umin, umax, vmin)/d(J_R, J_phi, J_z), analytic"""
+        E, Lz = self._Es[ii], self._Lzs[ii]
+        d2 = self._delta**2.0
+        out = numpy.empty((3, 3))
+        for row, (q, isu) in enumerate(
+            ((self._umins[ii], True), (self._umaxs[ii], True), (self._vmins[ii], False))
+        ):
+            if isu:
+                dWdq = self._dWu(numpy.array([q]), E, Lz)[0]
+                dWda = numpy.array(
+                    [
+                        2.0 * d2 * numpy.sinh(q) ** 2.0,
+                        -2.0 * d2,
+                        -2.0 * Lz / numpy.sinh(q) ** 2.0,
+                    ]
+                )
+            else:
+                dWdq = self._dWv(numpy.array([q]), E, Lz)[0]
+                dWda = numpy.array(
+                    [
+                        2.0 * d2 * numpy.sin(q) ** 2.0,
+                        +2.0 * d2,
+                        -2.0 * Lz / numpy.sin(q) ** 2.0,
+                    ]
+                )
+            out[row] = -dWda / dWdq
+        # d(E,I3,Lz)/d(J_R,J_z,J_phi) -> columns reordered to (J_R,J_phi,J_z)
+        return out @ self._dEI3Lz_dJ[ii][:, [0, 2, 1]], self._dEI3Lz_dJ[ii][
+            :, [0, 2, 1]
+        ]
+
+    def _toy_gu_partials(self, eta, a, e):
+        """The toy radial action integrand g = p^A_r dr^A/deta and its
+        (a, e) partials, in closed form"""
+        b = self._bc
+        c, s = numpy.cos(eta), numpy.sin(eta)
+        y = 1.0 - e * c
+        w = y + 2.0 * b / a
+        P = y + b / a
+        Q = y * w
+        K = numpy.sqrt(self._GMc / (a + b))
+        g = K * a * e**2 * s**2 * P / Q
+        # d/de at fixed eta: y_e = w_e = P_e = -c, Q_e = -c (w + y)
+        Qe = -c * (w + y)
+        dg_de = K * a * s**2 * (2.0 * e * P / Q + e**2 * (-c * Q - P * Qe) / Q**2)
+        # d/da at fixed eta
+        Ka = -0.5 * numpy.sqrt(self._GMc) * (a + b) ** -1.5
+        Pa = -b / a**2
+        Qa = y * (-2.0 * b / a**2)
+        dg_da = (
+            Ka * a * e**2 * s**2 * P / Q
+            + K * e**2 * s**2 * P / Q
+            + K * a * e**2 * s**2 * (Pa * Q - P * Qa) / Q**2
+        )
+        return g, dg_da, dg_de
+
+    def _toy_gv_partials(self, eta, LA, Lz):
+        """The toy vertical action integrand and its (L^A, L_z) partials"""
+        m = numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0 - 1e-15)
+        thmin = numpy.arcsin(m)
+        gth = 0.5 * numpy.pi - thmin
+        c, s = numpy.cos(eta), numpy.sin(eta)
+        th = 0.5 * numpy.pi - gth * c
+        sth = numpy.sin(th)
+        pth2 = numpy.clip(LA**2 - Lz**2 / sth**2, 1e-300, None)
+        g = numpy.sqrt(pth2) * gth * numpy.fabs(s)
+        rt = 1.0 / numpy.sqrt(numpy.clip(1.0 - m**2, 1e-300, None))
+        dthmin_dLA = rt * (-numpy.fabs(Lz) / LA**2)
+        dthmin_dLz = rt * (numpy.sign(Lz) / LA)
+        out = []
+        for dthmin, dpth2_expl in (
+            (dthmin_dLA, 2.0 * LA),
+            (dthmin_dLz, -2.0 * Lz / sth**2),
+        ):
+            dgth = -dthmin
+            dth = -c * dgth
+            dpth2 = dpth2_expl + 2.0 * Lz**2 * numpy.cos(th) / sth**3 * dth
+            out.append(
+                dpth2 / (2.0 * numpy.sqrt(pth2)) * gth * numpy.fabs(s)
+                + numpy.sqrt(pth2) * dgth * numpy.fabs(s)
+            )
+        return g, out[0], out[1]
+
+    def _canon_dDm_dJ(self, ii, dsupJ, Malpha):
+        """d(D^u_m, D^v_m)/dJ by differentiating the action-matching condition
+        A^A(eta) = A_t(tau) at fixed tau. The denominator p^A dq^A/deta
+        vanishes at both turning points, so rather than dividing we expand
+        deta/dJ|_tau = sum_m x_m sin(m tau) -- exact by construction -- and
+        solve the resulting Galerkin system, which never divides."""
+        N = self._ncanon
+        tau = 2.0 * numpy.pi * (numpy.arange(N) + 0.5) / N
+        kk = numpy.fft.fftfreq(N, d=1.0 / N)
+        E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
+        d2 = self._delta**2.0
+        ms = self._nforDm
+
+        def antider(f):
+            fh = numpy.fft.fft(f - numpy.mean(f))
+            ah = numpy.zeros_like(fh)
+            ah[1:] = fh[1:] / (1j * kk[1:])
+            return numpy.real(numpy.fft.ifft(ah))
+
+        def solve(gA, num):
+            MM = N // 2 - 1
+            mall = numpy.arange(1, MM + 1)
+            S = numpy.sin(tau[:, None] * mall[None, :])
+            return numpy.linalg.solve((S * gA[:, None]).T @ S / N, S.T @ num / N)[
+                : self._npt
+            ]
+
+        # ---- u-degree
+        umin, umax = self._umins[ii], self._umaxs[ii]
+        u = umin + (umax - umin) * numpy.sin(tau / 2.0) ** 2
+        dudtau = 0.5 * (umax - umin) * numpy.sin(tau)
+        # p_u is SIGNED (negative on the return branch), so that the loop mean
+        # of p_u du/dtau is the action; with |p_u| it would vanish identically
+        sgn = numpy.where(tau < numpy.pi, 1.0, -1.0)
+        pu = sgn * numpy.sqrt(numpy.clip(self._Wu(u, E, Lz, I3), 1e-300, None))
+        dWdalpha = numpy.stack(
+            (
+                2.0 * d2 * numpy.sinh(u) ** 2.0,
+                -2.0 * d2 * numpy.ones_like(u),
+                -2.0 * Lz / numpy.sinh(u) ** 2.0,
+            )
+        )
+        dW_dJ = numpy.einsum("an,ak->nk", dWdalpha, Malpha)
+        du_dJ = (numpy.cos(tau / 2.0) ** 2)[:, None] * dsupJ[0] + (
+            numpy.sin(tau / 2.0) ** 2
+        )[:, None] * dsupJ[1]
+        dgt = (self._dWu(u, E, Lz)[:, None] * du_dJ + dW_dJ) / (
+            2.0 * pu[:, None]
+        ) * dudtau[:, None] + pu[:, None] * (0.5 * numpy.sin(tau))[:, None] * (
+            dsupJ[1] - dsupJ[0]
+        )
+        jr, jz = self._jr[ii], self._jz[ii]
+        LA = jz + numpy.fabs(Lz)
+        a, e = self._toy_ae(jr, LA)
+        dLA = numpy.array([0.0, numpy.sign(Lz), 1.0])
+        sq = numpy.sqrt(LA**2 + 4.0 * self._bc * self._GMc)
+        EA = self._iso_E_of_Jr(jr, LA)
+        dEA = (
+            self._GMc**2
+            / (jr + 0.5 * (LA + sq)) ** 3
+            * (numpy.array([1.0, 0.0, 0.0]) + 0.5 * (1.0 + LA / sq) * dLA)
+        )
+        da = self._GMc / (2.0 * EA**2) * dEA
+        de = (
+            2.0 * LA * dLA / (2.0 * EA * a**2)
+            - LA**2 * (dEA * a + 2.0 * EA * da) / (2.0 * EA**2 * a**3)
+        ) / (2.0 * e)
+        smat = numpy.sin(tau[:, None] * ms[None, :])
+        cmat = numpy.cos(tau[:, None] * ms[None, :])
+        etau = tau + smat @ self._can_Dmu[ii]
+        detau = 1.0 + cmat @ (ms * self._can_Dmu[ii])
+        gu, dgu_da, dgu_de = self._toy_gu_partials(etau, a, e)
+        dgA = dgu_da[:, None] * da + dgu_de[:, None] * de
+        num_u = numpy.stack(
+            [antider(dgt[:, i]) - antider(dgA[:, i] * detau) for i in range(3)], axis=1
+        )
+        dDmu = solve(gu, num_u)
+        # ---- v-degree
+        vmin = self._vmins[ii]
+        Dv = numpy.pi - 2.0 * vmin
+        v = vmin + Dv * numpy.sin(tau / 2.0) ** 2
+        dvdtau = 0.5 * Dv * numpy.sin(tau)
+        pv = sgn * numpy.sqrt(numpy.clip(self._Wv(v, E, Lz, I3), 1e-300, None))
+        dWdalpha_v = numpy.stack(
+            (
+                2.0 * d2 * numpy.sin(v) ** 2.0,
+                +2.0 * d2 * numpy.ones_like(v),
+                -2.0 * Lz / numpy.sin(v) ** 2.0,
+            )
+        )
+        dWv_dJ = numpy.einsum("an,ak->nk", dWdalpha_v, Malpha)
+        dv_dJ = numpy.cos(tau)[:, None] * dsupJ[2]
+        dgtv = (self._dWv(v, E, Lz)[:, None] * dv_dJ + dWv_dJ) / (
+            2.0 * pv[:, None]
+        ) * dvdtau[:, None] + pv[:, None] * (-numpy.sin(tau))[:, None] * dsupJ[2]
+        etav = tau + smat @ self._can_Dmv[ii]
+        detav = 1.0 + cmat @ (ms * self._can_Dmv[ii])
+        gv, dgv_dLA, dgv_dLz = self._toy_gv_partials(etav, LA, Lz)
+        dLzv = numpy.array([0.0, 1.0, 0.0])
+        dgAv = dgv_dLA[:, None] * dLA + dgv_dLz[:, None] * dLzv
+        num_v = numpy.stack(
+            [antider(dgtv[:, i]) - antider(dgAv[:, i] * detav) for i in range(3)],
+            axis=1,
+        )
+        dDmv = solve(gv, num_v)
+        return dDmu, dDmv
+
+    def _canon_node_dJ(self, ii):
+        """Analytic d/dJ of every per-torus quantity the family stores"""
+        dsupJ, Malpha = self._canon_dsup_dJ(ii)
+        dDmu, dDmv = self._canon_dDm_dJ(ii, dsupJ, Malpha)
+        return dsupJ, dDmu, dDmv

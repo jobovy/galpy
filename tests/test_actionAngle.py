@@ -9768,3 +9768,70 @@ def test_actionAngleStaeckelInverse_canonical_family_guards(
         actionAngleStaeckelInverse()
     assert "Must specify pot=" in str(excinfo.value)
     return None
+
+
+def test_actionAngleStaeckelInverse_canonical_node_derivatives():
+    # the analytic d/dJ of every per-torus quantity the family stores --
+    # the two u turning points, the v turning point, and both anomaly-map
+    # degrees -- against finite differences of independently constructed
+    # neighbouring tori. The toy is held fixed, as it is across the family
+    # grid, so these are the derivatives the interpolation must reproduce
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    kk, aac, _ = _staeckel_canonical_setup()
+    ii = 0
+    p0 = [aac._Es[ii], aac._Lzs[ii], aac._I3s[ii]]
+
+    def build(E, Lz, I3):
+        # a single-torus instance forced onto the family's toy
+        one = actionAngleStaeckelInverse(
+            pot=kk,
+            Es=[E],
+            Lzs=[Lz],
+            I3s=[I3],
+            canonical=True,
+            ncanon=aac._ncanon,
+            npt=aac._npt,
+        )
+        one._GMc, one._bc = aac._GMc, aac._bc
+        one._aAIc, one._aAIinvc = aac._aAIc, aac._aAIinvc
+        one._canonical_torus_tables(0)
+        return one
+
+    dsupJ, dDmu, dDmv = aac._canon_node_dJ(ii)
+    hs = [1e-5 * numpy.fabs(pp) for pp in p0]
+    fsup = numpy.empty((3, 3))
+    fu = numpy.empty((aac._npt, 3))
+    fv = numpy.empty((aac._npt, 3))
+    dJdalpha = numpy.empty((3, 3))
+    for kk_ in range(3):
+        pp, pm = list(p0), list(p0)
+        pp[kk_] += hs[kk_]
+        pm[kk_] -= hs[kk_]
+        ap, am = build(*pp), build(*pm)
+        fsup[:, kk_] = [
+            (ap._umins[0] - am._umins[0]) / (2.0 * hs[kk_]),
+            (ap._umaxs[0] - am._umaxs[0]) / (2.0 * hs[kk_]),
+            (ap._vmins[0] - am._vmins[0]) / (2.0 * hs[kk_]),
+        ]
+        fu[:, kk_] = (ap._can_Dmu[0] - am._can_Dmu[0]) / (2.0 * hs[kk_])
+        fv[:, kk_] = (ap._can_Dmv[0] - am._can_Dmv[0]) / (2.0 * hs[kk_])
+        dJdalpha[:, kk_] = [
+            (ap._jr[0] - am._jr[0]) / (2.0 * hs[kk_]),
+            (pp[1] - pm[1]) / (2.0 * hs[kk_]),
+            (ap._jz[0] - am._jz[0]) / (2.0 * hs[kk_]),
+        ]
+    # the finite differences are d/d(E, Lz, I3); convert to d/dJ
+    dalphadJ = numpy.linalg.inv(dJdalpha)
+    for name, ana, fd in (
+        ("turning points", dsupJ, fsup @ dalphadJ),
+        ("u-degree anomaly map", dDmu, fu @ dalphadJ),
+        ("v-degree anomaly map", dDmv, fv @ dalphadJ),
+    ):
+        assert numpy.max(numpy.fabs(ana - fd)) < 1e-7, (
+            "The analytic d/dJ of the %s disagrees with finite differences: "
+            "%g" % (name, numpy.max(numpy.fabs(ana - fd)))
+        )
+    return None
