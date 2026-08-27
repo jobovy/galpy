@@ -1,6 +1,17 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``Orbit.integrate_dxdv`` with a C integrator now hands the base state to C
+  in cylindrical coordinates, so the base orbit carried alongside the
+  deviation goes through the very same cyl<->rect transforms
+  (``cyl_to_rect_galpy``/``rect_to_cyl_galpy``) as a plain ``Orbit.integrate``
+  and is bit-identical to it. Previously the base was transformed on the
+  Python side with numpy, whose vectorized trig is dispatched on CPU features
+  and need not agree with the C library's in the last bit; where it did not,
+  the two runs started from initial conditions differing by 1 ulp and drifted
+  apart by ~1e-15, which the symplectic dxdv bit-identity test caught
+  intermittently depending on which machine it ran on.
+
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the
   symmetry axis. V(v) is built along u=u0 and only represents the wrapped

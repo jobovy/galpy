@@ -755,9 +755,12 @@ def integrateFullOrbit_dxdv_c(
     """
     Integrate an ode for a fullOrbit+phase space volume dxdv in C.
 
-    Both the input state ``yo`` and deviation ``dyo`` as well as the output are
-    in the rectangular frame (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz); the
-    cylindrical<->rectangular transforms are handled by the calling
+    The base state ``yo`` is given, and returned, in the cylindrical frame
+    (R,vR,vT,z,vz,phi): the C entry converts it with the same helpers the
+    plain ``integrateFullOrbit`` uses, so the base trajectory is
+    bit-identical to a plain integration. The deviation ``dyo`` is given, and
+    returned, in the rectangular frame (dx,dy,dz,dvx,dvy,dvz); its
+    (chain-rule) transforms are handled by the calling
     ``integrateFullOrbit_dxdv``.
 
     Parameters
@@ -922,7 +925,6 @@ def integrateFullOrbit_dxdv(
     -----
     - 2026-06-03 - Written based on integratePlanarOrbit_dxdv - Bovy (UofT)
     """
-    # Go to the rectangular frame: base state (R,vR,vT,z,vz,phi) -> (x,y,z,vx,vy,vz)
     R, vR, vT, z, vz, phi = (
         yo[:, 0],
         yo[:, 1],
@@ -931,9 +933,6 @@ def integrateFullOrbit_dxdv(
         yo[:, 4],
         yo[:, 5],
     )
-    X, Y, Z = coords.cyl_to_rect(R, phi, z)
-    vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
-    this_yo = numpy.array([X, Y, Z, vX, vY, vZ]).T
     if not rectIn:
         # Chain rule: rect deviation = J . cyl deviation, with J the Jacobian
         # of (x,y,z,vx,vy,vz) wrt (R,vR,vT,z,vz,phi).
@@ -943,8 +942,24 @@ def integrateFullOrbit_dxdv(
             this_dyo[ii] = numpy.dot(jac, dyo[ii])
     else:
         this_dyo = dyo
-    this_yo = numpy.hstack((this_yo, this_dyo))
-    if int_method.lower() == "dop853" or int_method.lower() == "odeint":
+    _pure_python = int_method.lower() == "dop853" or int_method.lower() == "odeint"
+    if _pure_python:
+        # Go to the rectangular frame here: the pure-Python variational RHS
+        # works in (x,y,z,vx,vy,vz)
+        X, Y, Z = coords.cyl_to_rect(R, phi, z)
+        vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+        this_yo = numpy.hstack((numpy.array([X, Y, Z, vX, vY, vZ]).T, this_dyo))
+    else:
+        # Hand the BASE state to C in cylindrical coordinates: the C entry
+        # applies the same cyl_to_rect_galpy/rect_to_cyl_galpy as the plain
+        # integrateFullOrbit, so the base trajectory carried alongside the
+        # deviation is bit-identical to a plain integration with the same
+        # method/dt/IC. Transforming it here instead would use numpy's
+        # vectorized trig, which need not agree with the C library's in the
+        # last bit (and on some machines does not), leaving the two runs to
+        # start from initial conditions differing by ~1 ulp.
+        this_yo = numpy.hstack((yo, this_dyo))
+    if _pure_python:
         from ..potential.DissipativeForce import _isDissipative
 
         if _isDissipative(pot):
@@ -997,26 +1012,36 @@ def integrateFullOrbit_dxdv(
                 integrate_for_map, this_yo, progressbar=progressbar, numcores=numcores
             )
         )
-    # Go back to the cylindrical frame: base state out[...,:6] is rectangular
-    # (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi) and (optionally) the
-    # deviation out[...,6:] from rectangular to cylindrical.
-    Rout, phiout, Zout = coords.rect_to_cyl(out[..., 0], out[..., 1], out[..., 2])
-    vRout, vTout, vzout = coords.rect_to_cyl_vec(
-        out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
-    )
-    # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout and
-    # vzout are views into out[...,2]/out[...,5]; copy them before the in-place
-    # assignments below overwrite those columns (otherwise out[...,3] ends up
-    # holding vT instead of z, corrupting the returned base orbit and any
-    # restart that uses it, e.g. the lyapunov renormalization segments)
-    Zout = numpy.copy(Zout)
-    vzout = numpy.copy(vzout)
-    out[..., 0] = Rout
-    out[..., 1] = vRout
-    out[..., 2] = vTout
-    out[..., 3] = Zout
-    out[..., 4] = vzout
-    out[..., 5] = phiout
+    if _pure_python:
+        # Go back to the cylindrical frame: base state out[...,:6] is
+        # rectangular (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi). The C
+        # path returns the base already in cylindrical coordinates, converted
+        # by the same helper the plain integrate path uses.
+        Rout, phiout, Zout = coords.rect_to_cyl(out[..., 0], out[..., 1], out[..., 2])
+        vRout, vTout, vzout = coords.rect_to_cyl_vec(
+            out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
+        )
+        # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout
+        # and vzout are views into out[...,2]/out[...,5]; copy them before the
+        # in-place assignments below overwrite those columns (otherwise
+        # out[...,3] ends up holding vT instead of z, corrupting the returned
+        # base orbit and any restart that uses it, e.g. the lyapunov
+        # renormalization segments)
+        Zout = numpy.copy(Zout)
+        vzout = numpy.copy(vzout)
+        out[..., 0] = Rout
+        out[..., 1] = vRout
+        out[..., 2] = vTout
+        out[..., 3] = Zout
+        out[..., 4] = vzout
+        out[..., 5] = phiout
+    else:
+        Rout = out[..., 0]
+        vRout = out[..., 1]
+        vTout = out[..., 2]
+        Zout = out[..., 3]
+        vzout = out[..., 4]
+        phiout = out[..., 5]
     if not rectOut:
         # cyl deviation = J^{-1} . rect deviation, with J the cyl->rect Jacobian
         # evaluated at each (R,vR,vT,z,vz,phi) along the orbit.

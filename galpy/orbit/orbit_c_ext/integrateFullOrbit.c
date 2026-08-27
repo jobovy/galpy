@@ -1245,9 +1245,18 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
 			 int * err,
 			 int odeint_type){
   //Set up the forces, first count
-  int dim;
+  int dim, jj;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  //The base block of yo arrives in cylindrical coordinates and is converted
+  //here with the very same helper the plain integrateFullOrbit uses (and
+  //converted back below), so the base trajectory carried alongside the
+  //deviation is BIT-IDENTICAL to a plain integration: doing this transform
+  //in Python instead would use numpy's vectorized trig, which need not
+  //agree with the C library's in the last bit (and on some machines does
+  //not). The deviation block is passed in, and returned in, the rectangular
+  //frame; the caller handles its (chain-rule) transform.
+  cyl_to_rect_galpy(yo);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -1299,6 +1308,11 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
     odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
 		rtol,atol,result,err);
   }
+  //Base block of each output row back to cylindrical (same helper as the
+  //plain path); the 12D row is (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz) for
+  //both the symplectic and the RK dxdv steppers
+  for (jj=0; jj < nt; jj++)
+    rect_to_cyl_galpy(result+12*jj);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
