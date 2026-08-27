@@ -136,6 +136,24 @@ def under_trace(*xs):
     return is_compiling() and any(isinstance(x, torch.Tensor) for x in xs)
 
 
+def set_at(xp, arr, mask, values):
+    """``arr`` with ``arr[mask]`` replaced by ``values``, out of place.
+
+    The backend-agnostic scatter: jax arrays are immutable and need
+    ``.at[].set()``, torch tensors are mutable but assigning into one that
+    carries a graph raises, so both go out of place.
+
+    EAGER only. A boolean mask has no concrete size under a trace, which is
+    exactly why the traced path has to answer differently rather than call
+    this.
+    """
+    if name_of_namespace(xp) == "jax":
+        return arr.at[mask].set(values)
+    out = arr.clone() if hasattr(arr, "clone") else arr.copy()
+    out[mask] = values
+    return out
+
+
 def requires_backend_grad(*xs):
     """True iff one of ``xs`` is a torch tensor carrying an autograd graph.
 
