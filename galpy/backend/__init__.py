@@ -35,6 +35,7 @@ from ._namespaces import (
     promote_common_dtype,
     resolve_namespace,
     restrict_to_single_thread,
+    set_at,
 )
 from ._resolver import (
     _seed_from_config,

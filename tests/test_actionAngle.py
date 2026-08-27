@@ -2260,6 +2260,38 @@ def test_actionAngleAdiabaticGrid_basic_actions_c():
 
 
 # actionAngleAdiabaticGrid actions outside the grid
+def test_actionAngleAdiabaticGrid_outsidegrid_multiple_python():
+    # The pure-Python (c=False) grid raised
+    #   TypeError: 'float' object is not subscriptable
+    # whenever TWO OR MORE points fell outside the grid: actionAngleAdiabatic's
+    # len(R) > 1 branch loops over points calling its own scalar branch and then
+    # does ojr[ii] = tjr[0], but the scalar _justjr return was a bare float
+    # while its _justjz and general siblings both wrapped in numpy.atleast_1d.
+    #
+    # One off-grid point never caught it (that call takes the scalar path and
+    # never reaches the loop), and the only other off-grid test uses c=True,
+    # which returns from the C branch before the loop -- so both arms of the
+    # existing coverage were blind to it.
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleAdiabaticGrid
+    from galpy.potential import MWPotential
+
+    aA = actionAngleAdiabatic(pot=MWPotential, c=False)
+    aAA = actionAngleAdiabaticGrid(pot=MWPotential, c=False, Rmax=2.0, zmax=0.2)
+    for n in (1, 2, 3):  # 1 is the case that always worked; 2+ is the bug
+        R = numpy.array([3.0 + 0.5 * ii for ii in range(n)])
+        o = numpy.ones(n)
+        # as_numpy: under a forced backend these come back as tensors and
+        # numpy.all/numpy.fabs on a Tensor raises.
+        js = [as_numpy(a) for a in aA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)]
+        jsa = [as_numpy(a) for a in aAA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)]
+        assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
+            f"actionAngleAdiabaticGrid c=False jr wrong for {n} off-grid points"
+        )
+        assert numpy.all(numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0), (
+            f"actionAngleAdiabaticGrid c=False jz wrong for {n} off-grid points"
+        )
+
+
 def test_actionAngleAdiabaticGrid_outsidegrid_c():
     from galpy.actionAngle import actionAngleAdiabatic, actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
@@ -2267,21 +2299,23 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     aAA = actionAngleAdiabaticGrid(pot=MWPotential, c=True, Rmax=2.0, zmax=0.2)
     R, vR, vT, z, vz, phi = 3.0, 0.1, 1.0, 0.1, 0.1, 2.0
-    js = aA(R, vR, vT, z, vz, phi)
-    jsa = aAA(R, vR, vT, z, vz, phi)
+    # as_numpy at the assertion sites: under a forced backend these are
+    # tensors, and numpy.fabs/numpy.all on a Tensor raises.
+    js = [as_numpy(a) for a in aA(R, vR, vT, z, vz, phi)]
+    jsa = [as_numpy(a) for a in aAA(R, vR, vT, z, vz, phi)]
     assert numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
     assert numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
-    assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0, (
+    assert numpy.fabs(js[2] - as_numpy(aAA.Jz(R, vR, vT, z, vz, phi))) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
     # Also for array
     s = numpy.ones(2)
-    js = aA(R, vR, vT, z, vz, phi)
-    jsa = aAA(R * s, vR * s, vT * s, z * s, vz * s, phi * s)
+    js = [as_numpy(a) for a in aA(R, vR, vT, z, vz, phi)]
+    jsa = [as_numpy(a) for a in aAA(R * s, vR * s, vT * s, z * s, vz * s, phi * s)]
     assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
