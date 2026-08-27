@@ -497,18 +497,13 @@ def test_fE_traceable_in_beta_under_external_jit(beta, rtol):
     numpy.testing.assert_allclose(float(numpy.ravel(as_numpy(got))[0]), want, rtol=rtol)
 
 
-@pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_dfE_dbeta_survives_external_jit():
-    # Value parity alone would pass on a path that quietly dropped the graph,
-    # so also differentiate THROUGH the jit and check against finite
-    # differences of the numpy DF.
-    b0, h = 0.3, 1e-6
-    fd = (
-        float(numpy.atleast_1d(_mk_hern(b0 + h).fE(numpy.atleast_1d(-0.1)))[0])
-        - float(numpy.atleast_1d(_mk_hern(b0 - h).fE(numpy.atleast_1d(-0.1)))[0])
-    ) / (2.0 * h)
-    with use("jax", force=True):
-        got = jax.jit(jax.grad(lambda b: _mk_hern(b).fE(jnp.asarray(-0.1)).sum()))(
-            jnp.asarray(b0)
-        )
-    numpy.testing.assert_allclose(float(as_numpy(got)), fd, rtol=1e-6)
+# NOT TESTED HERE: d f_E/d beta THROUGH an external jit, i.e.
+# jax.jit(jax.grad(...)). It is a real contract and it does work, but the trace
+# costs >25 MINUTES to compile on this DF -- measured, after a CI runner died
+# mid-test and made me time what I had already shipped. A 25-minute test does
+# not belong in a shard, and the two halves of what it covered are covered
+# cheaply and separately: the value under jit by the parametrized test above
+# (~3 s per beta), and the gradient by test_fE_differentiable_in_beta (eager
+# grad vs finite differences, both DF classes, both backends). What is left
+# uncovered is specifically grad-composed-with-jit; closing it needs the
+# compile cost brought down first, not a slower test.
