@@ -21,7 +21,8 @@ from ..backend import (
     get_namespace,
 )
 from ..backend import interpolate as backend_interpolate
-from ..backend import promote_scalars, use
+from ..backend import promote_scalars, set_at, use
+from ..backend._namespaces import under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -669,10 +670,36 @@ class actionAngleAdiabaticGrid(actionAngle):
                 )[0][0]
         return (jr, R * vT, jz)
 
-    def _evaluate_backend(self, R, vR, vT, z, vz):
-        """Vectorised, differentiable on-grid action eval for jax/torch inputs.
+    def _offgrid_fill(self, xp, base, off, exact):
+        """``base`` with the off-grid entries replaced by an exact solve.
 
-        Assumes on-grid inputs (the off-grid fallback to self._aA is numpy-only).
+        Mirrors what the numpy path already does -- mask, ``sum(indx) > 0``
+        guard, scatter-assign -- in backend ops. EAGER can skip the solve
+        entirely when nothing is off-grid, which is the whole reason the cost is
+        acceptable: an exact ``self._aA`` call costs ~187 ms on torch and ~1.25 s
+        on jax BEFORE it touches a single point (measured), so paying it
+        unconditionally would make every call 14-77x slower than the grid it
+        exists to avoid.
+
+        Under a trace none of that is available: a boolean mask has no concrete
+        size, so the points cannot be gathered and the ``any`` cannot be
+        branched on. Returning the extrapolated interpolant there would be
+        silently wrong, so the off-grid entries come back NaN instead --
+        visible, and the same convention RazorThinExponentialDisk uses when a
+        domain is undecidable under trace.
+        """
+        if under_trace(base, off):
+            return xp.where(off, xp.asarray(xp.nan, dtype=base.dtype), base)
+        if not bool(xp.any(off)):
+            return base
+        return set_at(xp, base, off, exact(off))
+
+    def _evaluate_backend(self, R, vR, vT, z, vz):
+        """Vectorised, differentiable action eval for jax/torch inputs.
+
+        On-grid this is the interpolants. Off-grid it falls back to the exact
+        ``self._aA`` solve for just those points, matching the numpy path; under
+        a trace off-grid entries come back NaN (see ``_offgrid_fill``).
         """
         xp = get_namespace(R)
         zero = xp.zeros_like(R)
@@ -684,18 +711,76 @@ class actionAngleAdiabaticGrid(actionAngle):
         jz = self._jzInterp_b(R, Ez / thisEzZmax, grid=False) * (
             xp.exp(self._jzEzmaxInterp_b(R)) - 10.0**-5.0
         )
+        # Off-grid in Ez, exactly the numpy `indx`. log() is guarded because it
+        # is evaluated for EVERY element here, including the Ez <= 0 ones the
+        # (Ez != 0) factor is there to reject -- numpy tolerates the resulting
+        # nan/-inf, but feeding nan through a backend op can poison a gradient.
+        offz = (
+            (R > self._Rmax)
+            | (R < self._Rmin)
+            | (
+                (Ez != 0.0)
+                & (xp.log(xp.where(Ez > 0.0, Ez, xp.ones_like(Ez))) > thisEzZmax)
+            )
+        )
+        jz = self._offgrid_fill(
+            xp,
+            jz,
+            offz,
+            lambda m: self._aA(
+                R[m],
+                xp.zeros_like(R[m]),
+                xp.ones_like(R[m]),  # these two are dummies
+                xp.zeros_like(R[m]),
+                xp.sqrt(2.0 * Ez[m]),
+                _justjz=True,
+                # c=False so use_c is False and _evaluate takes its BACKEND
+                # branch. Without it a c=True grid falls through to the C call
+                # with backend arrays, which raises NotImplementedError: the C
+                # extension cannot accept a jax/torch array at all.
+                c=False,
+            )[2],
+        )
         # Radial action
         ERLz = xp.abs(R * vT) + self._gamma * jz
         ER = Phio + vR**2.0 / 2.0 + ERLz**2.0 / 2.0 / R**2.0
+        thisRL = self._RLInterp_b(ERLz)
         thisERRL = -xp.exp(self._ERRLInterp_b(ERLz)) + self._ERRLmax
         thisERRa = -xp.exp(self._ERRaInterp_b(ERLz)) + self._ERRamax
         frac = (ER - thisERRa) / (thisERRL - thisERRa)
         # Snap the two near-boundary cases (mirrors the numpy ER[indx]= writes).
         ER = xp.where((frac > 1.0) & ((frac - 1.0) < 10.0**-2.0), thisERRL, ER)
         ER = xp.where((frac < 0.0) & (frac > -(10.0**-2.0)), thisERRa, ER)
-        jr = self._jrInterp_b(
-            ERLz, (ER - thisERRa) / (thisERRL - thisERRa), grid=False
-        ) * (xp.exp(self._jrERRaInterp_b(ERLz)) - 10.0**-5.0)
+        frac = (ER - thisERRa) / (thisERRL - thisERRa)
+        jr = self._jrInterp_b(ERLz, frac, grid=False) * (
+            xp.exp(self._jrERRaInterp_b(ERLz)) - 10.0**-5.0
+        )
+        # Off-grid in Lz / ER, exactly the numpy `indx`. Recomputed from the
+        # SNAPPED frac, as numpy does -- the snap moves points back on-grid.
+        offr = (ERLz < self._Lzmin) | (ERLz > self._Lzmax) | (frac > 1.0) | (frac < 0.0)
+        jr = self._offgrid_fill(
+            xp,
+            jr,
+            offr,
+            lambda m: self._aA(
+                thisRL[m],
+                xp.sqrt(
+                    2.0
+                    * (
+                        ER[m]
+                        - _evaluatePotentials(
+                            self._pot, thisRL[m], xp.zeros_like(thisRL[m])
+                        )
+                    )
+                    - ERLz[m] ** 2.0 / thisRL[m] ** 2.0
+                ),
+                ERLz[m] / thisRL[m],
+                xp.zeros_like(thisRL[m]),
+                xp.zeros_like(thisRL[m]),
+                _justjr=True,
+                c=False,  # see the _justjz call above
+            )[0],
+        )
         return (jr, R * vT, jz)
 
     def Jz(self, *args, **kwargs):
