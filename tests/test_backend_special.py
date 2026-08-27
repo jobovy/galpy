@@ -460,9 +460,16 @@ def test_hyp2f1_fallback_alt_labeling(backend):
 # DFs request all three (measured by instrumenting the fallback over
 # test_sphericaldf), and before the transformation/series routes existed each one
 # raised NotImplementedError.
-_HYP2F1_EULER_TRANSFORMED = [
-    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8 < 1
-    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5 < 1, both positive
+# These used to reach Euler's TRANSFORM, because c - P < 1 failed the old
+# admissibility bound and the direct route refused them. Under `c - P > 0` the
+# direct route accepts them, and the transform branch is gone entirely (it is
+# unreachable once the regime test is symmetric under (a,b) -> (c-a,c-b)). They
+# are kept because they remain good SMALL c-P cases for the direct route -- but
+# the name had to change, since a test whose title names a route it no longer
+# takes is how coverage rots silently.
+_HYP2F1_SMALL_C_MINUS_P = [
+    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8
+    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5, both positive
 ]
 _HYP2F1_BOTH_NONPOSITIVE = [
     (-0.98, -0.04, 2.98),  # |a-b| = 0.94
@@ -473,12 +480,11 @@ _HYP2F1_BOTH_NONPOSITIVE = [
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 @pytest.mark.parametrize(
-    "a,b,c", _HYP2F1_EULER_TRANSFORMED, ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED]
+    "a,b,c", _HYP2F1_SMALL_C_MINUS_P, ids=[str(x) for x in _HYP2F1_SMALL_C_MINUS_P]
 )
-def test_hyp2f1_fallback_euler_transformed(backend, a, b, c):
-    # Euler's transformation, 2F1(a,b;c;z) = (1-z)^(c-a-b) 2F1(c-a,c-b;c;z),
-    # leaves z alone, so the quadrature's z<=0 machinery applies verbatim to the
-    # transformed parameters. Accuracy is therefore the quadrature's own: this
+def test_hyp2f1_fallback_small_c_minus_P(backend, a, b, c):
+    # Small c - P on the DIRECT Euler route (these once needed the transform;
+    # see the list above). Accuracy is the quadrature's own: this
     # measures 1e-14 across the whole grid, so 1e-12 is a real bound, not a
     # smoke check. Includes z=0 (where 2F1=1 exactly) and r/a=500.
     z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 50.0, 500.0])
@@ -525,8 +531,8 @@ def test_hyp2f1_series_route_degrades_but_stays_bounded(backend):
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 @pytest.mark.parametrize(
     "a,b,c",
-    _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
-    ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE],
+    _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE,
+    ids=[str(x) for x in _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE],
 )
 def test_hyp2f1_new_routes_grad_vs_fd(backend, a, b, c):
     # Both new routes must differentiate, not merely evaluate: the DFs that need
@@ -1318,10 +1324,10 @@ def test_hyp2f1_torch_parameter_gradient_matches_finite_difference(
 
 @pytest.mark.parametrize(
     "a,b,c",
-    _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
+    _HYP2F1_CASES + _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE,
     ids=[
         str(x)
-        for x in _HYP2F1_CASES + _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE
+        for x in _HYP2F1_CASES + _HYP2F1_SMALL_C_MINUS_P + _HYP2F1_BOTH_NONPOSITIVE
     ],
 )
 def test_hyp2f1_traced_parameters_reproduce_the_concrete_route(a, b, c):

@@ -200,12 +200,12 @@ def _nonpositive_traced(xp, a, b, c, z):
     both sides, and T**(B-1) with B <= 0 is inf at the t -> 0 node, which would
     NaN-poison the gradient of the series result that actually wins there.
     """
-    ok_ab = _in_regime_mask(xp, a, b, c)
-    ok_tr = _in_regime_mask(xp, c - a, c - b, c)
-    use_tr = (~ok_ab) & ok_tr
-    use_euler = ok_ab | ok_tr
-    ea = xp.where(use_tr, c - a, a)
-    eb = xp.where(use_tr, c - b, b)
+    # Same symmetry as the concrete path: _in_regime_mask(c-a, c-b, c) is
+    # _in_regime_mask(a, b, c), so the transform selector (~ok) & ok was
+    # identically False and its (1-z)^{c-a-b} factor identically 1 -- dead
+    # computation in every traced call. Both are gone.
+    use_euler = _in_regime_mask(xp, a, b, c)
+    ea, eb = a, b
     # Must match _in_regime_mask / _euler_labeling EXACTLY: c - P > 0, not the
     # old >= 1. When it did not, a first label with 0 < c-a < 1 was rejected
     # here while the concrete path accepted it, so the traced route fell to the
@@ -217,9 +217,6 @@ def _nonpositive_traced(xp, a, b, c, z):
     A = xp.where(use_euler, xp.where(oka, eb, ea), 0.0)
     cc = xp.where(use_euler, c, 2.0)
     euler = _euler_quad(xp, A, B, cc, z)
-    # Euler's transformation carries a (1-z)^{c-a-b} prefactor; z <= 0 here so
-    # 1-z >= 1 and the unused side is finite.
-    euler = xp.where(use_tr, (1.0 - z) ** (c - a - b), 1.0) * euler
     return xp.where(use_euler, euler, _pfaff_series(xp, a, b, c, z))
 
 
@@ -227,9 +224,15 @@ def _hyp2f1_nonpositive(xp, a, b, c, z):
     """2F1(a, b; c; z) for real z <= 0 -- the three routes named above."""
     if not all(has_concrete_truth_value(p > 0.0) for p in (a, b, c)):
         return _nonpositive_traced(xp, a, b, c, z)
+    # No Euler-TRANSFORM branch: under `c - P > 0` it is unreachable. The regime
+    # test is symmetric under (a, b) -> (c-a, c-b), because
+    #   _in_regime(c-a, c-b, c) = (c-a > 0 and a > 0) or (c-b > 0 and b > 0)
+    # is literally _in_regime(a, b, c) with the conjuncts swapped. So the
+    # transform can never rescue a parameter set the direct route rejects.
+    # Under the OLD bound `c - P >= 1` the two were NOT symmetric and the branch
+    # was live (2031 hits over a -3..5 grid; 0 after the relaxation), which is
+    # why it existed. The relaxation SUBSUMED it.
     if not _in_regime(a, b, c):
-        if _in_regime(c - a, c - b, c):
-            return (1.0 - z) ** (c - a - b) * _euler_integral(xp, c - a, c - b, c, z)
         return _pfaff_series(xp, a, b, c, z)
     return _euler_integral(xp, a, b, c, z)
 
