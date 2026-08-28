@@ -1050,3 +1050,72 @@ def test_vertical_quad_gate_never_diverts_numpy(backend, monkeypatch):
         0.7, 10.0, forcepoisson=True, use_physical=False
     )
     assert seen == ["scipy", "scipy"], f"numpy was diverted off scipy: {seen}"
+
+
+# ---------------------------------------------------------------------------
+# Potential.mass asks the same array-safety question as the surfdens gate.
+#
+# It used to ask `_force_accepts_arrays`, which answers for the NUMPY contract:
+# False for any potential whose force methods carry the scalar-only marker. But
+# `check_potential_inputs_not_arrays` admits an array when the potential opts in
+# with `_backend_accepts_arrays`, so those potentials DO broadcast on a backend
+# path -- and mass() was driving them node-by-node for nothing (measured on
+# eager jax: DoubleExponentialDisk 0.62 s -> 0.08 s, same value to 12 digits).
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_mass_batches_a_potential_that_opts_in(backend, monkeypatch):
+    import importlib
+
+    from galpy.backend import as_numpy, use
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    PM = importlib.import_module("galpy.potential.Potential")
+    dep = DoubleExponentialDiskPotential(amp=1.0, hr=0.4, hz=0.1)
+    # Reference: the SAME backend rule driven node-by-node, i.e. what mass() did
+    # before. Comparing against that isolates the routing change from the
+    # backend-vs-scipy difference.
+    real_pred = PM._accepts_node_array_on_backend
+    monkeypatch.setattr(PM, "_accepts_node_array_on_backend", lambda p, *m: False)
+    with use(backend, force=True):
+        batched_ref = float(as_numpy(dep.mass(2.0, z=1.0, forceint=True)))
+    monkeypatch.setattr(PM, "_accepts_node_array_on_backend", real_pred)
+
+    calls = []
+    real = type(dep).Rforce
+
+    def counting_Rforce(self, R, z=0.0, **kw):
+        calls.append(getattr(R, "shape", ()) or getattr(z, "shape", ()))
+        return real(self, R, z=z, **kw)
+
+    monkeypatch.setattr(type(dep), "Rforce", counting_Rforce)
+    with use(backend, force=True):
+        got = as_numpy(dep.mass(2.0, z=1.0, forceint=True))
+    # One BATCHED call per quadrature, not one per node: the node array reaches
+    # Rforce whole. Node-by-node would be _QUAD_N calls of shape ().
+    assert len(calls) < 10, f"driven node-by-node: {len(calls)} Rforce calls"
+    assert any(sh != () for sh in calls), f"never saw an array: shapes {calls}"
+    # The VALUE must be untouched: same Gauss-Legendre rule and same nodes, only
+    # the call pattern changes. Measured bit-identical to the node-by-node drive
+    # (0.19292490375107788 both ways), so this is a routing change, not a
+    # numerical one. It is deliberately NOT compared against the numpy/scipy
+    # answer: the backend GL rule already differs from adaptive scipy by 5.8e-09
+    # for mass(), which is pre-existing and outside this change.
+    numpy.testing.assert_allclose(float(got), float(batched_ref), rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_mass_still_drives_a_scalar_only_potential_node_by_node(backend, monkeypatch):
+    # The other side: AnySphericalPotential sets _force_accepts_arrays = False
+    # and does NOT opt in, so it must keep the node-by-node drive.
+    import importlib
+
+    from galpy.backend import use
+    from galpy.potential import AnySphericalPotential, HernquistPotential
+
+    PM = importlib.import_module("galpy.potential.Potential")
+    hp = HernquistPotential(normalize=1.0)
+    tp = AnySphericalPotential(dens=lambda r: hp.dens(r, 0.0, use_physical=False))
+    with use(backend, force=True):
+        assert not PM._accepts_node_array_on_backend(
+            tp, "_Rforce", "_zforce", "_rforce"
+        ), "a scalar-only potential without the opt-in must not be batched"
