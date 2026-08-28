@@ -1925,7 +1925,7 @@ static inline double chiQuStaeckel(double chi,int high,double umin,double umax,
     double dSq= dSuduStaeckel(u,E,Lz22delta,delta,v0,sin2v0,nargs,args);
     Q= ( high ? -1. : 1. ) * D * ( dS0 + dSq ) / 2. / ( 1. - y );
   }
-  return Q > 0. ? Q : 0.;
+  return Q;
 }
 static inline double SvTermsStaeckel(double v,double E,double I3V,
 				     double Lz22delta,double delta,double u0,
@@ -1971,7 +1971,7 @@ static inline double chiQvStaeckel(double chi,double vmin,double E,double I3V,
     Q= D * ( dSvdvStaeckel(vmin,E,Lz22delta,delta,u0,sinh2u0,nargs,args)
 	     + dSvdvStaeckel(v,E,Lz22delta,delta,u0,sinh2u0,nargs,args) )
       / 2. / ( 1. - y );
-  return Q > 0. ? Q : 0.;
+  return Q;
 }
 double JRStaeckelIntegrand(double u,
 			   void * p){
