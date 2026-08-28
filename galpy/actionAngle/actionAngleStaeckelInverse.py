@@ -1764,7 +1764,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         v, dq = self._canon_family_chains(x)
         thetaAr = numpy.copy(thR)
         thetaAz = numpy.copy(thz)
-        prev = numpy.inf
         for _ in range(self._maxiter):
             cR, cphi, cz = self._canon_comp(thetaAr, thetaAz, jr, LA, Lz, v, dq)
             f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -1773,20 +1772,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             lim = numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
             thetaAr -= f0 * lim
             thetaAz -= f1 * lim
-            worst = numpy.max(step)
-            if worst < self._angle_tol:
+            if numpy.max(step) < self._angle_tol:
                 break
-            # The residual is a difference of compensated angles, so it
-            # bottoms out on its own round-off floor -- measured at 3-8e-13
-            # of a radian here, within a factor of two of angle_tol.  Which
-            # side of the tolerance that floor lands on depends on the
-            # platform's libm, so stop when the iteration stops improving
-            # rather than insisting on a threshold it cannot always reach.
-            # Only where the residual is already negligible: a genuine
-            # failure to contract must still raise.
-            if worst > 0.9 * prev and worst < 1e-9:
-                break
-            prev = worst
         else:
             raise RuntimeError("Newton's method for the toy angles did not converge")
         thetaAphi = thphi - cphi
