@@ -938,3 +938,115 @@ def test_symmetric_quad_mixed_limits_accept_a_raw_numpy_limit(backend):
     )
     want = [numpy.sqrt(numpy.pi) * scipy.special.erf(1.0), numpy.sqrt(numpy.pi)]
     numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), want, rtol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Which rule the vertical surface-density integrals use on an EAGER backend.
+#
+# Under a trace scipy cannot run at all, so those always used the batched
+# Gauss-Legendre rule. Eager jax/torch used to fall to scipy.integrate.quad,
+# which calls the integrand one scalar node at a time -- ~1113 calls at ~48 ms
+# each for a wrapped MWPotential2014. Routing eager backends to the same batched
+# rule is 22-83x faster at machine precision (measured against scipy over 3
+# wrapper potentials x 18 (R, |z|, phi): worst 1.6e-14).
+#
+# Assert the ROUTE, not only the value: a value check cannot tell "took the
+# batched rule and got the right answer" from "silently fell back to scipy".
+# ---------------------------------------------------------------------------
+def _route_spy(monkeypatch):
+    """Record which quadrature each surfdens call reaches."""
+    import importlib
+
+    PM = importlib.import_module("galpy.potential.Potential")
+    seen = []
+    real_sq, real_quad = PM._bquad.symmetric_quad, PM.integrate.quad
+
+    def spy_sq(xp, integrand, b, **kw):
+        seen.append("batched")
+        return real_sq(xp, integrand, b, **kw)
+
+    def spy_quad(f, a, b, **kw):
+        seen.append("scipy")
+        return real_quad(f, a, b, **kw)
+
+    monkeypatch.setattr(PM._bquad, "symmetric_quad", spy_sq)
+    monkeypatch.setattr(PM.integrate, "quad", spy_quad)
+    return seen
+
+
+def _tilted_miyamoto():
+    """A wrapper that opts in with _backend_accepts_arrays while its own force
+    methods carry the scalar-only marker -- the combination the gate has to get
+    right, and the one under every measurement quoted above."""
+    from galpy.potential import MiyamotoNagaiPotential, RotateAndTiltWrapperPotential
+
+    return RotateAndTiltWrapperPotential(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1),
+        zvec=[0.0, 1.0, 0.0],
+        galaxy_pa=0.3,
+    )
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+@pytest.mark.parametrize("z", [1.0, 10.0])
+def test_surfdens_poisson_takes_the_batched_rule_on_an_eager_backend(
+    backend, z, monkeypatch
+):
+    from galpy.backend import as_numpy, use
+
+    tp = _tilted_miyamoto()
+    want = tp.surfdens(0.7, z, phi=0.4, forcepoisson=True, use_physical=False)
+    seen = _route_spy(monkeypatch)
+    with use(backend, force=True):
+        got = as_numpy(tp.surfdens(0.7, z, phi=0.4, forcepoisson=True))
+    assert seen == ["batched"], f"expected the batched rule, took {seen}"
+    # numpy still runs scipy, so this is also the numpy-vs-backend parity check.
+    numpy.testing.assert_allclose(float(got), float(want), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_surfdens_density_route_takes_the_batched_rule_too(backend, monkeypatch):
+    # The direct route integrates _dens rather than the forces, so the gate has
+    # to ask about _dens; asking about the force methods would answer for
+    # methods this integrand never calls.
+    from galpy.backend import as_numpy, use
+
+    tp = _tilted_miyamoto()
+    want = tp.surfdens(0.7, 1.0, phi=0.4, use_physical=False)
+    seen = _route_spy(monkeypatch)
+    with use(backend, force=True):
+        got = as_numpy(tp.surfdens(0.7, 1.0, phi=0.4))
+    assert seen == ["batched"], f"expected the batched rule, took {seen}"
+    numpy.testing.assert_allclose(float(got), float(want), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_surfdens_keeps_scipy_for_a_scalar_only_potential(backend, monkeypatch):
+    # AnySphericalPotential sets _force_accepts_arrays = False and does NOT set
+    # _backend_accepts_arrays: its force closes over scipy.integrate.quad with a
+    # scalar upper limit, so handing it the node array would silently collapse
+    # it. It must stay on scipy even on a backend.
+    from galpy.backend import use
+    from galpy.potential import AnySphericalPotential, HernquistPotential
+
+    hp = HernquistPotential(normalize=1.0)
+    tp = AnySphericalPotential(dens=lambda r: hp.dens(r, 0.0, use_physical=False))
+    seen = _route_spy(monkeypatch)
+    with use(backend, force=True):
+        tp.surfdens(0.7, 1.0, phi=0.4, forcepoisson=True)
+    assert "batched" not in seen, f"scalar-only potential was batched: {seen}"
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_vertical_quad_gate_never_diverts_numpy(backend, monkeypatch):
+    # The numpy path must be byte-identical, which rests entirely on the gate's
+    # first line. Pin it: numpy keeps scipy even for a potential that opts in.
+    from galpy.potential import MiyamotoNagaiPotential
+
+    tp = _tilted_miyamoto()
+    seen = _route_spy(monkeypatch)
+    tp.surfdens(0.7, 10.0, phi=0.4, forcepoisson=True, use_physical=False)
+    MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1).surfdens(
+        0.7, 10.0, forcepoisson=True, use_physical=False
+    )
+    assert seen == ["scipy", "scipy"], f"numpy was diverted off scipy: {seen}"
