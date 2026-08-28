@@ -1248,19 +1248,19 @@ def test_gammainc_grad_with_an_integer_order_dtype():
 # true -8.56e-02, and TwoPowerTriaxial dPhi/dalpha 0.834 against 0.548. Only
 # grad-vs-finite-difference catches that, which is what these do.
 #
-# The bar is per route, because the routes do not differentiate equally well.
-# The value is spectrally accurate only when c - B is an integer (then the
-# (1-t)^{c-B-1} factor is a polynomial and Gauss-Legendre is exact); the
-# DERIVATIVE integrand carries an extra log factor that nothing regularizes, so
-# it converges algebraically. The numbers below are measured, not guessed.
+# The bar is per case, because they do not differentiate equally well: the
+# DERIVATIVE integrand carries an extra log factor the rule does not cancel (it
+# cancels the endpoint singularities of the VALUE integrand, not of its
+# parameter derivative), so it converges more slowly than the value does. The
+# numbers below are measured, not guessed.
 _HYP2F1_PARAM_GRAD = [
     # (a, b, c, z, rtol, route)
-    (-3.2, 4.4, 5.2, -5.0, 1e-8, "euler-transformed"),
+    (-3.2, 4.4, 5.2, -5.0, 1e-8, "euler, small c-P (once needed the transform)"),
     (-0.51, -0.98, 2.51, -5.0, 1e-8, "pfaff-series"),
     (1.7, 2.3, 3.4, -5.0, 1e-4, "euler, non-integer c-B"),
     (2.0, 2.0, 3.0, -5.0, 1e-3, "euler, c-a == 1 exactly (galpy's own force call)"),
-    # tanh-sinh route (B < _TS_B_MAX). Without these the route had NO parameter-
-    # gradient coverage at all, and it sizes its own node grid from B -- exactly
+    # Small B. Without these the rule had NO parameter-gradient coverage at
+    # all, and it sizes its own node grid from B -- exactly
     # the shape that silently detaches if it reaches for float(B). It cannot:
     # under jax.grad the parameters have concrete truth values but are still
     # tracers, so the grid is chosen by comparisons only.
@@ -1334,8 +1334,8 @@ def test_hyp2f1_traced_parameters_reproduce_the_concrete_route(a, b, c):
     # With traced (a, b, c) the route can no longer be chosen with `if`, so all
     # of it -- regime test, Euler labelling, series labelling -- is selected with
     # where(). This asserts that selection lands on the same answer the Python
-    # branches give, for every parameter set the concrete tests cover, i.e. all
-    # three routes. The bar is the series' own truncation noise at |z| = 50,
+    # branches give, for every parameter set the concrete tests cover, i.e. both
+    # routes. The bar is the series' own truncation noise at |z| = 50,
     # where the two arms round differently over 512 cancelling terms.
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
@@ -1384,11 +1384,13 @@ def test_hyp1f1_parameter_gradient_matches_finite_difference(backend):
 
 
 # ---------------------------------------------------------------------------
-# hyp2f1 small-B accuracy: the Euler integral's xi^k substitution needs
-# k >= ~6/B to regularize the t^{B-1} endpoint, and k is capped at 12 because
-# X = xi^k underflows above that. So for small B the endpoint is simply not
-# regularized and plain Gauss-Legendre loses badly. tanh-sinh needs no
-# substitution and is routed in below _TS_B_MAX.
+# hyp2f1 small-B accuracy. The Euler integral is now quadratured by a single
+# tanh-sinh rule at every B, which cancels the t^{B-1} and (1-t)^{c-B-1}
+# endpoint singularities analytically against its own weight. The rule this
+# replaced was a fixed-order Gauss-Legendre one that regularized the t^{B-1}
+# endpoint with an X = xi^k substitution needing k >= ~6/B, capped at 12 because
+# X = xi^k underflows above that -- so at small B the endpoint was simply not
+# regularized and it lost badly. These cases pin that.
 #
 # B is the parameter the Euler labelling PICKS: a < 0 disqualifies a, forcing
 # B = b. That is not synthetic -- constantbetaHernquistdf(beta=-1.5) asks for
