@@ -146,20 +146,28 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         angler = (numpy.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
         anglephi = numpy.atleast_1d(anglephi)
         anglez = numpy.atleast_1d(anglez)
-        eta = numpy.empty(len(angler))
-        for ii, ar in enumerate(angler):
-            try:
-                eta[ii] = optimize.newton(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar,
-                    0.0,
-                    lambda x: 1 - a * e / ab * numpy.cos(x),
-                )
-            except RuntimeError:
-                # Newton-Raphson did not converge, this has to work,
-                # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii] = optimize.brentq(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
-                )
+        # Kepler's-ish equation eta - k sin(eta) = angler, solved for all
+        # angles at once.  k = a e / (a + b) < 1, so 1 - k cos(eta) >= 1 - k
+        # is bounded away from zero: the left-hand side is strictly
+        # increasing, the root is unique, and Newton started from the usual
+        # eta = angler + k sin(angler) converges for every angle together.
+        # Any angle that somehow fails to converge still falls back to the
+        # bracketing solve, which cannot fail on 0 <= angler < 2 pi.
+        k = a * e / ab
+        eta = angler + k * numpy.sin(angler)
+        for _ in range(100):
+            f = eta - k * numpy.sin(eta) - angler
+            eta -= f / (1.0 - k * numpy.cos(eta))
+            if numpy.all(numpy.fabs(f) < 1e-14 * (1.0 + numpy.fabs(angler))):
+                break
+        bad = numpy.fabs(eta - k * numpy.sin(eta) - angler) > 1e-12 * (
+            1.0 + numpy.fabs(angler)
+        )
+        for ii in numpy.arange(len(angler))[bad]:
+            ar = angler[ii]
+            eta[ii] = optimize.brentq(
+                lambda x: x - k * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
+            )
         coseta = numpy.cos(eta)
         r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
         vr = numpy.sqrt(self.amp / ab) * a * e * numpy.sin(eta) / r
