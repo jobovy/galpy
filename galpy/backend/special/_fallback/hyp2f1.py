@@ -153,21 +153,19 @@ def hyp2f1_fallback(xp, a, b, c, z):
     Verified over 36 (a,b,c,z) combinations with 0.05 <= z <= 0.999: worst
     relative error 9.6e-07, and <= 1.4e-14 for five of the six parameter sets.
 
-    Three routes for z <= 0, in order of preference:
+    Two routes for z <= 0, in order of preference:
 
-    1. the boundary-layer Euler integral, when the parameters admit it;
-    2. Euler's transformation 2F1(a,b;c;z) = (1-z)^{c-a-b} 2F1(c-a,c-b;c;z),
-       which leaves z alone -- so the integral's z <= 0 machinery applies
-       verbatim -- and rescues the case where the only positive parameter has
-       c - P < 1 (e.g. a=-3.2, b=4.4, c=5.2 becomes 8.4, 0.8, 5.2);
-    3. otherwise a Gauss series, see _pfaff_series. Reached only when a and b
-       are both non-positive, where no transformation lands a parameter in the
-       integral's range.
+    1. the Euler integral, whenever a labelling admits it -- B > 0 and
+       c - B > 0, see _euler_labeling;
+    2. otherwise a Gauss series, see _pfaff_series. Reached only when a and b
+       are both non-positive, where neither labelling lands in the integral's
+       range.
 
-    Note a Pfaff transformation is NOT usable for route 2: it maps z <= 0 to
-    z/(z-1) in [0, 1), and the integral's substitutions assume z <= 0. (That is
-    the same identity used for entry above, in the opposite direction -- there it
-    moves positive z ONTO this domain, which is precisely what is wanted.)
+    There used to be a third route between these two: Euler's transformation
+    2F1(a,b;c;z) = (1-z)^{c-a-b} 2F1(c-a,c-b;c;z), which rescued a parameter set
+    whose only positive parameter had c - P < 1. Relaxing admissibility from
+    c - P >= 1 to c - P > 0 made it provably unreachable, so it is gone; the
+    proof is in _hyp2f1_nonpositive.
     """
     z = xp.asarray(z) * 1.0
     pos = z > 0.0
@@ -186,7 +184,7 @@ def _in_regime_mask(xp, a, b, c):
 
 
 def _nonpositive_traced(xp, a, b, c, z):
-    """The same three routes for z <= 0, selected rather than branched.
+    """The same two routes for z <= 0, selected rather than branched.
 
     Reached when a, b or c is a TRACER -- differentiating a potential w.r.t. an
     exponent, say -- where `if a > 0` has no truth value. Both surviving
@@ -221,7 +219,7 @@ def _nonpositive_traced(xp, a, b, c, z):
 
 
 def _hyp2f1_nonpositive(xp, a, b, c, z):
-    """2F1(a, b; c; z) for real z <= 0 -- the three routes named above."""
+    """2F1(a, b; c; z) for real z <= 0 -- the two routes named above."""
     if not all(has_concrete_truth_value(p > 0.0) for p in (a, b, c)):
         return _nonpositive_traced(xp, a, b, c, z)
     # No Euler-TRANSFORM branch: under `c - P > 0` it is unreachable. The regime
