@@ -15033,18 +15033,20 @@ def test_integrate_negative_time():
     from galpy.potential import DehnenBarPotential, MWPotential2014
 
     dp = DehnenBarPotential()
-    methods = [
-        "odeint",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "dopr54_c",
-        "dop853_c",
-        "ias15_c",
-    ]
+    methods = _backend_integrators(
+        [
+            "odeint",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "dopr54_c",
+            "dop853_c",
+            "ias15_c",
+        ]
+    )
     # negative time to negative time
     times = numpy.linspace(-70.0, -30.0, 1001)
     for method in methods:
@@ -15078,18 +15080,20 @@ def test_integrate_backwards():
     from galpy.potential import DehnenBarPotential, MWPotential2014
 
     dp = DehnenBarPotential()
-    methods = [
-        "odeint",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "dopr54_c",
-        "dop853_c",
-        "ias15_c",
-    ]
+    methods = _backend_integrators(
+        [
+            "odeint",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "dopr54_c",
+            "dop853_c",
+            "ias15_c",
+        ]
+    )
     # negative time to negative time
     times = numpy.linspace(-30.0, -70.0, 1001)
     for method in methods:
