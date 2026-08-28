@@ -196,14 +196,16 @@ def _vertical_quad_needs_backend(
     AnySphericalPotential, whose force closes over ``scipy.integrate.quad`` with
     a scalar limit -- which keeps scipy, as it must.
 
-    numpy always keeps scipy, so the numpy path is byte-identical.
+    numpy always keeps scipy, so the numpy path is byte-identical. That is
+    `_quad_needs_backend`'s OWN first line, so it is asked here rather than
+    repeated: duplicating the check would leave the original unreachable.
     """
-    if xp is numpy:
-        return False
-    return (
-        _quad_needs_backend(xp, *coords)
-        or getattr(pot, "_backend_accepts_arrays", False)
-        or _accepts_node_array(pot, *methods)
+    return _quad_needs_backend(xp, *coords) or (
+        xp is not numpy
+        and (
+            getattr(pot, "_backend_accepts_arrays", False)
+            or _accepts_node_array(pot, *methods)
+        )
     )
 
 
