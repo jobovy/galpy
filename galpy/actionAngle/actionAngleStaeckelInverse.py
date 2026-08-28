@@ -923,14 +923,27 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _tau_of_eta(self, eta, Dm, where=""):
         """Invert the stored anomaly map (monotone) for tau"""
         ms = self._nforDm
-        x = numpy.array(eta, dtype="float")
+        # start from the one-term inversion rather than from eta itself: the
+        # map is tau + sum_m D_m sin(m tau), so eta - sum_m D_m sin(m eta) is
+        # already correct to second order in the (small) coefficients, and
+        # Newton then needs a handful of steps instead of a few dozen
+        eta = numpy.asarray(eta, dtype="float")
+        x = eta - numpy.sin(eta[:, None] * ms[None, :]) @ Dm
+        prev = numpy.inf
         for _ in range(self._maxiter):
             f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
             fp = 1.0 + numpy.cos(x[:, None] * ms[None, :]) @ (ms * Dm)
             dx = numpy.clip(-f / fp, -0.5, 0.5)
             x += dx
-            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+            worst = numpy.max(numpy.fabs(f))
+            if worst < self._angle_tol:
                 break
+            # as in the compensated angle iteration, the residual bottoms out
+            # on its own round-off floor, so stop once it stops improving
+            # rather than spending iterations that no longer buy digits
+            if worst > 0.9 * prev and worst < 1e-9:
+                break
+            prev = worst
         else:
             # The stored map is monotone whenever sum_m m |D_m| < 1, which
             # the construction guarantees, so eta(tau) can always be
@@ -1896,13 +1909,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         v, dq = self._canon_family_chains(x)
         thetaAr, thetaAz, cphi = self._toy_angle_solve(thR, thz, jr, LA, Lz, v, dq)
         thetaAphi = thphi - cphi
-        out = numpy.empty((6, len(thR)))
-        for jj in range(len(thR)):
-            oo = self._aAIinvc._xvFreqs(
-                jr, Lz, jz, thetaAr[jj], thetaAphi[jj], thetaAz[jj]
-            )
-            for kk in range(6):
-                out[kk, jj] = oo[kk][0]
+        # one vectorized delegation for all points: the analytic isochrone
+        # inverse broadcasts the (constant) actions against the angle arrays,
+        # and its own root find solves the whole batch at once
+        oo = self._aAIinvc._xvFreqs(jr, Lz, jz, thetaAr, thetaAphi, thetaAz)
+        out = numpy.array([numpy.atleast_1d(q) for q in oo[:6]], dtype="float")
         npt = self._npt
         GM, bb = self._GMc, self._bc
         sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
