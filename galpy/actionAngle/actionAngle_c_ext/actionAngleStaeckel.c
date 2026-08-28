@@ -24,6 +24,13 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+// see the chi-anomaly helpers below for what these control
+#define STAECKEL_CHI_EDGE 1.e-6
+// chi of the midpoint of [vmin, pi/2]: there y = 1/4, so chi = 2 asin(1/2).
+// A constant, so it needs no per-iteration assignment inside the OpenMP
+// loops -- where it would have been a shared write, being absent from the
+// private() clauses.
+#define STAECKEL_CHI_MID ( M_PI / 3. )
 //Macros to export functions in DLL on different OS
 #if defined(_WIN32)
 #define EXPORT __declspec(dllexport)
@@ -549,7 +556,7 @@ void calcJRStaeckel(int ndata,
 		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
-  double mid, midchi;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -624,7 +631,7 @@ void calcJzStaeckel(int ndata,
 		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
-  double mid, midchi;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -671,10 +678,9 @@ void calcJzStaeckel(int ndata,
     (JzInt+tid)->params = params+tid;
     // the chi half runs to the midpoint of [vmin, pi/2], y = 1/4; the
     // midplane half is not a turning point and keeps its t^2 form
-    midchi= 2. * asin( 0.5 );
     mid= sqrt( 0.5 * ( M_PI/2. - *(vmin+ii) ) );
     //Integrate
-    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,0.,midchi,T);
+    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,0.,STAECKEL_CHI_MID,T);
     (JzInt+tid)->function = &JzHighStaeckelIntegrand;
     *(jz+ii)+= gsl_integration_glfixed (JzInt+tid,0.,mid,T);
     *(jz+ii)*= 2 * sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
@@ -1064,7 +1070,7 @@ void calcdJRStaeckel(int ndata,
 		     struct potentialArg * actionAngleArgs,
 		     int order){
   int ii, tid, nthreads;
-  double mid, midchi;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -1157,7 +1163,7 @@ void calcdJzStaeckel(int ndata,
 		     struct potentialArg * actionAngleArgs,
 		     int order){
   int ii, tid, nthreads;
-  double mid, midchi;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -1207,25 +1213,24 @@ void calcdJzStaeckel(int ndata,
     //First calculate dJzdE
     (dJzInt+tid)->function = &dJzdELowStaeckelIntegrand;
     (dJzInt+tid)->params = params+tid;
-    midchi= 2. * asin( 0.5 );
     mid= sqrt( 0.5 * (M_PI/2. - *(vmin+ii) ) );
     //BOVY: pv does not vanish at pi/2, so no need to break up the integral
     //Integrate
-    *(djzdE+ii)= gsl_integration_glfixed (dJzInt+tid,0.,midchi,T);
+    *(djzdE+ii)= gsl_integration_glfixed (dJzInt+tid,0.,STAECKEL_CHI_MID,T);
     (dJzInt+tid)->function = &dJzdEHighStaeckelIntegrand;
     *(djzdE+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     *(djzdE+ii)*= sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
     //Then calculate dJzdLz
     (dJzInt+tid)->function = &dJzdLzLowStaeckelIntegrand;
     //Integrate
-    *(djzdLz+ii)= gsl_integration_glfixed (dJzInt+tid,0.,midchi,T);
+    *(djzdLz+ii)= gsl_integration_glfixed (dJzInt+tid,0.,STAECKEL_CHI_MID,T);
     (dJzInt+tid)->function = &dJzdLzHighStaeckelIntegrand;
     *(djzdLz+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     *(djzdLz+ii)*= - *(Lz+ii) * sqrt(2.) / M_PI / *(delta+ii*delta_stride);
     //Then calculate dJzdI3
     (dJzInt+tid)->function = &dJzdI3LowStaeckelIntegrand;
     //Integrate
-    *(djzdI3+ii)= gsl_integration_glfixed (dJzInt+tid,0.,midchi,T);
+    *(djzdI3+ii)= gsl_integration_glfixed (dJzInt+tid,0.,STAECKEL_CHI_MID,T);
     (dJzInt+tid)->function = &dJzdI3HighStaeckelIntegrand;
     *(djzdI3+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     *(djzdI3+ii)*= sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
@@ -1874,8 +1879,6 @@ void calcVmin(int ndata,
   S ~ (q - q0) [S'(q0) + S'(q)] / 2, whose O((q-q0)^2) model error is far
   below the cancellation it replaces.
 */
-#define STAECKEL_CHI_EDGE 1.e-6
-
 static inline double SuTermsStaeckel(double u,double E,double I3U,
 				     double Lz22delta,double delta,double v0,
 				     double sin2v0,double sinh2u0,
@@ -2064,7 +2067,7 @@ double JzStaeckelIntegrandSquared4dJz(double v,
 double dJRdELowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,0,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2075,7 +2078,7 @@ double dJRdELowStaeckelIntegrand(double chi,
 double dJRdEHighStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,1,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2092,7 +2095,7 @@ double dJRdEStaeckelIntegrand(double u,
 double dJRdLzLowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,0,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2103,7 +2106,7 @@ double dJRdLzLowStaeckelIntegrand(double chi,
 double dJRdLzHighStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,1,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2120,7 +2123,7 @@ double dJRdLzStaeckelIntegrand(double u,
 double dJRdI3LowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,0,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2131,7 +2134,7 @@ double dJRdI3LowStaeckelIntegrand(double chi,
 double dJRdI3HighStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double u, sc= sin(chi);
+  double u;
   double Q= chiQuStaeckel(chi,1,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
@@ -2149,7 +2152,7 @@ double dJRdI3StaeckelIntegrand(double u,
 double dJzdELowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) p;
-  double v, sc= sin(chi);
+  double v;
   double Q= chiQvStaeckel(chi,params->vmin,params->E,params->I3V,params->Lz22delta,
 			  params->delta,params->u0,params->cosh2u0,params->sinh2u0,
 			  params->potupi2,params->nargs,params->actionAngleArgs,&v);
@@ -2171,7 +2174,7 @@ double dJzdEStaeckelIntegrand(double v,
 double dJzdLzLowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) p;
-  double v, sc= sin(chi);
+  double v;
   double Q= chiQvStaeckel(chi,params->vmin,params->E,params->I3V,params->Lz22delta,
 			  params->delta,params->u0,params->cosh2u0,params->sinh2u0,
 			  params->potupi2,params->nargs,params->actionAngleArgs,&v);
@@ -2193,7 +2196,7 @@ double dJzdLzStaeckelIntegrand(double v,
 double dJzdI3LowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) p;
-  double v, sc= sin(chi);
+  double v;
   double Q= chiQvStaeckel(chi,params->vmin,params->E,params->I3V,params->Lz22delta,
 			  params->delta,params->u0,params->cosh2u0,params->sinh2u0,
 			  params->potupi2,params->nargs,params->actionAngleArgs,&v);
