@@ -201,11 +201,24 @@ def _vertical_quad_needs_backend(
     repeated: duplicating the check would leave the original unreachable.
     """
     return _quad_needs_backend(xp, *coords) or (
-        xp is not numpy
-        and (
-            getattr(pot, "_backend_accepts_arrays", False)
-            or _accepts_node_array(pot, *methods)
-        )
+        xp is not numpy and _accepts_node_array_on_backend(pot, *methods)
+    )
+
+
+def _accepts_node_array_on_backend(pot, *methods):
+    """Whether ``pot`` can be handed the whole node array on a BACKEND path.
+
+    `check_potential_inputs_not_arrays` rejects an array UNLESS the potential
+    opts in with ``_backend_accepts_arrays`` and every array argument is a
+    backend array. So on a backend path the opt-in OVERRIDES the scalar-only
+    marker, which states the numpy contract: RotateAndTiltWrapper decorates all
+    of its force methods and still broadcasts here.
+
+    Asking `_accepts_node_array` alone would wrongly exclude exactly those
+    potentials -- which is what `Potential.mass` did until it used this.
+    """
+    return getattr(pot, "_backend_accepts_arrays", False) or _accepts_node_array(
+        pot, *methods
     )
 
 
@@ -1055,11 +1068,18 @@ class Potential(Force):
             from ..backend.quadrature import quad as _bk_quad
 
             # Scalar-only potentials (force raises on / silently mishandles an
-            # array, e.g. DoubleExponentialDiskPotential / AnySphericalPotential)
-            # must drive the backend Gauss-Legendre quadrature node-by-node, like
-            # scipy.integrate.quad does on the numpy path. No effect on the numpy
-            # path (scipy is always node-by-node) -> byte-identical there.
-            _vec = _force_accepts_arrays(self)
+            # array, e.g. AnySphericalPotential) must drive the backend
+            # Gauss-Legendre quadrature node-by-node, like scipy.integrate.quad
+            # does on the numpy path. `vectorized` is documented as ignored on
+            # the numpy (scipy) path, so this is byte-identical there.
+            #
+            # Ask in the BACKEND's terms: a potential that opts in with
+            # `_backend_accepts_arrays` broadcasts here even though its methods
+            # carry the numpy-contract scalar-only marker. `_force_accepts_arrays`
+            # says False for those, so mass() was driving DoubleExponentialDisk
+            # node-by-node for nothing -- 0.62 s vs 0.08 s on eager jax, same
+            # value to 12 digits.
+            _vec = _accepts_node_array_on_backend(self, "_Rforce", "_zforce", "_rforce")
             xp = get_namespace(R) if z is None else get_namespace(R, z)
             if z is None:  # Within spherical shell
 
