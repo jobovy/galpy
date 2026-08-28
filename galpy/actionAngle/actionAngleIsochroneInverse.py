@@ -157,7 +157,17 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         eta = angler + k * numpy.sin(angler)
         for _ in range(100):
             f = eta - k * numpy.sin(eta) - angler
-            eta -= f / (1.0 - k * numpy.cos(eta))
+            fp = 1.0 - k * numpy.cos(eta)
+            # Halley rather than Newton: the second derivative is k sin(eta),
+            # already to hand, and the cubic convergence removes the slow tail
+            # near pericentre at high eccentricity.  Newton needs 41 iterations
+            # at k = 0.999 and fails outright at k = 0.99999; Halley needs 7 and
+            # 8.  With the spread that small there is nothing to gain from
+            # iterating only the unconverged angles -- the bookkeeping costs
+            # more than the iterations it saves.
+            # k sin(eta) is already implied by f, so the second derivative
+            # costs no further transcendental: k sin(eta) = eta - angler - f
+            eta -= f / (fp - f * (eta - angler - f) / (2.0 * fp))
             if numpy.all(numpy.fabs(f) < 1e-14 * (1.0 + numpy.fabs(angler))):
                 break
         bad = numpy.fabs(eta - k * numpy.sin(eta) - angler) > 1e-12 * (
