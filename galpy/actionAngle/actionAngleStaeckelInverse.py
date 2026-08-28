@@ -1685,8 +1685,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         comp = numpy.empty((3, len(thetaAr)))
         c2u = numpy.cos(tuu / 2.0) ** 2
         s2u = numpy.sin(tuu / 2.0) ** 2
-        udeg = (umax - umin) < 1e-10
-        vdeg = (0.5 * numpy.pi - thmin) < 1e-8 or (numpy.pi - 2.0 * vmin) < 1e-10
+        # Test degeneracy on the REQUESTED actions, not on the reconstructed
+        # supports.  An oscillation is degenerate exactly when its action
+        # vanishes, and the action is exact input, whereas umax - umin comes
+        # back as sqrt(K J) through the label inversion and so carries that
+        # inversion's residual: a torus asked for at J = 0 can reappear here
+        # with a half-width of ~1e-6, clearing a threshold on the support
+        # while the compensation's true sqrt(K/J)/2 divergence fires on what
+        # is really a degenerate torus.  Which side of such a threshold the
+        # noise lands on is platform-dependent, which is what made
+        # test_actionAngleStaeckelInverse_interp_degenerate_edges fail on
+        # Python 3.14 alone.  Keying on the action removes the ambiguity.
+        udeg = jr <= 0.0 or (umax - umin) < 1e-10
+        vdeg = (
+            (LA - numpy.fabs(Lz)) <= 0.0
+            or (0.5 * numpy.pi - thmin) < 1e-8
+            or (numpy.pi - 2.0 * vmin) < 1e-10
+        )
         # v-degree phases from the toy's own vertical geometry
         thetaAv, pAthv = self._canon_toy_vert(jr, LA, Lz, thetaAr, thetaAz, eta_u)
         cosetav = numpy.clip(
