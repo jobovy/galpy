@@ -161,6 +161,52 @@ def _quad_needs_backend(xp, *coords):
     return any(under_trace(c) or requires_backend_grad(c) for c in coords)
 
 
+def _vertical_quad_needs_backend(
+    xp, pot, *coords, methods=("_Rforce", "_zforce", "_rforce")
+):
+    """Whether the vertical surface-density integrals should use the backend rule.
+
+    Under a trace, always -- scipy cannot be evaluated there at all, which is
+    what `_quad_needs_backend` decides. Outside one, whenever the namespace is
+    not numpy AND ``pot``'s forces broadcast: scipy's adaptive loop calls the
+    integrand one scalar node at a time (~1100 calls for a wrapped
+    MWPotential2014, ~48 ms each on eager jax), while the backend rule evaluates
+    it ONCE on the whole node array. Measured against scipy on eager jax, over 3
+    wrapper potentials x 18 (R, |z|, phi):
+
+        mockOffsetMWP14Wrapper          worst 1.6e-14   147 s -> 7 s
+        mockRotatedAndTiltedMWP14       worst 4.2e-15   171 s -> 2 s
+        mockRotatedTiltedOffsetMWP14    worst 8.4e-16   140 s -> 2 s
+
+    so it is 22-83x faster at the same accuracy, not a precision trade.
+
+    Array-safety is asked in the terms `check_potential_inputs_not_arrays` itself
+    uses. That guard rejects an array UNLESS the potential opts in with
+    ``_backend_accepts_arrays`` and every array argument is a backend array --
+    which is exactly the situation here, since ``xp`` is not numpy. So a
+    potential carrying the opt-in is safe to batch even though its methods are
+    marked scalar-only for the numpy contract, and asking only
+    `_accepts_node_array` would wrongly exclude it: RotateAndTiltWrapper
+    decorates all of its force methods and is the wrapper under every one of the
+    measurements above.
+
+    Potentials with neither the opt-in nor a scalar-only marker (the common case,
+    and every plain analytic potential) broadcast anyway. What is left out is a
+    potential that is marked scalar-only AND does not opt in -- e.g.
+    AnySphericalPotential, whose force closes over ``scipy.integrate.quad`` with
+    a scalar limit -- which keeps scipy, as it must.
+
+    numpy always keeps scipy, so the numpy path is byte-identical.
+    """
+    if xp is numpy:
+        return False
+    return (
+        _quad_needs_backend(xp, *coords)
+        or getattr(pot, "_backend_accepts_arrays", False)
+        or _accepts_node_array(pot, *methods)
+    )
+
+
 def _force_accepts_arrays(pot):
     """Whether ``pot``'s force methods broadcast over an array of positions.
 
@@ -180,9 +226,19 @@ def _force_accepts_arrays(pot):
     any of its ``_Rforce``/``_zforce``/``_rforce`` carries the scalar-only marker
     set by :func:`check_potential_inputs_not_arrays`; True otherwise.
     """
+    return _accepts_node_array(pot, "_Rforce", "_zforce", "_rforce")
+
+
+def _accepts_node_array(pot, *methods):
+    """Whether ``pot``'s ``methods`` broadcast over an array of positions.
+
+    The marker scan behind `_force_accepts_arrays`, taking the method names as
+    an argument so a quadrature over the DENSITY can ask about ``_dens`` rather
+    than about the force methods it never calls.
+    """
     if not getattr(pot, "_force_accepts_arrays", True):
         return False
-    for name in ("_Rforce", "_zforce", "_rforce"):
+    for name in methods:
         meth = getattr(type(pot), name, None)
         if meth is not None and getattr(meth, "_galpy_scalar_only", False):
             return False
@@ -824,7 +880,7 @@ class Potential(Force):
         # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
         # DeprecationWarning, which the coverage shard turns into an error.
         absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
-        if not _quad_needs_backend(xp, absz, R, phi, t):
+        if not _vertical_quad_needs_backend(xp, self, absz, R, phi, t):
             # epsabs=0 so the criterion is purely RELATIVE. quad's default
             # epsabs=1.49e-8 is ABSOLUTE, so a vertical integral whose own value is
             # at or below ~1e-8 in internal units passes the absolute test on the
@@ -915,13 +971,15 @@ class Potential(Force):
         # Same dual path as the Poisson branch of surfdens(): numpy keeps scipy
         # (byte-identical), a backend takes the split-at-the-mid-plane,
         # node-clustered GL rule so it traces and stays accurate at large |z|.
-        # Scalar-only potentials keep scipy either way -- they reject the node
+        # Scalar-only densities keep scipy either way -- they reject the node
         # array. The split matters far more here than in the Poisson branch:
         # this integrand is the density, which for a displaced disk is sharply
         # peaked off z=0 (6.4e-2 error vs 1.8e-4) -- see _vertical_quad_split.
         xp = get_namespace(R, z, phi, t)
         absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
-        if not _quad_needs_backend(xp, absz, R, phi, t):
+        if not _vertical_quad_needs_backend(
+            xp, self, absz, R, phi, t, methods=("_dens",)
+        ):
             # epsabs=0: purely RELATIVE, see the Poisson branch above.
             # MWPotential2014[0] at R=1, |z|=5 integrates to 8.2e-9 and came back
             # 9.6e-6 relative off under quad's default absolute tolerance.

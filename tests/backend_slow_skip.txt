@@ -131,12 +131,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # measured 2026-08-24: >900s TI
 # slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
 # jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
 # ledger; numpy exercises all of them.
-jax tests/test_potential.py::test_DehnenBinney98  # measured 2026-08-21: 289.3s (CI~205s) -- passes, but only 32% under the cap
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]  # measured 2026-08-21: >700s TIMEOUT
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]  # measured 2026-08-21: 371.9s (CI~264s) -- passes, only 12% under the cap
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]  # measured 2026-08-21: >700s TIMEOUT
 
 # --- jax single-orbit: variational/dxdv/lyapunov battery (Track D) ---
 # These integrate the 6D STM or compare the C STM against a *Python* reference
