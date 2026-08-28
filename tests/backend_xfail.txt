@@ -244,12 +244,30 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetric
 # numpy.asarray(), which a tracer cannot satisfy. Eager jax/torch are fine: a
 # concrete array converts.
 #
-# `test_pickling_potential_unitful_dens` was ALSO ledgered here on that
-# reasoning and is now MEASURED PASSING traced -- the 2026-08-18
-# workflow_dispatch(jit=true, regen=true) run (32141815273) does not list it.
-# So the blanket "there is nothing to fix" claim held for the wrapper case only;
-# only `drops_units_wrapper` still hits the untraceable as_numpy() boundary.
+# `test_pickling_potential_unitful_dens` was de-ledgered on 2026-08-18 as
+# "MEASURED PASSING traced -- the workflow_dispatch(jit=true, regen=true) run
+# (32141815273) does not list it". THAT WAS WRONG, and re-ledgered here.
+# Re-measured 2026-08-28, whole test_potential.py plus single-nodeid:
+#
+#     jax  --jit   FAIL  TracerArrayConversionError
+#     torch --jit  FAIL  (the torch equivalent)
+#     jax  eager   pass
+#     torch eager  pass
+#
+# which is EXACTLY what the reasoning above predicts -- a units density routes
+# through as_numpy(), which a tracer cannot satisfy, while a concrete array
+# converts. The de-ledgering contradicted its own paragraph.
+#
+# "Does not list it" was read as "passes". Absence of a result is NO DATA, not
+# evidence of a pass: the regen run most likely never reached this test. That is
+# the rule tools/ledger_harvest.py bakes in, and it applies to reading a regen
+# run by hand too.
+#
+# CI never runs jit mode, so this only reds a workflow_dispatch(jit=true) --
+# which is precisely why it went unnoticed for ten days.
 jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
+jax-jit tests/test_potential.py::test_pickling_potential_unitful_dens
+torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 
 # jax-jit: actionAngleStaeckelGrid, MEASURED 2026-08-07 on the first traced run of
 # test_actionAngle.py (whole file, regen mode). This nodeid is ledgered for EAGER
