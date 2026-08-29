@@ -1657,12 +1657,14 @@ def _interp_ppoly_vec(xp, x, c, t, dev):
 
 
 def _xiToR(xi, a=1):
-    # Namespace-dispatched like _RToxi: a bare numpy.divide on a backend array
+    # Data-guarded like _RToxi below: a bare numpy.divide on a backend array
     # returns numpy and SILENTLY drops the gradient, which would sever the
     # coefficient quadrature from the density parameters it is differentiated
-    # against. numpy input takes the identical numpy.divide call as before.
-    xp = get_namespace(xi)
-    if xp is numpy:
+    # against. Dispatch on the DATA, not the ambient namespace -- get_namespace
+    # follows a FORCED backend even for a Python float, which then takes plain
+    # Python arithmetic and raises ZeroDivisionError at xi = 1 where numpy.divide
+    # returns the inf the xi -> 1 limit requires.
+    if not is_backend_array(xi):
         return a * numpy.divide((1.0 + xi), (1.0 - xi))
     return a * ((1.0 + xi) / (1.0 - xi))
 
