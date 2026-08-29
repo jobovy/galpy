@@ -12,6 +12,19 @@ v1.12.1 (expected around 2026-11-01)
   apart by ~1e-15, which the symplectic dxdv bit-identity test caught
   intermittently depending on which machine it ran on.
 
+- ``actionAngleVerticalInverse`` gained a canonical evaluation mode, the
+  default for interpolating instances without a point transformation. The
+  angle map now uses the exact derivative of the interpolated coefficient
+  tables plus a closed-form compensation for the energy-dependent auxiliary
+  frequency, and the returned frequency is the interpolated Hamiltonian's
+  own derivative, so the assembled (J, angle) -> (x, v) map is exactly
+  symplectic for any stored tables: the measured symplectic defect drops
+  from the interpolation error of the old separately stored derivative
+  tables (median 2.5e-4) to the finite-difference test floor (~1e-10), and
+  is invariant under noise injected into the tables. The old behavior is
+  available with canonical=False; the derivative tables are kept as a
+  consistency diagnostic (check_canonical_consistency).
+
 - ``OblateStaeckelWrapperPotential`` chooses its reference curve ``u0`` from
   the focal length when none is given, placing it at R=1 rather than on the
   symmetry axis. V(v) is built along u=u0 and only represents the wrapped

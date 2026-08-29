@@ -7720,7 +7720,11 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation(
     aAV = actionAngleVertical(pot=isopot)
     x, vx = 0.1, -0.3
     obs = Orbit([x, vx])
-    tol = -10.0
+    # The canonical default returns the frequency of the interpolated
+    # Hamiltonian itself (the E(j) interpolant's own derivative), which is
+    # exactly consistent with the returned chart but a shade less accurate
+    # against the true frequency than the old separately interpolated one
+    tol = -9.0
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
@@ -8104,6 +8108,153 @@ def test_actionAngleVerticalInverse_notE_errors():
 
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
+
+
+def _vertical_canonical_setup(canonical=None, nE=21):
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    kwargs = {} if canonical is None else dict(canonical=canonical)
+    return actionAngleVerticalInverse(
+        pot=vp, Es=numpy.linspace(0.02, 0.35, nE), setup_interp=True, nta=128, **kwargs
+    )
+
+
+def _vertical_symplectic_defect(aAVI, j, angle, h=1e-6):
+    Om = numpy.array([[0.0, 1.0], [-1.0, 0.0]])
+
+    def st(jj, aa):
+        o = aAVI(jj, numpy.array([aa]))
+        return numpy.array(
+            [float(numpy.atleast_1d(o[0])[0]), float(numpy.atleast_1d(o[1])[0])]
+        )
+
+    A = numpy.empty((2, 2))
+    A[:, 0] = (st(j, angle + h) - st(j, angle - h)) / (2.0 * h)
+    A[:, 1] = (st(j + h, angle) - st(j - h, angle)) / (2.0 * h)
+    return numpy.max(numpy.abs(A.T @ Om @ A - Om))
+
+
+def test_actionAngleVerticalInverse_canonical_defect():
+    # The canonical mode's symplectic defect must sit at the finite-difference
+    # floor, orders below the old mode's, which lives at the interpolation
+    # error of its separately stored derivative tables
+    gold = _vertical_canonical_setup(canonical=False)
+    gnew = _vertical_canonical_setup()
+    assert gnew._canonical, (
+        "canonical does not default to True for an interpolating no-PT instance"
+    )
+    ds_old, ds_new = [], []
+    for E in numpy.linspace(0.06, 0.30, 4):
+        j = float(numpy.atleast_1d(gnew.J(E))[0])
+        for th in (0.8, 2.1):
+            ds_old.append(_vertical_symplectic_defect(gold, j, th))
+            ds_new.append(_vertical_symplectic_defect(gnew, j, th))
+    assert numpy.max(ds_new) < 1e-8, (
+        "canonical-mode symplectic defect %g not at the test floor" % numpy.max(ds_new)
+    )
+    assert numpy.median(ds_old) > 1e-6, (
+        "the old mode's defect is unexpectedly small; this test has lost its "
+        "discriminating power"
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_canonical_manifest():
+    # THE defining property: inject noise into the stored tables and the
+    # symplectic defect must not move -- noise changes which canonical map
+    # the tables define, never whether it is one
+    gnew = _vertical_canonical_setup()
+    j = float(numpy.atleast_1d(gnew.J(0.15))[0])
+    x0 = float(numpy.atleast_1d(gnew(j, numpy.array([0.8]))[0])[0])
+    d0 = max(_vertical_symplectic_defect(gnew, j, th) for th in (0.8, 2.1, 4.0))
+    rng = numpy.random.default_rng(7)
+    gnew._can_nSn_c = gnew._can_nSn_c * (
+        1.0 + 1e-5 * rng.standard_normal(gnew._can_nSn_c.shape)
+    )
+    dn = max(_vertical_symplectic_defect(gnew, j, th) for th in (0.8, 2.1, 4.0))
+    xn = float(numpy.atleast_1d(gnew(j, numpy.array([0.8]))[0])[0])
+    assert dn < 1e-8, (
+        "symplectic defect moved to %g under table noise: not manifest" % dn
+    )
+    assert numpy.fabs(xn - x0) > 1e-10, (
+        "the noise did not change the evaluation at all; the manifest test "
+        "did not actually test anything"
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_canonical_consistency():
+    # C8: the stored dSndJ (fixed-omega angle-fit fields) equal the canonical
+    # chain's interpolant derivative plus the closed-form compensation for
+    # the varying auxiliary frequency; without the compensation the relation
+    # fails by more than the tables' own scale
+    gnew = _vertical_canonical_setup(nE=31)
+    mism = gnew.check_canonical_consistency()
+    assert mism < 1e-2, "C8 consistency mismatch %g too large" % mism
+
+    class _Zero:
+        def __call__(self, x):
+            return 0.0
+
+    import copy
+
+    gzero = copy.copy(gnew)
+    gzero._can_dOmHOdE = _Zero()
+    mism0 = gzero.check_canonical_consistency()
+    assert mism0 > 10.0 * mism, (
+        "dropping the compensation does not degrade the consistency relation "
+        "(%g vs %g): the check is not sharp" % (mism0, mism)
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_canonical_freq():
+    # In the canonical mode the frequency is the exact derivative of the
+    # interpolated E(j) -- consistent with the chart (the integrator
+    # contract) -- and close to, but not identical with, the old mode's
+    # separately interpolated frequency
+    gold = _vertical_canonical_setup(canonical=False)
+    gnew = _vertical_canonical_setup()
+    for E in (0.1, 0.2):
+        j = float(numpy.atleast_1d(gnew.J(E))[0])
+        Onew = gnew._Freqs(j)
+        assert numpy.fabs(Onew - float(gnew.E.derivative()(j))) < 1e-14, (
+            "canonical frequency is not the E(j) interpolant's own derivative"
+        )
+        assert numpy.fabs(Onew / gold._Freqs(j) - 1.0) < 1e-3, (
+            "canonical frequency far from the old mode's"
+        )
+    return None
+
+
+def test_actionAngleVerticalInverse_canonical_errors():
+    # canonical=True requires interpolation and no point transformation
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleVerticalInverse(pot=vp, Es=[0.1, 0.2], canonical=True)
+    assert "canonical" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleVerticalInverse(
+            pot=vp,
+            Es=numpy.linspace(0.02, 0.3, 5),
+            setup_interp=True,
+            use_pointtransform=True,
+            pt_deg=3,
+            canonical=True,
+        )
+    assert "point transformation" in str(excinfo.value)
+    return None
+
+
 def test_nullpotential_error():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import NullPotential
