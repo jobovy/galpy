@@ -1647,7 +1647,14 @@ def _interp_ppoly_vec(xp, x, c, t, dev):
 
 
 def _xiToR(xi, a=1):
-    return a * numpy.divide((1.0 + xi), (1.0 - xi))
+    # Namespace-dispatched like _RToxi: a bare numpy.divide on a backend array
+    # returns numpy and SILENTLY drops the gradient, which would sever the
+    # coefficient quadrature from the density parameters it is differentiated
+    # against. numpy input takes the identical numpy.divide call as before.
+    xp = get_namespace(xi)
+    if xp is numpy:
+        return a * numpy.divide((1.0 + xi), (1.0 - xi))
+    return a * ((1.0 + xi) / (1.0 - xi))
 
 
 def _RToxi(r, a=1):
@@ -1872,9 +1879,11 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     -----
     - 2016-05-18 - Written - Aladdin Seaifan (UofT)
     """
-    # Construction-time numerical setup: pin to numpy so the density-arity
-    # autodetect and the coefficient quadrature run on numpy regardless of any
-    # forced backend default (byte-identical no-op on the numpy backend).
+    # The density-arity autodetect PROBES user code with try/except, so it stays
+    # pinned to numpy: a forced backend can change which exception a wrong-arity
+    # call raises, and the probe must not depend on that. The quadrature below is
+    # deliberately NOT pinned -- it follows the ambient namespace, so a backend
+    # density yields coefficients differentiable w.r.t. its parameters.
     with _use_backend("numpy", force=True):
         numOfParam = 0
         try:
@@ -1889,35 +1898,37 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
         param = [0] * numOfParam
         dens_kw = _scf_compute_determine_dens_kwargs(dens, param)
 
-        def integrand(xi):
-            r = _xiToR(xi, a)
-            R = r
-            param[0] = R
-            return (
-                a**3.0
-                * _coeff_dens_numpy(dens(*param, **dens_kw))
-                * (1 + xi) ** 2.0
-                * (1 - xi) ** -3.0
-                * _C(xi, N, 1)[:, 0]
-            )
-
-        Acos = numpy.zeros((N, 1, 1), float)
-        Asin = None
-
-        Ksample = [max(N + 1, 20)]
-
-        if radial_order != None:
-            Ksample[0] = radial_order
-
-        integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
-        n = numpy.arange(0, N)
-        K = (
-            16
-            * numpy.pi
-            * (n + 3.0 / 2)
-            / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    def integrand(xi):
+        r = _xiToR(xi, a)
+        R = r
+        param[0] = R
+        return (
+            a**3.0
+            * dens(*param, **dens_kw)
+            * (1 + xi) ** 2.0
+            * (1 - xi) ** -3.0
+            * _C(xi, N, 1)[:, 0]
         )
-        Acos[n, 0, 0] = 2 * K * integrated
+
+    Asin = None
+
+    Ksample = [max(N + 1, 20)]
+
+    if radial_order != None:
+        Ksample[0] = radial_order
+
+    integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
+    n = numpy.arange(0, N)
+    K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    # Built functionally rather than by assigning into a preallocated numpy
+    # array, which would neither trace nor accept a backend value. K is carried
+    # onto the result's namespace/device first (same idiom as _computeArray's
+    # K above): mixing a numpy K with a torch Tensor lets numpy own the
+    # operation, and numpy resolves that by calling .numpy() on the Tensor,
+    # which RAISES once it requires grad.
+    _xp = get_namespace(integrated)
+    _K = 2 * K if _xp is numpy else asarray_on_device(_xp, 2 * K, device_of(integrated))
+    Acos = _xp.reshape(integrated * _K, (N, 1, 1))
     return Acos, Asin
 
 
@@ -2789,7 +2800,12 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     ##Performs the actual integration
     for i in range(li.shape[0]):
         index = (numpy.arange(len(bounds)), li[i])
-        s += numpy.prod(wp[index]) * integrand(*xp[index])
+        # The integrand value LEADS both operations. numpy would otherwise own
+        # `weight * value` and `s += value`, and for a grad-tracking torch
+        # Tensor numpy resolves that by calling .numpy() on it, which raises.
+        # Addition and multiplication are both commutative in IEEE 754, so the
+        # numpy path accumulates exactly the same bits in the same order.
+        s = integrand(*xp[index]) * numpy.prod(wp[index]) + s
 
     ##Rounds values that are less than roundoff to zero -- functional (xp.where)
     ##so it traces under jax/torch instead of an in-place item assignment. For
