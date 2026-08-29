@@ -2522,19 +2522,22 @@ def _batched_timedep(tgrid, per_time_elems, compute):
     # quadrature (density evaluations + the namespace-dispatched _C/_xiToR basis)
     # runs on numpy regardless of any forced backend default (byte-identical no-op
     # on the numpy backend).
-    with _use_backend("numpy", force=True):
-        Nt = len(tgrid)
-        batch = _timedep_batch_size(Nt, per_time_elems)
-        if batch >= Nt:  # fits in one go
-            return compute(tgrid)
-        acos_parts = []
-        asin_parts = []
-        for start in range(0, Nt, batch):
-            Ac, As = compute(tgrid[start : start + batch])
-            acos_parts.append(Ac)
-            asin_parts.append(As)
-        Acos = numpy.concatenate(acos_parts, axis=0)
-        Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
+    # Pure orchestration -- batching and concatenation only. It must NOT pin to
+    # numpy: `compute` IS the coefficient quadrature, so pinning here would undo
+    # the migration for every time-dependent build.
+    Nt = len(tgrid)
+    batch = _timedep_batch_size(Nt, per_time_elems)
+    if batch >= Nt:  # fits in one go
+        return compute(tgrid)
+    acos_parts = []
+    asin_parts = []
+    for start in range(0, Nt, batch):
+        Ac, As = compute(tgrid[start : start + batch])
+        acos_parts.append(Ac)
+        asin_parts.append(As)
+    _xp = get_namespace(acos_parts[0])
+    Acos = _xp.concat(acos_parts, axis=0)
+    Asin = None if asin_parts[0] is None else _xp.concat(asin_parts, axis=0)
     return Acos, Asin
 
 
