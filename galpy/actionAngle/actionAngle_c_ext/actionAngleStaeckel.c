@@ -161,20 +161,16 @@ void calcVmin(int,double *,double *,double *,double *,double *,double *,int,
 	      double *,double *,double *,double *,double *,int,
 	      struct potentialArg *);
 double JRStaeckelIntegrandSquared(double,void *);
-double JRStaeckelIntegrand(double,void *);
 double JRLowStaeckelIntegrand(double,void *);
 double JRHighStaeckelIntegrand(double,void *);
 double JzStaeckelIntegrandSquared(double,void *);
 double JzStaeckelIntegrand(double,void *);
 double JzLowStaeckelIntegrand(double,void *);
 double JzHighStaeckelIntegrand(double,void *);
-double dJRdEStaeckelIntegrand(double,void *);
 double dJRdELowStaeckelIntegrand(double,void *);
 double dJRdEHighStaeckelIntegrand(double,void *);
-double dJRdLzStaeckelIntegrand(double,void *);
 double dJRdLzLowStaeckelIntegrand(double,void *);
 double dJRdLzHighStaeckelIntegrand(double,void *);
-double dJRdI3StaeckelIntegrand(double,void *);
 double dJRdI3LowStaeckelIntegrand(double,void *);
 double dJRdI3HighStaeckelIntegrand(double,void *);
 double dJzdEStaeckelIntegrand(double,void *);
@@ -1973,12 +1969,6 @@ static inline double chiQvStaeckel(double chi,double vmin,double E,double I3V,
       / 2. / ( 1. - y );
   return Q;
 }
-double JRStaeckelIntegrand(double u,
-			   void * p){
-  double out= JRStaeckelIntegrandSquared(u,p);
-  if ( out <= 0.) return 0.;
-  else return sqrt(out);
-}
 double JRStaeckelIntegrandSquared(double u,
 				  void * p){
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
@@ -2010,16 +2000,6 @@ double JRHighStaeckelIntegrand(double chi,
   double D= params->umax - params->umin;
   if ( Q <= 0. ) return 0.;
   return D / 4. * sqrt(Q) * sc * sc;
-}
-double JRStaeckelIntegrandSquared4dJR(double u,
-				      void * p){
-  struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
-  double sinh2u= sinh(u) * sinh(u);
-  double dU= (sinh2u+params->sin2v0)
-    *evaluatePotentialsUV(u,params->v0,params->delta,
-			  params->nargs,params->actionAngleArgs)
-    - (params->sinh2u0+params->sin2v0)*params->potu0v0;
-  return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
 
 double JzStaeckelIntegrand(double v,
@@ -2086,12 +2066,6 @@ double dJRdEHighStaeckelIntegrand(double chi,
   if ( Q <= 0. ) return 0.;
   return D * sinh(u) * sinh(u) / sqrt(Q);
 }
-double dJRdEStaeckelIntegrand(double u,
-			      void * p){
-  double out= JRStaeckelIntegrandSquared4dJR(u,p);
-  if ( out <= 0. ) return 0.;
-  else return sinh(u)*sinh(u)/sqrt(out);
-}
 double dJRdLzLowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
@@ -2114,12 +2088,6 @@ double dJRdLzHighStaeckelIntegrand(double chi,
   if ( Q <= 0. ) return 0.;
   return D / sinh(u) / sinh(u) / sqrt(Q);
 }
-double dJRdLzStaeckelIntegrand(double u,
-			      void * p){
-  double out= JRStaeckelIntegrandSquared4dJR(u,p);
-  if ( out <= 0. ) return 0.;
-  else return 1./sinh(u)/sinh(u)/sqrt(out);
-}
 double dJRdI3LowStaeckelIntegrand(double chi,
 			      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
@@ -2141,12 +2109,6 @@ double dJRdI3HighStaeckelIntegrand(double chi,
   double D= params->umax - params->umin;
   if ( Q <= 0. ) return 0.;
   return D / sqrt(Q);
-}
-double dJRdI3StaeckelIntegrand(double u,
-			      void * p){
-  double out= JRStaeckelIntegrandSquared4dJR(u,p);
-  if ( out <= 0. ) return 0.;
-  else return 1./sqrt(out);
 }
 
 double dJzdELowStaeckelIntegrand(double chi,
