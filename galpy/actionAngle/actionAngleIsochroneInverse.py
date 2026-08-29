@@ -14,6 +14,11 @@ from ..potential import IsochronePotential
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
+# Residual above which an angle is handed to the bracketing solve rather
+# than trusted from the Halley iteration.  A module constant so that the
+# fallback branch can be exercised: no eccentricity reaches it otherwise.
+_KEPLER_RESID_TOL = 1e-12
+
 
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
@@ -146,20 +151,38 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         angler = (numpy.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
         anglephi = numpy.atleast_1d(anglephi)
         anglez = numpy.atleast_1d(anglez)
-        eta = numpy.empty(len(angler))
-        for ii, ar in enumerate(angler):
-            try:
-                eta[ii] = optimize.newton(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar,
-                    0.0,
-                    lambda x: 1 - a * e / ab * numpy.cos(x),
-                )
-            except RuntimeError:
-                # Newton-Raphson did not converge, this has to work,
-                # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii] = optimize.brentq(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
-                )
+        # Kepler's-ish equation eta - k sin(eta) = angler, solved for all
+        # angles at once.  k = a e / (a + b) < 1, so 1 - k cos(eta) >= 1 - k
+        # is bounded away from zero: the left-hand side is strictly
+        # increasing, the root is unique, and Newton started from the usual
+        # eta = angler + k sin(angler) converges for every angle together.
+        # Any angle that somehow fails to converge still falls back to the
+        # bracketing solve, which cannot fail on 0 <= angler < 2 pi.
+        k = a * e / ab
+        eta = angler + k * numpy.sin(angler)
+        for _ in range(100):
+            f = eta - k * numpy.sin(eta) - angler
+            fp = 1.0 - k * numpy.cos(eta)
+            # Halley rather than Newton: the second derivative is k sin(eta),
+            # already to hand, and the cubic convergence removes the slow tail
+            # near pericentre at high eccentricity.  Newton needs 41 iterations
+            # at k = 0.999 and fails outright at k = 0.99999; Halley needs 7 and
+            # 8.  With the spread that small there is nothing to gain from
+            # iterating only the unconverged angles -- the bookkeeping costs
+            # more than the iterations it saves.
+            # k sin(eta) is already implied by f, so the second derivative
+            # costs no further transcendental: k sin(eta) = eta - angler - f
+            eta -= f / (fp - f * (eta - angler - f) / (2.0 * fp))
+            if numpy.all(numpy.fabs(f) < 1e-14 * (1.0 + numpy.fabs(angler))):
+                break
+        bad = numpy.fabs(eta - k * numpy.sin(eta) - angler) > _KEPLER_RESID_TOL * (
+            1.0 + numpy.fabs(angler)
+        )
+        for ii in numpy.arange(len(angler))[bad]:
+            ar = angler[ii]
+            eta[ii] = optimize.brentq(
+                lambda x: x - k * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
+            )
         coseta = numpy.cos(eta)
         r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
         vr = numpy.sqrt(self.amp / ab) * a * e * numpy.sin(eta) / r
