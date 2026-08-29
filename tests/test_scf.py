@@ -472,9 +472,11 @@ def test_from_nbody_static_matches_direct():
         )
         ref = SCFPotential(Acos=coeffs[0], Asin=coeffs[1], a=_NBODY_A)
         assert not sp._tdep
-        assert numpy.max(numpy.fabs(sp._Acos - ref._Acos)) < 1e-12
+        assert numpy.max(numpy.fabs(as_numpy(sp._Acos) - as_numpy(ref._Acos))) < 1e-12
         if sp._Asin is not None:
-            assert numpy.max(numpy.fabs(sp._Asin - ref._Asin)) < 1e-12
+            assert (
+                numpy.max(numpy.fabs(as_numpy(sp._Asin) - as_numpy(ref._Asin))) < 1e-12
+            )
     # general symmetry is non-axisymmetric; spherical/axi are not
     assert SCFPotential.from_nbody(
         pos, N, L=L, symmetry=None, a=_NBODY_A, mass=mass
@@ -494,8 +496,14 @@ def test_from_nbody_scalar_vs_array_mass():
     sp_array = SCFPotential.from_nbody(
         pos, N, L=L, symmetry=None, a=_NBODY_A, mass=(1.0 / n) * numpy.ones(n)
     )
-    assert numpy.max(numpy.fabs(sp_scalar._Acos - sp_array._Acos)) < 1e-12
-    assert numpy.max(numpy.fabs(sp_scalar._Asin - sp_array._Asin)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_scalar._Acos) - as_numpy(sp_array._Acos)))
+        < 1e-12
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_scalar._Asin) - as_numpy(sp_array._Asin)))
+        < 1e-12
+    )
 
 
 def test_from_nbody_particle_batching():
@@ -522,9 +530,9 @@ def test_from_nbody_particle_batching():
         )
     finally:
         scfmod._NBODY_BATCH_BYTES = old
-    assert numpy.max(numpy.fabs(bat_g._Acos - ref_g._Acos)) < 1e-10
-    assert numpy.max(numpy.fabs(bat_g._Asin - ref_g._Asin)) < 1e-10
-    assert numpy.max(numpy.fabs(bat_s._Acos - ref_s._Acos)) < 1e-10
+    assert numpy.max(numpy.fabs(as_numpy(bat_g._Acos) - as_numpy(ref_g._Acos))) < 1e-10
+    assert numpy.max(numpy.fabs(as_numpy(bat_g._Asin) - as_numpy(ref_g._Asin))) < 1e-10
+    assert numpy.max(numpy.fabs(as_numpy(bat_s._Acos) - as_numpy(ref_s._Acos))) < 1e-10
 
 
 def test_from_nbody_timedep():
@@ -554,7 +562,10 @@ def test_from_nbody_timedep():
         static = SCFPotential.from_nbody(
             pos_t[:, :, it], N, L=L, symmetry=None, a=_NBODY_A, mass=mass
         )
-        assert numpy.max(numpy.fabs(sp._Acos_all[it] - static._Acos)) < 1e-12
+        assert (
+            numpy.max(numpy.fabs(as_numpy(sp._Acos_all)[it] - as_numpy(static._Acos)))
+            < 1e-12
+        )
     # genuinely time-dependent: the potential at fixed position changes with t
     p0 = sp(1.0, 0.2, phi=0.5, t=tgrid[0], use_physical=False)
     p1 = sp(1.0, 0.2, phi=0.5, t=tgrid[-1], use_physical=False)
@@ -717,7 +728,7 @@ def test_from_multipole_roundtrip():
     scf2 = SCFPotential.from_multipole(mult, N=10, a=1.5)
     # same amplitude and (to the radial-grid accuracy) same coefficients
     assert numpy.fabs(scf2._amp - scf._amp) < 1e-12
-    assert numpy.max(numpy.fabs(scf2._Acos - scf._Acos)) < 1e-2
+    assert numpy.max(numpy.fabs(as_numpy(scf2._Acos) - as_numpy(scf._Acos))) < 1e-2
     for R, z, phi in _TRANS_PTS:
         assert _rel(scf2, scf, "dens", R, z, phi) < 1e-2
         assert _rel(scf2, scf, "Rforce", R, z, phi) < 5e-3
@@ -1100,12 +1111,14 @@ def test_from_density_axi():
     )
     rs = numpy.geomspace(0.1, 10.0, 101)
     assert numpy.all(
-        numpy.fabs(
-            1.0
-            - as_numpy(sp_direct.dens(rs, rs, use_physical=False))
-            / as_numpy(sp_from.dens(rs, rs, use_physical=False))
+        as_numpy(
+            numpy.fabs(
+                1.0
+                - as_numpy(sp_direct.dens(rs, rs, use_physical=False))
+                / as_numpy(sp_from.dens(rs, rs, use_physical=False))
+            )
+            < 1e-10
         )
-        < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
     return None
 
@@ -1121,12 +1134,14 @@ def test_from_density():
     )
     rs = numpy.geomspace(0.1, 10.0, 101)
     assert numpy.all(
-        numpy.fabs(
-            1.0
-            - as_numpy(sp_direct.dens(rs, rs, phi=rs, use_physical=False))
-            / as_numpy(sp_from.dens(rs, rs, phi=rs, use_physical=False))
+        as_numpy(
+            numpy.fabs(
+                1.0
+                - as_numpy(sp_direct.dens(rs, rs, phi=rs, use_physical=False))
+                / as_numpy(sp_from.dens(rs, rs, phi=rs, use_physical=False))
+            )
+            < 1e-10
         )
-        < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
     return None
 
@@ -1472,7 +1487,7 @@ def test_tdep_isNonAxi_detection():
     assert sp_ax.isNonAxi is False
     # axi coefficients with L>1, M>1 but no m>0 power, Asin all zero
     Ac, _ = _tdep_nonaxi_coeffs()
-    Ac_axi = Ac.copy()
+    Ac_axi = as_numpy(Ac).copy()
     Ac_axi[:, :, 1:] = 0.0  # zero out all m>0
     tgrid = numpy.linspace(0.0, 4.0, 11)
     Aca = numpy.array([Ac_axi for _ in tgrid])
@@ -1709,12 +1724,14 @@ def test_tdep_from_density_axi():
     )
     rs = numpy.geomspace(0.2, 5.0, 30)
     assert numpy.all(
-        numpy.fabs(
-            1.0
-            - as_numpy(sp.dens(rs, rs, t=3.0, use_physical=False))
-            / as_numpy(static.dens(rs, rs, use_physical=False))
+        as_numpy(
+            numpy.fabs(
+                1.0
+                - as_numpy(sp.dens(rs, rs, t=3.0, use_physical=False))
+                / as_numpy(static.dens(rs, rs, use_physical=False))
+            )
+            < 1e-8
         )
-        < 1e-8
     )
 
 
@@ -1785,8 +1802,14 @@ def test_tdep_from_density_nonvectorizable_fallback():
     sp_vec = SCFPotential.from_density(dens_vec_t, 8, L=3, symmetry=None, tgrid=tgrid)
     assert sp_fb._tdep is True
     # fallback and vectorized builds of the same density agree to machine precision
-    assert numpy.max(numpy.fabs(sp_fb._Acos_all - sp_vec._Acos_all)) < 1e-12
-    assert numpy.max(numpy.fabs(sp_fb._Asin_all - sp_vec._Asin_all)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_fb._Acos_all) - as_numpy(sp_vec._Acos_all)))
+        < 1e-12
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_fb._Asin_all) - as_numpy(sp_vec._Asin_all)))
+        < 1e-12
+    )
 
 
 def test_tdep_from_density_vectorized_matches_loop():
@@ -1814,8 +1837,8 @@ def test_tdep_from_density_vectorized_matches_loop():
             lambda R, z, phi: dens_g(R, z, phi, t), 8, 4, a=_TDEP_A
         )
         Ac, As = _np((Ac, As))
-        assert numpy.max(numpy.fabs(sp._Acos_all[it] - Ac * NN)) < 1e-12
-        assert numpy.max(numpy.fabs(sp._Asin_all[it] - As * NN)) < 1e-12
+        assert numpy.max(numpy.fabs(as_numpy(sp._Acos_all)[it] - Ac * NN)) < 1e-12
+        assert numpy.max(numpy.fabs(as_numpy(sp._Asin_all)[it] - As * NN)) < 1e-12
     # spherical
     dens_s = lambda r, t=0.0: hp.dens(r, 0.0, use_physical=False) * (1.0 + 0.05 * t)
     sps = SCFPotential.from_density(
@@ -1827,7 +1850,7 @@ def test_tdep_from_density_vectorized_matches_loop():
             lambda r: dens_s(r, t), 8, a=_TDEP_A
         )
         Ac = as_numpy(Ac)
-        assert numpy.max(numpy.fabs(sps._Acos_all[it] - Ac * NN0)) < 1e-12
+        assert numpy.max(numpy.fabs(as_numpy(sps._Acos_all)[it] - Ac * NN0)) < 1e-12
 
 
 def test_tdep_from_density_signature_and_order_branches():
@@ -1851,8 +1874,14 @@ def test_tdep_from_density_signature_and_order_branches():
     sp3 = SCFPotential.from_density(
         dens_s3, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid
     )  # numOfParam=3
-    assert numpy.max(numpy.fabs(sp2._Acos_all - sp2_def._Acos_all)) < 1e-12
-    assert numpy.max(numpy.fabs(sp3._Acos_all - sp2_def._Acos_all)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp2._Acos_all) - as_numpy(sp2_def._Acos_all)))
+        < 1e-12
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp3._Acos_all) - as_numpy(sp2_def._Acos_all)))
+        < 1e-12
+    )
     # axi density written with a (redundant) phi argument (numOfParam=3); explicit
     # orders equal to the defaults reproduce the default build exactly
     dens_a3 = lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False) * tfac(t)
@@ -1869,7 +1898,10 @@ def test_tdep_from_density_signature_and_order_branches():
     spa_def = SCFPotential.from_density(
         dens_a3, 8, L=4, a=_TDEP_A, symmetry="axi", tgrid=tgrid
     )
-    assert numpy.max(numpy.fabs(spa._Acos_all - spa_def._Acos_all)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(spa._Acos_all) - as_numpy(spa_def._Acos_all)))
+        < 1e-12
+    )
     # general: explicit orders equal to the defaults reproduce them exactly
     dens_g = lambda R, z, phi, t=0.0: (
         hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(2 * (phi - 0.3 * t)))
@@ -1888,8 +1920,14 @@ def test_tdep_from_density_signature_and_order_branches():
     spg_def = SCFPotential.from_density(
         dens_g, 8, L=4, a=_TDEP_A, symmetry=None, tgrid=tgrid
     )
-    assert numpy.max(numpy.fabs(spg._Acos_all - spg_def._Acos_all)) < 1e-12
-    assert numpy.max(numpy.fabs(spg._Asin_all - spg_def._Asin_all)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(spg._Acos_all) - as_numpy(spg_def._Acos_all)))
+        < 1e-12
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(spg._Asin_all) - as_numpy(spg_def._Asin_all)))
+        < 1e-12
+    )
     # constant-in-time NON-axisymmetric density (no t argument): both Acos and
     # Asin are computed once and broadcast over time
     dens_const = lambda R, z, phi: (
@@ -1900,11 +1938,21 @@ def test_tdep_from_density_signature_and_order_branches():
     )
     assert spc._tdep is True
     assert spc.isNonAxi is True
-    assert numpy.all(spc._Asin_all[0] == spc._Asin_all[-1])  # constant in time
-    assert not numpy.all(spc._Asin_all == 0.0)  # but genuinely non-axisymmetric
+    assert numpy.all(
+        as_numpy(spc._Asin_all)[0] == as_numpy(spc._Asin_all)[-1]
+    )  # constant in time
+    assert not numpy.all(
+        as_numpy(spc._Asin_all) == 0.0
+    )  # but genuinely non-axisymmetric
     static_c = SCFPotential.from_density(dens_const, 8, L=4, a=_TDEP_A, symmetry=None)
-    assert numpy.max(numpy.fabs(spc._Acos_all[3] - static_c._Acos)) < 1e-12
-    assert numpy.max(numpy.fabs(spc._Asin_all[3] - static_c._Asin)) < 1e-12
+    assert (
+        numpy.max(numpy.fabs(as_numpy(spc._Acos_all)[3] - as_numpy(static_c._Acos)))
+        < 1e-12
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(spc._Asin_all)[3] - as_numpy(static_c._Asin)))
+        < 1e-12
+    )
 
 
 def test_tdep_from_density_time_batching():
@@ -1947,10 +1995,19 @@ def test_tdep_from_density_time_batching():
     finally:
         scfmod._TIMEDEP_BATCH_BYTES = old
     # batched build is identical to the single-shot build (Asin present + None)
-    assert numpy.max(numpy.fabs(bat_g._Acos_all - ref_g._Acos_all)) < 1e-13
-    assert numpy.max(numpy.fabs(bat_g._Asin_all - ref_g._Asin_all)) < 1e-13
+    assert (
+        numpy.max(numpy.fabs(as_numpy(bat_g._Acos_all) - as_numpy(ref_g._Acos_all)))
+        < 1e-13
+    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(bat_g._Asin_all) - as_numpy(ref_g._Asin_all)))
+        < 1e-13
+    )
     assert bat_a._Asin_all is not None  # axi stores zeros, not None, after init
-    assert numpy.max(numpy.fabs(bat_a._Acos_all - ref_a._Acos_all)) < 1e-13
+    assert (
+        numpy.max(numpy.fabs(as_numpy(bat_a._Acos_all) - as_numpy(ref_a._Acos_all)))
+        < 1e-13
+    )
 
 
 # ---------------------- error / warning handling ----------------------

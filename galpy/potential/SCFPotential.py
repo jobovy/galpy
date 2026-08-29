@@ -166,6 +166,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         """
         ##Errors
         shape = Acos.shape
+        # Validation and symmetry detection are DISCRETE structural decisions
+        # (shape errors, the m>l warning, isNonAxi) -- not part of the
+        # differentiable computation -- and numpy.triu/all/any reject a backend
+        # array. Read them off numpy views; the coefficients STORED below stay
+        # in whatever namespace they arrived in, so a backend build keeps its
+        # gradient. No-op on numpy.
+        _Ac = as_numpy(Acos)
+        _As = None if Asin is None else as_numpy(Asin)
         errorMessage = None
         if len(shape) != 3:
             errorMessage = "Acos must be a 3 dimensional numpy array"
@@ -173,7 +181,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif Asin is None and shape[1] > 1 and numpy.any(Acos[:, :, 1:] != 0):
+        elif Asin is None and shape[1] > 1 and numpy.any(_Ac[:, :, 1:] != 0):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -186,8 +194,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(Acos, 1) != 0) or (
-            Asin is not None and numpy.any(numpy.triu(Asin, 1) != 0)
+        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
+            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -202,7 +210,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin is None
             or shape[1] == 1
-            or (numpy.all(Acos[:, :, 1:] == 0) and numpy.all(Asin[:, :, :] == 0))
+            or (numpy.all(_Ac[:, :, 1:] == 0) and numpy.all(_As[:, :, :] == 0))
         ):
             self.isNonAxi = False
 
@@ -256,6 +264,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         )
         ##Errors (each time slice must satisfy the static coefficient constraints)
         shape = Acos_all.shape
+        # Same discrete validation/symmetry gate as _init_static.
+        _Ac = as_numpy(Acos_all)
+        _As = None if Asin_all is None else as_numpy(Asin_all)
         errorMessage = None
         if Acos_all.ndim != 4 or shape[0] != Nt:
             errorMessage = (
@@ -267,9 +278,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin_all is None and not (shape[3] == 1 or shape[2] == shape[3]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif (
-            Asin_all is None and shape[2] > 1 and numpy.any(Acos_all[:, :, :, 1:] != 0)
-        ):
+        elif Asin_all is None and shape[2] > 1 and numpy.any(_Ac[:, :, :, 1:] != 0):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -282,8 +291,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(Acos_all, 1) != 0) or (
-            Asin_all is not None and numpy.any(numpy.triu(Asin_all, 1) != 0)
+        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
+            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -298,7 +307,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin_all is None
             or shape[2] == 1
-            or (numpy.all(Acos_all[:, :, :, 1:] == 0) and numpy.all(Asin_all == 0))
+            or (numpy.all(_Ac[:, :, :, 1:] == 0) and numpy.all(_As == 0))
         ):
             self.isNonAxi = False
 
