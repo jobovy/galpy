@@ -1963,42 +1963,53 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     # Construction-time numerical setup: pin to numpy so the particle-sum basis
     # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
     # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        costheta = pos[2] / r
-        mass = numpy.atleast_1d(mass)
-        Acos, Asin = numpy.zeros([N, L, 1]), None
-        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-        # (n,l) dependent constant
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-        Inl = (
-            -Knl
-            * 2.0
-            * numpy.pi
-            / 2.0 ** (8.0 * l + 6.0)
-            * gamma(n + 4.0 * l + 3.0)
-            / gamma(n + 1)
-            / (n + 2.0 * l + 1.5)
-            / gamma(2.0 * l + 1.5) ** 2
-            / numpy.sqrt(2.0 * l + 1)
-        )
-        # Set up Assoc. Legendre recursion
-        Plm = Pll
-        Plmm1 = 0.0
-        for ll in range(L):
-            # Compute Gegenbauer polys for this l
-            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-            # Acos
-            Sum = numpy.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
-            Acos[:, ll, 0] = Sum / Inl[:, ll]
-            # Recurse Assoc. Legendre
-            if ll < L:
-                tmp = Plm
-                Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
-                Plmm1 = tmp
+    # Follows the ambient namespace; the Legendre recursion below is pure
+    # arithmetic on Python names, so it carries over unchanged.
+    _xp = get_namespace(pos)
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    costheta = pos[2] / r
+    mass = _xp.asarray(mass)
+    if mass.ndim == 0:  # what numpy.atleast_1d did here
+        mass = _xp.reshape(mass, (1,))
+    Asin = None
+    _cols = []  # per-l columns, stacked at the end instead of assigning
+    # into a preallocated numpy array (which neither traces nor accepts a
+    # backend value). Same values in the same order, so numpy is unchanged.
+    Pll = _xp.ones(len(r))  # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+    Inl = (
+        -Knl
+        * 2.0
+        * numpy.pi
+        / 2.0 ** (8.0 * l + 6.0)
+        * gamma(n + 4.0 * l + 3.0)
+        / gamma(n + 1)
+        / (n + 2.0 * l + 1.5)
+        / gamma(2.0 * l + 1.5) ** 2
+        / numpy.sqrt(2.0 * l + 1)
+    )
+    # Set up Assoc. Legendre recursion
+    Plm = Pll
+    Plmm1 = 0.0
+    for ll in range(L):
+        # Compute Gegenbauer polys for this l
+        Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+        phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
+        # Acos
+        Sum = _xp.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
+        _cols.append(Sum / like(Sum, Inl[:, ll]))
+        # Recurse Assoc. Legendre
+        if ll < L:
+            tmp = Plm
+            Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
+            Plmm1 = tmp
+    _out = (
+        _cols[0] if len(_cols) == 1 else get_namespace(_cols[0]).stack(_cols, axis=-1)
+    )
+    Acos = get_namespace(_out).reshape(_out, (N, L, 1))
     return Acos, Asin
 
 
