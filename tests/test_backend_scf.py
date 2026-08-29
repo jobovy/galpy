@@ -647,3 +647,64 @@ def test_scf_coeffs_spherical_grad_wrt_density_parameter(backend_name):
     assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-6, (
         f"d A000/db = {grad!r} disagrees with finite differences {fd!r}"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_axi_grad_wrt_density_parameter(backend_name):
+    # Same check as the spherical case for the AXISYMMETRIC quadrature, which
+    # has its own integrand (and its own time-dependent twin).
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs_axi
+
+    def dens_of(b):
+        def dens(R, z):
+            r2 = R**2 + z**2
+            return 3.0 / (4.0 * numpy.pi) * b**3 * (b**2 + r2) ** -2.5
+
+        return dens
+
+    def A0(b):
+        A, _ = scf_compute_coeffs_axi(dens_of(b), 3, 2, a=1.0)
+        return A[0, 0, 0]
+
+    b0, h = 1.3, 1e-6
+    with _b.use(backend_name, force=True):
+        fd = float(as_numpy(A0(b0 + h)) - as_numpy(A0(b0 - h))) / (2 * h)
+        grad = _scalar_grad(backend_name, A0, b0)
+    assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-5, (
+        f"axi d A000/db = {grad!r} disagrees with finite differences {fd!r}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_general_grad_wrt_density_parameter(backend_name):
+    # The general (non-axisymmetric) quadrature. The cos(2 phi) term averages
+    # out of the m=0 monopole, so A000 -- and its derivative -- must match the
+    # spherical and axi routines; that agreement is a cross-routine check.
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs
+
+    def dens_of(b):
+        def dens(R, z, phi):
+            r2 = R**2 + z**2
+            return (
+                3.0
+                / (4.0 * numpy.pi)
+                * b**3
+                * (b**2 + r2) ** -2.5
+                * (1.0 + 0.1 * numpy.cos(2 * phi))
+            )
+
+        return dens
+
+    def A0(b):
+        A, _ = scf_compute_coeffs(dens_of(b), 2, 2, a=1.0)
+        return A[0, 0, 0]
+
+    b0, h = 1.3, 1e-6
+    with _b.use(backend_name, force=True):
+        fd = float(as_numpy(A0(b0 + h)) - as_numpy(A0(b0 - h))) / (2 * h)
+        grad = _scalar_grad(backend_name, A0, b0)
+    assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-5, (
+        f"general d A000/db = {grad!r} disagrees with finite differences {fd!r}"
+    )
