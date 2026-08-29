@@ -148,8 +148,6 @@ jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in
 # Track D in-backend default will let this un-defer. The energy/Jacobi and zmax
 # entries that used to sit here were measured fast enough on 2026-08-15 and are
 # now un-deferred.
-jax tests/test_orbit.py::test_integrate_backwards  # >420s (measured 2026-08-15, timed out)
-jax tests/test_orbit.py::test_integrate_negative_time  # 389.7s measured 2026-08-20; at the
 # measured CI/local ratio (0.71) that is ~277s against the 300s cap, i.e. ~8% margin, so it
 # passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
 # over Python integrators, so it belongs here too rather than re-run until it happens to be green.
@@ -366,8 +364,6 @@ jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 jax-jit tests/test_orbit.py::test_zmax  # 300s cap
 jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap  # 300s cap
 jax-jit tests/test_orbit.py::test_analytic_zmax  # 300s cap
-jax-jit tests/test_orbit.py::test_integrate_backwards  # 300s cap
-jax-jit tests/test_orbit.py::test_integrate_negative_time  # 300s cap
 # Inside the 240-300 s band -- judgement calls, not cap hits. Together with
 # test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
 # on where the margin sits; the other 12 hit the cap outright.
