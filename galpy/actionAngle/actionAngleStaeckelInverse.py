@@ -1770,6 +1770,60 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
         return v, dq
 
+    def _canon_family_chains_vec(self, x):
+        """
+        Family values and action chains for many tori at once.
+
+        The scalar :meth:`_canon_family_chains` keeps only the first point of
+        the stencil evaluation; this keeps all of them, so the 3x3 label
+        matrix is inverted as a stack and the chains are contracted with
+        ``einsum``.  See :meth:`_canon_coords_vec` for why an ensemble needs
+        this.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Fractional grid coordinates, shape (n, 3).
+
+        Returns
+        -------
+        tuple
+            ``(v, dq)`` with ``v`` of shape (nq, n) and ``dq`` of shape
+            (nq, n, 3), the turning points reconstructed exactly as in the
+            scalar routine.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        xx = numpy.atleast_2d(x)
+        npts = xx.shape[0]
+        v = self._canon_table_eval(xx)
+        dL = self._canon_table_eval(xx, deriv=0) / self._canon_dLz
+        dE_ = self._canon_table_eval(xx, deriv=1)
+        dI_ = self._canon_table_eval(xx, deriv=2)
+        M = numpy.empty((npts, 3, 3))
+        M[:, 0, 0], M[:, 0, 1], M[:, 0, 2] = dL[0], dE_[0], dI_[0]
+        M[:, 1, 0], M[:, 1, 1], M[:, 1, 2] = 1.0, 0.0, 0.0
+        M[:, 2, 0], M[:, 2, 1], M[:, 2, 2] = dL[1], dE_[1], dI_[1]
+        Minv = numpy.linalg.inv(M)
+        dq = numpy.einsum("qpk,pkj->qpj", numpy.stack((dL, dE_, dI_), axis=-1), Minv)
+        # same reconstruction of the turning points from the stored
+        # midpoint-and-K combinations as the scalar routine, differentiated
+        # the same way so the chains stay exact derivatives of what is used
+        uc, duc = v[3].copy(), dq[3].copy()
+        hw = numpy.sqrt(numpy.clip(v[4] * v[0], 0.0, None))
+        hv = numpy.sqrt(numpy.clip(v[5] * v[1], 0.0, None))
+        dhw = (v[4][:, None] * dq[0] + v[0][:, None] * dq[4]) / (
+            2.0 * numpy.maximum(hw, 1e-14)[:, None]
+        )
+        dhv = (v[5][:, None] * dq[1] + v[1][:, None] * dq[5]) / (
+            2.0 * numpy.maximum(hv, 1e-14)[:, None]
+        )
+        v[3], v[4], v[5] = uc - hw, uc + hw, 0.5 * numpy.pi - hv
+        dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
+        return v, dq
+
     def _canon_comp(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
         """The two-map compensation terms along the three action chains,
         every factor grouped through the per-degree action-flux identities

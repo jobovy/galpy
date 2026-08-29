@@ -9982,6 +9982,7 @@ def test_actionAngleStaeckelInverse_toy_angle_limit_cycle():
     )
     assert wrapped(tAr, thR) < 1e-13, "A contracting solve was disturbed"
 
+
 def test_actionAngleStaeckelInverse_canonical_label_inversion_vectorized(
     setup_actionAngleStaeckelInverse_interpolated,
 ):
@@ -10018,4 +10019,36 @@ def test_actionAngleStaeckelInverse_canonical_label_inversion_vectorized(
         assert "did not converge" in str(excinfo.value)
     finally:
         aASI._maxiter = maxiter
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_chains_vectorized(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # The parameter chains for many tori at once, including the
+    # reconstruction of the turning points from the stored midpoint-and-K
+    # combinations, must agree with the scalar routine exactly
+    import numpy
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    rng = numpy.random.default_rng(7)
+    n = 12
+    Lz = rng.uniform(float(aASI._Lzgrid[2]), float(aASI._Lzgrid[-3]), n)
+    jr = rng.uniform(0.02, 0.08, n)
+    jz = rng.uniform(0.02, 0.08, n)
+    x = aASI._canon_coords_vec(jr, Lz, jz)
+    v, dq = aASI._canon_family_chains_vec(x)
+    for i in range(n):
+        v1, dq1 = aASI._canon_family_chains(x[i : i + 1])
+        assert numpy.amax(numpy.fabs(v[:, i] - v1)) < 1e-12, (
+            "Vectorized family values disagree with the scalar ones"
+        )
+        assert numpy.amax(numpy.fabs(dq[:, i] - dq1)) < 1e-12, (
+            "Vectorized family chains disagree with the scalar ones"
+        )
+    # J_R and J_z carry the identity rows of the label matrix by
+    # construction, which is what lets the turning-point reconstruction use
+    # the exact actions rather than interpolated ones
+    assert numpy.amax(numpy.fabs(dq[0] - numpy.array([1.0, 0.0, 0.0]))) < 1e-8
+    assert numpy.amax(numpy.fabs(dq[1] - numpy.array([0.0, 0.0, 1.0]))) < 1e-8
     return None
