@@ -8850,3 +8850,62 @@ def test_actionAngleVerticalInverse_momentum_matched_map():
         # does not vanish with the action, unlike xmax itself
         assert 0.1 < K < 10.0, "The storage variable K is not O(1): %g" % K
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_family():
+    # The stored content of the canonical map in the new scheme is the
+    # anomaly map plus K = xmax^2 / J, and their action derivatives must come
+    # from differentiating those same stored interpolants.
+    import numpy
+    import pytest
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    # the bottom of the grid is the harmonic limit, where J = 0
+    Es = numpy.linspace(0.0, 2.0, 9)
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, use_pointtransform=False)
+    aAVI._setup_momentum_matched_family(npt=12, nta=512)
+    for ii in range(aAVI._nE):
+        if aAVI._js[ii] <= 0.0:
+            # the torus IS its auxiliary here: identity map, K -> 2 / omega
+            assert numpy.amax(numpy.fabs(aAVI._mm_D[ii])) == 0.0, (
+                "The anomaly map is not the identity in the harmonic limit"
+            )
+            assert numpy.fabs(aAVI._mm_K[ii] - 2.0 / aAVI._Omegas[ii]) < 1e-12, (
+                "K does not take its harmonic limit 2 / omega"
+            )
+        else:
+            assert (
+                numpy.fabs(numpy.sqrt(aAVI._mm_K[ii] * aAVI._js[ii]) - aAVI._xmaxs[ii])
+                < 1e-8
+            ), "K does not reconstruct xmax"
+    # K is O(1) across the whole grid, which is the point of storing it
+    # rather than xmax: xmax vanishes at the bottom and K does not
+    assert numpy.all(aAVI._mm_K > 0.1) and numpy.all(aAVI._mm_K < 10.0), (
+        "K is not O(1) across the grid"
+    )
+    assert aAVI._xmaxs[0] == 0.0, "The grid does not reach the harmonic limit"
+    # the chain differentiates the interpolant it evaluates: compare against
+    # finite differences OF THE INTERPOLANT, which is the statement that
+    # makes the resulting map symplectic whatever the tables contain
+    h = 1e-6
+    for j in numpy.linspace(aAVI._js[1], aAVI._js[-2], 5):
+        D, dD, K, dK = aAVI._mm_tables(j)
+        Dp, _, Kp, _ = aAVI._mm_tables(j + h)
+        Dm, _, Km, _ = aAVI._mm_tables(j - h)
+        assert numpy.amax(numpy.fabs(dD - (Dp - Dm) / (2.0 * h))) < 1e-6 * (
+            1.0 + numpy.amax(numpy.fabs(dD))
+        ), "d D / d j does not differentiate the stored interpolant"
+        assert numpy.fabs(dK - (Kp - Km) / (2.0 * h)) < 1e-6 * (1.0 + numpy.fabs(dK)), (
+            "d K / d j does not differentiate the stored interpolant"
+        )
+    # a cubic spline in the action needs four energies
+    small = actionAngleVerticalInverse(
+        pot=pot, Es=[0.5, 1.0, 2.0], nta=128, use_pointtransform=False
+    )
+    with pytest.raises(RuntimeError) as excinfo:
+        small._setup_momentum_matched_family()
+    assert "four energies" in str(excinfo.value)
+    return None

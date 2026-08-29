@@ -465,6 +465,93 @@ class actionAngleVerticalInverse(actionAngleInverse):
         )
         return sol.x, xmax**2.0 / J
 
+    def _setup_momentum_matched_family(self, npt=16, nta=1024):
+        """
+        Build the momentum-matched family: the anomaly map and the storage
+        variable K on every torus of the energy grid.
+
+        This is the whole stored content of the canonical map in the new
+        scheme.  There is no table of angle-fit coefficients: the auxiliary
+        torus carries the target's content through the anomaly map alone,
+        and the amplitude enters only through K = xmax^2 / J.
+
+        K is stored rather than xmax because xmax vanishes with the action
+        while K does not: in the harmonic limit xmax^2 -> 2 J / omega, so
+        K -> 2 / omega, which is finite and O(1).  Storing xmax instead would
+        put a square-root cusp at the bottom of the grid and spend the
+        interpolant's resolution resolving it.
+
+        Parameters
+        ----------
+        npt : int, optional
+            Number of (even) harmonics of the anomaly map.
+        nta : int, optional
+            Number of anomaly samples used to fit them.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        if self._nE < 4:
+            raise RuntimeError(
+                "The momentum-matched family interpolates the stored tables "
+                "with a cubic spline in the action, which needs at least "
+                "four energies"
+            )
+        D = numpy.zeros((self._nE, npt))
+        K = numpy.empty(self._nE)
+        for ii in range(self._nE):
+            if self._js[ii] <= 0.0:
+                # The bottom of the grid IS a harmonic oscillator, so the
+                # auxiliary torus is the torus, the anomaly map is the
+                # identity (D = 0), and K takes its limit 2 / omega.
+                K[ii] = 2.0 / self._Omegas[ii]
+                continue
+            D[ii], K[ii] = self._momentum_matched_map(ii, npt=npt, nta=nta)
+        self._mm_D = D
+        self._mm_K = K
+        self._mm_npt = npt
+        # Filtered once so that evaluation differentiates the SAME interpolant
+        # it evaluates; storing separate derivative tables is what would break
+        # manifest canonicity.
+        self._mm_D_c = ndimage.spline_filter1d(D, order=3, axis=0, mode="mirror")
+        self._mm_K_c = ndimage.spline_filter1d(K, order=3, axis=0, mode="mirror")
+        self._mm_E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        self._mm_dEdj = self._mm_E.derivative()
+        return None
+
+    def _mm_tables(self, j):
+        """
+        The anomaly map, the storage variable, and their exact action
+        derivatives at action j.
+
+        Both derivatives come from differentiating the stored interpolants
+        and chaining through E(j); nothing is finite-differenced and no
+        derivative is stored separately, which is what makes the resulting
+        map symplectic whatever the tables happen to contain.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+
+        Returns
+        -------
+        tuple
+            (D, dD/dj, K, dK/dj).
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        tE = float(self._mm_E(j))
+        Emin, Emax = self._Es[0], self._Es[-1]
+        row = (tE - Emin) / (Emax - Emin) * (self._nE - 1.0)
+        drowdj = (self._nE - 1.0) / (Emax - Emin) * float(self._mm_dEdj(j))
+        D, dD_drow = self._can_row(self._mm_D_c, row)
+        K, dK_drow = self._can_row(self._mm_K_c, row)
+        return D, dD_drow * drowdj, float(K), float(dK_drow) * drowdj
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline
