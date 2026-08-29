@@ -932,7 +932,41 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if numpy.max(numpy.fabs(f)) < self._angle_tol:
                 break
         else:
-            raise RuntimeError("Newton's method for the map anomaly did not converge")
+            # The stored map is monotone whenever sum_m m |D_m| < 1, which
+            # the construction guarantees, so eta(tau) can always be
+            # bracketed on [0, 2 pi] even where Newton has not converged.
+            # Newton is the fast path and reaches its residual floor of
+            # ~1e-16 in three or four steps here; this is the guarantee, not
+            # the expectation, and it exists because a failure of this
+            # inversion used to raise and take the whole evaluation with it.
+            if not numpy.all(numpy.isfinite(Dm)) or not numpy.all(numpy.isfinite(eta)):
+                # Bracketing compares against NaN, and every such comparison
+                # is False, so it would converge on an endpoint and return it
+                # as a root.  Fail loudly instead of silently.
+                raise RuntimeError(
+                    "Newton's method for the map anomaly did not converge, "
+                    "and the map anomaly or its coefficients are not finite"
+                )
+            if numpy.sum(ms * numpy.fabs(Dm)) >= 1.0:
+                # sum_m m |D_m| >= 1 admits d eta / d tau <= 0: the map may
+                # fold, the root need not be unique, and bracketing would
+                # return a root without saying which.  That is a broken
+                # stored map rather than a slow solve, so it still raises.
+                raise RuntimeError(
+                    "Newton's method for the map anomaly did not converge, "
+                    "and the stored map is not monotone"
+                )
+            f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
+            bad = numpy.fabs(f) >= self._angle_tol
+            for ii in numpy.arange(len(x))[bad]:
+                lo, hi = 0.0, 2.0 * numpy.pi
+                for _ in range(200):
+                    mid = 0.5 * (lo + hi)
+                    if mid + numpy.sum(numpy.sin(mid * ms) * Dm) - eta[ii] < 0.0:
+                        lo = mid
+                    else:
+                        hi = mid
+                x[ii] = 0.5 * (lo + hi)
         return x
 
     def _setup_canonical(self):

@@ -9565,9 +9565,31 @@ def test_actionAngleStaeckelInverse_canonical_errors():
     maxiter = aac._maxiter
     try:
         aac._maxiter = 0
+        # A monotone map is still inverted, by bracketing, when Newton is
+        # not allowed to run at all: sum_m m |D_m| < 1 makes eta(tau)
+        # strictly increasing, so the root on [0, 2 pi] is unique.
+        Dm = aac._can_Dmu[0]
+        assert numpy.sum(numpy.arange(1, len(Dm) + 1) * numpy.fabs(Dm)) < 1.0
+        tau = aac._tau_of_eta(numpy.array([2.0]), Dm)
+        eta_back = tau + numpy.sum(
+            numpy.sin(tau[:, None] * numpy.arange(1, len(Dm) + 1)[None, :]) * Dm,
+            axis=1,
+        )
+        assert numpy.fabs(eta_back - 2.0)[0] < 1e-10
+        # A non-finite map would be bracketed against NaN, so that raises
         with pytest.raises(RuntimeError) as excinfo:
-            aac._tau_of_eta(numpy.array([2.0]), aac._can_Dmu[0])
+            aac._tau_of_eta(numpy.array([2.0]), numpy.nan * Dm)
+        assert "not finite" in str(excinfo.value)
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._tau_of_eta(numpy.array([numpy.nan]), Dm)
+        assert "not finite" in str(excinfo.value)
+        # A folded map has no unique root, so that still raises
+        folded = numpy.zeros_like(Dm)
+        folded[0] = 1.0
+        with pytest.raises(RuntimeError) as excinfo:
+            aac._tau_of_eta(numpy.array([2.0]), folded)
         assert "map anomaly" in str(excinfo.value)
+        assert "not monotone" in str(excinfo.value)
         with pytest.raises(RuntimeError) as excinfo:
             aac._canonical_torus_tables(0)
         assert "did not converge" in str(excinfo.value)
