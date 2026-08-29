@@ -22,6 +22,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    like,
     match_input_dtype,
 )
 from ..backend import use as _use_backend
@@ -1927,8 +1928,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     # operation, and numpy resolves that by calling .numpy() on the Tensor,
     # which RAISES once it requires grad.
     _xp = get_namespace(integrated)
-    _K = 2 * K if _xp is numpy else asarray_on_device(_xp, 2 * K, device_of(integrated))
-    Acos = _xp.reshape(integrated * _K, (N, 1, 1))
+    Acos = _xp.reshape(integrated * like(integrated, 2 * K), (N, 1, 1))
     return Acos, Asin
 
 
@@ -2029,6 +2029,9 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     - 2016-05-20 - Written - Aladdin Seaifan (UofT)
     """
     # Construction-time numerical setup: pin to numpy (see scf_compute_coeffs_spherical).
+    # Only the density-arity autodetect stays pinned: it PROBES user code with
+    # try/except, and a forced backend can change which exception a wrong-arity
+    # call raises. The quadrature below follows the ambient namespace.
     with _use_backend("numpy", force=True):
         numOfParam = 0
         try:
@@ -2039,55 +2042,61 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         param = [0] * numOfParam
         dens_kw = _scf_compute_determine_dens_kwargs(dens, param)
 
-        def integrand(xi, costheta):
-            l = numpy.arange(0, L)[numpy.newaxis, :]
-            r = _xiToR(xi, a)
-            R = r * numpy.sqrt(1 - costheta**2.0)
-            z = r * costheta
-            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-                PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
-            else:
-                PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
-            dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-            phi_nl = (
-                a**3
-                * (1.0 + xi) ** l
-                * (1.0 - xi) ** (l + 1.0)
-                * _C(xi, N, L)[:, :]
-                * PP
-            )
-            param[0] = R
-            param[1] = z
-            return phi_nl * dV * _coeff_dens_numpy(dens(*param, **dens_kw))
-
-        Acos = numpy.zeros((N, L, 1), float)
-        Asin = None
-
-        ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
-        if radial_order != None:
-            Ksample[0] = radial_order
-        if costheta_order != None:
-            Ksample[1] = costheta_order
-
-        integrated = _gaussianQuadrature(
-            integrand, [[-1, 1], [-1, 1]], Ksample=Ksample
-        ) * (2 * numpy.pi)
-        n = numpy.arange(0, N)[:, numpy.newaxis]
+    def integrand(xi, costheta):
         l = numpy.arange(0, L)[numpy.newaxis, :]
-        K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
-        # I = -K*(4*numpy.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-        ##Taking the ln of I will allow bigger size coefficients
-        lnI = (
-            -(8 * l + 6) * numpy.log(2)
-            + gammaln(n + 4 * l + 3)
-            - gammaln(n + 1)
-            - numpy.log(n + 2 * l + 3.0 / 2)
-            - 2 * gammaln(2 * l + 3.0 / 2)
-        )
-        I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-        constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
-        Acos[:, :, 0] = 2 * I**-1 * integrated * constants
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        # The special-function router replaces the scipy-version fork: it is
+        # byte-identical to assoc_legendre_p_all(L-1, 0, ct, branch_cut=2)[0]
+        # on numpy and handles the pre-1.15 lpmn spelling internally, while
+        # tracing and differentiating on a backend.
+        PP = assoc_legendre(L, 1, costheta)[..., 0][numpy.newaxis, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        _CC = _C(xi, N, L)[:, :]
+        # The (n, l) prefactor is built with numpy.arange, so on a backend it
+        # would own `prefactor * _CC` and call .numpy() on it. `like` carries it
+        # across (a no-op on numpy) WITHOUT reordering or regrouping the product.
+        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        param[0] = R
+        param[1] = z
+        return phi_nl * dV * dens(*param, **dens_kw)
+
+    Asin = None
+
+    ##This should save us some computation time since we're only taking the double integral once, rather then L times
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
+    if radial_order != None:
+        Ksample[0] = radial_order
+    if costheta_order != None:
+        Ksample[1] = costheta_order
+
+    integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample=Ksample) * (
+        2 * numpy.pi
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    # I = -K*(4*numpy.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+    ##Taking the ln of I will allow bigger size coefficients
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
+    # `2 * I**-1 * integrated * constants` groups as ((2*I**-1) * integrated) *
+    # constants. Only the FIRST product is commuted so the backend array leads
+    # (numpy otherwise owns `ndarray * Tensor` and calls .numpy() on it); the
+    # grouping is preserved because float multiplication is commutative but NOT
+    # associative, so regrouping would change the numpy bits.
+    _xp = get_namespace(integrated)
+    _fac, _con = like(integrated, 2 * I**-1, constants)
+    Acos = _xp.reshape((integrated * _fac) * _con, (N, L, 1))
     return Acos, Asin
 
 
@@ -2358,86 +2367,76 @@ def scf_compute_coeffs(
     - 2016-05-27 - Written - Aladdin Seaifan (UofT)
 
     """
-    # Construction-time numerical setup: pin to numpy (see scf_compute_coeffs_spherical).
+    # Only the density-kwargs probe stays pinned to numpy (it PROBES user code
+    # with try/except); the quadrature follows the ambient namespace.
     with _use_backend("numpy", force=True):
         dens_kw = _scf_compute_determine_dens_kwargs(dens, [0.1, 0.1, 0.1])
 
-        def integrand(xi, costheta, phi):
-            l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
-            m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
-            r = _xiToR(xi, a)
-            R = r * numpy.sqrt(1 - costheta**2.0)
-            z = r * costheta
-            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-                PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
-            else:
-                PP = numpy.swapaxes(
-                    assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][
-                        :, :L
-                    ],
-                    0,
-                    1,
-                ).T[numpy.newaxis, :, :]
-            dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-
-            phi_nl = (
-                -(a**3)
-                * (1.0 + xi) ** l
-                * (1.0 - xi) ** (l + 1.0)
-                * _C(xi, N, L)[:, :, numpy.newaxis]
-                * PP
-            )
-
-            return (
-                _coeff_dens_numpy(dens(R, z, phi, **dens_kw))
-                * phi_nl[numpy.newaxis, :, :, :]
-                * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
-                * dV
-            )
-
-        Acos = numpy.zeros((N, L, L), float)
-        Asin = numpy.zeros((N, L, L), float)
-
-        Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
-        if radial_order != None:
-            Ksample[0] = radial_order
-        if costheta_order != None:
-            Ksample[1] = costheta_order
-        if phi_order != None:
-            Ksample[2] = phi_order
-        integrated = _gaussianQuadrature(
-            integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
-        )
-        n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    def integrand(xi, costheta, phi):
         l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
         m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
-        K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        # Router call, byte-identical on numpy to the scipy expression it
+        # replaces (swapaxes+.T cancel for 2-D), and traceable on a backend.
+        PP = assoc_legendre(L, L, costheta)[numpy.newaxis, :, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
 
-        Nln = (
-            0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
-        )
-        NN = numpy.e ** (Nln)
+        _CC = _C(xi, N, L)[:, :, numpy.newaxis]
+        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
 
-        NN[numpy.where(NN == numpy.inf)] = (
-            0  ## To account for the fact that m can't be bigger than l
-        )
+        _dens = dens(R, z, phi, **dens_kw)
+        _cs = numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
+        # _cs is a numpy ARRAY, so it would own `backend * _cs` and resolve it
+        # by calling .numpy() on a grad-tracking tensor; anchor it first. The
+        # left-to-right grouping is untouched, so numpy stays byte-identical.
+        _cs = like(phi_nl, _cs)
+        return _dens * phi_nl[numpy.newaxis, :, :, :] * _cs * dV
 
-        constants = NN * (2 * l + 1.0) ** 0.5
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
+    if radial_order != None:
+        Ksample[0] = radial_order
+    if costheta_order != None:
+        Ksample[1] = costheta_order
+    if phi_order != None:
+        Ksample[2] = phi_order
+    integrated = _gaussianQuadrature(
+        integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+    m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
 
-        lnI = (
-            -(8 * l + 6) * numpy.log(2)
-            + gammaln(n + 4 * l + 3)
-            - gammaln(n + 1)
-            - numpy.log(n + 2 * l + 3.0 / 2)
-            - 2 * gammaln(2 * l + 3.0 / 2)
-        )
-        I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-        Acos[:, :, :], Asin[:, :, :] = (
-            2
-            * (I**-1.0)[numpy.newaxis, :, :, :]
-            * integrated
-            * constants[numpy.newaxis, :, :, :]
-        )
+    Nln = 0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
+    NN = numpy.e ** (Nln)
+
+    NN[numpy.where(NN == numpy.inf)] = (
+        0  ## To account for the fact that m can't be bigger than l
+    )
+
+    constants = NN * (2 * l + 1.0) ** 0.5
+
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    # Groups as ((2*I**-1) * integrated) * constants; only the FIRST product is
+    # commuted so the backend array leads. Multiplication is commutative but not
+    # associative in IEEE 754, so the grouping itself is preserved.
+    _fac, _con = like(
+        integrated,
+        2 * (I**-1.0)[numpy.newaxis, :, :, :],
+        constants[numpy.newaxis, :, :, :],
+    )
+    _res = (integrated * _fac) * _con
+    Acos, Asin = _res[0], _res[1]
 
     return Acos, Asin
 
