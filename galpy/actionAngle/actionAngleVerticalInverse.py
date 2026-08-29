@@ -552,6 +552,61 @@ class actionAngleVerticalInverse(actionAngleInverse):
         K, dK_drow = self._can_row(self._mm_K_c, row)
         return D, dD_drow * drowdj, float(K), float(dK_drow) * drowdj
 
+    def _mm_xp_of_tau(self, j, tau):
+        """
+        Position and momentum at anomaly tau on the torus of action j, from
+        the stored family alone.
+
+        The auxiliary is the harmonic oscillator of the same action, so
+        x^A = -sqrt(2 J / omega) cos eta and p^A = sqrt(2 J omega) sin eta,
+        and the flux identity p dx/dtau = p^A (dx^A/deta)(deta/dtau) gives
+
+            p = 2 J sin^2(eta) eta'(tau) / (xmax sin tau) ,
+
+        with xmax = sqrt(K J).  The auxiliary frequency cancels between the
+        momentum and the amplitude, which is the same cancellation that
+        makes the anomaly map itself independent of which harmonic auxiliary
+        is used: only its action matters.
+
+        Both factors vanish at the turning points, where sin tau and
+        sin^2 eta go to zero together and the momentum is zero; the ratio is
+        taken only where sin tau does not vanish exactly, and the limit is
+        supplied directly.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        tuple
+            (x, p) at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        if j <= 0.0:
+            raise RuntimeError(
+                "The momentum-matched reconstruction needs a positive "
+                "action: the zero-action torus is a point"
+            )
+        D, _, K, _ = self._mm_tables(j)
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+        detadtau = 1.0 + numpy.cos(tau[:, None] * ms[None, :]) @ (ms * D)
+        xmax = numpy.sqrt(K * j)
+        x = -xmax * numpy.cos(tau)
+        sintau = numpy.sin(tau)
+        p = numpy.zeros_like(tau)
+        nz = sintau != 0.0
+        p[nz] = 2.0 * j * numpy.sin(eta[nz]) ** 2.0 * detadtau[nz] / (xmax * sintau[nz])
+        return x, p
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline

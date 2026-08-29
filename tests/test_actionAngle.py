@@ -8909,3 +8909,61 @@ def test_actionAngleVerticalInverse_momentum_matched_family():
         small._setup_momentum_matched_family()
     assert "four energies" in str(excinfo.value)
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
+    # Reconstructing (x, p) from the stored family alone must put the point
+    # back on the torus it came from: H(x, p) = E(J) at every anomaly.
+    import numpy
+    import pytest
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128, use_pointtransform=False
+    )
+    tau = 2.0 * numpy.pi * numpy.arange(257) / 257.0
+
+    def worst(npt):
+        aAVI._setup_momentum_matched_family(npt=npt, nta=1024)
+        w = 0.0
+        for ii in range(1, aAVI._nE):
+            x, p = aAVI._mm_xp_of_tau(aAVI._js[ii], tau)
+            H = 0.5 * p**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
+            w = max(w, numpy.amax(numpy.fabs(H - aAVI._Es[ii])) / aAVI._Es[ii])
+        return w
+
+    w12, w28 = worst(12), worst(28)
+    # the reconstruction is exact up to the truncation of the anomaly map,
+    # so refining it converges spectrally rather than at some fixed order
+    assert w28 < 1e-9, "The reconstruction does not return the torus: %g" % w28
+    assert w28 < 1e-2 * w12, (
+        "The reconstruction error is not limited by the anomaly-map "
+        "truncation: %g vs %g" % (w28, w12)
+    )
+    # the turning points are where the momentum vanishes and the potential
+    # alone carries the energy, which is what fixes xmax
+    x, p = aAVI._mm_xp_of_tau(aAVI._js[5], numpy.array([0.0, numpy.pi]))
+    # sin(pi) is not exactly zero in floating point, so the grouped ratio is
+    # actually evaluated at the upper turning point; it stays finite and
+    # returns machine zero, which is the property being claimed
+    assert numpy.amax(numpy.fabs(p)) < 1e-14, (
+        "The momentum does not vanish at the turning points: %g"
+        % numpy.amax(numpy.fabs(p))
+    )
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                evaluatelinearPotentials(pot, x, use_physical=False) - aAVI._Es[5]
+            )
+        )
+        / aAVI._Es[5]
+        < 1e-9
+    ), "The turning points do not sit at the energy"
+    # the zero-action torus is a point, and has no reconstruction
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI._mm_xp_of_tau(0.0, tau)
+    assert "positive" in str(excinfo.value)
+    return None
