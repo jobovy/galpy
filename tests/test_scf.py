@@ -20,6 +20,18 @@ DEFAULT_PHI = numpy.array(
 ##Tests whether invalid coefficients will throw an error at runtime
 
 
+def _np(coeffs):
+    """SCF coefficients back on numpy for value assertions.
+
+    The coefficient routines follow the ambient namespace, so under a forced
+    backend they return backend arrays. This module checks VALUES, and numpy
+    reductions (numpy.all/any/fabs) reject a Tensor; backend-ness itself is
+    asserted in test_backend_scf.py. A no-op on the numpy backend.
+    """
+    A, B = coeffs
+    return as_numpy(A), (None if B is None else as_numpy(B))
+
+
 def test_coeffs_toomanydimensions():
     Acos = numpy.ones((10, 2, 32, 34))
     try:
@@ -166,6 +178,7 @@ def testArrayBroadcasting():
 ## tests whether scf_compute_spherical computes the correct coefficients for a Hernquist Potential
 def test_scf_compute_spherical_hernquist():
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 10)
+    Acos, Asin = _np((Acos, Asin))
     spherical_coeffsTest(Acos, Asin)
     assert numpy.fabs(Acos[0, 0, 0] - 1.0) < EPS, (
         f"Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0, 0, 0]}"
@@ -176,6 +189,7 @@ def test_scf_compute_spherical_hernquist():
 ## tests whether scf_compute_spherical computes the correct coefficients for Zeeuw's Potential
 def test_scf_compute_spherical_zeeuw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 10)
+    Acos, Asin = _np((Acos, Asin))
     spherical_coeffsTest(Acos, Asin)
     assert numpy.fabs(Acos[0, 0, 0] - 2 * 3.0 / 4) < EPS, (
         f"Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0, 0, 0]}"
@@ -189,6 +203,7 @@ def test_scf_compute_spherical_zeeuw():
 ##Tests that the numerically calculated results from axi_density1 matches with the analytic results
 def test_scf_compute_axi_density1():
     A = potential.scf_compute_coeffs_axi(axi_density1, 10, 10)
+    A = _np(A)
     axi_coeffsTest(A[0], A[1])
     analytically_calculated = numpy.array(
         [
@@ -231,6 +246,7 @@ def test_scf_compute_axi_density2():
     A = potential.scf_compute_coeffs_axi(
         axi_density2, 10, 10, radial_order=30, costheta_order=12
     )
+    A = _np(A)
     axi_coeffsTest(A[0], A[1])
     analytically_calculated = 2 * numpy.array(
         [
@@ -295,8 +311,10 @@ def test_scf_compute_spherical_nbody_hernquist():
         c[i], s[i] = potential.scf_compute_coeffs_spherical_nbody(
             positions[i], Norder, mass=m * numpy.ones(N), a=ah
         )
+        c[i], s[i] = _np((c[i], s[i]))
 
     cc, ss = potential.scf_compute_coeffs_spherical(hern.dens, Norder, a=ah)
+    cc, ss = _np((cc, ss))
 
     # Check that the difference between the coefficients is within the standard deviation
     assert (cc - numpy.mean(c, axis=0) < numpy.std(c, axis=0)).all()
@@ -308,6 +326,7 @@ def test_scf_compute_spherical_nbody_hernquist():
         c[i], s[i] = potential.scf_compute_coeffs_spherical_nbody(
             positions[i], Norder, mass=m, a=ah
         )
+        c[i], s[i] = _np((c[i], s[i]))
     assert (cc - numpy.mean(c, axis=0) < numpy.std(c, axis=0)).all()
     return None
 
@@ -340,11 +359,13 @@ def test_scf_compute_axi_nbody_twopowertriaxial():
     tptp.turn_physical_off()
 
     cc, ss = potential.scf_compute_coeffs_axi(tptp.dens, Norder, Lorder, a=ah)
+    cc, ss = _np((cc, ss))
     c, s = numpy.zeros((2, nsamp, Norder, Lorder, 1))
     for i, p in enumerate(positions):
         c[i], s[i] = potential.scf_compute_coeffs_axi_nbody(
             p, Norder, Lorder, mass=m * numpy.ones(N), a=ah
         )
+        c[i], s[i] = _np((c[i], s[i]))
 
     # Check that the difference between the coefficients is within two standard deviations
     assert (cc - (numpy.mean(c, axis=0)) <= (2.0 * numpy.std(c, axis=0))).all()
@@ -355,6 +376,7 @@ def test_scf_compute_axi_nbody_twopowertriaxial():
         c[i], s[i] = potential.scf_compute_coeffs_axi_nbody(
             p, Norder, Lorder, mass=m, a=ah
         )
+        c[i], s[i] = _np((c[i], s[i]))
     assert (cc - (numpy.mean(c, axis=0)) <= (2.0 * numpy.std(c, axis=0))).all()
     return None
 
@@ -396,11 +418,13 @@ def test_scf_compute_nbody_twopowertriaxial():
     tptp.turn_physical_off()
 
     cc, ss = potential.scf_compute_coeffs(tptp.dens, Norder, Lorder, a=ah)
+    cc, ss = _np((cc, ss))
     c, s = numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
     for i, p in enumerate(positions):
         c[i], s[i] = potential.scf_compute_coeffs_nbody(
             p, Norder, Lorder, mass=m * numpy.ones(N), a=ah
         )
+        c[i], s[i] = _np((c[i], s[i]))
 
     # Check that the difference between the coefficients is within two standard deviations
     assert (cc - (numpy.mean(c, axis=0)) <= (2.0 * numpy.std(c, axis=0))).all()
@@ -409,6 +433,7 @@ def test_scf_compute_nbody_twopowertriaxial():
     c, s = numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
     for i, p in enumerate(positions):
         c[i], s[i] = potential.scf_compute_coeffs_nbody(p, Norder, Lorder, mass=m, a=ah)
+        c[i], s[i] = _np((c[i], s[i]))
     assert (cc - (numpy.mean(c, axis=0)) <= (2.0 * numpy.std(c, axis=0))).all()
     return None
 
@@ -751,13 +776,16 @@ def test_from_multipole_timedep():
 
 def test_scf_compute_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
+    Acos, Asin = _np((Acos, Asin))
     spherical_coeffsTest(Acos, Asin)
 
 
 ##Tests radial order from scf_compute_coeffs_spherical
 def test_nfw_sphericalOrder():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
+    Acos, Asin = _np((Acos, Asin))
     Acos2, Asin2 = potential.scf_compute_coeffs_spherical(rho_NFW, 10, radial_order=50)
+    Acos2, Asin2 = _np((Acos2, Asin2))
 
     assert numpy.all(numpy.fabs(Acos - Acos2) < EPS), (
         "Increasing the radial order fails for scf_compute_coeffs_spherical"
@@ -767,9 +795,11 @@ def test_nfw_sphericalOrder():
 ##Tests radial and costheta order from scf_compute_coeffs_axi
 def test_axi_density1_axiOrder():
     Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1, 10, 10)
+    Acos, Asin = _np((Acos, Asin))
     Acos2, Asin2 = potential.scf_compute_coeffs_axi(
         axi_density1, 10, 10, radial_order=50, costheta_order=50
     )
+    Acos2, Asin2 = _np((Acos2, Asin2))
 
     assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-10), (
         "Increasing the radial and costheta order fails for scf_compute_coeffs_axi"
@@ -779,9 +809,11 @@ def test_axi_density1_axiOrder():
 ##Tests radial, costheta and phi order from scf_compute_coeffs
 def test_density1_Order():
     Acos, Asin = potential.scf_compute_coeffs(density1, 5, 5)
+    Acos, Asin = _np((Acos, Asin))
     Acos2, Asin2 = potential.scf_compute_coeffs(
         density1, 5, 5, radial_order=19, costheta_order=19, phi_order=19
     )
+    Acos2, Asin2 = _np((Acos2, Asin2))
     assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-3), (
         "Increasing the radial, costheta, and phi order fails for Acos from scf_compute_coeffs"
     )
@@ -794,30 +826,38 @@ def test_density1_Order():
 ## Tests whether scf_compute_axi reduces to scf_compute_spherical for the Hernquist Potential
 def test_scf_axiHernquistCoeffs_ReducesToSpherical():
     Aspherical = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 10)
+    Aspherical = _np(Aspherical)
     Aaxi = potential.scf_compute_coeffs_axi(sphericalHernquistDensity, 10, 10)
+    Aaxi = _np(Aaxi)
     axi_reducesto_spherical(Aspherical, Aaxi, "Hernquist Potential")
 
 
 ## Tests whether scf_compute_axi reduces to scf_compute_spherical for Zeeuw's Potential
 def test_scf_axiZeeuwCoeffs_ReducesToSpherical():
     Aspherical = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 10)
+    Aspherical = _np(Aspherical)
     Aaxi = potential.scf_compute_coeffs_axi(rho_Zeeuw, 10, 10)
+    Aaxi = _np(Aaxi)
     axi_reducesto_spherical(Aspherical, Aaxi, "Zeeuw Potential")
 
 
 ## Tests whether scf_compute reduces to scf_compute_spherical for Hernquist Potential
 def test_scf_HernquistCoeffs_ReducesToSpherical():
     Aspherical = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 5)
+    Aspherical = _np(Aspherical)
     Aaxi = potential.scf_compute_coeffs(sphericalHernquistDensity, 5, 5)
+    Aaxi = _np(Aaxi)
     reducesto_spherical(Aspherical, Aaxi, "Hernquist Potential")
 
 
 ## Tests whether scf_compute reduces to scf_compute_spherical for Zeeuw's Potential
 def test_scf_ZeeuwCoeffs_ReducesToSpherical():
     Aspherical = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 5)
+    Aspherical = _np(Aspherical)
     Aaxi = potential.scf_compute_coeffs(
         rho_Zeeuw, 5, 5, radial_order=20, costheta_order=20
     )
+    Aaxi = _np(Aaxi)
     reducesto_spherical(Aspherical, Aaxi, "Zeeuw Potential")
 
 
@@ -841,6 +881,7 @@ def test_densMatches_zeeuw():
 ## Tests whether scf density matches with axi_density1
 def test_densMatches_axi_density1():
     Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1, 50, 3)
+    Acos, Asin = _np((Acos, Asin))
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing axi_density1 with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(axi_density1, scf.dens, assertmsg, eps=1e-3)
@@ -849,6 +890,7 @@ def test_densMatches_axi_density1():
 ## Tests whether scf density matches with axi_density2
 def test_densMatches_axi_density2():
     Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2, 50, 3)
+    Acos, Asin = _np((Acos, Asin))
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing axi_density2 with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(axi_density2, scf.dens, assertmsg, eps=1e-3)
@@ -986,6 +1028,7 @@ def test_physical_dens_axi():
     ro, vo = 7.0, 230.0
     hp = potential.HernquistPotential(a=a, ro=ro, vo=vo)
     Acos, Asin = potential.scf_compute_coeffs_axi(hp.dens, 10, 2, a=a)
+    Acos, Asin = _np((Acos, Asin))
     sp = potential.SCFPotential(Acos=Acos, Asin=Asin, a=a)
     rs = numpy.geomspace(0.1, 10.0, 101)
     assert numpy.all(
@@ -1007,6 +1050,7 @@ def test_physical_dens():
     ro, vo = 7.0, 230.0
     hp = potential.HernquistPotential(a=a, ro=ro, vo=vo)
     Acos, Asin = potential.scf_compute_coeffs(hp.dens, 10, 2, a=a)
+    Acos, Asin = _np((Acos, Asin))
     sp = potential.SCFPotential(Acos=Acos, Asin=Asin, a=a)
     rs = numpy.geomspace(0.1, 10.0, 101)
     assert numpy.all(
@@ -1049,6 +1093,7 @@ def test_from_density_axi():
     Acos, Asin = potential.scf_compute_coeffs_axi(
         axi_density2, 10, 10, a=a, radial_order=30, costheta_order=12
     )
+    Acos, Asin = _np((Acos, Asin))
     sp_direct = potential.SCFPotential(Acos=Acos, Asin=Asin, a=a)
     sp_from = potential.SCFPotential.from_density(
         axi_density2, 10, L=10, a=a, symmetry="axi", radial_order=30, costheta_order=12
@@ -1069,6 +1114,7 @@ def test_from_density_axi():
 def test_from_density():
     a = 1.0
     Acos, Asin = potential.scf_compute_coeffs(rho_Zeeuw, 10, 3, a=a)
+    Acos, Asin = _np((Acos, Asin))
     sp_direct = potential.SCFPotential(Acos=Acos, Asin=Asin, a=a)
     sp_from = potential.SCFPotential.from_density(
         rho_Zeeuw, 10, L=3, a=a, symmetry=None
@@ -1479,6 +1525,7 @@ def test_static_c_orbit_parity():
     # which the extra time-dependent header/cache slot must not have broken.
     hp = potential.HernquistPotential(a=_TDEP_A)
     Acos, _ = potential.scf_compute_coeffs_axi(hp.dens, 8, 4, a=_TDEP_A)
+    Acos = as_numpy(Acos)
     sp = SCFPotential(Acos=Acos, a=_TDEP_A)
     ts = numpy.linspace(0.0, 3.0, 101)
     init = [1.0, 0.1, 1.1, 0.05, 0.1, 0.2]
@@ -1766,6 +1813,7 @@ def test_tdep_from_density_vectorized_matches_loop():
         Ac, As = potential.scf_compute_coeffs(
             lambda R, z, phi: dens_g(R, z, phi, t), 8, 4, a=_TDEP_A
         )
+        Ac, As = _np((Ac, As))
         assert numpy.max(numpy.fabs(sp._Acos_all[it] - Ac * NN)) < 1e-12
         assert numpy.max(numpy.fabs(sp._Asin_all[it] - As * NN)) < 1e-12
     # spherical
@@ -1778,6 +1826,7 @@ def test_tdep_from_density_vectorized_matches_loop():
         Ac, _ = potential.scf_compute_coeffs_spherical(
             lambda r: dens_s(r, t), 8, a=_TDEP_A
         )
+        Ac = as_numpy(Ac)
         assert numpy.max(numpy.fabs(sps._Acos_all[it] - Ac * NN0)) < 1e-12
 
 

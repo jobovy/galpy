@@ -1838,6 +1838,10 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     # numpy result byte-identical: the obvious alternatives differ in the last
     # bits (3.6e-15 for (B*A).sum(-1), 7.1e-15 for B @ A).
     _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
     Asin = None
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     RhoSum = _xp.einsum("j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0])
@@ -1966,6 +1970,10 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     # Follows the ambient namespace; the Legendre recursion below is pure
     # arithmetic on Python names, so it carries over unchanged.
     _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     costheta = pos[2] / r
     mass = _xp.asarray(mass)
@@ -2164,6 +2172,10 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     # numpy arrays at only the ll >= mm entries, leaving the rest zero, which
     # neither traces nor accepts a backend value. Same values in the same order.
     _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     phi = _xp.atan2(pos[1], pos[0])
     costheta = pos[2] / r
