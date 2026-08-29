@@ -2652,14 +2652,12 @@ def _scf_compute_coeffs_axi_timedep(
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-            PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
-        else:
-            PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
+        # Router call; byte-identical on numpy to the scipy spelling it replaces.
+        PP = assoc_legendre(L, 1, costheta)[..., 0][numpy.newaxis, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-        phi_nl = (
-            a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0) * _C(xi, N, L)[:, :] * PP
-        )
+        _CC = _C(xi, N, L)[:, :]
+        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
         base = phi_nl * dV  # (N, L)
         return f(R, z, 0.0)[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
@@ -2683,10 +2681,11 @@ def _scf_compute_coeffs_axi_timedep(
     )
     I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
     constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
-    Acos = numpy.zeros((len(tgrid), N, L, 1), float)
-    Acos[:, :, :, 0] = (
-        2 * (I**-1)[numpy.newaxis] * integrated * constants[numpy.newaxis]
-    )
+    # Built functionally; groups as ((2*I**-1) * integrated) * constants with
+    # only the first product commuted so the backend array leads.
+    _fac, _con = like(integrated, 2 * (I**-1)[numpy.newaxis], constants[numpy.newaxis])
+    _xp = get_namespace(integrated)
+    Acos = _xp.reshape((integrated * _fac) * _con, (len(tgrid), N, L, 1))
     return Acos, None
 
 
@@ -2709,27 +2708,14 @@ def _scf_compute_coeffs_timedep(
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-            PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
-        else:
-            PP = numpy.swapaxes(
-                assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][:, :L],
-                0,
-                1,
-            ).T[numpy.newaxis, :, :]
+        # Router call; byte-identical on numpy (swapaxes + .T cancel for 2-D).
+        PP = assoc_legendre(L, L, costheta)[numpy.newaxis, :, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-        phi_nl = (
-            -(a**3)
-            * (1.0 + xi) ** l
-            * (1.0 - xi) ** (l + 1.0)
-            * _C(xi, N, L)[:, :, numpy.newaxis]
-            * PP
-        )
-        base = (
-            phi_nl[numpy.newaxis, :, :, :]
-            * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
-            * dV
-        )  # (2, N, L, L)
+        _CC = _C(xi, N, L)[:, :, numpy.newaxis]
+        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        _cs = like(phi_nl, numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)]))
+        base = phi_nl[numpy.newaxis, :, :, :] * _cs * dV  # (2, N, L, L)
         return f(R, z, phi)[:, None, None, None, None] * base[numpy.newaxis]
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
@@ -2758,9 +2744,12 @@ def _scf_compute_coeffs_timedep(
         - 2 * gammaln(2 * l + 3.0 / 2)
     )
     I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-    res = (
-        2 * (I**-1.0)[None, None, :, :, :] * integrated * constants[None, None, :, :, :]
+    _fac, _con = like(
+        integrated,
+        2 * (I**-1.0)[None, None, :, :, :],
+        constants[None, None, :, :, :],
     )
+    res = (integrated * _fac) * _con
     return res[:, 0], res[:, 1]
 
 
