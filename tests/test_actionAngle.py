@@ -9981,4 +9981,41 @@ def test_actionAngleStaeckelInverse_toy_angle_limit_cycle():
         _Easy(), thR, thz, 0.02, 1.0, 0.9, None, None
     )
     assert wrapped(tAr, thR) < 1e-13, "A contracting solve was disturbed"
+
+def test_actionAngleStaeckelInverse_canonical_label_inversion_vectorized(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # The label inversion is a two-dimensional Newton per torus, and at
+    # these array sizes its Python-level call overhead dominates the
+    # arithmetic, which makes an ensemble expensive. The vectorized form
+    # solves all tori together and must agree with the scalar one exactly
+    import numpy
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    rng = numpy.random.default_rng(42)
+    n = 16
+    Lz = rng.uniform(float(aASI._Lzgrid[2]), float(aASI._Lzgrid[-3]), n)
+    jr = rng.uniform(0.02, 0.08, n)
+    jz = rng.uniform(0.02, 0.08, n)
+    ref = numpy.array(
+        [numpy.atleast_2d(aASI._canon_coords(jr[i], Lz[i], jz[i]))[0] for i in range(n)]
+    )
+    got = aASI._canon_coords_vec(jr, Lz, jz)
+    assert numpy.amax(numpy.fabs(got - ref)) < 1e-10, (
+        "The vectorized label inversion disagrees with the scalar one: %g"
+        % numpy.amax(numpy.fabs(got - ref))
+    )
+    # and it raises on an L_z outside the grid, as the scalar one does
+    with pytest.raises(ValueError) as excinfo:
+        aASI._canon_coords_vec(jr, Lz * 0.0 + 1e3, jz)
+    assert "outside the grid" in str(excinfo.value)
+    # non-convergence is reported with the offending torus, not silently
+    maxiter = aASI._maxiter
+    try:
+        aASI._maxiter = 1
+        with pytest.raises(ValueError) as excinfo:
+            aASI._canon_coords_vec(jr, Lz, jz)
+        assert "did not converge" in str(excinfo.value)
+    finally:
+        aASI._maxiter = maxiter
     return None
