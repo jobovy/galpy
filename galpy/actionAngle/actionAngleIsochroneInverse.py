@@ -14,6 +14,11 @@ from ..potential import IsochronePotential
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
+# Residual above which an angle is handed to the bracketing solve rather
+# than trusted from the Halley iteration.  A module constant so that the
+# fallback branch can be exercised: no eccentricity reaches it otherwise.
+_KEPLER_RESID_TOL = 1e-12
+
 
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
@@ -170,7 +175,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
             eta -= f / (fp - f * (eta - angler - f) / (2.0 * fp))
             if numpy.all(numpy.fabs(f) < 1e-14 * (1.0 + numpy.fabs(angler))):
                 break
-        bad = numpy.fabs(eta - k * numpy.sin(eta) - angler) > 1e-12 * (
+        bad = numpy.fabs(eta - k * numpy.sin(eta) - angler) > _KEPLER_RESID_TOL * (
             1.0 + numpy.fabs(angler)
         )
         for ii in numpy.arange(len(angler))[bad]:

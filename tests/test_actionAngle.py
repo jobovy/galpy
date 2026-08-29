@@ -8551,3 +8551,49 @@ def test_actionAngle_inner_attributeerror_is_not_masked(public, private):
         f"{public} masked the inner AttributeError; got: {excinfo.value}"
     )
     return None
+
+
+def test_actionAngleIsochroneInverse_kepler_bracketing_fallback():
+    # The Halley iteration solves Kepler's equation for every angle at once
+    # and converges for any e < 1, so the bracketing fallback is not reached
+    # in normal use. It still has to be right when it is, so force it: with
+    # the acceptance residual set negative every angle is handed to brentq,
+    # and the two solvers must agree
+    import numpy
+
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    aAII = actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.2, b=0.6))
+    angler = numpy.linspace(0.01, 2.0 * numpy.pi - 0.01, 32)
+    ref = numpy.array(
+        [
+            numpy.atleast_1d(q)
+            for q in aAII._xvFreqs(0.1, 0.7, 0.2, angler, angler * 0.7, angler * 1.3)[
+                :6
+            ]
+        ]
+    )
+    # the package __init__ rebinds this name to the class, so reach the
+    # module through sys.modules rather than by importing it
+    import sys
+
+    _m = sys.modules["galpy.actionAngle.actionAngleIsochroneInverse"]
+    tol = _m._KEPLER_RESID_TOL
+    try:
+        _m._KEPLER_RESID_TOL = -1.0  # every angle goes to the bracketing solve
+        got = numpy.array(
+            [
+                numpy.atleast_1d(q)
+                for q in aAII._xvFreqs(
+                    0.1, 0.7, 0.2, angler, angler * 0.7, angler * 1.3
+                )[:6]
+            ]
+        )
+    finally:
+        _m._KEPLER_RESID_TOL = tol
+    assert numpy.max(numpy.fabs(got - ref)) < 1e-12, (
+        "The bracketing fallback disagrees with the Halley iteration: %g"
+        % numpy.max(numpy.fabs(got - ref))
+    )
+    return None
