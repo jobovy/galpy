@@ -2624,7 +2624,10 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
     def integrand(xi):
         r = _xiToR(xi, a)
         base = a**3.0 * (1 + xi) ** 2.0 * (1 - xi) ** -3.0 * _C(xi, N, 1)[:, 0]
-        return f(r, 0.0, 0.0)[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
+        # `f` evaluates the density over tgrid and returns NUMPY; anchor it
+        # before it meets the (now backend) base, as in the axi/general twins.
+        _ft = like(base, f(r, 0.0, 0.0))
+        return _ft[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
 
     Ksample = [max(N + 1, 20)]
     if radial_order is not None:
@@ -2632,8 +2635,12 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
     integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
     n = numpy.arange(0, N)
     K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
-    Acos = numpy.zeros((len(tgrid), N, 1, 1), float)
-    Acos[:, :, 0, 0] = 2 * K[numpy.newaxis] * integrated
+    # Functional build; groups as (2*K) * integrated with only that product
+    # commuted so the backend array leads and the numpy bits are unchanged.
+    _xp = get_namespace(integrated)
+    Acos = _xp.reshape(
+        integrated * like(integrated, 2 * K[numpy.newaxis]), (len(tgrid), N, 1, 1)
+    )
     return Acos, None
 
 
