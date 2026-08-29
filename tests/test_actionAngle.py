@@ -7835,10 +7835,13 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    # The canonical default decomposes the mapping in the shear-free gauge,
+    # whose recomputed tables agree with the equal-time ones at their common
+    # accuracy (~1.5e-7 here), slightly above the old bound of 1e-7
+    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 3e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 3e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     return None
@@ -8110,16 +8113,15 @@ def test_actionAngleVerticalInverse_notE_errors():
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
 
 
-def _vertical_canonical_setup(canonical=None, nE=21):
+def _vertical_canonical_setup(nE=21):
     from galpy.actionAngle.actionAngleVerticalInverse import (
         actionAngleVerticalInverse,
     )
     from galpy.potential import MWPotential2014, toVerticalPotential
 
     vp = toVerticalPotential(MWPotential2014, 1.0)
-    kwargs = {} if canonical is None else dict(canonical=canonical)
     return actionAngleVerticalInverse(
-        pot=vp, Es=numpy.linspace(0.02, 0.35, nE), setup_interp=True, nta=128, **kwargs
+        pot=vp, Es=numpy.linspace(0.02, 0.35, nE), setup_interp=True, nta=128
     )
 
 
@@ -8138,27 +8140,47 @@ def _vertical_symplectic_defect(aAVI, j, angle, h=1e-6):
     return numpy.max(numpy.abs(A.T @ Om @ A - Om))
 
 
-def test_actionAngleVerticalInverse_canonical_defect():
-    # The canonical mode's symplectic defect must sit at the finite-difference
-    # floor, orders below the old mode's, which lives at the interpolation
-    # error of its separately stored derivative tables
-    gold = _vertical_canonical_setup(canonical=False)
-    gnew = _vertical_canonical_setup()
-    assert gnew._canonical, (
-        "canonical does not default to True for an interpolating no-PT instance"
+def test_actionAngleVerticalInverse_canonical_defect_exactpt():
+    # the exact point transformation, canonically lifted: defect at the floor
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
     )
-    ds_old, ds_new = [], []
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    g = actionAngleVerticalInverse(
+        pot=vp,
+        Es=numpy.linspace(0.02, 0.35, 21),
+        setup_interp=True,
+        nta=128,
+        use_pointtransform="exact",
+    )
+    assert g._canonical
+    ds = []
+    for E in numpy.linspace(0.06, 0.30, 3):
+        j = float(numpy.atleast_1d(g.J(E))[0])
+        for th in (0.8, 2.1):
+            ds.append(_vertical_symplectic_defect(g, j, th))
+    assert numpy.max(ds) < 1e-6, (
+        "canonical exact-PT symplectic defect %g not at the test floor" % numpy.max(ds)
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_canonical_defect():
+    # Interpolating instances always evaluate canonically: the symplectic
+    # defect must sit at the finite-difference floor (the removed old
+    # architecture, with separately stored derivative tables, measured
+    # median 2.5e-4 on this same sweep)
+    gnew = _vertical_canonical_setup()
+    assert gnew._canonical, "interpolating instance is not canonical"
+    ds_new = []
     for E in numpy.linspace(0.06, 0.30, 4):
         j = float(numpy.atleast_1d(gnew.J(E))[0])
         for th in (0.8, 2.1):
-            ds_old.append(_vertical_symplectic_defect(gold, j, th))
             ds_new.append(_vertical_symplectic_defect(gnew, j, th))
     assert numpy.max(ds_new) < 1e-8, (
         "canonical-mode symplectic defect %g not at the test floor" % numpy.max(ds_new)
-    )
-    assert numpy.median(ds_old) > 1e-6, (
-        "the old mode's defect is unexpectedly small; this test has lost its "
-        "discriminating power"
     )
     return None
 
@@ -8209,15 +8231,31 @@ def test_actionAngleVerticalInverse_canonical_consistency():
         "dropping the compensation does not degrade the consistency relation "
         "(%g vs %g): the check is not sharp" % (mism0, mism)
     )
+    # with a point transformation the stored dSndJ live in the other gauge
+    # and the comparison is refused
+    from galpy.actionAngle.actionAngleVerticalInverse import (
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    gpt = actionAngleVerticalInverse(
+        pot=vp,
+        Es=numpy.linspace(0.02, 0.3, 7),
+        setup_interp=True,
+        use_pointtransform=True,
+        pt_deg=3,
+    )
+    with pytest.raises(RuntimeError) as excinfo:
+        gpt.check_canonical_consistency()
+    assert "gauge" in str(excinfo.value)
     return None
 
 
 def test_actionAngleVerticalInverse_canonical_freq():
-    # In the canonical mode the frequency is the exact derivative of the
-    # interpolated E(j) -- consistent with the chart (the integrator
-    # contract) -- and close to, but not identical with, the old mode's
-    # separately interpolated frequency
-    gold = _vertical_canonical_setup(canonical=False)
+    # The frequency is the exact derivative of the interpolated E(j) --
+    # consistent with the chart (the integrator contract) -- and close to,
+    # but not identical with, the separately interpolated true frequency
     gnew = _vertical_canonical_setup()
     for E in (0.1, 0.2):
         j = float(numpy.atleast_1d(gnew.J(E))[0])
@@ -8225,33 +8263,44 @@ def test_actionAngleVerticalInverse_canonical_freq():
         assert numpy.fabs(Onew - float(gnew.E.derivative()(j))) < 1e-14, (
             "canonical frequency is not the E(j) interpolant's own derivative"
         )
-        assert numpy.fabs(Onew / gold._Freqs(j) - 1.0) < 1e-3, (
-            "canonical frequency far from the old mode's"
+        assert numpy.fabs(Onew / float(gnew.Omega(gnew.E(j))) - 1.0) < 1e-3, (
+            "canonical frequency far from the true frequency"
         )
     return None
 
 
 def test_actionAngleVerticalInverse_canonical_errors():
-    # canonical=True requires interpolation and no point transformation
+    # every interpolating configuration is canonical; pt_only (an
+    # equal-time-gauge construct) requires setup_interp=False
     from galpy.actionAngle.actionAngleVerticalInverse import (
         actionAngleVerticalInverse,
     )
     from galpy.potential import MWPotential2014, toVerticalPotential
 
     vp = toVerticalPotential(MWPotential2014, 1.0)
-    with pytest.raises(ValueError) as excinfo:
-        actionAngleVerticalInverse(pot=vp, Es=[0.1, 0.2], canonical=True)
-    assert "canonical" in str(excinfo.value)
+    for ptkw in (
+        dict(use_pointtransform=True, pt_deg=3),
+        dict(use_pointtransform="exact"),
+    ):
+        g = actionAngleVerticalInverse(
+            pot=vp,
+            Es=numpy.linspace(0.02, 0.3, 7),
+            setup_interp=True,
+            **ptkw,
+        )
+        assert g._canonical
+        # the PT-table accessors remain available as diagnostics
+        assert numpy.all(numpy.isfinite(g.pt_coeffs(0.1)))
+        assert numpy.all(numpy.isfinite(g.pt_deriv_coeffs(0.1)))
     with pytest.raises(ValueError) as excinfo:
         actionAngleVerticalInverse(
             pot=vp,
-            Es=numpy.linspace(0.02, 0.3, 5),
+            Es=numpy.linspace(0.02, 0.3, 7),
             setup_interp=True,
-            use_pointtransform=True,
-            pt_deg=3,
-            canonical=True,
+            use_pointtransform="exact",
+            pt_only=True,
         )
-    assert "point transformation" in str(excinfo.value)
+    assert "pt_only" in str(excinfo.value)
     return None
 
 
