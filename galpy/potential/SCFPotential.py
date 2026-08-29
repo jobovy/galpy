@@ -2659,7 +2659,10 @@ def _scf_compute_coeffs_axi_timedep(
         _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
         base = phi_nl * dV  # (N, L)
-        return f(R, z, 0.0)[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
+        # `f` evaluates the density over tgrid and returns NUMPY, so it would own
+        # `f(...) * base` once base is a backend array; anchor it first.
+        _ft = like(base, f(R, z, 0.0))
+        return _ft[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
@@ -2716,7 +2719,9 @@ def _scf_compute_coeffs_timedep(
         phi_nl = _pref * _CC * PP
         _cs = like(phi_nl, numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)]))
         base = phi_nl[numpy.newaxis, :, :, :] * _cs * dV  # (2, N, L, L)
-        return f(R, z, phi)[:, None, None, None, None] * base[numpy.newaxis]
+        # `f` returns NUMPY over tgrid; anchor before it meets the backend base.
+        _ft = like(base, f(R, z, phi))
+        return _ft[:, None, None, None, None] * base[numpy.newaxis]
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
