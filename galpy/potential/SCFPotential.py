@@ -1832,16 +1832,18 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     # Construction-time numerical setup: pin to numpy so the particle-sum basis
     # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
     # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        Acos = numpy.zeros((N, 1, 1), float)
-        Asin = None
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        RhoSum = numpy.einsum(
-            "j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0]
-        )
-        n = numpy.arange(0, N)
-        K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
-        Acos[n, 0, 0] = 2 * K * RhoSum
+    # Follows the ambient namespace so backend particle positions/masses give
+    # coefficients differentiable w.r.t. them. einsum is used (not a
+    # sum-of-products rewrite) because its summation ORDER is what keeps the
+    # numpy result byte-identical: the obvious alternatives differ in the last
+    # bits (3.6e-15 for (B*A).sum(-1), 7.1e-15 for B @ A).
+    _xp = get_namespace(pos)
+    Asin = None
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    RhoSum = _xp.einsum("j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0])
+    n = numpy.arange(0, N)
+    K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    Acos = get_namespace(RhoSum).reshape(RhoSum * like(RhoSum, 2 * K), (N, 1, 1))
     return Acos, Asin
 
 
