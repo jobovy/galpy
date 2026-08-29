@@ -8797,3 +8797,56 @@ def test_actionAngleIsochroneInverse_kepler_bracketing_fallback():
         % numpy.max(numpy.fabs(got - ref))
     )
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_map():
+    # The momentum-matched map is what makes the auxiliary torus carry the
+    # target's content: corresponding points sweep the same action. Three
+    # properties it must have, each of which the construction relies on
+    import numpy
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=[0.5, 2.0], nta=128, use_pointtransform=False
+    )
+    for ii, E in enumerate(aAVI._Es):
+        D, K = aAVI._momentum_matched_map(ii, npt=24)
+        J = aAVI._js[ii]
+        # (1) the fit reproduces the matching condition to near machine
+        # precision; a pointwise inversion of A^A would floor at 1/nta
+        tau = 2.0 * numpy.pi * numpy.arange(1024) / 1024
+        ms = 2 * numpy.arange(1, len(D) + 1)
+        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+        AA = J * (eta - numpy.sin(eta) * numpy.cos(eta))
+        # rebuild A on the same grid
+        x = -aAVI._xmaxs[ii] * numpy.cos(tau)
+        from galpy.potential import evaluatelinearPotentials
+
+        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(
+            numpy.clip(
+                2.0 * (E - evaluatelinearPotentials(pot, x, use_physical=False)),
+                0.0,
+                None,
+            )
+        )
+        g = p * aAVI._xmaxs[ii] * numpy.sin(tau)
+        k = numpy.fft.fftfreq(1024, d=1.0 / 1024)
+        gh = numpy.fft.fft(g - numpy.mean(g))
+        ah = numpy.zeros_like(gh)
+        ah[1:] = gh[1:] / (1j * k[1:])
+        A = numpy.real(numpy.fft.ifft(ah))
+        A = A - A[0] + numpy.mean(g) * tau
+        assert numpy.amax(numpy.fabs(AA - A)) / (2.0 * numpy.pi * J) < 1e-8, (
+            "The momentum-matched map does not satisfy the matching condition"
+        )
+        # (2) the coefficients decay, so a short series suffices
+        assert numpy.fabs(D[-1]) < 0.05 * numpy.fabs(D[0]), (
+            "The anomaly map's coefficients do not decay"
+        )
+        # (3) K stays finite and O(1): it is xmax^2/J precisely so that it
+        # does not vanish with the action, unlike xmax itself
+        assert 0.1 < K < 10.0, "The storage variable K is not O(1): %g" % K
+    return None

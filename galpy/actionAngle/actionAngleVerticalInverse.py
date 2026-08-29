@@ -394,6 +394,77 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
         return None
 
+    def _momentum_matched_map(self, ii, npt=16, nta=1024):
+        """
+        Momentum-matched anomaly map of torus ii.
+
+        The auxiliary torus is the harmonic oscillator with the SAME action,
+        and corresponding points are those that have swept the same action:
+        A^A(eta) = A(tau).  Because the two actions agree, eta - tau is
+        periodic, and because the momentum is antisymmetric about the turning
+        points it is odd under tau -> 2 pi - tau, so the map is a pure sine
+        series.  For a potential symmetric about the midplane only the even
+        harmonics survive.
+
+        The auxiliary's cumulative action is A^A(eta) = J (eta - sin eta
+        cos eta): the harmonic frequency cancels between omega and the
+        squared amplitude 2J/omega, so the map does not depend on which
+        harmonic auxiliary is used, only on its action.
+
+        The coefficients are obtained by FITTING them to the matching
+        condition rather than by inverting A^A pointwise.  That inverse is
+        ill-conditioned at both turning points, where dA^A/deta vanishes like
+        sin^2, and a pointwise construction converges only as 1/nta; fitting
+        leaves the vanishing derivative as a factor rather than a divisor.
+
+        Parameters
+        ----------
+        ii : int
+            Index of the torus.
+        npt : int, optional
+            Number of (even) harmonics to fit.
+        nta : int, optional
+            Number of anomaly samples.
+
+        Returns
+        -------
+        tuple
+            (D, K) with D the sine coefficients of the even harmonics and
+            K = xmax^2 / J the storage variable, which stays finite in the
+            harmonic limit where xmax itself vanishes.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        E, xmax = self._Es[ii], self._xmaxs[ii]
+        tau = 2.0 * numpy.pi * numpy.arange(nta) / nta
+        x = -xmax * numpy.cos(tau)
+        p2 = 2.0 * (E - evaluatelinearPotentials(self._pot, x, use_physical=False))
+        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(numpy.clip(p2, 0.0, None))
+        g = p * xmax * numpy.sin(tau)
+        J = numpy.mean(g)
+        # spectral antiderivative of the zero-mean part: exact for the
+        # band-limited integrand, where a cumulative trapezoid would be
+        # second order and would floor the fit
+        k = numpy.fft.fftfreq(nta, d=1.0 / nta)
+        gh = numpy.fft.fft(g - J)
+        ah = numpy.zeros_like(gh)
+        ah[1:] = gh[1:] / (1j * k[1:])
+        A = numpy.real(numpy.fft.ifft(ah))
+        A = A - A[0] + J * tau
+        ms = 2 * numpy.arange(1, npt + 1)
+        S = numpy.sin(tau[:, None] * ms[None, :])
+
+        def _resid(D):
+            eta = tau + S @ D
+            return J * (eta - numpy.sin(eta) * numpy.cos(eta)) - A
+
+        sol = optimize.least_squares(
+            _resid, numpy.zeros(len(ms)), xtol=1e-15, ftol=1e-15, gtol=1e-15
+        )
+        return sol.x, xmax**2.0 / J
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline
