@@ -2113,6 +2113,25 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     return Acos, Asin
 
 
+def _stack_lm_grid(grid, N, L):
+    """Assemble a [ll][mm] list-of-lists of (N,) columns into (N, L, L).
+
+    Entries left as None (the ll < mm half the recursions never fill) become
+    zeros, matching the preallocated-zeros arrays this replaces.
+    """
+    filled = next(c for row in grid for c in row if c is not None)
+    xp = get_namespace(filled)
+    zero = xp.zeros_like(filled)
+    rows = [
+        xp.stack(
+            [grid[ll][mm] if grid[ll][mm] is not None else zero for mm in range(L)],
+            axis=-1,
+        )
+        for ll in range(L)
+    ]
+    return xp.stack(rows, axis=1)
+
+
 def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     """
     Numerically compute the expansion coefficients for a given $N$-body set of points
@@ -2140,62 +2159,67 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     - 2020-11-18 - Written - Morgan Bennett (UofT)
 
     """
-    # Construction-time numerical setup: pin to numpy so the particle-sum basis
-    # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
-    # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        phi = numpy.arctan2(pos[1], pos[0])
-        costheta = pos[2] / r
-        sintheta = numpy.sqrt(1.0 - costheta**2.0)
-        mass = numpy.atleast_1d(mass)
-        Acos, Asin = numpy.zeros([N, L, L]), numpy.zeros([N, L, L])
-        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-        # (n,l) dependent constant
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-        Inl = (
-            -Knl
-            * 2.0
-            * numpy.pi
-            / 2.0 ** (8.0 * l + 6.0)
-            * gamma(n + 4.0 * l + 3.0)
-            / gamma(n + 1)
-            / (n + 2.0 * l + 1.5)
-            / gamma(2.0 * l + 1.5) ** 2
-        )
-        for mm in range(L):  # Loop over m
-            cosmphi = numpy.cos(phi * mm)
-            sinmphi = numpy.sin(phi * mm)
-            # Set up Assoc. Legendre recursion
-            Plm = Pll
-            Plmm1 = 0.0
-            for ll in range(mm, L):
-                # Compute Gegenbauer polys for this l
-                Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-                phinlm = (
-                    -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-                )
-                # Acos
-                Sum = numpy.sqrt(
-                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-                ) * numpy.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-                Acos[:, ll, mm] = Sum / Inl[:, ll]
-                # Asin
-                Sum = numpy.sqrt(
-                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-                ) * numpy.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-                Asin[:, ll, mm] = Sum / Inl[:, ll]
-                # Recurse Assoc. Legendre
-                if ll < L:
-                    tmp = Plm
-                    Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
-                        ll - mm + 1
-                    )
-                    Plmm1 = tmp
+    # Follows the ambient namespace. The (l, m) grids are collected as Python
+    # lists and stacked once at the end: the original assigned into preallocated
+    # numpy arrays at only the ll >= mm entries, leaving the rest zero, which
+    # neither traces nor accepts a backend value. Same values in the same order.
+    _xp = get_namespace(pos)
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    phi = _xp.atan2(pos[1], pos[0])
+    costheta = pos[2] / r
+    sintheta = _xp.sqrt(1.0 - costheta**2.0)
+    mass = _xp.asarray(mass)
+    if mass.ndim == 0:  # what numpy.atleast_1d did here
+        mass = _xp.reshape(mass, (1,))
+    _cos = [[None] * L for _ in range(L)]  # [ll][mm]
+    _sin = [[None] * L for _ in range(L)]
+    Pll = _xp.ones(len(r))  # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+    Inl = (
+        -Knl
+        * 2.0
+        * numpy.pi
+        / 2.0 ** (8.0 * l + 6.0)
+        * gamma(n + 4.0 * l + 3.0)
+        / gamma(n + 1)
+        / (n + 2.0 * l + 1.5)
+        / gamma(2.0 * l + 1.5) ** 2
+    )
+    for mm in range(L):  # Loop over m
+        cosmphi = _xp.cos(phi * mm)
+        sinmphi = _xp.sin(phi * mm)
+        # Set up Assoc. Legendre recursion
+        Plm = Pll
+        Plmm1 = 0.0
+        for ll in range(mm, L):
+            # Compute Gegenbauer polys for this l
+            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
+            # Acos
+            Sum = numpy.sqrt(
+                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+            ) * _xp.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+            _cos[ll][mm] = Sum / like(Sum, Inl[:, ll])
+            # Asin
+            Sum = numpy.sqrt(
+                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+            ) * _xp.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+            _sin[ll][mm] = Sum / like(Sum, Inl[:, ll])
             # Recurse Assoc. Legendre
-            Pll *= -(2 * mm + 1.0) * sintheta
+            if ll < L:
+                tmp = Plm
+                Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
+                    ll - mm + 1
+                )
+                Plmm1 = tmp
+        # Recurse Assoc. Legendre (out-of-place: an in-place *= on a
+        # grad-tracking tensor would break the graph)
+        Pll = Pll * (-(2 * mm + 1.0) * sintheta)
+    Acos = _stack_lm_grid(_cos, N, L)
+    Asin = _stack_lm_grid(_sin, N, L)
     return Acos, Asin
 
 
