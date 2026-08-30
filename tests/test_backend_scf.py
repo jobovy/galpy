@@ -24,7 +24,7 @@ import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import SCFPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -578,3 +578,168 @@ def test_from_density_backend_amp_closure(backend_name, symmetry):
     with _b.use(backend_name, force=True):
         got = as_numpy(build()._Acos)
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+
+###############################################################################
+# scf_compute_coeffs_spherical: the coefficient quadrature follows the ambient
+# namespace, so the expansion is differentiable w.r.t. the DENSITY's parameters
+# (the thing you need to fit a density model through its SCF potential). The
+# whole function used to be pinned to numpy, which silently severed that
+# gradient -- silently, because the values were still correct.
+###############################################################################
+
+
+def _plummer_dens(b, xp=numpy):
+    # Finite at r = 0, so the density-arity autodetect resolves to one argument
+    # (a density that raises at r=0 falls through to the 3-argument branch and
+    # is then called with zeroed scale/mass, which silently returns all-zero
+    # coefficients -- a trap worth avoiding in tests).
+    def dens(r):
+        return 3.0 / (4.0 * numpy.pi) * b**3 * (b**2 + r**2) ** -2.5
+
+    return dens
+
+
+def _scalar_grad(backend_name, fn, x0):
+    """d fn / dx at x0 for a scalar backend parameter."""
+    if backend_name == "jax":
+        return float(jax.grad(fn)(jnp.asarray(x0)))
+    leaf = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+    out = fn(leaf)
+    out.backward()
+    return float(leaf.grad)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_spherical_backend_parity(backend_name):
+    # A backend density yields BACKEND coefficients (under the old numpy pin the
+    # values were right but the array was numpy, so gradients were already gone)
+    # and they agree with the numpy result.
+    from galpy import backend as _b
+    from galpy.backend import is_backend_array
+    from galpy.potential.SCFPotential import scf_compute_coeffs_spherical
+
+    ref, _ = scf_compute_coeffs_spherical(_plummer_dens(1.3), 6, a=1.0)
+    with _b.use(backend_name, force=True):
+        got, _ = scf_compute_coeffs_spherical(
+            _plummer_dens(_asarray(backend_name, 1.3)), 6, a=1.0
+        )
+        assert is_backend_array(got), (
+            "coefficients came back numpy, so the density gradient is severed"
+        )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_spherical_grad_wrt_density_parameter(backend_name):
+    # d A_000 / d b against central finite differences on the SAME code path.
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs_spherical
+
+    def A0(b):
+        A, _ = scf_compute_coeffs_spherical(_plummer_dens(b), 4, a=1.0)
+        return A[0, 0, 0]
+
+    b0, h = 1.3, 1e-6
+    with _b.use(backend_name, force=True):
+        fd = float(as_numpy(A0(b0 + h)) - as_numpy(A0(b0 - h))) / (2 * h)
+        grad = _scalar_grad(backend_name, A0, b0)
+    assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-6, (
+        f"d A000/db = {grad!r} disagrees with finite differences {fd!r}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_axi_grad_wrt_density_parameter(backend_name):
+    # Same check as the spherical case for the AXISYMMETRIC quadrature, which
+    # has its own integrand (and its own time-dependent twin).
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs_axi
+
+    def dens_of(b):
+        def dens(R, z):
+            r2 = R**2 + z**2
+            return 3.0 / (4.0 * numpy.pi) * b**3 * (b**2 + r2) ** -2.5
+
+        return dens
+
+    def A0(b):
+        A, _ = scf_compute_coeffs_axi(dens_of(b), 3, 2, a=1.0)
+        return A[0, 0, 0]
+
+    b0, h = 1.3, 1e-6
+    with _b.use(backend_name, force=True):
+        fd = float(as_numpy(A0(b0 + h)) - as_numpy(A0(b0 - h))) / (2 * h)
+        grad = _scalar_grad(backend_name, A0, b0)
+    assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-5, (
+        f"axi d A000/db = {grad!r} disagrees with finite differences {fd!r}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_general_grad_wrt_density_parameter(backend_name):
+    # The general (non-axisymmetric) quadrature. The cos(2 phi) term averages
+    # out of the m=0 monopole, so A000 -- and its derivative -- must match the
+    # spherical and axi routines; that agreement is a cross-routine check.
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs
+
+    def dens_of(b):
+        def dens(R, z, phi):
+            r2 = R**2 + z**2
+            return (
+                3.0
+                / (4.0 * numpy.pi)
+                * b**3
+                * (b**2 + r2) ** -2.5
+                * (1.0 + 0.1 * numpy.cos(2 * phi))
+            )
+
+        return dens
+
+    def A0(b):
+        A, _ = scf_compute_coeffs(dens_of(b), 2, 2, a=1.0)
+        return A[0, 0, 0]
+
+    b0, h = 1.3, 1e-6
+    with _b.use(backend_name, force=True):
+        fd = float(as_numpy(A0(b0 + h)) - as_numpy(A0(b0 - h))) / (2 * h)
+        grad = _scalar_grad(backend_name, A0, b0)
+    assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-5, (
+        f"general d A000/db = {grad!r} disagrees with finite differences {fd!r}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_xiToR_backend_branch_and_coeff_dens_cast(backend_name):
+    # Two leaf helpers whose BACKEND branch the numpy coverage run never enters:
+    # _xiToR's backend arm and _coeff_dens_numpy's cast. Exercise them directly
+    # with real backend arrays -- both are one-liners, so a value check pins
+    # them exactly rather than merely touching the line.
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import _coeff_dens_numpy, _RToxi, _xiToR
+
+    a = 1.7
+    with _b.use(backend_name, force=True):
+        xp = _b.get_namespace(numpy.zeros(1))
+        # asarray on a PYTHON LIST gives float32 under array_api_compat.torch
+        # even though conftest sets torch's default dtype to float64, so pin the
+        # dtype explicitly -- otherwise the rtol=1e-15 check below measures f32
+        # epsilon rather than the closed form.
+        xi = xp.asarray(numpy.array([-0.5, 0.0, 0.25], dtype=numpy.float64))
+        got = _xiToR(xi, a=a)
+    assert is_backend_array(got), "_xiToR must stay in the backend namespace"
+    # exact closed form: r = a (1+xi)/(1-xi)
+    want = numpy.array([a * (1 + x) / (1 - x) for x in (-0.5, 0.0, 0.25)])
+    numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-15, atol=0.0)
+    # round-trip through the sibling helper, which data-guards the same way
+    numpy.testing.assert_allclose(
+        as_numpy(_RToxi(got, a=a)), as_numpy(xi), rtol=1e-14, atol=1e-15
+    )
+    # _coeff_dens_numpy: casts a backend value, passes numpy through untouched
+    with _b.use(backend_name, force=True):
+        cast = _coeff_dens_numpy(xp.asarray(numpy.float64(3.25)))
+    assert not is_backend_array(cast), "_coeff_dens_numpy must return numpy"
+    assert float(cast) == 3.25
+    plain = numpy.array([1.5, 2.5])
+    assert _coeff_dens_numpy(plain) is plain, "numpy input must pass through unchanged"
