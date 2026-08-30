@@ -454,3 +454,12 @@ torch-jit tests/test_orbit.py::test_liouville_planar
 jax tests/test_scf.py::test_tdep_from_density_vectorized_matches_loop  # measured 2026-08-29: 671s local -> ~476s CI
 jax tests/test_scf.py::test_tdep_from_density_nonvectorizable_fallback  # measured 2026-08-29: 555s local -> ~394s CI
 jax tests/test_scf.py::test_tdep_from_density_time_batching  # measured 2026-08-29: 381s local -> ~270s CI, only 10% under the cap
+#
+# DehnenBinney98, jax arm (added 2026-08-29). Same eager-overhead class as the
+# tdep entries above, but at a call site I had not anticipated: importing
+# mwpotentials CONSTRUCTS a DiskSCFPotential, whose __init__ calls
+# SCFPotential.from_density -> scf_compute_coeffs_axi -> the 8000-call
+# quadrature. So a potential CONSTRUCTOR, not a test body, pays the cost.
+# Measured by CI: pytest-timeout fired at >300s (job 99168846346). The test
+# PASSES given time -- this is performance, not correctness.
+jax tests/test_potential.py::test_DehnenBinney98  # CI 2026-08-29: Failed: Timeout (>300.0s); import builds a DiskSCFPotential
