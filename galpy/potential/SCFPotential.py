@@ -216,11 +216,24 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         NN = sph_harm_normalization(Acos.shape[1], Acos.shape[2])
 
-        self._Acos = Acos * NN[numpy.newaxis, :, :]
+        # `like` carries the numpy normalization onto Acos's namespace/device.
+        # Since the coefficient routines follow the ambient namespace, Acos is a
+        # backend array under a forced backend and numpy would otherwise OWN this
+        # product -- a __array_wrap__ DeprecationWarning today (an ERROR on the
+        # -W error test_backend shard, and a hard failure on a future numpy).
+        # No-op on numpy, so the numpy product is unchanged.
+        _NN = like(Acos, NN[numpy.newaxis, :, :])
+        self._Acos = Acos * _NN
         if Asin is not None:
-            self._Asin = Asin * NN[numpy.newaxis, :, :]
+            self._Asin = Asin * _NN
         else:
-            self._Asin = numpy.zeros_like(Acos)
+            # numpy.zeros_like on a backend array returns NUMPY, which would make
+            # _Asin a different namespace from _Acos. Dispatch on the data.
+            self._Asin = (
+                get_namespace(Acos).zeros_like(Acos)
+                if is_backend_array(Acos)
+                else numpy.zeros_like(Acos)
+            )
 
     @staticmethod
     def _coeffs_to_timeseries(coeffs, tgrid, name):
@@ -777,9 +790,15 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             Acos, Asin = cls._symmetry_coeffs(
                 dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
             )
-            Acos_all = numpy.repeat(Acos[numpy.newaxis], Nt, axis=0)
+            # _symmetry_coeffs follows the ambient namespace, so under a forced
+            # backend these are backend arrays and numpy.repeat would OWN the op
+            # and return NUMPY -- silently severing the gradient for the
+            # constant-in-time path, not merely warning. Dispatch on the data;
+            # both backend namespaces expose repeat with numpy's semantics.
+            _xp = get_namespace(Acos) if is_backend_array(Acos) else numpy
+            Acos_all = _xp.repeat(Acos[numpy.newaxis], Nt, axis=0)
             Asin_all = (
-                numpy.repeat(Asin[numpy.newaxis], Nt, axis=0)
+                _xp.repeat(Asin[numpy.newaxis], Nt, axis=0)
                 if Asin is not None
                 else None
             )
