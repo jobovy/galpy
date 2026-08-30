@@ -929,7 +929,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # Newton then needs a handful of steps instead of a few dozen
         eta = numpy.asarray(eta, dtype="float")
         x = eta - numpy.sin(eta[:, None] * ms[None, :]) @ Dm
-        prev = numpy.inf
         for _ in range(self._maxiter):
             f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
             fp = 1.0 + numpy.cos(x[:, None] * ms[None, :]) @ (ms * Dm)
@@ -938,12 +937,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             worst = numpy.max(numpy.fabs(f))
             if worst < self._angle_tol:
                 break
-            # as in the compensated angle iteration, the residual bottoms out
-            # on its own round-off floor, so stop once it stops improving
-            # rather than spending iterations that no longer buy digits
-            if worst > 0.9 * prev and worst < 1e-9:
-                break
-            prev = worst
         else:
             # The stored map is monotone whenever sum_m m |D_m| < 1, which
             # the construction guarantees, so eta(tau) can always be
