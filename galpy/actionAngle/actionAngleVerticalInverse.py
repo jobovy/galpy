@@ -465,6 +465,325 @@ class actionAngleVerticalInverse(actionAngleInverse):
         )
         return sol.x, xmax**2.0 / J
 
+    def _setup_momentum_matched_family(self, npt=16, nta=1024):
+        """
+        Build the momentum-matched family: the anomaly map and the storage
+        variable K on every torus of the energy grid.
+
+        This is the whole stored content of the canonical map in the new
+        scheme.  There is no table of angle-fit coefficients: the auxiliary
+        torus carries the target's content through the anomaly map alone,
+        and the amplitude enters only through K = xmax^2 / J.
+
+        K is stored rather than xmax because xmax vanishes with the action
+        while K does not: in the harmonic limit xmax^2 -> 2 J / omega, so
+        K -> 2 / omega, which is finite and O(1).  Storing xmax instead would
+        put a square-root cusp at the bottom of the grid and spend the
+        interpolant's resolution resolving it.
+
+        Parameters
+        ----------
+        npt : int, optional
+            Number of (even) harmonics of the anomaly map.
+        nta : int, optional
+            Number of anomaly samples used to fit them.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        if self._nE < 4:
+            raise RuntimeError(
+                "The momentum-matched family interpolates the stored tables "
+                "with a cubic spline in the action, which needs at least "
+                "four energies"
+            )
+        D = numpy.zeros((self._nE, npt))
+        K = numpy.empty(self._nE)
+        for ii in range(self._nE):
+            if self._js[ii] <= 0.0:
+                # The bottom of the grid IS a harmonic oscillator, so the
+                # auxiliary torus is the torus, the anomaly map is the
+                # identity (D = 0), and K takes its limit 2 / omega.
+                K[ii] = 2.0 / self._Omegas[ii]
+                continue
+            D[ii], K[ii] = self._momentum_matched_map(ii, npt=npt, nta=nta)
+        self._mm_D = D
+        self._mm_K = K
+        self._mm_npt = npt
+        # Filtered once so that evaluation differentiates the SAME interpolant
+        # it evaluates; storing separate derivative tables is what would break
+        # manifest canonicity.
+        self._mm_D_c = ndimage.spline_filter1d(D, order=3, axis=0, mode="mirror")
+        self._mm_K_c = ndimage.spline_filter1d(K, order=3, axis=0, mode="mirror")
+        self._mm_E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        self._mm_dEdj = self._mm_E.derivative()
+        return None
+
+    def _mm_tables(self, j):
+        """
+        The anomaly map, the storage variable, and their exact action
+        derivatives at action j.
+
+        Both derivatives come from differentiating the stored interpolants
+        and chaining through E(j); nothing is finite-differenced and no
+        derivative is stored separately, which is what makes the resulting
+        map symplectic whatever the tables happen to contain.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+
+        Returns
+        -------
+        tuple
+            (D, dD/dj, K, dK/dj).
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        tE = float(self._mm_E(j))
+        Emin, Emax = self._Es[0], self._Es[-1]
+        row = (tE - Emin) / (Emax - Emin) * (self._nE - 1.0)
+        drowdj = (self._nE - 1.0) / (Emax - Emin) * float(self._mm_dEdj(j))
+        D, dD_drow = self._can_row(self._mm_D_c, row)
+        K, dK_drow = self._can_row(self._mm_K_c, row)
+        return D, dD_drow * drowdj, float(K), float(dK_drow) * drowdj
+
+    def _mm_xp_of_tau(self, j, tau):
+        """
+        Position and momentum at anomaly tau on the torus of action j, from
+        the stored family alone.
+
+        The auxiliary is the harmonic oscillator of the same action, so
+        x^A = -sqrt(2 J / omega) cos eta and p^A = sqrt(2 J omega) sin eta,
+        and the flux identity p dx/dtau = p^A (dx^A/deta)(deta/dtau) gives
+
+            p = 2 J sin^2(eta) eta'(tau) / (xmax sin tau) ,
+
+        with xmax = sqrt(K J).  The auxiliary frequency cancels between the
+        momentum and the amplitude, which is the same cancellation that
+        makes the anomaly map itself independent of which harmonic auxiliary
+        is used: only its action matters.
+
+        Both factors vanish at the turning points, where sin tau and
+        sin^2 eta go to zero together and the momentum is zero; the ratio is
+        taken only where sin tau does not vanish exactly, and the limit is
+        supplied directly.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        tuple
+            (x, p) at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        if j <= 0.0:
+            raise RuntimeError(
+                "The momentum-matched reconstruction needs a positive "
+                "action: the zero-action torus is a point"
+            )
+        D, _, K, _ = self._mm_tables(j)
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+        detadtau = 1.0 + numpy.cos(tau[:, None] * ms[None, :]) @ (ms * D)
+        xmax = numpy.sqrt(K * j)
+        x = -xmax * numpy.cos(tau)
+        sintau = numpy.sin(tau)
+        p = numpy.zeros_like(tau)
+        nz = sintau != 0.0
+        p[nz] = 2.0 * j * numpy.sin(eta[nz]) ** 2.0 * detadtau[nz] / (xmax * sintau[nz])
+        return x, p
+
+    def _mm_compensation(self, j, tau):
+        """
+        The compensation integrand of the momentum-matched map, grouped so
+        that it is regular at the turning points.
+
+        The turning points move with the action, so at fixed position
+
+            d tau / d J |_x = (1 / xmax) (d xmax / d J) cos(tau) / sin(tau) ,
+
+        which diverges at both of them.  It is multiplied by
+        p^A (dx^A/deta)(deta/dtau) = 2 J sin^2(eta) eta'(tau), which vanishes
+        there, and the product is finite: the sin(tau) cancels against the
+        momentum and leaves
+
+            p (d xmax / d J) cos(tau) .
+
+        Computing the two factors separately returns nan at an anomaly
+        sitting exactly on a turning point, one being infinite and the other
+        zero; this grouped form is finite everywhere.  The amplitude
+        derivative comes from the stored K,
+
+            d xmax / d J = (K + J dK/dJ) / (2 sqrt(K J)) ,
+
+        so it too differentiates the interpolant that the evaluation reads.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        numpy.ndarray
+            The compensation integrand at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        _, _, K, dKdj = self._mm_tables(j)
+        _, p = self._mm_xp_of_tau(j, tau)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        dxmaxdj = (K + j * dKdj) / (2.0 * numpy.sqrt(K * j))
+        return p * dxmaxdj * numpy.cos(tau)
+
+    def _mm_angle_of_tau(self, j, tau):
+        """
+        The angle at anomaly tau on the torus of action j.
+
+        The matching condition makes the generating function explicit: the
+        cumulative action of the target equals that of its auxiliary, so
+        W = J (eta - sin eta cos eta) with eta = eta(tau; J).  The angle is
+        its action derivative at fixed position, and the chain rule splits
+        into a term at fixed anomaly and the boundary term that the moving
+        turning points contribute,
+
+            theta = (eta - sin eta cos eta)
+                    + 2 J sin^2(eta) sum_m (dD_m/dJ) sin(m tau)
+                    + p (d xmax / d J) cos(tau) ,
+
+        the last being the grouped compensation.  Every ingredient is either
+        closed form or a derivative of the stored interpolants, so no
+        quadrature and no separately tabulated derivative enters.
+
+        A constant pi/2 is subtracted to put the result in the convention of
+        the forward transformation, which measures the angle from the
+        midplane while the anomaly is measured from the turning point.  The
+        offset is a choice of origin and nothing more: it comes out at
+        pi/2 to 4e-13 independently of the torus and of the grid, while the
+        anomaly-dependent part of the difference converges away as the grid
+        is refined (2.5e-3, 1.3e-5, 1.7e-8, 1.1e-9 for 9, 17, 33 and 65
+        energies), which is the family interpolation of dD_m/dJ and not an
+        error of this relation.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        numpy.ndarray
+            The angle at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        D, dDdj, _, _ = self._mm_tables(j)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+        detadj = numpy.sin(tau[:, None] * ms[None, :]) @ dDdj
+        return (
+            eta
+            - numpy.sin(eta) * numpy.cos(eta)
+            + 2.0 * j * numpy.sin(eta) ** 2.0 * detadj
+            + self._mm_compensation(j, tau)
+            - 0.5 * numpy.pi
+        )
+
+    def _mm_tau_of_angle(self, j, angle):
+        """
+        Invert the angle relation: the anomaly at a requested angle.
+
+        The angle advances monotonically with the anomaly, by exactly 2 pi
+        over a libration, so the root on [0, 2 pi) is unique and can be
+        bracketed.  Bisection is used rather than Newton because it needs no
+        derivative of the relation and cannot fail: the construction
+        guarantees the bracket, and fifty-odd halvings of [0, 2 pi) reach
+        the resolution of a double.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : float or numpy.ndarray
+            Angle.
+
+        Returns
+        -------
+        numpy.ndarray
+            The anomaly at the requested angles.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        # Solve in the anomaly's own origin: the relation runs from 0 to
+        # 2 pi there, so it is monotone and unwrapped, while the requested
+        # angle is measured from the midplane.
+        angle = numpy.mod(
+            numpy.atleast_1d(numpy.array(angle, dtype="float")) + 0.5 * numpy.pi,
+            2.0 * numpy.pi,
+        )
+        lo = numpy.zeros_like(angle)
+        hi = numpy.zeros_like(angle) + 2.0 * numpy.pi
+        for _ in range(60):
+            mid = 0.5 * (lo + hi)
+            f = self._mm_angle_of_tau(j, mid) + 0.5 * numpy.pi
+            low = f < angle
+            lo = numpy.where(low, mid, lo)
+            hi = numpy.where(low, hi, mid)
+        return 0.5 * (lo + hi)
+
+    def _mm_xp_of_angle(self, j, angle):
+        """
+        The canonical evaluation: position and momentum at a requested
+        action and angle, through the momentum-matched map.
+
+        This is the composition the construction is built to deliver -- the
+        angle shift, the auxiliary's inverse, and the inverse cotangent lift
+        -- with every ingredient either closed form or a derivative of the
+        stored interpolants.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : float or numpy.ndarray
+            Angle.
+
+        Returns
+        -------
+        tuple
+            (x, p) at the requested angles.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        return self._mm_xp_of_tau(j, self._mm_tau_of_angle(j, angle))
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline
