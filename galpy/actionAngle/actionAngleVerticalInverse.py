@@ -712,6 +712,78 @@ class actionAngleVerticalInverse(actionAngleInverse):
             - 0.5 * numpy.pi
         )
 
+    def _mm_tau_of_angle(self, j, angle):
+        """
+        Invert the angle relation: the anomaly at a requested angle.
+
+        The angle advances monotonically with the anomaly, by exactly 2 pi
+        over a libration, so the root on [0, 2 pi) is unique and can be
+        bracketed.  Bisection is used rather than Newton because it needs no
+        derivative of the relation and cannot fail: the construction
+        guarantees the bracket, and fifty-odd halvings of [0, 2 pi) reach
+        the resolution of a double.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : float or numpy.ndarray
+            Angle.
+
+        Returns
+        -------
+        numpy.ndarray
+            The anomaly at the requested angles.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        # Solve in the anomaly's own origin: the relation runs from 0 to
+        # 2 pi there, so it is monotone and unwrapped, while the requested
+        # angle is measured from the midplane.
+        angle = numpy.mod(
+            numpy.atleast_1d(numpy.array(angle, dtype="float")) + 0.5 * numpy.pi,
+            2.0 * numpy.pi,
+        )
+        lo = numpy.zeros_like(angle)
+        hi = numpy.zeros_like(angle) + 2.0 * numpy.pi
+        for _ in range(60):
+            mid = 0.5 * (lo + hi)
+            f = self._mm_angle_of_tau(j, mid) + 0.5 * numpy.pi
+            low = f < angle
+            lo = numpy.where(low, mid, lo)
+            hi = numpy.where(low, hi, mid)
+        return 0.5 * (lo + hi)
+
+    def _mm_xp_of_angle(self, j, angle):
+        """
+        The canonical evaluation: position and momentum at a requested
+        action and angle, through the momentum-matched map.
+
+        This is the composition the construction is built to deliver -- the
+        angle shift, the auxiliary's inverse, and the inverse cotangent lift
+        -- with every ingredient either closed form or a derivative of the
+        stored interpolants.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : float or numpy.ndarray
+            Angle.
+
+        Returns
+        -------
+        tuple
+            (x, p) at the requested angles.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        return self._mm_xp_of_tau(j, self._mm_tau_of_angle(j, angle))
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline

@@ -9072,3 +9072,49 @@ def test_actionAngleVerticalInverse_momentum_matched_angle():
         )
     )
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_evaluation():
+    # End to end: enter at a requested action and angle, come out at a point,
+    # and let the forward transformation say whether it is the right one.
+    import numpy
+
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    # off the turning points, where the FORWARD transformation cannot place
+    # an angle: there p = 0 and the angle is 0 or pi by definition
+    th = 2.0 * numpy.pi * (numpy.arange(32) + 0.37) / 32.0
+
+    def errs(nE):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot,
+            Es=numpy.linspace(0.0, 2.0, nE),
+            nta=128,
+            use_pointtransform=False,
+        )
+        aAVI._setup_momentum_matched_family(npt=20, nta=1024)
+        j = aAVI._js[(nE - 1) // 2]
+        # the anomaly inversion is exact to round-off
+        tau = numpy.linspace(0.1, 2.0 * numpy.pi - 0.1, 17)
+        back = aAVI._mm_tau_of_angle(j, aAVI._mm_angle_of_tau(j, tau))
+        assert numpy.amax(numpy.fabs(back - tau)) < 1e-12, (
+            "The angle relation does not invert"
+        )
+        x, p = aAVI._mm_xp_of_angle(j, th)
+        jf, _, thfwd = aAV.actionsFreqsAngles(x, p)
+        dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        return numpy.amax(numpy.fabs(jf - j)), numpy.amax(dth)
+
+    dj9, dth9 = errs(9)
+    dj33, dth33 = errs(33)
+    # the action is what the construction preserves exactly, and it does so
+    # whatever the tables contain -- it does not need a fine grid
+    assert dj9 < 1e-10, "The evaluation does not land on the requested torus"
+    assert dj33 < 1e-10, "The evaluation does not land on the requested torus"
+    # the angle carries the family's interpolation error, so it improves
+    assert dth9 < 5e-3, "The evaluated angle is wrong"
+    assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge with the grid"
+    return None
