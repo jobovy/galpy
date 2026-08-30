@@ -22,6 +22,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    like,
     match_input_dtype,
 )
 from ..backend import use as _use_backend
@@ -165,6 +166,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         """
         ##Errors
         shape = Acos.shape
+        # Validation and symmetry detection are DISCRETE structural decisions
+        # (shape errors, the m>l warning, isNonAxi) -- not part of the
+        # differentiable computation -- and numpy.triu/all/any reject a backend
+        # array. Read them off numpy views; the coefficients STORED below stay
+        # in whatever namespace they arrived in, so a backend build keeps its
+        # gradient. No-op on numpy.
+        _Ac = as_numpy(Acos)
+        _As = None if Asin is None else as_numpy(Asin)
         errorMessage = None
         if len(shape) != 3:
             errorMessage = "Acos must be a 3 dimensional numpy array"
@@ -172,7 +181,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif Asin is None and shape[1] > 1 and numpy.any(Acos[:, :, 1:] != 0):
+        elif Asin is None and shape[1] > 1 and numpy.any(_Ac[:, :, 1:] != 0):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -185,8 +194,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(Acos, 1) != 0) or (
-            Asin is not None and numpy.any(numpy.triu(Asin, 1) != 0)
+        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
+            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -201,17 +210,30 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin is None
             or shape[1] == 1
-            or (numpy.all(Acos[:, :, 1:] == 0) and numpy.all(Asin[:, :, :] == 0))
+            or (numpy.all(_Ac[:, :, 1:] == 0) and numpy.all(_As[:, :, :] == 0))
         ):
             self.isNonAxi = False
 
         NN = sph_harm_normalization(Acos.shape[1], Acos.shape[2])
 
-        self._Acos = Acos * NN[numpy.newaxis, :, :]
+        # `like` carries the numpy normalization onto Acos's namespace/device.
+        # Since the coefficient routines follow the ambient namespace, Acos is a
+        # backend array under a forced backend and numpy would otherwise OWN this
+        # product -- a __array_wrap__ DeprecationWarning today (an ERROR on the
+        # -W error test_backend shard, and a hard failure on a future numpy).
+        # No-op on numpy, so the numpy product is unchanged.
+        _NN = like(Acos, NN[numpy.newaxis, :, :])
+        self._Acos = Acos * _NN
         if Asin is not None:
-            self._Asin = Asin * NN[numpy.newaxis, :, :]
+            self._Asin = Asin * _NN
         else:
-            self._Asin = numpy.zeros_like(Acos)
+            # numpy.zeros_like on a backend array returns NUMPY, which would make
+            # _Asin a different namespace from _Acos. Dispatch on the data.
+            self._Asin = (
+                get_namespace(Acos).zeros_like(Acos)
+                if is_backend_array(Acos)
+                else numpy.zeros_like(Acos)
+            )
 
     @staticmethod
     def _coeffs_to_timeseries(coeffs, tgrid, name):
@@ -255,6 +277,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         )
         ##Errors (each time slice must satisfy the static coefficient constraints)
         shape = Acos_all.shape
+        # Same discrete validation/symmetry gate as _init_static.
+        _Ac = as_numpy(Acos_all)
+        _As = None if Asin_all is None else as_numpy(Asin_all)
         errorMessage = None
         if Acos_all.ndim != 4 or shape[0] != Nt:
             errorMessage = (
@@ -266,9 +291,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin_all is None and not (shape[3] == 1 or shape[2] == shape[3]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif (
-            Asin_all is None and shape[2] > 1 and numpy.any(Acos_all[:, :, :, 1:] != 0)
-        ):
+        elif Asin_all is None and shape[2] > 1 and numpy.any(_Ac[:, :, :, 1:] != 0):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -281,8 +304,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(Acos_all, 1) != 0) or (
-            Asin_all is not None and numpy.any(numpy.triu(Asin_all, 1) != 0)
+        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
+            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -297,7 +320,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin_all is None
             or shape[2] == 1
-            or (numpy.all(Acos_all[:, :, :, 1:] == 0) and numpy.all(Asin_all == 0))
+            or (numpy.all(_Ac[:, :, :, 1:] == 0) and numpy.all(_As == 0))
         ):
             self.isNonAxi = False
 
@@ -767,9 +790,15 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             Acos, Asin = cls._symmetry_coeffs(
                 dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
             )
-            Acos_all = numpy.repeat(Acos[numpy.newaxis], Nt, axis=0)
+            # _symmetry_coeffs follows the ambient namespace, so under a forced
+            # backend these are backend arrays and numpy.repeat would OWN the op
+            # and return NUMPY -- silently severing the gradient for the
+            # constant-in-time path, not merely warning. Dispatch on the data;
+            # both backend namespaces expose repeat with numpy's semantics.
+            _xp = get_namespace(Acos) if is_backend_array(Acos) else numpy
+            Acos_all = _xp.repeat(Acos[numpy.newaxis], Nt, axis=0)
             Asin_all = (
-                numpy.repeat(Asin[numpy.newaxis], Nt, axis=0)
+                _xp.repeat(Asin[numpy.newaxis], Nt, axis=0)
                 if Asin is not None
                 else None
             )
@@ -1647,7 +1676,16 @@ def _interp_ppoly_vec(xp, x, c, t, dev):
 
 
 def _xiToR(xi, a=1):
-    return a * numpy.divide((1.0 + xi), (1.0 - xi))
+    # Data-guarded like _RToxi below: a bare numpy.divide on a backend array
+    # returns numpy and SILENTLY drops the gradient, which would sever the
+    # coefficient quadrature from the density parameters it is differentiated
+    # against. Dispatch on the DATA, not the ambient namespace -- get_namespace
+    # follows a FORCED backend even for a Python float, which then takes plain
+    # Python arithmetic and raises ZeroDivisionError at xi = 1 where numpy.divide
+    # returns the inf the xi -> 1 limit requires.
+    if not is_backend_array(xi):
+        return a * numpy.divide((1.0 + xi), (1.0 - xi))
+    return a * ((1.0 + xi) / (1.0 - xi))
 
 
 def _RToxi(r, a=1):
@@ -1824,16 +1862,22 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     # Construction-time numerical setup: pin to numpy so the particle-sum basis
     # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
     # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        Acos = numpy.zeros((N, 1, 1), float)
-        Asin = None
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        RhoSum = numpy.einsum(
-            "j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0]
-        )
-        n = numpy.arange(0, N)
-        K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
-        Acos[n, 0, 0] = 2 * K * RhoSum
+    # Follows the ambient namespace so backend particle positions/masses give
+    # coefficients differentiable w.r.t. them. einsum is used (not a
+    # sum-of-products rewrite) because its summation ORDER is what keeps the
+    # numpy result byte-identical: the obvious alternatives differ in the last
+    # bits (3.6e-15 for (B*A).sum(-1), 7.1e-15 for B @ A).
+    _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
+    Asin = None
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    RhoSum = _xp.einsum("j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0])
+    n = numpy.arange(0, N)
+    K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    Acos = get_namespace(RhoSum).reshape(RhoSum * like(RhoSum, 2 * K), (N, 1, 1))
     return Acos, Asin
 
 
@@ -1872,9 +1916,11 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     -----
     - 2016-05-18 - Written - Aladdin Seaifan (UofT)
     """
-    # Construction-time numerical setup: pin to numpy so the density-arity
-    # autodetect and the coefficient quadrature run on numpy regardless of any
-    # forced backend default (byte-identical no-op on the numpy backend).
+    # The density-arity autodetect PROBES user code with try/except, so it stays
+    # pinned to numpy: a forced backend can change which exception a wrong-arity
+    # call raises, and the probe must not depend on that. The quadrature below is
+    # deliberately NOT pinned -- it follows the ambient namespace, so a backend
+    # density yields coefficients differentiable w.r.t. its parameters.
     with _use_backend("numpy", force=True):
         numOfParam = 0
         try:
@@ -1889,35 +1935,36 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
         param = [0] * numOfParam
         dens_kw = _scf_compute_determine_dens_kwargs(dens, param)
 
-        def integrand(xi):
-            r = _xiToR(xi, a)
-            R = r
-            param[0] = R
-            return (
-                a**3.0
-                * _coeff_dens_numpy(dens(*param, **dens_kw))
-                * (1 + xi) ** 2.0
-                * (1 - xi) ** -3.0
-                * _C(xi, N, 1)[:, 0]
-            )
-
-        Acos = numpy.zeros((N, 1, 1), float)
-        Asin = None
-
-        Ksample = [max(N + 1, 20)]
-
-        if radial_order != None:
-            Ksample[0] = radial_order
-
-        integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
-        n = numpy.arange(0, N)
-        K = (
-            16
-            * numpy.pi
-            * (n + 3.0 / 2)
-            / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    def integrand(xi):
+        r = _xiToR(xi, a)
+        R = r
+        param[0] = R
+        return (
+            a**3.0
+            * dens(*param, **dens_kw)
+            * (1 + xi) ** 2.0
+            * (1 - xi) ** -3.0
+            * _C(xi, N, 1)[:, 0]
         )
-        Acos[n, 0, 0] = 2 * K * integrated
+
+    Asin = None
+
+    Ksample = [max(N + 1, 20)]
+
+    if radial_order != None:
+        Ksample[0] = radial_order
+
+    integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
+    n = numpy.arange(0, N)
+    K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    # Built functionally rather than by assigning into a preallocated numpy
+    # array, which would neither trace nor accept a backend value. K is carried
+    # onto the result's namespace/device first (same idiom as _computeArray's
+    # K above): mixing a numpy K with a torch Tensor lets numpy own the
+    # operation, and numpy resolves that by calling .numpy() on the Tensor,
+    # which RAISES once it requires grad.
+    _xp = get_namespace(integrated)
+    Acos = _xp.reshape(integrated * like(integrated, 2 * K), (N, 1, 1))
     return Acos, Asin
 
 
@@ -1950,42 +1997,57 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     # Construction-time numerical setup: pin to numpy so the particle-sum basis
     # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
     # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        costheta = pos[2] / r
-        mass = numpy.atleast_1d(mass)
-        Acos, Asin = numpy.zeros([N, L, 1]), None
-        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-        # (n,l) dependent constant
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-        Inl = (
-            -Knl
-            * 2.0
-            * numpy.pi
-            / 2.0 ** (8.0 * l + 6.0)
-            * gamma(n + 4.0 * l + 3.0)
-            / gamma(n + 1)
-            / (n + 2.0 * l + 1.5)
-            / gamma(2.0 * l + 1.5) ** 2
-            / numpy.sqrt(2.0 * l + 1)
-        )
-        # Set up Assoc. Legendre recursion
-        Plm = Pll
-        Plmm1 = 0.0
-        for ll in range(L):
-            # Compute Gegenbauer polys for this l
-            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-            # Acos
-            Sum = numpy.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
-            Acos[:, ll, 0] = Sum / Inl[:, ll]
-            # Recurse Assoc. Legendre
-            if ll < L:
-                tmp = Plm
-                Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
-                Plmm1 = tmp
+    # Follows the ambient namespace; the Legendre recursion below is pure
+    # arithmetic on Python names, so it carries over unchanged.
+    _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    costheta = pos[2] / r
+    mass = _xp.asarray(mass)
+    if mass.ndim == 0:  # what numpy.atleast_1d did here
+        mass = _xp.reshape(mass, (1,))
+    Asin = None
+    _cols = []  # per-l columns, stacked at the end instead of assigning
+    # into a preallocated numpy array (which neither traces nor accepts a
+    # backend value). Same values in the same order, so numpy is unchanged.
+    Pll = _xp.ones(len(r))  # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+    Inl = (
+        -Knl
+        * 2.0
+        * numpy.pi
+        / 2.0 ** (8.0 * l + 6.0)
+        * gamma(n + 4.0 * l + 3.0)
+        / gamma(n + 1)
+        / (n + 2.0 * l + 1.5)
+        / gamma(2.0 * l + 1.5) ** 2
+        / numpy.sqrt(2.0 * l + 1)
+    )
+    # Set up Assoc. Legendre recursion
+    Plm = Pll
+    Plmm1 = 0.0
+    for ll in range(L):
+        # Compute Gegenbauer polys for this l
+        Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+        phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
+        # Acos
+        Sum = _xp.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
+        _cols.append(Sum / like(Sum, Inl[:, ll]))
+        # Recurse Assoc. Legendre
+        if ll < L:
+            tmp = Plm
+            Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
+            Plmm1 = tmp
+    _out = (
+        _cols[0] if len(_cols) == 1 else get_namespace(_cols[0]).stack(_cols, axis=-1)
+    )
+    Acos = get_namespace(_out).reshape(_out, (N, L, 1))
     return Acos, Asin
 
 
@@ -2018,6 +2080,9 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     - 2016-05-20 - Written - Aladdin Seaifan (UofT)
     """
     # Construction-time numerical setup: pin to numpy (see scf_compute_coeffs_spherical).
+    # Only the density-arity autodetect stays pinned: it PROBES user code with
+    # try/except, and a forced backend can change which exception a wrong-arity
+    # call raises. The quadrature below follows the ambient namespace.
     with _use_backend("numpy", force=True):
         numOfParam = 0
         try:
@@ -2028,56 +2093,81 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         param = [0] * numOfParam
         dens_kw = _scf_compute_determine_dens_kwargs(dens, param)
 
-        def integrand(xi, costheta):
-            l = numpy.arange(0, L)[numpy.newaxis, :]
-            r = _xiToR(xi, a)
-            R = r * numpy.sqrt(1 - costheta**2.0)
-            z = r * costheta
-            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-                PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
-            else:
-                PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
-            dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-            phi_nl = (
-                a**3
-                * (1.0 + xi) ** l
-                * (1.0 - xi) ** (l + 1.0)
-                * _C(xi, N, L)[:, :]
-                * PP
-            )
-            param[0] = R
-            param[1] = z
-            return phi_nl * dV * _coeff_dens_numpy(dens(*param, **dens_kw))
-
-        Acos = numpy.zeros((N, L, 1), float)
-        Asin = None
-
-        ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
-        if radial_order != None:
-            Ksample[0] = radial_order
-        if costheta_order != None:
-            Ksample[1] = costheta_order
-
-        integrated = _gaussianQuadrature(
-            integrand, [[-1, 1], [-1, 1]], Ksample=Ksample
-        ) * (2 * numpy.pi)
-        n = numpy.arange(0, N)[:, numpy.newaxis]
+    def integrand(xi, costheta):
         l = numpy.arange(0, L)[numpy.newaxis, :]
-        K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
-        # I = -K*(4*numpy.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-        ##Taking the ln of I will allow bigger size coefficients
-        lnI = (
-            -(8 * l + 6) * numpy.log(2)
-            + gammaln(n + 4 * l + 3)
-            - gammaln(n + 1)
-            - numpy.log(n + 2 * l + 3.0 / 2)
-            - 2 * gammaln(2 * l + 3.0 / 2)
-        )
-        I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-        constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
-        Acos[:, :, 0] = 2 * I**-1 * integrated * constants
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        # The special-function router replaces the scipy-version fork: it is
+        # byte-identical to assoc_legendre_p_all(L-1, 0, ct, branch_cut=2)[0]
+        # on numpy and handles the pre-1.15 lpmn spelling internally, while
+        # tracing and differentiating on a backend.
+        PP = assoc_legendre(L, 1, costheta)[..., 0][numpy.newaxis, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        _CC = _C(xi, N, L)[:, :]
+        # The (n, l) prefactor is built with numpy.arange, so on a backend it
+        # would own `prefactor * _CC` and call .numpy() on it. `like` carries it
+        # across (a no-op on numpy) WITHOUT reordering or regrouping the product.
+        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        param[0] = R
+        param[1] = z
+        return phi_nl * dV * dens(*param, **dens_kw)
+
+    Asin = None
+
+    ##This should save us some computation time since we're only taking the double integral once, rather then L times
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
+    if radial_order != None:
+        Ksample[0] = radial_order
+    if costheta_order != None:
+        Ksample[1] = costheta_order
+
+    integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample=Ksample) * (
+        2 * numpy.pi
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    # I = -K*(4*numpy.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+    ##Taking the ln of I will allow bigger size coefficients
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
+    # `2 * I**-1 * integrated * constants` groups as ((2*I**-1) * integrated) *
+    # constants. Only the FIRST product is commuted so the backend array leads
+    # (numpy otherwise owns `ndarray * Tensor` and calls .numpy() on it); the
+    # grouping is preserved because float multiplication is commutative but NOT
+    # associative, so regrouping would change the numpy bits.
+    _xp = get_namespace(integrated)
+    _fac, _con = like(integrated, 2 * I**-1, constants)
+    Acos = _xp.reshape((integrated * _fac) * _con, (N, L, 1))
     return Acos, Asin
+
+
+def _stack_lm_grid(grid, N, L):
+    """Assemble a [ll][mm] list-of-lists of (N,) columns into (N, L, L).
+
+    Entries left as None (the ll < mm half the recursions never fill) become
+    zeros, matching the preallocated-zeros arrays this replaces.
+    """
+    filled = next(c for row in grid for c in row if c is not None)
+    xp = get_namespace(filled)
+    zero = xp.zeros_like(filled)
+    rows = [
+        xp.stack(
+            [grid[ll][mm] if grid[ll][mm] is not None else zero for mm in range(L)],
+            axis=-1,
+        )
+        for ll in range(L)
+    ]
+    return xp.stack(rows, axis=1)
 
 
 def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
@@ -2107,62 +2197,71 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     - 2020-11-18 - Written - Morgan Bennett (UofT)
 
     """
-    # Construction-time numerical setup: pin to numpy so the particle-sum basis
-    # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
-    # forced backend default (byte-identical no-op on the numpy backend).
-    with _use_backend("numpy", force=True):
-        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        phi = numpy.arctan2(pos[1], pos[0])
-        costheta = pos[2] / r
-        sintheta = numpy.sqrt(1.0 - costheta**2.0)
-        mass = numpy.atleast_1d(mass)
-        Acos, Asin = numpy.zeros([N, L, L]), numpy.zeros([N, L, L])
-        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-        # (n,l) dependent constant
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-        Inl = (
-            -Knl
-            * 2.0
-            * numpy.pi
-            / 2.0 ** (8.0 * l + 6.0)
-            * gamma(n + 4.0 * l + 3.0)
-            / gamma(n + 1)
-            / (n + 2.0 * l + 1.5)
-            / gamma(2.0 * l + 1.5) ** 2
-        )
-        for mm in range(L):  # Loop over m
-            cosmphi = numpy.cos(phi * mm)
-            sinmphi = numpy.sin(phi * mm)
-            # Set up Assoc. Legendre recursion
-            Plm = Pll
-            Plmm1 = 0.0
-            for ll in range(mm, L):
-                # Compute Gegenbauer polys for this l
-                Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-                phinlm = (
-                    -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-                )
-                # Acos
-                Sum = numpy.sqrt(
-                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-                ) * numpy.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-                Acos[:, ll, mm] = Sum / Inl[:, ll]
-                # Asin
-                Sum = numpy.sqrt(
-                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-                ) * numpy.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-                Asin[:, ll, mm] = Sum / Inl[:, ll]
-                # Recurse Assoc. Legendre
-                if ll < L:
-                    tmp = Plm
-                    Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
-                        ll - mm + 1
-                    )
-                    Plmm1 = tmp
+    # Follows the ambient namespace. The (l, m) grids are collected as Python
+    # lists and stacked once at the end: the original assigned into preallocated
+    # numpy arrays at only the ll >= mm entries, leaving the rest zero, which
+    # neither traces nor accepts a backend value. Same values in the same order.
+    _xp = get_namespace(pos)
+    # get_namespace follows the AMBIENT namespace, so under a forced backend it
+    # returns e.g. torch even for numpy positions; carry them across or the very
+    # first _xp call raises. No-op on numpy.
+    pos = _xp.asarray(pos)
+    r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+    phi = _xp.atan2(pos[1], pos[0])
+    costheta = pos[2] / r
+    sintheta = _xp.sqrt(1.0 - costheta**2.0)
+    mass = _xp.asarray(mass)
+    if mass.ndim == 0:  # what numpy.atleast_1d did here
+        mass = _xp.reshape(mass, (1,))
+    _cos = [[None] * L for _ in range(L)]  # [ll][mm]
+    _sin = [[None] * L for _ in range(L)]
+    Pll = _xp.ones(len(r))  # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+    Inl = (
+        -Knl
+        * 2.0
+        * numpy.pi
+        / 2.0 ** (8.0 * l + 6.0)
+        * gamma(n + 4.0 * l + 3.0)
+        / gamma(n + 1)
+        / (n + 2.0 * l + 1.5)
+        / gamma(2.0 * l + 1.5) ** 2
+    )
+    for mm in range(L):  # Loop over m
+        cosmphi = _xp.cos(phi * mm)
+        sinmphi = _xp.sin(phi * mm)
+        # Set up Assoc. Legendre recursion
+        Plm = Pll
+        Plmm1 = 0.0
+        for ll in range(mm, L):
+            # Compute Gegenbauer polys for this l
+            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
+            # Acos
+            Sum = numpy.sqrt(
+                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+            ) * _xp.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+            _cos[ll][mm] = Sum / like(Sum, Inl[:, ll])
+            # Asin
+            Sum = numpy.sqrt(
+                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+            ) * _xp.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+            _sin[ll][mm] = Sum / like(Sum, Inl[:, ll])
             # Recurse Assoc. Legendre
-            Pll *= -(2 * mm + 1.0) * sintheta
+            if ll < L:
+                tmp = Plm
+                Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
+                    ll - mm + 1
+                )
+                Plmm1 = tmp
+        # Recurse Assoc. Legendre (out-of-place: an in-place *= on a
+        # grad-tracking tensor would break the graph)
+        Pll = Pll * (-(2 * mm + 1.0) * sintheta)
+    Acos = _stack_lm_grid(_cos, N, L)
+    Asin = _stack_lm_grid(_sin, N, L)
     return Acos, Asin
 
 
@@ -2347,86 +2446,76 @@ def scf_compute_coeffs(
     - 2016-05-27 - Written - Aladdin Seaifan (UofT)
 
     """
-    # Construction-time numerical setup: pin to numpy (see scf_compute_coeffs_spherical).
+    # Only the density-kwargs probe stays pinned to numpy (it PROBES user code
+    # with try/except); the quadrature follows the ambient namespace.
     with _use_backend("numpy", force=True):
         dens_kw = _scf_compute_determine_dens_kwargs(dens, [0.1, 0.1, 0.1])
 
-        def integrand(xi, costheta, phi):
-            l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
-            m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
-            r = _xiToR(xi, a)
-            R = r * numpy.sqrt(1 - costheta**2.0)
-            z = r * costheta
-            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-                PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
-            else:
-                PP = numpy.swapaxes(
-                    assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][
-                        :, :L
-                    ],
-                    0,
-                    1,
-                ).T[numpy.newaxis, :, :]
-            dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-
-            phi_nl = (
-                -(a**3)
-                * (1.0 + xi) ** l
-                * (1.0 - xi) ** (l + 1.0)
-                * _C(xi, N, L)[:, :, numpy.newaxis]
-                * PP
-            )
-
-            return (
-                _coeff_dens_numpy(dens(R, z, phi, **dens_kw))
-                * phi_nl[numpy.newaxis, :, :, :]
-                * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
-                * dV
-            )
-
-        Acos = numpy.zeros((N, L, L), float)
-        Asin = numpy.zeros((N, L, L), float)
-
-        Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
-        if radial_order != None:
-            Ksample[0] = radial_order
-        if costheta_order != None:
-            Ksample[1] = costheta_order
-        if phi_order != None:
-            Ksample[2] = phi_order
-        integrated = _gaussianQuadrature(
-            integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
-        )
-        n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    def integrand(xi, costheta, phi):
         l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
         m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
-        K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        # Router call, byte-identical on numpy to the scipy expression it
+        # replaces (swapaxes+.T cancel for 2-D), and traceable on a backend.
+        PP = assoc_legendre(L, L, costheta)[numpy.newaxis, :, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
 
-        Nln = (
-            0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
-        )
-        NN = numpy.e ** (Nln)
+        _CC = _C(xi, N, L)[:, :, numpy.newaxis]
+        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
 
-        NN[numpy.where(NN == numpy.inf)] = (
-            0  ## To account for the fact that m can't be bigger than l
-        )
+        _dens = dens(R, z, phi, **dens_kw)
+        _cs = numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
+        # _cs is a numpy ARRAY, so it would own `backend * _cs` and resolve it
+        # by calling .numpy() on a grad-tracking tensor; anchor it first. The
+        # left-to-right grouping is untouched, so numpy stays byte-identical.
+        _cs = like(phi_nl, _cs)
+        return _dens * phi_nl[numpy.newaxis, :, :, :] * _cs * dV
 
-        constants = NN * (2 * l + 1.0) ** 0.5
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
+    if radial_order != None:
+        Ksample[0] = radial_order
+    if costheta_order != None:
+        Ksample[1] = costheta_order
+    if phi_order != None:
+        Ksample[2] = phi_order
+    integrated = _gaussianQuadrature(
+        integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+    m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
 
-        lnI = (
-            -(8 * l + 6) * numpy.log(2)
-            + gammaln(n + 4 * l + 3)
-            - gammaln(n + 1)
-            - numpy.log(n + 2 * l + 3.0 / 2)
-            - 2 * gammaln(2 * l + 3.0 / 2)
-        )
-        I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-        Acos[:, :, :], Asin[:, :, :] = (
-            2
-            * (I**-1.0)[numpy.newaxis, :, :, :]
-            * integrated
-            * constants[numpy.newaxis, :, :, :]
-        )
+    Nln = 0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
+    NN = numpy.e ** (Nln)
+
+    NN[numpy.where(NN == numpy.inf)] = (
+        0  ## To account for the fact that m can't be bigger than l
+    )
+
+    constants = NN * (2 * l + 1.0) ** 0.5
+
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    # Groups as ((2*I**-1) * integrated) * constants; only the FIRST product is
+    # commuted so the backend array leads. Multiplication is commutative but not
+    # associative in IEEE 754, so the grouping itself is preserved.
+    _fac, _con = like(
+        integrated,
+        2 * (I**-1.0)[numpy.newaxis, :, :, :],
+        constants[numpy.newaxis, :, :, :],
+    )
+    _res = (integrated * _fac) * _con
+    Acos, Asin = _res[0], _res[1]
 
     return Acos, Asin
 
@@ -2475,19 +2564,22 @@ def _batched_timedep(tgrid, per_time_elems, compute):
     # quadrature (density evaluations + the namespace-dispatched _C/_xiToR basis)
     # runs on numpy regardless of any forced backend default (byte-identical no-op
     # on the numpy backend).
-    with _use_backend("numpy", force=True):
-        Nt = len(tgrid)
-        batch = _timedep_batch_size(Nt, per_time_elems)
-        if batch >= Nt:  # fits in one go
-            return compute(tgrid)
-        acos_parts = []
-        asin_parts = []
-        for start in range(0, Nt, batch):
-            Ac, As = compute(tgrid[start : start + batch])
-            acos_parts.append(Ac)
-            asin_parts.append(As)
-        Acos = numpy.concatenate(acos_parts, axis=0)
-        Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
+    # Pure orchestration -- batching and concatenation only. It must NOT pin to
+    # numpy: `compute` IS the coefficient quadrature, so pinning here would undo
+    # the migration for every time-dependent build.
+    Nt = len(tgrid)
+    batch = _timedep_batch_size(Nt, per_time_elems)
+    if batch >= Nt:  # fits in one go
+        return compute(tgrid)
+    acos_parts = []
+    asin_parts = []
+    for start in range(0, Nt, batch):
+        Ac, As = compute(tgrid[start : start + batch])
+        acos_parts.append(Ac)
+        asin_parts.append(As)
+    _xp = get_namespace(acos_parts[0])
+    Acos = _xp.concat(acos_parts, axis=0)
+    Asin = None if asin_parts[0] is None else _xp.concat(asin_parts, axis=0)
     return Acos, Asin
 
 
@@ -2553,7 +2645,10 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
     def integrand(xi):
         r = _xiToR(xi, a)
         base = a**3.0 * (1 + xi) ** 2.0 * (1 - xi) ** -3.0 * _C(xi, N, 1)[:, 0]
-        return f(r, 0.0, 0.0)[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
+        # `f` evaluates the density over tgrid and returns NUMPY; anchor it
+        # before it meets the (now backend) base, as in the axi/general twins.
+        _ft = like(base, f(r, 0.0, 0.0))
+        return _ft[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
 
     Ksample = [max(N + 1, 20)]
     if radial_order is not None:
@@ -2561,8 +2656,12 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
     integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
     n = numpy.arange(0, N)
     K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
-    Acos = numpy.zeros((len(tgrid), N, 1, 1), float)
-    Acos[:, :, 0, 0] = 2 * K[numpy.newaxis] * integrated
+    # Functional build; groups as (2*K) * integrated with only that product
+    # commuted so the backend array leads and the numpy bits are unchanged.
+    _xp = get_namespace(integrated)
+    Acos = _xp.reshape(
+        integrated * like(integrated, 2 * K[numpy.newaxis]), (len(tgrid), N, 1, 1)
+    )
     return Acos, None
 
 
@@ -2590,16 +2689,17 @@ def _scf_compute_coeffs_axi_timedep(
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-            PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
-        else:
-            PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
+        # Router call; byte-identical on numpy to the scipy spelling it replaces.
+        PP = assoc_legendre(L, 1, costheta)[..., 0][numpy.newaxis, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-        phi_nl = (
-            a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0) * _C(xi, N, L)[:, :] * PP
-        )
+        _CC = _C(xi, N, L)[:, :]
+        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
         base = phi_nl * dV  # (N, L)
-        return f(R, z, 0.0)[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
+        # `f` evaluates the density over tgrid and returns NUMPY, so it would own
+        # `f(...) * base` once base is a backend array; anchor it first.
+        _ft = like(base, f(R, z, 0.0))
+        return _ft[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
@@ -2621,10 +2721,11 @@ def _scf_compute_coeffs_axi_timedep(
     )
     I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
     constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
-    Acos = numpy.zeros((len(tgrid), N, L, 1), float)
-    Acos[:, :, :, 0] = (
-        2 * (I**-1)[numpy.newaxis] * integrated * constants[numpy.newaxis]
-    )
+    # Built functionally; groups as ((2*I**-1) * integrated) * constants with
+    # only the first product commuted so the backend array leads.
+    _fac, _con = like(integrated, 2 * (I**-1)[numpy.newaxis], constants[numpy.newaxis])
+    _xp = get_namespace(integrated)
+    Acos = _xp.reshape((integrated * _fac) * _con, (len(tgrid), N, L, 1))
     return Acos, None
 
 
@@ -2647,28 +2748,17 @@ def _scf_compute_coeffs_timedep(
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-            PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
-        else:
-            PP = numpy.swapaxes(
-                assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][:, :L],
-                0,
-                1,
-            ).T[numpy.newaxis, :, :]
+        # Router call; byte-identical on numpy (swapaxes + .T cancel for 2-D).
+        PP = assoc_legendre(L, L, costheta)[numpy.newaxis, :, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
-        phi_nl = (
-            -(a**3)
-            * (1.0 + xi) ** l
-            * (1.0 - xi) ** (l + 1.0)
-            * _C(xi, N, L)[:, :, numpy.newaxis]
-            * PP
-        )
-        base = (
-            phi_nl[numpy.newaxis, :, :, :]
-            * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
-            * dV
-        )  # (2, N, L, L)
-        return f(R, z, phi)[:, None, None, None, None] * base[numpy.newaxis]
+        _CC = _C(xi, N, L)[:, :, numpy.newaxis]
+        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        _cs = like(phi_nl, numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)]))
+        base = phi_nl[numpy.newaxis, :, :, :] * _cs * dV  # (2, N, L, L)
+        # `f` returns NUMPY over tgrid; anchor before it meets the backend base.
+        _ft = like(base, f(R, z, phi))
+        return _ft[:, None, None, None, None] * base[numpy.newaxis]
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
@@ -2696,9 +2786,12 @@ def _scf_compute_coeffs_timedep(
         - 2 * gammaln(2 * l + 3.0 / 2)
     )
     I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
-    res = (
-        2 * (I**-1.0)[None, None, :, :, :] * integrated * constants[None, None, :, :, :]
+    _fac, _con = like(
+        integrated,
+        2 * (I**-1.0)[None, None, :, :, :],
+        constants[None, None, :, :, :],
     )
+    res = (integrated * _fac) * _con
     return res[:, 0], res[:, 1]
 
 
@@ -2789,7 +2882,12 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     ##Performs the actual integration
     for i in range(li.shape[0]):
         index = (numpy.arange(len(bounds)), li[i])
-        s += numpy.prod(wp[index]) * integrand(*xp[index])
+        # The integrand value LEADS both operations. numpy would otherwise own
+        # `weight * value` and `s += value`, and for a grad-tracking torch
+        # Tensor numpy resolves that by calling .numpy() on it, which raises.
+        # Addition and multiplication are both commutative in IEEE 754, so the
+        # numpy path accumulates exactly the same bits in the same order.
+        s = integrand(*xp[index]) * numpy.prod(wp[index]) + s
 
     ##Rounds values that are less than roundoff to zero -- functional (xp.where)
     ##so it traces under jax/torch instead of an in-place item assignment. For
