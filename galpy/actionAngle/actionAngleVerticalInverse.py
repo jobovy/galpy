@@ -607,6 +607,53 @@ class actionAngleVerticalInverse(actionAngleInverse):
         p[nz] = 2.0 * j * numpy.sin(eta[nz]) ** 2.0 * detadtau[nz] / (xmax * sintau[nz])
         return x, p
 
+    def _mm_compensation(self, j, tau):
+        """
+        The compensation integrand of the momentum-matched map, grouped so
+        that it is regular at the turning points.
+
+        The turning points move with the action, so at fixed position
+
+            d tau / d J |_x = (1 / xmax) (d xmax / d J) cos(tau) / sin(tau) ,
+
+        which diverges at both of them.  It is multiplied by
+        p^A (dx^A/deta)(deta/dtau) = 2 J sin^2(eta) eta'(tau), which vanishes
+        there, and the product is finite: the sin(tau) cancels against the
+        momentum and leaves
+
+            p (d xmax / d J) cos(tau) .
+
+        Computing the two factors separately returns nan at an anomaly
+        sitting exactly on a turning point, one being infinite and the other
+        zero; this grouped form is finite everywhere.  The amplitude
+        derivative comes from the stored K,
+
+            d xmax / d J = (K + J dK/dJ) / (2 sqrt(K J)) ,
+
+        so it too differentiates the interpolant that the evaluation reads.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        numpy.ndarray
+            The compensation integrand at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        _, _, K, dKdj = self._mm_tables(j)
+        _, p = self._mm_xp_of_tau(j, tau)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        dxmaxdj = (K + j * dKdj) / (2.0 * numpy.sqrt(K * j))
+        return p * dxmaxdj * numpy.cos(tau)
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline

@@ -8967,3 +8967,62 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
         aAVI._mm_xp_of_tau(0.0, tau)
     assert "positive" in str(excinfo.value)
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_compensation():
+    # The compensation is a product of a factor that diverges at the turning
+    # points and one that vanishes there. Grouping them is what makes it
+    # computable, and the grouping must not change the value.
+    import numpy
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128, use_pointtransform=False
+    )
+    aAVI._setup_momentum_matched_family(npt=20, nta=1024)
+    j = aAVI._js[5]
+    # a grid whose first node sits exactly on a turning point
+    tau = 2.0 * numpy.pi * numpy.arange(2048) / 2048.0
+    D, _, K, dKdj = aAVI._mm_tables(j)
+    ms = 2.0 * numpy.arange(1, len(D) + 1)
+    eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+    detadtau = 1.0 + numpy.cos(tau[:, None] * ms[None, :]) @ (ms * D)
+    xmax = numpy.sqrt(K * j)
+    dxmaxdj = (K + j * dKdj) / (2.0 * numpy.sqrt(K * j))
+    # the amplitude derivative differentiates the stored interpolant
+    h = 1e-6
+    fd = (
+        numpy.sqrt(aAVI._mm_tables(j + h)[2] * (j + h))
+        - numpy.sqrt(aAVI._mm_tables(j - h)[2] * (j - h))
+    ) / (2.0 * h)
+    assert numpy.fabs(fd - dxmaxdj) < 1e-8, (
+        "d xmax / d J does not differentiate the stored K"
+    )
+    with numpy.errstate(divide="ignore", invalid="ignore"):
+        factored = (
+            2.0
+            * j
+            * numpy.sin(eta) ** 2.0
+            * detadtau
+            * dxmaxdj
+            / xmax
+            * numpy.cos(tau)
+            / numpy.sin(tau)
+        )
+    grouped = aAVI._mm_compensation(j, tau)
+    assert numpy.all(numpy.isfinite(grouped)), (
+        "The grouped compensation is not finite everywhere"
+    )
+    # exactly the node on the turning point is lost by the factored form
+    assert numpy.sum(~numpy.isfinite(factored)) == 1, (
+        "The factored compensation is not the one that fails at the turning "
+        "point: %d bad nodes" % numpy.sum(~numpy.isfinite(factored))
+    )
+    ok = numpy.isfinite(factored)
+    assert numpy.amax(numpy.fabs(grouped[ok] - factored[ok])) < 1e-15, (
+        "Grouping changed the value of the compensation"
+    )
+    return None
