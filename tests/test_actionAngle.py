@@ -9763,12 +9763,15 @@ def test_actionAngleStaeckelInverse_canonical_family_guards(
         aASI._maxiter = maxiter
     comp = aASI._canon_comp
     try:
-        # a non-contractive sabotage: the fixed-point iteration cannot
-        # converge when the compensation grows with the angle
+        # A sabotage that under-relaxation CANNOT rescue.  The iteration's
+        # multiplier is 1 - omega (1 + c'), so any c' > -1 converges for
+        # small enough omega -- including c' = 2, which diverges undamped but
+        # is recovered at omega = 1/2.  Only c' < -1 is hopeless: here
+        # c' = -2 gives multiplier 1 + omega, above one for every omega.
         aASI._canon_comp = lambda tr, tz, jr, LA, Lzz, v, dq: (
-            2.0 * tr,
-            2.0 * tr,
-            2.0 * tz,
+            -2.0 * tr,
+            -2.0 * tr,
+            -2.0 * tz,
         )
         with pytest.raises(RuntimeError) as excinfo:
             aASI._xvFreqs_canonical_interp(
@@ -9780,6 +9783,25 @@ def test_actionAngleStaeckelInverse_canonical_family_guards(
                 numpy.array([2.0]),
             )
         assert "toy angles" in str(excinfo.value)
+        # while c' = 2, which diverges at full step, is now recovered: this
+        # is the limit-cycle/divergence fix acting on the real evaluation
+        # path rather than on the isolated solver
+        aASI._canon_comp = lambda tr, tz, jr, LA, Lzz, v, dq: (
+            2.0 * tr,
+            2.0 * tr,
+            2.0 * tz,
+        )
+        out = aASI._xvFreqs_canonical_interp(
+            0.06,
+            Lz,
+            0.10,
+            numpy.array([2.0]),
+            numpy.array([1.0]),
+            numpy.array([2.0]),
+        )
+        assert numpy.all(numpy.isfinite(numpy.asarray(out[0], dtype=float))), (
+            "The rescued solve did not produce a finite point"
+        )
     finally:
         aASI._canon_comp = comp
     # E above the grid through the integrals entry point
@@ -9904,4 +9926,59 @@ def test_actionAngleStaeckelInverse_canonical_family_degenerate_accuracy(
         ji = aAS(R, vR, vT, z, vz, phi)
         assert numpy.max(numpy.fabs(ji[0] - jr)) < 2e-5
         assert numpy.max(numpy.fabs(ji[2] - jz)) < 2e-5
+    return None
+
+
+def test_actionAngleStaeckelInverse_toy_angle_limit_cycle():
+    # The toy-angle solve is a damped Picard iteration, so its multiplier is
+    # -c'. On a torus where c' reaches 1 it does not diverge -- it CYCLES with
+    # period two, the residual flipping sign at constant amplitude, and the
+    # step limiter never engages because it only caps steps above 0.5. This
+    # was seen within ~5e-4 of the radial turning point during a long
+    # integration. Under-relaxation turns the multiplier into 1 - 2 omega and
+    # breaks the cycle.
+    import numpy
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    class _Cycler:
+        # c(theta^A) = theta^A exactly, so theta^A + c = 2 theta^A and the
+        # undamped update has multiplier -1: the worst case, not merely a
+        # slow one
+        _maxiter = 60
+        _angle_tol = 1e-13
+
+        def _canon_comp(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+            return thetaAr, numpy.zeros_like(thetaAr), thetaAz
+
+    thR = numpy.array([0.7, 2.0])
+    thz = numpy.array([1.3, 4.1])
+    tAr, tAz, cphi = actionAngleStaeckelInverse._toy_angle_solve(
+        _Cycler(), thR, thz, 0.02, 1.0, 0.9, None, None
+    )
+
+    # theta^A + theta^A = theta, and the residual is taken mod 2 pi, so any
+    # branch of it is a solution
+    def wrapped(a, b):
+        return numpy.amax(numpy.fabs((a - b + numpy.pi) % (2.0 * numpy.pi) - numpy.pi))
+
+    assert wrapped(2.0 * tAr, thR) < 1e-12, (
+        "The radial toy angle did not escape the limit cycle"
+    )
+    assert wrapped(2.0 * tAz, thz) < 1e-12, (
+        "The vertical toy angle did not escape the limit cycle"
+    )
+
+    # and a contracting problem is untouched: c' = 0 converges in one step
+    class _Easy(_Cycler):
+        def _canon_comp(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+            z = numpy.zeros_like(thetaAr)
+            return z, z, z
+
+    tAr, tAz, _ = actionAngleStaeckelInverse._toy_angle_solve(
+        _Easy(), thR, thz, 0.02, 1.0, 0.9, None, None
+    )
+    assert wrapped(tAr, thR) < 1e-13, "A contracting solve was disturbed"
     return None

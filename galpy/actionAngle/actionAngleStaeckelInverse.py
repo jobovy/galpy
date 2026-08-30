@@ -1779,6 +1779,69 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             comp[i] = uterm + vterm
         return comp[0], comp[1], comp[2]
 
+    def _toy_angle_solve(self, thR, thz, jr, LA, Lz, v, dq):
+        """
+        Solve theta^A + c(theta^A) = theta for the auxiliary angles.
+
+        A damped Picard iteration, not a Newton: the update has multiplier
+        -c', so it contracts wherever |c'| < 1 and needs no derivative of the
+        compensation.  Its one failure mode is a torus where c' reaches 1,
+        which makes it cycle with period two rather than diverge -- the
+        residual flips sign at constant amplitude, and the step limiter never
+        engages because it only caps steps above 0.5.  Under-relaxation turns
+        the multiplier into 1 - 2 omega, so halving omega on any
+        non-contracting iteration breaks the cycle while leaving a
+        contracting one untouched.
+
+        Parameters
+        ----------
+        thR, thz : numpy.ndarray
+            Requested radial and vertical angles.
+        jr, LA, Lz : float
+            Actions of the torus.
+        v, dq : numpy.ndarray
+            Family values and their action derivatives.
+
+        Returns
+        -------
+        tuple
+            (theta^A_r, theta^A_z, c_phi).
+
+        Notes
+        -----
+        - 2026-08-30 - Written - Bovy (UofT)
+        """
+        thetaAr = numpy.copy(thR)
+        thetaAz = numpy.copy(thz)
+        omega = 1.0
+        prev = numpy.inf
+        for _ in range(self._maxiter):
+            cR, cphi, cz = self._canon_comp(thetaAr, thetaAz, jr, LA, Lz, v, dq)
+            f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            f1 = (thetaAz + cz - thz + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            step = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1))
+            mx = numpy.max(step)
+            if mx >= prev:
+                # Not contracting.  This iteration is a damped Picard
+                # iteration, not the Newton the message once claimed, so its
+                # multiplier is -c' and a torus where c' reaches 1 makes it
+                # cycle with period two rather than diverge: the residual
+                # then flips sign at CONSTANT amplitude and the existing
+                # limiter never engages, since it only caps steps above 0.5.
+                # Observed within about 5e-4 of the radial turning point.
+                # Under-relaxing turns the multiplier into 1 - 2 omega, so
+                # halving omega breaks the cycle and any omega < 1 converges.
+                omega *= 0.5
+            prev = mx
+            lim = omega * numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
+            thetaAr -= f0 * lim
+            thetaAz -= f1 * lim
+            if mx < self._angle_tol:
+                break
+        else:
+            raise RuntimeError("Newton's method for the toy angles did not converge")
+        return thetaAr, thetaAz, cphi
+
     def _xvFreqs_canonical_interp(self, jr, jphi, jz, angler, anglephi, anglez, x=None):
         """The canonical family evaluation: implicit-inverse labels, the
         compensated 2-D angle Newton (exact residuals, identity-dominated
@@ -1796,20 +1859,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if x is None:
             x = self._canon_coords(jr, Lz, jz)
         v, dq = self._canon_family_chains(x)
-        thetaAr = numpy.copy(thR)
-        thetaAz = numpy.copy(thz)
-        for _ in range(self._maxiter):
-            cR, cphi, cz = self._canon_comp(thetaAr, thetaAz, jr, LA, Lz, v, dq)
-            f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            f1 = (thetaAz + cz - thz + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            step = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1))
-            lim = numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
-            thetaAr -= f0 * lim
-            thetaAz -= f1 * lim
-            if numpy.max(step) < self._angle_tol:
-                break
-        else:
-            raise RuntimeError("Newton's method for the toy angles did not converge")
+        thetaAr, thetaAz, cphi = self._toy_angle_solve(thR, thz, jr, LA, Lz, v, dq)
         thetaAphi = thphi - cphi
         out = numpy.empty((6, len(thR)))
         for jj in range(len(thR)):
