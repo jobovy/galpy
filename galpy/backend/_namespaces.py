@@ -479,6 +479,33 @@ def promote_common_dtype(xp, *arrays, device=None):
     return tuple(xp.astype(a, dt) for a in arrays)
 
 
+def like(ref, *arrays):
+    """Bring numpy constants onto ``ref``'s namespace and device.
+
+    Mixed arithmetic between a numpy ARRAY and a backend array is owned by
+    numpy whichever side it appears on, and numpy resolves it by calling
+    ``.numpy()`` on the operand -- which raises outright for a grad-tracking
+    torch Tensor, and severs the graph where it does not. Coefficient
+    quadratures build their (n, l, m) prefactors with ``numpy.arange``, so they
+    hit this on every backend multiply; passing those prefactors through here
+    first keeps the expression's operand ORDER and GROUPING untouched, which
+    matters because floating-point multiplication is commutative but not
+    associative.
+
+    A no-op returning the inputs unchanged when ``ref`` is a numpy array, so
+    the numpy path stays byte-identical. Returns a single value for a single
+    argument, else a tuple.
+    """
+    if not is_backend_array(ref):
+        return arrays[0] if len(arrays) == 1 else arrays
+    from ._resolver import get_namespace
+
+    xp = get_namespace(ref)
+    dev = device_of(ref)
+    out = tuple(asarray_on_device(xp, a, dev) for a in arrays)
+    return out[0] if len(out) == 1 else out
+
+
 def asarray_on_device(xp, a, device, dtype=None):
     """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
 
