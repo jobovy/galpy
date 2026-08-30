@@ -11023,12 +11023,14 @@ def test_scfpotential_from_nbody_units():
     assert sp_phys._roSet and sp_phys._voSet, (
         "from_nbody w/ Quantity inputs did not turn on physical outputs"
     )
-    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10, (
-        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
-    )
-    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10, (
-        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_phys._Acos) - as_numpy(sp_plain._Acos)))
+        < 1e-10
+    ), "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_phys._Asin) - as_numpy(sp_plain._Asin)))
+        < 1e-10
+    ), "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
     # time-dependent: a Gyr time grid matches the equivalent internal-unit grid
     nt = 4
     pos_t = numpy.random.randn(3, n, nt) * 1.5
@@ -11043,9 +11045,10 @@ def test_scfpotential_from_nbody_units():
     assert numpy.all(numpy.fabs(sp_tint._tgrid - sp_tgyr._tgrid) < 1e-8), (
         "from_nbody w/ Gyr tgrid does not match the internal-unit tgrid"
     )
-    assert numpy.max(numpy.fabs(sp_tint._Acos_all - sp_tgyr._Acos_all)) < 1e-10, (
-        "from_nbody w/ Gyr tgrid does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_tint._Acos_all) - as_numpy(sp_tgyr._Acos_all)))
+        < 1e-10
+    ), "from_nbody w/ Gyr tgrid does not match the internal-unit build"
     # from_density likewise accepts a Gyr time grid
     hp = potential.HernquistPotential(amp=0.5, a=1.0)
     hp.turn_physical_off()
@@ -11059,9 +11062,10 @@ def test_scfpotential_from_nbody_units():
     sd_gyr = potential.SCFPotential.from_density(
         dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_gyr, ro=ro, vo=vo
     )
-    assert numpy.max(numpy.fabs(sd_int._Acos_all - sd_gyr._Acos_all)) < 1e-10, (
-        "from_density w/ Gyr tgrid does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sd_int._Acos_all) - as_numpy(sd_gyr._Acos_all)))
+        < 1e-10
+    ), "from_density w/ Gyr tgrid does not match the internal-unit build"
     return None
 
 
@@ -11096,9 +11100,9 @@ def test_scf_multipole_translation_units():
     scf_q = potential.SCFPotential.from_multipole(
         mult, N=8, a=1.5 * ro * units.kpc, ro=ro
     )
-    assert numpy.max(numpy.fabs(scf_q._Acos - scf_plain._Acos)) < 1e-10, (
-        "from_multipole w/ Quantity a does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(scf_q._Acos) - as_numpy(scf_plain._Acos))) < 1e-10
+    ), "from_multipole w/ Quantity a does not match the internal-unit build"
     return None
 
 

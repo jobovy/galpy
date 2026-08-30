@@ -766,9 +766,15 @@ def _parse_scf_pot(p, extra_amp=1.0):
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)
     pot_args.append(0)  # Nt=0 (static)
-    pot_args.extend(amp * p._Acos.flatten(order="C"))
+    from ..backend import as_numpy
+
+    # C-extension boundary: the coefficients must cross as numpy. Since the
+    # coefficient routines follow the ambient namespace, a potential built under
+    # a forced backend stores backend arrays, and Tensor.flatten() has no
+    # `order` keyword. as_numpy is a no-op on the numpy path.
+    pot_args.extend(amp * as_numpy(p._Acos).flatten(order="C"))
     if isNonAxi:
-        pot_args.extend(amp * p._Asin.flatten(order="C"))
+        pot_args.extend(amp * as_numpy(p._Asin).flatten(order="C"))
     pot_args.extend(cache)
     return (24, pot_args, [])  # latter is pot_tfuncs
 
