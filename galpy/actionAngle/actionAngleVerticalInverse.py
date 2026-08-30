@@ -52,6 +52,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
+        momentum_matched=False,
+        mm_npt=20,
         **kwargs,
     ):
         """
@@ -293,6 +295,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._setup_interp()
         else:
             self._interp = False
+        # The momentum-matched canonical map, which replaces the evaluation
+        # rather than adding to it
+        self._momentum_matched = momentum_matched
+        if momentum_matched:
+            self._setup_momentum_matched_family(npt=mm_npt, nta=2 * nta)
         return None
 
     def _setup_pointtransform(self, pt_deg, pt_nxa):
@@ -1733,6 +1740,34 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         return self._xvFreqs(j, angle, **kwargs)[:2]
 
+    def _mm_xvFreqs(self, j, angle):
+        """
+        The momentum-matched evaluation, in the form the public interface
+        wants: position, velocity, and frequency.
+
+        For H = p^2/2 + Phi the momentum is the velocity, and the frequency
+        is dE/dJ, taken from the same interpolant the map reads rather than
+        from a separate table.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : numpy.ndarray
+            Angle.
+
+        Returns
+        -------
+        tuple
+            (x, v, frequency).
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        x, p = self._mm_xp_of_angle(j, angle)
+        return x, p, float(self._mm_dEdj(j))
+
     def _xvFreqs(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency.
@@ -1753,6 +1788,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
+        if self._momentum_matched:
+            # the canonical map replaces the evaluation entirely; there is
+            # no fallback path through the old correspondence
+            return self._mm_xvFreqs(j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))

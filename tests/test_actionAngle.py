@@ -8927,3 +8927,49 @@ def test_actionAngleVerticalInverse_momentum_matched_evaluation():
     assert dth9 < 5e-3, "The evaluated angle is wrong"
     assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge with the grid"
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_public():
+    # With the flag set, the public interface IS the canonical map: no part
+    # of the evaluation goes through the old correspondence.
+    import numpy
+
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    th = 2.0 * numpy.pi * (numpy.arange(16) + 0.37) / 16.0
+
+    def errs(nE):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot,
+            Es=numpy.linspace(0.0, 2.0, nE),
+            nta=128,
+            use_pointtransform=False,
+            momentum_matched=True,
+        )
+        j = aAVI._js[(nE - 1) // 2]
+        x, v = aAVI(j, th)
+        xf, vf, Om = aAVI._xvFreqs(j, th)
+        assert numpy.amax(numpy.fabs(xf - x)) == 0.0, "__call__ and _xvFreqs disagree"
+        assert numpy.amax(numpy.fabs(vf - v)) == 0.0, "__call__ and _xvFreqs disagree"
+        jf, Omf, thfwd = aAV.actionsFreqsAngles(x, v)
+        dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        return (
+            numpy.amax(numpy.fabs(jf - j)),
+            numpy.amax(dth),
+            numpy.amax(numpy.fabs(Omf - Om)) / numpy.mean(Omf),
+        )
+
+    dj9, dth9, dom9 = errs(9)
+    dj33, dth33, dom33 = errs(33)
+    # the action is preserved whatever the tables contain
+    assert dj9 < 1e-10, "The public evaluation leaves the requested torus"
+    assert dj33 < 1e-10, "The public evaluation leaves the requested torus"
+    # the angle and the frequency carry the family's interpolation, and so
+    # both have to improve with the grid
+    assert dth9 < 5e-3 and dom9 < 1e-3, "The public evaluation is wrong"
+    assert dth33 < 1e-3 * dth9, "The evaluated angle does not converge"
+    assert dom33 < 1e-2 * dom9, "The evaluated frequency does not converge"
+    return None
