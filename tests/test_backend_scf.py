@@ -743,3 +743,39 @@ def test_xiToR_backend_branch_and_coeff_dens_cast(backend_name):
     assert float(cast) == 3.25
     plain = numpy.array([1.5, 2.5])
     assert _coeff_dens_numpy(plain) is plain, "numpy input must pass through unchanged"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_axi_batched_matches_sequential(backend_name):
+    # The batched quadrature path is taken only when the density accepts ARRAY
+    # arguments. Drive BOTH paths with mathematically identical densities -- one
+    # vectorizable, one that rejects arrays so _dens_accepts_arrays returns False
+    # and the sequential loop runs -- and require the coefficients to agree.
+    # This is the parity check for the new branch: same math, two code paths.
+    import importlib
+
+    from galpy import backend as _b
+
+    S = importlib.import_module("galpy.potential.SCFPotential")
+
+    def dens_vec(R, z):  # accepts arrays -> batched path
+        return numpy.exp(-numpy.sqrt(R**2 + z**2))
+
+    def dens_scalar(R, z):  # rejects arrays -> sequential path
+        if numpy.ndim(R) != 0:
+            raise TypeError("scalar-only density")
+        return numpy.exp(-numpy.sqrt(R**2 + z**2))
+
+    # guard the premise: the two really do take different paths
+    assert S._dens_accepts_arrays(dens_vec, 2, {})
+    assert not S._dens_accepts_arrays(dens_scalar, 2, {})
+
+    with _b.use(backend_name, force=True):
+        batched = as_numpy(S.scf_compute_coeffs_axi(dens_vec, 4, 3, a=1.0)[0])
+        seq = as_numpy(S.scf_compute_coeffs_axi(dens_scalar, 4, 3, a=1.0)[0])
+    # the quadrature nodes and weights are identical; only the reduction differs,
+    # so this is tight on purpose -- a loose bar would not detect a wrong axis.
+    numpy.testing.assert_allclose(batched, seq, rtol=1e-13, atol=1e-15)
+    # and both must match the numpy build
+    ref = S.scf_compute_coeffs_axi(dens_vec, 4, 3, a=1.0)[0]
+    numpy.testing.assert_allclose(batched, ref, rtol=1e-13, atol=1e-15)
