@@ -442,3 +442,32 @@ torch-jit tests/test_orbit.py::test_liouville_planar
 # retire it; fixing the jax fork path would. Left as a whole-file entry precisely
 # because a deadlock cannot be attributed to individual tests.
 #
+#
+# SCF time-dependent-density coefficients, jax arm (added 2026-08-29 with the
+# ambient-namespace coefficient migration). These ran on numpy before, because
+# the coefficient routines were pinned to numpy; following the ambient namespace
+# means a forced-backend run now computes them EAGERLY on the backend, and eager
+# per-call overhead (~5 ms flat) dominates a nested quadrature loop.
+# Measured locally 2026-08-29; CI estimate uses the measured CI/local factor 0.71
+# against the 300 s per-test cap. torch is unaffected (worst case 160 s -> ~114 s).
+# These are performance, not correctness: all three PASS, just slowly.
+jax tests/test_scf.py::test_tdep_from_density_vectorized_matches_loop  # measured 2026-08-29: 671s local -> ~476s CI
+jax tests/test_scf.py::test_tdep_from_density_nonvectorizable_fallback  # measured 2026-08-29: 555s local -> ~394s CI
+jax tests/test_scf.py::test_tdep_from_density_time_batching  # measured 2026-08-29: 381s local -> ~270s CI, only 10% under the cap
+#
+# DehnenBinney98, jax arm (added 2026-08-29). Same eager-overhead class as the
+# tdep entries above, but at a call site I had not anticipated: importing
+# mwpotentials CONSTRUCTS a DiskSCFPotential, whose __init__ calls
+# SCFPotential.from_density -> scf_compute_coeffs_axi -> the 8000-call
+# quadrature. So a potential CONSTRUCTOR, not a test body, pays the cost.
+# Measured by CI: pytest-timeout fired at >300s (job 99168846346). The test
+# PASSES given time -- this is performance, not correctness.
+#
+# ATTRIBUTION, corrected 2026-08-30: this is a RE-deferral, not a new entry.
+# gh#1407 (852d69d6, "surfdens: eager backends take the batched vertical
+# quadrature, ledger -6") had just EARNED this entry back by vectorizing a
+# quadrature; the base of this PR does not ledger it anywhere. Making the SCF
+# coefficient quadrature eager on the backend re-slowed it. So this gives back
+# one of the six entries #1407 won, and the fix is the same shape as #1407's:
+# batch the quadrature instead of stepping it one node at a time.
+jax tests/test_potential.py::test_DehnenBinney98  # CI 2026-08-29: Failed: Timeout (>300.0s); import builds a DiskSCFPotential
