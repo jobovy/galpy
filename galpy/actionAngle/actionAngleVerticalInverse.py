@@ -85,10 +85,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tolerance for angle root-finding (f(x) is within tol of desired value)
         bisect : bool
             if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
+        momentum_matched : bool
+            if True (default), evaluate through the momentum-matched canonical map: the auxiliary torus carries the same action, corresponding points are those that have swept the same cumulative action, and the amplitude is stored as K = xmax^2/J. This is the same construction the spherical and Staeckel inverses use. Set to False to use the older evaluation instead. The canonical map needs at least four energies to interpolate its family, and it is itself a point transformation, so it is not used when fewer energies are given or when use_pointtransform is set; in either case the older evaluation runs.
+        mm_npt : int
+            number of (even) harmonics of the momentum-matched anomaly map; the reconstruction converges spectrally in this, reaching ~1e-8 at the default and ~1e-10 at 28 (only used when momentum_matched is True)
 
         Notes
         -----
         - 2018-04-11 - Started - Bovy (UofT)
+        - 2026-08-30 - Added the momentum-matched canonical map - Bovy (UofT)
         """
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
