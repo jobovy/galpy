@@ -52,7 +52,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
-        momentum_matched=False,
+        momentum_matched=True,
         mm_npt=20,
         **kwargs,
     ):
@@ -297,8 +297,17 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._interp = False
         # The momentum-matched canonical map, which replaces the evaluation
         # rather than adding to it
-        self._momentum_matched = momentum_matched
-        if momentum_matched:
+        # A family needs enough energies to interpolate a cubic spline in the
+        # action; with fewer, the old evaluation is the only one available,
+        # so the default quietly falls back to it rather than refusing to
+        # construct. Asking for the family explicitly still raises.
+        # Asking for the old point transformation explicitly selects the old
+        # evaluation: the momentum-matched map IS a point transformation, and
+        # the two cannot both be in force.
+        self._momentum_matched = (
+            momentum_matched and self._nE >= 4 and not use_pointtransform
+        )
+        if self._momentum_matched:
             self._setup_momentum_matched_family(npt=mm_npt, nta=2 * nta)
         return None
 

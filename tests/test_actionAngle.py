@@ -8973,3 +8973,33 @@ def test_actionAngleVerticalInverse_momentum_matched_public():
     assert dth33 < 1e-3 * dth9, "The evaluated angle does not converge"
     assert dom33 < 1e-2 * dom9, "The evaluated frequency does not converge"
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
+    # The canonical map is the default, so that the inverse methods agree
+    # with each other; the old evaluation remains reachable.
+    import numpy
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    assert actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)._momentum_matched, (
+        "The canonical map is not the default"
+    )
+    # explicitly off
+    assert not actionAngleVerticalInverse(
+        pot=pot, Es=Es, nta=128, momentum_matched=False
+    )._momentum_matched, "The old evaluation is no longer reachable"
+    # a family needs four energies to interpolate, so a shorter grid falls
+    # back rather than refusing to construct
+    assert not actionAngleVerticalInverse(
+        pot=pot, Es=[0.1, 0.3], nta=128
+    )._momentum_matched, "A two-energy grid did not fall back"
+    # and the old point transformation selects the old evaluation, since the
+    # momentum-matched map is itself a point transformation
+    assert not actionAngleVerticalInverse(
+        pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=7
+    )._momentum_matched, "An explicit point transformation did not fall back"
+    return None
