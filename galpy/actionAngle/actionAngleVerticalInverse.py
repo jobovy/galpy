@@ -2004,6 +2004,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
             if numpy.fabs(j - self._js[indx]) > 1e-10:
+                if self._momentum_matched:
+                    # The family interpolates, so the canonical map has a
+                    # frequency here even though the tabulated ones do not.
+                    # This only fills a case that used to raise, so no
+                    # answer the old path gave is changed.
+                    return float(self._mm_dEdj(j))
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )

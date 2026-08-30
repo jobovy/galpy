@@ -9006,3 +9006,35 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
         pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=7
     )._momentum_matched, "An explicit point transformation did not fall back"
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_offnode_frequency():
+    # The canonical map can evaluate between grid tori, so it can report a
+    # frequency there too; the tabulated frequencies cannot, and used to
+    # raise. Only that case changes.
+    import numpy
+    import pytest
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+    jm = 0.5 * (aAVI._js[3] + aAVI._js[4])
+    Om = aAVI._Freqs(jm)
+    assert numpy.isfinite(Om) and Om > 0.0, "No frequency between the grid tori"
+    # it is the map's own frequency, so it agrees with what _xvFreqs reports
+    assert Om == aAVI._xvFreqs(jm, numpy.array([0.3]))[2], (
+        "The off-node frequency is not the map's own"
+    )
+    # on a node the tabulated frequency still answers, unchanged
+    assert aAVI._Freqs(aAVI._js[4]) == aAVI._Omegas[4], (
+        "The on-node frequency no longer comes from the table"
+    )
+    # and with the old evaluation the off-node case still raises
+    old = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, momentum_matched=False)
+    with pytest.raises(ValueError) as excinfo:
+        old._Freqs(jm)
+    assert "not found" in str(excinfo.value)
+    return None
