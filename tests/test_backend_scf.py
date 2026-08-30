@@ -24,7 +24,7 @@ import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import SCFPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -708,3 +708,38 @@ def test_scf_coeffs_general_grad_wrt_density_parameter(backend_name):
     assert numpy.fabs(grad - fd) / numpy.fabs(fd) < 1e-5, (
         f"general d A000/db = {grad!r} disagrees with finite differences {fd!r}"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_xiToR_backend_branch_and_coeff_dens_cast(backend_name):
+    # Two leaf helpers whose BACKEND branch the numpy coverage run never enters:
+    # _xiToR's backend arm and _coeff_dens_numpy's cast. Exercise them directly
+    # with real backend arrays -- both are one-liners, so a value check pins
+    # them exactly rather than merely touching the line.
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import _coeff_dens_numpy, _RToxi, _xiToR
+
+    a = 1.7
+    with _b.use(backend_name, force=True):
+        xp = _b.get_namespace(numpy.zeros(1))
+        # asarray on a PYTHON LIST gives float32 under array_api_compat.torch
+        # even though conftest sets torch's default dtype to float64, so pin the
+        # dtype explicitly -- otherwise the rtol=1e-15 check below measures f32
+        # epsilon rather than the closed form.
+        xi = xp.asarray(numpy.array([-0.5, 0.0, 0.25], dtype=numpy.float64))
+        got = _xiToR(xi, a=a)
+    assert is_backend_array(got), "_xiToR must stay in the backend namespace"
+    # exact closed form: r = a (1+xi)/(1-xi)
+    want = numpy.array([a * (1 + x) / (1 - x) for x in (-0.5, 0.0, 0.25)])
+    numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-15, atol=0.0)
+    # round-trip through the sibling helper, which data-guards the same way
+    numpy.testing.assert_allclose(
+        as_numpy(_RToxi(got, a=a)), as_numpy(xi), rtol=1e-14, atol=1e-15
+    )
+    # _coeff_dens_numpy: casts a backend value, passes numpy through untouched
+    with _b.use(backend_name, force=True):
+        cast = _coeff_dens_numpy(xp.asarray(numpy.float64(3.25)))
+    assert not is_backend_array(cast), "_coeff_dens_numpy must return numpy"
+    assert float(cast) == 3.25
+    plain = numpy.array([1.5, 2.5])
+    assert _coeff_dens_numpy(plain) is plain, "numpy input must pass through unchanged"
