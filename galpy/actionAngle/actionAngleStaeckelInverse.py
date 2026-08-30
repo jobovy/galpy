@@ -939,13 +939,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # ~1e-16 in three or four steps here; this is the guarantee, not
             # the expectation, and it exists because a failure of this
             # inversion used to raise and take the whole evaluation with it.
-            if not numpy.all(numpy.isfinite(Dm)) or not numpy.all(numpy.isfinite(eta)):
+            badDm = int(numpy.sum(~numpy.isfinite(Dm)))
+            badeta = int(numpy.sum(~numpy.isfinite(eta)))
+            if badDm or badeta:
                 # Bracketing compares against NaN, and every such comparison
                 # is False, so it would converge on an endpoint and return it
-                # as a root.  Fail loudly instead of silently.
+                # as a root.  Fail loudly instead of silently, and say WHICH
+                # of the two is bad: the coefficients come from the stored
+                # family and the anomaly from the request, so they go wrong
+                # for different reasons and want different fixes.
                 raise RuntimeError(
                     "Newton's method for the map anomaly did not converge, "
-                    "and the map anomaly or its coefficients are not finite"
+                    "and the map anomaly or its coefficients are not finite: "
+                    f"{badDm} of {Dm.size} coefficients and {badeta} of "
+                    f"{eta.size} anomalies are non-finite"
                 )
             if numpy.sum(ms * numpy.fabs(Dm)) >= 1.0:
                 # sum_m m |D_m| >= 1 admits d eta / d tau <= 0: the map may
