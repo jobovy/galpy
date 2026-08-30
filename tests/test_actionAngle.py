@@ -9026,3 +9026,49 @@ def test_actionAngleVerticalInverse_momentum_matched_compensation():
         "Grouping changed the value of the compensation"
     )
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_angle():
+    # The angle relation is the action derivative of the generating function
+    # that the matching condition makes explicit. It is checked against the
+    # forward transformation, and its residual must be the family
+    # interpolation of dD_m/dJ -- so it must converge as the grid refines.
+    import numpy
+
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    tau = numpy.linspace(0.05, 2.0 * numpy.pi - 0.05, 33)
+
+    def spread(nE):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot,
+            Es=numpy.linspace(0.0, 2.0, nE),
+            nta=128,
+            use_pointtransform=False,
+        )
+        aAVI._setup_momentum_matched_family(npt=20, nta=1024)
+        j = aAVI._js[(nE - 1) // 2]
+        th = aAVI._mm_angle_of_tau(j, tau)
+        x, p = aAVI._mm_xp_of_tau(j, tau)
+        jt, _, thfwd = aAV.actionsFreqsAngles(x, p)
+        assert numpy.amax(numpy.fabs(jt - j)) < 1e-8, (
+            "The reconstructed point is not on the requested torus"
+        )
+        d = (th - thfwd + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        return numpy.amax(numpy.fabs(d))
+
+    s9, s33 = spread(9), spread(33)
+    # the residual is the interpolated dD_m/dJ, so refining the grid removes
+    # it; a relation with a genuine error term would not converge
+    assert s33 < 1e-6, (
+        "The angle relation does not reproduce the forward angle: %g" % s33
+    )
+    assert s33 < 1e-3 * s9, (
+        "The angle residual does not converge with the grid: {:g} vs {:g}".format(
+            s33, s9
+        )
+    )
+    return None

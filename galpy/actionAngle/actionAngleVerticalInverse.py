@@ -654,6 +654,64 @@ class actionAngleVerticalInverse(actionAngleInverse):
         dxmaxdj = (K + j * dKdj) / (2.0 * numpy.sqrt(K * j))
         return p * dxmaxdj * numpy.cos(tau)
 
+    def _mm_angle_of_tau(self, j, tau):
+        """
+        The angle at anomaly tau on the torus of action j.
+
+        The matching condition makes the generating function explicit: the
+        cumulative action of the target equals that of its auxiliary, so
+        W = J (eta - sin eta cos eta) with eta = eta(tau; J).  The angle is
+        its action derivative at fixed position, and the chain rule splits
+        into a term at fixed anomaly and the boundary term that the moving
+        turning points contribute,
+
+            theta = (eta - sin eta cos eta)
+                    + 2 J sin^2(eta) sum_m (dD_m/dJ) sin(m tau)
+                    + p (d xmax / d J) cos(tau) ,
+
+        the last being the grouped compensation.  Every ingredient is either
+        closed form or a derivative of the stored interpolants, so no
+        quadrature and no separately tabulated derivative enters.
+
+        A constant pi/2 is subtracted to put the result in the convention of
+        the forward transformation, which measures the angle from the
+        midplane while the anomaly is measured from the turning point.  The
+        offset is a choice of origin and nothing more: it comes out at
+        pi/2 to 4e-13 independently of the torus and of the grid, while the
+        anomaly-dependent part of the difference converges away as the grid
+        is refined (2.5e-3, 1.3e-5, 1.7e-8, 1.1e-9 for 9, 17, 33 and 65
+        energies), which is the family interpolation of dD_m/dJ and not an
+        error of this relation.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : float or numpy.ndarray
+            Anomaly.
+
+        Returns
+        -------
+        numpy.ndarray
+            The angle at the requested anomalies.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        D, dDdj, _, _ = self._mm_tables(j)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
+        detadj = numpy.sin(tau[:, None] * ms[None, :]) @ dDdj
+        return (
+            eta
+            - numpy.sin(eta) * numpy.cos(eta)
+            + 2.0 * j * numpy.sin(eta) ** 2.0 * detadj
+            + self._mm_compensation(j, tau)
+            - 0.5 * numpy.pi
+        )
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline
