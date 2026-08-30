@@ -536,7 +536,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # manifest canonicity.
         self._mm_D_c = ndimage.spline_filter1d(D, order=3, axis=0, mode="mirror")
         self._mm_K_c = ndimage.spline_filter1d(K, order=3, axis=0, mode="mirror")
-        self._mm_E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        # E(J) is interpolated as a Hermite spline, matching the energies at
+        # the nodes AND their slopes, because those slopes are already known
+        # exactly: dE/dJ is the frequency.  Fitting E alone and
+        # differentiating would throw that information away and leave the
+        # map's frequency disagreeing with the tabulated one.
+        self._mm_E = interpolate.CubicHermiteSpline(self._js, self._Es, self._Omegas)
         self._mm_dEdj = self._mm_E.derivative()
         return None
 

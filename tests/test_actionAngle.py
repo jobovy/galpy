@@ -8969,9 +8969,12 @@ def test_actionAngleVerticalInverse_momentum_matched_public():
     assert dj33 < 1e-10, "The public evaluation leaves the requested torus"
     # the angle and the frequency carry the family's interpolation, and so
     # both have to improve with the grid
-    assert dth9 < 5e-3 and dom9 < 1e-3, "The public evaluation is wrong"
+    assert dth9 < 5e-3, "The public evaluation is wrong"
+    # the angle reads the family, so it converges with the grid
     assert dth33 < 1e-3 * dth9, "The evaluated angle does not converge"
-    assert dom33 < 1e-2 * dom9, "The evaluated frequency does not converge"
+    # the frequency does NOT: E(J) is a Hermite spline through the exactly
+    # known dE/dJ, so the frequency is exact at the nodes whatever the grid
+    assert dom9 < 1e-9 and dom33 < 1e-9, "The frequency is not exact at the nodes"
     return None
 
 
