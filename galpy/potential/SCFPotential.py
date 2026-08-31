@@ -1780,9 +1780,20 @@ def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
     # gegenbauer returns xi.shape + (N,); stack the l values along the last
     # axis and move (n, l) to the front to match the numpy layout: (N, len(Ls))
     # for scalar xi, (N, len(Ls)) + xi.shape for array xi.
-    Ls = [L] if singleL else range(L)
-    CC = xp.stack([gegenbauer(N, alpha(ll), xi) for ll in Ls], axis=-1)
-    return xp.moveaxis(CC, (-2, -1), (0, 1))
+    # ONE gegenbauer call for every l, not one per l: alpha enters the
+    # recurrence only as a coefficient, so passing the whole alpha vector
+    # broadcasts it. Measured on DehnenBinney98 (L~30): the loop made 70730
+    # gegenbauer calls costing 350 s of a 396 s build -- the dominant cost, and
+    # independent of whether the integrand itself batches.
+    Ls = [L] if singleL else list(range(L))
+    _al = xp.asarray([alpha(ll) for ll in Ls])  # (nL,)
+    _x = xp.asarray(xi)
+    _scalar = _x.ndim == 0  # shape-only test: static under tracing
+    _xb = _x[None] if _scalar else _x
+    CC = gegenbauer(N, _al, _xb[..., None])  # xb.shape + (nL, N)
+    CC = xp.moveaxis(CC, -1, -2)  # xb.shape + (N, nL)
+    out = xp.moveaxis(CC, (-2, -1), (0, 1))  # (N, nL) + xb.shape
+    return out[..., 0] if _scalar else out
 
 
 def _dC(xi, N, L):
@@ -2113,6 +2124,55 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         param[0] = R
         param[1] = z
         return phi_nl * dV * dens(*param, **dens_kw)
+
+    def integrand_batched(xi, costheta):
+        # Same expression with the (n, l) axes moved to TRAILING so a leading
+        # node axis broadcasts; verified bit-exact against stacking the scalar
+        # integrand. Only attached when the density accepts arrays.
+        # Node arrays stay NUMPY, exactly as the scalar twin passes numpy scalars.
+        # That matters for the density: batching must not change what user code
+        # receives. A density written with numpy.* (the documented way) would
+        # otherwise be handed Tensors and make numpy own its ops -- warning today,
+        # broken on a future numpy. Differentiability does not need backend R/z:
+        # it flows from the density's CLOSED-OVER parameter tensors, which is
+        # exactly how the scalar path already works.
+        xi = numpy.asarray(xi)
+        costheta = numpy.asarray(costheta)
+        l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        PP = assoc_legendre(L, 1, costheta)[..., 0][:, numpy.newaxis, :]
+        dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[:, None, None]
+        # _C vectorizes over the nodes but puts that axis LAST; move it to the
+        # front. numpy.moveaxis on a Tensor dispatches to Tensor.transpose(list),
+        # which torch rejects -- so go through the resolved namespace.
+        _CC_raw = _C(xi, N, L)
+        _cxp = get_namespace(_CC_raw)
+        _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))  # (N, L, K) -> (K, N, L)
+        _xiB = xi[:, None, None]
+        # `l` must cross to the backend BEFORE the power: `Tensor ** ndarray`
+        # lets numpy own the op, and `like` on the RESULT is too late -- it can
+        # only fix operands it is given, not an expression numpy already
+        # evaluated. The scalar twin is safe because there `xi` really is numpy.
+        _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        param[0] = R
+        param[1] = z
+        # The density may return numpy OR a backend array (if it closes over
+        # backend parameters); either is fine -- the product follows the data.
+        _d = dens(*param, **dens_kw)
+        _d = _d[:, None, None] if numpy.ndim(_d) else _d
+        # `_C` follows the AMBIENT namespace, so phi_nl is a backend array while
+        # dV and the density stay numpy. `like` carries the numpy factors across
+        # so the BACKEND owns the product; without it numpy does, which is the
+        # __array_wrap__ warning. No-op when everything is already numpy.
+        _dVb, _db = like(phi_nl, dV), like(phi_nl, _d)
+        return phi_nl * _dVb * _db
+
+    with _use_backend("numpy", force=True):
+        if _dens_accepts_arrays(dens, numOfParam, dens_kw):
+            integrand.batched = integrand_batched
 
     Asin = None
 
@@ -2520,6 +2580,30 @@ def scf_compute_coeffs(
     return Acos, Asin
 
 
+def _dens_accepts_arrays(dens, numOfParam, dens_kw):
+    """Probe whether ``dens`` accepts ARRAY spatial arguments, so the coefficient
+    quadrature can evaluate every node in one call instead of one at a time.
+
+    Spatial analogue of the ``t``-vectorizability check in
+    ``_timedep_dens_setup``: call the density on a small array and require the
+    OUTPUT SHAPE to match. Returning False only costs speed (the caller keeps
+    the sequential loop), so this defaults to False on any doubt -- a wrong
+    True would silently corrupt coefficients.
+
+    Notes
+    -----
+    - 2026-08-30 - Written - Bovy (UofT)
+    """
+    probe = numpy.array([0.5, 0.75, 1.0])
+    try:
+        out = numpy.asarray(dens(*([probe] * numOfParam), **dens_kw))
+    except Exception:
+        return False
+    # shape check, not merely "it did not raise": a density that broadcasts to a
+    # scalar, or returns the wrong length, must NOT be batched.
+    return out.shape == probe.shape
+
+
 class _TimeDepDensityNotVectorized(Exception):
     """Raised when a time-dependent density cannot be evaluated as an array over
     its ``t`` argument, so the caller must fall back to a per-timestep loop."""
@@ -2875,9 +2959,44 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     if type(s_temp).__name__ == numpy.ndarray.__name__:
         shape = s_temp.shape
         s = numpy.zeros(shape, float)
+    elif is_backend_array(s_temp):
+        # The check above is a NAME comparison, so under a forced backend the
+        # probe returns a Tensor/Array and `shape` silently stayed None. The
+        # accumulator still starts at the scalar 0.0 (the loop broadcasts, so
+        # the numpy path is untouched); `shape` is recorded because the batched
+        # path needs it to align the weights.
+        shape = tuple(s_temp.shape)
 
     # gets all combinations of indices from each integrand
     li = _cartesian(Ksample)
+
+    # BATCHED path, opt-in and backend-only. The sequential loop below pays the
+    # eager per-call overhead once per NODE -- measured at 4.75 ms on jax against
+    # 0.20 ms on numpy, i.e. 95% of the jax runtime for a 3-D solve's 8000 nodes.
+    # An integrand that sets `batchable = True` accepts the node arrays with a
+    # LEADING batch axis and returns (K,) + shape, letting the whole cartesian
+    # product go through in ONE call.
+    #
+    # numpy deliberately keeps the sequential loop: a vectorized contraction
+    # sums in a different ORDER (pairwise vs left-to-right), which is not
+    # byte-identical. The integrand VALUES are bit-identical either way -- only
+    # the reduction differs -- so this is the only place the two paths diverge.
+    _batched = getattr(integrand, "batched", None)
+    # The AMBIENT namespace decides, not the nodes: xp/wp are built with
+    # numpy.zeros, so the nodes are numpy and everything derived from them
+    # (_C, the density) would be numpy too -- leaving this branch permanently
+    # dead under a forced backend. Coerce the nodes ONTO the backend so the
+    # batched evaluation is genuinely backend-native.
+    _amb = get_namespace(numpy.zeros(1))
+    if _batched is not None and shape is not None and _amb is not numpy:
+        _idx = (numpy.arange(len(bounds))[:, None], li.T)
+        nodes = tuple(_amb.asarray(n) for n in xp[_idx])  # (ndim, K) on backend
+        vals = _batched(*nodes)  # (K,) + shape
+        w = numpy.prod(wp[_idx], axis=0)
+        # value LEADS so the backend owns the product, as in the loop below
+        _bxp = get_namespace(vals)
+        s = _bxp.sum(vals * like(vals, w).reshape((-1,) + (1,) * len(shape)), axis=0)
+        return _bxp.where(_bxp.abs(s) < roundoff, 0.0, s)
 
     ##Performs the actual integration
     for i in range(li.shape[0]):
