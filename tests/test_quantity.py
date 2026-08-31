@@ -14036,10 +14036,14 @@ def test_actionAngleStaeckelInverse_integrals_inputAsQuantity():
         vo=vo,
     )
     jr, jphi, jz = 0.06, 0.9, 0.03
-    idx = aA._coords_from_actions(jr, jphi, jz)
-    aA._interp_Lz = jphi
-    scal, _ = aA._interp_torus(idx)
-    E, I3 = float(scal[6]), float(scal[7])
+    # the (E, I3) labels of this torus, through the same closed rectified
+    # relations the canonical family's integrals entry point inverts
+    x = aA._canon_coords(jr, jphi, jz)
+    E = float(aA._canon_table_eval(numpy.atleast_2d(x))[2, 0])
+    wI = x[2] / (aA._nI3 - 1)
+    Ipl = aA._I3_planar(E, jphi)
+    Ish = aA._I3_shell(E, jphi)
+    I3 = float(Ipl + numpy.sin(numpy.pi * wI / 2.0) ** 2 * (Ish - Ipl))
     angles = [numpy.array([0.3, 2.7]) for _ in range(3)]
     with_units = numpy.array(
         aA(
