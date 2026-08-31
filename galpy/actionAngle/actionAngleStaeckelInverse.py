@@ -1291,7 +1291,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             sru = numpy.where(
                 numpy.fabs(sintu) > 1e-12,
                 sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
-                1.0,
+                # sin(eta)/sin(tau) -> eta'(tau) as either vanishes, which is
+                # detau; substituting 1 is wrong by sum_m m D_m, an O(0.1)
+                # error on any point that reaches this branch
+                detau,
             )
             pu = vrA * gA * sru * detau / (0.5 * Du)
         if Dv >= 1e-10 and (0.5 * numpy.pi - thmin) >= 1e-8:
@@ -1314,7 +1317,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             srv = numpy.where(
                 numpy.fabs(sintv) > 1e-12,
                 sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
-                1.0,
+                detav,
             )
             gth = 0.5 * numpy.pi - thmin
             pv = pAth * gth * srv * detav / (0.5 * Dv)
@@ -1748,7 +1751,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sru = numpy.where(
             numpy.fabs(sintu) > 1e-12,
             sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
-            1.0,
+            detau,
         )
         pu = pAr * gA * sru * detau / (0.5 * (umax - umin))
         comp = numpy.empty((3, len(thetaAr)))
@@ -1789,7 +1792,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         srv = numpy.where(
             numpy.fabs(sintv) > 1e-12,
             sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
-            1.0,
+            detav,
         )
         gth = 0.5 * numpy.pi - thmin
         pv = pAthv * gth * srv * detav / (0.5 * (numpy.pi - 2.0 * vmin))
