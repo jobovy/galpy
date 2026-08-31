@@ -1780,9 +1780,20 @@ def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
     # gegenbauer returns xi.shape + (N,); stack the l values along the last
     # axis and move (n, l) to the front to match the numpy layout: (N, len(Ls))
     # for scalar xi, (N, len(Ls)) + xi.shape for array xi.
-    Ls = [L] if singleL else range(L)
-    CC = xp.stack([gegenbauer(N, alpha(ll), xi) for ll in Ls], axis=-1)
-    return xp.moveaxis(CC, (-2, -1), (0, 1))
+    # ONE gegenbauer call for every l, not one per l: alpha enters the
+    # recurrence only as a coefficient, so passing the whole alpha vector
+    # broadcasts it. Measured on DehnenBinney98 (L~30): the loop made 70730
+    # gegenbauer calls costing 350 s of a 396 s build -- the dominant cost, and
+    # independent of whether the integrand itself batches.
+    Ls = [L] if singleL else list(range(L))
+    _al = xp.asarray([alpha(ll) for ll in Ls])  # (nL,)
+    _x = xp.asarray(xi)
+    _scalar = _x.ndim == 0  # shape-only test: static under tracing
+    _xb = _x[None] if _scalar else _x
+    CC = gegenbauer(N, _al, _xb[..., None])  # xb.shape + (nL, N)
+    CC = xp.moveaxis(CC, -1, -2)  # xb.shape + (N, nL)
+    out = xp.moveaxis(CC, (-2, -1), (0, 1))  # (N, nL) + xb.shape
+    return out[..., 0] if _scalar else out
 
 
 def _dC(xi, N, L):
