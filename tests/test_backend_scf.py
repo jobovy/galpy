@@ -770,12 +770,50 @@ def test_scf_axi_batched_matches_sequential(backend_name):
     assert S._dens_accepts_arrays(dens_vec, 2, {})
     assert not S._dens_accepts_arrays(dens_scalar, 2, {})
 
+    # Count which integrand actually ran. A value comparison CANNOT distinguish
+    # "both paths correct" from "only one path ran" -- this test previously
+    # passed while the batched branch was dead code, so the call count is the
+    # real assertion and the value agreement is secondary.
+    calls = {"scalar": 0, "batched": 0}
+    _orig_quad = S._gaussianQuadrature
+
+    def counting_quad(integrand, bounds, Ksample=[20], roundoff=0):
+        _b_fn = getattr(integrand, "batched", None)
+
+        def wrapped(*a):
+            calls["scalar"] += 1
+            return integrand(*a)
+
+        if _b_fn is not None:
+
+            def wrapped_batched(*a):
+                calls["batched"] += 1
+                return _b_fn(*a)
+
+            wrapped.batched = wrapped_batched
+        return _orig_quad(wrapped, bounds, Ksample=Ksample, roundoff=roundoff)
+
     with _b.use(backend_name, force=True):
-        batched = as_numpy(S.scf_compute_coeffs_axi(dens_vec, 4, 3, a=1.0)[0])
-        seq = as_numpy(S.scf_compute_coeffs_axi(dens_scalar, 4, 3, a=1.0)[0])
+        S._gaussianQuadrature = counting_quad
+        try:
+            batched = as_numpy(S.scf_compute_coeffs_axi(dens_vec, 4, 3, a=1.0)[0])
+            n_batched = calls["batched"]
+            calls["scalar"] = calls["batched"] = 0
+            seq = as_numpy(S.scf_compute_coeffs_axi(dens_scalar, 4, 3, a=1.0)[0])
+            n_seq_scalar, n_seq_batched = calls["scalar"], calls["batched"]
+        finally:
+            S._gaussianQuadrature = _orig_quad
+    assert n_batched > 0, "vectorizable density must take the BATCHED path"
+    assert n_seq_batched == 0, "scalar-only density must NOT take the batched path"
+    assert n_seq_scalar > 1, "scalar-only density must step the sequential loop"
     # the quadrature nodes and weights are identical; only the reduction differs,
     # so this is tight on purpose -- a loose bar would not detect a wrong axis.
-    numpy.testing.assert_allclose(batched, seq, rtol=1e-13, atol=1e-15)
-    # and both must match the numpy build
+    # Different reduction ORDER -> ~1 ulp, not bit-identical (bit-identical here
+    # would mean the two paths were secretly the same one). Some coefficients
+    # vanish by symmetry, so a per-element rtol is meaningless on them: scale the
+    # bar to the ARRAY's magnitude. 1e-15*scale ~= 10x the observed 1-ulp
+    # spread: tight enough to catch a wrong axis, loose enough for platform drift.
     ref = S.scf_compute_coeffs_axi(dens_vec, 4, 3, a=1.0)[0]
-    numpy.testing.assert_allclose(batched, ref, rtol=1e-13, atol=1e-15)
+    scale = numpy.max(numpy.abs(ref))
+    numpy.testing.assert_allclose(batched, seq, rtol=0, atol=1e-15 * scale)
+    numpy.testing.assert_allclose(batched, ref, rtol=0, atol=1e-15 * scale)

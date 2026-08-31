@@ -2126,7 +2126,12 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         z = r * costheta
         PP = assoc_legendre(L, 1, costheta)[..., 0][:, numpy.newaxis, :]
         dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[:, None, None]
-        _CC = numpy.moveaxis(_C(xi, N, L), -1, 0)  # (K, N, L); _C vectorizes
+        # _C vectorizes over the nodes but puts that axis LAST; move it to the
+        # front. numpy.moveaxis on a Tensor dispatches to Tensor.transpose(list),
+        # which torch rejects -- so go through the resolved namespace.
+        _CC_raw = _C(xi, N, L)
+        _cxp = get_namespace(_CC_raw)
+        _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))  # (N, L, K) -> (K, N, L)
         _xiB = xi[:, None, None]
         _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
@@ -2923,6 +2928,13 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     if type(s_temp).__name__ == numpy.ndarray.__name__:
         shape = s_temp.shape
         s = numpy.zeros(shape, float)
+    elif is_backend_array(s_temp):
+        # The check above is a NAME comparison, so under a forced backend the
+        # probe returns a Tensor/Array and `shape` silently stayed None. The
+        # accumulator still starts at the scalar 0.0 (the loop broadcasts, so
+        # the numpy path is untouched); `shape` is recorded because the batched
+        # path needs it to align the weights.
+        shape = tuple(s_temp.shape)
 
     # gets all combinations of indices from each integrand
     li = _cartesian(Ksample)
@@ -2939,18 +2951,21 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     # byte-identical. The integrand VALUES are bit-identical either way -- only
     # the reduction differs -- so this is the only place the two paths diverge.
     _batched = getattr(integrand, "batched", None)
-    if _batched is not None and shape is not None:
-        nodes = xp[(numpy.arange(len(bounds))[:, None], li.T)]  # (ndim, K)
+    # The AMBIENT namespace decides, not the nodes: xp/wp are built with
+    # numpy.zeros, so the nodes are numpy and everything derived from them
+    # (_C, the density) would be numpy too -- leaving this branch permanently
+    # dead under a forced backend. Coerce the nodes ONTO the backend so the
+    # batched evaluation is genuinely backend-native.
+    _amb = get_namespace(numpy.zeros(1))
+    if _batched is not None and shape is not None and _amb is not numpy:
+        _idx = (numpy.arange(len(bounds))[:, None], li.T)
+        nodes = tuple(_amb.asarray(n) for n in xp[_idx])  # (ndim, K) on backend
         vals = _batched(*nodes)  # (K,) + shape
-        w = numpy.prod(wp[(numpy.arange(len(bounds))[:, None], li.T)], axis=0)
+        w = numpy.prod(wp[_idx], axis=0)
+        # value LEADS so the backend owns the product, as in the loop below
         _bxp = get_namespace(vals)
-        if _bxp is not numpy:
-            # value LEADS so the backend owns the product, as in the loop below
-            s = _bxp.sum(
-                vals * like(vals, w).reshape((-1,) + (1,) * len(shape)), axis=0
-            )
-            _xp = get_namespace(s)
-            return _xp.where(_xp.abs(s) < roundoff, 0.0, s)
+        s = _bxp.sum(vals * like(vals, w).reshape((-1,) + (1,) * len(shape)), axis=0)
+        return _bxp.where(_bxp.abs(s) < roundoff, 0.0, s)
 
     ##Performs the actual integration
     for i in range(li.shape[0]):
