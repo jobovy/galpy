@@ -1095,12 +1095,16 @@ def test_mass_batches_a_potential_that_opts_in(backend, monkeypatch):
     assert len(calls) < 10, f"driven node-by-node: {len(calls)} Rforce calls"
     assert any(sh != () for sh in calls), f"never saw an array: shapes {calls}"
     # The VALUE must be untouched: same Gauss-Legendre rule and same nodes, only
-    # the call pattern changes. Measured bit-identical to the node-by-node drive
-    # (0.19292490375107788 both ways), so this is a routing change, not a
-    # numerical one. It is deliberately NOT compared against the numpy/scipy
-    # answer: the backend GL rule already differs from adaptive scipy by 5.8e-09
-    # for mass(), which is pre-existing and outside this change.
-    numpy.testing.assert_allclose(float(got), float(batched_ref), rtol=0, atol=0)
+    # the call pattern changes. Agreement is to roundoff, not bit-identity: the
+    # node-by-node drive evaluates f(x_i) in separate XLA calls while the batched
+    # drive evaluates f(x) over the whole node array at once, so fusion/FMA
+    # contraction can move the last ulp between compiler versions (observed 1.4e-16
+    # on one jax build, 0.0 on another). rtol=1e-14 is still ~5 orders tighter than
+    # the 5.8e-09 by which this GL rule differs from adaptive scipy for mass(), so
+    # it continues to show a routing change rather than a numerical one. It is
+    # deliberately NOT compared against the numpy/scipy answer: that GL-vs-adaptive
+    # gap is pre-existing and outside this change.
+    numpy.testing.assert_allclose(float(got), float(batched_ref), rtol=1e-14, atol=0)
 
 
 @pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
