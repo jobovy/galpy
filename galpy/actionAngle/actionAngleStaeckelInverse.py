@@ -920,7 +920,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Dm = 2.0 * numpy.mean((eta - tau)[:, None] * smat, axis=0)
         return Dm
 
-    def _tau_of_eta(self, eta, Dm):
+    def _tau_of_eta(self, eta, Dm, where=""):
         """Invert the stored anomaly map (monotone) for tau"""
         ms = self._nforDm
         x = numpy.array(eta, dtype="float")
@@ -953,6 +953,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     "and the map anomaly or its coefficients are not finite: "
                     f"{badDm} of {Dm.size} coefficients and {badeta} of "
                     f"{eta.size} anomalies are non-finite"
+                    + (f" ({where})" if where else "")
                 )
             if numpy.sum(ms * numpy.fabs(Dm)) >= 1.0:
                 # sum_m m |D_m| >= 1 admits d eta / d tau <= 0: the map may
@@ -1268,7 +1269,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sineta = numpy.sign(vrA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
         etau = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
         if Du >= 1e-10:
-            tuu = self._tau_of_eta(etau, Dmu)
+            tuu = self._tau_of_eta(etau, Dmu, where="etau")
             u = umin + Du * numpy.sin(tuu / 2.0) ** 2
             gA = a * e * (y + self._bc / a) / numpy.sqrt(y * (y + 2.0 * self._bc / a))
             ms = self._nforDm
@@ -1293,7 +1294,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.clip(1.0 - cosetav**2, 0.0, None)
             )
             etav = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
-            tvv = self._tau_of_eta(etav, Dmv)
+            tvv = self._tau_of_eta(etav, Dmv, where="etav")
             v = vmin + Dv * numpy.sin(tvv / 2.0) ** 2
             detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * Dmv)
             sintv = numpy.sin(tvv)
@@ -1719,7 +1720,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         # u-degree at the current phases
         eta_u, rA, pAr = self._canon_toy_radial(jr, LA, thetaAr)
-        tuu = self._tau_of_eta(eta_u, Dmu)
+        tuu = self._tau_of_eta(eta_u, Dmu, where="eta_u")
         ms = self._nforDm
         s = numpy.sqrt(bb**2 + rA**2)
         y = (s - bb) / a
@@ -1768,7 +1769,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             numpy.clip(1.0 - cosetav**2, 0.0, None)
         )
         eta_v = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
-        tvv = self._tau_of_eta(eta_v, Dmv)
+        tvv = self._tau_of_eta(eta_v, Dmv, where="eta_v")
         smat_v = numpy.sin(tvv[:, None] * ms[None, :])
         detav = 1.0 + numpy.cos(tvv[:, None] * ms[None, :]) @ (ms * Dmv)
         sintv = numpy.sin(tvv)
