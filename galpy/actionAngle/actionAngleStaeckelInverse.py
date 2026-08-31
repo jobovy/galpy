@@ -133,6 +133,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         npt=32,
         maxiter=60,
         angle_tol=1e-13,
+        Lzlim=None,
+        wElim=None,
+        wIlim=None,
         **kwargs,
     ):
         """
@@ -277,7 +280,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Rmin = conversion.parse_length(Rmin, ro=self._ro)
             Rmax = conversion.parse_length(Rmax, ro=self._ro)
             Rinf = conversion.parse_length(Rinf, ro=self._ro)
-            self._setup_canonical_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad)
+            self._setup_canonical_grid(
+                Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, Lzlim, wElim, wIlim
+            )
             return
         # Setup in three logical stages
         self._find_turning_points()
@@ -923,13 +928,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _tau_of_eta(self, eta, Dm, where=""):
         """Invert the stored anomaly map (monotone) for tau"""
         ms = self._nforDm
-        x = numpy.array(eta, dtype="float")
+        # start from the one-term inversion rather than from eta itself: the
+        # map is tau + sum_m D_m sin(m tau), so eta - sum_m D_m sin(m eta) is
+        # already correct to second order in the (small) coefficients, and
+        # Newton then needs a handful of steps instead of a few dozen
+        eta = numpy.asarray(eta, dtype="float")
+        x = eta - numpy.sin(eta[:, None] * ms[None, :]) @ Dm
         for _ in range(self._maxiter):
             f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
             fp = 1.0 + numpy.cos(x[:, None] * ms[None, :]) @ (ms * Dm)
             dx = numpy.clip(-f / fp, -0.5, 0.5)
             x += dx
-            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+            worst = numpy.max(numpy.fabs(f))
+            if worst < self._angle_tol:
                 break
         else:
             # The stored map is monotone whenever sum_m m |D_m| < 1, which
@@ -1365,7 +1376,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vals = numpy.einsum("qpabc,pa,pb,pc->qp", block, wts[0], wts[1], wts[2])
         return vals
 
-    def _setup_canonical_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad):
+    def _setup_canonical_grid(
+        self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad, Lzlim=None, wElim=None, wIlim=None
+    ):
         """The canonical family: the rectified (L_z, w_E, w_I) node lattice
         of the direct grid, all node tori built in one vectorized canonical
         construction, and the family stored as prefiltered 3-D tables whose
@@ -1374,12 +1387,29 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         no derivative is ever stored separately)"""
         self._nLz, self._nE, self._nI3 = nLz, nE, nI3
         self._Lzgrid = numpy.linspace(
-            Rmin * vcirc(self._pot, Rmin, use_physical=False),
-            Rmax * vcirc(self._pot, Rmax, use_physical=False),
+            *_edge(
+                Lzlim,
+                (
+                    Rmin * vcirc(self._pot, Rmin, use_physical=False),
+                    Rmax * vcirc(self._pot, Rmax, use_physical=False),
+                ),
+            ),
             nLz,
         )
-        self._wEgrid = numpy.linspace(wpad, 1.0 - wpad, nE)
-        self._wIgrid = numpy.linspace(0.0, 1.0, nI3)
+        # The grid is a box in (L_z, w_E, w_I).  Spanning a SUB-interval of
+        # each axis is what localizes it on a target -- a stream, say -- and
+        # since the interpolation error goes as the spacing, a domain narrower
+        # by F is worth as much as F times more nodes.  Rmin/Rmax/Rinf set only
+        # the outer extent and cannot express a narrow energy box.
+        # A limit of None on either end means that axis's own edge, which
+        # matters because the edges are degeneracies rather than arbitrary
+        # boundaries: w_E = 0 is the circular orbit, which is why the default
+        # pads away from it, and w_I = 0 and 1 are the planar and shell
+        # orbits, whose handling keys on the grid reaching them EXACTLY.  A
+        # box meant to sit against one of those has to say so rather than
+        # approach it with a number.
+        self._wEgrid = numpy.linspace(*_edge(wElim, (wpad, 1.0 - wpad)), nE)
+        self._wIgrid = numpy.linspace(*_edge(wIlim, (0.0, 1.0)), nI3)
         self._wIedge = 1e-4
         shape = (nLz, nE, nI3)
         self._canon_shape = shape
@@ -1476,6 +1506,75 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         re-enter through exactly this call"""
         self._canon_tab = _prefilter_padded(self._canon_tab_raw, (1, 2, 3), 2)
         return None
+
+    def _canon_coords_vec(self, jr, Lz, jz):
+        """
+        Invert the stored label tables for many tori at once.
+
+        The scalar :meth:`_canon_coords` runs a two-dimensional Newton per
+        torus.  Evaluating an ensemble that way costs one Python-level call
+        per orbit, and at these array sizes the call overhead dominates the
+        arithmetic: the per-torus label inversion measures 3.4 ms against
+        0.4 ms of actual per-point work.  This solves all of them together,
+        every iterate being an array over tori, which is what makes an
+        ensemble affordable.
+
+        Parameters
+        ----------
+        jr, Lz, jz : numpy.ndarray
+            Actions of the tori, all the same shape.
+
+        Returns
+        -------
+        numpy.ndarray
+            Fractional grid coordinates, shape (n, 3).
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        jr = numpy.atleast_1d(jr).astype("float")
+        Lz = numpy.atleast_1d(Lz).astype("float")
+        jz = numpy.atleast_1d(jz).astype("float")
+        if numpy.any(Lz < self._Lzgrid[0]) or numpy.any(Lz > self._Lzgrid[-1]):
+            raise ValueError(
+                f"L_z outside the grid [{self._Lzgrid[0]}, {self._Lzgrid[-1]}]"
+            )
+        xL = (
+            (Lz - self._Lzgrid[0])
+            / (self._Lzgrid[-1] - self._Lzgrid[0])
+            * (self._nLz - 1)
+        )
+        xE = numpy.full_like(xL, 0.5 * (self._nE - 1))
+        xI = numpy.full_like(xL, 0.5 * (self._nI3 - 1))
+        tol = 1e-12 * (1.0 + numpy.fabs(jr) + numpy.fabs(jz))
+        for _ in range(self._maxiter):
+            x = numpy.stack((xL, xE, xI), axis=1)
+            v = self._canon_table_eval(x)
+            dE_ = self._canon_table_eval(x, deriv=1)
+            dI_ = self._canon_table_eval(x, deriv=2)
+            f0 = v[0] - jr
+            f1 = v[1] - jz
+            det = dE_[0] * dI_[1] - dI_[0] * dE_[1]
+            dxE = (dI_[1] * f0 - dI_[0] * f1) / det
+            dxI = (-dE_[1] * f0 + dE_[0] * f1) / det
+            lim = numpy.minimum(
+                1.0,
+                1.0
+                / numpy.maximum(numpy.maximum(numpy.fabs(dxE), numpy.fabs(dxI)), 1e-30),
+            )
+            xE = numpy.clip(xE - dxE * lim, 0.0, self._nE - 1.0)
+            xI = numpy.clip(xI - dxI * lim, 0.0, self._nI3 - 1.0)
+            if numpy.all(numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)) < tol):
+                break
+        else:
+            bad = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)) >= tol
+            raise ValueError(
+                "The label inversion did not converge for %d of %d tori; the "
+                "first is (J_R, J_z) = (%g, %g)"
+                % (numpy.sum(bad), len(jr), jr[bad][0], jz[bad][0])
+            )
+        return numpy.stack((xL, xE, xI), axis=1)
 
     def _canon_coords(self, jr, Lz, jz):
         """Invert the stored label tables for the fractional grid
@@ -1648,10 +1747,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ish = self._I3_shell(E, Lz)
         sfrac = numpy.clip((I3 - Ipl) / (Ish - Ipl), 0.0, 1.0)
         wI = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(sfrac))
-        xE = numpy.clip(
-            (wE - self._canon_wpad) / (1.0 - 2.0 * self._canon_wpad), 0.0, 1.0
-        ) * (self._nE - 1)
-        xI = wI * (self._nI3 - 1)
+        # through the grid's ACTUAL span, which is the default one unless the
+        # grid was narrowed
+        wE0, wE1 = self._wEgrid[0], self._wEgrid[-1]
+        wI0, wI1 = self._wIgrid[0], self._wIgrid[-1]
+        xE = numpy.clip((wE - wE0) / (wE1 - wE0), 0.0, 1.0) * (self._nE - 1)
+        xI = (wI - wI0) / (wI1 - wI0) * (self._nI3 - 1)
         return numpy.array([xL, float(xE), float(xI)])
 
     def _canon_family_chains(self, x):
@@ -1687,6 +1788,60 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # drops the term outright, so the divergence is never evaluated
         dhw = (v[4] * dq[0] + v[0] * dq[4]) / (2.0 * numpy.maximum(hw, 1e-14))
         dhv = (v[5] * dq[1] + v[1] * dq[5]) / (2.0 * numpy.maximum(hv, 1e-14))
+        v[3], v[4], v[5] = uc - hw, uc + hw, 0.5 * numpy.pi - hv
+        dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
+        return v, dq
+
+    def _canon_family_chains_vec(self, x):
+        """
+        Family values and action chains for many tori at once.
+
+        The scalar :meth:`_canon_family_chains` keeps only the first point of
+        the stencil evaluation; this keeps all of them, so the 3x3 label
+        matrix is inverted as a stack and the chains are contracted with
+        ``einsum``.  See :meth:`_canon_coords_vec` for why an ensemble needs
+        this.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Fractional grid coordinates, shape (n, 3).
+
+        Returns
+        -------
+        tuple
+            ``(v, dq)`` with ``v`` of shape (nq, n) and ``dq`` of shape
+            (nq, n, 3), the turning points reconstructed exactly as in the
+            scalar routine.
+
+        Notes
+        -----
+        - 2026-08-29 - Written - Bovy (UofT)
+        """
+        xx = numpy.atleast_2d(x)
+        npts = xx.shape[0]
+        v = self._canon_table_eval(xx)
+        dL = self._canon_table_eval(xx, deriv=0) / self._canon_dLz
+        dE_ = self._canon_table_eval(xx, deriv=1)
+        dI_ = self._canon_table_eval(xx, deriv=2)
+        M = numpy.empty((npts, 3, 3))
+        M[:, 0, 0], M[:, 0, 1], M[:, 0, 2] = dL[0], dE_[0], dI_[0]
+        M[:, 1, 0], M[:, 1, 1], M[:, 1, 2] = 1.0, 0.0, 0.0
+        M[:, 2, 0], M[:, 2, 1], M[:, 2, 2] = dL[1], dE_[1], dI_[1]
+        Minv = numpy.linalg.inv(M)
+        dq = numpy.einsum("qpk,pkj->qpj", numpy.stack((dL, dE_, dI_), axis=-1), Minv)
+        # same reconstruction of the turning points from the stored
+        # midpoint-and-K combinations as the scalar routine, differentiated
+        # the same way so the chains stay exact derivatives of what is used
+        uc, duc = v[3].copy(), dq[3].copy()
+        hw = numpy.sqrt(numpy.clip(v[4] * v[0], 0.0, None))
+        hv = numpy.sqrt(numpy.clip(v[5] * v[1], 0.0, None))
+        dhw = (v[4][:, None] * dq[0] + v[0][:, None] * dq[4]) / (
+            2.0 * numpy.maximum(hw, 1e-14)[:, None]
+        )
+        dhv = (v[5][:, None] * dq[1] + v[1][:, None] * dq[5]) / (
+            2.0 * numpy.maximum(hv, 1e-14)[:, None]
+        )
         v[3], v[4], v[5] = uc - hw, uc + hw, 0.5 * numpy.pi - hv
         dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
         return v, dq
@@ -1899,13 +2054,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         v, dq = self._canon_family_chains(x)
         thetaAr, thetaAz, cphi = self._toy_angle_solve(thR, thz, jr, LA, Lz, v, dq)
         thetaAphi = thphi - cphi
-        out = numpy.empty((6, len(thR)))
-        for jj in range(len(thR)):
-            oo = self._aAIinvc._xvFreqs(
-                jr, Lz, jz, thetaAr[jj], thetaAphi[jj], thetaAz[jj]
-            )
-            for kk in range(6):
-                out[kk, jj] = oo[kk][0]
+        # one vectorized delegation for all points: the analytic isochrone
+        # inverse broadcasts the (constant) actions against the angle arrays,
+        # and its own root find solves the whole batch at once
+        oo = self._aAIinvc._xvFreqs(jr, Lz, jz, thetaAr, thetaAphi, thetaAz)
+        out = numpy.array([numpy.atleast_1d(q) for q in oo[:6]], dtype="float")
         npt = self._npt
         GM, bb = self._GMc, self._bc
         sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
@@ -2132,3 +2285,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dsupJ, Malpha = self._canon_dsup_dJ(ii)
         dDmu, dDmv = self._canon_dDm_dJ(ii, dsupJ, Malpha)
         return dsupJ, dDmu, dDmv
+
+
+def _edge(lim, default):
+    """Resolve a grid limit against its axis's default edges.
+
+    None for the whole limit keeps both defaults; None for either end keeps
+    that end.  The point is to let a narrow grid sit ON an edge -- circular,
+    planar, shell -- exactly, since those are degeneracies whose handling
+    tests for the grid reaching them, not merely approaching them.
+    """
+    if lim is None:
+        return default
+    lo, hi = lim
+    return (default[0] if lo is None else lo, default[1] if hi is None else hi)

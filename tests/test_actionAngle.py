@@ -9981,4 +9981,131 @@ def test_actionAngleStaeckelInverse_toy_angle_limit_cycle():
         _Easy(), thR, thz, 0.02, 1.0, 0.9, None, None
     )
     assert wrapped(tAr, thR) < 1e-13, "A contracting solve was disturbed"
+
+
+def test_actionAngleStaeckelInverse_canonical_label_inversion_vectorized(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # The label inversion is a two-dimensional Newton per torus, and at
+    # these array sizes its Python-level call overhead dominates the
+    # arithmetic, which makes an ensemble expensive. The vectorized form
+    # solves all tori together and must agree with the scalar one exactly
+    import numpy
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    rng = numpy.random.default_rng(42)
+    n = 16
+    Lz = rng.uniform(float(aASI._Lzgrid[2]), float(aASI._Lzgrid[-3]), n)
+    jr = rng.uniform(0.02, 0.08, n)
+    jz = rng.uniform(0.02, 0.08, n)
+    ref = numpy.array(
+        [numpy.atleast_2d(aASI._canon_coords(jr[i], Lz[i], jz[i]))[0] for i in range(n)]
+    )
+    got = aASI._canon_coords_vec(jr, Lz, jz)
+    assert numpy.amax(numpy.fabs(got - ref)) < 1e-10, (
+        "The vectorized label inversion disagrees with the scalar one: %g"
+        % numpy.amax(numpy.fabs(got - ref))
+    )
+    # and it raises on an L_z outside the grid, as the scalar one does
+    with pytest.raises(ValueError) as excinfo:
+        aASI._canon_coords_vec(jr, Lz * 0.0 + 1e3, jz)
+    assert "outside the grid" in str(excinfo.value)
+    # non-convergence is reported with the offending torus, not silently
+    maxiter = aASI._maxiter
+    try:
+        aASI._maxiter = 1
+        with pytest.raises(ValueError) as excinfo:
+            aASI._canon_coords_vec(jr, Lz, jz)
+        assert "did not converge" in str(excinfo.value)
+    finally:
+        aASI._maxiter = maxiter
+    return None
+
+
+def test_actionAngleStaeckelInverse_canonical_chains_vectorized(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # The parameter chains for many tori at once, including the
+    # reconstruction of the turning points from the stored midpoint-and-K
+    # combinations, must agree with the scalar routine exactly
+    import numpy
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    rng = numpy.random.default_rng(7)
+    n = 12
+    Lz = rng.uniform(float(aASI._Lzgrid[2]), float(aASI._Lzgrid[-3]), n)
+    jr = rng.uniform(0.02, 0.08, n)
+    jz = rng.uniform(0.02, 0.08, n)
+    x = aASI._canon_coords_vec(jr, Lz, jz)
+    v, dq = aASI._canon_family_chains_vec(x)
+    for i in range(n):
+        v1, dq1 = aASI._canon_family_chains(x[i : i + 1])
+        assert numpy.amax(numpy.fabs(v[:, i] - v1)) < 1e-12, (
+            "Vectorized family values disagree with the scalar ones"
+        )
+        assert numpy.amax(numpy.fabs(dq[:, i] - dq1)) < 1e-12, (
+            "Vectorized family chains disagree with the scalar ones"
+        )
+    # J_R and J_z carry the identity rows of the label matrix by
+    # construction, which is what lets the turning-point reconstruction use
+    # the exact actions rather than interpolated ones
+    assert numpy.amax(numpy.fabs(dq[0] - numpy.array([1.0, 0.0, 0.0]))) < 1e-8
+    assert numpy.amax(numpy.fabs(dq[1] - numpy.array([0.0, 0.0, 1.0]))) < 1e-8
+    return None
+
+
+def test_actionAngleStaeckelInverse_narrow_grid():
+    # The grid is a box in (L_z, w_E, w_I). Spanning a sub-interval of each
+    # axis localizes it on a target -- a stream, say -- and since the
+    # interpolation error goes as the SPACING, a domain narrower by F is worth
+    # as much as F times more nodes. Rmin/Rmax/Rinf set only the outer extent
+    # and cannot express a narrow energy box, which is what this adds.
+    import numpy
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4933)
+    kw = dict(
+        pot=swp, setup_interp=True, Rmin=0.75, Rmax=1.25, Rinf=1.5, nLz=5, nE=5, nI3=5
+    )
+    wide = actionAngleStaeckelInverse(**kw)
+    narrow = actionAngleStaeckelInverse(
+        Lzlim=(0.90, 0.94), wElim=(0.30, 0.40), wIlim=(0.40, 0.55), **kw
+    )
+    # the requested box is what gets built
+    assert numpy.fabs(narrow._Lzgrid[0] - 0.90) < 1e-12, "L_z limit ignored"
+    assert numpy.fabs(narrow._Lzgrid[-1] - 0.94) < 1e-12, "L_z limit ignored"
+    assert numpy.fabs(narrow._wEgrid[0] - 0.30) < 1e-12, "w_E limit ignored"
+    assert numpy.fabs(narrow._wIgrid[-1] - 0.55) < 1e-12, "w_I limit ignored"
+    # and it is genuinely narrower in every axis
+    for g in ("_Lzgrid", "_wEgrid", "_wIgrid"):
+        assert numpy.ptp(getattr(narrow, g)) < numpy.ptp(getattr(wide, g)), (
+            "%s was not narrowed" % g
+        )
+    # the default path is untouched: w_E still spans the padded unit interval
+    # and w_I the whole of it, so the degenerate planar and shell edges are
+    # still included there and excluded here
+    assert wide._wIgrid[0] == 0.0 and wide._wIgrid[-1] == 1.0, (
+        "the default w_I grid changed"
+    )
+    assert narrow._wIgrid[0] > 0.0 and narrow._wIgrid[-1] < 1.0, (
+        "a narrow grid should not reach the degenerate edges"
+    )
+    # A None limit means that axis's own edge.  This matters because the
+    # edges are degeneracies, not arbitrary boundaries: w_E = 0 is the
+    # circular orbit, which the default pads away from, and w_I = 1 is the
+    # shell orbit, whose handling tests for the grid REACHING it.  A box
+    # meant to sit on one has to say so, not approach it with a number.
+    edged = actionAngleStaeckelInverse(wElim=(None, 0.15), wIlim=(0.8, None), **kw)
+    assert edged._wEgrid[0] == wide._wEgrid[0], (
+        "None did not keep the padded circular edge"
+    )
+    assert numpy.fabs(edged._wEgrid[-1] - 0.15) < 1e-12, "the given w_E end moved"
+    assert edged._wIgrid[-1] == 1.0, (
+        "None did not land exactly on the shell edge, so its handling is skipped"
+    )
+    assert numpy.fabs(edged._wIgrid[0] - 0.8) < 1e-12, "the given w_I end moved"
     return None
