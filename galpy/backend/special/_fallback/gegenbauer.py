@@ -31,7 +31,13 @@ def gegenbauer(xp, N, alpha, x):
     # Traced: roll the recurrence into one lax.scan. Eager keeps the loop below.
     if under_jax_trace(x):
         return _gegenbauer_scan_jax(N, alpha, x)
-    cols = [xp.ones_like(x)]  # C_0 = 1
+    # C_0 = 1, at the BROADCAST shape of alpha against x. `alpha` may be an
+    # ARRAY (one entry per l), which lets a caller evaluate every l in ONE call
+    # instead of looping -- the recurrence uses alpha only as a coefficient, so
+    # it vectorises with no algorithmic change. ones_like(x) alone would keep
+    # x's shape and then fail to stack against the broadcast recurrence terms.
+    _bc = x * alpha * 0.0
+    cols = [xp.ones_like(_bc)]  # C_0 = 1
     if N > 1:
         cnm1 = cols[0]
         cn = 2.0 * alpha * x  # C_1 = 2 alpha x
@@ -60,7 +66,11 @@ def _gegenbauer_scan_jax(N, alpha, x):
     import jax
     import jax.numpy as jnp
 
-    one = jnp.ones_like(x)
+    # C_0 at the BROADCAST shape of alpha against x -- the eager branch above
+    # does the same. alpha may be an ARRAY (one entry per l); ones_like(x) alone
+    # keeps x's shape, and lax.scan then rejects the carry because C_0 and the
+    # broadcast C_1 differ in shape.
+    one = jnp.ones_like(x * alpha * 0.0)
     c1 = 2.0 * alpha * x  # C_1
 
     def body(carry, n):
