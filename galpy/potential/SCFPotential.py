@@ -2118,6 +2118,13 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         # Same expression with the (n, l) axes moved to TRAILING so a leading
         # node axis broadcasts; verified bit-exact against stacking the scalar
         # integrand. Only attached when the density accepts arrays.
+        # Node arrays stay NUMPY, exactly as the scalar twin passes numpy scalars.
+        # That matters for the density: batching must not change what user code
+        # receives. A density written with numpy.* (the documented way) would
+        # otherwise be handed Tensors and make numpy own its ops -- warning today,
+        # broken on a future numpy. Differentiability does not need backend R/z:
+        # it flows from the density's CLOSED-OVER parameter tensors, which is
+        # exactly how the scalar path already works.
         xi = numpy.asarray(xi)
         costheta = numpy.asarray(costheta)
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
@@ -2133,11 +2140,24 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         _cxp = get_namespace(_CC_raw)
         _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))  # (N, L, K) -> (K, N, L)
         _xiB = xi[:, None, None]
+        # `l` must cross to the backend BEFORE the power: `Tensor ** ndarray`
+        # lets numpy own the op, and `like` on the RESULT is too late -- it can
+        # only fix operands it is given, not an expression numpy already
+        # evaluated. The scalar twin is safe because there `xi` really is numpy.
         _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
         param[0] = R
         param[1] = z
-        return phi_nl * dV * numpy.asarray(dens(*param, **dens_kw))[:, None, None]
+        # The density may return numpy OR a backend array (if it closes over
+        # backend parameters); either is fine -- the product follows the data.
+        _d = dens(*param, **dens_kw)
+        _d = _d[:, None, None] if numpy.ndim(_d) else _d
+        # `_C` follows the AMBIENT namespace, so phi_nl is a backend array while
+        # dV and the density stay numpy. `like` carries the numpy factors across
+        # so the BACKEND owns the product; without it numpy does, which is the
+        # __array_wrap__ warning. No-op when everything is already numpy.
+        _dVb, _db = like(phi_nl, dV), like(phi_nl, _d)
+        return phi_nl * _dVb * _db
 
     with _use_backend("numpy", force=True):
         if _dens_accepts_arrays(dens, numOfParam, dens_kw):
