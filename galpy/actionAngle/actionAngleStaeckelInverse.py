@@ -1265,7 +1265,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # u-degree: eta from the closed-form radius inversion, tau from the
         # stored map, u from the cosine anomaly; p_u through the flux group
         y = (numpy.sqrt(self._bc**2 + rA**2) - self._bc) / a
-        coseta = numpy.clip((1.0 - y) / e, -1.0, 1.0)
+        # A circular auxiliary has e = 0 and no radial anomaly, so (1 - y)/e
+        # is 0/0 there and clip cannot rescue it, clip(nan) being nan.  That
+        # is reached whenever J_R = 0 exactly, and only when the rounding
+        # lands e on zero rather than on a tiny positive residue -- which is
+        # why it appeared on one platform and intermittently.  The
+        # u-oscillation is degenerate in that case and is handled above, so
+        # the anomaly is arbitrary; it only has to be finite, since a nan
+        # propagates into the map inversion and takes the evaluation down.
+        esafe = numpy.where(numpy.asarray(e) > 1e-12, e, 1.0)
+        coseta = numpy.clip(
+            numpy.where(numpy.asarray(e) > 1e-12, (1.0 - y) / esafe, 1.0),
+            -1.0,
+            1.0,
+        )
         sineta = numpy.sign(vrA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
         etau = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
         if Du >= 1e-10:
