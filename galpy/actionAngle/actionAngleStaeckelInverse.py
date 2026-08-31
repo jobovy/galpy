@@ -1384,13 +1384,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         no derivative is ever stored separately)"""
         self._nLz, self._nE, self._nI3 = nLz, nE, nI3
         self._Lzgrid = numpy.linspace(
-            *(
-                Lzlim
-                if Lzlim is not None
-                else (
+            *_edge(
+                Lzlim,
+                (
                     Rmin * vcirc(self._pot, Rmin, use_physical=False),
                     Rmax * vcirc(self._pot, Rmax, use_physical=False),
-                )
+                ),
             ),
             nLz,
         )
@@ -1399,12 +1398,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # since the interpolation error goes as the spacing, a domain narrower
         # by F is worth as much as F times more nodes.  Rmin/Rmax/Rinf set only
         # the outer extent and cannot express a narrow energy box.
-        self._wEgrid = numpy.linspace(
-            *(wElim if wElim is not None else (wpad, 1.0 - wpad)), nE
-        )
-        self._wIgrid = numpy.linspace(
-            *(wIlim if wIlim is not None else (0.0, 1.0)), nI3
-        )
+        # A limit of None on either end means that axis's own edge, which
+        # matters because the edges are degeneracies rather than arbitrary
+        # boundaries: w_E = 0 is the circular orbit, which is why the default
+        # pads away from it, and w_I = 0 and 1 are the planar and shell
+        # orbits, whose handling keys on the grid reaching them EXACTLY.  A
+        # box meant to sit against one of those has to say so rather than
+        # approach it with a number.
+        self._wEgrid = numpy.linspace(*_edge(wElim, (wpad, 1.0 - wpad)), nE)
+        self._wIgrid = numpy.linspace(*_edge(wIlim, (0.0, 1.0)), nI3)
         self._wIedge = 1e-4
         shape = (nLz, nE, nI3)
         self._canon_shape = shape
@@ -2280,3 +2282,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dsupJ, Malpha = self._canon_dsup_dJ(ii)
         dDmu, dDmv = self._canon_dDm_dJ(ii, dsupJ, Malpha)
         return dsupJ, dDmu, dDmv
+
+
+def _edge(lim, default):
+    """Resolve a grid limit against its axis's default edges.
+
+    None for the whole limit keeps both defaults; None for either end keeps
+    that end.  The point is to let a narrow grid sit ON an edge -- circular,
+    planar, shell -- exactly, since those are degeneracies whose handling
+    tests for the grid reaching them, not merely approaching them.
+    """
+    if lim is None:
+        return default
+    lo, hi = lim
+    return (default[0] if lo is None else lo, default[1] if hi is None else hi)

@@ -10094,4 +10094,18 @@ def test_actionAngleStaeckelInverse_narrow_grid():
     assert narrow._wIgrid[0] > 0.0 and narrow._wIgrid[-1] < 1.0, (
         "a narrow grid should not reach the degenerate edges"
     )
+    # A None limit means that axis's own edge.  This matters because the
+    # edges are degeneracies, not arbitrary boundaries: w_E = 0 is the
+    # circular orbit, which the default pads away from, and w_I = 1 is the
+    # shell orbit, whose handling tests for the grid REACHING it.  A box
+    # meant to sit on one has to say so, not approach it with a number.
+    edged = actionAngleStaeckelInverse(wElim=(None, 0.15), wIlim=(0.8, None), **kw)
+    assert edged._wEgrid[0] == wide._wEgrid[0], (
+        "None did not keep the padded circular edge"
+    )
+    assert numpy.fabs(edged._wEgrid[-1] - 0.15) < 1e-12, "the given w_E end moved"
+    assert edged._wIgrid[-1] == 1.0, (
+        "None did not land exactly on the shell edge, so its handling is skipped"
+    )
+    assert numpy.fabs(edged._wIgrid[0] - 0.8) < 1e-12, "the given w_I end moved"
     return None
