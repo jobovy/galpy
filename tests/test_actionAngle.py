@@ -10052,3 +10052,46 @@ def test_actionAngleStaeckelInverse_canonical_chains_vectorized(
     assert numpy.amax(numpy.fabs(dq[0] - numpy.array([1.0, 0.0, 0.0]))) < 1e-8
     assert numpy.amax(numpy.fabs(dq[1] - numpy.array([0.0, 0.0, 1.0]))) < 1e-8
     return None
+
+
+def test_actionAngleStaeckelInverse_narrow_grid():
+    # The grid is a box in (L_z, w_E, w_I). Spanning a sub-interval of each
+    # axis localizes it on a target -- a stream, say -- and since the
+    # interpolation error goes as the SPACING, a domain narrower by F is worth
+    # as much as F times more nodes. Rmin/Rmax/Rinf set only the outer extent
+    # and cannot express a narrow energy box, which is what this adds.
+    import numpy
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4933)
+    kw = dict(
+        pot=swp, setup_interp=True, Rmin=0.75, Rmax=1.25, Rinf=1.5, nLz=5, nE=5, nI3=5
+    )
+    wide = actionAngleStaeckelInverse(**kw)
+    narrow = actionAngleStaeckelInverse(
+        Lzlim=(0.90, 0.94), wElim=(0.30, 0.40), wIlim=(0.40, 0.55), **kw
+    )
+    # the requested box is what gets built
+    assert numpy.fabs(narrow._Lzgrid[0] - 0.90) < 1e-12, "L_z limit ignored"
+    assert numpy.fabs(narrow._Lzgrid[-1] - 0.94) < 1e-12, "L_z limit ignored"
+    assert numpy.fabs(narrow._wEgrid[0] - 0.30) < 1e-12, "w_E limit ignored"
+    assert numpy.fabs(narrow._wIgrid[-1] - 0.55) < 1e-12, "w_I limit ignored"
+    # and it is genuinely narrower in every axis
+    for g in ("_Lzgrid", "_wEgrid", "_wIgrid"):
+        assert numpy.ptp(getattr(narrow, g)) < numpy.ptp(getattr(wide, g)), (
+            "%s was not narrowed" % g
+        )
+    # the default path is untouched: w_E still spans the padded unit interval
+    # and w_I the whole of it, so the degenerate planar and shell edges are
+    # still included there and excluded here
+    assert wide._wIgrid[0] == 0.0 and wide._wIgrid[-1] == 1.0, (
+        "the default w_I grid changed"
+    )
+    assert narrow._wIgrid[0] > 0.0 and narrow._wIgrid[-1] < 1.0, (
+        "a narrow grid should not reach the degenerate edges"
+    )
+    return None

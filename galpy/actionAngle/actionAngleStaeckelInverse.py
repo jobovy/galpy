@@ -133,6 +133,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         npt=32,
         maxiter=60,
         angle_tol=1e-13,
+        Lzlim=None,
+        wElim=None,
+        wIlim=None,
         **kwargs,
     ):
         """
@@ -277,7 +280,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Rmin = conversion.parse_length(Rmin, ro=self._ro)
             Rmax = conversion.parse_length(Rmax, ro=self._ro)
             Rinf = conversion.parse_length(Rinf, ro=self._ro)
-            self._setup_canonical_grid(Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad)
+            self._setup_canonical_grid(
+                Rmin, Rmax, Rinf, nLz, nE, nI3, grid_pad, Lzlim, wElim, wIlim
+            )
             return
         # Setup in three logical stages
         self._find_turning_points()
@@ -1368,7 +1373,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vals = numpy.einsum("qpabc,pa,pb,pc->qp", block, wts[0], wts[1], wts[2])
         return vals
 
-    def _setup_canonical_grid(self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad):
+    def _setup_canonical_grid(
+        self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad, Lzlim=None, wElim=None, wIlim=None
+    ):
         """The canonical family: the rectified (L_z, w_E, w_I) node lattice
         of the direct grid, all node tori built in one vectorized canonical
         construction, and the family stored as prefiltered 3-D tables whose
@@ -1377,12 +1384,27 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         no derivative is ever stored separately)"""
         self._nLz, self._nE, self._nI3 = nLz, nE, nI3
         self._Lzgrid = numpy.linspace(
-            Rmin * vcirc(self._pot, Rmin, use_physical=False),
-            Rmax * vcirc(self._pot, Rmax, use_physical=False),
+            *(
+                Lzlim
+                if Lzlim is not None
+                else (
+                    Rmin * vcirc(self._pot, Rmin, use_physical=False),
+                    Rmax * vcirc(self._pot, Rmax, use_physical=False),
+                )
+            ),
             nLz,
         )
-        self._wEgrid = numpy.linspace(wpad, 1.0 - wpad, nE)
-        self._wIgrid = numpy.linspace(0.0, 1.0, nI3)
+        # The grid is a box in (L_z, w_E, w_I).  Spanning a SUB-interval of
+        # each axis is what localizes it on a target -- a stream, say -- and
+        # since the interpolation error goes as the spacing, a domain narrower
+        # by F is worth as much as F times more nodes.  Rmin/Rmax/Rinf set only
+        # the outer extent and cannot express a narrow energy box.
+        self._wEgrid = numpy.linspace(
+            *(wElim if wElim is not None else (wpad, 1.0 - wpad)), nE
+        )
+        self._wIgrid = numpy.linspace(
+            *(wIlim if wIlim is not None else (0.0, 1.0)), nI3
+        )
         self._wIedge = 1e-4
         shape = (nLz, nE, nI3)
         self._canon_shape = shape
@@ -1720,10 +1742,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ish = self._I3_shell(E, Lz)
         sfrac = numpy.clip((I3 - Ipl) / (Ish - Ipl), 0.0, 1.0)
         wI = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(sfrac))
-        xE = numpy.clip(
-            (wE - self._canon_wpad) / (1.0 - 2.0 * self._canon_wpad), 0.0, 1.0
-        ) * (self._nE - 1)
-        xI = wI * (self._nI3 - 1)
+        # through the grid's ACTUAL span, which is the default one unless the
+        # grid was narrowed
+        wE0, wE1 = self._wEgrid[0], self._wEgrid[-1]
+        wI0, wI1 = self._wIgrid[0], self._wIgrid[-1]
+        xE = numpy.clip((wE - wE0) / (wE1 - wE0), 0.0, 1.0) * (self._nE - 1)
+        xI = (wI - wI0) / (wI1 - wI0) * (self._nI3 - 1)
         return numpy.array([xL, float(xE), float(xI)])
 
     def _canon_family_chains(self, x):
