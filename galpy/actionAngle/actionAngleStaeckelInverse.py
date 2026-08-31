@@ -1564,14 +1564,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         H = -2.0 * amp**2 / (2.0 * JAr + LA + sq) ** 2
         a = -amp / 2.0 / H - bb
         e = numpy.sqrt(numpy.clip(1.0 + LA**2 / (2.0 * H * a**2), 0.0, None))
+        # theta^A_r is used unwrapped below, so eta has to be in its branch:
+        # the radial inverse returns eta on [0, 2 pi), which puts the two a
+        # full period apart whenever theta^A_r is just below zero.
+        eta = eta + 2.0 * numpy.pi * numpy.round(
+            (numpy.atleast_1d(thetaAr) - eta) / (2.0 * numpy.pi)
+        )
         taneta2 = numpy.tan(eta / 2.0)
         tan11 = numpy.arctan(numpy.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
         tan12 = numpy.arctan(
             numpy.sqrt((a * (1.0 + e) + 2.0 * bb) / (a * (1.0 - e) + 2.0 * bb))
             * taneta2
         )
-        tan11 = numpy.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
-        tan12 = numpy.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
+        # Lambda climbs by pi (1 + L^A/sq) per radial period, cancelling the
+        # -1/2 (1 + L^A/sq) theta^A_r in psi, so psi is periodic.  Selecting
+        # the branch by the SIGN OF THE ARCTAN gets that right inside
+        # (0, 2 pi) and wrong at the ends: for eta slightly below zero the
+        # arctan is negative and picks up a spurious pi, which is the same
+        # value it takes at eta just below 2 pi.  Keying the branch to eta
+        # instead is identical on (0, 2 pi) and continuous through zero.
+        nwind = numpy.round(eta / (2.0 * numpy.pi))
+        tan11 = tan11 + numpy.pi * nwind
+        tan12 = tan12 + numpy.pi * nwind
         Lambdaeta = tan11 + LA / sq * tan12
         psi = thetaAz - 0.5 * (1.0 + LA / sq) * thetaAr + Lambdaeta
         sini = numpy.sqrt(numpy.clip(1.0 - Lz**2 / LA**2, 0.0, None))
