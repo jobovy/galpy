@@ -223,8 +223,25 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """
         delta = kwargs.pop("delta", None)
         u0 = kwargs.pop("u0", None)
+        self._fit_nsub = kwargs.pop("fit_nsub", 6)
+        self._delta_fit = isinstance(delta, str)
+        self._u0_fit = isinstance(u0, str)
+        if self._delta_fit and delta != "fit":
+            raise ValueError("the only string value delta= accepts is 'fit'")
+        if self._u0_fit and u0 != "fit":
+            raise ValueError("the only string value u0= accepts is 'fit'")
+        if self._u0_fit and not (self._delta_fit or callable(delta)):
+            raise TypeError(
+                "u0='fit' is only meaningful together with delta='fit' or a "
+                "callable delta(E, Lz)"
+            )
         self._delta_func = delta if callable(delta) else None
         self._u0_func = u0 if callable(u0) else None
+        if self._delta_fit and not setup_interp:
+            raise TypeError(
+                "delta='fit' builds an adaptive interpolated family and "
+                "therefore requires setup_interp=True"
+            )
         if self._delta_func is not None and not setup_interp:
             raise TypeError(
                 "a callable delta(E, Lz) builds an adaptive interpolated "
@@ -239,6 +256,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
         self._pot = pot
+        if self._delta_fit:
+            # the fitted surfaces: survey the |dPhi|-minimizing focal length
+            # over the grid's own (L_z, E) domain, fit a smooth quadratic,
+            # and use it exactly as a user-supplied callable
+            dfun, u0fun, self._deltafit_info = _fit_staeckel_surface(
+                pot,
+                conversion.parse_length(Rmin, ro=self._ro),
+                conversion.parse_length(Rmax, ro=self._ro),
+                conversion.parse_length(Rinf, ro=self._ro),
+                nsub=self._fit_nsub,
+            )
+            self._delta_func = dfun
+            if self._u0_func is None:
+                # fitted u0 unless the caller supplied their own callable;
+                # u0='fit' and u0=None mean the same thing here, since the
+                # fitted delta wants its matching reference curve
+                self._u0_func = u0fun
         if self._delta_func is not None:
             # the reference chart, used only by the pre-grid helpers; every
             # node of the grid gets its own wrapper, and the evaluation reads
@@ -722,12 +756,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        if kwargs.get("integrals", False) and self._delta_func is not None:
-            raise NotImplementedError(
-                "integrals=True is not yet wired for an adaptive family: "
-                "I3 is defined in each node's own chart, so the label "
-                "relations must use the local wrapper (planned follow-up)"
-            )
         if kwargs.get("integrals", False) and not self._interp:
             raise ValueError(
                 "integrals=True requires an actionAngleStaeckelInverse "
@@ -860,12 +888,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
-        if kwargs.get("integrals", False) and self._delta_func is not None:
-            raise NotImplementedError(
-                "integrals=True is not yet wired for an adaptive family: "
-                "I3 is defined in each node's own chart, so the label "
-                "relations must use the local wrapper (planned follow-up)"
-            )
         if kwargs.get("integrals", False) and not self._interp:
             raise ValueError(
                 "integrals=True requires an actionAngleStaeckelInverse "
@@ -1900,8 +1922,30 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 f"E = {E} lies outside the grid: above the energies covered "
                 f"at L_z = {Lz}; increase Rinf"
             )
-        Ipl = self._I3_planar(E, Lz)
-        Ish = self._I3_shell(E, Lz)
+        if self._delta_func is not None:
+            # I3 is chart-defined, so the label relations must run in the
+            # LOCAL chart at this (E, L_z) -- the same smooth surfaces the
+            # nodes were built from, so labels and tables are consistent
+            _save = (self._staeckelwrap, self._delta)
+            dloc = float(self._delta_func(E, Lz))
+            u0loc = None if self._u0_func is None else float(self._u0_func(E, Lz))
+            key = (round(dloc, 10), None if u0loc is None else round(u0loc, 10))
+            if getattr(self, "_chart_cache_key", None) != key:
+                self._chart_cache = (
+                    OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc)
+                    if u0loc is None
+                    else OblateStaeckelWrapperPotential(
+                        pot=self._pot, delta=dloc, u0=u0loc
+                    )
+                )
+                self._chart_cache_key = key
+            self._staeckelwrap, self._delta = self._chart_cache, dloc
+        try:
+            Ipl = self._I3_planar(E, Lz)
+            Ish = self._I3_shell(E, Lz)
+        finally:
+            if self._delta_func is not None:
+                self._staeckelwrap, self._delta = _save
         sfrac = numpy.clip((I3 - Ipl) / (Ish - Ipl), 0.0, 1.0)
         wI = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(sfrac))
         # through the grid's ACTUAL span, which is the default one unless the
@@ -2469,6 +2513,126 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dsupJ, Malpha = self._canon_dsup_dJ(ii)
         dDmu, dDmv = self._canon_dDm_dJ(ii, dsupJ, Malpha)
         return dsupJ, dDmu, dDmv
+
+
+def _fit_staeckel_surface(pot, Rmin, Rmax, Rinf, nsub=6, rms_warn=0.05):
+    """Survey the max|Phi_S - Phi|-minimizing focal length over the grid's
+    (L_z, E) domain and fit a smooth quadratic surface delta(E, L_z), with
+    the matching reference curve u0(E, L_z) at the zero-velocity R-midpoint.
+
+    The smoothness is load-bearing rather than cosmetic: the stored tables
+    are chart-valued, so they interpolate well across tori only if the chart
+    varies smoothly -- and near circular orbits the per-node optimum is
+    ill-defined (the objective flattens as the accessible region shrinks),
+    so the fit supplies the smooth extension there.  The survey therefore
+    samples eccentric energies only and lets the quadratic extend inward.
+    """
+
+    def phieff(R, z, Lz):
+        return (
+            evaluatePotentials(pot, R, z, use_physical=False) + Lz**2.0 / 2.0 / R**2.0
+        )
+
+    Lzlo = Rmin * vcirc(pot, Rmin, use_physical=False)
+    Lzhi = Rmax * vcirc(pot, Rmax, use_physical=False)
+    nodes = []
+    for Lz in numpy.linspace(Lzlo, Lzhi, nsub):
+        Rc = rl(pot, Lz, use_physical=False)
+        Ec = phieff(Rc, 0.0, Lz)
+        Emax = phieff(Rinf, 0.0, Lz)
+        for w in numpy.linspace(0.3, 0.95, nsub):
+            E = Ec + w**2.0 * (Emax - Ec)
+            try:
+                Rp = brentq(lambda R: phieff(R, 0.0, Lz) - E, 0.02 * Rc, Rc)
+                Ra = brentq(lambda R: phieff(R, 0.0, Lz) - E, Rc, 40.0 * Rc)
+            except ValueError:
+                continue
+            Rmid = 0.5 * (Rp + Ra)
+            pts = []
+            for R in numpy.linspace(Rp, Ra, 9):
+                try:
+                    zm = (
+                        brentq(lambda z: phieff(R, z, Lz) - E, 0.0, 3.0 * Ra)
+                        if phieff(R, 3.0 * Ra, Lz) > E
+                        else 3.0 * Ra
+                    )
+                except ValueError:
+                    zm = 0.3 * Ra
+                for z in numpy.linspace(0.0, 0.9 * zm, 4):
+                    pts.append((R, z))
+            pts = numpy.array(pts)
+            Ptrue = evaluatePotentials(pot, pts[:, 0], pts[:, 1], use_physical=False)
+
+            def _obj(d):
+                try:
+                    w_ = OblateStaeckelWrapperPotential(
+                        pot=pot, delta=d, u0=numpy.arcsinh(Rmid / d)
+                    )
+                    return float(
+                        numpy.max(
+                            numpy.fabs(
+                                evaluatePotentials(
+                                    w_, pts[:, 0], pts[:, 1], use_physical=False
+                                )
+                                - Ptrue
+                            )
+                            / numpy.fabs(Ptrue)
+                        )
+                    )
+                except Exception:
+                    return 1e3
+
+            res = minimize_scalar(
+                _obj, bounds=(0.1, 3.0), method="bounded", options={"xatol": 1e-3}
+            )
+            nodes.append((Lz, E, float(res.x), float(res.fun), Rmid))
+    if len(nodes) < 6:
+        raise RuntimeError(
+            "delta='fit' could not survey enough (L_z, E) nodes to fit a "
+            "surface; check Rmin/Rmax/Rinf"
+        )
+    dat = numpy.array(nodes)
+    L, E, D = dat[:, 0], dat[:, 1], dat[:, 2]
+    A = numpy.vstack([numpy.ones_like(L), L, E, L * E, L**2.0, E**2.0]).T
+    c = numpy.linalg.lstsq(A, D, rcond=None)[0]
+    rms = float(numpy.sqrt(numpy.mean((A @ c - D) ** 2.0)))
+    lo, hi = 0.8 * D.min(), 1.25 * D.max()
+    if rms > rms_warn:
+        warnings.warn(
+            "delta='fit': the fitted focal-length surface has rms residual "
+            f"{rms:.3f} against the per-node optima; the family remains "
+            "exactly canonical, but the Staeckel models may fit the "
+            "potential less well than per-node optimization could",
+            galpyWarning,
+        )
+
+    def dfun(Ev, Lzv):
+        Lzv = numpy.fabs(Lzv)
+        return float(
+            numpy.clip(
+                c[0]
+                + c[1] * Lzv
+                + c[2] * Ev
+                + c[3] * Lzv * Ev
+                + c[4] * Lzv**2.0
+                + c[5] * Ev**2.0,
+                lo,
+                hi,
+            )
+        )
+
+    def u0fun(Ev, Lzv):
+        Lzv = numpy.fabs(Lzv)
+        try:
+            Rc = rl(pot, Lzv, use_physical=False)
+            Rp = brentq(lambda R: phieff(R, 0.0, Lzv) - Ev, 0.02 * Rc, Rc)
+            Ra = brentq(lambda R: phieff(R, 0.0, Lzv) - Ev, Rc, 40.0 * Rc)
+            Rm = 0.5 * (Rp + Ra)
+        except Exception:
+            Rm = 0.5 * (Rmin + Rmax)
+        return float(numpy.arcsinh(Rm / dfun(Ev, Lzv)))
+
+    return dfun, u0fun, {"nodes": dat, "coeffs": c, "rms": rms, "clip": (lo, hi)}
 
 
 def _edge(lim, default):
