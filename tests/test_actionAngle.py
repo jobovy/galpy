@@ -10380,17 +10380,25 @@ def test_actionAngleStaeckelInverse_target_box_adaptive():
         nLz=4,
         nE=4,
         nI3=4,
-        delta=lambda E, Lz: 1.3 + 0.02 * numpy.tanh(E),
+        u0=lambda E, Lz: 1.05 + 0.10 * numpy.tanh(Lz),
         target=o(ts),
     )
     assert loc._targetbox is not None, "the target box was not recorded"
-    assert numpy.ptp(loc._canon_deltas) > 0.0, (
-        "the adaptive family did not vary its focal length"
+    # single delta: the family varies its reference curve, not its focal
+    # length
+    assert numpy.ptp(loc._canon_deltas) == 0.0, (
+        "a u0-only family's focal length is not constant"
     )
-    # a loose round trip: the deliberately non-optimal callable delta means
-    # the local Staeckel models differ from the true KK potential, and the
-    # forward labels (fixed delta = 1.3) sit in yet another chart, so the
-    # model mismatch dominates; this checks consistency, not a floor
+    # the target box is NARROW (a single orbit), so the callable varies
+    # only a little across it -- but it must vary
+    assert (
+        max(w._u0 for row_ in loc._canon_wraps for w in row_)
+        - min(w._u0 for row_ in loc._canon_wraps for w in row_)
+        > 1e-6
+    ), "the u0-only family did not vary its reference curve"
+    # a loose round trip: on an exactly Staeckel potential the wrapper at
+    # the true focal length is exact for ANY u0, so only the coarse 4^3
+    # grid limits this
     aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=False)
     jr, lz, jz, _, _, _, ar, ap, az = (
         float(numpy.atleast_1d(q)[0])
@@ -10612,91 +10620,37 @@ def test_actionAngleStaeckelInverse_adaptive_delta_canonical():
     return None
 
 
-def test_actionAngleStaeckelInverse_adaptive_construction():
-    # A REAL adaptive family: delta(E, L_z) varies by ~6% across the grid,
-    # every (L_z, E) node is built in its own wrapper (sharing one frozen
-    # isochrone, which the compensation's closed-form chains assume), and
-    # the map must come out exactly canonical -- the full PR-A + PR-B loop,
-    # not the injected-table shortcut.
+def test_actionAngleStaeckelInverse_single_delta():
+    # The family uses a SINGLE focal length, like the forward
+    # actionAngleStaeckel (which fixes delta and varies u0): the varying-
+    # delta construction was measured to lose to a hand-tuned constant
+    # (the global surface fit was the weak link) and was removed, while
+    # the map keeps storing delta as a table row and carrying its chain,
+    # so varying delta remains a documented possibility of the FORMAT.
     import numpy
-
-    from galpy.actionAngle import actionAngleStaeckelInverse
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-
-    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
-
-    def dfun(E, Lz):
-        return 1.3 * (1.0 + 0.04 * numpy.tanh(E + 1.0) + 0.03 * numpy.tanh(Lz))
-
-    aASI = actionAngleStaeckelInverse(
-        pot=kkp,
-        delta=dfun,
-        setup_interp=True,
-        Rmin=0.7,
-        Rmax=1.6,
-        Rinf=8.0,
-        nLz=5,
-        nE=5,
-        nI3=5,
-    )
-    # the stored focal lengths are the callable's values, not a constant
-    row = 6 + 2 * aASI._npt
-    assert numpy.ptp(aASI._canon_tab_raw[row]) > 0.05, (
-        "The delta table did not pick up the callable's variation"
-    )
-    # the stored node deltas must BE the callable's values on the grid
-    assert numpy.all(
-        numpy.fabs(
-            aASI._canon_deltas
-            - dfun(
-                aASI._canon_tab_raw[2][:, :, 0],
-                aASI._Lzgrid[:, None] * numpy.ones((1, aASI._nE)),
-            )
-        )
-        < 1e-12
-    ), "The stored node deltas disagree with delta(E, L_z)"
-    # the map of the adaptively built family is exactly canonical
-    Lz = float(aASI._Lzgrid[2])
-    defect = _staeckel_symplectic_defect(aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
-    assert defect < 3e-8, (
-        "An adaptively constructed family is not canonical: %g" % defect
-    )
-    # guards: adaptive requires interpolation, and u0 alone is meaningless
     import pytest
 
-    with pytest.raises(TypeError) as excinfo:
-        actionAngleStaeckelInverse(pot=kkp, delta=dfun, Es=[0.5])
-    assert "setup_interp" in str(excinfo.value)
-    with pytest.raises(TypeError) as excinfo:
-        actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
-    # a callable u0 alone is now the u0-only adaptive mode, which (like any
-    # adaptive family) requires the interpolated setup
-    assert "setup_interp" in str(excinfo.value)
-    # the integrals entry point runs in the LOCAL chart at (E, L_z), the
-    # same smooth surface the nodes were built from
-    Eq = float(aASI._canon_tab_raw[2][2, 2, 2])
-    I3q = Lz**2 / (2.0 * aASI._canon_deltas[2, 2] ** 2) - Eq + 0.02
-    outq = aASI._xvFreqs(
-        Eq,
-        Lz,
-        I3q,
-        numpy.array([2.0]),
-        numpy.array([1.0]),
-        numpy.array([2.0]),
-        integrals=True,
-    )
-    assert numpy.all(
-        numpy.isfinite(numpy.array([float(numpy.atleast_1d(q)[0]) for q in outq[:6]]))
-    ), "The chart-local integrals entry point did not return a point"
-    # the scalar spelling: a raw potential is wrapped at the given focal
-    # length (and u0), while u0 alone stays meaningless
+    from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
         MWPotential2014,
         OblateStaeckelWrapperPotential,
         evaluatePotentials,
         rl,
     )
 
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    # every varying-delta spelling is rejected, discrete and interpolated
+    # alike, with the pointer to what to use instead
+    for bad in ("fit", lambda E, Lz: 1.3):
+        with pytest.raises(TypeError, match="SINGLE delta"):
+            actionAngleStaeckelInverse(pot=kkp, delta=bad, Es=[0.5])
+        with pytest.raises(TypeError, match="SINGLE delta"):
+            actionAngleStaeckelInverse(pot=kkp, delta=bad, setup_interp=True)
+    # and a u0 string other than 'fit' stays rejected
+    with pytest.raises(ValueError, match="only string value u0="):
+        actionAngleStaeckelInverse(pot=kkp, u0="midplane", setup_interp=True)
+    # the scalar convenience spelling survives unchanged
     with pytest.raises(TypeError) as excinfo:
         actionAngleStaeckelInverse(pot=MWPotential2014, u0=1.1, Es=[-1.2])
     assert "requires delta" in str(excinfo.value)
@@ -10710,91 +10664,4 @@ def test_actionAngleStaeckelInverse_adaptive_construction():
     )
     assert numpy.fabs(scal._delta - 0.45) < 1e-14, "scalar delta= not honoured"
     assert numpy.fabs(scal._staeckelwrap._u0 - 1.1) < 1e-14, "u0= not honoured"
-    # delta='fit' surveys and fits the surface itself; on an exactly
-    # Staeckel potential it must REDISCOVER the true focal length, which is
-    # the end-to-end self-check of the whole fitting pipeline
-    fitf = actionAngleStaeckelInverse(
-        pot=kkp,
-        delta="fit",
-        setup_interp=True,
-        Rmin=0.7,
-        Rmax=1.6,
-        Rinf=8.0,
-        nLz=5,
-        nE=5,
-        nI3=5,
-        fit_nsub=4,
-    )
-    assert numpy.max(numpy.fabs(fitf._canon_deltas - 1.3)) < 5e-3, (
-        "delta='fit' did not rediscover KuzminKutuzov's focal length"
-    )
-    assert fitf._deltafit_info["rms"] < 5e-3, (
-        "the fitted surface has unexpected structure on an exact target"
-    )
-    with pytest.raises(ValueError) as excinfo:
-        actionAngleStaeckelInverse(pot=kkp, delta="fittt", setup_interp=True)
-    assert "only string value" in str(excinfo.value)
-    with pytest.raises(TypeError) as excinfo:
-        actionAngleStaeckelInverse(pot=kkp, u0="fit", Es=[0.5])
-    # u0='fit' alone is now the u0-only adaptive mode: interp-only as well
-    assert "setup_interp" in str(excinfo.value)
-    with pytest.raises(ValueError) as excinfo:
-        actionAngleStaeckelInverse(
-            pot=kkp, delta="fit", u0="midplane", setup_interp=True
-        )
-    assert "only string value u0=" in str(excinfo.value)
-    with pytest.raises(TypeError) as excinfo:
-        actionAngleStaeckelInverse(pot=kkp, delta="fit", Es=[0.5])
-    assert "setup_interp" in str(excinfo.value)
-    # the u0 surface falls back to the mid-radius when the requested energy
-    # has no zero-velocity bracket
-    assert numpy.isfinite(fitf._u0_func(-1e3, 1.0)), "u0 fallback broken"
-    # survey robustness: an Rinf so large that no apocentre brackets inside
-    # the search range leaves too few nodes, and that is an error, not a fit
-    from galpy.actionAngle.actionAngleStaeckelInverse import (
-        _fit_staeckel_surface,
-    )
-
-    with pytest.raises(RuntimeError) as excinfo:
-        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=1)
-    assert "could not survey" in str(excinfo.value)
-    # a node whose apocentre fails to bracket is skipped, not fatal
-    import sys as _sys
-
-    _mod = _sys.modules["galpy.actionAngle.actionAngleStaeckelInverse"]
-    _realbq = _mod.brentq
-    _calls = {"n": 0}
-
-    def _flakybq(*a, **k):
-        _calls["n"] += 1
-        if _calls["n"] == 1:
-            raise ValueError("forced bracket failure")
-        return _realbq(*a, **k)
-
-    try:
-        _mod.brentq = _flakybq
-        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3)
-    finally:
-        _mod.brentq = _realbq
-    # a rough fitted surface draws a warning (thresholded, forced here)
-    with pytest.warns(galpyWarning):
-        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3, rms_warn=1e-12)
-
-    # and a focal length at which the wrapper cannot be built scores as a
-    # bad objective rather than crashing the minimizer
-    class _Fussy(_mod.OblateStaeckelWrapperPotential):
-        def __init__(self, *args, **kwargs):
-            if kwargs.get("delta", 1.0) > 1.6:
-                raise ValueError("no wrapper at this focal length")
-            super().__init__(*args, **kwargs)
-
-    orig = _mod.OblateStaeckelWrapperPotential
-    try:
-        _mod.OblateStaeckelWrapperPotential = _Fussy
-        dfun2, _, info2 = _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3)
-    finally:
-        _mod.OblateStaeckelWrapperPotential = orig
-    assert numpy.fabs(dfun2(-0.3, 1.0) - 1.3) < 0.1, (
-        "the minimizer did not route around unbuildable focal lengths"
-    )
     return None
