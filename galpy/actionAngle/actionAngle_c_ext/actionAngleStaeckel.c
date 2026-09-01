@@ -295,7 +295,7 @@ void calcu0(int ndata,
 	u_lo = gsl_min_fminimizer_x_lower (s);
 	u_hi = gsl_min_fminimizer_x_upper (s);
 	status = gsl_min_test_interval (u_lo, u_hi,
-					 9.9999999999999998e-13,
+					 4.4408920985006262e-16,
 					 4.4408920985006262e-16);
       }
     while (status == GSL_CONTINUE && iter < max_iter);
@@ -1333,8 +1333,8 @@ void calcAnglesStaeckel(int ndata,
     midpoint= *(umin+ii)+ 0.5 * ( *(umax+ii) - *(umin+ii) );
     if ( *(pux+ii) > 0. ) {
       if ( *(ux+ii) > midpoint ) {
-	mid= 2. * asin( sqrt( ( *(umax+ii) - *(ux+ii) )
-			      / ( *(umax+ii) - *(umin+ii) ) ) );
+	mid= 2. * asin( sqrt( fmin ( fmax ( ( *(umax+ii) - *(ux+ii) )
+			      / ( *(umax+ii) - *(umin+ii) ), 0. ), 1. ) ) );
 	(AngleuInt+tid)->function = &dJRdEHighStaeckelIntegrand;
 	Or1= gsl_integration_glfixed (AngleuInt+tid,0.,mid,T);
 	(AngleuInt+tid)->function = &dJRdI3HighStaeckelIntegrand;
@@ -1347,8 +1347,8 @@ void calcAnglesStaeckel(int ndata,
 	I3r1= M_PI * *(dJRdI3+ii) - I3r1;
       }
       else {
-	mid= 2. * asin( sqrt( ( *(ux+ii) - *(umin+ii) )
-			      / ( *(umax+ii) - *(umin+ii) ) ) );
+	mid= 2. * asin( sqrt( fmin ( fmax ( ( *(ux+ii) - *(umin+ii) )
+			      / ( *(umax+ii) - *(umin+ii) ), 0. ), 1. ) ) );
 	(AngleuInt+tid)->function = &dJRdELowStaeckelIntegrand;
 	Or1= gsl_integration_glfixed (AngleuInt+tid,0.,mid,T);
 	(AngleuInt+tid)->function = &dJRdI3LowStaeckelIntegrand;
@@ -1361,8 +1361,8 @@ void calcAnglesStaeckel(int ndata,
     }
     else {
       if ( *(ux+ii) > midpoint ) {
-	mid= 2. * asin( sqrt( ( *(umax+ii) - *(ux+ii) )
-			      / ( *(umax+ii) - *(umin+ii) ) ) );
+	mid= 2. * asin( sqrt( fmin ( fmax ( ( *(umax+ii) - *(ux+ii) )
+			      / ( *(umax+ii) - *(umin+ii) ), 0. ), 1. ) ) );
 	(AngleuInt+tid)->function = &dJRdEHighStaeckelIntegrand;
 	Or1= gsl_integration_glfixed (AngleuInt+tid,0.,mid,T);
 	Or1*= *(delta+ii*delta_stride) / sqrt(2.);
@@ -1375,8 +1375,8 @@ void calcAnglesStaeckel(int ndata,
 	*(Anglephi+ii)= M_PI * *(dJRdLz+ii) - *(Lz+ii) * gsl_integration_glfixed (AngleuInt+tid,0.,mid,T) / *(delta+ii*delta_stride) / sqrt(2.);
       }
       else {
-	mid= 2. * asin( sqrt( ( *(ux+ii) - *(umin+ii) )
-			      / ( *(umax+ii) - *(umin+ii) ) ) );
+	mid= 2. * asin( sqrt( fmin ( fmax ( ( *(ux+ii) - *(umin+ii) )
+			      / ( *(umax+ii) - *(umin+ii) ), 0. ), 1. ) ) );
 	(AngleuInt+tid)->function = &dJRdELowStaeckelIntegrand;
 	Or1= gsl_integration_glfixed (AngleuInt+tid,0.,mid,T);
 	Or1*= *(delta+ii*delta_stride) / sqrt(2.);
@@ -1405,10 +1405,10 @@ void calcAnglesStaeckel(int ndata,
       if ( *(vx+ii) < midpoint || *(vx+ii) > (M_PI - midpoint) ) {
 	// chi of the current v, measured from the vmin turning point along
 	// the full loop [vmin, pi - vmin]; v beyond the midplane mirrors
-	mid = 2. * asin( sqrt( ( ( *(vx+ii) > 0.5 * M_PI )
+	mid = 2. * asin( sqrt( fmin ( fmax ( ( ( *(vx+ii) > 0.5 * M_PI )
 				 ? ( M_PI - *(vx+ii) - *(vmin+ii) )
 				 : ( *(vx+ii) - *(vmin+ii) ) )
-			       / ( M_PI - 2. * *(vmin+ii) ) ) );
+			       / ( M_PI - 2. * *(vmin+ii) ), 0. ), 1. ) ) );
 	(AnglevInt+tid)->function = &dJzdELowStaeckelIntegrand;
 	Or2= gsl_integration_glfixed (AnglevInt+tid,0.,mid,T);
 	Or2*= *(delta+ii*delta_stride) / sqrt(2.);
@@ -1451,10 +1451,10 @@ void calcAnglesStaeckel(int ndata,
       if ( *(vx+ii) < midpoint || *(vx+ii) > (M_PI - midpoint)) {
 	// chi of the current v, measured from the vmin turning point along
 	// the full loop [vmin, pi - vmin]; v beyond the midplane mirrors
-	mid = 2. * asin( sqrt( ( ( *(vx+ii) > 0.5 * M_PI )
+	mid = 2. * asin( sqrt( fmin ( fmax ( ( ( *(vx+ii) > 0.5 * M_PI )
 				 ? ( M_PI - *(vx+ii) - *(vmin+ii) )
 				 : ( *(vx+ii) - *(vmin+ii) ) )
-			       / ( M_PI - 2. * *(vmin+ii) ) ) );
+			       / ( M_PI - 2. * *(vmin+ii) ), 0. ), 1. ) ) );
 	(AnglevInt+tid)->function = &dJzdELowStaeckelIntegrand;
 	Or2= gsl_integration_glfixed (AnglevInt+tid,0.,mid,T);
 	Or2*= *(delta+ii*delta_stride) / sqrt(2.);
@@ -1591,7 +1591,35 @@ void calcUminUmax(int ndata,
     meps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)-0.000001);
     if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(ux+ii))) < 0.0000001 && peps*meps < 0. ){ //we are at umin or umax
       if ( peps < 0. && meps > 0. ) {//umax
-	*(umax+ii)= *(ux+ii);
+	//The point lies within 1e-6 of umax. Adopting the point itself as
+	//the turning point is fine for the actions (an O(eps) endpoint
+	//error only enters them at O(eps^1.5)), but the frequency and
+	//angle integrands diverge as 1/sqrt(W) at the endpoint, so there
+	//it enters at O(sqrt(eps)); solve for the true root instead (the
+	//+-1e-6 bracket has the sign change by the branch condition),
+	//keeping the point itself only as the degenerate fallback
+	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid,
+				       *(ux+ii) - 0.000001,
+				       *(ux+ii) + 0.000001);
+	if (status == GSL_EINVAL)
+// LCOV_EXCL_START
+	  *(umax+ii)= *(ux+ii);//can't happen: the branch condition peps*meps<0 is the bracket
+// LCOV_EXCL_STOP
+	else {
+	  iter= 0;
+	  do
+	    {
+	      iter++;
+	      status = gsl_root_fsolver_iterate ((s+tid)->s);
+	      u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	      u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	      status = gsl_root_test_interval (u_lo, u_hi,
+					       4.4408920985006262e-16,
+					       4.4408920985006262e-16);
+	    }
+	  while (status == GSL_CONTINUE && iter < max_iter);
+	  *(umax+ii)= gsl_root_fsolver_root ((s+tid)->s);
+	}
 	u_lo= 0.9 * (*(ux+ii) - 0.000001);
 	u_hi= *(ux+ii) - 0.0000001;
 	while ( GSL_FN_EVAL(JRRoot+tid,u_lo) >= 0. && u_lo > 0.000000001){
@@ -1611,7 +1639,7 @@ void calcUminUmax(int ndata,
 	      u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
 	      u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	      status = gsl_root_test_interval (u_lo, u_hi,
-					       9.9999999999999998e-13,
+					       4.4408920985006262e-16,
 					       4.4408920985006262e-16);
 	    }
 	  while (status == GSL_CONTINUE && iter < max_iter);
@@ -1626,7 +1654,30 @@ void calcUminUmax(int ndata,
 	}
       }
       else {// JB: Should catch all: if ( peps > 0. && meps < 0. ){//umin
-	*(umin+ii)= *(ux+ii);
+	//Same as the umax case above: solve for the true root, with the
+	//point itself only as the degenerate fallback
+	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid,
+				       *(ux+ii) - 0.000001,
+				       *(ux+ii) + 0.000001);
+	if (status == GSL_EINVAL)
+// LCOV_EXCL_START
+	  *(umin+ii)= *(ux+ii);//can't happen: the branch condition peps*meps<0 is the bracket
+// LCOV_EXCL_STOP
+	else {
+	  iter= 0;
+	  do
+	    {
+	      iter++;
+	      status = gsl_root_fsolver_iterate ((s+tid)->s);
+	      u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	      u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	      status = gsl_root_test_interval (u_lo, u_hi,
+					       4.4408920985006262e-16,
+					       4.4408920985006262e-16);
+	    }
+	  while (status == GSL_CONTINUE && iter < max_iter);
+	  *(umin+ii)= gsl_root_fsolver_root ((s+tid)->s);
+	}
 	u_lo= *(ux+ii) + 0.000001;
 	u_hi= 1.1 * (*(ux+ii) + 0.000001);
 	while ( GSL_FN_EVAL(JRRoot+tid,u_hi) >= 0. && u_hi < asinh(37.5/ *(delta+ii*delta_stride))) {
@@ -1648,7 +1699,7 @@ void calcUminUmax(int ndata,
 	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
 	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	    status = gsl_root_test_interval (u_lo, u_hi,
-					     9.9999999999999998e-13,
+					     4.4408920985006262e-16,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
@@ -1687,7 +1738,7 @@ void calcUminUmax(int ndata,
 	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
 	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	    status = gsl_root_test_interval (u_lo, u_hi,
-					     9.9999999999999998e-13,
+					     4.4408920985006262e-16,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
@@ -1723,7 +1774,7 @@ void calcUminUmax(int ndata,
 	  u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
 	  u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	  status = gsl_root_test_interval (u_lo, u_hi,
-					   9.9999999999999998e-13,
+					   4.4408920985006262e-16,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
@@ -1803,8 +1854,41 @@ void calcVmin(int ndata,
     (JzRoot+tid)->function = &JzStaeckelIntegrandSquared;
     (JzRoot+tid)->params = params+tid;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) //we are at vmin
-      *(vmin+ii)= ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii);
+    if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) {//we are at vmin
+      //The point lies within 1e-6 of vmin. Adopting the point itself as
+      //the turning point is fine for the actions (an O(eps) endpoint
+      //error only enters them at O(eps^1.5)), but the frequency and
+      //angle integrands diverge as 1/sqrt(W) at the endpoint, so there
+      //it enters at O(sqrt(eps)); solve for the true root instead: W is
+      //negative below vmin and positive above, so the +-1e-6 bracket
+      //around the (mirrored) point holds unless the point is degenerate
+      //at roundoff level, where the point IS the turning point and the
+      //old assignment remains as the fallback
+      v_lo= ( ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii) )
+	- 0.000001;
+      if ( v_lo < 0.000000001 ) v_lo= 0.000000001;
+      v_hi= ( ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii) )
+	+ 0.000001;
+      if ( v_hi > 0.5 * M_PI ) v_hi= 0.5 * M_PI;
+      status = gsl_root_fsolver_set ((s+tid)->s, JzRoot+tid, v_lo, v_hi);
+      if (status == GSL_EINVAL)
+	*(vmin+ii)= ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii);
+      else {
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    v_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    v_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	    status = gsl_root_test_interval (v_lo, v_hi,
+					     4.4408920985006262e-16,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	*(vmin+ii)= gsl_root_fsolver_root ((s+tid)->s);
+      }
+    }
     else {
       if ( *(vx+ii) > 0.5 * M_PI ){
 	v_lo= 0.9 * ( M_PI - *(vx+ii) );
@@ -1832,7 +1916,7 @@ void calcVmin(int ndata,
 	  v_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
 	  v_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	  status = gsl_root_test_interval (v_lo, v_hi,
-					   9.9999999999999998e-13,
+					   4.4408920985006262e-16,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
