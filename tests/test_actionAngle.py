@@ -7720,12 +7720,24 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation(
     aAV = actionAngleVertical(pot=isopot)
     x, vx = 0.1, -0.3
     obs = Orbit([x, vx])
-    tol = -10.0
+    # Freqs routes through the map's dE/dJ, which differentiates the
+    # Hermite energy interpolant and is therefore ~4e-10 off the isolated
+    # true frequency between grid nodes, where the frequency table would
+    # be exact; the map's answer is preferred because it is exactly the
+    # frequency of the (x, v) trajectories the map returns, and an answer
+    # inconsistent with the returned orbits is the wrong kind of accurate
+    tol = -9.0
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
     assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation"
+    )
+    # and the two public answers agree EXACTLY: Freqs is the frequency of
+    # the trajectories _xvFreqs returns, which is the point of the routing
+    j = float(aAVI.J(obs.E(pot=isopot)))
+    assert numpy.fabs(float(aAVI.Freqs(j)) - float(aAVI._xvFreqs(j, 0.0)[2])) == 0.0, (
+        "Freqs and _xvFreqs disagree on the frequency of the same torus"
     )
     return None
 

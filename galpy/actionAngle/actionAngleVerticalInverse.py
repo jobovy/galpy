@@ -2001,15 +2001,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         """
         # Find torus
+        if self._momentum_matched:
+            # The map's own frequency: dE/dJ of the Hermite energy
+            # interpolant, which is exactly the frequency of the (x, v)
+            # trajectories the map returns (_xvFreqs), so the two public
+            # answers agree exactly.  The frequency table is marginally
+            # (~4e-10) closer to the isolated true frequency between its
+            # nodes, but an answer inconsistent with the returned orbits
+            # is the wrong kind of accurate.
+            return float(self._mm_dEdj(j))
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
             if numpy.fabs(j - self._js[indx]) > 1e-10:
-                if self._momentum_matched:
-                    # The family interpolates, so the canonical map has a
-                    # frequency here even though the tabulated ones do not.
-                    # This only fills a case that used to raise, so no
-                    # answer the old path gave is changed.
-                    return float(self._mm_dEdj(j))
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )
