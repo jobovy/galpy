@@ -10176,3 +10176,90 @@ def test_actionAngleStaeckelInverse_adaptive_delta_canonical():
         "symplectic" % broken
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_adaptive_construction():
+    # A REAL adaptive family: delta(E, L_z) varies by ~6% across the grid,
+    # every (L_z, E) node is built in its own wrapper (sharing one frozen
+    # isochrone, which the compensation's closed-form chains assume), and
+    # the map must come out exactly canonical -- the full PR-A + PR-B loop,
+    # not the injected-table shortcut.
+    import numpy
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+
+    def dfun(E, Lz):
+        return 1.3 * (1.0 + 0.04 * numpy.tanh(E + 1.0) + 0.03 * numpy.tanh(Lz))
+
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp,
+        delta=dfun,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=5,
+        nE=5,
+        nI3=5,
+    )
+    # the stored focal lengths are the callable's values, not a constant
+    row = 6 + 2 * aASI._npt
+    assert numpy.ptp(aASI._canon_tab_raw[row]) > 0.05, (
+        "The delta table did not pick up the callable's variation"
+    )
+    # the stored node deltas must BE the callable's values on the grid
+    assert numpy.all(
+        numpy.fabs(
+            aASI._canon_deltas
+            - dfun(
+                aASI._canon_tab_raw[2][:, :, 0],
+                aASI._Lzgrid[:, None] * numpy.ones((1, aASI._nE)),
+            )
+        )
+        < 1e-12
+    ), "The stored node deltas disagree with delta(E, L_z)"
+    # the map of the adaptively built family is exactly canonical
+    Lz = float(aASI._Lzgrid[2])
+    defect = _staeckel_symplectic_defect(aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
+    assert defect < 3e-8, (
+        "An adaptively constructed family is not canonical: %g" % defect
+    )
+    # guards: adaptive requires interpolation, and u0 alone is meaningless
+    import pytest
+
+    with pytest.raises(TypeError) as excinfo:
+        actionAngleStaeckelInverse(pot=kkp, delta=dfun, Es=[0.5])
+    assert "setup_interp" in str(excinfo.value)
+    with pytest.raises(TypeError) as excinfo:
+        actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
+    assert "only meaningful" in str(excinfo.value)
+    # the integrals entry point is chart-local and not yet wired
+    with pytest.raises(NotImplementedError) as excinfo:
+        aASI._xvFreqs(0.06, Lz, 0.10, 2.0, 1.0, 2.0, integrals=True)
+    assert "adaptive" in str(excinfo.value)
+    # the scalar spelling: a raw potential is wrapped at the given focal
+    # length (and u0), while u0 alone stays meaningless
+    from galpy.potential import (
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+        evaluatePotentials,
+        rl,
+    )
+
+    with pytest.raises(TypeError) as excinfo:
+        actionAngleStaeckelInverse(pot=MWPotential2014, u0=1.1, Es=[-1.2])
+    assert "requires delta" in str(excinfo.value)
+    Rc = rl(MWPotential2014, 0.9, use_physical=False)
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, u0=1.1)
+    Ec = evaluatePotentials(swp, Rc, 0.0, use_physical=False) + 0.9**2 / 2.0 / Rc**2
+    E = Ec + 0.05 * numpy.fabs(Ec)
+    I3 = 0.9**2 / (2.0 * 0.45**2) - E + 0.01
+    scal = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=0.45, u0=1.1, Es=[E], Lzs=[0.9], I3s=[I3]
+    )
+    assert numpy.fabs(scal._delta - 0.45) < 1e-14, "scalar delta= not honoured"
+    assert numpy.fabs(scal._staeckelwrap._u0 - 1.1) < 1e-14, "u0= not honoured"
+    return None
