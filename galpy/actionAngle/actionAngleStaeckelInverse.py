@@ -1252,7 +1252,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._Omegaz[ii],
         )
 
-    def _canon_unlift(self, out, a, e, LA, thmin, Dmu, Dmv, umin, umax, vmin, Lz):
+    def _canon_unlift(
+        self, out, a, e, LA, thmin, Dmu, Dmv, umin, umax, vmin, Lz, delta=None
+    ):
         """Map the toy-chart reconstruction to the target chart: per-degree
         anomaly inversions through the stored maps (closed-form radius and
         linear polar-angle inversions), momenta through the per-degree
@@ -1335,8 +1337,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # prolate -> cylindrical, exactly as the direct path
         sh, ch = numpy.sinh(u), numpy.cosh(u)
         sn, cs = numpy.sin(v), numpy.cos(v)
-        Rt, zt = coords.uv_to_Rz(u, v, delta=self._delta)
-        den = self._delta * (sh**2 + sn**2)
+        dl = self._delta if delta is None else float(delta)
+        Rt, zt = coords.uv_to_Rz(u, v, delta=dl)
+        den = dl * (sh**2 + sn**2)
         vRt = (pu * ch * sn + pv * sh * cs) / den
         vzt = (pu * sh * cs - pv * ch * sn) / den
         return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
@@ -1467,7 +1470,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # and K_v = (pi/2-vmin)^2/J_z -- both bounded and smooth right up to
         # the edge, where the vanishing is carried entirely by the action
         # itself, which is known exactly at evaluation time.
-        nq = 6 + 2 * self._npt
+        nq = 7 + 2 * self._npt
         tab = numpy.empty((nq,) + shape)
         tab[0] = grid._jr.reshape(shape)
         tab[1] = grid._jz.reshape(shape)
@@ -1478,9 +1481,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         tab[6 : 6 + self._npt] = numpy.moveaxis(
             grid._can_Dmu.reshape(shape + (self._npt,)), -1, 0
         )
-        tab[6 + self._npt :] = numpy.moveaxis(
+        tab[6 + self._npt : 6 + 2 * self._npt] = numpy.moveaxis(
             grid._can_Dmv.reshape(shape + (self._npt,)), -1, 0
         )
+        # The focal length as one more stored row, constant along I3 (delta
+        # depends on (E, L_z) only) and simply constant everywhere until the
+        # adaptive construction fills it.  Storing it as a table row buys its
+        # action-derivative chain for free: d delta/dJ comes out of the same
+        # differentiated interpolant as every other stored quantity, so the
+        # compensation's new term obeys the same no-separate-derivative
+        # discipline as the rest of the map.
+        tab[6 + 2 * self._npt] = self._delta
         # the analytic limits at the degenerate edges: the vanishing action
         # is exactly zero, the degenerate oscillation's midpoint sits at its
         # analytic point (the shell u), and its anomaly map vanishes (both
@@ -1494,7 +1505,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             tab[6 : 6 + self._npt, :, :, -1] = 0.0
         if self._wIgrid[0] == 0.0:
             tab[1, :, :, 0] = 0.0
-            tab[6 + self._npt :, :, :, 0] = 0.0
+            tab[6 + self._npt : 6 + 2 * self._npt, :, :, 0] = 0.0
         self._canon_tab_raw = tab
         self._canon_dLz = (self._Lzgrid[-1] - self._Lzgrid[0]) / (nLz - 1)
         self._rebuild_canon_interp()
@@ -1854,8 +1865,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         npt = self._npt
         umin, umax, vmin = v[3], v[4], v[5]
         dumin, dumax, dvmin = dq[3], dq[4], dq[5]
-        Dmu, Dmv = v[6 : 6 + npt], v[6 + npt :]
-        dDmu, dDmv = dq[6 : 6 + npt], dq[6 + npt :]
+        Dmu, Dmv = v[6 : 6 + npt], v[6 + npt : 6 + 2 * npt]
+        dDmu, dDmv = dq[6 : 6 + npt], dq[6 + npt : 6 + 2 * npt]
+        delc, ddel = v[6 + 2 * npt], dq[6 + 2 * npt]
         # closed-form toy-parameter chains: a, e from (J^A_r = J_R, L^A)
         GM, bb = self._GMc, self._bc
         sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
@@ -1952,6 +1964,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         gth = 0.5 * numpy.pi - thmin
         pv = pAthv * gth * srv * detav / (0.5 * (numpy.pi - 2.0 * vmin))
         cv = numpy.cos(tvv)
+        # The focal length's own compensation (ADAPTIVE_STAECKEL_MATH.md
+        # section 2): (R, z) are homogeneous of degree one in delta at fixed
+        # (u, v), so the un-lift's generating function contributes
+        # (p_R R + p_z z)/delta = [sinh u cosh u p_u - sin v cos v p_v] /
+        # [(sinh^2 u + sin^2 v) delta] per unit d delta/dJ_i, entering with
+        # the TARGET-chart sign: like the -p_u du_i and -p_v dv_i terms
+        # below, a parameter that moves the target position at fixed
+        # anomaly contributes with a minus, opposite to the auxiliary's
+        # terms.  (Wired the other way, the symplectic defect under a 5%
+        # delta variation is 0.88 -- twice the uncompensated 0.47, the
+        # signature of a sign error -- and with this sign it is 1.4e-9,
+        # the clean-family floor.)  Manifestly
+        # regular -- delta > 0 and the numerator vanishes with the momenta
+        # at the turning points -- and identically zero for a constant-delta
+        # family, which is the fixed-focal special case.
+        ucrd = umin * c2u + umax * s2u
+        vcrd = vmin + (numpy.pi - 2.0 * vmin) * numpy.sin(tvv / 2.0) ** 2
+        shc, chc = numpy.sinh(ucrd), numpy.cosh(ucrd)
+        snc, csc = numpy.sin(vcrd), numpy.cos(vcrd)
+        pdq = numpy.zeros(len(thetaAr))
+        if not udeg:
+            pdq += shc * chc * pu
+        if not vdeg:
+            pdq -= snc * csc * pv
+        pdq /= (shc**2 + snc**2) * delc
         for i in range(3):
             if udeg:
                 uterm = 0.0
@@ -1969,7 +2006,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 dth_i = dthmin[i] * cosetav + gth * sinetav * (smat_v @ dDmv[:, i])
                 dv_i = dvmin[i] * cv
                 vterm = pAthv * dth_i - pv * dv_i
-            comp[i] = uterm + vterm
+            comp[i] = uterm + vterm - pdq * ddel[i]
         return comp[0], comp[1], comp[2]
 
     def _toy_angle_solve(self, thR, thz, jr, LA, Lz, v, dq):
@@ -2073,11 +2110,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             LA,
             thmin,
             v[6 : 6 + npt],
-            v[6 + npt :],
+            v[6 + npt : 6 + 2 * npt],
             v[3],
             v[4],
             v[5],
             Lz,
+            delta=v[6 + 2 * npt],
         )
         # frequencies: the stored energy table's own derivative chains
         OmR, Omphi, Omz = dq[2]
