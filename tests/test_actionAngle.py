@@ -10236,10 +10236,22 @@ def test_actionAngleStaeckelInverse_adaptive_construction():
     with pytest.raises(TypeError) as excinfo:
         actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
     assert "only meaningful" in str(excinfo.value)
-    # the integrals entry point is chart-local and not yet wired
-    with pytest.raises(NotImplementedError) as excinfo:
-        aASI._xvFreqs(0.06, Lz, 0.10, 2.0, 1.0, 2.0, integrals=True)
-    assert "adaptive" in str(excinfo.value)
+    # the integrals entry point runs in the LOCAL chart at (E, L_z), the
+    # same smooth surface the nodes were built from
+    Eq = float(aASI._canon_tab_raw[2][2, 2, 2])
+    I3q = Lz**2 / (2.0 * aASI._canon_deltas[2, 2] ** 2) - Eq + 0.02
+    outq = aASI._xvFreqs(
+        Eq,
+        Lz,
+        I3q,
+        numpy.array([2.0]),
+        numpy.array([1.0]),
+        numpy.array([2.0]),
+        integrals=True,
+    )
+    assert numpy.all(
+        numpy.isfinite(numpy.array([float(numpy.atleast_1d(q)[0]) for q in outq[:6]]))
+    ), "The chart-local integrals entry point did not return a point"
     # the scalar spelling: a raw potential is wrapped at the given focal
     # length (and u0), while u0 alone stays meaningless
     from galpy.potential import (
@@ -10262,4 +10274,90 @@ def test_actionAngleStaeckelInverse_adaptive_construction():
     )
     assert numpy.fabs(scal._delta - 0.45) < 1e-14, "scalar delta= not honoured"
     assert numpy.fabs(scal._staeckelwrap._u0 - 1.1) < 1e-14, "u0= not honoured"
+    # delta='fit' surveys and fits the surface itself; on an exactly
+    # Staeckel potential it must REDISCOVER the true focal length, which is
+    # the end-to-end self-check of the whole fitting pipeline
+    fitf = actionAngleStaeckelInverse(
+        pot=kkp,
+        delta="fit",
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=5,
+        nE=5,
+        nI3=5,
+        fit_nsub=4,
+    )
+    assert numpy.max(numpy.fabs(fitf._canon_deltas - 1.3)) < 5e-3, (
+        "delta='fit' did not rediscover KuzminKutuzov's focal length"
+    )
+    assert fitf._deltafit_info["rms"] < 5e-3, (
+        "the fitted surface has unexpected structure on an exact target"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(pot=kkp, delta="fittt", setup_interp=True)
+    assert "only string value" in str(excinfo.value)
+    with pytest.raises(TypeError) as excinfo:
+        actionAngleStaeckelInverse(pot=kkp, u0="fit", Es=[0.5])
+    assert "only meaningful" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(
+            pot=kkp, delta="fit", u0="midplane", setup_interp=True
+        )
+    assert "only string value u0=" in str(excinfo.value)
+    with pytest.raises(TypeError) as excinfo:
+        actionAngleStaeckelInverse(pot=kkp, delta="fit", Es=[0.5])
+    assert "setup_interp" in str(excinfo.value)
+    # the u0 surface falls back to the mid-radius when the requested energy
+    # has no zero-velocity bracket
+    assert numpy.isfinite(fitf._u0_func(-1e3, 1.0)), "u0 fallback broken"
+    # survey robustness: an Rinf so large that no apocentre brackets inside
+    # the search range leaves too few nodes, and that is an error, not a fit
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        _fit_staeckel_surface,
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=1)
+    assert "could not survey" in str(excinfo.value)
+    # a node whose apocentre fails to bracket is skipped, not fatal
+    import sys as _sys
+
+    _mod = _sys.modules["galpy.actionAngle.actionAngleStaeckelInverse"]
+    _realbq = _mod.brentq
+    _calls = {"n": 0}
+
+    def _flakybq(*a, **k):
+        _calls["n"] += 1
+        if _calls["n"] == 1:
+            raise ValueError("forced bracket failure")
+        return _realbq(*a, **k)
+
+    try:
+        _mod.brentq = _flakybq
+        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3)
+    finally:
+        _mod.brentq = _realbq
+    # a rough fitted surface draws a warning (thresholded, forced here)
+    with pytest.warns(galpyWarning):
+        _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3, rms_warn=1e-12)
+
+    # and a focal length at which the wrapper cannot be built scores as a
+    # bad objective rather than crashing the minimizer
+    class _Fussy(_mod.OblateStaeckelWrapperPotential):
+        def __init__(self, *args, **kwargs):
+            if kwargs.get("delta", 1.0) > 1.6:
+                raise ValueError("no wrapper at this focal length")
+            super().__init__(*args, **kwargs)
+
+    orig = _mod.OblateStaeckelWrapperPotential
+    try:
+        _mod.OblateStaeckelWrapperPotential = _Fussy
+        dfun2, _, info2 = _fit_staeckel_surface(kkp, 0.7, 1.6, 8.0, nsub=3)
+    finally:
+        _mod.OblateStaeckelWrapperPotential = orig
+    assert numpy.fabs(dfun2(-0.3, 1.0) - 1.3) < 0.1, (
+        "the minimizer did not route around unbuildable focal lengths"
+    )
     return None
