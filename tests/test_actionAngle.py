@@ -10109,3 +10109,70 @@ def test_actionAngleStaeckelInverse_narrow_grid():
     )
     assert numpy.fabs(edged._wIgrid[0] - 0.8) < 1e-12, "the given w_I end moved"
     return None
+
+
+def test_actionAngleStaeckelInverse_adaptive_delta_canonical():
+    # The focal length may vary across the family -- delta(E, L_z), the
+    # adaptive-Staeckel design -- provided the compensation carries its
+    # chain. Manifest canonicity then extends to the chart parameter: the
+    # map must stay exactly symplectic for an ARBITRARY smooth delta table,
+    # not merely for the constant one construction wrote.
+    import numpy
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=6,
+        nE=6,
+        nI3=6,
+    )
+    Lz = float(aASI._Lzgrid[3])
+    args = (0.06, Lz, 0.10, numpy.array([2.0]), numpy.array([1.0]), numpy.array([2.0]))
+    x0 = numpy.array(aASI._xvFreqs(*args)[:6]).flatten()
+    # a LARGE smooth chart variation: 5% in delta across (L_z, E), constant
+    # in I3 as the design prescribes
+    row = 6 + 2 * aASI._npt
+    nLz, nE, nI3 = aASI._canon_shape
+    ii, jj = numpy.meshgrid(numpy.arange(nLz), numpy.arange(nE), indexing="ij")
+    mod = 1.0 + 0.05 * numpy.sin(2.0 * ii / (nLz - 1) + 3.0 * jj / (nE - 1))
+    aASI._canon_tab_raw[row] = aASI._delta * mod[:, :, None]
+    aASI._rebuild_canon_interp()
+    x1 = numpy.array(aASI._xvFreqs(*args)[:6]).flatten()
+    moved = numpy.max(numpy.fabs(x1 - x0))
+    assert moved > 1e-3, (
+        "A 5%% delta variation did not reach the evaluation (moved %g)" % moved
+    )
+    defect = _staeckel_symplectic_defect(aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
+    assert defect < 3e-8, (
+        "The map is not symplectic under a varying focal length: %g" % defect
+    )
+    # and the delta-chain is load-bearing: severing it must break canonicity
+    # by orders of magnitude, or the term above is decorative
+    orig = aASI._canon_family_chains
+
+    def severed(x):
+        v, dq = orig(x)
+        dq = dq.copy()
+        dq[row] = 0.0
+        return v, dq
+
+    try:
+        aASI._canon_family_chains = severed
+        broken = _staeckel_symplectic_defect(
+            aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0
+        )
+    finally:
+        aASI._canon_family_chains = orig
+    assert broken > 1e-2, (
+        "Severing the delta-chain did not break canonicity (%g), so the "
+        "compensation term is not what keeps the varying-delta map "
+        "symplectic" % broken
+    )
+    return None
