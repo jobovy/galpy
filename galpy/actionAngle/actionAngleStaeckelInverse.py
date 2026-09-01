@@ -361,6 +361,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             self._staeckelwrap = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
         self._delta = self._staeckelwrap._delta
+        # the potential the per-node charts wrap: a chart is always built on
+        # the RAW potential -- rewrapping an OblateStaeckelWrapperPotential
+        # would Staeckelize the Staeckelization, a different (and much more
+        # expensive) model than intended
+        self._chart_pot = (
+            self._pot._pot
+            if isinstance(self._pot, OblateStaeckelWrapperPotential)
+            else self._pot
+        )
         if self._u0_fit and self._u0_func is None:
             # u0='fit' with a FIXED focal length: the reference curve at the
             # zero-velocity R-midpoint of each (E, L_z) -- the same rule the
@@ -370,7 +379,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # win (the optimal delta is nearly universal there, while u0
             # placement matters by factors of a few to ~30).
             self._u0_func = _u0_midpoint_fun(
-                self._pot,
+                self._chart_pot,
                 conversion.parse_length(Rmin, ro=self._ro),
                 conversion.parse_length(Rmax, ro=self._ro),
                 lambda E, Lz, _d=float(self._delta): _d,
@@ -1713,10 +1722,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         None if self._u0_func is None else float(self._u0_func(E, Lz))
                     )
                     self._canon_wraps[ii][jj] = (
-                        OblateStaeckelWrapperPotential(pot=self._pot, delta=dnode)
+                        OblateStaeckelWrapperPotential(pot=self._chart_pot, delta=dnode)
                         if u0node is None
                         else OblateStaeckelWrapperPotential(
-                            pot=self._pot, delta=dnode, u0=u0node
+                            pot=self._chart_pot, delta=dnode, u0=u0node
                         )
                     )
                     self._staeckelwrap = self._canon_wraps[ii][jj]
@@ -2081,9 +2090,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         key = (round(dloc, 10), None if u0loc is None else round(u0loc, 10))
         if getattr(self, "_chart_cache_key", None) != key:
             self._chart_cache = (
-                OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc)
+                OblateStaeckelWrapperPotential(pot=self._chart_pot, delta=dloc)
                 if u0loc is None
-                else OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc, u0=u0loc)
+                else OblateStaeckelWrapperPotential(
+                    pot=self._chart_pot, delta=dloc, u0=u0loc
+                )
             )
             self._chart_cache_key = key
         self._staeckelwrap, self._delta = self._chart_cache, dloc

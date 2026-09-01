@@ -10484,6 +10484,25 @@ def test_actionAngleStaeckelInverse_u0only_adaptive():
     assert box[2][0] is None or 0.0 < box[2][0] < 1.0, (
         "the target box failed for a u0-only family"
     )
+    # a WRAPPED potential with adaptive u0 must unwrap for its node charts:
+    # rewrapping would Staeckelize the Staeckelization
+    from galpy.potential import OblateStaeckelWrapperPotential
+
+    wkk = OblateStaeckelWrapperPotential(pot=kkp, delta=1.3)
+    aASIw = actionAngleStaeckelInverse(
+        pot=wkk,
+        u0=lambda E, Lz: 1.05 + 0.10 * numpy.tanh(Lz),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=3,
+        nE=3,
+        nI3=3,
+    )
+    assert aASIw._canon_wraps[0][0]._pot is kkp, (
+        "the node charts wrap the wrapper instead of the raw potential"
+    )
     # guards: adaptive u0 needs the interpolated family
     with pytest.raises(TypeError, match="requires setup_interp"):
         actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
