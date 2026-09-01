@@ -1,8 +1,6 @@
 # jeans.py: utilities related to the Jeans equations
-import time
-
 import numpy
-from scipy import integrate
+from scipy import integrate, interpolate
 
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
@@ -77,26 +75,44 @@ def sigmar(Pot, r, dens=None, beta=0.0):
     )
 
 
-def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
+_SIGMAR_SPLINE_TOL = (
+    1e-5  # accept: drift over-estimates the true error (~1e-6 ships today)
+)
+_SIGMAR_SPLINE_HOPELESS = (
+    1e-2  # give up at once rather than refine a hopeless integrand
+)
+
+
+def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nstart=1001, maxrefine=3):
     """
-    sigma_r at every radius in rs, from ONE cumulative integral.
+    sigma_r at every radius in rs, from one interpolated integrand.
 
-    Same quantity as calling ``sigmar`` at each radius, but the integrand
-    int_r^inf -x^(2 beta) rho(x) F_r(x) dx differs between radii only in its
-    LOWER limit, so every radius can be read off a single cumulative pass over
-    a shared grid instead of one adaptive quadrature per radius.
+    ``sigmar`` runs one adaptive quadrature per radius, but those integrals
+    differ only in their LOWER limit, so all of them can be read off a single
+    representation of the integrand. This samples
+    ``g(x) = -x^(2 beta) rho(x) F_r(x)`` on a log-spaced grid, splines it, and
+    takes the spline's ANALYTIC antiderivative -- roughly a thousand integrand
+    evaluations in total, against ~50 per radius for the adaptive rule.
 
-    Returns None when the fast path does not apply, so callers fall back to the
-    per-radius loop.
+    The grid is refined until the answer stops moving, so accuracy is verified
+    rather than assumed. Returns None when it does not converge, and the caller
+    falls back to the per-radius quadrature.
 
     Notes
     -----
-    - The grid is geometric: rho ~ 1/r near the centre varies over decades, and
-      a uniform grid there is catastrophically inaccurate (measured 22% error).
-    - The cumulative sum runs from the OUTSIDE IN. Accumulating left-to-right
-      and taking I(r) = C[-1] - C(r) subtracts two nearly-equal large sums at
-      large r; that cancellation costs ~5e-06 on MWPotential2014 (and is
-      invisible on Hernquist/NFW, which are insensitive to it).
+    - Log spacing is essential: rho ~ 1/r near the centre spans decades, and a
+      uniform grid there is catastrophically inaccurate (measured 22% error).
+    - The refinement tolerance is deliberately looser than the accuracy this
+      achieves. ``drift`` is a Richardson-style OVER-estimate of the true error
+      (MWPotential2014: drift 1.2e-06 for a true ~9.5e-07), so demanding 1e-7
+      rejects potentials that in fact beat the ~1e-6 the per-radius rule itself
+      delivers.
+    - Some integrands never converge here: a DoubleExponentialDiskPotential has
+      vertical structure along the r = (R, z) ray that a log-spaced spline
+      cannot resolve (drift stays of order 1). That is not a case worth chasing
+      -- it is not really an application of the SPHERICAL Jeans equation -- so
+      an obviously diverging integrand is abandoned immediately instead of
+      being refined three times first.
     """
     rs = numpy.asarray(rs, dtype=float)
     if callable(beta) or rs[0] <= 0.0 or rs[-1] <= rs[0]:
@@ -121,41 +137,44 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
             use_physical=False,
         )
     )
-    # Whether this is actually faster depends entirely on the potential. The
-    # grid costs nquad integrand evaluations; the per-radius loop costs len(rs)
-    # ADAPTIVE quadratures, i.e. only ~50 evaluations each. So the grid does
-    # several times MORE work and wins only when vectorization more than makes
-    # up for it -- true for cheap analytic potentials (measured ~100x on NFW and
-    # MWPotential2014), false for SCF/Multipole, where every point costs
-    # spherical harmonics (measured 0.33x, i.e. 3x SLOWER). Rather than guess or
-    # keep a per-potential list, time both and pick the winner. The probe also
-    # doubles as the array-capability check: potentials whose methods reject
-    # arrays (e.g. DoubleExponentialDiskPotential) raise here and fall back.
-    probe = numpy.geomspace(rs[0], rs[-1], 256)
-    try:
-        _t0 = time.perf_counter()
-        integrand(probe)
-        per_point = (time.perf_counter() - _t0) / probe.size
-    except (TypeError, ValueError, IndexError, AttributeError):
-        return None
-    _t0 = time.perf_counter()
-    integrate.quad(integrand, rs[rs.size // 2], numpy.inf)
-    per_quad = time.perf_counter() - _t0
-    if per_point * nquad > 0.5 * per_quad * rs.size:
-        return None  # the per-radius loop is cheaper for this potential
-    xs = numpy.geomspace(rs[0], rs[-1], nquad)
-    gs = numpy.asarray(integrand(xs), dtype=float)
-    seg = 0.5 * (gs[1:] + gs[:-1]) * numpy.diff(xs)
-    I = numpy.concatenate((numpy.cumsum(seg[::-1])[::-1], [0.0]))
-    I = I + integrate.quad(integrand, rs[-1], numpy.inf)[0]  # r > max(rs) tail
-    Ir = numpy.interp(numpy.log(rs), numpy.log(xs), I)
-    # dens() follows the ambient array namespace, so under a forced backend it
-    # returns a Tensor/Array. Everything above is numpy, and the per-radius loop
-    # this replaces returned numpy, so cast rather than letting numpy operate on
-    # a foreign array: numpy.sqrt(Tensor) goes through __array_wrap__, which is
-    # a DeprecationWarning that CI turns into an error (-W error).
-    dens_rs = numpy.asarray(dens(rs), dtype=float)
-    return numpy.sqrt(Ir / dens_rs / rs ** (2.0 * beta))
+
+    def _on(fn, xs):
+        # one vectorized call where the potential allows it, else a loop; at
+        # ~1000 points the loop is still far cheaper than len(rs) adaptive
+        # quadratures, so there is no need to detect which case we are in
+        try:
+            out = numpy.asarray(fn(xs), dtype=float)
+            if out.shape == xs.shape:
+                return out
+        except (TypeError, ValueError, IndexError, AttributeError):
+            pass
+        return numpy.array([float(fn(x)) for x in xs])
+
+    tail = integrate.quad(integrand, rs[-1], numpy.inf)[0]
+    dens_rs = _on(dens, rs)
+    logrs = numpy.log(rs)
+
+    def _build(nquad):
+        u = numpy.linspace(numpy.log(rs[0]), numpy.log(rs[-1]), nquad)
+        xs = numpy.exp(u)
+        # int g dx = int g(x) x d(ln x), so spline the log-space integrand
+        anti = interpolate.CubicSpline(u, _on(integrand, xs) * xs).antiderivative()
+        return numpy.sqrt(
+            (anti(u[-1]) - anti(logrs) + tail) / dens_rs / rs ** (2.0 * beta)
+        )
+
+    prev = _build(nstart)
+    nquad = nstart
+    for _ in range(maxrefine):
+        nquad = 2 * nquad - 1
+        cur = _build(nquad)
+        drift = numpy.nanmax(numpy.fabs(cur - prev) / numpy.fabs(cur))
+        if drift < _SIGMAR_SPLINE_TOL:
+            return cur
+        if drift > _SIGMAR_SPLINE_HOPELESS:
+            return None  # diverging, not merely under-resolved
+        prev = cur
+    return None
 
 
 @potential_physical_input

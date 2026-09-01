@@ -341,52 +341,51 @@ def test_sigmar_on_grid_matches_the_per_radius_loop():
             )
 
 
-def test_sigmar_on_grid_converges_under_refinement():
-    # Refining the grid must IMPROVE the answer. This is the property that
-    # catches a large-r cancellation in the cumulative sum: differencing a
-    # left-running total gives values that are individually plausible (they
-    # miss the per-radius quadrature by only ~1.5e-06, inside any tolerance a
-    # value test could safely use) but that STOP CONVERGING as the grid is
-    # refined. MWPotential2014 is required -- its massive disk is what makes
-    # the running total large enough for the cancellation to bite.
+def test_sigmar_on_grid_matches_the_loop_for_an_expensive_integrand():
+    # SCFPotential costs spherical harmonics at every point. It is the case an
+    # approach needing a fine grid had to refuse (it was measured 3x SLOWER
+    # there than the per-radius quadrature); interpolating the integrand puts it
+    # back on the fast path, so check the ANSWER and not just that it accepted.
+    import numpy
+
+    from galpy import potential
+    from galpy.df import jeans
+
+    Pot = potential.SCFPotential(normalize=1.0)
+    rs = numpy.linspace(1e-4, 25.0, 101)
+    fast = jeans._sigmar_on_grid(Pot, rs, beta=0.0)
+    assert fast is not None, "fast path unexpectedly declined for SCFPotential"
+    for ii in range(0, len(rs), 25):
+        ref = jeans.sigmar(Pot, rs[ii], beta=0.0, use_physical=False)
+        assert numpy.fabs(fast[ii] - ref) / numpy.fabs(ref) < 2e-6, (
+            f"sigma_r disagrees with the per-radius quadrature at r={rs[ii]}"
+        )
+
+
+def test_sigmar_on_grid_declines_when_it_cannot_converge():
+    # The interpolated integrand is refined until the answer stops moving. A
+    # DoubleExponentialDiskPotential has vertical structure along the r=(R,z)
+    # ray that a log-spaced spline cannot resolve, so it never converges and
+    # must decline rather than return a plausible-looking wrong answer. (It is
+    # also not really an application of the SPHERICAL Jeans equation.)
     import numpy
 
     from galpy import potential
     from galpy.df import jeans
 
     rs = numpy.linspace(1e-4, 25.0, 101)
-    coarse = jeans._sigmar_on_grid(potential.MWPotential2014, rs, nquad=25001)
-    fine = jeans._sigmar_on_grid(potential.MWPotential2014, rs, nquad=100001)
-    assert coarse is not None and fine is not None
-    drift = numpy.nanmax(numpy.fabs(fine - coarse) / numpy.fabs(fine))
-    assert drift < 5e-7, (
-        f"sigma_r does not converge under grid refinement (drift {drift:.2e}); "
-        "the cumulative sum is probably losing precision to cancellation"
-    )
-
-
-def test_sigmar_on_grid_declines_when_it_would_not_help():
-    # The fast path evaluates a fine grid, which is only cheaper than the
-    # per-radius adaptive quadratures when the potential is cheap per point.
-    # Two ways it must decline rather than silently regress:
-    import numpy
-
-    from galpy import potential
-    from galpy.df import jeans
-
-    rs = numpy.linspace(1e-4, 25.0, 101)
-    # (a) methods that reject array input entirely
     assert (
         jeans._sigmar_on_grid(
             potential.DoubleExponentialDiskPotential(normalize=0.2, hr=3.0, hz=0.6), rs
         )
         is None
-    ), "must decline for a potential whose rforce rejects arrays"
-    # (b) array-capable but expensive per point: SCF costs spherical harmonics
-    # at every node, and the grid measured 3x SLOWER than the loop there
-    assert jeans._sigmar_on_grid(potential.SCFPotential(normalize=1.0), rs) is None, (
-        "must decline when the per-radius loop is cheaper"
-    )
+    ), "must decline when the interpolated integrand does not converge"
+    # ...while an expensive-but-smooth integrand is accepted: SCFPotential costs
+    # spherical harmonics per point, which ruled it out under an approach that
+    # needed a fine grid, but it converges fine on ~1000 samples.
+    assert (
+        jeans._sigmar_on_grid(potential.SCFPotential(normalize=1.0), rs) is not None
+    ), "an expensive but well-resolved integrand should still use the fast path"
 
 
 def test_sigmar_on_grid_declines_outside_its_assumptions():
