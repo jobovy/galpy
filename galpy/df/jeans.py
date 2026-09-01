@@ -149,7 +149,13 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
     I = numpy.concatenate((numpy.cumsum(seg[::-1])[::-1], [0.0]))
     I = I + integrate.quad(integrand, rs[-1], numpy.inf)[0]  # r > max(rs) tail
     Ir = numpy.interp(numpy.log(rs), numpy.log(xs), I)
-    return numpy.sqrt(Ir / dens(rs) / rs ** (2.0 * beta))
+    # dens() follows the ambient array namespace, so under a forced backend it
+    # returns a Tensor/Array. Everything above is numpy, and the per-radius loop
+    # this replaces returned numpy, so cast rather than letting numpy operate on
+    # a foreign array: numpy.sqrt(Tensor) goes through __array_wrap__, which is
+    # a DeprecationWarning that CI turns into an error (-W error).
+    dens_rs = numpy.asarray(dens(rs), dtype=float)
+    return numpy.sqrt(Ir / dens_rs / rs ** (2.0 * beta))
 
 
 @potential_physical_input
