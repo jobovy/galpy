@@ -1,4 +1,6 @@
 # jeans.py: utilities related to the Jeans equations
+import time
+
 import numpy
 from scipy import integrate
 
@@ -73,6 +75,94 @@ def sigmar(Pot, r, dens=None, beta=0.0):
         / dens(r)
         / intFactor(r)
     )
+
+
+def _eval_on_grid(fn, xs):
+    """Evaluate fn on the array xs, falling back to a loop for potentials whose
+    methods reject array input (e.g. DoubleExponentialDiskPotential)."""
+    try:
+        out = numpy.asarray(fn(xs), dtype=float)
+        if out.shape == xs.shape:
+            return out
+    except (TypeError, ValueError, IndexError, AttributeError):
+        pass
+    return numpy.array([float(fn(x)) for x in xs])
+
+
+def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
+    """
+    sigma_r at every radius in rs, from ONE cumulative integral.
+
+    Same quantity as calling ``sigmar`` at each radius, but the integrand
+    int_r^inf -x^(2 beta) rho(x) F_r(x) dx differs between radii only in its
+    LOWER limit, so every radius can be read off a single cumulative pass over
+    a shared grid instead of one adaptive quadrature per radius.
+
+    Returns None when the fast path does not apply, so callers fall back to the
+    per-radius loop.
+
+    Notes
+    -----
+    - The grid is geometric: rho ~ 1/r near the centre varies over decades, and
+      a uniform grid there is catastrophically inaccurate (measured 22% error).
+    - The cumulative sum runs from the OUTSIDE IN. Accumulating left-to-right
+      and taking I(r) = C[-1] - C(r) subtracts two nearly-equal large sums at
+      large r; that cancellation costs ~5e-06 on MWPotential2014 (and is
+      invisible on Hernquist/NFW, which are insensitive to it).
+    """
+    rs = numpy.asarray(rs, dtype=float)
+    if callable(beta) or rs[0] <= 0.0 or rs[-1] <= rs[0]:
+        return None  # caller falls back to the per-radius loop
+    Pot = _check_potential_list_and_deprecate(Pot)
+    if dens is None:
+        dens = lambda r: evaluateDensities(
+            Pot,
+            r * _INVSQRTTWO,
+            r * _INVSQRTTWO,
+            phi=numpy.pi / 4.0,
+            use_physical=False,
+        )
+    integrand = lambda x: (
+        -(x ** (2.0 * beta))
+        * dens(x)
+        * evaluaterforces(
+            Pot,
+            x * _INVSQRTTWO,
+            x * _INVSQRTTWO,
+            phi=numpy.pi / 4.0,
+            use_physical=False,
+        )
+    )
+    # Whether this is actually faster depends entirely on the potential. The
+    # grid costs nquad integrand evaluations; the per-radius loop costs len(rs)
+    # ADAPTIVE quadratures, i.e. only ~50 evaluations each. So the grid does
+    # several times MORE work and wins only when vectorization more than makes
+    # up for it -- true for cheap analytic potentials (measured ~100x on NFW and
+    # MWPotential2014), false for SCF/Multipole, where every point costs
+    # spherical harmonics (measured 0.33x, i.e. 3x SLOWER). Rather than guess or
+    # keep a per-potential list, time both and pick the winner. The probe also
+    # doubles as the array-capability check: potentials whose methods reject
+    # arrays (e.g. DoubleExponentialDiskPotential) fall back here.
+    probe = numpy.geomspace(rs[0], rs[-1], 256)
+    try:
+        _t0 = time.perf_counter()
+        if numpy.shape(integrand(probe)) != probe.shape:
+            return None
+        per_point = (time.perf_counter() - _t0) / probe.size
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return None
+    _t0 = time.perf_counter()
+    integrate.quad(integrand, rs[rs.size // 2], numpy.inf)
+    per_quad = time.perf_counter() - _t0
+    if per_point * nquad > 0.5 * per_quad * rs.size:
+        return None  # the per-radius loop is cheaper for this potential
+    xs = numpy.geomspace(rs[0], rs[-1], nquad)
+    gs = numpy.asarray(integrand(xs), dtype=float)
+    seg = 0.5 * (gs[1:] + gs[:-1]) * numpy.diff(xs)
+    I = numpy.concatenate((numpy.cumsum(seg[::-1])[::-1], [0.0]))
+    I = I + integrate.quad(integrand, rs[-1], numpy.inf)[0]  # r > max(rs) tail
+    Ir = numpy.interp(numpy.log(rs), numpy.log(xs), I)
+    return numpy.sqrt(Ir / _eval_on_grid(dens, rs) / rs ** (2.0 * beta))
 
 
 @potential_physical_input
