@@ -118,15 +118,27 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
             self._dens_pot, R, z, phi=phi, t=t, use_physical=False
         )
-        if sigmar is None:
-            from ..df import jeans
+        from ..df import jeans
 
+        default_sigmar = sigmar is None
+        if default_sigmar:
             sigmar = lambda x: jeans.sigmar(
                 self._dens_pot, x, beta=0.0, use_physical=False
             )
         self._sigmar_rs_4interp = numpy.linspace(self._minr, self._maxr, nr)
-        self._sigmars_4interp = numpy.array(
-            [sigmar(x) for x in self._sigmar_rs_4interp]
+        # For the default (Jeans) sigma_r, every grid radius comes from one
+        # cumulative integral rather than one adaptive quadrature each; falls
+        # back to the loop when that path does not apply (and always for a
+        # user-supplied sigmar, whose cost is the caller's to control).
+        fast_sigmars = (
+            jeans._sigmar_on_grid(self._dens_pot, self._sigmar_rs_4interp, beta=0.0)
+            if default_sigmar
+            else None
+        )
+        self._sigmars_4interp = (
+            fast_sigmars
+            if fast_sigmars is not None
+            else numpy.array([sigmar(x) for x in self._sigmar_rs_4interp])
         )
         if numpy.any(numpy.isnan(self._sigmars_4interp)):
             # Check for case where density is zero, in that case, just
