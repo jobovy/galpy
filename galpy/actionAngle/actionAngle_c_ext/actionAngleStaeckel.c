@@ -1602,7 +1602,9 @@ void calcUminUmax(int ndata,
 				       *(ux+ii) - 0.000001,
 				       *(ux+ii) + 0.000001);
 	if (status == GSL_EINVAL)
-	  *(umax+ii)= *(ux+ii);
+// LCOV_EXCL_START
+	  *(umax+ii)= *(ux+ii);//can't happen: the branch condition peps*meps<0 is the bracket
+// LCOV_EXCL_STOP
 	else {
 	  iter= 0;
 	  do
@@ -1658,7 +1660,9 @@ void calcUminUmax(int ndata,
 				       *(ux+ii) - 0.000001,
 				       *(ux+ii) + 0.000001);
 	if (status == GSL_EINVAL)
-	  *(umin+ii)= *(ux+ii);
+// LCOV_EXCL_START
+	  *(umin+ii)= *(ux+ii);//can't happen: the branch condition peps*meps<0 is the bracket
+// LCOV_EXCL_STOP
 	else {
 	  iter= 0;
 	  do
