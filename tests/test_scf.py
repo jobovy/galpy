@@ -1689,8 +1689,30 @@ def test_tdep_from_density_nonvectorizable_fallback():
         * (1.0 + 0.1 * numpy.cos(2 * phi))
         * (1.0 + 0.02 * t)
     )
-    sp_fb = SCFPotential.from_density(dens_scalar_t, 8, L=3, symmetry=None, tgrid=tgrid)
-    sp_vec = SCFPotential.from_density(dens_vec_t, 8, L=3, symmetry=None, tgrid=tgrid)
+    # Reduced quadrature orders: this compares the fallback build against the
+    # vectorized build of the SAME density, so the order sets the accuracy of both
+    # arms identically and cancels out of the comparison. The fallback loops over
+    # tgrid, which is what makes this the slowest of the tdep tests.
+    sp_fb = SCFPotential.from_density(
+        dens_scalar_t,
+        8,
+        L=3,
+        symmetry=None,
+        tgrid=tgrid,
+        radial_order=10,
+        costheta_order=10,
+        phi_order=10,
+    )
+    sp_vec = SCFPotential.from_density(
+        dens_vec_t,
+        8,
+        L=3,
+        symmetry=None,
+        tgrid=tgrid,
+        radial_order=10,
+        costheta_order=10,
+        phi_order=10,
+    )
     assert sp_fb._tdep is True
     # fallback and vectorized builds of the same density agree to machine precision
     assert numpy.max(numpy.fabs(sp_fb._Acos_all - sp_vec._Acos_all)) < 1e-12
@@ -1713,25 +1735,41 @@ def test_tdep_from_density_vectorized_matches_loop():
             + 0.1 * numpy.sin(phi) * (1 + 0.05 * t)
         )
     )
+    # Reduced quadrature orders, passed identically to the vectorized build and to
+    # the per-timestep reference below so both arms integrate the same rule.
     sp = SCFPotential.from_density(
-        dens_g, 8, L=4, a=_TDEP_A, symmetry=None, tgrid=tgrid
+        dens_g,
+        8,
+        L=4,
+        a=_TDEP_A,
+        symmetry=None,
+        tgrid=tgrid,
+        radial_order=10,
+        costheta_order=10,
+        phi_order=10,
     )
     NN = sph_harm_normalization(4, 4)
     for it, t in enumerate(tgrid):
         Ac, As = potential.scf_compute_coeffs(
-            lambda R, z, phi: dens_g(R, z, phi, t), 8, 4, a=_TDEP_A
+            lambda R, z, phi: dens_g(R, z, phi, t),
+            8,
+            4,
+            a=_TDEP_A,
+            radial_order=10,
+            costheta_order=10,
+            phi_order=10,
         )
         assert numpy.max(numpy.fabs(sp._Acos_all[it] - Ac * NN)) < 1e-12
         assert numpy.max(numpy.fabs(sp._Asin_all[it] - As * NN)) < 1e-12
     # spherical
     dens_s = lambda r, t=0.0: hp.dens(r, 0.0, use_physical=False) * (1.0 + 0.05 * t)
     sps = SCFPotential.from_density(
-        dens_s, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid
+        dens_s, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid, radial_order=10
     )
     NN0 = sph_harm_normalization(1, 1)
     for it, t in enumerate(tgrid):
         Ac, _ = potential.scf_compute_coeffs_spherical(
-            lambda r: dens_s(r, t), 8, a=_TDEP_A
+            lambda r: dens_s(r, t), 8, a=_TDEP_A, radial_order=10
         )
         assert numpy.max(numpy.fabs(sps._Acos_all[it] - Ac * NN0)) < 1e-12
 
@@ -1824,17 +1862,33 @@ def test_tdep_from_density_time_batching():
     scfmod = sys.modules[SCFPotential.__module__]  # the module, not the class
 
     hp = potential.HernquistPotential(a=_TDEP_A)
-    tgrid = numpy.linspace(0.0, 5.0, 17)
+    tgrid = numpy.linspace(0.0, 5.0, 9)
     dens_g = lambda R, z, phi, t=0.0: (
         hp.dens(R, z, use_physical=False) * (1.0 + 0.2 * numpy.cos(2 * (phi - 0.4 * t)))
     )
     dens_a = lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * (1.0 + 0.03 * t)
     # single-shot reference (default large budget)
     ref_g = SCFPotential.from_density(
-        dens_g, 8, L=3, a=_TDEP_A, symmetry=None, tgrid=tgrid
+        dens_g,
+        8,
+        L=3,
+        a=_TDEP_A,
+        symmetry=None,
+        tgrid=tgrid,
+        radial_order=10,
+        costheta_order=10,
+        phi_order=10,
     )
     ref_a = SCFPotential.from_density(
-        dens_a, 8, L=3, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+        dens_a,
+        8,
+        L=3,
+        a=_TDEP_A,
+        symmetry="axi",
+        tgrid=tgrid,
+        radial_order=10,
+        costheta_order=10,
+        phi_order=10,
     )
     old = scfmod._TIMEDEP_BATCH_BYTES
     try:
@@ -1843,12 +1897,28 @@ def test_tdep_from_density_time_batching():
         scfmod._TIMEDEP_BATCH_BYTES = 4 * (2 * 8 * 3 * 3) * 8
         assert scfmod._timedep_batch_size(len(tgrid), 2 * 8 * 3 * 3) < len(tgrid)
         bat_g = SCFPotential.from_density(
-            dens_g, 8, L=3, a=_TDEP_A, symmetry=None, tgrid=tgrid
+            dens_g,
+            8,
+            L=3,
+            a=_TDEP_A,
+            symmetry=None,
+            tgrid=tgrid,
+            radial_order=10,
+            costheta_order=10,
+            phi_order=10,
         )
         scfmod._TIMEDEP_BATCH_BYTES = 4 * (8 * 3) * 8
         assert scfmod._timedep_batch_size(len(tgrid), 8 * 3) < len(tgrid)
         bat_a = SCFPotential.from_density(
-            dens_a, 8, L=3, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+            dens_a,
+            8,
+            L=3,
+            a=_TDEP_A,
+            symmetry="axi",
+            tgrid=tgrid,
+            radial_order=10,
+            costheta_order=10,
+            phi_order=10,
         )
     finally:
         scfmod._TIMEDEP_BATCH_BYTES = old
