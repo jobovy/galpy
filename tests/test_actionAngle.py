@@ -10408,6 +10408,124 @@ def test_actionAngleStaeckelInverse_target_box_adaptive():
     return None
 
 
+def test_actionAngleStaeckelInverse_u0only_adaptive():
+    # u0-only adaptation: fixed focal length, adaptive u0(E, L_z) reference
+    # curve. Measured motivation on MWPotential2014: the |dPhi|-optimal
+    # delta is nearly universal while u0 placement carries factors of a few
+    # to ~30 of model quality; and u0 is construction-only GAUGE -- the
+    # map's (R, z) <-> (u, v) uses delta alone -- so a fixed-delta family
+    # needs no chart compensation at all: the stored delta row must come
+    # out constant, and canonicity must hold with no new terms.
+    import numpy
+    import pytest
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        _parse_target,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp,
+        u0=lambda E, Lz: 1.05 + 0.10 * numpy.tanh(Lz),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+    )
+    # the delta row is CONSTANT: u0 never enters the map, only the build
+    row = 6 + 2 * aASI._npt
+    assert numpy.ptp(aASI._canon_tab_raw[row]) == 0.0, (
+        "a u0-only family's stored focal length is not constant"
+    )
+    # but the nodes genuinely differ in their reference curve
+    u0s = [aASI._canon_wraps[a][b]._u0 for a in (0, 3) for b in (0, 3)]
+    assert max(u0s) - min(u0s) > 0.01, (
+        "the u0-only family did not vary its reference curve"
+    )
+    # exactly canonical with zero new compensation terms
+    Lz = float(aASI._Lzgrid[2])
+    defect = _staeckel_symplectic_defect(aASI._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
+    assert defect < 3e-8, "a u0-only family is not exactly canonical: %g" % defect
+    # u0='fit' with a fixed focal length: the zero-velocity midpoint rule,
+    # no |dPhi| survey involved
+    aASIf = actionAngleStaeckelInverse(
+        pot=kkp,
+        u0="fit",
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+    )
+    defect = _staeckel_symplectic_defect(aASIf._xvFreqs, 0.06, Lz, 0.10, 2.0, 1.0, 2.0)
+    assert defect < 3e-8, "a u0='fit' family is not exactly canonical: %g" % defect
+    # the midpoint rule is sane on the grid and falls back gracefully off it
+    E22 = float(aASIf._canon_tab_raw[2][2, 2, 0])
+    assert 0.3 < aASIf._u0_func(E22, Lz) < 3.0, "the midpoint u0 is not sane"
+    assert numpy.isfinite(aASIf._u0_func(1e10, Lz)), (
+        "the midpoint rule does not fall back for an unbracketable energy"
+    )
+    # the chart-local label relations run under u0-only adaptivity
+    x = aASIf._canon_coords_integrals(E22, Lz, 0.1)
+    assert numpy.all(numpy.isfinite(x)), (
+        "chart-local integrals labels failed for a u0-only family"
+    )
+    # and so does the target box
+    aASIf._target = _parse_target([1.1, 0.15, 1.1, 0.1, 0.08])
+    aASIf._target_pad, aASIf._target_minwidth = 1.5, 0.02
+    box = aASIf._target_box(0.7, 1.6, 8.0, 0.02)
+    assert box[2][0] is None or 0.0 < box[2][0] < 1.0, (
+        "the target box failed for a u0-only family"
+    )
+    # guards: adaptive u0 needs the interpolated family
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(pot=kkp, u0="fit", Es=[0.5])
+    return None
+
+
+def test_actionAngleStaeckelInverse_u0only_rawpot():
+    # the convenience spelling still works alongside an adaptive u0: a RAW
+    # potential with scalar delta= and callable u0= builds its reference
+    # wrapper at the DEFAULT u0 (each node gets its own), rather than
+    # trying to call float() on the callable
+    import numpy
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aASI = actionAngleStaeckelInverse(
+        pot=lp,
+        delta=0.8,
+        u0=lambda E, Lz: 1.1 + 0.05 * numpy.tanh(E),
+        setup_interp=True,
+        Rmin=0.8,
+        Rmax=1.4,
+        Rinf=5.0,
+        nLz=3,
+        nE=3,
+        nI3=3,
+    )
+    assert numpy.fabs(aASI._staeckelwrap._u0 - numpy.arcsinh(1.0 / 0.8)) < 1e-12, (
+        "the reference wrapper's u0 moved off its default"
+    )
+    assert (
+        numpy.ptp([aASI._canon_wraps[a][b]._u0 for a in (0, 2) for b in (0, 2)]) > 0.0
+    ), "the nodes did not get their own u0"
+    return None
+
+
 def test_actionAngleStaeckelInverse_adaptive_delta_canonical():
     # The focal length may vary across the family -- delta(E, L_z), the
     # adaptive-Staeckel design -- provided the compensation carries its
@@ -10532,7 +10650,9 @@ def test_actionAngleStaeckelInverse_adaptive_construction():
     assert "setup_interp" in str(excinfo.value)
     with pytest.raises(TypeError) as excinfo:
         actionAngleStaeckelInverse(pot=kkp, u0=lambda E, Lz: 1.0, Es=[0.5])
-    assert "only meaningful" in str(excinfo.value)
+    # a callable u0 alone is now the u0-only adaptive mode, which (like any
+    # adaptive family) requires the interpolated setup
+    assert "setup_interp" in str(excinfo.value)
     # the integrals entry point runs in the LOCAL chart at (E, L_z), the
     # same smooth surface the nodes were built from
     Eq = float(aASI._canon_tab_raw[2][2, 2, 2])
@@ -10597,7 +10717,8 @@ def test_actionAngleStaeckelInverse_adaptive_construction():
     assert "only string value" in str(excinfo.value)
     with pytest.raises(TypeError) as excinfo:
         actionAngleStaeckelInverse(pot=kkp, u0="fit", Es=[0.5])
-    assert "only meaningful" in str(excinfo.value)
+    # u0='fit' alone is now the u0-only adaptive mode: interp-only as well
+    assert "setup_interp" in str(excinfo.value)
     with pytest.raises(ValueError) as excinfo:
         actionAngleStaeckelInverse(
             pot=kkp, delta="fit", u0="midplane", setup_interp=True

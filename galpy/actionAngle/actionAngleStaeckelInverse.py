@@ -258,11 +258,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             raise ValueError("the only string value delta= accepts is 'fit'")
         if self._u0_fit and u0 != "fit":
             raise ValueError("the only string value u0= accepts is 'fit'")
-        if self._u0_fit and not (self._delta_fit or callable(delta)):
-            raise TypeError(
-                "u0='fit' is only meaningful together with delta='fit' or a "
-                "callable delta(E, Lz)"
-            )
         self._delta_func = delta if callable(delta) else None
         self._u0_func = u0 if callable(u0) else None
         if self._delta_fit and not setup_interp:
@@ -275,10 +270,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "a callable delta(E, Lz) builds an adaptive interpolated "
                 "family and therefore requires setup_interp=True"
             )
-        if self._u0_func is not None and self._delta_func is None:
+        if (self._u0_func is not None or self._u0_fit) and not setup_interp:
             raise TypeError(
-                "a callable u0(E, Lz) is only meaningful together with a "
-                "callable delta(E, Lz)"
+                "an adaptive u0 (callable or 'fit') builds an adaptive "
+                "interpolated family and therefore requires setup_interp=True"
             )
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:
@@ -325,10 +320,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 if u0ref is None
                 else OblateStaeckelWrapperPotential(pot=pot, delta=dref, u0=u0ref)
             )
-        elif delta is not None or u0 is not None:
+        elif delta is not None or (
+            u0 is not None and not callable(u0) and not self._u0_fit
+        ):
             # the convenience spelling for a RAW potential; a potential that
             # already supplies its focal distance makes a scalar delta= (or
-            # u0=) ambiguous, and stays an error as before
+            # u0=) ambiguous, and stays an error as before -- an ADAPTIVE u0
+            # (callable or 'fit') is not the convenience spelling, so it
+            # falls through to the potential-supplied focal length below
             if isinstance(pot, OblateStaeckelWrapperPotential) or (
                 getattr(pot, "_delta", None) is not None
             ):
@@ -339,11 +338,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             if delta is None:
                 raise TypeError("u0= requires delta= as well")
+            # an adaptive u0 leaves the reference wrapper's u0 at its
+            # default; every node of the grid gets its own
+            u0_scalar = None if callable(u0) or self._u0_fit else u0
             self._staeckelwrap = (
                 OblateStaeckelWrapperPotential(pot=pot, delta=float(delta))
-                if u0 is None
+                if u0_scalar is None
                 else OblateStaeckelWrapperPotential(
-                    pot=pot, delta=float(delta), u0=float(u0)
+                    pot=pot, delta=float(delta), u0=float(u0_scalar)
                 )
             )
         elif isinstance(pot, OblateStaeckelWrapperPotential):
@@ -359,6 +361,27 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             self._staeckelwrap = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
         self._delta = self._staeckelwrap._delta
+        if self._u0_fit and self._u0_func is None:
+            # u0='fit' with a FIXED focal length: the reference curve at the
+            # zero-velocity R-midpoint of each (E, L_z) -- the same rule the
+            # delta='fit' companion uses -- with no |dPhi| survey at all,
+            # because the focal length is not being optimized.  Measured on
+            # MWPotential2014: this placement carries most of the adaptive
+            # win (the optimal delta is nearly universal there, while u0
+            # placement matters by factors of a few to ~30).
+            self._u0_func = _u0_midpoint_fun(
+                self._pot,
+                conversion.parse_length(Rmin, ro=self._ro),
+                conversion.parse_length(Rmax, ro=self._ro),
+                lambda E, Lz, _d=float(self._delta): _d,
+            )
+        # a chart that varies across the family in ANY parameter builds
+        # per-node wrappers and runs its label relations chart-locally;
+        # only a varying delta needs the compensation term, because u0 is
+        # construction-only gauge (the map's (R, z) <-> (u, v) uses delta
+        # alone), so the stored delta row of a u0-only family is constant
+        # and its chain contribution vanishes identically
+        self._adaptive_chart = self._delta_func is not None or self._u0_func is not None
         # I3 has the dimensions of an energy in the convention used here
         self._Es = conversion._parse_grid_quantity(
             Es, conversion.parse_energy, vo=self._vo
@@ -1537,7 +1560,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Emax = Phiinf + Lz**2.0 / 2.0 / Rinf**2.0
             kin = (vRp**2.0 + vTp**2.0 + vzp**2.0) / 2.0
             _save = None
-            if self._delta_func is not None:
+            if self._adaptive_chart:
                 # place the point's chart with the raw-potential energy: the
                 # chart surfaces are smooth, so the O(model error) difference
                 # from the wrapper energy is immaterial for the box
@@ -1663,7 +1686,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._canon_wpad = wpad
         self._canon_ushell = numpy.empty((nLz, nE))
         Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
-        if self._delta_func is not None:
+        if self._adaptive_chart:
             self._canon_deltas = numpy.empty((nLz, nE))
             self._canon_wraps = [[None] * nE for _ in range(nLz)]
             self._delta_ref, self._wrap_ref = self._delta, self._staeckelwrap
@@ -1677,10 +1700,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             for jj, wE in enumerate(self._wEgrid):
                 E = Ec + wE**2.0 * (Emax - Ec)
-                if self._delta_func is not None:
+                if self._adaptive_chart:
                     # the node's own chart: swap it in for the label
                     # relations, which probe W_u in the node's wrapper
-                    dnode = float(self._delta_func(E, Lz))
+                    dnode = (
+                        self._delta_ref
+                        if self._delta_func is None
+                        else float(self._delta_func(E, Lz))
+                    )
                     self._canon_deltas[ii, jj] = dnode
                     u0node = (
                         None if self._u0_func is None else float(self._u0_func(E, Lz))
@@ -1700,7 +1727,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 Lzs[ii, jj] = Lz
                 I3s[ii, jj] = Ipl + sinw * (Ish - Ipl)
                 self._canon_ushell[ii, jj] = ushell
-        if self._delta_func is None:
+        if not self._adaptive_chart:
             grid = actionAngleStaeckelInverse(
                 pot=self._staeckelwrap,
                 Es=Es.ravel(),
@@ -2045,7 +2072,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         because consecutive calls cluster on few charts -- and return the
         previous (wrapper, delta) for the caller's finally block"""
         _save = (self._staeckelwrap, self._delta)
-        dloc = float(self._delta_func(E, Lz))
+        dloc = (
+            float(self._delta)
+            if self._delta_func is None
+            else float(self._delta_func(E, Lz))
+        )
         u0loc = None if self._u0_func is None else float(self._u0_func(E, Lz))
         key = (round(dloc, 10), None if u0loc is None else round(u0loc, 10))
         if getattr(self, "_chart_cache_key", None) != key:
@@ -2088,7 +2119,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 f"E = {E} lies outside the grid: above the energies covered "
                 f"at L_z = {Lz}; increase Rinf"
             )
-        if self._delta_func is not None:
+        if self._adaptive_chart:
             # I3 is chart-defined, so the label relations must run in the
             # LOCAL chart at this (E, L_z) -- the same smooth surfaces the
             # nodes were built from, so labels and tables are consistent
@@ -2097,7 +2128,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Ipl = self._I3_planar(E, Lz)
             Ish = self._I3_shell(E, Lz)
         finally:
-            if self._delta_func is not None:
+            if self._adaptive_chart:
                 self._staeckelwrap, self._delta = _save
         sfrac = numpy.clip((I3 - Ipl) / (Ish - Ipl), 0.0, 1.0)
         wI = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(sfrac))
@@ -2786,6 +2817,30 @@ def _fit_staeckel_surface(pot, Rmin, Rmax, Rinf, nsub=6, rms_warn=0.05):
         return float(numpy.arcsinh(Rm / dfun(Ev, Lzv)))
 
     return dfun, u0fun, {"nodes": dat, "coeffs": c, "rms": rms, "clip": (lo, hi)}
+
+
+def _u0_midpoint_fun(pot, Rmin, Rmax, dfun):
+    """The zero-velocity R-midpoint reference curve: u0(E, L_z) placing
+    delta*sinh(u0) at the middle of the (planar) radial range of the
+    (E, L_z) orbit family, with the focal length supplied by dfun"""
+
+    def phieff(R, z, Lz):
+        return (
+            evaluatePotentials(pot, R, z, use_physical=False) + Lz**2.0 / 2.0 / R**2.0
+        )
+
+    def u0fun(Ev, Lzv):
+        Lzv = numpy.fabs(Lzv)
+        try:
+            Rc = rl(pot, Lzv, use_physical=False)
+            Rp = brentq(lambda R: phieff(R, 0.0, Lzv) - Ev, 0.02 * Rc, Rc)
+            Ra = brentq(lambda R: phieff(R, 0.0, Lzv) - Ev, Rc, 40.0 * Rc)
+            Rm = 0.5 * (Rp + Ra)
+        except Exception:
+            Rm = 0.5 * (Rmin + Rmax)
+        return float(numpy.arcsinh(Rm / dfun(Ev, Lzv)))
+
+    return u0fun
 
 
 def _parse_target(target):
