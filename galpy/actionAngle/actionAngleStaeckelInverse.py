@@ -137,6 +137,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Lzlim=None,
         wElim=None,
         wIlim=None,
+        target=None,
+        target_pad=1.5,
+        target_minwidth=0.02,
         **kwargs,
     ):
         """
@@ -196,22 +199,47 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         npt : int, optional
             Number of sine modes of the stored momentum-matching anomaly
             maps (at most ncanon/2 - 1).
-        canonical : bool, optional
-            If True, additionally build the canonical (momentum-matched)
-            construction for the discrete tori: each torus is lifted onto
-            its equal-action isochrone torus by per-degree momentum-matched
-            point transformations, and evaluation runs through the analytic
-            isochrone inverse (STAECKEL_CANONICAL_MATH.md section 10).
-        ncanon : int, optional
-            Number of anomaly samples (even) of the canonical
-            correspondence tables per degree of freedom.
-        npt : int, optional
-            Number of sine modes of the stored momentum-matching anomaly
-            maps (at most ncanon/2 - 1).
+        isochrone_ab : (float, float), optional
+            Frozen (GM, b) of the auxiliary isochrone to use instead of
+            fitting one; the adaptive build hands every node the same
+            auxiliary through this, because the compensation's closed-form
+            auxiliary chains assume a single isochrone across the family.
         maxiter : int, optional
             Maximum number of Newton iterations in the angle inversion.
         angle_tol : float, optional
             Convergence tolerance of the angle inversion.
+        Lzlim, wElim, wIlim : (float or None, float or None), optional
+            Explicit (lower, upper) limits of the interpolation grid's box
+            in each of its axes (L_z, w_E, w_I): a box narrower than the
+            default localizes the grid -- on a stream, say -- and is worth
+            as much as proportionally more nodes, because the interpolation
+            error goes as the spacing. None on either end means that axis's
+            own default edge; this matters because the w_I edges are the
+            planar and shell degeneracies, which the grid must reach
+            exactly or not at all (only used when setup_interp is True).
+        target : Orbit or array_like, optional
+            Localize the grid on a target instead of setting the box
+            explicitly: phase-space points -- an Orbit (possibly an array
+            of orbits, or one evaluated at an array of times) or rows
+            (R, vR, vT, z, vz[, phi]) in internal units -- whose tori the
+            grid should cover. The box is the target's own (L_z, w_E, w_I)
+            range padded by target_pad, computed through the same label
+            relations the node lattice uses (chart-local for an adaptive
+            family), and is recorded in the _targetbox attribute. The
+            labelling does a few root-finds per point, so subsample very
+            large debris sets.
+        target_pad : float, optional
+            Padding of the target's box: each axis is extended by this
+            factor times the target's spread on BOTH ends. Generous
+            padding is load-bearing, because a box tight around the target
+            puts it in the boundary layer of the interpolation stencil,
+            and that failure mode is silent (the median error never
+            notices; the worst case does).
+        target_minwidth : float, optional
+            Minimum width of the target box on each axis, as a fraction of
+            that axis's default span -- what keeps the box of a single
+            orbit, whose spread is zero on every axis, a grid rather than
+            a point.
 
         Notes
         -----
@@ -360,6 +388,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._ncanon = ncanon
         self._npt = npt
         self._nforDm = numpy.arange(1, npt + 1)
+        self._targetbox = None
+        self._target_pad = target_pad
+        self._target_minwidth = target_minwidth
+        if target is not None:
+            if not setup_interp:
+                raise TypeError(
+                    "target= localizes the interpolation grid and therefore "
+                    "requires setup_interp=True"
+                )
+            if Lzlim is not None or wElim is not None or wIlim is not None:
+                raise TypeError(
+                    "target= computes Lzlim/wElim/wIlim itself and cannot "
+                    "be combined with setting them explicitly"
+                )
+            self._target = _parse_target(target)
+        else:
+            self._target = None
         if setup_interp:
             # the interpolated family is the canonical construction (the
             # contingent interpolated-direct path was removed once the
@@ -1471,6 +1516,110 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vals = numpy.einsum("qpabc,pa,pb,pc->qp", block, wts[0], wts[1], wts[2])
         return vals
 
+    def _target_box(self, Rmin, Rmax, Rinf, wpad):
+        """The padded (L_z, w_E, w_I) box that localizes the grid on the
+        target's tori.  Every target point is labelled through the same
+        relations the node lattice uses (chart-local for an adaptive
+        family); the box is the labels' range, padded by target_pad times
+        the spread on both ends of each axis -- generous padding is
+        load-bearing, because a box tight around the target puts it in the
+        boundary layer of the interpolation stencil, and that failure mode
+        is silent -- and an end that reaches its axis's default edge is
+        returned as None, i.e. the edge itself, which matters because the
+        w_I edges are the planar and shell degeneracies, which the grid
+        must reach exactly or not at all."""
+        R, vR, vT, z, vz = self._target
+        Lzs = R * numpy.fabs(vT)
+        wEs, wIs = numpy.empty(len(Lzs)), numpy.empty(len(Lzs))
+        Phiinf = evaluatePotentials(self._pot, Rinf, 0.0, use_physical=False)
+        for i, (Rp, vRp, vTp, zp, vzp, Lz) in enumerate(zip(R, vR, vT, z, vz, Lzs)):
+            Ec = self._circular_orbit(Lz)[1]
+            Emax = Phiinf + Lz**2.0 / 2.0 / Rinf**2.0
+            kin = (vRp**2.0 + vTp**2.0 + vzp**2.0) / 2.0
+            _save = None
+            if self._delta_func is not None:
+                # place the point's chart with the raw-potential energy: the
+                # chart surfaces are smooth, so the O(model error) difference
+                # from the wrapper energy is immaterial for the box
+                _save = self._swap_local_chart(
+                    kin + evaluatePotentials(self._pot, Rp, zp, use_physical=False),
+                    Lz,
+                )
+            try:
+                E = kin + evaluatePotentials(
+                    self._staeckelwrap, Rp, zp, use_physical=False
+                )
+                u, v = coords.Rz_to_uv(Rp, zp, delta=self._delta)
+                sh = numpy.sinh(u)
+                # the point's third integral, from the u-equation of the
+                # separated relation (the same convention as _Wu: p_u^2 =
+                # 2 delta^2 [E sinh^2 u - U(u) - I3] - L_z^2/sinh^2 u)
+                pu = self._delta * (
+                    vRp * numpy.cosh(u) * numpy.sin(v) + vzp * sh * numpy.cos(v)
+                )
+                try:
+                    I3 = (
+                        E * sh**2.0
+                        - self._staeckelwrap._U(u)
+                        - (pu**2.0 + Lz**2.0 / sh**2.0) / 2.0 / self._delta**2.0
+                    )
+                    Ipl = self._I3_planar(E, Lz)
+                    den = self._I3_shell(E, Lz) - Ipl
+                    wIs[i] = (
+                        0.5
+                        if den <= 0.0
+                        else 2.0
+                        / numpy.pi
+                        * numpy.arcsin(
+                            numpy.sqrt(numpy.clip((I3 - Ipl) / den, 0.0, 1.0))
+                        )
+                    )
+                except ValueError:
+                    # too close to the circular degeneracy for the shell
+                    # relation to bracket; every I3 label coincides there,
+                    # so the direction is free
+                    wIs[i] = 0.5
+            finally:
+                if _save is not None:
+                    self._staeckelwrap, self._delta = _save
+            if E > Emax:
+                raise ValueError(
+                    "a target point's energy lies above the energies the "
+                    "grid can cover; increase Rinf"
+                )
+            wEs[i] = numpy.sqrt(numpy.clip((E - Ec) / (Emax - Ec), 0.0, 1.0))
+
+        def _padded(vals, lo0, hi0, snap=True):
+            lo, hi = float(numpy.min(vals)), float(numpy.max(vals))
+            lo, hi = (
+                lo - self._target_pad * (hi - lo),
+                hi + self._target_pad * (hi - lo),
+            )
+            minw = self._target_minwidth * (hi0 - lo0)
+            if hi - lo < minw:
+                mid = 0.5 * (lo + hi)
+                lo, hi = mid - 0.5 * minw, mid + 0.5 * minw
+            if snap:
+                # an end that reaches the default edge IS the edge: None,
+                # which _edge resolves per end
+                return (None if lo <= lo0 else lo, None if hi >= hi0 else hi)
+            # the L_z ends are anchors rather than degeneracies, so the box
+            # may exceed them; only guard the lower end against L_z <= 0
+            return (max(lo, 0.5 * float(numpy.min(vals))), hi)
+
+        box = (
+            _padded(
+                Lzs,
+                Rmin * vcirc(self._pot, Rmin, use_physical=False),
+                Rmax * vcirc(self._pot, Rmax, use_physical=False),
+                snap=False,
+            ),
+            _padded(wEs, wpad, 1.0 - wpad),
+            _padded(wIs, 0.0, 1.0),
+        )
+        self._targetbox = {"Lzlim": box[0], "wElim": box[1], "wIlim": box[2]}
+        return box
+
     def _setup_canonical_grid(
         self, Rmin, Rmax, Rinf, nLz, nE, nI3, wpad, Lzlim=None, wElim=None, wIlim=None
     ):
@@ -1480,6 +1629,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         own derivatives drive every evaluation chain (manifest canonicity:
         the labels are the stored action tables, inverted implicitly, and
         no derivative is ever stored separately)"""
+        if self._target is not None:
+            Lzlim, wElim, wIlim = self._target_box(Rmin, Rmax, Rinf, wpad)
         self._nLz, self._nE, self._nI3 = nLz, nE, nI3
         self._Lzgrid = numpy.linspace(
             *_edge(
@@ -1889,6 +2040,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         thetaA = numpy.arccos(numpy.clip(costh, -1.0, 1.0))
         return thetaA, pAth
 
+    def _swap_local_chart(self, E, Lz):
+        """Swap in an adaptive family's LOCAL chart at (E, L_z) -- cached,
+        because consecutive calls cluster on few charts -- and return the
+        previous (wrapper, delta) for the caller's finally block"""
+        _save = (self._staeckelwrap, self._delta)
+        dloc = float(self._delta_func(E, Lz))
+        u0loc = None if self._u0_func is None else float(self._u0_func(E, Lz))
+        key = (round(dloc, 10), None if u0loc is None else round(u0loc, 10))
+        if getattr(self, "_chart_cache_key", None) != key:
+            self._chart_cache = (
+                OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc)
+                if u0loc is None
+                else OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc, u0=u0loc)
+            )
+            self._chart_cache_key = key
+        self._staeckelwrap, self._delta = self._chart_cache, dloc
+        return _save
+
     def _canon_coords_integrals(self, E, Lz, I3):
         """Fractional grid coordinates directly from the integrals
         (E, L_z, I3) -- the rectified coordinates are closed forms, so
@@ -1923,20 +2092,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # I3 is chart-defined, so the label relations must run in the
             # LOCAL chart at this (E, L_z) -- the same smooth surfaces the
             # nodes were built from, so labels and tables are consistent
-            _save = (self._staeckelwrap, self._delta)
-            dloc = float(self._delta_func(E, Lz))
-            u0loc = None if self._u0_func is None else float(self._u0_func(E, Lz))
-            key = (round(dloc, 10), None if u0loc is None else round(u0loc, 10))
-            if getattr(self, "_chart_cache_key", None) != key:
-                self._chart_cache = (
-                    OblateStaeckelWrapperPotential(pot=self._pot, delta=dloc)
-                    if u0loc is None
-                    else OblateStaeckelWrapperPotential(
-                        pot=self._pot, delta=dloc, u0=u0loc
-                    )
-                )
-                self._chart_cache_key = key
-            self._staeckelwrap, self._delta = self._chart_cache, dloc
+            _save = self._swap_local_chart(E, Lz)
         try:
             Ipl = self._I3_planar(E, Lz)
             Ish = self._I3_shell(E, Lz)
@@ -2630,6 +2786,39 @@ def _fit_staeckel_surface(pot, Rmin, Rmax, Rinf, nsub=6, rms_warn=0.05):
         return float(numpy.arcsinh(Rm / dfun(Ev, Lzv)))
 
     return dfun, u0fun, {"nodes": dat, "coeffs": c, "rms": rms, "clip": (lo, hi)}
+
+
+def _parse_target(target):
+    """The phase-space rows (R, vR, vT, z, vz) of a target, from an Orbit
+    (possibly an array of orbits, or one evaluated at an array of times) or
+    from array rows (R, vR, vT, z, vz[, phi]) in internal units; phi, when
+    present, is ignored because the potential is axisymmetric"""
+    from ..orbit import Orbit
+
+    if isinstance(target, Orbit):
+        out = numpy.array(
+            [
+                numpy.atleast_1d(target.R(use_physical=False)).ravel(),
+                numpy.atleast_1d(target.vR(use_physical=False)).ravel(),
+                numpy.atleast_1d(target.vT(use_physical=False)).ravel(),
+                numpy.atleast_1d(target.z(use_physical=False)).ravel(),
+                numpy.atleast_1d(target.vz(use_physical=False)).ravel(),
+            ]
+        )
+    else:
+        arr = numpy.atleast_2d(numpy.asarray(target, dtype="float64"))
+        if arr.ndim != 2 or arr.shape[1] not in (5, 6):
+            raise ValueError(
+                "target= rows must be (R, vR, vT, z, vz) or "
+                f"(R, vR, vT, z, vz, phi); got shape {arr.shape}"
+            )
+        out = arr[:, :5].T.copy()
+    if numpy.any(out[0] <= 0.0) or numpy.any(out[0] * numpy.fabs(out[2]) <= 0.0):
+        raise ValueError(
+            "target= needs R > 0 and L_z = R vT != 0 for every point: the "
+            "grid is a box in |L_z| > 0"
+        )
+    return out
 
 
 def _edge(lim, default):

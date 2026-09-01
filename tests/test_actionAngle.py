@@ -10111,6 +10111,303 @@ def test_actionAngleStaeckelInverse_narrow_grid():
     return None
 
 
+def test_actionAngleStaeckelInverse_target_box():
+    # target= localizes the grid on the tori of a set of phase-space points
+    # without the user expressing the box in the grid's own (L_z, w_E, w_I)
+    # coordinates: the constructor labels the points through the same
+    # relations the node lattice uses and pads their range -- the local-grid
+    # support for a target orbit or stream.
+    import numpy
+
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4933)
+    # a target orbit, sampled at a few times; its (E, L_z, I3) are conserved,
+    # so all points share ONE torus and the box comes from target_minwidth
+    o = Orbit([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
+    ts = numpy.linspace(0.0, 12.0, 8)
+    o.integrate(ts, swp)
+    kw = dict(
+        pot=swp, setup_interp=True, Rmin=0.75, Rmax=1.25, Rinf=3.0, nLz=5, nE=5, nI3=5
+    )
+    wide = actionAngleStaeckelInverse(**kw)
+    loc = actionAngleStaeckelInverse(target=o(ts), **kw)
+    # the box is recorded and the grids honor it
+    assert loc._targetbox is not None, "the target box was not recorded"
+    for key, grid in (("Lzlim", "_Lzgrid"), ("wElim", "_wEgrid"), ("wIlim", "_wIgrid")):
+        lo, hi = loc._targetbox[key]
+        assert numpy.fabs(getattr(loc, grid)[0] - lo) < 1e-12, (
+            "%s was not honored by the grid" % key
+        )
+        assert numpy.fabs(getattr(loc, grid)[-1] - hi) < 1e-12, (
+            "%s was not honored by the grid" % key
+        )
+        assert numpy.ptp(getattr(loc, grid)) < numpy.ptp(getattr(wide, grid)), (
+            "the target grid is not narrower in %s" % grid
+        )
+    # the target's torus sits INSIDE the local grid with room for the stencil
+    # (labels from the forward transform with c=False: the Python angles are
+    # exact along an orbit, while the C ones carry a converged ~2e-7 defect
+    # for wrapper potentials)
+    aAS = actionAngleStaeckel(pot=swp, delta=0.4933, c=False)
+    R, vR, vT, z, vz = (
+        numpy.atleast_1d(getattr(o(ts), name)(use_physical=False)).ravel()
+        for name in ("R", "vR", "vT", "z", "vz")
+    )
+    dxw, dxl = [], []
+    for ii in range(len(R)):
+        jr, lz, jz, _, _, _, ar, ap, az = (
+            float(numpy.atleast_1d(q)[0])
+            for q in aAS.actionsFreqsAngles(R[ii], vR[ii], vT[ii], z[ii], vz[ii], 0.0)
+        )
+        x = loc._canon_coords(jr, lz, jz)
+        assert numpy.min(numpy.array([numpy.min(x), 4.0 - numpy.max(x)])) > 1.0, (
+            "a target point's torus sits within a cell of the box faces: %s" % x
+        )
+        for aa, dx in ((wide, dxw), (loc, dxl)):
+            out = aa(
+                jr,
+                lz,
+                jz,
+                numpy.array([ar]),
+                numpy.array([ap]),
+                numpy.array([az]),
+            )
+            dx.append(
+                numpy.hypot(
+                    float(numpy.atleast_1d(out[0])[0]) - R[ii],
+                    float(numpy.atleast_1d(out[3])[0]) - z[ii],
+                )
+            )
+    # localization pays: the same 5^3 nodes reproduce the target orders of
+    # magnitude better than the default box does (measured 7.7e-7 vs 2.7e-3)
+    assert numpy.max(dxl) < 5e-6, (
+        "the target-localized grid does not reproduce the target: %g" % numpy.max(dxl)
+    )
+    assert numpy.max(dxl) < numpy.max(dxw) / 100.0, (
+        "the target-localized grid is not much better than the default box "
+        "(%g vs %g)" % (numpy.max(dxl), numpy.max(dxw))
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_target_box_relations():
+    # The box machinery itself, on a discrete instance (the label relations
+    # exist before any grid does): padding, the minimum width, snapping to
+    # the default edges, the circular-degeneracy guards, and the input
+    # parser and its errors.
+    import numpy
+    import pytest
+    from scipy import optimize
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        _parse_target,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+        evaluatePotentials,
+        rl,
+        vcirc,
+    )
+
+    delta = 0.4933
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=delta)
+    # a valid discrete torus: circular energy plus a mid-range third integral
+    Lz = 0.9
+    Rc = rl(swp, Lz, use_physical=False)
+    Ec = evaluatePotentials(swp, Rc, 0.0, use_physical=False) + Lz**2.0 / 2.0 / Rc**2.0
+    Emax = (
+        evaluatePotentials(swp, 3.0, 0.0, use_physical=False) + Lz**2.0 / 2.0 / 3.0**2.0
+    )
+    E = Ec + 0.4**2.0 * (Emax - Ec)
+    Ipl = Lz**2.0 / 2.0 / delta**2.0 - E
+
+    def maxWu(I3):
+        return -optimize.minimize_scalar(
+            lambda u: (
+                -(
+                    2.0 * delta**2.0 * (E * numpy.sinh(u) ** 2.0 - swp._U(u) - I3)
+                    - Lz**2.0 / numpy.sinh(u) ** 2.0
+                )
+            ),
+            bounds=(1e-3, 20.0),
+            method="bounded",
+            options={"xatol": 1e-13},
+        ).fun
+
+    Ish = optimize.brentq(maxWu, Ipl, Ipl + 5.0, xtol=1e-14)
+    aA = actionAngleStaeckelInverse(
+        pot=swp, Es=[E], Lzs=[Lz], I3s=[Ipl + 0.4 * (Ish - Ipl)]
+    )
+    # a spread-out target: a numeric box strictly inside the defaults
+    aA._target = _parse_target(
+        numpy.array(
+            [
+                [1.07, 0.13, 0.98, 0.13, 0.08],
+                [1.0, 0.05, 1.02, 0.05, 0.02],
+                [1.12, -0.1, 0.95, 0.2, -0.05],
+            ]
+        )
+    )
+    aA._target_pad, aA._target_minwidth = 1.5, 0.02
+    box = aA._target_box(0.75, 1.25, 3.0, 0.02)
+    for lim, w0, w1 in zip(box, (None, None, 0.0), (None, None, 1.0)):
+        assert lim[0] is None or lim[1] is None or lim[0] < lim[1], (
+            f"the box is not ordered: {box}"
+        )
+    assert box[2][0] is not None and box[2][1] is not None, (
+        f"an interior w_I box should be numeric: {box}"
+    )
+    # huge padding: every degeneracy-bounded end snaps to its own edge
+    # (None), while the L_z ends are anchors rather than degeneracies, so
+    # the lower one is merely guarded against L_z <= 0
+    aA._target_pad = 50.0
+    box = aA._target_box(0.75, 1.25, 3.0, 0.02)
+    assert box[1] == (None, None) and box[2] == (None, None), (
+        f"a box beyond the default edges did not snap to them: {box}"
+    )
+    assert numpy.fabs(box[0][0] - 0.51) < 1e-12, (
+        "the L_z lower end was not guarded at half the smallest target L_z"
+    )
+    assert box[0][1] > vcirc(swp, 1.25, use_physical=False) * 1.25, (
+        "the L_z upper end should exceed its anchor (it is not a degeneracy)"
+    )
+    # a single point: zero spread on every axis, so the box is the minimum
+    # width, centered on the point's torus
+    aA._target = _parse_target([1.07, 0.13, 0.98, 0.13, 0.08])
+    aA._target_pad = 1.5
+    box = aA._target_box(0.75, 1.25, 3.0, 0.02)
+    assert numpy.fabs(box[1][1] - box[1][0] - 0.02 * 0.96) < 1e-12, (
+        f"the single-point w_E box is not the minimum width: {box}"
+    )
+    assert numpy.fabs(box[2][1] - box[2][0] - 0.02) < 1e-12, (
+        f"the single-point w_I box is not the minimum width: {box}"
+    )
+    # the circular degeneracy: when the shell relation degenerates to the
+    # planar one (or cannot bracket at all), every I3 label coincides and
+    # the w_I direction is free, centered at 1/2
+    aA._I3_shell = lambda E, Lz: aA._I3_planar(E, Lz)
+    box = aA._target_box(0.75, 1.25, 3.0, 0.02)
+    assert (
+        numpy.fabs(box[2][0] - 0.49) < 1e-12 and numpy.fabs(box[2][1] - 0.51) < 1e-12
+    ), f"a degenerate shell relation did not center the w_I box: {box}"
+
+    def _nobracket(E, Lz):
+        raise ValueError("f(a) and f(b) must have different signs")
+
+    aA._I3_shell = _nobracket
+    box = aA._target_box(0.75, 1.25, 3.0, 0.02)
+    assert (
+        numpy.fabs(box[2][0] - 0.49) < 1e-12 and numpy.fabs(box[2][1] - 0.51) < 1e-12
+    ), f"an unbracketable shell relation did not center the w_I box: {box}"
+    # the parser: an Orbit and its own rows are the same target, a sixth
+    # (phi) column is ignored, and a bare point is one row
+    vxvv = numpy.array(
+        [[1.07, 0.13, 0.98, 0.13, 0.08, 0.3], [1.0, 0.05, 1.02, 0.05, 0.02, 5.2]]
+    )
+    assert numpy.array_equal(_parse_target(Orbit(vxvv)), _parse_target(vxvv)), (
+        "an Orbit and its own rows parse differently"
+    )
+    assert numpy.array_equal(_parse_target(vxvv), _parse_target(vxvv[:, :5])), (
+        "the phi column was not ignored"
+    )
+    assert _parse_target([1.07, 0.13, 0.98, 0.13, 0.08]).shape == (5, 1), (
+        "a bare point is not one row"
+    )
+    with pytest.raises(ValueError, match="rows must be"):
+        _parse_target([1.0, 0.1, 1.0, 0.1])
+    with pytest.raises(ValueError, match="rows must be"):
+        _parse_target(numpy.ones((2, 2, 5)))
+    with pytest.raises(ValueError, match="R > 0"):
+        _parse_target([-1.0, 0.1, 1.0, 0.1, 0.05])
+    with pytest.raises(ValueError, match="R > 0"):
+        _parse_target([1.0, 0.1, 0.0, 0.1, 0.05])
+    # constructor guards: target= shapes the interpolation grid, so it
+    # needs one, and it computes the box itself
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(pot=swp, target=[1.0, 0.1, 1.0, 0.1, 0.05])
+    with pytest.raises(TypeError, match="cannot be combined"):
+        actionAngleStaeckelInverse(
+            pot=swp,
+            setup_interp=True,
+            target=[1.0, 0.1, 1.0, 0.1, 0.05],
+            wIlim=(0.3, 0.5),
+        )
+    # a target the grid cannot cover: energy above the outer energy
+    with pytest.raises(ValueError, match="increase Rinf"):
+        actionAngleStaeckelInverse(
+            pot=swp,
+            setup_interp=True,
+            Rmin=0.75,
+            Rmax=1.25,
+            Rinf=1.3,
+            target=[1.0, 0.9, 1.0, 0.3, 0.9],
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_target_box_adaptive():
+    # target= composes with an adaptive family: the labelling then runs in
+    # the LOCAL chart at each point's (E, L_z), the same smooth surfaces the
+    # node lattice is built from.
+    import numpy
+
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    o = Orbit([1.1, 0.15, 1.1, 0.1, 0.08, 0.0])
+    ts = numpy.linspace(0.0, 10.0, 6)
+    o.integrate(ts, kkp)
+    loc = actionAngleStaeckelInverse(
+        pot=kkp,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+        delta=lambda E, Lz: 1.3 + 0.02 * numpy.tanh(E),
+        target=o(ts),
+    )
+    assert loc._targetbox is not None, "the target box was not recorded"
+    assert numpy.ptp(loc._canon_deltas) > 0.0, (
+        "the adaptive family did not vary its focal length"
+    )
+    # a loose round trip: the deliberately non-optimal callable delta means
+    # the local Staeckel models differ from the true KK potential, and the
+    # forward labels (fixed delta = 1.3) sit in yet another chart, so the
+    # model mismatch dominates; this checks consistency, not a floor
+    aAS = actionAngleStaeckel(pot=kkp, delta=1.3, c=False)
+    jr, lz, jz, _, _, _, ar, ap, az = (
+        float(numpy.atleast_1d(q)[0])
+        for q in aAS.actionsFreqsAngles(1.1, 0.15, 1.1, 0.1, 0.08, 0.0)
+    )
+    out = loc(jr, lz, jz, numpy.array([ar]), numpy.array([ap]), numpy.array([az]))
+    dx = numpy.hypot(
+        float(numpy.atleast_1d(out[0])[0]) - 1.1,
+        float(numpy.atleast_1d(out[3])[0]) - 0.1,
+    )
+    assert dx < 1e-3, (
+        "the adaptive target-localized family does not reproduce the target "
+        "point: %g" % dx
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_adaptive_delta_canonical():
     # The focal length may vary across the family -- delta(E, L_z), the
     # adaptive-Staeckel design -- provided the compensation carries its
