@@ -131,6 +131,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         canonical=False,
         ncanon=128,
         npt=32,
+        isochrone_ab=None,
         maxiter=60,
         angle_tol=1e-13,
         Lzlim=None,
@@ -220,18 +221,70 @@ class actionAngleStaeckelInverse(actionAngleInverse):
           section 10).
         - 2026-08-19 - Started - Bovy (UofT)
         """
-        if "delta" in kwargs or "u0" in kwargs:
+        delta = kwargs.pop("delta", None)
+        u0 = kwargs.pop("u0", None)
+        self._delta_func = delta if callable(delta) else None
+        self._u0_func = u0 if callable(u0) else None
+        if self._delta_func is not None and not setup_interp:
             raise TypeError(
-                "actionAngleStaeckelInverse does not accept delta= or u0=: "
-                "the potential itself supplies the focal distance (pass an "
-                "OblateStaeckelWrapperPotential or a potential with a "
-                "_delta attribute)"
+                "a callable delta(E, Lz) builds an adaptive interpolated "
+                "family and therefore requires setup_interp=True"
+            )
+        if self._u0_func is not None and self._delta_func is None:
+            raise TypeError(
+                "a callable u0(E, Lz) is only meaningful together with a "
+                "callable delta(E, Lz)"
             )
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
         self._pot = pot
-        if isinstance(pot, OblateStaeckelWrapperPotential):
+        if self._delta_func is not None:
+            # the reference chart, used only by the pre-grid helpers; every
+            # node of the grid gets its own wrapper, and the evaluation reads
+            # the focal length from the stored table row
+            # probe the callables at a physically sensible reference point:
+            # the circular orbit at the middle of the radial range, so that a
+            # delta(E, L_z) or u0(E, L_z) built on rl/vcirc never sees the
+            # degenerate (0, 0) it may not be defined at
+            Rref = 0.5 * (
+                conversion.parse_length(Rmin, ro=self._ro)
+                + conversion.parse_length(Rmax, ro=self._ro)
+            )
+            Lzref = Rref * vcirc(pot, Rref, use_physical=False)
+            Eref = (
+                evaluatePotentials(pot, Rref, 0.0, use_physical=False)
+                + Lzref**2.0 / 2.0 / Rref**2.0
+            )
+            dref = float(self._delta_func(Eref, Lzref))
+            u0ref = None if self._u0_func is None else float(self._u0_func(Eref, Lzref))
+            self._staeckelwrap = (
+                OblateStaeckelWrapperPotential(pot=pot, delta=dref)
+                if u0ref is None
+                else OblateStaeckelWrapperPotential(pot=pot, delta=dref, u0=u0ref)
+            )
+        elif delta is not None or u0 is not None:
+            # the convenience spelling for a RAW potential; a potential that
+            # already supplies its focal distance makes a scalar delta= (or
+            # u0=) ambiguous, and stays an error as before
+            if isinstance(pot, OblateStaeckelWrapperPotential) or (
+                getattr(pot, "_delta", None) is not None
+            ):
+                raise TypeError(
+                    "delta= and u0= conflict with a potential that already "
+                    "supplies its focal distance; pass the raw potential, "
+                    "or a callable delta(E, Lz) for an adaptive family"
+                )
+            if delta is None:
+                raise TypeError("u0= requires delta= as well")
+            self._staeckelwrap = (
+                OblateStaeckelWrapperPotential(pot=pot, delta=float(delta))
+                if u0 is None
+                else OblateStaeckelWrapperPotential(
+                    pot=pot, delta=float(delta), u0=float(u0)
+                )
+            )
+        elif isinstance(pot, OblateStaeckelWrapperPotential):
             self._staeckelwrap = pot
         else:
             delta = getattr(pot, "_delta", None)
@@ -265,6 +318,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._anglez0 = numpy.pi / 2.0
         self._interp = setup_interp
         self._canonical = canonical
+        self._isochrone_ab = isochrone_ab
         if ncanon % 2 == 1:
             raise ValueError("ncanon has to be even")
         if npt > ncanon // 2 - 1:
@@ -668,6 +722,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
+        if kwargs.get("integrals", False) and self._delta_func is not None:
+            raise NotImplementedError(
+                "integrals=True is not yet wired for an adaptive family: "
+                "I3 is defined in each node's own chart, so the label "
+                "relations must use the local wrapper (planned follow-up)"
+            )
         if kwargs.get("integrals", False) and not self._interp:
             raise ValueError(
                 "integrals=True requires an actionAngleStaeckelInverse "
@@ -800,6 +860,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
+        if kwargs.get("integrals", False) and self._delta_func is not None:
+            raise NotImplementedError(
+                "integrals=True is not yet wired for an adaptive family: "
+                "I3 is defined in each node's own chart, so the label "
+                "relations must use the local wrapper (planned follow-up)"
+            )
         if kwargs.get("integrals", False) and not self._interp:
             raise ValueError(
                 "integrals=True requires an actionAngleStaeckelInverse "
@@ -1014,17 +1080,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 (numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2
             )
 
-        res = minimize(
-            _vc2cost,
-            numpy.log(
-                [
-                    rhi * vcirc(self._pot, rhi, use_physical=False) ** 2,
-                    0.1 * numpy.sqrt(rlo * rhi),
-                ]
-            ),
-            method="Nelder-Mead",
-        )
-        self._GMc, self._bc = numpy.exp(res.x)
+        if self._isochrone_ab is not None:
+            # The compensation's closed-form auxiliary chains assume ONE
+            # frozen isochrone across the whole family, so an adaptive build
+            # fits it on a single representative node and hands it to every
+            # other node through this override.
+            self._GMc, self._bc = self._isochrone_ab
+        else:
+            res = minimize(
+                _vc2cost,
+                numpy.log(
+                    [
+                        rhi * vcirc(self._pot, rhi, use_physical=False) ** 2,
+                        0.1 * numpy.sqrt(rlo * rhi),
+                    ]
+                ),
+                method="Nelder-Mead",
+            )
+            self._GMc, self._bc = numpy.exp(res.x)
         ipc = IsochronePotential(amp=self._GMc, b=self._bc)
         self._aAIc = actionAngleIsochrone(ip=ipc)
         self._aAIinvc = actionAngleIsochroneInverse(ip=ipc)
@@ -1417,6 +1490,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._canon_wpad = wpad
         self._canon_ushell = numpy.empty((nLz, nE))
         Es, Lzs, I3s = (numpy.empty(shape) for _ in range(3))
+        if self._delta_func is not None:
+            self._canon_deltas = numpy.empty((nLz, nE))
+            self._canon_wraps = [[None] * nE for _ in range(nLz)]
+            self._delta_ref, self._wrap_ref = self._delta, self._staeckelwrap
         wIbuild = numpy.clip(self._wIgrid, self._wIedge, 1.0 - self._wIedge)
         sinw = numpy.sin(numpy.pi * wIbuild / 2.0) ** 2.0
         for ii, Lz in enumerate(self._Lzgrid):
@@ -1427,22 +1504,89 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             for jj, wE in enumerate(self._wEgrid):
                 E = Ec + wE**2.0 * (Emax - Ec)
+                if self._delta_func is not None:
+                    # the node's own chart: swap it in for the label
+                    # relations, which probe W_u in the node's wrapper
+                    dnode = float(self._delta_func(E, Lz))
+                    self._canon_deltas[ii, jj] = dnode
+                    u0node = (
+                        None if self._u0_func is None else float(self._u0_func(E, Lz))
+                    )
+                    self._canon_wraps[ii][jj] = (
+                        OblateStaeckelWrapperPotential(pot=self._pot, delta=dnode)
+                        if u0node is None
+                        else OblateStaeckelWrapperPotential(
+                            pot=self._pot, delta=dnode, u0=u0node
+                        )
+                    )
+                    self._staeckelwrap = self._canon_wraps[ii][jj]
+                    self._delta = dnode
                 Ipl = self._I3_planar(E, Lz)
                 Ish, ushell = self._I3_shell(E, Lz, return_u=True)
                 Es[ii, jj] = E
                 Lzs[ii, jj] = Lz
                 I3s[ii, jj] = Ipl + sinw * (Ish - Ipl)
                 self._canon_ushell[ii, jj] = ushell
-        grid = actionAngleStaeckelInverse(
-            pot=self._staeckelwrap,
-            Es=Es.ravel(),
-            Lzs=Lzs.ravel(),
-            I3s=I3s.ravel(),
-            nchi=self._nchi,
-            canonical=True,
-            ncanon=self._ncanon,
-            npt=self._npt,
-        )
+        if self._delta_func is None:
+            grid = actionAngleStaeckelInverse(
+                pot=self._staeckelwrap,
+                Es=Es.ravel(),
+                Lzs=Lzs.ravel(),
+                I3s=I3s.ravel(),
+                nchi=self._nchi,
+                canonical=True,
+                ncanon=self._ncanon,
+                npt=self._npt,
+            )
+        else:
+            # restore the reference chart; each node build below carries its
+            # own wrapper explicitly
+            self._delta, self._staeckelwrap = self._delta_ref, self._wrap_ref
+            # one inner discrete build per (L_z, E) node, its nI3 tori all in
+            # the node's own Staeckel model, sharing one frozen isochrone:
+            # the mid node fits it, every other node inherits it, because
+            # the compensation's closed-form auxiliary chains assume a
+            # single (GM, b) across the family
+            import types as _types
+
+            mid = (nLz // 2, nE // 2)
+            inners = {}
+            iso = None
+            order = [mid] + [
+                (a, b) for a in range(nLz) for b in range(nE) if (a, b) != mid
+            ]
+            for a, b in order:
+                inners[(a, b)] = actionAngleStaeckelInverse(
+                    pot=self._canon_wraps[a][b],
+                    Es=Es[a, b],
+                    Lzs=Lzs[a, b],
+                    I3s=I3s[a, b],
+                    nchi=self._nchi,
+                    canonical=True,
+                    ncanon=self._ncanon,
+                    npt=self._npt,
+                    isochrone_ab=iso,
+                )
+                if iso is None:
+                    iso = (inners[mid]._GMc, inners[mid]._bc)
+            cat = lambda name: numpy.concatenate(
+                [getattr(inners[(a, b)], name) for a in range(nLz) for b in range(nE)]
+            )
+            grid = _types.SimpleNamespace(
+                _jr=cat("_jr"),
+                _jz=cat("_jz"),
+                _umins=cat("_umins"),
+                _umaxs=cat("_umaxs"),
+                _vmins=cat("_vmins"),
+                _can_Dmu=cat("_can_Dmu"),
+                _can_Dmv=cat("_can_Dmv"),
+                _can_maxdev=max(inners[k]._can_maxdev for k in inners),
+                _can_stokes=max(inners[k]._can_stokes for k in inners),
+                _GMc=inners[mid]._GMc,
+                _bc=inners[mid]._bc,
+                _aAIc=inners[mid]._aAIc,
+                _aAIinvc=inners[mid]._aAIinvc,
+            )
         self._canon_node_maxdev = grid._can_maxdev
         self._canon_node_stokes = grid._can_stokes
         if self._canon_node_maxdev > 1e-6:
@@ -1488,7 +1632,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # differentiated interpolant as every other stored quantity, so the
         # compensation's new term obeys the same no-separate-derivative
         # discipline as the rest of the map.
-        tab[6 + 2 * self._npt] = self._delta
+        tab[6 + 2 * self._npt] = (
+            self._delta if self._delta_func is None else self._canon_deltas[:, :, None]
+        )
         # the analytic limits at the degenerate edges: the vanishing action
         # is exactly zero, the degenerate oscillation's midpoint sits at its
         # analytic point (the shell u), and its anomaly map vanishes (both
