@@ -2521,6 +2521,72 @@ def test_actionAngleStaeckel_zerolz_actions_c():
 
 
 # Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_c_angles_freqs_near_turning_point():
+    # c=True frequencies and angles used to go wrong for points near a
+    # turning point: when |p^2| < 1e-7 there, the C code adopted the
+    # evaluation point ITSELF as the turning point instead of solving for
+    # it. That O(eps) endpoint error enters the actions only at
+    # O(eps^1.5) (invisible, ~1e-12) but the 1/sqrt(W)-divergent
+    # frequency and angle integrands at O(sqrt(eps)) -- theta_z errors up
+    # to ~1e-4 -- and, through ~1e-12-absolute root tolerances, also left
+    # an order-growing angle error on generic points. Frequencies are
+    # torus constants and the Python path is exact here, so both provide
+    # sharp regression checks.
+    import numpy
+
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+    o = Orbit([1.1, 0.35, 1.1, 0.3, 0.25, 0.0])
+    ts = numpy.linspace(0.0, 8.0, 17)
+    o.integrate(ts, kkp)
+    R, vR, vT, z, vz, phi = (
+        numpy.array([float(f(t)) for t in ts])
+        for f in (o.R, o.vR, o.vT, o.z, o.vz, o.phi)
+    )
+    # a point of this orbit within ~1e-8 of its upper vertical turning
+    # point (p_v^2 ~ 6e-8), given as a literal so the near-turning
+    # regime is hit deterministically on every platform
+    R[-1], vR[-1], vT[-1], z[-1], vz[-1], phi[-1] = (
+        1.0374878950211397,
+        0.26453976273320806,
+        1.166278667740467,
+        0.3280135549475248,
+        0.0331712140016195,
+        -2.550334704756344,
+    )
+    aAC = actionAngleStaeckel(pot=kkp, delta=1.3, c=True, order=100)
+    aAP = actionAngleStaeckel(pot=kkp, delta=1.3, c=False)
+    C = aAC.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    # frequencies are torus constants: they may not vary along the orbit
+    # (the near-turning point used to be off by ~2e-4 in Omega_z)
+    for k, name in ((3, "Omega_R"), (5, "Omega_z")):
+        spread = numpy.ptp(numpy.array(C[k])) / numpy.fabs(
+            numpy.median(numpy.array(C[k]))
+        )
+        assert spread < 1e-8, (
+            "c=True %s varies along an orbit by %g near a turning point"
+            % (name, spread)
+        )
+    # angles agree with the (exact) Python path pointwise, including at
+    # the near-turning sample (used to be off by ~4e-4 in theta_z)
+    P = aAP.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    for k, name in ((6, "theta_R"), (8, "theta_z")):
+        d = (
+            numpy.remainder(
+                numpy.array(C[k]) - numpy.array(P[k]) + numpy.pi, 2.0 * numpy.pi
+            )
+            - numpy.pi
+        )
+        assert numpy.max(numpy.fabs(d)) < 1e-6, (
+            "c=True %s disagrees with c=False by %g near a turning point"
+            % (name, numpy.max(numpy.fabs(d)))
+        )
+    return None
+
+
 def test_actionAngleStaeckel_actions_order():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
