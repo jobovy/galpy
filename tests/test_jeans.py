@@ -387,3 +387,22 @@ def test_sigmar_on_grid_declines_when_it_would_not_help():
     assert jeans._sigmar_on_grid(potential.SCFPotential(normalize=1.0), rs) is None, (
         "must decline when the per-radius loop is cheaper"
     )
+
+
+def test_sigmar_on_grid_declines_outside_its_assumptions():
+    # The grid is geometric and the tail is one quadrature from max(rs), so the
+    # fast path only applies to an increasing, strictly positive radius range
+    # with a constant anisotropy. Anything else must decline rather than
+    # silently produce a grid it cannot represent.
+    import numpy
+
+    from galpy import potential
+    from galpy.df import jeans
+
+    hp = potential.HernquistPotential(normalize=1.0, a=2.0)
+    assert jeans._sigmar_on_grid(hp, numpy.linspace(0.0, 25.0, 51)) is None  # r=0
+    assert jeans._sigmar_on_grid(hp, numpy.linspace(5.0, 5.0, 51)) is None  # no range
+    assert (
+        jeans._sigmar_on_grid(hp, numpy.linspace(1e-4, 25.0, 51), beta=lambda r: 0.1)
+        is None
+    )  # callable beta

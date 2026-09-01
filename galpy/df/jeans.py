@@ -77,18 +77,6 @@ def sigmar(Pot, r, dens=None, beta=0.0):
     )
 
 
-def _eval_on_grid(fn, xs):
-    """Evaluate fn on the array xs, falling back to a loop for potentials whose
-    methods reject array input (e.g. DoubleExponentialDiskPotential)."""
-    try:
-        out = numpy.asarray(fn(xs), dtype=float)
-        if out.shape == xs.shape:
-            return out
-    except (TypeError, ValueError, IndexError, AttributeError):
-        pass
-    return numpy.array([float(fn(x)) for x in xs])
-
-
 def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
     """
     sigma_r at every radius in rs, from ONE cumulative integral.
@@ -142,12 +130,11 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
     # spherical harmonics (measured 0.33x, i.e. 3x SLOWER). Rather than guess or
     # keep a per-potential list, time both and pick the winner. The probe also
     # doubles as the array-capability check: potentials whose methods reject
-    # arrays (e.g. DoubleExponentialDiskPotential) fall back here.
+    # arrays (e.g. DoubleExponentialDiskPotential) raise here and fall back.
     probe = numpy.geomspace(rs[0], rs[-1], 256)
     try:
         _t0 = time.perf_counter()
-        if numpy.shape(integrand(probe)) != probe.shape:
-            return None
+        integrand(probe)
         per_point = (time.perf_counter() - _t0) / probe.size
     except (TypeError, ValueError, IndexError, AttributeError):
         return None
@@ -162,7 +149,7 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nquad=100001):
     I = numpy.concatenate((numpy.cumsum(seg[::-1])[::-1], [0.0]))
     I = I + integrate.quad(integrand, rs[-1], numpy.inf)[0]  # r > max(rs) tail
     Ir = numpy.interp(numpy.log(rs), numpy.log(xs), I)
-    return numpy.sqrt(Ir / _eval_on_grid(dens, rs) / rs ** (2.0 * beta))
+    return numpy.sqrt(Ir / dens(rs) / rs ** (2.0 * beta))
 
 
 @potential_physical_input
