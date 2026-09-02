@@ -70,19 +70,29 @@ def is_backend_array(x):
     pass-through branch keyed on this. Detection is by direct ``isinstance``
     against the public ``jax.Array`` / ``torch.Tensor`` base classes, gated on the
     optional-dependency flags so a numpy-only install never imports jax/torch.
+
+    torch is tested first, and the jax test is skipped entirely while dynamo is
+    tracing: ``jax.Array`` is an ABC, so ``isinstance`` against it runs
+    ``ABCMeta.__instancecheck__``, which torch 2.14 refuses to trace (a custom
+    type check may read external mutable state) and which therefore breaks any
+    ``fullgraph=True`` compile in an install that merely *has* jax. Nothing under
+    a torch trace can be a jax array, so the branch is dead there anyway.
     """
     if _is_python_scalar(x) or isinstance(x, (numpy.ndarray, numpy.generic)):
         return False
-    if _JAX_LOADED:
-        import jax
-
-        if isinstance(x, jax.Array):
-            return True
     if _TORCH_LOADED:
         import torch
 
         if isinstance(x, torch.Tensor):
             return True
+    if _JAX_LOADED:
+        from ._tracectx import is_compiling
+
+        if not is_compiling():
+            import jax
+
+            if isinstance(x, jax.Array):
+                return True
     return False
 
 
@@ -224,19 +234,26 @@ def under_torch_grad(*xs):
 
 
 def stop_gradient(x):
-    """Backend stop-gradient: identity (numpy), ``jax.lax.stop_gradient`` / ``.detach``."""
+    """Backend stop-gradient: identity (numpy), ``jax.lax.stop_gradient`` / ``.detach``.
+
+    torch first, and no jax ``isinstance`` under a dynamo trace -- see
+    ``is_backend_array`` for why that ordering is load-bearing.
+    """
     import sys
 
-    if "jax" in sys.modules:
-        import jax
-
-        if isinstance(x, jax.Array):
-            return jax.lax.stop_gradient(x)
     if "torch" in sys.modules:
         import torch
 
         if isinstance(x, torch.Tensor):
             return x.detach()
+    if "jax" in sys.modules:
+        from ._tracectx import is_compiling
+
+        if not is_compiling():
+            import jax
+
+            if isinstance(x, jax.Array):
+                return jax.lax.stop_gradient(x)
     return x
 
 
