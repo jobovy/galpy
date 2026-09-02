@@ -472,16 +472,26 @@ class actionAngleTorusStaeckel:
         return tuple(out)
 
     def xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        """Evaluate the torus map and the frequencies: the gradient of the
-        stored E(J) model, exactly the frequencies of the trajectories the
-        map returns"""
+        """Evaluate the torus map and the frequencies: the map's (x, v)
+        together with Freqs (the gradient of the stored E(J) model). See
+        Freqs for its accuracy, which degrades for strongly eccentric
+        tori."""
         out = self(jr, jphi, jz, angler, anglephi, anglez, **kwargs)
         Om = self.Freqs(jr, jphi, jz)
         return out + Om
 
     def Freqs(self, jr, jphi, jz):
         """Frequencies (Omega_R, Omega_phi, Omega_z): the analytic gradient
-        of the stored quadratic E(J) model at J"""
+        of the stored quadratic E(J) model at J.
+
+        Accurate for near-Staeckel tori (the common case), where the
+        per-torus E(J) star is clean. For strongly eccentric tori the
+        estimate degrades -- the flattening residual varies across the J
+        star and contaminates dE/dJ, a percent-level frequency error that
+        accumulates phase over many periods -- so long-time orbit
+        integration of eccentric tori is not yet reliable; see the
+        frequency discussion in TORUSMAPPER_MATH.md. The returned (x, v)
+        torus SHAPE is unaffected: only the propagation frequency."""
         jr, lz, jz = float(jr), float(jphi), float(jz)
         model = self._fit_torus(jr, lz, jz)
         ev = self._model_eval(model, jr, lz, jz)
