@@ -42,6 +42,7 @@ class actionAngleTorusStaeckel:
         maxn=8,
         polish=3,
         starfrac=0.15,
+        resonance_tol=1e-3,
         **family_kwargs,
     ):
         """
@@ -106,17 +107,26 @@ class actionAngleTorusStaeckel:
                     "focal length) for actionAngleTorusStaeckel"
                 )
             self._pot = pot
-            swp = OblateStaeckelWrapperPotential(pot=pot, delta=float(delta))
             fkw = dict(family_kwargs)
             fkw.setdefault("setup_interp", True)
-            if u0 is not None:
-                fkw["u0"] = u0
+            # a scalar u0 fixes the wrapper's reference curve; an adaptive
+            # u0 ('fit' or a callable) varies it across the family and is
+            # passed on to the family build instead
+            if u0 is not None and not (isinstance(u0, str) or callable(u0)):
+                swp = OblateStaeckelWrapperPotential(
+                    pot=pot, delta=float(delta), u0=float(u0)
+                )
+            else:
+                swp = OblateStaeckelWrapperPotential(pot=pot, delta=float(delta))
+                if u0 is not None:
+                    fkw["u0"] = u0
             self._fam = actionAngleStaeckelInverse(pot=swp, **fkw)
         if 2 * maxn >= ngrid:
             raise ValueError("maxn must be < ngrid/2 for an alias-free Fourier lattice")
         self._ngrid = ngrid
         self._maxn = maxn
         self._polish = polish
+        self._resonance_tol = resonance_tol
         self._starfrac = (
             tuple(starfrac)
             if hasattr(starfrac, "__len__")
@@ -192,22 +202,23 @@ class actionAngleTorusStaeckel:
         for k, (nr, nz) in enumerate(self._modes):
             cn = c[list(kk).index(nr), list(kk).index(nz)]
             nOm = nr * cO_r + nz * cO_z
-            if numpy.fabs(nOm) < 1e-3 * numpy.fabs(cO_z):
+            if numpy.fabs(nOm) < self._resonance_tol * numpy.fabs(cO_z):
                 skipped += 2.0 * numpy.abs(cn)
                 continue
             A[k] = -2.0 * numpy.real(cn) / nOm
             B[k] = 2.0 * numpy.imag(cn) / nOm
         flat = flat0
+        flat_prev = flat0
         nclip = 0
-        for _ in range(self._polish + 1):
+        for it in range(self._polish + 1):
             dJr, dJz = self._dJ_of_AB(A, B)
             # trust region: stay inside the physical action domain (the
-            # planar and circular edges), scaling the WHOLE correction
+            # planar and circular edges), scaling the WHOLE correction so
+            # neither J_R + dJ_R nor J_z + dJ_z crosses zero
             lam = 1.0
-            if dJr.min() < -0.85 * jr:
-                lam = min(lam, 0.85 * jr / -dJr.min())
-            if dJz.min() < -0.85 * jz:
-                lam = min(lam, 0.85 * jz / -dJz.min())
+            for Jax, dJax in ((jr, dJr), (jz, dJz)):
+                if dJax.min() < -0.85 * Jax:
+                    lam = min(lam, 0.85 * Jax / -dJax.min())
             if lam < 1.0:
                 A *= lam
                 B *= lam
@@ -216,9 +227,11 @@ class actionAngleTorusStaeckel:
                 nclip += 1
             H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz)
             flat = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
-            if flat >= 0.9 * flat0 and numpy.any(A) and lam == 1.0:
-                # no longer improving at this lattice/auxiliary floor
+            if it > 0 and flat >= 0.9 * flat_prev and lam == 1.0:
+                # a full polish step no longer improves the flatness by
+                # more than 10%: at the lattice/auxiliary floor, stop
                 break
+            flat_prev = flat
             # Gauss-Newton step: residual r = H - <H>, Jacobian rows
             # dH/dA_k = (n.Omega_local) cos(n.theta), dH/dB_k = (...) sin
             r = H - numpy.mean(H)
@@ -256,6 +269,12 @@ class actionAngleTorusStaeckel:
         supply the angle shift and the frequencies -- derivatives of the
         stored model, so the composite map is exactly symplectic for the
         model it evaluates"""
+        if jr <= 0.0 or jz <= 0.0:
+            raise ValueError(
+                "actionAngleTorusStaeckel needs an interior torus with "
+                "J_R > 0 and J_z > 0 (the radial and vertical shell/planar "
+                "edges are degenerate for the local model)"
+            )
         key = (round(jr, 12), round(lz, 12), round(jz, 12))
         if key in self._torus_cache:
             return self._torus_cache[key]
@@ -267,9 +286,9 @@ class actionAngleTorusStaeckel:
         ):
             steps.append(max(frac * J, floor))
         hr, hL, hz = steps
-        # one-sided stars near the J_R, J_z >= 0 edges
-        lor = min(hr, 0.9 * jr) if jr > 0 else 0.0
-        loz = min(hz, 0.9 * jz) if jz > 0 else 0.0
+        # keep the star inside J_R, J_z > 0 (possible by the interior check)
+        lor = min(hr, 0.9 * jr)
+        loz = min(hz, 0.9 * jz)
         pts = {
             "c": (jr, lz, jz),
             "rp": (jr + hr, lz, jz),
@@ -293,16 +312,12 @@ class actionAngleTorusStaeckel:
                 f0 = fits["c"][q]
                 fp = fits[up][q]
                 fm = fits[lo][q]
-                if hlo > 0.0:
-                    a = (hlo**2.0 * fp - hup**2.0 * fm - (hlo**2.0 - hup**2.0) * f0) / (
-                        hup * hlo * (hup + hlo)
-                    )
-                    b = (hlo * fp + hup * fm - (hup + hlo) * f0) / (
-                        hup * hlo * (hup + hlo)
-                    )
-                else:
-                    a = (fp - f0) / hup
-                    b = numpy.zeros_like(a) if q != "E" else 0.0
+                # exact 3-point quadratic for the (possibly unequal)
+                # one-sided-away-from-edge spacings hup, hlo (both > 0)
+                a = (hlo**2.0 * fp - hup**2.0 * fm - (hlo**2.0 - hup**2.0) * f0) / (
+                    hup * hlo * (hup + hlo)
+                )
+                b = (hlo * fp + hup * fm - (hup + hlo) * f0) / (hup * hlo * (hup + hlo))
                 model[f"d{q}_d{name}"] = a
                 model[f"d2{q}_d{name}2"] = b
         self._torus_cache[key] = model
