@@ -191,3 +191,34 @@ def test_set_and_reset_survive_a_fullgraph_compile():
         )
     assert float(got) == 3.0  # the True branch ran, i.e. .get() saw the .set()
     assert var.get() is False  # and the trace left no residue behind
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_backend_predicates_compile_when_jax_is_merely_installed():
+    # torch 2.14 regression. is_backend_array/stop_gradient tested ``jax.Array``
+    # BEFORE ``torch.Tensor``; ``jax.Array`` is an ABC, so that isinstance runs
+    # ABCMeta.__instancecheck__, which dynamo refuses to trace on a tensor
+    # ("custom type check ... may read external mutable state"). Any install
+    # that merely HAS jax then broke every fullgraph compile -- which is exactly
+    # the CI backend shard, the one job that installs both frameworks.
+    jax = pytest.importorskip("jax", reason="the break needs jax INSTALLED")
+    assert "jax" in sys.modules  # the sys.modules gate stop_gradient reads
+    t = torch.tensor([1.0, 2.0], dtype=torch.float64)
+
+    def compiled(f):
+        torch._dynamo.reset()
+        with no_torch_compile_deprecations():
+            return torch.compile(f, fullgraph=True, dynamic=False)(t)
+
+    from galpy.backend._namespaces import (
+        is_backend_array,
+        stop_gradient,
+        under_jax_trace,
+    )
+
+    # a tensor is a backend array, and stays one through the trace
+    assert bool(compiled(lambda x: torch.tensor(is_backend_array(x))))
+    assert not bool(compiled(lambda x: torch.tensor(under_jax_trace(x))))
+    assert torch.equal(compiled(stop_gradient), t)
+    # and the jax branch still works outside a trace
+    assert is_backend_array(jax.numpy.asarray([1.0]))
