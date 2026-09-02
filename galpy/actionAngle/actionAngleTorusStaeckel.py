@@ -451,28 +451,111 @@ class actionAngleTorusStaeckel:
                 out[j][i] = float(numpy.atleast_1d(oi[j])[0])
         return tuple(out)
 
-    def xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
+    def xvFreqs(
+        self, jr, jphi, jz, angler, anglephi, anglez, method="family", **kwargs
+    ):
         """Evaluate the torus map and the frequencies: the map's (x, v)
-        together with Freqs (the gradient of the stored E(J) model). See
-        Freqs for its accuracy, which degrades for strongly eccentric
-        tori."""
+        together with Freqs (the family E(J) grid by default; see Freqs
+        for the accuracy of both methods and their cost)."""
         out = self(jr, jphi, jz, angler, anglephi, anglez, **kwargs)
-        Om = self.Freqs(jr, jphi, jz)
+        Om = self.Freqs(jr, jphi, jz, method=method)
         return out + Om
 
-    def Freqs(self, jr, jphi, jz):
-        """Frequencies (Omega_R, Omega_phi, Omega_z): the analytic gradient
-        of the stored quadratic E(J) model at J.
+    # the family E(J) frequency grid: relative node factors per action axis
+    # (radial/vertical multiplicative, L_z near-unity), the flatness below
+    # which the cubic fit is trusted over the quadratic, and the smallest
+    # node count worth fitting
+    _freqgrid_frel = (0.65, 0.82, 1.0, 1.22, 1.5)
+    _freqgrid_frelL = (0.98, 0.99, 1.0, 1.01, 1.02)
+    _freqgrid_cubic_thresh = 1e-4
+    _freqgrid_minnodes = 30
 
-        Accurate for near-Staeckel tori (the common case), where the
-        per-torus E(J) star is clean. For strongly eccentric tori the
-        estimate degrades -- the flattening residual varies across the J
-        star and contaminates dE/dJ, a percent-level frequency error that
-        accumulates phase over many periods -- so long-time orbit
-        integration of eccentric tori is not yet reliable; see the
-        frequency discussion in TORUSMAPPER_MATH.md. The returned (x, v)
-        torus SHAPE is unaffected: only the propagation frequency."""
+    def _fit_freq_grid(self, jr, lz, jz):
+        """One flatten per node of a relative-spaced local action grid, and
+        a least-squares E(J) polynomial through the node energies: the
+        gradient at the center is the frequency vector. Relative spacing
+        keeps the radial direction conditioned at small J_R, and the fit
+        AVERAGES the flattening residual over the nodes instead of
+        differencing it, which is what sinks the J-star on eccentric tori.
+        The polynomial degree follows the center flatness: a cubic where
+        the flatten is clean, a quadratic where the node energies are noisy
+        enough that the cubic would fit the noise."""
+        key = ("fgrid", jr, lz, jz)
+        if key in self._torus_cache:
+            return self._torus_cache[key]
+        nodes = []
+        Es = []
+        cflat = None
+        for fa in self._freqgrid_frel:
+            for fb in self._freqgrid_frelL:
+                for fc in self._freqgrid_frel:
+                    jn, ln, zn = jr * fa, lz * fb, jz * fc
+                    try:
+                        f = self._flatten(jn, ln, zn)
+                    except (ValueError, RuntimeError):
+                        continue
+                    if fa == 1.0 and fb == 1.0 and fc == 1.0:
+                        cflat = f["flat"]
+                    nodes.append((jn, ln, zn))
+                    Es.append(f["E"])
+        ntot = len(self._freqgrid_frel) ** 2 * len(self._freqgrid_frelL)
+        if len(nodes) < self._freqgrid_minnodes or cflat is None:
+            raise RuntimeError(
+                "family E(J) frequency grid: only %i/%i nodes could be "
+                "flattened (center included: %s); the torus is too close "
+                "to the family's edge for the family frequency route"
+                % (len(nodes), ntot, cflat is not None)
+            )
+        nodes = numpy.array(nodes)
+        Es = numpy.array(Es)
+        scal = numpy.array([jr, 0.02 * lz, jz])
+        X = (nodes - numpy.array([jr, lz, jz])) / scal
+        deg = 3 if cflat < self._freqgrid_cubic_thresh else 2
+        from itertools import combinations_with_replacement
+
+        cols = [numpy.ones(len(X))]
+        idx = []
+        for d in range(1, deg + 1):
+            for c in combinations_with_replacement(range(3), d):
+                cols.append(numpy.prod(X[:, c], axis=1))
+                idx.append(c)
+        coef = numpy.linalg.lstsq(numpy.stack(cols, axis=1), Es, rcond=None)[0]
+        g = numpy.zeros(3)
+        for k, c in enumerate(idx):
+            if len(c) == 1:
+                g[c[0]] = coef[k + 1]
+        out = {"Om": tuple(g / scal), "nnodes": len(nodes), "deg": deg}
+        self._torus_cache[key] = out
+        return out
+
+    def Freqs(self, jr, jphi, jz, method="family"):
+        """Frequencies (Omega_R, Omega_phi, Omega_z).
+
+        method='family' (default): the gradient of a least-squares E(J)
+        polynomial through one flatten per node of a local action grid.
+        Measured against spectral frequencies of integrated
+        MWPotential2014 orbits: benign tori are exact to the measurement
+        floor (~1e-4, tied with the J-star), and eccentric tori come out
+        at the Fourier representation floor (~1e-2 at maxn=14) where the
+        J-star's Omega_z is off by 11 percent -- the star DIFFERENCES the
+        flattening residual while the grid fit averages it. The cost is
+        one flatten per grid node (125 by default, seconds each through
+        the family's array-J path), cached per torus.
+
+        method='star': the analytic gradient of the stored quadratic E(J)
+        model over the 7-point J-star -- cheap (7 flattens) and fine for
+        near-Staeckel tori, unreliable for eccentric ones; see
+        TORUSMAPPER_MATH.md. The returned (x, v) torus SHAPE never
+        depends on method: only the propagation frequency."""
         jr, lz, jz = float(jr), float(jphi), float(jz)
+        if method == "family":
+            if jr <= 0.0 or jz <= 0.0:
+                raise ValueError(
+                    "actionAngleTorusStaeckel needs an interior torus with "
+                    "J_R > 0 and J_z > 0 (the radial and vertical "
+                    "shell/planar edges are degenerate for the local model)"
+                )
+            return self._fit_freq_grid(jr, lz, jz)["Om"]
         model = self._fit_torus(jr, lz, jz)
         ev = self._model_eval(model, jr, lz, jz)
         return (ev["dE"][0], ev["dE"][1], ev["dE"][2])

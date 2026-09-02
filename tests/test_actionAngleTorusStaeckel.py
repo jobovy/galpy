@@ -373,3 +373,89 @@ def test_actionAngleTorusStaeckel_canonical_model():
         "the composite map is not symplectic: sum of brackets %g != 2" % br
     )
     return None
+
+
+def test_actionAngleTorusStaeckel_family_freq_grid():
+    # the family E(J) frequency route: one flatten per node of a local
+    # action grid and the gradient of a least-squares polynomial. On the
+    # exactly-Staeckel KuzminKutuzov potential it must agree with the
+    # forward frequencies; the degree rule, the cache, the node-failure
+    # guard, and the interior-torus guard are exercised white-box
+    jr, lz, jz = _kk_torus()
+    tm = actionAngleTorusStaeckel(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=1,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=5,
+        nE=5,
+        nI3=5,
+    )
+    # a compact grid keeps the test fast; the production one is just more
+    # nodes of the same construction
+    tm._freqgrid_frel = (0.85, 1.0, 1.18)
+    tm._freqgrid_frelL = (0.995, 1.0, 1.005)
+    tm._freqgrid_minnodes = 20
+    aAS = actionAngleStaeckel(pot=_KKP, delta=1.3, c=True, order=100)
+    OmT = aAS.actionsFreqs(1.1, 0.25, 1.1, 0.15, 0.15, 0.0)[3:]
+    OmT = [float(numpy.atleast_1d(q)[0]) for q in OmT]
+    Om = tm.Freqs(jr, lz, jz)
+    for k in range(3):
+        assert numpy.fabs(Om[k] - OmT[k]) / numpy.fabs(OmT[k]) < 3e-3, (
+            "family E(J) frequency %i disagrees with the forward Staeckel "
+            "frequency: %g vs %g" % (k, Om[k], OmT[k])
+        )
+    # the fit is cached per torus
+    fg = tm._fit_freq_grid(jr, lz, jz)
+    assert fg is tm._fit_freq_grid(jr, lz, jz), (
+        "the frequency grid was refit instead of cached"
+    )
+    # the degree rule follows the center flatness against the threshold:
+    # drive it both ways and check the two fits agree on this clean torus
+    tm._freqgrid_cubic_thresh = 1.0
+    tm._torus_cache.clear()
+    Om = tm.Freqs(jr, lz, jz)
+    assert tm._fit_freq_grid(jr, lz, jz)["deg"] == 3, (
+        "a permissive threshold did not select the cubic fit"
+    )
+    tm._freqgrid_cubic_thresh = 0.0
+    tm._torus_cache.clear()
+    Om2 = tm.Freqs(jr, lz, jz)
+    assert tm._fit_freq_grid(jr, lz, jz)["deg"] == 2, (
+        "a zero threshold did not select the quadratic fit"
+    )
+    for k in range(3):
+        assert numpy.fabs(Om2[k] - Om[k]) / numpy.fabs(Om[k]) < 1e-2, (
+            "quadratic and cubic family frequencies disagree on a clean torus"
+        )
+    # method='star' remains available and agrees on this benign torus
+    OmS = tm.Freqs(jr, lz, jz, method="star")
+    for k in range(3):
+        assert numpy.fabs(OmS[k] - Om[k]) / numpy.fabs(Om[k]) < 1e-2, (
+            "J-star and family frequencies disagree on a benign torus"
+        )
+    # xvFreqs passes the method through
+    out = tm.xvFreqs(
+        jr,
+        lz,
+        jz,
+        numpy.array([0.4]),
+        numpy.array([0.2]),
+        numpy.array([1.0]),
+        method="star",
+    )
+    assert len(out) == 9, "xvFreqs(method='star') did not return 9 outputs"
+    # every node outside the family's grid: the informative failure
+    tm._freqgrid_frelL = (100.0, 200.0, 300.0)
+    tm._torus_cache.clear()
+    with pytest.raises(RuntimeError, match="nodes could be"):
+        tm.Freqs(jr, lz, jz)
+    # the interior-torus guard on the family route
+    with pytest.raises(ValueError, match="interior torus"):
+        tm.Freqs(0.0, lz, jz)
+    return None
