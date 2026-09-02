@@ -100,6 +100,41 @@ def test_actionAngleTorusStaeckel_flatten_and_symmetry():
         "the sine coefficients did not vanish for a symmetric potential"
     )
     assert f["skipped"] == 0.0, "an off-resonance torus skipped modes"
+    # the polish keeps the BEST pass, so more iterations never worsen the
+    # result even though the approximate Gauss-Newton step can drift past
+    # the floor: many-pass flat must not exceed few-pass flat
+    tm_few = actionAngleTorusStaeckel(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=1,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+    )
+    tm_many = actionAngleTorusStaeckel(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=6,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+    )
+    assert (
+        tm_many._flatten(jr, lz, jz)["flat"]
+        <= tm_few._flatten(jr, lz, jz)["flat"] + 1e-12
+    ), "more polish iterations worsened the flatness (best-pass not kept)"
     return None
 
 

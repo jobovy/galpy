@@ -231,6 +231,13 @@ class actionAngleTorusStaeckel:
             B[k] = 2.0 * numpy.imag(cn) / nOm
         flat = flat0
         flat_prev = flat0
+        # keep the BEST pass, not the last: the Gauss-Newton step below uses
+        # the local frequency as if constant, so once at the floor a further
+        # step can drift the flatness slightly upward -- returning the best
+        # makes the polish monotone in its result at no extra cost
+        # flatbest = inf makes pass 0 always set the best, so the initial
+        # Ebest placeholder is never returned
+        Abest, Bbest, flatbest, Ebest = A.copy(), B.copy(), numpy.inf, 0.0
         nclip = 0
         for it in range(self._polish + 1):
             dJr, dJz = self._dJ_of_AB(A, B)
@@ -249,6 +256,9 @@ class actionAngleTorusStaeckel:
                 nclip += 1
             H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz)
             flat = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
+            if flat < flatbest:
+                Abest, Bbest = A.copy(), B.copy()
+                flatbest, Ebest = flat, float(numpy.mean(H))
             if it > 0 and flat >= 0.9 * flat_prev and lam == 1.0:
                 # a full polish step no longer improves the flatness by
                 # more than 10%: at the lattice/auxiliary floor, stop
@@ -275,11 +285,11 @@ class actionAngleTorusStaeckel:
                 galpyWarning,
             )
         return {
-            "A": A,
-            "B": B,
-            "E": float(numpy.mean(H)),
+            "A": Abest,
+            "B": Bbest,
+            "E": Ebest,
             "flat0": float(flat0),
-            "flat": float(flat),
+            "flat": float(flatbest),
             "skipped": float(skipped),
             "nclip": nclip,
         }
