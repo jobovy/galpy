@@ -73,10 +73,15 @@ class actionAngleTorusStaeckel:
         polish : int, optional
             Number of Gauss-Newton polish iterations after the first-order
             FFT seed (0 = seed only).
-        starfrac : float, optional
-            Fractional half-width of the J-star used for the local
-            quadratic model of the coefficients (floored at 1e-4 in J
-            units, and one-sided away from the J_R, J_z >= 0 edges).
+        starfrac : float or (float, float, float), optional
+            Fractional half-widths of the J-star used for the local
+            quadratic model of the coefficients, per action (J_R, L_z,
+            J_z); a scalar applies to J_R and J_z with the L_z fraction
+            reduced 12-fold, because L_z is O(1) where the others are
+            O(0.01) and the cubic truncation of the quadratic model goes
+            as the SQUARE of the step (a 0.12 L_z fraction puts ~2e-3 in
+            dE/dL_z, the measured orbit-drift scale). Floored at 1e-4 in
+            J units and one-sided away from the J_R, J_z >= 0 edges.
         family_kwargs : dict
             Passed to the internal actionAngleStaeckelInverse build
             (Rmin/Rmax/Rinf, grid sizes, target=, ...).
@@ -87,7 +92,11 @@ class actionAngleTorusStaeckel:
         """
         if family is not None:
             self._fam = family
-            self._pot = family._pot
+            # the TRUE potential is the family's RAW (unwrapped) potential:
+            # family._pot is the OblateStaeckelWrapper (the MODEL), whose
+            # Hamiltonian is trivially flat on its own tori -- flattening
+            # that instead of the true H is a silent no-op
+            self._pot = getattr(family, "_chart_pot", family._pot)
         else:
             if pot is None:
                 raise OSError("Must specify pot= for actionAngleTorusStaeckel")
@@ -108,7 +117,11 @@ class actionAngleTorusStaeckel:
         self._ngrid = ngrid
         self._maxn = maxn
         self._polish = polish
-        self._starfrac = starfrac
+        self._starfrac = (
+            tuple(starfrac)
+            if hasattr(starfrac, "__len__")
+            else (starfrac, starfrac / 12.0, starfrac)
+        )
         # the fitting angle grid and the retained half-lattice: n_R > 0, or
         # n_R = 0 and n_z > 0 (the conjugate half is implied by reality)
         th = 2.0 * numpy.pi * numpy.arange(ngrid) / ngrid
@@ -247,9 +260,12 @@ class actionAngleTorusStaeckel:
         if key in self._torus_cache:
             return self._torus_cache[key]
         steps = []
-        for J, floor in ((jr, 1e-4), (lz, 1e-3), (jz, 1e-4)):
-            h = max(self._starfrac * J, floor)
-            steps.append(h)
+        for J, frac, floor in (
+            (jr, self._starfrac[0], 1e-4),
+            (lz, self._starfrac[1], 1e-3),
+            (jz, self._starfrac[2], 1e-4),
+        ):
+            steps.append(max(frac * J, floor))
         hr, hL, hz = steps
         # one-sided stars near the J_R, J_z >= 0 edges
         lor = min(hr, 0.9 * jr) if jr > 0 else 0.0
