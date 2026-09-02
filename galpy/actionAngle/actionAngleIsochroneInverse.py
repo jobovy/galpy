@@ -18,6 +18,10 @@ from .actionAngleInverse import actionAngleInverse
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
 
+    # Newton iteration cap for the batched Kepler solve; an attribute so
+    # that tests can force the bisection fallback
+    _kepler_maxiter = 60
+
     def __init__(self, *args, **kwargs):
         """
         Initialize an actionAngleIsochroneInverse object.
@@ -153,7 +157,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         # bisection (which must work: 0 <= ar < 2pi brackets a sign change)
         kk = numpy.broadcast_arrays(numpy.atleast_1d(a * e / ab), angler)[0]
         eta = angler.copy()
-        for _ in range(60):
+        for _ in range(self._kepler_maxiter):
             f = eta - kk * numpy.sin(eta) - angler
             eta = eta - f / (1.0 - kk * numpy.cos(eta))
             if numpy.max(numpy.fabs(f)) < 1e-14:

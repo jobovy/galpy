@@ -10054,6 +10054,121 @@ def test_actionAngleStaeckelInverse_canonical_chains_vectorized(
     return None
 
 
+def test_actionAngleStaeckelInverse_xvFreqs_arrayJ(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # The array-J evaluation -- per-point actions paired with per-point
+    # angles in one vectorized pass -- must agree with the scalar path
+    # looped over the same tori, for every output including the frequencies
+    import numpy
+
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    rng = numpy.random.default_rng(3)
+    n = 14
+    Lz = rng.uniform(float(aASI._Lzgrid[2]), float(aASI._Lzgrid[-3]), n)
+    jr = rng.uniform(0.02, 0.08, n)
+    jz = rng.uniform(0.02, 0.08, n)
+    thr = rng.uniform(0.0, 2.0 * numpy.pi, n)
+    thp = rng.uniform(0.0, 2.0 * numpy.pi, n)
+    thz = rng.uniform(0.0, 2.0 * numpy.pi, n)
+    got = aASI._xvFreqs_arrayJ(jr, Lz, jz, thr, thp, thz)
+    for i in range(n):
+        ref = aASI._xvFreqs_canonical_interp(
+            float(jr[i]),
+            float(Lz[i]),
+            float(jz[i]),
+            numpy.array([thr[i]]),
+            numpy.array([thp[i]]),
+            numpy.array([thz[i]]),
+        )
+        for k in range(9):
+            assert (
+                numpy.fabs(numpy.atleast_1d(got[k])[i] - numpy.atleast_1d(ref[k])[0])
+                < 1e-10
+            ), "The array-J evaluation disagrees with the scalar path (output %i)" % k
+    # the per-point anomaly-map inversion rescues unconverged points through
+    # the scalar routine (which brackets when Newton cannot run), so the
+    # array-J path survives maxiter = 0 on the map inversion alone; the
+    # toy-angle iteration reports non-convergence instead of stalling
+    x = aASI._canon_coords_vec(jr[:2], Lz[:2], jz[:2])
+    v, dq = aASI._canon_family_chains_vec(x)
+    npt = aASI._npt
+    Dm = v[6 : 6 + npt]
+    eta = numpy.array([2.0, 1.0])
+    tau_ref = aASI._tau_of_eta_vec(eta, Dm)
+    maxiter = aASI._maxiter
+    try:
+        aASI._maxiter = 0
+        tau_rescued = aASI._tau_of_eta_vec(eta, Dm)
+        assert numpy.amax(numpy.fabs(tau_rescued - tau_ref)) < 1e-8, (
+            "The anomaly-map rescue disagrees with the converged inversion"
+        )
+        with pytest.raises(RuntimeError) as excinfo:
+            aASI._toy_angle_solve_vec(
+                thr[:2], thz[:2], jr[:2], jz[:2] + numpy.fabs(Lz[:2]), Lz[:2], v, dq
+            )
+        assert "did not converge" in str(excinfo.value)
+    finally:
+        aASI._maxiter = maxiter
+    # the vectorized solve escapes the same period-two limit cycle as the
+    # scalar one, through under-relaxation (see the scalar limit-cycle test)
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse,
+    )
+
+    class _CyclerV:
+        _maxiter = 60
+        _angle_tol = 1e-13
+
+        def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+            return thetaAr, numpy.zeros_like(thetaAr), thetaAz
+
+    thR2 = numpy.array([0.7, 2.0])
+    thz2 = numpy.array([1.3, 4.1])
+    tAr, tAz, _ = actionAngleStaeckelInverse._toy_angle_solve_vec(
+        _CyclerV(), thR2, thz2, None, None, None, None, None
+    )
+    assert (
+        numpy.amax(
+            numpy.fabs((2.0 * tAr - thR2 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        )
+        < 1e-12
+    ), "The vectorized toy-angle solve did not escape the limit cycle"
+    return None
+
+
+def test_actionAngleIsochroneInverse_kepler_bisection_fallback():
+    # The batched Kepler solve falls back to per-point bisection for any
+    # point Newton leaves unconverged; with Newton disabled entirely, the
+    # whole solve runs through the fallback and must reproduce the normal
+    # result (the bracket [0, 2 pi] always contains the root)
+    import numpy
+
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(normalize=1.0, b=1.2)
+    aAII = actionAngleIsochroneInverse(ip=ip)
+    jr = numpy.array([0.1, 0.02, 0.3])
+    jphi = numpy.array([1.1, 0.9, 0.7])
+    jz = numpy.array([0.05, 0.15, 0.02])
+    ar = numpy.array([0.3, 2.9, 5.5])
+    ap = numpy.array([1.0, 4.0, 0.2])
+    az = numpy.array([2.0, 0.5, 3.3])
+    ref = aAII._xvFreqs(jr, jphi, jz, ar, ap, az)
+    try:
+        aAII._kepler_maxiter = 0
+        got = aAII._xvFreqs(jr, jphi, jz, ar, ap, az)
+    finally:
+        del aAII._kepler_maxiter
+    for k in range(len(ref)):
+        assert (
+            numpy.amax(numpy.fabs(numpy.atleast_1d(got[k]) - numpy.atleast_1d(ref[k])))
+            < 1e-8
+        ), "The Kepler bisection fallback disagrees with Newton (output %i)" % k
+    return None
+
+
 def test_actionAngleStaeckelInverse_narrow_grid():
     # The grid is a box in (L_z, w_E, w_I). Spanning a sub-interval of each
     # axis localizes it on a target -- a stream, say -- and since the

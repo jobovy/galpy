@@ -2441,9 +2441,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if numpy.max(numpy.fabs(f)) < self._angle_tol:
                 break
         else:
-            raise RuntimeError(
-                f"Anomaly-map inversion did not converge ({self._angle_tol})"
+            # rescue the unconverged points one at a time through the scalar
+            # inversion, which brackets when Newton cannot make progress
+            bad = (
+                numpy.fabs(
+                    x
+                    + numpy.einsum("pm,mp->p", numpy.sin(x[:, None] * ms[None, :]), Dm)
+                    - eta
+                )
+                > self._angle_tol
             )
+            for i in numpy.where(bad)[0]:
+                x[i] = self._tau_of_eta(numpy.array([eta[i]]), Dm[:, i])[0]
         return x
 
     def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
