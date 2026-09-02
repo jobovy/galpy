@@ -2422,6 +2422,290 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             raise RuntimeError("Newton's method for the toy angles did not converge")
         return thetaAr, thetaAz, cphi
 
+    def _tau_of_eta_vec(self, eta, Dm):
+        """Invert the stored anomaly map for tau, per-point coefficients.
+
+        Like :meth:`_tau_of_eta` but the map coefficients ``Dm`` are per
+        point, shape (npt, N), so each point inverts its own map; the
+        matrix products of the scalar routine become per-point einsums."""
+        ms = self._nforDm
+        eta = numpy.asarray(eta, dtype="float")
+        smat = numpy.sin(eta[:, None] * ms[None, :])  # (N, npt)
+        x = eta - numpy.einsum("pm,mp->p", smat, Dm)
+        for _ in range(self._maxiter):
+            sx = numpy.sin(x[:, None] * ms[None, :])
+            cx = numpy.cos(x[:, None] * ms[None, :])
+            f = x + numpy.einsum("pm,mp->p", sx, Dm) - eta
+            fp = 1.0 + numpy.einsum("pm,mp->p", cx, ms[:, None] * Dm)
+            x += numpy.clip(-f / fp, -0.5, 0.5)
+            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+                break
+        else:
+            raise RuntimeError(
+                f"Anomaly-map inversion did not converge ({self._angle_tol})"
+            )
+        return x
+
+    def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+        """Vector version of :meth:`_canon_comp`: v is (nq, N), dq is
+        (nq, N, 3), and every torus quantity (jr, LA, Lz, ...) is an (N,)
+        array aligned with its own angle. The scalar degeneracy branches
+        become (N,) masks and the ``@`` contractions become per-point
+        einsums."""
+        npt = self._npt
+        umin, umax, vmin = v[3], v[4], v[5]
+        dumin, dumax, dvmin = dq[3], dq[4], dq[5]  # (N, 3)
+        Dmu, Dmv = v[6 : 6 + npt], v[6 + npt : 6 + 2 * npt]  # (npt, N)
+        dDmu, dDmv = dq[6 : 6 + npt], dq[6 + npt : 6 + 2 * npt]  # (npt, N, 3)
+        delc, ddel = v[6 + 2 * npt], dq[6 + 2 * npt]  # (N,), (N,3)
+        GM, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
+        CA = 0.5 * (LA + sq)
+        EA = -(GM**2) / (2.0 * (jr + CA) ** 2)
+        a = -GM / (2.0 * EA) - bb
+        e = numpy.sqrt(1.0 + LA**2 / (2.0 * EA * a**2))
+        thmin = numpy.arcsin(numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0))
+        N = len(thetaAr)
+        zc = numpy.zeros(N)
+        oc = numpy.ones(N)
+        dLA = numpy.stack([zc, numpy.sign(Lz), oc], axis=1)  # (N,3)
+        dEA = (GM**2 / (jr + CA)[:, None] ** 3) * (
+            numpy.stack([oc, zc, zc], axis=1) + 0.5 * (1.0 + LA / sq)[:, None] * dLA
+        )
+        da = (GM / (2.0 * EA**2))[:, None] * dEA
+        de = (
+            2.0 * LA[:, None] * dLA / (2.0 * EA * a**2)[:, None]
+            - (LA**2)[:, None]
+            * (dEA * a[:, None] + 2.0 * EA[:, None] * da)
+            / (2.0 * EA**2 * a**3)[:, None]
+        ) / (2.0 * e)[:, None]
+        costhmin = numpy.cos(thmin)
+        dthmin = numpy.stack(
+            [
+                zc,
+                numpy.sign(Lz)
+                * (1.0 / LA - numpy.fabs(Lz) / LA**2)
+                / numpy.maximum(costhmin, 1e-12),
+                -numpy.fabs(Lz) / LA**2 / numpy.maximum(costhmin, 1e-12),
+            ],
+            axis=1,
+        )
+        eta_u, rA, pAr = self._canon_toy_radial(jr, LA, thetaAr)
+        tuu = self._tau_of_eta_vec(eta_u, Dmu)
+        ms = self._nforDm
+        s = numpy.sqrt(bb**2 + rA**2)
+        y = (s - bb) / a
+        coseta = numpy.cos(eta_u)
+        sineta = numpy.sin(eta_u)
+        smat_u = numpy.sin(tuu[:, None] * ms[None, :])
+        drAdeta = a * e * sineta * (y + bb / a) / numpy.sqrt(y * (y + 2.0 * bb / a))
+        gA = a * e * (y + bb / a) / numpy.sqrt(y * (y + 2.0 * bb / a))
+        detau = 1.0 + numpy.einsum(
+            "pm,mp->p", numpy.cos(tuu[:, None] * ms[None, :]), ms[:, None] * Dmu
+        )
+        sintu = numpy.sin(tuu)
+        sru = numpy.where(
+            numpy.fabs(sintu) > 1e-12,
+            sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
+            1.0,
+        )
+        pu = pAr * gA * sru * detau / (0.5 * (umax - umin))
+        c2u = numpy.cos(tuu / 2.0) ** 2
+        s2u = numpy.sin(tuu / 2.0) ** 2
+        udeg = (jr <= 0.0) | ((umax - umin) < 1e-10)
+        vdeg = (
+            ((LA - numpy.fabs(Lz)) <= 0.0)
+            | ((0.5 * numpy.pi - thmin) < 1e-8)
+            | ((numpy.pi - 2.0 * vmin) < 1e-10)
+        )
+        thetaAv, pAthv = self._canon_toy_vert(jr, LA, Lz, thetaAr, thetaAz, eta_u)
+        cosetav = numpy.clip(
+            (0.5 * numpy.pi - thetaAv) / numpy.maximum(0.5 * numpy.pi - thmin, 1e-12),
+            -1.0,
+            1.0,
+        )
+        sinetav = numpy.sign(pAthv) * numpy.sqrt(
+            numpy.clip(1.0 - cosetav**2, 0.0, None)
+        )
+        eta_v = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
+        tvv = self._tau_of_eta_vec(eta_v, Dmv)
+        smat_v = numpy.sin(tvv[:, None] * ms[None, :])
+        detav = 1.0 + numpy.einsum(
+            "pm,mp->p", numpy.cos(tvv[:, None] * ms[None, :]), ms[:, None] * Dmv
+        )
+        sintv = numpy.sin(tvv)
+        srv = numpy.where(
+            numpy.fabs(sintv) > 1e-12,
+            sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
+            1.0,
+        )
+        gth = 0.5 * numpy.pi - thmin
+        pv = pAthv * gth * srv * detav / (0.5 * (numpy.pi - 2.0 * vmin))
+        cv = numpy.cos(tvv)
+        ucrd = umin * c2u + umax * s2u
+        vcrd = vmin + (numpy.pi - 2.0 * vmin) * numpy.sin(tvv / 2.0) ** 2
+        shc, chc = numpy.sinh(ucrd), numpy.cosh(ucrd)
+        snc, csc = numpy.sin(vcrd), numpy.cos(vcrd)
+        pdq = numpy.where(udeg, 0.0, shc * chc * pu) - numpy.where(
+            vdeg, 0.0, snc * csc * pv
+        )
+        pdq = pdq / ((shc**2 + snc**2) * delc)
+        comp = numpy.empty((3, N))
+        for i in range(3):
+            drA_i = (
+                y * s / rA * da[:, i]
+                - a * s * coseta / rA * de[:, i]
+                + drAdeta * numpy.einsum("pm,mp->p", smat_u, dDmu[:, :, i])
+            )
+            du_i = dumin[:, i] * c2u + dumax[:, i] * s2u
+            uterm = numpy.where(udeg, 0.0, pAr * drA_i - pu * du_i)
+            dth_i = dthmin[:, i] * cosetav + gth * sinetav * numpy.einsum(
+                "pm,mp->p", smat_v, dDmv[:, :, i]
+            )
+            dv_i = dvmin[:, i] * cv
+            vterm = numpy.where(vdeg, 0.0, pAthv * dth_i - pv * dv_i)
+            comp[i] = uterm + vterm - pdq * ddel[:, i]
+        return comp[0], comp[1], comp[2]
+
+    def _toy_angle_solve_vec(self, thR, thz, jr, LA, Lz, v, dq):
+        """Vector version of :meth:`_toy_angle_solve`: the same damped
+        Picard iteration, calling :meth:`_canon_comp_vec`."""
+        thetaAr = numpy.copy(thR)
+        thetaAz = numpy.copy(thz)
+        omega = 1.0
+        prev = numpy.inf
+        for _ in range(self._maxiter):
+            cR, cphi, cz = self._canon_comp_vec(thetaAr, thetaAz, jr, LA, Lz, v, dq)
+            f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            f1 = (thetaAz + cz - thz + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            step = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1))
+            mx = numpy.max(step)
+            if mx >= prev:
+                omega *= 0.5
+            prev = mx
+            lim = omega * numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
+            thetaAr -= f0 * lim
+            thetaAz -= f1 * lim
+            if mx < self._angle_tol:
+                break
+        else:
+            raise RuntimeError("Toy-angle iteration did not converge")
+        return thetaAr, thetaAz, cphi
+
+    def _canon_unlift_vec(
+        self, out, a, e, LA, thmin, Dmu, Dmv, umin, umax, vmin, Lz, delta
+    ):
+        """Vector version of :meth:`_canon_unlift`: per-point supports and
+        maps (Dmu, Dmv are (npt, N); a, e, ... are (N,)), the scalar
+        degeneracy branches computed both ways and selected by (N,) masks."""
+        R, vR, vT, z, vz, phi = out
+        rA = numpy.sqrt(R**2 + z**2)
+        vrA = (R * vR + z * vz) / rA
+        pAth = vR * z - vz * R
+        Du = umax - umin
+        Dv = numpy.pi - 2.0 * vmin
+        udeg = Du < 1e-10
+        vdeg = (Dv < 1e-10) | ((0.5 * numpy.pi - thmin) < 1e-8)
+        ms = self._nforDm
+        y = (numpy.sqrt(self._bc**2 + rA**2) - self._bc) / a
+        esafe = numpy.where(numpy.asarray(e) > 1e-12, e, 1.0)
+        coseta = numpy.clip(
+            numpy.where(numpy.asarray(e) > 1e-12, (1.0 - y) / esafe, 1.0), -1.0, 1.0
+        )
+        sineta = numpy.sign(vrA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
+        etau = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
+        # u-degree active branch (guard Du away from zero where degenerate)
+        Dusafe = numpy.where(udeg, 1.0, Du)
+        tuu = self._tau_of_eta_vec(etau, Dmu)
+        u_act = umin + Dusafe * numpy.sin(tuu / 2.0) ** 2
+        gA = a * e * (y + self._bc / a) / numpy.sqrt(y * (y + 2.0 * self._bc / a))
+        detau = 1.0 + numpy.einsum(
+            "pm,mp->p", numpy.cos(tuu[:, None] * ms[None, :]), ms[:, None] * Dmu
+        )
+        sintu = numpy.sin(tuu)
+        sru = numpy.where(
+            numpy.fabs(sintu) > 1e-12,
+            sineta / numpy.maximum(numpy.fabs(sintu), 1e-12) * numpy.sign(sintu),
+            1.0,
+        )
+        pu_act = vrA * gA * sru * detau / (0.5 * Dusafe)
+        u = numpy.where(udeg, 0.5 * (umin + umax), u_act)
+        pu = numpy.where(udeg, 0.0, pu_act)
+        # v-degree active branch
+        Dvsafe = numpy.where(vdeg, 1.0, Dv)
+        thetaA = numpy.arccos(numpy.clip(z / rA, -1.0, 1.0))
+        cosetav = numpy.clip(
+            (0.5 * numpy.pi - thetaA) / numpy.maximum(0.5 * numpy.pi - thmin, 1e-12),
+            -1.0,
+            1.0,
+        )
+        sinetav = numpy.sign(pAth) * numpy.sqrt(numpy.clip(1.0 - cosetav**2, 0.0, None))
+        etav = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
+        tvv = self._tau_of_eta_vec(etav, Dmv)
+        v_act = vmin + Dvsafe * numpy.sin(tvv / 2.0) ** 2
+        detav = 1.0 + numpy.einsum(
+            "pm,mp->p", numpy.cos(tvv[:, None] * ms[None, :]), ms[:, None] * Dmv
+        )
+        sintv = numpy.sin(tvv)
+        srv = numpy.where(
+            numpy.fabs(sintv) > 1e-12,
+            sinetav / numpy.maximum(numpy.fabs(sintv), 1e-12) * numpy.sign(sintv),
+            1.0,
+        )
+        gth = 0.5 * numpy.pi - thmin
+        pv_act = pAth * gth * srv * detav / (0.5 * Dvsafe)
+        v = numpy.where(vdeg, 0.5 * numpy.pi, v_act)
+        pv = numpy.where(vdeg, 0.0, pv_act)
+        sh, ch = numpy.sinh(u), numpy.cosh(u)
+        sn, cs = numpy.sin(v), numpy.cos(v)
+        Rt = delta * sh * sn
+        zt = delta * ch * cs
+        den = delta * (sh**2 + sn**2)
+        vRt = (pu * ch * sn + pv * sh * cs) / den
+        vzt = (pu * sh * cs - pv * ch * sn) / den
+        return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
+
+    def _xvFreqs_arrayJ(self, jr, jphi, jz, angler, anglephi, anglez):
+        """Evaluate the canonical family for MANY tori at once: jr, jphi,
+        jz and the angles are all (N,) arrays, each torus paired with its
+        own angle. This is the array-J path the torus-mapper fit needs."""
+        jr = numpy.atleast_1d(numpy.asarray(jr, dtype="float"))
+        Lz = numpy.atleast_1d(numpy.asarray(jphi, dtype="float"))
+        jz = numpy.atleast_1d(numpy.asarray(jz, dtype="float"))
+        thR = numpy.atleast_1d(numpy.asarray(angler, dtype="float"))
+        thphi = numpy.atleast_1d(numpy.asarray(anglephi, dtype="float"))
+        thz = numpy.atleast_1d(numpy.asarray(anglez, dtype="float"))
+        LA = jz + numpy.fabs(Lz)
+        x = self._canon_coords_vec(jr, Lz, jz)
+        v, dq = self._canon_family_chains_vec(x)
+        thetaAr, thetaAz, cphi = self._toy_angle_solve_vec(thR, thz, jr, LA, Lz, v, dq)
+        thetaAphi = thphi - cphi
+        oo = self._aAIinvc._xvFreqs(jr, Lz, jz, thetaAr, thetaAphi, thetaAz)
+        out = [numpy.atleast_1d(q) for q in oo[:6]]
+        npt = self._npt
+        GM, bb = self._GMc, self._bc
+        sq = numpy.sqrt(LA**2 + 4.0 * bb * GM)
+        EA = -(GM**2) / (2.0 * (jr + 0.5 * (LA + sq)) ** 2)
+        a = -GM / (2.0 * EA) - bb
+        e = numpy.sqrt(1.0 + LA**2 / (2.0 * EA * a**2))
+        thmin = numpy.arcsin(numpy.clip(numpy.fabs(Lz) / LA, 0.0, 1.0))
+        Rt, vRt, vTt, zt, vzt, phit = self._canon_unlift_vec(
+            out,
+            a,
+            e,
+            LA,
+            thmin,
+            v[6 : 6 + npt],
+            v[6 + npt : 6 + 2 * npt],
+            v[3],
+            v[4],
+            v[5],
+            Lz,
+            v[6 + 2 * npt],
+        )
+        OmR, Omphi, Omz = dq[2, :, 0], dq[2, :, 1], dq[2, :, 2]
+        return (Rt, vRt, vTt, zt, vzt, phit, OmR, Omphi, Omz)
+
     def _xvFreqs_canonical_interp(self, jr, jphi, jz, angler, anglephi, anglez, x=None):
         """The canonical family evaluation: implicit-inverse labels, the
         compensated 2-D angle Newton (exact residuals, identity-dominated
