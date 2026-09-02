@@ -11,6 +11,7 @@
 #
 ###############################################################################
 import warnings
+from functools import lru_cache
 
 import numpy
 from scipy import integrate, optimize
@@ -232,23 +233,111 @@ def _staeckel_vmin(xp, s, pot, delta):
     return _refine_tp(xp, f, vmin, skip=(xp.zeros_like(vmin) > 0.5))
 
 
-def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
-    """Plain GL order-`order` of sqrt(sqfunc) over [lo, hi] (C gsl_glfixed parity)."""
-    span = hi - lo
-    a2 = tuple(
-        x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args
-    )  # [N]->[N,1] to broadcast against the [N,n] node grid
+def _staeckel_trig(xp, name, x):
+    """``xp.sin`` etc., but numpy for a plain Python scalar.
 
-    def integrand(t):  # t: (n,) -> (N, n); u = lo + span*t
-        u = lo[..., None] + span[..., None] * t
-        sq = sqfunc(u, *a2)
-        sq = xp.where(sq > 0.0, sq, xp.zeros_like(sq))  # clip (AD/round-off guard)
-        return xp.sqrt(sq) * span[..., None]
+    The u0/v0 reference-geometry arguments may arrive as scalars, and torch's
+    trig rejects a float. numpy for non-backend values also keeps the numpy path
+    byte-identical."""
+    return getattr(xp if is_backend_array(x) else numpy, name)(x)
 
-    # device=: the limits are Python scalars, so anchor the GL nodes on the input
-    # arrays' device (lo) -- else torch raises on CUDA input (nodes default to CPU)
-    # and jax silently round-trips. No-op on numpy (device_of -> None).
-    return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order, device=device_of(lo))
+
+def _staeckel_dS_flat(xp, dSsq, q, args):
+    """dS/dq on a (N, nnodes) grid, evaluated FLAT.
+
+    The dS path goes through _evaluateRforces, and some potentials
+    (KuzminKutuzovStaeckel) only accept 1-D coordinates there, while the S path
+    (evaluatePotentials) is fine with 2-D. Broadcast the per-orbit args against
+    the node axis, ravel, evaluate, and restore the shape."""
+    shp = q.shape
+    fargs = tuple(
+        xp.reshape(xp.broadcast_to(a, shp), (-1,)) if getattr(a, "ndim", 0) >= 1 else a
+        for a in args
+    )
+    return xp.reshape(dSsq(xp.reshape(q, (-1,)), *fargs), shp)
+
+
+@lru_cache(maxsize=None)
+def _staeckel_chi_mesh(nchi):
+    """The composite rule on the NORMALIZED anomaly t in [0,1]: `nchi` panels of
+    the 10-node GL rule. Kept normalized so ``chimax`` may be per-orbit (the
+    angles need an INCOMPLETE integral, whose upper anomaly differs per orbit)."""
+    e = numpy.linspace(0.0, 1.0, nchi + 1)
+    mid = 0.5 * (e[:-1] + e[1:])
+    half = 0.5 * (e[1:] - e[:-1])
+    t = (mid[:, None] + _CHIQUAD_GLX[None, :] * half[:, None]).ravel()
+    w = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
+    return t, w
+
+
+def _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
+    """Chi-anomaly quadratures of sqrt(S) over the turning-point interval.
+
+    S vanishes LINEARLY at each turning point, so sqrt(S) has a square-root
+    branch point there and plain GL converges only algebraically (4.7e-5 at
+    order 10 on MWPotential2014). In the anomaly q = qmin + D sin^2(chi/2), with
+    y = sin^2(chi/2) and Q = S/[y(1-y)] smooth and nonzero,
+
+        int sqrt(S) dq = (D/4) int sqrt(Q) sin^2(chi) dchi,
+        int f/sqrt(S) dq = D int f/sqrt(Q) dchi,
+
+    both analytic in chi. This is the rule main's pure-Python path uses
+    (gh#1357) and the one C is regularized to, so c=True and c=False agree to
+    machine precision.
+
+    Near a turning point the DIRECT evaluation of S is a difference of O(1)
+    potential terms, and dividing it by y(1-y) -> 0 amplifies that cancellation;
+    there Q is rebuilt from the analytic derivative as
+    S ~ (q - q0)[S'(q0) + S'(q)]/2. Without this the actions stall at ~4e-14.
+
+    ``chimax`` is the anomaly of the upper limit -- pi for a complete
+    turning-point-to-turning-point integral, pi/2 for the z action (whose anomaly
+    spans the whole v loop [vmin, pi - vmin]: the midplane is a symmetry point of
+    S_z, not a turning point), or a per-orbit 2 arcsin(sqrt((q-qmin)/D)) for the
+    incomplete integrals the angles need.
+
+    Returns (action, sqrt(Q), q, wts) so every quadrature on this mesh -- the
+    action and the 1/p profiles -- comes from ONE evaluation of S.
+    """
+    t, w = _staeckel_chi_mesh(max(2 * int(order), 20))
+    dev = device_of(qmin)
+    t = asarray_on_device(xp, t, dev)
+    w = asarray_on_device(xp, w, dev)
+    chi = chimax * t
+    wts = chimax * w
+    y = xp.sin(chi / 2.0) ** 2.0
+    y1my = y * (1.0 - y)
+    # masks, not control flow: xp.where evaluates BOTH branches, so each unused
+    # denominator is kept finite or reverse-mode AD is poisoned by its NaN
+    ones = xp.ones_like(y1my)
+    is_edge = y1my <= 1e-6
+    is_lo = y < 0.5
+    y1my_safe = xp.where(is_edge, ones, y1my)
+    omy_safe = xp.where(is_lo, 1.0 - y, ones)
+    y_safe = xp.where(is_lo, ones, y)
+
+    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args)
+    q = qmin[..., None] + D[..., None] * y
+    Q = Ssq(q, *a2) / y1my_safe
+    dS_n = _staeckel_dS_flat(xp, dSsq, q, a2)
+    dS_lo = _staeckel_dS_flat(xp, dSsq, qmin[..., None], a2)
+    dS_hi = _staeckel_dS_flat(xp, dSsq, (qmin + D)[..., None], a2)
+    Q_edge = xp.where(
+        is_lo,
+        D[..., None] * (dS_lo + dS_n) / 2.0 / omy_safe,
+        D[..., None] * (-dS_hi - dS_n) / 2.0 / y_safe,
+    )
+    Q = xp.where(is_edge, Q_edge, Q)
+    tiny = numpy.finfo(float).tiny
+    Q = xp.where(Q > tiny, Q, tiny * ones)
+    sqQ = xp.sqrt(Q)
+    action = (D / 4.0) * xp.sum(wts * sqQ * xp.sin(chi) ** 2.0, axis=-1)
+    return action, sqQ, q, wts
+
+
+def _staeckel_chi_action(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
+    """The action integral alone -- see :func:`_staeckel_chi_quads`."""
+    return _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax)[0]
 
 
 def _staeckel_t2_action(xp, sqfunc, args, lo, hi, order):
@@ -315,7 +404,15 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
     jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
                s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
     jr = (
-        _staeckel_gl_action(xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order)
+        _staeckel_chi_action(
+            xp,
+            _JRStaeckelIntegrandSquared,
+            _dJRStaeckelIntegrandSquareddu,
+            jr_args,
+            umin,
+            umax - umin,
+            order,
+        )
         * sqrt2
         * delta
         / numpy.pi
@@ -324,7 +421,16 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
                s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
     pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
     jz = (
-        _staeckel_gl_action(xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order)
+        _staeckel_chi_action(
+            xp,
+            _JzStaeckelIntegrandSquared,
+            _dJzStaeckelIntegrandSquareddv,
+            jz_args,
+            vmin,
+            numpy.pi - 2.0 * vmin,  # the FULL v loop; midplane is chi = pi/2
+            order,
+            chimax=numpy.pi / 2.0,
+        )
         * 2.0
         * sqrt2
         * delta
@@ -375,23 +481,16 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
 # branch (the orbit can sit arbitrarily close to a turning point).
 
 
-def _staeckel_deriv_panels(xp, Sfunc, sq_args, factor_fn, lo, hi, order):
-    """Low(lo)+High(hi) t^2-substituted panels of factor_fn(u)/sqrt(Sfunc(u))."""
-    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in sq_args)
-    mid = xp.sqrt(0.5 * (hi - lo))
+def _staeckel_chi_profiles(
+    xp, Ssq, dSsq, args, qmin, D, order, weight_fns, chimax=numpy.pi
+):
+    """The 1/p profile integrals int f/sqrt(S) dq for every f in `weight_fns`,
+    on the SAME chi mesh as the action: int f/sqrt(S) dq = D int f/sqrt(Q) dchi.
 
-    def panel(base, sign):
-        def integ(s):  # s: (n,) -> (N, n); u = base + sign*t^2, t = mid*s
-            t = mid[..., None] * s
-            u = base[..., None] + sign * t**2.0
-            S = Sfunc(u, *a2)
-            Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
-            g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
-            return 2.0 * t * g * mid[..., None]  # du = 2t dt, dt = mid ds
-
-        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
-
-    return panel(lo, 1.0) + panel(hi, -1.0)
+    One mesh serves all of them (main's `_chiQuadsU`/`_chiQuadsV` do the same),
+    so the six Leibniz derivatives cost two S evaluations rather than twelve."""
+    _, sqQ, q, wts = _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax)
+    return [D * xp.sum(wts * f(xp, q) / sqQ, axis=-1) for f in weight_fns]
 
 
 def _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order):
@@ -406,31 +505,45 @@ def _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order):
                s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
     jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
                s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
-    pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
-    dP, JRsq, JZsq = (
-        _staeckel_deriv_panels,
+    # One chi mesh per coordinate, regularized exactly as the actions are: the
+    # 1/sqrt(S) integrands are SINGULAR at the turning points, and the t^2 panels
+    # this replaces converged only to ~6e-10 -- 20x main's bar for the
+    # frequencies (gh#1357's convergence test, output 3).
+    duE, duI3, duLz = _staeckel_chi_profiles(
+        xp,
         _JRStaeckelIntegrandSquared,
+        _dJRStaeckelIntegrandSquareddu,
+        jr_args,
+        umin,
+        umax - umin,
+        order,
+        (
+            lambda xp, u: xp.sinh(u) ** 2.0,
+            lambda xp, u: xp.ones_like(u),
+            lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
+        ),
+    )
+    dvE, dvI3, dvLz = _staeckel_chi_profiles(
+        xp,
         _JzStaeckelIntegrandSquared,
-    )  # noqa: E501
-    djrdE = (
-        dP(xp, JRsq, jr_args, lambda xp, u: xp.sinh(u) ** 2.0, umin, umax, order)
-        * prefr
+        _dJzStaeckelIntegrandSquareddv,
+        jz_args,
+        vmin,
+        numpy.pi - 2.0 * vmin,  # the FULL v loop; the midplane is chi = pi/2
+        order,
+        (
+            lambda xp, v: xp.sin(v) ** 2.0,
+            lambda xp, v: xp.ones_like(v),
+            lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
+        ),
+        chimax=numpy.pi / 2.0,
     )
-    djrdLz = dP(
-        xp, JRsq, jr_args, lambda xp, u: 1.0 / xp.sinh(u) ** 2.0, umin, umax, order
-    ) * (-Lz / numpy.pi / sqrt2 / delta)  # noqa: E501
-    djrdI3 = dP(xp, JRsq, jr_args, lambda xp, u: xp.ones_like(u), umin, umax, order) * (
-        -prefr
-    )
-    djzdE = (
-        dP(xp, JZsq, jz_args, lambda xp, v: xp.sin(v) ** 2.0, vmin, pi2, order) * prefz
-    )
-    djzdLz = dP(
-        xp, JZsq, jz_args, lambda xp, v: 1.0 / xp.sin(v) ** 2.0, vmin, pi2, order
-    ) * (-Lz * sqrt2 / numpy.pi / delta)  # noqa: E501
-    djzdI3 = (
-        dP(xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), vmin, pi2, order) * prefz
-    )
+    djrdE = duE * prefr
+    djrdLz = duLz * (-Lz / numpy.pi / sqrt2 / delta)
+    djrdI3 = duI3 * (-prefr)
+    djzdE = dvE * prefz
+    djzdLz = dvLz * (-Lz * sqrt2 / numpy.pi / delta)
+    djzdI3 = dvI3 * prefz
     return djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3
 
 
@@ -482,23 +595,6 @@ def _staeckel_actions_freqs(xp, R, vR, vT, z, vz, pot, delta, order):
 # selected (with the turning-point dead-branch guard) for vectorisation.
 
 
-def _staeckel_angle_partial(xp, Sfunc, sq_args, factor_fn, base, sign, mid, order):
-    """t^2-substituted partial integral of factor_fn(.)/sqrt(S) from the turning
-    point `base` to base+sign*mid^2 (sign=+1 Low from umin/vmin, -1 High from
-    umax/pi-2); `mid` and `sign` are per-orbit. Guarded at the turning point."""
-    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in sq_args)
-
-    def integ(t01):  # t01 in [0,1] -> t = mid*t01; u = base + sign*t^2
-        t = mid[..., None] * t01
-        u = base[..., None] + sign[..., None] * t**2.0
-        S = Sfunc(u, *a2)
-        Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
-        g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
-        return 2.0 * t * g * mid[..., None]
-
-    return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
-
-
 def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac):
     """Vectorised (angler, anglephi_raw, anglez); the caller folds the azimuth phi
     into anglephi. angler/anglez are in [0, 2pi); circular orbits -> all 0.
@@ -523,64 +619,70 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac):
                s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
     jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
                s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
-    JRsq, JZsq, AP = (
-        _JRStaeckelIntegrandSquared,
-        _JzStaeckelIntegrandSquared,
-        _staeckel_angle_partial,
-    )
-    # ---- u-branch (4 leaves): panel by ux vs midpoint, K/s by (pux sign x panel)
-    high_u = ux > umin + 0.5 * (umax - umin)
-    base_u = xp.where(high_u, umax, umin)
-    sign_u = xp.where(high_u, -xp.ones_like(ux), xp.ones_like(ux))
-    mid_u = xp.sqrt(xp.where(high_u, umax - ux, ux - umin))
-    PE = AP(
-        xp, JRsq, jr_args, lambda xp, u: xp.sinh(u) ** 2.0, base_u, sign_u, mid_u, order
-    )
-    PI = AP(
-        xp, JRsq, jr_args, lambda xp, u: xp.ones_like(u), base_u, sign_u, mid_u, order
-    )
-    PL = AP(
-        xp,
-        JRsq,
-        jr_args,
-        lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
-        base_u,
-        sign_u,
-        mid_u,
-        order,
-    )
+    JRsq, JZsq = _JRStaeckelIntegrandSquared, _JzStaeckelIntegrandSquared
+    # ---- u-branch: chi-anomaly partials (same rule as the actions/frequencies).
+    # chi(u) = 2 arcsin(sqrt((u-umin)/Du)) is the anomaly of the current u, so the
+    # partial from the LOW turning point is just chimax = chi(ux); the partial
+    # from the HIGH one is (complete - that). Replaces the t^2 panels, which
+    # converged only to ~1.6e-9 -- 50x main's bar for the angles.
+    Du = umax - umin
+    Du_safe = xp.where(Du > 0.0, Du, xp.ones_like(Du))
+    chi_ux = 2.0 * xp.asin(xp.sqrt(xp.clip((ux - umin) / Du_safe, 0.0, 1.0)))
+    high_u = ux > umin + 0.5 * Du
+    part_u = _staeckel_chi_profiles(
+        xp, JRsq, _dJRStaeckelIntegrandSquareddu, jr_args, umin, Du, order,
+        (
+            lambda xp, u: xp.sinh(u) ** 2.0,
+            lambda xp, u: xp.ones_like(u),
+            lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
+        ), chimax=chi_ux[..., None],
+    )  # fmt: skip
+    full_u = _staeckel_chi_profiles(
+        xp, JRsq, _dJRStaeckelIntegrandSquareddu, jr_args, umin, Du, order,
+        (
+            lambda xp, u: xp.sinh(u) ** 2.0,
+            lambda xp, u: xp.ones_like(u),
+            lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
+        ),
+    )  # fmt: skip
+    PE, PI, PL = (xp.where(high_u, fu - pu, pu) for pu, fu in zip(part_u, full_u))
     pos_u = pux > 0.0
     K_u = xp.where(high_u, pi, xp.where(pos_u, 0.0, 2.0 * pi)) * xp.ones_like(ux)
     s_u = xp.where(high_u, xp.where(pos_u, -1.0, 1.0), xp.where(pos_u, 1.0, -1.0))
     Or1 = K_u * djrdE + s_u * (delta / sqrt2) * PE
     I3r1 = K_u * djrdI3 - s_u * (delta / sqrt2) * PI  # u-branch I3 has a leading minus
     aphi_u = K_u * djrdLz - s_u * (Lz / delta / sqrt2) * PL
-    # ---- v-branch (8 leaves): panel by vx vs midpoints, K/s by (pvx x panel x vx</>pi/2)
+    # ---- v-branch: the v anomaly spans the FULL loop [vmin, pi-vmin], and
+    # chi(pi-v) = pi - chi(v), so the eight t^2 leaves collapse to one partial
+    # plus the to-midplane integral (chi = pi/2).
+    Dv = numpy.pi - 2.0 * vmin
+    Dv_safe = xp.where(Dv > 0.0, Dv, xp.ones_like(Dv))
+    chi_vx = 2.0 * xp.asin(xp.sqrt(xp.clip((vx - vmin) / Dv_safe, 0.0, 1.0)))
     mid_v_pt = vmin + 0.5 * (pi / 2.0 - vmin)
     low_v = (vx < mid_v_pt) | (vx > (pi - mid_v_pt))
     above = vx > pi / 2.0
-    base_v = xp.where(low_v, vmin, (pi / 2.0) * xp.ones_like(vx))
-    sign_v = xp.where(low_v, xp.ones_like(vx), -xp.ones_like(vx))
-    mid_v = xp.where(
-        low_v,
-        xp.where(above, xp.sqrt(xp.abs(pi - vx - vmin)), xp.sqrt(xp.abs(vx - vmin))),
-        xp.sqrt(xp.abs(pi / 2.0 - vx)),
-    )
-    QE = AP(
-        xp, JZsq, jz_args, lambda xp, v: xp.sin(v) ** 2.0, base_v, sign_v, mid_v, order
-    )
-    QI = AP(
-        xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), base_v, sign_v, mid_v, order
-    )
-    QL = AP(
-        xp,
-        JZsq,
-        jz_args,
-        lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
-        base_v,
-        sign_v,
-        mid_v,
-        order,
+    # low_v panels integrate from the vmin turning point; by the pi/2 symmetry the
+    # `above` ones are the mirrored partial, i.e. anomaly pi - chi(vx)
+    chimax_v = xp.where(low_v & above, numpy.pi - chi_vx, chi_vx)
+    part_v = _staeckel_chi_profiles(
+        xp, JZsq, _dJzStaeckelIntegrandSquareddv, jz_args, vmin, Dv, order,
+        (
+            lambda xp, v: xp.sin(v) ** 2.0,
+            lambda xp, v: xp.ones_like(v),
+            lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
+        ), chimax=chimax_v[..., None],
+    )  # fmt: skip
+    half_v = _staeckel_chi_profiles(
+        xp, JZsq, _dJzStaeckelIntegrandSquareddv, jz_args, vmin, Dv, order,
+        (
+            lambda xp, v: xp.sin(v) ** 2.0,
+            lambda xp, v: xp.ones_like(v),
+            lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
+        ), chimax=numpy.pi / 2.0,
+    )  # fmt: skip
+    QE, QI, QL = (
+        xp.where(low_v, pv, xp.where(above, pv - hv, hv - pv))
+        for pv, hv in zip(part_v, half_v)
     )
     pos_v = pvx > 0.0
     K_v = xp.where(
@@ -2760,32 +2862,39 @@ def _JzStaeckelIntegrandSquared(
 def _dJRStaeckelIntegrandSquareddu(
     u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
 ):
+    # xp, not numpy: the chi-anomaly edge reconstruction calls this on the
+    # BACKEND path too, where numpy.cosh(Tensor) breaks autograd via
+    # __array__. get_namespace(u) is numpy for every numpy caller, so the
+    # numpy path stays byte-identical.
+    xp = get_namespace(u)
     R, z = coords.uv_to_Rz(u, v0, delta=delta)
     dPhidu = -delta * (
-        _evaluateRforces(pot, R, z) * numpy.cosh(u) * numpy.sin(v0)
-        + _evaluatezforces(pot, R, z) * numpy.sinh(u) * numpy.cos(v0)
+        _evaluateRforces(pot, R, z) * xp.cosh(u) * _staeckel_trig(xp, "sin", v0)
+        + _evaluatezforces(pot, R, z) * xp.sinh(u) * _staeckel_trig(xp, "cos", v0)
     )
     return (
-        E * numpy.sinh(2.0 * u)
-        - numpy.sinh(2.0 * u) * potentialStaeckel(u, v0, pot, delta)
-        - (numpy.sinh(u) ** 2.0 + sin2v0) * dPhidu
-        + Lz**2.0 / delta**2.0 * numpy.cosh(u) / numpy.sinh(u) ** 3.0
+        E * xp.sinh(2.0 * u)
+        - xp.sinh(2.0 * u) * potentialStaeckel(u, v0, pot, delta)
+        - (xp.sinh(u) ** 2.0 + sin2v0) * dPhidu
+        + Lz**2.0 / delta**2.0 * xp.cosh(u) / xp.sinh(u) ** 3.0
     )
 
 
 def _dJzStaeckelIntegrandSquareddv(
     v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
 ):
+    # see _dJRStaeckelIntegrandSquareddu on why this resolves a namespace
+    xp = get_namespace(v)
     R, z = coords.uv_to_Rz(u0, v, delta=delta)
     dPhidv = -delta * (
-        _evaluateRforces(pot, R, z) * numpy.sinh(u0) * numpy.cos(v)
-        - _evaluatezforces(pot, R, z) * numpy.cosh(u0) * numpy.sin(v)
+        _evaluateRforces(pot, R, z) * _staeckel_trig(xp, "sinh", u0) * xp.cos(v)
+        - _evaluatezforces(pot, R, z) * _staeckel_trig(xp, "cosh", u0) * xp.sin(v)
     )
     return (
-        E * numpy.sin(2.0 * v)
-        - numpy.sin(2.0 * v) * potentialStaeckel(u0, v, pot, delta)
-        - (sinh2u0 + numpy.sin(v) ** 2.0) * dPhidv
-        + Lz**2.0 / delta**2.0 * numpy.cos(v) / numpy.sin(v) ** 3.0
+        E * xp.sin(2.0 * v)
+        - xp.sin(2.0 * v) * potentialStaeckel(u0, v, pot, delta)
+        - (sinh2u0 + xp.sin(v) ** 2.0) * dPhidv
+        + Lz**2.0 / delta**2.0 * xp.cos(v) / xp.sin(v) ** 3.0
     )
 
 
