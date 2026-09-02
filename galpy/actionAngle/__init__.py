@@ -34,7 +34,6 @@ actionAngle = actionAngle.actionAngle
 actionAngleInverse = actionAngleInverse.actionAngleInverse
 actionAngleAdiabatic = actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid = actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
-actionAngleStaeckelSingle = actionAngleStaeckel.actionAngleStaeckelSingle
 actionAngleStaeckel = actionAngleStaeckel.actionAngleStaeckel
 actionAngleStaeckelGrid = actionAngleStaeckelGrid.actionAngleStaeckelGrid
 actionAngleIsochrone = actionAngleIsochrone.actionAngleIsochrone
