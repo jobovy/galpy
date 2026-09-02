@@ -151,46 +151,26 @@ class actionAngleTorusStaeckel:
         """The true Hamiltonian and the auxiliary's local frequencies over
         the fitting grid, at per-point actions (jr + dJr, lz, jz + dJz).
 
-        When the action perturbation is uniform (the seed pass, dJ = 0),
-        every grid point shares one J and the family evaluates the whole
-        angle grid in a single vectorized call; otherwise J varies per
-        point (the generating function's action shift) and the family --
-        which caches per torus at a scalar J -- is called point by point."""
+        The action perturbation J^S(theta) = J + dJ varies per grid point
+        (the generating function's action shift), so the family is evaluated
+        through its array-J path: one vectorized call over all grid points,
+        each torus paired with its own angle. The seed pass (dJ = 0) is the
+        uniform special case of the same call."""
         npt = len(self._thr)
-        if numpy.all(dJr == dJr.flat[0]) and numpy.all(dJz == dJz.flat[0]):
-            out = self._fam._xvFreqs(
-                jr + dJr.flat[0],
-                lz,
-                jz + dJz.flat[0],
-                self._thr,
-                numpy.zeros(npt),
-                self._thz,
-            )
-            R, vR, vT, z, vz = (numpy.atleast_1d(q) for q in out[:5])
-            H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
-                self._pot, R, z, use_physical=False
-            )
-            Omr = numpy.broadcast_to(float(numpy.atleast_1d(out[6])[0]), (npt,)).copy()
-            Omz = numpy.broadcast_to(float(numpy.atleast_1d(out[8])[0]), (npt,)).copy()
-            return H, Omr, Omz
-        H = numpy.empty(npt)
-        Omr = numpy.empty(npt)
-        Omz = numpy.empty(npt)
-        for i in range(npt):
-            out = self._fam._xvFreqs(
-                jr + dJr[i],
-                lz,
-                jz + dJz[i],
-                numpy.array([self._thr[i]]),
-                numpy.array([0.0]),
-                numpy.array([self._thz[i]]),
-            )
-            R, vR, vT, z, vz = (float(numpy.atleast_1d(q)[0]) for q in out[:5])
-            H[i] = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
-                self._pot, R, z, use_physical=False
-            )
-            Omr[i] = float(numpy.atleast_1d(out[6])[0])
-            Omz[i] = float(numpy.atleast_1d(out[8])[0])
+        out = self._fam._xvFreqs_arrayJ(
+            jr + dJr,
+            numpy.full(npt, lz),
+            jz + dJz,
+            self._thr,
+            numpy.zeros(npt),
+            self._thz,
+        )
+        R, vR, vT, z, vz = (numpy.atleast_1d(q) for q in out[:5])
+        H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
+            self._pot, R, z, use_physical=False
+        )
+        Omr = numpy.atleast_1d(out[6]).astype("float")
+        Omz = numpy.atleast_1d(out[8]).astype("float")
         return H, Omr, Omz
 
     def _dJ_of_AB(self, A, B):
