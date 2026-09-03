@@ -10126,6 +10126,47 @@ def test_actionAngleStaeckelInverse_xvFreqs_arrayJ(
             )
             < 1e-10
         ), "warm-started evaluation disagrees with the cold one (output %i)" % k
+    # raise_unconverged=False turns non-converging points into NaN with a
+    # warning instead of failing the whole array (v, dq prepared at full
+    # maxiter so only the toy-angle solve is starved)
+    x4 = aASI._canon_coords_vec(jr[:4], Lz[:4], jz[:4])
+    v4, dq4 = aASI._canon_family_chains_vec(x4)
+    LA4 = jz[:4] + numpy.fabs(Lz[:4])
+
+    class _Starved:
+        # one Picard iteration only, while the compensation underneath runs
+        # at full accuracy: only the toy-angle solve itself is starved
+        _maxiter = 1
+        _angle_tol = 1e-13
+
+        def _canon_comp_vec(self, tr, tz, jr_, LA_, Lz_, v_, dq_, tstate=None):
+            return aASI._canon_comp_vec(tr, tz, jr_, LA_, Lz_, v_, dq_)
+
+    from galpy.actionAngle.actionAngleStaeckelInverse import (
+        actionAngleStaeckelInverse as _aacls,
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        tAr, tAz, _ = _aacls._toy_angle_solve_vec(
+            _Starved(),
+            thr[:4],
+            thz[:4],
+            jr[:4],
+            LA4,
+            Lz[:4],
+            v4,
+            dq4,
+            raise_unconverged=False,
+        )
+    assert any("returning NaN" in str(wi.message) for wi in w), (
+        "no NaN warning was emitted for unconverged points"
+    )
+    assert numpy.any(numpy.isnan(tAr)), "unconverged points did not come back as NaN"
+    with pytest.raises(RuntimeError):
+        _aacls._toy_angle_solve_vec(
+            _Starved(), thr[:4], thz[:4], jr[:4], LA4, Lz[:4], v4, dq4
+        )
     # the vectorized solve escapes the same period-two limit cycle as the
     # scalar one, through under-relaxation (see the scalar limit-cycle test)
     from galpy.actionAngle.actionAngleStaeckelInverse import (

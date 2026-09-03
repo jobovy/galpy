@@ -2644,10 +2644,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             comp[i] = uterm + vterm - pdq * ddel[:, i]
         return comp[0], comp[1], comp[2]
 
-    def _toy_angle_solve_vec(self, thR, thz, jr, LA, Lz, v, dq, start=None):
+    def _toy_angle_solve_vec(
+        self, thR, thz, jr, LA, Lz, v, dq, start=None, raise_unconverged=True
+    ):
         """Vector version of :meth:`_toy_angle_solve`: the same damped
         Picard iteration, calling :meth:`_canon_comp_vec`; start warm-starts
-        the iteration from a previous nearby solve."""
+        the iteration from a previous nearby solve. With
+        raise_unconverged=False, points that do not converge come back as
+        NaN (with a warning) instead of failing the whole array -- for
+        dense evaluation scans that can tolerate masked points."""
         if start is None:
             thetaAr = numpy.copy(thR)
             thetaAz = numpy.copy(thz)
@@ -2674,7 +2679,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if mx < self._angle_tol:
                 break
         else:
-            raise RuntimeError("Toy-angle iteration did not converge")
+            if raise_unconverged or self._maxiter < 1:
+                raise RuntimeError("Toy-angle iteration did not converge")
+            bad = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)) >= self._angle_tol
+            warnings.warn(
+                "Toy-angle iteration did not converge for %d of %d points; "
+                "returning NaN there" % (int(bad.sum()), len(thetaAr)),
+                galpyWarning,
+            )
+            thetaAr = numpy.where(bad, numpy.nan, thetaAr)
+            thetaAz = numpy.where(bad, numpy.nan, thetaAz)
         return thetaAr, thetaAz, cphi
 
     def _canon_unlift_vec(
@@ -2750,7 +2764,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vzt = (pu * sh * cs - pv * ch * sn) / den
         return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
 
-    def _xvFreqs_arrayJ(self, jr, jphi, jz, angler, anglephi, anglez, warm=None):
+    def _xvFreqs_arrayJ(
+        self,
+        jr,
+        jphi,
+        jz,
+        angler,
+        anglephi,
+        anglez,
+        warm=None,
+        raise_unconverged=True,
+    ):
         """Evaluate the canonical family for MANY tori at once: jr, jphi,
         jz and the angles are all (N,) arrays, each torus paired with its
         own angle. This is the array-J path the torus-mapper fit needs."""
@@ -2774,6 +2798,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             v,
             dq,
             start=None if warm is None else warm.get("thetaA"),
+            raise_unconverged=raise_unconverged,
         )
         if warm is not None:
             warm["x"] = x
