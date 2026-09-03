@@ -1489,14 +1489,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
 
     ################## CANONICAL FAMILY (T2) ##################################
-    def _canon_table_eval(self, x, deriv=None):
+    def _canon_table_eval(self, x, deriv=None, rows=None):
         """Evaluate the stacked, prefiltered 3-D canonical tables (and their
         own derivatives) at fractional grid coordinates x = (xL, xE, xI),
         vectorized over points; deriv is None or the axis (0, 1, 2) along
-        which to take the tables' own first derivative, in grid-index units"""
+        which to take the tables' own first derivative, in grid-index units.
+        rows selects a subset of the stacked quantities (e.g. only the
+        action rows during the label inversion, which is what makes the
+        inversion cheap: the full stack is ~20x wider)"""
         x = numpy.atleast_2d(x)
         npts = x.shape[0]
-        vals = numpy.empty((self._canon_tab.shape[0], npts))
+        tab = self._canon_tab if rows is None else self._canon_tab[rows]
+        vals = numpy.empty((tab.shape[0], npts))
         idx = numpy.floor(x).astype(int)
         t = x - idx
         for ax in range(3):
@@ -1514,7 +1518,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         i0 = idx[:, 0][:, None] + numpy.arange(4)[None, :] + 1
         i1 = idx[:, 1][:, None] + numpy.arange(4)[None, :] + 1
         i2 = idx[:, 2][:, None] + numpy.arange(4)[None, :] + 1
-        block = self._canon_tab[
+        block = tab[
             :,
             i0[:, :, None, None],
             i1[:, None, :, None],
@@ -1522,6 +1526,40 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         ]
         vals = numpy.einsum("qpabc,pa,pb,pc->qp", block, wts[0], wts[1], wts[2])
         return vals
+
+    def _canon_table_eval_all(self, x):
+        """Value plus all three derivative-axis evaluations of the stacked
+        tables in one pass: the 4x4x4 neighborhood gather -- the expensive
+        part -- is shared by the four contractions instead of repeated"""
+        x = numpy.atleast_2d(x)
+        idx = numpy.floor(x).astype(int)
+        for ax in range(3):
+            idx[:, ax] = numpy.clip(idx[:, ax], 0, self._canon_shape[ax] - 2)
+        t = x - idx
+        w = [_bspline_weights(t[:, ax]).T for ax in range(3)]
+        dw = [_bspline_dweights(t[:, ax]).T for ax in range(3)]
+        i0 = idx[:, 0][:, None] + numpy.arange(4)[None, :] + 1
+        i1 = idx[:, 1][:, None] + numpy.arange(4)[None, :] + 1
+        i2 = idx[:, 2][:, None] + numpy.arange(4)[None, :] + 1
+        block = self._canon_tab[
+            :,
+            i0[:, :, None, None],
+            i1[:, None, :, None],
+            i2[:, None, None, :],
+        ].reshape(self._canon_tab.shape[0], x.shape[0], 64)
+
+        def contract(wa, wb, wc):
+            W = (
+                wa[:, :, None, None] * wb[:, None, :, None] * wc[:, None, None, :]
+            ).reshape(x.shape[0], 64)
+            return numpy.einsum("qpk,pk->qp", block, W)
+
+        return (
+            contract(w[0], w[1], w[2]),
+            contract(dw[0], w[1], w[2]),
+            contract(w[0], dw[1], w[2]),
+            contract(w[0], w[1], dw[2]),
+        )
 
     def _target_box(self, Rmin, Rmax, Rinf, wpad):
         """The padded (L_z, w_E, w_I) box that localizes the grid on the
@@ -1839,7 +1877,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._canon_tab = _prefilter_padded(self._canon_tab_raw, (1, 2, 3), 2)
         return None
 
-    def _canon_coords_vec(self, jr, Lz, jz):
+    def _canon_coords_vec(self, jr, Lz, jz, x0=None):
         """
         Invert the stored label tables for many tori at once.
 
@@ -1877,14 +1915,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             / (self._Lzgrid[-1] - self._Lzgrid[0])
             * (self._nLz - 1)
         )
-        xE = numpy.full_like(xL, 0.5 * (self._nE - 1))
-        xI = numpy.full_like(xL, 0.5 * (self._nI3 - 1))
+        if x0 is None:
+            xE = numpy.full_like(xL, 0.5 * (self._nE - 1))
+            xI = numpy.full_like(xL, 0.5 * (self._nI3 - 1))
+        else:
+            # warm start from a previous inversion of a nearby ensemble
+            # (the fitters call this with slowly-changing actions)
+            xE = numpy.clip(x0[:, 1].copy(), 0.0, self._nE - 1.0)
+            xI = numpy.clip(x0[:, 2].copy(), 0.0, self._nI3 - 1.0)
         tol = 1e-12 * (1.0 + numpy.fabs(jr) + numpy.fabs(jz))
         for _ in range(self._maxiter):
             x = numpy.stack((xL, xE, xI), axis=1)
-            v = self._canon_table_eval(x)
-            dE_ = self._canon_table_eval(x, deriv=1)
-            dI_ = self._canon_table_eval(x, deriv=2)
+            v = self._canon_table_eval(x, rows=slice(0, 2))
+            dE_ = self._canon_table_eval(x, deriv=1, rows=slice(0, 2))
+            dI_ = self._canon_table_eval(x, deriv=2, rows=slice(0, 2))
             f0 = v[0] - jr
             f1 = v[1] - jz
             det = dE_[0] * dI_[1] - dI_[0] * dE_[1]
@@ -2181,10 +2225,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """
         xx = numpy.atleast_2d(x)
         npts = xx.shape[0]
-        v = self._canon_table_eval(xx)
-        dL = self._canon_table_eval(xx, deriv=0) / self._canon_dLz
-        dE_ = self._canon_table_eval(xx, deriv=1)
-        dI_ = self._canon_table_eval(xx, deriv=2)
+        v, dL, dE_, dI_ = self._canon_table_eval_all(xx)
+        dL = dL / self._canon_dLz
         M = numpy.empty((npts, 3, 3))
         M[:, 0, 0], M[:, 0, 1], M[:, 0, 2] = dL[0], dE_[0], dI_[0]
         M[:, 1, 0], M[:, 1, 1], M[:, 1, 2] = 1.0, 0.0, 0.0
@@ -2576,11 +2618,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             comp[i] = uterm + vterm - pdq * ddel[:, i]
         return comp[0], comp[1], comp[2]
 
-    def _toy_angle_solve_vec(self, thR, thz, jr, LA, Lz, v, dq):
+    def _toy_angle_solve_vec(self, thR, thz, jr, LA, Lz, v, dq, start=None):
         """Vector version of :meth:`_toy_angle_solve`: the same damped
-        Picard iteration, calling :meth:`_canon_comp_vec`."""
-        thetaAr = numpy.copy(thR)
-        thetaAz = numpy.copy(thz)
+        Picard iteration, calling :meth:`_canon_comp_vec`; start warm-starts
+        the iteration from a previous nearby solve."""
+        if start is None:
+            thetaAr = numpy.copy(thR)
+            thetaAz = numpy.copy(thz)
+        else:
+            thetaAr = numpy.copy(start[0])
+            thetaAz = numpy.copy(start[1])
         omega = 1.0
         prev = numpy.inf
         for _ in range(self._maxiter):
@@ -2674,7 +2721,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vzt = (pu * sh * cs - pv * ch * sn) / den
         return Rt, vRt, Lz / Rt, zt, vzt, phi % (2.0 * numpy.pi)
 
-    def _xvFreqs_arrayJ(self, jr, jphi, jz, angler, anglephi, anglez):
+    def _xvFreqs_arrayJ(self, jr, jphi, jz, angler, anglephi, anglez, warm=None):
         """Evaluate the canonical family for MANY tori at once: jr, jphi,
         jz and the angles are all (N,) arrays, each torus paired with its
         own angle. This is the array-J path the torus-mapper fit needs."""
@@ -2685,9 +2732,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         thphi = numpy.atleast_1d(numpy.asarray(anglephi, dtype="float"))
         thz = numpy.atleast_1d(numpy.asarray(anglez, dtype="float"))
         LA = jz + numpy.fabs(Lz)
-        x = self._canon_coords_vec(jr, Lz, jz)
+        x = self._canon_coords_vec(
+            jr, Lz, jz, x0=None if warm is None else warm.get("x")
+        )
         v, dq = self._canon_family_chains_vec(x)
-        thetaAr, thetaAz, cphi = self._toy_angle_solve_vec(thR, thz, jr, LA, Lz, v, dq)
+        thetaAr, thetaAz, cphi = self._toy_angle_solve_vec(
+            thR,
+            thz,
+            jr,
+            LA,
+            Lz,
+            v,
+            dq,
+            start=None if warm is None else warm.get("thetaA"),
+        )
+        if warm is not None:
+            warm["x"] = x
+            warm["thetaA"] = (thetaAr, thetaAz)
         thetaAphi = thphi - cphi
         oo = self._aAIinvc._xvFreqs(jr, Lz, jz, thetaAr, thetaAphi, thetaAz)
         out = [numpy.atleast_1d(q) for q in oo[:6]]
