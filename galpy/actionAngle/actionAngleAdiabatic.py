@@ -30,7 +30,9 @@ from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
 
 
-def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=10):
+def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=20):
+    # order=20 matches the numpy c=True path, whose C hardcodes 20 for the
+    # adiabatic action quadratures (gh#1356); the backend value must equal it.
     """Differentiable (jr, jz) via the C-native Adiabatic action Jacobian.
 
     For jax/torch inputs, wraps the compiled 2x5 d(jr,jz)/d(R,vR,vT,z,vz) C entry
@@ -62,7 +64,7 @@ def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=10):
     )
 
 
-def _adiabatic_c_grad_ecczmax(pot, gamma, R, vR, vT, z, vz, order=10):
+def _adiabatic_c_grad_ecczmax(pot, gamma, R, vR, vT, z, vz, order=20):
     """Differentiable (ecc, zmax, rperi, rap) via the C-native Adiabatic EccZmax
     Jacobian. For jax/torch inputs, wraps the compiled (4,5)
     d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz) C entry
