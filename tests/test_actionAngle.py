@@ -10110,6 +10110,22 @@ def test_actionAngleStaeckelInverse_xvFreqs_arrayJ(
         assert "did not converge" in str(excinfo.value)
     finally:
         aASI._maxiter = maxiter
+    # a warm= dict carries the label coordinates and toy angles between
+    # evaluations: the warm-started solve must agree with the cold one and
+    # store its state for the next iterate
+    warm = {}
+    got_w0 = aASI._xvFreqs_arrayJ(jr, Lz, jz, thr, thp, thz, warm=warm)
+    assert "x" in warm and "thetaA" in warm, (
+        "the warm dict was not populated by the array-J evaluation"
+    )
+    got_w = aASI._xvFreqs_arrayJ(jr, Lz, jz, thr, thp, thz, warm=warm)
+    for k in range(9):
+        assert (
+            numpy.amax(
+                numpy.fabs(numpy.atleast_1d(got_w[k]) - numpy.atleast_1d(got[k]))
+            )
+            < 1e-10
+        ), "warm-started evaluation disagrees with the cold one (output %i)" % k
     # the vectorized solve escapes the same period-two limit cycle as the
     # scalar one, through under-relaxation (see the scalar limit-cycle test)
     from galpy.actionAngle.actionAngleStaeckelInverse import (
