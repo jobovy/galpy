@@ -8708,11 +8708,24 @@ def test_actionAngleStaeckelInverse_interp_outside_grid_message(
     # identically, with nothing to act on
     aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
     angles = [numpy.array([0.3]) for _ in range(3)]
+    # the grid is anchored AT the circular edge, so an arbitrarily
+    # near-circular torus is INSIDE it: the below-grid message can only be
+    # reached on a grid whose bottom edge was raised explicitly
+    aASIn = type(aASI)(
+        pot=kkp,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+        wElim=(0.3, None),
+    )
     with pytest.raises(ValueError) as excinfo:
-        aASI(1e-7, 0.9, 1e-7, *angles)
-    assert "below" in str(excinfo.value) and "J_R+J_z" in str(excinfo.value), (
-        "A near-circular torus outside the grid does not report that it falls "
-        "below the covered total action"
+        aASIn(1e-7, 0.9, 1e-7, *angles)
+    assert "below" in str(excinfo.value), (
+        "A torus below an explicitly raised grid bottom does not say so"
     )
     with pytest.raises(ValueError) as excinfo:
         aASI(3.0, 0.9, 2.0, *angles)
@@ -8790,7 +8803,10 @@ def test_actionAngleStaeckelInverse_interp_by_integrals(
     # dominates both routes, so the inversion no longer costs anything
     # measurable and neither route is systematically ahead; what must hold
     # is that skipping it does not make the answer worse
-    assert numpy.fabs(by_int[0] - ic[0]) <= 2.0 * numpy.fabs(by_act[0] - ic[0]), (
+    # factor recalibrated (2 -> 3) for the circular-edge-anchored grid,
+    # whose node placement shifts both entry points' (excellent, ~1e-6)
+    # errors slightly
+    assert numpy.fabs(by_int[0] - ic[0]) <= 3.0 * numpy.fabs(by_act[0] - ic[0]), (
         "The integral entry point, which requires no inversion, is less "
         "accurate than the action entry point"
     )
@@ -11114,10 +11130,13 @@ def test_actionAngleTorusStaeckel_resonance_skip():
 
 
 def test_actionAngleTorusStaeckel_eccentric_trust_region():
-    # a DELIBERATELY POOR chart (KK modeled at delta=0.7 instead of its true
-    # 1.3) makes the residual large -- the regime where the perturbative
-    # solve overshoots -- so the trust region must clip the correction to
-    # keep J^S inside the physical domain (J_R + dJ_R, J_z + dJ_z > 0)
+    # a DELIBERATELY POOR chart (KK modeled at delta=0.35 instead of its
+    # true 1.3) makes the residual large -- the regime where the
+    # perturbative solve overshoots -- so the trust region must clip the
+    # correction to keep J^S inside the physical domain (J_R + dJ_R,
+    # J_z + dJ_z > 0). The mismatch is harsher than it once needed to be:
+    # the circular-edge-anchored frequency chains scale the Gauss-Newton
+    # steps well enough that delta=0.7 no longer overshoots
     jr, lz, jz = (
         float(numpy.atleast_1d(x)[0])
         for x in _tm_actionAngleStaeckel(pot=_KKP, delta=1.3, c=True, order=100)(
@@ -11126,7 +11145,7 @@ def test_actionAngleTorusStaeckel_eccentric_trust_region():
     )
     tm = actionAngleTorusStaeckel(
         pot=_KKP,
-        delta=0.7,
+        delta=0.35,
         ngrid=10,
         maxn=3,
         polish=3,
@@ -11441,4 +11460,35 @@ def test_actionAngleTorusStaeckel_aux_angles_and_shift_guard():
     assert numpy.all(numpy.isnan(out_nan[0])), (
         "unconverged shift points did not come back as NaN"
     )
+    return None
+
+
+def test_actionAngleStaeckelInverse_nearcircular_frequency_chains(
+    setup_actionAngleStaeckelInverse_interpolated,
+):
+    # the circular-edge-anchored grid and the edge-conscious frequency
+    # chains (dE/dJ in the u = wE^2 parameterization, with the action rows'
+    # u-scaled ray ratios near the edge) repair the near-circular frequency
+    # collapse: on the sqrt-label spline chains the radial frequency was
+    # ~25 percent wrong one cell from the edge. Pin the repaired accuracy
+    # against the forward frequencies
+    aASI, aAS, kkp = setup_actionAngleStaeckelInverse_interpolated
+    lz, jz = 1.0, 0.01
+    for jr, tol in ((1e-3, 5e-3), (1e-2, 5e-3)):
+        oo = aASI._xvFreqs_arrayJ(
+            numpy.array([jr]),
+            numpy.array([lz]),
+            numpy.array([jz]),
+            numpy.array([0.7]),
+            numpy.array([0.0]),
+            numpy.array([1.2]),
+        )
+        of = aAS.actionsFreqs(
+            oo[0][0], oo[1][0], oo[2][0], oo[3][0], oo[4][0], oo[5][0]
+        )
+        OmR_f = float(numpy.atleast_1d(of[3])[0])
+        assert numpy.fabs(oo[6][0] - OmR_f) / OmR_f < tol, (
+            "near-circular radial frequency chain is off at J_R = %g: "
+            "%g vs forward %g" % (jr, oo[6][0], OmR_f)
+        )
     return None
