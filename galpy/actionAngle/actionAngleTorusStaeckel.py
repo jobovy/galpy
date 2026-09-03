@@ -504,27 +504,21 @@ class actionAngleTorusStaeckel:
             ph = nr * thr + nz * thz
             shift_p += dA[1][k] * numpy.sin(ph) + dB[1][k] * (1.0 - numpy.cos(ph))
         thp = anglephi - shift_p
-        # the auxiliary actions along the torus and the family evaluation
-        out = [numpy.empty(len(thr)) for _ in range(6)]
-        for i in range(len(thr)):
-            dJr = 0.0
-            dJz = 0.0
-            for k, (nr, nz) in enumerate(self._modes):
-                ph = nr * thr[i] + nz * thz[i]
-                amp = A[k] * numpy.cos(ph) + B[k] * numpy.sin(ph)
-                dJr += nr * amp
-                dJz += nz * amp
-            oi = self._fam(
-                jr + dJr,
-                lz,
-                jz + dJz,
-                numpy.array([thr[i]]),
-                numpy.array([thp[i]]),
-                numpy.array([thz[i]]),
-            )
-            for j in range(6):
-                out[j][i] = float(numpy.atleast_1d(oi[j])[0])
-        return tuple(out)
+        # the auxiliary actions along the torus and ONE array-J family
+        # evaluation (per-point actions paired with per-point angles); the
+        # clamp guards trig-polynomial overshoots of dJ between the fitting
+        # grid's points, which can otherwise cross the physical J > 0 edge
+        # at densely sampled angles
+        nRa = numpy.array([m[0] for m in self._modes])
+        nZa = numpy.array([m[1] for m in self._modes])
+        ph = nRa[None, :] * thr[:, None] + nZa[None, :] * thz[:, None]
+        amp = A[None, :] * numpy.cos(ph) + B[None, :] * numpy.sin(ph)
+        dJr = numpy.maximum((nRa[None, :] * amp).sum(axis=1), -0.98 * jr)
+        dJz = numpy.maximum((nZa[None, :] * amp).sum(axis=1), -0.98 * jz)
+        oo = self._fam._xvFreqs_arrayJ(
+            jr + dJr, numpy.full(len(thr), lz), jz + dJz, thr, thp, thz
+        )
+        return tuple(numpy.atleast_1d(q) for q in oo[:6])
 
     def xvFreqs(
         self, jr, jphi, jz, angler, anglephi, anglez, method="family", **kwargs
