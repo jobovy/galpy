@@ -520,13 +520,47 @@ class actionAngleTorusStaeckel:
                 cols.append(numpy.prod(X[:, c], axis=1))
                 idx.append(c)
         coef = numpy.linalg.lstsq(numpy.stack(cols, axis=1), Es, rcond=None)[0]
-        g = numpy.zeros(3)
-        for k, c in enumerate(idx):
-            if len(c) == 1:
-                g[c[0]] = coef[k + 1]
-        out = {"Om": tuple(g / scal), "nnodes": len(nodes), "deg": deg}
+        out = {
+            "J0": numpy.array([jr, lz, jz]),
+            "scal": scal,
+            "coef": coef,
+            "idx": idx,
+            "nnodes": len(nodes),
+            "deg": deg,
+            "fmin": (min(self._freqgrid_frel), min(self._freqgrid_frelL)),
+            "fmax": (max(self._freqgrid_frel), max(self._freqgrid_frelL)),
+        }
+        out["Om"] = self._freq_patch_eval(out, jr, lz, jz)
         self._torus_cache[key] = out
         return out
+
+    def _freq_patch_eval(self, patch, jr, lz, jz):
+        """The analytic gradient of a stored patch polynomial at any J
+        inside the patch's span: the patch's least-squares E(J) is valid
+        across its node hull (+-50 percent of the center actions by
+        default), so one patch centered on a population's mean J serves
+        every member"""
+        X = (numpy.array([jr, lz, jz]) - patch["J0"]) / patch["scal"]
+        g = numpy.zeros(3)
+        for k, c in enumerate(patch["idx"]):
+            for a in set(c):
+                cnt = c.count(a)
+                rest = list(c)
+                rest.remove(a)
+                g[a] += patch["coef"][k + 1] * cnt * numpy.prod(X[rest])
+        return tuple(g / patch["scal"])
+
+    def _freq_patch_lookup(self, jr, lz, jz):
+        """A cached patch whose node hull covers the requested J, if any"""
+        for key, patch in self._torus_cache.items():
+            if not (isinstance(key, tuple) and key[0] == "fgrid"):
+                continue
+            r = numpy.array([jr, lz, jz]) / patch["J0"]
+            lo = (patch["fmin"][0], patch["fmin"][1], patch["fmin"][0])
+            hi = (patch["fmax"][0], patch["fmax"][1], patch["fmax"][0])
+            if all(lo[a] <= r[a] <= hi[a] for a in range(3)):
+                return patch
+        return None
 
     def Freqs(self, jr, jphi, jz, method="family"):
         """Frequencies (Omega_R, Omega_phi, Omega_z).
@@ -542,6 +576,11 @@ class actionAngleTorusStaeckel:
         one flatten per grid node (125 by default, seconds each through
         the family's array-J path), cached per torus.
 
+        A cached patch whose node hull covers the requested J answers
+        without any new flattens (the patch polynomial is valid across
+        its +-50 percent span), so one patch centered on a population's
+        mean J serves every member of a stream or clump.
+
         method='star': the analytic gradient of the stored quadratic E(J)
         model over the 7-point J-star -- cheap (7 flattens) and fine for
         near-Staeckel tori, unreliable for eccentric ones; see
@@ -555,6 +594,9 @@ class actionAngleTorusStaeckel:
                     "J_R > 0 and J_z > 0 (the radial and vertical "
                     "shell/planar edges are degenerate for the local model)"
                 )
+            patch = self._freq_patch_lookup(jr, lz, jz)
+            if patch is not None:
+                return self._freq_patch_eval(patch, jr, lz, jz)
             return self._fit_freq_grid(jr, lz, jz)["Om"]
         model = self._fit_torus(jr, lz, jz)
         ev = self._model_eval(model, jr, lz, jz)

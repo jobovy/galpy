@@ -459,3 +459,59 @@ def test_actionAngleTorusStaeckel_family_freq_grid():
     with pytest.raises(ValueError, match="interior torus"):
         tm.Freqs(0.0, lz, jz)
     return None
+
+
+def test_actionAngleTorusStaeckel_freq_patch_reuse():
+    # a cached patch answers Freqs at any J inside its node hull without
+    # new flattens, and the off-center gradient matches the forward
+    # frequencies of the off-center torus
+    jr, lz, jz = _kk_torus()
+    tm = actionAngleTorusStaeckel(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=1,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=5,
+        nE=5,
+        nI3=5,
+    )
+    tm._freqgrid_frel = (0.7, 0.85, 1.0, 1.18, 1.4)
+    tm._freqgrid_frelL = (0.99, 1.0, 1.01)
+    tm._freqgrid_minnodes = 40
+    tm.Freqs(jr, lz, jz)
+    ncached = len(tm._torus_cache)
+    # off-center query inside the hull: no new flattens, no new cache entry
+    jr2, lz2, jz2 = 1.25 * jr, 1.005 * lz, 0.8 * jz
+    Om2 = tm.Freqs(jr2, lz2, jz2)
+    assert len(tm._torus_cache) == ncached, (
+        "an in-hull Freqs query rebuilt instead of reusing the patch"
+    )
+    aAS = actionAngleStaeckel(pot=_KKP, delta=1.3, c=True, order=100)
+    xv = tm._fam._xvFreqs_arrayJ(
+        numpy.array([jr2]),
+        numpy.array([lz2]),
+        numpy.array([jz2]),
+        numpy.array([0.5]),
+        numpy.array([0.0]),
+        numpy.array([1.0]),
+    )
+    OmT = aAS.actionsFreqs(xv[0][0], xv[1][0], xv[2][0], xv[3][0], xv[4][0], xv[5][0])[
+        3:
+    ]
+    OmT = [float(numpy.atleast_1d(q)[0]) for q in OmT]
+    for k in range(3):
+        assert numpy.fabs(Om2[k] - OmT[k]) / numpy.fabs(OmT[k]) < 1e-2, (
+            "off-center patch frequency %i disagrees with the forward "
+            "frequency at the off-center torus: %g vs %g" % (k, Om2[k], OmT[k])
+        )
+    # an out-of-hull query builds a new patch
+    tm.Freqs(2.5 * jr, lz, jz)
+    assert len(tm._torus_cache) > ncached, (
+        "an out-of-hull Freqs query did not build a new patch"
+    )
+    return None
