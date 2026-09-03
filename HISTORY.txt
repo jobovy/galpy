@@ -1,6 +1,22 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
+  for orbits that pass close to the axis, and returned NaN once the integration
+  order was raised. Such an orbit's inner turning point sits near u = 0, where the
+  action integrand inherits the potential's inner power-law cusp (S ~ A - B u^0.2);
+  the single fixed-order Gauss-Legendre rule converges only algebraically against
+  it (~4.5e-5 off the pure-Python path, and not improving with order), and the
+  edge reconstruction it falls back on near the turning point evaluated
+  Lz^2 cosh(u)/sinh^3(u) = 0/0 for a purely radial (Lz = 0) orbit, giving NaN
+  from order ~50 up. Only near-axis orbits (inner turning point below a small
+  threshold) now integrate the radial action with a geometrically graded
+  composite rule targeting the cusp, on a model-free integrand; every other orbit
+  keeps the original single-panel rule unchanged, so the common case is exactly as
+  fast as before. Near-axis radial actions now match the pure-Python path to
+  ~5e-11 (~1e-12 for exactly-radial orbits), the 0/0 is read as its analytic limit
+  of 0, and jr no longer jumps between Lz = 0 and Lz = 1e-7.
+
 - ``Orbit.integrate_dxdv`` with a C integrator now hands the base state to C
   in cylindrical coordinates, so the base orbit carried alongside the
   deviation goes through the very same cyl<->rect transforms
