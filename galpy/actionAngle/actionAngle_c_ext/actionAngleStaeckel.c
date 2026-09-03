@@ -26,6 +26,14 @@
 #endif
 // see the chi-anomaly helpers below for what these control
 #define STAECKEL_CHI_EDGE 1.e-6
+// An orbit approaching the axis (umin small) picks up the potential's inner
+// power-law cusp: S ~ A - B u^0.2 at umin -> 0, i.e. chi^0.4 in the anomaly.
+// A single fixed-order rule converges only algebraically against that (the
+// default rule floors at ~4.5e-5 there), so ONLY for such orbits the radial
+// action is integrated with a geometrically graded composite rule that packs
+// panels toward the cusp. Every other orbit keeps the cheap single-panel rule.
+#define STAECKEL_NEARAXIS 0.2
+#define STAECKEL_CHI_NPANELS 24
 // chi of the midpoint of [vmin, pi/2]: there y = 1/4, so chi = 2 asin(1/2).
 // A constant, so it needs no per-iteration assignment inside the OpenMP
 // loops -- where it would have been a shared write, being absent from the
@@ -162,6 +170,9 @@ void calcVmin(int,double *,double *,double *,double *,double *,double *,int,
 	      struct potentialArg *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRLowStaeckelIntegrand(double,void *);
+double JRLowStaeckelIntegrandDirect(double,void *);
+static inline double glfixed_graded(gsl_function *,double,double,
+				    gsl_integration_glfixed_table *);
 double JRHighStaeckelIntegrand(double,void *);
 double JzStaeckelIntegrandSquared(double,void *);
 double JzStaeckelIntegrand(double,void *);
@@ -597,12 +608,19 @@ void calcJRStaeckel(int ndata,
     (params+tid)->potu0v0= *(potu0v0+ii);
     (params+tid)->umin= *(umin+ii);
     (params+tid)->umax= *(umax+ii);
-    (JRInt+tid)->function = &JRLowStaeckelIntegrand;
     (JRInt+tid)->params = params+tid;
     // each half runs to the midpoint of the oscillation, y = 1/2
     mid= 0.5 * M_PI;
-    //Integrate
-    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,0.,mid,T);
+    //Integrate. Near the axis the low half straddles the inner cusp, so it uses
+    //the graded composite rule on the model-free integrand; every other orbit
+    //keeps the cheap single-panel rule. The high half is a normal turning point.
+    if ( *(umin+ii) < STAECKEL_NEARAXIS ){
+      (JRInt+tid)->function = &JRLowStaeckelIntegrandDirect;
+      *(jr+ii)= glfixed_graded (JRInt+tid,0.,mid,T);
+    } else {
+      (JRInt+tid)->function = &JRLowStaeckelIntegrand;
+      *(jr+ii)= gsl_integration_glfixed (JRInt+tid,0.,mid,T);
+    }
     (JRInt+tid)->function = &JRHighStaeckelIntegrand;
     *(jr+ii)+= gsl_integration_glfixed (JRInt+tid,0.,mid,T);
     *(jr+ii)*= sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
@@ -1968,7 +1986,8 @@ static inline double SuTermsStaeckel(double u,double E,double I3U,
   double dU= (sinh2u+sin2v0)
     * evaluatePotentialsUV(u,v0,delta,nargs,args)
     - (sinh2u0+sin2v0) * potu0v0;
-  return E * sinh2u - I3U - dU - Lz22delta / sinh2u;
+  return E * sinh2u - I3U - dU
+    - ( Lz22delta > 0. ? Lz22delta / sinh2u : 0. );
 }
 static inline double dSuduStaeckel(double u,double E,double Lz22delta,
 				   double delta,double v0,double sin2v0,
@@ -1981,7 +2000,7 @@ static inline double dSuduStaeckel(double u,double E,double Lz22delta,
 	+ calczforce(R,z,0.,0.,nargs,args) * shu * cos(v0) );
   return E * s2u - s2u * evaluatePotentialsUV(u,v0,delta,nargs,args)
     - ( shu * shu + sin2v0 ) * dPhidu
-    + 2. * Lz22delta * chu / ( shu * shu * shu );
+    + ( Lz22delta > 0. ? 2. * Lz22delta * chu / ( shu * shu * shu ) : 0. );
 }
 // Q and the coordinate at anomaly chi; high selects the umax end
 static inline double chiQuStaeckel(double chi,int high,double umin,double umax,
@@ -2007,6 +2026,37 @@ static inline double chiQuStaeckel(double chi,int high,double umin,double umax,
   }
   return Q;
 }
+
+static inline double dmax(double x,double y){ return x > y ? x : y; }
+
+// Q at anomaly chi WITHOUT the endpoint model, for the regular sqrt(S) action
+// integrand near the axis (see chiQuStaeckel for the model the singular
+// frequency/angle integrands still need).
+static inline double chiQuStaeckelDirect(double chi,int high,double umin,
+					 double umax,double E,double I3U,
+					 double Lz22delta,double delta,double v0,
+					 double sin2v0,double sinh2u0,
+					 double potu0v0,int nargs,
+					 struct potentialArg * args,double * uu){
+  double sc= sin(0.5*chi), y= sc * sc, D= umax - umin;
+  double u= high ? umax - D * y : umin + D * y;
+  *uu= u;
+  return SuTermsStaeckel(u,E,I3U,Lz22delta,delta,v0,sin2v0,sinh2u0,potu0v0,
+			 nargs,args) / ( y * ( 1. - y ) );
+}
+
+// Composite GL over [a,b] with panels graded geometrically toward a (the cusp).
+static inline double glfixed_graded(gsl_function * f,double a,double b,
+				    gsl_integration_glfixed_table * T){
+  double out= 0., lo, hi, w= b - a;
+  int k, n= STAECKEL_CHI_NPANELS;
+  for (k=0; k < n; k++){
+    lo= k == 0 ? a : a + w * pow( 2., dmax( (double) ( k - n ), -52. ) );
+    hi= a + w * pow( 2., dmax( (double) ( k + 1 - n ), -52. ) );
+    out+= gsl_integration_glfixed(f,lo,hi,T);
+  }
+  return out;
+}
 static inline double SvTermsStaeckel(double v,double E,double I3V,
 				     double Lz22delta,double delta,double u0,
 				     double cosh2u0,double sinh2u0,
@@ -2015,7 +2065,8 @@ static inline double SvTermsStaeckel(double v,double E,double I3V,
   double sin2v= sin(v) * sin(v);
   double dV= cosh2u0 * potupi2
     - (sinh2u0+sin2v) * evaluatePotentialsUV(u0,v,delta,nargs,args);
-  return E * sin2v + I3V + dV - Lz22delta / sin2v;
+  return E * sin2v + I3V + dV
+    - ( Lz22delta > 0. ? Lz22delta / sin2v : 0. );
 }
 static inline double dSvdvStaeckel(double v,double E,double Lz22delta,
 				   double delta,double u0,double sinh2u0,
@@ -2028,7 +2079,7 @@ static inline double dSvdvStaeckel(double v,double E,double Lz22delta,
 	- calczforce(R,z,0.,0.,nargs,args) * cosh(u0) * sv );
   return E * s2v - s2v * evaluatePotentialsUV(u0,v,delta,nargs,args)
     - ( sinh2u0 + sv * sv ) * dPhidv
-    + 2. * Lz22delta * cv / ( sv * sv * sv );
+    + ( Lz22delta > 0. ? 2. * Lz22delta * cv / ( sv * sv * sv ) : 0. );
 }
 // the v loop spans [vmin, pi - vmin]; only the vmin end is a turning point
 // reached from here, the midplane being an interior symmetry point of S_z
@@ -2068,6 +2119,18 @@ double JRLowStaeckelIntegrand(double chi,
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
   double u, sc= sin(chi);
   double Q= chiQuStaeckel(chi,0,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
+			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
+			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
+  double D= params->umax - params->umin;
+  if ( Q <= 0. ) return 0.;
+  return D / 4. * sqrt(Q) * sc * sc;
+}
+
+double JRLowStaeckelIntegrandDirect(double chi,
+			      void * p){
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
+  double u, sc= sin(chi);
+  double Q= chiQuStaeckelDirect(chi,0,params->umin,params->umax,params->E,params->I3U,params->Lz22delta,
 			  params->delta,params->v0,params->sin2v0,params->sinh2u0,
 			  params->potu0v0,params->nargs,params->actionAngleArgs,&u);
   double D= params->umax - params->umin;

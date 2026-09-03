@@ -8663,3 +8663,50 @@ def test_actionAngleIsochroneInverse_kepler_bracketing_fallback():
         % numpy.max(numpy.fabs(got - ref))
     )
     return None
+
+
+def test_actionAngleStaeckel_nearaxis_c_python_parity():
+    # main had no near-axis Staeckel coverage, which is how two defects shipped:
+    # (a) an axis-reaching orbit (Lz == 0) drove the Lz^2 cosh(u)/sinh^3(u) term
+    # to 0/0 at umin = 0 inside the chi-anomaly edge reconstruction, so c=True
+    # returned NaN actions once the order was raised to ~50; and (b) the C chi
+    # quadrature was a single `order`-point rule over the whole anomaly where the
+    # pure-Python path uses max(2*order,20) panels of a 10-point rule, leaving C
+    # ~4.5e-5 off near the axis and floored -- more nodes did not help, because
+    # they crowded into the region where Q is a MODEL of S rather than S itself.
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    Rg = numpy.array([0.8, 1.0, 1.3])
+    vRg = numpy.array([0.2, 0.45])
+    vTg = numpy.array([0.0, 1e-4, 3e-4])  # Lz = 0, ~1e-4, ~3e-4
+    zg = numpy.array([0.1, 0.28])
+    G = numpy.meshgrid(Rg, vRg, vTg, zg, indexing="ij")
+    R, vR, vT, z = (g.ravel() for g in G)
+    vz = 0.1 * numpy.ones_like(R)
+    aAF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aAC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_f, _, jz_f = aAF(R, vR, vT, z, vz)
+    jr_c, _, jz_c = aAC(R, vR, vT, z, vz)
+    jr_f, jz_f, jr_c, jz_c = (numpy.atleast_1d(x) for x in (jr_f, jz_f, jr_c, jz_c))
+    assert numpy.all(numpy.isfinite(jr_c)), (
+        "C actionAngleStaeckel jr is not finite for near-axis orbits"
+    )
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7, atol=1e-10)
+    numpy.testing.assert_allclose(jz_f, jz_c, rtol=1e-7, atol=1e-10)
+    # the NaN regression: a high order puts nodes right at the endpoint, which is
+    # where the 0/0 used to bite
+    for order in (50, 200):
+        jr_hi = numpy.atleast_1d(aAC(R, vR, vT, z, vz, order=order)[0])
+        assert numpy.all(numpy.isfinite(jr_hi)), (
+            "C actionAngleStaeckel jr returns NaN for axis-reaching orbits at "
+            "order=%i" % order
+        )
+    # jr must not jump between an exactly-radial orbit and a nearly-radial one
+    aAC2 = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
+    j0 = numpy.atleast_1d(aAC2(1.0, 0.0, 0.0, 0.0, 0.0)[0])[0]
+    j1 = numpy.atleast_1d(aAC2(1.0, 0.0, 1e-7, 0.0, 0.0)[0])[0]
+    assert numpy.fabs(j0 - j1) < 1e-6, (
+        "C actionAngleStaeckel jr is discontinuous at Lz = 0"
+    )
+    return None
