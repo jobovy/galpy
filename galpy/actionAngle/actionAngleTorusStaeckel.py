@@ -1,0 +1,737 @@
+###############################################################################
+#   actionAngleTorusStaeckel.py: torus mapping for general axisymmetric
+#   potentials on the canonical Staeckel-inverse auxiliary: a Fourier
+#   generating function removes the residual non-Staeckel part of the true
+#   Hamiltonian from each torus. The auxiliary already matches the target to
+#   the Staeckel-model error, so the generating coefficients are perturbative:
+#   one FFT division seeds them and a few Gauss-Newton steps in coefficient
+#   space (with LOCAL frequency weights, which is what makes eccentric tori
+#   converge) polish them. Design and measurements: fast-orbits
+#   TORUSMAPPER_MATH.md.
+###############################################################################
+import warnings
+
+import numpy
+
+from ..potential import (
+    OblateStaeckelWrapperPotential,
+    evaluatePotentials,
+)
+from ..util import galpyWarning
+from .actionAngleStaeckelInverse import actionAngleStaeckelInverse
+
+
+class actionAngleTorusStaeckel:
+    """Torus mapping for a general axisymmetric potential: (J, theta) ->
+    (x, v) with the torus lying on a single energy surface of the TRUE
+    Hamiltonian, built as a Fourier generating-function layer on the
+    canonical actionAngleStaeckelInverse family of the potential's Staeckel
+    model. Per-torus derivatives (frequencies and the angle shift) come
+    from a local quadratic model of the fitted coefficients over a J-star,
+    differentiated analytically -- derivatives of a stored model, never
+    separately fitted numbers -- so the composite map is exactly symplectic
+    for the model it evaluates."""
+
+    def __init__(
+        self,
+        pot=None,
+        delta=None,
+        u0=None,
+        family=None,
+        ngrid=24,
+        maxn=8,
+        polish=3,
+        polish_method="gn",
+        starfrac=0.15,
+        resonance_tol=1e-3,
+        **family_kwargs,
+    ):
+        """
+        Initialize an actionAngleTorusStaeckel object.
+
+        Parameters
+        ----------
+        pot : Potential or list thereof
+            The TRUE potential (a general axisymmetric potential; it is
+            Staeckelized internally at the given focal length for the
+            auxiliary family).
+        delta : float
+            Focal length of the auxiliary Staeckel model (single delta,
+            like the forward actionAngleStaeckel); required unless family=
+            is given.
+        u0 : float, callable, or 'fit', optional
+            Reference u of the Staeckelization, passed to the family build.
+        family : actionAngleStaeckelInverse, optional
+            An already-built interpolated family for the wrapped potential;
+            overrides pot/delta/u0/family_kwargs for the auxiliary. The
+            family's box must cover the fitted tori's action excursions
+            J +- max|dJ| ~ |Delta H|/Omega.
+        ngrid : int, optional
+            Number of angle-grid points per dimension of the
+            (theta_R, theta_z) fitting grid.
+        maxn : int, optional
+            Maximum |n_R|, |n_z| of the retained Fourier lattice (must be
+            < ngrid/2 to be alias-free).
+        polish : int, optional
+            Number of Gauss-Newton polish iterations after the first-order
+            FFT seed (0 = seed only).
+        polish_method : str, optional
+            'gn' (default): the fixed-schedule Gauss-Newton passes alone.
+            'lm': additionally refine with a Levenberg-Marquardt descent of
+            the exact residual (adaptive damping, warm-started evaluations,
+            physical-boundary clamp) -- measured to take a strongly
+            eccentric MWPotential2014 torus from flat ~ 3e-2 to ~ 8e-3
+            where the fixed schedule stalls; benign tori are already at
+            the floor after the seed and are unaffected.
+        starfrac : float or (float, float, float), optional
+            Fractional half-widths of the J-star used for the local
+            quadratic model of the coefficients, per action (J_R, L_z,
+            J_z); a scalar applies to J_R and J_z with the L_z fraction
+            reduced 12-fold, because L_z is O(1) where the others are
+            O(0.01) and the cubic truncation of the quadratic model goes
+            as the SQUARE of the step (a 0.12 L_z fraction puts ~2e-3 in
+            dE/dL_z, the measured orbit-drift scale). Floored at 1e-4 in
+            J units and one-sided away from the J_R, J_z >= 0 edges.
+        family_kwargs : dict
+            Passed to the internal actionAngleStaeckelInverse build
+            (Rmin/Rmax/Rinf, grid sizes, target=, ...).
+
+        Notes
+        -----
+        - 2026-09-05 - Started - Bovy (UofT)
+        """
+        if family is not None:
+            self._fam = family
+            # the TRUE potential is the family's RAW (unwrapped) potential:
+            # family._pot is the OblateStaeckelWrapper (the MODEL), whose
+            # Hamiltonian is trivially flat on its own tori -- flattening
+            # that instead of the true H is a silent no-op
+            self._pot = getattr(family, "_chart_pot", family._pot)
+        else:
+            if pot is None:
+                raise OSError("Must specify pot= for actionAngleTorusStaeckel")
+            if delta is None:
+                raise OSError(
+                    "Must specify delta= (the auxiliary Staeckel model's "
+                    "focal length) for actionAngleTorusStaeckel"
+                )
+            self._pot = pot
+            fkw = dict(family_kwargs)
+            fkw.setdefault("setup_interp", True)
+            # a scalar u0 fixes the wrapper's reference curve; an adaptive
+            # u0 ('fit' or a callable) varies it across the family and is
+            # passed on to the family build instead
+            if u0 is not None and not (isinstance(u0, str) or callable(u0)):
+                swp = OblateStaeckelWrapperPotential(
+                    pot=pot, delta=float(delta), u0=float(u0)
+                )
+            else:
+                swp = OblateStaeckelWrapperPotential(pot=pot, delta=float(delta))
+                if u0 is not None:
+                    fkw["u0"] = u0
+            self._fam = actionAngleStaeckelInverse(pot=swp, **fkw)
+        if 2 * maxn >= ngrid:
+            raise ValueError("maxn must be < ngrid/2 for an alias-free Fourier lattice")
+        self._ngrid = ngrid
+        self._maxn = maxn
+        self._polish = polish
+        self._polish_method = polish_method
+        self._resonance_tol = resonance_tol
+        self._starfrac = (
+            tuple(starfrac)
+            if hasattr(starfrac, "__len__")
+            else (starfrac, starfrac / 12.0, starfrac)
+        )
+        # the fitting angle grid and the retained half-lattice: n_R > 0, or
+        # n_R = 0 and n_z > 0 (the conjugate half is implied by reality)
+        th = 2.0 * numpy.pi * numpy.arange(ngrid) / ngrid
+        self._thr, self._thz = (
+            a.ravel() for a in numpy.meshgrid(th, th, indexing="ij")
+        )
+        self._modes = [
+            (nr, nz)
+            for nr in range(0, maxn + 1)
+            for nz in range(-maxn, maxn + 1)
+            if nr > 0 or nz > 0
+        ]
+        self._torus_cache = {}
+
+    ############################ THE PER-TORUS FIT ############################
+    def _Hfield(self, jr, lz, jz, dJr, dJz, warm=None):
+        """The true Hamiltonian and the auxiliary's local frequencies over
+        the fitting grid, at per-point actions (jr + dJr, lz, jz + dJz).
+
+        The action perturbation J^S(theta) = J + dJ varies per grid point
+        (the generating function's action shift), so the family is evaluated
+        through its array-J path: one vectorized call over all grid points,
+        each torus paired with its own angle. The seed pass (dJ = 0) is the
+        uniform special case of the same call."""
+        npt = len(self._thr)
+        out = self._fam._xvFreqs_arrayJ(
+            jr + dJr,
+            numpy.full(npt, lz),
+            jz + dJz,
+            self._thr,
+            numpy.zeros(npt),
+            self._thz,
+            warm=warm,
+        )
+        R, vR, vT, z, vz = (numpy.atleast_1d(q) for q in out[:5])
+        H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
+            self._pot, R, z, use_physical=False
+        )
+        Omr = numpy.atleast_1d(out[6]).astype("float")
+        Omz = numpy.atleast_1d(out[8]).astype("float")
+        return H, Omr, Omz
+
+    def _lm_refine(self, jr, lz, jz, A0, B0, warm):
+        """Levenberg-Marquardt descent of the exact flattening residual from
+        the current coefficients: the residual is H(J + dJ(theta)) - <H>
+        through the family (warm-started evaluations), the analytic Jacobian
+        rows are (n . Omega_local) trig(n . theta), and action shifts that
+        would cross the physical J > 0 boundary are clamped -- trial steps
+        press the boundary transiently, the solutions sit inside it"""
+        from scipy.optimize import least_squares
+
+        K = len(self._modes)
+        nR = numpy.array([m[0] for m in self._modes])
+        nZ = numpy.array([m[1] for m in self._modes])
+        ph = nR[None, :] * self._thr[:, None] + nZ[None, :] * self._thz[:, None]
+        cph, sph = numpy.cos(ph), numpy.sin(ph)
+        state = {"p": None}
+
+        def fields(p):
+            if state["p"] is not None and numpy.array_equal(p, state["p"]):
+                return
+            A, B = p[:K], p[K:]
+            dJr = (nR[None, :] * (A[None, :] * cph + B[None, :] * sph)).sum(axis=1)
+            dJz = (nZ[None, :] * (A[None, :] * cph + B[None, :] * sph)).sum(axis=1)
+            dJr = numpy.maximum(dJr, -0.98 * jr)
+            dJz = numpy.maximum(dJz, -0.98 * jz)
+            H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
+            state.update(p=p.copy(), H=H, Omr=Omr, Omz=Omz)
+
+        def fun(p):
+            fields(p)
+            return state["H"] - numpy.mean(state["H"])
+
+        def jac(p):
+            fields(p)
+            w = (
+                state["Omr"][:, None] * nR[None, :]
+                + state["Omz"][:, None] * nZ[None, :]
+            )
+            J = numpy.concatenate([w * cph, w * sph], axis=1)
+            return J - numpy.mean(J, axis=0, keepdims=True)
+
+        res = least_squares(
+            fun,
+            numpy.concatenate([A0, B0]),
+            jac=jac,
+            method="trf",
+            max_nfev=60,
+        )
+        fields(res.x)
+        H = state["H"]
+        return (
+            res.x[:K].copy(),
+            res.x[K:].copy(),
+            float(numpy.ptp(H) / numpy.fabs(numpy.mean(H))),
+            float(numpy.mean(H)),
+        )
+
+    def _dJ_of_AB(self, A, B):
+        """The action perturbation of the generating function: dJ_i =
+        sum_n n_i [A_n cos(n.theta) + B_n sin(n.theta)] on the grid"""
+        dJr = numpy.zeros(len(self._thr))
+        dJz = numpy.zeros(len(self._thr))
+        for k, (nr, nz) in enumerate(self._modes):
+            ph = nr * self._thr + nz * self._thz
+            c, s = numpy.cos(ph), numpy.sin(ph)
+            dJr += nr * (A[k] * c + B[k] * s)
+            dJz += nz * (A[k] * c + B[k] * s)
+        return dJr, dJz
+
+    def _flatten(self, jr, lz, jz, warm=None):
+        """Fit the generating coefficients that flatten the true Hamiltonian
+        on the torus: first-order FFT division to seed, then Gauss-Newton in
+        coefficient space with LOCAL frequency weights. warm= shares the
+        family's warm-start state across fits of NEIGHBORING tori (the
+        frequency patch and the J-star pass one dict through all their
+        flattens, whose consecutive nodes are adjacent in J)"""
+        ng = self._ngrid
+        A = numpy.zeros(len(self._modes))
+        B = numpy.zeros(len(self._modes))
+        dJr = numpy.zeros(len(self._thr))
+        dJz = numpy.zeros(len(self._thr))
+        if warm is None:
+            warm = {}
+        H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
+        flat0 = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
+        skipped = 0.0
+        # seed: Fourier division at the central frequencies
+        cO_r, cO_z = numpy.median(Omr), numpy.median(Omz)
+        c = numpy.fft.fft2(H.reshape(ng, ng) - numpy.mean(H)) / ng**2
+        kk = numpy.fft.fftfreq(ng, d=1.0 / ng).astype(int)
+        for k, (nr, nz) in enumerate(self._modes):
+            cn = c[list(kk).index(nr), list(kk).index(nz)]
+            nOm = nr * cO_r + nz * cO_z
+            if numpy.fabs(nOm) < self._resonance_tol * numpy.fabs(cO_z):
+                skipped += 2.0 * numpy.abs(cn)
+                continue
+            A[k] = -2.0 * numpy.real(cn) / nOm
+            B[k] = 2.0 * numpy.imag(cn) / nOm
+        flat = flat0
+        flat_prev = flat0
+        # keep the BEST pass, not the last: the Gauss-Newton step below uses
+        # the local frequency as if constant, so once at the floor a further
+        # step can drift the flatness slightly upward -- returning the best
+        # makes the polish monotone in its result at no extra cost
+        # flatbest = inf makes pass 0 always set the best, so the initial
+        # Ebest placeholder is never returned
+        Abest, Bbest, flatbest, Ebest = A.copy(), B.copy(), numpy.inf, 0.0
+        nclip = 0
+        for it in range(self._polish + 1):
+            dJr, dJz = self._dJ_of_AB(A, B)
+            # trust region: stay inside the physical action domain (the
+            # planar and circular edges), scaling the WHOLE correction so
+            # neither J_R + dJ_R nor J_z + dJ_z crosses zero
+            lam = 1.0
+            for Jax, dJax in ((jr, dJr), (jz, dJz)):
+                if dJax.min() < -0.85 * Jax:
+                    lam = min(lam, 0.85 * Jax / -dJax.min())
+            if lam < 1.0:
+                A *= lam
+                B *= lam
+                dJr *= lam
+                dJz *= lam
+                nclip += 1
+            H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
+            flat = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
+            if flat < flatbest:
+                Abest, Bbest = A.copy(), B.copy()
+                flatbest, Ebest = flat, float(numpy.mean(H))
+            if it > 0 and flat >= 0.9 * flat_prev and lam == 1.0:
+                # a full polish step no longer improves the flatness by
+                # more than 10%: at the lattice/auxiliary floor, stop
+                break
+            flat_prev = flat
+            # Gauss-Newton step: residual r = H - <H>, Jacobian rows
+            # dH/dA_k = (n.Omega_local) cos(n.theta), dH/dB_k = (...) sin
+            r = H - numpy.mean(H)
+            nm = len(self._modes)
+            nR = numpy.array([m[0] for m in self._modes])
+            nZ = numpy.array([m[1] for m in self._modes])
+            ph = nR[None, :] * self._thr[:, None] + nZ[None, :] * self._thz[:, None]
+            nOm = Omr[:, None] * nR[None, :] + Omz[:, None] * nZ[None, :]
+            Jac = numpy.concatenate([nOm * numpy.cos(ph), nOm * numpy.sin(ph)], axis=1)
+            step, *_ = numpy.linalg.lstsq(Jac, -r, rcond=None)
+            A = A + step[:nm]
+            B = B + step[nm:]
+        if self._polish_method == "lm":
+            Alm, Blm, flatlm, Elm = self._lm_refine(jr, lz, jz, Abest, Bbest, warm)
+            if flatlm < flatbest:
+                Abest, Bbest, flatbest, Ebest = Alm, Blm, flatlm, Elm
+        if skipped > 0.0:
+            warnings.warn(
+                "actionAngleTorusStaeckel: near-resonant Fourier modes were "
+                f"skipped on torus (J_R, L_z, J_z) = ({jr:g}, {lz:g}, {jz:g}); "
+                f"their power, {skipped:g}, bounds the flattening there",
+                galpyWarning,
+            )
+        return {
+            "A": Abest,
+            "B": Bbest,
+            "E": Ebest,
+            "flat0": float(flat0),
+            "flat": float(flatbest),
+            "skipped": float(skipped),
+            "nclip": nclip,
+        }
+
+    ####################### THE LOCAL MODEL OVER A J-STAR #####################
+    def _fit_torus(self, jr, lz, jz):
+        """The star of flattening fits and its local separable-quadratic
+        model: S_n(J) and E(J) as stored quadratics whose ANALYTIC gradients
+        supply the angle shift and the frequencies -- derivatives of the
+        stored model, so the composite map is exactly symplectic for the
+        model it evaluates"""
+        if jr <= 0.0 or jz <= 0.0:
+            raise ValueError(
+                "actionAngleTorusStaeckel needs an interior torus with "
+                "J_R > 0 and J_z > 0 (the radial and vertical shell/planar "
+                "edges are degenerate for the local model)"
+            )
+        key = (round(jr, 12), round(lz, 12), round(jz, 12))
+        if key in self._torus_cache:
+            return self._torus_cache[key]
+        steps = []
+        for J, frac, floor in (
+            (jr, self._starfrac[0], 1e-4),
+            (lz, self._starfrac[1], 1e-3),
+            (jz, self._starfrac[2], 1e-4),
+        ):
+            steps.append(max(frac * J, floor))
+        hr, hL, hz = steps
+        # keep the star inside J_R, J_z > 0 (possible by the interior check)
+        lor = min(hr, 0.9 * jr)
+        loz = min(hz, 0.9 * jz)
+        pts = {
+            "c": (jr, lz, jz),
+            "rp": (jr + hr, lz, jz),
+            "rm": (jr - lor, lz, jz),
+            "Lp": (jr, lz + hL, jz),
+            "Lm": (jr, lz - hL, jz),
+            "zp": (jr, lz, jz + hz),
+            "zm": (jr, lz, jz - loz),
+        }
+        fits = {k: self._flatten(*p) for k, p in pts.items()}
+        # per-direction quadratic through the three points of each axis:
+        # f(x0 + d) = f0 + a d + b d^2 with exact 3-point coefficients for
+        # the possibly one-sided spacings
+        model = {"J0": (jr, lz, jz), "fits": fits}
+        for name, up, lo, hup, hlo in (
+            ("r", "rp", "rm", hr, lor),
+            ("L", "Lp", "Lm", hL, hL),
+            ("z", "zp", "zm", hz, loz),
+        ):
+            for q in ("A", "B", "E"):
+                f0 = fits["c"][q]
+                fp = fits[up][q]
+                fm = fits[lo][q]
+                # exact 3-point quadratic for the (possibly unequal)
+                # one-sided-away-from-edge spacings hup, hlo (both > 0)
+                a = (hlo**2.0 * fp - hup**2.0 * fm - (hlo**2.0 - hup**2.0) * f0) / (
+                    hup * hlo * (hup + hlo)
+                )
+                b = (hlo * fp + hup * fm - (hup + hlo) * f0) / (hup * hlo * (hup + hlo))
+                model[f"d{q}_d{name}"] = a
+                model[f"d2{q}_d{name}2"] = b
+        self._torus_cache[key] = model
+        return model
+
+    def _model_eval(self, model, jr, lz, jz):
+        """The stored quadratic model and its exact gradient at J"""
+        J0 = model["J0"]
+        d = (jr - J0[0], lz - J0[1], jz - J0[2])
+        out = {}
+        for q in ("A", "B", "E"):
+            v = model["fits"]["c"][q]
+            g = []
+            for name, dd in zip(("r", "L", "z"), d):
+                a = (
+                    model["dA_d%s" % name]
+                    if q == "A"
+                    else (
+                        model["dB_d%s" % name] if q == "B" else model["dE_d%s" % name]
+                    )
+                )
+                b = (
+                    model["d2A_d%s2" % name]
+                    if q == "A"
+                    else (
+                        model["d2B_d%s2" % name]
+                        if q == "B"
+                        else model["d2E_d%s2" % name]
+                    )
+                )
+                v = v + a * dd + b * dd**2.0
+                g.append(a + 2.0 * b * dd)
+            out[q] = v
+            out["d" + q] = g
+        return out
+
+    ############################### EVALUATION ################################
+    def __call__(
+        self,
+        jr,
+        jphi,
+        jz,
+        angler,
+        anglephi,
+        anglez,
+        maxiter=30,
+        angles="true",
+        raise_unconverged=True,
+    ):
+        """
+        Evaluate the torus map: (J, theta) -> (R, vR, vT, z, vz, phi).
+
+        Parameters
+        ----------
+        jr, jphi, jz : float
+            Actions (jphi = L_z).
+        angler, anglephi, anglez : numpy.ndarray
+            Angles on the torus: TRUE angles by default, AUXILIARY angles
+            theta^S with angles='aux' -- the auxiliary parameterization
+            skips the angle-shift inversion (whose derivatives come from
+            the J-star model) and is the robust choice for dense scans of
+            the torus as a geometric object (sections, plots).
+        maxiter : int, optional
+            Maximum Newton iterations of the angle-shift inversion.
+        angles : str, optional
+            'true' (default) or 'aux'; see above.
+        raise_unconverged : bool, optional
+            With False, angle points where the evaluation cannot converge
+            come back as NaN (with a warning) instead of failing the
+            whole array.
+
+        Returns
+        -------
+        tuple
+            (R, vR, vT, z, vz, phi)
+        """
+        jr, lz, jz = float(jr), float(jphi), float(jz)
+        angler = numpy.atleast_1d(angler).astype(float)
+        anglephi = numpy.atleast_1d(anglephi).astype(float)
+        anglez = numpy.atleast_1d(anglez).astype(float)
+        model = self._fit_torus(jr, lz, jz)
+        ev = self._model_eval(model, jr, lz, jz)
+        A, B = ev["A"], ev["B"]
+        dA, dB = ev["dA"], ev["dB"]
+        if angles == "aux":
+            return self._eval_aux(
+                jr, lz, jz, angler, anglephi, anglez, A, B, raise_unconverged
+            )
+        # invert theta = theta^S + dF/dJ(theta^S) for theta^S (2D Newton in
+        # (theta_r, theta_z); the theta_phi shift is then explicit,
+        # step-limited against the shift derivatives' J-star noise)
+        thr = angler.copy()
+        thz = anglez.copy()
+        Fr = Fz = None
+        for _ in range(maxiter):
+            shift_r = numpy.zeros_like(thr)
+            shift_z = numpy.zeros_like(thz)
+            dsr_dr = numpy.zeros_like(thr)
+            dsr_dz = numpy.zeros_like(thr)
+            dsz_dr = numpy.zeros_like(thr)
+            dsz_dz = numpy.zeros_like(thr)
+            for k, (nr, nz) in enumerate(self._modes):
+                ph = nr * thr + nz * thz
+                s, cph = numpy.sin(ph), numpy.cos(ph)
+                # dF/dJ_i at fixed theta^S: the model-gradient coefficients
+                fr = dA[0][k] * s + dB[0][k] * (1.0 - cph)
+                fz = dA[2][k] * s + dB[2][k] * (1.0 - cph)
+                shift_r += fr
+                shift_z += fz
+                dsr_dr += (dA[0][k] * cph + dB[0][k] * s) * nr
+                dsr_dz += (dA[0][k] * cph + dB[0][k] * s) * nz
+                dsz_dr += (dA[2][k] * cph + dB[2][k] * s) * nr
+                dsz_dz += (dA[2][k] * cph + dB[2][k] * s) * nz
+            Fr = thr + shift_r - angler
+            Fz = thz + shift_z - anglez
+            if max(numpy.fabs(Fr).max(), numpy.fabs(Fz).max()) < 1e-12:
+                break
+            det = (1.0 + dsr_dr) * (1.0 + dsz_dz) - dsr_dz * dsz_dr
+            dr_ = ((1.0 + dsz_dz) * Fr - dsr_dz * Fz) / det
+            dz_ = (-dsz_dr * Fr + (1.0 + dsr_dr) * Fz) / det
+            thr = thr - numpy.clip(dr_, -0.5, 0.5)
+            thz = thz - numpy.clip(dz_, -0.5, 0.5)
+        if Fr is None:
+            # no iterations were allowed: every point is unconverged
+            Fr = numpy.full_like(thr, numpy.inf)
+            Fz = numpy.full_like(thz, numpy.inf)
+        if max(numpy.fabs(Fr).max(), numpy.fabs(Fz).max()) >= 1e-10:
+            bad = numpy.maximum(numpy.fabs(Fr), numpy.fabs(Fz)) >= 1e-10
+            if raise_unconverged:
+                raise RuntimeError(
+                    "The angle-shift inversion did not converge for %d of %d "
+                    "angle points" % (int(bad.sum()), len(thr))
+                )
+            warnings.warn(
+                "The angle-shift inversion did not converge for %d of %d "
+                "angle points; returning NaN there" % (int(bad.sum()), len(thr)),
+                galpyWarning,
+            )
+            thr = numpy.where(bad, numpy.nan, thr)
+            thz = numpy.where(bad, numpy.nan, thz)
+        # theta_phi^S from the explicit L_z shift
+        shift_p = numpy.zeros_like(thr)
+        for k, (nr, nz) in enumerate(self._modes):
+            ph = nr * thr + nz * thz
+            shift_p += dA[1][k] * numpy.sin(ph) + dB[1][k] * (1.0 - numpy.cos(ph))
+        thp = anglephi - shift_p
+        return self._eval_aux(jr, lz, jz, thr, thp, thz, A, B, raise_unconverged)
+
+    def _eval_aux(self, jr, lz, jz, thr, thp, thz, A, B, raise_unconverged):
+        """The auxiliary actions along the torus and ONE array-J family
+        evaluation (per-point actions paired with per-point angles); the
+        clamp guards trig-polynomial overshoots of dJ between the fitting
+        grid's points, which can otherwise cross the physical J > 0 edge
+        at densely sampled angles"""
+        nRa = numpy.array([m[0] for m in self._modes])
+        nZa = numpy.array([m[1] for m in self._modes])
+        ph = nRa[None, :] * thr[:, None] + nZa[None, :] * thz[:, None]
+        amp = A[None, :] * numpy.cos(ph) + B[None, :] * numpy.sin(ph)
+        dJr = numpy.maximum(
+            numpy.nan_to_num((nRa[None, :] * amp).sum(axis=1)), -0.98 * jr
+        )
+        dJz = numpy.maximum(
+            numpy.nan_to_num((nZa[None, :] * amp).sum(axis=1)), -0.98 * jz
+        )
+        oo = self._fam._xvFreqs_arrayJ(
+            jr + dJr,
+            numpy.full(len(thr), lz),
+            jz + dJz,
+            numpy.nan_to_num(thr),
+            numpy.nan_to_num(thp),
+            numpy.nan_to_num(thz),
+            raise_unconverged=raise_unconverged,
+        )
+        out = tuple(numpy.atleast_1d(q) for q in oo[:6])
+        if numpy.any(numpy.isnan(thr)):
+            out = tuple(numpy.where(numpy.isnan(thr), numpy.nan, q) for q in out)
+        return out
+
+    def xvFreqs(
+        self, jr, jphi, jz, angler, anglephi, anglez, method="family", **kwargs
+    ):
+        """Evaluate the torus map and the frequencies: the map's (x, v)
+        together with Freqs (the family E(J) grid by default; see Freqs
+        for the accuracy of both methods and their cost)."""
+        out = self(jr, jphi, jz, angler, anglephi, anglez, **kwargs)
+        Om = self.Freqs(jr, jphi, jz, method=method)
+        return out + Om
+
+    # the family E(J) frequency grid: relative node factors per action axis
+    # (radial/vertical multiplicative, L_z near-unity), the flatness below
+    # which the cubic fit is trusted over the quadratic, and the smallest
+    # node count worth fitting
+    _freqgrid_frel = (0.65, 0.82, 1.0, 1.22, 1.5)
+    _freqgrid_frelL = (0.98, 0.99, 1.0, 1.01, 1.02)
+    _freqgrid_cubic_thresh = 1e-4
+    _freqgrid_minnodes = 30
+
+    def _fit_freq_grid(self, jr, lz, jz):
+        """One flatten per node of a relative-spaced local action grid, and
+        a least-squares E(J) polynomial through the node energies: the
+        gradient at the center is the frequency vector. Relative spacing
+        keeps the radial direction conditioned at small J_R, and the fit
+        AVERAGES the flattening residual over the nodes instead of
+        differencing it, which is what sinks the J-star on eccentric tori.
+        The polynomial degree follows the center flatness: a cubic where
+        the flatten is clean, a quadratic where the node energies are noisy
+        enough that the cubic would fit the noise."""
+        key = ("fgrid", jr, lz, jz)
+        if key in self._torus_cache:
+            return self._torus_cache[key]
+        nodes = []
+        Es = []
+        cflat = None
+        pwarm = {}
+        for fa in self._freqgrid_frel:
+            for fb in self._freqgrid_frelL:
+                for fc in self._freqgrid_frel:
+                    jn, ln, zn = jr * fa, lz * fb, jz * fc
+                    try:
+                        f = self._flatten(jn, ln, zn, warm=pwarm)
+                    except (ValueError, RuntimeError):
+                        pwarm = {}
+                        continue
+                    if fa == 1.0 and fb == 1.0 and fc == 1.0:
+                        cflat = f["flat"]
+                    nodes.append((jn, ln, zn))
+                    Es.append(f["E"])
+        ntot = len(self._freqgrid_frel) ** 2 * len(self._freqgrid_frelL)
+        if len(nodes) < self._freqgrid_minnodes or cflat is None:
+            raise RuntimeError(
+                "family E(J) frequency grid: only %i/%i nodes could be "
+                "flattened (center included: %s); the torus is too close "
+                "to the family's edge for the family frequency route"
+                % (len(nodes), ntot, cflat is not None)
+            )
+        nodes = numpy.array(nodes)
+        Es = numpy.array(Es)
+        scal = numpy.array([jr, 0.02 * lz, jz])
+        X = (nodes - numpy.array([jr, lz, jz])) / scal
+        deg = 3 if cflat < self._freqgrid_cubic_thresh else 2
+        from itertools import combinations_with_replacement
+
+        cols = [numpy.ones(len(X))]
+        idx = []
+        for d in range(1, deg + 1):
+            for c in combinations_with_replacement(range(3), d):
+                cols.append(numpy.prod(X[:, c], axis=1))
+                idx.append(c)
+        coef = numpy.linalg.lstsq(numpy.stack(cols, axis=1), Es, rcond=None)[0]
+        out = {
+            "J0": numpy.array([jr, lz, jz]),
+            "scal": scal,
+            "coef": coef,
+            "idx": idx,
+            "nnodes": len(nodes),
+            "deg": deg,
+            "fmin": (min(self._freqgrid_frel), min(self._freqgrid_frelL)),
+            "fmax": (max(self._freqgrid_frel), max(self._freqgrid_frelL)),
+        }
+        out["Om"] = self._freq_patch_eval(out, jr, lz, jz)
+        self._torus_cache[key] = out
+        return out
+
+    def _freq_patch_eval(self, patch, jr, lz, jz):
+        """The analytic gradient of a stored patch polynomial at any J
+        inside the patch's span: the patch's least-squares E(J) is valid
+        across its node hull (+-50 percent of the center actions by
+        default), so one patch centered on a population's mean J serves
+        every member"""
+        X = (numpy.array([jr, lz, jz]) - patch["J0"]) / patch["scal"]
+        g = numpy.zeros(3)
+        for k, c in enumerate(patch["idx"]):
+            for a in set(c):
+                cnt = c.count(a)
+                rest = list(c)
+                rest.remove(a)
+                g[a] += patch["coef"][k + 1] * cnt * numpy.prod(X[rest])
+        return tuple(g / patch["scal"])
+
+    def _freq_patch_lookup(self, jr, lz, jz):
+        """A cached patch whose node hull covers the requested J, if any"""
+        for key, patch in self._torus_cache.items():
+            if not (isinstance(key, tuple) and key[0] == "fgrid"):
+                continue
+            r = numpy.array([jr, lz, jz]) / patch["J0"]
+            lo = (patch["fmin"][0], patch["fmin"][1], patch["fmin"][0])
+            hi = (patch["fmax"][0], patch["fmax"][1], patch["fmax"][0])
+            if all(lo[a] <= r[a] <= hi[a] for a in range(3)):
+                return patch
+        return None
+
+    def Freqs(self, jr, jphi, jz, method="family"):
+        """Frequencies (Omega_R, Omega_phi, Omega_z).
+
+        method='family' (default): the gradient of a least-squares E(J)
+        polynomial through one flatten per node of a local action grid.
+        Measured against spectral frequencies of integrated
+        MWPotential2014 orbits: benign tori are exact to the measurement
+        floor (~1e-4, tied with the J-star), and eccentric tori come out
+        at the Fourier representation floor (~1e-2 at maxn=14) where the
+        J-star's Omega_z is off by 11 percent -- the star DIFFERENCES the
+        flattening residual while the grid fit averages it. The cost is
+        one flatten per grid node (125 by default, seconds each through
+        the family's array-J path), cached per torus.
+
+        A cached patch whose node hull covers the requested J answers
+        without any new flattens (the patch polynomial is valid across
+        its +-50 percent span), so one patch centered on a population's
+        mean J serves every member of a stream or clump.
+
+        method='star': the analytic gradient of the stored quadratic E(J)
+        model over the 7-point J-star -- cheap (7 flattens) and fine for
+        near-Staeckel tori, unreliable for eccentric ones; see
+        TORUSMAPPER_MATH.md. The returned (x, v) torus SHAPE never
+        depends on method: only the propagation frequency."""
+        jr, lz, jz = float(jr), float(jphi), float(jz)
+        if method == "family":
+            if jr <= 0.0 or jz <= 0.0:
+                raise ValueError(
+                    "actionAngleTorusStaeckel needs an interior torus with "
+                    "J_R > 0 and J_z > 0 (the radial and vertical "
+                    "shell/planar edges are degenerate for the local model)"
+                )
+            patch = self._freq_patch_lookup(jr, lz, jz)
+            if patch is not None:
+                return self._freq_patch_eval(patch, jr, lz, jz)
+            return self._fit_freq_grid(jr, lz, jz)["Om"]
+        model = self._fit_torus(jr, lz, jz)
+        ev = self._model_eval(model, jr, lz, jz)
+        return (ev["dE"][0], ev["dE"][1], ev["dE"][2])
