@@ -13,6 +13,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     promote_scalars,
+    use,
 )
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
@@ -2172,70 +2173,78 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
-        # Determine the maximum of the velocity distribution
-        maxVR = 0.0
-        maxVz = 0.0
-        # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
-        # so squeeze out single dimensions by hand
-        maxVT = numpy.squeeze(
-            optimize.fmin_powell(
-                (
-                    lambda x: (
-                        -as_numpy(self(R, 0.0, x, z, 0.0, log=True, use_physical=False))
-                    )
-                ),
-                1.0,
-            )
-        )
-        # as_numpy: fmin_powell's optimum is fed straight into the numpy
-        # rejection arithmetic below; under a forced backend self() hands back a
-        # backend scalar here too. No-op on numpy.
-        logmaxVD = as_numpy(
-            self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-        )
-        # Now rejection-sample
-        vRs = []
-        vTs = []
-        vzs = []
-        while len(vRs) < n:
-            nmore = n - len(vRs) + 1
-            # sample
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-            # as_numpy: the rejection sampler below is numpy (numpy.random draws,
-            # numpy fancy-indexing, a numpy output array), but under a forced
-            # backend self() returns a backend array for array coords, and
-            # `Tensor > ndarray` raises. Land it here, where it enters the numpy
-            # code, rather than at the comparison. No-op on numpy.
-            VDatprop = (
-                as_numpy(
-                    self(
-                        R + numpy.zeros(nmore),
-                        propvR,
-                        propvT,
-                        z + numpy.zeros(nmore),
-                        propvz,
-                        log=True,
-                        use_physical=False,
-                    )
+        with use("numpy", force=True):
+            # sampleV is a pure numpy rejection sampler (numpy.random draws, a
+            # numpy output); force numpy so the self() calls -- and the
+            # fmin_powell optimum fed into propvT -- are byte-identical to the
+            # numpy path, not merely landed via as_numpy (the optimiser amplifies
+            # a backend's last-bit action differences into maxVT). No-op on numpy.
+            # Determine the maximum of the velocity distribution
+            maxVR = 0.0
+            maxVz = 0.0
+            # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
+            # so squeeze out single dimensions by hand
+            maxVT = numpy.squeeze(
+                optimize.fmin_powell(
+                    (
+                        lambda x: (
+                            -as_numpy(
+                                self(R, 0.0, x, z, 0.0, log=True, use_physical=False)
+                            )
+                        )
+                    ),
+                    1.0,
                 )
-                - logmaxVD
             )
-            VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT) ** 2.0 / 4.0 / self._sr**2.0
+            # as_numpy: fmin_powell's optimum is fed straight into the numpy
+            # rejection arithmetic below; under a forced backend self() hands back a
+            # backend scalar here too. No-op on numpy.
+            logmaxVD = as_numpy(
+                self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
             )
-            VDatprop = numpy.reshape(VDatprop, (nmore))
-            indx = VDatprop > numpy.log(numpy.random.random(size=nmore))  # accept
-            vRs.extend(list(propvR[indx]))
-            vTs.extend(list(propvT[indx]))
-            vzs.extend(list(propvz[indx]))
-        out = numpy.empty((n, 3))
-        out[:, 0] = vRs[0:n]
-        out[:, 1] = vTs[0:n]
-        out[:, 2] = vzs[0:n]
+            # Now rejection-sample
+            vRs = []
+            vTs = []
+            vzs = []
+            while len(vRs) < n:
+                nmore = n - len(vRs) + 1
+                # sample
+                propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
+                propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
+                propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+                # as_numpy: the rejection sampler below is numpy (numpy.random draws,
+                # numpy fancy-indexing, a numpy output array), but under a forced
+                # backend self() returns a backend array for array coords, and
+                # `Tensor > ndarray` raises. Land it here, where it enters the numpy
+                # code, rather than at the comparison. No-op on numpy.
+                VDatprop = (
+                    as_numpy(
+                        self(
+                            R + numpy.zeros(nmore),
+                            propvR,
+                            propvT,
+                            z + numpy.zeros(nmore),
+                            propvz,
+                            log=True,
+                            use_physical=False,
+                        )
+                    )
+                    - logmaxVD
+                )
+                VDatprop -= -0.5 * (
+                    propvR**2.0 / 4.0 / self._sr**2.0
+                    + propvz**2.0 / 4.0 / self._sz**2.0
+                    + (propvT - maxVT) ** 2.0 / 4.0 / self._sr**2.0
+                )
+                VDatprop = numpy.reshape(VDatprop, (nmore))
+                indx = VDatprop > numpy.log(numpy.random.random(size=nmore))  # accept
+                vRs.extend(list(propvR[indx]))
+                vTs.extend(list(propvT[indx]))
+                vzs.extend(list(propvz[indx]))
+            out = numpy.empty((n, 3))
+            out[:, 0] = vRs[0:n]
+            out[:, 1] = vTs[0:n]
+            out[:, 2] = vzs[0:n]
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(out * vo, unit=units.km / units.s)
