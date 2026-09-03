@@ -252,16 +252,20 @@ class actionAngleTorusStaeckel:
             dJz += nz * (A[k] * c + B[k] * s)
         return dJr, dJz
 
-    def _flatten(self, jr, lz, jz):
+    def _flatten(self, jr, lz, jz, warm=None):
         """Fit the generating coefficients that flatten the true Hamiltonian
         on the torus: first-order FFT division to seed, then Gauss-Newton in
-        coefficient space with LOCAL frequency weights"""
+        coefficient space with LOCAL frequency weights. warm= shares the
+        family's warm-start state across fits of NEIGHBORING tori (the
+        frequency patch and the J-star pass one dict through all their
+        flattens, whose consecutive nodes are adjacent in J)"""
         ng = self._ngrid
         A = numpy.zeros(len(self._modes))
         B = numpy.zeros(len(self._modes))
         dJr = numpy.zeros(len(self._thr))
         dJz = numpy.zeros(len(self._thr))
-        warm = {}
+        if warm is None:
+            warm = {}
         H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
         flat0 = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
         skipped = 0.0
@@ -316,12 +320,11 @@ class actionAngleTorusStaeckel:
             # dH/dA_k = (n.Omega_local) cos(n.theta), dH/dB_k = (...) sin
             r = H - numpy.mean(H)
             nm = len(self._modes)
-            Jac = numpy.empty((len(r), 2 * nm))
-            for k, (nr, nz) in enumerate(self._modes):
-                ph = nr * self._thr + nz * self._thz
-                nOm = nr * Omr + nz * Omz
-                Jac[:, k] = nOm * numpy.cos(ph)
-                Jac[:, nm + k] = nOm * numpy.sin(ph)
+            nR = numpy.array([m[0] for m in self._modes])
+            nZ = numpy.array([m[1] for m in self._modes])
+            ph = nR[None, :] * self._thr[:, None] + nZ[None, :] * self._thz[:, None]
+            nOm = Omr[:, None] * nR[None, :] + Omz[:, None] * nZ[None, :]
+            Jac = numpy.concatenate([nOm * numpy.cos(ph), nOm * numpy.sin(ph)], axis=1)
             step, *_ = numpy.linalg.lstsq(Jac, -r, rcond=None)
             A = A + step[:nm]
             B = B + step[nm:]
@@ -558,13 +561,15 @@ class actionAngleTorusStaeckel:
         nodes = []
         Es = []
         cflat = None
+        pwarm = {}
         for fa in self._freqgrid_frel:
             for fb in self._freqgrid_frelL:
                 for fc in self._freqgrid_frel:
                     jn, ln, zn = jr * fa, lz * fb, jz * fc
                     try:
-                        f = self._flatten(jn, ln, zn)
+                        f = self._flatten(jn, ln, zn, warm=pwarm)
                     except (ValueError, RuntimeError):
+                        pwarm = {}
                         continue
                     if fa == 1.0 and fb == 1.0 and fc == 1.0:
                         cflat = f["flat"]
