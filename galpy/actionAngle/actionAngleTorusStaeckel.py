@@ -147,7 +147,7 @@ class actionAngleTorusStaeckel:
         self._torus_cache = {}
 
     ############################ THE PER-TORUS FIT ############################
-    def _Hfield(self, jr, lz, jz, dJr, dJz):
+    def _Hfield(self, jr, lz, jz, dJr, dJz, warm=None):
         """The true Hamiltonian and the auxiliary's local frequencies over
         the fitting grid, at per-point actions (jr + dJr, lz, jz + dJz).
 
@@ -164,6 +164,7 @@ class actionAngleTorusStaeckel:
             self._thr,
             numpy.zeros(npt),
             self._thz,
+            warm=warm,
         )
         R, vR, vT, z, vz = (numpy.atleast_1d(q) for q in out[:5])
         H = 0.5 * (vR**2.0 + vT**2.0 + vz**2.0) + evaluatePotentials(
@@ -194,7 +195,8 @@ class actionAngleTorusStaeckel:
         B = numpy.zeros(len(self._modes))
         dJr = numpy.zeros(len(self._thr))
         dJz = numpy.zeros(len(self._thr))
-        H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz)
+        warm = {}
+        H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
         flat0 = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
         skipped = 0.0
         # seed: Fourier division at the central frequencies
@@ -234,7 +236,7 @@ class actionAngleTorusStaeckel:
                 dJr *= lam
                 dJz *= lam
                 nclip += 1
-            H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz)
+            H, Omr, Omz = self._Hfield(jr, lz, jz, dJr, dJz, warm=warm)
             flat = numpy.ptp(H) / numpy.fabs(numpy.mean(H))
             if flat < flatbest:
                 Abest, Bbest = A.copy(), B.copy()
