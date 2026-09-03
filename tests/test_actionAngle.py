@@ -11390,3 +11390,55 @@ def test_actionAngleTorusStaeckel_lm_polish():
         "the boundary-clamped LM refinement did not recover"
     )
     return None
+
+
+def test_actionAngleTorusStaeckel_aux_angles_and_shift_guard():
+    # angles='aux' evaluates at auxiliary angles theta^S, bypassing the
+    # angle-shift inversion: at theta^S the map must reproduce the direct
+    # family evaluation at the fitted action shift; the true-angle path's
+    # shift Newton now step-limits and reports non-convergence
+    jr, lz, jz = _kk_torus()
+    tm = actionAngleTorusStaeckel(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=1,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=4,
+        nE=4,
+        nI3=4,
+    )
+    thr = numpy.array([0.3, 2.2, 4.1])
+    thz = numpy.array([1.0, 3.3, 5.6])
+    thp = numpy.zeros(3)
+    out_aux = tm(jr, lz, jz, thr, thp, thz, angles="aux")
+    # reference: the same evaluation assembled by hand from the model fit
+    model = tm._fit_torus(jr, lz, jz)
+    ev = tm._model_eval(model, jr, lz, jz)
+    ref = tm._eval_aux(jr, lz, jz, thr, thp, thz, ev["A"], ev["B"], True)
+    for k in range(6):
+        assert numpy.amax(numpy.fabs(out_aux[k] - ref[k])) < 1e-12, (
+            "angles='aux' disagrees with the direct auxiliary evaluation"
+        )
+    # true-angle evaluation still works and stays finite
+    out_true = tm(jr, lz, jz, thr, thp, thz)
+    assert all(numpy.all(numpy.isfinite(q)) for q in out_true), (
+        "true-angle evaluation lost points"
+    )
+    # a starved shift inversion reports its non-convergence per policy
+    with pytest.raises(RuntimeError, match="angle-shift"):
+        tm(jr, lz, jz, thr, thp, thz, maxiter=0)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        out_nan = tm(jr, lz, jz, thr, thp, thz, maxiter=0, raise_unconverged=False)
+    assert any("angle-shift" in str(wi.message) for wi in w), (
+        "no warning from the unconverged shift inversion"
+    )
+    assert numpy.all(numpy.isnan(out_nan[0])), (
+        "unconverged shift points did not come back as NaN"
+    )
+    return None

@@ -442,7 +442,18 @@ class actionAngleTorusStaeckel:
         return out
 
     ############################### EVALUATION ################################
-    def __call__(self, jr, jphi, jz, angler, anglephi, anglez, maxiter=30):
+    def __call__(
+        self,
+        jr,
+        jphi,
+        jz,
+        angler,
+        anglephi,
+        anglez,
+        maxiter=30,
+        angles="true",
+        raise_unconverged=True,
+    ):
         """
         Evaluate the torus map: (J, theta) -> (R, vR, vT, z, vz, phi).
 
@@ -451,9 +462,19 @@ class actionAngleTorusStaeckel:
         jr, jphi, jz : float
             Actions (jphi = L_z).
         angler, anglephi, anglez : numpy.ndarray
-            TRUE angles on the torus.
+            Angles on the torus: TRUE angles by default, AUXILIARY angles
+            theta^S with angles='aux' -- the auxiliary parameterization
+            skips the angle-shift inversion (whose derivatives come from
+            the J-star model) and is the robust choice for dense scans of
+            the torus as a geometric object (sections, plots).
         maxiter : int, optional
             Maximum Newton iterations of the angle-shift inversion.
+        angles : str, optional
+            'true' (default) or 'aux'; see above.
+        raise_unconverged : bool, optional
+            With False, angle points where the evaluation cannot converge
+            come back as NaN (with a warning) instead of failing the
+            whole array.
 
         Returns
         -------
@@ -468,10 +489,16 @@ class actionAngleTorusStaeckel:
         ev = self._model_eval(model, jr, lz, jz)
         A, B = ev["A"], ev["B"]
         dA, dB = ev["dA"], ev["dB"]
+        if angles == "aux":
+            return self._eval_aux(
+                jr, lz, jz, angler, anglephi, anglez, A, B, raise_unconverged
+            )
         # invert theta = theta^S + dF/dJ(theta^S) for theta^S (2D Newton in
-        # (theta_r, theta_z); the theta_phi shift is then explicit)
+        # (theta_r, theta_z); the theta_phi shift is then explicit,
+        # step-limited against the shift derivatives' J-star noise)
         thr = angler.copy()
         thz = anglez.copy()
+        Fr = Fz = None
         for _ in range(maxiter):
             shift_r = numpy.zeros_like(thr)
             shift_z = numpy.zeros_like(thz)
@@ -496,29 +523,65 @@ class actionAngleTorusStaeckel:
             if max(numpy.fabs(Fr).max(), numpy.fabs(Fz).max()) < 1e-12:
                 break
             det = (1.0 + dsr_dr) * (1.0 + dsz_dz) - dsr_dz * dsz_dr
-            thr = thr - ((1.0 + dsz_dz) * Fr - dsr_dz * Fz) / det
-            thz = thz - (-dsz_dr * Fr + (1.0 + dsr_dr) * Fz) / det
+            dr_ = ((1.0 + dsz_dz) * Fr - dsr_dz * Fz) / det
+            dz_ = (-dsz_dr * Fr + (1.0 + dsr_dr) * Fz) / det
+            thr = thr - numpy.clip(dr_, -0.5, 0.5)
+            thz = thz - numpy.clip(dz_, -0.5, 0.5)
+        if Fr is None:
+            # no iterations were allowed: every point is unconverged
+            Fr = numpy.full_like(thr, numpy.inf)
+            Fz = numpy.full_like(thz, numpy.inf)
+        if max(numpy.fabs(Fr).max(), numpy.fabs(Fz).max()) >= 1e-10:
+            bad = numpy.maximum(numpy.fabs(Fr), numpy.fabs(Fz)) >= 1e-10
+            if raise_unconverged:
+                raise RuntimeError(
+                    "The angle-shift inversion did not converge for %d of %d "
+                    "angle points" % (int(bad.sum()), len(thr))
+                )
+            warnings.warn(
+                "The angle-shift inversion did not converge for %d of %d "
+                "angle points; returning NaN there" % (int(bad.sum()), len(thr)),
+                galpyWarning,
+            )
+            thr = numpy.where(bad, numpy.nan, thr)
+            thz = numpy.where(bad, numpy.nan, thz)
         # theta_phi^S from the explicit L_z shift
         shift_p = numpy.zeros_like(thr)
         for k, (nr, nz) in enumerate(self._modes):
             ph = nr * thr + nz * thz
             shift_p += dA[1][k] * numpy.sin(ph) + dB[1][k] * (1.0 - numpy.cos(ph))
         thp = anglephi - shift_p
-        # the auxiliary actions along the torus and ONE array-J family
-        # evaluation (per-point actions paired with per-point angles); the
-        # clamp guards trig-polynomial overshoots of dJ between the fitting
-        # grid's points, which can otherwise cross the physical J > 0 edge
-        # at densely sampled angles
+        return self._eval_aux(jr, lz, jz, thr, thp, thz, A, B, raise_unconverged)
+
+    def _eval_aux(self, jr, lz, jz, thr, thp, thz, A, B, raise_unconverged):
+        """The auxiliary actions along the torus and ONE array-J family
+        evaluation (per-point actions paired with per-point angles); the
+        clamp guards trig-polynomial overshoots of dJ between the fitting
+        grid's points, which can otherwise cross the physical J > 0 edge
+        at densely sampled angles"""
         nRa = numpy.array([m[0] for m in self._modes])
         nZa = numpy.array([m[1] for m in self._modes])
         ph = nRa[None, :] * thr[:, None] + nZa[None, :] * thz[:, None]
         amp = A[None, :] * numpy.cos(ph) + B[None, :] * numpy.sin(ph)
-        dJr = numpy.maximum((nRa[None, :] * amp).sum(axis=1), -0.98 * jr)
-        dJz = numpy.maximum((nZa[None, :] * amp).sum(axis=1), -0.98 * jz)
-        oo = self._fam._xvFreqs_arrayJ(
-            jr + dJr, numpy.full(len(thr), lz), jz + dJz, thr, thp, thz
+        dJr = numpy.maximum(
+            numpy.nan_to_num((nRa[None, :] * amp).sum(axis=1)), -0.98 * jr
         )
-        return tuple(numpy.atleast_1d(q) for q in oo[:6])
+        dJz = numpy.maximum(
+            numpy.nan_to_num((nZa[None, :] * amp).sum(axis=1)), -0.98 * jz
+        )
+        oo = self._fam._xvFreqs_arrayJ(
+            jr + dJr,
+            numpy.full(len(thr), lz),
+            jz + dJz,
+            numpy.nan_to_num(thr),
+            numpy.nan_to_num(thp),
+            numpy.nan_to_num(thz),
+            raise_unconverged=raise_unconverged,
+        )
+        out = tuple(numpy.atleast_1d(q) for q in oo[:6])
+        if numpy.any(numpy.isnan(thr)):
+            out = tuple(numpy.where(numpy.isnan(thr), numpy.nan, q) for q in out)
+        return out
 
     def xvFreqs(
         self, jr, jphi, jz, angler, anglephi, anglez, method="family", **kwargs
