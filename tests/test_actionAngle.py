@@ -11352,3 +11352,41 @@ def test_actionAngleTorusStaeckel_freq_patch_reuse():
         "an out-of-hull Freqs query did not build a new patch"
     )
     return None
+
+
+def test_actionAngleTorusStaeckel_lm_polish():
+    # polish_method='lm' refines the exact residual with adaptive damping:
+    # from a seed-only start it must strictly improve the flatness, and its
+    # boundary clamp keeps trial coefficients that press J > 0 evaluable
+    jr, lz, jz = _kk_torus()
+    kw = dict(
+        pot=_KKP,
+        delta=1.3,
+        ngrid=8,
+        maxn=3,
+        polish=0,
+        starfrac=(0.1, 0.008, 0.1),
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=8.0,
+        nLz=5,
+        nE=5,
+        nI3=5,
+    )
+    tm = actionAngleTorusStaeckel(**kw)
+    fgn = tm._flatten(jr, lz, jz)
+    tml = actionAngleTorusStaeckel(polish_method="lm", **kw)
+    flm = tml._flatten(jr, lz, jz)
+    assert flm["flat"] < fgn["flat"], (
+        "the LM refinement did not improve on the seed-only flatness: "
+        "%g vs %g" % (flm["flat"], fgn["flat"])
+    )
+    # the clamp: starting LM from coefficients whose action shift crosses
+    # the J_z > 0 boundary still evaluates and comes back inside
+    Bbad = numpy.zeros(len(tml._modes))
+    Bbad[0] = 2.0 * jz
+    A, B, flat, E = tml._lm_refine(jr, lz, jz, numpy.zeros_like(Bbad), Bbad, {})
+    assert numpy.isfinite(flat) and flat < 1.0, (
+        "the boundary-clamped LM refinement did not recover"
+    )
+    return None
