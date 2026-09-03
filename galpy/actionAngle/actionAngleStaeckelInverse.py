@@ -1916,8 +1916,22 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             * (self._nLz - 1)
         )
         if x0 is None:
-            xE = numpy.full_like(xL, 0.5 * (self._nE - 1))
-            xI = numpy.full_like(xL, 0.5 * (self._nI3 - 1))
+            # presolve the ensemble mean with the scalar inversion and start
+            # every torus there: the fitters' ensembles are tight in J, so
+            # this replaces ~10 mid-grid Newton iterations with ~2
+            try:
+                xm = numpy.atleast_2d(
+                    self._canon_coords(
+                        float(numpy.mean(jr)),
+                        float(numpy.mean(Lz)),
+                        float(numpy.mean(jz)),
+                    )
+                )[0]
+                xE = numpy.full_like(xL, xm[1])
+                xI = numpy.full_like(xL, xm[2])
+            except (ValueError, RuntimeError):
+                xE = numpy.full_like(xL, 0.5 * (self._nE - 1))
+                xI = numpy.full_like(xL, 0.5 * (self._nI3 - 1))
         else:
             # warm start from a previous inversion of a nearby ensemble
             # (the fitters call this with slowly-changing actions)
