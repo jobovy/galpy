@@ -10136,7 +10136,7 @@ def test_actionAngleStaeckelInverse_xvFreqs_arrayJ(
         _maxiter = 60
         _angle_tol = 1e-13
 
-        def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+        def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq, tstate=None):
             return thetaAr, numpy.zeros_like(thetaAr), thetaAz
 
     thR2 = numpy.array([0.7, 2.0])

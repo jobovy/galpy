@@ -2464,7 +2464,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             raise RuntimeError("Newton's method for the toy angles did not converge")
         return thetaAr, thetaAz, cphi
 
-    def _tau_of_eta_vec(self, eta, Dm):
+    def _tau_of_eta_vec(self, eta, Dm, x0=None):
         """Invert the stored anomaly map for tau, per-point coefficients.
 
         Like :meth:`_tau_of_eta` but the map coefficients ``Dm`` are per
@@ -2472,8 +2472,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         matrix products of the scalar routine become per-point einsums."""
         ms = self._nforDm
         eta = numpy.asarray(eta, dtype="float")
-        smat = numpy.sin(eta[:, None] * ms[None, :])  # (N, npt)
-        x = eta - numpy.einsum("pm,mp->p", smat, Dm)
+        if x0 is None:
+            smat = numpy.sin(eta[:, None] * ms[None, :])  # (N, npt)
+            x = eta - numpy.einsum("pm,mp->p", smat, Dm)
+        else:
+            # warm start from a previous inversion at nearby anomalies (the
+            # Picard iterations of the toy-angle solve move them slightly)
+            x = x0.copy()
         for _ in range(self._maxiter):
             sx = numpy.sin(x[:, None] * ms[None, :])
             cx = numpy.cos(x[:, None] * ms[None, :])
@@ -2497,7 +2502,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 x[i] = self._tau_of_eta(numpy.array([eta[i]]), Dm[:, i])[0]
         return x
 
-    def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq):
+    def _canon_comp_vec(self, thetaAr, thetaAz, jr, LA, Lz, v, dq, tstate=None):
         """Vector version of :meth:`_canon_comp`: v is (nq, N), dq is
         (nq, N, 3), and every torus quantity (jr, LA, Lz, ...) is an (N,)
         array aligned with its own angle. The scalar degeneracy branches
@@ -2542,7 +2547,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             axis=1,
         )
         eta_u, rA, pAr = self._canon_toy_radial(jr, LA, thetaAr)
-        tuu = self._tau_of_eta_vec(eta_u, Dmu)
+        tuu = self._tau_of_eta_vec(
+            eta_u, Dmu, x0=None if tstate is None else tstate.get("tuu")
+        )
         ms = self._nforDm
         s = numpy.sqrt(bb**2 + rA**2)
         y = (s - bb) / a
@@ -2579,7 +2586,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             numpy.clip(1.0 - cosetav**2, 0.0, None)
         )
         eta_v = numpy.arctan2(sinetav, cosetav) % (2.0 * numpy.pi)
-        tvv = self._tau_of_eta_vec(eta_v, Dmv)
+        tvv = self._tau_of_eta_vec(
+            eta_v, Dmv, x0=None if tstate is None else tstate.get("tvv")
+        )
+        if tstate is not None:
+            tstate["tuu"] = tuu
+            tstate["tvv"] = tvv
         smat_v = numpy.sin(tvv[:, None] * ms[None, :])
         detav = 1.0 + numpy.einsum(
             "pm,mp->p", numpy.cos(tvv[:, None] * ms[None, :]), ms[:, None] * Dmv
@@ -2630,8 +2642,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             thetaAz = numpy.copy(start[1])
         omega = 1.0
         prev = numpy.inf
+        tstate = {}
         for _ in range(self._maxiter):
-            cR, cphi, cz = self._canon_comp_vec(thetaAr, thetaAz, jr, LA, Lz, v, dq)
+            cR, cphi, cz = self._canon_comp_vec(
+                thetaAr, thetaAz, jr, LA, Lz, v, dq, tstate=tstate
+            )
             f0 = (thetaAr + cR - thR + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             f1 = (thetaAz + cz - thz + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             step = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1))
