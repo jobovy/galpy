@@ -18,6 +18,10 @@ from .actionAngleInverse import actionAngleInverse
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
 
+    # Newton iteration cap for the batched Kepler solve; an attribute so
+    # that tests can force the bisection fallback
+    _kepler_maxiter = 60
+
     def __init__(self, *args, **kwargs):
         """
         Initialize an actionAngleIsochroneInverse object.
@@ -146,20 +150,25 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         angler = (numpy.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
         anglephi = numpy.atleast_1d(anglephi)
         anglez = numpy.atleast_1d(anglez)
-        eta = numpy.empty(len(angler))
-        for ii, ar in enumerate(angler):
-            try:
-                eta[ii] = optimize.newton(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar,
-                    0.0,
-                    lambda x: 1 - a * e / ab * numpy.cos(x),
-                )
-            except RuntimeError:
-                # Newton-Raphson did not converge, this has to work,
-                # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii] = optimize.brentq(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
-                )
+        # Batched Newton for the whole angle set at once; the coefficient
+        # a e / (a + b) may itself be per-point (array actions), so it is
+        # broadcast against the angles. Newton from eta = ar converges for
+        # the elliptic |a e / ab| < 1; stragglers fall back to per-point
+        # bisection (which must work: 0 <= ar < 2pi brackets a sign change)
+        kk = numpy.broadcast_arrays(numpy.atleast_1d(a * e / ab), angler)[0]
+        eta = angler.copy()
+        for _ in range(self._kepler_maxiter):
+            f = eta - kk * numpy.sin(eta) - angler
+            eta = eta - f / (1.0 - kk * numpy.cos(eta))
+            if numpy.max(numpy.fabs(f)) < 1e-14:
+                break
+        bad = numpy.fabs(eta - kk * numpy.sin(eta) - angler) > 1e-10
+        for ii in numpy.where(bad)[0]:
+            eta[ii] = optimize.brentq(
+                lambda x, kki=kk[ii], ar=angler[ii]: x - kki * numpy.sin(x) - ar,
+                0.0,
+                2.0 * numpy.pi,
+            )
         coseta = numpy.cos(eta)
         r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
         vr = numpy.sqrt(self.amp / ab) * a * e * numpy.sin(eta) / r
