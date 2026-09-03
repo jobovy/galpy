@@ -1699,7 +1699,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # orbits, whose handling keys on the grid reaching them EXACTLY.  A
         # box meant to sit against one of those has to say so rather than
         # approach it with a number.
-        self._wEgrid = numpy.linspace(*_edge(wElim, (wpad, 1.0 - wpad)), nE)
+        self._wEgrid = numpy.linspace(*_edge(wElim, (0.0, 1.0 - wpad)), nE)
         self._wIgrid = numpy.linspace(*_edge(wIlim, (0.0, 1.0)), nI3)
         self._wIedge = 1e-4
         shape = (nLz, nE, nI3)
@@ -1721,6 +1721,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 + Lz**2.0 / 2.0 / Rinf**2.0
             )
             for jj, wE in enumerate(self._wEgrid):
+                # the circular edge is built at an epsilon energy: the row's
+                # degenerate quantities (actions, energy, anomaly maps) are
+                # overwritten with their analytic limits after the build,
+                # while the K-regularized supports carry their finite
+                # epicyclic limits from here (O(eps) error)
+                if wE == 0.0:
+                    wE = 3e-2
                 E = Ec + wE**2.0 * (Emax - Ec)
                 if self._adaptive_chart:
                     # the node's own chart: swap it in for the label
@@ -1858,6 +1865,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # half-widths need no special case at all: they are reconstructed as
         # sqrt(K J) and so collapse onto the midpoint exactly when the
         # action does, with K carrying its finite limit.
+        if self._wEgrid[0] == 0.0:
+            # the circular edge: both actions vanish for the whole I3 row,
+            # the energy is exactly the circular orbit's, and both anomaly
+            # maps vanish (harmonic limit); the midpoint and the K rows keep
+            # their epsilon-build values, which carry the finite epicyclic
+            # limits
+            tab[0, :, 0, :] = 0.0
+            tab[1, :, 0, :] = 0.0
+            for iiLz, Lzn in enumerate(self._Lzgrid):
+                tab[2, iiLz, 0, :] = self._circular_orbit(Lzn)[1]
+            tab[6 : 6 + 2 * self._npt, :, 0, :] = 0.0
         if self._wIgrid[-1] == 1.0:
             tab[0, :, :, -1] = 0.0
             tab[3, :, :, -1] = self._canon_ushell
@@ -1959,10 +1977,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 break
         else:
             bad = numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)) >= tol
+            nnan = int(
+                numpy.sum(
+                    ~numpy.isfinite(numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)))
+                )
+            )
+            bad = bad | ~numpy.isfinite(numpy.maximum(numpy.fabs(f0), numpy.fabs(f1)))
             raise ValueError(
-                "The label inversion did not converge for %d of %d tori; the "
-                "first is (J_R, J_z) = (%g, %g)"
-                % (numpy.sum(bad), len(jr), jr[bad][0], jz[bad][0])
+                "The label inversion did not converge for %d of %d tori "
+                "(%d with non-finite residuals); the first is "
+                "(J_R, J_z) = (%g, %g)"
+                % (numpy.sum(bad), len(jr), nnan, jr[bad][0], jz[bad][0])
             )
         return numpy.stack((xL, xE, xI), axis=1)
 
@@ -2176,40 +2201,133 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _canon_family_chains(self, x):
         """All family values and their action chains at fractional grid
-        coordinates x: the stored tables' own derivatives, contracted with
-        the inverse of the label-coordinate matrix (J_R, J_phi, J_z) vs
-        (L_z, w_E-index, w_I-index)"""
+        coordinates x. Delegates to the vectorized implementation and keeps
+        its first point, so the scalar and array paths agree by
+        construction -- including the anchored-edge chain treatment, which
+        must never diverge between them"""
+        v, dq = self._canon_family_chains_vec(x)
+        return v[:, 0], dq[:, 0]
+
+    def _canon_dEaxis_u_vec(self, x):
+        """The E-axis derivative of every stored quantity in the
+        u = wE^2 parameterization: the 1-D profile through the stored nodes
+        at each point's (xL, xI) -- the circular edge row pins it exactly --
+        differentiated by a four-point nonuniform Lagrange rule in u"""
         xx = numpy.atleast_2d(x)
-        v = self._canon_table_eval(xx)[:, 0]
-        dL = self._canon_table_eval(xx, deriv=0)[:, 0] / self._canon_dLz
-        dE_ = self._canon_table_eval(xx, deriv=1)[:, 0]
-        dI_ = self._canon_table_eval(xx, deriv=2)[:, 0]
-        M = numpy.array(
-            [
-                [dL[0], dE_[0], dI_[0]],
-                [1.0, 0.0, 0.0],
-                [dL[1], dE_[1], dI_[1]],
-            ]
+        npts = xx.shape[0]
+        nE = self._nE
+        # all (point, E-node) profile evaluations in ONE table call
+        Xp = numpy.empty((npts * nE, 3))
+        Xp[:, 0] = numpy.repeat(xx[:, 0], nE)
+        Xp[:, 1] = numpy.tile(numpy.arange(nE, dtype="float"), npts)
+        Xp[:, 2] = numpy.repeat(xx[:, 2], nE)
+        prof = self._canon_table_eval(Xp).reshape(-1, npts, nE)
+        wEg = self._wEgrid
+        u_nodes = wEg**2.0
+        wE_star = wEg[0] + xx[:, 1] / (nE - 1.0) * (wEg[-1] - wEg[0])
+        u_star = wE_star**2.0
+        m = min(4, nE)
+        j0 = numpy.clip(numpy.searchsorted(u_nodes, u_star) - 2, 0, nE - m)
+        # nonuniform Lagrange derivative at u_star, per point (stencil
+        # adapts to minimal grids)
+        dl = numpy.empty((npts, m))
+        uu = u_nodes[j0[:, None] + numpy.arange(m)[None, :]]
+        for a in range(m):
+            da = numpy.zeros(npts)
+            for b in range(m):
+                if b == a:
+                    continue
+                term = 1.0 / (uu[:, a] - uu[:, b])
+                for c in range(m):
+                    if c in (a, b):
+                        continue
+                    term = term * (u_star - uu[:, c]) / (uu[:, a] - uu[:, c])
+                da += term
+            dl[:, a] = da
+        cols = j0[:, None] + numpy.arange(m)[None, :]
+        sel = numpy.take_along_axis(
+            prof, cols[None, :, :].repeat(prof.shape[0], axis=0), axis=2
         )
-        Minv = numpy.linalg.inv(M)
-        # chains of every stored quantity along (J_R, J_phi, J_z)
-        dq = numpy.stack((dL, dE_, dI_), axis=1) @ Minv  # (nq, 3)
-        # turn the stored midpoint-and-K combinations back into the turning
-        # points, differentiating the reconstruction itself so the chains
-        # remain the exact derivatives of what is evaluated.  dq[0] and
-        # dq[1] are the identity rows (1, 0, 0) and (0, 0, 1) by the
-        # construction of M, so J_R's and J_z's own chains enter here
-        # exactly rather than through the interpolation
-        uc, duc = v[3], dq[3]
-        hw = numpy.sqrt(numpy.clip(v[4] * v[0], 0.0, None))
-        hv = numpy.sqrt(numpy.clip(v[5] * v[1], 0.0, None))
-        # below the floor the oscillation is degenerate and the compensation
-        # drops the term outright, so the divergence is never evaluated
-        dhw = (v[4] * dq[0] + v[0] * dq[4]) / (2.0 * numpy.maximum(hw, 1e-14))
-        dhv = (v[5] * dq[1] + v[1] * dq[5]) / (2.0 * numpy.maximum(hv, 1e-14))
-        v[3], v[4], v[5] = uc - hw, uc + hw, 0.5 * numpy.pi - hv
-        dq[3], dq[4], dq[5] = duc - dhw, duc + dhw, -dhv
-        return v, dq
+        return numpy.einsum("qpa,pa->qp", sel, dl)
+
+    def _canon_freq_chains_vec(self, x):
+        """dE/dJ alone, computed edge-consciously: the E-axis derivative in
+        the u = wE^2 parameterization (regular through the anchored
+        circular edge) and, near the edge, the action rows' L_z- and
+        I3-derivatives through their regular u-scaled ray ratios, with the
+        energy's exact I3-independence hardwired. The FREQUENCIES are a
+        reported derivative, not part of the (x, v) map, so this may
+        differentiate a better-conditioned interpolant than the B-spline
+        without touching manifest canonicity -- the map's own chains stay
+        derivatives of exactly what the map evaluates"""
+        xx = numpy.atleast_2d(x)
+        v, dL, dE_, dI_ = self._canon_table_eval_all(xx)
+        dL = dL / self._canon_dLz
+        if self._wEgrid[0] == 0.0:
+            dE_ = self._canon_dEaxis_u_vec(xx)
+            dI_[2] = 0.0
+            nE = self._nE
+            wEg = self._wEgrid
+            u_nodes = wEg**2.0
+            wE_star = wEg[0] + xx[:, 1] / (nE - 1.0) * (wEg[-1] - wEg[0])
+            u_star = wE_star**2.0
+            near = u_star < u_nodes[2]
+            if numpy.any(near):
+                xn = xx[near]
+                for deriv_ax, target in ((0, dL), (2, dI_)):
+                    gI = self._canon_actionratio_vec(xn, deriv_ax, u_nodes)
+                    val = gI * u_star[near][None, :]
+                    if deriv_ax == 0:
+                        val = val / self._canon_dLz
+                    target[0][near] = val[0]
+                    target[1][near] = val[1]
+        npts = xx.shape[0]
+        M = numpy.empty((npts, 3, 3))
+        M[:, 0, 0], M[:, 0, 1], M[:, 0, 2] = dL[0], dE_[0], dI_[0]
+        M[:, 1, 0], M[:, 1, 1], M[:, 1, 2] = 1.0, 0.0, 0.0
+        M[:, 2, 0], M[:, 2, 1], M[:, 2, 2] = dL[1], dE_[1], dI_[1]
+        dE_row = numpy.stack((dL[2], dE_[2], dI_[2]), axis=-1)
+        return numpy.einsum("pk,pkj->pj", dE_row, numpy.linalg.inv(M))
+
+    def _canon_actionratio_vec(self, x, deriv_ax, u_nodes):
+        """The action rows\' derivative along a non-E axis near the circular
+        edge: profiles of d(action)/d(axis) at the E-nodes (one batched,
+        two-row table call), divided by u_node -- the regular ray-function
+        ratio -- interpolated in u by a four-point Lagrange rule over the
+        interior nodes and returned as g(u_star), to be scaled back by
+        u_star"""
+        xx = numpy.atleast_2d(x)
+        npts = xx.shape[0]
+        nE = self._nE
+        Xp = numpy.empty((npts * (nE - 1), 3))
+        Xp[:, 0] = numpy.repeat(xx[:, 0], nE - 1)
+        Xp[:, 1] = numpy.tile(numpy.arange(1, nE, dtype="float"), npts)
+        Xp[:, 2] = numpy.repeat(xx[:, 2], nE - 1)
+        prof = self._canon_table_eval(Xp, deriv=deriv_ax, rows=slice(0, 2)).reshape(
+            2, npts, nE - 1
+        )
+        g = prof / u_nodes[None, None, 1:]
+        wEg = self._wEgrid
+        wE_star = wEg[0] + xx[:, 1] / (nE - 1.0) * (wEg[-1] - wEg[0])
+        u_star = wE_star**2.0
+        # Lagrange VALUE interpolation of g over interior u-nodes; the
+        # stencil adapts to the axis (4 points where the grid allows, fewer
+        # on minimal grids -- nE = 4 has only three interior nodes)
+        un = u_nodes[1:]
+        m = min(4, nE - 1)
+        j0 = numpy.clip(numpy.searchsorted(un, u_star) - 2, 0, (nE - 1) - m)
+        uu = un[j0[:, None] + numpy.arange(m)[None, :]]
+        L = numpy.empty((npts, m))
+        for a in range(m):
+            la = numpy.ones(npts)
+            for b in range(m):
+                if b == a:
+                    continue
+                la = la * (u_star - uu[:, b]) / (uu[:, a] - uu[:, b])
+            L[:, a] = la
+        cols = j0[:, None] + numpy.arange(m)[None, :]
+        sel = numpy.take_along_axis(g, cols[None, :, :].repeat(2, axis=0), axis=2)
+        return numpy.einsum("qpa,pa->qp", sel, L)
 
     def _canon_family_chains_vec(self, x):
         """
@@ -2827,7 +2945,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Lz,
             v[6 + 2 * npt],
         )
-        OmR, Omphi, Omz = dq[2, :, 0], dq[2, :, 1], dq[2, :, 2]
+        dEdJ = self._canon_freq_chains_vec(x)
+        OmR, Omphi, Omz = dEdJ[:, 0], dEdJ[:, 1], dEdJ[:, 2]
         return (Rt, vRt, vTt, zt, vzt, phit, OmR, Omphi, Omz)
 
     def _xvFreqs_canonical_interp(self, jr, jphi, jz, angler, anglephi, anglez, x=None):
@@ -2875,8 +2994,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Lz,
             delta=v[6 + 2 * npt],
         )
-        # frequencies: the stored energy table's own derivative chains
-        OmR, Omphi, Omz = dq[2]
+        # frequencies: the edge-conscious dE/dJ (see _canon_freq_chains_vec)
+        dEdJ = self._canon_freq_chains_vec(x)[0]
+        OmR, Omphi, Omz = dEdJ[0], dEdJ[1], dEdJ[2]
         return (Rt, vRt, vTt, zt, vzt, phit, OmR, Omphi, Omz)
 
     ################## ANALYTIC d/dJ OF THE STORED QUANTITIES #################
