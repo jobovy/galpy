@@ -23,6 +23,16 @@ _inductor_cache = tempfile.mkdtemp(prefix="torchinductor_galpy_")
 os.environ["TORCHINDUCTOR_CACHE_DIR"] = _inductor_cache
 atexit.register(shutil.rmtree, _inductor_cache, True)
 
+# galpy.backend.jit("torch") verifies that galpy code TRACES and produces the
+# right value under torch.compile; the inductor kernel it generates is torch's
+# concern, not galpy's, and its per-graph codegen dominates the jit tests (one
+# second-derivative test alone is ~10min of it on CI). Default the tests to the
+# eager backend -- dynamo still traces, the value is still checked, codegen is
+# skipped. setdefault so GALPY_JIT_TORCH_BACKEND=inductor still exercises the
+# real path when wanted; test_hyp2f1_survives_inductor_fusion pins inductor
+# directly (raw torch.compile) regardless.
+os.environ.setdefault("GALPY_JIT_TORCH_BACKEND", "eager")
+
 
 def torch_compiles():
     """Whether torch.compile actually WORKS on this interpreter.
