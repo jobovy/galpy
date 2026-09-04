@@ -194,9 +194,19 @@ def _torch_compiled(method):
     dynamo compiled that frame end-to-end, so those lines never executed as
     Python and coverage.py could not see them (galpy #1358, 4 lines).
     """
+    import os
+
     import torch
 
-    compiled = torch.compile(method, fullgraph=False, dynamic=False)
+    # backend defaults to inductor (the real, kernel-generating path). Tests set
+    # GALPY_JIT_TORCH_BACKEND=eager to keep dynamo tracing -- which is what galpy's
+    # contract is -- while skipping inductor codegen, whose per-graph cost
+    # dominates the jit tests (one anyaxisymdisk second-deriv test is ~10min of
+    # codegen on CI). Whether inductor's generated kernel is correct is torch's
+    # concern; a dedicated test (test_hyp2f1_survives_inductor_fusion) still pins
+    # it via a direct torch.compile, unaffected by this knob.
+    _backend = os.environ.get("GALPY_JIT_TORCH_BACKEND", "inductor")
+    compiled = torch.compile(method, fullgraph=False, dynamic=False, backend=_backend)
 
     def call(*args, **kwargs):
         token = _TRACING.set(True)
