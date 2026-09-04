@@ -40,7 +40,43 @@ jobs:
             REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: "3.14"
-            TEST_FILES: tests/test_backend*.py
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 1 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 2 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 3 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 4 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 5 --durations-path tests/.test_backend_durations
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
