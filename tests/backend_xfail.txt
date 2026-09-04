@@ -182,9 +182,7 @@
 #
 # The Python-vs-Python equivalent, test_actionAngleAdiabaticGrid_outsidegrid_
 # multiple_python, PASSES on both backends and is not ledgered.
-jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_qdf.py::test_call_diffinoutputs
 
 # --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
@@ -369,13 +367,11 @@ torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 #   (StaeckelGrid ...EccZmaxRperiRap_c is NOT ledgered: its circular-orbit e is
 #   (rap-rperi)/(rap+rperi), a machine-eps cancellation the backend reorders to
 #   1.59e-16; the test's 1e-16 bar was loosened to 1e-14 instead.)
-#   * jeans sigmar_on_grid ...expensive_integrand (2): the backend sigmar
-#     (fixed_quad_semiinfinite, converged) matches a tight-scipy/mpmath gold to
-#     9e-9; the test's reference (_sigmar_on_grid & numpy sigmar via scipy.quad
-#     DEFAULT epsabs=1.49e-8) truncates the small r=25 tail by 6.1e-6. The backend
-#     is the MORE accurate side; the real fix is numpy-side (scipy tolerance),
-#     going in as a separate PR to main -- this entry XPASSes and can be dropped
-#     once that lands here.
+#   (jeans sigmar_on_grid ...expensive_integrand: DROPPED -- the numpy-side scipy
+#   truncation was fixed on main (#1439, epsabs=0.0) and this branch now matches
+#   it in both sigmar and _sigmar_on_grid, so the test passes under both backends.)
+#   (adiabaticGrid_outsidegrid_c: DROPPED -- stale, now XPASSes under both
+#   backends from an earlier coercion fix; verified 2026-09-04.)
 #   * sphericaldf dMdE ...percall_ro (1, torch): main added a Quantity-energy
 #     per-call-vo test; under torch dMdE returns ndarray for one input and Tensor
 #     for the other, so the subtraction raises. torch-only units-path coercion
@@ -401,8 +397,6 @@ jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exact
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
-jax tests/test_jeans.py::test_sigmar_on_grid_matches_the_loop_for_an_expensive_integrand
-torch tests/test_jeans.py::test_sigmar_on_grid_matches_the_loop_for_an_expensive_integrand
 jax tests/test_quantity.py::test_actionAngleVerticalInverse_units
 torch tests/test_quantity.py::test_actionAngleVerticalInverse_units
 torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity_percall_ro
