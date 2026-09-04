@@ -366,23 +366,21 @@ torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 #     transform test variants (24 -> 34 functions). VerticalInverse rejects any
 #     active backend by construction (_reject_backend, see the READING THE COUNT
 #     note above), so these move only if that class is migrated -- out of scope.
-#   * StaeckelGrid ...EccZmaxRperiRap_c (2): a circular orbit's e is
-#     (rap-rperi)/(rap+rperi) -- catastrophic cancellation at the 1e-16 floor.
-#     numpy lands <=1e-16 (passes); the backend reorders the FP to 1.59e-16.
-#     Machine-eps, not an accuracy defect. (Alternative: loosen the 1e-16 bar.)
+#   (StaeckelGrid ...EccZmaxRperiRap_c is NOT ledgered: its circular-orbit e is
+#   (rap-rperi)/(rap+rperi), a machine-eps cancellation the backend reorders to
+#   1.59e-16; the test's 1e-16 bar was loosened to 1e-14 instead.)
 #   * jeans sigmar_on_grid ...expensive_integrand (2): the backend sigmar
 #     (fixed_quad_semiinfinite, converged) matches a tight-scipy/mpmath gold to
 #     9e-9; the test's reference (_sigmar_on_grid & numpy sigmar via scipy.quad
-#     DEFAULT epsabs=1.49e-8) truncates the small r=25 tail by 6.1e-6. The
-#     backend is the MORE accurate side -- the real fix is a numpy-side scipy
-#     tolerance (a main change), not a backend one.
+#     DEFAULT epsabs=1.49e-8) truncates the small r=25 tail by 6.1e-6. The backend
+#     is the MORE accurate side; the real fix is numpy-side (scipy tolerance),
+#     going in as a separate PR to main -- this entry XPASSes and can be dropped
+#     once that lands here.
 #   * sphericaldf dMdE ...percall_ro (1, torch): main added a Quantity-energy
 #     per-call-vo test; under torch dMdE returns ndarray for one input and Tensor
 #     for the other, so the subtraction raises. torch-only units-path coercion
 #     edge -- narrow, real, fixable follow-up.
 # =============================================================================
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
