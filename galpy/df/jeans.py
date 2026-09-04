@@ -69,6 +69,10 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             ),
             r,
             numpy.inf,
+            # epsabs=0: scipy's default 1.49e-8 absolute floor truncates the small
+            # tail at large r (~6e-6 error in sigma_r at r=25); use only the
+            # relative tolerance so accuracy is scale-invariant.
+            epsabs=0.0,
         )[0]
         / dens(r)
         / intFactor(r)
@@ -150,7 +154,9 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nstart=1001, maxrefine=3):
             pass
         return numpy.array([float(fn(x)) for x in xs])
 
-    tail = integrate.quad(integrand, rs[-1], numpy.inf)[0]
+    # epsabs=0: as in sigmar, the default absolute floor truncates this small
+    # outer tail (~6e-6 in sigma_r at the grid edge); rely on the relative tol.
+    tail = integrate.quad(integrand, rs[-1], numpy.inf, epsabs=0.0)[0]
     dens_rs = _on(dens, rs)
     logrs = numpy.log(rs)
 
