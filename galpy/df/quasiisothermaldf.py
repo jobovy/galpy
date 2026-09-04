@@ -142,8 +142,13 @@ class quasiisothermaldf(df):
             self._precomputergrmax = _precomputergrmax
             self._precomputergnLz = _precomputergnLz
             self._precomputergLzmin = 0.01
-            self._precomputergLzmax = self._precomputergrmax * potential.vcirc(
-                self._pot, self._precomputergrmax
+            # float(): under a forced backend vcirc returns a backend scalar, which
+            # would make this grid bound a Tensor and break the numpy _rg branch's
+            # `lz > self._precomputergLzmax` (ndarray > Tensor raises). Keep it a
+            # Python scalar; the numpy path is byte-identical (linspace stop value).
+            self._precomputergLzmax = float(
+                self._precomputergrmax
+                * potential.vcirc(self._pot, self._precomputergrmax)
             )
             self._precomputergLzgrid = numpy.linspace(
                 self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
