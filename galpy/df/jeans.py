@@ -74,6 +74,11 @@ def sigmar(Pot, r, dens=None, beta=0.0):
                 ),
                 r,
                 numpy.inf,
+                # epsabs=0: match main (#1439) -- the default 1.49e-8 absolute
+                # floor truncates the small tail at large r (~6e-6 in sigma_r at
+                # r=25); rely on the relative tol so this stays byte-identical to
+                # the numpy sigmar on main.
+                epsabs=0.0,
             )[0]
             / dens(r)
             / intFactor(r)
