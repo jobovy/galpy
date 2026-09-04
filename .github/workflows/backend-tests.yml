@@ -107,10 +107,13 @@ jobs:
       || github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push'
           && (github.ref == 'refs/heads/feat/backends'
-              || github.ref == 'refs/heads/feat/backends-develop'))
+              || github.ref == 'refs/heads/feat/backends-develop'
+              || startsWith(github.ref, 'refs/heads/backend/')))
       || (github.event_name == 'pull_request'
           && (github.base_ref == 'feat/backends'
-              || github.base_ref == 'feat/backends-develop'))
+              || github.base_ref == 'feat/backends-develop'
+              || startsWith(github.base_ref, 'backend/')
+              || startsWith(github.head_ref, 'backend/')))
     strategy:
       fail-fast: false
       matrix:
