@@ -157,6 +157,18 @@ def test_jax_jit_traces_public_entry_point(name, entry):
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=_ATOL)
 
 
+# What these cases verify is that a freshly built potential's public entry point
+# TRACES under torch dynamo (and, with fullgraph=False, falls back cleanly) --
+# that is galpy's contract. torch.compile defaults to the inductor backend, whose
+# per-potential codegen dominates this shard (Isochrone alone is ~47 s; the file
+# was ~38 min), and whether inductor's *generated kernel* is correct is torch's
+# concern, not galpy's. So the sweep runs under the cheap "eager" backend, which
+# still exercises tracing and the fall-back. _INDUCTOR_NAMES opts individual
+# potentials back onto real inductor -- empty by default; populate it to
+# spot-check inductor codegen for a specific potential under investigation.
+_INDUCTOR_NAMES = frozenset()
+
+
 @pytest.mark.skipif("not _TORCH_COMPILES")
 @pytest.mark.parametrize("name,entry", _CASES)
 def test_torch_compile_traces_public_entry_point(name, entry):
@@ -173,7 +185,10 @@ def test_torch_compile_traces_public_entry_point(name, entry):
     expected_fail = (name, entry, "torch") in _NOT_TRACEABLE
     try:
         compiled = torch.compile(
-            lambda R, z: fn(pot, R, z), fullgraph=False, dynamic=False
+            lambda R, z: fn(pot, R, z),
+            fullgraph=False,
+            dynamic=False,
+            backend="inductor" if name in _INDUCTOR_NAMES else "eager",
         )
         got = float(compiled(torch.tensor(_R0), torch.tensor(_Z0)))
     except Exception as exc:

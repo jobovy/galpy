@@ -225,8 +225,6 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nstart=1001, maxrefine=3):
     return None
 
 
-
-
 @potential_physical_input
 @physical_conversion("velocity", pop=True)
 def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
