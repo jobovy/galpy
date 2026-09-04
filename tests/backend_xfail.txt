@@ -376,6 +376,13 @@ torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 #     per-call-vo test; under torch dMdE returns ndarray for one input and Tensor
 #     for the other, so the subtraction raises. torch-only units-path coercion
 #     edge -- narrow, real, fixable follow-up.
+#   * NOT-REDUCIBLE (confirmed 2026-09-04, stay ledgered): sphericaldf dMdE
+#     percall_ro is the exit_cast design -- a Quantity input parses to numpy
+#     and its consumption output stays numpy (astropy can't hold a backend
+#     Quantity), so `dMdE(Quantity) - dMdE(rawTensor)` mixes types only under
+#     a forced backend. qdf test_call_diffinoutputs expects UnboundError, but
+#     the backend path deliberately does NOT raise (stays jit-traceable; unbound
+#     -> NaN, see actionAngleStaeckel.py). Neither is a coercion bug.
 # =============================================================================
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
