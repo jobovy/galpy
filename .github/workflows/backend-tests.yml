@@ -32,6 +32,8 @@ on:
     branches:
       - feat/backends
       - feat/backends-develop
+      # backend working branches / stacks (see the pull_request note)
+      - backend/**
   pull_request:
     # Only sub-PRs that TARGET an integration branch, so they get the full
     # per-file backend table before merge -- NOT every PR in the repo.
@@ -43,6 +45,9 @@ on:
     branches:
       - feat/backends
       - feat/backends-develop
+      # any backend working branch / stack (push runs the suite;
+      # a sub-PR whose BASE is a backend/** stack branch runs it too)
+      - backend/**
   schedule:
     - cron: '0 20 * * 2'
   # Manual trigger: run the full all-backend suite on demand and (optionally)
