@@ -14,6 +14,9 @@ import time
 import astropy
 import numpy
 import pytest
+from conftest import _to_numpy
+
+from galpy.backend import as_numpy
 
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
@@ -101,6 +104,22 @@ if not _GHACTIONS:
 else:
     _QUICKTEST = True  # Also do this for GH Actions, bc otherwise it takes too long
 _NOLONGINTEGRATIONS = False
+
+
+def _backend_integrators(integrators):
+    # Under a non-numpy backend, keep only the C integrators (``*_c``): the pure-
+    # Python ones (odeint/dop853/leapfrog/rk4/rk6) step in Python, so each force
+    # eval pays eager per-step jax/torch dispatch (~1 ms) -- ~95% of the runtime
+    # for ~0 unique backend coverage (their numerics are backend-agnostic and the
+    # numpy run exercises all of them; the jax/torch-relevant force path is shared
+    # with the C integrators). numpy runs the full list unchanged.
+    from galpy.backend import backend
+
+    if backend() == "numpy":
+        return integrators
+    return [i for i in integrators if i.endswith("_c")]
+
+
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always", galpyWarning)
 
@@ -115,19 +134,21 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
     times = numpy.linspace(0.0, 210.0, 5001)  # ~7.5 Gyr at the Solar circle
     growtimes = numpy.linspace(0.0, 280.0, 5001)  # for pots that grow slowly
     fasttimes = numpy.linspace(0.0, 14.0, 501)  # ~0.5 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     try:
         tclass = getattr(potential, pot)
     except AttributeError:
@@ -162,7 +183,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -192,9 +213,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "RotatedAndTilted" in pot
             or "Henon" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level"
@@ -202,34 +223,47 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         )
         if firstTest or "testMWPotential" in pot:
             # Some basic checking of the energy and Jacobi functions
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
-            assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=potential.CompositePotential([tp]))
+                numpy.asarray(o.Jacobi(pot=None))
+                - numpy.asarray(o.Jacobi(pot=potential.CompositePotential([tp])))
             ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
             )
             if not tp.isNonAxi:
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 assert (
-                    o.Jacobi(OmegaP=[0.0, 0.0, 1.0]) - o.Jacobi(OmegaP=1.0)
+                    numpy.asarray(o.Jacobi(OmegaP=[0.0, 0.0, 1.0]))
+                    - numpy.asarray(o.Jacobi(OmegaP=1.0))
                 ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 )
                 assert (
-                    o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0])) - o.Jacobi(OmegaP=1.0)
+                    numpy.asarray(o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0])))
+                    - numpy.asarray(o.Jacobi(OmegaP=1.0))
                 ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 )
@@ -270,14 +304,14 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 o.integrate(ttimes, tp._potlist, method=integrator)
             else:
                 o.integrate(ttimes, tp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
                 % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -286,31 +320,43 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
-                assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 )
-                assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
                 assert (
                     (
-                        o.Jacobi(pot=None)
-                        - o.Jacobi(
-                            pot=potential.NullPotential(amp=0.0) + tp
-                        )  # get around not knowing whether we need a CompositePotential or a planarCompositePotential
+                        numpy.asarray(o.Jacobi(pot=None))
+                        - numpy.asarray(
+                            o.Jacobi(
+                                pot=potential.NullPotential(amp=0.0) + tp
+                            )  # get around not knowing whether we need a CompositePotential or a planarCompositePotential
+                        )
                     )
                     ** 2.0
                     < 10.0** ttol
                 ), (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 o = setup_orbit_energy(tp, axi=True, henon="Henon" in pot)
@@ -350,14 +396,14 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 )
             else:
                 o.integrate(ttimes, ptp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
                 % (pot, integrator)
             )
             # Jacobi
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -366,22 +412,34 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
-                assert (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=ptp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
                 )
-                assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
                 )
-                assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 )
-                assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 o = setup_orbit_energy(ptp, axi=True)
@@ -409,7 +467,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
         else:
             o.integrate(ttimes, ptp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -432,31 +490,43 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "nestedListPotential" in pot
             or "WeaklyTD" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s"
             % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, pot, integrator)
         )
         if firstTest or "MWPotential" in pot:
             # Some basic checking of the energy function
-            assert (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=ptp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
             )
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
-            assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
             )
             o = setup_orbit_energy(ptp, axi=False)
@@ -485,7 +555,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 o.integrate(ttimes, tp._potlist, method=integrator)
             else:
                 o.integrate(ttimes, tp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -498,9 +568,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 or "CorotatingRotation" in pot
                 or "GaussianAmplitudeBar" in pot
             ):
-                tJacobis = o.Jacobi(ttimes, pot=tp)
+                tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
             else:
-                tJacobis = o.Jacobi(ttimes)
+                tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -513,7 +583,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
         if (
             not "Bar" in pot
@@ -536,9 +606,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "nestedListPotential" in pot
             or "WeaklyTD" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
             % (pot, integrator)
@@ -561,19 +631,21 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
     times = numpy.linspace(0.0, 210.0, 5001)  # ~7.5 Gyr at the Solar circle
     growtimes = numpy.linspace(0.0, 280.0, 5001)  # for pots that grow slowly
     fasttimes = numpy.linspace(0.0, 14.0, 501)  # ~0.5 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Setup instance of potential
     try:
         tclass = getattr(potential, pot)
@@ -614,7 +686,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -630,10 +702,14 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             )
         if firstTest or "testMWPotential" in pot or "linearMWPotential" in pot:
             # Some basic checking of the energy function
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
             o = setup_orbit_energy(tp, axi=False, henon="Henon" in pot)
@@ -687,7 +763,7 @@ def test_energy_symplec_longterm():
                 ttol = tol["default"]
             o = setup_orbit_energy(tp)
             o.integrate(times, tp, method=integrator)
-            tEs = o.E(times)
+            tEs = _to_numpy(o.E(times))
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             #            print p, ((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
@@ -798,14 +874,16 @@ def _integrate_stm_3d(pot, ic, times, integrator):
 def test_liouville_3d(pot):
     from galpy.orbit import Orbit
 
-    integrators = [
-        "dopr54_c",
-        "dop853_c",
-        "rk4_c",
-        "rk6_c",
-        "dop853",
-        "odeint",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "dop853_c",
+            "rk4_c",
+            "rk6_c",
+            "dop853",
+            "odeint",
+        ]
+    )
     # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 5.0, 251)
@@ -1109,7 +1187,7 @@ def test_dxdv_3d_closed_form_stm_harmonic():
     # potential is exactly harmonic (outside it is Keplerian)
     o = Orbit(ic)
     o.integrate(times, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0)
+    r = _to_numpy(numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0))
     assert numpy.amax(r) < 0.9 * pot.R, (
         "test precondition: the orbit must stay well inside the homogeneous "
         "sphere for the potential to be exactly harmonic along it"
@@ -4720,14 +4798,16 @@ def test_liouville_planar():
         return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 28.0, 1001)  # ~1 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "dop853_c",
-        "dop853",
-        "odeint",  # direct python solver
-        "rk4_c",
-        "rk6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "dop853_c",
+            "dop853",
+            "odeint",  # direct python solver
+            "rk4_c",
+            "rk6_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -5362,7 +5442,7 @@ def test_integrate_SOS_3D():
     psis = numpy.linspace(0.0, 20.0 * numpy.pi, 1001)
     for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
         o.integrate_SOS(psis, pot, method=method)
-        Es = o.E(o.t)
+        Es = _to_numpy(o.E(o.t))
         assert (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0**-10, (
             f"Energy is not conserved by integrate_sos for method={method}"
         )
@@ -5883,7 +5963,7 @@ def test_integrate_SOS_2D():
     for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
         for surface in ["x", "y"]:
             o.integrate_SOS(psis, pot, method=method)  # default is surface='x'
-            Es = o.E(o.t)
+            Es = _to_numpy(o.E(o.t))
             assert (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0**-10, (
                 f"Energy is not conserved by integrate_sos for method={method} and surface={surface}"
             )
@@ -5948,8 +6028,9 @@ def test_bruteSOS_2Dx():
             force_map="rk" in method,
             surface="x",
         )
-        xs = o.x(o.t)
-        vxs = o.vx(o.t)
+
+        xs = as_numpy(o.x(o.t))
+        vxs = as_numpy(o.vx(o.t))
         assert (numpy.fabs(xs) < 10.0**-3.0).all(), (
             f"x on SOS is not zero for bruteSOS for method={method}"
         )
@@ -5971,8 +6052,9 @@ def test_bruteSOS_2Dy():
             force_map="rk" in method,
             surface="y",
         )
-        ys = o.y(o.t)
-        vys = o.vy(o.t)
+
+        ys = as_numpy(o.y(o.t))
+        vys = as_numpy(o.vy(o.t))
         assert (numpy.fabs(ys) < 10.0**-3.0).all(), (
             f"y on SOS is not zero for bruteSOS for method={method}"
         )
@@ -6046,19 +6128,21 @@ def test_eccentricity():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "ias15_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "ias15_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6229,19 +6313,21 @@ def test_pericenter():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6408,19 +6494,21 @@ def test_apocenter():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6588,19 +6676,21 @@ def test_zmax():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6752,19 +6842,21 @@ def test_zmax():
 def test_analytic_ecc_rperi_rap():
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -7417,19 +7509,21 @@ def test_orbit_LcE_planar():
 def test_analytic_zmax():
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -7908,8 +8002,8 @@ def test_ER_EZ():
     for o in os:
         times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
         o.integrate(times, MWPotential)
-        ERs = o.ER(times)
-        Ezs = o.Ez(times)
+        ERs = _to_numpy(o.ER(times))
+        Ezs = _to_numpy(o.Ez(times))
         ERdiff = numpy.fabs(numpy.std(ERs - numpy.mean(ERs)) / numpy.mean(ERs))
         assert ERdiff < 10.0**-4.0, (
             "ER conservation for orbits close to the plane in MWPotential fails at %g%%"
@@ -7921,18 +8015,22 @@ def test_ER_EZ():
             % (100.0 * Ezdiff)
         )
         # Some basic checking
-        assert numpy.fabs(o.ER() - o.ER(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.ER(pot=)"
-        )
-        assert numpy.fabs(o.Ez() - o.Ez(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.Ez(pot=)"
-        )
-        assert numpy.fabs(o.ER(pot=None) - o.ER(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.ER(pot=)"
-        )
-        assert numpy.fabs(o.Ez(pot=None) - o.Ez(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.Ez(pot=)"
-        )
+        assert (
+            numpy.fabs(_to_numpy(o.ER()) - _to_numpy(o.ER(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.ER(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.Ez()) - _to_numpy(o.Ez(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.Ez(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.ER(pot=None)) - _to_numpy(o.ER(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.ER(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.Ez(pot=None)) - _to_numpy(o.Ez(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.Ez(pot=)"
     o = setup_orbit_analytic_EREz(MWPotential, axi=False)
     try:
         o.Ez()
@@ -9400,22 +9498,22 @@ def test_getOrbit():
     vzs = o.vz(times)
     phis = o.phi(times)
     orbarray = o.getOrbit()
-    assert numpy.all(numpy.fabs(Rs - orbarray[:, 0])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(Rs - orbarray[:, 0]) < 10.0**-16.0), (
         "getOrbit does not work as expected for R"
     )
-    assert numpy.all(numpy.fabs(vRs - orbarray[:, 1])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vRs - orbarray[:, 1]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vR"
     )
-    assert numpy.all(numpy.fabs(vTs - orbarray[:, 2])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vTs - orbarray[:, 2]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vT"
     )
-    assert numpy.all(numpy.fabs(zs - orbarray[:, 3])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(zs - orbarray[:, 3]) < 10.0**-16.0), (
         "getOrbit does not work as expected for z"
     )
-    assert numpy.all(numpy.fabs(vzs - orbarray[:, 4])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vzs - orbarray[:, 4]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vz"
     )
-    assert numpy.all(numpy.fabs(phis - orbarray[:, 5])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(phis - orbarray[:, 5]) < 10.0**-16.0), (
         "getOrbit does not work as expected for phi"
     )
     return None
@@ -9763,7 +9861,10 @@ def test_physical_output():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() / vo / ro - o.L(use_physical=False)) < 10.0**-10.0
+                numpy.fabs(
+                    _to_numpy(o.L()) / vo / ro - _to_numpy(o.L(use_physical=False))
+                )
+                < 10.0**-10.0
             ), "o.L() output for Orbit setup with ro=,vo= does not work as expected"
         # Test action-angle functions
         if ii == 1:
@@ -9935,7 +10036,8 @@ def test_physical_output_off():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() - o.L(use_physical=False)) < 10.0**-10.0
+                numpy.fabs(_to_numpy(o.L()) - _to_numpy(o.L(use_physical=False)))
+                < 10.0**-10.0
             ), (
                 "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off"
             )
@@ -10107,7 +10209,8 @@ def test_physical_output_on():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() - o_orig.L(use_physical=True)) < 10.0**-10.0
+                numpy.fabs(_to_numpy(o.L()) - _to_numpy(o_orig.L(use_physical=True)))
+                < 10.0**-10.0
             ), (
                 "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on"
             )
@@ -10633,17 +10736,17 @@ def test_scalarxyvzvz_issue247():
     # Setup an orbit
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o = setup_orbit_energy(lp, axi=False)
-    assert isinstance(o.x(), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(), float), "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x())) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y())) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx())) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy())) == 0, "Orbit.vy() does not return a scalar"
     # Also integrate and then test
     times = numpy.linspace(0.0, 10.0, 1001)
     o.integrate(times, lp)
-    assert isinstance(o.x(5.0), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(5.0), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(5.0), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(5.0), float), "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x(5.0))) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y(5.0))) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx(5.0))) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy(5.0))) == 0, "Orbit.vy() does not return a scalar"
     return None
 
 
@@ -10653,87 +10756,139 @@ def test_scalar_all():
     # Setup an orbit
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o = setup_orbit_energy(lp, axi=False)
-    assert isinstance(o.R(), float), "Orbit.R() does not return a scalar"
-    assert isinstance(o.vR(), float), "Orbit.vR() does not return a scalar"
-    assert isinstance(o.vT(), float), "Orbit.vT() does not return a scalar"
-    assert isinstance(o.z(), float), "Orbit.z() does not return a scalar"
-    assert isinstance(o.vz(), float), "Orbit.vz() does not return a scalar"
-    assert isinstance(o.phi(), float), "Orbit.phi() does not return a scalar"
-    assert isinstance(o.r(), float), "Orbit.r() does not return a scalar"
-    assert isinstance(o.x(), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(), float), "Orbit.vy() does not return a scalar"
-    assert isinstance(o.theta(), float), "Orbit.theta() does not return a scalar"
-    assert isinstance(o.vtheta(), float), "Orbit.vtheta() does not return a scalar"
-    assert isinstance(o.vr(), float), "Orbit.vr() does not return a scalar"
-    assert isinstance(o.ra(), float), "Orbit.ra() does not return a scalar"
-    assert isinstance(o.dec(), float), "Orbit.dec() does not return a scalar"
-    assert isinstance(o.ll(), float), "Orbit.ll() does not return a scalar"
-    assert isinstance(o.bb(), float), "Orbit.bb() does not return a scalar"
-    assert isinstance(o.dist(), float), "Orbit.dist() does not return a scalar"
-    assert isinstance(o.pmra(), float), "Orbit.pmra() does not return a scalar"
-    assert isinstance(o.pmdec(), float), "Orbit.pmdec() does not return a scalar"
-    assert isinstance(o.pmll(), float), "Orbit.pmll() does not return a scalar"
-    assert isinstance(o.pmbb(), float), "Orbit.pmbb() does not return a scalar"
-    assert isinstance(o.vra(), float), "Orbit.vra() does not return a scalar"
-    assert isinstance(o.vdec(), float), "Orbit.vdec() does not return a scalar"
-    assert isinstance(o.vll(), float), "Orbit.vll() does not return a scalar"
-    assert isinstance(o.vbb(), float), "Orbit.vbb() does not return a scalar"
-    assert isinstance(o.vlos(), float), "Orbit.vlos() does not return a scalar"
-    assert isinstance(o.helioX(), float), "Orbit.helioX() does not return a scalar"
-    assert isinstance(o.helioY(), float), "Orbit.helioY() does not return a scalar"
-    assert isinstance(o.helioZ(), float), "Orbit.helioZ() does not return a scalar"
-    assert isinstance(o.U(), float), "Orbit.U() does not return a scalar"
-    assert isinstance(o.V(), float), "Orbit.V() does not return a scalar"
-    assert isinstance(o.W(), float), "Orbit.W() does not return a scalar"
-    assert isinstance(o.E(pot=lp), float), "Orbit.E() does not return a scalar"
-    assert isinstance(o.Jacobi(pot=lp), float), (
+    assert numpy.ndim(_to_numpy(o.R())) == 0, "Orbit.R() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vR())) == 0, "Orbit.vR() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vT())) == 0, "Orbit.vT() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.z())) == 0, "Orbit.z() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vz())) == 0, "Orbit.vz() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.phi())) == 0, "Orbit.phi() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.r())) == 0, "Orbit.r() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x())) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y())) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx())) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy())) == 0, "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.theta())) == 0, (
+        "Orbit.theta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vtheta())) == 0, (
+        "Orbit.vtheta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vr())) == 0, "Orbit.vr() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ra())) == 0, "Orbit.ra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dec())) == 0, "Orbit.dec() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ll())) == 0, "Orbit.ll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.bb())) == 0, "Orbit.bb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dist())) == 0, "Orbit.dist() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmra())) == 0, "Orbit.pmra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmdec())) == 0, (
+        "Orbit.pmdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmll())) == 0, "Orbit.pmll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmbb())) == 0, "Orbit.pmbb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vra())) == 0, "Orbit.vra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vdec())) == 0, "Orbit.vdec() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vll())) == 0, "Orbit.vll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vbb())) == 0, "Orbit.vbb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vlos())) == 0, "Orbit.vlos() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.helioX())) == 0, (
+        "Orbit.helioX() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioY())) == 0, (
+        "Orbit.helioY() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioZ())) == 0, (
+        "Orbit.helioZ() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.U())) == 0, "Orbit.U() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.V())) == 0, "Orbit.V() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.W())) == 0, "Orbit.W() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.E(pot=lp))) == 0, "Orbit.E() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Jacobi(pot=lp))) == 0, (
         "Orbit.Jacobi() does not return a scalar"
     )
-    assert isinstance(o.ER(pot=lp), float), "Orbit.ER() does not return a scalar"
-    assert isinstance(o.Ez(pot=lp), float), "Orbit.Ez() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ER(pot=lp))) == 0, (
+        "Orbit.ER() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.Ez(pot=lp))) == 0, (
+        "Orbit.Ez() does not return a scalar"
+    )
     # Also integrate and then test
     times = numpy.linspace(0.0, 10.0, 1001)
     o.integrate(times, lp)
-    assert isinstance(o.R(5.0), float), "Orbit.R() does not return a scalar"
-    assert isinstance(o.vR(5.0), float), "Orbit.vR() does not return a scalar"
-    assert isinstance(o.vT(5.0), float), "Orbit.vT() does not return a scalar"
-    assert isinstance(o.z(5.0), float), "Orbit.z() does not return a scalar"
-    assert isinstance(o.vz(5.0), float), "Orbit.vz() does not return a scalar"
-    assert isinstance(o.phi(5.0), float), "Orbit.phi() does not return a scalar"
-    assert isinstance(o.r(5.0), float), "Orbit.r() does not return a scalar"
-    assert isinstance(o.x(5.0), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(5.0), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(5.0), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(5.0), float), "Orbit.vy() does not return a scalar"
-    assert isinstance(o.theta(5.0), float), "Orbit.theta() does not return a scalar"
-    assert isinstance(o.vtheta(5.0), float), "Orbit.vtheta() does not return a scalar"
-    assert isinstance(o.vr(5.0), float), "Orbit.vr() does not return a scalar"
-    assert isinstance(o.ra(5.0), float), "Orbit.ra() does not return a scalar"
-    assert isinstance(o.dec(5.0), float), "Orbit.dec() does not return a scalar"
-    assert isinstance(o.ll(5.0), float), "Orbit.ll() does not return a scalar"
-    assert isinstance(o.bb(5.0), float), "Orbit.bb() does not return a scalar"
-    assert isinstance(o.dist(5.0), float), "Orbit.dist() does not return a scalar"
-    assert isinstance(o.pmra(5.0), float), "Orbit.pmra() does not return a scalar"
-    assert isinstance(o.pmdec(5.0), float), "Orbit.pmdec() does not return a scalar"
-    assert isinstance(o.pmll(5.0), float), "Orbit.pmll() does not return a scalar"
-    assert isinstance(o.pmbb(5.0), float), "Orbit.pmbb() does not return a scalar"
-    assert isinstance(o.vra(5.0), float), "Orbit.vra() does not return a scalar"
-    assert isinstance(o.vdec(5.0), float), "Orbit.vdec() does not return a scalar"
-    assert isinstance(o.vll(5.0), float), "Orbit.vll() does not return a scalar"
-    assert isinstance(o.vbb(5.0), float), "Orbit.vbb() does not return a scalar"
-    assert isinstance(o.vlos(5.0), float), "Orbit.vlos() does not return a scalar"
-    assert isinstance(o.helioX(5.0), float), "Orbit.helioX() does not return a scalar"
-    assert isinstance(o.helioY(5.0), float), "Orbit.helioY() does not return a scalar"
-    assert isinstance(o.helioZ(5.0), float), "Orbit.helioZ() does not return a scalar"
-    assert isinstance(o.U(5.0), float), "Orbit.U() does not return a scalar"
-    assert isinstance(o.V(5.0), float), "Orbit.V() does not return a scalar"
-    assert isinstance(o.W(5.0), float), "Orbit.W() does not return a scalar"
-    assert isinstance(o.E(5.0), float), "Orbit.E() does not return a scalar"
-    assert isinstance(o.Jacobi(5.0), float), "Orbit.Jacobi() does not return a scalar"
-    assert isinstance(o.ER(5.0), float), "Orbit.ER() does not return a scalar"
-    assert isinstance(o.Ez(5.0), float), "Orbit.Ez() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.R(5.0))) == 0, "Orbit.R() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vR(5.0))) == 0, "Orbit.vR() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vT(5.0))) == 0, "Orbit.vT() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.z(5.0))) == 0, "Orbit.z() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vz(5.0))) == 0, "Orbit.vz() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.phi(5.0))) == 0, (
+        "Orbit.phi() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.r(5.0))) == 0, "Orbit.r() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x(5.0))) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y(5.0))) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx(5.0))) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy(5.0))) == 0, "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.theta(5.0))) == 0, (
+        "Orbit.theta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vtheta(5.0))) == 0, (
+        "Orbit.vtheta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vr(5.0))) == 0, "Orbit.vr() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ra(5.0))) == 0, "Orbit.ra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dec(5.0))) == 0, (
+        "Orbit.dec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.ll(5.0))) == 0, "Orbit.ll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.bb(5.0))) == 0, "Orbit.bb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dist(5.0))) == 0, (
+        "Orbit.dist() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmra(5.0))) == 0, (
+        "Orbit.pmra() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmdec(5.0))) == 0, (
+        "Orbit.pmdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmll(5.0))) == 0, (
+        "Orbit.pmll() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmbb(5.0))) == 0, (
+        "Orbit.pmbb() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vra(5.0))) == 0, (
+        "Orbit.vra() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vdec(5.0))) == 0, (
+        "Orbit.vdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vll(5.0))) == 0, (
+        "Orbit.vll() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vbb(5.0))) == 0, (
+        "Orbit.vbb() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vlos(5.0))) == 0, (
+        "Orbit.vlos() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioX(5.0))) == 0, (
+        "Orbit.helioX() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioY(5.0))) == 0, (
+        "Orbit.helioY() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioZ(5.0))) == 0, (
+        "Orbit.helioZ() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.U(5.0))) == 0, "Orbit.U() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.V(5.0))) == 0, "Orbit.V() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.W(5.0))) == 0, "Orbit.W() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.E(5.0))) == 0, "Orbit.E() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Jacobi(5.0))) == 0, (
+        "Orbit.Jacobi() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.ER(5.0))) == 0, "Orbit.ER() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Ez(5.0))) == 0, "Orbit.Ez() does not return a scalar"
     return None
 
 
@@ -10774,13 +10929,13 @@ def test_SkyCoord():
     ras = numpy.array([s.ra.degree for s in o.SkyCoord(times)])
     decs = numpy.array([s.dec.degree for s in o.SkyCoord(times)])
     dists = numpy.array([s.distance.kpc for s in o.SkyCoord(times)])
-    assert numpy.all(numpy.fabs(ras - o.ra(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(ras - as_numpy(o.ra(times))) < 10.0**-13.0), (
         "Orbit SkyCoord ra and direct ra do not agree"
     )
-    assert numpy.all(numpy.fabs(decs - o.dec(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(decs - as_numpy(o.dec(times))) < 10.0**-13.0), (
         "Orbit SkyCoord dec and direct dec do not agree"
     )
-    assert numpy.all(numpy.fabs(dists - o.dist(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(dists - as_numpy(o.dist(times))) < 10.0**-13.0), (
         "Orbit SkyCoord distance and direct distance do not agree"
     )
     # Check that the GC frame parameters are correctly propagated
@@ -11591,8 +11746,8 @@ def test_orbit_method_inputro_quantity():
     ), "Orbit method Jacobi does not return the correct value when input ro is Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, ro=ro * units.kpc)
-            - o.L(pot=MWPotential2014, ro=ro)
+            _to_numpy(o.L(pot=MWPotential2014, ro=ro * units.kpc))
+            - _to_numpy(o.L(pot=MWPotential2014, ro=ro))
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when input ro is Quantity"
@@ -11849,8 +12004,8 @@ def test_orbit_method_inputvo_quantity():
     ), "Orbit method Jacobi does not return the correct value when input vo is Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, vo=vo * units.km / units.s)
-            - o.L(pot=MWPotential2014, vo=vo)
+            _to_numpy(o.L(pot=MWPotential2014, vo=vo * units.km / units.s))
+            - _to_numpy(o.L(pot=MWPotential2014, vo=vo))
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when input vo is Quantity"
@@ -14926,25 +15081,29 @@ def test_integrate_negative_time():
     from galpy.potential import DehnenBarPotential, MWPotential2014
 
     dp = DehnenBarPotential()
-    methods = [
-        "odeint",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "dopr54_c",
-        "dop853_c",
-        "ias15_c",
-    ]
+    methods = _backend_integrators(
+        [
+            "odeint",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "dopr54_c",
+            "dop853_c",
+            "ias15_c",
+        ]
+    )
     # negative time to negative time
     times = numpy.linspace(-70.0, -30.0, 1001)
     for method in methods:
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-7
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time"
         )
@@ -14954,7 +15113,9 @@ def test_integrate_negative_time():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
@@ -14967,25 +15128,29 @@ def test_integrate_backwards():
     from galpy.potential import DehnenBarPotential, MWPotential2014
 
     dp = DehnenBarPotential()
-    methods = [
-        "odeint",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "dopr54_c",
-        "dop853_c",
-        "ias15_c",
-    ]
+    methods = _backend_integrators(
+        [
+            "odeint",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "dopr54_c",
+            "dop853_c",
+            "ias15_c",
+        ]
+    )
     # negative time to negative time
     times = numpy.linspace(-30.0, -70.0, 1001)
     for method in methods:
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-7
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time"
         )
@@ -14995,7 +15160,9 @@ def test_integrate_backwards():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
@@ -15005,7 +15172,9 @@ def test_integrate_backwards():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
@@ -15218,18 +15387,20 @@ def test_1d_tol_integration():
     times = numpy.linspace(
         0.0, 10.0, 250
     )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True).toVertical(1.0)
     for integrator in integrators:
@@ -15247,8 +15418,12 @@ def test_1d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c" or integrator == "symplec6_c":
@@ -15282,18 +15457,20 @@ def test_2d_tol_integration():
     times = numpy.linspace(
         0.0, 10.0, 250
     )  # with this time stepping, rk6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True)
     for integrator in integrators:
@@ -15311,8 +15488,12 @@ def test_2d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c":
@@ -15346,18 +15527,20 @@ def test_3d_tol_integration():
     times = numpy.linspace(
         0.0, 2.1, 250
     )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True)
     for integrator in integrators:
@@ -15377,8 +15560,12 @@ def test_3d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c" or integrator == "symplec6_c":
@@ -16514,3 +16701,87 @@ def test_orbit_phi1phi2_multi_shape_and_time():
         assert numpy.allclose(multi.phi2(ts)[i], single.phi2(ts))
         assert numpy.allclose(multi.pmphi1(ts)[i], single.pmphi1(ts))
         assert numpy.allclose(multi.pmphi2(ts)[i], single.pmphi2(ts))
+
+
+# Orbits.E(t=array) tries one vectorised potential evaluation over (orbit, time)
+# and falls back to a per-orbit scalar loop when the potential cannot broadcast
+# (e.g. potentials that integrate numerically per point). The phi-less orbit
+# shapes -- phasedim 3 and 5 -- reach their own copies of that fallback, so they
+# need their own coverage; a synthetic scalar-only potential triggers it far more
+# cheaply and deterministically than a quadrature-backed real one.
+class _NoBroadcastPotential(potential.Potential):
+    """Axisymmetric harmonic potential whose _evaluate REJECTS array input.
+
+    Forces at any shape (so integration works normally), but Phi is scalar-only,
+    which is exactly the condition Orbits.E()'s per-orbit fallback exists for.
+    Uses plain arithmetic rather than numpy ufuncs so it behaves under a forced
+    backend too.
+    """
+
+    def __init__(self, amp=1.0, ro=None, vo=None):
+        potential.Potential.__init__(self, amp=amp, ro=ro, vo=vo)
+        self.isNonAxi = False
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
+        for x in (R, z, t):
+            if numpy.ndim(x) > 0:
+                raise ValueError("this potential is scalar-only")
+        return 0.5 * (R**2.0 + z**2.0)
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
+        return -R
+
+    def _zforce(self, R, z, phi=0.0, t=0.0):
+        return -z
+
+
+def test_orbits_energy_array_times_nonbroadcasting_potential():
+    """E(t=array) must fall back to the per-orbit loop, and get it right.
+
+    Checked against the CLOSED-FORM energy of the harmonic potential rather
+    than against galpy's own per-orbit path, so the assertion is independent of
+    the code under test. Two orbits with different energies and three distinct
+    times, so an (orbit, time) transposition in the fallback cannot pass.
+    """
+    from galpy.orbit import Orbit
+
+    pot = _NoBroadcastPotential(amp=1.0)
+    ts = numpy.linspace(0.0, 0.3, 4)
+
+    # phasedim 3 -- planar, no phi
+    o3 = Orbit([[1.0, 0.1, 1.1], [1.4, -0.2, 0.7]])
+    o3.integrate(ts, pot.toPlanar())
+    E3 = as_numpy(o3.E(ts, use_physical=False)).astype(float)
+    R3 = as_numpy(o3.R(ts, use_physical=False)).astype(float)
+    ref3 = (
+        0.5 * R3**2.0
+        + as_numpy(o3.vR(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o3.vT(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+    )
+    assert E3.shape == ref3.shape, f"phasedim 3: shape {E3.shape} != {ref3.shape}"
+    assert numpy.all(numpy.fabs(E3 - ref3) < 1e-10), (
+        f"phasedim 3 fallback energy wrong: max |dE| = {numpy.max(numpy.fabs(E3 - ref3))}"
+    )
+
+    # phasedim 5 -- 3D, no phi
+    o5 = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1], [1.4, -0.2, 0.7, -0.05, 0.2]])
+    o5.integrate(ts, pot)
+    E5 = as_numpy(o5.E(ts, use_physical=False)).astype(float)
+    ref5 = (
+        0.5
+        * (
+            as_numpy(o5.R(ts, use_physical=False)).astype(float) ** 2.0
+            + as_numpy(o5.z(ts, use_physical=False)).astype(float) ** 2.0
+        )
+        + as_numpy(o5.vR(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o5.vT(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o5.vz(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+    )
+    assert E5.shape == ref5.shape, f"phasedim 5: shape {E5.shape} != {ref5.shape}"
+    assert numpy.all(numpy.fabs(E5 - ref5) < 1e-10), (
+        f"phasedim 5 fallback energy wrong: max |dE| = {numpy.max(numpy.fabs(E5 - ref5))}"
+    )
+
+    # the orbits must actually differ, or a transposition would go unnoticed
+    assert numpy.fabs(E3[0, 0] - E3[1, 0]) > 0.1, "orbits too similar to be diagnostic"
+    assert numpy.fabs(E5[0, 0] - E5[1, 0]) > 0.1, "orbits too similar to be diagnostic"

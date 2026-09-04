@@ -669,7 +669,18 @@ def _finalize_pot_args(pot_args):
     Handles the case where pot_args contains numpy arrays (e.g., from
     MultipoleExpansionPotential) by concatenating chunks efficiently
     instead of converting millions of Python floats via numpy.array().
+
+    A backend (jax/torch) potential parameter -- e.g. an ``amp`` that a user
+    differentiates through -- reaches the compiled C integrator as its concrete
+    numpy value: the C path carries no d/d(parameter) sensitivity (parameter
+    gradients come from the in-backend ODE integrators, diffrax/torchdiffeq), so
+    a grad-tracking tensor is detached to numpy here. numpy potentials have no
+    backend arrays, so this is a no-op and the numpy path stays byte-identical.
     """
+    from ..backend import as_numpy, is_backend_array
+
+    if any(is_backend_array(a) for a in pot_args):
+        pot_args = [as_numpy(a) if is_backend_array(a) else a for a in pot_args]
     if any(isinstance(a, numpy.ndarray) for a in pot_args):
         chunks = []
         scalars = []
@@ -755,9 +766,15 @@ def _parse_scf_pot(p, extra_amp=1.0):
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)
     pot_args.append(0)  # Nt=0 (static)
-    pot_args.extend(amp * p._Acos.flatten(order="C"))
+    from ..backend import as_numpy
+
+    # C-extension boundary: the coefficients must cross as numpy. Since the
+    # coefficient routines follow the ambient namespace, a potential built under
+    # a forced backend stores backend arrays, and Tensor.flatten() has no
+    # `order` keyword. as_numpy is a no-op on the numpy path.
+    pot_args.extend(amp * as_numpy(p._Acos).flatten(order="C"))
     if isNonAxi:
-        pot_args.extend(amp * p._Asin.flatten(order="C"))
+        pot_args.extend(amp * as_numpy(p._Asin).flatten(order="C"))
     pot_args.extend(cache)
     return (24, pot_args, [])  # latter is pot_tfuncs
 

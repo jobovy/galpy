@@ -18,6 +18,12 @@ exclude_lines =
     if __name__ == .__main__.:
 
 omit =
+    # Forked children (galpy.util.multi.parallel_map) start their own coverage
+    # via concurrency=multiprocessing, and `--cov galpy` is a pytest-cov CLI
+    # flag the child does not inherit -- so a child measures the TEST module its
+    # target function lives in. Omit tests/ here so the child's data matches the
+    # parent's `--cov galpy` intent.
+    tests/*
     galpy/snapshot/*
     galpy/potential/amuse.py
     galpy/util/plot.py

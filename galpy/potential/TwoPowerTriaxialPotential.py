@@ -10,9 +10,14 @@
 #
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
+from ..backend import coerce_coords, concretely_true, get_namespace
+from ..backend import special as _bspecial
+from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -102,7 +107,11 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         a = conversion.parse_length(a, ro=self._ro)
         self.a = a
         self._scale = self.a
-        if beta <= 2.0 or alpha >= 3.0:
+        # concretely_true, and one call per clause rather than `or`: under a
+        # trace w.r.t. alpha/beta each comparison is a tracer with no truth
+        # value, so validating here would take down the trace. Identical on
+        # numpy -- concretely_true is bool() there.
+        if concretely_true(beta <= 2.0) or concretely_true(alpha >= 3.0):
             raise OSError(
                 "TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2"
             )
@@ -111,14 +120,26 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         self.betaminusalpha = self.beta - self.alpha
         self.twominusalpha = 2.0 - self.alpha
         self.threeminusalpha = 3.0 - self.alpha
-        if self.twominusalpha != 0.0:
+        # `not concretely_true(== 0)` rather than `!= 0`: alpha == 2 is a
+        # degenerate closed form, and under a trace we cannot prove we are NOT
+        # in it, so take the generic branch -- which is the one that is
+        # differentiable in alpha. _psi below makes the mirrored choice.
+        if not concretely_true(self.twominusalpha == 0.0):
+            # Routed gamma on coerced exponents, so psi_inf is computed ON the
+            # backend under a force and stays differentiable in alpha/beta;
+            # scipy.special.gamma would return a silently DETACHED tensor. The
+            # exponents are coerced HERE rather than stored coerced, because
+            # self.twominusalpha drives the Python-level branches above and at
+            # _mdens below -- a tensor there would be a tracing hazard.
+            _al, _be = coerce_coords(get_namespace(alpha, beta), alpha, beta)
             self.psi_inf = (
-                special.gamma(self.beta - 2.0)
-                * special.gamma(3.0 - self.alpha)
-                / special.gamma(self.betaminusalpha)
+                _bspecial.gamma(_be - 2.0)
+                * _bspecial.gamma(3.0 - _al)
+                / _bspecial.gamma(_be - _al)
             )
         # Adjust amp
-        self._amp /= 4.0 * numpy.pi * self.a**3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
@@ -133,13 +154,15 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
 
     def _psi(self, m):
         r"""\psi(m) = -\int_{m^2}^\infty d m'^2 \rho(m'^2)"""
-        if self.twominusalpha == 0.0:
+        # backend hyp2f1 (scipy on numpy, byte-identical): scipy.special.hyp2f1
+        # converts a traced/tensor m to numpy, which is not jit-traceable
+        if concretely_true(self.twominusalpha == 0.0):
             return (
                 -2.0
                 * self.a**2
                 * (self.a / m) ** self.betaminusalpha
                 / self.betaminusalpha
-                * special.hyp2f1(
+                * _hyp2f1(
                     self.betaminusalpha,
                     self.betaminusalpha,
                     self.betaminusalpha + 1,
@@ -154,7 +177,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
                     self.psi_inf
                     - (m / self.a) ** self.twominusalpha
                     / self.twominusalpha
-                    * special.hyp2f1(
+                    * _hyp2f1(
                         self.twominusalpha,
                         self.betaminusalpha,
                         self.threeminusalpha,
@@ -184,7 +207,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
             / (3.0 - self.alpha)
             * self._b
             * self._c
-            * special.hyp2f1(
+            * _bspecial.hyp2f1(
                 3.0 - self.alpha, self.betaminusalpha, 4.0 - self.alpha, -R / self.a
             )
         )
@@ -270,7 +293,8 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         self._scale = self.a
         # Adjust amp
         self.a4 = self.a**4
-        self._amp /= 4.0 * numpy.pi * self.a**3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -300,7 +324,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
             raise AttributeError  # Hack to fall back to general
         return (
             4.0
-            * numpy.pi
+            * math.pi
             * self.a4
             / self.a
             / (1.0 + self.a / R) ** 2.0
@@ -389,7 +413,8 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         self._scale = self.a
         # Adjust amp
         self.a2 = self.a**2
-        self._amp /= 4.0 * numpy.pi * self.a2 * self.a
+        self._amp = self._amp / (4.0 * numpy.pi * self.a2 * self.a)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
@@ -404,10 +429,11 @@ class TriaxialJaffePotential(EllipsoidalPotential):
 
     def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
+        xp = get_namespace(m)
         return (
             2.0
             * self.a2
-            * (1.0 / (1.0 + m / self.a) + numpy.log(1.0 / (1.0 + self.a / m)))
+            * (1.0 / (1.0 + m / self.a) + xp.log(1.0 / (1.0 + self.a / m)))
         )
 
     def _mdens(self, m):
@@ -421,9 +447,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
-        return (
-            4.0 * numpy.pi * self.a * self.a2 / (1.0 + self.a / R) * self._b * self._c
-        )
+        return 4.0 * math.pi * self.a * self.a2 / (1.0 + self.a / R) * self._b * self._c
 
 
 class TriaxialNFWPotential(EllipsoidalPotential):
@@ -540,6 +564,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
             self._amp = dumb._amp
         self._scale = self.a
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -547,7 +572,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         # Adjust amp
         self.a3 = self.a**3
-        self._amp /= 4.0 * numpy.pi * self.a3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a3)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -569,11 +594,12 @@ class TriaxialNFWPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        xp = get_namespace(R)
         return (
             4.0
-            * numpy.pi
+            * math.pi
             * self.a3
             * self._b
             * self._c
-            * (numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a))
+            * (xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a))
         )

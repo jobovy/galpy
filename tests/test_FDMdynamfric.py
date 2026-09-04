@@ -8,6 +8,7 @@ PY_GE_314 = sys.version_info >= (3, 14)
 import numpy
 
 from galpy import potential
+from galpy.backend import as_numpy
 from galpy.util import galpyWarning
 
 
@@ -45,7 +46,7 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
 
@@ -55,7 +56,7 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -109,7 +110,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor():
     o.integrate(t, Loghalo + fdf, method="dop853")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -163,7 +164,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor_c():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -399,7 +400,9 @@ def test_dynamfric_c():
         op = o()
         op.integrate(ttimes, p + fdf, method=py_integrator)
         # Compare r (most important)
-        assert numpy.amax(numpy.fabs(o.r(ttimes) - op.r(ttimes))) < 10**ttol, (
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(o.r(ttimes) - op.r(ttimes)))) < 10**ttol
+        ), (
             f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
         )
     return None
@@ -430,7 +433,7 @@ def test_dynamfric_c_minr():
     op = o()
     op.integrate(times, pot, method=integrator)
     # Compare r (most important)
-    assert numpy.amax(numpy.fabs(o.r(times) - op.r(times))) < 10**-8.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(times) - op.r(times)))) < 10**-8.0, (
         "Dynamical friction in C does not properly use minr"
     )
     return None

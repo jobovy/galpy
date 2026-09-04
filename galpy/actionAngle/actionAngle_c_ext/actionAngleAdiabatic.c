@@ -54,6 +54,20 @@ EXPORT void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,dou
 EXPORT void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,tfuncs_type_arr,double,
 				 double *,double *,int *);
+// C-native differentiable actions: (jr,jz) + the fused (ndata,2,5) Jacobian
+// d(jr,jz)/d(R,vR,vT,z,vz), assembled analytically (#131 Adiabatic PR-2a).
+EXPORT void actionAngleAdiabatic_actionsJac(int,double *,double *,double *,double *,
+				 double *,int,int *,double *,tfuncs_type_arr,double,int,
+				 double *,double *,double *,int *);
+// C-native differentiable EccZmax/Rperi/Rap: (ecc,zmax,rperi,rap) + the fused
+// (ndata,4,5) Jacobian d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz) (#131 Adiabatic PR-2c).
+EXPORT void actionAngleAdiabatic_EccZmaxRperiRapJac(int,double *,double *,double *,
+				 double *,double *,int,int *,double *,tfuncs_type_arr,double,int,
+				 double *,double *,double *,double *,double *,int *);
+void calcdJRAdiabatic(int,double *,double *,double *,double *,double *,double *,
+		      int,struct potentialArg *,int);
+void calcdJzAdiabatic(int,double *,double *,double *,double *,double *,
+		      int,struct potentialArg *,int);
 void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
 		     int,struct potentialArg *,int);
 void calcJzAdiabatic(int,double *,double *,double *,double *,int,
@@ -187,6 +201,335 @@ void actionAngleAdiabatic_actions(int ndata,
   free(rperi);
   free(rap);
   free(zmax);
+}
+// C-native differentiable actions: forward (jr,jz) via the existing self-contained
+// quadratures, plus the fused (ndata,2,5) Jacobian d(jr,jz)/d(R,vR,vT,z,vz).
+// Adiabatic is separable EXCEPT the vertical action is injected into the radial
+// Lz (Lz = |R vT| + gamma*Jz; gamma=1 by default), so the vertical block
+// (Ez,zmax,Jz + its derivatives) is Lz-independent and computed first, then fed
+// into the radial Lz/E_radial. Boundary terms vanish (p=0 at every turning point)
+// so each dJ/dparam is a pure interior integral (Leibniz). First-order only.
+void actionAngleAdiabatic_actionsJac(int ndata,
+				     double *R,
+				     double *vR,
+				     double *vT,
+				     double *z,
+				     double *vz,
+				     int npot,
+				     int * pot_type,
+				     double * pot_args,
+				     tfuncs_type_arr pot_tfuncs,
+				     double gamma,
+				     int order,
+				     double *jr,
+				     double *jz,
+				     double *jac,
+				     int * err){
+  int ii;
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  double *ER= (double *) malloc ( ndata * sizeof(double) );
+  double *Ez= (double *) malloc ( ndata * sizeof(double) );
+  double *Lz= (double *) malloc ( ndata * sizeof(double) );
+  double *rperi= (double *) malloc ( ndata * sizeof(double) );
+  double *rap= (double *) malloc ( ndata * sizeof(double) );
+  double *zmax= (double *) malloc ( ndata * sizeof(double) );
+  // vertical block first (Lz-independent)
+  calcEREzL(ndata,R,vR,vT,z,vz,ER,Ez,Lz,npot,actionAngleArgs);
+  calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,order);
+  double *djzdEz= (double *) malloc ( ndata * sizeof(double) );
+  double *djzdR=  (double *) malloc ( ndata * sizeof(double) );
+  calcdJzAdiabatic(ndata,djzdEz,djzdR,zmax,R,Ez,npot,actionAngleArgs,order);
+  // gamma injection: Lz = |R vT| + gamma*Jz, then radial effective energy
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
+      - 0.5 * *(vT+ii) * *(vT+ii);
+  }
+  // radial block (uses the gamma-adjusted ER,Lz)
+  calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
+  calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,order);
+  double *djrdER= (double *) malloc ( ndata * sizeof(double) );
+  double *djrdLz= (double *) malloc ( ndata * sizeof(double) );
+  calcdJRAdiabatic(ndata,djrdER,djrdLz,rperi,rap,ER,Lz,npot,actionAngleArgs,order);
+  // assemble the (2,5) Jacobian per orbit from the elementary chains
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    int kk;
+    double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
+    if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99
+	 || *(zmax+ii) == -9999.99 ){
+      for (kk=0;kk<10;kk++) *(jac+ii*10+kk)= 0.;
+      continue;
+    }
+    double tLz= *(Lz+ii), tER= *(ER+ii);
+    double s= ( tR * tvT >= 0. ) ? 1. : -1.;  // sign(R vT); Lz used fabs(R vT)
+    // forces for the elementary Ez-chain (at the INITIAL z)
+    double FR_R0= calcRforce(tR,0.,0.,0.,npot,actionAngleArgs);
+    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double dEz[5]= { FR_R0 - FR_Rz, 0., 0., -Fz_Rz, tvz };
+    // dJz/dcoord = dJz/dEz * dEz/dcoord + dJz/dR|_Ez * e_R
+    double bE= *(djzdEz+ii), bR= *(djzdR+ii);
+    double dJz[5];
+    for (kk=0;kk<5;kk++) dJz[kk]= bE*dEz[kk];
+    dJz[0]+= bR;
+    // dLz/dcoord = [s vT + gamma dJz/dR, 0, s R, gamma dJz/dz, gamma dJz/dvz]
+    double dLz[5]= { s*tvT + gamma*dJz[0], 0., s*tR, gamma*dJz[3], gamma*dJz[4] };
+    // dE_radial/dcoord (E_R = Phi(R,0) + vR^2/2 + Lz^2/(2R^2))
+    double LzR2= tLz/(tR*tR);
+    double dER[5];
+    dER[0]= -FR_R0 - tLz*tLz/(tR*tR*tR) + LzR2*dLz[0];
+    dER[1]= tvR;
+    dER[2]= LzR2*dLz[2];
+    dER[3]= LzR2*dLz[3];
+    dER[4]= LzR2*dLz[4];
+    // dJr/dcoord = dJr/dER * dER/dcoord + dJr/dLz * dLz/dcoord
+    double aE= *(djrdER+ii), aL= *(djrdLz+ii);
+    for (kk=0;kk<5;kk++){
+      *(jac+ii*10+0*5+kk)= aE*dER[kk] + aL*dLz[kk];  // jr row
+      *(jac+ii*10+1*5+kk)= dJz[kk];                  // jz row
+    }
+    (void) tER;
+  }
+  free_potentialArgs(npot,actionAngleArgs);
+  free(actionAngleArgs);
+  free(ER); free(Ez); free(Lz);
+  free(rperi); free(rap); free(zmax);
+  free(djzdEz); free(djzdR); free(djrdER); free(djrdLz);
+}
+// C-native differentiable EccZmax/Rperi/Rap: forward (ecc,zmax,rperi,rap) via the
+// existing turning-point solves, plus the fused (ndata,4,5) Jacobian
+// d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz). rperi/Rap (planar apo) and zmax are 1D
+// turning-point roots, so their coord-sensitivities follow from the implicit
+// function theorem d(tp)/dcoord= -F_coord/F_r|tp -- NO action integrals. The
+// gamma*Jz coupling into the radial Lz reuses calcdJzAdiabatic (only bites when
+// gamma!=0). rap=sqrt(Rap^2+zmax^2), ecc=(rap-rperi)/(rap+rperi) chain both blocks.
+// First-order only. Degenerate rows (unbound sentinel / circular radial /
+// planar vertical) are zeroed. Mirrors actionAngleStaeckel_EccZmaxRperiRapJac.
+void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
+					     double *R,
+					     double *vR,
+					     double *vT,
+					     double *z,
+					     double *vz,
+					     int npot,
+					     int * pot_type,
+					     double * pot_args,
+					     tfuncs_type_arr pot_tfuncs,
+					     double gamma,
+					     int order,
+					     double *ecc,
+					     double *zmaxout,
+					     double *rperiout,
+					     double *rapout,
+					     double *jac,
+					     int * err){
+  int ii;
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  double *ER= (double *) malloc ( ndata * sizeof(double) );
+  double *Ez= (double *) malloc ( ndata * sizeof(double) );
+  double *Lz= (double *) malloc ( ndata * sizeof(double) );
+  double *rperi= (double *) malloc ( ndata * sizeof(double) );
+  double *Rap= (double *) malloc ( ndata * sizeof(double) );
+  double *zmax= (double *) malloc ( ndata * sizeof(double) );
+  double *jz= (double *) malloc ( ndata * sizeof(double) );
+  // vertical block first (Lz-independent)
+  calcEREzL(ndata,R,vR,vT,z,vz,ER,Ez,Lz,npot,actionAngleArgs);
+  calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,order);
+  double *djzdEz= (double *) malloc ( ndata * sizeof(double) );
+  double *djzdR=  (double *) malloc ( ndata * sizeof(double) );
+  calcdJzAdiabatic(ndata,djzdEz,djzdR,zmax,R,Ez,npot,actionAngleArgs,order);
+  // gamma injection: Lz = |R vT| + gamma*Jz, then radial effective energy
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
+      - 0.5 * *(vT+ii) * *(vT+ii);
+  }
+  // radial block (uses the gamma-adjusted ER,Lz); Rap is the PLANAR apocenter
+  calcRapRperi(ndata,rperi,Rap,R,ER,Lz,npot,actionAngleArgs);
+  // assemble the (4,5) Jacobian per orbit
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    int kk;
+    double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
+    double trperi= *(rperi+ii), tRap= *(Rap+ii), tzmax= *(zmax+ii);
+    // forward values computed uniformly (rap=sqrt(Rap^2+zmax^2), ecc from the raw
+    // rperi/Rap/zmax) so they byte-match the numpy c=True path -- INCLUDING the
+    // unbound -9999.99 sentinels (rap->14142, ecc->5.83), whose Jacobian rows the
+    // guard below zeroes.
+    double trap= sqrt(tRap*tRap + tzmax*tzmax);
+    *(ecc+ii)= (trap-trperi)/(trap+trperi);
+    *(zmaxout+ii)= tzmax; *(rperiout+ii)= trperi; *(rapout+ii)= trap;
+    if ( trperi == -9999.99 || tRap == -9999.99 || tzmax == -9999.99 ){
+      for (kk=0;kk<20;kk++) *(jac+ii*20+kk)= 0.;  // unbound -> zeroed Jacobian
+      continue;
+    }
+    double tLz= *(Lz+ii);
+    int circular= ( ( tRap - trperi ) / tRap < 0.000001 );  // radial turning pts merged
+    int planar=   ( tzmax < 0.000001 );                     // z=vz=0 -> zforce(R,0)=0
+    double s= ( tR * tvT >= 0. ) ? 1. : -1.;  // sign(R vT); Lz used fabs(R vT)
+    // forces at the INITIAL z for the elementary Ez/Lz/ER chains (reused from actionsJac)
+    double FR_R0= calcRforce(tR,0.,0.,0.,npot,actionAngleArgs);
+    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double dEz[5]= { FR_R0 - FR_Rz, 0., 0., -Fz_Rz, tvz };
+    double bE= *(djzdEz+ii), bR= *(djzdR+ii);
+    double dJz[5];
+    for (kk=0;kk<5;kk++) dJz[kk]= bE*dEz[kk];
+    dJz[0]+= bR;
+    double dLz[5]= { s*tvT + gamma*dJz[0], 0., s*tR, gamma*dJz[3], gamma*dJz[4] };
+    double LzR2= tLz/(tR*tR);
+    double dER[5];
+    dER[0]= -FR_R0 - tLz*tLz/(tR*tR*tR) + LzR2*dLz[0];
+    dER[1]= tvR;
+    dER[2]= LzR2*dLz[2];
+    dER[3]= LzR2*dLz[3];
+    dER[4]= LzR2*dLz[4];
+    // radial turning-point sensitivities: F_R(r)= E_R - Phi(r,0) - Lz^2/(2r^2);
+    // dF_R/dr= Rforce(r,0)+Lz^2/r^3; dF_R/dcoord|_r= dER - (Lz/r^2) dLz;
+    // d(tp)/dcoord= -dF_R/dcoord / dF_R/dr. Circular (rperi==Rap) -> dF_R/dr->0: zero.
+    double drperi[5]= {0.,0.,0.,0.,0.}, dRapc[5]= {0.,0.,0.,0.,0.};
+    if ( !circular ){
+      // plunging (Lz->0 radial): rperi->0 EXACTLY (calcRapRperi assigns 0, not the
+      // -9999.99 sentinel) -> the drperi implicit-diff is 0/0; zero that row (Rap
+      // stays regular). Threshold matches calcRapRperi's own 1e-9 zero-assign.
+      int plunging= ( trperi < 1e-9 );
+      double dFRdr_ra= calcRforce(tRap,0.,0.,0.,npot,actionAngleArgs)
+	+ tLz*tLz/(tRap*tRap*tRap);
+      double dFRdr_rp= plunging ? 1. : ( calcRforce(trperi,0.,0.,0.,npot,actionAngleArgs)
+	+ tLz*tLz/(trperi*trperi*trperi) );
+      for (kk=0;kk<5;kk++){
+	dRapc[kk]= -( dER[kk] - tLz/(tRap*tRap)*dLz[kk] ) / dFRdr_ra;
+	if ( !plunging )
+	  drperi[kk]= -( dER[kk] - tLz/(trperi*trperi)*dLz[kk] ) / dFRdr_rp;
+      }
+    }
+    // vertical turning-point sensitivity: F_z(z')= Phi(R,z)-Phi(R,z')+vz^2/2;
+    // dF_z/dz'= zforce(R,zmax); dF_z/dcoord= {Rforce(R,zmax)-Rforce(R,z),0,0,-zforce(R,z),vz}.
+    // Planar (zmax->0) -> zforce(R,0)=0: zero.
+    double dzmaxc[5]= {0.,0.,0.,0.,0.};
+    if ( !planar ){
+      double dFzdz= calczforce(tR,tzmax,0.,0.,npot,actionAngleArgs);
+      double dFz[5]= { calcRforce(tR,tzmax,0.,0.,npot,actionAngleArgs) - FR_Rz,
+		       0., 0., -Fz_Rz, tvz };
+      for (kk=0;kk<5;kk++) dzmaxc[kk]= -dFz[kk]/dFzdz;
+    }
+    // geometry: rap=sqrt(Rap^2+zmax^2), ecc=(rap-rperi)/(rap+rperi)
+    double rr= (trap+trperi)*(trap+trperi);
+    double de_drperi= -2.*trap/rr, de_drap= 2.*trperi/rr;
+    for (kk=0;kk<5;kk++){
+      double drapk= ( tRap*dRapc[kk] + tzmax*dzmaxc[kk] ) / trap;
+      *(jac+ii*20+ 0*5+kk)= de_drperi*drperi[kk] + de_drap*drapk;  // ecc
+      *(jac+ii*20+ 1*5+kk)= dzmaxc[kk];                            // zmax
+      *(jac+ii*20+ 2*5+kk)= drperi[kk];                            // rperi
+      *(jac+ii*20+ 3*5+kk)= drapk;                                 // rap
+    }
+  }
+  free_potentialArgs(npot,actionAngleArgs);
+  free(actionAngleArgs);
+  free(ER); free(Ez); free(Lz);
+  free(rperi); free(Rap); free(zmax); free(jz);
+  free(djzdEz); free(djzdR);
+}
+// dJr/dE_radial = (1/(sqrt2 pi)) int_rperi^Rap dr/sqrt(F_R),
+// dJr/dLz       = -(Lz/(sqrt2 pi)) int_rperi^Rap dr/(r^2 sqrt(F_R)),
+// F_R(r)= E_radial - Phi(r,0) - Lz^2/(2 r^2). Both 1/sqrt-singular at BOTH turning
+// points -> the theta-substitution r = cc - rr*cos(theta), theta in [0,pi]
+// (dr = rr sin(theta) dtheta) regularizes both ends in one GL pass. Degenerate
+// (unbound sentinel / circular) -> 0.
+void calcdJRAdiabatic(int ndata,
+		      double * djrdER,
+		      double * djrdLz,
+		      double * rperi,
+		      double * rap,
+		      double * ER,
+		      double * Lz,
+		      int nargs,
+		      struct potentialArg * actionAngleArgs,
+		      int order){
+  int ii, gi;
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+  shared(djrdER,djrdLz,rperi,rap,ER,Lz,T)
+  for (ii=0; ii < ndata; ii++){
+    if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
+      *(djrdER+ii)= 0.; *(djrdLz+ii)= 0.; continue;
+    }
+    if ( ( *(rap+ii) - *(rperi+ii) ) / *(rap+ii) < 0.000001 ){ //circular
+      *(djrdER+ii)= 0.; *(djrdLz+ii)= 0.; continue;
+    }
+    double tER= *(ER+ii), tLz= *(Lz+ii);
+    double Lz22= 0.5*tLz*tLz;
+    double cc= 0.5*( *(rap+ii) + *(rperi+ii) );
+    double rr= 0.5*( *(rap+ii) - *(rperi+ii) );
+    double accE= 0., accL= 0., xi, wi;
+    for (gi=0; gi < order; gi++){
+      gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
+      double sinth= sin(xi), costh= cos(xi);
+      double r= cc - rr*costh;
+      double FR= tER - evaluatePotentials(r,0.,nargs,actionAngleArgs)
+	- Lz22/(r*r);
+      if ( FR <= 0. ) continue;
+      double w= wi*rr*sinth/sqrt(FR);
+      accE+= w;
+      accL+= w/(r*r);
+    }
+    *(djrdER+ii)= accE / ( sqrt(2.)*M_PI );
+    *(djrdLz+ii)= -tLz*accL / ( sqrt(2.)*M_PI );
+  }
+  gsl_integration_glfixed_table_free ( T );
+}
+// dJz/dEz    = (sqrt2/pi) int_0^zmax dz/sqrt(F_z),
+// dJz/dR|_Ez = (sqrt2/pi) int_0^zmax [Rforce(R,z)-Rforce(R,0)]/sqrt(F_z) dz,
+// F_z(z)= Ez - [Phi(R,z)-Phi(R,0)]. 1/sqrt-singular only at the upper end zmax
+// (F_z(0)=Ez>0) -> z = zmax*sin(phi), phi in [0,pi/2] (dz = zmax cos(phi) dphi)
+// regularizes zmax. Degenerate (unbound sentinel / planar) -> 0.
+void calcdJzAdiabatic(int ndata,
+		      double * djzdEz,
+		      double * djzdR,
+		      double * zmax,
+		      double * R,
+		      double * Ez,
+		      int nargs,
+		      struct potentialArg * actionAngleArgs,
+		      int order){
+  int ii, gi;
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+  shared(djzdEz,djzdR,zmax,R,Ez,T)
+  for (ii=0; ii < ndata; ii++){
+    if ( *(zmax+ii) == -9999.99 ){ *(djzdEz+ii)= 0.; *(djzdR+ii)= 0.; continue; }
+    if ( *(zmax+ii) < 0.000001 ){ //planar (J_z=0)
+      *(djzdEz+ii)= 0.; *(djzdR+ii)= 0.; continue;
+    }
+    double tR= *(R+ii), tEz= *(Ez+ii), tzmax= *(zmax+ii);
+    double FR_R0= calcRforce(tR,0.,0.,0.,nargs,actionAngleArgs);
+    double accEz= 0., accR= 0., xi, wi;
+    for (gi=0; gi < order; gi++){
+      gsl_integration_glfixed_point(0.,0.5*M_PI,gi,&xi,&wi,T);
+      double sph= sin(xi), cph= cos(xi);
+      double zz= tzmax*sph;
+      double Fz= tEz - evaluateVerticalPotentials(tR,zz,nargs,actionAngleArgs);
+      if ( Fz <= 0. ) continue;
+      double w= wi*tzmax*cph/sqrt(Fz);  // dz/dphi = zmax cos(phi)
+      accEz+= w;
+      double FR_Rz= calcRforce(tR,zz,0.,0.,nargs,actionAngleArgs);
+      accR+= w*(FR_Rz - FR_R0);
+    }
+    *(djzdEz+ii)= sqrt(2.)/M_PI * accEz;
+    *(djzdR+ii)=  sqrt(2.)/M_PI * accR;
+  }
+  gsl_integration_glfixed_table_free ( T );
 }
 // JR = (sqrt2/pi) int_rperi^rap sqrt(F_R) dR, F_R(R)= ER - Phi(R,0) - Lz^2/(2R^2).
 // F_R has a SQRT zero at BOTH ends, so plain Gauss-Legendre is algebraically

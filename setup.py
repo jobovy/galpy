@@ -406,6 +406,11 @@ setup(
     install_requires=["packaging", "numpy>=1.7", "scipy", "matplotlib"],
     extras_require={
         "test": ["pytest", "coverage", "pytest-cov", "pytest-rerunfailures"],
+        # Array-backend support (galpy.backend). array-api-compat is the
+        # dispatch engine and is pulled in by each backend extra; diffrax /
+        # torchdiffeq provide the in-backend differentiable ODE orbit integrator.
+        "jax": ["jax", "jaxlib", "array-api-compat", "diffrax"],
+        "torch": ["torch", "array-api-compat", "torchdiffeq"],
         "docs": [
             "sphinxext-opengraph",
             "sphinx-design",

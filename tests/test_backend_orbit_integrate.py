@@ -1,0 +1,860 @@
+###############################################################################
+# test_backend_orbit_integrate.py: the in-backend differentiable ODE integrator
+# wired into Orbit.integrate via the new method names 'diffrax' (jax) and
+# 'torchdiffeq' (torch).
+#
+# Proves, for the WIRED path (Orbit.integrate(..., method='diffrax'/'torchdiffeq')):
+#   1. the stored trajectory (o.getOrbit()) matches galpy's C integrator
+#      (modulo phi 2pi),
+#   2. autodiff through Orbit.integrate gives correct gradients of the final
+#      state w.r.t. the initial conditions AND potential parameters (vs FD),
+#   3. the torch.autograd gradient matches the jax.grad one (cross-backend),
+#   4. the routing rule (method <-> IC namespace), single-orbit / 3D-only, and
+#      numpy-IC restrictions raise clear errors,
+#   5. the numpy path is unaffected (a numpy orbit still uses the C integrators).
+#
+# Self-skips unless the runtime ODE extra (diffrax / torchdiffeq) is installed.
+###############################################################################
+import numpy
+import pytest
+
+from galpy.backend import as_numpy, is_backend_array
+from galpy.orbit import Orbit
+from galpy.potential import (
+    BurkertPotential,
+    DehnenBarPotential,
+    DehnenCoreSphericalPotential,
+    DoubleExponentialDiskPotential,
+    HernquistPotential,
+    IsochronePotential,
+    IsothermalDiskPotential,
+    JaffePotential,
+    MiyamotoNagaiPotential,
+    MN3ExponentialDiskPotential,
+    NFWPotential,
+    PerfectEllipsoidPotential,
+    PlummerPotential,
+    PowerSphericalPotentialwCutoff,
+    SCFPotential,
+    SoftenedNeedleBarPotential,
+    SpiralArmsPotential,
+    TriaxialHernquistPotential,
+    TriaxialNFWPotential,
+    TwoPowerSphericalPotential,
+)
+
+pytestmark = pytest.mark.backend_managed
+
+HAVE_JAX = False
+HAVE_TORCH = False
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import diffrax  # noqa: F401
+    import jax.numpy as jnp
+
+    HAVE_JAX = True
+except ImportError:  # pragma: no cover
+    pass
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+    import torchdiffeq  # noqa: F401
+
+    HAVE_TORCH = True
+except ImportError:  # pragma: no cover
+    pass
+
+_IC = [1.0, 0.1, 0.9, 0.2, 0.05, 0.3]  # R, vR, vT, z, vz, phi
+_TS = numpy.linspace(0.0, 6.0, 120)
+# Broad potential sweep at the tight rtol=1e-8 trajectory-match tolerance (the
+# wired Orbit.integrate path). These 17 families hit 1e-8 vs the C dop853_c
+# reference over t=0..6; the cusped/stiff potentials where diffrax achieves only
+# ~1e-8 (DehnenSpherical/Kepler/PowerSpherical/LogHalo/FlattenedPower) are covered
+# at rtol=1e-6 in test_backend_inbackend_ode.py instead.
+_POTS = [
+    ("Plummer", PlummerPotential(amp=1.0, b=0.6)),
+    ("Isochrone", IsochronePotential(amp=1.0, b=0.8)),
+    ("Hernquist", HernquistPotential(amp=1.0, a=0.7)),
+    ("NFW", NFWPotential(amp=1.0, a=1.5)),
+    ("Jaffe", JaffePotential(amp=1.0, a=0.7)),
+    ("DehnenCoreSpherical", DehnenCoreSphericalPotential(amp=1.0, a=1.0)),
+    (
+        "PowerSphericalwCutoff",
+        PowerSphericalPotentialwCutoff(amp=1.0, alpha=1.0, rc=1.0),
+    ),
+    ("Burkert", BurkertPotential(amp=1.0, a=1.0)),
+    (
+        "TwoPowerSpherical",
+        TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=1.0, beta=3.0),
+    ),
+    ("MiyamotoNagai", MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)),
+    (
+        "DoubleExponentialDisk",
+        DoubleExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    (
+        "MN3ExponentialDisk",
+        MN3ExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    ("TriaxialNFW", TriaxialNFWPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("PerfectEllipsoid", PerfectEllipsoidPotential(amp=1.0, a=1.0, b=0.9, c=0.7)),
+    ("TriaxialHernquist", TriaxialHernquistPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("DehnenBar", DehnenBarPotential()),
+    ("SoftenedNeedleBar", SoftenedNeedleBarPotential(amp=1.0, a=1.0, b=0.1, c=0.5)),
+    ("SpiralArms", SpiralArmsPotential()),
+    ("SCF", SCFPotential(amp=1.0)),
+]
+
+
+def _wrap_phi(a):
+    a = numpy.array(a, dtype=float)
+    a[..., 5] = (a[..., 5] + numpy.pi) % (2 * numpy.pi) - numpy.pi
+    return a
+
+
+def _c_reference(pot):
+    # The trusted C trajectory in Orbit order [R,vR,vT,z,vz,phi] at the _TS grid.
+    o = Orbit(_IC)
+    o.integrate(_TS, pot, method="dop853_c")
+    return numpy.array(
+        [o.R(_TS), o.vR(_TS), o.vT(_TS), o.z(_TS), o.vz(_TS), o.phi(_TS)]
+    ).T
+
+
+# All phase-space dimensions the in-backend path supports: (id, IC, potential,
+# accessors in Orbit order, index of the phi column to 2pi-wrap or None). 2D/3D
+# orbits run in a 3D potential (planar = 3D with z=vz=0); 1D needs a
+# linearPotential. phasedim 6 is exercised by test_integrate_diffrax_matches_c.
+_PLUMMER = PlummerPotential(amp=1.0, b=0.6)
+_DISK1D = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+_PHASEDIM_CASES = [
+    ("pd5", [1.0, 0.1, 0.9, 0.2, 0.05], _PLUMMER, ["R", "vR", "vT", "z", "vz"], None),
+    ("pd4", [1.0, 0.1, 0.9, 0.3], _PLUMMER, ["R", "vR", "vT", "phi"], 3),
+    ("pd3", [1.0, 0.1, 0.9], _PLUMMER, ["R", "vR", "vT"], None),
+    ("pd2", [0.1, 0.05], _DISK1D, ["x", "vx"], None),
+]
+
+
+def _wrap_col(a, col):
+    a = numpy.array(a, dtype=float)
+    if col is not None:
+        a[..., col] = (a[..., col] + numpy.pi) % (2 * numpy.pi) - numpy.pi
+    return a
+
+
+def _c_reference_general(ic, pot, accessors):
+    # Trusted C trajectory for an arbitrary-phasedim IC, in Orbit order.
+    o = Orbit(list(ic))
+    o.integrate(_TS, pot, method="dop853_c")
+    return numpy.array([getattr(o, a)(_TS) for a in accessors]).T
+
+
+# ------------------------------------------------------------- forward parity vs C
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("name,pot", _POTS, ids=[p[0] for p in _POTS])
+def test_integrate_diffrax_matches_c(name, pot):
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (len(_TS), 6)
+    numpy.testing.assert_allclose(
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+@pytest.mark.parametrize("name,pot", _POTS, ids=[p[0] for p in _POTS])
+def test_integrate_torchdiffeq_matches_c(name, pot):
+    o = Orbit(torch.as_tensor(_IC))
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    got = o.getOrbit().detach().cpu().numpy()
+    assert got.shape == (len(_TS), 6)
+    numpy.testing.assert_allclose(
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
+    )
+
+
+# --------------------------------------------------------- gradients (jax) vs FD
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_grad_ic_vs_fd():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    g = float(jax.grad(final_R)(0.1))
+    eps = 1e-6
+    fd = float((final_R(0.1 + eps) - final_R(0.1 - eps)) / (2 * eps))
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_grad_param_vs_fd():
+    # gradient of the final R w.r.t. a potential parameter (Plummer scale b)
+    def final_R(b):
+        pot = PlummerPotential(amp=1.0, b=b)
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    g = float(jax.grad(final_R)(0.6))
+    eps = 1e-6
+    fd = float((final_R(0.6 + eps) - final_R(0.6 - eps)) / (2 * eps))
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
+
+
+# ----------------------------------------------- torch gradient matches jax (FD-free)
+@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="needs both jax and torch")
+def test_integrate_torchdiffeq_grad_matches_diffrax():
+    # torchdiffeq adaptive-step FD is noisy; cross-validate torch grad vs jax grad
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R_jax(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    g_jax = float(jax.grad(final_R_jax)(0.1))
+    v = torch.tensor([1.0, 0.1, 0.9, 0.2, 0.05, 0.3], requires_grad=True)
+    o = Orbit(v)
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    o.getOrbit()[-1, 0].backward()
+    numpy.testing.assert_allclose(float(v.grad[1]), g_jax, rtol=1e-6, atol=1e-8)
+
+
+# --------------------------------------------------- batch via jax.vmap (single-orbit)
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_vmap_batch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R(ic):
+        o = Orbit(ic)
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    ics = jnp.asarray(
+        numpy.stack([_IC, numpy.array(_IC) * 1.01, numpy.array(_IC) * 0.99])
+    )
+    batched = jax.vmap(final_R)(ics)
+    looped = numpy.array([float(final_R(ic)) for ic in ics])
+    # adaptive-solver step sequences can differ slightly between vmapped and
+    # looped runs (and across CPU/GPU/diffrax versions); a real vmap bug would
+    # differ by O(1e-2) given the 1% ICs, so this still pins vmap correctness.
+    numpy.testing.assert_allclose(numpy.asarray(batched), looped, rtol=1e-7, atol=1e-9)
+
+
+# --------------------------------------------------------------- error / routing rules
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_numpy_ic_diffrax_raises():
+    # a numpy-IC Orbit cannot use the in-backend methods (no differentiable IC)
+    o = Orbit(_IC)
+    with pytest.raises(ValueError):
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="diffrax")
+
+
+@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="needs both jax and torch")
+def test_integrate_method_namespace_mismatch_raises():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    # torch IC asked to use diffrax (jax) -> error
+    with pytest.raises(ValueError):
+        Orbit(torch.as_tensor(_IC)).integrate(
+            torch.as_tensor(_TS), pot, method="diffrax"
+        )
+    # jax IC asked to use torchdiffeq (torch) -> error
+    with pytest.raises(ValueError):
+        Orbit(jnp.asarray(_IC)).integrate(jnp.asarray(_TS), pot, method="torchdiffeq")
+
+
+# a small bound multi-orbit set (incl. a retrograde orbit), reshaped to grids
+_MULTI_IC = numpy.array(
+    [
+        [1.0, 0.1, 0.9, 0.2, 0.05, 0.3],
+        [1.1, -0.1, 1.0, -0.1, 0.05, 0.4],
+        [0.9, 0.05, 0.8, 0.1, -0.08, 2.0],
+        [1.05, 0.0, -0.7, 0.0, 0.1, 1.0],  # retrograde, z=vz... vR=0 edge
+    ]
+)
+
+
+def _per_orbit_inbackend(ic_arr, pot, method, xp, _np):
+    # integrate each orbit singly and stack getOrbit -> (N, nt, 6); the
+    # native-batch result must match this to within the shared-controller coupling
+    out = []
+    for row in ic_arr:
+        o = Orbit(xp(row))
+        o.integrate(xp(_TS), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_jax():
+    # a multi-orbit Orbit integrates ALL orbits in one batched diffrax solve;
+    # getOrbit() is (N, nt, 6) and a (2,2) grid is (2,2,nt,6), each orbit matching
+    # the per-orbit single solve (shared adaptive controller is sub-tolerance).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "diffrax", jnp.asarray, numpy.asarray)
+    # flat (N,6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid shape: getOrbit() (2,2,nt,6); accessors reshape to (2,2,nt)
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    gg = numpy.asarray(og.getOrbit())
+    assert gg.shape == (2, 2, len(_TS), 6)
+    numpy.testing.assert_allclose(
+        gg.reshape((4, len(_TS), 6)), ref, rtol=1e-6, atol=1e-8
+    )
+    assert numpy.asarray(og.getOrbit()[..., 0]).shape == (2, 2, len(_TS))
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "torchdiffeq", torch.as_tensor, _np)
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
+
+
+# per-orbit time arrays (each orbit its OWN times, same length nt): different t0/t1
+# per orbit, as the C integrators' indiv_t (used by streamspraydf).
+_PERORBIT_T = numpy.stack(
+    [
+        numpy.linspace(t0, t1, 30)
+        for t0, t1 in [(0.0, 6.0), (0.5, 6.5), (0.0, 5.0), (1.0, 7.0)]
+    ],
+    axis=0,
+)  # (4, 30)
+
+
+def _per_orbit_inbackend_t(ic_arr, ts2d, pot, method, xp, _np):
+    out = []
+    for row, tk in zip(ic_arr, ts2d):
+        o = Orbit(xp(row))
+        o.integrate(xp(tk), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_perorbit_t_jax():
+    # per-orbit time arrays: each orbit integrated on its OWN grid (vmap), getOrbit
+    # matches the per-orbit single solve; self.t is stored 2-D; a wrong-shape t
+    # raises ValueError (shape must be Orbit.shape + (nt,)).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "diffrax", jnp.asarray, numpy.asarray
+    )
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_PERORBIT_T), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    assert numpy.asarray(o.t).shape == (4, _PERORBIT_T.shape[1])  # stored per-orbit
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid-shaped Orbit with per-orbit (2,2,nt) times
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_PERORBIT_T.reshape((2, 2, -1))), pot, method="diffrax")
+    assert numpy.asarray(og.getOrbit()).shape == (2, 2, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(
+        numpy.asarray(og.getOrbit()).reshape((4, _PERORBIT_T.shape[1], 6)),
+        ref,
+        rtol=1e-6,
+        atol=1e-8,
+    )
+    # wrong-shape per-orbit t -> ValueError
+    with pytest.raises(ValueError):
+        Orbit(jnp.asarray(_MULTI_IC)).integrate(
+            jnp.asarray(numpy.stack([_PERORBIT_T, _PERORBIT_T])), pot, method="diffrax"
+        )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_perorbit_t_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "torchdiffeq", torch.as_tensor, _np
+    )
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_PERORBIT_T), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    (["jax"] if HAVE_JAX else []) + (["torch"] if HAVE_TORCH else []),
+)
+def test_integrate_multiorbit_inbackend_perorbit_t_accessors(backend):
+    # accessors on a PER-ORBIT-times backend Orbit route to _call_internal_indiv_t
+    # (self.t is 2-D); they must stay on the backend and not crash (torch has no
+    # 3-arg transpose/.copy()). Exact-grid (o.R(self.t)) hits the fast path; an
+    # off-grid query uses the in-backend per-orbit spline. Both match getOrbit /
+    # the per-orbit single-orbit interpolation.
+    xp = jnp.asarray if backend == "jax" else torch.as_tensor
+    _np = (
+        (lambda x: numpy.asarray(x))
+        if backend == "jax"
+        else (lambda x: x.detach().cpu().numpy())
+    )
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(xp(_MULTI_IC))
+    o.integrate(
+        xp(_PERORBIT_T), pot, method="diffrax" if backend == "jax" else "torchdiffeq"
+    )
+    got = _np(o.getOrbit())  # (4, nt, 6) [R,vR,vT,z,vz,phi]
+    # exact-grid accessor: o.R(self.t) == getOrbit's R column, and stays backend
+    Rexact = o.R(xp(_PERORBIT_T))
+    assert backend in type(Rexact).__module__
+    numpy.testing.assert_allclose(_np(Rexact), got[..., 0], rtol=1e-6, atol=1e-8)
+    # off-grid accessor: per-orbit query times, vs per-orbit single-orbit o.R
+    toff = numpy.stack([_PERORBIT_T[i, :-1] + 0.013 for i in range(4)], axis=0)
+    Roff = o.R(xp(toff))
+    assert backend in type(Roff).__module__
+    ref = numpy.empty_like(toff)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(_PERORBIT_T[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        ref[i] = _np(oi.R(xp(toff[i])))
+    numpy.testing.assert_allclose(_np(Roff), ref, rtol=1e-6, atol=1e-7)
+    # SCALAR off-grid time (same time for every orbit) -> (size,), no time axis
+    Rscalar = o.R(2.345)
+    assert backend in type(Rscalar).__module__
+    assert _np(Rscalar).shape == (4,)
+    # BACKWARD per-orbit integration (decreasing times): the off-grid spline must
+    # flip the per-orbit grid+trajectory to ascending. Matches the per-orbit single
+    # backward solve.
+    tbwd = _PERORBIT_T[:, ::-1].copy()  # decreasing per orbit
+    ob = Orbit(xp(_MULTI_IC))
+    ob.integrate(xp(tbwd), pot, method="diffrax" if backend == "jax" else "torchdiffeq")
+    toff_b = numpy.stack([tbwd[i, :-1] - 0.013 for i in range(4)], axis=0)
+    Rb = ob.R(xp(toff_b))
+    assert backend in type(Rb).__module__
+    refb = numpy.empty_like(toff_b)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(tbwd[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        refb[i] = _np(oi.R(xp(toff_b[i])))
+    numpy.testing.assert_allclose(_np(Rb), refb, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("acc", ["R", "vR", "z", "x", "y", "vx"])
+def test_integrate_multiorbit_inbackend_offgrid_matches_per_orbit(acc):
+    # off-grid time evaluation of a MULTI-orbit in-backend Orbit: each orbit is
+    # splined on the SHARED integration grid, so o.R(t)/o.x(t)/... at off-grid
+    # times match the per-orbit single-orbit interpolation (and stay on backend).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    toff = jnp.asarray([0.37, 2.15, 4.9])  # off-grid times inside the window
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = getattr(o, acc)(toff)
+    assert "jax" in type(got).__module__  # stayed on the backend
+    got = numpy.asarray(got)
+    assert got.shape == (4, len(toff))  # (N, nt) for a batch + array t
+    ref = numpy.empty((4, len(toff)))
+    for ii, row in enumerate(_MULTI_IC):
+        oi = Orbit(jnp.asarray(row))
+        oi.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        ref[ii] = numpy.asarray(getattr(oi, acc)(toff))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_scalar_and_call():
+    # scalar off-grid time: o.R(t) -> (N,); o(t) returns a new (N,)-shape Orbit.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    Rs = numpy.asarray(o.R(2.15))
+    assert Rs.shape == (4,)
+    osnap = o(2.15)  # new Orbit at t=2.15
+    assert osnap.shape == (4,)
+    numpy.testing.assert_allclose(numpy.asarray(osnap.R()), Rs, rtol=1e-10)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_inbackend_offgrid_phasedim5_no_phi():
+    # Off-grid eval of a phasedim-5 (R,vR,vT,z,vz -- no phi) in-backend orbit hits
+    # the non-(4/6) branch of _backend_spline_orbit (no x/y-wrap reconstruction):
+    # all columns are splined directly. The batched cubic must match a scipy
+    # not-a-knot CubicSpline of the SAME backend trajectory (isolates the interp).
+    from scipy.interpolate import CubicSpline
+
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray([1.0, 0.1, 1.1, 0.05, 0.02]))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    assert o.phasedim() == 5
+    toff = jnp.asarray([0.37, 2.15, 4.9])
+    assert "jax" in type(o.R(toff)).__module__  # stayed on the backend
+    traj = numpy.asarray(o.getOrbit())  # (nt, 5): R, vR, vT, z, vz
+    for col, acc in [(0, "R"), (1, "vR"), (3, "z"), (4, "vz")]:
+        cs = CubicSpline(numpy.asarray(_TS), traj[:, col], bc_type="not-a-knot")
+        numpy.testing.assert_allclose(
+            numpy.asarray(getattr(o, acc)(toff)),
+            cs(numpy.asarray(toff)),
+            rtol=1e-6,
+            atol=1e-7,
+            err_msg=f"phasedim-5 off-grid {acc}",
+        )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_phasedim5():
+    # A MULTI-orbit phasedim-5 (no phi) batch exercises the cross-orbit batched
+    # interp's non-(4/6) branch (all size*pd columns spliced into one solve, with
+    # the permute-dims output layout); each orbit's off-grid eval must match its
+    # single-orbit reference.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic = numpy.array([[1.0, 0.1, 1.1, 0.05, 0.02], [0.9, 0.0, 1.0, 0.1, -0.03]])
+    o = Orbit(jnp.asarray(ic))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    assert o.phasedim() == 5 and o.shape == (2,)
+    toff = jnp.asarray([0.37, 2.15, 4.9])
+    got = numpy.asarray(o.R(toff))  # (size, nt_query)
+    assert got.shape == (2, len(toff))
+    for kk in range(2):
+        ok = Orbit(jnp.asarray(ic[kk]))
+        ok.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        numpy.testing.assert_allclose(
+            got[kk], numpy.asarray(ok.R(toff)), rtol=1e-6, atol=1e-7
+        )
+
+
+# ----------------------------------------- all phase-space dimensions (not just 6)
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize(
+    "ic,pot,accessors,phicol",
+    [c[1:] for c in _PHASEDIM_CASES],
+    ids=[c[0] for c in _PHASEDIM_CASES],
+)
+def test_integrate_diffrax_phasedim_matches_c(ic, pot, accessors, phicol):
+    # every supported phasedim (2/3/4/5) integrates and matches the C integrator;
+    # planar (3/4) runs as 3D with z=vz=0, 1D (2) uses a linearPotential
+    o = Orbit(jnp.asarray(ic))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (len(_TS), len(ic))
+    ref = _c_reference_general(ic, pot, accessors)
+    numpy.testing.assert_allclose(
+        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-8, atol=1e-9
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+@pytest.mark.parametrize(
+    "ic,pot,accessors,phicol",
+    [c[1:] for c in _PHASEDIM_CASES],
+    ids=[c[0] for c in _PHASEDIM_CASES],
+)
+def test_integrate_torchdiffeq_phasedim_matches_c(ic, pot, accessors, phicol):
+    o = Orbit(torch.as_tensor(ic))
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    got = o.getOrbit().detach().cpu().numpy()
+    assert got.shape == (len(_TS), len(ic))
+    ref = _c_reference_general(ic, pot, accessors)
+    numpy.testing.assert_allclose(
+        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-8, atol=1e-9
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_grad_ic_planar_and_1d():
+    # gradients flow through the planar (phasedim 4) and 1D (phasedim 2) paths
+    def planar_final_R(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.3]))
+        o.integrate(jnp.asarray(_TS), _PLUMMER, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    def linear_final_x(vx0):
+        o = Orbit(jnp.array([0.1, vx0]))
+        o.integrate(jnp.asarray(_TS), _DISK1D, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    for fn, x0, eps in ((planar_final_R, 0.1, 1e-6), (linear_final_x, 0.05, 1e-4)):
+        g = float(jax.grad(fn)(x0))
+        fd = float((fn(x0 + eps) - fn(x0 - eps)) / (2 * eps))
+        numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# ------------------------------------------- backend IC + plain numpy output times
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_numpy_times():
+    # a backend IC with a plain numpy times array (not differentiating w.r.t. time)
+    # is fine: the times are moved onto the IC's backend
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(_TS, pot, method="diffrax")  # _TS is a numpy array
+    got = numpy.asarray(o.getOrbit())
+    numpy.testing.assert_allclose(
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
+    )
+
+
+# ------------------- concrete backend IC + numpy/C method works (forced-backend suite)
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_concrete_backend_ic_numpy_method_works():
+    # a CONCRETE (eager) jax-IC Orbit keeps its real values in self.vxvv, so a
+    # non-dxdv numpy/C integrator runs normally and matches the numpy-IC result --
+    # this lets the existing suite be driven under a forced jax/torch backend. (A
+    # dxdv-capable C method instead routes to the differentiable C-STM and returns a
+    # backend array; see test_backend_orbit_stm.py::test_orbit_integrate_*.)
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(_TS, pot, method="leapfrog_c")
+    ref = Orbit(list(_IC))
+    ref.integrate(_TS, pot, method="leapfrog_c")
+    numpy.testing.assert_allclose(o.R(_TS), ref.R(_TS), rtol=1e-12, atol=1e-12)
+
+
+# ------------------- traced backend IC + numpy/C method must raise (no real values)
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_gradtracking_backend_ic_numpy_method_raises_torch():
+    # a grad-tracking torch IC has no concrete values (self.vxvv is a placeholder),
+    # so a non-dxdv numpy/C method (ias15_c has no dxdv) must raise rather than
+    # integrate degenerate values. (The dxdv-capable C methods -- incl. the
+    # symplectic leapfrog_c/symplec4_c/symplec6_c -- instead route to the C-STM.)
+    o = Orbit(torch.tensor(_IC, requires_grad=True))
+    with pytest.raises(ValueError):
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="ias15_c")
+
+
+# --------- grad-tracking IC + SYMPLECTIC dxdv C method auto-routes to the C-STM
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", ["symplec4_c", "leapfrog_c", "symplec6_c"])
+def test_integrate_gradtracking_symplectic_routes_to_cstm_torch(method):
+    # A grad-tracking IC + a symplectic dxdv C method now auto-routes to the C-STM
+    # (previously raised): the orbit is a differentiable backend array matching the
+    # numpy symplectic integration to machine precision (same C integrator). A
+    # CONCRETE backend IC keeps the numpy/C path (see
+    # test_integrate_concrete_backend_ic_numpy_method_works), so a forced-backend
+    # internal default (symplec4_c) integration is never silently rerouted (#1094).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic = torch.tensor(_IC, requires_grad=True)
+    o = Orbit(ic)
+    o.integrate(_TS, pot, method=method)
+    assert is_backend_array(o.x(_TS))
+    ref = Orbit(list(_IC))
+    ref.integrate(_TS, pot, method=method)
+    numpy.testing.assert_allclose(
+        as_numpy(o.R(_TS)), ref.R(_TS), rtol=1e-10, atol=1e-11
+    )
+    loss = torch.sum(o.R(_TS) ** 2) + torch.sum(o.vx(_TS) ** 2)
+    loss.backward()
+    g = as_numpy(ic.grad)
+    assert numpy.all(numpy.isfinite(g))
+
+    # grad-vs-FD: the C-STM IC gradient matches a central finite difference along
+    # random directions (the orbit is a smooth function of the IC -- no structural
+    # discontinuity), to the FD truncation floor.
+    def loss_np(ic_np):
+        oo = Orbit(list(ic_np))
+        oo.integrate(_TS, pot, method=method)
+        return float(numpy.sum(oo.R(_TS) ** 2) + numpy.sum(oo.vx(_TS) ** 2))
+
+    ic0 = numpy.asarray(_IC, dtype=float)
+    rng = numpy.random.RandomState(43)
+    eps = 1e-6
+    for _ in range(4):
+        v = rng.randn(6)
+        v /= numpy.linalg.norm(v)
+        fd = (loss_np(ic0 + eps * v) - loss_np(ic0 - eps * v)) / (2 * eps)
+        numpy.testing.assert_allclose(
+            float(numpy.sum(g * v)),
+            fd,
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg=f"symplectic C-STM grad-vs-FD ({method})",
+        )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_integrate_gradtracking_symplectic_routes_to_cstm_jax():
+    # Under jax.grad the symplec4_c default now routes to the differentiable C-STM
+    # (was a ValueError). Gradient of the final R w.r.t. an IC component is finite
+    # and matches a finite difference.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ts = numpy.linspace(0.0, 3.0, 60)
+
+    def final_R(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
+        o.integrate(ts, pot, method="symplec4_c")
+        return o.R(ts)[-1]
+
+    import jax
+
+    g = float(jax.grad(final_R)(0.1))
+    eps = 1e-6
+    fd = (float(final_R(0.1 + eps)) - float(final_R(0.1 - eps))) / (2 * eps)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-6)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_traced_backend_ic_numpy_method_raises_jax():
+    # under jax.grad the IC is a tracer -> placeholder self.vxvv -> a non-dxdv
+    # numpy/C method (ias15_c) must raise (a differentiable method must be used
+    # instead). A dxdv-capable C method (dop853_c, leapfrog_c, symplec4_c, ...)
+    # instead routes to the C-STM and IS differentiable -- see
+    # test_backend_orbit_stm.py.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def run(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
+        o.integrate(_TS, pot, method="ias15_c")
+        return o.getOrbit()[-1, 0]
+
+    with pytest.raises(ValueError):
+        jax.grad(run)(0.1)
+
+
+# ------------------------------------------- differentiate w.r.t. integration times
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_grad_time_and_jit():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R(tmax):
+        # times built inside the trace -> a backend (traced) ts must not be forced
+        # through numpy
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.linspace(0.0, tmax, 60), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    g = float(jax.grad(final_R)(6.0))
+    eps = 1e-5
+    fd = float((final_R(6.0 + eps) - final_R(6.0 - eps)) / (2 * eps))
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
+    # and the same path survives jax.jit (in-trace time grid)
+    rjit = float(jax.jit(final_R)(6.0))
+    numpy.testing.assert_allclose(rjit, float(final_R(6.0)), rtol=1e-8, atol=1e-10)
+
+
+# --------------------------------------------------- torch potential-param gradient
+@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="needs both jax and torch")
+def test_integrate_torchdiffeq_grad_param_matches_diffrax():
+    # gradient of final R w.r.t. Plummer scale b, torch.autograd vs jax.grad
+    def final_R_jax(b):
+        pot = PlummerPotential(amp=1.0, b=b)
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        return o.getOrbit()[-1, 0]
+
+    g_jax = float(jax.grad(final_R_jax)(0.6))
+    b = torch.tensor(0.6, requires_grad=True)
+    o = Orbit(torch.as_tensor(_IC))
+    o.integrate(
+        torch.as_tensor(_TS), PlummerPotential(amp=1.0, b=b), method="torchdiffeq"
+    )
+    o.getOrbit()[-1, 0].backward()
+    numpy.testing.assert_allclose(float(b.grad), g_jax, rtol=1e-6, atol=1e-8)
+
+
+# --------------------------------------------------------------- Quantity-time input
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_diffrax_quantity_time():
+    # Quantity output times are parsed to natural units, like the numpy path
+    units = pytest.importorskip("astropy.units")  # backend CI job runs astropy-free
+
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(_TS * units.Gyr, pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    oc = Orbit(_IC)
+    oc.integrate(_TS * units.Gyr, pot, method="dop853_c")
+    ref = numpy.array(
+        [
+            oc.R(_TS * units.Gyr),
+            oc.vR(_TS * units.Gyr),
+            oc.vT(_TS * units.Gyr),
+            oc.z(_TS * units.Gyr),
+            oc.vz(_TS * units.Gyr),
+            oc.phi(_TS * units.Gyr),
+        ]
+    ).T
+    # _TS Gyr parses to ~28x more natural time units (1 natural time ~ 0.036 Gyr),
+    # so this is a much longer integration than the other parity tests; the looser
+    # tolerance reflects the larger accumulated Dopri8-vs-dop853 difference (the
+    # point of this test is the Quantity parsing, not tight parity).
+    numpy.testing.assert_allclose(_wrap_phi(got), _wrap_phi(ref), rtol=1e-6, atol=1e-7)
+
+
+# ------------------------------------------------------------- numpy path unaffected
+def test_integrate_numpy_path_unchanged():
+    # a numpy Orbit with a standard method is untouched by the new dispatch
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    o = Orbit(_IC)
+    o.integrate(_TS, pot, method="dop853_c")
+    got = o.getOrbit()
+    assert isinstance(got, numpy.ndarray)
+    assert got.shape == (len(_TS), 6)
+    # reference value from the C integrator (independent of this PR's dispatch)
+    o2 = Orbit(_IC)
+    o2.integrate(_TS, pot, method="dop853")
+    numpy.testing.assert_allclose(o.R(_TS), o2.R(_TS), rtol=1e-6, atol=1e-7)
+
+
+# ------------------------------------------- inbackend_ode defensive guards (no jax/torch needed)
+def test_inbackend_to_eom_unsupported_phasedim_raises():
+    # _to_eom validates the phase-space dimension; the public Orbit path only ever
+    # passes phasedim 2-6, so this guards a direct misuse (and covers the branch).
+    from galpy.backend._reference.inbackend_ode import _to_eom
+
+    with pytest.raises(ValueError, match="unsupported phase-space dimension"):
+        _to_eom(numpy, numpy.zeros(7))
+
+
+def test_inbackend_integrate_orbit_numpy_input_raises():
+    # integrate_orbit needs a jax/torch array (it picks the solver from the input
+    # namespace); a numpy input is rejected with a clear message.
+    from galpy.backend._reference.inbackend_ode import integrate_orbit
+
+    with pytest.raises(NotImplementedError, match="requires a jax or torch"):
+        integrate_orbit(
+            PlummerPotential(amp=1.0, b=0.6),
+            numpy.array(_IC),
+            numpy.linspace(0.0, 1.0, 5),
+        )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_backend_param_via_c_integrator_detaches():
+    # A backend (jax) potential PARAMETER reaches the compiled C integrator as its
+    # concrete numpy value (_finalize_pot_args detaches it), so the trajectory is
+    # byte-identical to the pure-numpy parameter (the C path carries no d/d(param)).
+    o = Orbit(_IC)
+    o.integrate(_TS, PlummerPotential(amp=jnp.asarray(1.0), b=0.6), method="dop853_c")
+    ref = Orbit(_IC)
+    ref.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
+    numpy.testing.assert_array_equal(numpy.asarray(o.R(_TS)), numpy.asarray(ref.R(_TS)))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_accessor_jittable_at_traced_grid_times():
+    # o.R(t) at exact-grid times must be jittable: a TRACED query time cannot be
+    # value-compared to the stored grid (numpy.asarray on a tracer raises), so it
+    # falls through to the in-backend interpolator and still returns the trajectory.
+    ob = Orbit(jnp.asarray(_IC))
+    ob.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
+    val = float(jax.jit(lambda tq: ob.R(tq)[-1])(jnp.asarray(_TS)))
+    numpy.testing.assert_allclose(val, float(as_numpy(ob.R(_TS))[-1]), rtol=1e-6)

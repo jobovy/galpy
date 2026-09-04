@@ -2,6 +2,7 @@
 import numpy
 
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
+from galpy.backend import as_numpy
 from galpy.df import quasiisothermaldf
 
 # fiducial setup uses these
@@ -790,9 +791,9 @@ def test_sampleV():
         < 0.05
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
-    assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-        "sampleV vT mean is not equal to meanvT"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1)))) < 0.015
+    ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 1])) - 0.5 * numpy.log(qdf.sigmaT2(0.8, 0.1))
@@ -831,7 +832,8 @@ def test_sampleV_physical():
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
     assert (
-        numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1, vo=vo))) < 0.015 * vo
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1, vo=vo))))
+        < 0.015 * vo
     ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
@@ -891,9 +893,10 @@ def test_sampleV_interpolate():
             < 0.05
         ), "sampleV interpolate vR stddev is not equal to sigmaR"
         # test vT
-        assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-            "sampleV interpolate vT mean is not equal to meanvT"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1))))
+            < 0.015
+        ), "sampleV interpolate vT mean is not equal to meanvT"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 1]))
@@ -1215,9 +1218,10 @@ def test_pvz_staeckel_arrayin():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     R, z = 0.8, 0.1
-    pvz = qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2))
+    pvz = as_numpy(qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2)))
     assert numpy.all(
-        numpy.fabs(numpy.log(pvz) - numpy.log(qdf.pvz(0.05, R, z))) < 10.0**-10.0
+        numpy.fabs(numpy.log(pvz) - numpy.log(as_numpy(qdf.pvz(0.05, R, z))))
+        < 10.0**-10.0
     ), (
         "pvz calculated with R and z array input does not equal to calculated with scalar input"
     )

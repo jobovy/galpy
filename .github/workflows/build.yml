@@ -2,6 +2,12 @@ name: Linux/Mac build
 
 on:
   push:
+    # Only trunk/integration branches on push; every other branch gets CI via
+    # pull_request, so a PR branch is not built twice (push + pull_request).
+    branches:
+      - main
+      - feat/backends
+      - feat/backends-develop
     paths:
       - '**'
       - '!*'
@@ -40,6 +46,51 @@ jobs:
             REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 1 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 2 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 3 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 4 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py --splits 5 --group 5 --durations-path tests/.test_backend_durations
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
             TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -62,7 +113,12 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
+            # units-through-a-backend: the only shard here with astropy that can
+            # also force a backend (tests/test_backend*.py is deliberately
+            # astropy-free), so it is where a Quantity-on-a-backend test can
+            # run. jax alone is enough -- the boundary's Quantity passthrough
+            # returns before any backend call, so it is backend-independent.
+            REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: "3.14"
             TEST_FILES: tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
@@ -259,7 +315,7 @@ jobs:
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - name: Install Python dependencies
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-split
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
@@ -284,7 +340,14 @@ jobs:
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      run: pip install jax jaxlib
+      # diffrax: backend ODE integrator (jax) used by the test_backend_inbackend_ode
+      # tests, so galpy.backend._reference/_jax is exercised and covered.
+      run: pip install jax jaxlib array-api-compat diffrax
+    - name: Install PyTorch (CPU)
+      if: ${{ matrix.REQUIRES_TORCH }}
+      run: |
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install torchdiffeq  # backend ODE integrator (torch); covers galpy.backend._torch
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}

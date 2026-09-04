@@ -1,0 +1,131 @@
+# backend skip list -- tests SKIPPED under a backend for a PERMANENT reason, i.e.
+# one that no amount of porting work will change. Two kinds qualify:
+#
+#   (a) the test exercises NO backend-relevant code and depends on a flaky external
+#       service (e.g. Orbit.from_name's SIMBAD lookup), so running it under a forced
+#       backend only risks flaking the deterministic all-backend gate for ~zero
+#       coverage; or
+#   (b) the test belongs to a family that is out of scope for the backend goal and
+#       stays _reject_backend-guarded (actionAngleVerticalInverse), so it fails by
+#       design and always will.
+#
+# conftest.py marks each matching nodeid pytest.mark.skip with a
+# "backend-skip: not backend-meaningful ..." reason, in BOTH normal and regen mode.
+#
+# This is DISTINCT from backend_slow_skip.txt (slow-but-meaningful, deferred pending
+# the backend port's vectorization -- a burndown that shrinks to zero) and from
+# backend_xfail.txt (known-failing, to be fixed). These are a PERMANENT exclusion,
+# NOT pending work, so they are not part of any burndown. numpy still runs them.
+# A nodeid here must NOT also be in backend_slow_skip.txt or backend_xfail.txt.
+#
+# format: <backend> <nodeid>   (same as the other ledger files)
+#
+# --- jax/torch Orbit.from_name(): SIMBAD network dependency (not backend code) ---
+# from_name() looks up objects over the network (SIMBAD sim-tap) and raises pyvo
+# DALServiceError when the service is unreachable. Its backend-relevant part (the
+# coordinate transforms) is covered by the coords/from_vxvv tests. solarsystem uses
+# a local ephemeris (not SIMBAD), so it is not skipped.
+jax tests/test_orbit.py::test_from_name_collections
+jax tests/test_orbit.py::test_from_name_errors
+jax tests/test_orbit.py::test_from_name_named
+jax tests/test_orbit.py::test_from_name_values
+jax tests/test_orbits.py::test_from_name_name
+jax tests/test_orbits.py::test_from_name_values
+torch tests/test_orbit.py::test_from_name_collections
+torch tests/test_orbit.py::test_from_name_errors
+torch tests/test_orbit.py::test_from_name_named
+torch tests/test_orbit.py::test_from_name_values
+torch tests/test_orbits.py::test_from_name_name
+torch tests/test_orbits.py::test_from_name_values
+
+# --- Permanently out of scope: actionAngleVerticalInverse -------------------
+# actionAngleVerticalInverse is NOT being ported to the array backends (maintainer
+# decision, same call as actionAngleTorus, which is excluded from the all-backend
+# suite outright). It stays _reject_backend-guarded, so every one of its tests
+# fails under jax/torch by design and always will.
+#
+# These lived in backend_xfail.txt, where they were 48 of 96 entries -- half the
+# ledger was work that would never be done, so ledger size (the burndown metric)
+# read 2x the real remaining work and could not converge to zero. They are a
+# PERMANENT exclusion, which is exactly what this file is for.
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
+
+# --- streamdf's useTM tests reach actionAngleTorus ---
+# "NotImplementedError: actionAngleTorus wraps the external Torus C++ library
+# and is not jax-..." -- the same standing decision that excludes
+# test_actionAngleTorus from the all-backend suite: an external C++ wrapper is
+# out of scope for the backend goal, so this is a PERMANENT exclusion, not a
+# burndown item. Surfaced by the slow-skip inheritance split; the eager `jax`
+# whole-file slow-skip had been hiding them.
+#
+# The guard is backend-shaped, not trace-shaped, and torch confirms it: a whole
+# -file `--backend torch` run fails these 4 and only these 4, identically with
+# and without the streamdf out-of-place fix. So torch is entered too, and the
+# permanent-skip list inherits it for torch-jit.
+#
+# CI never sees any of this: these tests need the external Torus C++ library,
+# which is built on the dev box but not in CI, so there they skip before ever
+# reaching the backend guard. Local-only exposure -- which is exactly why it
+# needs a list entry rather than a CI observation.
+#
+# Plain `jax` is deliberately NOT entered: the eager whole-file slow-skip means
+# it has never been measured, and claiming it would assert past the evidence.
+jax tests/test_streamdf.py::test_bovy14_useTM
+jax tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
+jax tests/test_streamdf.py::test_bovy14_useTM_poterror
+jax tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
+jax-jit tests/test_streamdf.py::test_bovy14_useTM
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_poterror
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
+torch tests/test_streamdf.py::test_bovy14_useTM
+torch tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
+torch tests/test_streamdf.py::test_bovy14_useTM_poterror
+torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian

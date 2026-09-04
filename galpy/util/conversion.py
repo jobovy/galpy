@@ -539,9 +539,18 @@ def check_parser_input_type(func):
 
     @wraps(func)
     def parse_x_wrapper(x, **kwargs):
+        # A backend array (jax/torch, possibly traced) is accepted and passed
+        # through unscaled -- it carries no units, so it is treated as already in
+        # galpy's internal units, exactly like a plain Python float would be. This
+        # is what lets potential parameters be differentiated (d/dtheta). Detection
+        # is import-light and gated on the optional-dependency flags, so the
+        # numpy/number/Quantity paths below are byte-identical to before.
+        from ..backend import is_backend_array
+
         if (
             not x is None
             and not isinstance(x, numbers.Number)
+            and not is_backend_array(x)
             and not (
                 isinstance(x, numpy.ndarray)
                 and (x.size == 0 or isinstance(x.flatten()[0], numbers.Number))
@@ -1059,7 +1068,13 @@ def physical_conversion_tuple(quantities, pop=False):
 
 def potential_physical_input(method):
     """Decorator to convert inputs to Potential functions from physical
-    to internal coordinates"""
+    to internal coordinates.
+
+    Backend coercion of the coordinate inputs is NOT done here -- it is owned by
+    the backend-specific ``@backend_input`` boundary decorator (galpy.backend),
+    stacked just inside this one on the potential/df entry points, keeping the
+    backend concern separate from this legacy unit-handling decorator.
+    """
 
     @wraps(method)
     def wrapper(*args, **kwargs):
@@ -1198,22 +1213,26 @@ def physical_conversion_actionAngle(quantity, pop=False):
                     fac = [1.0, ro, ro, ro]
                     if _APY_UNITS:
                         u = [1.0, units.kpc, units.kpc, units.kpc]
-                if _APY_UNITS:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
-                            )
-                    except TypeError:  # happens if out = scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                # `out` is either a SEQUENCE of separate quantities -- the 3D
+                # actions, or any (actions,freqs[,angles]) return -- or ONE
+                # array-valued quantity, which is what a 1D __call__ gives back
+                # (J alone). len() cannot tell those apart, because a
+                # length-N array has a len() too, so dispatch on the type: for
+                # a 1D __call__, `fac` is 3 long and scaling element-by-element
+                # silently returned a tuple of scalars below length 4 and raised
+                # IndexError at or above it.
+                if isinstance(out, (tuple, list)):
+                    if _APY_UNITS:
+                        newOut = tuple(
+                            units.Quantity(out[ii] * fac[ii], unit=u[ii])
+                            for ii in range(len(out))
+                        )
+                    else:
+                        newOut = tuple(out[ii] * fac[ii] for ii in range(len(out)))
+                elif _APY_UNITS:
+                    newOut = units.Quantity(out * fac[0], unit=u[0])
                 else:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (out[ii] * fac[ii],)
-                    except TypeError:  # happens if out = scalar
-                        newOut = out * fac[0]
+                    newOut = out * fac[0]
                 return newOut
             else:
                 return method(*args, **kwargs)

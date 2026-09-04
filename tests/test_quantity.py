@@ -1,4 +1,6 @@
 # Make sure to set configuration, needs to be before any galpy imports
+import importlib.util
+
 import pytest
 from packaging.version import parse as parse_version
 
@@ -15,8 +17,29 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 )  # For testing 1.22/1.24 precision issues
 from astropy import constants, units
 
+from galpy.backend import as_numpy, is_backend_array  # noqa: E402
+
+# Backends installed here, for the units-through-a-backend regressions. Probed
+# rather than imported: importing torch/jax costs seconds and most of this file
+# does not need them.
+_BACKENDS = [b for b in ("jax", "torch") if importlib.util.find_spec(b) is not None]  # noqa: E402
+
 sdf_sanders15 = None  # so we can set this up and then use in other tests
 sdf_sanders15_nou = None  # so we can set this up and then use in other tests
+
+
+def assert_physical_matches_natural(physical, natural, msg, rtol=1e-15):
+    """Assert a physical-units value equals natural units times its conversion factor.
+
+    Both sides run the same computation and differ only by float round-off, so the
+    bound is *relative*. An absolute bound does not work here: these values reach
+    ~1e10, where ``< 1e-8`` demands agreement to ~5e-6 of one float64 ULP and is
+    satisfiable only by a bit-identical implementation. The measured jax/torch
+    difference is exactly one ULP (1.16e-16 relative).
+    """
+    numpy.testing.assert_allclose(
+        as_numpy(physical), as_numpy(natural), rtol=rtol, err_msg=msg
+    )
 
 
 def test_parsers():
@@ -1481,15 +1504,15 @@ def test_orbit_method_value():
     ), "Orbit method Jacobi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
@@ -1809,15 +1832,15 @@ def test_orbit_method_value_turnquantityoff():
     ), "Orbit method Jacobi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, quantity=False)
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014, quantity=False)
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
@@ -3123,310 +3146,451 @@ def test_orbits_method_value():
     oc.turn_physical_off()
     assert numpy.all(
         numpy.fabs(
-            o.E(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.E(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.E(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.E(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method E does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.ER(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.ER(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.ER(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.ER(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method ER does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Ez(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.Ez(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Ez(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.Ez(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Ez does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Jacobi(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.Jacobi(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Jacobi(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.Jacobi(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Jacobi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rap(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.rap(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rap(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.rap(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rap does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rperi(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.rperi(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rperi(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.rperi(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rperi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rguiding(pot=MWPotential2014).to(units.kpc).value
-            - oc.rguiding(pot=MWPotential2014) * o._ro
+            as_numpy(o.rguiding(pot=MWPotential2014).to(units.kpc).value)
+            - as_numpy(oc.rguiding(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rguiding does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rE(pot=MWPotential2014).to(units.kpc).value
-            - oc.rE(pot=MWPotential2014) * o._ro
+            as_numpy(o.rE(pot=MWPotential2014).to(units.kpc).value)
+            - as_numpy(oc.rE(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rE does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.LcE(pot=MWPotential2014).to(units.kpc * units.km / units.s).value
-            - oc.LcE(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(
+                o.LcE(pot=MWPotential2014).to(units.kpc * units.km / units.s).value
+            )
+            - as_numpy(oc.LcE(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method LcE does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.zmax(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.zmax(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.zmax(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.zmax(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method zmax does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jp(pot=MWPotential2014, type="staeckel", delta=4.0 * units.kpc)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jp(pot=MWPotential2014, type="staeckel", delta=4.0 * units.kpc)
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8 * 8.0 * units.kpc)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8) * o._ro * o._vo
+            as_numpy(
+                o.jz(
+                    pot=MWPotential2014, type="isochroneapprox", b=0.8 * 8.0 * units.kpc
+                )
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8)
+                * o._ro
+                * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wr(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wp(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wz(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Opbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Ozbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.time().to(units.Gyr).value
-            - oc.time() * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(o.time().to(units.Gyr).value)
+            - as_numpy(oc.time() * conversion.time_in_Gyr(o._vo, o._ro))
         )
         < 10.0**-8.0
     ), "Orbit method time does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.R().to(units.kpc).value - oc.R() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.R().to(units.kpc).value) - as_numpy(oc.R() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method R does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.r().to(units.kpc).value - oc.r() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.r().to(units.kpc).value) - as_numpy(oc.r() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method r does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vR().to(units.km / units.s).value - oc.vR() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vR().to(units.km / units.s).value) - as_numpy(oc.vR() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vR does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vT().to(units.km / units.s).value - oc.vT() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vT().to(units.km / units.s).value) - as_numpy(oc.vT() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vT does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.z().to(units.kpc).value - oc.z() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.z().to(units.kpc).value) - as_numpy(oc.z() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method z does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vz().to(units.km / units.s).value - oc.vz() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vz().to(units.km / units.s).value) - as_numpy(oc.vz() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vz does not return the correct value as Quantity"
-    assert numpy.all(numpy.fabs(o.phi().to(units.rad).value - oc.phi()) < 10.0**-8.0), (
-        "Orbit method phi does not return the correct value as Quantity"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi().to(units.rad).value) - as_numpy(oc.phi()))
+        < 10.0**-8.0
+    ), "Orbit method phi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.vphi().to(units.km / units.s / units.kpc).value
-            - oc.vphi() * o._vo / o._ro
+            as_numpy(o.vphi().to(units.km / units.s / units.kpc).value)
+            - as_numpy(oc.vphi() * o._vo / o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method vphi does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.x().to(units.kpc).value - oc.x() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.x().to(units.kpc).value) - as_numpy(oc.x() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method x does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.y().to(units.kpc).value - oc.y() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.y().to(units.kpc).value) - as_numpy(oc.y() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method y does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vx().to(units.km / units.s).value - oc.vx() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vx().to(units.km / units.s).value) - as_numpy(oc.vx() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vx does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vy().to(units.km / units.s).value - oc.vy() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vy().to(units.km / units.s).value) - as_numpy(oc.vy() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vy does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.ra().to(units.deg).value - oc.ra(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.ra().to(units.deg).value) - as_numpy(oc.ra(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method ra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.dec().to(units.deg).value - oc.dec(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.dec().to(units.deg).value) - as_numpy(oc.dec(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method dec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.ll().to(units.deg).value - oc.ll(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.ll().to(units.deg).value) - as_numpy(oc.ll(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method ll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.bb().to(units.deg).value - oc.bb(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.bb().to(units.deg).value) - as_numpy(oc.bb(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method bb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.dist().to(units.kpc).value - oc.dist(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.dist().to(units.kpc).value) - as_numpy(oc.dist(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method dist does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmra().to(units.mas / units.yr).value - oc.pmra(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmra().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmra(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmdec().to(units.mas / units.yr).value - oc.pmdec(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmdec().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmdec(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmdec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmll().to(units.mas / units.yr).value - oc.pmll(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmll().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmll(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmbb().to(units.mas / units.yr).value - oc.pmbb(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmbb().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmbb(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmbb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vlos().to(units.km / units.s).value - oc.vlos(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vlos().to(units.km / units.s).value)
+            - as_numpy(oc.vlos(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vlos does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vra().to(units.km / units.s).value - oc.vra(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vra().to(units.km / units.s).value)
+            - as_numpy(oc.vra(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vdec().to(units.km / units.s).value - oc.vdec(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vdec().to(units.km / units.s).value)
+            - as_numpy(oc.vdec(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vdec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vll().to(units.km / units.s).value - oc.vll(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vll().to(units.km / units.s).value)
+            - as_numpy(oc.vll(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vbb().to(units.km / units.s).value - oc.vbb(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vbb().to(units.km / units.s).value)
+            - as_numpy(oc.vbb(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vbb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioX().to(units.kpc).value - oc.helioX(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioX().to(units.kpc).value)
+            - as_numpy(oc.helioX(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioX does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioY().to(units.kpc).value - oc.helioY(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioY().to(units.kpc).value)
+            - as_numpy(oc.helioY(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioY does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioZ().to(units.kpc).value - oc.helioZ(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioZ().to(units.kpc).value)
+            - as_numpy(oc.helioZ(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioZ does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.U().to(units.km / units.s).value - oc.U(quantity=False))
+        numpy.fabs(
+            as_numpy(o.U().to(units.km / units.s).value)
+            - as_numpy(oc.U(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method U does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.V().to(units.km / units.s).value - oc.V(quantity=False))
+        numpy.fabs(
+            as_numpy(o.V().to(units.km / units.s).value)
+            - as_numpy(oc.V(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method V does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.W().to(units.km / units.s).value - oc.W(quantity=False))
+        numpy.fabs(
+            as_numpy(o.W().to(units.km / units.s).value)
+            - as_numpy(oc.W(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method W does not return the correct value as Quantity"
     return None
@@ -3461,64 +3625,64 @@ def test_orbits_method_value_turnquantityoff():
     oc.turn_physical_off()
     assert numpy.all(
         numpy.fabs(
-            o.E(pot=MWPotential2014, quantity=False)
-            - oc.E(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.E(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.E(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method E does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.ER(pot=MWPotential2014, quantity=False)
-            - oc.ER(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.ER(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.ER(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method ER does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Ez(pot=MWPotential2014, quantity=False)
-            - oc.Ez(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Ez(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Ez(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Ez does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Jacobi(pot=MWPotential2014, quantity=False)
-            - oc.Jacobi(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Jacobi(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Jacobi(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Jacobi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, quantity=False)
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014, quantity=False)
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rap(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.rap(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rap(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.rap(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rap does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rperi(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.rperi(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rperi(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.rperi(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rperi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rguiding(pot=MWPotential2014, quantity=False)
-            - oc.rguiding(pot=MWPotential2014) * o._ro
+            as_numpy(o.rguiding(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.rguiding(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), (
@@ -3526,167 +3690,225 @@ def test_orbits_method_value_turnquantityoff():
     )
     assert numpy.all(
         numpy.fabs(
-            o.rE(pot=MWPotential2014, quantity=False)
-            - oc.rE(pot=MWPotential2014) * o._ro
+            as_numpy(o.rE(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.rE(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rE does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.LcE(pot=MWPotential2014, quantity=False)
-            - oc.LcE(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.LcE(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.LcE(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method LcE does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.zmax(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.zmax(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.zmax(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.zmax(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method zmax does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jp(
-                pot=MWPotential2014,
-                type="staeckel",
-                delta=4.0 * units.kpc,
-                quantity=False,
+            as_numpy(
+                o.jp(
+                    pot=MWPotential2014,
+                    type="staeckel",
+                    delta=4.0 * units.kpc,
+                    quantity=False,
+                )
             )
-            - oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            - as_numpy(
+                oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jz(
-                pot=MWPotential2014,
-                type="isochroneapprox",
-                b=0.8 * 8.0 * units.kpc,
-                quantity=False,
+            as_numpy(
+                o.jz(
+                    pot=MWPotential2014,
+                    type="isochroneapprox",
+                    b=0.8 * 8.0 * units.kpc,
+                    quantity=False,
+                )
             )
-            - oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8) * o._ro * o._vo
+            - as_numpy(
+                oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8)
+                * o._ro
+                * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Or(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Or(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Op(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Op(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Opbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Ozbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.time(quantity=False) - oc.time() * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(o.time(quantity=False))
+            - as_numpy(oc.time() * conversion.time_in_Gyr(o._vo, o._ro))
         )
         < 10.0**-8.0
     ), "Orbit method time does not return the correct value when Quantity turned off"
-    assert numpy.all(numpy.fabs(o.R(quantity=False) - oc.R() * o._ro) < 10.0**-8.0), (
-        "Orbit method R does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.r(quantity=False) - oc.r() * o._ro) < 10.0**-8.0), (
-        "Orbit method r does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vR(quantity=False) - oc.vR() * o._vo) < 10.0**-8.0), (
-        "Orbit method vR does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vT(quantity=False) - oc.vT() * o._vo) < 10.0**-8.0), (
-        "Orbit method vT does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.z(quantity=False) - oc.z() * o._ro) < 10.0**-8.0), (
-        "Orbit method z does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vz(quantity=False) - oc.vz() * o._vo) < 10.0**-8.0), (
-        "Orbit method vz does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.phi(quantity=False) - oc.phi()) < 10.0**-8.0), (
-        "Orbit method phi does not return the correct value when Quantity turned off"
-    )
     assert numpy.all(
-        numpy.fabs(o.vphi(quantity=False) - oc.vphi() * o._vo / o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.R(quantity=False)) - as_numpy(oc.R() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method R does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.r(quantity=False)) - as_numpy(oc.r() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method r does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(quantity=False)) - as_numpy(oc.vR() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vR does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(quantity=False)) - as_numpy(oc.vT() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vT does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.z(quantity=False)) - as_numpy(oc.z() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method z does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vz(quantity=False)) - as_numpy(oc.vz() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vz does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(quantity=False)) - as_numpy(oc.phi())) < 10.0**-8.0
+    ), "Orbit method phi does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(o.vphi(quantity=False)) - as_numpy(oc.vphi() * o._vo / o._ro)
+        )
+        < 10.0**-8.0
     ), "Orbit method vphi does not return the correct value when Quantity turned off"
-    assert numpy.all(numpy.fabs(o.x(quantity=False) - oc.x() * o._ro) < 10.0**-8.0), (
-        "Orbit method x does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.y(quantity=False) - oc.y() * o._ro) < 10.0**-8.0), (
-        "Orbit method y does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vx(quantity=False) - oc.vx() * o._vo) < 10.0**-8.0), (
-        "Orbit method vx does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vy(quantity=False) - oc.vy() * o._vo) < 10.0**-8.0), (
-        "Orbit method vy does not return the correct value when Quantity turned off"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.x(quantity=False)) - as_numpy(oc.x() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method x does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.y(quantity=False)) - as_numpy(oc.y() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method y does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vx(quantity=False)) - as_numpy(oc.vx() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vx does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vy(quantity=False)) - as_numpy(oc.vy() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vy does not return the correct value when Quantity turned off"
     return None
 
 
@@ -4759,208 +4981,253 @@ def test_potential_method_value():
     potu = PlummerPotential(normalize=True)
     assert (
         numpy.fabs(
-            pot(1.1, 0.1).to(units.km**2 / units.s**2).value - potu(1.1, 0.1) * vo**2.0
+            as_numpy(pot(1.1, 0.1).to(units.km**2 / units.s**2).value)
+            - as_numpy(potu(1.1, 0.1) * vo**2.0)
         )
         < 10.0**-8.0
     ), "Potential method __call__ does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.Rforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0
-            - potu.Rforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(pot.Rforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0)
+            - as_numpy(potu.Rforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro))
         )
         < 10.0**-4.0
     ), "Potential method Rforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.rforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0
-            - potu.rforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(pot.rforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0)
+            - as_numpy(potu.rforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro))
         )
         < 10.0**-4.0
     ), "Potential method rforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.zforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0
-            - potu.zforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(pot.zforce(1.1, 0.1).to(units.km / units.s**2).value * 10.0**13.0)
+            - as_numpy(potu.zforce(1.1, 0.1) * conversion.force_in_10m13kms2(vo, ro))
         )
         < 10.0**-4.0
     ), "Potential method zforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.phitorque(1.1, 0.1).to(units.km**2 / units.s**2).value
-            - potu.phitorque(1.1, 0.1) * vo**2
+            as_numpy(pot.phitorque(1.1, 0.1).to(units.km**2 / units.s**2).value)
+            - as_numpy(potu.phitorque(1.1, 0.1) * vo**2)
         )
         < 10.0**-4.0
     ), "Potential method phitorque does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.dens(1.1, 0.1).to(units.Msun / units.pc**3).value
-            - potu.dens(1.1, 0.1) * conversion.dens_in_msolpc3(vo, ro)
+            as_numpy(pot.dens(1.1, 0.1).to(units.Msun / units.pc**3).value)
+            - as_numpy(potu.dens(1.1, 0.1) * conversion.dens_in_msolpc3(vo, ro))
         )
         < 10.0**-8.0
     ), "Potential method dens does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.surfdens(1.1, 0.1).to(units.Msun / units.pc**2).value
-            - potu.surfdens(1.1, 0.1) * conversion.surfdens_in_msolpc2(vo, ro)
+            as_numpy(pot.surfdens(1.1, 0.1).to(units.Msun / units.pc**2).value)
+            - as_numpy(potu.surfdens(1.1, 0.1) * conversion.surfdens_in_msolpc2(vo, ro))
         )
         < 10.0**-8.0
     ), "Potential method surfdens does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.mass(1.1, 0.1).to(units.Msun).value / 10.0**10.0
-            - potu.mass(1.1, 0.1) * conversion.mass_in_1010msol(vo, ro)
+            as_numpy(pot.mass(1.1, 0.1).to(units.Msun).value / 10.0**10.0)
+            - as_numpy(potu.mass(1.1, 0.1) * conversion.mass_in_1010msol(vo, ro))
         )
         < 10.0**-8.0
     ), "Potential method mass does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.R2deriv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc**2).value
-            - potu.R2deriv(1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                pot.R2deriv(1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potu.R2deriv(1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential method R2deriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.z2deriv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc**2).value
-            - potu.z2deriv(1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                pot.z2deriv(1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potu.z2deriv(1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential method z2deriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.Rzderiv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc**2).value
-            - potu.Rzderiv(1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                pot.Rzderiv(1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potu.Rzderiv(1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential method Rzderiv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.Rphideriv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc).value
-            - potu.Rphideriv(1.1, 0.1) * vo**2.0 / ro
+            as_numpy(
+                pot.Rphideriv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc).value
+            )
+            - as_numpy(potu.Rphideriv(1.1, 0.1) * vo**2.0 / ro)
         )
         < 10.0**-8.0
     ), "Potential method Rphideriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.phi2deriv(1.1, 0.1).to(units.km**2 / units.s**2.0).value
-            - potu.phi2deriv(1.1, 0.1) * vo**2.0
+            as_numpy(pot.phi2deriv(1.1, 0.1).to(units.km**2 / units.s**2.0).value)
+            - as_numpy(potu.phi2deriv(1.1, 0.1) * vo**2.0)
         )
         < 10.0**-8.0
     ), "Potential method phi2deriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.phizderiv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc).value
-            - potu.phizderiv(1.1, 0.1) * vo**2.0 / ro
+            as_numpy(
+                pot.phizderiv(1.1, 0.1).to(units.km**2 / units.s**2.0 / units.kpc).value
+            )
+            - as_numpy(potu.phizderiv(1.1, 0.1) * vo**2.0 / ro)
         )
         < 10.0**-8.0
     ), "Potential method phizderiv does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.flattening(1.1, 0.1).value - potu.flattening(1.1, 0.1))
+        numpy.fabs(
+            as_numpy(pot.flattening(1.1, 0.1).value)
+            - as_numpy(potu.flattening(1.1, 0.1))
+        )
         < 10.0**-8.0
     ), "Potential method flattening does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.vcirc(1.1).to(units.km / units.s).value - potu.vcirc(1.1) * vo)
+        numpy.fabs(
+            as_numpy(pot.vcirc(1.1).to(units.km / units.s).value)
+            - as_numpy(potu.vcirc(1.1) * vo)
+        )
         < 10.0**-8.0
     ), "Potential method vcirc does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.dvcircdR(1.1).to(units.km / units.s / units.kpc).value
-            - potu.dvcircdR(1.1) * vo / ro
+            as_numpy(pot.dvcircdR(1.1).to(units.km / units.s / units.kpc).value)
+            - as_numpy(potu.dvcircdR(1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential method dvcircdR does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.omegac(1.1).to(units.km / units.s / units.kpc).value
-            - potu.omegac(1.1) * vo / ro
+            as_numpy(pot.omegac(1.1).to(units.km / units.s / units.kpc).value)
+            - as_numpy(potu.omegac(1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential method omegac does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.epifreq(1.1).to(units.km / units.s / units.kpc).value
-            - potu.epifreq(1.1) * vo / ro
+            as_numpy(pot.epifreq(1.1).to(units.km / units.s / units.kpc).value)
+            - as_numpy(potu.epifreq(1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential method epifreq does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.verticalfreq(1.1).to(units.km / units.s / units.kpc).value
-            - potu.verticalfreq(1.1) * vo / ro
+            as_numpy(pot.verticalfreq(1.1).to(units.km / units.s / units.kpc).value)
+            - as_numpy(potu.verticalfreq(1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential method verticalfreq does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.lindbladR(0.9, m="corot").to(units.kpc).value
-            - potu.lindbladR(0.9, m="corot") * ro
+            as_numpy(pot.lindbladR(0.9, m="corot").to(units.kpc).value)
+            - as_numpy(potu.lindbladR(0.9, m="corot") * ro)
         )
         < 10.0**-8.0
     ), "Potential method lindbladR does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.vesc(1.1).to(units.km / units.s).value - potu.vesc(1.1) * vo)
+        numpy.fabs(
+            as_numpy(pot.vesc(1.1).to(units.km / units.s).value)
+            - as_numpy(potu.vesc(1.1) * vo)
+        )
         < 10.0**-8.0
     ), "Potential method vesc does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.rl(1.1).to(units.kpc).value - potu.rl(1.1) * ro) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(pot.rl(1.1).to(units.kpc).value) - as_numpy(potu.rl(1.1) * ro)
+        )
+        < 10.0**-8.0
     ), "Potential method rl does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.rE(-1.14).to(units.kpc).value - potu.rE(-1.14) * ro) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(pot.rE(-1.14).to(units.kpc).value) - as_numpy(potu.rE(-1.14) * ro)
+        )
+        < 10.0**-8.0
     ), "Potential method rE does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.LcE(-1.14).to(units.kpc * units.km / units.s).value
-            - potu.LcE(-1.14) * ro * vo
+            as_numpy(pot.LcE(-1.14).to(units.kpc * units.km / units.s).value)
+            - as_numpy(potu.LcE(-1.14) * ro * vo)
         )
         < 10.0**-8.0
     ), "Potential method LcE does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.vterm(45.0).to(units.km / units.s).value - potu.vterm(45.0) * vo)
+        numpy.fabs(
+            as_numpy(pot.vterm(45.0).to(units.km / units.s).value)
+            - as_numpy(potu.vterm(45.0) * vo)
+        )
         < 10.0**-8.0
     ), "Potential method vterm does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.rtide(1.0, 0.0, M=1.0).to(units.kpc).value
-            - potu.rtide(1.0, 0.0, M=1.0) * ro
+            as_numpy(pot.rtide(1.0, 0.0, M=1.0).to(units.kpc).value)
+            - as_numpy(potu.rtide(1.0, 0.0, M=1.0) * ro)
         )
         < 10.0**-8.0
     ), "Potential method rtide does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(1.0, 0.0).to(units.km**2 / units.s**2.0 / units.kpc**2).value
-            - potu.ttensor(1.0, 0.0) * vo**2.0 / ro**2.0
+            as_numpy(
+                pot.ttensor(1.0, 0.0)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potu.ttensor(1.0, 0.0) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential method ttensor does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(1.0, 0.0, eigenval=True)
-            .to(units.km**2 / units.s**2.0 / units.kpc**2)
-            .value
-            - potu.ttensor(1.0, 0.0, eigenval=True) * vo**2.0 / ro**2.0
+            as_numpy(
+                pot.ttensor(1.0, 0.0, eigenval=True)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potu.ttensor(1.0, 0.0, eigenval=True) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential method ttensor does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.zvc_range(-1.9, 0.2).to(units.kpc).value
-            - potu.zvc_range(-1.9, 0.2) * ro
+            as_numpy(pot.zvc_range(-1.9, 0.2).to(units.kpc).value)
+            - as_numpy(potu.zvc_range(-1.9, 0.2) * ro)
         )
         < 10.0**-8.0
     ), "Potential method zvc_range does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.zvc(0.4, -1.9, 0.2).to(units.kpc).value - potu.zvc(0.4, -1.9, 0.2) * ro
+            as_numpy(pot.zvc(0.4, -1.9, 0.2).to(units.kpc).value)
+            - as_numpy(potu.zvc(0.4, -1.9, 0.2) * ro)
         )
         < 10.0**-8.0
     ), "Potential method zvc_range does not return the correct value as Quantity"
     assert (
-        numpy.fabs(pot.rhalf().to(units.kpc).value - potu.rhalf() * ro) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(pot.rhalf().to(units.kpc).value) - as_numpy(potu.rhalf() * ro)
+        )
+        < 10.0**-8.0
     ), "Potential method rhalf does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            pot.tdyn(1.4).to(units.Gyr).value
-            - potu.tdyn(1.4) * conversion.time_in_Gyr(vo, ro)
+            as_numpy(pot.tdyn(1.4).to(units.Gyr).value)
+            - as_numpy(potu.tdyn(1.4) * conversion.time_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "Potential method tdyn does not return the correct value as Quantity"
@@ -5509,228 +5776,274 @@ def test_potential_function_value():
     potu = potential.CompositePotential([PlummerPotential(normalize=True)])
     assert (
         numpy.fabs(
-            potential.evaluatePotentials(pot, 1.1, 0.1)
-            .to(units.km**2 / units.s**2)
-            .value
-            - potential.evaluatePotentials(potu, 1.1, 0.1) * vo**2.0
+            as_numpy(
+                potential.evaluatePotentials(pot, 1.1, 0.1)
+                .to(units.km**2 / units.s**2)
+                .value
+            )
+            - as_numpy(potential.evaluatePotentials(potu, 1.1, 0.1) * vo**2.0)
         )
         < 10.0**-8.0
     ), "Potential function __call__ does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluateRforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
-            * 10.0**13.0
-            - potential.evaluateRforces(potu, 1.1, 0.1)
-            * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(
+                potential.evaluateRforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
+                * 10.0**13.0
+            )
+            - as_numpy(
+                potential.evaluateRforces(potu, 1.1, 0.1)
+                * conversion.force_in_10m13kms2(vo, ro)
+            )
         )
         < 10.0**-4.0
     ), "Potential function Rforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluaterforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
-            * 10.0**13.0
-            - potential.evaluaterforces(potu, 1.1, 0.1)
-            * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(
+                potential.evaluaterforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
+                * 10.0**13.0
+            )
+            - as_numpy(
+                potential.evaluaterforces(potu, 1.1, 0.1)
+                * conversion.force_in_10m13kms2(vo, ro)
+            )
         )
         < 10.0**-4.0
     ), "Potential function rforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluatezforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
-            * 10.0**13.0
-            - potential.evaluatezforces(potu, 1.1, 0.1)
-            * conversion.force_in_10m13kms2(vo, ro)
+            as_numpy(
+                potential.evaluatezforces(pot, 1.1, 0.1).to(units.km / units.s**2).value
+                * 10.0**13.0
+            )
+            - as_numpy(
+                potential.evaluatezforces(potu, 1.1, 0.1)
+                * conversion.force_in_10m13kms2(vo, ro)
+            )
         )
         < 10.0**-4.0
     ), "Potential function zforce does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluatephitorques(pot, 1.1, 0.1)
-            .to(units.km**2 / units.s**2)
-            .value
-            - potential.evaluatephitorques(potu, 1.1, 0.1) * vo**2
+            as_numpy(
+                potential.evaluatephitorques(pot, 1.1, 0.1)
+                .to(units.km**2 / units.s**2)
+                .value
+            )
+            - as_numpy(potential.evaluatephitorques(potu, 1.1, 0.1) * vo**2)
         )
         < 10.0**-4.0
     ), "Potential function phitorque does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluateDensities(pot, 1.1, 0.1)
-            .to(units.Msun / units.pc**3)
-            .value
-            - potential.evaluateDensities(potu, 1.1, 0.1)
-            * conversion.dens_in_msolpc3(vo, ro)
+            as_numpy(
+                potential.evaluateDensities(pot, 1.1, 0.1)
+                .to(units.Msun / units.pc**3)
+                .value
+            )
+            - as_numpy(
+                potential.evaluateDensities(potu, 1.1, 0.1)
+                * conversion.dens_in_msolpc3(vo, ro)
+            )
         )
         < 10.0**-8.0
     ), "Potential function dens does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluateSurfaceDensities(pot, 1.1, 0.1)
-            .to(units.Msun / units.pc**2)
-            .value
-            - potential.evaluateSurfaceDensities(potu, 1.1, 0.1)
-            * conversion.surfdens_in_msolpc2(vo, ro)
+            as_numpy(
+                potential.evaluateSurfaceDensities(pot, 1.1, 0.1)
+                .to(units.Msun / units.pc**2)
+                .value
+            )
+            - as_numpy(
+                potential.evaluateSurfaceDensities(potu, 1.1, 0.1)
+                * conversion.surfdens_in_msolpc2(vo, ro)
+            )
         )
         < 10.0**-8.0
     ), "Potential function surfdens does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluateR2derivs(pot, 1.1, 0.1)
-            .to(units.km**2 / units.s**2.0 / units.kpc**2)
-            .value
-            - potential.evaluateR2derivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                potential.evaluateR2derivs(pot, 1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potential.evaluateR2derivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential function R2deriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluatez2derivs(pot, 1.1, 0.1)
-            .to(units.km**2 / units.s**2.0 / units.kpc**2)
-            .value
-            - potential.evaluatez2derivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                potential.evaluatez2derivs(pot, 1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potential.evaluatez2derivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential function z2deriv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.evaluateRzderivs(pot, 1.1, 0.1)
-            .to(units.km**2 / units.s**2.0 / units.kpc**2)
-            .value
-            - potential.evaluateRzderivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0
+            as_numpy(
+                potential.evaluateRzderivs(pot, 1.1, 0.1)
+                .to(units.km**2 / units.s**2.0 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potential.evaluateRzderivs(potu, 1.1, 0.1) * vo**2.0 / ro**2.0)
         )
         < 10.0**-8.0
     ), "Potential function Rzderiv does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.flattening(pot, 1.1, 0.1).value
-            - potential.flattening(potu, 1.1, 0.1)
+            as_numpy(potential.flattening(pot, 1.1, 0.1).value)
+            - as_numpy(potential.flattening(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), "Potential function flattening does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.vcirc(pot, 1.1).to(units.km / units.s).value
-            - potential.vcirc(potu, 1.1) * vo
+            as_numpy(potential.vcirc(pot, 1.1).to(units.km / units.s).value)
+            - as_numpy(potential.vcirc(potu, 1.1) * vo)
         )
         < 10.0**-8.0
     ), "Potential function vcirc does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.dvcircdR(pot, 1.1).to(units.km / units.s / units.kpc).value
-            - potential.dvcircdR(potu, 1.1) * vo / ro
+            as_numpy(
+                potential.dvcircdR(pot, 1.1).to(units.km / units.s / units.kpc).value
+            )
+            - as_numpy(potential.dvcircdR(potu, 1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential function dvcircdR does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.omegac(pot, 1.1).to(units.km / units.s / units.kpc).value
-            - potential.omegac(potu, 1.1) * vo / ro
+            as_numpy(
+                potential.omegac(pot, 1.1).to(units.km / units.s / units.kpc).value
+            )
+            - as_numpy(potential.omegac(potu, 1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential function omegac does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.epifreq(pot, 1.1).to(units.km / units.s / units.kpc).value
-            - potential.epifreq(potu, 1.1) * vo / ro
+            as_numpy(
+                potential.epifreq(pot, 1.1).to(units.km / units.s / units.kpc).value
+            )
+            - as_numpy(potential.epifreq(potu, 1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential function epifreq does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.verticalfreq(pot, 1.1).to(units.km / units.s / units.kpc).value
-            - potential.verticalfreq(potu, 1.1) * vo / ro
+            as_numpy(
+                potential.verticalfreq(pot, 1.1)
+                .to(units.km / units.s / units.kpc)
+                .value
+            )
+            - as_numpy(potential.verticalfreq(potu, 1.1) * vo / ro)
         )
         < 10.0**-8.0
     ), "Potential function verticalfreq does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.lindbladR(pot, 0.9, m="corot").to(units.kpc).value
-            - potential.lindbladR(potu, 0.9, m="corot") * ro
+            as_numpy(potential.lindbladR(pot, 0.9, m="corot").to(units.kpc).value)
+            - as_numpy(potential.lindbladR(potu, 0.9, m="corot") * ro)
         )
         < 10.0**-8.0
     ), "Potential function lindbladR does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.vesc(pot, 1.1).to(units.km / units.s).value
-            - potential.vesc(potu, 1.1) * vo
+            as_numpy(potential.vesc(pot, 1.1).to(units.km / units.s).value)
+            - as_numpy(potential.vesc(potu, 1.1) * vo)
         )
         < 10.0**-8.0
     ), "Potential function vesc does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.rl(pot, 1.1).to(units.kpc).value - potential.rl(potu, 1.1) * ro
+            as_numpy(potential.rl(pot, 1.1).to(units.kpc).value)
+            - as_numpy(potential.rl(potu, 1.1) * ro)
         )
         < 10.0**-8.0
     ), "Potential function rl does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.rE(pot, -1.14).to(units.kpc).value
-            - potential.rE(potu, -1.14) * ro
+            as_numpy(potential.rE(pot, -1.14).to(units.kpc).value)
+            - as_numpy(potential.rE(potu, -1.14) * ro)
         )
         < 10.0**-8.0
     ), "Potential function rE does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.LcE(pot, -1.14).to(units.kpc * units.km / units.s).value
-            - potential.LcE(potu, -1.14) * ro * vo
+            as_numpy(potential.LcE(pot, -1.14).to(units.kpc * units.km / units.s).value)
+            - as_numpy(potential.LcE(potu, -1.14) * ro * vo)
         )
         < 10.0**-8.0
     ), "Potential function LcE does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.vterm(pot, 45.0).to(units.km / units.s).value
-            - potential.vterm(potu, 45.0) * vo
+            as_numpy(potential.vterm(pot, 45.0).to(units.km / units.s).value)
+            - as_numpy(potential.vterm(potu, 45.0) * vo)
         )
         < 10.0**-8.0
     ), "Potential function vterm does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.rtide(pot, 1.0, 0.0, M=1.0).to(units.kpc).value
-            - potential.rtide(potu, 1.0, 0.0, M=1.0) * ro
+            as_numpy(potential.rtide(pot, 1.0, 0.0, M=1.0).to(units.kpc).value)
+            - as_numpy(potential.rtide(potu, 1.0, 0.0, M=1.0) * ro)
         )
         < 10.0**-8.0
     ), "Potential function rtide does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(pot, 1.0, 0.0)
-            .to(units.km**2 / units.s**2 / units.kpc**2)
-            .value
-            - potential.ttensor(potu, 1.0, 0.0) * vo**2 / ro**2
+            as_numpy(
+                potential.ttensor(pot, 1.0, 0.0)
+                .to(units.km**2 / units.s**2 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potential.ttensor(potu, 1.0, 0.0) * vo**2 / ro**2)
         )
         < 10.0**-8.0
     ), "Potential function ttensor does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(pot, 1.0, 0.0, eigenval=True)
-            .to(units.km**2 / units.s**2 / units.kpc**2)
-            .value
-            - potential.ttensor(potu, 1.0, 0.0, eigenval=True) * vo**2 / ro**2
+            as_numpy(
+                potential.ttensor(pot, 1.0, 0.0, eigenval=True)
+                .to(units.km**2 / units.s**2 / units.kpc**2)
+                .value
+            )
+            - as_numpy(potential.ttensor(potu, 1.0, 0.0, eigenval=True) * vo**2 / ro**2)
         )
         < 10.0**-8.0
     ), "Potential function ttensor does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            potential.zvc_range(pot, -1.9, 0.2).to(units.kpc).value
-            - potential.zvc_range(potu, -1.9, 0.2) * ro
+            as_numpy(potential.zvc_range(pot, -1.9, 0.2).to(units.kpc).value)
+            - as_numpy(potential.zvc_range(potu, -1.9, 0.2) * ro)
         )
         < 10.0**-8.0
     ), "Potential function zvc_range does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            potential.zvc(pot, 0.4, -1.9, 0.2).to(units.kpc).value
-            - potential.zvc(potu, 0.4, -1.9, 0.2) * ro
+            as_numpy(potential.zvc(pot, 0.4, -1.9, 0.2).to(units.kpc).value)
+            - as_numpy(potential.zvc(potu, 0.4, -1.9, 0.2) * ro)
         )
         < 10.0**-8.0
     ), "Potential function zvc_range does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.rhalf(pot).to(units.kpc).value - potential.rhalf(potu) * ro
+            as_numpy(potential.rhalf(pot).to(units.kpc).value)
+            - as_numpy(potential.rhalf(potu) * ro)
         )
         < 10.0**-8.0
     ), "Potential function rhalf does not return the correct value as Quantity"
     assert (
         numpy.fabs(
-            potential.tdyn(pot, 1.4).to(units.Gyr).value
-            - potential.tdyn(potu, 1.4) * conversion.time_in_Gyr(vo, ro)
+            as_numpy(potential.tdyn(pot, 1.4).to(units.Gyr).value)
+            - as_numpy(potential.tdyn(potu, 1.4) * conversion.time_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "Potential function tdyn does not return the correct value as Quantity"
@@ -5854,14 +6167,16 @@ def test_potential_method_inputAsQuantity():
     potu = PlummerPotential(normalize=True)
     assert (
         numpy.fabs(
-            pot(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu(1.1, 0.1)
+            - as_numpy(potu(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -5869,14 +6184,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.Rforce(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.Rforce(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.Rforce(1.1, 0.1)
+            - as_numpy(potu.Rforce(1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -5885,15 +6202,17 @@ def test_potential_method_inputAsQuantity():
     # Few more cases for Rforce
     assert (
         numpy.fabs(
-            pot.Rforce(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                ro=9.0,
-                use_physical=False,
+            as_numpy(
+                pot.Rforce(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    ro=9.0,
+                    use_physical=False,
+                )
             )
-            - potu.Rforce(1.1 * 8.0 / 9.0, 0.1 * 8.0 / 9.0)
+            - as_numpy(potu.Rforce(1.1 * 8.0 / 9.0, 0.1 * 8.0 / 9.0))
         )
         < 10.0**-4.0
     ), (
@@ -5901,15 +6220,17 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.Rforce(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                vo=230.0,
-                use_physical=False,
+            as_numpy(
+                pot.Rforce(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    vo=230.0,
+                    use_physical=False,
+                )
             )
-            - potu.Rforce(1.1, 0.1)
+            - as_numpy(potu.Rforce(1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -5917,14 +6238,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.rforce(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.rforce(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.rforce(1.1, 0.1)
+            - as_numpy(potu.rforce(1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -5932,14 +6255,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.zforce(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.zforce(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.zforce(1.1, 0.1)
+            - as_numpy(potu.zforce(1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -5947,14 +6272,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.phitorque(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.phitorque(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.phitorque(1.1, 0.1)
+            - as_numpy(potu.phitorque(1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -5962,27 +6289,31 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.dens(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.dens(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.dens(1.1, 0.1)
+            - as_numpy(potu.dens(1.1, 0.1))
         )
         < 10.0**-8.0
     ), "Potential method dens does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.surfdens(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.surfdens(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.surfdens(1.1, 0.1)
+            - as_numpy(potu.surfdens(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -5990,20 +6321,23 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.mass(1.1 * ro, 0.1 * ro, use_physical=False) - potu.mass(1.1, 0.1)
+            as_numpy(pot.mass(1.1 * ro, 0.1 * ro, use_physical=False))
+            - as_numpy(potu.mass(1.1, 0.1))
         )
         < 10.0**-8.0
     ), "Potential method mass does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.R2deriv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.R2deriv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.R2deriv(1.1, 0.1)
+            - as_numpy(potu.R2deriv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6011,14 +6345,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.z2deriv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.z2deriv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.z2deriv(1.1, 0.1)
+            - as_numpy(potu.z2deriv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6026,14 +6362,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.Rzderiv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.Rzderiv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.Rzderiv(1.1, 0.1)
+            - as_numpy(potu.Rzderiv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6041,14 +6379,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.Rphideriv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.Rphideriv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.Rphideriv(1.1, 0.1)
+            - as_numpy(potu.Rphideriv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6056,14 +6396,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.phi2deriv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.phi2deriv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.phi2deriv(1.1, 0.1)
+            - as_numpy(potu.phi2deriv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6071,14 +6413,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.phizderiv(
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                pot.phizderiv(
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potu.phizderiv(1.1, 0.1)
+            - as_numpy(potu.phizderiv(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6086,54 +6430,72 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.flattening(1.1 * ro, 0.1 * ro, use_physical=False)
-            - potu.flattening(1.1, 0.1)
+            as_numpy(pot.flattening(1.1 * ro, 0.1 * ro, use_physical=False))
+            - as_numpy(potu.flattening(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
         "Potential method flattening does not return the correct value when input is Quantity"
     )
     assert (
-        numpy.fabs(pot.vcirc(1.1 * ro, use_physical=False) - potu.vcirc(1.1))
+        numpy.fabs(
+            as_numpy(pot.vcirc(1.1 * ro, use_physical=False))
+            - as_numpy(potu.vcirc(1.1))
+        )
         < 10.0**-8.0
     ), "Potential method vcirc does not return the correct value when input is Quantity"
     assert (
-        numpy.fabs(pot.dvcircdR(1.1 * ro, use_physical=False) - potu.dvcircdR(1.1))
+        numpy.fabs(
+            as_numpy(pot.dvcircdR(1.1 * ro, use_physical=False))
+            - as_numpy(potu.dvcircdR(1.1))
+        )
         < 10.0**-8.0
     ), (
         "Potential method dvcircdR does not return the correct value when input is Quantity"
     )
     assert (
-        numpy.fabs(pot.omegac(1.1 * ro, use_physical=False) - potu.omegac(1.1))
+        numpy.fabs(
+            as_numpy(pot.omegac(1.1 * ro, use_physical=False))
+            - as_numpy(potu.omegac(1.1))
+        )
         < 10.0**-8.0
     ), (
         "Potential method omegac does not return the correct value when input is Quantity"
     )
     assert (
-        numpy.fabs(pot.epifreq(1.1 * ro, use_physical=False) - potu.epifreq(1.1))
+        numpy.fabs(
+            as_numpy(pot.epifreq(1.1 * ro, use_physical=False))
+            - as_numpy(potu.epifreq(1.1))
+        )
         < 10.0**-8.0
     ), (
         "Potential method epifreq does not return the correct value when input is Quantity"
     )
     assert (
         numpy.fabs(
-            pot.verticalfreq(1.1 * ro, use_physical=False) - potu.verticalfreq(1.1)
+            as_numpy(pot.verticalfreq(1.1 * ro, use_physical=False))
+            - as_numpy(potu.verticalfreq(1.1))
         )
         < 10.0**-8.0
     ), (
         "Potential method verticalfreq does not return the correct value when input is Quantity"
     )
     assert (
-        numpy.fabs(pot.vesc(1.1 * ro, use_physical=False) - potu.vesc(1.1)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(pot.vesc(1.1 * ro, use_physical=False)) - as_numpy(potu.vesc(1.1))
+        )
+        < 10.0**-8.0
     ), "Potential method vesc does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.lindbladR(
-                0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
-                m="corot",
-                use_physical=False,
+            as_numpy(
+                pot.lindbladR(
+                    0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
+                    m="corot",
+                    use_physical=False,
+                )
             )
-            - potu.lindbladR(0.9, m="corot")
+            - as_numpy(potu.lindbladR(0.9, m="corot"))
         )
         < 10.0**-8.0
     ), (
@@ -6141,39 +6503,55 @@ def test_potential_method_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            pot.rl(1.1 * vo * ro * units.km / units.s, use_physical=False)
-            - potu.rl(1.1)
+            as_numpy(pot.rl(1.1 * vo * ro * units.km / units.s, use_physical=False))
+            - as_numpy(potu.rl(1.1))
         )
         < 10.0**-8.0
     ), "Potential method rl does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.rE(-1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False)
-            - potu.rE(-1.14)
+            as_numpy(
+                pot.rE(-1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False)
+            )
+            - as_numpy(potu.rE(-1.14))
         )
         < 10.0**-8.0
     ), "Potential method rE does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.LcE(-1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False)
-            - potu.LcE(-1.14)
+            as_numpy(
+                pot.LcE(-1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False)
+            )
+            - as_numpy(potu.LcE(-1.14))
         )
         < 10.0**-8.0
     ), "Potential method LcE does not return the correct value when input is Quantity"
     assert (
-        numpy.fabs(pot.vterm(45.0 * units.deg, use_physical=False) - potu.vterm(45.0))
+        numpy.fabs(
+            as_numpy(pot.vterm(45.0 * units.deg, use_physical=False))
+            - as_numpy(potu.vterm(45.0))
+        )
         < 10.0**-8.0
     ), "Potential method vterm does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            pot.rtide(1.1 * ro, 0.1 * ro, M=10.0**9.0 * units.Msun, use_physical=False)
-            - potu.rtide(1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value))
+            as_numpy(
+                pot.rtide(
+                    1.1 * ro, 0.1 * ro, M=10.0**9.0 * units.Msun, use_physical=False
+                )
+            )
+            - as_numpy(
+                potu.rtide(
+                    1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value)
+                )
+            )
         )
         < 10.0**-8.0
     ), "Potential method rtide does not return the correct value when input is Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(1.1 * ro, 0.1 * ro, use_physical=False) - potu.ttensor(1.1, 0.1)
+            as_numpy(pot.ttensor(1.1 * ro, 0.1 * ro, use_physical=False))
+            - as_numpy(potu.ttensor(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6181,8 +6559,8 @@ def test_potential_method_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(1.1 * ro, 0.1 * ro, eigenval=True, use_physical=False)
-            - potu.ttensor(1.1, 0.1, eigenval=True)
+            as_numpy(pot.ttensor(1.1 * ro, 0.1 * ro, eigenval=True, use_physical=False))
+            - as_numpy(potu.ttensor(1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
@@ -6190,12 +6568,16 @@ def test_potential_method_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            pot.zvc_range(
-                -92000 * units.km**2 / units.s**2,
-                45.0 * units.kpc * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                pot.zvc_range(
+                    -92000 * units.km**2 / units.s**2,
+                    45.0 * units.kpc * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potu.zvc_range(-92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo)
+            - as_numpy(
+                potu.zvc_range(-92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo)
+            )
         )
         < 10.0**-8.0
     ), (
@@ -6203,18 +6585,25 @@ def test_potential_method_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            pot.zvc(
-                0.4 * ro,
-                -92000 * units.km**2 / units.s**2,
-                45.0 * units.kpc * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                pot.zvc(
+                    0.4 * ro,
+                    -92000 * units.km**2 / units.s**2,
+                    45.0 * units.kpc * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potu.zvc(0.4, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo)
+            - as_numpy(
+                potu.zvc(0.4, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo)
+            )
         )
         < 10.0**-8.0
     ), "Potential method zvc does not return the correct value when input is Quantity"
     assert (
-        numpy.fabs(pot.tdyn(1.1 * ro, use_physical=False) - potu.tdyn(1.1)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(pot.tdyn(1.1 * ro, use_physical=False)) - as_numpy(potu.tdyn(1.1))
+        )
+        < 10.0**-8.0
     ), "Potential method tdyn does not return the correct value when input is Quantity"
     return None
 
@@ -6512,8 +6901,8 @@ def test_potential_method_inputAsQuantity_Rzaskwargs():
     ), "Potential method rtide does not return the correct value when input is Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(R=1.1 * ro, z=0.1 * ro, use_physical=False)
-            - potu.ttensor(1.1, 0.1)
+            as_numpy(pot.ttensor(R=1.1 * ro, z=0.1 * ro, use_physical=False))
+            - as_numpy(potu.ttensor(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6521,8 +6910,10 @@ def test_potential_method_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False)
-            - potu.ttensor(1.1, 0.1, eigenval=True)
+            as_numpy(
+                pot.ttensor(R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False)
+            )
+            - as_numpy(potu.ttensor(1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
@@ -6838,15 +7229,17 @@ def test_potential_function_inputAsQuantity():
     potu = potential.CompositePotential([PlummerPotential(normalize=True)])
     assert (
         numpy.fabs(
-            potential.evaluatePotentials(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluatePotentials(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluatePotentials(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluatePotentials(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6854,17 +7247,19 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluateRforces(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                ro=8.0 * units.kpc,
-                vo=220.0 * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                potential.evaluateRforces(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    ro=8.0 * units.kpc,
+                    vo=220.0 * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potential.evaluateRforces(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluateRforces(potu, 1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -6872,17 +7267,19 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluaterforces(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                ro=8.0 * units.kpc,
-                vo=220.0 * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                potential.evaluaterforces(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    ro=8.0 * units.kpc,
+                    vo=220.0 * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potential.evaluaterforces(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluaterforces(potu, 1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -6890,15 +7287,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluatezforces(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluatezforces(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluatezforces(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluatezforces(potu, 1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -6906,15 +7305,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluatephitorques(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluatephitorques(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluatephitorques(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluatephitorques(potu, 1.1, 0.1))
         )
         < 10.0**-4.0
     ), (
@@ -6922,15 +7323,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluateDensities(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluateDensities(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluateDensities(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluateDensities(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6938,15 +7341,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluateSurfaceDensities(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluateSurfaceDensities(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluateSurfaceDensities(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluateSurfaceDensities(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6954,15 +7359,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluateR2derivs(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluateR2derivs(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluateR2derivs(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluateR2derivs(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6970,15 +7377,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluatez2derivs(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluatez2derivs(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluatez2derivs(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluatez2derivs(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6986,15 +7395,17 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.evaluateRzderivs(
-                pot,
-                1.1 * ro,
-                0.1 * ro,
-                phi=10.0 * units.deg,
-                t=10.0 * units.Gyr,
-                use_physical=False,
+            as_numpy(
+                potential.evaluateRzderivs(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    phi=10.0 * units.deg,
+                    t=10.0 * units.Gyr,
+                    use_physical=False,
+                )
             )
-            - potential.evaluateRzderivs(potu, 1.1, 0.1)
+            - as_numpy(potential.evaluateRzderivs(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -7002,8 +7413,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.flattening(pot, 1.1 * ro, 0.1 * ro, use_physical=False)
-            - potential.flattening(potu, 1.1, 0.1)
+            as_numpy(potential.flattening(pot, 1.1 * ro, 0.1 * ro, use_physical=False))
+            - as_numpy(potential.flattening(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -7011,8 +7422,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.vcirc(pot, 1.1 * ro, use_physical=False)
-            - potential.vcirc(potu, 1.1)
+            as_numpy(potential.vcirc(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.vcirc(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7020,8 +7431,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.dvcircdR(pot, 1.1 * ro, use_physical=False)
-            - potential.dvcircdR(potu, 1.1)
+            as_numpy(potential.dvcircdR(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.dvcircdR(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7029,8 +7440,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.omegac(pot, 1.1 * ro, use_physical=False)
-            - potential.omegac(potu, 1.1)
+            as_numpy(potential.omegac(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.omegac(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7038,8 +7449,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.epifreq(pot, 1.1 * ro, use_physical=False)
-            - potential.epifreq(potu, 1.1)
+            as_numpy(potential.epifreq(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.epifreq(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7047,8 +7458,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.verticalfreq(pot, 1.1 * ro, use_physical=False)
-            - potential.verticalfreq(potu, 1.1)
+            as_numpy(potential.verticalfreq(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.verticalfreq(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7056,8 +7467,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.vesc(pot, 1.1 * ro, use_physical=False)
-            - potential.vesc(potu, 1.1)
+            as_numpy(potential.vesc(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.vesc(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7065,13 +7476,15 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.lindbladR(
-                pot,
-                0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
-                m="corot",
-                use_physical=False,
+            as_numpy(
+                potential.lindbladR(
+                    pot,
+                    0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
+                    m="corot",
+                    use_physical=False,
+                )
             )
-            - potential.lindbladR(potu, 0.9, m="corot")
+            - as_numpy(potential.lindbladR(potu, 0.9, m="corot"))
         )
         < 10.0**-8.0
     ), (
@@ -7079,13 +7492,15 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.lindbladR(
-                pot[0],
-                0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
-                m="corot",
-                use_physical=False,
+            as_numpy(
+                potential.lindbladR(
+                    pot[0],
+                    0.9 * conversion.freq_in_Gyr(vo, ro.value) / units.Gyr,
+                    m="corot",
+                    use_physical=False,
+                )
             )
-            - potential.lindbladR(potu, 0.9, m="corot")
+            - as_numpy(potential.lindbladR(potu, 0.9, m="corot"))
         )
         < 10.0**-8.0
     ), (
@@ -7093,62 +7508,78 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.rl(pot, 1.1 * vo * ro * units.km / units.s, use_physical=False)
-            - potential.rl(potu, 1.1)
+            as_numpy(
+                potential.rl(
+                    pot, 1.1 * vo * ro * units.km / units.s, use_physical=False
+                )
+            )
+            - as_numpy(potential.rl(potu, 1.1))
         )
         < 10.0**-8.0
     ), "Potential function rl does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.rl(pot[0], 1.1 * vo * ro * units.km / units.s, use_physical=False)
-            - potential.rl(potu, 1.1)
+            as_numpy(
+                potential.rl(
+                    pot[0], 1.1 * vo * ro * units.km / units.s, use_physical=False
+                )
+            )
+            - as_numpy(potential.rl(potu, 1.1))
         )
         < 10.0**-8.0
     ), "Potential function rl does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.rE(
-                pot, -1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False
+            as_numpy(
+                potential.rE(
+                    pot, -1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False
+                )
             )
-            - potential.rE(potu, -1.14)
+            - as_numpy(potential.rE(potu, -1.14))
         )
         < 10.0**-8.0
     ), "Potential function rE does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.rE(
-                pot[0],
-                -1.14 * vo**2 * units.km**2 / units.s**2,
-                use_physical=False,
+            as_numpy(
+                potential.rE(
+                    pot[0],
+                    -1.14 * vo**2 * units.km**2 / units.s**2,
+                    use_physical=False,
+                )
             )
-            - potential.rE(potu, -1.14)
+            - as_numpy(potential.rE(potu, -1.14))
         )
         < 10.0**-8.0
     ), "Potential function rE does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.LcE(
-                pot, -1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False
+            as_numpy(
+                potential.LcE(
+                    pot, -1.14 * vo**2 * units.km**2 / units.s**2, use_physical=False
+                )
             )
-            - potential.LcE(potu, -1.14)
+            - as_numpy(potential.LcE(potu, -1.14))
         )
         < 10.0**-8.0
     ), "Potential function LcE does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.LcE(
-                pot[0],
-                -1.14 * vo**2 * units.km**2 / units.s**2,
-                use_physical=False,
+            as_numpy(
+                potential.LcE(
+                    pot[0],
+                    -1.14 * vo**2 * units.km**2 / units.s**2,
+                    use_physical=False,
+                )
             )
-            - potential.LcE(potu, -1.14)
+            - as_numpy(potential.LcE(potu, -1.14))
         )
         < 10.0**-8.0
     ), "Potential function LcE does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.vterm(pot, 45.0 * units.deg, use_physical=False)
-            - potential.vterm(potu, 45.0)
+            as_numpy(potential.vterm(pot, 45.0 * units.deg, use_physical=False))
+            - as_numpy(potential.vterm(potu, 45.0))
         )
         < 10.0**-8.0
     ), (
@@ -7156,11 +7587,19 @@ def test_potential_function_inputAsQuantity():
     )
     assert (
         numpy.fabs(
-            potential.rtide(
-                pot, 1.1 * ro, 0.1 * ro, M=10.0**9.0 * units.Msun, use_physical=False
+            as_numpy(
+                potential.rtide(
+                    pot,
+                    1.1 * ro,
+                    0.1 * ro,
+                    M=10.0**9.0 * units.Msun,
+                    use_physical=False,
+                )
             )
-            - potential.rtide(
-                potu, 1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value)
+            - as_numpy(
+                potential.rtide(
+                    potu, 1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value)
+                )
             )
         )
         < 10.0**-8.0
@@ -7170,15 +7609,19 @@ def test_potential_function_inputAsQuantity():
     # Test non-list for M as well, bc units done in rtide special, and do GM
     assert (
         numpy.fabs(
-            potential.rtide(
-                pot[0],
-                1.1 * ro,
-                0.1 * ro,
-                M=constants.G * 10.0**9.0 * units.Msun,
-                use_physical=False,
+            as_numpy(
+                potential.rtide(
+                    pot[0],
+                    1.1 * ro,
+                    0.1 * ro,
+                    M=constants.G * 10.0**9.0 * units.Msun,
+                    use_physical=False,
+                )
             )
-            - potential.rtide(
-                potu, 1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value)
+            - as_numpy(
+                potential.rtide(
+                    potu, 1.1, 0.1, M=10.0**9.0 / conversion.mass_in_msol(vo, ro.value)
+                )
             )
         )
         < 10.0**-8.0
@@ -7187,8 +7630,8 @@ def test_potential_function_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(pot, 1.1 * ro, 0.1 * ro, use_physical=False)
-            - potential.ttensor(potu, 1.1, 0.1)
+            as_numpy(potential.ttensor(pot, 1.1 * ro, 0.1 * ro, use_physical=False))
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -7196,10 +7639,12 @@ def test_potential_function_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(
-                pot, 1.1 * ro, 0.1 * ro, eigenval=True, use_physical=False
+            as_numpy(
+                potential.ttensor(
+                    pot, 1.1 * ro, 0.1 * ro, eigenval=True, use_physical=False
+                )
             )
-            - potential.ttensor(potu, 1.1, 0.1, eigenval=True)
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
@@ -7207,14 +7652,18 @@ def test_potential_function_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.zvc_range(
-                pot,
-                -92000 * units.km**2 / units.s**2,
-                45.0 * units.kpc * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                potential.zvc_range(
+                    pot,
+                    -92000 * units.km**2 / units.s**2,
+                    45.0 * units.kpc * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potential.zvc_range(
-                potu, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo
+            - as_numpy(
+                potential.zvc_range(
+                    potu, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo
+                )
             )
         )
         < 10.0**-8.0
@@ -7223,23 +7672,27 @@ def test_potential_function_inputAsQuantity():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.zvc(
-                pot,
-                0.4 * ro,
-                -92000 * units.km**2 / units.s**2,
-                45.0 * units.kpc * units.km / units.s,
-                use_physical=False,
+            as_numpy(
+                potential.zvc(
+                    pot,
+                    0.4 * ro,
+                    -92000 * units.km**2 / units.s**2,
+                    45.0 * units.kpc * units.km / units.s,
+                    use_physical=False,
+                )
             )
-            - potential.zvc(
-                potu, 0.4, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo
+            - as_numpy(
+                potential.zvc(
+                    potu, 0.4, -92000 / vo**2, 45.0 / ro.to_value(units.kpc) / vo
+                )
             )
         )
         < 10.0**-8.0
     ), "Potential function zvc does not return the correct value when input is Quantity"
     assert (
         numpy.fabs(
-            potential.tdyn(pot, 1.1 * ro, use_physical=False)
-            - potential.tdyn(potu, 1.1)
+            as_numpy(potential.tdyn(pot, 1.1 * ro, use_physical=False))
+            - as_numpy(potential.tdyn(potu, 1.1))
         )
         < 10.0**-8.0
     ), (
@@ -7520,8 +7973,8 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(pot, R=1.1 * ro, z=0.1 * ro, use_physical=False)
-            - potential.ttensor(potu, 1.1, 0.1)
+            as_numpy(potential.ttensor(pot, R=1.1 * ro, z=0.1 * ro, use_physical=False))
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -7529,10 +7982,12 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(
-                pot, R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False
+            as_numpy(
+                potential.ttensor(
+                    pot, R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False
+                )
             )
-            - potential.ttensor(potu, 1.1, 0.1, eigenval=True)
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
@@ -10184,138 +10639,6 @@ def test_potential_paramunits():
         )
         < 10.0**-8.0
     ), "KingPotential w/ amp w/ units does not behave as expected"
-    # AnyAxisymmetricRazorThinDiskPotential
-    pot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: (
-            1.5
-            * conversion.surfdens_in_msolpc2(vo, ro)
-            * units.Msun
-            / units.pc**2
-            * numpy.exp(-R)
-        ),
-        ro=ro,
-        vo=vo,
-    )
-    pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
-    )
-    # AnyAxisymmetricRazorThinDiskPotential, r in surfdens also has units
-    pot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: (
-            1.5
-            * conversion.surfdens_in_msolpc2(vo, ro)
-            * units.Msun
-            / units.pc**2
-            * numpy.exp(-R / ro / units.kpc)
-        ),
-        ro=ro,
-        vo=vo,
-    )
-    pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
-    )
-    # AnyAxisymmetricRazorThinDiskPotential, r in surfdens only has units
-    pot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5 * numpy.exp(-R / ro / units.kpc), ro=ro, vo=vo
-    )
-    pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
-    )
-    # AnySphericalPotential
-    pot = potential.AnySphericalPotential(
-        dens=lambda r: (
-            0.64
-            / r
-            / (1 + r) ** 3
-            * conversion.dens_in_msolpc3(vo, ro)
-            * units.Msun
-            / units.pc**3
-        ),
-        ro=ro,
-        vo=vo,
-    )
-    pot_nounits = potential.AnySphericalPotential(
-        dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
-    # AnySphericalPotential, r in dens also has units
-    pot = potential.AnySphericalPotential(
-        dens=lambda r: (
-            0.64
-            / (r / ro / units.kpc)
-            / (1 + r / ro / units.kpc) ** 3
-            * conversion.dens_in_msolpc3(vo, ro)
-            * units.Msun
-            / units.pc**3
-        ),
-        ro=ro,
-        vo=vo,
-    )
-    pot_nounits = potential.AnySphericalPotential(
-        dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
-    # AnySphericalPotential, r in dens only has units
-    pot = potential.AnySphericalPotential(
-        dens=lambda r: 0.64 / (r / ro / units.kpc) / (1 + r / ro / units.kpc) ** 3,
-        ro=ro,
-        vo=vo,
-    )
-    pot_nounits = potential.AnySphericalPotential(
-        dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
-    )
-    # Check potential
-    assert (
-        numpy.fabs(
-            pot(4.0, 0.0, phi=1.0, use_physical=False)
-            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
-        )
-        < 10.0**-8.0
-    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # RotateAndTiltWrapperPotential, zvec, pa
     wrappot = potential.TriaxialNFWPotential(amp=1.0, a=3.0, b=0.7, c=0.5)
@@ -10520,6 +10843,155 @@ def test_potential_paramunits():
     return None
 
 
+def test_potential_paramunits_user_callable():
+    # The Any*Potential family is DEFINED BY a user-supplied callable, which the
+    # potential evaluates internally. When that callable returns a Quantity (the
+    # point of these checks) it cannot run inside a jit trace: astropy needs a
+    # concrete array, and `Quantity * tracer` has no meaning. So this block is
+    # pinned to numpy rather than skipped -- the units contract is a numpy-path
+    # claim, and splitting it out keeps the other ~1100 lines of
+    # test_potential_paramunits running under a forced/traced backend instead of
+    # skipping all of it for these 12 constructions.
+    import galpy.backend
+    from galpy import potential
+    from galpy.util import conversion
+
+    ro, vo = 7.0, 230.0
+    with galpy.backend.use("numpy", force=True):
+        # AnyAxisymmetricRazorThinDiskPotential
+        pot = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: (
+                1.5
+                * conversion.surfdens_in_msolpc2(vo, ro)
+                * units.Msun
+                / units.pc**2
+                * numpy.exp(-R)
+            ),
+            ro=ro,
+            vo=vo,
+        )
+        pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
+        )
+        # AnyAxisymmetricRazorThinDiskPotential, r in surfdens also has units
+        pot = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: (
+                1.5
+                * conversion.surfdens_in_msolpc2(vo, ro)
+                * units.Msun
+                / units.pc**2
+                * numpy.exp(-R / ro / units.kpc)
+            ),
+            ro=ro,
+            vo=vo,
+        )
+        pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
+        )
+        # AnyAxisymmetricRazorThinDiskPotential, r in surfdens only has units
+        pot = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: 1.5 * numpy.exp(-R / ro / units.kpc), ro=ro, vo=vo
+        )
+        pot_nounits = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: 1.5 * numpy.exp(-R), ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
+        )
+        # AnySphericalPotential
+        pot = potential.AnySphericalPotential(
+            dens=lambda r: (
+                0.64
+                / r
+                / (1 + r) ** 3
+                * conversion.dens_in_msolpc3(vo, ro)
+                * units.Msun
+                / units.pc**3
+            ),
+            ro=ro,
+            vo=vo,
+        )
+        pot_nounits = potential.AnySphericalPotential(
+            dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
+        # AnySphericalPotential, r in dens also has units
+        pot = potential.AnySphericalPotential(
+            dens=lambda r: (
+                0.64
+                / (r / ro / units.kpc)
+                / (1 + r / ro / units.kpc) ** 3
+                * conversion.dens_in_msolpc3(vo, ro)
+                * units.Msun
+                / units.pc**3
+            ),
+            ro=ro,
+            vo=vo,
+        )
+        pot_nounits = potential.AnySphericalPotential(
+            dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
+        # AnySphericalPotential, r in dens only has units
+        pot = potential.AnySphericalPotential(
+            dens=lambda r: 0.64 / (r / ro / units.kpc) / (1 + r / ro / units.kpc) ** 3,
+            ro=ro,
+            vo=vo,
+        )
+        pot_nounits = potential.AnySphericalPotential(
+            dens=lambda r: 0.64 / r / (1 + r) ** 3, ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
+
+
 def test_scfpotential_from_nbody_units():
     # SCFPotential.from_nbody accepts physical-unit (Quantity) particle positions,
     # masses, and scale length, and (for the time-dependent case) a Gyr time grid,
@@ -10551,12 +11023,14 @@ def test_scfpotential_from_nbody_units():
     assert sp_phys._roSet and sp_phys._voSet, (
         "from_nbody w/ Quantity inputs did not turn on physical outputs"
     )
-    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10, (
-        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
-    )
-    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10, (
-        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_phys._Acos) - as_numpy(sp_plain._Acos)))
+        < 1e-10
+    ), "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_phys._Asin) - as_numpy(sp_plain._Asin)))
+        < 1e-10
+    ), "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
     # time-dependent: a Gyr time grid matches the equivalent internal-unit grid
     nt = 4
     pos_t = numpy.random.randn(3, n, nt) * 1.5
@@ -10571,9 +11045,10 @@ def test_scfpotential_from_nbody_units():
     assert numpy.all(numpy.fabs(sp_tint._tgrid - sp_tgyr._tgrid) < 1e-8), (
         "from_nbody w/ Gyr tgrid does not match the internal-unit tgrid"
     )
-    assert numpy.max(numpy.fabs(sp_tint._Acos_all - sp_tgyr._Acos_all)) < 1e-10, (
-        "from_nbody w/ Gyr tgrid does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sp_tint._Acos_all) - as_numpy(sp_tgyr._Acos_all)))
+        < 1e-10
+    ), "from_nbody w/ Gyr tgrid does not match the internal-unit build"
     # from_density likewise accepts a Gyr time grid
     hp = potential.HernquistPotential(amp=0.5, a=1.0)
     hp.turn_physical_off()
@@ -10587,9 +11062,10 @@ def test_scfpotential_from_nbody_units():
     sd_gyr = potential.SCFPotential.from_density(
         dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_gyr, ro=ro, vo=vo
     )
-    assert numpy.max(numpy.fabs(sd_int._Acos_all - sd_gyr._Acos_all)) < 1e-10, (
-        "from_density w/ Gyr tgrid does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(sd_int._Acos_all) - as_numpy(sd_gyr._Acos_all)))
+        < 1e-10
+    ), "from_density w/ Gyr tgrid does not match the internal-unit build"
     return None
 
 
@@ -10624,9 +11100,9 @@ def test_scf_multipole_translation_units():
     scf_q = potential.SCFPotential.from_multipole(
         mult, N=8, a=1.5 * ro * units.kpc, ro=ro
     )
-    assert numpy.max(numpy.fabs(scf_q._Acos - scf_plain._Acos)) < 1e-10, (
-        "from_multipole w/ Quantity a does not match the internal-unit build"
-    )
+    assert (
+        numpy.max(numpy.fabs(as_numpy(scf_q._Acos) - as_numpy(scf_plain._Acos))) < 1e-10
+    ), "from_multipole w/ Quantity a does not match the internal-unit build"
     return None
 
 
@@ -11141,25 +11617,46 @@ def test_potential_method_turnphysicalon():
     return None
 
 
+def _plain_scalar_no_units(v):
+    """True when ``v`` is a plain number, i.e. what turn_physical_off() promises.
+
+    Replaces a bare ``isinstance(v, float)``, which is numpy-specific: under a
+    forced backend galpy returns a 0-d BACKEND array by design (that is what makes
+    these calls traceable), so the float check fails on a correct result.
+
+    On numpy this is EXACTLY as strict as the old check -- the first two branches
+    are all a numpy result can reach, so a Python float (incl. ``numpy.float64``,
+    a float subclass) passes and a 0-d ``ndarray`` still does not, because
+    ``is_backend_array`` answers False for numpy arrays. Only jax/torch 0-d arrays
+    are newly accepted. A Quantity is never acceptable: dropping units is the
+    whole point of turn_physical_off().
+    """
+    if isinstance(v, units.Quantity):
+        return False
+    if isinstance(v, float):
+        return True
+    return is_backend_array(v) and numpy.ndim(as_numpy(v)) == 0
+
+
 def test_potential_method_turnphysicaloff():
     from galpy import potential
 
     # 3D
     pot = potential.BurkertPotential(ro=7.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1, 0.1), float), (
+    assert _plain_scalar_no_units(pot(1.1, 0.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     # 2D
     pot = potential.EllipticalDiskPotential(ro=6.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1, phi=0.1), float), (
+    assert _plain_scalar_no_units(pot(1.1, phi=0.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     # 1D
     pot = potential.KGPotential(ro=5.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1), float), (
+    assert _plain_scalar_no_units(pot(1.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     return None
@@ -11242,37 +11739,38 @@ def test_potential_function_turnphysicaloff():
     # 3D
     pot = potential.BurkertPotential(ro=7.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatePotentials(pot, 1.1, 0.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     pot = potential.CompositePotential([potential.BurkertPotential(ro=7.0 * units.kpc)])
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatePotentials(pot, 1.1, 0.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 2D
     pot = potential.EllipticalDiskPotential(ro=6.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluateplanarPotentials(pot, 1.1, phi=0.1), float), (
+    assert _plain_scalar_no_units(
+        potential.evaluateplanarPotentials(pot, 1.1, phi=0.1)
+    ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     pot = potential.planarCompositePotential([pot])
     potential.turn_physical_off(pot)
-    assert isinstance(
+    assert _plain_scalar_no_units(
         potential.evaluateplanarPotentials(pot, 1.1, phi=0.1),
-        float,
     ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 1D
     pot = potential.KGPotential(ro=5.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatelinearPotentials(pot, 1.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatelinearPotentials(pot, 1.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     cpot = potential.linearCompositePotential([pot])
     potential.turn_physical_off(cpot)
-    assert isinstance(potential.evaluatelinearPotentials(cpot, 1.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatelinearPotentials(cpot, 1.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     return None
@@ -11439,23 +11937,57 @@ def test_anyaxisymmetricrazorpotential_unitson():
     # Test that AnyAxisymmetricRazorPotential returns outputs with units when the
     # input surface density has units (this is the consistent behavior with other
     # potentials); see #724
+    import galpy.backend
     from galpy import potential
 
-    expdisk = potential.RazorThinExponentialDiskPotential(
-        amp=1e10 * units.Msun / units.kpc**2, hr=1 * units.kpc
-    )
-    diskpot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: numpy.exp(-R / (1 * units.kpc)) * units.Msun / units.kpc**2,
-        amp=1e10,
-    )
-    assert isinstance(diskpot(6 * units.kpc, 100.0 * units.pc), units.Quantity), (
-        "AnyAxisymmetricRazorThinDiskPotential does not return outputs with units when the input surface density has units"
-    )
-    assert numpy.fabs(
-        (1.0 - expdisk.vcirc(6 * units.kpc) / diskpot.vcirc(6 * units.kpc)) < 1e-10
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential does not return outputs with units when the input surface density has units"
-    )
+    # A surfdens callable that returns a Quantity cannot run inside a jit trace:
+    # astropy needs a concrete array, and Quantity * tracer is undefined. The
+    # units claim is a numpy-path claim, so pin this arm to numpy rather than
+    # skipping the test on a backend.
+    with galpy.backend.use("numpy", force=True):
+        expdisk = potential.RazorThinExponentialDiskPotential(
+            amp=1e10 * units.Msun / units.kpc**2, hr=1 * units.kpc
+        )
+        diskpot = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: (
+                numpy.exp(-R / (1 * units.kpc)) * units.Msun / units.kpc**2
+            ),
+            amp=1e10,
+        )
+        pot = diskpot(6 * units.kpc, 100.0 * units.pc)
+        assert isinstance(pot, units.Quantity), (
+            "AnyAxisymmetricRazorThinDiskPotential does not return outputs with units when the input surface density has units"
+        )
+        assert pot.unit.is_equivalent(units.km**2 / units.s**2), (
+            "AnyAxisymmetricRazorThinDiskPotential returns outputs with the wrong unit when the input surface density has units"
+        )
+        # The same disk with the 1e10 in the callable rather than in amp. The two
+        # are equivalent in exact arithmetic, but the numpy force integral is
+        # scipy.integrate.quad, whose default epsabs=1.49e-8 is larger than the
+        # whole integral once amp carries the normalization (_sdens is then
+        # ~1e-12): quad stops early and vcirc comes out ~1e-5 off instead of
+        # ~1e-13. That is a pre-existing numpy-path defect, filed separately; use
+        # the O(1) _sdens form so this can be compared at the numerical limit.
+        diskpot_o1 = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=lambda R: (
+                1e10 * numpy.exp(-R / (1 * units.kpc)) * units.Msun / units.kpc**2
+            ),
+            amp=1.0,
+        )
+        # fabs OUTSIDE the comparison: fabs(x < tol) is a bool, so it accepted
+        # every ratio above one and only the potential-too-large direction ever
+        # failed.
+        assert (
+            numpy.fabs(
+                1.0 - expdisk.vcirc(6 * units.kpc) / diskpot_o1.vcirc(6 * units.kpc)
+            )
+            < 1e-10
+        ), (
+            "AnyAxisymmetricRazorThinDiskPotential does not agree with the equivalent RazorThinExponentialDiskPotential when the input surface density has units"
+        )
+    # The potential's own backend/traced coverage lives in
+    # tests/test_backend_anyaxisymdisk.py, which drives it through a
+    # namespace-agnostic surfdens; nothing here needs to duplicate it.
     return None
 
 
@@ -11472,7 +12004,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -11491,7 +12024,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -11507,7 +12041,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -12150,29 +12685,35 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA(-0.2, 0.1).to(units.kpc * units.km / units.s).value
-            - aAnu(-0.2, 0.1) * ro * vo
+            as_numpy(aA(-0.2, 0.1).to(units.kpc * units.km / units.s).value)
+            - as_numpy(aAnu(-0.2, 0.1) * ro * vo)
         )
         < 10.0**-8.0
     ), "actionAngle function __call__ does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqs(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
-            - aAnu.actionsFreqs(-0.2, 0.1)[0] * ro * vo
+            as_numpy(
+                aA.actionsFreqs(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
+            )
+            - as_numpy(aAnu.actionsFreqs(-0.2, 0.1)[0] * ro * vo)
         )
         < 10.0**-8.0
     ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqs(-0.2, 0.1)[1].to(1 / units.Gyr).value
-            - aAnu.actionsFreqs(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.actionsFreqs(-0.2, 0.1)[1].to(1 / units.Gyr).value)
+            - as_numpy(aAnu.actionsFreqs(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[0] * ro * vo
+            as_numpy(
+                aA.actionsFreqsAngles(-0.2, 0.1)[0]
+                .to(units.kpc * units.km / units.s)
+                .value
+            )
+            - as_numpy(aAnu.actionsFreqsAngles(-0.2, 0.1)[0] * ro * vo)
         )
         < 10.0**-8.0
     ), (
@@ -12180,8 +12721,10 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[1].to(1 / units.Gyr).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.actionsFreqsAngles(-0.2, 0.1)[1].to(1 / units.Gyr).value)
+            - as_numpy(
+                aAnu.actionsFreqsAngles(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            )
         )
         < 10.0**-8.0
     ), (
@@ -12189,8 +12732,8 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[2].to(units.rad).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[2]
+            as_numpy(aA.actionsFreqsAngles(-0.2, 0.1)[2].to(units.rad).value)
+            - as_numpy(aAnu.actionsFreqsAngles(-0.2, 0.1)[2])
         )
         < 10.0**-8.0
     ), (
@@ -12202,20 +12745,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12224,11 +12773,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12237,10 +12790,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12249,11 +12806,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12262,10 +12823,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12273,10 +12836,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12285,8 +12850,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12299,22 +12868,28 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0, ro=9.0 * units.kpc)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * 9.0 * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0, ro=9.0 * units.kpc)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * 9.0 * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(
-                    1.1, 0.1, 1.1, 0.1, 0.2, 0.0, vo=230.0 * units.km / units.s
-                )[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * 230.0
+                as_numpy(
+                    aA.actionsFreqs(
+                        1.1, 0.1, 1.1, 0.1, 0.2, 0.0, vo=230.0 * units.km / units.s
+                    )[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * 230.0
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12323,11 +12898,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12336,10 +12915,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12348,11 +12931,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12361,10 +12948,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12372,10 +12961,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12384,8 +12975,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12397,19 +12992,23 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12418,8 +13017,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12431,20 +13034,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12453,11 +13062,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12466,10 +13079,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12478,11 +13095,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12491,10 +13112,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12502,10 +13125,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12514,8 +13139,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12527,20 +13156,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12549,11 +13184,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12562,10 +13201,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12574,11 +13217,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12587,10 +13234,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12612,10 +13261,12 @@ def test_actionAngle_method_value():
     for ii in range(2):
         assert (
             numpy.fabs(
-                aA(0.1, -0.2, ro=ro * units.kpc, vo=vo * units.km / units.s)[ii]
-                .to(correct_unit[ii])
-                .value
-                - aAnu(0.1, -0.2)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA(0.1, -0.2, ro=ro * units.kpc, vo=vo * units.km / units.s)[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(aAnu(0.1, -0.2)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12626,8 +13277,8 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.xvFreqs(0.1, -0.2)[ii].to(correct_unit[ii]).value
-                - aAnu.xvFreqs(0.1, -0.2)[ii] * correct_fac[ii]
+                as_numpy(aA.xvFreqs(0.1, -0.2)[ii].to(correct_unit[ii]).value)
+                - as_numpy(aAnu.xvFreqs(0.1, -0.2)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12635,8 +13286,8 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.Freqs(0.1).to(1 / units.Gyr).value
-            - aAnu.Freqs(0.1) * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.Freqs(0.1).to(1 / units.Gyr).value)
+            - as_numpy(aAnu.Freqs(0.1) * conversion.freq_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "actionAngleInverse function Freqs does not return Quantity with the right value"
@@ -12657,19 +13308,21 @@ def test_actionAngle_method_value():
     for ii in range(6):
         assert (
             numpy.fabs(
-                aA(
-                    0.1,
-                    1.1,
-                    0.1,
-                    0.1,
-                    0.2,
-                    0.0,
-                    ro=ro * units.kpc,
-                    vo=vo * units.km / units.s,
-                )[ii]
-                .to(correct_unit[ii])
-                .value
-                - aAnu(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA(
+                        0.1,
+                        1.1,
+                        0.1,
+                        0.1,
+                        0.2,
+                        0.0,
+                        ro=ro * units.kpc,
+                        vo=vo * units.km / units.s,
+                    )[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(aAnu(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12700,8 +13353,14 @@ def test_actionAngle_method_value():
     for ii in range(9):
         assert (
             numpy.fabs(
-                aA.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii].to(correct_unit[ii]).value
-                - aAnu.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(
+                    aAnu.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12710,8 +13369,10 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.Freqs(0.1, 1.1, 0.1)[ii].to(1 / units.Gyr).value
-                - aAnu.Freqs(0.1, 1.1, 0.1)[ii] * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(aA.Freqs(0.1, 1.1, 0.1)[ii].to(1 / units.Gyr).value)
+                - as_numpy(
+                    aAnu.Freqs(0.1, 1.1, 0.1)[ii] * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -13061,14 +13722,14 @@ def test_actionAngle_method_turnphysicaloff():
 
     aA = actionAngleIsochrone(b=0.8, ro=7.0 * units.kpc, vo=230.0 * units.km / units.s)
     aA.turn_physical_off()
-    assert isinstance(aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float), (
+    assert _plain_scalar_no_units(aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]), (
         "actionAngle method does not return float when turn_physical_off has been called"
     )
-    assert isinstance(aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float), (
-        "actionAngle method does not return float when turn_physical_off has been called"
-    )
-    assert isinstance(
-        aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float
+    assert _plain_scalar_no_units(
+        aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]
+    ), "actionAngle method does not return float when turn_physical_off has been called"
+    assert _plain_scalar_no_units(
+        aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]
     ), "actionAngle method does not return float when turn_physical_off has been called"
     return None
 
@@ -14236,7 +14897,10 @@ def test_estimateDeltaStaeckel_method_value():
             estimateDeltaStaeckel(pot, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))
             .to(units.kpc)
             .value
-            - estimateDeltaStaeckel(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3)) * ro
+            - as_numpy(
+                estimateDeltaStaeckel(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))
+            )
+            * ro
         )
         < 10.0**-8.0
     ), "estimateDeltaStaeckel function does not return Quantity with the right value"
@@ -16235,7 +16899,7 @@ def test_quasiisothermaldf_method_value():
     assert (
         numpy.fabs(
             qdf(o).to(1 / units.kpc**3 / (units.km / units.s) ** 3).value
-            - qdfnou(o) / ro**3 / vo**3
+            - as_numpy(qdfnou(o)) / ro**3 / vo**3
         )
         < 10.0**-8.0
     ), "quasiisothermaldf method __call__ does not return correct Quantity"
@@ -17228,6 +17892,54 @@ def test_sphericaldf_method_returnunit():
     return None
 
 
+@pytest.mark.parametrize("backend_name", _BACKENDS)
+def test_sphericaldf_quantity_radius_is_not_coerced_on_a_backend(backend_name):
+    # sigmar strips units INSIDE the body (conversion.parse_length), so the
+    # @backend_input boundary is handed a Quantity; coercing it produced NaN.
+    # It must pass through and let the body parse it.
+    #
+    # This lives here rather than in tests/test_backend_sphericaldf.py because
+    # it needs a REAL Quantity AND a forced backend: tests/test_backend*.py runs
+    # in a single CI job that is deliberately astropy-free, so an astropy import
+    # there is a hard error. This shard has astropy in both workflows.
+    import galpy.backend
+    from galpy import potential
+    from galpy.df import isotropicHernquistdf
+
+    if backend_name == "jax":
+        # Every tests/test_backend_*.py enables x64 at import; this file does
+        # not, and jax defaults to float32, which lands ~3e-6 from the numpy
+        # reference. Set it here (no jax array exists yet, so it takes effect)
+        # so the comparison is float64-vs-float64.
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+
+    def _sigmar():
+        pot = potential.HernquistPotential(amp=2.0, a=1.3)
+        return isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0).sigmar(
+            100.0 * units.pc, use_physical=False
+        )
+
+    # Build AND evaluate each df under one backend. Two reasons:
+    #  * the reference must be pinned to numpy -- under the harness's --jit mode
+    #    the whole test runs inside a forced backend, so an unpinned reference
+    #    is computed on the same path as `got`, and if that path drops the
+    #    Quantity's unit both sides are wrong by the same factor and this
+    #    assertion passes VACUOUSLY. It did: traced sigmar(100 pc) returned the
+    #    value for r = 100 in INTERNAL units, 0.685 relative off, still "passing".
+    #  * a df CONSTRUCTED under one backend caches arrays of that backend, and
+    #    meeting them from another raises (Tensor / jaxlib ArrayImpl). Reusing
+    #    one object across backends is a separate hazard from the units contract
+    #    under test here, so each arm gets its own.
+    with galpy.backend.use("numpy", force=True):
+        ref = float(_sigmar())
+    with galpy.backend.use(backend_name, force=True):
+        got = float(as_numpy(_sigmar()))
+    assert numpy.isfinite(got), "Quantity radius produced a non-finite result"
+    numpy.testing.assert_allclose(got, ref, rtol=1e-7)
+
+
 def test_sphericaldf_method_value():
     from galpy import potential
     from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
@@ -17276,87 +17988,73 @@ def test_sphericaldf_method_value():
         )
         < 10.0**-8.0
     ), "sphericaldf method dMdE does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value
-            - dfh_nou.vmomentdensity(1.1, 0, 0)
-            * conversion.mass_in_msol(vo, ro)
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value
-            - dfa_nou.vmomentdensity(1.1, 0, 0)
-            * conversion.mass_in_msol(vo, ro)
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1, 1, 0)
-            .to(units.Msun / units.kpc**3 * units.km / units.s)
-            .value
-            - dfh_nou.vmomentdensity(1.1, 1, 0)
-            * conversion.mass_in_msol(vo, ro)
-            * vo
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1, 1, 0)
-            .to(units.Msun / units.kpc**3 * units.km / units.s)
-            .value
-            - dfa_nou.vmomentdensity(1.1, 1, 0)
-            * conversion.mass_in_msol(vo, ro)
-            * vo
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value,
+        dfh_nou.vmomentdensity(1.1, 0, 0) * conversion.mass_in_msol(vo, ro) / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value,
+        dfa_nou.vmomentdensity(1.1, 0, 0) * conversion.mass_in_msol(vo, ro) / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(1.1, 1, 0)
+        .to(units.Msun / units.kpc**3 * units.km / units.s)
+        .value,
+        dfh_nou.vmomentdensity(1.1, 1, 0)
+        * conversion.mass_in_msol(vo, ro)
+        * vo
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1, 1, 0)
+        .to(units.Msun / units.kpc**3 * units.km / units.s)
+        .value,
+        dfa_nou.vmomentdensity(1.1, 1, 0)
+        * conversion.mass_in_msol(vo, ro)
+        * vo
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
     # One with no quantity output
     import galpy.util._optional_deps
 
     galpy.util._optional_deps._APY_UNITS = False  # Hack
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1, 0, 2)
-            - dfh_nou.vmomentdensity(1.1, 0, 2)
+    try:
+        assert_physical_matches_natural(
+            dfh.vmomentdensity(1.1, 0, 2),
+            dfh_nou.vmomentdensity(1.1, 0, 2)
             * conversion.mass_in_msol(vo, ro)
             * vo**2
-            / ro**3
+            / ro**3,
+            "sphericaldf method vmomentdensity does not return correct Quantity",
         )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    galpy.util._optional_deps._APY_UNITS = True  # Hack
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1, 0, 2)
-            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
-            .value
-            - dfh_nou.vmomentdensity(1.1, 0, 2)
-            * conversion.mass_in_msol(vo, ro)
-            * vo**2
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1, 0, 2)
-            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
-            .value
-            - dfa_nou.vmomentdensity(1.1, 0, 2)
-            * conversion.mass_in_msol(vo, ro)
-            * vo**2
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
+    finally:
+        # Restore even on failure: a leaked flag turns one red into many, by
+        # denying Quantities to every later test in the session.
+        galpy.util._optional_deps._APY_UNITS = True  # Hack
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(1.1, 0, 2)
+        .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
+        .value,
+        dfh_nou.vmomentdensity(1.1, 0, 2)
+        * conversion.mass_in_msol(vo, ro)
+        * vo**2
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1, 0, 2)
+        .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
+        .value,
+        dfa_nou.vmomentdensity(1.1, 0, 2)
+        * conversion.mass_in_msol(vo, ro)
+        * vo**2
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
     assert (
         numpy.fabs(
             dfh.sigmar(1.1).to(units.km / units.s).value - dfh_nou.sigmar(1.1) * vo
@@ -17425,78 +18123,62 @@ def test_sphericaldf_method_inputAsQuantity():
         )
         < 10.0**-8.0
     ), "sphericaldf method dMdE does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 0)
-            .to(units.Msun / units.kpc**3)
-            .value
-            - dfh_nou.vmomentdensity(1.1, 0, 0)
-            * conversion.mass_in_msol(vo, ro)
-            / ro**3
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 0)
+        .to(units.Msun / units.kpc**3)
+        .value,
+        dfh_nou.vmomentdensity(1.1, 0, 0) * conversion.mass_in_msol(vo, ro) / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 0, ro=ro * units.kpc)
+        .to(units.Msun / units.kpc**3)
+        .value,
+        dfa_nou.vmomentdensity(1.1, 0, 0) * conversion.mass_in_msol(vo, ro) / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(
+            1.1 * ro * units.kpc, 1, 0, ro=ro, vo=vo * units.km / units.s
         )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 0, ro=ro * units.kpc)
-            .to(units.Msun / units.kpc**3)
-            .value
-            - dfa_nou.vmomentdensity(1.1, 0, 0)
-            * conversion.mass_in_msol(vo, ro)
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(
-                1.1 * ro * units.kpc, 1, 0, ro=ro, vo=vo * units.km / units.s
-            )
-            .to(units.Msun / units.kpc**3 * units.km / units.s)
-            .value
-            - dfh_nou.vmomentdensity(1.1, 1, 0)
-            * conversion.mass_in_msol(vo, ro)
-            * vo
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1 * ro * units.kpc, 1, 0, vo=vo * units.km / units.s)
-            .to(units.Msun / units.kpc**3 * units.km / units.s)
-            .value
-            - dfa_nou.vmomentdensity(1.1, 1, 0)
-            * conversion.mass_in_msol(vo, ro)
-            * vo
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
-            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
-            .value
-            - dfh_nou.vmomentdensity(1.1, 0, 2)
-            * conversion.mass_in_msol(vo, ro)
-            * vo**2
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
-    assert (
-        numpy.fabs(
-            dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
-            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
-            .value
-            - dfa_nou.vmomentdensity(1.1, 0, 2)
-            * conversion.mass_in_msol(vo, ro)
-            * vo**2
-            / ro**3
-        )
-        < 10.0**-8.0
-    ), "sphericaldf method vmomentdensity does not return correct Quantity"
+        .to(units.Msun / units.kpc**3 * units.km / units.s)
+        .value,
+        dfh_nou.vmomentdensity(1.1, 1, 0)
+        * conversion.mass_in_msol(vo, ro)
+        * vo
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1 * ro * units.kpc, 1, 0, vo=vo * units.km / units.s)
+        .to(units.Msun / units.kpc**3 * units.km / units.s)
+        .value,
+        dfa_nou.vmomentdensity(1.1, 1, 0)
+        * conversion.mass_in_msol(vo, ro)
+        * vo
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
+        .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
+        .value,
+        dfh_nou.vmomentdensity(1.1, 0, 2)
+        * conversion.mass_in_msol(vo, ro)
+        * vo**2
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
+    assert_physical_matches_natural(
+        dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
+        .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
+        .value,
+        dfa_nou.vmomentdensity(1.1, 0, 2)
+        * conversion.mass_in_msol(vo, ro)
+        * vo**2
+        / ro**3,
+        "sphericaldf method vmomentdensity does not return correct Quantity",
+    )
     assert (
         numpy.fabs(
             dfh.sigmar(1.1 * ro * units.kpc).to(units.km / units.s).value
@@ -17664,12 +18346,20 @@ def test_sphericaldf_sample():
     numpy.random.seed(10)
     sam_nou = dfh.sample(R=1.0 / ro, z=0.0 / ro, phi=10.0 / 180.0 * numpy.pi, n=2)
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
     assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.vr(use_physical=False))
+            - as_numpy(sam_nou.vr(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
@@ -17687,12 +18377,20 @@ def test_sphericaldf_sample():
         R=arr / ro, z=arr * 0.0 / ro, phi=arr * 10.0 / 180.0 * numpy.pi, n=len(arr)
     )
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
     assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.vr(use_physical=False))
+            - as_numpy(sam_nou.vr(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
@@ -17702,7 +18400,11 @@ def test_sphericaldf_sample():
     numpy.random.seed(10)
     sam_nou = dfh.sample(n=2, rmin=1.1 / ro)
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units"
     )
@@ -18877,12 +19579,19 @@ def test_streamspraydf_setup_paramsAsQuantity():
         numpy.random.seed(10)
         sam_nou = spdf_bovy14_nou.sample(n=2)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -18923,12 +19632,19 @@ def test_streamspraydf_sample_orbit():
         numpy.random.seed(10)
         sam_nou = spdf_bovy14_nou.sample(n=2)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -18969,35 +19685,43 @@ def test_streamspraydf_sample_RvR():
         numpy.random.seed(10)
         sam_nou, dt_nou = spdf_bovy14_nou.sample(n=2, return_orbit=False, returndt=True)
         assert numpy.all(
-            numpy.fabs(sam[0].to_value(units.kpc) / ro - sam_nou[0]) < 1e-8
+            numpy.fabs(sam[0].to_value(units.kpc) / ro - as_numpy(sam_nou[0])) < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[1].to_value(units.km / units.s) / vo - sam_nou[1]) < 1e-8
+            numpy.fabs(sam[1].to_value(units.km / units.s) / vo - as_numpy(sam_nou[1]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[2].to_value(units.km / units.s) / vo - sam_nou[2]) < 1e-8
+            numpy.fabs(sam[2].to_value(units.km / units.s) / vo - as_numpy(sam_nou[2]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[3].to_value(units.kpc) / ro - sam_nou[3]) < 1e-8
+            numpy.fabs(sam[3].to_value(units.kpc) / ro - as_numpy(sam_nou[3])) < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[4].to_value(units.km / units.s) / vo - sam_nou[4]) < 1e-8
+            numpy.fabs(sam[4].to_value(units.km / units.s) / vo - as_numpy(sam_nou[4]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
-        assert numpy.all(numpy.fabs(sam[5].to_value(units.rad) - sam_nou[5]) < 1e-8), (
+        assert numpy.all(
+            numpy.fabs(sam[5].to_value(units.rad) - as_numpy(sam_nou[5])) < 1e-8
+        ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro) - dt_nou)
+            numpy.fabs(
+                dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+                - as_numpy(dt_nou)
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -19046,12 +19770,19 @@ def test_streamspraydf_progmass_callable_unitfulin_unitfulout():
         numpy.random.seed(10)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
@@ -19097,10 +19828,17 @@ def test_streamspraydf_progmass_callable_unitlessin_unitfulout():
         numpy.random.seed(11)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         )
 
@@ -19143,10 +19881,17 @@ def test_streamspraydf_progmass_callable_unitfulin_unitlessout():
         numpy.random.seed(12)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         )
 

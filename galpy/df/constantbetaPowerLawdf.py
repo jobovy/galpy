@@ -5,8 +5,14 @@
 #
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
-from scipy import special
 
+from ..backend import (
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    resolve_namespace,
+)
+from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -63,8 +69,14 @@ class constantbetaPowerLawdf(_constantbetadf):
         assert isinstance(pot, PowerSphericalPotential), (
             "pot= must be potential.PowerSphericalPotential"
         )
-        assert pot.alpha > 2.0, "pot.alpha must be > 2 for bound orbits"
-        assert beta < 1.0, "beta must be < 1"
+        # `not concretely_true(<negation>)` rather than the direct comparison:
+        # under a trace w.r.t. alpha or beta the comparison is a tracer with no
+        # truth value, so the check has to skip itself instead of taking the
+        # trace down. Unchanged on numpy.
+        assert not concretely_true(pot.alpha <= 2.0), (
+            "pot.alpha must be > 2 for bound orbits"
+        )
+        assert not concretely_true(beta >= 1.0), "beta must be < 1"
         self._alpha_pot = pot.alpha
         # Resolve tracer density
         if denspot is not None:
@@ -74,7 +86,9 @@ class constantbetaPowerLawdf(_constantbetadf):
             self._gamma = denspot.alpha
         else:
             self._gamma = self._alpha_pot
-        assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
+        assert not concretely_true(self._gamma >= 3.0), (
+            "gamma must be < 3 for finite enclosed mass"
+        )
         _constantbetadf.__init__(
             self, pot=pot, denspot=denspot, beta=beta, rmax=rmax, ro=ro, vo=vo
         )
@@ -95,20 +109,31 @@ class constantbetaPowerLawdf(_constantbetadf):
         # Exponents
         self._p = (self._gamma - 2.0 * self._beta) / (self._alpha_pot - 2.0)
         self._n = self._p + self._beta - 1.5
-        assert self._n > -1.0, (
+        # The f-string is only built when the assert FAILS, which a traced
+        # self._n never does here -- so no tracer ever reaches "{:.3f}".
+        assert not concretely_true(self._n <= -1.0), (
             f"Energy exponent n={self._n:.3f} must be > -1 for the DF to be normalizable. "
             "Adjust gamma, alpha, or beta."
         )
         # eta = nu_0 * 2^beta * Gamma(p+1) / ((2*pi)^{3/2} * Gamma(1-beta) * Gamma(n+1) * C^p)
+        # Routed gamma on coerced exponents: under a forced backend the DF's
+        # normalization was computed on scipy, so the DF was not built ON the
+        # backend and no derivative could flow (scipy.special.gamma hands back a
+        # DETACHED array). The exponents are coerced HERE rather than stored
+        # coerced -- self._n drives an assert with an f-string format below, and
+        # the raw floats keep every other consumer unchanged.
+        _p, _n, _beta = coerce_coords(
+            get_namespace(self._p, self._n, self._beta), self._p, self._n, self._beta
+        )
         self._fEnorm = (
             self._nu0
-            * 2.0**self._beta
-            * special.gamma(self._p + 1.0)
+            * 2.0**_beta
+            * _bgamma(_p + 1.0)
             / (
                 (2.0 * numpy.pi) ** 1.5
-                * special.gamma(1.0 - self._beta)
-                * special.gamma(self._n + 1.0)
-                * self._C**self._p
+                * _bgamma(1.0 - _beta)
+                * _bgamma(_n + 1.0)
+                * self._C**_p
             )
         )
         self._potInf = evaluatePotentials(self._pot, self._rmax, 0, use_physical=False)
@@ -131,22 +156,40 @@ class constantbetaPowerLawdf(_constantbetadf):
         -----
         - 2025-03-27 - Written - Bovy (UofT)
         """
-        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-        eps = -Eint
-        out = numpy.zeros_like(eps)
+        Ei = conversion.parse_energy(E, vo=self._vo)
+        xp = resolve_namespace(Ei, self._fEnorm)
+        if xp is numpy:
+            Eint = numpy.atleast_1d(Ei)
+            eps = -Eint
+            out = numpy.zeros_like(eps)
+            valid = eps > 0.0
+            out[valid] = self._fEnorm * eps[valid] ** self._n
+            if hasattr(E, "shape"):
+                return out.reshape(E.shape)
+            return out[0]
+        # jax/torch: functional masking; eps<=0 gets a safe dummy (eps**n is
+        # NaN/complex there) that is zeroed out below
+        Eb = xp.asarray(Ei) * 1.0
+        eps = -xp.atleast_1d(Eb)
         valid = eps > 0.0
-        out[valid] = self._fEnorm * eps[valid] ** self._n
-        if hasattr(E, "shape"):
-            return out.reshape(E.shape)
-        return out[0]
+        epssafe = xp.where(valid, eps, xp.ones_like(eps))
+        fE = xp.where(valid, self._fEnorm * epssafe**self._n, xp.zeros_like(eps))
+        return fE.reshape(Eb.shape) if hasattr(Ei, "shape") else fE[0]
 
     def _vmax_at_r(self, pot, r, **kwargs):
         # For alpha > 2, Phi(inf) = 0, so v_esc = sqrt(-2*Phi(r))
-        return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        return xp.sqrt(-2.0 * _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
 
     def _icmf(self, ms):
         """Analytic inverse cumulative mass function for the tracer density.
         The argument ms is normalized mass fraction [0,1]."""
         rmin_g = self._rmin ** (3.0 - self._gamma)
         rmax_g = self._rmax ** (3.0 - self._gamma)
+        xp = resolve_namespace(ms)
+        if xp is numpy:
+            return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
+        ms = xp.asarray(ms) * 1.0  # coerce: torch rejects numpy sampling grids
         return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
