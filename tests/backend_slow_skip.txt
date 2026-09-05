@@ -56,7 +56,6 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_qdf.py::test_sampleV_interpolate  # measured 2026-08-24: >900s TIMEOUT. Cost is the nested per-pixel loop in sampleV_interpolate (grid_max_vT), NOT the outlier at (R=8,z=5) -- outliers are handled one-by-one. Sibling test_sampleV runs 160.7s and is NOT deferred, so it is the grid build. Needs the vectorization work (task #130), not a tweak.
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
