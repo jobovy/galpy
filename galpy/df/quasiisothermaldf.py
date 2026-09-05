@@ -2178,78 +2178,9 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
-        with use("numpy", force=True):
-            # sampleV is a pure numpy rejection sampler (numpy.random draws, a
-            # numpy output); force numpy so the self() calls -- and the
-            # fmin_powell optimum fed into propvT -- are byte-identical to the
-            # numpy path, not merely landed via as_numpy (the optimiser amplifies
-            # a backend's last-bit action differences into maxVT). No-op on numpy.
-            # Determine the maximum of the velocity distribution
-            maxVR = 0.0
-            maxVz = 0.0
-            # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
-            # so squeeze out single dimensions by hand
-            maxVT = numpy.squeeze(
-                optimize.fmin_powell(
-                    (
-                        lambda x: (
-                            -as_numpy(
-                                self(R, 0.0, x, z, 0.0, log=True, use_physical=False)
-                            )
-                        )
-                    ),
-                    1.0,
-                )
-            )
-            # as_numpy: fmin_powell's optimum is fed straight into the numpy
-            # rejection arithmetic below; under a forced backend self() hands back a
-            # backend scalar here too. No-op on numpy.
-            logmaxVD = as_numpy(
-                self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-            )
-            # Now rejection-sample
-            vRs = []
-            vTs = []
-            vzs = []
-            while len(vRs) < n:
-                nmore = n - len(vRs) + 1
-                # sample
-                propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-                propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
-                propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-                # as_numpy: the rejection sampler below is numpy (numpy.random draws,
-                # numpy fancy-indexing, a numpy output array), but under a forced
-                # backend self() returns a backend array for array coords, and
-                # `Tensor > ndarray` raises. Land it here, where it enters the numpy
-                # code, rather than at the comparison. No-op on numpy.
-                VDatprop = (
-                    as_numpy(
-                        self(
-                            R + numpy.zeros(nmore),
-                            propvR,
-                            propvT,
-                            z + numpy.zeros(nmore),
-                            propvz,
-                            log=True,
-                            use_physical=False,
-                        )
-                    )
-                    - logmaxVD
-                )
-                VDatprop -= -0.5 * (
-                    propvR**2.0 / 4.0 / self._sr**2.0
-                    + propvz**2.0 / 4.0 / self._sz**2.0
-                    + (propvT - maxVT) ** 2.0 / 4.0 / self._sr**2.0
-                )
-                VDatprop = numpy.reshape(VDatprop, (nmore))
-                indx = VDatprop > numpy.log(numpy.random.random(size=nmore))  # accept
-                vRs.extend(list(propvR[indx]))
-                vTs.extend(list(propvT[indx]))
-                vzs.extend(list(propvz[indx]))
-            out = numpy.empty((n, 3))
-            out[:, 0] = vRs[0:n]
-            out[:, 1] = vTs[0:n]
-            out[:, 2] = vzs[0:n]
+        # backend-native inverse-CDF sampler; as_numpy the draws to keep sampleV's
+        # numpy-output contract (the CDF build + inversion already ran on the backend)
+        out = as_numpy(self._sampleV_icdf(R, z, n, get_namespace()))
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(out * vo, unit=units.km / units.s)
@@ -2257,6 +2188,83 @@ class quasiisothermaldf(df):
                 return out * vo
         else:
             return out
+
+    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=60, nvR=60, nvz=80):
+        """Sample n (vR, vT, vz) at one (R, z) by inverse-CDF (backend-native).
+
+        The quasi-isothermal DF factorises, so p(vR,vT,vz|R,z) is drawn by the
+        chain vT -> vR|vT -> vz|vR,vT. ONE 3-D velocity mesh feeds all three: the
+        vT marginal (integrate over vR,vz), p(vR,vT) (integrate over vz) and
+        p(vz|vR,vT) (the mesh). CDFs are cumulative trapezoids inverted piecewise-
+        linearly (no rejection loop), reproducing every marginal AND the tilt.
+        Single path (numpy included): replaces the old fmin_powell + numpy.random
+        rejection sampler, which was pathologically slow under a forced backend.
+        """
+        from ..backend.sampling import (
+            batched_inverse_cdf_sample,
+            linear_inverse_cdf_sample,
+        )
+
+        def _seg(p, g, axis):
+            d = g[1] - g[0]
+            lo = [slice(None)] * p.ndim
+            lo[axis] = slice(0, -1)
+            hi = [slice(None)] * p.ndim
+            hi[axis] = slice(1, None)
+            return 0.5 * (p[tuple(lo)] + p[tuple(hi)]) * d
+
+        def _trapz(p, g, axis):
+            return xp.sum(_seg(p, g, axis), axis=axis)
+
+        def _cumcdf(p, g, axis):
+            c = xp.cumulative_sum(_seg(p, g, axis), axis=axis)
+            zsh = list(p.shape)
+            zsh[axis] = 1
+            c = xp.concatenate([xp.zeros(tuple(zsh), dtype=c.dtype), c], axis=axis)
+            last = [slice(None)] * p.ndim
+            last[axis] = slice(c.shape[axis] - 1, c.shape[axis])
+            return c / c[tuple(last)]
+
+        # local dispersions are plain scalars (numpy.exp, not xp.exp): they set the
+        # velocity-grid extents and torch.linspace needs scalar (not tensor) limits
+        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        vTg = xp.linspace(0.0, 1.8, nvT)
+        vRg = xp.linspace(-nsigma * sigmaR1, nsigma * sigmaR1, nvR)
+        vzg = xp.linspace(-nsigma * sigmaz1, nsigma * sigmaz1, nvz)
+        VT, VR, VZ = xp.meshgrid(vTg, vRg, vzg, indexing="ij")
+        base = xp.reshape(VR, (-1,)) * 0.0
+        mesh = xp.reshape(
+            xp.exp(
+                self(
+                    R + base,
+                    xp.reshape(VR, (-1,)),
+                    xp.reshape(VT, (-1,)),
+                    z + base,
+                    xp.reshape(VZ, (-1,)),
+                    log=True,
+                    use_physical=False,
+                )
+            ),
+            (nvT, nvR, nvz),
+        )
+        FvT = _cumcdf(_trapz(_trapz(mesh, vzg, 2), vRg, 1), vTg, 0)
+        FvR = _cumcdf(_trapz(mesh, vzg, 2), vRg, 1)
+        Fvz = _cumcdf(mesh, vzg, 2)
+        u = xp.asarray(numpy.random.random((3, n)))
+        vT = linear_inverse_cdf_sample(xp, vTg, FvT, u[0])
+        iT = xp.clip(xp.searchsorted(vTg, vT) - 1, 0, nvT - 2)
+        wT = xp.reshape((vT - vTg[iT]) / (vTg[1] - vTg[0]), (n, 1))
+        vR = batched_inverse_cdf_sample(
+            xp, vRg, (1.0 - wT) * FvR[iT] + wT * FvR[iT + 1], u[1]
+        )
+        iR = xp.clip(xp.searchsorted(vRg, vR) - 1, 0, nvR - 2)
+        wR = xp.reshape((vR - vRg[iR]) / (vRg[1] - vRg[0]), (n, 1))
+        Fvzj = (1.0 - wT) * ((1.0 - wR) * Fvz[iT, iR] + wR * Fvz[iT, iR + 1]) + wT * (
+            (1.0 - wR) * Fvz[iT + 1, iR] + wR * Fvz[iT + 1, iR + 1]
+        )
+        vz = batched_inverse_cdf_sample(xp, vzg, Fvzj, u[2])
+        return xp.stack([vR, vT, vz], axis=1)
 
     @potential_physical_input
     def sampleV_interpolate(
