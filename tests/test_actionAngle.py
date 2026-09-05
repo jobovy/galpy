@@ -3229,9 +3229,13 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
     # tiny partial-integral bound sqrt(vx-vmin) amplifies the C-vs-scipy brentq
     # vmin tolerance (~1e-9) -- a measure-zero root-find floor, the Staeckel
     # analog of the Spherical at-peri/apo edge (neither path is ground truth).
-    maxfreqdiff = 0.0
-    maxangdiff = 0.0
-    n = 0
+    # Evaluate the whole parity grid in ONE vectorised call per method rather
+    # than a Python scalar loop: the Staeckel action/freq/angle quadratures are
+    # per-point independent, so a batched array call is point-for-point identical
+    # to the scalar loop but amortises the per-call backend-graph dispatch (486
+    # scalar calls -> one array call is ~300x faster under jax, ~30x under numpy),
+    # which keeps this test off the slow-skip ledger.
+    Rg, vRg, vTg, zg, vzg, phig = [], [], [], [], [], []
     for R in [0.7, 1.0, 1.3]:
         for vR in [-0.25, 0.0, 0.25]:
             for vT in [-0.6, 0.4, 0.9]:  # retrograde + prograde + near-circular
@@ -3240,25 +3244,39 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
                         for phi in [0.4, 2.7]:
                             if z < 0.0 and vR == 0.0 and vz == 0.0:
                                 continue
-                            fc = aAc.actionsFreqs(R, vR, vT, z, vz)
-                            fp = aAp.actionsFreqs(R, vR, vT, z, vz)
-                            ac = aAc.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-                            ap = aAp.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-                            n += 1
-                            # jr,Lz,jz,Omegar,Omegaphi,Omegaz
-                            for ii in range(6):
-                                if numpy.isnan(fc[ii][0]) or numpy.isnan(fp[ii][0]):
-                                    continue
-                                maxfreqdiff = max(
-                                    maxfreqdiff, numpy.fabs(fc[ii][0] - fp[ii][0])
-                                )
-                            # angler, anglephi, anglez (wrap-aware)
-                            for ii in (6, 7, 8):
-                                if numpy.isnan(ac[ii][0]) or numpy.isnan(ap[ii][0]):
-                                    continue
-                                maxangdiff = max(
-                                    maxangdiff, wrapdiff(ac[ii][0], ap[ii][0])
-                                )
+                            Rg.append(R)
+                            vRg.append(vR)
+                            vTg.append(vT)
+                            zg.append(z)
+                            vzg.append(vz)
+                            phig.append(phi)
+    Rg, vRg, vTg, zg, vzg, phig = (
+        numpy.array(Rg),
+        numpy.array(vRg),
+        numpy.array(vTg),
+        numpy.array(zg),
+        numpy.array(vzg),
+        numpy.array(phig),
+    )
+    n = len(Rg)
+    fc = aAc.actionsFreqs(Rg, vRg, vTg, zg, vzg)
+    fp = aAp.actionsFreqs(Rg, vRg, vTg, zg, vzg)
+    ac = aAc.actionsFreqsAngles(Rg, vRg, vTg, zg, vzg, phig)
+    ap = aAp.actionsFreqsAngles(Rg, vRg, vTg, zg, vzg, phig)
+    maxfreqdiff = 0.0
+    maxangdiff = 0.0
+    # jr,Lz,jz,Omegar,Omegaphi,Omegaz (skip any point either path returns NaN)
+    for ii in range(6):
+        a, b = as_numpy(fc[ii]), as_numpy(fp[ii])
+        good = ~(numpy.isnan(a) | numpy.isnan(b))
+        if good.any():
+            maxfreqdiff = max(maxfreqdiff, numpy.max(numpy.fabs(a[good] - b[good])))
+    # angler, anglephi, anglez (wrap-aware)
+    for ii in (6, 7, 8):
+        a, b = as_numpy(ac[ii]), as_numpy(ap[ii])
+        good = ~(numpy.isnan(a) | numpy.isnan(b))
+        if good.any():
+            maxangdiff = max(maxangdiff, numpy.max(wrapdiff(a[good], b[good])))
     assert n > 100, "Staeckel c vs Python parity grid did not evaluate enough points"
     assert maxfreqdiff < 1e-5, (
         "Pure-Python actionAngleStaeckel frequencies do not agree with C "
@@ -3268,6 +3286,27 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
         "Pure-Python actionAngleStaeckel angles do not agree with C "
         "implementation; max diff = %g" % maxangdiff
     )
+    # A few points are ALSO evaluated with scalar (float) inputs so the
+    # scalar-input float->array promotion in the C and Python actionsFreqs
+    # branches stays exercised (the batched call above passes arrays and skips
+    # it), asserting scalar python-vs-C parity on those points too.
+    for R, vR, vT, z, vz, phi in [
+        (0.7, -0.25, -0.6, -0.2, -0.25, 0.4),
+        (1.0, 0.0, 0.4, 0.0, 0.05, 2.7),
+        (1.3, 0.25, 0.9, 0.2, 0.25, 0.4),
+    ]:
+        fcs = aAc.actionsFreqs(R, vR, vT, z, vz)
+        fps = aAp.actionsFreqs(R, vR, vT, z, vz)
+        acs = aAc.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+        aps = aAp.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+        for ii in range(6):
+            a, b = as_numpy(fcs[ii])[0], as_numpy(fps[ii])[0]
+            if not (numpy.isnan(a) or numpy.isnan(b)):
+                assert numpy.fabs(a - b) < 1e-5
+        for ii in (6, 7, 8):
+            a, b = as_numpy(acs[ii])[0], as_numpy(aps[ii])[0]
+            if not (numpy.isnan(a) or numpy.isnan(b)):
+                assert wrapdiff(a, b) < 1e-5
     # Exactly-circular orbits (vR=vz=z=0, vT=vcirc): detA=0, so the C path gets
     # IEEE 0/0=NaN and substitutes epifreq/omegac/verticalfreq while the angles
     # are 0. The pure-Python path must reproduce this (and not raise on the
