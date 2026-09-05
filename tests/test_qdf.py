@@ -923,23 +923,18 @@ def test_sampleV_interpolate():
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=4, z_number=4
     Rz_array([0.8, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=2, z_number=4
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.2])  # R_number=4, z_number=2
-    # test saved hash and interpolation object
+    # the per-(R,z) CDF tables are cached and reused across calls (the sampler is
+    # now inverse-CDF, so there is a per-location CDF cache instead of a single
+    # maxVT interpolation object), and the cache grows when a new (R,z) appears
     Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash1 = qdf._maxVT_hash
-    ip1 = qdf._maxVT_ip
-    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash2 = qdf._maxVT_hash
-    ip2 = qdf._maxVT_ip
-    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash3 = qdf._maxVT_hash
-    ip3 = qdf._maxVT_ip
-    assert hash1 == hash2, "sampleV interpolate hash is changed unexpectedly"
-    assert ip1 == ip2, (
-        "sampleV interpolate interpolation object is changed unexpectedly"
+    cache1 = dict(qdf._sampleV_icdf_cache)
+    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # same (R,z) -> reuse
+    assert all(qdf._sampleV_icdf_cache[k] is cache1[k] for k in cache1), (
+        "sampleV_interpolate CDF cache was rebuilt for unchanged (R,z)"
     )
-    assert hash3 != hash2, "sampleV interpolate hash did not changed as expected"
-    assert ip3 != ip2, (
-        "sampleV interpolate interpolation object did not changed as expected"
+    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # new R=0.6 -> cache grows
+    assert len(qdf._sampleV_icdf_cache) > len(cache1), (
+        "sampleV_interpolate did not cache a new (R,z)"
     )
     # test user-specified grid edges
     # since num_std is set so high, the extra outlier of (8,5) is not covered

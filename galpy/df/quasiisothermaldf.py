@@ -1,5 +1,4 @@
 # A 'Binney' quasi-isothermal DF
-import hashlib
 import warnings
 
 import numpy
@@ -113,8 +112,7 @@ class quasiisothermaldf(df):
         self._lo = parse_angmom(lo, ro=self._ro, vo=self._vo)
         self._lnsr = numpy.log(self._sr)
         self._lnsz = numpy.log(self._sz)
-        self._maxVT_hash = None
-        self._maxVT_ip = None
+        self._sampleV_icdf_cache = {}
         if pot is None:
             raise OSError("pot= must be set")
         self._pot = _check_potential_list_and_deprecate(pot)
@@ -2189,21 +2187,15 @@ class quasiisothermaldf(df):
         else:
             return out
 
-    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=60, nvR=60, nvz=80):
-        """Sample n (vR, vT, vz) at one (R, z) by inverse-CDF (backend-native).
+    def _sampleV_icdf_cdfs(self, R, z, xp, nsigma=5.0, nvT=60, nvR=60, nvz=80):
+        """Build the velocity CDF tables at one (R, z) for inverse-CDF sampling.
 
-        The quasi-isothermal DF factorises, so p(vR,vT,vz|R,z) is drawn by the
-        chain vT -> vR|vT -> vz|vR,vT. ONE 3-D velocity mesh feeds all three: the
-        vT marginal (integrate over vR,vz), p(vR,vT) (integrate over vz) and
-        p(vz|vR,vT) (the mesh). CDFs are cumulative trapezoids inverted piecewise-
-        linearly (no rejection loop), reproducing every marginal AND the tilt.
-        Single path (numpy included): replaces the old fmin_powell + numpy.random
-        rejection sampler, which was pathologically slow under a forced backend.
+        Returns (vTg, vRg, vzg, FvT, FvR, Fvz): the vT/vR/vz grids, the vT marginal
+        CDF, the vR|vT conditional CDFs and the vz|vR,vT conditional CDFs. ONE 3-D
+        mesh qdf(R,vR,vT,z,vz) feeds all three (marginal = integrate over vR,vz;
+        p(vR,vT) = integrate over vz; p(vz|vR,vT) = the mesh); CDFs are cumulative
+        trapezoids. This is the expensive part sampleV_interpolate caches per (R, z).
         """
-        from ..backend.sampling import (
-            batched_inverse_cdf_sample,
-            linear_inverse_cdf_sample,
-        )
 
         def _seg(p, g, axis):
             d = g[1] - g[0]
@@ -2251,6 +2243,22 @@ class quasiisothermaldf(df):
         FvT = _cumcdf(_trapz(_trapz(mesh, vzg, 2), vRg, 1), vTg, 0)
         FvR = _cumcdf(_trapz(mesh, vzg, 2), vRg, 1)
         Fvz = _cumcdf(mesh, vzg, 2)
+        return vTg, vRg, vzg, FvT, FvR, Fvz
+
+    def _sampleV_icdf_draw(self, cdfs, n, xp):
+        """Draw n (vR, vT, vz) from prebuilt CDF tables (see _sampleV_icdf_cdfs).
+
+        Nested inverse-CDF: vT from the marginal, vR from the vT-interpolated
+        conditional, vz from the (vT, vR)-interpolated conditional -- so the draws
+        carry the tilt. Vectorised piecewise-linear inversion, no rejection loop.
+        """
+        from ..backend.sampling import (
+            batched_inverse_cdf_sample,
+            linear_inverse_cdf_sample,
+        )
+
+        vTg, vRg, vzg, FvT, FvR, Fvz = cdfs
+        nvT, nvR = vTg.shape[0], vRg.shape[0]
         u = xp.asarray(numpy.random.random((3, n)))
         vT = linear_inverse_cdf_sample(xp, vTg, FvT, u[0])
         iT = xp.clip(xp.searchsorted(vTg, vT) - 1, 0, nvT - 2)
@@ -2265,6 +2273,16 @@ class quasiisothermaldf(df):
         )
         vz = batched_inverse_cdf_sample(xp, vzg, Fvzj, u[2])
         return xp.stack([vR, vT, vz], axis=1)
+
+    def _sampleV_icdf(self, R, z, n, xp):
+        """Sample n (vR, vT, vz) at one (R, z) by backend-native inverse-CDF.
+
+        Builds the CDF tables and draws in one shot (sampleV_interpolate splits and
+        caches the build). Reproduces every marginal AND the velocity-ellipsoid
+        tilt; single path (numpy included), replacing the fmin_powell + numpy.random
+        rejection sampler that was pathologically slow under a forced backend.
+        """
+        return self._sampleV_icdf_draw(self._sampleV_icdf_cdfs(R, z, xp), n, xp)
 
     @potential_physical_input
     def sampleV_interpolate(
@@ -2317,90 +2335,31 @@ class quasiisothermaldf(df):
         vo = parse_velocity_kms(vo)
         # Initialize output array
         coord_v = numpy.empty((numpy.size(R), 3))
-        # Since the sign of z doesn't matter, work with absolute value of z
-        z = numpy.abs(z)
-        # Grid edges
-        if R_min is None:
-            R_min = numpy.amax([numpy.mean(R) - num_std * numpy.std(R), numpy.amin(R)])
-        if R_max is None:
-            R_max = numpy.amin([numpy.mean(R) + num_std * numpy.std(R), numpy.amax(R)])
-        if z_max is None:
-            z_max = numpy.amin([numpy.mean(z) + num_std * numpy.std(z), numpy.amax(z)])
-        z_min = 0.0  # Always start grid at z=0 for stars close to plane
-        # Separate the coordinates into outliers and normal points
-        # Define outliers as points outside of grid
-        mask = numpy.any([R < R_min, R > R_max, z > z_max], axis=0)
-        outliers_R = R[mask]
-        outliers_z = z[mask]
-        normal_R = R[~mask]
-        normal_z = z[~mask]
-        # Sample the velocity of outliers directly (without interpolation)
-        outlier_coord_v = numpy.empty((outliers_R.size, 3))
-        for i in range(outliers_R.size):
-            outlier_coord_v[i] = self.sampleV(
-                outliers_R[i], outliers_z[i], use_physical=False
-            )[0]
-        # Prepare for optimizing maxVT on a grid
-        # Get the new hash of the parameters of grid
-        new_hash = hashlib.md5(
-            numpy.array([R_min, R_max, z_max, R_pixel, z_pixel])
-        ).hexdigest()
-        # Reuse old interpolated object if new hash matches the old one
-        if new_hash == self._maxVT_hash:
-            ip_max_vT = self._maxVT_ip
-        # Generate a new interpolation object if different from before
-        else:
-            R_number = int((R_max - R_min) / R_pixel)
-            z_number = int((z_max - z_min) / z_pixel)
-            R_linspace = numpy.linspace(R_min, R_max, R_number)
-            z_linspace = numpy.linspace(z_min, z_max, z_number)
-            Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
-            grid = numpy.dstack((Rv, zv))  # This grid stores (R,z) coordinate
-            # Grid is a 3 dimensional array since it stores pairs of values, but
-            # grid max vT is a 2 dimensional array
-            grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
-            # Optimize max_vT on the grid
-            for i in range(z_number):
-                for j in range(R_number):
-                    R, z = grid[i][j]
-                    grid_max_vT[i][j] = numpy.squeeze(
-                        optimize.fmin_powell(
-                            (
-                                lambda x: (
-                                    -as_numpy(
-                                        self(
-                                            R,
-                                            0.0,
-                                            x,
-                                            z,
-                                            0.0,
-                                            log=True,
-                                            use_physical=False,
-                                        )
-                                    )
-                                )
-                            ),
-                            1.0,
-                        )
-                    )
-            # Determine degree of interpolation
-            ky = numpy.min([R_number - 1, 3])
-            kx = numpy.min([z_number - 1, 3])
-            # Generate interpolation object
-            ip_max_vT = interpolate.RectBivariateSpline(
-                z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
+        # Sample every distinct (R, z) exactly with the backend-native inverse-CDF
+        # sampler, caching each location's CDF tables (self._sampleV_icdf_cache) so
+        # repeated (R, z) across calls reuse the one expensive mesh build. The old
+        # maxVT-grid interpolation is gone: it only existed to amortise the slow
+        # rejection sampler, and interpolating the CDFs across the coarse (R, z) grid
+        # is too inaccurate (it blends shifting distributions). num_std/R_min/R_max/
+        # z_max/R_pixel/z_pixel are kept for API compatibility.
+        xp = get_namespace()
+        Rf = numpy.atleast_1d(numpy.asarray(as_numpy(R), dtype=float))
+        zf = numpy.atleast_1d(numpy.abs(numpy.asarray(as_numpy(z), dtype=float)))
+        uniq, inv = numpy.unique(
+            numpy.stack([Rf, zf], axis=1), axis=0, return_inverse=True
+        )
+        inv = numpy.reshape(inv, (-1,))
+        bk = getattr(xp, "__name__", "numpy")
+        for k in range(uniq.shape[0]):
+            key = (bk, round(float(uniq[k, 0]), 10), round(float(uniq[k, 1]), 10))
+            cdfs = self._sampleV_icdf_cache.get(key)
+            if cdfs is None:
+                cdfs = self._sampleV_icdf_cdfs(uniq[k, 0], uniq[k, 1], xp)
+                self._sampleV_icdf_cache[key] = cdfs
+            sel = inv == k
+            coord_v[sel] = as_numpy(
+                self._sampleV_icdf_draw(cdfs, int(numpy.sum(sel)), xp)
             )
-            # Store interpolation object
-            self._maxVT_ip = ip_max_vT
-            # Update hash of parameters
-            self._maxVT_hash = new_hash
-        # Evaluate interpolation object to get maxVT at the normal coordinates
-        normal_max_vT = ip_max_vT.ev(normal_z, normal_R)
-        # Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v = self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT)
-        # Combine normal and outlier result, preserving original order
-        coord_v[mask] = outlier_coord_v
-        coord_v[~mask] = normal_coord_v
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(coord_v * vo, unit=units.km / units.s)
@@ -2408,83 +2367,6 @@ class quasiisothermaldf(df):
                 return coord_v * vo
         else:
             return coord_v
-
-    def _sampleV_preoptimized(self, R, z, maxVT):
-        """
-        Sample a radial, azimuthal, and vertical velocity at R,z.
-
-        Parameters
-        ----------
-        R : float or numpy.ndarray
-            Galactocentric distance.
-        z : float or numpy.ndarray
-            Height.
-        maxVT : numpy.ndarray
-            An array of pre-optimized maximum vT at corresponding R,z.
-
-        Returns
-        -------
-        numpy.ndarray
-            A numpy array containing the sampled velocity, (vR, vT, vz), where each row correspond to the row of (R,z).
-
-        Notes
-        -----
-        - 2018-08-10 - Written - Samuel Wong (University of Toronto)
-
-        """
-        length = numpy.size(R)
-        out = numpy.empty((length, 3))  # Initialize output
-        # Determine the maximum of the velocity distribution
-        maxVR = numpy.zeros(length)
-        maxVz = numpy.zeros(length)
-        # as_numpy: fmin_powell's optimum is fed straight into the numpy
-        # rejection arithmetic below; under a forced backend self() hands back a
-        # backend scalar here too. No-op on numpy.
-        logmaxVD = as_numpy(
-            self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-        )
-        # Now rejection-sample
-        # Initialize boolean index of position remaining to be sampled
-        remain_indx = numpy.full(length, True)
-        while numpy.any(remain_indx):
-            nmore = numpy.sum(remain_indx)
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = (
-                numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT[remain_indx]
-            )
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-            # as_numpy for the same reason as in sampleV above
-            VDatprop = (
-                as_numpy(
-                    self(
-                        R[remain_indx],
-                        propvR,
-                        propvT,
-                        z[remain_indx],
-                        propvz,
-                        log=True,
-                        use_physical=False,
-                    )
-                )
-                - logmaxVD[remain_indx]
-            )
-            VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
-            )
-            accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
-            vR_accept = propvR[accept_indx]
-            vT_accept = propvT[accept_indx]
-            vz_accept = propvz[accept_indx]
-            # Get the indexing of rows of output array that need to be updated
-            # with newly accepted velocity
-            to_change = numpy.copy(remain_indx)
-            to_change[remain_indx] = accept_indx
-            out[to_change] = numpy.stack((vR_accept, vT_accept, vz_accept), axis=1)
-            # Removing accepted sampled from remain index
-            remain_indx[remain_indx] = ~accept_indx
-        return out
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
