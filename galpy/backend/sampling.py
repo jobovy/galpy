@@ -18,6 +18,7 @@ from .interpolate import interp_linear
 
 __all__ = [
     "linear_inverse_cdf_sample",
+    "batched_inverse_cdf_sample",
     "ensure_strictly_increasing",
 ]
 
@@ -81,3 +82,47 @@ def linear_inverse_cdf_sample(xp, omega_grid, cdf_grid, u):
         so the sample never leaves ``[omega_grid[0], omega_grid[-1]]``.
     """
     return interp_linear(xp, cdf_grid, omega_grid, u, extrapolate="clip")
+
+
+def batched_inverse_cdf_sample(xp, omega_grid, cdf_rows, u):
+    """Per-sample piecewise-linear CDF inversion on a SHARED sample axis.
+
+    Like :func:`linear_inverse_cdf_sample`, but each draw carries its OWN
+    tabulated CDF (a row of ``cdf_rows``) while all rows share the one
+    ``omega_grid`` sample axis. This is what a CONDITIONAL inverse-CDF sampler
+    needs: e.g. sampling ``vR | vT`` where the vR-CDF has been interpolated to
+    each draw's sampled ``vT`` (so every draw has a different CDF over the same
+    vR grid). :func:`~galpy.backend.interpolate.interp_linear` cannot do this --
+    its ``searchsorted`` takes a single 1-D knot vector -- so the interval search
+    is done here by counting, ``sum(cdf_rows < u)``, which vectorises over rows.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace (numpy / jax.numpy / array-api-compat torch).
+    omega_grid : array (n,)
+        Strictly increasing sample-axis grid, shared by every row.
+    cdf_rows : array (N, n)
+        Per-draw CDFs, each strictly increasing in [0, 1] along the last axis.
+    u : array (N,)
+        Uniform(0, 1) draws, one per row.
+
+    Returns
+    -------
+    array (N,)
+        ``F_i^{-1}(u_i)`` for row ``i``, clamped to ``[omega_grid[0],
+        omega_grid[-1]]``.
+    """
+    n = omega_grid.shape[0]
+    # interval index per row: how many CDF knots lie below u, minus one
+    idx = xp.clip(
+        xp.astype(xp.sum(xp.astype(cdf_rows < u[:, None], xp.int64), axis=1), xp.int64)
+        - 1,
+        0,
+        n - 2,
+    )
+    ar = xp.arange(u.shape[0])
+    f0 = cdf_rows[ar, idx]
+    f1 = cdf_rows[ar, idx + 1]
+    frac = (u - f0) / (f1 - f0 + 1e-300)
+    return omega_grid[idx] + frac * (omega_grid[idx + 1] - omega_grid[idx])
