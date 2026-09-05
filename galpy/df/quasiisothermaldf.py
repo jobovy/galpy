@@ -2284,6 +2284,7 @@ class quasiisothermaldf(df):
         """
         return self._sampleV_icdf_draw(self._sampleV_icdf_cdfs(R, z, xp), n, xp)
 
+    @potential_physical_input
     def sampleV_interpolate(
         self,
         R,
@@ -2367,6 +2368,8 @@ class quasiisothermaldf(df):
         else:
             return coord_v
 
+    @actionAngle_physical_input
+    @physical_conversion("phasespacedensityvelocity2", pop=True)
     def pvR(self, vR, R, z, gl=True, ngl=_DEFAULTNGL2, nsigma=4.0, vTmax=1.5):
         """
         Calculate the marginalized vR probability at this location (NOT normalized by the density).
