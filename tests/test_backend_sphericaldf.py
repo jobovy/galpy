@@ -711,3 +711,58 @@ def test_coercion_boundary_fires_for_sphericaldf(backend_name):
 # deliberately astropy-free, so an astropy import here is a hard error rather
 # than a skip. The boundary branch itself is covered without astropy by
 # test_backend_input.py::test_quantity_coordinate_passes_through.
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_grad_wrt_potential(backend):
+    # d(sampled velocity)/d(potential parameter). This flows through the p(v|r)
+    # inverse-CDF table, which used to be built numpy-side: that did not merely
+    # drop the gradient, it RAISED (TracerArrayConversionError) under a jax
+    # trace, because the frozen table was handed to scipy.
+    #
+    # Run under a FORCED backend: the potential parameter is not a coordinate, so
+    # data-dispatch alone does not reach _vmax_at_r, which still materialises its
+    # escape-velocity grid numpy-side and would cut d/d(amp) before the DF is
+    # evaluated. Forcing routes that grid through the backend too.
+    #
+    # The reference is analytic, not just a finite difference: a Hernquist DF's
+    # velocities scale as sqrt(amp) at fixed sampled radius (amp rescales the
+    # mass uniformly, so the radial distribution is amp-independent), hence
+    # d(sum v)/d(amp) = sum(v) / (2 amp).
+    from galpy.backend import random as grandom
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    amp0 = 2.0
+
+    def total_vR(amp):
+        df = isotropicHernquistdf(pot=HernquistPotential(amp=amp, a=1.3))
+        _, vR, _, _, _, _ = df.sample(n=8, key=grandom.key(0), return_orbit=False)
+        return vR.sum()
+
+    with use(backend, force=True):
+        if backend == "jax":
+            val = float(total_vR(jnp.asarray(amp0)))
+            g = float(jax.grad(total_vR)(jnp.asarray(amp0)))
+        else:
+            t = torch.tensor(amp0, requires_grad=True)
+            out = total_vR(t)
+            val = float(out)
+            out.backward()
+            g = float(t.grad)
+        # analytic: v ~ sqrt(amp) at fixed r
+        numpy.testing.assert_allclose(g, val / (2.0 * amp0), rtol=1e-6)
+        # and against a finite difference of the same seeded draw
+        eps = 1e-4
+        if backend == "jax":
+            fd = (
+                float(total_vR(jnp.asarray(amp0 + eps)))
+                - float(total_vR(jnp.asarray(amp0 - eps)))
+            ) / (2.0 * eps)
+        else:
+            fd = (
+                float(total_vR(torch.tensor(amp0 + eps)))
+                - float(total_vR(torch.tensor(amp0 - eps)))
+            ) / (2.0 * eps)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5)
