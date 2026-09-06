@@ -246,12 +246,6 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # measured 
 # -> nothing. Do not re-run this sweep expecting a win from that guard.
 jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 427.2s (CI~303s) re-measured 2026-08-22 post-#1364 (was 408.0s; 0.96x -- the guard does NOT help here)
 jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s) re-measured 2026-08-22 post-#1364 (was 331.7s; 1.02x). STAYS: it straddles the 240s margin on a ~2% wobble, which is noise, not a change
-# jax-eager Staeckel Python-path freqs+angles is borderline >300s in the shard
-# (it passes in isolation and ran <300s in the regen, so it's a DROP from the
-# xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
-# FAILED. torch runs it fine (also dropped). Un-skip when the Python Staeckel path
-# is jit-fast under jax.
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles  # measured 2026-08-24: >400s (hit the measurement cap, so CI >~284s)
 # jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
 # which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
 # jax's thread-local trace state as None, and then EVERY later test in the shard
