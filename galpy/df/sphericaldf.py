@@ -33,6 +33,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
+from ..backend._namespaces import under_jax_trace
 from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
@@ -1175,6 +1176,15 @@ class sphericaldf(df):
         monotone by construction, with no cumulative-maximum op required.
         """
         xp = get_namespace(pvr_grid)
+        # Same diagnostic the numpy path emits: a DF that dips negative (e.g. an
+        # Eddington inversion near a truncation radius) still gets sampled, with
+        # the negative part clamped away. Skipped under a jax trace, where the
+        # test is data-dependent and would force a concretization.
+        if not under_jax_trace(pvr_grid) and bool(as_numpy(xp.any(pvr_grid < 0.0))):
+            warnings.warn(
+                "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",
+                galpyWarning,
+            )
         p = xp.clip(pvr_grid, 0.0, None)
         c = xp.cumulative_sum(p, axis=0)
         tot = c[-1, :]
