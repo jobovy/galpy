@@ -3154,10 +3154,16 @@ def test_actionAngleStaeckel_chi_quadrature_convergence():
     # momentum function S (a difference of O(1) potential terms), not by the
     # quadrature rule: a few 1e-12 for generic orbits, and looser for a
     # nearly planar orbit whose tiny v oscillation has S far below the
-    # cancellation scale (the old fixed-order rule erred at 4.6e-4 here)
+    # cancellation scale (the old fixed-order rule erred at 4.6e-4 here).
+    # That cancellation scale is platform-dependent, so the generic bars sit at
+    # 1e-10 rather than at the ~2e-11 measured here: torch on a CI runner has
+    # produced 3.5e-11 on the same inputs (numpy 1.1e-11 / 2.2e-11, torch
+    # 9.5e-12 / 2.0e-11, jax 4.5e-12 / 1.8e-11 locally). 1e-10 still leaves six
+    # orders of margin against the O(1) errors a branch/convention disagreement
+    # produces, which is what this test is for.
     for ic, tol in (
-        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 3e-11),
-        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 3e-11),  # z<0, vR<0: other branches
+        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 1e-10),
+        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 1e-10),  # z<0, vR<0: other branches
         ([1.1, 0.02, 0.9, 0.002, 0.02, 1.0], 1e-8),  # nearly planar
     ):
         lo = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=10)
