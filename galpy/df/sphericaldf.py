@@ -1090,12 +1090,19 @@ class sphericaldf(df):
             # v_vesc * vesc(r), so pulling vesc numpy-side here would cut
             # d(sample_v)/d(potential) before the DF is even called.
             xp = get_namespace(vesc_raw)
-            vr_grid = as_backend_constant(xp, v_vesc_grid, vesc_raw) * vesc_raw
-            return self._make_pvr_interpolator_backend(
-                self._p_v_at_r(vr_grid, as_backend_constant(xp, r_grid, vesc_raw)),
-                r_a_grid,
-                v_vesc_values,
+            pvr_raw = self._p_v_at_r(
+                as_backend_constant(xp, v_vesc_grid, vesc_raw) * vesc_raw,
+                as_backend_constant(xp, r_grid, vesc_raw),
             )
+            if is_backend_array(pvr_raw):
+                return self._make_pvr_interpolator_backend(
+                    pvr_raw, r_a_grid, v_vesc_values
+                )
+            # Some DFs evaluate p(v|r) numpy-side whatever the namespace -- the
+            # general Osipkov-Merritt df goes through a scipy interpolator -- so
+            # there is no backend table to build and no gradient to carry. Fall
+            # through to the numpy build, recomputing from the numpy vesc grid so
+            # the result stays byte-identical to a pure-numpy run.
         vesc_grid = as_numpy(vesc_raw)
         vr_grid = v_vesc_grid * vesc_grid
         # Calculate p(v|r) with one vectorized DF evaluation. Under a backend it
