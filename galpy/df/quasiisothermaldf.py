@@ -13,8 +13,9 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     promote_scalars,
-    use,
 )
+from ..backend import random as grandom
+from ..backend import use
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -2175,12 +2176,18 @@ class quasiisothermaldf(df):
         """
         use_physical = kwargs.pop("use_physical", True)
         vo = kwargs.pop("vo", None)
+        key = kwargs.pop("key", None)
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
-        # backend-native inverse-CDF sampler; as_numpy the draws to keep sampleV's
-        # numpy-output contract (the CDF build + inversion already ran on the backend)
-        out = as_numpy(self._sampleV_icdf(R, z, n, get_namespace()))
+        # Dispatch on the KEY, as the spherical DFs do: key=None keeps the
+        # historical numpy-output contract (the CDF build and inversion still run
+        # on the active backend), while a backend key draws its uniforms in that
+        # namespace and returns BACKEND arrays -- which is what makes the sampled
+        # velocity differentiable in the DF and potential parameters, inverse-CDF
+        # sampling being v = Q(u) with Q built from the DF itself.
+        raw = self._sampleV_icdf(R, z, n, get_namespace(), key=key)
+        out = raw if key is not None else as_numpy(raw)
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(out * vo, unit=units.km / units.s)
@@ -2189,7 +2196,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
-    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=40, nvR=40, nvz=50):
+    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=40, nvR=40, nvz=50, key=None):
         """Sample n (vR, vT, vz) at one (R, z) by inverse-CDF (backend-native).
 
         The quasi-isothermal DF factorises, so p(vR,vT,vz|R,z) is drawn by the
@@ -2202,6 +2209,7 @@ class quasiisothermaldf(df):
         """
         from ..backend.sampling import (
             batched_inverse_cdf_sample,
+            ensure_strictly_increasing,
             linear_inverse_cdf_sample,
         )
 
@@ -2238,33 +2246,58 @@ class quasiisothermaldf(df):
             good = tot > 0.0
             return xp.where(good, c / xp.where(good, tot, xp.ones_like(tot)), ramp)
 
-        # local dispersions are plain scalars (numpy.exp, not xp.exp): they set the
-        # velocity-grid extents and torch.linspace needs scalar (not tensor) limits
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        # The local dispersions set the velocity-grid extents. Scale a UNIT
+        # linspace by them rather than passing them as linspace limits: torch
+        # rejects tensor limits, and numpy.exp here would break the moment a
+        # dispersion is traced (differentiating w.r.t. hsr/sr, or w.r.t. R, makes
+        # these tracers). Scaling keeps both backends happy AND keeps the grid --
+        # hence the CDFs, hence the draws -- differentiable in them.
+        # xp.asarray so a plain-float R works under torch, whose exp() rejects
+        # python floats (why this used numpy.exp before); a 0-d array is fine
+        # now that it SCALES a unit linspace instead of being a linspace limit.
+        sigmaR1 = self._sr * xp.exp(xp.asarray((self._refr - R) / self._hsr) * 1.0)
+        sigmaz1 = self._sz * xp.exp(xp.asarray((self._refr - R) / self._hsz) * 1.0)
         vTg = xp.linspace(0.0, 1.8, nvT)
-        vRg = xp.linspace(-nsigma * sigmaR1, nsigma * sigmaR1, nvR)
-        vzg = xp.linspace(-nsigma * sigmaz1, nsigma * sigmaz1, nvz)
+        vRg = xp.linspace(-1.0, 1.0, nvR) * (nsigma * sigmaR1)
+        vzg = xp.linspace(-1.0, 1.0, nvz) * (nsigma * sigmaz1)
         VT, VR, VZ = xp.meshgrid(vTg, vRg, vzg, indexing="ij")
         base = xp.reshape(VR, (-1,)) * 0.0
+        # Evaluate the density directly rather than exp(log-density). The DF is
+        # exactly zero over part of this grid, where log=True gives -inf: the
+        # VALUE then exponentiates back to a harmless 0, but its gradient is NaN
+        # and survives the exp as 0 * NaN, poisoning d(sample)/d(anything). The
+        # linear form has no such singularity, and the grid is already clamped
+        # non-negative downstream.
         mesh = xp.reshape(
-            xp.exp(
-                self(
-                    R + base,
-                    xp.reshape(VR, (-1,)),
-                    xp.reshape(VT, (-1,)),
-                    z + base,
-                    xp.reshape(VZ, (-1,)),
-                    log=True,
-                    use_physical=False,
-                )
+            self(
+                R + base,
+                xp.reshape(VR, (-1,)),
+                xp.reshape(VT, (-1,)),
+                z + base,
+                xp.reshape(VZ, (-1,)),
+                log=False,
+                use_physical=False,
             ),
             (nvT, nvR, nvz),
         )
         FvT = _cumcdf(_trapz(_trapz(mesh, vzg, 2), vRg, 1), vTg, 0)
         FvR = _cumcdf(_trapz(mesh, vzg, 2), vRg, 1)
         Fvz = _cumcdf(mesh, vzg, 2)
-        u = xp.asarray(numpy.random.random((3, n)))
+        # key=None keeps the global-numpy stream (byte-identical); a backend key
+        # draws the same three uniforms in the active namespace, so the draw is
+        # reproducible AND differentiable rather than an opaque numpy constant.
+        if key is None:
+            u = xp.asarray(numpy.random.random((3, n)))
+        else:
+            u = grandom.uniform(key, (3, n))
+        # Floor the vT-marginal steps before inverting. The marginal is genuinely
+        # flat over much of the grid (p(vT) ~ 0 near vT=0 and in the tail), and a
+        # quantile is ill-conditioned there: d(quantile)/d(CDF) goes as 1/step^2,
+        # which overflows to inf and then NaN-poisons the whole gradient even
+        # though the VALUE is fine. Flooring is a no-op in the bulk (real steps
+        # are orders of magnitude larger) and only nudges steps that carry no
+        # probability, so the sampled distribution is preserved.
+        FvT = ensure_strictly_increasing(xp, FvT)
         vT = linear_inverse_cdf_sample(xp, vTg, FvT, u[0])
         iT = xp.clip(xp.searchsorted(vTg, vT) - 1, 0, nvT - 2)
         wT = xp.reshape((vT - vTg[iT]) / (vTg[1] - vTg[0]), (n, 1))

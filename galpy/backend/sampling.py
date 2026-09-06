@@ -124,5 +124,12 @@ def batched_inverse_cdf_sample(xp, omega_grid, cdf_rows, u):
     ar = xp.arange(u.shape[0])
     f0 = cdf_rows[ar, idx]
     f1 = cdf_rows[ar, idx + 1]
-    frac = (u - f0) / (f1 - f0 + 1e-300)
+    # Guard the flat parts of the CDF with a double where, not an epsilon: a
+    # zero-width step makes (u-f0)/1e-300 differentiate to ~1e300, which poisons
+    # the whole gradient with NaN even though the VALUE is fine. Dividing by a
+    # substituted 1.0 on those entries keeps both the value and the gradient
+    # finite, and the entries carry no probability so the choice is immaterial.
+    span = f1 - f0
+    ok = span > 0.0
+    frac = xp.where(ok, (u - f0) / xp.where(ok, span, xp.ones_like(span)), 0.0)
     return omega_grid[idx] + frac * (omega_grid[idx + 1] - omega_grid[idx])
