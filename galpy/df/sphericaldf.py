@@ -33,6 +33,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
+from ..backend._namespaces import under_jax_trace
 from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
@@ -193,16 +194,29 @@ class _PVRInterpolator:
     """
 
     def __init__(self, x_grid, y_grid, z_grid, xp):
-        # scipy spline for the byte-identical numpy path
-        self._spl = scipy.interpolate.RectBivariateSpline(
-            x_grid, y_grid, z_grid, kx=1, ky=1
-        )
         if xp is numpy:
             self._x, self._y, self._z = x_grid, y_grid, z_grid
+            # scipy spline for the byte-identical numpy path
+            self._spl = scipy.interpolate.RectBivariateSpline(
+                x_grid, y_grid, z_grid, kx=1, ky=1
+            )
         else:
             self._x = xp.asarray(x_grid) * 1.0
             self._y = xp.asarray(y_grid) * 1.0
             self._z = xp.asarray(z_grid) * 1.0
+            # Built lazily: a backend z_grid carries the DF's parameter
+            # dependence, and handing a TRACED array to scipy raises
+            # TracerArrayConversionError -- which is what used to make
+            # d(sample_v)/d(DF parameter) impossible rather than merely absent.
+            self._spl = None
+
+    def _numpy_spline(self):
+        """The scipy spline, materialised on first numpy query."""
+        if self._spl is None:
+            self._spl = scipy.interpolate.RectBivariateSpline(
+                as_numpy(self._x), as_numpy(self._y), as_numpy(self._z), kx=1, ky=1
+            )
+        return self._spl
 
     def __getattr__(self, name):
         # Delegate unknown attributes (e.g. get_knots, tck) to the scipy spline
@@ -210,7 +224,7 @@ class _PVRInterpolator:
         # Guard _spl to avoid infinite recursion before it is assigned.
         if name == "_spl":
             raise AttributeError(name)
-        return getattr(self._spl, name)
+        return getattr(self._numpy_spline(), name)
 
     def __call__(self, X, Y, grid=False):
         """Evaluate ``v/vesc`` at query points ``(X, Y)`` (paired elementwise).
@@ -218,7 +232,7 @@ class _PVRInterpolator:
         A numpy ``X`` delegates to the scipy spline (byte-identical); a backend
         ``X`` runs the native bilinear interpolation."""
         if not is_backend_array(X):
-            return self._spl(X, Y, grid=grid)
+            return self._numpy_spline()(X, Y, grid=grid)
         xp = get_namespace(X)
         xg = (
             self._x
@@ -1068,11 +1082,34 @@ class sphericaldf(df):
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
-        vesc_grid = as_numpy(self._vmax_at_r(self._pot, r_a_grid * self._scale))
+        vesc_raw = self._vmax_at_r(self._pot, r_a_grid * self._scale)
         r_grid = r_a_grid * self._scale
+        if is_backend_array(vesc_raw):
+            # Keep the whole chain on the backend: vesc carries the potential's
+            # parameters, and the velocities the DF is evaluated at are
+            # v_vesc * vesc(r), so pulling vesc numpy-side here would cut
+            # d(sample_v)/d(potential) before the DF is even called.
+            xp = get_namespace(vesc_raw)
+            pvr_raw = self._p_v_at_r(
+                as_backend_constant(xp, v_vesc_grid, vesc_raw) * vesc_raw,
+                as_backend_constant(xp, r_grid, vesc_raw),
+            )
+            if is_backend_array(pvr_raw):
+                return self._make_pvr_interpolator_backend(
+                    pvr_raw, r_a_grid, v_vesc_values
+                )
+            # Some DFs evaluate p(v|r) numpy-side whatever the namespace -- the
+            # general Osipkov-Merritt df goes through a scipy interpolator -- so
+            # there is no backend table to build and no gradient to carry. Fall
+            # through to the numpy build, recomputing from the numpy vesc grid so
+            # the result stays byte-identical to a pure-numpy run.
+        vesc_grid = as_numpy(vesc_raw)
         vr_grid = v_vesc_grid * vesc_grid
-        # Calculate p(v|r) (one vectorized -- possibly forced-backend -- DF eval,
-        # pulled numpy-side for the spline construction) and normalize
+        # Calculate p(v|r) with one vectorized DF evaluation. Under a backend it
+        # comes back as a backend array carrying the DF/potential parameters'
+        # dependence; building the inverse-CDF table natively from it (below) is
+        # what makes the sampled velocity differentiable in those parameters
+        # rather than merely differentiable in r.
         pvr_grid = as_numpy(self._p_v_at_r(vr_grid, r_grid))
         pvr_grid_cml = numpy.cumsum(pvr_grid, axis=0)
         pvr_grid_cml_norm = (
@@ -1125,6 +1162,61 @@ class sphericaldf(df):
             icdf_pvr_grid_reg[:, 0],
             icdf_v_vesc_grid_reg.T,
             get_namespace(),  # forced/context default (numpy build -> numpy grids)
+        )
+
+    def _make_pvr_interpolator_backend(
+        self, pvr_grid, r_a_grid, v_vesc_values, n_new_pvr=100
+    ):
+        """Backend build of the p(v|r) inverse-CDF table (see _make_pvr_interpolator).
+
+        The numpy path walks the radii in Python -- clamping, de-duplicating and
+        fitting a scipy spline per column -- which both freezes the table to numpy
+        and costs one spline fit per radius. Here the same inverse CDF is formed
+        for every radius at once: clamp the density (the DF can go slightly
+        negative near a truncation radius), accumulate, normalise, and invert on
+        the regular CDF grid by a searchsorted-and-lerp. Every step is a namespace
+        op, so the table stays a backend array and d(v)/d(DF parameters) flows.
+
+        Clamping is applied to the density BEFORE accumulating (the numpy path
+        clamps the cumulative and re-imposes monotonicity afterwards); both keep
+        the CDF non-decreasing, and a non-negative density makes its cumulative
+        monotone by construction, with no cumulative-maximum op required.
+        """
+        xp = get_namespace(pvr_grid)
+        # Same diagnostic the numpy path emits: a DF that dips negative (e.g. an
+        # Eddington inversion near a truncation radius) still gets sampled, with
+        # the negative part clamped away. Skipped under a jax trace, where the
+        # test is data-dependent and would force a concretization.
+        if not under_jax_trace(pvr_grid) and bool(as_numpy(xp.any(pvr_grid < 0.0))):
+            warnings.warn(
+                "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",
+                galpyWarning,
+            )
+        p = xp.clip(pvr_grid, 0.0, None)
+        c = xp.cumulative_sum(p, axis=0)
+        tot = c[-1, :]
+        # A radius with no velocity probability at all (e.g. near rmax where
+        # vesc ~ 0) would normalise 0/0; give it a zero-velocity inverse CDF, as
+        # the numpy path does explicitly.
+        good = tot > 0.0
+        c = c / xp.where(good, tot, xp.ones_like(tot))[None, :]
+        u = xp.linspace(0.0, 1.0, n_new_pvr)
+        # For each radius column and each CDF level u, the number of table
+        # entries strictly below u locates the bracketing interval.
+        idx = xp.sum(xp.astype(c[None, :, :] < u[:, None, None], c.dtype), axis=1)
+        nv = c.shape[0]
+        i0 = xp.astype(xp.clip(idx - 1.0, 0.0, float(nv - 2)), xp.int64)
+        i1 = i0 + 1
+        c0 = xp.take_along_axis(c, i0, axis=0)
+        c1 = xp.take_along_axis(c, i1, axis=0)
+        vg = as_backend_constant(xp, v_vesc_values, c)
+        v0 = vg[i0]
+        v1 = vg[i1]
+        dc = c1 - c0
+        t = xp.where(dc > 0.0, (u[:, None] - c0) / xp.where(dc > 0.0, dc, 1.0), 0.0)
+        v = xp.where(good[None, :], v0 + t * (v1 - v0), xp.zeros_like(v0))
+        return _PVRInterpolator(
+            numpy.log10(r_a_grid[0, :]), as_numpy(u), xp.matrix_transpose(v), xp
         )
 
     def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
