@@ -5,6 +5,7 @@ from scipy import integrate, interpolate, special
 from ..backend import as_numpy, device_of, get_namespace
 from ..backend import random as grandom
 from ..backend import resolve_namespace
+from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
@@ -227,14 +228,14 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling"""
         xp = resolve_namespace(v, r)
         if hasattr(self, "_logfQ_interp"):
-            # scipy interpolator (general OM df) is numpy-only; sampling numpy-side
-            # (the potential eval stays on the active backend, so pull it numpy-side
-            # before the scipy spline; no-op on the numpy path)
-            v, r = as_numpy(v), as_numpy(r)
+            # The f(Q) table is a Spline1D under a backend (scipy on numpy), so
+            # the query stays in the active namespace -- no as_numpy here, which
+            # is what makes the sampled velocity differentiable in the DF and
+            # potential parameters (see sphericaldf._make_pvr_interpolator).
             return (
-                numpy.exp(
+                xp.exp(
                     self._logfQ_interp(
-                        -as_numpy(_evaluatePotentials(self._pot, r, 0)) - 0.5 * v**2.0
+                        -_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0
                     )
                 )
                 * v**2.0
@@ -450,17 +451,29 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                     sorted(1.0 - numpy.geomspace(1e-8, 0.5, 101)),
                 )
             )
-            # scipy spline table is inherently numpy (no backend spline here);
-            # under a forced backend the potential bounds and fQ come back as
-            # backend scalars, so pull them numpy-side (no-op on the numpy path)
+            # the spline table is built on a numpy grid; under a forced backend
+            # the potential bounds are backend scalars, so pull them numpy-side
+            # (no-op on the numpy path)
             Emin = as_numpy(self._edf._Emin)
             potInf = as_numpy(self._edf._potInf)
             Qs4interp = -(Qs4interp * (Emin - potInf) + potInf)
-            fQ4interp = numpy.log(as_numpy(self.fQ(Qs4interp)))
-            iindx = numpy.isfinite(fQ4interp)
-            self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
-                Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
-            )
+            xp = get_namespace()  # context/forced default only (grid is numpy)
+            if xp is numpy:
+                fQ4interp = numpy.log(self.fQ(Qs4interp))
+                iindx = numpy.isfinite(fQ4interp)
+                self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
+                    Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
+                )
+            else:
+                # forced backend: the frozen table gets a Spline1D, which queries
+                # numpy through scipy and a backend natively -- so p(v|r) below
+                # stays on the backend instead of being pulled numpy-side, which
+                # is what let the velocity-sampling table go native too.
+                fQ4interp = numpy.log(as_numpy(self.fQ(Qs4interp)))
+                iindx = numpy.isfinite(fQ4interp)
+                self._logfQ_interp = Spline1D(
+                    Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
+                )
 
     def fQ(self, Q):
         """
