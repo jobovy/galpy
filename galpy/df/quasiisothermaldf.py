@@ -2189,7 +2189,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
-    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=60, nvR=60, nvz=80):
+    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=40, nvR=40, nvz=50):
         """Sample n (vR, vT, vz) at one (R, z) by inverse-CDF (backend-native).
 
         The quasi-isothermal DF factorises, so p(vR,vT,vz|R,z) is drawn by the
@@ -2223,7 +2223,20 @@ class quasiisothermaldf(df):
             c = xp.concatenate([xp.zeros(tuple(zsh), dtype=c.dtype), c], axis=axis)
             last = [slice(None)] * p.ndim
             last[axis] = slice(c.shape[axis] - 1, c.shape[axis])
-            return c / c[tuple(last)]
+            tot = c[tuple(last)]
+            # A slice with no probability at all (the vT=0 node: Lz = R*vT = 0,
+            # so the DF vanishes there) would normalise 0/0 -> NaN, and the
+            # conditional blend below mixes that row in whenever a sampled vT
+            # lands in the first cell, turning the whole draw into NaN (rare --
+            # ~1 in 2e5 -- and silent). Give such a slice a uniform CDF instead:
+            # it carries no weight in the marginal, so the choice is immaterial,
+            # but it keeps every CDF finite and non-decreasing.
+            ramp = xp.reshape(
+                xp.linspace(0.0, 1.0, c.shape[axis]),
+                tuple(-1 if k == axis else 1 for k in range(p.ndim)),
+            )
+            good = tot > 0.0
+            return xp.where(good, c / xp.where(good, tot, xp.ones_like(tot)), ramp)
 
         # local dispersions are plain scalars (numpy.exp, not xp.exp): they set the
         # velocity-grid extents and torch.linspace needs scalar (not tensor) limits
