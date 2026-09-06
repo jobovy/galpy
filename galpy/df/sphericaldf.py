@@ -1101,8 +1101,10 @@ class sphericaldf(df):
             # Some DFs evaluate p(v|r) numpy-side whatever the namespace -- the
             # general Osipkov-Merritt df goes through a scipy interpolator -- so
             # there is no backend table to build and no gradient to carry. Fall
-            # through to the numpy build, recomputing from the numpy vesc grid so
-            # the result stays byte-identical to a pure-numpy run.
+            # through to the numpy build. vesc was already evaluated on the
+            # backend, so the table matches a pure-numpy run to last-bit rounding
+            # (~1e-12 relative), not bit-identically; the numpy PATH itself --
+            # which never gets here -- stays byte-identical.
         vesc_grid = as_numpy(vesc_raw)
         vr_grid = v_vesc_grid * vesc_grid
         # Calculate p(v|r) with one vectorized DF evaluation. Under a backend it
