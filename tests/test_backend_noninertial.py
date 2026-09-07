@@ -277,10 +277,9 @@ def test_force_grad_vs_finite_difference(backend_name, name):
 @pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
 def test_force_constant_anchor_cache(backend):
     # _force anchors the same constants ~180x per call, so they are cached per
-    # (namespace, dtype, device). Exercise every branch of that cache: a scalar
-    # constant (cached: miss then hit), an ARRAY constant from a vector Omega
-    # function (unhashable -- must bypass the cache, not raise), and a
-    # backend-array component (returned untouched, never cached).
+    # (namespace, dtype, device). Exercise both branches: a scalar constant
+    # (cached: miss, then hit on the second force call) and a backend-array
+    # component (returned untouched, never cached), under two frame setups.
     from galpy.potential import NonInertialFrameForce
 
     with use(backend, force=True):
@@ -306,8 +305,8 @@ def test_force_constant_anchor_cache(backend):
         numpy.testing.assert_allclose(f1, f2, rtol=0.0, atol=0.0)
         assert numpy.all(numpy.isfinite(f1))
 
-        # vector Omega function: _Omega_py(t) hands _anchor a numpy ARRAY, which
-        # is unhashable and must take the bypass rather than raise
+        # vector Omega function: components are anchored one at a time through
+        # _vec, so this exercises the cache under a different frame configuration
         niff = NonInertialFrameForce(
             Omega=[lambda t: 0.0 * t, lambda t: 0.0 * t, lambda t: 1.3 + 0.0 * t],
             Omegadot=[lambda t: 0.0 * t, lambda t: 0.0 * t, lambda t: 0.0 * t],

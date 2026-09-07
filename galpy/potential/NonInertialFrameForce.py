@@ -307,10 +307,13 @@ class NonInertialFrameForce(DissipativeForce):
             # all-scalar _vec would otherwise land on CPU and mismatch the backend force)
             if is_backend_array(c):
                 return c
-            try:
-                hit = _cache.get(c)
-            except TypeError:  # unhashable (numpy array constant): don't cache
-                return as_backend_constant(xp, c, ref)
+            # every remaining c is a scalar constant: _vec/_mat pass components
+            # one at a time, and the only direct call, _anchor(self._Omega_py(t)),
+            # is guarded by _omegaz_only, where _Omega_py returns a scalar. So the
+            # key is always hashable -- an unhashable one would be a new caller
+            # doing something unintended, and should raise rather than silently
+            # fall back to re-anchoring on every call.
+            hit = _cache.get(c)
             if hit is None:
                 hit = _cache[c] = as_backend_constant(xp, c, ref)
             return hit
