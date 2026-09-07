@@ -366,7 +366,20 @@ def test_sampleV_interpolate_returns_numpy(backend):
     )
     assert not is_backend_array(got)
     assert got.shape == ref.shape == (40, 3)
-    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-8)
+    assert numpy.all(numpy.isfinite(got))
+    # NOT asserted: equality with the numpy draw. Under a forced backend this
+    # samples NATIVELY rather than falling back to numpy, and the numpy path is
+    # pinned to scipy's fmin_powell by byte-identity with earlier releases -- so
+    # the backend's vT mode comes from a different (vectorised, bracketed) local
+    # search, the rejection stream diverges from the first differing accept, and
+    # the two runs are independent realisations of the same DF. Cross-backend
+    # reproducibility of the STREAM is therefore not a property of this sampler;
+    # what must hold is the DISTRIBUTION, which test_qdf::test_sampleV_interpolate
+    # checks against the DF's own moments, and the mode search itself, which
+    # test_maxVT_on_grid_matches_scipy pins below.
+    assert numpy.all(numpy.abs(got[:, 0]) < 5.0 * _qdf._sr)
+    assert numpy.all(numpy.abs(got[:, 2]) < 5.0 * _qdf._sz)
+    assert numpy.all(got[:, 1] > 0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -429,3 +442,40 @@ def test_sampleV_without_key_still_returns_numpy(backend):
         got = _qdf.sampleV(0.9, 0.05, n=8, use_physical=False)
     assert isinstance(got, numpy.ndarray) and not is_backend_array(got)
     assert got.shape == (8, 3) and numpy.all(numpy.isfinite(got))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_maxVT_on_grid_matches_scipy(backend):
+    # The backend vT-mode search must reproduce scipy's fmin_powell LOCAL search
+    # from x0=1.0, not a global argmax: it brackets the first sign change of
+    # dlogf/dvT walking out from the same x0 and takes a parabolic vertex. Only
+    # the envelope's CENTRE depends on it (rejection re-evaluates the true DF),
+    # and the grid interpolation afterwards perturbs it far more than this, so a
+    # few 1e-3 is the useful bar.
+    Rv, zv = numpy.meshgrid(numpy.linspace(0.7, 1.0, 3), numpy.linspace(0.0, 0.2, 3))
+    ref = _qdf._maxVT_on_grid(Rv, zv, numpy)
+    with galpy.backend.use(backend, force=True):
+        xp = galpy.backend.get_namespace()
+        got = as_numpy(_qdf._maxVT_on_grid(Rv, zv, xp))
+    assert got.shape == ref.shape
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=3e-3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_preoptimized_samples_natively(backend):
+    # the backend rejection path proposes only for the points still outstanding
+    # and scatters accepted rows in; it must stay in the namespace (no numpy
+    # island) and produce finite velocities for every point
+    R = numpy.array([0.8, 0.9, 1.0])
+    z = numpy.array([0.05, 0.1, 0.15])
+    maxVT = as_numpy(_qdf._maxVT_on_grid(R[None, :], z[None, :], numpy))[0]
+    with galpy.backend.use(backend, force=True):
+        xp = galpy.backend.get_namespace()
+        numpy.random.seed(5)
+        out = _qdf._sampleV_preoptimized(R, z, maxVT, xp)
+        assert is_backend_array(out), (
+            f"_sampleV_preoptimized under forced {backend} fell back to numpy"
+        )
+    arr = as_numpy(out)
+    assert arr.shape == (3, 3)
+    assert numpy.all(numpy.isfinite(arr))
