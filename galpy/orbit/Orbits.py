@@ -1615,18 +1615,34 @@ class Orbit:
             tdyn = numpy.sqrt(1.0 / tdyn) if tdyn > 0.0 else 0.0
         if tdyn > 0.0:
             return tdyn
-        # If all fail, fallback to vcirc
+        # If all fail, fallback to vcirc -- but only where a circular velocity is
+        # DEFINED. vcirc exists on a non-axisymmetric potential and raises from
+        # inside (TypeError on a None force), which the except below used to
+        # absorb. Under a traced backend that TypeError surfaces as the
+        # framework's own error (torch._dynamo TorchRuntimeError), which no
+        # except clause here catches, so the ValueError below never got raised.
+        # Feature-detect instead of probing: ask whether the potential is
+        # axisymmetric rather than calling and catching.
         vc = 0.0
-        try:
-            vc = pot.vcirc(r_init, use_physical=False)
-        except (NotImplementedError, AttributeError, TypeError):
-            # Try with subset of potentials that support vcirc
-            for p in pot:
+        if not _isNonAxi(pot):
+            try:
+                vc = pot.vcirc(r_init, use_physical=False)
+            except (NotImplementedError, AttributeError, TypeError):
+                vc = 0.0
+        if not vc > 0.0:
+            # A non-axisymmetric COMBINATION can still contain axisymmetric
+            # components that do define a circular velocity, so fall back to
+            # summing those -- skipping the non-axisymmetric ones by predicate
+            # rather than by calling them and catching.
+            vc2 = 0.0
+            for p in pot if hasattr(pot, "__iter__") else [pot]:
+                if _isNonAxi(p):
+                    continue
                 try:
-                    vc += p.vcirc(r_init, use_physical=False) ** 2.0
+                    vc2 += p.vcirc(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError, TypeError):
                     pass
-            vc = numpy.sqrt(vc)
+            vc = numpy.sqrt(vc2)
         if vc > 0.0:
             return 2.0 * numpy.pi * r_init / vc
 
