@@ -367,3 +367,65 @@ def test_sampleV_interpolate_returns_numpy(backend):
     assert not is_backend_array(got)
     assert got.shape == ref.shape == (40, 3)
     numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_key_is_differentiable(backend):
+    # sampleV(key=...) returns BACKEND arrays and the draw is differentiable in
+    # the DF's parameters: inverse-CDF sampling is v = Q(u) with Q built from the
+    # DF, so d(v)/d(theta) flows through the CDF tables. key=None keeps the
+    # historical numpy-output contract.
+    #
+    # This needs the mesh to be evaluated as a LINEAR density: log=True gives
+    # -inf where the DF vanishes on the velocity grid, whose gradient is NaN and
+    # survives the exp as 0 * NaN, poisoning the whole derivative while leaving
+    # the VALUE correct -- so a value-only test would not have caught it.
+    from galpy.backend import random as grandom
+
+    # Construct OUTSIDE the forced backend and inject the traced parameter
+    # afterwards. Construction resolves a guiding radius through scipy's brentq
+    # (Potential.rl); under a forced backend the potential hands that a backend
+    # array, which trips numpy's __array_wrap__ deprecation -- a pre-existing
+    # construction-path gap, not what this test is about. The SAMPLER reads _hsr
+    # directly, and that is what has to be differentiable.
+    _dqdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=_aAS, cutcounter=True
+    )
+
+    def total(hsr):
+        _dqdf._hsr = hsr
+        v = _dqdf.sampleV(0.9, 0.05, n=6, key=grandom.key(0), use_physical=False)
+        return (v[:, 0] ** 2).sum()  # sum vR^2 -- sensitive to sigmaR(hsr)
+
+    h0, eps = 1.0, 1e-4
+    with galpy.backend.use(backend, force=True):
+        if backend == "jax":
+            val = total(jnp.asarray(h0))
+            g = float(jax.grad(total)(jnp.asarray(h0)))
+            fd = (
+                float(total(jnp.asarray(h0 + eps)))
+                - float(total(jnp.asarray(h0 - eps)))
+            ) / (2.0 * eps)
+        else:
+            t = torch.tensor(h0, requires_grad=True)
+            val = total(t)
+            val.backward()
+            g = float(t.grad)
+            fd = (
+                float(total(torch.tensor(h0 + eps)))
+                - float(total(torch.tensor(h0 - eps)))
+            ) / (2.0 * eps)
+        assert is_backend_array(val), (
+            f"sampleV(key=...) under {backend} must return a backend array"
+        )
+    assert numpy.isfinite(g), "d(sampleV)/d(hsr) is not finite (NaN-poisoned)"
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_without_key_still_returns_numpy(backend):
+    # the historical contract is unchanged when no key is given
+    with galpy.backend.use(backend, force=True):
+        got = _qdf.sampleV(0.9, 0.05, n=8, use_physical=False)
+    assert isinstance(got, numpy.ndarray) and not is_backend_array(got)
+    assert got.shape == (8, 3) and numpy.all(numpy.isfinite(got))
