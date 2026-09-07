@@ -143,6 +143,7 @@ class NonInertialFrameForce(DissipativeForce):
         # integration time range; see _parse_noninertial_frame_force.
         self._cinterp_table_cache = None
         self._rot_acc = not Omega is None
+        self._const_anchor_cache = {}
         self._omegaz_only = len(numpy.atleast_1d(Omega)) == 1
         self._const_freq = Omegadot is None
         # Omega and Omegadot must be the same kind: both functions of time or
@@ -286,11 +287,33 @@ class NonInertialFrameForce(DissipativeForce):
         x, y, z, vx, vy, vz = coerce_coords(xp, x, y, z, vx, vy, vz)
         ref = x
 
+        # Anchoring the same handful of constants (mostly 0.0) is done ~180x per
+        # force call, and each miss is a device_put: it was ~40% of the eager cost.
+        # Cache per (namespace, dtype, device) -- the constants are frozen, and the
+        # key covers everything as_backend_constant anchors on, so a cached array is
+        # interchangeable with a fresh one.
+        _ckey = (
+            getattr(xp, "__name__", "numpy"),
+            getattr(ref, "dtype", None),
+            getattr(ref, "device", None),
+        )
+        _cache = self._const_anchor_cache.get(_ckey)
+        if _cache is None:
+            _cache = self._const_anchor_cache[_ckey] = {}
+
         def _anchor(c):
             # keep a backend (grad-carrying) comp; anchor a scalar/numpy const on the
             # coords' device/dtype via the shared helper (device-safe on GPU, where an
             # all-scalar _vec would otherwise land on CPU and mismatch the backend force)
-            return c if is_backend_array(c) else as_backend_constant(xp, c, ref)
+            if is_backend_array(c):
+                return c
+            try:
+                hit = _cache.get(c)
+            except TypeError:  # unhashable (numpy array constant): don't cache
+                return as_backend_constant(xp, c, ref)
+            if hit is None:
+                hit = _cache[c] = as_backend_constant(xp, c, ref)
+            return hit
 
         def _vec(comps):
             # 1D vector from (possibly backend, grad-carrying) scalar comps;
