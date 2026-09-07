@@ -2547,7 +2547,7 @@ class quasiisothermaldf(df):
         root = vTg[m] + xp.clip(shift, -h, h)
         return xp.reshape(root, Rv.shape)
 
-    def _sampleV_preoptimized(self, R, z, maxVT, xp=None):
+    def _sampleV_preoptimized(self, R, z, maxVT, xp):
         """Sample (vR, vT, vz) by rejection with a PRE-COMPUTED vT mode.
 
         Splitting the mode out is what makes ``sampleV_interpolate`` cheap: the
@@ -2557,8 +2557,6 @@ class quasiisothermaldf(df):
         runs the same rejection natively, blending accepted proposals in with
         ``xp.where`` (no boolean-mask assignment, which jax arrays disallow).
         """
-        if xp is None:
-            xp = get_namespace()
         length = numpy.size(R)
         if xp is numpy:
             out = numpy.empty((length, 3))  # Initialize output
