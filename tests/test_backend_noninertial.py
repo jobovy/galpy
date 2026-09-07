@@ -272,3 +272,44 @@ def test_force_grad_vs_finite_difference(backend_name, name):
     numpy.testing.assert_allclose(
         ad, fd, rtol=1e-5, atol=1e-8, err_msg=f"{backend_name} {name}"
     )
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_force_constant_anchor_cache(backend):
+    # _force anchors the same constants ~180x per call, so they are cached per
+    # (namespace, dtype, device). Exercise both branches: a scalar constant
+    # (cached: miss, then hit on the second force call) and a backend-array
+    # component (returned untouched, never cached), under two frame setups.
+    from galpy.potential import NonInertialFrameForce
+
+    with use(backend, force=True):
+        xp = __import__("galpy").backend.get_namespace()
+        one = xp.asarray(1.1) * 1.0
+        args = (
+            one,
+            xp.asarray(0.1) * 1.0,
+            xp.asarray(0.3) * 1.0,
+            xp.asarray(0.0) * 1.0,
+        )
+        v = [xp.asarray(0.1) * 1.0, xp.asarray(1.0) * 1.0, xp.asarray(0.05) * 1.0]
+
+        # scalar constants: first call populates the cache, second must reuse it
+        nif = NonInertialFrameForce(Omega=numpy.array([0.0, 0.0, 1.3]))
+        f1 = as_numpy(nif._force(*args, v))
+        assert nif._const_anchor_cache, "no constants were cached"
+        sizes = {k: len(c) for k, c in nif._const_anchor_cache.items()}
+        f2 = as_numpy(nif._force(*args, v))
+        assert {k: len(c) for k, c in nif._const_anchor_cache.items()} == sizes, (
+            "the second force call added cache entries, so it re-anchored constants"
+        )
+        numpy.testing.assert_allclose(f1, f2, rtol=0.0, atol=0.0)
+        assert numpy.all(numpy.isfinite(f1))
+
+        # vector Omega function: components are anchored one at a time through
+        # _vec, so this exercises the cache under a different frame configuration
+        niff = NonInertialFrameForce(
+            Omega=[lambda t: 0.0 * t, lambda t: 0.0 * t, lambda t: 1.3 + 0.0 * t],
+            Omegadot=[lambda t: 0.0 * t, lambda t: 0.0 * t, lambda t: 0.0 * t],
+        )
+        fv = as_numpy(niff._force(*args, v))
+        assert numpy.all(numpy.isfinite(fv))
