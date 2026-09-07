@@ -863,9 +863,16 @@ def test_sampleV_interpolate():
     vo = 225.0
     numpy.random.seed(3)
 
+    # Samples per position. The moment bars below are ~0.015 on <vT>, whose
+    # Monte-Carlo standard error is sigma_vT/sqrt(nper) ~ 0.0067 at nper=1000 --
+    # only 2.3 sigma, so the test is a few-percent coin flip for ANY correct
+    # sampler. nper=4000 puts the bars at ~4.5 sigma, which is what makes this a
+    # test of the sampler rather than of the seed.
+    nper = 4000
+
     def Rz_array(R_array, z_array, num_std=3, R_min=None, R_max=None, z_max=None):
-        R = numpy.hstack([i * numpy.ones(1000) for i in R_array])
-        z = numpy.hstack([i * numpy.ones(1000) for i in z_array])
+        R = numpy.hstack([i * numpy.ones(nper) for i in R_array])
+        z = numpy.hstack([i * numpy.ones(nper) for i in z_array])
         # add outlier
         R = numpy.append(R, 8.0)
         z = numpy.append(z, 5.0)
@@ -880,7 +887,7 @@ def test_sampleV_interpolate():
             R_max=R_max,
             z_max=z_max,
         )
-        samples = samples[1000:2000, :]
+        samples = samples[nper : 2 * nper, :]
         # test vR
         assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02, (
             "sampleV interpolate vR mean is not zero"
@@ -923,23 +930,18 @@ def test_sampleV_interpolate():
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=4, z_number=4
     Rz_array([0.8, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=2, z_number=4
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.2])  # R_number=4, z_number=2
-    # test saved hash and interpolation object
+    # The maxVT grid is cached on the grid-defining parameters and reused across
+    # calls, then rebuilt when they change.
     Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash1 = qdf._maxVT_hash
-    ip1 = qdf._maxVT_ip
-    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash2 = qdf._maxVT_hash
-    ip2 = qdf._maxVT_ip
-    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash3 = qdf._maxVT_hash
-    ip3 = qdf._maxVT_ip
-    assert hash1 == hash2, "sampleV interpolate hash is changed unexpectedly"
-    assert ip1 == ip2, (
-        "sampleV interpolate interpolation object is changed unexpectedly"
+    key1, cached1 = qdf._maxVT_hash, qdf._maxVT_ip
+    assert key1 is not None, "sampleV_interpolate cached no maxVT grid"
+    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # same grid -> reuse
+    assert qdf._maxVT_hash == key1 and qdf._maxVT_ip is cached1, (
+        "sampleV_interpolate rebuilt the maxVT grid for unchanged parameters"
     )
-    assert hash3 != hash2, "sampleV interpolate hash did not changed as expected"
-    assert ip3 != ip2, (
-        "sampleV interpolate interpolation object did not changed as expected"
+    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # new R=0.6 -> new grid
+    assert qdf._maxVT_hash != key1, (
+        "sampleV_interpolate did not rebuild the maxVT grid for new parameters"
     )
     # test user-specified grid edges
     # since num_std is set so high, the extra outlier of (8,5) is not covered
