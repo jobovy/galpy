@@ -106,19 +106,7 @@ else:
 _NOLONGINTEGRATIONS = False
 
 
-def _backend_integrators(integrators):
-    # Under a non-numpy backend, keep only the C integrators (``*_c``): the pure-
-    # Python ones (odeint/dop853/leapfrog/rk4/rk6) step in Python, so each force
-    # eval pays eager per-step jax/torch dispatch (~1 ms) -- ~95% of the runtime
-    # for ~0 unique backend coverage (their numerics are backend-agnostic and the
-    # numpy run exercises all of them; the jax/torch-relevant force path is shared
-    # with the C integrators). numpy runs the full list unchanged.
-    from galpy.backend import backend
-
-    if backend() == "numpy":
-        return integrators
-    return [i for i in integrators if i.endswith("_c")]
-
+from conftest import _backend_integrators
 
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always", galpyWarning)
