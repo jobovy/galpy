@@ -382,11 +382,19 @@ def test_sampleV_key_is_differentiable(backend):
     # the VALUE correct -- so a value-only test would not have caught it.
     from galpy.backend import random as grandom
 
+    # Construct OUTSIDE the forced backend and inject the traced parameter
+    # afterwards. Construction resolves a guiding radius through scipy's brentq
+    # (Potential.rl); under a forced backend the potential hands that a backend
+    # array, which trips numpy's __array_wrap__ deprecation -- a pre-existing
+    # construction-path gap, not what this test is about. The SAMPLER reads _hsr
+    # directly, and that is what has to be differentiable.
+    _dqdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=_aAS, cutcounter=True
+    )
+
     def total(hsr):
-        qdf = quasiisothermaldf(
-            1.0 / 4.0, 0.2, 0.1, hsr, 1.0, pot=MWPotential, aA=_aAS, cutcounter=True
-        )
-        v = qdf.sampleV(0.9, 0.05, n=6, key=grandom.key(0), use_physical=False)
+        _dqdf._hsr = hsr
+        v = _dqdf.sampleV(0.9, 0.05, n=6, key=grandom.key(0), use_physical=False)
         return (v[:, 0] ** 2).sum()  # sum vR^2 -- sensitive to sigmaR(hsr)
 
     h0, eps = 1.0, 1e-4
