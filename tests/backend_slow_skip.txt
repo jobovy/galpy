@@ -56,7 +56,7 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_qdf.py::test_sampleV_interpolate  # measured 2026-08-24: >900s TIMEOUT. Cost is the nested per-pixel loop in sampleV_interpolate (grid_max_vT), NOT the outlier at (R=8,z=5) -- outliers are handled one-by-one. Sibling test_sampleV runs 160.7s and is NOT deferred, so it is the grid build. Needs the vectorization work (task #130), not a tweak.
+jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still over the cap. The grid build is no longer the cost (the vT mode search is one batched DF call), but eager rejection needs O(10) DF evaluations per round over the remaining points. 228s for 800 points locally, and a CI shard runs ~3x slower than the dev box for eager backend work -- an isolated-run measurement UNDERSTATES it badly (244s isolated -> >300s in-shard). Un-skip needs jit, not another vectorization.
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
