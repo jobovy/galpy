@@ -16,7 +16,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import use
-from ..backend.interpolate import Spline1D
+from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
 from ..potential import IsochronePotential
@@ -41,6 +41,15 @@ if _APY_LOADED:
 _NSIGMA = 4
 _DEFAULTNGL = 10
 _DEFAULTNGL2 = 20
+# sampleV_interpolate: vT window and refinement of the LOCAL mode search that
+# centres the rejection proposal (backend path; numpy uses scipy's fmin_powell)
+_MAXVT_LO = 0.02
+_MAXVT_HI = 1.6
+_MAXVT_N = 60
+_MAXVT_X0 = 1.0  # same local-search start as scipy's fmin_powell on the numpy path
+# rounds of vectorised rejection before giving up (acceptance is O(10%), so the
+# chance a point survives this many rounds is negligible)
+_SAMPLEV_MAXROUNDS = 200
 
 
 class quasiisothermaldf(df):
@@ -2361,10 +2370,20 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
+        # What gets interpolated over (R, z) is maxVT -- the MODE of p(vT) that
+        # centres the rejection proposal -- not the velocity distribution itself.
+        # The sampler below re-evaluates the true DF at every proposal, so an
+        # interpolated maxVT costs only acceptance efficiency, and only at second
+        # order (dlogf/dvT = 0 at the mode); it never biases the draws.
+        # Interpolating the CDFs instead would bias them at FIRST order: on the
+        # pixel grids this API actually builds (int((R_max-R_min)/R_pixel) is 2
+        # for the default test grid, i.e. 0.2-wide cells) that is ~0.05 in <vT>.
+        xp = get_namespace()
         # Initialize output array
         coord_v = numpy.empty((numpy.size(R), 3))
         # Since the sign of z doesn't matter, work with absolute value of z
-        z = numpy.abs(z)
+        R = numpy.asarray(as_numpy(R), dtype=float)
+        z = numpy.abs(numpy.asarray(as_numpy(z), dtype=float))
         # Grid edges
         if R_min is None:
             R_min = numpy.amax([numpy.mean(R) - num_std * numpy.std(R), numpy.amin(R)])
@@ -2383,17 +2402,18 @@ class quasiisothermaldf(df):
         # Sample the velocity of outliers directly (without interpolation)
         outlier_coord_v = numpy.empty((outliers_R.size, 3))
         for i in range(outliers_R.size):
-            outlier_coord_v[i] = self.sampleV(
-                outliers_R[i], outliers_z[i], use_physical=False
+            outlier_coord_v[i] = as_numpy(
+                self.sampleV(outliers_R[i], outliers_z[i], use_physical=False)
             )[0]
         # Prepare for optimizing maxVT on a grid
         # Get the new hash of the parameters of grid
         new_hash = hashlib.md5(
             numpy.array([R_min, R_max, z_max, R_pixel, z_pixel])
         ).hexdigest()
+        bk = getattr(xp, "__name__", "numpy")
         # Reuse old interpolated object if new hash matches the old one
-        if new_hash == self._maxVT_hash:
-            ip_max_vT = self._maxVT_ip
+        if new_hash == self._maxVT_hash and bk == self._maxVT_backend:
+            grid_max_vT, R_linspace, z_linspace = self._maxVT_ip
         # Generate a new interpolation object if different from before
         else:
             R_number = int((R_max - R_min) / R_pixel)
@@ -2401,14 +2421,61 @@ class quasiisothermaldf(df):
             R_linspace = numpy.linspace(R_min, R_max, R_number)
             z_linspace = numpy.linspace(z_min, z_max, z_number)
             Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
-            grid = numpy.dstack((Rv, zv))  # This grid stores (R,z) coordinate
-            # Grid is a 3 dimensional array since it stores pairs of values, but
-            # grid max vT is a 2 dimensional array
-            grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
             # Optimize max_vT on the grid
-            for i in range(z_number):
-                for j in range(R_number):
-                    R, z = grid[i][j]
+            grid_max_vT = self._maxVT_on_grid(Rv, zv, xp)
+            # Store the grid and update the hash of the parameters
+            self._maxVT_ip = (grid_max_vT, R_linspace, z_linspace)
+            self._maxVT_hash = new_hash
+            self._maxVT_backend = bk
+        # Evaluate the interpolant to get maxVT at the normal coordinates. numpy
+        # keeps scipy's RectBivariateSpline (byte-identical); a backend blends the
+        # same node grid natively (degree 1 -- maxVT only sets the proposal, see
+        # above), so nothing is forced back to numpy.
+        if xp is numpy:
+            ky = numpy.min([len(R_linspace) - 1, 3])
+            kx = numpy.min([len(z_linspace) - 1, 3])
+            normal_max_vT = interpolate.RectBivariateSpline(
+                z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
+            ).ev(normal_z, normal_R)
+        else:
+            normal_max_vT = interp_bilinear(
+                xp,
+                xp.asarray(z_linspace),
+                xp.asarray(R_linspace),
+                grid_max_vT,
+                xp.asarray(normal_z),
+                xp.asarray(normal_R),
+            )
+        # Sample all 3 velocities at a normal point and use interpolated vT
+        normal_coord_v = as_numpy(
+            self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT, xp)
+        )
+        # Combine normal and outlier result, preserving original order
+        coord_v[mask] = outlier_coord_v
+        coord_v[~mask] = normal_coord_v
+        if use_physical and not vo is None:
+            if _APY_UNITS:
+                return units.Quantity(coord_v * vo, unit=units.km / units.s)
+            else:
+                return coord_v * vo
+        else:
+            return coord_v
+
+    def _maxVT_on_grid(self, Rv, zv, xp):
+        """The mode of p(vT) at each (R, z) node: the rejection proposal's centre.
+
+        numpy keeps scipy's ``fmin_powell`` LOCAL search from x0=1.0 (so the
+        numpy path stays byte-identical). A backend reproduces that local search
+        vectorised: walk out from the same x0 to the FIRST sign change of
+        dlogf/dvT and bisect there. It must be a local search, not a global
+        argmax over vT -- the action-domain edges (and ``cutcounter``) carry
+        their own maxima that a global search would lock onto.
+        """
+        if xp is numpy:
+            grid_max_vT = numpy.empty(Rv.shape)
+            for i in range(Rv.shape[0]):
+                for j in range(Rv.shape[1]):
+                    R, z = Rv[i][j], zv[i][j]
                     grid_max_vT[i][j] = numpy.squeeze(
                         optimize.fmin_powell(
                             (
@@ -2429,107 +2496,159 @@ class quasiisothermaldf(df):
                             1.0,
                         )
                     )
-            # Determine degree of interpolation
-            ky = numpy.min([R_number - 1, 3])
-            kx = numpy.min([z_number - 1, 3])
-            # Generate interpolation object
-            ip_max_vT = interpolate.RectBivariateSpline(
-                z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
-            )
-            # Store interpolation object
-            self._maxVT_ip = ip_max_vT
-            # Update hash of parameters
-            self._maxVT_hash = new_hash
-        # Evaluate interpolation object to get maxVT at the normal coordinates
-        normal_max_vT = ip_max_vT.ev(normal_z, normal_R)
-        # Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v = self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT)
-        # Combine normal and outlier result, preserving original order
-        coord_v[mask] = outlier_coord_v
-        coord_v[~mask] = normal_coord_v
-        if use_physical and not vo is None:
-            if _APY_UNITS:
-                return units.Quantity(coord_v * vo, unit=units.km / units.s)
-            else:
-                return coord_v * vo
-        else:
-            return coord_v
+            return grid_max_vT
+        # Backend: ONE batched qdf evaluation over the (node, vT) mesh, then a
+        # branch-free bracket and a 3-point parabolic vertex. Evaluating the vT
+        # scan node-by-node instead costs one eager dispatch per vT sample and is
+        # what makes this minutes-slow; the mode only centres the rejection
+        # proposal (and is interpolated across ~0.2-wide cells afterwards), so
+        # the parabola is far more precision than the envelope can use.
+        Rf = xp.asarray(numpy.reshape(Rv, (-1,))) * 1.0
+        zf = xp.asarray(numpy.reshape(zv, (-1,))) * 1.0
+        npt = int(Rf.shape[0])
+        vTn = numpy.linspace(_MAXVT_LO, _MAXVT_HI, _MAXVT_N)
+        vTg = xp.asarray(vTn)
+        # flattened (node, vT) mesh -> a single DF call
+        Rr = xp.reshape(xp.repeat(Rf, _MAXVT_N), (-1,))
+        zr = xp.reshape(xp.repeat(zf, _MAXVT_N), (-1,))
+        VV = xp.reshape(xp.tile(vTg, (npt,)), (-1,))
+        zero = xp.zeros_like(VV)
+        lf = xp.reshape(
+            self(Rr, zero, VV, zr, zero, log=True, use_physical=False),
+            (npt, _MAXVT_N),
+        )
+        # central-difference dlogf/dvT on the interior nodes
+        g = (lf[:, 2:] - lf[:, :-2]) / (vTg[2:] - vTg[:-2])
+        ni = _MAXVT_N - 2
+        idx = xp.arange(ni)
+        i0 = int(numpy.argmin(numpy.abs(vTn[1:-1] - _MAXVT_X0)))
+        left = g[:, i0] < 0.0  # the mode lies below x0
+        # left: LARGEST interior index below i0 whose gradient is still positive
+        jl = xp.max(xp.where((g > 0.0) & (idx[None, :] < i0), idx[None, :], 0), axis=1)
+        # right: SMALLEST interior index above i0 whose gradient has turned negative
+        jr = xp.min(
+            xp.where((g < 0.0) & (idx[None, :] > i0), idx[None, :], ni - 1), axis=1
+        )
+        # interior index k is full-grid index k+1, so the peak brackets full
+        # indices (j+1, j+2) on the left branch and (j, j+1) on the right branch
+        j = xp.where(left, jl, xp.clip(jr - 1, 0, ni - 1))
+        rows = xp.arange(npt)
+        m = xp.clip(j + 1, 1, _MAXVT_N - 2)
+        m = xp.where(lf[rows, m + 1] > lf[rows, m], m + 1, m)
+        m = xp.clip(m, 1, _MAXVT_N - 2)
+        y0, y1, y2 = lf[rows, m - 1], lf[rows, m], lf[rows, m + 1]
+        h = float(vTn[1] - vTn[0])
+        denom = y0 - 2.0 * y1 + y2
+        shift = xp.where(
+            xp.abs(denom) > 0.0,
+            0.5 * h * (y0 - y2) / xp.where(denom == 0.0, 1.0, denom),
+            0.0,
+        )
+        root = vTg[m] + xp.clip(shift, -h, h)
+        return xp.reshape(root, Rv.shape)
 
-    def _sampleV_preoptimized(self, R, z, maxVT):
-        """
-        Sample a radial, azimuthal, and vertical velocity at R,z.
+    def _sampleV_preoptimized(self, R, z, maxVT, xp):
+        """Sample (vR, vT, vz) by rejection with a PRE-COMPUTED vT mode.
 
-        Parameters
-        ----------
-        R : float or numpy.ndarray
-            Galactocentric distance.
-        z : float or numpy.ndarray
-            Height.
-        maxVT : numpy.ndarray
-            An array of pre-optimized maximum vT at corresponding R,z.
-
-        Returns
-        -------
-        numpy.ndarray
-            A numpy array containing the sampled velocity, (vR, vT, vz), where each row correspond to the row of (R,z).
-
-        Notes
-        -----
-        - 2018-08-10 - Written - Samuel Wong (University of Toronto)
-
+        Splitting the mode out is what makes ``sampleV_interpolate`` cheap: the
+        mode is interpolated over the (R, z) grid while the acceptance test below
+        still evaluates the true DF at every proposal, so the draws stay exact.
+        numpy keeps the historical loop (byte-identical random stream); a backend
+        runs the same rejection natively, blending accepted proposals in with
+        ``xp.where`` (no boolean-mask assignment, which jax arrays disallow).
         """
         length = numpy.size(R)
-        out = numpy.empty((length, 3))  # Initialize output
-        # Determine the maximum of the velocity distribution
-        maxVR = numpy.zeros(length)
-        maxVz = numpy.zeros(length)
-        # as_numpy: fmin_powell's optimum is fed straight into the numpy
-        # rejection arithmetic below; under a forced backend self() hands back a
-        # backend scalar here too. No-op on numpy.
-        logmaxVD = as_numpy(
-            self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-        )
-        # Now rejection-sample
-        # Initialize boolean index of position remaining to be sampled
-        remain_indx = numpy.full(length, True)
-        while numpy.any(remain_indx):
-            nmore = numpy.sum(remain_indx)
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = (
-                numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT[remain_indx]
+        if xp is numpy:
+            out = numpy.empty((length, 3))  # Initialize output
+            # Determine the maximum of the velocity distribution
+            maxVR = numpy.zeros(length)
+            maxVz = numpy.zeros(length)
+            # as_numpy: fmin_powell's optimum is fed straight into the numpy
+            # rejection arithmetic below; under a forced backend self() hands back a
+            # backend scalar here too. No-op on numpy.
+            logmaxVD = as_numpy(
+                self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
             )
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-            # as_numpy for the same reason as in sampleV above
-            VDatprop = (
-                as_numpy(
-                    self(
-                        R[remain_indx],
-                        propvR,
-                        propvT,
-                        z[remain_indx],
-                        propvz,
-                        log=True,
-                        use_physical=False,
-                    )
+            # Now rejection-sample
+            # Initialize boolean index of position remaining to be sampled
+            remain_indx = numpy.full(length, True)
+            while numpy.any(remain_indx):
+                nmore = numpy.sum(remain_indx)
+                propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
+                propvT = (
+                    numpy.random.normal(size=nmore) * 2.0 * self._sr
+                    + maxVT[remain_indx]
                 )
-                - logmaxVD[remain_indx]
+                propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+                # as_numpy for the same reason as in sampleV above
+                VDatprop = (
+                    as_numpy(
+                        self(
+                            R[remain_indx],
+                            propvR,
+                            propvT,
+                            z[remain_indx],
+                            propvz,
+                            log=True,
+                            use_physical=False,
+                        )
+                    )
+                    - logmaxVD[remain_indx]
+                )
+                VDatprop -= -0.5 * (
+                    propvR**2.0 / 4.0 / self._sr**2.0
+                    + propvz**2.0 / 4.0 / self._sz**2.0
+                    + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                )
+                accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
+                vR_accept = propvR[accept_indx]
+                vT_accept = propvT[accept_indx]
+                vz_accept = propvz[accept_indx]
+                # Get the indexing of rows of output array that need to be updated
+                # with newly accepted velocity
+                to_change = numpy.copy(remain_indx)
+                to_change[remain_indx] = accept_indx
+                out[to_change] = numpy.stack((vR_accept, vT_accept, vz_accept), axis=1)
+                # Removing accepted sampled from remain index
+                remain_indx[remain_indx] = ~accept_indx
+            return out
+        # Backend: the same rejection, but proposing only for the points still
+        # outstanding (as the numpy loop does) -- proposing for the whole vector
+        # every round costs one full DF evaluation per round and is what made the
+        # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
+        # are scattered in with .at[].set() rather than a boolean assignment.
+        Rb = xp.asarray(R) * 1.0
+        zb = xp.asarray(z) * 1.0
+        mvT = xp.asarray(maxVT) * 1.0
+        zero = xp.zeros_like(Rb)
+        logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
+        out = xp.zeros((length, 3))
+        remain = xp.arange(length)
+        for _ in range(_SAMPLEV_MAXROUNDS):
+            nmore = int(remain.shape[0])
+            if nmore == 0:
+                break
+            Rr, zr, mr = Rb[remain], zb[remain], mvT[remain]
+            propvR = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr
+            propvT = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr + mr
+            propvz = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sz
+            VDatprop = (
+                self(Rr, propvR, propvT, zr, propvz, log=True, use_physical=False)
+                - logmaxVD[remain]
             )
             VDatprop -= -0.5 * (
                 propvR**2.0 / 4.0 / self._sr**2.0
                 + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
             )
-            accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
-            vR_accept = propvR[accept_indx]
-            vT_accept = propvT[accept_indx]
-            vz_accept = propvz[accept_indx]
-            # Get the indexing of rows of output array that need to be updated
-            # with newly accepted velocity
-            to_change = numpy.copy(remain_indx)
-            to_change[remain_indx] = accept_indx
-            out[to_change] = numpy.stack((vR_accept, vT_accept, vz_accept), axis=1)
-            # Removing accepted sampled from remain index
-            remain_indx[remain_indx] = ~accept_indx
+            accept = VDatprop > xp.log(xp.asarray(numpy.random.random(size=nmore)))
+            prop = xp.stack([propvR, propvT, propvz], axis=1)
+            sel = remain[accept]
+            if hasattr(out, "at"):  # jax: immutable, scatter through .at[]
+                out = out.at[sel].set(prop[accept])
+            else:
+                out[sel] = prop[accept]
+            remain = remain[~accept]
         return out
 
     @actionAngle_physical_input
