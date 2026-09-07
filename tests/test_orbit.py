@@ -16785,3 +16785,35 @@ def test_orbits_energy_array_times_nonbroadcasting_potential():
     # the orbits must actually differ, or a transposition would go unnoticed
     assert numpy.fabs(E3[0, 0] - E3[1, 0]) > 0.1, "orbits too similar to be diagnostic"
     assert numpy.fabs(E5[0, 0] - E5[1, 0]) > 0.1, "orbits too similar to be diagnostic"
+
+
+def test_integrate_auto_axisym_vcirc_raises():
+    # The vcirc fallback is gated on _isNonAxi, but an AXISYMMETRIC potential can
+    # still fail to provide one (a subclass that has not implemented it). Those
+    # except branches are the remaining safety net; cover them with a synthetic
+    # rather than pinning a real potential to a wart.
+    #
+    # Two details this needs, both of which a first attempt got wrong:
+    #   * it must be a PLANAR potential -- tdyn needs mass(), which planar
+    #     wrappers do not provide, so tdyn raises cleanly and control actually
+    #     reaches the vcirc fallback; a 3D potential returns from tdyn first;
+    #   * it must be a SINGLE potential, not a combination -- a composite's
+    #     vcirc is computed from the combined forces, so overriding a component's
+    #     vcirc does not make the whole-potential call raise.
+    import types
+
+    from galpy import potential
+    from galpy.orbit import Orbit
+
+    def raiser(self, *args, **kwargs):
+        raise NotImplementedError("no vcirc here")
+
+    bad = potential.MiyamotoNagaiPotential(normalize=1.0, a=1.0, b=0.2).toPlanar()
+    bad.vcirc = types.MethodType(raiser, bad)
+    assert not bad.isNonAxi, "the synthetic must stay axisymmetric to hit the branch"
+
+    # no tdyn (planar) and no usable vcirc (raises) -> the documented ValueError
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    with pytest.raises(ValueError, match="Cannot calculate dynamical time"):
+        o.integrate(bad)
+    return None
