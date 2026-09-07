@@ -534,6 +534,16 @@ def asarray_on_device(xp, a, device, dtype=None):
     ``torch.asarray(x, dtype=numpy.float64)`` (which raises) works.
     """
     dtype = _backend_dtype(xp, dtype)
+    # Fast path: an array that already has the requested dtype and device needs
+    # nothing done to it, and xp.asarray would still cost an eager dispatch (this
+    # helper is on every coordinate-coercion path, so those add up: ~120 calls per
+    # NonInertialFrameForce force evaluation alone).
+    if (
+        is_backend_array(a)
+        and (dtype is None or getattr(a, "dtype", None) == dtype)
+        and (device is None or getattr(a, "device", None) == device)
+    ):
+        return a
     if device is None:
         return xp.asarray(a, dtype=dtype)
     try:
