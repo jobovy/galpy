@@ -2705,6 +2705,20 @@ def _batched_timedep(tgrid, per_time_elems, compute):
     return Acos, Asin
 
 
+def _tdep_node_contract(base, ft, weights):
+    """Weighted node sum for a separable time-dependent integrand: ``ft`` is the
+    per-(node, time) density factor, ``base`` the time-independent per-node basis
+    with the node axis LEADING. Folding the quadrature weights into ``ft`` keeps
+    the whole reduction one backend op and never builds the (nodes,) + shape array.
+
+    Notes
+    -----
+    - 2026-09-07 - Written - Bovy (UofT)
+    """
+    _ftw = like(base, ft * weights[:, numpy.newaxis])
+    return get_namespace(base).tensordot(_ftw, base, axes=([0], [0]))
+
+
 def _timedep_dens_setup(dens, tgrid, numOfParam):
     """Detect the ``use_physical`` keyword for a time-dependent density and
     verify that it is vectorizable over ``t``; return a callable
@@ -2735,6 +2749,37 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
         return numpy.asarray(
             dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw), dtype=float
         )
+
+    # Spatial-batching companion: evaluate every (node, time) pair in one call by
+    # giving the spatial arguments a trailing axis for `t` to broadcast against.
+    # Vectorizability over t does NOT imply it -- a density can accept an array t
+    # at a single position and still not broadcast against an array of positions
+    # -- so probe for it and require the (nodes, times) OUTPUT SHAPE, the same
+    # discipline as `_dens_accepts_arrays`. Leaving `f.batched` unset only costs
+    # speed (the caller keeps the per-node loop); a wrong attach would silently
+    # corrupt coefficients.
+    sprobe = numpy.array([0.5, 0.75, 1.0])
+    try:
+        sout = numpy.asarray(
+            dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw),
+            dtype=float,
+        )
+    except Exception:
+        pass
+    else:
+        if sout.shape == (sprobe.size,) + numpy.shape(tgrid):
+
+            def f_batched(R, z, phi):
+                # Slice to numOfParam and broadcast BEFORE adding the axis: the
+                # axisymmetric caller passes a plain 0.0 for phi even when the
+                # density takes three arguments, and a scalar has no axis to add.
+                vals = numpy.broadcast_arrays(
+                    *[numpy.asarray(v) for v in (R, z, phi)[:numOfParam]]
+                )
+                cols = [v[:, numpy.newaxis] for v in vals]
+                return numpy.asarray(dens(*cols, t=tgrid, **dens_kw), dtype=float)
+
+            f.batched = f_batched
 
     return f
 
@@ -2823,6 +2868,28 @@ def _scf_compute_coeffs_axi_timedep(
         _ft = like(base, f(R, z, 0.0))
         return _ft[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
+    def integrand_batched_reduce(xi, costheta, weights=None):
+        # Separable exactly as in the general routine above: time factor times a
+        # time-independent basis, so the weighted node sum is one contraction.
+        xi = numpy.asarray(xi)
+        costheta = numpy.asarray(costheta)
+        l = numpy.arange(0, L)[numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        PP = assoc_legendre(L, 1, costheta)[..., 0][:, numpy.newaxis, :]
+        dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[:, None, None]
+        _CC_raw = _C(xi, N, L)
+        _cxp = get_namespace(_CC_raw)
+        _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))  # (N,L,K) -> (K,N,L)
+        _xiB = xi[:, None, None]
+        _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        base = _pref * _CC * PP * like(_CC, dV)  # (K, N, L)
+        return _tdep_node_contract(base, f.batched(R, z, 0.0), weights)  # (Nt,N,L)
+
+    if getattr(f, "batched", None) is not None:
+        integrand.batched_reduce = integrand_batched_reduce
+
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
         Ksample[0] = radial_order
@@ -2881,6 +2948,40 @@ def _scf_compute_coeffs_timedep(
         # `f` returns NUMPY over tgrid; anchor before it meets the backend base.
         _ft = like(base, f(R, z, phi))
         return _ft[:, None, None, None, None] * base[numpy.newaxis]
+
+    def integrand_batched_reduce(xi, costheta, phi, weights=None):
+        # The integrand is an OUTER PRODUCT: a time factor f(node) and a
+        # time-independent basis, so the weighted node sum is one contraction and
+        # the (K, Nt, 2, N, L, L) array never has to exist -- which is the point,
+        # since it would be K times the working set `_TIMEDEP_BATCH_BYTES` sizes.
+        # The basis is also built ONCE here instead of once per time step.
+        xi = numpy.asarray(xi)
+        costheta = numpy.asarray(costheta)
+        phi = numpy.asarray(phi)
+        l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :, numpy.newaxis]
+        m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        PP = assoc_legendre(L, L, costheta)[:, numpy.newaxis, :, :]
+        dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[
+            :, None, None, None, None
+        ]
+        _CC_raw = _C(xi, N, L)
+        _cxp = get_namespace(_CC_raw)
+        _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))[..., numpy.newaxis]
+        _xiB = xi[:, None, None, None]
+        _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        _mp = m * phi[:, None, None, None]
+        _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
+        base = phi_nl[:, numpy.newaxis] * _cs * like(phi_nl, dV)  # (K,2,N,L,L)
+        # Fold the quadrature weights into the time factor, so the contraction
+        # carries them and the sum stays a single backend op.
+        return _tdep_node_contract(base, f.batched(R, z, phi), weights)  # (Nt,2,N,L,L)
+
+    if getattr(f, "batched", None) is not None:
+        integrand.batched_reduce = integrand_batched_reduce
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
     if radial_order is not None:
@@ -3026,14 +3127,32 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     # dead under a forced backend. Coerce the nodes ONTO the backend so the
     # batched evaluation is genuinely backend-native.
     _amb = get_namespace(numpy.zeros(1))
-    if _batched is not None and shape is not None and _amb is not numpy:
+    # A SEPARABLE integrand -- one whose value is an outer product of a per-node
+    # factor and a per-node basis -- can contract the weighted node sum itself and
+    # never materialize the (K,) + shape array. `batched_reduce` is that opt-in,
+    # and it takes the node arrays plus the combined weights, returning `shape`
+    # already summed over the nodes. It matters wherever `shape` carries an axis
+    # the caller sized a memory budget for: the time-dependent coefficient builds
+    # put Nt in front, so (K,) + shape is K times that budget's working set.
+    _reduce = getattr(integrand, "batched_reduce", None)
+    if (
+        (_batched is not None or _reduce is not None)
+        and shape is not None
+        and _amb is not numpy
+    ):
         _idx = (numpy.arange(len(bounds))[:, None], li.T)
         nodes = tuple(_amb.asarray(n) for n in xp[_idx])  # (ndim, K) on backend
-        vals = _batched(*nodes)  # (K,) + shape
         w = numpy.prod(wp[_idx], axis=0)
-        # value LEADS so the backend owns the product, as in the loop below
-        _bxp = get_namespace(vals)
-        s = _bxp.sum(vals * like(vals, w).reshape((-1,) + (1,) * len(shape)), axis=0)
+        if _reduce is not None:
+            s = _reduce(*nodes, weights=w)
+        else:
+            vals = _batched(*nodes)  # (K,) + shape
+            # value LEADS so the backend owns the product, as in the loop below
+            _vxp = get_namespace(vals)
+            s = _vxp.sum(
+                vals * like(vals, w).reshape((-1,) + (1,) * len(shape)), axis=0
+            )
+        _bxp = get_namespace(s)
         return _bxp.where(_bxp.abs(s) < roundoff, 0.0, s)
 
     ##Performs the actual integration

@@ -891,3 +891,100 @@ def test_scf_general_batched_matches_sequential(backend_name):
     for b, s, r in ((bat_c, seq_c, ref_c), (bat_s, seq_s, ref_s)):
         numpy.testing.assert_allclose(b, s, rtol=0, atol=1e-15 * scale)
         numpy.testing.assert_allclose(b, r, rtol=0, atol=1e-15 * scale)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_tdep_batched_reduce_matches_sequential(backend_name):
+    # The time-dependent coefficient builds are SEPARABLE -- a time factor times a
+    # time-independent basis -- so they contract the weighted node sum themselves
+    # (`batched_reduce`) rather than materializing a (K,) + shape array, which
+    # carries Nt in front and would be K times the working set
+    # `_TIMEDEP_BATCH_BYTES` sizes. Drive both paths with mathematically identical
+    # densities: one that broadcasts positions against t, one that accepts only a
+    # scalar position, so `f.batched` is never attached and the per-node loop runs.
+    import importlib
+
+    from galpy import backend as _b
+
+    S = importlib.import_module("galpy.potential.SCFPotential")
+    tgrid = numpy.linspace(0.0, 4.0, 5)
+
+    def profile(R, z, t):
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
+
+    def gen_bc(R, z, phi, t=0.0):
+        return profile(R, z, t) * (1.0 + 0.2 * numpy.cos(phi))
+
+    def gen_nobc(R, z, phi, t=0.0):
+        if numpy.ndim(R) > 1:  # rejects the (nodes, 1) probe -> sequential
+            raise TypeError("scalar position only")
+        return gen_bc(R, z, phi, t)
+
+    def axi_bc(R, z, t=0.0):
+        return profile(R, z, t)
+
+    def axi_nobc(R, z, t=0.0):
+        if numpy.ndim(R) > 1:
+            raise TypeError("scalar position only")
+        return axi_bc(R, z, t)
+
+    cases = (
+        (
+            "general",
+            S._scf_compute_coeffs_timedep,
+            gen_bc,
+            gen_nobc,
+            dict(radial_order=6, costheta_order=5, phi_order=5),
+        ),
+        (
+            "axi",
+            S._scf_compute_coeffs_axi_timedep,
+            axi_bc,
+            axi_nobc,
+            dict(radial_order=6, costheta_order=5),
+        ),
+    )
+    for tag, fn, dens_bc, dens_nobc, orders in cases:
+        calls = {"scalar": 0, "reduce": 0}
+        _orig_quad = S._gaussianQuadrature
+
+        def counting_quad(integrand, bounds, Ksample=[20], roundoff=0):
+            _r_fn = getattr(integrand, "batched_reduce", None)
+
+            def wrapped(*a):
+                calls["scalar"] += 1
+                return integrand(*a)
+
+            if _r_fn is not None:
+
+                def wrapped_reduce(*a, **kw):
+                    calls["reduce"] += 1
+                    return _r_fn(*a, **kw)
+
+                wrapped.batched_reduce = wrapped_reduce
+            return _orig_quad(wrapped, bounds, Ksample=Ksample, roundoff=roundoff)
+
+        with _b.use(backend_name, force=True):
+            S._gaussianQuadrature = counting_quad
+            try:
+                bat = fn(dens_bc, 6, 3, tgrid, a=1.0, **orders)
+                n_reduce = calls["reduce"]
+                calls["scalar"] = calls["reduce"] = 0
+                seq = fn(dens_nobc, 6, 3, tgrid, a=1.0, **orders)
+                n_seq_scalar, n_seq_reduce = calls["scalar"], calls["reduce"]
+            finally:
+                S._gaussianQuadrature = _orig_quad
+        ref = fn(dens_bc, 6, 3, tgrid, a=1.0, **orders)  # numpy reference
+        # Call counts first: a value comparison cannot tell "both paths correct"
+        # from "the reduce branch never ran".
+        assert n_reduce > 0, f"{tag}: broadcasting density must take batched_reduce"
+        assert n_seq_reduce == 0, f"{tag}: scalar-position density must not"
+        assert n_seq_scalar > 1, f"{tag}: scalar-position density must step the loop"
+        scale = max(numpy.max(numpy.abs(as_numpy(a))) for a in ref if a is not None)
+        for b, s, r in zip(bat, seq, ref):
+            if r is None:  # axi returns Asin=None
+                assert b is None and s is None
+                continue
+            b, s, r = as_numpy(b), as_numpy(s), numpy.asarray(r, dtype=float)
+            numpy.testing.assert_allclose(b, s, rtol=0, atol=1e-15 * scale)
+            numpy.testing.assert_allclose(b, r, rtol=0, atol=1e-15 * scale)
