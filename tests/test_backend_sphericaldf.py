@@ -766,3 +766,73 @@ def test_sample_v_grad_wrt_potential(backend):
                 - float(total_vR(torch.tensor(amp0 - eps)))
             ) / (2.0 * eps)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_interpolator_numpy_query_after_backend_build(backend):
+    # A backend build keeps the grids as backend arrays and does NOT construct
+    # the scipy spline (handing it a traced array raises). A later numpy query
+    # has to materialise that spline on demand, and attribute delegation has to
+    # go through the same lazy path.
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    df = isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=1.3))
+    df._rmin_sampling = 0.0
+    with use(backend, force=True):
+        ip = df._make_pvr_interpolator(r_a_end=1)
+    assert ip._spl is None, "backend build should not have built a scipy spline"
+    # a numpy query materialises it and returns numpy
+    got = ip(numpy.array([0.0, 0.1]), numpy.array([0.3, 0.6]), grid=False)
+    assert ip._spl is not None, "numpy query did not materialise the scipy spline"
+    assert isinstance(got, numpy.ndarray) and numpy.all(numpy.isfinite(got))
+    # unknown attributes delegate to that same spline
+    assert ip.get_knots() is not None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_table_falls_back_when_df_is_numpy_side(backend):
+    # A df whose p(v|r) is numpy-side whatever the namespace has no backend table
+    # to build; the builder must fall back to the numpy construction instead of
+    # applying namespace ops to a numpy array. Nothing in-tree is numpy-side any
+    # more (the general Osipkov-Merritt df was migrated), so use a synthetic.
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    class _NumpySideDF(isotropicHernquistdf):
+        def _p_v_at_r(self, v, r):
+            return as_numpy(super()._p_v_at_r(v, r))
+
+    df = _NumpySideDF(pot=HernquistPotential(amp=2.0, a=1.3))
+    df._rmin_sampling = 0.0
+    ref = df._make_pvr_interpolator(r_a_end=1)  # pure-numpy build
+    with use(backend, force=True):
+        ip = df._make_pvr_interpolator(r_a_end=1)
+    # The fallback recomputes numpy-side, so the table must match the pure-numpy
+    # build EXACTLY -- that is the contract that makes falling back safe. (The
+    # grids are still materialised onto the forced namespace afterwards, which is
+    # the pre-existing behaviour of a numpy build under a forced backend.)
+    numpy.testing.assert_allclose(
+        as_numpy(ip._z), as_numpy(ref._z), rtol=1e-10, atol=1e-14
+    )
+    got = ip(numpy.array([0.0]), numpy.array([0.5]), grid=False)
+    assert numpy.all(numpy.isfinite(got))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_backend_warns_on_negative_df(backend):
+    # beta > 0.5 gives the DF negative parts; the backend table build clamps them
+    # away and must say so, exactly as the numpy path does
+    from galpy.backend import use
+    from galpy.df import constantbetaHernquistdf
+    from galpy.potential import HernquistPotential
+    from galpy.util import galpyWarning
+
+    df = constantbetaHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3), beta=0.7)
+    df._rmin_sampling = 0.0
+    with use(backend, force=True):
+        with pytest.warns(galpyWarning, match="negative regions"):
+            ip = df._make_pvr_interpolator(r_a_end=1)
+    assert ip is not None
