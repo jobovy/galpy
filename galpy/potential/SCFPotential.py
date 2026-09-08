@@ -2657,6 +2657,13 @@ class _TimeDepDensityNotVectorized(Exception):
 # exercise the batched path.
 _TIMEDEP_BATCH_BYTES = 32 * 1024**2  # 32 MB
 
+# Peak-memory budget (bytes) for the per-node basis a `batched_reduce` integrand
+# materializes. Its reduced output is independent of the node count but that
+# basis is not, so `_gaussianQuadrature` contracts the nodes in chunks no larger
+# than this. Same size and spirit as the tgrid budget above; separate because it
+# bounds a different axis (nodes, not time steps).
+_REDUCE_NODE_BYTES = 32 * 1024**2  # 32 MB
+
 
 def _timedep_batch_size(Nt, per_time_elems):
     """Number of time steps to process per batch so one working copy of the
@@ -2760,10 +2767,13 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
     # corrupt coefficients.
     sprobe = numpy.array([0.5, 0.75, 1.0])
     try:
-        sout = numpy.asarray(
-            dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw),
-            dtype=float,
-        )
+        # Pinned to numpy like `_dens_accepts_arrays`: this PROBES user code with
+        # try/except, so it must not run under a forced backend.
+        with _use_backend("numpy", force=True):
+            sout = numpy.asarray(
+                dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw),
+                dtype=float,
+            )
     except Exception:
         pass
     else:
@@ -2773,10 +2783,14 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
                 # Slice to numOfParam and broadcast BEFORE adding the axis: the
                 # axisymmetric caller passes a plain 0.0 for phi even when the
                 # density takes three arguments, and a scalar has no axis to add.
+                # `copy()` because broadcast_arrays gives 0-stride views: the
+                # axisymmetric caller passes a scalar phi, so every node would
+                # alias ONE float. A density writing in place would corrupt it,
+                # and numpy is moving these views to read-only anyway.
                 vals = numpy.broadcast_arrays(
                     *[numpy.asarray(v) for v in (R, z, phi)[:numOfParam]]
                 )
-                cols = [v[:, numpy.newaxis] for v in vals]
+                cols = [numpy.ascontiguousarray(v)[:, numpy.newaxis] for v in vals]
                 return numpy.asarray(dens(*cols, t=tgrid, **dens_kw), dtype=float)
 
             f.batched = f_batched
@@ -2868,7 +2882,7 @@ def _scf_compute_coeffs_axi_timedep(
         _ft = like(base, f(R, z, 0.0))
         return _ft[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
-    def integrand_batched_reduce(xi, costheta, weights=None):
+    def integrand_batched_reduce(xi, costheta, weights):
         # Separable exactly as in the general routine above: time factor times a
         # time-independent basis, so the weighted node sum is one contraction.
         xi = numpy.asarray(xi)
@@ -2949,7 +2963,7 @@ def _scf_compute_coeffs_timedep(
         _ft = like(base, f(R, z, phi))
         return _ft[:, None, None, None, None] * base[numpy.newaxis]
 
-    def integrand_batched_reduce(xi, costheta, phi, weights=None):
+    def integrand_batched_reduce(xi, costheta, phi, weights):
         # The integrand is an OUTER PRODUCT: a time factor f(node) and a
         # time-independent basis, so the weighted node sum is one contraction and
         # the (K, Nt, 2, N, L, L) array never has to exist -- which is the point,
@@ -3144,7 +3158,26 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
         nodes = tuple(_amb.asarray(n) for n in xp[_idx])  # (ndim, K) on backend
         w = numpy.prod(wp[_idx], axis=0)
         if _reduce is not None:
-            s = _reduce(*nodes, weights=w)
+            # The reduced RESULT does not grow with the node count, but the basis
+            # the integrand materializes to get there does -- it is (K,) + the
+            # per-node part of `shape`. That is independent of the caller's time
+            # batching, so contracting all K nodes at once escapes whatever budget
+            # the caller sized (measured: a 32 MB `_TIMEDEP_BATCH_BYTES` still
+            # peaked at ~1.5 GB, and shrinking the budget 32000x did not move it).
+            # Chunk the nodes instead and accumulate the partial contractions.
+            per_node = int(numpy.prod(shape[1:])) if len(shape) > 1 else 1
+            kc = max(1, _REDUCE_NODE_BYTES // (per_node * 8))
+            s = None
+            for start in range(0, li.shape[0], kc):
+                sl = slice(start, start + kc)
+                part = _reduce(*(n[sl] for n in nodes), weights=w[sl])
+                s = part if s is None else s + part
+            # A separable integrand that returns the wrong RANK would broadcast
+            # into a silently wrong shape rather than raise, so pin it here.
+            if tuple(s.shape) != tuple(shape):
+                raise ValueError(
+                    f"batched_reduce returned {tuple(s.shape)}, expected {tuple(shape)}"
+                )
         else:
             vals = _batched(*nodes)  # (K,) + shape
             # value LEADS so the backend owns the product, as in the loop below

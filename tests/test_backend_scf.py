@@ -988,3 +988,45 @@ def test_scf_tdep_batched_reduce_matches_sequential(backend_name):
             b, s, r = as_numpy(b), as_numpy(s), numpy.asarray(r, dtype=float)
             numpy.testing.assert_allclose(b, s, rtol=0, atol=1e-15 * scale)
             numpy.testing.assert_allclose(b, r, rtol=0, atol=1e-15 * scale)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_tdep_batched_reduce_degenerate_sizes(backend_name):
+    # The contraction carries a leading time axis and a (N, L) basis, so the
+    # sizes that can silently squeeze an axis away are the 1s. Nt=1 also makes
+    # the node-chunk accumulator run with a single time step, and radial_order=1
+    # makes it run with a single NODE.
+    import importlib
+
+    from galpy import backend as _b
+
+    S = importlib.import_module("galpy.potential.SCFPotential")
+
+    def dens(R, z, phi, t=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return numpy.exp(-r) * (1.0 + 0.2 * numpy.cos(phi)) * (1.0 + 0.02 * t)
+
+    def dens_axi(R, z, t=0.0):
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
+
+    for N, L, Nt, ro in ((1, 1, 1, 4), (2, 1, 3, 4), (1, 3, 2, 4), (3, 2, 1, 1)):
+        tgrid = numpy.linspace(0.0, 4.0, Nt)
+        gen = dict(radial_order=ro, costheta_order=3, phi_order=3)
+        axi = dict(radial_order=ro, costheta_order=3)
+        for fn, d, orders in (
+            (S._scf_compute_coeffs_timedep, dens, gen),
+            (S._scf_compute_coeffs_axi_timedep, dens_axi, axi),
+        ):
+            ref = fn(d, N, L, tgrid, a=1.0, **orders)  # numpy
+            with _b.use(backend_name, force=True):
+                got = fn(d, N, L, tgrid, a=1.0, **orders)
+            scale = max(numpy.max(numpy.abs(as_numpy(a))) for a in ref if a is not None)
+            for g, r in zip(got, ref):
+                if r is None:
+                    assert g is None
+                    continue
+                g, r = as_numpy(g), numpy.asarray(r, dtype=float)
+                assert g.shape == r.shape, (
+                    f"N={N} L={L} Nt={Nt}: {g.shape} != {r.shape}"
+                )
+                numpy.testing.assert_allclose(g, r, rtol=0, atol=1e-14 * scale)
