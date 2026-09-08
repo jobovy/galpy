@@ -106,19 +106,7 @@ else:
 _NOLONGINTEGRATIONS = False
 
 
-def _backend_integrators(integrators):
-    # Under a non-numpy backend, keep only the C integrators (``*_c``): the pure-
-    # Python ones (odeint/dop853/leapfrog/rk4/rk6) step in Python, so each force
-    # eval pays eager per-step jax/torch dispatch (~1 ms) -- ~95% of the runtime
-    # for ~0 unique backend coverage (their numerics are backend-agnostic and the
-    # numpy run exercises all of them; the jax/torch-relevant force path is shared
-    # with the C integrators). numpy runs the full list unchanged.
-    from galpy.backend import backend
-
-    if backend() == "numpy":
-        return integrators
-    return [i for i in integrators if i.endswith("_c")]
-
+from conftest import _backend_integrators
 
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always", galpyWarning)
@@ -4136,7 +4124,7 @@ def test_integrate_dxdv_3d_base_orbit_integrity():
 
     ts = numpy.linspace(0.0, 5.0, 51)
     ic = [1.0, 0.1, 1.1, 0.2, 0.15, 0.3]
-    for method in ["dop853_c", "dop853"]:
+    for method in _backend_integrators(["dop853_c", "dop853"]):
         odx = Orbit(ic)
         odx.integrate_dxdv(
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -5524,6 +5512,8 @@ def test_softenedneedlebar_planar_dxdv_fd_of_flow():
     ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
     eps = 1e-7
     canonical = numpy.eye(4)
+    # NOT routed: this test's purpose is the planar Hessian validated through
+    # BOTH the C and the pure-Python variational integrator (see comment above).
     for method in ["dopr54_c", "dop853"]:
         obase = Orbit(ic)
         obase.integrate(times, pot, method=method)
@@ -5562,7 +5552,9 @@ def test_integrate_SOS_3D():
     pot = potential.MWPotential2014
     o = setup_orbit_energy(pot, axi=True)
     psis = numpy.linspace(0.0, 20.0 * numpy.pi, 1001)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.integrate_SOS(psis, pot, method=method)
         Es = _to_numpy(o.E(o.t))
         assert (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0**-10, (
@@ -5575,7 +5567,9 @@ def test_integrate_SOS_3D():
 def test_SOS_3D():
     pot = potential.MWPotential2014
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.SOS(
             pot,
             method=method,
@@ -5597,7 +5591,9 @@ def test_SOS_3D():
 def test_bruteSOS_3D():
     pot = potential.MWPotential2014
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
@@ -5636,7 +5632,9 @@ def test_integrate_indiv_t_3D():
             numpy.linspace(0.0, 9.0, nt),
         ]
     )
-    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]
+    ):
         # Batched per-orbit-t integration
         o_batch = Orbit(vxvvs)
         o_batch.integrate(ts_indiv, pot, method=method)
@@ -5675,7 +5673,9 @@ def test_integrate_indiv_t_2D():
             numpy.linspace(0.0, 9.0, nt),
         ]
     )
-    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]
+    ):
         o_batch = Orbit(vxvvs)
         o_batch.integrate(ts_indiv, pot, method=method)
         for ii in range(len(vxvvs)):
@@ -5706,7 +5706,9 @@ def test_integrate_indiv_t_1D():
             numpy.linspace(0.0, 9.0, nt),
         ]
     )
-    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]
+    ):
         o_batch = Orbit(vxvvs)
         o_batch.integrate(ts_indiv, pot, method=method)
         for ii in range(len(vxvvs)):
@@ -6082,7 +6084,9 @@ def test_integrate_SOS_2D():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot, axi=True)
     psis = numpy.linspace(0.0, 20.0 * numpy.pi, 1001)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         for surface in ["x", "y"]:
             o.integrate_SOS(psis, pot, method=method)  # default is surface='x'
             Es = _to_numpy(o.E(o.t))
@@ -6096,7 +6100,9 @@ def test_integrate_SOS_2D():
 def test_SOS_2Dx():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.SOS(
             pot,
             method=method,
@@ -6119,7 +6125,9 @@ def test_SOS_2Dx():
 def test_SOS_2Dy():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.SOS(
             pot,
             method=method,
@@ -6142,7 +6150,9 @@ def test_SOS_2Dy():
 def test_bruteSOS_2Dx():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
@@ -6166,7 +6176,9 @@ def test_bruteSOS_2Dx():
 def test_bruteSOS_2Dy():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot)
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         o.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
