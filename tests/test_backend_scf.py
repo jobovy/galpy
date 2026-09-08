@@ -1030,3 +1030,41 @@ def test_scf_tdep_batched_reduce_degenerate_sizes(backend_name):
                     f"N={N} L={L} Nt={Nt}: {g.shape} != {r.shape}"
                 )
                 numpy.testing.assert_allclose(g, r, rtol=0, atol=1e-14 * scale)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_batched_reduce_wrong_rank_raises(backend_name):
+    # The guard exists because a wrong-RANK separable integrand does not raise on
+    # its own: an `ft` of (K,) turns `ft * weights[:, None]` into a (K, K) outer
+    # product, and the coefficient normalisation downstream broadcasts against
+    # that happily -- so the build would return silently wrong-shaped
+    # coefficients. Drive `_gaussianQuadrature` with a deliberately wrong-ranked
+    # `batched_reduce` and require the loud failure. A synthetic integrand, not a
+    # real potential: the point is the contract, not any particular density.
+    import importlib
+
+    from galpy import backend as _b
+    from galpy.backend import get_namespace
+
+    S = importlib.import_module("galpy.potential.SCFPotential")
+
+    with _b.use(backend_name, force=True):
+        xp = get_namespace(numpy.zeros(1))
+
+        def integrand(xi):  # scalar twin: fixes the expected shape at (3, 2)
+            return xp.zeros((3, 2))
+
+        def bad_reduce(xi, weights):  # returns (2, 3) -- right size, wrong shape
+            return xp.zeros((2, 3))
+
+        integrand.batched_reduce = bad_reduce
+        with pytest.raises(ValueError, match="batched_reduce returned"):
+            S._gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=[4])
+
+        # and the correctly-shaped one goes through
+        def good_reduce(xi, weights):
+            return xp.zeros((3, 2))
+
+        integrand.batched_reduce = good_reduce
+        out = S._gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=[4])
+        assert tuple(out.shape) == (3, 2)
