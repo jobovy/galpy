@@ -245,6 +245,25 @@ def _load_backend_skip(backend_name):
     return _load_backend_nodeids(_backend_skip_path(), backend_name)
 
 
+def _backend_integrators(integrators):
+    """Prune an integrator list to the C integrators under a non-numpy backend.
+
+    The pure-Python integrators (odeint/dop853/leapfrog/rk4/rk6) step in Python,
+    so each force eval pays eager per-step jax/torch dispatch (~1 ms) -- ~95% of
+    the runtime for ~0 unique backend coverage (their numerics are backend
+    -agnostic and the numpy run exercises all of them; the jax/torch-relevant
+    force path is shared with the C integrators). numpy runs the list unchanged.
+
+    Lives here, not in a test module, because both test_orbit.py and
+    test_orbits.py need it.
+    """
+    from galpy.backend import backend
+
+    if backend() == "numpy":
+        return integrators
+    return [i for i in integrators if i.endswith("_c")]
+
+
 def _run_backend(config):
     """Name the burndown lists are keyed by: "jax", or "jax-jit" when traced."""
     name = config.getoption("--backend")
