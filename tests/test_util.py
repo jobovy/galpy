@@ -148,3 +148,34 @@ def test_quad_over_limits():
         quad_over_limits(f, 0.0, 1.3, epsabs=1e-3) == quad(f, 0.0, 1.3, epsabs=1e-3)[0]
     ), "quad_over_limits does not pass kwargs through to quad"
     return None
+
+
+def test_parallel_map_numcores_one_does_not_fork():
+    # Regression: `numcores=1` used to fall through to the fork-based path and
+    # spawn ONE CHILD PER TASK. A fork alone costs ~10 ms, so asking for a single
+    # core was slower than not parallelizing at all -- and that is what
+    # Orbit.lyapunov did for every one of its short renormalization segments,
+    # costing ~100x. Assert the contract directly: with numcores=1 no
+    # multiprocessing context is created at all.
+    import multiprocessing
+
+    from galpy.util import multi
+
+    calls = []
+    orig_get_context = multiprocessing.get_context
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return orig_get_context(*args, **kwargs)
+
+    multiprocessing.get_context = spy
+    try:
+        out = multi.parallel_map(lambda x: x * x, numpy.arange(8), numcores=1)
+    finally:
+        multiprocessing.get_context = orig_get_context
+    assert not calls, (
+        "parallel_map(numcores=1) must not create a multiprocessing context"
+    )
+    assert numpy.array_equal(numpy.asarray(out), numpy.arange(8) ** 2), (
+        "parallel_map(numcores=1) returned the wrong result"
+    )

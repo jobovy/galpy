@@ -195,6 +195,11 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
 
     if numcores is None:
         numcores = _ncpus
+    if numcores == 1:
+        # Asking for one core still forked one child per task, and a fork alone
+        # costs ~12 ms -- so `numcores=1` was slower than not parallelizing at
+        # all. Serial is what "one core" means.
+        return list(map(function, sequence))
 
     if platform.system() == "Windows":  # JB: don't think this works on Win
         return list(map(function, sequence))
