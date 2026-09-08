@@ -2505,7 +2505,7 @@ class Orbit:
         spectrum=False,
         progressbar=False,
         dt=None,
-        numcores=_NUMCORES,
+        numcores=1,
         force_map=False,
         rtol=None,
         atol=None,
@@ -2557,7 +2557,7 @@ class Orbit:
         dt : float, optional
             If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity).
         numcores : int, optional
-            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is 1 (serial), unlike elsewhere in galpy: the Lyapunov calculation integrates the variational equations in many short segments (one per ``renorm_every``), so each parallel task is far shorter than the ~10 ms it costs to fork a worker for it, and forking makes the calculation ~100x slower. Raise it only if each segment is genuinely long.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended). Default is False.
         rtol : float, optional
