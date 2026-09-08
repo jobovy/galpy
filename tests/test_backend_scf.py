@@ -817,3 +817,77 @@ def test_scf_axi_batched_matches_sequential(backend_name):
     scale = numpy.max(numpy.abs(ref))
     numpy.testing.assert_allclose(batched, seq, rtol=0, atol=1e-15 * scale)
     numpy.testing.assert_allclose(batched, ref, rtol=0, atol=1e-15 * scale)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_general_batched_matches_sequential(backend_name):
+    # Same parity check as the axi twin above, for the GENERAL (non-axi) routine:
+    # its 3-D node grid is where the sequential loop hurt most. Reduced quadrature
+    # orders keep the sequential arm affordable while still walking many nodes.
+    import importlib
+
+    from galpy import backend as _b
+
+    S = importlib.import_module("galpy.potential.SCFPotential")
+    orders = dict(radial_order=6, costheta_order=5, phi_order=5)
+
+    def dens_vec(R, z, phi):  # accepts arrays -> batched path
+        r = numpy.sqrt(R**2 + z**2)
+        return numpy.exp(-r) * (1.0 + 0.2 * numpy.cos(phi) + 0.1 * numpy.sin(2 * phi))
+
+    def dens_scalar(R, z, phi):  # rejects arrays -> sequential path
+        if numpy.ndim(R) != 0:
+            raise TypeError("scalar-only density")
+        return dens_vec(R, z, phi)
+
+    # guard the premise: the two really do take different paths
+    assert S._dens_accepts_arrays(dens_vec, 3, {})
+    assert not S._dens_accepts_arrays(dens_scalar, 3, {})
+
+    # Call counts are the real assertion: a value comparison alone cannot tell
+    # "both paths correct" from "the batched branch never ran".
+    calls = {"scalar": 0, "batched": 0}
+    _orig_quad = S._gaussianQuadrature
+
+    def counting_quad(integrand, bounds, Ksample=[20], roundoff=0):
+        _b_fn = getattr(integrand, "batched", None)
+
+        def wrapped(*a):
+            calls["scalar"] += 1
+            return integrand(*a)
+
+        if _b_fn is not None:
+
+            def wrapped_batched(*a):
+                calls["batched"] += 1
+                return _b_fn(*a)
+
+            wrapped.batched = wrapped_batched
+        return _orig_quad(wrapped, bounds, Ksample=Ksample, roundoff=roundoff)
+
+    with _b.use(backend_name, force=True):
+        S._gaussianQuadrature = counting_quad
+        try:
+            bat = S.scf_compute_coeffs(dens_vec, 4, 3, a=1.0, **orders)
+            bat_c, bat_s = as_numpy(bat[0]), as_numpy(bat[1])
+            n_batched = calls["batched"]
+            calls["scalar"] = calls["batched"] = 0
+            seq = S.scf_compute_coeffs(dens_scalar, 4, 3, a=1.0, **orders)
+            seq_c, seq_s = as_numpy(seq[0]), as_numpy(seq[1])
+            n_seq_scalar, n_seq_batched = calls["scalar"], calls["batched"]
+        finally:
+            S._gaussianQuadrature = _orig_quad
+    assert n_batched > 0, "vectorizable density must take the BATCHED path"
+    assert n_seq_batched == 0, "scalar-only density must NOT take the batched path"
+    assert n_seq_scalar > 1, "scalar-only density must step the sequential loop"
+    # Nodes and weights are identical; only the reduction order differs, so the
+    # bar is ~1 ulp of the quadrature's own magnitude. Acos and Asin come out of
+    # the SAME sum, so they share one scale: Asin is the small array here (0.55
+    # against Acos' 45) and most of it vanishes by symmetry, so scaling it to
+    # itself would judge pure cancellation noise against an unfairly tiny bar
+    # while the absolute error -- ~1e-15 across both -- is what actually differs.
+    ref_c, ref_s = S.scf_compute_coeffs(dens_vec, 4, 3, a=1.0, **orders)
+    scale = max(numpy.max(numpy.abs(ref_c)), numpy.max(numpy.abs(ref_s)))
+    for b, s, r in ((bat_c, seq_c, ref_c), (bat_s, seq_s, ref_s)):
+        numpy.testing.assert_allclose(b, s, rtol=0, atol=1e-15 * scale)
+        numpy.testing.assert_allclose(b, r, rtol=0, atol=1e-15 * scale)
