@@ -2534,6 +2534,44 @@ def scf_compute_coeffs(
         _cs = like(phi_nl, _cs)
         return _dens * phi_nl[numpy.newaxis, :, :, :] * _cs * dV
 
+    def integrand_batched(xi, costheta, phi):
+        # Node-batched twin of `integrand`: same expression with the node axis
+        # LEADING, so the 3-D solve's thousands of nodes go through in one call
+        # instead of one eager dispatch each. Nodes stay NUMPY, exactly as the
+        # scalar twin passes numpy scalars -- batching must not change what user
+        # density code receives (see scf_compute_coeffs_axi).
+        xi = numpy.asarray(xi)
+        costheta = numpy.asarray(costheta)
+        phi = numpy.asarray(phi)
+        l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :, numpy.newaxis]
+        m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        PP = assoc_legendre(L, L, costheta)[:, numpy.newaxis, :, :]
+        dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[
+            :, None, None, None, None
+        ]
+        # _C puts the node axis LAST; move it to the front through the resolved
+        # namespace (numpy.moveaxis on a Tensor hits transpose(list), which torch
+        # rejects).
+        _CC_raw = _C(xi, N, L)
+        _cxp = get_namespace(_CC_raw)
+        _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))[..., numpy.newaxis]
+        _xiB = xi[:, None, None, None]
+        # `l` must cross to the backend BEFORE the power, as in the axi twin.
+        _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        phi_nl = _pref * _CC * PP
+        _dens = dens(R, z, phi, **dens_kw)
+        _dens = like(phi_nl, numpy.asarray(_dens)[:, None, None, None, None])
+        _mp = m * phi[:, None, None, None]
+        _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
+        return _dens * phi_nl[:, numpy.newaxis] * _cs * like(phi_nl, dV)
+
+    with _use_backend("numpy", force=True):
+        if _dens_accepts_arrays(dens, 3, dens_kw):
+            integrand.batched = integrand_batched
+
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
     if radial_order != None:
         Ksample[0] = radial_order
