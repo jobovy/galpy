@@ -4,7 +4,7 @@ import astropy.coordinates as apycoords
 import astropy.units as u
 import numpy
 import pytest
-from conftest import _to_numpy
+from conftest import _backend_integrators, _to_numpy
 
 from galpy import potential
 from galpy.backend import as_numpy
@@ -2534,7 +2534,9 @@ def test_SOS_3D():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.MWPotential2014
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.SOS(
             pot,
             method=method,
@@ -2565,7 +2567,9 @@ def test_SOS_2Dx():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.SOS(
             pot,
             method=method,
@@ -2597,7 +2601,9 @@ def test_SOS_2Dy():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.SOS(
             pot,
             method=method,
@@ -2643,7 +2649,9 @@ def test_bruteSOS_3D():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.MWPotential2014
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
@@ -2673,7 +2681,9 @@ def test_bruteSOS_2Dx():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
@@ -2706,7 +2716,9 @@ def test_bruteSOS_2Dy():
     ]
     orbits = Orbit(orbits_list)
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
-    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+    for method in _backend_integrators(
+        ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]
+    ):
         orbits.bruteSOS(
             numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
             pot,
