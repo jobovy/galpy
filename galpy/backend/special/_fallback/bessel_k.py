@@ -23,7 +23,7 @@
 ###############################################################################
 import numpy
 
-from ..._namespaces import asarray_on_device, device_of
+from ..._namespaces import asarray_on_device, device_of, under_jax_trace
 
 _GAMMA = 0.5772156649015328606  # Euler-Mascheroni
 _NSERIES = 30  # ascending-series terms (x <= 2)
@@ -69,7 +69,12 @@ def _series_tables(xp, dev):
             asarray_on_device(xp, t, dev)
             for t in (_K0_RATIO_DEN, _K0_COEFF, _K1_RATIO_DEN, _K1_COEFF, _K1_NUM_POW)
         )
-        _SERIES_CACHE[key] = got
+        # Under a jax trace, asarray(..., device=) lowers to device_put, so these
+        # tables come back as TRACERS; caching one leaks it out of its trace
+        # (UnexpectedTracerError on the next call). Constants cost nothing inside
+        # a trace anyway, so only concrete tables are worth keeping.
+        if not under_jax_trace(*got):
+            _SERIES_CACHE[key] = got
     return got
 
 
