@@ -15,6 +15,16 @@ import astropy
 import numpy
 import pytest
 
+# These tests walk every potential in `dir(potential)` inside ONE test body, so a
+# failure reports only that the walk failed, not which potential, and the whole
+# walk is a single unit for pytest-split and for any per-test timeout. Split the
+# walk into parametrized chunks (interleaved, so each chunk mixes cheap and
+# expensive potentials): a failure now names its chunk, pytest-split gets units
+# it can balance, and a per-test timeout applies per chunk rather than to the
+# whole walk. 12 keeps each chunk to a handful of potentials; nothing in the
+# tests depends on the number.
+_POT_CHUNKS = 12
+
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
 from test_actionAngle import reset_warning_registry
@@ -4715,7 +4725,8 @@ def test_liouville_3d_nonaxi_flow():
     return None
 
 
-def test_liouville_planar():
+@pytest.mark.parametrize("chunk", range(_POT_CHUNKS))
+def test_liouville_planar(chunk):
     if _NOLONGINTEGRATIONS:
         return None
     # Basic parameters for the test
@@ -4862,7 +4873,7 @@ def test_liouville_planar():
     tol["DiskMultipoleExpansionPotential"] = -5.5
     tol["DiskSCFPotential"] = -7.0  # more difficult
     firstTest = True
-    for p in pots:
+    for p in pots[chunk::_POT_CHUNKS]:
         # Setup instance of potential
         try:
             tclass = getattr(potential, p)
@@ -6584,7 +6595,8 @@ def test_apocenter():
 
 
 # Test that the zmax of orbits launched with vz=0 is the starting height
-def test_zmax():
+@pytest.mark.parametrize("chunk", range(_POT_CHUNKS))
+def test_zmax(chunk):
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
@@ -6657,7 +6669,7 @@ def test_zmax():
     tol["KuzminDiskPotential"] = -6.0  # these are more difficult
     #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     firstTest = True
-    for p in pots:
+    for p in pots[chunk::_POT_CHUNKS]:
         # Setup instance of potential
         if p in list(tol.keys()):
             ttol = tol[p]
@@ -6749,7 +6761,8 @@ def test_zmax():
 
 
 # Test that the eccentricity, apo-, and pericenters of orbits calculated analytically agrees with the numerical calculation
-def test_analytic_ecc_rperi_rap():
+@pytest.mark.parametrize("chunk", range(_POT_CHUNKS))
+def test_analytic_ecc_rperi_rap(chunk):
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
     integrators = [
@@ -6842,7 +6855,7 @@ def test_analytic_ecc_rperi_rap():
     tol["DiskSCFPotential"] = -8.0  # these are more difficult
     tol["DiskMultipoleExpansionPotential"] = -8.0  # these are more difficult
     tol["PowerTriaxialPotential"] = -8.0  # these are more difficult
-    for p in pots:
+    for p in pots[chunk::_POT_CHUNKS]:
         # Setup instance of potential
         if p in list(tol.keys()):
             ttol = tol[p]
@@ -7414,7 +7427,8 @@ def test_orbit_LcE_planar():
 
 
 # Check that zmax calculated analytically agrees with numerical calculation
-def test_analytic_zmax():
+@pytest.mark.parametrize("chunk", range(_POT_CHUNKS))
+def test_analytic_zmax(chunk):
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
     integrators = [
@@ -7509,7 +7523,7 @@ def test_analytic_zmax():
     tol["DiskSCFPotential"] = -6.0  # these are more difficult
     tol["MultipoleExpansionPotential"] = -8.0
     tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
-    for p in pots:
+    for p in pots[chunk::_POT_CHUNKS]:
         # Setup instance of potential
         if p in list(tol.keys()):
             ttol = tol[p]
