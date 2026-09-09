@@ -272,12 +272,14 @@ def test_dynamfric_c(chunk):
     # C against the IN-BACKEND solver there instead: that is the path a backend
     # user actually integrates with, and it is validated against the analytic
     # friction result in test_backend_dynamfric.py.
+    # jax only. torch's eager per-step dispatch is CHEAP -- 3.2 s for the same
+    # 1001-step friction orbit that costs jax ~240 s -- so torch never needed
+    # rescuing, and measured single-process the two are within noise (worst chunk
+    # 202.8 s on dop853 vs 211.5 s on torchdiffeq; totals 1028 s vs 1087 s). Using
+    # dop853 there keeps torch on its original path and skips a backend-IC
+    # conversion it does not need.
     _bk = backend()
-    py_integrator = {
-        "numpy": "dop853",
-        "jax": "diffrax",
-        "torch": "torchdiffeq",
-    }.get(_bk, "dop853")
+    py_integrator = {"jax": "diffrax"}.get(_bk, "dop853")
     # Define all of the potentials (by hand, because need reasonable setup)
     MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2] *= 1.5  # Increase mass by 50%
@@ -450,7 +452,7 @@ def test_dynamfric_c(chunk):
         # Integrate in C
         o.integrate(ttimes, p + cdf, method=integrator)
         # Integrate in Python (numpy) / in-backend (jax, torch)
-        op = o() if _bk == "numpy" else Orbit(_ic_on_backend(o))
+        op = o() if py_integrator == "dop853" else Orbit(_ic_on_backend(o))
         op.integrate(ttimes, p + cdf, method=py_integrator)
         # Compare r (most important)
         assert (
