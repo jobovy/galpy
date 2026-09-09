@@ -252,14 +252,12 @@ jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s)
 # timing, which is why the shard was green until an unrelated change shifted it.
 # Skipping means the timeout is never spent. torch runs both fine (107 s worst).
 # Un-skip when the jax dynamical-friction path is vectorized.
-jax tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
 jax tests/test_FDMdynamfric.py::test_dynamfric_c  # measured 2026-08-21: 332.0s (CI~236s) -- passes, only 21% under the cap
 # torch test_dynamfric_c: with the assertion-site ndarray/Tensor collision fixed
 # it no longer aborts early, and integrating orbits WITH dynamical friction under
 # torch eager then takes 3598s (measured) -- 12x the 300s per-test CI timeout. A
 # timeout records FAILED and overrides xfail, so this is a slow-skip, not an
 # xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
-torch tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TIMEOUT
 
 # torch-jit: interpRZPotential's grid build under torch.compile does not finish
 # inside the 300 s cap. MEASURED 2026-08-07 by an A/B run for the parallel_map
@@ -334,7 +332,6 @@ jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 326.8s trace
 # Of 17 eager entries across the 8 files measured so far, 8 survive traced and
 # 11 do not. Two of the 8 were NEVER eager entries -- inheritance only
 # propagates eager entries forward, so it could not have found them at all.
-jax-jit tests/test_dynamfric.py::test_dynamfric_c  # 300s cap traced
 jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 300s cap
 jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor  # 300s cap
@@ -362,7 +359,6 @@ jax-jit tests/test_orbit.py::test_liouville_planar  # re-measured 2026-09-07: 47
 # margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
 # does not imply under-cap -- these are classified by junitxml time).
 torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch-jit tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 torch-jit tests/test_orbit.py::test_interprz_dxdv_3d
 torch-jit tests/test_orbit.py::test_analytic_zmax
