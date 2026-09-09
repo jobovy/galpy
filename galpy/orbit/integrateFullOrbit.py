@@ -415,16 +415,22 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._omega, p._pa])
         elif isinstance(p, potential.OblateStaeckelWrapperPotential):
-            pot_type.append(-3)
-            # Not sure how to easily avoid this duplication
-            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
-            )
-            pot_args.append(wrap_npot)
-            pot_type.extend(wrap_pot_type)
-            pot_args.extend(wrap_pot_args)
-            pot_tfuncs.extend(wrap_pot_tfuncs)
-            pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+            if getattr(p, "_ntab", 0):
+                # tabulated: plain type, no wrapped potential in C at all
+                pot_type.append(47)
+                pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+                pot_args.extend(p._tabargs)
+            else:
+                pot_type.append(-3)
+                # Not sure how to easily avoid this duplication
+                wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
+                    p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
+                )
+                pot_args.append(wrap_npot)
+                pot_type.extend(wrap_pot_type)
+                pot_args.extend(wrap_pot_args)
+                pot_tfuncs.extend(wrap_pot_tfuncs)
+                pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
         elif isinstance(p, potential.CorotatingRotationWrapperPotential):
             pot_type.append(-4)
             # Not sure how to easily avoid this duplication

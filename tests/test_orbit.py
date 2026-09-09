@@ -1904,6 +1904,59 @@ def test_kuzminlike_dxdv_3d_c_vs_miyamotonagai():
 # Hessians are direct transcriptions of the trusted Python
 # _R2deriv/_z2deriv/_Rzderiv, so C and Python share only the analytic
 # formulas, not integrator code.
+def test_oblatestaeckelwrapper_ntab_c():
+    # Tabulated (ntab=) OblateStaeckelWrapper C path (plain type 47, no
+    # wrapped potential in C) must reproduce the exact wrapped C path: 3D and
+    # planar orbits, and the 3D variational (Hessian) path, plus input checks
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    swpE = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4)
+    swpT = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4, ntab=3000)
+    ts = numpy.linspace(0.0, 20.0, 1001)
+    oE = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
+    otb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
+    oE.integrate(ts, swpE, method="dop853_c")
+    otb.integrate(ts, swpT, method="dop853_c")
+    assert numpy.amax(numpy.fabs(oE.R(ts) - otb.R(ts))) < 1e-6, (
+        "Tabulated OblateStaeckelWrapper 3D C orbit deviates from the exact one"
+    )
+    assert numpy.amax(numpy.fabs(oE.z(ts) - otb.z(ts))) < 1e-6, (
+        "Tabulated OblateStaeckelWrapper 3D C orbit deviates from the exact one"
+    )
+    # planar
+    opE = Orbit([0.9, 0.55, 0.45, 0.0])
+    optb = Orbit([0.9, 0.55, 0.45, 0.0])
+    opE.integrate(ts, swpE.toPlanar(), method="dop853_c")
+    optb.integrate(ts, swpT.toPlanar(), method="dop853_c")
+    assert numpy.amax(numpy.fabs(opE.R(ts) - optb.R(ts))) < 1e-6, (
+        "Tabulated OblateStaeckelWrapper planar C orbit deviates from the exact one"
+    )
+    # 3D variational equations exercise the tabulated Hessian branch
+    odE = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
+    odtb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
+    tsd = numpy.linspace(0.0, 3.0, 101)
+    dxdv = [1e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+    odE.integrate_dxdv(dxdv, tsd, swpE, method="dop853_c")
+    odtb.integrate_dxdv(dxdv, tsd, swpT, method="dop853_c")
+    assert numpy.amax(
+        numpy.fabs(odE.getOrbit_dxdv() - odtb.getOrbit_dxdv())
+    ) < 1e-4 * numpy.amax(numpy.fabs(odE.getOrbit_dxdv())), (
+        "Tabulated OblateStaeckelWrapper 3D variational C path deviates "
+        "from the exact one"
+    )
+    # ntab too small raises
+    try:
+        OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4, ntab=3)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("ntab=3 should have raised a ValueError")
+    return None
+
+
 def test_oblatestaeckelwrapper_dxdv_planar_c_vs_python():
     # First-time enablement of the planar C variational path for
     # OblateStaeckelWrapperPotential: the C planar R2deriv (the v=pi/2

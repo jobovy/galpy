@@ -28,7 +28,34 @@ void dstaeckel_prefactord2ud2v(double u,double v,
   *d2prefacdu2= 2 * cosh(2 * u);
   *d2prefacdv2= 2 * cos(2 * v);
 }
+//Tabulated mode (nargs > 5): args= [amp,delta,u0,v0,refpot,ntab,umax,
+//  then six (values, natural-cubic 2nd derivs) table pairs of ntab each:
+//  U, dU/du, d2U/du2 on uniform u in [0,umax]; V, dV/dv, d2V/dv2 on
+//  uniform v in [0,pi/2]]
+//parsed as plain type 47 (no wrapped potential in C); exact mode (type -3,
+//nargs=5) keeps the wrapped-potential path below.
+static inline double ostw_spl(double x,double h,int n,double *y,double *M){
+  int i; double a,b;
+  if ( x <= 0. ) x= 0.;
+  if ( x >= (n-1)*h ) x= (n-1)*h;
+  i= (int) (x/h); if (i > n-2) i= n-2;
+  b= (x - i*h)/h; a= 1.-b;
+  return a*y[i]+b*y[i+1]+((a*a*a-a)*M[i]+(b*b*b-b)*M[i+1])*h*h/6.;
+}
+static inline double ostw_utab(double u,int k,struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int n= (int) args[5];
+  return ostw_spl(u,args[6]/(n-1),n,args+7+2*k*n,args+7+(2*k+1)*n);
+}
+static inline double ostw_vtab(double v,int k,struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int n= (int) args[5];
+  double s= 1.;
+  if ( v > M_PI_2 ) { v= M_PI - v; if ( k == 1 ) s= -1.; }
+  return s * ostw_spl(v,M_PI_2/(n-1),n,args+7+(6+2*k)*n,args+7+(7+2*k)*n);
+}
 double U(double u,double v0,double delta,struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,0,potentialArgs);
   double R,z0;
   uv_to_Rz(u,v0,&R,&z0,delta);
   return pow(cosh(u),2) \
@@ -37,6 +64,7 @@ double U(double u,double v0,double delta,struct potentialArg * potentialArgs){
 }
 double dUdu(double u,double v0,double delta,
 	    struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,1,potentialArgs);
   double R,z0;
   uv_to_Rz(u,v0,&R,&z0,delta);
   // 1e-12 bc force should win the 0/0 battle
@@ -51,6 +79,7 @@ double dUdu(double u,double v0,double delta,
 }
 double d2Udu2(double u,double v0,double delta,
 	      struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Udu2 in Python
   double R,z0;
   double tRforce, tzforce;
@@ -80,6 +109,7 @@ double d2Udu2(double u,double v0,double delta,
 }
 double planardUdu(double u,double v0,double delta,
 		  struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,1,potentialArgs);
   double R,z0;
   uv_to_Rz(u,v0,&R,&z0,delta);
   // 1e-12 bc force should win the 0/0 battle
@@ -92,6 +122,7 @@ double planardUdu(double u,double v0,double delta,
 }
 double planard2Udu2(double u,double v0,double delta,
 		    struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,2,potentialArgs);
   // planar counterpart of d2Udu2: at v0 = pi/2 the U reference curve lies in
   // the z=0 plane (z0 = delta cosh u cos(pi/2) = O(1e-16)), so every
   // z0-suppressed term (zforce, Rzderiv, z2deriv) drops and only the wrapped
@@ -115,6 +146,7 @@ double planard2Udu2(double u,double v0,double delta,
 }
 double V(double v,double u0,double delta,double refpot,
 	 struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,0,potentialArgs);
   double R0, z;
   uv_to_Rz(u0,v,&R0,&z,delta);
   return refpot - staeckel_prefactor(u0,v)	\
@@ -123,6 +155,7 @@ double V(double v,double u0,double delta,double refpot,
 }
 double dVdv(double v,double u0,double delta,double refpot,
 	    struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,1,potentialArgs);
   double R0, z;
   uv_to_Rz(u0,v,&R0,&z,delta);
   return -2 * sin(v) * cos(v)				\
@@ -136,6 +169,7 @@ double dVdv(double v,double u0,double delta,double refpot,
 }
 double d2Vdv2(double v,double u0,double delta,
 	      struct potentialArg * potentialArgs){
+  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Vdv2 in Python
   double R0, z;
   double tRforce, tzforce;

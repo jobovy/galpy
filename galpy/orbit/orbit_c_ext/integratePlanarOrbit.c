@@ -615,6 +615,19 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
+      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
+      potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
+      potentialArgs->planarphitorque= &ZeroPlanarForce;
+      // Planar 2nd derivatives for the planar variational equations
+      // (integrate_dxdv); axisymmetric, so the phi-derivatives vanish.
+      potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= (int) (7 + 12 * (int) *(*pot_args+5));
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
     case -3: //OblateStaeckelWrapperPotential
       potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
