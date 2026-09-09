@@ -263,7 +263,6 @@ jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s)
 # (0.2 s - 210.9 s; nine under 20 s). Only these 9 stay deferred. One of them
 # was never eager-ledgered at all -- tracing made it SLOWER -- which inheritance
 # could not have surfaced.
-jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation  # 616s traced
 #
 # RE-MEASURED 2026-08-22 as CONTROLLED A/Bs, after the as_backend_constant
 # default-device guard (gh#1364). Whole file, serial, C extension active; the
@@ -287,9 +286,14 @@ jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation  # 616s traced
 # so they stay deferred on their own merits, not on an averaged figure.
 # jax eager (same treatment): 8 -> 5, un-deferring the three at CI~213.7 /
 # 199.1 / 176.7 s.
-jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # 573s
-jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz  # 529s
-jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # 454s
+#
+# 2026-09-09 (gh#1465): the four jax-jit test_noninertial entries are RETIRED with
+# their eager twins -- the in-backend arm helps traced mode just as much. Measured
+# `--backend jax --jit -k "arbitraryaxisrotation or linacc"`, 23 passed:
+#   test_arbitraryaxisrotation                     616 s -> 18.2 s
+#   test_arbitraryaxisrotation_omegafunc           573 s ->  5.5 s
+#   ..._accellsrframe_funcomegaz                   529 s -> 16.4 s
+#   test_arbitraryaxisrotation_omegadot            454 s ->  5.1 s
 # NOT in the eager jax list: fast eager, 354 s traced. Tracing made it slower.
 # tests/test_streamTrack.py, whole file, serial: 45 cases -> 45 PASSED,
 # total 1215 s, median 8.7 s, 2 over the 240 s margin. The eager `jax` entry is
