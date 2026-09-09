@@ -284,3 +284,54 @@ def test_dynamfric_grad_vs_finite_difference(backend, label, obj):
     numpy.testing.assert_allclose(
         ad, fd_fine, rtol=1e-5, atol=1e-9, err_msg=f"{backend} {label}"
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynamfric_inbackend_integration_matches_analytic(backend):
+    # The in-backend ODE solvers (diffrax / torchdiffeq) are the sensible arm to
+    # integrate dynamical friction with under a backend -- the pure-Python
+    # integrators step in Python and pay eager per-step dispatch. Before relying
+    # on them, validate one against the ANALYTIC result rather than against
+    # another integrator: for a mass on a circular orbit in an isothermal halo
+    # with velocity dispersion sigma and constant Lambda,
+    #
+    #     r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM / sigma * t
+    #
+    # (B&T08 p. 648) -- the same reference test_orbits.py checks the C/odeint
+    # path against, so an integrator that merely agrees with another integrator
+    # cannot satisfy it.
+    import importlib
+
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    xp = importlib.import_module("jax.numpy" if backend == "jax" else "torch")
+    method = "diffrax" if backend == "jax" else "torchdiffeq"
+
+    # Same parameters as test_orbits.py::test_ChandrasekharDynamicalFrictionForce
+    # _constLambda, so the 0.015 bar it established for this approximation's
+    # regime carries over instead of being re-invented here.
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)  # isothermal
+    GMs = 10.0**9.0 / conversion.mass_in_msol(vo, ro)
+    const_lnLambda = 7.0
+    dt = 2.0 / conversion.time_in_Gyr(vo, ro)
+    cdfc = ChandrasekharDynamicalFrictionForce(
+        GMs=GMs, const_lnLambda=const_lnLambda, dens=lp
+    )
+    r_init = 2.0
+    # in-backend solvers require a backend initial condition
+    ic = xp.asarray([r_init, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=float)
+    o = Orbit(ic)
+    ts = numpy.linspace(0.0, dt, 1001)
+    o.integrate(ts, lp + cdfc, method=method)
+    r_end = float(numpy.asarray(as_numpy(o.r(ts[-1])), dtype=float))
+    r_pred = numpy.sqrt(
+        r_init**2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
+    )
+    assert numpy.fabs(r_end - r_pred) < 0.015, (
+        f"{method}: dynamical friction with constant lnLambda does not match the "
+        f"analytic circular-orbit prediction (got {r_end}, expected {r_pred})"
+    )
