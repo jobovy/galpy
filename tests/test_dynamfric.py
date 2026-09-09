@@ -3,7 +3,31 @@ import sys
 
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, backend
+
+
+def _ic_on_backend(o):
+    """The orbit's initial condition as a native backend array.
+
+    `diffrax`/`torchdiffeq` refuse a numpy initial condition ("requires a
+    jax/torch initial condition"), because that is what selects the in-backend
+    path in the first place.
+    """
+    import importlib
+
+    xp = importlib.import_module("jax.numpy" if backend() == "jax" else "torch")
+    return xp.asarray(
+        [
+            float(o.R()),
+            float(o.vR()),
+            float(o.vT()),
+            float(o.z()),
+            float(o.vz()),
+            float(o.phi()),
+        ],
+        dtype=float,
+    )
+
 
 PY3 = sys.version > "3"
 PY_GE_314 = sys.version_info >= (3, 14)
@@ -223,7 +247,15 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
 
 # Test whether dynamical friction in C works (compare to Python, which is
 # tested below; put here because a test of many potentials)
-def test_dynamfric_c():
+# Split across parametrized chunks so no single test carries all ~42 potentials.
+# The potentials are still built INSIDE the test, which matters: conftest forces
+# the backend per-test, so building them at module or module-fixture scope would
+# construct them on numpy even under --backend jax.
+_DYNAMFRIC_CHUNKS = 10
+
+
+@pytest.mark.parametrize("chunk", range(_DYNAMFRIC_CHUNKS))
+def test_dynamfric_c(chunk):
     import copy
 
     from galpy.orbit import Orbit
@@ -233,7 +265,19 @@ def test_dynamfric_c():
     # Basic parameters for the test
     times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
     integrator = "dop853_c"
-    py_integrator = "dop853"
+    # Second arm: on numpy this is the pure-Python integrator, which is the point
+    # of the test. Under a backend that integrator steps in PYTHON and pays eager
+    # per-step dispatch on every force evaluation -- ~240 s per potential, versus
+    # 5 s for the in-backend solver, for numerics numpy already covers. So compare
+    # C against the IN-BACKEND solver there instead: that is the path a backend
+    # user actually integrates with, and it is validated against the analytic
+    # friction result in test_backend_dynamfric.py.
+    _bk = backend()
+    py_integrator = {
+        "numpy": "dop853",
+        "jax": "diffrax",
+        "torch": "torchdiffeq",
+    }.get(_bk, "dop853")
     # Define all of the potentials (by hand, because need reasonable setup)
     MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2] *= 1.5  # Increase mass by 50%
@@ -338,9 +382,11 @@ def test_dynamfric_c():
     tol["interpSphericalPotential"] = -6.0  # == HomogeneousSpherePotential
     tol["MultipoleExpansionPotential"] = -6.0
     tol["McMillan17"] = -6.0
-    for p in pots:
-        if not _check_c(p, dens=True):
-            continue  # dynamfric not in C!
+    # Filter BEFORE chunking: most of the list has no C dynamical friction and is
+    # skipped, so striding the raw list piles the real work into a few chunks
+    # (measured 275 s vs 48 s across six). Striding the usable ones balances them.
+    _usable = [p for p in pots if _check_c(p, dens=True)]  # dynamfric not in C!
+    for p in _usable[chunk::_DYNAMFRIC_CHUNKS]:
         pname = type(p).__name__
         if pname == "CompositePotential" or pname == "list":
             if (
@@ -403,8 +449,8 @@ def test_dynamfric_c():
             ttimes = times
         # Integrate in C
         o.integrate(ttimes, p + cdf, method=integrator)
-        # Integrate in Python
-        op = o()
+        # Integrate in Python (numpy) / in-backend (jax, torch)
+        op = o() if _bk == "numpy" else Orbit(_ic_on_backend(o))
         op.integrate(ttimes, p + cdf, method=py_integrator)
         # Compare r (most important)
         assert (
