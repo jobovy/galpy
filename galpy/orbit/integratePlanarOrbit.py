@@ -537,6 +537,8 @@ def _parse_pot(pot, t=None):
                 pot_args.extend(wrap_pot_args)
                 pot_tfuncs.extend(wrap_pot_tfuncs)
                 pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+                # exact-cache flag + scratch (see OblateStaeckelWrapperPotential.c)
+                pot_args.extend([0.0] + [float("nan")] * 10)
         elif (
             (
                 isinstance(p, planarPotentialFromFullPotential)

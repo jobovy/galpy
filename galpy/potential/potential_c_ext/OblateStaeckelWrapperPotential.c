@@ -48,6 +48,80 @@ static inline double ostw_spl(double x,double h,int n,double *y,double *M){
   b= (x - i*h)/h; a= 1.-b;
   return a*y[i]+b*y[i+1]+((a*a*a-a)*M[i]+(b*b*b-b)*M[i+1])*h*h/6.;
 }
+//Exact-mode cache (type -3, nargs = 16): args[5] = 0 flag, args[6..15] are
+//per-instance scratch (potentialArgs is parsed per OpenMP thread, so this is
+//thread-safe): [last_u_phi, Phi_u, last_u_F, FR_u, Fz_u,
+//               last_v_phi, Phi_v, last_v_F, FR_v, Fz_v].
+//The wrapped Phi and forces along the reference curves depend on u (or v)
+//alone, and successive Eval/Rforce/zforce calls hit the same point, so a
+//one-slot exact cache removes the dominant redundancy. Lazily filled per
+//quantity group: Phi separately from the forces, because planar-parsed
+//instances only wire the wrapped potential's planar functions (planardUdu
+//stores the planar Rforce in the FR slot; a planar-parsed instance never
+//calls the 3D primitives, so the slots never mix semantics).
+static inline double ostw_phiu(double u,double v0,double delta,
+                               struct potentialArg * potentialArgs){
+  double * c= potentialArgs->args + 6;
+  double R,z0;
+  if ( u != *c ) {
+    uv_to_Rz(u,v0,&R,&z0,delta);
+    *(c+1)= evaluatePotentials(R,z0,potentialArgs->nwrapped,
+                               potentialArgs->wrappedPotentialArg);
+    *c= u;
+  }
+  return *(c+1);
+}
+static inline void ostw_Fu(double u,double v0,double delta,
+                           struct potentialArg * potentialArgs,int planar,
+                           double * FR,double * Fz){
+  double * c= potentialArgs->args + 8;
+  double R,z0;
+  if ( u != *c ) {
+    uv_to_Rz(u,v0,&R,&z0,delta);
+    if ( planar ) {
+      *(c+1)= calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
+                               potentialArgs->wrappedPotentialArg);
+      *(c+2)= 0.;
+    }
+    else {
+      *(c+1)= calcRforce(R,z0,0.,0.,potentialArgs->nwrapped,
+                         potentialArgs->wrappedPotentialArg);
+      *(c+2)= calczforce(R,z0,0.,0.,potentialArgs->nwrapped,
+                         potentialArgs->wrappedPotentialArg);
+    }
+    *c= u;
+  }
+  *FR= *(c+1);
+  *Fz= *(c+2);
+}
+static inline double ostw_phiv(double v,double u0,double delta,
+                               struct potentialArg * potentialArgs){
+  double * c= potentialArgs->args + 11;
+  double R0,z;
+  if ( v != *c ) {
+    uv_to_Rz(u0,v,&R0,&z,delta);
+    *(c+1)= evaluatePotentials(R0,z,potentialArgs->nwrapped,
+                               potentialArgs->wrappedPotentialArg);
+    *c= v;
+  }
+  return *(c+1);
+}
+static inline void ostw_Fv(double v,double u0,double delta,
+                           struct potentialArg * potentialArgs,
+                           double * FR,double * Fz){
+  double * c= potentialArgs->args + 13;
+  double R0,z;
+  if ( v != *c ) {
+    uv_to_Rz(u0,v,&R0,&z,delta);
+    *(c+1)= calcRforce(R0,z,0.,0.,potentialArgs->nwrapped,
+                       potentialArgs->wrappedPotentialArg);
+    *(c+2)= calczforce(R0,z,0.,0.,potentialArgs->nwrapped,
+                       potentialArgs->wrappedPotentialArg);
+    *c= v;
+  }
+  *FR= *(c+1);
+  *Fz= *(c+2);
+}
 static inline double ostw_utab(double u,int k,struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   int n= (int) args[5];
@@ -61,31 +135,26 @@ static inline double ostw_vtab(double v,int k,struct potentialArg * potentialArg
   return s * ostw_spl(v,M_PI_2/(n-1),n,args+7+(6+2*k)*n,args+7+(7+2*k)*n);
 }
 double U(double u,double v0,double delta,struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,0,potentialArgs);
-  double R,z0;
-  uv_to_Rz(u,v0,&R,&z0,delta);
-  return pow(cosh(u),2) \
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg);
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_utab(u,0,potentialArgs);
+  return pow(cosh(u),2) * ostw_phiu(u,v0,delta,potentialArgs);
 }
 double dUdu(double u,double v0,double delta,
 	    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,1,potentialArgs);
-  double R,z0;
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_utab(u,1,potentialArgs);
+  double R,z0,FR,Fz;
   uv_to_Rz(u,v0,&R,&z0,delta);
+  ostw_Fu(u,v0,delta,potentialArgs,0,&FR,&Fz);
   // 1e-12 bc force should win the 0/0 battle
-  return 2 * cosh(u) * sinh(u)				\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg) \
+  return 2 * cosh(u) * sinh(u) * ostw_phiu(u,v0,delta,potentialArgs)	\
     - pow(cosh(u),2) \
-    * ( calcRforce(R,z0,0.,0.,potentialArgs->nwrapped,
-		  potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12)
-	+ calczforce(R,z0,0.,0.,potentialArgs->nwrapped,
-		   potentialArgs->wrappedPotentialArg) * z0 * tanh(u));
+    * ( FR * R / ( tanh(u) + 1e-12) + Fz * z0 * tanh(u));
 }
 double d2Udu2(double u,double v0,double delta,
 	      struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,2,potentialArgs);
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_utab(u,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Udu2 in Python
   double R,z0;
   double tRforce, tzforce;
@@ -115,20 +184,19 @@ double d2Udu2(double u,double v0,double delta,
 }
 double planardUdu(double u,double v0,double delta,
 		  struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,1,potentialArgs);
-  double R,z0;
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_utab(u,1,potentialArgs);
+  double R,z0,FR,Fz;
   uv_to_Rz(u,v0,&R,&z0,delta);
+  ostw_Fu(u,v0,delta,potentialArgs,1,&FR,&Fz);
   // 1e-12 bc force should win the 0/0 battle
-  return 2 * cosh(u) * sinh(u)				\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg) \
-    - pow(cosh(u),2) \
-    *  calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
-			potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12);
+  return 2 * cosh(u) * sinh(u) * ostw_phiu(u,v0,delta,potentialArgs)	\
+    - pow(cosh(u),2) * FR * R / ( tanh(u) + 1e-12);
 }
 double planard2Udu2(double u,double v0,double delta,
 		    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_utab(u,2,potentialArgs);
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_utab(u,2,potentialArgs);
   // planar counterpart of d2Udu2: at v0 = pi/2 the U reference curve lies in
   // the z=0 plane (z0 = delta cosh u cos(pi/2) = O(1e-16)), so every
   // z0-suppressed term (zforce, Rzderiv, z2deriv) drops and only the wrapped
@@ -152,30 +220,26 @@ double planard2Udu2(double u,double v0,double delta,
 }
 double V(double v,double u0,double delta,double refpot,
 	 struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,0,potentialArgs);
-  double R0, z;
-  uv_to_Rz(u0,v,&R0,&z,delta);
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_vtab(v,0,potentialArgs);
   return refpot - staeckel_prefactor(u0,v)	\
-    * evaluatePotentials(R0,z,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg);
+    * ostw_phiv(v,u0,delta,potentialArgs);
 }
 double dVdv(double v,double u0,double delta,double refpot,
 	    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,1,potentialArgs);
-  double R0, z;
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_vtab(v,1,potentialArgs);
+  double R0,z,FR,Fz;
   uv_to_Rz(u0,v,&R0,&z,delta);
-  return -2 * sin(v) * cos(v)				\
-    *evaluatePotentials(R0,z,potentialArgs->nwrapped,
-			potentialArgs->wrappedPotentialArg) \
+  ostw_Fv(v,u0,delta,potentialArgs,&FR,&Fz);
+  return -2 * sin(v) * cos(v) * ostw_phiv(v,u0,delta,potentialArgs)	\
     + staeckel_prefactor(u0,v)					\
-    * ( calcRforce(R0,z,0.,0.,potentialArgs->nwrapped,
-                         potentialArgs->wrappedPotentialArg) * R0 / tan(v)
-	- calczforce(R0,z,0.,0.,potentialArgs->nwrapped,
-		     potentialArgs->wrappedPotentialArg) * z * tan(v));
+    * ( FR * R0 / tan(v) - Fz * z * tan(v));
 }
 double d2Vdv2(double v,double u0,double delta,
 	      struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 ) return ostw_vtab(v,2,potentialArgs);
+  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+    return ostw_vtab(v,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Vdv2 in Python
   double R0, z;
   double tRforce, tzforce;

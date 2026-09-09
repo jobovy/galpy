@@ -881,7 +881,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
       potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
       potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
-      potentialArgs->nargs= (int) 5;
+      // 5 params + flag + 10 exact-cache scratch slots (see the .c file)
+      potentialArgs->nargs= (int) 16;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
