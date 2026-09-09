@@ -34,6 +34,44 @@ _TRAP_NODES = numpy.arange(_TRAP_N + 1) * _TRAP_H
 _TRAP_W = numpy.full(_TRAP_N + 1, _TRAP_H)
 _TRAP_W[0] = _TRAP_H / 2.0
 
+# Ascending-series tables. The two series are sums of coeff_k * t_k, where t_k is
+# a running product; keeping the per-step RATIOS lets a cumulative product
+# reproduce the recurrence while evaluating all _NSERIES terms in one vectorized
+# pass instead of one eager op per term. That mattered: the K0/K1 series were the
+# single largest cost in a jax RazorThinExponentialDiskPotential orbit -- 2218
+# calls x ~270 scalar ops each.
+_H = numpy.concatenate(([0.0], numpy.cumsum(1.0 / numpy.arange(1, _NSERIES + 1))))
+# K0: t_k = prod_{j=1..k} 1/j^2, coeff_k = H_k, for k = 1.._NSERIES-1
+_K0_RATIO_DEN = (numpy.arange(1, _NSERIES) ** 2).astype(float)
+_K0_COEFF = _H[1:_NSERIES]
+# K1: t_0 = 1 and t_k = t_{k-1} / (k(k+1)); coeff_k = (H_k + H_{k+1})/2 - gamma
+_K1_RATIO_DEN = numpy.concatenate(
+    ([1.0], (numpy.arange(1, _NSERIES) * numpy.arange(2, _NSERIES + 1)).astype(float))
+)
+_K1_COEFF = (_H[0:_NSERIES] + _H[1 : _NSERIES + 1]) / 2.0 - _GAMMA
+_K1_NUM_POW = numpy.concatenate(([0.0], numpy.ones(_NSERIES - 1)))  # x2^0 then x2^k
+
+
+_SERIES_CACHE = {}
+
+
+def _series_tables(xp, dev):
+    """Series tables as backend arrays, materialized once per (namespace, device).
+
+    Rebuilding them on every call put five host->device conversions in the hot
+    path, and under jax each fresh array is another primitive for the eager
+    compiler to compile.
+    """
+    key = (id(xp), repr(dev))
+    got = _SERIES_CACHE.get(key)
+    if got is None:
+        got = tuple(
+            asarray_on_device(xp, t, dev)
+            for t in (_K0_RATIO_DEN, _K0_COEFF, _K1_RATIO_DEN, _K1_COEFF, _K1_NUM_POW)
+        )
+        _SERIES_CACHE[key] = got
+    return got
+
 
 def _k01(xp, x):
     """Return (K0(x), K1(x)) for real x > 0, ~1e-15 vs scipy, AD-friendly."""
@@ -47,21 +85,18 @@ def _k01(xp, x):
     from .._router import i0, i1
 
     x2 = xs * xs / 4.0
-    K0s = -(xp.log(xs / 2.0) + _GAMMA) * i0(xs)
-    term = xp.ones_like(xs)
-    harm = 0.0
-    for k in range(1, _NSERIES):
-        harm += 1.0 / k
-        term = term * x2 / (k * k)
-        K0s = K0s + term * harm
-    s1 = xp.zeros_like(xs)
-    term = xp.ones_like(xs)
-    hk = 0.0
-    for k in range(0, _NSERIES):
-        hk1 = hk + 1.0 / (k + 1)
-        s1 = s1 + term * ((hk + hk1) / 2.0 - _GAMMA)
-        term = term * x2 / ((k + 1) * (k + 2))
-        hk = hk1
+    dev0 = device_of(x)
+    tabs = _series_tables(xp, dev0)
+    # Both series run as ONE cumulative product over the term axis rather than a
+    # Python loop of _NSERIES eager ops. `cumprod` of the per-step ratios is the
+    # same recurrence the loop ran; only the reduction is vectorized.
+    k0_den, k0_coeff, k1_den, k1_coeff, k1_pow = tabs
+    k0_terms = xp.cumulative_prod(x2[..., None] / k0_den, axis=-1)
+    K0s = -(xp.log(xs / 2.0) + _GAMMA) * i0(xs) + xp.sum(k0_terms * k0_coeff, axis=-1)
+
+    # first ratio is 1 (t_0 = 1), the rest are x2/(k(k+1))
+    k1_terms = xp.cumulative_prod((x2[..., None] ** k1_pow) / k1_den, axis=-1)
+    s1 = xp.sum(k1_terms * k1_coeff, axis=-1)
     K1s = 1.0 / xs + xp.log(xs / 2.0) * i1(xs) - (xs / 2.0) * s1
 
     # --- peak-resolving scaled trapezoidal (x > 2) ---
