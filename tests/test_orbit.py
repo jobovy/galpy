@@ -15,16 +15,6 @@ import astropy
 import numpy
 import pytest
 
-# These tests walk every potential in `dir(potential)` inside ONE test body, so a
-# failure reports only that the walk failed, not which potential, and the whole
-# walk is a single unit for pytest-split and for any per-test timeout. Split the
-# walk into parametrized chunks (interleaved, so each chunk mixes cheap and
-# expensive potentials): a failure now names its chunk, pytest-split gets units
-# it can balance, and a per-test timeout applies per chunk rather than to the
-# whole walk. 12 keeps each chunk to a handful of potentials; nothing in the
-# tests depends on the number.
-_POT_CHUNKS = 12
-
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
 from test_actionAngle import reset_warning_registry
