@@ -3,7 +3,7 @@ import numpy
 import pytest
 
 from galpy import potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 
 
 def _np_rw(x):
@@ -39,10 +39,12 @@ def _rot_apply(rot, x, y, z):
     multiply out in whatever namespace they already live in. Same result for
     numpy input, and it broadcasts over arrays the same way `numpy.dot` did.
     """
+    # Data operand FIRST in every product: `rot` is numpy, and
+    # `numpy.ndarray * torch.Tensor` raises where `Tensor * ndarray` works.
     return (
-        rot[0, 0] * x + rot[0, 1] * y + rot[0, 2] * z,
-        rot[1, 0] * x + rot[1, 1] * y + rot[1, 2] * z,
-        rot[2, 0] * x + rot[2, 1] * y + rot[2, 2] * z,
+        x * rot[0, 0] + y * rot[0, 1] + z * rot[0, 2],
+        x * rot[1, 0] + y * rot[1, 1] + z * rot[1, 2],
+        x * rot[2, 0] + y * rot[2, 1] + z * rot[2, 2],
     )
 
 
@@ -629,26 +631,35 @@ def test_arbitraryaxisrotation_nullpotential():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -741,26 +752,35 @@ def test_arbitraryaxisrotation():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -862,28 +882,37 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -987,28 +1016,37 @@ def test_arbitraryaxisrotation_omegadot():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -1128,30 +1166,39 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            omegadotdot=omegadotdot,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            omegadotdot=omegadotdot,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                omegadotdot=omegadotdot,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                omegadotdot=omegadotdot,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -1279,30 +1326,39 @@ def test_arbitraryaxisrotation_omegafunc():
         # One vectorized transform over the whole time grid: the frame
         # helpers broadcast, and walking 1001 points in Python costs 1001
         # accessor calls -- each its own dispatch under a backend.
-        op_xs, op_ys, op_zs = rotate_and_omega(
-            as_numpy(op.x(ts)),
-            as_numpy(op.y(ts)),
-            phi=as_numpy(op.z(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            omegadotdot=omegadotdot,
-            rect=True,
-        )
-        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
-            as_numpy(op.vR(ts)),
-            as_numpy(op.vT(ts)),
-            as_numpy(op.vz(ts)),
-            as_numpy(op.R(ts)),
-            as_numpy(op.z(ts)),
-            phi=as_numpy(op.phi(ts)),
-            t=ts,
-            rot=rot,
-            omega=omega,
-            omegadot=omegadot,
-            omegadotdot=omegadotdot,
-        )
+        _ox, _oy, _oz = as_numpy(op.x(ts)), as_numpy(op.y(ts)), as_numpy(op.z(ts))
+        # The reference transform runs on numpy: under a FORCED backend the
+        # coords.* helpers coerce even numpy inputs, and the mixed
+        # ndarray/Tensor arithmetic that follows is slower and, on torch, a
+        # DeprecationWarning per operation.
+        with use("numpy", force=True):
+            op_xs, op_ys, op_zs = rotate_and_omega(
+                _ox,
+                _oy,
+                phi=_oz,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                omegadotdot=omegadotdot,
+                rect=True,
+            )
+        _ovR, _ovT, _ovz = as_numpy(op.vR(ts)), as_numpy(op.vT(ts)), as_numpy(op.vz(ts))
+        _oR, _oz2, _ophi = as_numpy(op.R(ts)), as_numpy(op.z(ts)), as_numpy(op.phi(ts))
+        with use("numpy", force=True):
+            op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+                _ovR,
+                _ovT,
+                _ovz,
+                _oR,
+                _oz2,
+                phi=_ophi,
+                t=ts,
+                rot=rot,
+                omega=omega,
+                omegadot=omegadot,
+                omegadotdot=omegadotdot,
+            )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -2737,12 +2793,12 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi, R)
+        xp = _xp(phi)
         return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi, R)
+        xp = _xp(phi)
         return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
@@ -2764,7 +2820,7 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xp = _xp(phip, Rp)
+        xp = _xp(phip)
         xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
         yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         if not self._omegaz is None:
@@ -2845,13 +2901,13 @@ def rotate_and_omega_vec(
         vxyzp[0], vxyzp[1], vxyzp[2], xyzp[0], xyzp[1], xyzp[2]
     )
     phip = phip + omega * t
-    vTp = vTp + omega * Rp
+    vTp = vTp + Rp * omega
     if not omegadot is None:
         phip = phip + omegadot * t**2.0 / 2.0
-        vTp = vTp + omegadot * t * Rp
+        vTp = vTp + Rp * (omegadot * t)
     if not omegadotdot is None:
         phip = phip + omegadotdot * t**3.0 / 6.0
-        vTp = vTp + omegadotdot * t**2.0 / 2.0 * Rp
+        vTp = vTp + Rp * (omegadotdot * t**2.0 / 2.0)
     xp, yp, zp = coords.cyl_to_rect(Rp, phip, zp)
     vxp, vyp, vzp = coords.cyl_to_rect_vec(vRp, vTp, vzp, phi=phip)
     xyz = _rot_apply(rot.T, xp, yp, zp)
@@ -2924,12 +2980,12 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi, R)
+        xp = _xp(phi)
         return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi, R)
+        xp = _xp(phi)
         return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
@@ -2950,7 +3006,7 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xp = _xp(phip, Rp)
+        xp = _xp(phip)
         xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
         yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         # Now figure out the inverse rotation matrix to rotate the forces
