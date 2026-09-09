@@ -1,5 +1,11 @@
 #include <math.h>
 #include <galpy_potentials.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_PI_2
+#define M_PI_2 1.57079632679489661923
+#endif
 //OblateStaeckelWrapperPotential: amp, delta, u0, v0, refpot
 void Rz_to_uv(double R,double z,double * u, double * v,double delta){
   double d12, d22, coshu, cosv;
