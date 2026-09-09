@@ -17,6 +17,37 @@ def _np_rw(x):
     return numpy.array(as_numpy(x), copy=True)
 
 
+def _xp(*args):
+    """The namespace the reference frame arithmetic below should run in.
+
+    Data-first on purpose (galpy's own resolver follows the FORCED backend): these
+    helpers run both INSIDE an integration -- where the coordinates are backend
+    arrays, and under an in-backend solver traced ones, so `numpy.array([x, y, z])`
+    raises -- and in the readback assertions, where everything has already been
+    `as_numpy`'d and must stay on numpy.
+    """
+    from galpy.backend import get_namespace, is_backend_array
+
+    return get_namespace(*args) if any(is_backend_array(a) for a in args) else numpy
+
+
+def _rot_apply(rot, x, y, z):
+    """``rot @ [x, y, z]``, component-wise.
+
+    `numpy.array([x, y, z])` would pull backend values back to numpy on every
+    force evaluation (and raises outright on a traced one); the components
+    multiply out in whatever namespace they already live in. Same result for
+    numpy input, and it broadcasts over arrays the same way `numpy.dot` did.
+    """
+    return (
+        rot[0, 0] * x + rot[0, 1] * y + rot[0, 2] * z,
+        rot[1, 0] * x + rot[1, 1] * y + rot[1, 2] * z,
+        rot[2, 0] * x + rot[2, 1] * y + rot[2, 2] * z,
+    )
+
+
+from conftest import _ic_on_backend, _inbackend_method
+
 from galpy.orbit import Orbit
 from galpy.util import coords
 
@@ -548,6 +579,14 @@ def test_arbitraryaxisrotation_nullpotential():
         # and then as seen by the rotating observer
         o = Orbit([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, np, method=method)
@@ -568,6 +607,8 @@ def test_arbitraryaxisrotation_nullpotential():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(
             ts,
             RotatingPotentialWrapperPotential(pot=np, rot=rot, omega=omega)
@@ -585,35 +626,29 @@ def test_arbitraryaxisrotation_nullpotential():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -656,6 +691,14 @@ def test_arbitraryaxisrotation():
         # and then as seen by the rotating observer
         o = Orbit()
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
@@ -676,6 +719,8 @@ def test_arbitraryaxisrotation():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(
             ts,
             RotatingPotentialWrapperPotential(pot=diskpot, rot=rot, omega=omega)
@@ -693,35 +738,29 @@ def test_arbitraryaxisrotation():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -766,6 +805,14 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
         # and then as seen by the rotating observer
         o = Orbit([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, np, method=method)
@@ -786,6 +833,8 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         # Omegadot is just a scaled version of Omega
         op.integrate(
             ts,
@@ -810,37 +859,31 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -887,6 +930,14 @@ def test_arbitraryaxisrotation_omegadot():
         # and then as seen by the rotating observer
         o = Orbit()
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
@@ -907,6 +958,8 @@ def test_arbitraryaxisrotation_omegadot():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         # Omegadot is just a scaled version of Omega
         op.integrate(
             ts,
@@ -931,37 +984,31 @@ def test_arbitraryaxisrotation_omegadot():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -1007,6 +1054,14 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
         # and then as seen by the rotating observer
         o = Orbit([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, np, method=method)
@@ -1027,6 +1082,8 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         # Omegadot is just a scaled version of Omega
         Omega = numpy.array(derive_noninert_omega(omega, rot=rot))
         Omegadot = numpy.array(derive_noninert_omega(omega, rot=rot)) * omegadot / omega
@@ -1068,39 +1125,33 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                omegadotdot=omegadotdot,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                omegadotdot=omegadotdot,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            omegadotdot=omegadotdot,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            omegadotdot=omegadotdot,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -1150,6 +1201,14 @@ def test_arbitraryaxisrotation_omegafunc():
         # and then as seen by the rotating observer
         o = Orbit()
         o.turn_physical_off()
+        # Under jax BOTH arms below step in Python -- the reference wrapper
+        # has no C implementation, so even dop853_c falls back to it -- and
+        # every force evaluation is then an eager dispatch (400-600 s per
+        # test against the 300 s cap). The in-backend solver evaluates the
+        # same force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
@@ -1170,6 +1229,8 @@ def test_arbitraryaxisrotation_omegafunc():
             omega=-omega,
         )
         op = Orbit([Rp, vRp, vTp, zp, vzp, phip])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         # Omegadot is just a scaled version of Omega
         Omega = numpy.array(derive_noninert_omega(omega, rot=rot))
         Omegadot = numpy.array(derive_noninert_omega(omega, rot=rot)) * omegadot / omega
@@ -1215,39 +1276,33 @@ def test_arbitraryaxisrotation_omegafunc():
         o_vTs = as_numpy(o.vT(ts))
         o_vzs = as_numpy(o.vz(ts))
         # and that computed in the non-inertial frame converted back to inertial
-        op_xs, op_ys, op_zs = [], [], []
-        op_vRs, op_vTs, op_vzs = [], [], []
-        for ii, t in enumerate(ts):
-            xyz = rotate_and_omega(
-                as_numpy(op.x(t)),
-                as_numpy(op.y(t)),
-                phi=as_numpy(op.z(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                omegadotdot=omegadotdot,
-                rect=True,
-            )
-            op_xs.append(xyz[0])
-            op_ys.append(xyz[1])
-            op_zs.append(xyz[2])
-            vRTz = rotate_and_omega_vec(
-                as_numpy(op.vR(t)),
-                as_numpy(op.vT(t)),
-                as_numpy(op.vz(t)),
-                as_numpy(op.R(t)),
-                as_numpy(op.z(t)),
-                phi=as_numpy(op.phi(t)),
-                t=t,
-                rot=rot,
-                omega=omega,
-                omegadot=omegadot,
-                omegadotdot=omegadotdot,
-            )
-            op_vRs.append(vRTz[0])
-            op_vTs.append(vRTz[1])
-            op_vzs.append(vRTz[2])
+        # One vectorized transform over the whole time grid: the frame
+        # helpers broadcast, and walking 1001 points in Python costs 1001
+        # accessor calls -- each its own dispatch under a backend.
+        op_xs, op_ys, op_zs = rotate_and_omega(
+            as_numpy(op.x(ts)),
+            as_numpy(op.y(ts)),
+            phi=as_numpy(op.z(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            omegadotdot=omegadotdot,
+            rect=True,
+        )
+        op_vRs, op_vTs, op_vzs = rotate_and_omega_vec(
+            as_numpy(op.vR(ts)),
+            as_numpy(op.vT(ts)),
+            as_numpy(op.vz(ts)),
+            as_numpy(op.R(ts)),
+            as_numpy(op.z(ts)),
+            phi=as_numpy(op.phi(ts)),
+            t=ts,
+            rot=rot,
+            omega=omega,
+            omegadot=omegadot,
+            omegadotdot=omegadotdot,
+        )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
         )
@@ -1297,6 +1352,10 @@ def test_linacc_constantacc_z():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # NOT routed through _inbackend_method like its siblings: the x0
+        # callable above deliberately calls scipy.special.erf (to defeat
+        # numba), which cannot be traced, so this one keeps the Python
+        # integrator under a backend too.
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
@@ -1347,11 +1406,19 @@ def test_linacc_constantacc_x_2d():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit().toPlanar()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
-        op = o()
+        op = o() if method != "diffrax" else Orbit(_ic_on_backend(o))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1393,11 +1460,19 @@ def test_linacc_constantacc_xyz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
-        op = o()
+        op = o() if method != "diffrax" else Orbit(_ic_on_backend(o))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1445,11 +1520,19 @@ def test_linacc_changingacc_z():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
-        op = o()
+        op = o() if method != "diffrax" else Orbit(_ic_on_backend(o))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1500,11 +1583,19 @@ def test_linacc_changingacc_xyz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
-        op = o()
+        op = o() if method != "diffrax" else Orbit(_ic_on_backend(o))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1568,11 +1659,21 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1676,11 +1777,21 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch. The in-backend solver
+        # evaluates the same force inside jax's own loop; numpy keeps all
+        # three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1786,11 +1897,21 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch (340-400 s per test
+        # against the 300 s cap). The in-backend solver evaluates the same
+        # force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -1900,11 +2021,21 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
     def check_orbit(method="odeint", tol=1e-9):
         o = Orbit()
         o.turn_physical_off()
+        # Under jax the non-inertial arm steps in Python whatever `method`
+        # says -- the reference wrapper has no C implementation -- and every
+        # force evaluation is then an eager dispatch (340-400 s per test
+        # against the 300 s cap). The in-backend solver evaluates the same
+        # force inside jax's own loop; numpy keeps all three integrators.
+        method = _inbackend_method(method)
+        if method == "diffrax":
+            o = Orbit(_ic_on_backend(o))
         # Inertial frame
         ts = numpy.linspace(0.0, 20.0, 1001)
         o.integrate(ts, diskpot, method=method)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        if method == "diffrax":
+            op = Orbit(_ic_on_backend(op))
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = as_numpy(o.x(ts))
@@ -2606,11 +2737,13 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1]
+        xp = _xp(phi, R)
+        return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return R * (-numpy.sin(phi) * Fxyz[0] + numpy.cos(phi) * Fxyz[1])
+        xp = _xp(phi, R)
+        return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         return self._force_xyz(R, z, phi=phi, t=t)[2]
@@ -2631,26 +2764,26 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xforcep = numpy.cos(phip) * Rforcep - numpy.sin(phip) * phitorquep / Rp
-        yforcep = numpy.sin(phip) * Rforcep + numpy.cos(phip) * phitorquep / Rp
+        xp = _xp(phip, Rp)
+        xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
+        yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         if not self._omegaz is None:
             rotphi = self._omegaz * t
             if not self._omegazdot is None:
-                rotphi += self._omegazdot * t**2.0 / 2.0
+                rotphi = rotphi + self._omegazdot * t**2.0 / 2.0
             if not self._omegazdotdot is None:
-                rotphi += self._omegazdotdot * t**3.0 / 6.0
-            return numpy.dot(
-                numpy.array(
-                    [
-                        [numpy.cos(rotphi), numpy.sin(rotphi), 0.0],
-                        [-numpy.sin(rotphi), numpy.cos(rotphi), 0.0],
-                        [0.0, 0.0, 1.0],
-                    ]
-                ),
-                numpy.array([xforcep, yforcep, zforcep]),
+                rotphi = rotphi + self._omegazdotdot * t**3.0 / 6.0
+            # component-wise (see _rot_apply): rotphi follows t, which an
+            # in-backend solver hands over traced
+            xpr = _xp(rotphi)
+            cosr, sinr = xpr.cos(rotphi), xpr.sin(rotphi)
+            return (
+                cosr * xforcep + sinr * yforcep,
+                -sinr * xforcep + cosr * yforcep,
+                zforcep,
             )
         else:
-            return numpy.array([xforcep, yforcep, zforcep])
+            return (xforcep, yforcep, zforcep)
 
 
 # Functions and wrappers for rotation around an arbitrary axis
@@ -2673,15 +2806,15 @@ def rotate_and_omega(
         x, y, z = R, z, phi
     else:
         x, y, z = coords.cyl_to_rect(R, phi, z)
-    xyzp = numpy.dot(rot, numpy.array([x, y, z]))
+    xyzp = _rot_apply(rot, x, y, z)
     Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
-    phip += omega * t
+    phip = phip + omega * t
     if not omegadot is None:
-        phip += omegadot * t**2.0 / 2.0
+        phip = phip + omegadot * t**2.0 / 2.0
     if not omegadotdot is None:
-        phip += omegadotdot * t**3.0 / 6.0
+        phip = phip + omegadotdot * t**3.0 / 6.0
     xp, yp, zp = coords.cyl_to_rect(Rp, phip, zp)
-    xyz = numpy.dot(rot.T, numpy.array([xp, yp, zp]))
+    xyz = _rot_apply(rot.T, xp, yp, zp)
     if rect:
         R, phi, z = xyz[0], xyz[1], xyz[2]
     else:
@@ -2705,24 +2838,24 @@ def rotate_and_omega_vec(
     # From the rotating frame to the inertial frame, for vectors
     x, y, z = coords.cyl_to_rect(R, phi, z)
     vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi=phi)
-    xyzp = numpy.dot(rot, numpy.array([x, y, z]))
+    xyzp = _rot_apply(rot, x, y, z)
     Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
-    vxyzp = numpy.dot(rot, numpy.array([vx, vy, vz]))
+    vxyzp = _rot_apply(rot, vx, vy, vz)
     vRp, vTp, vzp = coords.rect_to_cyl_vec(
         vxyzp[0], vxyzp[1], vxyzp[2], xyzp[0], xyzp[1], xyzp[2]
     )
-    phip += omega * t
-    vTp += omega * Rp
+    phip = phip + omega * t
+    vTp = vTp + omega * Rp
     if not omegadot is None:
-        phip += omegadot * t**2.0 / 2.0
-        vTp += omegadot * t * Rp
+        phip = phip + omegadot * t**2.0 / 2.0
+        vTp = vTp + omegadot * t * Rp
     if not omegadotdot is None:
-        phip += omegadotdot * t**3.0 / 6.0
-        vTp += omegadotdot * t**2.0 / 2.0 * Rp
+        phip = phip + omegadotdot * t**3.0 / 6.0
+        vTp = vTp + omegadotdot * t**2.0 / 2.0 * Rp
     xp, yp, zp = coords.cyl_to_rect(Rp, phip, zp)
     vxp, vyp, vzp = coords.cyl_to_rect_vec(vRp, vTp, vzp, phi=phip)
-    xyz = numpy.dot(rot.T, numpy.array([xp, yp, zp]))
-    vxyz = numpy.dot(rot.T, numpy.array([vxp, vyp, vzp]))
+    xyz = _rot_apply(rot.T, xp, yp, zp)
+    vxyz = _rot_apply(rot.T, vxp, vyp, vzp)
     vR, vT, vz = coords.rect_to_cyl_vec(
         vxyz[0], vxyz[1], vxyz[2], xyz[0], xyz[1], xyz[2]
     )
@@ -2791,11 +2924,13 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1]
+        xp = _xp(phi, R)
+        return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return R * (-numpy.sin(phi) * Fxyz[0] + numpy.cos(phi) * Fxyz[1])
+        xp = _xp(phi, R)
+        return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         return self._force_xyz(R, z, phi=phi, t=t)[2]
@@ -2815,55 +2950,58 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xforcep = numpy.cos(phip) * Rforcep - numpy.sin(phip) * phitorquep / Rp
-        yforcep = numpy.sin(phip) * Rforcep + numpy.cos(phip) * phitorquep / Rp
+        xp = _xp(phip, Rp)
+        xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
+        yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         # Now figure out the inverse rotation matrix to rotate the forces
         # The way this is written, we effectively compute the transpose of the
-        # rotation matrix, which is its inverse
-        inv_rot = numpy.array(
-            [
-                list(
-                    rotate_and_omega(
-                        1.0,
-                        0.0,
-                        phi=0.0,
-                        t=t,
-                        rot=self._rot,
-                        omega=self._omega,
-                        omegadot=self._omegadot,
-                        omegadotdot=self._omegadotdot,
-                        rect=True,
-                    )
-                ),
-                list(
-                    rotate_and_omega(
-                        0.0,
-                        1.0,
-                        phi=0.0,
-                        t=t,
-                        rot=self._rot,
-                        omega=self._omega,
-                        omegadot=self._omegadot,
-                        omegadotdot=self._omegadotdot,
-                        rect=True,
-                    )
-                ),
-                list(
-                    rotate_and_omega(
-                        0.0,
-                        0.0,
-                        phi=1.0,
-                        t=t,
-                        rot=self._rot,
-                        omega=self._omega,
-                        omegadot=self._omegadot,
-                        omegadotdot=self._omegadotdot,
-                        rect=True,
-                    )
-                ),
-            ]
+        # rotation matrix, which is its inverse. Its rows depend on t, which is a
+        # traced value under an in-backend solver, so keep them as tuples rather
+        # than stacking them into an array.
+        inv_rot = (
+            tuple(
+                rotate_and_omega(
+                    1.0,
+                    0.0,
+                    phi=0.0,
+                    t=t,
+                    rot=self._rot,
+                    omega=self._omega,
+                    omegadot=self._omegadot,
+                    omegadotdot=self._omegadotdot,
+                    rect=True,
+                )
+            ),
+            tuple(
+                rotate_and_omega(
+                    0.0,
+                    1.0,
+                    phi=0.0,
+                    t=t,
+                    rot=self._rot,
+                    omega=self._omega,
+                    omegadot=self._omegadot,
+                    omegadotdot=self._omegadotdot,
+                    rect=True,
+                )
+            ),
+            tuple(
+                rotate_and_omega(
+                    0.0,
+                    0.0,
+                    phi=1.0,
+                    t=t,
+                    rot=self._rot,
+                    omega=self._omega,
+                    omegadot=self._omegadot,
+                    omegadotdot=self._omegadotdot,
+                    rect=True,
+                )
+            ),
         )
-        return numpy.dot(inv_rot, numpy.array([xforcep, yforcep, zforcep]))
+        return tuple(
+            row[0] * xforcep + row[1] * yforcep + row[2] * zforcep for row in inv_rot
+        )
 
 
 # ----------------------------------------------------------------------------
