@@ -6,54 +6,10 @@ import pytest
 PY3 = sys.version > "3"
 PY_GE_314 = sys.version_info >= (3, 14)
 import numpy
+from conftest import _ic_on_backend, _inbackend_method
 
 from galpy import potential
-from galpy.backend import as_numpy, backend
-
-
-def _py_arm_method():
-    """Integrator for the NON-C arm.
-
-    The point of that arm is to exercise the Python-level force implementation
-    rather than the C one. Under a backend the pure-Python integrator also steps
-    in Python and pays eager per-step dispatch on every force evaluation, which
-    is what makes these tests time out; the in-backend solver evaluates the same
-    Python/backend force but runs the ODE inside jax/torch. So it preserves what
-    the arm is for and drops the per-step cost. Validated against the analytic
-    friction result in test_backend_dynamfric.py.
-
-    torch is deliberately NOT switched here. `torchdiffeq` measured SLOWER than
-    torch's own eager dop853 on these two tests -- the ledgered torch runtime is
-    619 s and the torchdiffeq run had not finished after 58 minutes -- so the swap
-    would make things worse. (It does pay off for torch in test_dynamfric.py,
-    whose loop is chunked; unchunked here, the per-call cost dominates.) jax's
-    diffrax is 25 s against a >1500 s timeout, so the swap is jax-only.
-    """
-    return {"jax": "diffrax"}.get(backend(), "dop853")
-
-
-def _ic_on_backend(o):
-    """The orbit's initial condition as a native backend array.
-
-    diffrax/torchdiffeq refuse a numpy initial condition -- that is what selects
-    the in-backend path.
-    """
-    import importlib
-
-    xp = importlib.import_module("jax.numpy" if backend() == "jax" else "torch")
-    return xp.asarray(
-        [
-            float(o.R()),
-            float(o.vR()),
-            float(o.vT()),
-            float(o.z()),
-            float(o.vz()),
-            float(o.phi()),
-        ],
-        dtype=float,
-    )
-
-
+from galpy.backend import as_numpy
 from galpy.util import galpyWarning
 
 
@@ -98,7 +54,7 @@ def test_FDMDynamicalFrictionForce_central_limit():
     # Also run this test using the Python implementation, but for less time
     t = numpy.linspace(0.0, 2 * tau_pred / 5, 1001)
     r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
-    _m = _py_arm_method()
+    _m = _inbackend_method("dop853")
     o = o if _m == "dop853" else Orbit(_ic_on_backend(o))
     o.integrate(t, Loghalo + fdf, method=_m)
 
@@ -154,7 +110,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor():
     fdf = FDMDynamicalFrictionForce(
         GMs=GMs, dens=Loghalo, m=m, const_FDMfactor=const_FDMfactor
     )
-    _m = _py_arm_method()
+    _m = _inbackend_method("dop853")
     o = o if _m == "dop853" else Orbit(_ic_on_backend(o))
     o.integrate(t, Loghalo + fdf, method=_m)
 
@@ -386,7 +342,7 @@ def test_dynamfric_c():
     # Basic parameters for the test
     times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
     integrator = "dop853_c"
-    py_integrator = _py_arm_method()
+    py_integrator = _inbackend_method("dop853")
     # Define all of the potentials (by hand, because need reasonable setup)
     MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2] *= 1.5  # Increase mass by 50%
