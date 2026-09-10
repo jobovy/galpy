@@ -29,11 +29,14 @@ name: All-backend tests
 
 on:
   push:
+    # Integration branches ONLY. A backend/** working branch gets this suite
+    # through its pull_request below; listing it here as well ran the whole
+    # 45-job matrix TWICE for every push to an open stack PR (once as a push
+    # event, once as a pull_request event, both attaching their checks to that
+    # PR). Same reasoning, and the same fix, as build.yml's push filter.
     branches:
       - feat/backends
       - feat/backends-develop
-      # backend working branches / stacks (see the pull_request note)
-      - backend/**
   pull_request:
     # Only sub-PRs that TARGET an integration branch, so they get the full
     # per-file backend table before merge -- NOT every PR in the repo.
@@ -107,8 +110,7 @@ jobs:
       || github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push'
           && (github.ref == 'refs/heads/feat/backends'
-              || github.ref == 'refs/heads/feat/backends-develop'
-              || startsWith(github.ref, 'refs/heads/backend/')))
+              || github.ref == 'refs/heads/feat/backends-develop'))
       || (github.event_name == 'pull_request'
           && (github.base_ref == 'feat/backends'
               || github.base_ref == 'feat/backends-develop'
