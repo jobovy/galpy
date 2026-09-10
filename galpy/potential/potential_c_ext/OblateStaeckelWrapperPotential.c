@@ -6,10 +6,16 @@
 #ifndef M_PI_2
 #define M_PI_2 1.57079632679489661923
 #endif
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 //Cache-safety contract: every C caller must give each OpenMP thread its own
 //parsed potentialArg copy (the orbit integrators always did; actionAngle_c
 //does since the parse-per-thread change this stacks on), so the exact-mode
-//cache below can live in plain per-instance scratch with no thread indexing.
+//cache below lives in plain per-instance scratch with no thread indexing.
+static inline double * ostw_scratch(struct potentialArg * potentialArgs){
+  return potentialArgs->args + 5;
+}
 static inline double ostw_sq(double x){return x*x;}
 static inline double ostw_cb(double x){return x*x*x;}
 void Rz_to_uv(double R,double z,double * u, double * v,double delta){
@@ -39,22 +45,8 @@ void dstaeckel_prefactord2ud2v(double u,double v,
   *d2prefacdu2= 2 * cosh(2 * u);
   *d2prefacdv2= 2 * cos(2 * v);
 }
-//Tabulated mode (nargs > 5): args= [amp,delta,u0,v0,refpot,ntab,umax,
-//  then six (values, natural-cubic 2nd derivs) table pairs of ntab each:
-//  U, dU/du, d2U/du2 on uniform u in [0,umax]; V, dV/dv, d2V/dv2 on
-//  uniform v in [0,pi/2]]
-//parsed as plain type 47 (no wrapped potential in C); exact mode (type -3,
-//nargs=5) keeps the wrapped-potential path below.
-static inline double ostw_spl(double x,double h,int n,double *y,double *M){
-  int i; double a,b;
-  if ( x <= 0. ) x= 0.;
-  if ( x >= (n-1)*h ) x= (n-1)*h;
-  i= (int) (x/h); if (i > n-2) i= n-2;
-  b= (x - i*h)/h; a= 1.-b;
-  return a*y[i]+b*y[i+1]+((a*a*a-a)*M[i]+(b*b*b-b)*M[i+1])*h*h/6.;
-}
-//Exact-mode cache (type -3, nargs = 20): args[5] = 0 flag, args[6..19] are
-//per-instance scratch (each thread owns its parsed copy, see contract above):
+//Exact-mode cache (type -3, nargs = 19): args[5..18] are per-instance
+//scratch (each thread owns its parsed copy, see the contract above):
 //              [last_u_phi, Phi_u, last_u_F, FR_u, Fz_u,
 //               last_v_phi, Phi_v, last_v_F, FR_v, Fz_v,
 //               last_R, last_z, FR_out, Fz_out] (the last four: a
@@ -129,26 +121,34 @@ static inline void ostw_Fv(double v,double u0,double delta,
   *FR= *(c+1);
   *Fz= *(c+2);
 }
+//Tabulated mode (plain type 47, no wrapped potential in C): six natural
+//cubic splines in potentialArgs->spline1d / acc1d, house GSL style --
+//0..2 = U, dU/du, d2U/du2 on u in [0, umax]; 3..5 = V, dV/dv, d2V/dv2 on
+//v in [0, pi/2] (z-symmetry folding below). Mode discriminator everywhere:
+//spline1d != NULL (cf. the spline-branching convention of other potentials).
 static inline double ostw_utab(double u,int k,struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  int n= (int) args[5];
-  return ostw_spl(u,args[6]/(n-1),n,args+7+2*k*n,args+7+(2*k+1)*n);
+  gsl_spline * spl= *(potentialArgs->spline1d+k);
+  double umax= spl->x[spl->size-1];
+  if ( u < 0. ) u= 0.;
+  if ( u > umax ) u= umax;  // beyond-table = clamped (Rmax_tab is generous)
+  return gsl_spline_eval(spl,u,*(potentialArgs->acc1d+k));
 }
 static inline double ostw_vtab(double v,int k,struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  int n= (int) args[5];
   double s= 1.;
   if ( v > M_PI_2 ) { v= M_PI - v; if ( k == 1 ) s= -1.; }
-  return s * ostw_spl(v,M_PI_2/(n-1),n,args+7+(6+2*k)*n,args+7+(7+2*k)*n);
+  if ( v < 0. ) v= 0.;
+  if ( v > M_PI_2 ) v= M_PI_2;
+  return s * gsl_spline_eval(*(potentialArgs->spline1d+3+k),v,
+                             *(potentialArgs->acc1d+3+k));
 }
 double U(double u,double v0,double delta,struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_utab(u,0,potentialArgs);
   return ostw_sq(cosh(u)) * ostw_phiu(u,v0,delta,potentialArgs);
 }
 double dUdu(double u,double v0,double delta,
 	    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_utab(u,1,potentialArgs);
   double R,z0,FR,Fz;
   uv_to_Rz(u,v0,&R,&z0,delta);
@@ -160,7 +160,7 @@ double dUdu(double u,double v0,double delta,
 }
 double d2Udu2(double u,double v0,double delta,
 	      struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_utab(u,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Udu2 in Python
   double R,z0;
@@ -191,7 +191,7 @@ double d2Udu2(double u,double v0,double delta,
 }
 double planardUdu(double u,double v0,double delta,
 		  struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_utab(u,1,potentialArgs);
   double R,z0,FR,Fz;
   uv_to_Rz(u,v0,&R,&z0,delta);
@@ -202,7 +202,7 @@ double planardUdu(double u,double v0,double delta,
 }
 double planard2Udu2(double u,double v0,double delta,
 		    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_utab(u,2,potentialArgs);
   // planar counterpart of d2Udu2: at v0 = pi/2 the U reference curve lies in
   // the z=0 plane (z0 = delta cosh u cos(pi/2) = O(1e-16)), so every
@@ -227,14 +227,14 @@ double planard2Udu2(double u,double v0,double delta,
 }
 double V(double v,double u0,double delta,double refpot,
 	 struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_vtab(v,0,potentialArgs);
   return refpot - staeckel_prefactor(u0,v)	\
     * ostw_phiv(v,u0,delta,potentialArgs);
 }
 double dVdv(double v,double u0,double delta,double refpot,
 	    struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_vtab(v,1,potentialArgs);
   double R0,z,FR,Fz;
   uv_to_Rz(u0,v,&R0,&z,delta);
@@ -245,7 +245,7 @@ double dVdv(double v,double u0,double delta,double refpot,
 }
 double d2Vdv2(double v,double u0,double delta,
 	      struct potentialArg * potentialArgs){
-  if ( potentialArgs->nargs > 5 && potentialArgs->args[5] > 0 )
+  if ( potentialArgs->spline1d )
     return ostw_vtab(v,2,potentialArgs);
   // mirrors OblateStaeckelWrapperPotential._d2Vdv2 in Python
   double R0, z;
@@ -287,9 +287,9 @@ static void ostw_forces(double R,double z,
                         struct potentialArg * potentialArgs,
                         double * FRout,double * Fzout){
   double * args= potentialArgs->args;
-  // the point cache lives in exact-mode scratch only: in tabulated mode
-  // (args[5] = ntab > 0) args+16 is table data and must not be written
-  int exact= ( (int) *(args+5) ) == 0;
+  // the point cache lives in exact-mode scratch only (tabulated instances
+  // carry no scratch and are cheap without it)
+  int exact= potentialArgs->spline1d == NULL;
   double * c= ostw_scratch(potentialArgs) + 10;
   if ( exact && R == *c && z == *(c+1) ) { *FRout= *(c+2); *Fzout= *(c+3); return; }
   double amp= *args, delta= *(args+1), u0= *(args+2), v0= *(args+3),

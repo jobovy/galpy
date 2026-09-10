@@ -594,6 +594,22 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->requiresVelocity= false;
       break;
     case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
+      // Six natural cubic splines (house GSL style): stream is
+      // [ntab, ugrid, Uy, dUy, d2Uy, vgrid, Vy, dVy, d2Vy] then the 5 scalars
+      potentialArgs->nspline1d= 6;
+      potentialArgs->spline1d= (gsl_spline **) \
+        malloc ( potentialArgs->nspline1d * sizeof ( gsl_spline * ) );
+      potentialArgs->acc1d= (gsl_interp_accel **) \
+        malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+      nr= (int) **pot_args;
+      for (ii=0; ii < 6; ii++) {
+        *(potentialArgs->acc1d+ii)= gsl_interp_accel_alloc();
+        *(potentialArgs->spline1d+ii)= gsl_spline_alloc(gsl_interp_cspline,nr);
+        gsl_spline_init(*(potentialArgs->spline1d+ii),
+                        *pot_args+1+ ( ii < 3 ? 0 : 4 * nr ),
+                        *pot_args+1+ ( ii < 3 ? (1+ii) : (2+ii) ) * nr,nr);
+      }
+      *pot_args+= 8 * nr + 1;
       potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
@@ -602,7 +618,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
-      potentialArgs->nargs= (int) (7 + 12 * (int) *(*pot_args+5));
+      potentialArgs->nargs= (int) 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -637,8 +653,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
-      // 5 params + flag + 14 exact-cache scratch slots (see the .c file)
-      potentialArgs->nargs= (int) 20;
+      // 5 params + 14 exact-cache scratch slots (see the .c file)
+      potentialArgs->nargs= (int) 19;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

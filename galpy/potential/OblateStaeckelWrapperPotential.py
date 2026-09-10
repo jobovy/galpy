@@ -9,12 +9,6 @@
 ###############################################################################
 import numpy
 
-# CubicSpline rather than InterpolatedUnivariateSpline: the C evaluator uses
-# the classic (values, knot second derivatives) natural-spline form, and
-# CubicSpline(bc_type="natural") both guarantees those boundary conditions
-# and returns exact knot second derivatives via its derivative evaluation
-from scipy.interpolate import CubicSpline
-
 from galpy.util import conversion, coords
 
 from .Potential import (
@@ -120,19 +114,15 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # in dVdv's R0/tan v, whose limit is finite)
             veval = numpy.copy(vgrid)
             veval[0] = 1e-9
-            tab = [float(self._ntab), umax]
-            for func, grid, ev in (
-                (self._U, ugrid, ugrid),
-                (self._dUdu, ugrid, ugrid),
-                (self._d2Udu2, ugrid, ugrid),
-                (self._V, vgrid, veval),
-                (self._dVdv, vgrid, veval),
-                (self._d2Vdv2, vgrid, veval),
-            ):
-                y = numpy.array([float(func(x)) for x in ev])
-                spl = CubicSpline(grid, y, bc_type="natural")
-                tab.extend(y)
-                tab.extend(spl(grid, 2))
+            # raw (grid, values) tables; the C side builds natural cubic
+            # splines from these with the house GSL 1D machinery at parse time
+            tab = [float(self._ntab)]
+            tab.extend(ugrid)
+            for func in (self._U, self._dUdu, self._d2Udu2):
+                tab.extend([float(func(x)) for x in ugrid])
+            tab.extend(vgrid)
+            for func in (self._V, self._dVdv, self._d2Vdv2):
+                tab.extend([float(func(x)) for x in veval])
             self._tabargs = tab
         self.hasC = True
         # Advertise the (planar and 3D) C variational capabilities
