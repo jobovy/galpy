@@ -220,6 +220,16 @@ jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
 #
+# 2026-09-10 (gh#1475): test_streamTrack_plot_spread_non_cartesian is RETIRED in
+# BOTH modes too -- 439.2 -> 45.5 s eager, 406.7 -> 46.3 s traced. Its cost was
+# never the stream pipeline: plot(spread=) on a sky axis assembled ONE 6x6
+# Jacobian per track point in a Python comprehension, because galsky_to_sky_jac
+# and sky_to_customsky_jac were scalar-only (galpy/df/streamTrack.py said so and
+# called making them broadcast a follow-up). They broadcast now, so the whole
+# chain is one batched call. numpy deliberately keeps the per-point assembly:
+# vectorizing it moves the last bits (up to 32 ulps) and numpy has nothing to
+# gain. streamTrack has NO entries left in this file.
+#
 # 2026-09-09 (gh#1473): test_streamTrack_with_progpot is RETIRED in BOTH modes --
 # 323.7 s -> under 18 s eager, 326.8 s -> 35.7 s traced. Not a stream fix: the C bridge exploded a MovingObjectPotential's
 # 10001-point trajectory into one Python object per entry, and under a forced
@@ -235,7 +245,6 @@ jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_
 # call, NonInertialFrameForce 7 -> 1.07x-1.64x on its tests, streamTrack ~0 per
 # evaluation (its stream-module calls are in TRACK SETUP, run a handful of times)
 # -> nothing. Do not re-run this sweep expecting a win from that guard.
-jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439.2s re-measured 2026-09-09 with the pot_args fix (was 427.2s; 1.03x -- unaffected)
 # jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
 # which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
 # jax's thread-local trace state as None, and then EVERY later test in the shard
@@ -315,7 +324,6 @@ jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439
 # 498->452 and 348->314 s -- ~10% inflation, not the 6x that test_noninertial
 # saw, because this run had one competitor rather than four. Either way both
 # clear 240 s, so the split is unchanged.
-jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
 
 # --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
 # gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
