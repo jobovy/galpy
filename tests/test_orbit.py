@@ -1934,6 +1934,20 @@ def test_oblatestaeckelwrapper_ntab_c():
     assert numpy.amax(numpy.fabs(opE.R(ts) - optb.R(ts))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper planar C orbit deviates from the exact one"
     )
+    # planar variational equations exercise the tabulated planar-Hessian
+    # branch (planard2Udu2's table path)
+    opdE = Orbit([0.9, 0.55, 0.45, 0.0])
+    opdT = Orbit([0.9, 0.55, 0.45, 0.0])
+    tspd = numpy.linspace(0.0, 3.0, 101)
+    dxdvp = [1e-6, 0.0, 0.0, 0.0]
+    opdE.integrate_dxdv(dxdvp, tspd, swpE.toPlanar(), method="dop853_c")
+    opdT.integrate_dxdv(dxdvp, tspd, swpT.toPlanar(), method="dop853_c")
+    assert numpy.amax(
+        numpy.fabs(opdE.getOrbit_dxdv() - opdT.getOrbit_dxdv())
+    ) < 1e-4 * numpy.amax(numpy.fabs(opdE.getOrbit_dxdv())), (
+        "Tabulated OblateStaeckelWrapper planar variational C path deviates "
+        "from the exact one"
+    )
     # 3D variational equations exercise the tabulated Hessian branch
     odE = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
     odtb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
