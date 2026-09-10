@@ -271,24 +271,7 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
-#ifdef _OPENMP
-  int aa_nthreads= omp_get_max_threads();
-#else
-  int aa_nthreads= 1;
-#endif
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
-  int aa_tid;
-  int * aa_pot_type;
-  double * aa_pot_args;
-  tfuncs_type_arr aa_pot_tfuncs;
-  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
-    aa_pot_type= pot_type;
-    aa_pot_args= pot_args;
-    aa_pot_tfuncs= pot_tfuncs;
-    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
-			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
-  }
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -339,7 +322,7 @@ void calcu0(int ndata,
   }
   gsl_min_fminimizer_free (s);
   free(params);
-  free_potentialArgs(npot,actionAngleArgs);free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
+  free_potentialArgs(npot,actionAngleArgs);
   free(actionAngleArgs);
   *err= status;
 }
