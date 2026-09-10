@@ -8,6 +8,7 @@
 #
 ###############################################################################
 import numpy
+from scipy.interpolate import CubicSpline
 
 from galpy.util import conversion, coords
 
@@ -72,7 +73,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         u0 : float or tuple or tuple of Quantity, optional
             Reference u value, the curve along which V(v) is built; if a tuple is given, this is assumed to be a (R,z) value to be converted to u. Defaults to arcsinh(1/delta), the value that places the reference curve at R=1 in the plane, whatever delta is. V(v) only represents the wrapped potential well near the reference curve unless the potential is exactly of Staeckel form, so this should sit near the orbits of interest; u0=0 is the symmetry axis and is degenerate for anything that is not exactly Staeckel.
         ntab : int, optional
-            If set, tabulate the 1-D building blocks U(u), V(v) and their first and second derivatives on ntab-point grids at initialization and have the C potential/force/Hessian routines interpolate them (natural cubic splines) instead of evaluating the wrapped potential along the reference curves on every call; ~20x faster C orbit integration at spline accuracy (u covers [0, arcsinh(Rmax_tab/delta)], v covers [0, pi/2] with z-symmetry folding; u beyond the table is clamped). Default is None (exact evaluations).
+            If set, tabulate the 1-D building blocks U(u), V(v) and their first and second derivatives on ntab-point grids at initialization and have the potential/force/Hessian routines (Python and C, which agree to machine precision) interpolate them (natural cubic splines) instead of evaluating the wrapped potential along the reference curves on every call; ~20x faster C orbit integration at spline accuracy (u covers [0, arcsinh(Rmax_tab/delta)], v covers [0, pi/2] with z-symmetry folding; u beyond the table is clamped). Default is None (exact evaluations).
         Rmax_tab : float, optional
             Cylindrical radius in the plane out to which the u table extends when ntab is set. Default is 100.
         ro : float or Quantity, optional
@@ -104,6 +105,10 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             _evaluatePotentials(self._pot, R0, z0) * numpy.cosh(self._u0) ** 2.0
         )
         self._ntab = 0 if ntab is None else int(ntab)
+        # mode discriminator, mirroring spline1d != NULL in C: None = exact
+        # (also while the tables below are being built from the exact
+        # primitives), a list of six splines = interpolate
+        self._splines = None
         if self._ntab:
             if self._ntab < 4:
                 raise ValueError("ntab= must be at least 4")
@@ -114,16 +119,31 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # in dVdv's R0/tan v, whose limit is finite)
             veval = numpy.copy(vgrid)
             veval[0] = 1e-9
+            uvals = [
+                numpy.array([float(func(x)) for x in ugrid])
+                for func in (self._U, self._dUdu, self._d2Udu2)
+            ]
+            vvals = [
+                numpy.array([float(func(x)) for x in veval])
+                for func in (self._V, self._dVdv, self._d2Vdv2)
+            ]
             # raw (grid, values) tables; the C side builds natural cubic
             # splines from these with the house GSL 1D machinery at parse time
             tab = [float(self._ntab)]
             tab.extend(ugrid)
-            for func in (self._U, self._dUdu, self._d2Udu2):
-                tab.extend([float(func(x)) for x in ugrid])
+            for vals in uvals:
+                tab.extend(vals)
             tab.extend(vgrid)
-            for func in (self._V, self._dVdv, self._d2Vdv2):
-                tab.extend([float(func(x)) for x in veval])
+            for vals in vvals:
+                tab.extend(vals)
             self._tabargs = tab
+            # Python evaluation interpolates the same tables: a natural
+            # CubicSpline is the same mathematical object as GSL's cspline on
+            # the same knots, so Python and C agree to machine precision
+            # also in tabulated mode
+            self._splines = [
+                CubicSpline(ugrid, vals, bc_type="natural") for vals in uvals
+            ] + [CubicSpline(vgrid, vals, bc_type="natural") for vals in vvals]
         self.hasC = True
         # Advertise the (planar and 3D) C variational capabilities
         # unconditionally, as for hasC: _check_c recurses into the wrapped
@@ -425,12 +445,30 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             + dprefacdv * numpy.sinh(u) * numpy.cos(v)
         ) / self._delta
 
+    def _evalUspline(self, u, k):
+        # same semantics as evalUspline in C: u beyond the table is clamped
+        return self._splines[k](numpy.clip(u, 0.0, self._splines[k].x[-1]))
+
+    def _evalVspline(self, v, k):
+        # same semantics as evalVspline in C: tables cover v in [0, pi/2];
+        # V is even and V' odd about pi/2 (z-symmetry)
+        sgn = 1.0
+        if v > numpy.pi / 2.0:
+            v = numpy.pi - v
+            if k == 1:
+                sgn = -1.0
+        return sgn * self._splines[3 + k](numpy.clip(v, 0.0, numpy.pi / 2.0))
+
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
+        if self._splines is not None:
+            return self._evalUspline(u, 0)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         return numpy.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
 
     def _dUdu(self, u):
+        if self._splines is not None:
+            return self._evalUspline(u, 1)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         # 1e-12 bc force should win the 0/0 battle
         return 2.0 * numpy.cosh(u) * numpy.sinh(u) * _evaluatePotentials(
@@ -443,6 +481,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         )
 
     def _d2Udu2(self, u):
+        if self._splines is not None:
+            return self._evalUspline(u, 2)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
         tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
@@ -475,12 +515,16 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
     def _V(self, v):
         """Approximated
         V(v) = cosh^2(u0) Phi(u0,pi/2) - (sinh^2(u0)+sin^2(v)) Phi(u0,v)"""
+        if self._splines is not None:
+            return self._evalVspline(v, 0)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return self._refpot - _staeckel_prefactor(self._u0, v) * _evaluatePotentials(
             self._pot, R0z[0], R0z[1]
         )
 
     def _dVdv(self, v):
+        if self._splines is not None:
+            return self._evalVspline(v, 1)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return -2.0 * numpy.sin(v) * numpy.cos(v) * _evaluatePotentials(
             self._pot, R0z[0], R0z[1]
@@ -490,6 +534,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         )
 
     def _d2Vdv2(self, v):
+        if self._splines is not None:
+            return self._evalVspline(v, 2)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, R0z[0], R0z[1])
         tzforce = _evaluatezforces(self._pot, R0z[0], R0z[1])

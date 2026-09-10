@@ -1911,15 +1911,70 @@ def test_oblatestaeckelwrapper_ntab_c():
     import numpy
 
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+    from galpy.potential import (
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluatezforces,
+    )
 
     swpE = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4)
     swpT = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.4, ntab=3000)
+    # Python evaluation interpolates the same tables as C (natural cubic
+    # splines on the same knots), so the two languages define the same
+    # potential also in tabulated mode; value-level checks of the Python side:
+    # agreement with exact inside the table, z-symmetry through the v fold,
+    # and active clamping beyond Rmax_tab (where exact and tabulated differ
+    # at order unity by construction)
+    for R, z in [(0.9, 0.2), (1.1, -0.15), (0.75, 0.05)]:
+        assert (
+            numpy.fabs(evaluatePotentials(swpT, R, z) - evaluatePotentials(swpE, R, z))
+            < 1e-8
+        ), "Tabulated OblateStaeckelWrapper Python potential deviates from exact"
+        assert (
+            numpy.fabs(evaluateRforces(swpT, R, z) - evaluateRforces(swpE, R, z)) < 1e-8
+        ), "Tabulated OblateStaeckelWrapper Python Rforce deviates from exact"
+        assert (
+            numpy.fabs(
+                evaluateR2derivs(swpT, R, z, use_physical=False)
+                - evaluateR2derivs(swpE, R, z, use_physical=False)
+            )
+            < 1e-6
+        ), "Tabulated OblateStaeckelWrapper Python R2deriv deviates from exact"
+    assert (
+        numpy.fabs(
+            evaluatePotentials(swpT, 0.9, 0.2) - evaluatePotentials(swpT, 0.9, -0.2)
+        )
+        < 1e-14
+    ), "Tabulated OblateStaeckelWrapper Python potential is not z-symmetric"
+    assert (
+        numpy.fabs(evaluatezforces(swpT, 0.9, 0.2) + evaluatezforces(swpT, 0.9, -0.2))
+        < 1e-14
+    ), "Tabulated OblateStaeckelWrapper Python zforce is not z-antisymmetric"
+    assert (
+        numpy.fabs(
+            evaluatePotentials(swpT, 150.0, 0.5) - evaluatePotentials(swpE, 150.0, 0.5)
+        )
+        > 0.1
+    ), (
+        "Tabulated OblateStaeckelWrapper Python evaluation beyond Rmax_tab does "
+        "not clamp (exact evaluation reached instead of the table edge)"
+    )
     ts = numpy.linspace(0.0, 20.0, 1001)
     oE = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
     otb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
     oE.integrate(ts, swpE, method="dop853_c")
     otb.integrate(ts, swpT, method="dop853_c")
+    # C and Python tabulated evaluation agree to spline-coefficient roundoff
+    # (~n eps pointwise); over this integration that amplifies to well below
+    # the exact-vs-tabulated truncation scale
+    opytb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
+    opytb.integrate(ts, swpT, method="dop853")
+    assert numpy.amax(numpy.fabs(opytb.R(ts) - otb.R(ts))) < 1e-6, (
+        "Tabulated OblateStaeckelWrapper Python orbit deviates from the C one"
+    )
     assert numpy.amax(numpy.fabs(oE.R(ts) - otb.R(ts))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper 3D C orbit deviates from the exact one"
     )
