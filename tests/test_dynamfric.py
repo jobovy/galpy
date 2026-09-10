@@ -2,32 +2,9 @@
 import sys
 
 import pytest
+from conftest import _ic_on_backend, _inbackend_method
 
-from galpy.backend import as_numpy, backend
-
-
-def _ic_on_backend(o):
-    """The orbit's initial condition as a native backend array.
-
-    `diffrax`/`torchdiffeq` refuse a numpy initial condition ("requires a
-    jax/torch initial condition"), because that is what selects the in-backend
-    path in the first place.
-    """
-    import importlib
-
-    xp = importlib.import_module("jax.numpy" if backend() == "jax" else "torch")
-    return xp.asarray(
-        [
-            float(o.R()),
-            float(o.vR()),
-            float(o.vT()),
-            float(o.z()),
-            float(o.vz()),
-            float(o.phi()),
-        ],
-        dtype=float,
-    )
-
+from galpy.backend import as_numpy
 
 PY3 = sys.version > "3"
 PY_GE_314 = sys.version_info >= (3, 14)
@@ -266,20 +243,11 @@ def test_dynamfric_c(chunk):
     times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
     integrator = "dop853_c"
     # Second arm: on numpy this is the pure-Python integrator, which is the point
-    # of the test. Under a backend that integrator steps in PYTHON and pays eager
-    # per-step dispatch on every force evaluation -- ~240 s per potential, versus
-    # 5 s for the in-backend solver, for numerics numpy already covers. So compare
-    # C against the IN-BACKEND solver there instead: that is the path a backend
-    # user actually integrates with, and it is validated against the analytic
-    # friction result in test_backend_dynamfric.py.
-    # jax only. torch's eager per-step dispatch is CHEAP -- 3.2 s for the same
-    # 1001-step friction orbit that costs jax ~240 s -- so torch never needed
-    # rescuing, and measured single-process the two are within noise (worst chunk
-    # 202.8 s on dop853 vs 211.5 s on torchdiffeq; totals 1028 s vs 1087 s). Using
-    # dop853 there keeps torch on its original path and skips a backend-IC
-    # conversion it does not need.
-    _bk = backend()
-    py_integrator = {"jax": "diffrax"}.get(_bk, "dop853")
+    # of the test; under jax it costs ~240 s per potential against 5 s in-backend,
+    # for numerics numpy already covers (see conftest._inbackend_method). Measured
+    # single-process, dop853 and torchdiffeq are within noise on torch (worst chunk
+    # 202.8 s vs 211.5 s; totals 1028 s vs 1087 s), so torch keeps dop853.
+    py_integrator = _inbackend_method("dop853")
     # Define all of the potentials (by hand, because need reasonable setup)
     MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2] *= 1.5  # Increase mass by 50%
