@@ -264,6 +264,49 @@ def _backend_integrators(integrators):
     return [i for i in integrators if i.endswith("_c")]
 
 
+def _inbackend_method(numpy_method="dop853"):
+    """The in-backend ODE solver under jax, else `numpy_method`.
+
+    For a test arm whose point is the PYTHON-level force implementation: under a
+    backend the pure-Python integrator also steps in Python and pays eager
+    per-step dispatch on every force evaluation, which is what makes these tests
+    time out. `diffrax` evaluates the same Python/backend force but runs the ODE
+    inside jax, so the arm keeps its meaning and drops the per-step cost. It is
+    also the path a jax user actually integrates with, and its friction numerics
+    are checked directly in tests/test_backend_dynamfric.py.
+
+    torch is deliberately NOT switched. Its eager dispatch is cheap -- 3.2 s for
+    the same 1001-step friction orbit that costs jax ~240 s -- and `torchdiffeq`
+    measured SLOWER on the unchunked FDM tests (ledgered torch runtime 619 s; the
+    torchdiffeq run had not finished after 58 minutes). So torch keeps the Python
+    integrator and skips a backend-IC conversion it does not need.
+    """
+    from galpy.backend import backend
+
+    return "diffrax" if backend() == "jax" else numpy_method
+
+
+def _ic_on_backend(o):
+    """An Orbit's initial condition(s) as a native backend array.
+
+    `diffrax`/`torchdiffeq` refuse a numpy initial condition ("requires a
+    jax/torch initial condition"), because that is what selects the in-backend
+    path in the first place. Taken from `o.vxvv` so it carries the orbit's own
+    phase-space dimension (a planar orbit stays 4-D); a single orbit gives shape
+    (phasedim,) and a multi-orbit Orbit (N, phasedim), which integrates as ONE
+    batched solve.
+    """
+    import importlib
+
+    from galpy.backend import backend
+
+    xp = importlib.import_module("jax.numpy" if backend() == "jax" else "torch")
+    ic = numpy.asarray(_to_numpy(o.vxvv), dtype=float)
+    if o.shape == ():
+        ic = ic[0]
+    return xp.asarray(ic, dtype=float)
+
+
 def _run_backend(config):
     """Name the burndown lists are keyed by: "jax", or "jax-jit" when traced."""
     name = config.getoption("--backend")
