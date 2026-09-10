@@ -31,6 +31,7 @@ from .integratePlanarOrbit import (
     _parse_noninertial_frame_force,
     _parse_scf_pot,
     _parse_tol,
+    _PotArgs,
     _prep_tfuncs,
 )
 
@@ -60,7 +61,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
         )
     # Initialize everything
     pot_type = []
-    pot_args = []
+    pot_args = _PotArgs()
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
