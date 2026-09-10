@@ -401,8 +401,9 @@ def pytest_collection_modifyitems(config, items):
     backend_skip = _load_backend_skip(backend_name)
     if backend_skip:
         exempt_marker = pytest.mark.skip(
-            reason=f"backend-skip: not backend-meaningful under {backend_name} "
-            "(external-service/network/flaky, or an out-of-scope family); "
+            reason=f"backend-skip: permanently excluded under {backend_name} "
+            "(external-service/network/flaky, an out-of-scope family, or a "
+            "single potential whose eager cost no port removes); "
             "see tests/backend_skip.txt"
         )
         for item in items:
@@ -1349,4 +1350,377 @@ def pytest_generate_tests(metafunc):
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         firstTest = [True if ii == 0 else False for ii in range(len(pots))]
         metafunc.parametrize("pot,ttol,firstTest", list(zip(pots, tols, firstTest)))
+    elif metafunc.function.__name__ == "test_liouville_planar":
+        # Phase-space-volume (Liouville) check over every planar potential.
+        # One case per potential: the nodeid then names the potential that
+        # failed, and a per-test timeout applies per potential rather than to
+        # the whole walk (which is what the backend runs need).
+        # Grab all of the potentials
+        pots = [
+            p
+            for p in dir(potential)
+            if (
+                "Potential" in p
+                and not "plot" in p
+                and not "RZTo" in p
+                and not "FullTo" in p
+                and not "toPlanar" in p
+                and not "evaluate" in p
+                and not "Wrapper" in p
+                and not "toVertical" in p
+            )
+        ]
+        pots.append("mockFlatEllipticalDiskPotential")
+        pots.append("mockFlatLopsidedDiskPotential")
+        pots.append("mockFlatCosmphiDiskPotential")
+        pots.append("mockFlatCosmphiDiskwBreakPotential")
+        pots.append("mockSlowFlatEllipticalDiskPotential")
+        pots.append("mockFlatDehnenBarPotential")
+        pots.append("mockFlatDehnenBarPotential")
+        pots.append("mockSlowFlatDehnenBarPotential")
+        pots.append("mockFlatSoftenedNeedleBarPotential")
+        pots.append("specialFlattenedPowerPotential")
+        pots.append("BurkertPotentialNoC")
+        pots.append("NFWTwoPowerTriaxialPotential")  # for planar-from-full
+        pots.append("mockSCFZeeuwPotential")
+        pots.append("mockSCFNFWPotential")
+        pots.append("mockSCFAxiDensity1Potential")
+        pots.append("mockSCFAxiDensity2Potential")
+        pots.append("mockSCFDensityPotential")
+        pots.append("mockFlatSpiralArmsPotential")
+        pots.append("mockRotatingFlatSpiralArmsPotential")
+        pots.append("mockSpecialRotatingFlatSpiralArmsPotential")
+        pots.append("mockFlatSteadyLogSpiralPotential")
+        # active transient (peaks mid-window; the plain mockFlatTransientLogSpiral
+        # peaks at to=-10, which would be vacuous for the spiral Hessian here)
+        pots.append("mockFlatActiveTransientLogSpiralPotential")
+        pots.append("mockFlatDehnenSmoothBarPotential")
+        pots.append("mockSlowFlatDehnenSmoothBarPotential")
+        pots.append("mockSlowFlatDecayingDehnenSmoothBarPotential")
+        pots.append("mockFlatSolidBodyRotationSpiralArmsPotential")
+        pots.append("triaxialLogarithmicHaloPotential")
+        pots.append("testorbitHenonHeilesPotential")
+        pots.append("mockFlatTrulyCorotatingRotationSpiralArmsPotential")
+        pots.append("mockFlatTrulyGaussianAmplitudeBarPotential")
+        pots.append("nestedListPotential")
+        pots.append("mockInterpSphericalPotential")
+        pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+        pots.append("testNullPotential")
+        pots.append("mockKuzminLikeWrapperPotential")
+        pots.append("mockMultipoleExpansionSphericalPotential")
+        pots.append("mockMultipoleExpansionAxiPotential")
+        pots.append("mockMultipoleExpansionPotential")
+        pots.append("mockMultipoleExpansionLimitedGridPotential")
+        pots.append("mockTDMultipoleExpansionLimitedGridPotential")
+        pots.append("mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential")
+        rmpots = [
+            "Potential",
+            "MWPotential",
+            "MWPotential2014",
+            "MovingObjectPotential",
+            "interpRZPotential",
+            "linearPotential",
+            "planarAxiPotential",
+            "planarPotential",
+            "verticalPotential",
+            "PotentialError",
+            "SnapshotRZPotential",
+            "InterpSnapshotRZPotential",
+            "EllipsoidalPotential",
+            "NumericalPotentialDerivativesMixin",
+            "SphericalHarmonicPotentialMixin",
+            "SphericalPotential",
+            "interpSphericalPotential",
+            "CompositePotential",
+            "planarCompositePotential",
+            "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
+        ]
+        # rmpots.append('BurkertPotential')
+        # Don't have C implementations of the relevant 2nd derivatives
+        # (DoubleExponentialDiskPotential now wires the planar R2deriv in C)
+        rmpots.append("RazorThinExponentialDiskPotential")
+        # Doesn't have C at all
+        rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+        # rmpots.append('PowerSphericalPotentialwCutoff')
+        # SoftenedNeedleBarPotential now HAS the full analytic Hessian (Python and C;
+        # the planar variational equations are exercised here through the realistic
+        # mockFlatSoftenedNeedleBarPotential halo+bar configuration appended above, and
+        # the Hessian values are pinned by the dedicated
+        # test_softenedneedlebar_planar_dxdv_* tests and the liouville3d_registry). The
+        # BARE normalized potential -- the entire flat rotation curve generated by a
+        # fast-rotating (Omega_b=1.8) needle -- makes the fixed IC here strongly
+        # chaotic (||STM|| ~ 6e4 over the 28-time-unit horizon, Lyapunov time ~2.5), so
+        # |det M - 1| saturates at the double-precision cancellation floor (~0.1 for
+        # the adaptive C integrators, ~4e4 for default-tolerance odeint) REGARDLESS of
+        # Hessian correctness; no meaningful det-tolerance exists, hence it stays out.
+        rmpots.append("SoftenedNeedleBarPotential")
+        # Doesn't have the R2deriv
+        rmpots.append("SphericalShellPotential")
+        rmpots.append("RingPotential")
+        for p in rmpots:
+            pots.remove(p)
+        # tolerances in log10
+        tol = {}
+        tol["default"] = -8.0
+        tol["KeplerPotential"] = -6.5  # more difficult
+        tol["MN3ExponentialDiskPotential"] = -7.0  # more difficult
+        tol["NFWPotential"] = -6.0  # more difficult for rk4_c, only one that does this
+        tol["TriaxialNFWPotential"] = -4.0  # more difficult
+        tol["triaxialLogarithmicHaloPotential"] = -7.0  # more difficult
+        tol["FerrersPotential"] = -2.0
+        # numerical Ogata/Hankel-quadrature forces -> the adaptive C integrators reach
+        # ~1.5e-8 over ~1 Gyr (a quadrature-accuracy effect, not a Hessian error)
+        tol["DoubleExponentialDiskPotential"] = -7.0
+        tol["HomogeneousSpherePotential"] = -4.0
+        tol["KingPotential"] = -6.0
+        tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
+        tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
+        # rotating halo+bar: the fixed-step rk4_c reaches ~3e-7 over the ~1 Gyr horizon
+        tol["mockFlatSoftenedNeedleBarPotential"] = -6.0
+        # halo+transient spiral: the fixed-step rk4_c reaches ~2e-7 over the horizon
+        tol["mockFlatActiveTransientLogSpiralPotential"] = -6.0
+        tol[
+            "mockFlatTrulyCorotatingRotationSpiralArmsPotential"
+        ] = -5.0  # more difficult
+        tol["mockMultipoleExpansionPotential"] = -6.5
+        tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
+        tol["mockTDMultipoleExpansionLimitedGridPotential"] = -4.0
+        tol["mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"] = -4.0
+        # grid-spline-interpolated embedded Multipole part -> grid-level accuracy
+        tol["DiskMultipoleExpansionPotential"] = -5.5
+        tol["DiskSCFPotential"] = -7.0  # more difficult
+        firstTest = True
+        tols = [tol[p] if p in tol else tol["default"] for p in pots]
+        firstTest = [ii == 0 for ii in range(len(pots))]
+        metafunc.parametrize(
+            "p,ttol,firstTest", list(zip(pots, tols, firstTest)), ids=pots
+        )
+    elif metafunc.function.__name__ == "test_zmax":
+        # zmax of orbits launched with vz=0, one case per potential.
+        # Grab all of the potentials
+        pots = [
+            p
+            for p in dir(potential)
+            if (
+                "Potential" in p
+                and not "plot" in p
+                and not "RZTo" in p
+                and not "FullTo" in p
+                and not "toPlanar" in p
+                and not "evaluate" in p
+                and not "Wrapper" in p
+                and not "toVertical" in p
+            )
+        ]
+        pots.append("testMWPotential")
+        pots.append("mockInterpSphericalPotential")
+        rmpots = [
+            "Potential",
+            "MWPotential",
+            "MWPotential2014",
+            "MovingObjectPotential",
+            "interpRZPotential",
+            "linearPotential",
+            "planarAxiPotential",
+            "planarPotential",
+            "verticalPotential",
+            "PotentialError",
+            "SnapshotRZPotential",
+            "InterpSnapshotRZPotential",
+            "EllipsoidalPotential",
+            "NumericalPotentialDerivativesMixin",
+            "SphericalHarmonicPotentialMixin",
+            "SphericalPotential",
+            "interpSphericalPotential",
+            "CompositePotential",
+            "planarCompositePotential",
+            "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
+        ]
+        rmpots.append("SphericalShellPotential")
+        rmpots.append("RingPotential")
+        # No C and therefore annoying
+        rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+        if False:  # _GHACTIONS:
+            rmpots.append("DoubleExponentialDiskPotential")
+            rmpots.append("RazorThinExponentialDiskPotential")
+        for p in rmpots:
+            pots.remove(p)
+        # tolerances in log10
+        tol = {}
+        tol["default"] = -16.0
+        tol["RazorThinExponentialDiskPotential"] = -6.0  # these are more difficult
+        tol["KuzminDiskPotential"] = -6.0  # these are more difficult
+        #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+        firstTest = True
+        tols = [tol[p] if p in tol else tol["default"] for p in pots]
+        firstTest = [ii == 0 for ii in range(len(pots))]
+        metafunc.parametrize(
+            "p,ttol,firstTest", list(zip(pots, tols, firstTest)), ids=pots
+        )
+    elif metafunc.function.__name__ == "test_analytic_ecc_rperi_rap":
+        # Analytic vs numerical ecc/rperi/rap, one case per potential.
+        # Grab all of the potentials
+        pots = [
+            p
+            for p in dir(potential)
+            if (
+                "Potential" in p
+                and not "plot" in p
+                and not "RZTo" in p
+                and not "FullTo" in p
+                and not "toPlanar" in p
+                and not "evaluate" in p
+                and not "Wrapper" in p
+                and not "toVertical" in p
+            )
+        ]
+        pots.append("testMWPotential")
+        pots.append("testplanarMWPotential")
+        rmpots = [
+            "Potential",
+            "MWPotential",
+            "MWPotential2014",
+            "MovingObjectPotential",
+            "interpRZPotential",
+            "linearPotential",
+            "planarAxiPotential",
+            "planarPotential",
+            "verticalPotential",
+            "PotentialError",
+            "SnapshotRZPotential",
+            "InterpSnapshotRZPotential",
+            "EllipsoidalPotential",
+            "NumericalPotentialDerivativesMixin",
+            "SphericalHarmonicPotentialMixin",
+            "SphericalPotential",
+            "interpSphericalPotential",
+            "CompositePotential",
+            "planarCompositePotential",
+            "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
+        ]
+        rmpots.append("SphericalShellPotential")
+        rmpots.append("RingPotential")
+        rmpots.append(
+            "HomogeneousSpherePotential"
+        )  # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+        # No C and therefore annoying
+        rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+        if False:  # _GHACTIONS:
+            rmpots.append("DoubleExponentialDiskPotential")
+            rmpots.append("RazorThinExponentialDiskPotential")
+        for p in rmpots:
+            pots.remove(p)
+        # tolerances in log10
+        tol = {}
+        tol["default"] = -10.0
+        tol["NFWPotential"] = -9.0  # these are more difficult
+        tol["ExpTruncNFWPotential"] = -8.0  # these are more difficult, like NFW
+        tol["PlummerPotential"] = -9.0  # these are more difficult
+        tol["EinastoPotential"] = -9.0  # these are more difficult
+        tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
+        tol["RazorThinExponentialDiskPotential"] = -8.0  # these are more difficult
+        tol["IsochronePotential"] = -6.0  # these are more difficult
+        tol["DehnenSphericalPotential"] = -8.0  # these are more difficult
+        tol["DehnenCoreSphericalPotential"] = -8.0  # these are more difficult
+        tol["JaffePotential"] = -6.0  # these are more difficult
+        tol["TriaxialHernquistPotential"] = -8.0  # these are more difficult
+        tol["TriaxialJaffePotential"] = -8.0  # these are more difficult
+        tol["TriaxialNFWPotential"] = -8.0  # these are more difficult
+        tol["PowerSphericalPotential"] = -8.0  # these are more difficult
+        tol["PowerSphericalPotentialwCutoff"] = -8.0  # these are more difficult
+        tol["FlattenedPowerPotential"] = -8.0  # these are more difficult
+        tol["KeplerPotential"] = -8.0  # these are more difficult
+        tol["PseudoIsothermalPotential"] = -7.0  # these are more difficult
+        tol["KuzminDiskPotential"] = -8.0  # these are more difficult
+        tol["DiskSCFPotential"] = -8.0  # these are more difficult
+        tol["DiskMultipoleExpansionPotential"] = -8.0  # these are more difficult
+        tol["PowerTriaxialPotential"] = -8.0  # these are more difficult
+        tols = [tol[p] if p in tol else tol["default"] for p in pots]
+        metafunc.parametrize("p,ttol", list(zip(pots, tols)), ids=pots)
+    elif metafunc.function.__name__ == "test_analytic_zmax":
+        # Analytic vs numerical zmax, one case per potential.
+        # Grab all of the potentials
+        pots = [
+            p
+            for p in dir(potential)
+            if (
+                "Potential" in p
+                and not "plot" in p
+                and not "RZTo" in p
+                and not "FullTo" in p
+                and not "toPlanar" in p
+                and not "evaluate" in p
+                and not "Wrapper" in p
+                and not "toVertical" in p
+            )
+        ]
+        pots.append("testMWPotential")
+        rmpots = [
+            "Potential",
+            "MWPotential",
+            "MWPotential2014",
+            "MovingObjectPotential",
+            "interpRZPotential",
+            "linearPotential",
+            "planarAxiPotential",
+            "planarPotential",
+            "verticalPotential",
+            "PotentialError",
+            "SnapshotRZPotential",
+            "InterpSnapshotRZPotential",
+            "EllipsoidalPotential",
+            "NumericalPotentialDerivativesMixin",
+            "SphericalHarmonicPotentialMixin",
+            "SphericalPotential",
+            "interpSphericalPotential",
+            "CompositePotential",
+            "planarCompositePotential",
+            "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
+        ]
+        rmpots.append("SphericalShellPotential")
+        rmpots.append("RingPotential")
+        rmpots.append(
+            "HomogeneousSpherePotential"
+        )  # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+        # No C and therefore annoying
+        rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+        if False:  # _GHACTIONS:
+            rmpots.append("DoubleExponentialDiskPotential")
+            rmpots.append("RazorThinExponentialDiskPotential")
+        for p in rmpots:
+            pots.remove(p)
+        # tolerances in log10
+        tol = {}
+        tol["default"] = -9.0
+        tol["IsochronePotential"] = -4.0  # these are more difficult
+        tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
+        tol["RazorThinExponentialDiskPotential"] = -4.0  # these are more difficult
+        tol["KuzminKutuzovStaeckelPotential"] = -4.0  # these are more difficult
+        tol["PlummerPotential"] = -4.0  # these are more difficult
+        tol["PseudoIsothermalPotential"] = -4.0  # these are more difficult
+        tol["DehnenSphericalPotential"] = -8.0  # these are more difficult
+        tol["DehnenCoreSphericalPotential"] = -8.0  # these are more difficult
+        tol["HernquistPotential"] = -8.0  # these are more difficult
+        tol["TriaxialHernquistPotential"] = -8.0  # these are more difficult
+        tol["JaffePotential"] = -8.0  # these are more difficult
+        tol["TriaxialJaffePotential"] = -8.0  # these are more difficult
+        tol["TriaxialNFWPotential"] = -8.0  # these are more difficult
+        tol["MiyamotoNagaiPotential"] = -7.0  # these are more difficult
+        tol["MN3ExponentialDiskPotential"] = -6.0  # these are more difficult
+        tol["LogarithmicHaloPotential"] = -7.0  # these are more difficult
+        tol["KeplerPotential"] = -7.0  # these are more difficult
+        tol["PowerSphericalPotentialwCutoff"] = -8.0  # these are more difficult
+        tol["FlattenedPowerPotential"] = -8.0  # these are more difficult
+        tol["testMWPotential"] = -6.0  # these are more difficult
+        tol["KuzminDiskPotential"] = -4  # these are more difficult
+        tol["SCFPotential"] = -8.0  # these are more difficult
+        tol["DiskSCFPotential"] = -6.0  # these are more difficult
+        tol["MultipoleExpansionPotential"] = -8.0
+        tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
+        tols = [tol[p] if p in tol else tol["default"] for p in pots]
+        metafunc.parametrize("p,ttol", list(zip(pots, tols)), ids=pots)
     return None
