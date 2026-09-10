@@ -401,8 +401,9 @@ def pytest_collection_modifyitems(config, items):
     backend_skip = _load_backend_skip(backend_name)
     if backend_skip:
         exempt_marker = pytest.mark.skip(
-            reason=f"backend-skip: not backend-meaningful under {backend_name} "
-            "(external-service/network/flaky, or an out-of-scope family); "
+            reason=f"backend-skip: permanently excluded under {backend_name} "
+            "(external-service/network/flaky, an out-of-scope family, or a "
+            "single potential whose eager cost no port removes); "
             "see tests/backend_skip.txt"
         )
         for item in items:
