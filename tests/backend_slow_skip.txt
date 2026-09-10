@@ -214,8 +214,8 @@ torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (meas
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
 #
-# 2026-09-09 (gh#1470): test_streamTrack_with_progpot is RETIRED -- 323.7 s ->
-# under 18 s. Not a stream fix: the C bridge exploded a MovingObjectPotential's
+# 2026-09-09 (gh#1473): test_streamTrack_with_progpot is RETIRED in BOTH modes --
+# 323.7 s -> under 18 s eager, 326.8 s -> 35.7 s traced. Not a stream fix: the C bridge exploded a MovingObjectPotential's
 # 10001-point trajectory into one Python object per entry, and under a forced
 # backend each of those is a 0-d backend array that _finalize_pot_args converted
 # individually (12.0M is_backend_array calls per streamTrack). Keeping the array
@@ -310,7 +310,6 @@ jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439
 # saw, because this run had one competitor rather than four. Either way both
 # clear 240 s, so the split is unchanged.
 jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
-jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 326.8s traced (CI~232s) re-measured 2026-08-22 post-#1364 (was 314s; 0.96x). STAYS: straddles the margin on noise, same as its eager twin
 
 # --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
 # gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
