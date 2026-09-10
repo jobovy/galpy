@@ -22,6 +22,7 @@ from .integratePlanarOrbit import (
     _parse_integrator,
     _parse_multipole_expansion_pot,
     _parse_tol,
+    _PotArgs,
     _prep_tfuncs,
 )
 
@@ -37,7 +38,7 @@ def _parse_pot(pot):
 
     # Initialize everything
     pot_type = []
-    pot_args = []
+    pot_args = _PotArgs()
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
