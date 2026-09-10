@@ -7,7 +7,13 @@
 #       coverage; or
 #   (b) the test belongs to a family that is out of scope for the backend goal and
 #       stays _reject_backend-guarded (actionAngleVerticalInverse), so it fails by
-#       design and always will.
+#       design and always will; or
+#   (c) ONE potential in a per-potential walk whose cost under eager jax is a
+#       floor no port removes -- the work is a Python-stepped loop of correct,
+#       already-migrated backend calls, so the only thing that would fix it is
+#       jit, which galpy deliberately does not do internally. This category only
+#       became expressible once the walks ran one case per potential (gh#1467):
+#       before that, deferring the potential meant deferring the whole walk.
 #
 # conftest.py marks each matching nodeid pytest.mark.skip with a
 # "backend-skip: not backend-meaningful ..." reason, in BOTH normal and regen mode.
@@ -129,3 +135,19 @@ torch tests/test_streamdf.py::test_bovy14_useTM
 torch tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
 torch tests/test_streamdf.py::test_bovy14_useTM_poterror
 torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
+
+# --- (c) eager-cost floors: ONE potential each, measured 2026-09-10 per potential
+# under forced jax (193 cases; these are the only ones at or over the 300 s cap).
+# FerrersPotential has no C dxdv, so test_liouville_planar integrates its
+# variational equations with a PYTHON-stepped odeint -- thousands of eager
+# dispatches that no vectorization removes. RazorThinExponentialDiskPotential has
+# no _R2deriv off the plane, so the analytic tests take the ADIABATIC
+# action-angle path, whose cost under eager jax is per-primitive XLA compilation
+# (gh#1464 measured that op count is not the lever there). Both are correct and
+# fast on numpy; every other potential in these walks now RUNS under jax.
+jax tests/test_orbit.py::test_liouville_planar[FerrersPotential]  # 493.2s
+jax tests/test_orbit.py::test_analytic_zmax[RazorThinExponentialDiskPotential]  # 337.1s
+# Same potential, same adiabatic path: 280.0s is under the cap but at 93% of it,
+# and its zmax sibling above is already over -- deferring it too keeps the shard
+# off a coin-flip rather than waiting for the flake.
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap[RazorThinExponentialDiskPotential]  # 280.0s
