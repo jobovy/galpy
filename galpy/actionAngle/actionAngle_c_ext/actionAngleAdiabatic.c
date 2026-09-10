@@ -89,7 +89,10 @@ static inline void calcEREzL(int ndata,
 			     struct potentialArg * actionAngleArgs){
   int ii;
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii)
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(ER+ii)= evaluatePotentials(*(R+ii),0.,
 				 nargs,AA_TARGS(actionAngleArgs,nargs))
@@ -123,7 +126,8 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
   //Set up the potentials
   // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
 #ifdef _OPENMP
-  int aa_nthreads= omp_get_max_threads();
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
 #else
   int aa_nthreads= 1;
 #endif
@@ -182,7 +186,8 @@ void actionAngleAdiabatic_actions(int ndata,
   //Set up the potentials
   // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
 #ifdef _OPENMP
-  int aa_nthreads= omp_get_max_threads();
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
 #else
   int aa_nthreads= 1;
 #endif
@@ -246,7 +251,10 @@ void calcJRAdiabatic(int ndata,
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,gi) \
   shared(jr,rperi,rap,T,ER,Lz)
   for (ii=0; ii < ndata; ii++){
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
@@ -290,7 +298,10 @@ void calcJzAdiabatic(int ndata,
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,gi) \
   shared(jz,zmax,T,Ez,R)
   for (ii=0; ii < ndata; ii++){
     if ( *(zmax+ii) == -9999.99 ){
@@ -324,7 +335,7 @@ void calcRapRperi(int ndata,
 		  struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
-  nthreads = omp_get_max_threads();
+  nthreads = ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
 #else
   nthreads = 1;
 #endif
@@ -345,7 +356,7 @@ void calcRapRperi(int ndata,
   }
   UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
-#pragma omp parallel for schedule(static,chunk)				\
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk)				\
   private(tid,ii,iter,status,R_lo,R_hi,meps,peps)			\
   shared(rperi,rap,JRRoot,params,s,R,ER,Lz,max_iter)
   for (ii=0; ii < ndata; ii++){
@@ -526,7 +537,7 @@ void calcZmax(int ndata,
 	      struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
-  nthreads = omp_get_max_threads();
+  nthreads = ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
 #else
   nthreads = 1;
 #endif
@@ -546,7 +557,7 @@ void calcZmax(int ndata,
   }
   UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
-#pragma omp parallel for schedule(static,chunk)				\
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk)				\
   private(tid,ii,iter,status,z_lo,z_hi)				\
   shared(zmax,JzRoot,params,s,z,Ez,R,max_iter)
   for (ii=0; ii < ndata; ii++){
