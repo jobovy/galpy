@@ -44,7 +44,7 @@ def _parse_pot(pot, t=None):
 
     # Initialize everything
     pot_type = []
-    pot_args = []
+    pot_args = _PotArgs()
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
@@ -671,6 +671,28 @@ def _parse_pot(pot, t=None):
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 
+class _PotArgs(list):
+    """The C potential-argument list, with array-valued ``extend`` kept whole.
+
+    ``_finalize_pot_args`` below concatenates array elements as chunks, so the
+    bytes handed to C are the same either way -- but ``extend(<array>)`` splats a
+    table into one Python object per entry. For the potentials that carry one (a
+    MovingObjectPotential trajectory, an interpRZ grid, the
+    DoubleExponentialDisk quadrature nodes) that is tens of thousands of objects
+    per integration, and under a FORCED backend every one of them is a 0-d
+    backend array that ``_finalize_pot_args`` then converts individually -- one
+    device transfer each. Keeping the array as a single element makes it one.
+    """
+
+    def extend(self, other):
+        from ..backend import is_backend_array
+
+        if isinstance(other, numpy.ndarray) or is_backend_array(other):
+            self.append(other)
+        else:
+            super().extend(other)
+
+
 def _finalize_pot_args(pot_args):
     """Convert pot_args list to a contiguous float64 numpy array.
 
@@ -804,7 +826,7 @@ def _parse_disk_approx_pairs(p, extra_amp=1.0, per_pair_suffix=None):
     # Stand-alone parser for disk approximation [Sigma_i, h_i] pairs used
     # in the KuijkenDubinskiDiskExpansionPotential-based potentials, bc reused
     pot_types = []
-    pot_args = []
+    pot_args = _PotArgs()
     for Sigma, hz in zip(p._Sigma_dict, p._hz_dict):
         pot_types.append(26)
         stype = Sigma.get("type", "exp")
