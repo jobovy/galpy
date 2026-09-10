@@ -1,6 +1,26 @@
 #include <math.h>
 #include <galpy_potentials.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_PI_2
+#define M_PI_2 1.57079632679489661923
+#endif
 //OblateStaeckelWrapperPotential: amp, delta, u0, v0, refpot
+//
+//Two evaluation modes for the U/V primitives below:
+// - exact (type -3): each primitive caches its last input/output pair in
+//   per-instance scratch appended to the parsed args (args[5-20]), because
+//   successive Eval/force/deriv calls at the same point repeat the same
+//   primitives, each of which costs several wrapped-potential evaluations;
+//   dUdu and dVdv additionally reuse the cached U/V for the wrapped
+//   potential's value. A new input simply recomputes, so exactness is
+//   unconditional.
+// - interpolated (type 47, ntab= in Python): U, U', U'' and V, V', V'' are
+//   natural cubic splines in potentialArgs->spline1d (0-2: functions of u on
+//   [0, umax]; 3-5: functions of v on [0, pi/2], extended by z-symmetry),
+//   built by the parser from tables shipped from Python; no wrapped
+//   potential reaches C. Mode discriminator: spline1d != NULL.
 void Rz_to_uv(double R,double z,double * u, double * v,double delta){
   double d12, d22, coshu, cosv;
   d12= pow(z+delta,2) + pow(R,2);
@@ -28,21 +48,53 @@ void dstaeckel_prefactord2ud2v(double u,double v,
   *d2prefacdu2= 2 * cosh(2 * u);
   *d2prefacdv2= 2 * cos(2 * v);
 }
+static inline double evalUspline(double u,int k,
+				 struct potentialArg * potentialArgs){
+  gsl_spline * spl= *(potentialArgs->spline1d+k);
+  double umax= spl->x[spl->size-1];
+  if ( u < 0. ) u= 0.;
+  else if ( u > umax ) u= umax;  // beyond the table = clamped
+  return gsl_spline_eval(spl,u,*(potentialArgs->acc1d+k));
+}
+static inline double evalVspline(double v,int k,
+				 struct potentialArg * potentialArgs){
+  // tables cover v in [0, pi/2]; V is even and V' odd about pi/2 (z-symmetry)
+  double sgn= 1.;
+  if ( v > M_PI_2 ) {
+    v= M_PI - v;
+    if ( k == 1 ) sgn= -1.;
+  }
+  if ( v < 0. ) v= 0.;
+  else if ( v > M_PI_2 ) v= M_PI_2;
+  return sgn * gsl_spline_eval(*(potentialArgs->spline1d+3+k),v,
+			       *(potentialArgs->acc1d+3+k));
+}
 double U(double u,double v0,double delta,struct potentialArg * potentialArgs){
   double R,z0;
+  double * cache= potentialArgs->args + 5;  // last [u, U(u)]
+  if ( potentialArgs->spline1d )
+    return evalUspline(u,0,potentialArgs);
+  if ( u == *cache )
+    return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
-  return pow(cosh(u),2) \
+  *cache= u;
+  return *(cache+1)= pow(cosh(u),2) \
     * evaluatePotentials(R,z0,potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }
 double dUdu(double u,double v0,double delta,
 	    struct potentialArg * potentialArgs){
   double R,z0;
+  double * cache= potentialArgs->args + 7;  // last [u, dUdu(u)]
+  if ( potentialArgs->spline1d )
+    return evalUspline(u,1,potentialArgs);
+  if ( u == *cache )
+    return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
-  // 1e-12 bc force should win the 0/0 battle
-  return 2 * cosh(u) * sinh(u)				\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg) \
+  *cache= u;
+  // 1e-12 bc force should win the 0/0 battle;
+  // 2 cosh u sinh u Phi = 2 tanh(u) U(u): reuses the cached U
+  return *(cache+1)= 2 * tanh(u) * U(u,v0,delta,potentialArgs)	\
     - pow(cosh(u),2) \
     * ( calcRforce(R,z0,0.,0.,potentialArgs->nwrapped,
 		  potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12)
@@ -54,15 +106,21 @@ double d2Udu2(double u,double v0,double delta,
   // mirrors OblateStaeckelWrapperPotential._d2Udu2 in Python
   double R,z0;
   double tRforce, tzforce;
+  double * cache= potentialArgs->args + 9;  // last [u, d2Udu2(u)]
+  if ( potentialArgs->spline1d )
+    return evalUspline(u,2,potentialArgs);
+  if ( u == *cache )
+    return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
   tRforce= calcRforce(R,z0,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg);
   tzforce= calczforce(R,z0,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg);
-  // 1e-12 bc force should win the 0/0 battle (as in dUdu)
-  return 2 * cosh(2 * u)						\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg)		\
+  *cache= u;
+  // 1e-12 bc force should win the 0/0 battle (as in dUdu);
+  // 2 cosh(2u) Phi = 2 cosh(2u) U(u) / cosh^2 u: reuses the cached U
+  return *(cache+1)= 2 * cosh(2 * u) / pow(cosh(u),2)			\
+    * U(u,v0,delta,potentialArgs)					\
     - 4 * cosh(u) * sinh(u)						\
     * ( tRforce * R / ( tanh(u) + 1e-12 )
 	+ tzforce * z0 * tanh(u) )					\
@@ -81,11 +139,16 @@ double d2Udu2(double u,double v0,double delta,
 double planardUdu(double u,double v0,double delta,
 		  struct potentialArg * potentialArgs){
   double R,z0;
+  double * cache= potentialArgs->args + 11;  // last [u, planardUdu(u)]
+  if ( potentialArgs->spline1d )
+    return evalUspline(u,1,potentialArgs);
+  if ( u == *cache )
+    return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
-  // 1e-12 bc force should win the 0/0 battle
-  return 2 * cosh(u) * sinh(u)				\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg) \
+  *cache= u;
+  // 1e-12 bc force should win the 0/0 battle;
+  // 2 cosh u sinh u Phi = 2 tanh(u) U(u): reuses the cached U
+  return *(cache+1)= 2 * tanh(u) * U(u,v0,delta,potentialArgs)	\
     - pow(cosh(u),2) \
     *  calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
 			potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12);
@@ -99,13 +162,19 @@ double planard2Udu2(double u,double v0,double delta,
   // planar parser only wires the wrapped potential's planar functions.
   double R,z0;
   double tRforce;
+  double * cache= potentialArgs->args + 13;  // last [u, planard2Udu2(u)]
+  if ( potentialArgs->spline1d )
+    return evalUspline(u,2,potentialArgs);
+  if ( u == *cache )
+    return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
   tRforce= calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
 			    potentialArgs->wrappedPotentialArg);
-  // 1e-12 bc force should win the 0/0 battle (as in dUdu)
-  return 2 * cosh(2 * u)						\
-    * evaluatePotentials(R,z0,potentialArgs->nwrapped,
-			 potentialArgs->wrappedPotentialArg)		\
+  *cache= u;
+  // 1e-12 bc force should win the 0/0 battle (as in dUdu);
+  // 2 cosh(2u) Phi = 2 cosh(2u) U(u) / cosh^2 u: reuses the cached U
+  return *(cache+1)= 2 * cosh(2 * u) / pow(cosh(u),2)			\
+    * U(u,v0,delta,potentialArgs)					\
     - 4 * cosh(u) * sinh(u) * tRforce * R / ( tanh(u) + 1e-12 )	\
     - pow(cosh(u),2)							\
     * ( - calcPlanarR2deriv(R,0.,0.,potentialArgs->nwrapped,
@@ -116,19 +185,33 @@ double planard2Udu2(double u,double v0,double delta,
 double V(double v,double u0,double delta,double refpot,
 	 struct potentialArg * potentialArgs){
   double R0, z;
+  double * cache= potentialArgs->args + 15;  // last [v, V(v)]
+  if ( potentialArgs->spline1d )
+    return evalVspline(v,0,potentialArgs);
+  if ( v == *cache )
+    return *(cache+1);
   uv_to_Rz(u0,v,&R0,&z,delta);
-  return refpot - staeckel_prefactor(u0,v)	\
+  *cache= v;
+  return *(cache+1)= refpot - staeckel_prefactor(u0,v)	\
     * evaluatePotentials(R0,z,potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }
 double dVdv(double v,double u0,double delta,double refpot,
 	    struct potentialArg * potentialArgs){
   double R0, z;
+  double prefac;
+  double * cache= potentialArgs->args + 17;  // last [v, dVdv(v)]
+  if ( potentialArgs->spline1d )
+    return evalVspline(v,1,potentialArgs);
+  if ( v == *cache )
+    return *(cache+1);
   uv_to_Rz(u0,v,&R0,&z,delta);
-  return -2 * sin(v) * cos(v)				\
-    *evaluatePotentials(R0,z,potentialArgs->nwrapped,
-			potentialArgs->wrappedPotentialArg) \
-    + staeckel_prefactor(u0,v)					\
+  prefac= staeckel_prefactor(u0,v);
+  *cache= v;
+  // -2 sin v cos v Phi with Phi = (refpot - V(v)) / prefac: reuses the cached V
+  return *(cache+1)= -2 * sin(v) * cos(v)				\
+    * ( refpot - V(v,u0,delta,refpot,potentialArgs) ) / prefac \
+    + prefac							\
     * ( calcRforce(R0,z,0.,0.,potentialArgs->nwrapped,
                          potentialArgs->wrappedPotentialArg) * R0 / tan(v)
 	- calczforce(R0,z,0.,0.,potentialArgs->nwrapped,
@@ -139,12 +222,18 @@ double d2Vdv2(double v,double u0,double delta,
   // mirrors OblateStaeckelWrapperPotential._d2Vdv2 in Python
   double R0, z;
   double tRforce, tzforce;
+  double * cache= potentialArgs->args + 19;  // last [v, d2Vdv2(v)]
+  if ( potentialArgs->spline1d )
+    return evalVspline(v,2,potentialArgs);
+  if ( v == *cache )
+    return *(cache+1);
   uv_to_Rz(u0,v,&R0,&z,delta);
   tRforce= calcRforce(R0,z,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg);
   tzforce= calczforce(R0,z,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg);
-  return -2. * cos(2. * v)						\
+  *cache= v;
+  return *(cache+1)= -2. * cos(2. * v)					\
     * evaluatePotentials(R0,z,potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg)		\
     + 2. * sin(2. * v)							\

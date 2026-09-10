@@ -524,13 +524,21 @@ def _parse_pot(pot, t=None):
         ) or isinstance(p, potential.OblateStaeckelWrapperPotential):
             if not isinstance(p, potential.OblateStaeckelWrapperPotential):
                 p = p._Pot
-            pot_type.append(-3)
-            # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.append(wrap_npot)
-            pot_type.extend(wrap_pot_type)
-            pot_args.extend(wrap_pot_args)
-            pot_tfuncs.extend(wrap_pot_tfuncs)
-            pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+            if getattr(p, "_ntab", 0):
+                # tabulated: plain type, no wrapped potential in C at all
+                pot_type.append(47)
+                pot_args.extend(p._tabargs)
+                pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+            else:
+                pot_type.append(-3)
+                # wrap_pot_type, args, and npot obtained before this horrible if
+                pot_args.append(wrap_npot)
+                pot_type.extend(wrap_pot_type)
+                pot_args.extend(wrap_pot_args)
+                pot_tfuncs.extend(wrap_pot_tfuncs)
+                pot_args.extend([p._amp, p._delta, p._u0, p._v0, p._refpot])
+                # exact-cache scratch (see OblateStaeckelWrapperPotential.c)
+                pot_args.extend([float("nan")] * 16)
         elif (
             (
                 isinstance(p, planarPotentialFromFullPotential)

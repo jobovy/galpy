@@ -817,6 +817,41 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
+      // Six natural cubic splines (house GSL style): stream is
+      // [ntab, ugrid, Uy, dUy, d2Uy, vgrid, Vy, dVy, d2Vy] then the 5 scalars
+      potentialArgs->nspline1d= 6;
+      potentialArgs->spline1d= (gsl_spline **) \
+        malloc ( potentialArgs->nspline1d * sizeof ( gsl_spline * ) );
+      potentialArgs->acc1d= (gsl_interp_accel **) \
+        malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+      nr= (int) **pot_args;
+      for (ii=0; ii < 6; ii++) {
+        *(potentialArgs->acc1d+ii)= gsl_interp_accel_alloc();
+        *(potentialArgs->spline1d+ii)= gsl_spline_alloc(gsl_interp_cspline,nr);
+        gsl_spline_init(*(potentialArgs->spline1d+ii),
+                        *pot_args+1+ ( ii < 3 ? 0 : 4 * nr ),
+                        *pot_args+1+ ( ii < 3 ? (1+ii) : (2+ii) ) * nr,nr);
+      }
+      *pot_args+= 8 * nr + 1;
+      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
+      potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
+      potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // chain rule of Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) through the
+      // prolate spheroidal (R,z) -> (u,v) transform, with U''/V'' built from
+      // the wrapped potential's forces and second derivatives along the
+      // reference curves. Axisymmetric by construction:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
+      potentialArgs->nargs= (int) 5;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -862,7 +897,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
       potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
       potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
-      potentialArgs->nargs= (int) 5;
+      // 5 params + 16 primitive-cache scratch slots (see the .c file)
+      potentialArgs->nargs= (int) 21;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
