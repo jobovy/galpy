@@ -4903,315 +4903,179 @@ def test_liouville_3d_nonaxi_flow():
     return None
 
 
-def test_liouville_planar():
+def test_liouville_planar(p, ttol, firstTest):
     if _NOLONGINTEGRATIONS:
         return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 28.0, 1001)  # ~1 Gyr at the Solar circle
-    integrators = _backend_integrators(
-        [
-            "dopr54_c",  # first, because we do it for all potentials
-            "dop853_c",
-            "dop853",
-            "odeint",  # direct python solver
-            "rk4_c",
-            "rk6_c",
-        ]
-    )
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
+    integrators = [
+        "dopr54_c",  # first, because we do it for all potentials
+        "dop853_c",
+        "dop853",
+        "odeint",  # direct python solver
+        "rk4_c",
+        "rk6_c",
+    ]
+    # Under a backend the pure-Python integrators are ~95% of the runtime
+    # for no unique coverage; numpy runs the list unchanged.
+    integrators = _backend_integrators(integrators)
+    # Setup instance of potential
+    try:
+        tclass = getattr(potential, p)
+    except AttributeError:
+        tclass = getattr(sys.modules[__name__], p)
+    tp = tclass()
+    if not hasattr(tp, "normalize"):
+        return None
+    tp.normalize(1.0)
+    # Already-planar potentials (the mockFlat* family) have no toPlanar; they ARE
+    # the planar potential. In the old single-body walk `ptp` simply kept the
+    # previous potential's value for those, so eight of them silently re-tested
+    # the potential before them.
+    ptp = tp.toPlanar() if hasattr(tp, "toPlanar") else tp
+    for integrator in integrators:
+        if isinstance(tp, testMWPotential) or isinstance(tp, testplanarMWPotential):
+            thasC = _check_c(tp._potlist, dxdv=True)
+        else:
+            thasC = _check_c(tp, dxdv=True)
         if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("mockFlatEllipticalDiskPotential")
-    pots.append("mockFlatLopsidedDiskPotential")
-    pots.append("mockFlatCosmphiDiskPotential")
-    pots.append("mockFlatCosmphiDiskwBreakPotential")
-    pots.append("mockSlowFlatEllipticalDiskPotential")
-    pots.append("mockFlatDehnenBarPotential")
-    pots.append("mockFlatDehnenBarPotential")
-    pots.append("mockSlowFlatDehnenBarPotential")
-    pots.append("mockFlatSoftenedNeedleBarPotential")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("BurkertPotentialNoC")
-    pots.append("NFWTwoPowerTriaxialPotential")  # for planar-from-full
-    pots.append("mockSCFZeeuwPotential")
-    pots.append("mockSCFNFWPotential")
-    pots.append("mockSCFAxiDensity1Potential")
-    pots.append("mockSCFAxiDensity2Potential")
-    pots.append("mockSCFDensityPotential")
-    pots.append("mockFlatSpiralArmsPotential")
-    pots.append("mockRotatingFlatSpiralArmsPotential")
-    pots.append("mockSpecialRotatingFlatSpiralArmsPotential")
-    pots.append("mockFlatSteadyLogSpiralPotential")
-    # active transient (peaks mid-window; the plain mockFlatTransientLogSpiral
-    # peaks at to=-10, which would be vacuous for the spiral Hessian here)
-    pots.append("mockFlatActiveTransientLogSpiralPotential")
-    pots.append("mockFlatDehnenSmoothBarPotential")
-    pots.append("mockSlowFlatDehnenSmoothBarPotential")
-    pots.append("mockSlowFlatDecayingDehnenSmoothBarPotential")
-    pots.append("mockFlatSolidBodyRotationSpiralArmsPotential")
-    pots.append("triaxialLogarithmicHaloPotential")
-    pots.append("testorbitHenonHeilesPotential")
-    pots.append("mockFlatTrulyCorotatingRotationSpiralArmsPotential")
-    pots.append("mockFlatTrulyGaussianAmplitudeBarPotential")
-    pots.append("nestedListPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("testNullPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    pots.append("mockMultipoleExpansionSphericalPotential")
-    pots.append("mockMultipoleExpansionAxiPotential")
-    pots.append("mockMultipoleExpansionPotential")
-    pots.append("mockMultipoleExpansionLimitedGridPotential")
-    pots.append("mockTDMultipoleExpansionLimitedGridPotential")
-    pots.append("mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    # rmpots.append('BurkertPotential')
-    # Don't have C implementations of the relevant 2nd derivatives
-    # (DoubleExponentialDiskPotential now wires the planar R2deriv in C)
-    rmpots.append("RazorThinExponentialDiskPotential")
-    # Doesn't have C at all
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    # rmpots.append('PowerSphericalPotentialwCutoff')
-    # SoftenedNeedleBarPotential now HAS the full analytic Hessian (Python and C;
-    # the planar variational equations are exercised here through the realistic
-    # mockFlatSoftenedNeedleBarPotential halo+bar configuration appended above, and
-    # the Hessian values are pinned by the dedicated
-    # test_softenedneedlebar_planar_dxdv_* tests and the liouville3d_registry). The
-    # BARE normalized potential -- the entire flat rotation curve generated by a
-    # fast-rotating (Omega_b=1.8) needle -- makes the fixed IC here strongly
-    # chaotic (||STM|| ~ 6e4 over the 28-time-unit horizon, Lyapunov time ~2.5), so
-    # |det M - 1| saturates at the double-precision cancellation floor (~0.1 for
-    # the adaptive C integrators, ~4e4 for default-tolerance odeint) REGARDLESS of
-    # Hessian correctness; no meaningful det-tolerance exists, hence it stays out.
-    rmpots.append("SoftenedNeedleBarPotential")
-    # Doesn't have the R2deriv
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("RingPotential")
-    for p in rmpots:
-        pots.remove(p)
-    # tolerances in log10
-    tol = {}
-    tol["default"] = -8.0
-    tol["KeplerPotential"] = -6.5  # more difficult
-    tol["MN3ExponentialDiskPotential"] = -7.0  # more difficult
-    tol["NFWPotential"] = -6.0  # more difficult for rk4_c, only one that does this
-    tol["TriaxialNFWPotential"] = -4.0  # more difficult
-    tol["triaxialLogarithmicHaloPotential"] = -7.0  # more difficult
-    tol["FerrersPotential"] = -2.0
-    # numerical Ogata/Hankel-quadrature forces -> the adaptive C integrators reach
-    # ~1.5e-8 over ~1 Gyr (a quadrature-accuracy effect, not a Hessian error)
-    tol["DoubleExponentialDiskPotential"] = -7.0
-    tol["HomogeneousSpherePotential"] = -4.0
-    tol["KingPotential"] = -6.0
-    tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
-    tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
-    # rotating halo+bar: the fixed-step rk4_c reaches ~3e-7 over the ~1 Gyr horizon
-    tol["mockFlatSoftenedNeedleBarPotential"] = -6.0
-    # halo+transient spiral: the fixed-step rk4_c reaches ~2e-7 over the horizon
-    tol["mockFlatActiveTransientLogSpiralPotential"] = -6.0
-    tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
-    tol["mockMultipoleExpansionPotential"] = -6.5
-    tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
-    tol["mockTDMultipoleExpansionLimitedGridPotential"] = -4.0
-    tol["mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"] = -4.0
-    # grid-spline-interpolated embedded Multipole part -> grid-level accuracy
-    tol["DiskMultipoleExpansionPotential"] = -5.5
-    tol["DiskSCFPotential"] = -7.0  # more difficult
-    firstTest = True
-    for p in pots:
-        # Setup instance of potential
-        try:
-            tclass = getattr(potential, p)
-        except AttributeError:
-            tclass = getattr(sys.modules[__name__], p)
-        tp = tclass()
-        if not hasattr(tp, "normalize"):
-            continue  # skip these
-        tp.normalize(1.0)
-        # if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
-        if hasattr(tp, "toPlanar"):
-            ptp = tp.toPlanar()
-        for integrator in integrators:
-            if p in list(tol.keys()):
-                ttol = tol[p]
+            (integrator == "odeint" or not thasC)
+            and not p == "FerrersPotential"
+            and not p == "MultipoleExpansionPotential"
+            and not p == "DoubleExponentialDiskPotential"
+            and not p == "mockFlatSteadyLogSpiralPotential"
+        ):
+            ttol = -4.0
+        elif (
+            integrator == "odeint" or not thasC
+        ) and p == "MultipoleExpansionPotential":
+            ttol = -3.0
+        elif (
+            integrator == "odeint" or not thasC
+        ) and p == "mockFlatSteadyLogSpiralPotential":
+            # default-tolerance odeint drifts to ~2.6e-4 over the ~1 Gyr
+            # horizon (integrator accuracy, not a Hessian error; the C
+            # integrators reach ~2e-9)
+            ttol = -3.0
+        elif (
+            integrator == "odeint" or not thasC
+        ) and p == "DoubleExponentialDiskPotential":
+            # pure-Python odeint variational integration of the numerical
+            # Hankel-quadrature forces drifts to ~9e-4 over ~1 Gyr (integrator/
+            # quadrature accuracy, not a Hessian error; the C integrators reach
+            # ~1.5e-8, see tol[] above)
+            ttol = -2.5
+        if True:
+            ttimes = times
+        o = setup_orbit_liouville(ptp, axi=False, henon="Henon" in p)
+        # Calculate the Jacobian d x / d x
+        if hasattr(tp, "_potlist"):
+            if isinstance(tp, testMWPotential):
+                plist = potential.toPlanarPotential(tp._potlist)
             else:
-                ttol = tol["default"]
-            if isinstance(tp, testMWPotential) or isinstance(tp, testplanarMWPotential):
-                thasC = _check_c(tp._potlist, dxdv=True)
-            else:
-                thasC = _check_c(tp, dxdv=True)
-            if (
-                (integrator == "odeint" or not thasC)
-                and not p == "FerrersPotential"
-                and not p == "MultipoleExpansionPotential"
-                and not p == "DoubleExponentialDiskPotential"
-                and not p == "mockFlatSteadyLogSpiralPotential"
-            ):
-                ttol = -4.0
-            elif (
-                integrator == "odeint" or not thasC
-            ) and p == "MultipoleExpansionPotential":
-                ttol = -3.0
-            elif (
-                integrator == "odeint" or not thasC
-            ) and p == "mockFlatSteadyLogSpiralPotential":
-                # default-tolerance odeint drifts to ~2.6e-4 over the ~1 Gyr
-                # horizon (integrator accuracy, not a Hessian error; the C
-                # integrators reach ~2e-9)
-                ttol = -3.0
-            elif (
-                integrator == "odeint" or not thasC
-            ) and p == "DoubleExponentialDiskPotential":
-                # pure-Python odeint variational integration of the numerical
-                # Hankel-quadrature forces drifts to ~9e-4 over ~1 Gyr (integrator/
-                # quadrature accuracy, not a Hessian error; the C integrators reach
-                # ~1.5e-8, see tol[] above)
-                ttol = -2.5
-            if True:
-                ttimes = times
-            o = setup_orbit_liouville(ptp, axi=False, henon="Henon" in p)
-            # Calculate the Jacobian d x / d x
-            if hasattr(tp, "_potlist"):
-                if isinstance(tp, testMWPotential):
-                    plist = potential.toPlanarPotential(tp._potlist)
-                else:
-                    plist = tp._potlist
-                o.integrate_dxdv(
-                    [1.0, 0.0, 0.0, 0.0],
-                    ttimes,
-                    plist,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dx = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 1.0, 0.0, 0.0],
-                    ttimes,
-                    plist,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dy = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 0.0, 1.0, 0.0],
-                    ttimes,
-                    plist,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dvx = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 0.0, 0.0, 1.0],
-                    ttimes,
-                    plist,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dvy = o.getOrbit_dxdv()[-1, :]
-            else:
-                o.integrate_dxdv(
-                    [1.0, 0.0, 0.0, 0.0],
-                    ttimes,
-                    ptp,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dx = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 1.0, 0.0, 0.0],
-                    ttimes,
-                    ptp,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dy = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 0.0, 1.0, 0.0],
-                    ttimes,
-                    ptp,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dvx = o.getOrbit_dxdv()[-1, :]
-                o.integrate_dxdv(
-                    [0.0, 0.0, 0.0, 1.0],
-                    ttimes,
-                    ptp,
-                    method=integrator,
-                    rectIn=True,
-                    rectOut=True,
-                )
-                dvy = o.getOrbit_dxdv()[-1, :]
-            tjac = numpy.linalg.det(numpy.array([dx, dy, dvx, dvy]))
-            # print(p, integrator, numpy.fabs(tjac-1.),ttol)
-            assert numpy.fabs(tjac - 1.0) < 10.0**ttol, (
-                f"Liouville theorem jacobian differs from one by {numpy.fabs(tjac - 1.0):g} for {p} and integrator {integrator}"
+                plist = tp._potlist
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0],
+                ttimes,
+                plist,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
             )
-            if firstTest or ("Burkert" in p and not ptp.hasC):
-                # Some one time tests
-                # Test non-rectangular in- and output
-                try:
-                    o.integrate_dxdv(
-                        [0.0, 0.0, 0.0, 1.0],
-                        ttimes,
-                        ptp,
-                        method="leapfrog",
-                        rectIn=True,
-                        rectOut=True,
-                    )
-                except ValueError:
-                    pass
-                else:
-                    raise AssertionError(
-                        "integrate_dxdv with symplectic integrator should have raised ValueError, but didn't"
-                    )
-                firstTest = False
-            if _QUICKTEST and not (
-                ("NFW" in p and not ptp.isNonAxi and "SCF" not in p)
-                or ("Burkert" in p and not ptp.hasC)
-            ):
-                break
+            dx = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 1.0, 0.0, 0.0],
+                ttimes,
+                plist,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dy = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 0.0, 1.0, 0.0],
+                ttimes,
+                plist,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dvx = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 0.0, 0.0, 1.0],
+                ttimes,
+                plist,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dvy = o.getOrbit_dxdv()[-1, :]
+        else:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0],
+                ttimes,
+                ptp,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dx = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 1.0, 0.0, 0.0],
+                ttimes,
+                ptp,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dy = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 0.0, 1.0, 0.0],
+                ttimes,
+                ptp,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dvx = o.getOrbit_dxdv()[-1, :]
+            o.integrate_dxdv(
+                [0.0, 0.0, 0.0, 1.0],
+                ttimes,
+                ptp,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+            )
+            dvy = o.getOrbit_dxdv()[-1, :]
+        tjac = numpy.linalg.det(numpy.array([dx, dy, dvx, dvy]))
+        # print(p, integrator, numpy.fabs(tjac-1.),ttol)
+        assert numpy.fabs(tjac - 1.0) < 10.0**ttol, (
+            f"Liouville theorem jacobian differs from one by {numpy.fabs(tjac - 1.0):g} for {p} and integrator {integrator}"
+        )
+        if firstTest or ("Burkert" in p and not ptp.hasC):
+            # Some one time tests
+            # Test non-rectangular in- and output
+            try:
+                o.integrate_dxdv(
+                    [0.0, 0.0, 0.0, 1.0],
+                    ttimes,
+                    ptp,
+                    method="leapfrog",
+                    rectIn=True,
+                    rectOut=True,
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "integrate_dxdv with symplectic integrator should have raised ValueError, but didn't"
+                )
+        if _QUICKTEST and not (
+            ("NFW" in p and not ptp.isNonAxi and "SCF" not in p)
+            or ("Burkert" in p and not ptp.hasC)
+        ):
+            break
+
     return None
 
 
@@ -6806,163 +6670,104 @@ def test_apocenter():
 
 
 # Test that the zmax of orbits launched with vz=0 is the starting height
-def test_zmax():
+def test_zmax(p, ttol, firstTest):
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = _backend_integrators(
-        [
-            "dopr54_c",  # first, because we do it for all potentials
-            "odeint",  # direct python solver
-            "dop853",
-            "dop853_c",
-            "leapfrog",
-            "leapfrog_c",
-            "rk4_c",
-            "rk6_c",
-            "symplec4_c",
-            "symplec6_c",
-            "ias15_c",
-        ]
-    )
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
+    integrators = [
+        "dopr54_c",  # first, because we do it for all potentials
+        "odeint",  # direct python solver
+        "dop853",
+        "dop853_c",
+        "leapfrog",
+        "leapfrog_c",
+        "rk4_c",
+        "rk6_c",
+        "symplec4_c",
+        "symplec6_c",
+        "ias15_c",
     ]
-    pots.append("testMWPotential")
-    pots.append("mockInterpSphericalPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("RingPotential")
-    # No C and therefore annoying
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    if False:  # _GHACTIONS:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
-    # tolerances in log10
-    tol = {}
-    tol["default"] = -16.0
-    tol["RazorThinExponentialDiskPotential"] = -6.0  # these are more difficult
-    tol["KuzminDiskPotential"] = -6.0  # these are more difficult
-    #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    firstTest = True
-    for p in pots:
-        # Setup instance of potential
-        if p in list(tol.keys()):
-            ttol = tol[p]
-        else:
-            ttol = tol["default"]
-        try:
-            tclass = getattr(potential, p)
-        except AttributeError:
-            tclass = getattr(sys.modules[__name__], p)
-        tp = tclass()
-        if hasattr(tp, "isNonAxi") and tp.isNonAxi:
-            continue  # skip, bc eccentricity of circ. =/= 0
-        if not hasattr(tp, "normalize"):
-            continue  # skip these
-        tp.normalize(1.0)
-        if hasattr(tp, "toPlanar"):
-            ptp = tp.toPlanar()
-        else:
-            ptp = None
-        for integrator in integrators:
-            # First do axi
-            o = setup_orbit_zmax(tp, axi=True)
-            if firstTest:
-                try:
-                    o.zmax()  # This should throw an AttributeError
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError(
-                        "o.zmax() before the orbit was integrated did not throw an AttributeError"
-                    )
-            if isinstance(tp, testMWPotential):
-                o.integrate(times, tp._potlist, method=integrator)
+    # Under a backend the pure-Python integrators are ~95% of the runtime
+    # for no unique coverage; numpy runs the list unchanged.
+    integrators = _backend_integrators(integrators)
+    # Setup instance of potential
+    try:
+        tclass = getattr(potential, p)
+    except AttributeError:
+        tclass = getattr(sys.modules[__name__], p)
+    tp = tclass()
+    if hasattr(tp, "isNonAxi") and tp.isNonAxi:
+        return None
+    if not hasattr(tp, "normalize"):
+        return None
+    tp.normalize(1.0)
+    if hasattr(tp, "toPlanar"):
+        ptp = tp.toPlanar()
+    else:
+        ptp = None
+    for integrator in integrators:
+        # First do axi
+        o = setup_orbit_zmax(tp, axi=True)
+        if firstTest:
+            try:
+                o.zmax()  # This should throw an AttributeError
+            except AttributeError:
+                pass
             else:
-                o.integrate(times, tp, method=integrator)
-            tzmax = o.zmax()
-            #            print p, integrator, tzmax
-            assert (tzmax - o.z()) ** 2.0 < 10.0**ttol, (
-                "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s"
-                % (p, integrator)
-            )
-            # add tracking azimuth
-            o = setup_orbit_zmax(tp, axi=False)
-            if firstTest:
-                try:
-                    o.zmax()  # This should throw an AttributeError
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError(
-                        "o.zmax() before the orbit was integrated did not throw an AttributeError"
-                    )
+                raise AssertionError(
+                    "o.zmax() before the orbit was integrated did not throw an AttributeError"
+                )
+        if isinstance(tp, testMWPotential):
+            o.integrate(times, tp._potlist, method=integrator)
+        else:
             o.integrate(times, tp, method=integrator)
-            tzmax = o.zmax()
-            #            print p, integrator, tzmax
-            assert (tzmax - o.z()) ** 2.0 < 10.0**ttol, (
-                "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s"
-                % (p, integrator)
-            )
-            if firstTest:
-                ptp = tp.toPlanar()
-                o = setup_orbit_energy(ptp, axi=False)
-                try:
-                    o.zmax()  # This should throw an AttributeError, bc there is no zmax
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError(
-                        "o.zmax() for a planarOrbit did not throw an AttributeError"
-                    )
-                o = setup_orbit_energy(ptp, axi=True)
-                try:
-                    o.zmax()  # This should throw an AttributeError, bc there is no zmax
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError(
-                        "o.zmax() for a planarROrbit did not throw an AttributeError"
-                    )
-            if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
-                break
+        tzmax = o.zmax()
+        #            print p, integrator, tzmax
+        assert (tzmax - o.z()) ** 2.0 < 10.0**ttol, (
+            "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s"
+            % (p, integrator)
+        )
+        # add tracking azimuth
+        o = setup_orbit_zmax(tp, axi=False)
+        if firstTest:
+            try:
+                o.zmax()  # This should throw an AttributeError
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError(
+                    "o.zmax() before the orbit was integrated did not throw an AttributeError"
+                )
+        o.integrate(times, tp, method=integrator)
+        tzmax = o.zmax()
+        #            print p, integrator, tzmax
+        assert (tzmax - o.z()) ** 2.0 < 10.0**ttol, (
+            "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s"
+            % (p, integrator)
+        )
+        if firstTest:
+            ptp = tp.toPlanar()
+            o = setup_orbit_energy(ptp, axi=False)
+            try:
+                o.zmax()  # This should throw an AttributeError, bc there is no zmax
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError(
+                    "o.zmax() for a planarOrbit did not throw an AttributeError"
+                )
+            o = setup_orbit_energy(ptp, axi=True)
+            try:
+                o.zmax()  # This should throw an AttributeError, bc there is no zmax
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError(
+                    "o.zmax() for a planarROrbit did not throw an AttributeError"
+                )
+        if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
+            break
+
     # raise AssertionError
     return None
 
@@ -6973,390 +6778,310 @@ def test_zmax():
 
 
 # Test that the eccentricity, apo-, and pericenters of orbits calculated analytically agrees with the numerical calculation
-def test_analytic_ecc_rperi_rap():
+def test_analytic_ecc_rperi_rap(p, ttol):
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = _backend_integrators(
-        [
-            "dopr54_c",  # first, because we do it for all potentials
-            "odeint",  # direct python solver
-            "dop853",
-            "dop853_c",
-            "leapfrog",
-            "leapfrog_c",
-            "rk4_c",
-            "rk6_c",
-            "symplec4_c",
-            "symplec6_c",
-            "ias15_c",
-        ]
-    )
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
+    integrators = [
+        "dopr54_c",  # first, because we do it for all potentials
+        "odeint",  # direct python solver
+        "dop853",
+        "dop853_c",
+        "leapfrog",
+        "leapfrog_c",
+        "rk4_c",
+        "rk6_c",
+        "symplec4_c",
+        "symplec6_c",
+        "ias15_c",
     ]
-    pots.append("testMWPotential")
-    pots.append("testplanarMWPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("RingPotential")
-    rmpots.append(
-        "HomogeneousSpherePotential"
-    )  # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
-    # No C and therefore annoying
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    if False:  # _GHACTIONS:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
-    # tolerances in log10
-    tol = {}
-    tol["default"] = -10.0
-    tol["NFWPotential"] = -9.0  # these are more difficult
-    tol["ExpTruncNFWPotential"] = -8.0  # these are more difficult, like NFW
-    tol["PlummerPotential"] = -9.0  # these are more difficult
-    tol["EinastoPotential"] = -9.0  # these are more difficult
-    tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
-    tol["RazorThinExponentialDiskPotential"] = -8.0  # these are more difficult
-    tol["IsochronePotential"] = -6.0  # these are more difficult
-    tol["DehnenSphericalPotential"] = -8.0  # these are more difficult
-    tol["DehnenCoreSphericalPotential"] = -8.0  # these are more difficult
-    tol["JaffePotential"] = -6.0  # these are more difficult
-    tol["TriaxialHernquistPotential"] = -8.0  # these are more difficult
-    tol["TriaxialJaffePotential"] = -8.0  # these are more difficult
-    tol["TriaxialNFWPotential"] = -8.0  # these are more difficult
-    tol["PowerSphericalPotential"] = -8.0  # these are more difficult
-    tol["PowerSphericalPotentialwCutoff"] = -8.0  # these are more difficult
-    tol["FlattenedPowerPotential"] = -8.0  # these are more difficult
-    tol["KeplerPotential"] = -8.0  # these are more difficult
-    tol["PseudoIsothermalPotential"] = -7.0  # these are more difficult
-    tol["KuzminDiskPotential"] = -8.0  # these are more difficult
-    tol["DiskSCFPotential"] = -8.0  # these are more difficult
-    tol["DiskMultipoleExpansionPotential"] = -8.0  # these are more difficult
-    tol["PowerTriaxialPotential"] = -8.0  # these are more difficult
-    for p in pots:
-        # Setup instance of potential
-        if p in list(tol.keys()):
-            ttol = tol[p]
+    # Under a backend the pure-Python integrators are ~95% of the runtime
+    # for no unique coverage; numpy runs the list unchanged.
+    integrators = _backend_integrators(integrators)
+    # Setup instance of potential
+    if p == "MWPotential":
+        tp = potential.MWPotential
+        ptp = [ttp.toPlanar() for ttp in tp]
+    else:
+        try:
+            tclass = getattr(potential, p)
+        except AttributeError:
+            tclass = getattr(sys.modules[__name__], p)
+        tp = tclass()
+        if hasattr(tp, "isNonAxi") and tp.isNonAxi:
+            return None
+        if not hasattr(tp, "normalize"):
+            return None
+        tp.normalize(1.0)
+        if hasattr(tp, "toPlanar"):
+            ptp = tp.toPlanar()
         else:
-            ttol = tol["default"]
-        if p == "MWPotential":
-            tp = potential.MWPotential
-            ptp = [ttp.toPlanar() for ttp in tp]
-        else:
-            try:
-                tclass = getattr(potential, p)
-            except AttributeError:
-                tclass = getattr(sys.modules[__name__], p)
-            tp = tclass()
-            if hasattr(tp, "isNonAxi") and tp.isNonAxi:
-                continue  # skip, bc eccentricity of circ. =/= 0
-            if not hasattr(tp, "normalize"):
-                continue  # skip these
-            tp.normalize(1.0)
-            if hasattr(tp, "toPlanar"):
-                ptp = tp.toPlanar()
+            ptp = None
+    for integrator in integrators:
+        for ii in range(4):
+            if ii == 0:  # axi, full
+                # First do axi
+                o = setup_orbit_analytic(tp, axi=True)
+                if isinstance(tp, testplanarMWPotential) or isinstance(
+                    tp, testMWPotential
+                ):
+                    o.integrate(times, tp._potlist, method=integrator)
+                else:
+                    o.integrate(times, tp, method=integrator)
+            elif ii == 1:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_analytic(tp, axi=False)
+                if isinstance(tp, testplanarMWPotential) or isinstance(
+                    tp, testMWPotential
+                ):
+                    o.integrate(times, tp._potlist, method=integrator)
+                else:
+                    o.integrate(times, tp, method=integrator)
+            elif ii == 2:  # axi, planar
+                if ptp is None:
+                    continue
+                # First do axi
+                o = setup_orbit_analytic(ptp, axi=True)
+                if isinstance(ptp, testplanarMWPotential) or isinstance(
+                    ptp, testMWPotential
+                ):
+                    o.integrate(times, ptp._potlist, method=integrator)
+                else:
+                    o.integrate(times, ptp, method=integrator)
+            elif ii == 3:  # track azimuth, full
+                if ptp is None:
+                    continue
+                # First do axi
+                o = setup_orbit_analytic(ptp, axi=False)
+                if isinstance(ptp, testplanarMWPotential) or isinstance(
+                    ptp, testMWPotential
+                ):
+                    o.integrate(times, ptp._potlist, method=integrator)
+                else:
+                    o.integrate(times, ptp, method=integrator)
+            # Eccentricity
+            tecc = o.e()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                tecc_analytic = o.e(analytic=True, type="adiabatic")
             else:
-                ptp = None
-        for integrator in integrators:
-            for ii in range(4):
-                if ii == 0:  # axi, full
-                    # First do axi
-                    o = setup_orbit_analytic(tp, axi=True)
-                    if isinstance(tp, testplanarMWPotential) or isinstance(
-                        tp, testMWPotential
-                    ):
-                        o.integrate(times, tp._potlist, method=integrator)
-                    else:
-                        o.integrate(times, tp, method=integrator)
-                elif ii == 1:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_analytic(tp, axi=False)
-                    if isinstance(tp, testplanarMWPotential) or isinstance(
-                        tp, testMWPotential
-                    ):
-                        o.integrate(times, tp._potlist, method=integrator)
-                    else:
-                        o.integrate(times, tp, method=integrator)
-                elif ii == 2:  # axi, planar
-                    if ptp is None:
-                        continue
-                    # First do axi
-                    o = setup_orbit_analytic(ptp, axi=True)
-                    if isinstance(ptp, testplanarMWPotential) or isinstance(
-                        ptp, testMWPotential
-                    ):
-                        o.integrate(times, ptp._potlist, method=integrator)
-                    else:
-                        o.integrate(times, ptp, method=integrator)
-                elif ii == 3:  # track azimuth, full
-                    if ptp is None:
-                        continue
-                    # First do axi
-                    o = setup_orbit_analytic(ptp, axi=False)
-                    if isinstance(ptp, testplanarMWPotential) or isinstance(
-                        ptp, testMWPotential
-                    ):
-                        o.integrate(times, ptp._potlist, method=integrator)
-                    else:
-                        o.integrate(times, ptp, method=integrator)
-                # Eccentricity
-                tecc = o.e()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    tecc_analytic = o.e(analytic=True, type="adiabatic")
-                else:
-                    tecc_analytic = o.e(analytic=True)
-                # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
-                assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s, by %g"
-                    % (p, integrator, (tecc - tecc_analytic) ** 2.0)
-                )
-                # Pericenter radius
-                trperi = o.rperi()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trperi_analytic = o.rperi(analytic=True, type="adiabatic")
-                else:
-                    trperi_analytic = o.rperi(analytic=True)
-                # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
-                assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Apocenter radius
-                trap = o.rap()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trap_analytic = o.rap(analytic=True, type="adiabatic")
-                else:
-                    trap_analytic = o.rap(analytic=True)
-                # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
-                assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g"
-                    % (p, integrator, (trap - trap_analytic) ** 2.0)
-                )
-                assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Do this also for an orbit starting at pericenter
-                if ii == 0:  # axi, full
-                    # First do axi
-                    o = setup_orbit_pericenter(tp, axi=True)
-                    o.integrate(times, tp, method=integrator)
-                elif ii == 1:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_pericenter(tp, axi=False)
-                    o.integrate(times, tp, method=integrator)
-                elif ii == 2:  # axi, planar
-                    # First do axi
-                    o = setup_orbit_pericenter(ptp, axi=True)
-                    o.integrate(times, ptp, method=integrator)
-                elif ii == 3:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_pericenter(ptp, axi=False)
-                    o.integrate(times, ptp, method=integrator)
-                # Eccentricity
-                tecc = o.e()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    tecc_analytic = o.e(analytic=True, type="adiabatic")
-                else:
-                    tecc_analytic = o.e(analytic=True)
-                # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
-                assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Pericenter radius
-                trperi = o.rperi()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trperi_analytic = o.rperi(analytic=True, type="adiabatic")
-                else:
-                    trperi_analytic = o.rperi(analytic=True)
-                # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
-                assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Apocenter radius
-                trap = o.rap()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trap_analytic = o.rap(analytic=True, type="adiabatic")
-                else:
-                    trap_analytic = o.rap(analytic=True)
-                # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
-                assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g"
-                    % (p, integrator, (trap - trap_analytic))
-                )
-                assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Do this also for an orbit starting at apocenter
-                if ii == 0:  # axi, full
-                    # First do axi
-                    o = setup_orbit_apocenter(tp, axi=True)
-                    o.integrate(times, tp, method=integrator)
-                elif ii == 1:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_apocenter(tp, axi=False)
-                    o.integrate(times, tp, method=integrator)
-                elif ii == 2:  # axi, planar
-                    # First do axi
-                    o = setup_orbit_apocenter(ptp, axi=True)
-                    o.integrate(times, ptp, method=integrator)
-                elif ii == 3:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_apocenter(ptp, axi=False)
-                    o.integrate(times, ptp, method=integrator)
-                # Eccentricity
-                tecc = o.e()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    tecc_analytic = o.e(analytic=True, type="adiabatic")
-                else:
-                    tecc_analytic = o.e(analytic=True)
-                # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
-                assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed eccentricity does not agree with numerical estimate by %g for potential %s and integrator %s"
-                    % ((tecc - tecc_analytic) ** 2.0, p, integrator)
-                )
-                # Pericenter radius
-                trperi = o.rperi()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trperi_analytic = o.rperi(analytic=True, type="adiabatic")
-                else:
-                    trperi_analytic = o.rperi(analytic=True)
-                # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
-                assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
-                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                # Apocenter radius
-                trap = o.rap()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    trap_analytic = o.rap(analytic=True, type="adiabatic")
-                else:
-                    trap_analytic = o.rap(analytic=True)
-                # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
-                assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-                assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
-                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
+                tecc_analytic = o.e(analytic=True)
+            # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+            assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s, by %g"
+                % (p, integrator, (tecc - tecc_analytic) ** 2.0)
+            )
+            # Pericenter radius
+            trperi = o.rperi()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trperi_analytic = o.rperi(analytic=True, type="adiabatic")
+            else:
+                trperi_analytic = o.rperi(analytic=True)
+            # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+            assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Apocenter radius
+            trap = o.rap()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trap_analytic = o.rap(analytic=True, type="adiabatic")
+            else:
+                trap_analytic = o.rap(analytic=True)
+            # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+            assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g"
+                % (p, integrator, (trap - trap_analytic) ** 2.0)
+            )
+            assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Do this also for an orbit starting at pericenter
+            if ii == 0:  # axi, full
+                # First do axi
+                o = setup_orbit_pericenter(tp, axi=True)
+                o.integrate(times, tp, method=integrator)
+            elif ii == 1:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_pericenter(tp, axi=False)
+                o.integrate(times, tp, method=integrator)
+            elif ii == 2:  # axi, planar
+                # First do axi
+                o = setup_orbit_pericenter(ptp, axi=True)
+                o.integrate(times, ptp, method=integrator)
+            elif ii == 3:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_pericenter(ptp, axi=False)
+                o.integrate(times, ptp, method=integrator)
+            # Eccentricity
+            tecc = o.e()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                tecc_analytic = o.e(analytic=True, type="adiabatic")
+            else:
+                tecc_analytic = o.e(analytic=True)
+            # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+            assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Pericenter radius
+            trperi = o.rperi()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trperi_analytic = o.rperi(analytic=True, type="adiabatic")
+            else:
+                trperi_analytic = o.rperi(analytic=True)
+            # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+            assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Apocenter radius
+            trap = o.rap()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trap_analytic = o.rap(analytic=True, type="adiabatic")
+            else:
+                trap_analytic = o.rap(analytic=True)
+            # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+            assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g"
+                % (p, integrator, (trap - trap_analytic))
+            )
+            assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Do this also for an orbit starting at apocenter
+            if ii == 0:  # axi, full
+                # First do axi
+                o = setup_orbit_apocenter(tp, axi=True)
+                o.integrate(times, tp, method=integrator)
+            elif ii == 1:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_apocenter(tp, axi=False)
+                o.integrate(times, tp, method=integrator)
+            elif ii == 2:  # axi, planar
+                # First do axi
+                o = setup_orbit_apocenter(ptp, axi=True)
+                o.integrate(times, ptp, method=integrator)
+            elif ii == 3:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_apocenter(ptp, axi=False)
+                o.integrate(times, ptp, method=integrator)
+            # Eccentricity
+            tecc = o.e()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                tecc_analytic = o.e(analytic=True, type="adiabatic")
+            else:
+                tecc_analytic = o.e(analytic=True)
+            # print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+            assert (tecc - tecc_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed eccentricity does not agree with numerical estimate by %g for potential %s and integrator %s"
+                % ((tecc - tecc_analytic) ** 2.0, p, integrator)
+            )
+            # Pericenter radius
+            trperi = o.rperi()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trperi_analytic = o.rperi(analytic=True, type="adiabatic")
+            else:
+                trperi_analytic = o.rperi(analytic=True)
+            # print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+            assert (trperi - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
+                "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            # Apocenter radius
+            trap = o.rap()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                trap_analytic = o.rap(analytic=True, type="adiabatic")
+            else:
+                trap_analytic = o.rap(analytic=True)
+            # print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+            assert (trap - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s"
+                % (p, integrator)
+            )
+            assert (o.rap(ro=8.0) / 8.0 - trap_analytic) ** 2.0 < 10.0**ttol, (
+                "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
 
-            if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
-                break
+        if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
+            break
+
     # raise AssertionError
     return None
 
@@ -7640,157 +7365,75 @@ def test_orbit_LcE_planar():
 
 
 # Check that zmax calculated analytically agrees with numerical calculation
-def test_analytic_zmax():
+def test_analytic_zmax(p, ttol):
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = _backend_integrators(
-        [
-            "dopr54_c",  # first, because we do it for all potentials
-            "odeint",  # direct python solver
-            "dop853",
-            "dop853_c",
-            "leapfrog",
-            "leapfrog_c",
-            "rk4_c",
-            "rk6_c",
-            "symplec4_c",
-            "symplec6_c",
-            "ias15_c",
-        ]
-    )
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
+    integrators = [
+        "dopr54_c",  # first, because we do it for all potentials
+        "odeint",  # direct python solver
+        "dop853",
+        "dop853_c",
+        "leapfrog",
+        "leapfrog_c",
+        "rk4_c",
+        "rk6_c",
+        "symplec4_c",
+        "symplec6_c",
+        "ias15_c",
     ]
-    pots.append("testMWPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("RingPotential")
-    rmpots.append(
-        "HomogeneousSpherePotential"
-    )  # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
-    # No C and therefore annoying
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    if False:  # _GHACTIONS:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
-    # tolerances in log10
-    tol = {}
-    tol["default"] = -9.0
-    tol["IsochronePotential"] = -4.0  # these are more difficult
-    tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
-    tol["RazorThinExponentialDiskPotential"] = -4.0  # these are more difficult
-    tol["KuzminKutuzovStaeckelPotential"] = -4.0  # these are more difficult
-    tol["PlummerPotential"] = -4.0  # these are more difficult
-    tol["PseudoIsothermalPotential"] = -4.0  # these are more difficult
-    tol["DehnenSphericalPotential"] = -8.0  # these are more difficult
-    tol["DehnenCoreSphericalPotential"] = -8.0  # these are more difficult
-    tol["HernquistPotential"] = -8.0  # these are more difficult
-    tol["TriaxialHernquistPotential"] = -8.0  # these are more difficult
-    tol["JaffePotential"] = -8.0  # these are more difficult
-    tol["TriaxialJaffePotential"] = -8.0  # these are more difficult
-    tol["TriaxialNFWPotential"] = -8.0  # these are more difficult
-    tol["MiyamotoNagaiPotential"] = -7.0  # these are more difficult
-    tol["MN3ExponentialDiskPotential"] = -6.0  # these are more difficult
-    tol["LogarithmicHaloPotential"] = -7.0  # these are more difficult
-    tol["KeplerPotential"] = -7.0  # these are more difficult
-    tol["PowerSphericalPotentialwCutoff"] = -8.0  # these are more difficult
-    tol["FlattenedPowerPotential"] = -8.0  # these are more difficult
-    tol["testMWPotential"] = -6.0  # these are more difficult
-    tol["KuzminDiskPotential"] = -4  # these are more difficult
-    tol["SCFPotential"] = -8.0  # these are more difficult
-    tol["DiskSCFPotential"] = -6.0  # these are more difficult
-    tol["MultipoleExpansionPotential"] = -8.0
-    tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
-    for p in pots:
-        # Setup instance of potential
-        if p in list(tol.keys()):
-            ttol = tol[p]
-        else:
-            ttol = tol["default"]
-        if p == "MWPotential":
-            tp = potential.MWPotential
-        else:
-            try:
-                tclass = getattr(potential, p)
-            except AttributeError:
-                tclass = getattr(sys.modules[__name__], p)
-            tp = tclass()
-            if hasattr(tp, "isNonAxi") and tp.isNonAxi:
-                continue  # skip, bc eccentricity of circ. =/= 0
-            if not hasattr(tp, "normalize"):
-                continue  # skip these
-            tp.normalize(1.0)
-        for integrator in integrators:
-            for ii in range(2):
-                if ii == 0:  # axi, full
-                    # First do axi
-                    o = setup_orbit_analytic_zmax(tp, axi=True)
-                elif ii == 1:  # track azimuth, full
-                    # First do axi
-                    o = setup_orbit_analytic_zmax(tp, axi=False)
-                if isinstance(tp, testMWPotential):
-                    o.integrate(times, tp._potlist, method=integrator)
-                else:
-                    o.integrate(times, tp, method=integrator)
-                tzmax = o.zmax()
-                if ii < 2 and (
-                    p == "BurkertPotential"
-                    or "SCFPotential" in p
-                    or "MultipoleExpansion" in p
-                    or "FlattenedPower" in p
-                    or "RazorThinExponential" in p
-                    or "TwoPowerSpherical" in p
-                ):  # no Rzderiv currently
-                    tzmax_analytic = o.zmax(analytic=True, type="adiabatic")
-                else:
-                    tzmax_analytic = o.zmax(analytic=True)
-                # print(p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.)
-                assert (tzmax - tzmax_analytic) ** 2.0 < 10.0**ttol, (
-                    "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s"
-                    % (numpy.fabs(tzmax - tzmax_analytic), p, integrator)
-                )
-                assert (o.zmax(ro=8.0) / 8.0 - tzmax_analytic) ** 2.0 < 10.0**ttol, (
-                    "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s"
-                    % (p, integrator)
-                )
-            if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
-                break
+    # Under a backend the pure-Python integrators are ~95% of the runtime
+    # for no unique coverage; numpy runs the list unchanged.
+    integrators = _backend_integrators(integrators)
+    # Setup instance of potential
+    if p == "MWPotential":
+        tp = potential.MWPotential
+    else:
+        try:
+            tclass = getattr(potential, p)
+        except AttributeError:
+            tclass = getattr(sys.modules[__name__], p)
+        tp = tclass()
+        if hasattr(tp, "isNonAxi") and tp.isNonAxi:
+            return None
+        if not hasattr(tp, "normalize"):
+            return None
+        tp.normalize(1.0)
+    for integrator in integrators:
+        for ii in range(2):
+            if ii == 0:  # axi, full
+                # First do axi
+                o = setup_orbit_analytic_zmax(tp, axi=True)
+            elif ii == 1:  # track azimuth, full
+                # First do axi
+                o = setup_orbit_analytic_zmax(tp, axi=False)
+            if isinstance(tp, testMWPotential):
+                o.integrate(times, tp._potlist, method=integrator)
+            else:
+                o.integrate(times, tp, method=integrator)
+            tzmax = o.zmax()
+            if ii < 2 and (
+                p == "BurkertPotential"
+                or "SCFPotential" in p
+                or "MultipoleExpansion" in p
+                or "FlattenedPower" in p
+                or "RazorThinExponential" in p
+                or "TwoPowerSpherical" in p
+            ):  # no Rzderiv currently
+                tzmax_analytic = o.zmax(analytic=True, type="adiabatic")
+            else:
+                tzmax_analytic = o.zmax(analytic=True)
+            # print(p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.)
+            assert (tzmax - tzmax_analytic) ** 2.0 < 10.0**ttol, (
+                "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s"
+                % (numpy.fabs(tzmax - tzmax_analytic), p, integrator)
+            )
+            assert (o.zmax(ro=8.0) / 8.0 - tzmax_analytic) ** 2.0 < 10.0**ttol, (
+                "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s"
+                % (p, integrator)
+            )
+        if _QUICKTEST and (not "NFW" in p or tp.isNonAxi):
+            break
+
     # raise AssertionError
     return None
 

@@ -44,6 +44,16 @@
 # the same un-vectorized dissipative path as jax above; it belongs here with them.
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: 619.0s (CI~440s)
 
+# --- torch: ExpTruncNFWPotential in the analytic walk (per potential, gh#1474) ---
+# Measured 2026-09-10, one case per potential under forced torch (52 passed):
+# ExpTruncNFWPotential is 340.4 s and EVERY other potential in the walk is under
+# 44 s. It is NOT the eager floor the two jax entries in backend_skip.txt are --
+# under jax the same case is 198.8 s and passes, so torch is doing something
+# specific and worse here (its incomplete-gamma path is the suspect; see the
+# torch gammaincc note in the op-gotchas). Burndown, not permanent: find out why
+# torch is 1.7x slower than jax on this one potential.
+torch tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 340.4s (jax: 198.8s)
+
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
 # action-angle/quadrature evaluations of a migrated potential under forced-jax
@@ -138,7 +148,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
 jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # PASSES in 528.9s (CI~375s) -- re-measured 2026-08-22 post-#1364 in the real CI shard (--splits 5 --group 3); the old '>420s timed out' was a TIMEOUT BOUND, not a time
-jax tests/test_orbit.py::test_liouville_planar  # >420s (measured 2026-08-15, timed out)
 
 # --- jax single-orbit: misc slow (Python-integrator paths) ---
 # Integrate paths that step in Python under jax. Track A force vectorization /
@@ -158,13 +167,10 @@ jax tests/test_orbit.py::test_liouville_planar  # >420s (measured 2026-08-15, ti
 # the passing one is ~807s against the 300s cap, so un-xfailing would only convert it into a
 # timeout FAILED. Deferred on TIME, not capability -- un-defer when the Track A/D orbit
 # vectorization lands, same trigger as the entries above.
-jax tests/test_orbit.py::test_analytic_zmax  # PASSES in 1136.3s (measured 2026-08-20)
-jax tests/test_orbit.py::test_analytic_ecc_rperi_rap  # >1200s, timed out (measured 2026-08-20)
 # The torch sibling was ledgered separately, under the REBASE-PREVIEW Phase-2 block, whose
 # comments are about SCF / sphericaldf / streamspraydf and never described this test at all.
 # Measured the same way: it PASSES in 743.1s. Even at the 0.71 CI/local ratio measured for
 # JAX shards (I have no torch-specific ratio) that is ~530s against the 300s cap.
-torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (measured 2026-08-20)
 
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
