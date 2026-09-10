@@ -214,6 +214,14 @@ torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (meas
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
 #
+# 2026-09-09 (gh#1473): test_streamTrack_with_progpot is RETIRED in BOTH modes --
+# 323.7 s -> under 18 s eager, 326.8 s -> 35.7 s traced. Not a stream fix: the C bridge exploded a MovingObjectPotential's
+# 10001-point trajectory into one Python object per entry, and under a forced
+# backend each of those is a 0-d backend array that _finalize_pot_args converted
+# individually (12.0M is_backend_array calls per streamTrack). Keeping the array
+# whole makes it 12.5k. test_streamTrack_plot_spread_non_cartesian is NOT helped
+# (427.2 -> 439.2 s): its cost is elsewhere, so it stays below.
+#
 # WHY streamTrack IS NOT A BURNDOWN TARGET (measured 2026-08-22, both modes,
 # whole file, post-#1364): 0.96x-1.11x. gh#1364's as_backend_constant guard
 # removes a fixed cost PER as_backend_constant CALL, so it pays in proportion to
@@ -221,8 +229,7 @@ torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (meas
 # call, NonInertialFrameForce 7 -> 1.07x-1.64x on its tests, streamTrack ~0 per
 # evaluation (its stream-module calls are in TRACK SETUP, run a handful of times)
 # -> nothing. Do not re-run this sweep expecting a win from that guard.
-jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 427.2s (CI~303s) re-measured 2026-08-22 post-#1364 (was 408.0s; 0.96x -- the guard does NOT help here)
-jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s) re-measured 2026-08-22 post-#1364 (was 331.7s; 1.02x). STAYS: it straddles the 240s margin on a ~2% wobble, which is noise, not a change
+jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439.2s re-measured 2026-09-09 with the pot_args fix (was 427.2s; 1.03x -- unaffected)
 # jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
 # which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
 # jax's thread-local trace state as None, and then EVERY later test in the shard
@@ -303,7 +310,6 @@ jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # 323.7s (CI~230s)
 # saw, because this run had one competitor rather than four. Either way both
 # clear 240 s, so the split is unchanged.
 jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
-jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 326.8s traced (CI~232s) re-measured 2026-08-22 post-#1364 (was 314s; 0.96x). STAYS: straddles the margin on noise, same as its eager twin
 
 # --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
 # gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
