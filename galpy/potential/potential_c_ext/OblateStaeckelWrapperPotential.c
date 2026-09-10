@@ -6,6 +6,25 @@
 #ifndef M_PI_2
 #define M_PI_2 1.57079632679489661923
 #endif
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+//Cache scratch is per-OpenMP-thread: the orbit integrators parse one
+//potentialArgs per thread, but actionAngle_c parallelizes over points
+//SHARING one potentialArgs, so a single mutable cache would be a data race
+//(torn doubles = garbage forces). Each thread gets its own 14-slot block,
+//capped at OSTW_NTHREAD blocks (threads beyond the cap share block
+//thread%cap -- still racy in that unlikely case, so the cap is generous).
+#define OSTW_NTHREAD 64
+#define OSTW_NSLOT 14
+static inline double * ostw_scratch(struct potentialArg * potentialArgs){
+#ifdef _OPENMP
+  return potentialArgs->args + 6
+    + OSTW_NSLOT * ( omp_get_thread_num() % OSTW_NTHREAD );
+#else
+  return potentialArgs->args + 6;
+#endif
+}
 //OblateStaeckelWrapperPotential: amp, delta, u0, v0, refpot
 static inline double ostw_sq(double x){return x*x;}
 static inline double ostw_cb(double x){return x*x*x;}
@@ -50,9 +69,9 @@ static inline double ostw_spl(double x,double h,int n,double *y,double *M){
   b= (x - i*h)/h; a= 1.-b;
   return a*y[i]+b*y[i+1]+((a*a*a-a)*M[i]+(b*b*b-b)*M[i+1])*h*h/6.;
 }
-//Exact-mode cache (type -3, nargs = 16): args[5] = 0 flag, args[6..15] are
-//per-instance scratch (potentialArgs is parsed per OpenMP thread, so this is
-//thread-safe): [last_u_phi, Phi_u, last_u_F, FR_u, Fz_u,
+//Exact-mode cache (type -3): args[5] = 0 flag, then OSTW_NTHREAD blocks of
+//OSTW_NSLOT per-thread scratch doubles (see ostw_scratch above):
+//              [last_u_phi, Phi_u, last_u_F, FR_u, Fz_u,
 //               last_v_phi, Phi_v, last_v_F, FR_v, Fz_v,
 //               last_R, last_z, FR_out, Fz_out] (the last four: a
 //point-level cache computing both forces in one pass -- exact mode only).
@@ -65,7 +84,7 @@ static inline double ostw_spl(double x,double h,int n,double *y,double *M){
 //calls the 3D primitives, so the slots never mix semantics).
 static inline double ostw_phiu(double u,double v0,double delta,
                                struct potentialArg * potentialArgs){
-  double * c= potentialArgs->args + 6;
+  double * c= ostw_scratch(potentialArgs);
   double R,z0;
   if ( u != *c ) {
     uv_to_Rz(u,v0,&R,&z0,delta);
@@ -78,7 +97,7 @@ static inline double ostw_phiu(double u,double v0,double delta,
 static inline void ostw_Fu(double u,double v0,double delta,
                            struct potentialArg * potentialArgs,int planar,
                            double * FR,double * Fz){
-  double * c= potentialArgs->args + 8;
+  double * c= ostw_scratch(potentialArgs) + 2;
   double R,z0;
   if ( u != *c ) {
     uv_to_Rz(u,v0,&R,&z0,delta);
@@ -100,7 +119,7 @@ static inline void ostw_Fu(double u,double v0,double delta,
 }
 static inline double ostw_phiv(double v,double u0,double delta,
                                struct potentialArg * potentialArgs){
-  double * c= potentialArgs->args + 11;
+  double * c= ostw_scratch(potentialArgs) + 5;
   double R0,z;
   if ( v != *c ) {
     uv_to_Rz(u0,v,&R0,&z,delta);
@@ -113,7 +132,7 @@ static inline double ostw_phiv(double v,double u0,double delta,
 static inline void ostw_Fv(double v,double u0,double delta,
                            struct potentialArg * potentialArgs,
                            double * FR,double * Fz){
-  double * c= potentialArgs->args + 13;
+  double * c= ostw_scratch(potentialArgs) + 7;
   double R0,z;
   if ( v != *c ) {
     uv_to_Rz(u0,v,&R0,&z,delta);
@@ -287,7 +306,7 @@ static void ostw_forces(double R,double z,
   // the point cache lives in exact-mode scratch only: in tabulated mode
   // (args[5] = ntab > 0) args+16 is table data and must not be written
   int exact= ( (int) *(args+5) ) == 0;
-  double * c= args + 16;
+  double * c= ostw_scratch(potentialArgs) + 10;
   if ( exact && R == *c && z == *(c+1) ) { *FRout= *(c+2); *Fzout= *(c+3); return; }
   double amp= *args, delta= *(args+1), u0= *(args+2), v0= *(args+3),
     refpot= *(args+4);
