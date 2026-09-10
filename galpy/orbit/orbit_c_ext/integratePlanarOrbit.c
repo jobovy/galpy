@@ -653,8 +653,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
-      // 5 params + 14 exact-cache scratch slots (see the .c file)
-      potentialArgs->nargs= (int) 19;
+      // 5 params + 16 primitive-cache scratch slots (see the .c file)
+      potentialArgs->nargs= (int) 21;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
