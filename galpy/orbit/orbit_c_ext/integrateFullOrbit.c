@@ -817,6 +817,25 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
+      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
+      potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
+      potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // chain rule of Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) through the
+      // prolate spheroidal (R,z) -> (u,v) transform, with U''/V'' built from
+      // the wrapped potential's forces and second derivatives along the
+      // reference curves. Axisymmetric by construction:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
+      potentialArgs->nargs= (int) (7 + 12 * (int) *(*pot_args+5));
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -847,25 +866,6 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
-      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
-      potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
-      potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
-      potentialArgs->phitorque= &ZeroForce;
-      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
-      // chain rule of Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) through the
-      // prolate spheroidal (R,z) -> (u,v) transform, with U''/V'' built from
-      // the wrapped potential's forces and second derivatives along the
-      // reference curves. Axisymmetric by construction:
-      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
-      // aggregators return 0 for them).
-      potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
-      potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
-      potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
-      potentialArgs->nargs= (int) (7 + 12 * (int) *(*pot_args+5));
-      potentialArgs->ntfuncs= 0;
-      potentialArgs->requiresVelocity= false;
-      break;
     case -3: //OblateStaeckelWrapperPotential
       potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
@@ -881,8 +881,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
       potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
       potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
-      // 5 params + flag + 64 per-thread 14-slot exact-cache blocks (.c file)
-      potentialArgs->nargs= (int) 902;
+      // 5 params + flag + 14 exact-cache scratch slots (see the .c file)
+      potentialArgs->nargs= (int) 20;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

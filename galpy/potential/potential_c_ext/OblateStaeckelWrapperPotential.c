@@ -6,26 +6,10 @@
 #ifndef M_PI_2
 #define M_PI_2 1.57079632679489661923
 #endif
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-//Cache scratch is per-OpenMP-thread: the orbit integrators parse one
-//potentialArgs per thread, but actionAngle_c parallelizes over points
-//SHARING one potentialArgs, so a single mutable cache would be a data race
-//(torn doubles = garbage forces). Each thread gets its own 14-slot block,
-//capped at OSTW_NTHREAD blocks (threads beyond the cap share block
-//thread%cap -- still racy in that unlikely case, so the cap is generous).
-#define OSTW_NTHREAD 64
-#define OSTW_NSLOT 14
-static inline double * ostw_scratch(struct potentialArg * potentialArgs){
-#ifdef _OPENMP
-  return potentialArgs->args + 6
-    + OSTW_NSLOT * ( omp_get_thread_num() % OSTW_NTHREAD );
-#else
-  return potentialArgs->args + 6;
-#endif
-}
-//OblateStaeckelWrapperPotential: amp, delta, u0, v0, refpot
+//Cache-safety contract: every C caller must give each OpenMP thread its own
+//parsed potentialArg copy (the orbit integrators always did; actionAngle_c
+//does since the parse-per-thread change this stacks on), so the exact-mode
+//cache below can live in plain per-instance scratch with no thread indexing.
 static inline double ostw_sq(double x){return x*x;}
 static inline double ostw_cb(double x){return x*x*x;}
 void Rz_to_uv(double R,double z,double * u, double * v,double delta){
@@ -69,8 +53,8 @@ static inline double ostw_spl(double x,double h,int n,double *y,double *M){
   b= (x - i*h)/h; a= 1.-b;
   return a*y[i]+b*y[i+1]+((a*a*a-a)*M[i]+(b*b*b-b)*M[i+1])*h*h/6.;
 }
-//Exact-mode cache (type -3): args[5] = 0 flag, then OSTW_NTHREAD blocks of
-//OSTW_NSLOT per-thread scratch doubles (see ostw_scratch above):
+//Exact-mode cache (type -3, nargs = 20): args[5] = 0 flag, args[6..19] are
+//per-instance scratch (each thread owns its parsed copy, see contract above):
 //              [last_u_phi, Phi_u, last_u_F, FR_u, Fz_u,
 //               last_v_phi, Phi_v, last_v_F, FR_v, Fz_v,
 //               last_R, last_z, FR_out, Fz_out] (the last four: a

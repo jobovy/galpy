@@ -9,6 +9,12 @@
 ###############################################################################
 import numpy
 
+# CubicSpline rather than InterpolatedUnivariateSpline: the C evaluator uses
+# the classic (values, knot second derivatives) natural-spline form, and
+# CubicSpline(bc_type="natural") both guarantees those boundary conditions
+# and returns exact knot second derivatives via its derivative evaluation
+from scipy.interpolate import CubicSpline
+
 from galpy.util import conversion, coords
 
 from .Potential import (
@@ -107,8 +113,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         if self._ntab:
             if self._ntab < 4:
                 raise ValueError("ntab= must be at least 4")
-            from scipy.interpolate import CubicSpline
-
             umax = float(numpy.arcsinh(Rmax_tab / self._delta))
             ugrid = numpy.linspace(0.0, umax, self._ntab)
             vgrid = numpy.linspace(0.0, numpy.pi / 2.0, self._ntab)
