@@ -16,6 +16,14 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+//Per-thread potential structs: potentials may keep per-instance caches in
+//their args (cf. OblateStaeckelWrapperPotential), so every OpenMP loop over
+//points must use its own thread's parsed copy rather than sharing one
+#ifdef _OPENMP
+#define AA_TARGS(args,n) ((args) + omp_get_thread_num() * (n))
+#else
+#define AA_TARGS(args,n) (args)
+#endif
 #include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
@@ -84,11 +92,11 @@ static inline void calcEREzL(int ndata,
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(ER+ii)= evaluatePotentials(*(R+ii),0.,
-				 nargs,actionAngleArgs)
+				 nargs,AA_TARGS(actionAngleArgs,nargs))
       + 0.5 * *(vR+ii) * *(vR+ii)
       + 0.5 * *(vT+ii) * *(vT+ii);
     *(Ez+ii)= evaluateVerticalPotentials(*(R+ii),*(z+ii),
-					 nargs,actionAngleArgs)
+					 nargs,AA_TARGS(actionAngleArgs,nargs))
       + 0.5 * *(vz+ii) * *(vz+ii);
     *(Lz+ii)= *(R+ii) * *(vT+ii);
   }
@@ -113,8 +121,24 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
 				       int * err){
   int ii;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
@@ -133,7 +157,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
       - 0.5 * *(vT+ii) * *(vT+ii);
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(ER);
   free(Ez);
@@ -156,8 +180,24 @@ void actionAngleAdiabatic_actions(int ndata,
 				  int * err){
   int ii;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
@@ -179,7 +219,7 @@ void actionAngleAdiabatic_actions(int ndata,
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,20);
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(ER);
   free(Ez);
@@ -224,7 +264,7 @@ void calcJRAdiabatic(int ndata,
     for (gi=0; gi < order; gi++){
       gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
       double r= cc - rr*cos(xi);
-      double FR= tER - evaluatePotentials(r,0.,nargs,actionAngleArgs)
+      double FR= tER - evaluatePotentials(r,0.,nargs,AA_TARGS(actionAngleArgs,nargs))
 	- Lz22/(r*r);
       if ( FR <= 0. ) continue;
       acc+= wi*sqrt(FR)*rr*sin(xi);
@@ -266,7 +306,7 @@ void calcJzAdiabatic(int ndata,
     for (gi=0; gi < order; gi++){
       gsl_integration_glfixed_point(0.,0.5*M_PI,gi,&xi,&wi,T);
       double Fz= tEz - evaluateVerticalPotentials(tR,tzmax*sin(xi),
-						  nargs,actionAngleArgs);
+						  nargs,AA_TARGS(actionAngleArgs,nargs));
       if ( Fz <= 0. ) continue;
       acc+= wi*sqrt(Fz)*tzmax*cos(xi);
     }
@@ -300,7 +340,7 @@ void calcRapRperi(int ndata,
   T = gsl_root_fsolver_brent;
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   UNUSED int chunk= CHUNKSIZE;
@@ -501,7 +541,7 @@ void calcZmax(int ndata,
   T = gsl_root_fsolver_brent;
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   UNUSED int chunk= CHUNKSIZE;

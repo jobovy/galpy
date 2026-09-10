@@ -19,6 +19,14 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+//Per-thread potential structs: potentials may keep per-instance caches in
+//their args (cf. OblateStaeckelWrapperPotential), so every OpenMP loop over
+//points must use its own thread's parsed copy rather than sharing one
+#ifdef _OPENMP
+#define AA_TARGS(args,n) ((args) + omp_get_thread_num() * (n))
+#else
+#define AA_TARGS(args,n) (args)
+#endif
 #include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
@@ -263,7 +271,24 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -314,7 +339,7 @@ void calcu0(int ndata,
   }
   gsl_min_fminimizer_free (s);
   free(params);
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(npot,actionAngleArgs);free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   *err= status;
 }
@@ -340,8 +365,24 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   int ii;
   double tdelta;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -368,6 +409,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -382,23 +424,23 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
-			    npot,actionAngleArgs)
+			    npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
     *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-			     npot,actionAngleArgs);
+			     npot,targs);
   }
   //Calculate 'peri' and 'apo'centers
   calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,
@@ -406,7 +448,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,
 	   npot,actionAngleArgs);
   //Free
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E);
   free(Lz);
@@ -447,8 +489,24 @@ void actionAngleStaeckel_actions(int ndata,
   int ii;
   double tdelta;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -475,6 +533,7 @@ void actionAngleStaeckel_actions(int ndata,
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -489,23 +548,23 @@ void actionAngleStaeckel_actions(int ndata,
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
-			    npot,actionAngleArgs)
+			    npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
     *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-			     npot,actionAngleArgs);
+			     npot,targs);
   }
   //Calculate 'peri' and 'apo'centers
   double *umin= (double *) malloc ( ndata * sizeof(double) );
@@ -521,7 +580,7 @@ void actionAngleStaeckel_actions(int ndata,
   calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,
 		 potupi2,npot,actionAngleArgs,order);
   //Free
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E);
   free(Lz);
@@ -573,7 +632,7 @@ void calcJRStaeckel(int ndata,
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( nthreads * sizeof (struct JRStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
@@ -655,7 +714,7 @@ void calcJzStaeckel(int ndata,
   struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( nthreads * sizeof (struct JzStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
@@ -726,8 +785,24 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   int ii;
   double tdelta;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -754,6 +829,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -768,23 +844,23 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
-			    npot,actionAngleArgs)
+			    npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
     *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-			     npot,actionAngleArgs);
+			     npot,targs);
   }
   //Calculate 'peri' and 'apo'centers
   double *umin= (double *) malloc ( ndata * sizeof(double) );
@@ -817,7 +893,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
 			      dJRdE,dJRdLz,dJRdI3,
 			      dJzdE,dJzdLz,dJzdI3);
   //Free
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E);
   free(Lz);
@@ -874,8 +950,24 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   int ii;
   double tdelta;
   //Set up the potentials
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  int aa_nthreads= omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -902,6 +994,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -916,23 +1009,23 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
-			    npot,actionAngleArgs)
+			    npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
     *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-			     npot,actionAngleArgs);
+			     npot,targs);
   }
   //Calculate 'peri' and 'apo'centers
   double *umin= (double *) malloc ( ndata * sizeof(double) );
@@ -979,7 +1072,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		     vmin,I3V,cosh2u0,potupi2,
 		     npot,actionAngleArgs,order);
   //Free
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E);
   free(Lz);
@@ -1094,7 +1187,7 @@ void calcdJRStaeckel(int ndata,
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) malloc ( nthreads * sizeof (struct dJRStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
@@ -1187,7 +1280,7 @@ void calcdJzStaeckel(int ndata,
   struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) malloc ( nthreads * sizeof (struct dJzStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
@@ -1306,9 +1399,9 @@ void calcAnglesStaeckel(int ndata,
   struct dJzStaeckelArg * paramsv= (struct dJzStaeckelArg *) malloc ( nthreads * sizeof (struct dJzStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (paramsu+tid)->nargs= nargs;
-    (paramsu+tid)->actionAngleArgs= actionAngleArgs;
+    (paramsu+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
     (paramsv+tid)->nargs= nargs;
-    (paramsv+tid)->actionAngleArgs= actionAngleArgs;
+    (paramsv+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
@@ -1577,7 +1670,7 @@ void calcUminUmax(int ndata,
   T = gsl_root_fsolver_brent;
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -1845,7 +1938,7 @@ void calcVmin(int ndata,
   T = gsl_root_fsolver_brent;
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int delta_stride= ndelta == 1 ? 0 : 1;
