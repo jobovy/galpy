@@ -224,36 +224,10 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
 
 # Test whether dynamical friction in C works (compare to Python, which is
 # tested below; put here because a test of many potentials)
-# Split across parametrized chunks so no single test carries all ~42 potentials.
-# The potentials are still built INSIDE the test, which matters: conftest forces
-# the backend per-test, so building them at module or module-fixture scope would
-# construct them on numpy even under --backend jax.
-_DYNAMFRIC_CHUNKS = 10
-
-
-@pytest.mark.parametrize("chunk", range(_DYNAMFRIC_CHUNKS))
-def test_dynamfric_c(chunk):
-    import copy
-
-    from galpy.orbit import Orbit
-    from galpy.potential.mwpotentials import McMillan17
-    from galpy.potential.Potential import _check_c
-
-    # Basic parameters for the test
-    times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
-    integrator = "dop853_c"
-    # Second arm: on numpy this is the pure-Python integrator, which is the point
-    # of the test; under jax it costs ~240 s per potential against 5 s in-backend,
-    # for numerics numpy already covers (see conftest._inbackend_method). Measured
-    # single-process, dop853 and torchdiffeq are within noise on torch (worst chunk
-    # 202.8 s vs 211.5 s; totals 1028 s vs 1087 s), so torch keeps dop853.
-    py_integrator = _inbackend_method("dop853")
-    # Define all of the potentials (by hand, because need reasonable setup)
-    MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
-    MWPotential3021[2] *= 1.5  # Increase mass by 50%
+def _scf_tdep():
     # Weakly time-dependent, non-axisymmetric SCF (density evaluated in C for the
-    # dynamical friction); built separately because normalize() is in-place.
-    scf_tdep = potential.SCFPotential.from_density(
+    # dynamical friction); built here because normalize() is in-place.
+    scf = potential.SCFPotential.from_density(
         dens=lambda R, z, phi, t=0.0: (
             potential.HernquistPotential(normalize=1.0, a=3.5).dens(R, z)
             * (1.0 + 1e-4 * numpy.cos(phi + 1.3 * t))
@@ -264,63 +238,119 @@ def test_dynamfric_c(chunk):
         a=3.5,
         tgrid=numpy.linspace(-110.0, 0.0, 12),
     )
-    scf_tdep.normalize(1.0)
-    pots = [
-        potential.LogarithmicHaloPotential(normalize=1),
-        potential.LogarithmicHaloPotential(normalize=1.3, q=0.9, b=0.7),  # nonaxi
-        potential.NFWPotential(normalize=1.0, a=1.5),
-        potential.ExpTruncNFWPotential(normalize=1.0, a=1.5, rc=10.0),
-        potential.MiyamotoNagaiPotential(normalize=0.02, a=10.0, b=10.0),
-        potential.MiyamotoNagaiPotential(normalize=0.6, a=0.0, b=3.0),  # special case
-        potential.PowerSphericalPotential(alpha=2.3, normalize=2.0),
-        potential.DehnenSphericalPotential(normalize=4.0, alpha=1.2),
-        potential.DehnenCoreSphericalPotential(normalize=4.0),
-        potential.HernquistPotential(normalize=1.0, a=3.5),
-        potential.JaffePotential(normalize=1.0, a=20.5),
-        potential.DoubleExponentialDiskPotential(normalize=0.2, hr=3.0, hz=0.6),
-        potential.FlattenedPowerPotential(normalize=3.0),
-        potential.FlattenedPowerPotential(normalize=3.0, alpha=0),  # special case
-        potential.IsochronePotential(normalize=2.0),
-        potential.PowerSphericalPotentialwCutoff(normalize=0.3, rc=10.0),
-        potential.PlummerPotential(normalize=0.6, b=3.0),
-        potential.PseudoIsothermalPotential(normalize=0.1, a=3.0),
-        potential.BurkertPotential(normalize=0.2, a=2.5),
-        potential.TriaxialHernquistPotential(normalize=1.0, a=3.5, b=0.8, c=0.9),
-        potential.TriaxialNFWPotential(normalize=1.0, a=1.5, b=0.8, c=0.9),
-        potential.TriaxialJaffePotential(normalize=1.0, a=20.5, b=0.8, c=1.4),
-        potential.PerfectEllipsoidPotential(normalize=0.3, a=3.0, b=0.7, c=1.5),
-        potential.PerfectEllipsoidPotential(
-            normalize=0.3, a=3.0, b=0.7, c=1.5, pa=3.0, zvec=[0.0, 1.0, 0.0]
-        ),  # rotated
-        potential.HomogeneousSpherePotential(
-            normalize=0.02, R=82.0 / 8
-        ),  # make sure to go to dens = 0 part,
-        potential.interpSphericalPotential(
-            rforce=potential.HomogeneousSpherePotential(normalize=0.02, R=82.0 / 8.0),
-            rgrid=numpy.linspace(0.0, 82.0 / 8.0, 201),
-        ),
-        potential.TriaxialGaussianPotential(
-            normalize=0.03, sigma=4.0, b=0.8, c=1.5, pa=3.0, zvec=[1.0, 0.0, 0.0]
-        ),
-        potential.SCFPotential(
-            Acos=numpy.array([[[1.0]]]),
-            normalize=1.0,
-            a=3.5,  # same as Hernquist
-        ),
-        potential.SCFPotential(
-            Acos=numpy.array([[[1.0, 0.0], [0.3, 0.0]]]),  # nonaxi
-            Asin=numpy.array([[[0.0, 0.0], [1e-1, 0.0]]]),
-            normalize=1.0,
-            a=3.5,
-        ),
-        scf_tdep,  # time-dependent non-axi SCF, density evaluated in C
-        potential.EinastoPotential(normalize=1.0, h=2.2),
-        potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5),
+    scf.normalize(1.0)
+    return scf
+
+
+def _mwpotential3021():
+    import copy
+
+    pot = copy.deepcopy(potential.MWPotential2014)
+    pot[2] *= 1.5  # Increase mass by 50%
+    return pot
+
+
+def _mcmillan17():
+    from galpy.potential.mwpotentials import McMillan17
+
+    return McMillan17
+
+
+# One case per potential, not chunks of them: the case id is what a failure -- or a
+# backend ledger entry -- names. FACTORIES, not instances: conftest forces the
+# backend per TEST, so building a potential at collection time would build it on
+# numpy even under --backend jax.
+_DYNAMFRIC_POTS = {
+    "LogarithmicHaloPotential": lambda: potential.LogarithmicHaloPotential(normalize=1),
+    "LogarithmicHaloPotential_nonaxi": lambda: potential.LogarithmicHaloPotential(
+        normalize=1.3, q=0.9, b=0.7
+    ),
+    "NFWPotential": lambda: potential.NFWPotential(normalize=1.0, a=1.5),
+    "ExpTruncNFWPotential": lambda: potential.ExpTruncNFWPotential(
+        normalize=1.0, a=1.5, rc=10.0
+    ),
+    "MiyamotoNagaiPotential": lambda: potential.MiyamotoNagaiPotential(
+        normalize=0.02, a=10.0, b=10.0
+    ),
+    "MiyamotoNagaiPotential_a0": lambda: potential.MiyamotoNagaiPotential(
+        normalize=0.6, a=0.0, b=3.0
+    ),
+    "PowerSphericalPotential": lambda: potential.PowerSphericalPotential(
+        alpha=2.3, normalize=2.0
+    ),
+    "DehnenSphericalPotential": lambda: potential.DehnenSphericalPotential(
+        normalize=4.0, alpha=1.2
+    ),
+    "DehnenCoreSphericalPotential": lambda: potential.DehnenCoreSphericalPotential(
+        normalize=4.0
+    ),
+    "HernquistPotential": lambda: potential.HernquistPotential(normalize=1.0, a=3.5),
+    "JaffePotential": lambda: potential.JaffePotential(normalize=1.0, a=20.5),
+    "DoubleExponentialDiskPotential": lambda: potential.DoubleExponentialDiskPotential(
+        normalize=0.2, hr=3.0, hz=0.6
+    ),
+    "FlattenedPowerPotential": lambda: potential.FlattenedPowerPotential(normalize=3.0),
+    "FlattenedPowerPotential_alpha0": lambda: potential.FlattenedPowerPotential(
+        normalize=3.0, alpha=0
+    ),
+    "IsochronePotential": lambda: potential.IsochronePotential(normalize=2.0),
+    "PowerSphericalPotentialwCutoff": lambda: potential.PowerSphericalPotentialwCutoff(
+        normalize=0.3, rc=10.0
+    ),
+    "PlummerPotential": lambda: potential.PlummerPotential(normalize=0.6, b=3.0),
+    "PseudoIsothermalPotential": lambda: potential.PseudoIsothermalPotential(
+        normalize=0.1, a=3.0
+    ),
+    "BurkertPotential": lambda: potential.BurkertPotential(normalize=0.2, a=2.5),
+    "TriaxialHernquistPotential": lambda: potential.TriaxialHernquistPotential(
+        normalize=1.0, a=3.5, b=0.8, c=0.9
+    ),
+    "TriaxialNFWPotential": lambda: potential.TriaxialNFWPotential(
+        normalize=1.0, a=1.5, b=0.8, c=0.9
+    ),
+    "TriaxialJaffePotential": lambda: potential.TriaxialJaffePotential(
+        normalize=1.0, a=20.5, b=0.8, c=1.4
+    ),
+    "PerfectEllipsoidPotential": lambda: potential.PerfectEllipsoidPotential(
+        normalize=0.3, a=3.0, b=0.7, c=1.5
+    ),
+    "PerfectEllipsoidPotential_rotated": lambda: potential.PerfectEllipsoidPotential(
+        normalize=0.3, a=3.0, b=0.7, c=1.5, pa=3.0, zvec=[0.0, 1.0, 0.0]
+    ),
+    "HomogeneousSpherePotential": lambda: potential.HomogeneousSpherePotential(
+        normalize=0.02, R=82.0 / 8
+    ),
+    "interpSphericalPotential": lambda: potential.interpSphericalPotential(
+        rforce=potential.HomogeneousSpherePotential(normalize=0.02, R=82.0 / 8.0),
+        rgrid=numpy.linspace(0.0, 82.0 / 8.0, 201),
+    ),
+    "TriaxialGaussianPotential": lambda: potential.TriaxialGaussianPotential(
+        normalize=0.03, sigma=4.0, b=0.8, c=1.5, pa=3.0, zvec=[1.0, 0.0, 0.0]
+    ),
+    "SCFPotential_hernquist": lambda: potential.SCFPotential(
+        Acos=numpy.array([[[1.0]]]),
+        normalize=1.0,
+        a=3.5,  # same as Hernquist
+    ),
+    "SCFPotential_nonaxi": lambda: potential.SCFPotential(
+        Acos=numpy.array([[[1.0, 0.0], [0.3, 0.0]]]),  # nonaxi
+        Asin=numpy.array([[[0.0, 0.0], [1e-1, 0.0]]]),
+        normalize=1.0,
+        a=3.5,
+    ),
+    "SCFPotential_tdep_nonaxi": lambda: _scf_tdep(),
+    "EinastoPotential": lambda: potential.EinastoPotential(normalize=1.0, h=2.2),
+    "TwoPowerSphericalPotential": lambda: potential.TwoPowerSphericalPotential(
+        normalize=1.0, alpha=1.5, beta=3.5
+    ),
+    "MultipoleExpansionPotential_spherical": lambda: (
         potential.MultipoleExpansionPotential.from_density(
             dens=potential.HernquistPotential(normalize=1.0, a=3.5),
             symmetry="spherical",
             normalize=1.0,
-        ),
+        )
+    ),
+    "MultipoleExpansionPotential_nonaxi": lambda: (
         potential.MultipoleExpansionPotential.from_density(
             dens=lambda R, z, phi: (
                 potential.HernquistPotential(normalize=1.0, a=3.5).dens(R, z)
@@ -328,17 +358,35 @@ def test_dynamfric_c(chunk):
             ),
             L=2,
             normalize=1.0,
-        ),
-        # Out-of-bounds test for MultipoleExpansionPotential, with rgrid that doesn't go to zero
+        )
+    ),
+    "MultipoleExpansionPotential_outofbounds": lambda: (
         potential.MultipoleExpansionPotential.from_density(
             dens=potential.HernquistPotential(normalize=1.0, a=3.5),
             symmetry="spherical",
             amp=2.5,
             rgrid=numpy.geomspace(6.0045, 43.3, 201),
-        ),
-        MWPotential3021,
-        McMillan17,  # SCF + DiskSCF
-    ]
+        )
+    ),
+    "MWPotential3021": lambda: _mwpotential3021(),
+    "McMillan17": lambda: _mcmillan17(),
+}
+
+
+@pytest.mark.parametrize("potid", list(_DYNAMFRIC_POTS))
+def test_dynamfric_c(potid):
+    from galpy.orbit import Orbit
+    from galpy.potential.Potential import _check_c
+
+    # Basic parameters for the test
+    times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
+    integrator = "dop853_c"
+    # Second arm: on numpy this is the pure-Python integrator, which is the point
+    # of the test; under jax it costs ~240 s per potential against 5 s in-backend,
+    # for numerics numpy already covers (see conftest._inbackend_method). Measured
+    # single-process, dop853 and torchdiffeq are within noise on torch (totals
+    # 1028 s vs 1087 s over the whole walk), so torch keeps dop853.
+    py_integrator = _inbackend_method("dop853")
     # tolerances in log10
     tol = {}
     tol["default"] = -7.0
@@ -352,82 +400,78 @@ def test_dynamfric_c(chunk):
     tol["interpSphericalPotential"] = -6.0  # == HomogeneousSpherePotential
     tol["MultipoleExpansionPotential"] = -6.0
     tol["McMillan17"] = -6.0
-    # Filter BEFORE chunking: most of the list has no C dynamical friction and is
-    # skipped, so striding the raw list piles the real work into a few chunks
-    # (measured 275 s vs 48 s across six). Striding the usable ones balances them.
-    _usable = [p for p in pots if _check_c(p, dens=True)]  # dynamfric not in C!
-    for p in _usable[chunk::_DYNAMFRIC_CHUNKS]:
-        pname = type(p).__name__
-        if pname == "CompositePotential" or pname == "list":
-            if (
-                isinstance(p[0], potential.PowerSphericalPotentialwCutoff)
-                and len(p) > 1
-                and isinstance(p[1], potential.MiyamotoNagaiPotential)
-                and len(p) > 2
-                and isinstance(p[2], potential.NFWPotential)
-            ):
-                pname = "MWPotential3021"  # Must be!
-            else:
-                pname = "McMillan17"
-        # print(pname)
-        if pname in list(tol.keys()):
-            ttol = tol[pname]
+    p = _DYNAMFRIC_POTS[potid]()
+    if not _check_c(p, dens=True):  # dynamical friction is not in C without it
+        pytest.skip(f"{potid} has no C density, so C dynamical friction is unavailable")
+    pname = type(p).__name__
+    if pname == "CompositePotential" or pname == "list":
+        if (
+            isinstance(p[0], potential.PowerSphericalPotentialwCutoff)
+            and len(p) > 1
+            and isinstance(p[1], potential.MiyamotoNagaiPotential)
+            and len(p) > 2
+            and isinstance(p[2], potential.NFWPotential)
+        ):
+            pname = "MWPotential3021"  # Must be!
         else:
-            ttol = tol["default"]
-        # Setup orbit, ~ LMC
-        o = Orbit(
-            [5.13200034, 1.08033051, 0.23323391, -3.48068653, 0.94950884, -1.54626091]
+            pname = "McMillan17"
+    # print(pname)
+    if pname in list(tol.keys()):
+        ttol = tol[pname]
+    else:
+        ttol = tol["default"]
+    # Setup orbit, ~ LMC
+    o = Orbit(
+        [5.13200034, 1.08033051, 0.23323391, -3.48068653, 0.94950884, -1.54626091]
+    )
+    # Setup dynamical friction object
+    if pname == "McMillan17":
+        cdf = potential.ChandrasekharDynamicalFrictionForce(
+            GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=101
         )
-        # Setup dynamical friction object
-        if pname == "McMillan17":
-            cdf = potential.ChandrasekharDynamicalFrictionForce(
-                GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=101
-            )
-            ttimes = numpy.linspace(0.0, -30.0, 1001)  # ~1 Gyr at the Solar circle
-        elif (
-            pname == "MultipoleExpansionPotential" and p._rgrid[0] > 1.0
-        ):  # Special one to test r out-of-bounds, needs some hacking to work
-            cdf_tmp = potential.ChandrasekharDynamicalFrictionForce(
-                GMs=0.5553870441722593,
-                rhm=5.0 / 8.0,
-                dens=potential.MultipoleExpansionPotential.from_density(
-                    dens=potential.HernquistPotential(normalize=1.0, a=3.5),
-                    symmetry="spherical",
-                    normalize=1.0,
-                    rgrid=numpy.geomspace(1e-3, 500.0 / 8.0, 201),
-                ),
-                maxr=500.0 / 8,
-                nr=101,
-            )
-            cdf = potential.ChandrasekharDynamicalFrictionForce(
-                GMs=0.5553870441722593,
-                rhm=5.0 / 8.0,
-                dens=p,
-                # minr=5.7,
-                # maxr=25.0,
-                maxr=500.0 / 8,
-                nr=101,
-                sigmar=cdf_tmp.sigmar_orig,
-            )
-            ttimes = times
-            # This is a more difficult test, because of the r out-of-bounds issue
-            ttol = -2.0
-        else:
-            cdf = potential.ChandrasekharDynamicalFrictionForce(
-                GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=201
-            )
-            ttimes = times
-        # Integrate in C
-        o.integrate(ttimes, p + cdf, method=integrator)
-        # Integrate in Python (numpy) / in-backend (jax, torch)
-        op = o() if py_integrator == "dop853" else Orbit(_ic_on_backend(o))
-        op.integrate(ttimes, p + cdf, method=py_integrator)
-        # Compare r (most important)
-        assert (
-            numpy.amax(numpy.fabs(as_numpy(o.r(ttimes) - op.r(ttimes)))) < 10**ttol
-        ), (
-            f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
+        ttimes = numpy.linspace(0.0, -30.0, 1001)  # ~1 Gyr at the Solar circle
+    elif (
+        pname == "MultipoleExpansionPotential" and p._rgrid[0] > 1.0
+    ):  # Special one to test r out-of-bounds, needs some hacking to work
+        cdf_tmp = potential.ChandrasekharDynamicalFrictionForce(
+            GMs=0.5553870441722593,
+            rhm=5.0 / 8.0,
+            dens=potential.MultipoleExpansionPotential.from_density(
+                dens=potential.HernquistPotential(normalize=1.0, a=3.5),
+                symmetry="spherical",
+                normalize=1.0,
+                rgrid=numpy.geomspace(1e-3, 500.0 / 8.0, 201),
+            ),
+            maxr=500.0 / 8,
+            nr=101,
         )
+        cdf = potential.ChandrasekharDynamicalFrictionForce(
+            GMs=0.5553870441722593,
+            rhm=5.0 / 8.0,
+            dens=p,
+            # minr=5.7,
+            # maxr=25.0,
+            maxr=500.0 / 8,
+            nr=101,
+            sigmar=cdf_tmp.sigmar_orig,
+        )
+        ttimes = times
+        # This is a more difficult test, because of the r out-of-bounds issue
+        ttol = -2.0
+    else:
+        cdf = potential.ChandrasekharDynamicalFrictionForce(
+            GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=201
+        )
+        ttimes = times
+    # Integrate in C
+    o.integrate(ttimes, p + cdf, method=integrator)
+    # Integrate in Python (numpy) / in-backend (jax, torch)
+    op = o() if py_integrator == "dop853" else Orbit(_ic_on_backend(o))
+    op.integrate(ttimes, p + cdf, method=py_integrator)
+    # Compare r (most important)
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(ttimes) - op.r(ttimes)))) < 10**ttol, (
+        f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
+    )
     return None
 
 
