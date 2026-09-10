@@ -4,7 +4,7 @@ import astropy.coordinates as apycoords
 import astropy.units as u
 import numpy
 import pytest
-from conftest import _backend_integrators, _to_numpy
+from conftest import _backend_integrators, _ic_on_backend, _inbackend_method, _to_numpy
 
 from galpy import potential
 from galpy.backend import as_numpy
@@ -9992,7 +9992,14 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
         ]
     )
     ts = numpy.linspace(0.0, dt, 1001)
-    o.integrate(ts, lp + cdfc, method="leapfrog")  # also tests fallback onto odeint
+    # leapfrog falls back onto odeint here (dissipative force), which steps in
+    # Python: under a backend that is ~1 ms of eager dispatch per force
+    # evaluation, over 1000 steps x 2 orbits. Integrate in-backend there instead
+    # -- same physics, one batched solve -- and let numpy keep the fallback check.
+    method = _inbackend_method("leapfrog")
+    if method != "leapfrog":
+        o = Orbit(_ic_on_backend(o))
+    o.integrate(ts, lp + cdfc, method=method)
     r_pred = numpy.sqrt(
         numpy.array(o.r()) ** 2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
     )
