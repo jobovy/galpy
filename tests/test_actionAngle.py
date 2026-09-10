@@ -3910,6 +3910,65 @@ def test_actionAngleStaeckel_conserved_actions_c():
     return None
 
 
+# Regression test for the exact-mode evaluation cache of
+# OblateStaeckelWrapperPotential in C: the cache is stateful per parsed
+# potentialArg, so it relies on every actionAngle C entry point handing each
+# OpenMP thread its own parsed copy; a shared copy shows up as nondeterministic,
+# wrong results (torn cache doubles). Check that all six C entry points are
+# deterministic under repetition with enough points to engage multiple threads,
+# that the cached exact mode agrees with the cache-free tabulated mode, and
+# that the actions agree with pure Python
+def test_actionAngle_oblatestaeckelwrapper_cache_c():
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
+    swptab = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, ntab=3000)
+    n = 64
+    R = numpy.linspace(0.8, 1.2, n)
+    vR = 0.15 * numpy.sin(9.0 * R)
+    vT = 1.05 + 0.1 * numpy.cos(7.0 * R)
+    z = 0.1 * numpy.sin(13.0 * R)
+    vz = 0.05 * numpy.cos(11.0 * R)
+    phi = numpy.linspace(0.0, 2.0 * numpy.pi, n)
+    all_results = []
+    for pot in (swp, swptab):
+        aAS = actionAngleStaeckel(pot=pot, delta=0.45, c=True)
+        aAA = actionAngleAdiabatic(pot=pot, c=True)
+        results = []
+        for _ in range(2):
+            out = []
+            out.extend(aAS(R, vR, vT, z, vz))
+            out.extend(aAS.actionsFreqs(R, vR, vT, z, vz))
+            out.extend(aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi))
+            out.extend(aAS.EccZmaxRperiRap(R, vR, vT, z, vz))
+            out.extend(aAA(R, vR, vT, z, vz))
+            out.extend(aAA.EccZmaxRperiRap(R, vR, vT, z, vz))
+            results.append(out)
+        for first, second in zip(*results):
+            assert numpy.all(first == second), (
+                "OblateStaeckelWrapperPotential C actionAngle evaluation is not "
+                "deterministic under repetition; the exact-mode cache is likely "
+                "racing between OpenMP threads"
+            )
+        all_results.append(results[0])
+    # residual difference is tabulation truncation (the frequencies lean on the
+    # tabulated second derivatives); a racing cache errs at the percent level
+    for exact, tab in zip(*all_results):
+        assert numpy.amax(numpy.fabs(exact - tab)) < 1e-4, (
+            "Cached exact-mode and cache-free tabulated-mode "
+            "OblateStaeckelWrapperPotential disagree in C actionAngle evaluation"
+        )
+    aASpy = actionAngleStaeckel(pot=swp, delta=0.45, c=False)
+    sub = slice(0, n, 16)
+    jpy = aASpy(R[sub], vR[sub], vT[sub], z[sub], vz[sub])
+    for jc, jp in zip(all_results[0][:3], jpy):
+        assert numpy.amax(numpy.fabs(jc[sub] - jp)) < 1e-4, (
+            "C and Python actions of the cached OblateStaeckelWrapperPotential disagree"
+        )
+    return None
+
+
 # Test the actions of an actionAngleStaeckel, for a dblexp disk far away from the center
 def test_actionAngleStaeckel_conserved_actions_c_specialdblexp():
     from galpy.actionAngle import actionAngleStaeckel
