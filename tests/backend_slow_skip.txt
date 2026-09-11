@@ -44,15 +44,14 @@
 # the same un-vectorized dissipative path as jax above; it belongs here with them.
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: 619.0s (CI~440s)
 
-# --- torch: ExpTruncNFWPotential in the analytic walk (per potential, gh#1474) ---
-# Measured 2026-09-10, one case per potential under forced torch (52 passed):
-# ExpTruncNFWPotential is 340.4 s and EVERY other potential in the walk is under
-# 44 s. It is NOT the eager floor the two jax entries in backend_skip.txt are --
-# under jax the same case is 198.8 s and passes, so torch is doing something
-# specific and worse here (its incomplete-gamma path is the suspect; see the
-# torch gammaincc note in the op-gotchas). Burndown, not permanent: find out why
-# torch is 1.7x slower than jax on this one potential.
-torch tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 340.4s (jax: 198.8s)
+# --- torch ExpTruncNFWPotential: RETIRED 2026-09-10 (gh#1477) ---
+# It was 340.4 s under torch against 198.8 s under jax, and that inversion was
+# the clue: the suspect was not the incomplete gamma but exp1, whose fallback is
+# TORCH-ONLY (jax has a native -expi(-x)). That fallback ran an 80-iteration
+# Lentz continued fraction plus a 25-term series as Python loops -- ~580 eager
+# ops per call, 3.6 ms on torch against 0.09 ms on numpy. Replacing the
+# recurrence with one Gauss-Legendre quadrature took the case to 46.8 s (7.3x)
+# and the fallback to 1.0e-15 max relative error, 8x BETTER than the recurrence.
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
