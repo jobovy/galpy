@@ -463,3 +463,44 @@ def test_dynamfric_c_minr_warning():
         "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
     )
     return None
+
+
+# FDMDynamicalFrictionForce overrides _calc_force but INHERITS _Rforce /
+# _phitorque / _zforce, so it relies on the same (R,phi,z,v,t) cache. Pinned
+# separately from the Chandrasekhar version because that inheritance is the only
+# thing making it true: an FDM-specific force component would reintroduce the
+# threefold recomputation without touching the base class or its test. Both
+# branches of the FDM _calc_force are covered -- the full kr-regime friction
+# factor, and the const_FDMfactor shortcut that skips it.
+@pytest.mark.parametrize("const_FDMfactor", [False, 0.1])
+def test_FDMdynamfric_force_factor_computed_once_per_step(const_FDMfactor):
+    from galpy.orbit import Orbit
+
+    pot = potential.LogarithmicHaloPotential(normalize=1.0)
+    fdf = potential.FDMDynamicalFrictionForce(
+        GMs=0.01, dens=pot, const_FDMfactor=const_FDMfactor
+    )
+    counts = {"calc": 0, "Rforce": 0}
+    orig_calc, orig_Rforce = fdf._calc_force, fdf._Rforce
+
+    def counted_calc(*args, **kwargs):
+        counts["calc"] += 1
+        return orig_calc(*args, **kwargs)
+
+    def counted_Rforce(*args, **kwargs):
+        counts["Rforce"] += 1
+        return orig_Rforce(*args, **kwargs)
+
+    fdf._calc_force, fdf._Rforce = counted_calc, counted_Rforce
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    o.integrate(numpy.linspace(0.0, 2.0, 21), pot + fdf, method="dop853")
+    assert counts["Rforce"] > 100, (
+        "the integration did not exercise the FDM friction force, so this test "
+        "cannot say anything about its cache"
+    )
+    assert counts["calc"] == counts["Rforce"], (
+        "the FDM friction factor is computed %d times for %d equation-of-motion "
+        "evaluations; the (R,phi,z,v,t) cache is not hitting"
+        % (counts["calc"], counts["Rforce"])
+    )
+    return None
