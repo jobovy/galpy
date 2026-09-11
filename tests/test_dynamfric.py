@@ -469,3 +469,40 @@ def test_dynamfric_c_minr_warning():
         "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
     )
     return None
+
+
+# The three force components are queried with identical arguments inside a single
+# equation-of-motion evaluation, so the friction factor -- and the host-density
+# evaluation behind it -- must be computed ONCE per step, not three times. The
+# hash that guards that was computed and compared but never stored, so
+# _force_hash stayed None and the cache never hit. Nothing tested it, which is
+# exactly why a dead cache stayed invisible: the values are right either way.
+def test_dynamfric_force_factor_computed_once_per_step():
+    from galpy.orbit import Orbit
+
+    pot = potential.LogarithmicHaloPotential(normalize=1.0)
+    cdf = potential.ChandrasekharDynamicalFrictionForce(GMs=0.01, dens=pot)
+    counts = {"calc": 0, "Rforce": 0}
+    orig_calc, orig_Rforce = cdf._calc_force, cdf._Rforce
+
+    def counted_calc(*args, **kwargs):
+        counts["calc"] += 1
+        return orig_calc(*args, **kwargs)
+
+    def counted_Rforce(*args, **kwargs):
+        counts["Rforce"] += 1
+        return orig_Rforce(*args, **kwargs)
+
+    cdf._calc_force, cdf._Rforce = counted_calc, counted_Rforce
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    o.integrate(numpy.linspace(0.0, 2.0, 21), pot + cdf, method="dop853")
+    assert counts["Rforce"] > 100, (
+        "the integration did not exercise the friction force, so this test cannot "
+        "say anything about its cache"
+    )
+    assert counts["calc"] == counts["Rforce"], (
+        "the friction factor is computed %d times for %d equation-of-motion "
+        "evaluations; the (R,phi,z,v,t) cache is not hitting"
+        % (counts["calc"], counts["Rforce"])
+    )
+    return None
