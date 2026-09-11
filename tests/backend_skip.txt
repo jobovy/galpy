@@ -102,6 +102,34 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_int
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
+#
+# Second wave, re-homed 2026-09-11: the exactpointtransform / ptonly tests (and
+# their test_quantity sibling) landed on main after the move above and were
+# auto-ledgered as xfail. Same guard, verified under both backends -- all 22 fail
+# with `NotImplementedError: actionAngleVerticalInverse is not yet migrated`
+# raised by `_reject_backend` -- so they belong here, not in the burndown.
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
+jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
+jax tests/test_quantity.py::test_actionAngleVerticalInverse_units
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
+torch tests/test_quantity.py::test_actionAngleVerticalInverse_units
 
 # --- streamdf's useTM tests reach actionAngleTorus ---
 # "NotImplementedError: actionAngleTorus wraps the external Torus C++ library

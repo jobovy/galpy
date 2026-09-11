@@ -883,21 +883,35 @@ def test_staeckel_jit_grad_rolls_direct_bisection():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_staeckel_unbound_backend_no_raise(backend):
-    # An unbound orbit raises UnboundError on the numpy path (eager), but must NOT
-    # raise under a backend: the vectorised turning-point search cannot branch on
-    # the traced `unbound` mask under jit, so it falls through to a (garbage)
-    # backend array instead -- which is exactly what keeps actionsFreqsAngles
-    # jax.jit-traceable (jit traces+matches eager to ~9e-10). Exercises both sides
-    # of the `not is_backend_array(R)` guard in _staeckel_prep.
+def test_staeckel_unbound_eager_raises(backend):
+    # An unbound orbit raises UnboundError on the numpy path, and EAGER jax/torch
+    # raise identically: `unbound` has a concrete truth value there, so the check
+    # is a real check. The split is TRACED vs not, not backend-array vs not -- the
+    # earlier `not is_backend_array(R)` guard skipped the check on both eager
+    # backends, where this orbit came back with jr = 2.8e47 instead.
     from galpy.actionAngle import UnboundError
 
     aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.5, c=False)
     ub = (0.9, 10.0, -20.0, 0.1, 10.0)
     with pytest.raises(UnboundError):
-        aA(*ub)  # numpy path: eager raise
-    out = aA(*[_arr(backend, numpy.atleast_1d(v).astype(float)) for v in ub])
-    assert _is_backend_array(backend, out[0])  # backend: no raise (garbage value ok)
+        aA(*ub)  # numpy path
+    with pytest.raises(UnboundError):  # eager backend: same raise as numpy
+        aA(*[_arr(backend, numpy.atleast_1d(v).astype(float)) for v in ub])
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_staeckel_unbound_traced_falls_through():
+    # The other side of `concretely_true` in _staeckel_prep: under a jax trace
+    # `unbound` is a tracer with no truth value, so the check skips itself and the
+    # orbit falls through to a (garbage) backend array rather than taking down the
+    # trace. That is what keeps actionsFreqsAngles jax.jit-traceable.
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.5, c=False)
+    args = tuple(
+        jnp.asarray(numpy.atleast_1d(v).astype(float))
+        for v in (0.9, 10.0, -20.0, 0.1, 10.0)
+    )
+    out = jax.jit(lambda *a: aA(*a))(*args)
+    assert _is_backend_array("jax", out[0])
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
