@@ -246,29 +246,31 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+    def _cached_force_factor(self, R, phi, z, v, t):
+        """The shared friction factor, recomputed only when (R, phi, z, v, t) moves.
+
+        The three force components are queried with identical arguments inside one
+        equation-of-motion evaluation, so the factor -- and the host-density
+        evaluation behind it -- is computed once per step rather than three times.
+        The hash was previously computed and compared but never STORED, so
+        ``self._force_hash`` stayed ``None`` and the cache never hit.
+        """
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
         if new_hash != self._force_hash:
             self._calc_force(R, phi, z, v, t)
-        return self._cached_force * v[0]
+            self._force_hash = new_hash
+        return self._cached_force
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+        return self._cached_force_factor(R, phi, z, v, t) * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        new_hash = hashlib.md5(
-            numpy.array([R, phi, z, v[0], v[1], v[2], t])
-        ).hexdigest()
-        if new_hash != self._force_hash:
-            self._calc_force(R, phi, z, v, t)
-        return self._cached_force * v[1] * R
+        return self._cached_force_factor(R, phi, z, v, t) * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        new_hash = hashlib.md5(
-            numpy.array([R, phi, z, v[0], v[1], v[2], t])
-        ).hexdigest()
-        if new_hash != self._force_hash:
-            self._calc_force(R, phi, z, v, t)
-        return self._cached_force * v[2]
+        return self._cached_force_factor(R, phi, z, v, t) * v[2]
 
     # Pickling functions
     def __getstate__(self):
