@@ -44,15 +44,14 @@
 # the same un-vectorized dissipative path as jax above; it belongs here with them.
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-08-21: 619.0s (CI~440s)
 
-# --- torch: ExpTruncNFWPotential in the analytic walk (per potential, gh#1474) ---
-# Measured 2026-09-10, one case per potential under forced torch (52 passed):
-# ExpTruncNFWPotential is 340.4 s and EVERY other potential in the walk is under
-# 44 s. It is NOT the eager floor the two jax entries in backend_skip.txt are --
-# under jax the same case is 198.8 s and passes, so torch is doing something
-# specific and worse here (its incomplete-gamma path is the suspect; see the
-# torch gammaincc note in the op-gotchas). Burndown, not permanent: find out why
-# torch is 1.7x slower than jax on this one potential.
-torch tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 340.4s (jax: 198.8s)
+# --- torch ExpTruncNFWPotential: RETIRED 2026-09-10 (gh#1477) ---
+# It was 340.4 s under torch against 198.8 s under jax, and that inversion was
+# the clue: the suspect was not the incomplete gamma but exp1, whose fallback is
+# TORCH-ONLY (jax has a native -expi(-x)). That fallback ran an 80-iteration
+# Lentz continued fraction plus a 25-term series as Python loops -- ~580 eager
+# ops per call, 3.6 ms on torch against 0.09 ms on numpy. Replacing the
+# recurrence with one Gauss-Legendre quadrature took the case to 46.8 s (7.3x)
+# and the fallback to 1.0e-15 max relative error, 8x BETTER than the recurrence.
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
@@ -147,7 +146,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # PASSES in 528.9s (CI~375s) -- re-measured 2026-08-22 post-#1364 in the real CI shard (--splits 5 --group 3); the old '>420s timed out' was a TIMEOUT BOUND, not a time
 
 # --- jax single-orbit: misc slow (Python-integrator paths) ---
 # Integrate paths that step in Python under jax. Track A force vectorization /
@@ -220,6 +218,16 @@ jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
 #
+# 2026-09-10 (gh#1475): test_streamTrack_plot_spread_non_cartesian is RETIRED in
+# BOTH modes too -- 439.2 -> 45.5 s eager, 406.7 -> 46.3 s traced. Its cost was
+# never the stream pipeline: plot(spread=) on a sky axis assembled ONE 6x6
+# Jacobian per track point in a Python comprehension, because galsky_to_sky_jac
+# and sky_to_customsky_jac were scalar-only (galpy/df/streamTrack.py said so and
+# called making them broadcast a follow-up). They broadcast now, so the whole
+# chain is one batched call. numpy deliberately keeps the per-point assembly:
+# vectorizing it moves the last bits (up to 32 ulps) and numpy has nothing to
+# gain. streamTrack has NO entries left in this file.
+#
 # 2026-09-09 (gh#1473): test_streamTrack_with_progpot is RETIRED in BOTH modes --
 # 323.7 s -> under 18 s eager, 326.8 s -> 35.7 s traced. Not a stream fix: the C bridge exploded a MovingObjectPotential's
 # 10001-point trajectory into one Python object per entry, and under a forced
@@ -235,7 +243,6 @@ jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_
 # call, NonInertialFrameForce 7 -> 1.07x-1.64x on its tests, streamTrack ~0 per
 # evaluation (its stream-module calls are in TRACK SETUP, run a handful of times)
 # -> nothing. Do not re-run this sweep expecting a win from that guard.
-jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439.2s re-measured 2026-09-09 with the pot_args fix (was 427.2s; 1.03x -- unaffected)
 # jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
 # which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
 # jax's thread-local trace state as None, and then EVERY later test in the shard
@@ -315,7 +322,6 @@ jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 439
 # 498->452 and 348->314 s -- ~10% inflation, not the 6x that test_noninertial
 # saw, because this run had one competitor rather than four. Either way both
 # clear 240 s, so the split is unchanged.
-jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 406.7s traced (CI~289s) re-measured 2026-08-22 post-#1364 (was 452s; 1.11x)
 
 # --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
 # gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
@@ -328,6 +334,24 @@ jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  #
 # Of 17 eager entries across the 8 files measured so far, 8 survive traced and
 # 11 do not. Two of the 8 were NEVER eager entries -- inheritance only
 # propagates eager entries forward, so it could not have found them at all.
+# --- jax-jit test_orbit walks: narrowed to ONE potential 2026-09-11 (gh#1478) ---
+# The four base-nodeid rows here deferred EVERY parametrization under jit -- ~190
+# cases -- on the strength of whole-walk timings from before the walks ran per
+# potential. Re-measured traced, per potential (243 passed, 30 min): NOTHING is
+# over the 300 s cap except one case, and the next-slowest is 148.9 s.
+#   test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  296.2s  <- stays, at 99% of the cap
+#   test_analytic_ecc_rperi_rap[TriaxialNFWPotential]  136.7s
+#   test_zmax[RazorThinExponentialDiskPotential]       133.4s
+#   test_liouville_planar[BurkertPotentialNoC]          38.3s
+# (The pathological potentials of the eager sweep -- Ferrers, RazorThin in the
+# analytic tests -- are already covered here: backend_skip.txt entries keyed
+# "jax" are inherited by "jax-jit".)
+# NOTE: gh#1477's exp1 quadrature does NOT help this one. That fallback is
+# torch-only -- jax uses its native -expi(-x) -- so the traced case measured
+# 292.2 s before the fix and 296.25 s after it. Same reason its eager twin is
+# 198.8 s while torch's was 340.4 s.
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 296.2s traced
+
 jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
@@ -340,14 +364,10 @@ jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # entries; 7 survive traced. Note this file runs OPPOSITE to the sweep average
 # (two-thirds of eager entries elsewhere did NOT survive) -- per-file variation
 # is exactly what a single inheritance rule cannot express.
-jax-jit tests/test_orbit.py::test_zmax  # 300s cap
-jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap  # 300s cap
-jax-jit tests/test_orbit.py::test_analytic_zmax  # 300s cap
 # Inside the 240-300 s band -- judgement calls, not cap hits. Together with
 # test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
 # on where the margin sits; the other 12 hit the cap outright.
 jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
-jax-jit tests/test_orbit.py::test_liouville_planar  # re-measured 2026-09-07: 478.8s traced (the 265s note was stale and optimistic)
 
 # torch-jit: measured by the 2026-08-09 torch sweep (duration vs the 240s
 # margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS

@@ -1190,3 +1190,41 @@ def test_streamtrack_class_numpy_path_unchanged():
     assert numpy.all(numpy.isfinite(xn))
     assert not is_backend_array(tr_np.x(q))
     assert not is_backend_array(tr_np.cov(q))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_cov_sky_bases_match_numpy(backend):
+    # cov(basis=<sky basis>) is the only caller of the per-track-point Jacobian
+    # chain, and under a backend it takes the BATCHED path (one (N, 6, 6) call)
+    # while numpy assembles it point by point. The two must agree -- and this is
+    # what exercises the batched branch at all, since the default galcenrect
+    # basis returns before the chain is reached.
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    T = numpy.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]])
+    tr_b = _wrap_backend_track(tr_np, backend, custom_sky_transform=T)
+    tr_np_cs = StreamTrack(
+        tr_np.tp_grid(),
+        numpy.asarray(tr_np._track_xyz),
+        numpy.asarray(tr_np._track_vxvyvz),
+        cov_xyz=numpy.asarray(tr_np._cov_xyz),
+        parameter_kind="time",
+        custom_sky_transform=T,
+    )
+    q = _class_query(tr_np)
+    for basis in ("galcencyl", "galsky", "sky", "customsky"):
+        cb = tr_b.cov(q, basis=basis)
+        assert is_backend_array(cb), f"cov(basis={basis!r}) is not a backend array"
+        cn = numpy.asarray(tr_np_cs.cov(q, basis=basis))
+        assert as_numpy(cb).shape == cn.shape == (len(q), 6, 6)
+        scale = numpy.max(numpy.abs(cn[numpy.isfinite(cn)]))
+        numpy.testing.assert_allclose(as_numpy(cb), cn, rtol=1e-8, atol=1e-10 * scale)
+        # a scalar tp still returns ONE (6, 6): the batched helpers squeeze back
+        cs = tr_b.cov(float(q[2]), basis=basis)
+        assert as_numpy(cs).shape == (6, 6)
+        numpy.testing.assert_allclose(
+            as_numpy(cs),
+            numpy.asarray(tr_np_cs.cov(float(q[2]), basis=basis)),
+            rtol=1e-8,
+            atol=1e-10 * scale,
+        )
