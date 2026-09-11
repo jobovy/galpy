@@ -334,6 +334,24 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # Of 17 eager entries across the 8 files measured so far, 8 survive traced and
 # 11 do not. Two of the 8 were NEVER eager entries -- inheritance only
 # propagates eager entries forward, so it could not have found them at all.
+# --- jax-jit test_orbit walks: narrowed to ONE potential 2026-09-11 (gh#1478) ---
+# The four base-nodeid rows here deferred EVERY parametrization under jit -- ~190
+# cases -- on the strength of whole-walk timings from before the walks ran per
+# potential. Re-measured traced, per potential (243 passed, 30 min): NOTHING is
+# over the 300 s cap except one case, and the next-slowest is 148.9 s.
+#   test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  296.2s  <- stays, at 99% of the cap
+#   test_analytic_ecc_rperi_rap[TriaxialNFWPotential]  136.7s
+#   test_zmax[RazorThinExponentialDiskPotential]       133.4s
+#   test_liouville_planar[BurkertPotentialNoC]          38.3s
+# (The pathological potentials of the eager sweep -- Ferrers, RazorThin in the
+# analytic tests -- are already covered here: backend_skip.txt entries keyed
+# "jax" are inherited by "jax-jit".)
+# NOTE: gh#1477's exp1 quadrature does NOT help this one. That fallback is
+# torch-only -- jax uses its native -expi(-x) -- so the traced case measured
+# 292.2 s before the fix and 296.25 s after it. Same reason its eager twin is
+# 198.8 s while torch's was 340.4 s.
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 296.2s traced
+
 jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
@@ -346,14 +364,10 @@ jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # entries; 7 survive traced. Note this file runs OPPOSITE to the sweep average
 # (two-thirds of eager entries elsewhere did NOT survive) -- per-file variation
 # is exactly what a single inheritance rule cannot express.
-jax-jit tests/test_orbit.py::test_zmax  # 300s cap
-jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap  # 300s cap
-jax-jit tests/test_orbit.py::test_analytic_zmax  # 300s cap
 # Inside the 240-300 s band -- judgement calls, not cap hits. Together with
 # test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
 # on where the margin sits; the other 12 hit the cap outright.
 jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
-jax-jit tests/test_orbit.py::test_liouville_planar  # re-measured 2026-09-07: 478.8s traced (the 265s note was stale and optimistic)
 
 # torch-jit: measured by the 2026-08-09 torch sweep (duration vs the 240s
 # margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
