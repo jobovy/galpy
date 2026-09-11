@@ -521,7 +521,12 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
     def _V(self, v):
         """Approximated
         V(v) = cosh^2(u0) Phi(u0,pi/2) - (sinh^2(u0)+sin^2(v)) Phi(u0,v)"""
-        if self._splines is not None:
+        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
+        # non-differentiable, so it serves the numpy path only. A backend keeps
+        # the analytic evaluation below, which differentiates. (The body itself
+        # needs no namespace -- coords/_evaluatePotentials dispatch internally --
+        # so `xp` is resolved for this gate alone, as in _dVdv/_d2Vdv2 below.)
+        if get_namespace(v) is numpy and self._splines is not None:
             return self._evalVspline(v, 0)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return self._refpot - _staeckel_prefactor(self._u0, v) * _evaluatePotentials(
