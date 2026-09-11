@@ -352,7 +352,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # 198.8 s while torch's was 340.4 s.
 jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 296.2s traced
 
-jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
@@ -367,11 +366,25 @@ jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # Inside the 240-300 s band -- judgement calls, not cap hits. Together with
 # test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
 # on where the margin sits; the other 12 hit the cap outright.
-jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
 
 # torch-jit: measured by the 2026-08-09 torch sweep (duration vs the 240s
 # margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
 # does not imply under-cap -- these are classified by junitxml time).
+# --- three single-test traced rows RETIRED 2026-09-11 (gh#1480) ---
+# None had been re-measured since it was first written down. Re-run traced, each
+# with its row removed:
+#   jax-jit  test_actionAngleStaeckel_wSpherical_conserved_actions_c
+#            ledgered ">300s timeout" (2026-09-07 CI dispatch) -> 25.9s. Stale by
+#            12x; the AA batching that landed since is the likely cause.
+#   torch-jit test_interprz_dxdv_3d
+#            never had a recorded time at all -> 67.0s.
+#   jax-jit  test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
+#            296s -> 255.8s. It PASSES, so it does not belong on a list of tests
+#            that cannot run; recorded here so that if a future local traced run
+#            does hit the 300s cap on it, the 255.8s is what to compare against.
+#            CI never runs jit mode, so there is no runner-variance argument for
+#            deferring it proactively the way a CI-relevant row would get.
+#
 # --- torch-jit test_orbit walks: RETIRED 2026-09-11 (gh#1478) ---
 # Same treatment as the jax-jit rows: those two were whole-walk deferrals from
 # before the walks ran per potential. Re-measured traced per potential
@@ -385,7 +398,6 @@ jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC
 # 219.0s here and the 493.2s that made Ferrers a permanent skip under jax.
 torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
 torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
-torch-jit tests/test_orbit.py::test_interprz_dxdv_3d
 #
 # UN-DEFER (2026-08-21): the nine tests/test_interp_potential.py entries are
 # STALE -- the interpRZPotential grid-build vectorisation made them fast and they
