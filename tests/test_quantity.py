@@ -18264,8 +18264,8 @@ def test_sphericaldf_method_inputAsQuantity_percall_ro():
     for kwargs, E in [({}, Ei), ({"vo": 300.0}, Ei * (vo / 300.0) ** 2.0)]:
         assert (
             numpy.fabs(
-                dfh.dMdE(Eq, use_physical=False, **kwargs)
-                - dfh.dMdE(E, use_physical=False)
+                as_numpy(dfh.dMdE(Eq, use_physical=False, **kwargs))
+                - as_numpy(dfh.dMdE(E, use_physical=False))
             )
             < 10.0**-8.0
         ), (
@@ -18273,7 +18273,8 @@ def test_sphericaldf_method_inputAsQuantity_percall_ro():
         )
         assert (
             numpy.fabs(
-                dfh((Eq,), use_physical=False, **kwargs) - dfh((E,), use_physical=False)
+                as_numpy(dfh((Eq,), use_physical=False, **kwargs))
+                - as_numpy(dfh((E,), use_physical=False))
             )
             < 10.0**-8.0
         ), (
@@ -18307,14 +18308,16 @@ def test_sphericaldf_method_inputAsQuantity_percall_ro():
     ]:
         assert (
             numpy.fabs(
-                dfh(*quant, use_physical=False, **kwargs)
-                - dfh(
-                    Ri * ro / tro,
-                    vRi * vo / tvo,
-                    vTi * vo / tvo,
-                    zi * ro / tro,
-                    vzi * vo / tvo,
-                    use_physical=False,
+                as_numpy(dfh(*quant, use_physical=False, **kwargs))
+                - as_numpy(
+                    dfh(
+                        Ri * ro / tro,
+                        vRi * vo / tvo,
+                        vTi * vo / tvo,
+                        zi * ro / tro,
+                        vzi * vo / tvo,
+                        use_physical=False,
+                    )
                 )
             )
             < 10.0**-8.0

@@ -18,6 +18,7 @@ from scipy import integrate, optimize
 
 from ..backend import (
     asarray_on_device,
+    concretely_true,
     device_of,
     get_namespace,
     is_backend_array,
@@ -382,11 +383,11 @@ def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta):
         delta = asarray_on_device(xp, delta, device_of(R))
     s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
     umin, umax, unbound = _staeckel_uminumax(xp, s, pot, delta)
-    # Unbound orbits raise eagerly on the numpy path (mirrors the Single class);
-    # under a backend they must stay jit-traceable, so we cannot branch on the
-    # traced `unbound` -- let unbound orbits fall through to NaN instead (the
-    # caller jits/AD-traces and checks). numpy stays byte-identical (still raises).
-    if not is_backend_array(R) and bool(numpy.any(unbound)):
+    # Unbound orbits raise, mirroring the Single class. Eager jax/torch have a
+    # concrete truth value here and raise identically to numpy; only under a jax
+    # trace is `unbound` a tracer, and there the orbit falls through to NaN for
+    # the caller to check.
+    if concretely_true(xp.any(unbound)):
         raise UnboundError("Orbit seems to be unbound")
     vmin = _staeckel_vmin(xp, s, pot, delta)
     # Planar orbit (jz=0): snap vmin to exactly pi/2 (the bisection lands ~1e-8
