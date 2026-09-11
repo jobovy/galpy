@@ -45,11 +45,20 @@
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 619.0s (2026-08-21) -> 507.1s re-measured 2026-09-11 after the friction force stopped
 # calling the DECORATED evaluateDensities once per force evaluation (98,800 @backend_input
 # crossings for a five-point integration -> 0). Its sibling const_FDMfactor went 253.1 -> 188.6s
-# and stays un-ledgered. STILL OVER the cap: what is left is the Python dop853 loop itself,
-# which under a forced backend does ZERO backend work (measured: boundary calls = 0 for an
-# orbit integration), so this arm costs ~500s for no unique backend coverage -- the FDM force's
-# backend path is covered directly by tests/test_backend_dynamfric.py. A sici rewrite was tried
-# first and changed nothing (615.2 -> 615.2s): the backend friction factor is never reached here.
+# and stays un-ledgered. STILL OVER the cap here, and the residue is NOT backend overhead:
+# the same arm costs 459.5s under forced torch against 106.3s on plain numpy for an identical
+# trajectory (max rel err 1.747e-04 both ways), and the gap is a DEAD CACHE that costs 3x on
+# numpy as well -- _force_hash is compared but never stored, so the friction factor and the
+# host density are recomputed once per force COMPONENT instead of once per step (1,423,884
+# host-density evaluations for 474,628 steps). Fixed on main; this row comes out after the
+# rebase picks it up.
+#
+# Two things measured on the way that are worth not re-deriving:
+#   * a sici rewrite changed nothing (615.2 -> 615.2s): this path runs the NUMPY _calc_force,
+#     so the backend friction factor -- and its sici -- is never reached.
+#   * `boundary calls = 0` for an orbit integration does NOT mean no backend work. It counts
+#     @backend_input COERCION crossings; the potentials dispatch on the resolved namespace and
+#     run on torch without crossing (measured: _Rforce/_zforce/_dens all return Tensors).
 
 # --- torch ExpTruncNFWPotential: RETIRED 2026-09-10 (gh#1477) ---
 # It was 340.4 s under torch against 198.8 s under jax, and that inversion was
