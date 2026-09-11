@@ -2388,21 +2388,38 @@ class StreamTrack:
             jac_ro = ro_use if use_phys else None
             jac_vo = vo_use if use_phys else None
             jac_use_phys = True if use_phys else None
-            # Per-tp Jacobian, stacked then applied as one (len, 6, 6) matmul.
-            # Stacking rather than assigning into out[k] keeps this valid for
-            # immutable backend arrays. galsky_to_sky_jac/sky_to_customsky_jac
-            # are still scalar-only, so the assembly stays a comprehension;
-            # making those two broadcast is a follow-up. Out-of-range tp carry
-            # NaN in both out and J, and NaN survives the matmul.
+            # ONE batched (len, 6, 6) Jacobian, applied as a single matmul.
+            # Every link of the chain broadcasts over the leading tp axis now
+            # that galsky_to_sky_jac/sky_to_customsky_jac do (they were the
+            # scalar-only pair that used to force a comprehension here -- 834
+            # scalar chains per plot(spread=), which is most of the cost of that
+            # call under a backend). Out-of-range tp carry NaN in both out and J,
+            # and NaN survives the matmul.
             xpJ = get_namespace(out) if self._backend else numpy
-            J = xpJ.stack(
-                [
-                    self._analytical_jacobian(
-                        tp_k, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
-                    )
-                    for tp_k in tp_for_jac
-                ]
-            )
+            if self._backend:
+                # ONE batched (len, 6, 6) Jacobian. Every link of the chain
+                # broadcasts over the leading tp axis now that
+                # galsky_to_sky_jac/sky_to_customsky_jac do -- they were the
+                # scalar-only pair that forced the comprehension below, at 834
+                # scalar chains per plot(spread=), which is most of what that
+                # call costs under a backend.
+                J = self._analytical_jacobian(
+                    tp_for_jac, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
+                )
+            else:
+                # numpy keeps the per-tp assembly: vectorizing the chain changes
+                # the last bits (up to 32 ulps, ~5e-15 relative, from vectorized
+                # trig/spline accumulation), and the numpy path stays
+                # byte-identical. It also has nothing to gain -- a numpy scalar
+                # op is ~0.5 us against jax's ~17 us.
+                J = numpy.stack(
+                    [
+                        self._analytical_jacobian(
+                            tp_k, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
+                        )
+                        for tp_k in tp_for_jac
+                    ]
+                )
             out = J @ out @ xpJ.swapaxes(J, -1, -2)
 
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
@@ -2436,6 +2453,19 @@ class StreamTrack:
         # No float(): casting here would sever the trace and the gradient.
         xp = get_namespace(*comps) if self._backend else numpy
         return xp.stack([xp.asarray(c) for c in comps])
+
+    @staticmethod
+    def _components(v):
+        """Split a coords.* return into components, scalar OR batched.
+
+        Those helpers hand back a tuple (or a (k,) array) for a single point and
+        a (N, k) array for a batch of them, and this Jacobian chain runs both
+        ways: one point at a time on numpy, all track points at once under a
+        backend.
+        """
+        if isinstance(v, tuple):
+            return v
+        return tuple(v[..., k] for k in range(numpy.shape(v)[-1]))
 
     def _analytical_jacobian(self, tp, basis, ro=None, vo=None, use_physical=None):
         """6x6 analytical Jacobian d(basis)/d(galcenrect) at the track mean.
@@ -2479,8 +2509,8 @@ class StreamTrack:
         vxyz_mean = coords.galcenrect_to_vxvyvz(vx, vy, vz, Xsun=ro, Zsun=zo)
         # NOT float(): these are the traced state, and casting severs both the
         # trace and the gradient. ro/zo above stay floats -- they are config.
-        X, Y, Z = XYZ_mean[0], XYZ_mean[1], XYZ_mean[2]
-        vX, vY, vZ = vxyz_mean[0], vxyz_mean[1], vxyz_mean[2]
+        X, Y, Z = self._components(XYZ_mean)
+        vX, vY, vZ = self._components(vxyz_mean)
         # (2) helio_XYZ → galsky. Note: lbd_to_XYZ_jac uses the order
         # (l, b, d, vlos, pmll, pmbb); XYZ_to_lbd_jac inherits that order,
         # so we permute its output to match our galsky basis ordering
@@ -2496,11 +2526,9 @@ class StreamTrack:
         # (3) galsky → sky. Need (l, b, pmll, pmbb) for the position-vs-PM
         # cross block; recover them from the heliocentric Cartesian state.
         lbd_mean = coords.XYZ_to_lbd(X, Y, Z, degree=False)
-        l = lbd_mean[0]
-        b = lbd_mean[1]
+        l, b = self._components(lbd_mean)[:2]
         vrpm = coords.vxvyvz_to_vrpmllpmbb(vX, vY, vZ, X, Y, Z, XYZ=True, degree=False)
-        pmll = vrpm[1]
-        pmbb = vrpm[2]
+        pmll, pmbb = self._components(vrpm)[1:3]
         J_galsky_to_sky = coords.galsky_to_sky_jac(l, b, pmll, pmbb, degree=False)
         J_sky = J_galsky_to_sky @ J_galsky  # ra, dec in radians
         if basis == "sky":
@@ -2509,11 +2537,9 @@ class StreamTrack:
         # (4) sky → customsky. Need (ra, dec, pmra, pmdec) at the mean for
         # the PM-vs-position cross block.
         radec = coords.lb_to_radec(l, b, degree=False)
-        ra = radec[0]
-        dec_val = radec[1]
+        ra, dec_val = self._components(radec)[:2]
         pmrd = coords.pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False)
-        pmra = pmrd[0]
-        pmdec = pmrd[1]
+        pmra, pmdec = self._components(pmrd)[:2]
         J_sky_to_cs = coords.sky_to_customsky_jac(
             ra, dec_val, pmra, pmdec, T=self._custom_sky_transform, degree=False
         )
