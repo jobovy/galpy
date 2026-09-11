@@ -146,7 +146,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # PASSES in 528.9s (CI~375s) -- re-measured 2026-08-22 post-#1364 in the real CI shard (--splits 5 --group 3); the old '>420s timed out' was a TIMEOUT BOUND, not a time
 
 # --- jax single-orbit: misc slow (Python-integrator paths) ---
 # Integrate paths that step in Python under jax. Track A force vectorization /
