@@ -151,3 +151,13 @@ jax tests/test_orbit.py::test_analytic_zmax[RazorThinExponentialDiskPotential]  
 # and its zmax sibling above is already over -- deferring it too keeps the shard
 # off a coin-flip rather than waiting for the flake.
 jax tests/test_orbit.py::test_analytic_ecc_rperi_rap[RazorThinExponentialDiskPotential]  # 280.0s
+# Same category (c), measured 2026-09-11. This one compares the C STM against the
+# PYTHON STM reference (method='dop853'), so the C-STM path that would make it
+# fast is precisely the thing under test -- and galpy's in-backend STM
+# (integrate_stm) only supports the dxdv-capable C integrators anyway. Profiling
+# ONE 26-point integrate_dxdv under jax: 222.8 s, 517,687 jax primitive
+# applications, of which 217,145 are device_put -- the integrator's own state,
+# transferred host->device every step because a Python integrator holds it as
+# Python floats. No galpy frame appears in the top ten; it is all eager dispatch.
+# The real test runs three 251-point integrations.
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # 528.9s
