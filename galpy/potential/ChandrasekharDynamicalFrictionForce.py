@@ -13,7 +13,11 @@ from ..backend import special as _backend_special
 from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _check_c, _check_potential_list_and_deprecate, evaluateDensities
+from .Potential import (
+    _check_c,
+    _check_potential_list_and_deprecate,
+    _evaluateDensities,
+)
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 _INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
@@ -115,8 +119,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 sigmar = lambda x: _INVSQRTTWO
         dens = _check_potential_list_and_deprecate(dens)
         self._dens_pot = dens
-        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
-            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        # The UNDECORATED evaluator, like every other force in the EOM: this is
+        # called once per force evaluation, and the decorated public one re-enters
+        # unit parsing + @backend_input coercion every time (98,800 boundary
+        # crossings for a five-point integration under a forced backend).
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: _evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t
         )
         from ..df import jeans
 
@@ -340,8 +348,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def __setstate__(self, pdict):
         self.__dict__ = pdict
         # Re-setup _dens_host
-        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
-            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        # The UNDECORATED evaluator, like every other force in the EOM: this is
+        # called once per force evaluation, and the decorated public one re-enters
+        # unit parsing + @backend_input coercion every time (98,800 boundary
+        # crossings for a five-point integration under a forced backend).
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: _evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t
         )
         # Re-setup sigmar_orig
         if self._dens_kwarg is None and self._sigmar_kwarg is None:

@@ -15,6 +15,8 @@
 #
 # Self-skips unless the runtime ODE extra (diffrax / torchdiffeq) is installed.
 ###############################################################################
+import warnings
+
 import numpy
 import pytest
 
@@ -42,6 +44,7 @@ from galpy.potential import (
     TriaxialNFWPotential,
     TwoPowerSphericalPotential,
 )
+from galpy.util import galpyWarning
 
 pytestmark = pytest.mark.backend_managed
 
@@ -858,3 +861,71 @@ def test_accessor_jittable_at_traced_grid_times():
     ob.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
     val = float(jax.jit(lambda tq: ob.R(tq)[-1])(jnp.asarray(_TS)))
     numpy.testing.assert_allclose(val, float(as_numpy(ob.R(_TS))[-1]), rtol=1e-6)
+
+
+###############################################################################
+# A CONCRETE backend IC + a method with no differentiable route DEMOTES the
+# trajectory to numpy. That fall-through is deliberate -- it is what lets the
+# existing suite run under a forced backend, and gh#1094 keeps the symplectic
+# default from being silently rerouted -- but the caller cannot see the demotion,
+# so it warns. Measured, with a concrete (non-grad) torch IC:
+#
+#   dop853 / odeint / leapfrog          ndarray   numpy loop, no in-backend path
+#   leapfrog_c / symplec4_c / symplec6_c ndarray  concrete IC is not rerouted
+#   ias15_c                             ndarray   no dxdv, so no C-STM
+#   dop853_c / rk4_c / rk6_c / dopr54_c Tensor    C-STM, differentiable
+###############################################################################
+_DEMOTES_TO_NUMPY = [
+    "dop853",
+    "odeint",
+    "leapfrog",
+    "leapfrog_c",
+    "symplec4_c",
+    "symplec6_c",
+    "ias15_c",
+]
+_KEEPS_BACKEND_ARRAY = ["dop853_c", "rk4_c", "rk6_c", "dopr54_c"]
+
+
+def _demotion_warnings(record):
+    return [w for w in record if "integrates in numpy" in str(w.message)]
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", _DEMOTES_TO_NUMPY)
+def test_integrate_concrete_backend_ic_numpy_method_warns(method):
+    o = Orbit(torch.tensor(_IC))
+    with pytest.warns(galpyWarning, match="integrates in numpy"):
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
+    assert not is_backend_array(o.orbit), (
+        f"{method}: the warning says the orbit is demoted to numpy, but it is not"
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", _KEEPS_BACKEND_ARRAY)
+def test_integrate_concrete_backend_ic_cstm_method_does_not_warn(method):
+    # The Runge-Kutta dxdv C methods route to the C-STM, so nothing is demoted and
+    # nothing is warned about. Asserted as the other half of the table: a warning
+    # that fires on every method would be noise rather than information.
+    o = Orbit(torch.tensor(_IC))
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
+    assert not _demotion_warnings(rec), f"{method} warned but keeps the backend array"
+    assert is_backend_array(o.orbit)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+def test_integrate_numpy_ic_under_forced_backend_does_not_warn():
+    # The forced-backend harness builds orbits from LISTS, so _ic_backend is None and
+    # nothing warns. The warning is for a caller who actually handed in a backend
+    # array -- not for every test run under --backend torch, which would bury it.
+    from galpy.backend import use
+
+    with use("torch", force=True):
+        o = Orbit(list(_IC))
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853")
+    assert not _demotion_warnings(rec)
