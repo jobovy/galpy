@@ -271,8 +271,25 @@ void actionAngleAdiabatic_actionsJac(int ndata,
 				     double *jac,
 				     int * err){
   int ii;
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -288,7 +305,7 @@ void actionAngleAdiabatic_actionsJac(int ndata,
   calcdJzAdiabatic(ndata,djzdEz,djzdR,zmax,R,Ez,npot,actionAngleArgs,order);
   // gamma injection: Lz = |R vT| + gamma*Jz, then radial effective energy
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
     *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
@@ -301,8 +318,9 @@ void actionAngleAdiabatic_actionsJac(int ndata,
   double *djrdLz= (double *) malloc ( ndata * sizeof(double) );
   calcdJRAdiabatic(ndata,djrdER,djrdLz,rperi,rap,ER,Lz,npot,actionAngleArgs,order);
   // assemble the (2,5) Jacobian per orbit from the elementary chains
-#pragma omp parallel for schedule(static,chunk) private(ii)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     int kk;
     double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99
@@ -313,9 +331,9 @@ void actionAngleAdiabatic_actionsJac(int ndata,
     double tLz= *(Lz+ii), tER= *(ER+ii);
     double s= ( tR * tvT >= 0. ) ? 1. : -1.;  // sign(R vT); Lz used fabs(R vT)
     // forces for the elementary Ez-chain (at the INITIAL z)
-    double FR_R0= calcRforce(tR,0.,0.,0.,npot,actionAngleArgs);
-    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,actionAngleArgs);
-    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double FR_R0= calcRforce(tR,0.,0.,0.,npot,targs);
+    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,targs);
+    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,targs);
     double dEz[5]= { FR_R0 - FR_Rz, 0., 0., -Fz_Rz, tvz };
     // dJz/dcoord = dJz/dEz * dEz/dcoord + dJz/dR|_Ez * e_R
     double bE= *(djzdEz+ii), bR= *(djzdR+ii);
@@ -340,7 +358,7 @@ void actionAngleAdiabatic_actionsJac(int ndata,
     }
     (void) tER;
   }
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(ER); free(Ez); free(Lz);
   free(rperi); free(rap); free(zmax);
@@ -374,8 +392,25 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
 					     double *jac,
 					     int * err){
   int ii;
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -392,7 +427,7 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
   calcdJzAdiabatic(ndata,djzdEz,djzdR,zmax,R,Ez,npot,actionAngleArgs,order);
   // gamma injection: Lz = |R vT| + gamma*Jz, then radial effective energy
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
     *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
@@ -401,8 +436,9 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
   // radial block (uses the gamma-adjusted ER,Lz); Rap is the PLANAR apocenter
   calcRapRperi(ndata,rperi,Rap,R,ER,Lz,npot,actionAngleArgs);
   // assemble the (4,5) Jacobian per orbit
-#pragma omp parallel for schedule(static,chunk) private(ii)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     int kk;
     double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
     double trperi= *(rperi+ii), tRap= *(Rap+ii), tzmax= *(zmax+ii);
@@ -422,9 +458,9 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
     int planar=   ( tzmax < 0.000001 );                     // z=vz=0 -> zforce(R,0)=0
     double s= ( tR * tvT >= 0. ) ? 1. : -1.;  // sign(R vT); Lz used fabs(R vT)
     // forces at the INITIAL z for the elementary Ez/Lz/ER chains (reused from actionsJac)
-    double FR_R0= calcRforce(tR,0.,0.,0.,npot,actionAngleArgs);
-    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,actionAngleArgs);
-    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double FR_R0= calcRforce(tR,0.,0.,0.,npot,targs);
+    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,targs);
+    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,targs);
     double dEz[5]= { FR_R0 - FR_Rz, 0., 0., -Fz_Rz, tvz };
     double bE= *(djzdEz+ii), bR= *(djzdR+ii);
     double dJz[5];
@@ -447,9 +483,9 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
       // -9999.99 sentinel) -> the drperi implicit-diff is 0/0; zero that row (Rap
       // stays regular). Threshold matches calcRapRperi's own 1e-9 zero-assign.
       int plunging= ( trperi < 1e-9 );
-      double dFRdr_ra= calcRforce(tRap,0.,0.,0.,npot,actionAngleArgs)
+      double dFRdr_ra= calcRforce(tRap,0.,0.,0.,npot,targs)
 	+ tLz*tLz/(tRap*tRap*tRap);
-      double dFRdr_rp= plunging ? 1. : ( calcRforce(trperi,0.,0.,0.,npot,actionAngleArgs)
+      double dFRdr_rp= plunging ? 1. : ( calcRforce(trperi,0.,0.,0.,npot,targs)
 	+ tLz*tLz/(trperi*trperi*trperi) );
       for (kk=0;kk<5;kk++){
 	dRapc[kk]= -( dER[kk] - tLz/(tRap*tRap)*dLz[kk] ) / dFRdr_ra;
@@ -462,8 +498,8 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
     // Planar (zmax->0) -> zforce(R,0)=0: zero.
     double dzmaxc[5]= {0.,0.,0.,0.,0.};
     if ( !planar ){
-      double dFzdz= calczforce(tR,tzmax,0.,0.,npot,actionAngleArgs);
-      double dFz[5]= { calcRforce(tR,tzmax,0.,0.,npot,actionAngleArgs) - FR_Rz,
+      double dFzdz= calczforce(tR,tzmax,0.,0.,npot,targs);
+      double dFz[5]= { calcRforce(tR,tzmax,0.,0.,npot,targs) - FR_Rz,
 		       0., 0., -Fz_Rz, tvz };
       for (kk=0;kk<5;kk++) dzmaxc[kk]= -dFz[kk]/dFzdz;
     }
@@ -478,7 +514,7 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
       *(jac+ii*20+ 3*5+kk)= drapk;                                 // rap
     }
   }
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(ER); free(Ez); free(Lz);
   free(rperi); free(Rap); free(zmax); free(jz);

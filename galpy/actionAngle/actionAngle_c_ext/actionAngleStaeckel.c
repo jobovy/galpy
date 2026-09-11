@@ -680,8 +680,25 @@ void actionAngleStaeckel_actionsJac(int ndata,
 				    int * err){
   int ii;
   double tdelta;
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
   calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,actionAngleArgs);
@@ -704,8 +721,9 @@ void actionAngleStaeckel_actionsJac(int ndata,
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
   int delta_stride= ndelta == 1 ? 0 : 1;
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -720,23 +738,23 @@ void actionAngleStaeckel_actionsJac(int ndata,
     *(v0+ii)= 0.5 * M_PI;
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
-			    npot,actionAngleArgs)
+			    npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
     *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-					npot,actionAngleArgs);
+					npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-			     npot,actionAngleArgs);
+			     npot,targs);
   }
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
@@ -765,8 +783,9 @@ void actionAngleStaeckel_actionsJac(int ndata,
 		     potupi2,npot,actionAngleArgs,order);
   // Assemble the 2x5 Jacobian: chain the action-derivatives through the
   // analytic elementary d(E,Lz,I3Utilde,I3V,u0)/d(R,vR,vT,z,vz).
-#pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     int kk;
     tdelta= *(delta+ii*delta_stride);
     double shx= *(sinhux+ii), chx= *(coshux+ii);
@@ -780,9 +799,9 @@ void actionAngleStaeckel_actionsJac(int ndata,
     double dvx_dR= shx*cvx/(tdelta*D), dvx_dz= -chx*svx/(tdelta*D);
     double dux[5]= {dux_dR,0.,0.,dux_dz,0.};
     double dvx[5]= {dvx_dR,0.,0.,dvx_dz,0.};
-    double dE[5]= {-calcRforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),
+    double dE[5]= {-calcRforce(*(R+ii),*(z+ii),0.,0.,npot,targs),
 		   tvR,tvT,
-		   -calczforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),tvz};
+		   -calczforce(*(R+ii),*(z+ii),0.,0.,npot,targs),tvz};
     double dLz[5]= {tvT,0.,*(R+ii),0.,0.};
     // du0/dx per reference-u0 mode (see useu0 doc above). Mode 2 chains
     // du0/d(E,Lz) (implicit diff of the stationarity residual g=df/du=0,
@@ -792,8 +811,8 @@ void actionAngleStaeckel_actionsJac(int ndata,
     if ( useu0 == 2 ){
       double L2= 0.5*tLz*tLz/(tdelta*tdelta);
       double hh= 1.e-5;
-      double fpp= ( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,actionAngleArgs)
-		    -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,actionAngleArgs) )
+      double fpp= ( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,targs)
+		    -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,targs) )
 	/ ( 2.*hh );
       du0dE= -2.*sh0*ch0/fpp;
       du0dLz= -2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
@@ -816,8 +835,8 @@ void actionAngleStaeckel_actionsJac(int ndata,
     dpux[1]+= tdelta*chx*svx; dpux[4]+= tdelta*shx*cvx;
     dpvx[1]+= tdelta*shx*cvx; dpvx[4]+= -tdelta*chx*svx;
     // I3Utilde = E*shx^2 - pux^2/(2 d^2) - Lz^2/(2 d^2 shx^2) - (shx^2+1)*Phi(ux,pi/2)
-    double Pux= evaluatePotentialsUV(*(ux+ii),0.5*M_PI,tdelta,npot,actionAngleArgs);
-    double FRux= calcRforce(tdelta*shx,0.,0.,0.,npot,actionAngleArgs);
+    double Pux= evaluatePotentialsUV(*(ux+ii),0.5*M_PI,tdelta,npot,targs);
+    double FRux= calcRforce(tdelta*shx,0.,0.,0.,npot,targs);
     double dPux_dux= -FRux*tdelta*chx; // dPhi(ux,pi/2)/dux (z-line derivative is 0)
     double dI3Ut_dE= shx*shx;
     double dI3Ut_dLz= -tLz/(tdelta*tdelta*shx*shx);
@@ -826,11 +845,11 @@ void actionAngleStaeckel_actionsJac(int ndata,
       - 2.*shx*chx*Pux - (shx*shx+1.)*dPux_dux;
     // I3V = -E*svx^2 + pvx^2/(2 d^2) + Lz^2/(2 d^2 svx^2)
     //       - cosh2u0*potupi2 + (sinh2u0+svx^2)*Phi(u0,vx)
-    double P0v= evaluatePotentialsUV(tu0,*(vx+ii),tdelta,npot,actionAngleArgs);
-    double FRu0= calcRforce(tdelta*sh0,0.,0.,0.,npot,actionAngleArgs);
+    double P0v= evaluatePotentialsUV(tu0,*(vx+ii),tdelta,npot,targs);
+    double FRu0= calcRforce(tdelta*sh0,0.,0.,0.,npot,targs);
     double Rp= tdelta*sh0*svx, zp= tdelta*ch0*cvx;
-    double FRp= calcRforce(Rp,zp,0.,0.,npot,actionAngleArgs);
-    double Fzp= calczforce(Rp,zp,0.,0.,npot,actionAngleArgs);
+    double FRp= calcRforce(Rp,zp,0.,0.,npot,targs);
+    double Fzp= calczforce(Rp,zp,0.,0.,npot,targs);
     double dPu0_du0= -FRu0*tdelta*ch0;               // dPhi(u0,pi/2)/du0
     double dP0v_dvx= -FRp*tdelta*sh0*cvx + Fzp*tdelta*ch0*svx; // dPhi(u0,vx)/dvx
     double dP0v_du0= -FRp*tdelta*ch0*svx - Fzp*tdelta*sh0*cvx; // dPhi(u0,vx)/du0
@@ -854,7 +873,7 @@ void actionAngleStaeckel_actionsJac(int ndata,
 	+ tdjzdU0*du0[kk];
     }
   }
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E); free(Lz); free(ux); free(vx); free(coshux); free(sinhux);
   free(sinvx); free(cosvx); free(pux); free(pvx); free(sinh2u0); free(cosh2u0);
@@ -881,8 +900,25 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     double *jac,int *err){
   int ii;
   double tdelta;
-  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,actionAngleArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
   calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,actionAngleArgs);
@@ -905,8 +941,9 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
   int delta_stride= ndelta == 1 ? 0 : 1;
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
@@ -920,20 +957,20 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
     *(v0+ii)= 0.5 * M_PI;
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
-    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,npot,actionAngleArgs);
+    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,npot,targs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
       - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
-      *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,npot,actionAngleArgs)
+      *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,npot,targs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
-    *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,npot,actionAngleArgs);
+    *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,npot,targs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
-      * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,npot,actionAngleArgs);
+      * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,npot,targs);
   }
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
@@ -943,8 +980,9 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
   calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,
 	   npot,actionAngleArgs);
   // Assemble (e,zmax,rperi,rap) + the 4x5 Jacobian.
-#pragma omp parallel for schedule(static,chunk) private(ii,tdelta)
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) private(ii,tdelta)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,npot);
     int kk;
     tdelta= *(delta+ii*delta_stride);
     double tumin= *(umin+ii), tumax= *(umax+ii), tvmin= *(vmin+ii);
@@ -966,17 +1004,17 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     double dvx_dR= shx*cvx/(tdelta*D), dvx_dz= -chx*svx/(tdelta*D);
     double dux[5]= {dux_dR,0.,0.,dux_dz,0.};
     double dvx[5]= {dvx_dR,0.,0.,dvx_dz,0.};
-    double dE[5]= {-calcRforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),
+    double dE[5]= {-calcRforce(*(R+ii),*(z+ii),0.,0.,npot,targs),
 		   tvR,tvT,
-		   -calczforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),tvz};
+		   -calczforce(*(R+ii),*(z+ii),0.,0.,npot,targs),tvz};
     double dLz[5]= {tvT,0.,*(R+ii),0.,0.};
     double du0[5];
     double du0dE= 0., du0dLz= 0.;
     if ( useu0 == 2 ){
       double L2= 0.5*tLz*tLz/(tdelta*tdelta);
       double hh= 1.e-5;
-      double fpp= ( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,actionAngleArgs)
-		    -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,actionAngleArgs) )
+      double fpp= ( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,targs)
+		    -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,targs) )
 	/ ( 2.*hh );
       du0dE= -2.*sh0*ch0/fpp;
       du0dLz= -2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
@@ -997,19 +1035,19 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     }
     dpux[1]+= tdelta*chx*svx; dpux[4]+= tdelta*shx*cvx;
     dpvx[1]+= tdelta*shx*cvx; dpvx[4]+= -tdelta*chx*svx;
-    double Pux= evaluatePotentialsUV(*(ux+ii),0.5*M_PI,tdelta,npot,actionAngleArgs);
-    double FRux= calcRforce(tdelta*shx,0.,0.,0.,npot,actionAngleArgs);
+    double Pux= evaluatePotentialsUV(*(ux+ii),0.5*M_PI,tdelta,npot,targs);
+    double FRux= calcRforce(tdelta*shx,0.,0.,0.,npot,targs);
     double dPux_dux= -FRux*tdelta*chx;
     double dI3Ut_dE= shx*shx;
     double dI3Ut_dLz= -tLz/(tdelta*tdelta*shx*shx);
     double dI3Ut_dpux= -tpux/(tdelta*tdelta);
     double dI3Ut_dux= 2.*shx*chx*tE + tLz*tLz*chx/(tdelta*tdelta*shx*shx*shx)
       - 2.*shx*chx*Pux - (shx*shx+1.)*dPux_dux;
-    double P0v= evaluatePotentialsUV(tu0,*(vx+ii),tdelta,npot,actionAngleArgs);
-    double FRu0= calcRforce(tdelta*sh0,0.,0.,0.,npot,actionAngleArgs);
+    double P0v= evaluatePotentialsUV(tu0,*(vx+ii),tdelta,npot,targs);
+    double FRu0= calcRforce(tdelta*sh0,0.,0.,0.,npot,targs);
     double Rp= tdelta*sh0*svx, zp= tdelta*ch0*cvx;
-    double FRp= calcRforce(Rp,zp,0.,0.,npot,actionAngleArgs);
-    double Fzp= calczforce(Rp,zp,0.,0.,npot,actionAngleArgs);
+    double FRp= calcRforce(Rp,zp,0.,0.,npot,targs);
+    double Fzp= calczforce(Rp,zp,0.,0.,npot,targs);
     double dPu0_du0= -FRu0*tdelta*ch0;
     double dP0v_dvx= -FRp*tdelta*sh0*cvx + Fzp*tdelta*ch0*svx;
     double dP0v_du0= -FRp*tdelta*ch0*svx - Fzp*tdelta*sh0*cvx;
@@ -1031,11 +1069,11 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     struct dJRStaeckelArg pu;
     pu.E=tE; pu.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pu.I3U= *(I3U+ii); pu.delta=tdelta;
     pu.u0=tu0; pu.sinh2u0= *(sinh2u0+ii); pu.v0= *(v0+ii); pu.sin2v0= *(sin2v0+ii);
-    pu.potu0v0= *(potu0v0+ii); pu.umin=tumin; pu.umax=tumax; pu.nargs=npot; pu.actionAngleArgs=actionAngleArgs;
+    pu.potu0v0= *(potu0v0+ii); pu.umin=tumin; pu.umax=tumax; pu.nargs=npot; pu.actionAngleArgs=targs;
     struct dJzStaeckelArg pv;
     pv.E=tE; pv.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pv.I3V= *(I3V+ii); pv.delta=tdelta;
     pv.u0=tu0; pv.cosh2u0= *(cosh2u0+ii); pv.sinh2u0= *(sinh2u0+ii); pv.potupi2= *(potupi2+ii);
-    pv.vmin=tvmin; pv.nargs=npot; pv.actionAngleArgs=actionAngleArgs;
+    pv.vmin=tvmin; pv.nargs=npot; pv.actionAngleArgs=targs;
     int circular= (tumax-tumin)/tumax < 1.e-6;
     int planar= (0.5*M_PI - tvmin) < 1.e-7;
     double dumin[5], dumax[5], dvminc[5];
@@ -1086,7 +1124,7 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
       *(jac+ii*20+ 3*5+kk)= drapk;                              // rap
     }
   }
-  free_potentialArgs(npot,actionAngleArgs);
+  free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E); free(Lz); free(ux); free(vx); free(coshux); free(sinhux);
   free(sinvx); free(cosvx); free(pux); free(pvx); free(sinh2u0); free(cosh2u0);
