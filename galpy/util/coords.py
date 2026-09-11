@@ -2494,12 +2494,17 @@ def galsky_to_sky_jac(*args, **kwargs):
         l = l * _DEGTORAD
         b = b * _DEGTORAD
     _, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    # Batched over a leading axis: `l`/`b` may be (N,) as well as scalar, so the
+    # per-track-point callers (StreamTrack.cov / plot(spread=)) can assemble the
+    # whole chain in ONE call instead of a comprehension. Scalar in -> (6,6) out,
+    # exactly as before.
+    scalar_in = numpy.ndim(args[0]) == 0
     cosb = xp.cos(b)
     # keep ra/dec as arrays: float() would sever the trace and the gradient
     radec = lb_to_radec(xp.atleast_1d(l), xp.atleast_1d(b), degree=False)
     radec = xp.reshape(xp.asarray(radec), (-1, 2))
-    ra = radec[0, 0]
-    dec_val = radec[0, 1]
+    ra = radec[..., 0]
+    dec_val = radec[..., 1]
     sindec = xp.sin(dec_val)
     cosdec = xp.cos(dec_val)
     sindec_ngp = numpy.sin(dec_ngp)
@@ -2529,13 +2534,17 @@ def galsky_to_sky_jac(*args, **kwargs):
     pmdec = sina * pmll + cosa * pmbb
     dalpha_dl = dalpha_dra * dra_dl + dalpha_ddec * ddec_dl
     dalpha_db = dalpha_dra * dra_db + dalpha_ddec * ddec_db
-    o = xp.zeros_like(xp.reshape(cosa, ()))
+    o = xp.zeros_like(xp.reshape(cosa, (-1,)))
     i1 = o + 1.0
 
     # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
-    # immutable.
+    # immutable. Entries are broadcast to the batch shape and stacked along the
+    # COLUMN axis, so the result is (N, 6, 6) (or (6, 6) once squeezed below).
     def _r(*v):
-        return xp.stack([xp.reshape(xp.asarray(x), ()) for x in v])
+        return xp.stack(
+            [xp.broadcast_to(xp.reshape(xp.asarray(x), (-1,)), o.shape) for x in v],
+            axis=-1,
+        )
 
     out = xp.stack(
         [
@@ -2545,7 +2554,8 @@ def galsky_to_sky_jac(*args, **kwargs):
             _r(-pmdec * dalpha_dl, -pmdec * dalpha_db, o, cosa, -sina, o),
             _r(pmra * dalpha_dl, pmra * dalpha_db, o, sina, cosa, o),
             _r(o, o, o, o, o, i1),  # vlos pass-through
-        ]
+        ],
+        axis=-2,
     )
     if kwargs.get("degree", False):
         # input cols 0,1 (l, b) and output rows 0,1 (ra, dec) in degrees.
@@ -2556,12 +2566,13 @@ def galsky_to_sky_jac(*args, **kwargs):
         blk = numpy.ones((6, 6))
         blk[3:5, 0:2] = _DEGTORAD
         out = out * asarray_on_device(xp, blk, device_of(out))
+        # (broadcasts over the leading batch axis)
         # angle-vs-(D, PM, vlos) entries: also need scaling? Output rows 0,1
         # in degrees means ∂(ra_deg)/∂X = (1/_DEGTORAD)·∂(ra_rad)/∂X for any X
         # that is not itself an angle. But this Jacobian has zeros there for
         # X = D, pmll, pmbb, vlos (only angle-vs-angle and PM-vs-angle/PM are
         # non-zero), so no additional scaling is needed.
-    return out
+    return xp.reshape(out, (6, 6)) if scalar_in else out
 
 
 def sky_to_customsky_jac(*args, **kwargs):
@@ -2612,6 +2623,9 @@ def sky_to_customsky_jac(*args, **kwargs):
     if T is None:
         raise ValueError("sky_to_customsky_jac requires T= rotation matrix")
     xp = get_namespace(ra, dec, pmra, pmdec, xp=kwargs.get("xp", None))
+    # Batched over a leading axis, like galsky_to_sky_jac: scalar in -> (6,6),
+    # (N,) in -> (N,6,6), so a per-track-point caller needs one call, not N.
+    scalar_in = numpy.ndim(args[0]) == 0
     ra, dec, pmra, pmdec = promote_scalars(xp, ra, dec, pmra, pmdec)
     if kwargs.get("degree", False):
         ra = ra * _DEGTORAD
@@ -2635,7 +2649,7 @@ def sky_to_customsky_jac(*args, **kwargs):
     sina2 = sigma2 / nrm2
     p12 = radec_to_custom(xp.atleast_1d(ra), xp.atleast_1d(dec), T=T, degree=False)
     # keep as an array: float() would sever the trace and the gradient
-    cosphi2 = xp.cos(xp.reshape(xp.asarray(p12), (-1, 2))[0, 1])
+    cosphi2 = xp.cos(xp.reshape(xp.asarray(p12), (-1, 2))[..., 1])
     dsig2_dra = cosdec_p * cosr_rp
     dkap2_dra = cosdec_p * sindec * sinr_rp
     dkap2_ddec = -sindec_p * sindec - cosdec_p * cosdec * cosr_rp
@@ -2651,11 +2665,14 @@ def sky_to_customsky_jac(*args, **kwargs):
     dphi1_ddec = sina2 / cosphi2
     dphi2_dra = -sina2 * cosdec
     dphi2_ddec = cosa2
-    o = xp.zeros_like(xp.reshape(cosa2, ()))
+    o = xp.zeros_like(xp.reshape(cosa2, (-1,)))
     i1 = o + 1.0
 
     def _r(*v):
-        return xp.stack([xp.reshape(xp.asarray(x), ()) for x in v])
+        return xp.stack(
+            [xp.broadcast_to(xp.reshape(xp.asarray(x), (-1,)), o.shape) for x in v],
+            axis=-1,
+        )
 
     # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
     # immutable.
@@ -2667,14 +2684,15 @@ def sky_to_customsky_jac(*args, **kwargs):
             _r(pmphi2 * dalpha2_dra, pmphi2 * dalpha2_ddec, o, cosa2, sina2, o),
             _r(-pmphi1 * dalpha2_dra, -pmphi1 * dalpha2_ddec, o, -sina2, cosa2, o),
             _r(o, o, o, o, o, i1),
-        ]
+        ],
+        axis=-2,
     )
     if kwargs.get("degree", False):
         # was `out[3:5, 0:2] *= _DEGTORAD` (in-place block assignment)
         blk = numpy.ones((6, 6))
         blk[3:5, 0:2] = _DEGTORAD
         out = out * asarray_on_device(xp, blk, device_of(out))
-    return out
+    return xp.reshape(out, (6, 6)) if scalar_in else out
 
 
 def dl_to_rphi_2d(d, l, degree=False, ro=1.0, phio=0.0):
