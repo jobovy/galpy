@@ -182,8 +182,6 @@
 #
 # The Python-vs-Python equivalent, test_actionAngleAdiabaticGrid_outsidegrid_
 # multiple_python, PASSES on both backends and is not ledgered.
-jax tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_qdf.py::test_call_diffinoutputs
 
 # --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
 # Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
@@ -384,26 +382,3 @@ torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 #     the backend path deliberately does NOT raise (stays jit-traceable; unbound
 #     -> NaN, see actionAngleStaeckel.py). Neither is a coercion bug.
 # =============================================================================
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
-jax tests/test_quantity.py::test_actionAngleVerticalInverse_units
-torch tests/test_quantity.py::test_actionAngleVerticalInverse_units
-torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity_percall_ro
