@@ -1820,6 +1820,22 @@ class Orbit:
                 "differentiable integrator; use method='diffrax' (jax) or "
                 f"method='torchdiffeq' (torch), not method='{method}'"
             )
+        if ic_backend is not None:
+            # Reaching here means every differentiable route above declined this
+            # method (in-backend solver, C-STM), so the numpy/C path below returns
+            # a NUMPY trajectory from a backend IC. That fall-through is deliberate
+            # -- it is what lets the suite run under a forced backend, and what
+            # keeps the symplectic default from being silently rerouted (gh#1094)
+            # -- but the type demotion is invisible to the caller, so say it.
+            warnings.warn(
+                f"this Orbit has a jax/torch initial condition, but method="
+                f"'{method}' integrates in numpy: the orbit is returned as a numpy "
+                "array and is not differentiable. Use method='diffrax' (jax) or "
+                "method='torchdiffeq' (torch) to integrate in the backend, or one "
+                "of the Runge-Kutta C methods (dop853_c, rk4_c, rk6_c, dopr54_c) "
+                "to keep the differentiable C state-transition path",
+                galpyWarning,
+            )
         self.check_integrator(method)
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
