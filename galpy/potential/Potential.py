@@ -793,6 +793,13 @@ class Potential(Force):
         - 2018-03-21 - Modified - Webb (UofT)
 
         """
+        return self._dens_nodecorator(R, z, phi=phi, t=t, forcepoisson=forcepoisson)
+
+    def _dens_nodecorator(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
+        """Raw, undecorated density for internal use, like ``_call_nodecorator``
+        and the ``_*force_nodecorator`` family. An internal per-step caller (the
+        dissipative friction forces) must not re-enter the unit-parsing /
+        backend-coercion decorator stack on every force evaluation."""
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
@@ -2361,12 +2368,16 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     - 2013-12-28 - Added forcepoisson - Bovy (IAS)
 
     """
-    nonAxi = _isNonAxi(Pot)
-    if nonAxi and phi is None:
+    return _evaluateDensities(Pot, R, z, phi=phi, t=t, forcepoisson=forcepoisson)
+
+
+def _evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
+    """Raw, undecorated function for internal use"""
+    if _isNonAxi(Pot) and phi is None:
         raise PotentialError(
             "The (combination of) Potential instances is non-axisymmetric, but you did not provide phi"
         )
-    return Pot.dens(R, z, phi=phi, t=t, forcepoisson=forcepoisson, use_physical=False)
+    return Pot._dens_nodecorator(R, z, phi=phi, t=t, forcepoisson=forcepoisson)
 
 
 @potential_positional_arg
