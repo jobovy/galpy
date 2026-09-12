@@ -2439,7 +2439,8 @@ void calcdJzdU0Staeckel(int ndata,
     (params+tid)->sinh2u0= *(sinh2u0+ii);
     (params+tid)->potupi2= *(potupi2+ii);
     (params+tid)->vmin= *(vmin+ii);
-    (params+tid)->dpotupi2du0= -calcRforce(td*sh0,0.,0.,0.,nargs,actionAngleArgs)*td*ch0;
+    (params+tid)->dpotupi2du0= -calcRforce(td*sh0,0.,0.,0.,nargs,
+					     actionAngleArgs + tid * nargs)*td*ch0;
     (dJzInt+tid)->function = &dJzdU0LowStaeckelIntegrand;
     (dJzInt+tid)->params = params+tid;
     mid= sqrt( 0.5 * (M_PI/2. - *(vmin+ii) ) );
