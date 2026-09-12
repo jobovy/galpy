@@ -1144,8 +1144,25 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
     double *jr,double *jz,double *Or,double *Op,double *Oz,
     double *ojac,int *err){
   int ii; double tdelta;
-  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,aaArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,aaArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *E=malloc(ndata*sizeof(double)),*Lz=malloc(ndata*sizeof(double));
   calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,aaArgs);
   double *ux=malloc(ndata*sizeof(double)),*vx=malloc(ndata*sizeof(double));
@@ -1261,7 +1278,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
         ojac[ii*25+(oi+2)*5+kk]=dOdE*dE[kk]+dOdLz*dLz[kk]+dOdI3U*dI3Ut[kk]+dOdI3V*dI3V[kk]+dOdu0*du0[kk];
     }
   }
-  free_potentialArgs(npot,aaArgs); free(aaArgs);
+  free_potentialArgs(aa_nthreads*npot,aaArgs); free(aaArgs);
   free(E);free(Lz);free(ux);free(vx);free(shx);free(chx);free(svx);free(cvx);
   free(pux);free(pvx);free(sinh2u0);free(cosh2u0);free(v0);free(sin2v0);
   free(potu0v0);free(potupi2);free(I3U);free(I3V);free(umin);free(umax);free(vmin);
@@ -1385,8 +1402,25 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     double *Angler,double *Anglephi,double *Anglez,
     double *ojac,double *ajac,int *err){
   int ii; double tdelta;
-  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,aaArgs,&pot_type,&pot_args,&pot_tfuncs);
+  // one parsed copy of the potentials per OpenMP thread (see AA_TARGS above)
+#ifdef _OPENMP
+  // cap copies at the point count, as the orbit integrators cap their team
+  int aa_nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#else
+  int aa_nthreads= 1;
+#endif
+  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( aa_nthreads * npot * sizeof (struct potentialArg) );
+  int aa_tid;
+  int * aa_pot_type;
+  double * aa_pot_args;
+  tfuncs_type_arr aa_pot_tfuncs;
+  for (aa_tid=0; aa_tid < aa_nthreads; aa_tid++) {
+    aa_pot_type= pot_type;
+    aa_pot_args= pot_args;
+    aa_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,aaArgs+aa_tid*npot,
+			    &aa_pot_type,&aa_pot_args,&aa_pot_tfuncs);
+  }
   double *E=malloc(ndata*sizeof(double)),*Lz=malloc(ndata*sizeof(double));
   calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,aaArgs);
   double *ux=malloc(ndata*sizeof(double)),*vx=malloc(ndata*sizeof(double));
@@ -1589,7 +1623,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     }
   }
   gsl_integration_glfixed_table_free(Tang);
-  free_potentialArgs(npot,aaArgs); free(aaArgs);
+  free_potentialArgs(aa_nthreads*npot,aaArgs); free(aaArgs);
   free(E);free(Lz);free(ux);free(vx);free(shx);free(chx);free(svx);free(cvx);
   free(pux);free(pvx);free(sinh2u0);free(cosh2u0);free(v0);free(sin2v0);
   free(potu0v0);free(potupi2);free(I3U);free(I3V);free(umin);free(umax);free(vmin);
@@ -2372,7 +2406,7 @@ void calcdJzdU0Staeckel(int ndata,
   struct dJzdU0StaeckelArg * params= (struct dJzdU0StaeckelArg *) malloc ( nthreads * sizeof (struct dJzdU0StaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -2476,7 +2510,7 @@ void calcd2JRStaeckel(int ndata,
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) malloc ( nthreads * sizeof (struct dJRStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (2*order);
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -2569,7 +2603,7 @@ void calcd2JzStaeckel(int ndata,
   struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) malloc ( nthreads * sizeof (struct dJzStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (params+tid)->actionAngleArgs= actionAngleArgs + tid * nargs;
   }
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (2*order);
   int delta_stride= ndelta == 1 ? 0 : 1;
