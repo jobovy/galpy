@@ -172,18 +172,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
 # over Python integrators, so it belongs here too rather than re-run until it happens to be green.
 
-# --- jax: the tabulated OblateStaeckelWrapper agreement test (gh#1468) ---
-# test_oblatestaeckelwrapper_ntab_c checks that the ntab= tables agree with exact
-# evaluation in C AND in Python, and the Python half integrates 1001 steps with
-# method='dop853' -- a scalar Python stepper whose every force evaluation resolves
-# to the ambient namespace. It PASSES under jax, in 464.7s (measured 2026-09-12,
-# --timeout=3000); at the 0.71 CI/local ratio for jax shards that is ~330s against
-# the 300s cap. Deferred on TIME, not capability. torch runs the same test in 73.6s
-# (~52s on CI) and is NOT deferred -- the gap is eager per-op cost, ~17us on jax vs
-# ~3.8us on torch, not anything the tables do. Un-defer with the Track A/D orbit
-# vectorization, same trigger as the entries above.
-jax tests/test_orbit.py::test_oblatestaeckelwrapper_ntab_c  # 464.7s
-
 # --- single-orbit: action-angle accessors -- performance-gated, NOT broken ---
 # These were xfail-ledgered as "actionAngleStaeckel_c is not backend-migrated (Track E) ...
 # numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands." Track E
