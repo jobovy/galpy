@@ -542,6 +542,7 @@ void calcdJRAdiabatic(int ndata,
 #pragma omp parallel for schedule(static,chunk) private(ii,gi) \
   shared(djrdER,djrdLz,rperi,rap,ER,Lz,T)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,nargs);
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
       *(djrdER+ii)= 0.; *(djrdLz+ii)= 0.; continue;
     }
@@ -557,7 +558,7 @@ void calcdJRAdiabatic(int ndata,
       gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
       double sinth= sin(xi), costh= cos(xi);
       double r= cc - rr*costh;
-      double FR= tER - evaluatePotentials(r,0.,nargs,actionAngleArgs)
+      double FR= tER - evaluatePotentials(r,0.,nargs,targs)
 	- Lz22/(r*r);
       if ( FR <= 0. ) continue;
       double w= wi*rr*sinth/sqrt(FR);
@@ -589,22 +590,23 @@ void calcdJzAdiabatic(int ndata,
 #pragma omp parallel for schedule(static,chunk) private(ii,gi) \
   shared(djzdEz,djzdR,zmax,R,Ez,T)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,nargs);
     if ( *(zmax+ii) == -9999.99 ){ *(djzdEz+ii)= 0.; *(djzdR+ii)= 0.; continue; }
     if ( *(zmax+ii) < 0.000001 ){ //planar (J_z=0)
       *(djzdEz+ii)= 0.; *(djzdR+ii)= 0.; continue;
     }
     double tR= *(R+ii), tEz= *(Ez+ii), tzmax= *(zmax+ii);
-    double FR_R0= calcRforce(tR,0.,0.,0.,nargs,actionAngleArgs);
+    double FR_R0= calcRforce(tR,0.,0.,0.,nargs,targs);
     double accEz= 0., accR= 0., xi, wi;
     for (gi=0; gi < order; gi++){
       gsl_integration_glfixed_point(0.,0.5*M_PI,gi,&xi,&wi,T);
       double sph= sin(xi), cph= cos(xi);
       double zz= tzmax*sph;
-      double Fz= tEz - evaluateVerticalPotentials(tR,zz,nargs,actionAngleArgs);
+      double Fz= tEz - evaluateVerticalPotentials(tR,zz,nargs,targs);
       if ( Fz <= 0. ) continue;
       double w= wi*tzmax*cph/sqrt(Fz);  // dz/dphi = zmax cos(phi)
       accEz+= w;
-      double FR_Rz= calcRforce(tR,zz,0.,0.,nargs,actionAngleArgs);
+      double FR_Rz= calcRforce(tR,zz,0.,0.,nargs,targs);
       accR+= w*(FR_Rz - FR_R0);
     }
     *(djzdEz+ii)= sqrt(2.)/M_PI * accEz;
