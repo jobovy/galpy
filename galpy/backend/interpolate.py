@@ -142,12 +142,17 @@ def _unstack0(xp, a):
     same values either way. Namespaces predating the array-API ``unstack`` (the
     RAW torch module, which ``get_namespace`` can hand back) fall back.
     """
-    # numpy keeps the indexing form: on a 1-D `a` it yields numpy SCALARS where
-    # unstack yields 0-d ARRAYS, and callers downstream of eval_ppoly
-    # (interpSphericalPotential._revaluate) depend on the scalar.
-    fn = None if xp is numpy else getattr(xp, "unstack", None)
-    if fn is not None:
-        return fn(a)
+    # Only jax. numpy must keep the indexing form -- on a 1-D `a` it yields numpy
+    # SCALARS where unstack yields 0-d ARRAYS, and callers downstream of
+    # eval_ppoly (interpSphericalPotential._revaluate) depend on the scalar. And
+    # array-api-compat implements torch's unstack as `tuple(moveaxis(x, axis, 0))`,
+    # which has NO vmap batching rule -- under the vmap(grad(...)) composition
+    # autodiff.py builds for the fE chain it dies with "Batching rule not
+    # implemented for aten::moveaxis.int". Nothing is lost by indexing there:
+    # torch dispatch is ~3.8 us against jax's ~130 us, which is the whole reason
+    # this helper exists.
+    if name_of_namespace(xp) == "jax":
+        return xp.unstack(a)
     return tuple(a[j] for j in range(a.shape[0]))
 
 

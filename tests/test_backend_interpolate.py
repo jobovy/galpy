@@ -1149,6 +1149,31 @@ def test_eval_ppoly_survives_vmap_of_grad_torch():
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-11, atol=1e-13)
 
 
+def test_eval_ppoly_survives_plain_vmap_torch():
+    # The sibling above guards vmap(grad(...)); this guards plain vmap, which is
+    # a DIFFERENT path through torch's batching rules and the one that actually
+    # broke. array-api-compat implements torch's `unstack` as
+    # `tuple(moveaxis(x, axis, 0))`, and aten::moveaxis.int has no batching rule:
+    # under bare vmap that raises "Batching rule not implemented", while all four
+    # of vmap(grad), vmap(grad(grad)), vmap(jacrev) and vmap over 1-D slices sail
+    # through it. So eval_ppoly unstacks with `unstack` only on jax and indexes
+    # on torch -- where dispatch is ~3.8 us and there is nothing to win anyway.
+    torch = pytest.importorskip("torch")
+    import array_api_compat.torch as xp
+
+    from galpy.backend.interpolate import cubic_spline_coeffs, eval_ppoly
+
+    x = torch.linspace(0.5, 4.0, 24, dtype=torch.float64)
+    y = torch.sin(x) + 0.3 * x**2
+    c = cubic_spline_coeffs(xp, x, y)
+    rs = torch.tensor([0.8, 1.7, 2.9, 3.6], dtype=torch.float64)
+
+    got = torch.vmap(lambda r: eval_ppoly(xp, x, c, r.reshape(())).reshape(()))(rs)
+    # a real value check: the same spline evaluated directly on the whole array
+    ref = eval_ppoly(xp, x, c, rs)
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref))
+
+
 @pytest.mark.parametrize("nu", [0, 1, 2, 3, 5])
 def test_eval_ppoly_derivative_orders_match_scipy_numpy(nu):
     # Covers eval_ppoly's three coefficient-read paths on NUMPY: the nu==0
