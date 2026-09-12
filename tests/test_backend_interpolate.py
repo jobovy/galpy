@@ -1287,3 +1287,50 @@ def test_map_coordinates_backend_grid_with_numpy_query_points(backend_name):
         dn[i] -= h
         fd[i] = (total_np(up) - total_np(dn)) / (2 * h)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-8)
+
+
+# ---------------------------------------------------------------- from_ppoly
+def test_spline1d_from_ppoly_rejects_nonincreasing_breakpoints():
+    # from_ppoly trusts pp.x as eval_ppoly's breakpoint array, and eval_ppoly
+    # locates an interval by searchsorted -- which on a non-monotonic x silently
+    # picks the wrong polynomial piece rather than failing. Reject it up front.
+    x = numpy.linspace(0.0, 1.0, 5)
+    pp = si.CubicSpline(x, numpy.sin(x))
+    # scipy itself accepts DECREASING breakpoints; eval_ppoly does not.
+    decreasing = si.PPoly(pp.c[:, ::-1].copy(), x[::-1].copy())
+    with pytest.raises(ValueError, match="strictly increasing"):
+        Spline1D.from_ppoly(decreasing)
+    # a repeated breakpoint is a zero-width interval, equally unusable
+    tied = si.CubicSpline(x, numpy.sin(x))
+    tied.x = numpy.array([0.0, 0.25, 0.25, 0.75, 1.0])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        Spline1D.from_ppoly(tied)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline1d_from_ppoly_evaluates_the_given_polynomial(backend):
+    # The point of from_ppoly is that NOTHING is refitted: the wrapper must
+    # reproduce the caller's own spline, not an InterpolatedUnivariateSpline
+    # through the same points. CubicSpline(bc_type="natural") differs from the
+    # (x, y) constructor's fit, so assert against pp itself -- and check the two
+    # fits really do differ, or this test would pass either way.
+    x = numpy.linspace(0.2, 3.4, 9)
+    y = numpy.sin(2.0 * x) + 0.3 * x**2
+    pp = si.CubicSpline(x, y, bc_type="natural")
+    refit = Spline1D(x, y)
+    xq = numpy.array([0.31, 1.27, 2.02, 3.29])
+    assert numpy.max(numpy.fabs(pp(xq) - refit(xq))) > 1e-6, (
+        "the two fits agree here, so this test could not tell them apart"
+    )
+
+    s = Spline1D.from_ppoly(pp)
+    got = s(_asarray(backend, xq))
+    assert _is_backend(backend, got)
+    if backend == "numpy":
+        # numpy forwards to pp itself, so this is byte-identical
+        numpy.testing.assert_array_equal(got, pp(xq))
+    else:
+        numpy.testing.assert_allclose(as_numpy(got), pp(xq), rtol=1e-14, atol=0.0)
+    # first derivative too, on the same polynomial
+    d = s(_asarray(backend, xq), nu=1)
+    numpy.testing.assert_allclose(as_numpy(d), pp(xq, 1), rtol=1e-13, atol=1e-14)
