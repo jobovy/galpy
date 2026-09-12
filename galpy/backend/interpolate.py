@@ -982,6 +982,37 @@ class Spline1D:
             )
             self._ppoly_x, self._ppoly_c = spline_to_ppoly(self._spl)
 
+    @classmethod
+    def from_ppoly(cls, pp, ext=0):
+        """A :class:`Spline1D` wrapping an ALREADY-FITTED scipy piecewise polynomial.
+
+        The ``(x, y)`` constructor fits an ``InterpolatedUnivariateSpline``, which
+        is a *different* spline from, say, ``CubicSpline(bc_type="natural")``. A
+        caller that needs a specific one -- because it must match a C
+        implementation knot-for-knot -- builds it itself and passes it here.
+
+        numpy queries call ``pp`` directly (byte-identical to using it), and a
+        backend evaluates ``pp``'s own power-basis coefficients through the
+        namespace, so the two paths interpolate the SAME polynomial.
+
+        ``pp`` must be a scipy ``PPoly`` (``CubicSpline`` is one) with strictly
+        increasing breakpoints; its ``.x``/``.c`` already use ``eval_ppoly``'s
+        layout, so nothing is refitted or converted.
+        """
+        if numpy.any(numpy.diff(pp.x) <= 0.0):
+            raise ValueError("from_ppoly needs strictly increasing breakpoints")
+        self = cls.__new__(cls)
+        self._k = int(pp.c.shape[0]) - 1
+        self._ext = ext
+        self._extrapolate = True if ext in (0, "extrapolate") else "const"
+        self._bc = None
+        self._mode2 = False
+        self._x = numpy.asarray(pp.x, dtype=float)
+        self._spl = pp
+        self._ppoly_x = self._x
+        self._ppoly_c = numpy.asarray(pp.c, dtype=float)
+        return self
+
     def __call__(self, r, nu=0):
         """Evaluate the spline (``nu=0``) or its ``nu``-th derivative at ``r``.
 
