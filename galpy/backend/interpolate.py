@@ -44,6 +44,7 @@ from ._namespaces import (
     is_backend_array,
     name_of_namespace,
     prefer_backend_namespace,
+    under_trace,
 )
 from ._resolver import get_namespace
 
@@ -1117,6 +1118,16 @@ class Spline1D:
         its "already the right dtype and device" fast path.
         """
         dev = device_of(r)
+        if under_trace(r):
+            # Inside a trace, jax lifts even a numpy constant into the jaxpr, so
+            # the converted arrays come back as TRACERS -- caching one would leak
+            # this trace's tracers into the next call and blow up there, far from
+            # here. Nothing is lost: a per-trace conversion is constant-folded
+            # once by the compiler, which is the whole point of tracing.
+            return (
+                asarray_on_device(xp, self._ppoly_x, dev),
+                asarray_on_device(xp, self._ppoly_c, dev),
+            )
         key = (xp.__name__, repr(dev))
         cache = self.__dict__.get("_ppoly_dev_cache")
         if cache is None:

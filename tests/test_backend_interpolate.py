@@ -1405,3 +1405,30 @@ def test_eval_ppoly_batched_gather_matches_per_row(backend):
         numpy.testing.assert_array_equal(
             got, per_row(rq, nu), err_msg=f"{backend} nu={nu} is not the per-row value"
         )
+
+
+@pytest.mark.skipif(not jax, reason="jax not installed")
+def test_spline1d_device_cache_is_not_populated_under_a_trace():
+    # Inside a jax trace even a numpy CONSTANT is lifted into the jaxpr, so the
+    # converted table comes back as a tracer rather than an array. Caching that
+    # would hand one trace's tracers to the next call, and the failure surfaces
+    # far from here -- it first showed up as jacfwd over a dynamical-friction
+    # force, a module away, with `x = JitTracer(float64[499])` inside eval_ppoly.
+    x = numpy.linspace(0.3, 4.1, 25)
+    s = Spline1D(x, numpy.cos(x) * x)
+    want = s(numpy.array([1.7, 2.9]))
+
+    jax.jit(lambda r: s(r))(jnp.asarray([1.7, 2.9]))
+    assert not s.__dict__.get("_ppoly_dev_cache"), (
+        "a conversion made inside a trace was cached; it holds tracers"
+    )
+    # an ordinary eager call afterwards is still correct (and may cache freely)
+    numpy.testing.assert_allclose(
+        as_numpy(s(jnp.asarray([1.7, 2.9]))), want, rtol=1e-13, atol=0.0
+    )
+    # and a SECOND, different trace must not inherit anything from the first
+    d = jax.jacfwd(lambda r: s(r).sum())(jnp.asarray([1.7, 2.9]))
+    fd = (s(numpy.array([1.7 + 1e-6, 2.9])) - s(numpy.array([1.7 - 1e-6, 2.9])))[
+        0
+    ] / 2e-6
+    numpy.testing.assert_allclose(float(as_numpy(d)[0]), fd, rtol=1e-6)
