@@ -2620,6 +2620,12 @@ def test_adiabaticgrid_offgrid_is_nan_under_a_trace_not_silently_extrapolated():
 # pre-fix tree, actionsFreqsAnglesJac SEGFAULTED on 72 threads and the Adiabatic
 # Jacobian came back non-finite, while one thread was fine either way.
 #
+# BOTH cases use OblateStaeckelWrapperPotential on purpose: the race is on the
+# per-instance caches a potential keeps in its args, so an unwrapped potential
+# has nothing to corrupt and the test would pass through the bug. An earlier
+# version of this test used a bare MiyamotoNagai for the Staeckel case and
+# missed a live shared-pointer use in calcdJzdU0Staeckel for exactly that reason.
+#
 # Thread count is the only thing that varies here, so the assertion is exact:
 # the C is deterministic, and any difference is a race.
 ###############################################################################
@@ -2635,9 +2641,9 @@ def test_actionangle_c_jac_entries_are_thread_safe():
         "from galpy.potential import MiyamotoNagaiPotential, OblateStaeckelWrapperPotential as O;"
         "from galpy.actionAngle.actionAngleStaeckel_c import actionAngleStaeckel_actionsFreqsAnglesJac_c as F;"
         "from galpy.actionAngle.actionAngleAdiabatic_c import actionAngleAdiabatic_actionsJac_c as A;"
-        "mn=MiyamotoNagaiPotential(normalize=1.,a=.5,b=.05);n=32;"
+        "mn=MiyamotoNagaiPotential(normalize=1.,a=.5,b=.05);w=O(pot=mn,delta=.5);n=128;"
         "R=numpy.linspace(.7,1.3,n);o=numpy.ones(n);"
-        "a=numpy.asarray(F(mn,.5,R,.05*o,.95*o,.08*o,.03*o)[8],dtype=float);"
+        "a=numpy.asarray(F(w,.5,R,.05*o,.95*o,.08*o,.03*o)[8],dtype=float);"
         "m=128;R2=numpy.linspace(.6,1.4,m);o2=numpy.ones(m);"
         "b=numpy.asarray(A(O(pot=mn,delta=.5),1.,R2,.04*o2,.9*o2,.1*o2,.05*o2)[2],dtype=float);"
         "numpy.save(sys.argv[1],numpy.concatenate([a.ravel(),b.ravel()]))"
