@@ -12,6 +12,8 @@
 # The numpy path is byte-identical (get_namespace passes numpy through), so the
 # existing test_actionAngle.py suite is unchanged; this only adds backend cover.
 ###############################################################################
+import os as _os
+
 import numpy
 import pytest
 
@@ -2608,3 +2610,66 @@ def test_adiabaticgrid_offgrid_is_nan_under_a_trace_not_silently_extrapolated():
         f"off-grid entry under a trace must be NaN rather than a silently "
         f"extrapolated value, got {jr[1]!r}"
     )
+
+
+###############################################################################
+# The C *Jac entries are feat/backends-only, so gh#1475's "one parsed
+# potentialArg copy per OpenMP thread" never reached them. Sharing one copy
+# across threads races on the per-instance caches potentials keep in their args
+# (gh#1468 added one to OblateStaeckelWrapperPotential): measured on the
+# pre-fix tree, actionsFreqsAnglesJac SEGFAULTED on 72 threads and the Adiabatic
+# Jacobian came back non-finite, while one thread was fine either way.
+#
+# Thread count is the only thing that varies here, so the assertion is exact:
+# the C is deterministic, and any difference is a race.
+###############################################################################
+@pytest.mark.skipif(
+    _os.environ.get("OMP_NUM_THREADS") == "1", reason="needs a real OpenMP team"
+)
+def test_actionangle_c_jac_entries_are_thread_safe():
+    import subprocess
+    import sys
+
+    prog = (
+        "import numpy, warnings;warnings.filterwarnings('ignore');"
+        "from galpy.potential import MiyamotoNagaiPotential, OblateStaeckelWrapperPotential as O;"
+        "from galpy.actionAngle.actionAngleStaeckel_c import actionAngleStaeckel_actionsFreqsAnglesJac_c as F;"
+        "from galpy.actionAngle.actionAngleAdiabatic_c import actionAngleAdiabatic_actionsJac_c as A;"
+        "mn=MiyamotoNagaiPotential(normalize=1.,a=.5,b=.05);n=32;"
+        "R=numpy.linspace(.7,1.3,n);o=numpy.ones(n);"
+        "a=numpy.asarray(F(mn,.5,R,.05*o,.95*o,.08*o,.03*o)[8],dtype=float);"
+        "m=128;R2=numpy.linspace(.6,1.4,m);o2=numpy.ones(m);"
+        "b=numpy.asarray(A(O(pot=mn,delta=.5),1.,R2,.04*o2,.9*o2,.1*o2,.05*o2)[2],dtype=float);"
+        "numpy.save(sys.argv[1],numpy.concatenate([a.ravel(),b.ravel()]))"
+    )
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        for label, nthreads in (("serial", "1"), ("parallel", None)):
+            env = dict(_os.environ)
+            if nthreads:
+                env["OMP_NUM_THREADS"] = nthreads
+            else:
+                env.pop("OMP_NUM_THREADS", None)
+            r = subprocess.run(
+                [sys.executable, "-c", "import sys;" + prog, f"{td}/{label}.npy"],
+                env=env,
+                capture_output=True,
+            )
+            assert r.returncode == 0, (
+                f"the C *Jac entries crashed with {label} threads "
+                f"(rc={r.returncode}): {r.stderr.decode()[-400:]}"
+            )
+        serial_vals = numpy.load(f"{td}/serial.npy")
+        par_vals = numpy.load(f"{td}/parallel.npy")
+    assert numpy.all(numpy.isfinite(par_vals)), (
+        "the parallel *Jac Jacobians are not finite -- threads are sharing one "
+        "parsed potentialArg copy"
+    )
+    numpy.testing.assert_array_equal(
+        serial_vals,
+        par_vals,
+        err_msg="the C *Jac entries give different answers on 1 vs N OpenMP "
+        "threads; the potentialArg copies are shared, not per-thread",
+    )
+    return None
