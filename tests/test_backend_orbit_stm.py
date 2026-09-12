@@ -1082,3 +1082,108 @@ def test_c_stm_forward_symplectic_float32_grid():
         )
     xt, M = c_stm_forward(MWPotential2014, ic, ts_f32, "symplec4_c", 1e-10, 1e-10)
     assert xt.shape == (1001, 6) and M.shape == (1001, 6, 6)
+
+
+# ---------------- continuing a C-STM integration merges both legs, and differentiates
+_CONT_T1 = numpy.linspace(0.0, 2.0, 21)
+_CONT_T2 = {
+    "forward": numpy.linspace(2.0, 4.0, 21),
+    "backward": numpy.linspace(0.0, -2.0, 21),
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("direction", list(_CONT_T2))
+@pytest.mark.parametrize("method", _METHODS + ["dopr54_c"])
+def test_orbit_integrate_cstm_continuation_merges(backend, direction, method):
+    # A second integrate() that picks up where the first left off MERGES the two
+    # legs. The C-STM route used to return from _integrate_impl before that
+    # bookkeeping ran, so it REPLACED the stored orbit -- silently, no error, a
+    # trajectory one leg short. Held to the numpy IC's merged result.
+    from galpy.orbit import Orbit
+
+    pot = MWPotential2014
+    ts2 = _CONT_T2[direction]
+    ref = Orbit(list(_IC))
+    ref.integrate(_CONT_T1, pot, method=method)
+    ref.integrate(ts2, pot, method=method)
+
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_CONT_T1, pot, method=method)
+    o.integrate(ts2, pot, method=method)
+
+    assert o.orbit.shape == ref.orbit.shape, (
+        f"{method}/{direction}/{backend}: merged to {tuple(o.orbit.shape)}, "
+        f"the numpy IC gives {ref.orbit.shape} -- a leg was dropped"
+    )
+    assert _is_backend(backend, o.getOrbit())
+    numpy.testing.assert_allclose(
+        as_numpy(o.getOrbit()), ref.getOrbit(), rtol=1e-7, atol=1e-8
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(as_numpy(o.t)), numpy.asarray(ref.t), rtol=0.0, atol=1e-14
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_cstm_continuation_jacobian_vs_fd(backend):
+    # The merged trajectory has to stay differentiable w.r.t. the ORIGINAL IC:
+    # the second leg restarts from the first leg's final state as a backend
+    # array, so both legs live in one autograd graph and the chain rule composes
+    # the two STMs. Against central differences OF THE CONTINUED integration.
+    from galpy.orbit import Orbit
+
+    pot = MWPotential2014
+    t2 = _CONT_T2["forward"]
+
+    def final_np(ic):
+        o = Orbit(list(ic))
+        o.integrate(_CONT_T1, pot, method="dop853_c")
+        o.integrate(t2, pot, method="dop853_c")
+        return numpy.asarray(o.getOrbit()[-1])
+
+    eps = 1e-6
+    jfd = numpy.array(
+        [
+            (
+                final_np(_IC + eps * numpy.eye(6)[j])
+                - final_np(_IC - eps * numpy.eye(6)[j])
+            )
+            / (2.0 * eps)
+            for j in range(6)
+        ]
+    ).T
+
+    def final_b(v):
+        o = Orbit(v)
+        o.integrate(_CONT_T1, pot, method="dop853_c")
+        o.integrate(t2, pot, method="dop853_c")
+        return o.getOrbit()[-1]
+
+    if backend == "jax":
+        jac = as_numpy(jax.jacrev(final_b)(jnp.asarray(_IC)))
+    else:
+        jac = as_numpy(torch.autograd.functional.jacobian(final_b, torch.tensor(_IC)))
+    numpy.testing.assert_allclose(jac, jfd, rtol=1e-4, atol=1e-5)
+
+    # and it is genuinely the TWO-leg jacobian, not the first leg's: the state
+    # moves enough over the second leg that the two differ well outside the bar.
+    def final_np_leg1(ic):
+        o = Orbit(list(ic))
+        o.integrate(_CONT_T1, pot, method="dop853_c")
+        return numpy.asarray(o.getOrbit()[-1])
+
+    jfd1 = numpy.array(
+        [
+            (
+                final_np_leg1(_IC + eps * numpy.eye(6)[j])
+                - final_np_leg1(_IC - eps * numpy.eye(6)[j])
+            )
+            / (2.0 * eps)
+            for j in range(6)
+        ]
+    ).T
+    assert numpy.max(numpy.fabs(jfd - jfd1)) > 1e-2, (
+        "the one-leg and two-leg jacobians agree here, so this test cannot tell "
+        "a dropped leg from a merged one"
+    )

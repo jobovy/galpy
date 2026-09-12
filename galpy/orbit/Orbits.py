@@ -1763,8 +1763,12 @@ class Orbit:
         # entire numpy/C/scipy path below is dead code for these methods and
         # byte-identical for every existing method.
         if method.lower() in ("diffrax", "torchdiffeq"):
-            return self._integrate_inbackend(
-                t, pot, method, rtol, atol, inbackend_kwargs
+            return self._integrate_backend_continued(
+                lambda: self._integrate_inbackend(
+                    t, pot, method, rtol, atol, inbackend_kwargs
+                ),
+                t,
+                pot,
             )
         # Differentiable FAST-C path: a jax/torch IC + a dxdv-capable C integrator
         # routes through the variational state-transition matrix (jax.custom_vjp /
@@ -1809,12 +1813,20 @@ class Orbit:
                     if _pdim in (2, 4)
                     else False
                 ):
-                    return self._integrate_cstm(t, _potl, _ml, rtol, atol)
+                    return self._integrate_backend_continued(
+                        lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
+                        t,
+                        _potl,
+                    )
                 # Pass the deprecation-checked/composed potential (_potl), matching
                 # the C-STM and numpy paths, so a legacy list reaches the in-backend
                 # integrator as a composite rather than a raw list.
-                return self._integrate_inbackend(
-                    t, _potl, _inbk, rtol, atol, inbackend_kwargs
+                return self._integrate_backend_continued(
+                    lambda: self._integrate_inbackend(
+                        t, _potl, _inbk, rtol, atol, inbackend_kwargs
+                    ),
+                    t,
+                    _potl,
                 )
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
@@ -2281,6 +2293,67 @@ class Orbit:
         self.t = t.reshape(self.size, t.shape[-1]) if per_orbit_t else t
         self._pot = pot
         self._orig_pot = pot
+        return None
+
+    def _integrate_backend_continued(self, route, t, pot):
+        """Run one of the backend integration routes (C-STM or in-backend ODE),
+        honouring a continuation.
+
+        The numpy/C path merges a second ``integrate`` onto the first when the new
+        times pick up where the old ones left off (``_should_continue_integration``),
+        but the backend routes return from ``_integrate_impl`` long before that
+        bookkeeping, so they used to REPLACE the stored orbit -- silently, with no
+        error and a trajectory one leg short. This wraps them in the same
+        prologue/epilogue: restart from the edge of the previous leg, integrate,
+        merge. The restart state is taken from the stored orbit ON THE BACKEND, so
+        a grad-tracking IC keeps both legs in one autograd graph and gradients
+        w.r.t. the original IC still flow through the merged trajectory.
+        """
+        try:
+            t_np = numpy.asarray(as_numpy(t))
+        except Exception:  # traced (jax.grad/jit/vmap) integration times
+            # No concrete times to compare against the stored grid, so there is no
+            # continuation to detect -- and forcing them through numpy would break
+            # the trace this route exists to stay inside.
+            return route()
+        should_continue, is_forward, pot_changed = self._should_continue_integration(
+            t_np, pot
+        )
+        if not should_continue:
+            return route()
+        if pot_changed:
+            warnings.warn(
+                "Continuing orbit integration with a different potential than the previous integration; this may lead to unphysical results",
+                galpyWarning,
+            )
+        xp = get_namespace(self.orbit)
+        old_t = numpy.asarray(as_numpy(self.t)).copy()
+        old_orbit = _copy_for_continuation(self.orbit)
+        old_ic_backend = self._ic_backend
+        old_vxvv = self.vxvv.copy()
+        # Restart from the last state (forward) or the first (backward).
+        edge = self.orbit[:, -1, :] if is_forward else self.orbit[:, 0, :]
+        self._ic_backend = xp.reshape(edge, old_ic_backend.shape)
+        # self.vxvv is the numpy shape/phasedim bookkeeping; keep it in step. A
+        # grad-tracking IC has no concrete values, so it keeps its placeholder.
+        if getattr(self, "_ic_backend_concrete", True):
+            self.vxvv = as_numpy(edge).copy()
+        try:
+            route()
+        finally:
+            self._ic_backend = old_ic_backend
+            self.vxvv = old_vxvv
+        new_t = numpy.asarray(as_numpy(self.t))
+        if is_forward:
+            self.t = numpy.concatenate([old_t, new_t[1:]], axis=-1)
+            self.orbit = xp.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
+        else:
+            # new times run t[0] -> t[-1] decreasing, so reverse them onto the
+            # front; flip is the namespace-agnostic form of [:, :0:-1].
+            self.t = numpy.concatenate([new_t[:0:-1], old_t], axis=-1)
+            self.orbit = xp.concatenate(
+                [xp.flip(self.orbit[:, 1:], axis=1), old_orbit], axis=1
+            )
         return None
 
     def _integrate_cstm(self, t, pot, method, rtol, atol):
