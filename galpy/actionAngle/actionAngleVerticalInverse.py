@@ -52,6 +52,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
+        canonical=None,
         **kwargs,
     ):
         """
@@ -83,6 +84,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tolerance for angle root-finding (f(x) is within tol of desired value)
         bisect : bool
             if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
+        canonical : bool, optional
+            if True, use the canonical evaluation mode: the angle map uses the exact derivative of the interpolated nSn tables plus the closed-form compensation for the energy-dependent auxiliary frequency, so the assembled (J, angle) -> (x, v) map is exactly symplectic for any stored tables (the separately stored dSndJ tables are kept only as a consistency diagnostic). Default: True for interpolating instances without a point transformation (where the stored coefficients are gauge-compatible), False otherwise; canonical=True with a point transformation is not implemented yet.
 
         Notes
         -----
@@ -293,6 +296,23 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._setup_interp()
         else:
             self._interp = False
+        # Canonical evaluation: manifestly symplectic for any stored tables.
+        # Default for interpolating instances without a point transformation,
+        # where the stored nSn are the coefficients of the xi = 0 gauge (the
+        # identity PT has no shear, so the equal-time and cotangent gauges
+        # coincide and the tables can be reused as-is)
+        self._identity_pt = not self._pt_exact and self._pt_deg == 1
+        if canonical is None:
+            canonical = self._interp and self._identity_pt
+        if canonical and not (self._interp and self._identity_pt):
+            raise ValueError(
+                "canonical=True requires setup_interp=True and no point "
+                "transformation (use_pointtransform=False); the canonical "
+                "mode for point-transformed tori is not implemented yet"
+            )
+        self._canonical = canonical
+        if self._canonical:
+            self._setup_canonical()
         return None
 
     def _setup_pointtransform(self, pt_deg, pt_nxa):
@@ -1291,6 +1311,165 @@ class actionAngleVerticalInverse(actionAngleInverse):
             )
         return self._js[indx]
 
+    def _setup_canonical(self):
+        """Build the exactly-differentiable chains of the canonical mode.
+
+        Everything the evaluation uses is either an interpolant paired with
+        its own exact derivative or a closed form: the value table of nSn
+        (B-spline coefficients along the energy axis, evaluated together
+        with their derivative by one four-point stencil), E(j) and its
+        derivative (which is also the frequency: the integrator-consistency
+        contract), and OmegaHO(E) and its derivative for the compensation
+        term. The separately stored dSndJ tables are NOT used: a value table
+        and an independent derivative table only satisfy the symplectic
+        consistency relation when both are exact, and interpolation breaks
+        it (the measured symplectic defect of the old mode is at the
+        derivative-table interpolation error)."""
+        self._can_nSn_c = ndimage.spline_filter1d(
+            self._nSn, order=3, axis=0, mode="mirror"
+        )
+        self._can_dEdj = self.E.derivative()
+        self._can_dOmHOdE = self.OmegaHO.derivative()
+        return None
+
+    def _canonical_tables(self, j):
+        """nSn and d(nSn)/dj at action j, as value and exact derivative of
+        one stored interpolant (cubic B-spline along the energy axis chained
+        through E(j))."""
+        tE = float(self.E(j))
+        x = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+        x = min(max(x, 0.0), self._nE - 1.0)
+        i0 = int(numpy.floor(x))
+        if i0 > self._nE - 2:  # pragma: no cover
+            i0 = self._nE - 2
+        t = x - i0
+        taps = numpy.array([i0 - 1, i0, i0 + 1, i0 + 2])
+        taps = numpy.abs(taps)
+        taps[taps > self._nE - 1] = 2 * (self._nE - 1) - taps[taps > self._nE - 1]
+        C = self._can_nSn_c[taps]
+        w = numpy.array(
+            [
+                (1.0 - t) ** 3 / 6.0,
+                (4.0 - 6.0 * t**2 + 3.0 * t**3) / 6.0,
+                (1.0 + 3.0 * t + 3.0 * t**2 - 3.0 * t**3) / 6.0,
+                t**3 / 6.0,
+            ]
+        )
+        wd = numpy.array(
+            [
+                -((1.0 - t) ** 2) / 2.0,
+                (-12.0 * t + 9.0 * t**2) / 6.0,
+                (3.0 + 6.0 * t - 9.0 * t**2) / 6.0,
+                t**2 / 2.0,
+            ]
+        )
+        val = w @ C
+        dval_dE = (wd @ C) * (self._nE - 1.0) / (self._Emax - self._Emin)
+        return val, dval_dE * float(self._can_dEdj(j))
+
+    def check_canonical_consistency(self, ntheta=256):
+        """The three-way consistency relation between the two derivative
+        routes (STAECKEL_CANONICAL_MATH.md C8): the stored dSndJ tables are
+        the fixed-omega angle-fit fields, the canonical chain differentiates
+        the value interpolant, and the two must differ by exactly the
+        closed-form compensation for the varying auxiliary frequency,
+        D_n = d(Sbar_n)/dj + [omega'/(2 omega)] g_n with g_n the sine
+        coefficients of J^A(theta^A) sin(2 theta^A). Returns the maximum
+        absolute mismatch over the interior nodes; a value at the
+        table-interpolation error certifies both routes, a large value means
+        a broken chain and localizes the offending node.
+
+        Parameters
+        ----------
+        ntheta : int, optional
+            Number of angles for the Fourier transform of the compensation.
+
+        Returns
+        -------
+        float
+            Maximum absolute mismatch of the consistency relation.
+
+        Notes
+        -----
+        - 2026-08-25 - Written - Bovy (UofT)
+        """
+        th = 2.0 * numpy.pi * numpy.arange(ntheta) / ntheta
+        mism = 0.0
+        for idx in range(2, self._nE - 2):
+            jn = float(self._js[idx])
+            _, dnSndj = self._canonical_tables(jn)
+            dSdj = dnSndj / self._nforSn
+            tE = float(self.E(jn))
+            om = float(self.OmegaHO(tE))
+            domdj = float(self._can_dOmHOdE(tE)) * float(self._can_dEdj(jn))
+            ja = jn + 2.0 * numpy.sum(
+                self._nSn[idx] * numpy.cos(numpy.outer(th, self._nforSn)), axis=1
+            )
+            comp = ja * numpy.sin(2.0 * th)
+            gn = -numpy.imag(numpy.fft.rfft(comp))[1 : len(self._nforSn) + 1] / ntheta
+            pred = dSdj + domdj / (2.0 * om) * gn
+            mism = max(mism, numpy.max(numpy.abs(pred - self._dSndJ[idx])))
+        return mism
+
+    def _xvFreqs_canonical(self, j, angle):
+        """The canonical evaluation: every ingredient is an interpolant
+        differentiated exactly or a closed form, so the map is exactly
+        symplectic whatever the tables contain. The compensation for the
+        j-dependent auxiliary frequency is closed form: dW^A/domega at fixed
+        (x, J^A) equals x_a v_a / (2 omega) = [J^A sin(2 theta^A)] / (2
+        omega)."""
+        angle = numpy.atleast_1d(angle)
+        nSn, dnSndj = self._canonical_tables(j)
+        n = self._nforSn
+        dSdj = dnSndj / n
+        tE = float(self.E(j))
+        om = float(self.OmegaHO(tE))
+        dEdj = float(self._can_dEdj(j))
+        domdj = float(self._can_dOmHOdE(tE)) * dEdj
+        pref = domdj / (2.0 * om)
+        anglea = copy.copy(angle)
+        cntr = 0
+        maxda = 2.0 * numpy.pi / 101.0
+        while cntr <= self._maxiter:
+            san = numpy.sin(n * numpy.atleast_2d(anglea).T)
+            can = numpy.cos(n * numpy.atleast_2d(anglea).T)
+            ja = j + 2.0 * numpy.sum(nSn * can, axis=1)
+            F = (
+                anglea
+                + 2.0 * numpy.sum(dSdj * san, axis=1)
+                + pref * ja * numpy.sin(2.0 * anglea)
+                - angle
+            )
+            F = (F + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            if numpy.max(numpy.fabs(F)) < self._angle_tol:
+                break
+            djada = -2.0 * numpy.sum(n * nSn * san, axis=1)
+            dF = (
+                1.0
+                + 2.0 * numpy.sum(n * dSdj * can, axis=1)
+                + pref
+                * (djada * numpy.sin(2.0 * anglea) + 2.0 * ja * numpy.cos(2.0 * anglea))
+            )
+            da = -F / dF
+            da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
+                numpy.fabs(da) > maxda
+            ]
+            anglea = anglea + da
+            cntr += 1
+        else:  # pragma: no cover
+            warnings.warn(
+                "Canonical angle mapping did not converge in {} iterations".format(
+                    self._maxiter
+                ),
+                galpyWarning,
+            )
+        ja = j + 2.0 * numpy.sum(
+            nSn * numpy.cos(n * numpy.atleast_2d(anglea).T), axis=1
+        )
+        hoaainv = actionAngleHarmonicInverse(omega=om)
+        xa, va = hoaainv(ja, anglea)
+        return (xa, va, dEdj)
+
     def _evaluate(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
@@ -1333,6 +1512,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
+        if self._canonical:
+            return self._xvFreqs_canonical(j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
@@ -1522,6 +1703,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
+        if self._canonical:
+            # the frequency of the interpolated Hamiltonian itself: exactly
+            # consistent with the canonical chart (the integrator contract)
+            return float(self._can_dEdj(j))
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
