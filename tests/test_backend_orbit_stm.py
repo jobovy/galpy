@@ -1187,3 +1187,34 @@ def test_orbit_integrate_cstm_continuation_jacobian_vs_fd(backend):
         "the one-leg and two-leg jacobians agree here, so this test cannot tell "
         "a dropped leg from a merged one"
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_cstm_continuation_warns_on_changed_potential(backend):
+    # The numpy path warns when a continuation switches potential mid-orbit
+    # (test_orbit.py::test_orbit_continuation_different_potential_warning); the
+    # backend routes go through their own prologue, so the warning has to be
+    # raised there too or it silently disappears for exactly the callers most
+    # likely to be composing integrations.
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    other = LogarithmicHaloPotential(normalize=1.0)
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_CONT_T1, MWPotential2014, method="dop853_c")
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        o.integrate(_CONT_T2["forward"], other, method="dop853_c")
+    assert [w for w in rec if "different potential" in str(w.message)], (
+        "continuing a backend orbit with a different potential did not warn"
+    )
+    # and it still MERGES -- the warning is advisory, not a bail-out
+    ref = Orbit(list(_IC))
+    ref.integrate(_CONT_T1, MWPotential2014, method="dop853_c")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ref.integrate(_CONT_T2["forward"], other, method="dop853_c")
+    assert o.orbit.shape == ref.orbit.shape
+    numpy.testing.assert_allclose(
+        as_numpy(o.getOrbit()), ref.getOrbit(), rtol=1e-7, atol=1e-8
+    )
