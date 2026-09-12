@@ -18,6 +18,7 @@ from galpy.backend.interpolate import (
     Spline2D,
     cubic_spline_coeffs,
     eval_cubic,
+    eval_ppoly,
     eval_rect_ppoly,
     interp_linear,
     make_smoothing_spline,
@@ -1334,3 +1335,73 @@ def test_spline1d_from_ppoly_evaluates_the_given_polynomial(backend):
     # first derivative too, on the same polynomial
     d = s(_asarray(backend, xq), nu=1)
     numpy.testing.assert_allclose(as_numpy(d), pp(xq, 1), rtol=1e-13, atol=1e-14)
+
+
+# ------------------------------------------- the frozen table's device cache
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline1d_device_cache_survives_pickling(backend):
+    # Spline1D caches the namespace/device copy of its frozen (x, c) table so
+    # every evaluation does not re-upload it. The cache holds BACKEND arrays, so
+    # it must not travel with the object: potentials get pickled (and sent to
+    # worker processes), and a jax/torch array in __dict__ would either fail to
+    # pickle or arrive bound to the wrong runtime.
+    import pickle
+
+    x = numpy.linspace(0.3, 4.1, 25)
+    s = Spline1D(x, numpy.cos(x) * x)
+    xq = numpy.array([0.44, 2.17, 3.98])
+    want = s(xq)
+    got = s(_asarray(backend, xq))  # populates the cache
+    numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-13, atol=0.0)
+    assert s.__dict__.get("_ppoly_dev_cache"), "the device copy was not cached"
+    assert "_ppoly_dev_cache" not in s.__getstate__()
+
+    back = pickle.loads(pickle.dumps(s))
+    numpy.testing.assert_array_equal(back(xq), want)  # numpy path byte-identical
+    numpy.testing.assert_allclose(
+        as_numpy(back(_asarray(backend, xq))), want, rtol=1e-13, atol=0.0
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_ppoly_batched_gather_matches_per_row(backend):
+    # eval_ppoly pulls every coefficient row in ONE gather and unpacks with
+    # unstack; both are pure data movement, so the Horner recurrence must see
+    # exactly the numbers the per-row form gave it -- assert BIT equality
+    # against the formulation written out here, not a tolerance.
+    rs = numpy.random.RandomState(7)
+    x = numpy.sort(rs.rand(40)) * 6.0
+    c = rs.randn(4, 39)
+
+    def per_row(r, nu):
+        idx = numpy.clip(numpy.searchsorted(x, r, side="right") - 1, 0, c.shape[1] - 1)
+        dr = r - x[idx]
+        if nu == 0:
+            out = c[0][idx]
+            for j in range(1, 4):
+                out = out * dr + c[j][idx]
+            return out
+        out = None
+        for j in range(4 - nu):
+            fall = 1.0
+            for m in range(nu):
+                fall *= (3 - j) - m
+            term = c[j][idx] * fall
+            out = term if out is None else out * dr + term
+        return out
+
+    rq = numpy.array([0.02, 1.31, 3.77, 5.98])
+    xp = _xp(backend)
+    for nu in (0, 1, 2):
+        got = as_numpy(
+            eval_ppoly(
+                xp,
+                _asarray(backend, x),
+                _asarray(backend, c),
+                _asarray(backend, rq),
+                nu=nu,
+            )
+        )
+        numpy.testing.assert_array_equal(
+            got, per_row(rq, nu), err_msg=f"{backend} nu={nu} is not the per-row value"
+        )
