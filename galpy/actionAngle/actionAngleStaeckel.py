@@ -1998,12 +1998,14 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         except (TypeError, RuntimeError):
             # potentials whose evaluators reject a whole-array call are done
             # element-by-element; each scalar is a backend scalar so the migrated
-            # scalar path still runs on the backend. Measured 2026-08-16, the
-            # potential that actually lands here is
-            # AnyAxisymmetricRazorThinDiskPotential -- NOT DoubleExponentialDisk,
-            # which this comment used to name: its scalar-only decorator sits on
-            # the public methods, and the calls above go through the internal
-            # _evaluateRforces/_evaluatezforces, which bypass it.
+            # scalar path still runs on the backend. No SHIPPED potential lands
+            # here any more: DoubleExponentialDisk does not (its scalar-only
+            # decorator sits on the public methods, and the calls above go
+            # through the internal _evaluateRforces/_evaluatezforces, which
+            # bypass it), and AnyAxisymmetricRazorThinDisk -- which did, via a
+            # float() on an array -- now opts in to backend arrays. The branch
+            # is kept for third-party potentials and is covered by a synthetic
+            # in test_backend_actionAngle.py.
             delta2 = xp.stack([_delta2(R[ii], z[ii]) for ii in range(len(R))])
         indx = (delta2 < delta0**2.0) & (
             (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)

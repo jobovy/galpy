@@ -2514,13 +2514,45 @@ def test_estimateDeltaStaeckel_scalar_only_potential(backend):
     # element. MWPotential2014 in the parity test above is array-capable, so
     # that fallback had no coverage at all.
     #
-    # Measured which potential actually takes it, rather than trusting the
-    # source comment: AnyAxisymmetricRazorThinDiskPotential does.
-    # DoubleExponentialDiskPotential -- named in that comment -- does NOT: its
-    # public methods carry the scalar-only decorator, but estimateDeltaStaeckel
-    # goes through the internal _evaluateRforces/_evaluatezforces, which bypass
-    # it, so the array call simply succeeds.
-    pot = AnyAxisymmetricRazorThinDiskPotential(surfdens=lambda R: numpy.exp(-R / 0.3))
+    # A SYNTHETIC, not a real potential. This used to use
+    # AnyAxisymmetricRazorThinDisk, whose _bk_dispatch raised TypeError from
+    # float(R) on an array -- but that class now opts in to backend arrays
+    # (_backend_accepts_arrays) and no longer raises, so naming it here stopped
+    # covering the fallback at all. No shipped potential reliably takes this
+    # branch any more: the scalar-only decorator sits on the PUBLIC methods and
+    # estimateDeltaStaeckel goes through the internal
+    # _evaluateRforces/_evaluatezforces, which bypass it.
+    #
+    # MiyamotoNagai underneath, so delta^2 is non-degenerate: for a spherical
+    # potential the whole bracket cancels and delta^2 is identically 0, which
+    # would satisfy the finiteness assertion below while testing nothing.
+    class _ScalarOnlyMN(MiyamotoNagaiPotential):
+        @staticmethod
+        def _reject_arrays(*xs):
+            if any(getattr(x, "ndim", 0) for x in xs):
+                raise TypeError("methods do not accept array inputs")
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            self._reject_arrays(R, z)
+            return super()._Rforce(R, z, phi=phi, t=t)
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            self._reject_arrays(R, z)
+            return super()._zforce(R, z, phi=phi, t=t)
+
+        def _R2deriv(self, R, z, phi=0.0, t=0.0):
+            self._reject_arrays(R, z)
+            return super()._R2deriv(R, z, phi=phi, t=t)
+
+        def _z2deriv(self, R, z, phi=0.0, t=0.0):
+            self._reject_arrays(R, z)
+            return super()._z2deriv(R, z, phi=phi, t=t)
+
+        def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+            self._reject_arrays(R, z)
+            return super()._Rzderiv(R, z, phi=phi, t=t)
+
+    pot = _ScalarOnlyMN(normalize=1.0)
     # Deliberately NOT the _EST_R/_EST_Z grid the parity test uses: on that one
     # delta^2 goes negative for this potential and both paths return NaN, so an
     # allclose would compare NaN to NaN and pass while asserting nothing. These
@@ -2528,6 +2560,14 @@ def test_estimateDeltaStaeckel_scalar_only_potential(backend):
     # regression to NaN fails instead of passing vacuously.
     R = numpy.array([0.4, 0.6, 0.8, 1.0])
     z = numpy.array([0.3, 0.4, 0.5, 0.6])
+    # positive control: the fallback is only exercised if the whole-array call
+    # really raises. Without this the test would keep passing if the potential
+    # silently became array-capable, which is exactly how it stopped covering
+    # the branch before.
+    from galpy.potential import evaluateRforces
+
+    with pytest.raises(TypeError):
+        evaluateRforces(pot, R, z, use_physical=False)
     ref = numpy.asarray(estimateDeltaStaeckel(pot, R, z, no_median=True))
     got = estimateDeltaStaeckel(pot, _arr(backend, R), _arr(backend, z), no_median=True)
     assert _is_backend_array(backend, got)

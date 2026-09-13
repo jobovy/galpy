@@ -14445,15 +14445,23 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
 def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
     """Every evaluation method must keep @check_potential_inputs_not_arrays.
 
-    This potential integrates with scipy.quad, which needs scalars; the decorator
-    is what turns an array call into a clean TypeError instead of a wrong number
-    or an opaque failure deep in the integrand.
+    On the NUMPY path this potential integrates with scipy.quad, which needs
+    scalars; the decorator is what turns an array call into a clean TypeError
+    instead of a wrong number or an opaque failure deep in the integrand.
 
     Pinning the SET, not one method, and pinning the CONTRACT rather than the
     decorator's presence: the gold-value test above calls Rzderiv with scalars,
     so it passes whether or not the decorator is attached. A rewrite of these
     methods dropped `@check_potential_inputs_not_arrays` from `_Rzderiv` while
     every other test stayed green -- exactly the blind spot this closes.
+
+    Under a FORCED backend the same call is a different one: `@backend_input`
+    coerces the numpy array at the boundary, so what the gate sees is a BACKEND
+    array -- which this potential now opts in to accepting
+    (`_backend_accepts_arrays`, so the traced Poisson quadrature can hand it a
+    whole node array). There the contract is that the methods broadcast and
+    return one finite value per input, which is asserted instead. The decorator
+    is still what is being pinned in both modes: it is the thing that decides.
     """
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
         # Not bare numpy.exp: it raises TracerArrayConversionError on a tracer,
@@ -14462,7 +14470,10 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
         # below (for exactly Sigma(R)=exp(-R/0.3)) are unaffected.
         surfdens=_anyaxisym_surfdens
     )
+    from galpy.backend import as_numpy, backend
+
     arr = numpy.array([0.8, 1.2])
+    forced = backend() != "numpy"
     for name in ("__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv"):
         meth = getattr(p, name)
         # scalar still works -- proves the method is live, so a NameError or a
@@ -14470,6 +14481,14 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
         assert numpy.isfinite(meth(1.0, 0.1, use_physical=False)), (
             f"{name} is not usable on scalars"
         )
+        if forced:
+            # coerced to a backend array at the boundary -> accepted, and must
+            # broadcast to one finite value per input rather than collapse.
+            for a, b in ((arr, 0.1), (1.0, arr)):
+                got = as_numpy(meth(a, b, use_physical=False))
+                assert got.shape == arr.shape, f"{name} did not broadcast: {got.shape}"
+                assert numpy.all(numpy.isfinite(got)), f"{name} returned non-finite"
+            continue
         with pytest.raises(TypeError):
             meth(arr, 0.1, use_physical=False)
         with pytest.raises(TypeError):
