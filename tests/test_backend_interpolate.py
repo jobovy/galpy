@@ -18,6 +18,7 @@ from galpy.backend.interpolate import (
     Spline2D,
     cubic_spline_coeffs,
     eval_cubic,
+    eval_ppoly,
     eval_rect_ppoly,
     interp_linear,
     make_smoothing_spline,
@@ -1148,6 +1149,31 @@ def test_eval_ppoly_survives_vmap_of_grad_torch():
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-11, atol=1e-13)
 
 
+def test_eval_ppoly_survives_plain_vmap_torch():
+    # The sibling above guards vmap(grad(...)); this guards plain vmap, which is
+    # a DIFFERENT path through torch's batching rules and the one that actually
+    # broke. array-api-compat implements torch's `unstack` as
+    # `tuple(moveaxis(x, axis, 0))`, and aten::moveaxis.int has no batching rule:
+    # under bare vmap that raises "Batching rule not implemented", while all four
+    # of vmap(grad), vmap(grad(grad)), vmap(jacrev) and vmap over 1-D slices sail
+    # through it. So eval_ppoly unstacks with `unstack` only on jax and indexes
+    # on torch -- where dispatch is ~3.8 us and there is nothing to win anyway.
+    torch = pytest.importorskip("torch")
+    import array_api_compat.torch as xp
+
+    from galpy.backend.interpolate import cubic_spline_coeffs, eval_ppoly
+
+    x = torch.linspace(0.5, 4.0, 24, dtype=torch.float64)
+    y = torch.sin(x) + 0.3 * x**2
+    c = cubic_spline_coeffs(xp, x, y)
+    rs = torch.tensor([0.8, 1.7, 2.9, 3.6], dtype=torch.float64)
+
+    got = torch.vmap(lambda r: eval_ppoly(xp, x, c, r.reshape(())).reshape(()))(rs)
+    # a real value check: the same spline evaluated directly on the whole array
+    ref = eval_ppoly(xp, x, c, rs)
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref))
+
+
 @pytest.mark.parametrize("nu", [0, 1, 2, 3, 5])
 def test_eval_ppoly_derivative_orders_match_scipy_numpy(nu):
     # Covers eval_ppoly's three coefficient-read paths on NUMPY: the nu==0
@@ -1287,3 +1313,147 @@ def test_map_coordinates_backend_grid_with_numpy_query_points(backend_name):
         dn[i] -= h
         fd[i] = (total_np(up) - total_np(dn)) / (2 * h)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-8)
+
+
+# ---------------------------------------------------------------- from_ppoly
+def test_spline1d_from_ppoly_rejects_nonincreasing_breakpoints():
+    # from_ppoly trusts pp.x as eval_ppoly's breakpoint array, and eval_ppoly
+    # locates an interval by searchsorted -- which on a non-monotonic x silently
+    # picks the wrong polynomial piece rather than failing. Reject it up front.
+    x = numpy.linspace(0.0, 1.0, 5)
+    pp = si.CubicSpline(x, numpy.sin(x))
+    # scipy itself accepts DECREASING breakpoints; eval_ppoly does not.
+    decreasing = si.PPoly(pp.c[:, ::-1].copy(), x[::-1].copy())
+    with pytest.raises(ValueError, match="strictly increasing"):
+        Spline1D.from_ppoly(decreasing)
+    # a repeated breakpoint is a zero-width interval, equally unusable
+    tied = si.CubicSpline(x, numpy.sin(x))
+    tied.x = numpy.array([0.0, 0.25, 0.25, 0.75, 1.0])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        Spline1D.from_ppoly(tied)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline1d_from_ppoly_evaluates_the_given_polynomial(backend):
+    # The point of from_ppoly is that NOTHING is refitted: the wrapper must
+    # reproduce the caller's own spline, not an InterpolatedUnivariateSpline
+    # through the same points. CubicSpline(bc_type="natural") differs from the
+    # (x, y) constructor's fit, so assert against pp itself -- and check the two
+    # fits really do differ, or this test would pass either way.
+    x = numpy.linspace(0.2, 3.4, 9)
+    y = numpy.sin(2.0 * x) + 0.3 * x**2
+    pp = si.CubicSpline(x, y, bc_type="natural")
+    refit = Spline1D(x, y)
+    xq = numpy.array([0.31, 1.27, 2.02, 3.29])
+    assert numpy.max(numpy.fabs(pp(xq) - refit(xq))) > 1e-6, (
+        "the two fits agree here, so this test could not tell them apart"
+    )
+
+    s = Spline1D.from_ppoly(pp)
+    got = s(_asarray(backend, xq))
+    assert _is_backend(backend, got)
+    if backend == "numpy":
+        # numpy forwards to pp itself, so this is byte-identical
+        numpy.testing.assert_array_equal(got, pp(xq))
+    else:
+        numpy.testing.assert_allclose(as_numpy(got), pp(xq), rtol=1e-14, atol=0.0)
+    # first derivative too, on the same polynomial
+    d = s(_asarray(backend, xq), nu=1)
+    numpy.testing.assert_allclose(as_numpy(d), pp(xq, 1), rtol=1e-13, atol=1e-14)
+
+
+# ------------------------------------------- the frozen table's device cache
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline1d_device_cache_survives_pickling(backend):
+    # Spline1D caches the namespace/device copy of its frozen (x, c) table so
+    # every evaluation does not re-upload it. The cache holds BACKEND arrays, so
+    # it must not travel with the object: potentials get pickled (and sent to
+    # worker processes), and a jax/torch array in __dict__ would either fail to
+    # pickle or arrive bound to the wrong runtime.
+    import pickle
+
+    x = numpy.linspace(0.3, 4.1, 25)
+    s = Spline1D(x, numpy.cos(x) * x)
+    xq = numpy.array([0.44, 2.17, 3.98])
+    want = s(xq)
+    got = s(_asarray(backend, xq))  # populates the cache
+    numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-13, atol=0.0)
+    assert s.__dict__.get("_ppoly_dev_cache"), "the device copy was not cached"
+    assert "_ppoly_dev_cache" not in s.__getstate__()
+
+    back = pickle.loads(pickle.dumps(s))
+    numpy.testing.assert_array_equal(back(xq), want)  # numpy path byte-identical
+    numpy.testing.assert_allclose(
+        as_numpy(back(_asarray(backend, xq))), want, rtol=1e-13, atol=0.0
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_ppoly_batched_gather_matches_per_row(backend):
+    # eval_ppoly pulls every coefficient row in ONE gather and unpacks with
+    # unstack; both are pure data movement, so the Horner recurrence must see
+    # exactly the numbers the per-row form gave it -- assert BIT equality
+    # against the formulation written out here, not a tolerance.
+    rs = numpy.random.RandomState(7)
+    x = numpy.sort(rs.rand(40)) * 6.0
+    c = rs.randn(4, 39)
+
+    def per_row(r, nu):
+        idx = numpy.clip(numpy.searchsorted(x, r, side="right") - 1, 0, c.shape[1] - 1)
+        dr = r - x[idx]
+        if nu == 0:
+            out = c[0][idx]
+            for j in range(1, 4):
+                out = out * dr + c[j][idx]
+            return out
+        out = None
+        for j in range(4 - nu):
+            fall = 1.0
+            for m in range(nu):
+                fall *= (3 - j) - m
+            term = c[j][idx] * fall
+            out = term if out is None else out * dr + term
+        return out
+
+    rq = numpy.array([0.02, 1.31, 3.77, 5.98])
+    xp = _xp(backend)
+    for nu in (0, 1, 2):
+        got = as_numpy(
+            eval_ppoly(
+                xp,
+                _asarray(backend, x),
+                _asarray(backend, c),
+                _asarray(backend, rq),
+                nu=nu,
+            )
+        )
+        numpy.testing.assert_array_equal(
+            got, per_row(rq, nu), err_msg=f"{backend} nu={nu} is not the per-row value"
+        )
+
+
+@pytest.mark.skipif(not jax, reason="jax not installed")
+def test_spline1d_device_cache_is_not_populated_under_a_trace():
+    # Inside a jax trace even a numpy CONSTANT is lifted into the jaxpr, so the
+    # converted table comes back as a tracer rather than an array. Caching that
+    # would hand one trace's tracers to the next call, and the failure surfaces
+    # far from here -- it first showed up as jacfwd over a dynamical-friction
+    # force, a module away, with `x = JitTracer(float64[499])` inside eval_ppoly.
+    x = numpy.linspace(0.3, 4.1, 25)
+    s = Spline1D(x, numpy.cos(x) * x)
+    want = s(numpy.array([1.7, 2.9]))
+
+    jax.jit(lambda r: s(r))(jnp.asarray([1.7, 2.9]))
+    assert not s.__dict__.get("_ppoly_dev_cache"), (
+        "a conversion made inside a trace was cached; it holds tracers"
+    )
+    # an ordinary eager call afterwards is still correct (and may cache freely)
+    numpy.testing.assert_allclose(
+        as_numpy(s(jnp.asarray([1.7, 2.9]))), want, rtol=1e-13, atol=0.0
+    )
+    # and a SECOND, different trace must not inherit anything from the first
+    d = jax.jacfwd(lambda r: s(r).sum())(jnp.asarray([1.7, 2.9]))
+    fd = (s(numpy.array([1.7 + 1e-6, 2.9])) - s(numpy.array([1.7 - 1e-6, 2.9])))[
+        0
+    ] / 2e-6
+    numpy.testing.assert_allclose(float(as_numpy(d)[0]), fd, rtol=1e-6)
