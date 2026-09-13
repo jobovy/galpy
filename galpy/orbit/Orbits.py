@@ -25,7 +25,9 @@ else:
 
 from ..backend import (
     as_numpy,
+    asarray_on_device,
     coerce_coords,
+    device_of,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -307,6 +309,14 @@ def _backend_safe_copy(x):
     copy. ``x`` is always a backend array here (guarded by ``is_backend_array``).
     """
     return x.clone() if hasattr(x, "clone") else x  # torch has .clone(); jax does not
+
+
+def _copy_for_continuation(x):
+    """Independent copy of a stored trajectory for the continuation merge,
+    whatever namespace it is on. numpy and jax arrays have ``.copy()``; a torch
+    tensor has ``.clone()`` instead, which (unlike a detached copy) stays in the
+    autograd graph."""
+    return x.clone() if hasattr(x, "clone") else x.copy()
 
 
 def _backend_T(x):
@@ -1822,18 +1832,19 @@ class Orbit:
             )
         if ic_backend is not None:
             # Reaching here means every differentiable route above declined this
-            # method (in-backend solver, C-STM), so the numpy/C path below returns
-            # a NUMPY trajectory from a backend IC. That fall-through is deliberate
-            # -- it is what lets the suite run under a forced backend, and what
-            # keeps the symplectic default from being silently rerouted (gh#1094)
-            # -- but the type demotion is invisible to the caller, so say it.
+            # method (in-backend solver, C-STM), so the trajectory is COMPUTED in
+            # numpy/C. It is handed back on the IC's backend (the exit cast at the
+            # end of this method), so nothing is demoted -- but the arithmetic that
+            # produced it was numpy's, so it carries no gradient and this method
+            # would refuse a grad-tracking IC outright. That distinction is
+            # invisible in the returned type, so say it.
             warnings.warn(
                 f"this Orbit has a jax/torch initial condition, but method="
-                f"'{method}' integrates in numpy: the orbit is returned as a numpy "
-                "array and is not differentiable. Use method='diffrax' (jax) or "
-                "method='torchdiffeq' (torch) to integrate in the backend, or one "
-                "of the Runge-Kutta C methods (dop853_c, rk4_c, rk6_c, dopr54_c) "
-                "to keep the differentiable C state-transition path",
+                f"'{method}' integrates in numpy: the trajectory is returned on "
+                "the backend but is not differentiable. Use method='diffrax' (jax) "
+                "or method='torchdiffeq' (torch) to integrate in the backend, or "
+                "one of the Runge-Kutta C methods (dop853_c, rk4_c, rk6_c, "
+                "dopr54_c) to keep the differentiable C state-transition path",
                 galpyWarning,
             )
         self.check_integrator(method)
@@ -1899,15 +1910,17 @@ class Orbit:
         # Store old orbit data and vxvv if continuing
         if should_continue:
             old_t = self.t.copy()
-            old_orbit = self.orbit.copy()
+            old_orbit = _copy_for_continuation(self.orbit)
             old_vxvv = self.vxvv.copy()
-            # Update initial conditions to be the final state of previous integration
+            # Update initial conditions to be the final state of previous integration.
+            # self.vxvv is the numpy bookkeeping the C/scipy integrators restart
+            # from, so it stays numpy even when the stored orbit is a backend array.
             if is_forward:
                 # For forward continuation, start from the last state
-                self.vxvv = self.orbit[:, -1, :].copy()
+                self.vxvv = as_numpy(self.orbit[:, -1, :]).copy()
             else:
                 # For backward continuation, start from the first state
-                self.vxvv = self.orbit[:, 0, :].copy()
+                self.vxvv = as_numpy(self.orbit[:, 0, :]).copy()
 
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
@@ -2010,20 +2023,37 @@ class Orbit:
 
         # Merge with old orbit if continuing integration
         if should_continue:
+            # The stored orbit is a backend array whenever the IC was one, so the
+            # merge runs on its namespace (numpy's own for a numpy orbit, so that
+            # path is byte-identical).
+            _xp = get_namespace(self.orbit) if is_backend_array(self.orbit) else numpy
             if is_forward:
                 # Forward continuation: merge old and new, skip duplicate time point
                 self.t = numpy.concatenate([old_t, self.t[1:]], axis=-1)
-                self.orbit = numpy.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
+                self.orbit = _xp.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
             else:
                 # Backward continuation: prepend new orbit to old (reversed), skip duplicate time point
                 # New times go from t[0] to t[-1] in decreasing order (e.g., 0 to -10)
                 # We want the result to be monotonic, so reverse the new times/orbit
                 self.t = numpy.concatenate([self.t[:0:-1], old_t], axis=-1)
-                self.orbit = numpy.concatenate(
-                    [self.orbit[:, :0:-1], old_orbit], axis=1
+                # self.orbit[:, :0:-1] in namespace-agnostic form: torch has no
+                # negative-step slicing, and flip is exact on every namespace.
+                self.orbit = _xp.concatenate(
+                    [_xp.flip(self.orbit[:, 1:], axis=1), old_orbit], axis=1
                 )
             # Restore original initial conditions
             self.vxvv = old_vxvv
+
+        # A backend IC that reaches here is CONCRETE (a traced / grad-tracking one
+        # was refused above), so there is no gradient to carry -- but it is still a
+        # backend orbit, and handing back numpy would make every accessor below it
+        # a silent numpy island. Cast the finished trajectory onto the IC's
+        # namespace. The integration itself ran on numpy/C and is untouched, so the
+        # VALUES are exactly the numpy ones.
+        if ic_backend is not None:
+            self.orbit = asarray_on_device(
+                get_namespace(ic_backend), self.orbit, device_of(ic_backend)
+            )
 
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
