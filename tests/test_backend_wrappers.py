@@ -757,3 +757,120 @@ def test_composite_surfdens_delegation_runs_on_a_backend(backend_name):
     numpy.testing.assert_allclose(
         float(as_numpy(got_poisson)), want_poisson, rtol=1e-8, atol=0.0
     )
+
+
+###############################################################################
+# OblateStaeckelWrapperPotential's tabulated mode (ntab=) on a backend.
+#
+# The tables are scipy CubicSplines chosen deliberately -- a natural cubic is the
+# same mathematical object as GSL's cspline, which is how the Python and C paths
+# agree to machine precision. Spline1D.from_ppoly keeps those exact objects, so
+# numpy still calls them (byte-identical) while a backend evaluates their own
+# power-basis coefficients through the namespace. Refitting from (grid, values)
+# would give an InterpolatedUnivariateSpline -- a different spline -- and break
+# both properties silently.
+###############################################################################
+_NTAB_PTS = [(1.0, 0.1), (0.8, 0.3), (1.2, -0.25), (0.6, 0.02)]
+
+
+def _ntab_pair():
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.potential import OblateStaeckelWrapperPotential as _O
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    return _O(pot=mn, delta=0.5), _O(pot=mn, delta=0.5, ntab=101)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_oblatestaeckel_ntab_matches_numpy_on_every_backend(backend_name):
+    # The backend must reproduce the TABULATED value, not silently fall back to
+    # the analytic one: the two differ by ~1e-7, so an equality against the
+    # analytic value would pass a fallback and prove nothing.
+    from galpy.backend import as_numpy, is_backend_array, use
+
+    plain, tab = _ntab_pair()
+    for R, z in _NTAB_PTS:
+        ref_tab = tab.Rforce(R, z, use_physical=False)
+        ref_exact = plain.Rforce(R, z, use_physical=False)
+        assert numpy.fabs(ref_tab - ref_exact) > 1e-10, (
+            "the tabulated and analytic values coincide here, so this point "
+            "cannot tell a table evaluation from a fallback"
+        )
+        if backend_name == "numpy":
+            continue
+        with use(backend_name, force=True):
+            got = tab.Rforce(
+                _toscalar(backend_name, R),
+                _toscalar(backend_name, z),
+                use_physical=False,
+            )
+        assert is_backend_array(got), (
+            f"{backend_name}: ntab= returned numpy, so the table is not on the backend"
+        )
+        # Measured: three of these four points are bit-identical to scipy and the
+        # near-axis one (0.6, 0.02) is 8.2e-16 relative (6 ulps), where the
+        # namespace Horner evaluation reassociates differently. 1e-14 is ~12x
+        # that, and still four orders inside the 1e-10 the tabulation itself is
+        # worth -- so this bounds the EVALUATION, not the interpolation error.
+        numpy.testing.assert_allclose(
+            float(as_numpy(got)),
+            ref_tab,
+            rtol=1e-14,
+            err_msg=f"{backend_name}: the backend must reproduce the tabulated "
+            "value, not fall back to the analytic one",
+        )
+    return None
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_oblatestaeckel_ntab_is_differentiable_through_the_table():
+    # Differentiability is the point of putting the table on the backend: a scipy
+    # spline would give no gradient at all.
+    from galpy.backend import use
+
+    _, tab = _ntab_pair()
+    R0, z0 = 1.0, 0.1
+    tR = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+    with use("torch", force=True):
+        tab.Rforce(
+            tR, torch.tensor(z0, dtype=torch.float64), use_physical=False
+        ).backward()
+    h = 1e-6
+    fd = (
+        tab.Rforce(R0 + h, z0, use_physical=False)
+        - tab.Rforce(R0 - h, z0, use_physical=False)
+    ) / (2 * h)
+    numpy.testing.assert_allclose(
+        float(tR.grad),
+        fd,
+        rtol=1e-7,
+        err_msg="d(Rforce)/dR through the tabulated wrapper disagrees with a "
+        "central finite difference of the same tabulated function",
+    )
+    return None
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_oblatestaeckel_ntab_folds_v_elementwise(backend_name):
+    # _evalVspline folds v about pi/2 for the z-symmetry. That used to be a Python
+    # `if v > pi/2`, which is neither elementwise nor traceable; an array
+    # straddling pi/2 is what distinguishes the two.
+    from galpy.backend import as_numpy, use
+
+    _, tab = _ntab_pair()
+    zs = numpy.array([-0.3, -0.05, 0.05, 0.3])  # both signs -> v either side of pi/2
+    ref = numpy.array([tab.Rforce(0.9, z, use_physical=False) for z in zs])
+    with use(backend_name, force=True):
+        got = tab.Rforce(
+            _toscalar(backend_name, numpy.full_like(zs, 0.9)),
+            _toscalar(backend_name, zs),
+            use_physical=False,
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(got),
+        ref,
+        rtol=1e-12,
+        err_msg=f"{backend_name}: array v straddling pi/2 disagrees with the "
+        "per-point numpy values; the z-symmetry fold is not elementwise",
+    )
+    return None
