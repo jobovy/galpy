@@ -1011,3 +1011,58 @@ def test_integrate_continuation_backend_ic_matches_numpy_ic(method, direction):
         err_msg=f"{method}/{direction}: merged trajectory differs from the numpy one",
     )
     numpy.testing.assert_array_equal(as_numpy(o.t), numpy.asarray(ref.t))
+
+
+# ------------- the in-backend solver continues an integration like the C ones do
+_IB_T1 = numpy.linspace(0.0, 2.0, 21)
+_IB_T2 = {
+    "forward": numpy.linspace(2.0, 4.0, 21),
+    "backward": numpy.linspace(0.0, -2.0, 21),
+}
+
+
+@pytest.mark.parametrize("direction", list(_IB_T2))
+@pytest.mark.parametrize(
+    "backend,method",
+    [
+        pytest.param(
+            "jax",
+            "diffrax",
+            marks=pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed"),
+        ),
+        pytest.param(
+            "torch",
+            "torchdiffeq",
+            marks=pytest.mark.skipif(
+                not HAVE_TORCH, reason="torch/torchdiffeq not installed"
+            ),
+        ),
+    ],
+)
+def test_integrate_inbackend_continuation_merges(backend, method, direction):
+    # method='diffrax'/'torchdiffeq' returns from _integrate_impl before the
+    # continuation bookkeeping, exactly as the C-STM route does, so a second
+    # integrate() used to drop the first leg. Held against the C integrator's
+    # merged result (the in-backend solver targets the same 1e-12 tolerances).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ts2 = _IB_T2[direction]
+    ref = Orbit(list(_IC))
+    ref.integrate(_IB_T1, pot, method="dop853_c")
+    ref.integrate(ts2, pot, method="dop853_c")
+
+    ic = jnp.asarray(_IC) if backend == "jax" else torch.tensor(_IC)
+    o = Orbit(ic)
+    o.integrate(_IB_T1, pot, method=method)
+    o.integrate(ts2, pot, method=method)
+
+    assert o.orbit.shape == ref.orbit.shape, (
+        f"{method}/{direction}: merged to {tuple(o.orbit.shape)}, the C "
+        f"integrator gives {ref.orbit.shape} -- a leg was dropped"
+    )
+    assert is_backend_array(o.orbit)
+    numpy.testing.assert_allclose(
+        as_numpy(o.getOrbit()), ref.getOrbit(), rtol=1e-7, atol=1e-8
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(as_numpy(o.t)), numpy.asarray(ref.t), rtol=0.0, atol=1e-14
+    )
