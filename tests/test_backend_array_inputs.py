@@ -14,20 +14,21 @@
 #       operations);
 #   (b) numpy arrays are still rejected, i.e. the documented scalars-only
 #       contract is unchanged off the backend;
-#   (c) a potential that has NOT opted in still rejects backend arrays, which is
-#       deliberate for AnyAxisymmetricRazorThinDisk: its traced GL evaluation
-#       loses all accuracy as |z| -> 0, so a loud TypeError is preferable to a
-#       silently wrong number;
+#   (c) a potential that has NOT opted in still rejects backend arrays -- tested
+#       on a synthetic, since no shipped potential is in that state any more;
 #   (d) the capability this buys: the traced Poisson surfdens of
 #       DoubleExponentialDisk now reproduces the numpy value.
 ###############################################################################
 import numpy
 import pytest
 
+from galpy.backend import get_namespace
 from galpy.potential import (
     AnyAxisymmetricRazorThinDiskPotential,
     DoubleExponentialDiskPotential,
+    Potential,
 )
+from galpy.potential.Potential import check_potential_inputs_not_arrays
 
 # This module manages backends explicitly; exempt from the global --backend
 # force fixture.
@@ -126,11 +127,28 @@ def test_doubleexp_numpy_scalars_unaffected():
 
 @pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
 def test_not_opted_in_potential_still_rejects_backend_arrays():
-    # AnyAxisymmetricRazorThinDisk deliberately does NOT opt in. Its traced GL
-    # integrand is exact to ~1e-12 at |z|=1e-2 but wrong by ~2e4x at |z|=1e-5,
-    # and the Poisson quadrature clusters nodes at z=0, so accepting arrays
-    # there would return a silently wrong ~0 instead of raising.
-    pot = AnyAxisymmetricRazorThinDiskPotential(surfdens=lambda R: numpy.exp(-R))
+    # The gate is tested on a SYNTHETIC, not on a named real potential. This
+    # test used to name AnyAxisymmetricRazorThinDisk -- which now opts in, and
+    # after that there is no shipped potential left that uses the decorator
+    # without opting in. The same fragility already bit the _backend_compatible
+    # negatives (gh#1113), and the durable thing to guard is the MECHANISM: a
+    # potential that declares its methods scalar-only and does NOT opt in must
+    # still refuse a backend array rather than silently evaluate one.
+    #
+    # The isinstance check is what makes it a real regression guard: a 0-d
+    # backend array is float-like enough that the arithmetic below would
+    # silently succeed if the gate ever stopped firing.
+    class _ScalarOnlyPotential(Potential):
+        def __init__(self):
+            Potential.__init__(self, amp=1.0)
+            self._backend_compatible = True
+
+        @check_potential_inputs_not_arrays
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            assert isinstance(R, float), "the scalar-only gate let an array through"
+            return -R
+
+    pot = _ScalarOnlyPotential()
     assert not getattr(pot, "_backend_accepts_arrays", False)
     with pytest.raises(TypeError, match="do not accept array inputs"):
         pot.Rforce(jnp.array([0.8, 1.0]), jnp.array([0.1, 0.2]), use_physical=False)
@@ -197,3 +215,34 @@ def test_planar_adapter_inherits_backend_compatibility():
     )
     # and composing them must not launder the unmigrated one
     assert not is_backend_compatible([migrated.toPlanar(), unmigrated.toPlanar()])
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_anyaxisym_traced_poisson_surfdens_matches_numpy():
+    # The capability the opt-in buys, and the reason the two
+    # test_poisson_surfdens_potential[AnyAxisym] ledger rows are gone: the
+    # traced Poisson route feeds the forces a whole node array in ONE call,
+    # which previously raised TypeError.
+    #
+    # The bar is the SCIPY value, because that is what the concrete path
+    # returns and what the ledgered test compares against. The traced route is
+    # GL and is knowingly less accurate near z = 0 (the a = R principal value),
+    # so the points here are the ones that test uses -- |z| >= 0.125 -- where
+    # the GL forces are exact to ~1e-15.
+    import galpy.backend as gb
+
+    pot = AnyAxisymmetricRazorThinDiskPotential(
+        surfdens=lambda R: get_namespace(R).exp(-R)
+    )
+    assert pot._backend_accepts_arrays
+    for R0, z0 in ((1.0, 0.5), (1.0, 0.125), (0.8, 0.25)):
+        ref = pot.surfdens(R0, z0, forcepoisson=True, use_physical=False)
+        with gb.use("jax", force=True):
+            traced = float(
+                jax.jit(
+                    lambda R, z: pot.surfdens(
+                        R, z, forcepoisson=True, use_physical=False
+                    )
+                )(jnp.asarray(R0), jnp.asarray(z0))
+            )
+        numpy.testing.assert_allclose(traced, ref, rtol=1e-10, atol=0.0)
