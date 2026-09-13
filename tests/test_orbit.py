@@ -16,7 +16,7 @@ import numpy
 import pytest
 from conftest import _to_numpy
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, jit_mode
 
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
@@ -6198,10 +6198,26 @@ def test_eccentricity():
     tol["ExpTruncNFWPotential"] = -12.0  # these are more difficult, like NFW
     tol["MultipoleExpansionPotential"] = -15.0  # slightly more difficult
     tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
+    # Tolerances that apply only under a TRACE. AnyAxisymmetricRazorThinDisk
+    # evaluates its integrals with Gauss-Legendre on the backend so that
+    # gradients exist, and reuses scipy for concrete input -- see the class
+    # comment: GL cannot resolve the a=R principal value. Under a trace the
+    # input IS a tracer, so the forces carry that quadrature's algebraic ~n^-2
+    # floor and a circular orbit picks up a tiny but non-zero eccentricity.
+    # Measured over every integrator in this test and both orbit types (3D and
+    # planar, axi and phi-tracking), the spread is 1.036e-10 to 1.149e-10 --
+    # integrator-INDEPENDENT, which is the signature of a force error rather
+    # than of accumulation. The bar is set ~2.8x above that worst case, not at a
+    # round number, so it still fails if the quadrature ever gets worse.
+    tol_traced = {}
+    tol_traced["AnyAxisymmetricRazorThinDiskPotential"] = -9.5  # worst 1.149e-10
+    traced = jit_mode() != "off"
     firstTest = True
     for p in pots:
         # Setup instance of potential
-        if p in list(tol.keys()):
+        if traced and p in tol_traced:
+            ttol = tol_traced[p]
+        elif p in list(tol.keys()):
             ttol = tol[p]
         else:
             ttol = tol["default"]
