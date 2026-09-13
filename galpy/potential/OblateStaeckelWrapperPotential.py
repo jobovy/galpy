@@ -13,6 +13,7 @@ from scipy.interpolate import CubicSpline
 from galpy.util import conversion, coords
 
 from ..backend import coerce_coords, get_namespace, promote_scalars
+from ..backend.interpolate import Spline1D
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -142,9 +143,19 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # CubicSpline is the same mathematical object as GSL's cspline on
             # the same knots, so Python and C agree to machine precision
             # also in tabulated mode
+            # Spline1D.from_ppoly keeps THESE CubicSpline objects: numpy calls
+            # them directly (byte-identical, and still GSL-cspline-equivalent so
+            # Python and C agree), while a backend evaluates their own power-basis
+            # coefficients through the namespace -- differentiably. Refitting from
+            # (grid, vals) would silently give a different spline.
+            self._utab_max = float(ugrid[-1])
             self._splines = [
-                CubicSpline(ugrid, vals, bc_type="natural") for vals in uvals
-            ] + [CubicSpline(vgrid, vals, bc_type="natural") for vals in vvals]
+                Spline1D.from_ppoly(CubicSpline(ugrid, vals, bc_type="natural"))
+                for vals in uvals
+            ] + [
+                Spline1D.from_ppoly(CubicSpline(vgrid, vals, bc_type="natural"))
+                for vals in vvals
+            ]
         self.hasC = True
         self._backend_compatible = True
         # Advertise the (planar and 3D) C variational capabilities
@@ -443,25 +454,27 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _evalUspline(self, u, k):
         # same semantics as evalUspline in C: u beyond the table is clamped
-        return self._splines[k](numpy.clip(u, 0.0, self._splines[k].x[-1]))
+        xp = get_namespace(u)
+        return self._splines[k](xp.clip(u, 0.0, self._utab_max))
 
     def _evalVspline(self, v, k):
         # same semantics as evalVspline in C: tables cover v in [0, pi/2];
         # V is even and V' odd about pi/2 (z-symmetry)
-        sgn = 1.0
-        if v > numpy.pi / 2.0:
-            v = numpy.pi - v
-            if k == 1:
-                sgn = -1.0
-        return sgn * self._splines[3 + k](numpy.clip(v, 0.0, numpy.pi / 2.0))
+        # The fold is elementwise (xp.where, not a Python `if`) so it works on an
+        # array and under a trace; `k` is a static Python int, so branching on it
+        # is fine.
+        xp = get_namespace(v)
+        folded = v > numpy.pi / 2.0
+        vv = xp.where(folded, numpy.pi - v, v)
+        out = self._splines[3 + k](xp.clip(vv, 0.0, numpy.pi / 2.0))
+        if k == 1:
+            out = xp.where(folded, -out, out)
+        return out
 
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
         xp = get_namespace(u)
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates.
-        if xp is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalUspline(u, 0)
         (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
@@ -469,10 +482,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _dUdu(self, u):
         xp = get_namespace(u)
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates.
-        if xp is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalUspline(u, 1)
         (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
@@ -486,10 +496,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _d2Udu2(self, u):
         xp = get_namespace(u)
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates.
-        if xp is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalUspline(u, 2)
         (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
@@ -521,12 +528,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
     def _V(self, v):
         """Approximated
         V(v) = cosh^2(u0) Phi(u0,pi/2) - (sinh^2(u0)+sin^2(v)) Phi(u0,v)"""
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates. (The body itself
-        # needs no namespace -- coords/_evaluatePotentials dispatch internally --
-        # so `xp` is resolved for this gate alone, as in _dVdv/_d2Vdv2 below.)
-        if get_namespace(v) is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalVspline(v, 0)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return self._refpot - _staeckel_prefactor(self._u0, v) * _evaluatePotentials(
@@ -535,10 +537,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _dVdv(self, v):
         xp = get_namespace(v)
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates.
-        if xp is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalVspline(v, 1)
         (v,) = coerce_coords(xp, v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
@@ -551,10 +550,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _d2Vdv2(self, v):
         xp = get_namespace(v)
-        # The tabulated spline (ntab=) is a scipy CubicSpline: numpy-only and
-        # non-differentiable, so it serves the numpy path only. A backend keeps
-        # the analytic evaluation below, which differentiates.
-        if xp is numpy and self._splines is not None:
+        if self._splines is not None:
             return self._evalVspline(v, 2)
         (v,) = coerce_coords(xp, v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
