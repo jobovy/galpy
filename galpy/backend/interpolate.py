@@ -597,17 +597,32 @@ def eval_rect_ppoly(xp, xbr, ybr, c, X, Y, *, extrapolate=True):
         Y = xp.clip(Y, yb[0], yb[-1])
     kx = cb.shape[0] - 1
     ky = cb.shape[1] - 1
+    ny = cb.shape[3]
     ix = xp.clip(xp.searchsorted(xb, X, side="right") - 1, 0, cb.shape[2] - 1)
-    iy = xp.clip(xp.searchsorted(yb, Y, side="right") - 1, 0, cb.shape[3] - 1)
-    dx = X - xb[ix]
-    dy = Y - yb[iy]
+    iy = xp.clip(xp.searchsorted(yb, Y, side="right") - 1, 0, ny - 1)
+    dx = X - _take0(xp, xb, ix)
+    dy = Y - _take0(xp, yb, iy)
+    # ONE gather for all (kx+1)*(ky+1) coefficients of the cell. `cb[px,py,ix,iy]`
+    # pairs ix with iy (it does not form their outer product), so flattening the
+    # two interval axes and gathering at `ix*ny + iy` selects exactly the same
+    # numbers -- verified elementwise for scalar AND array queries -- while
+    # costing one dispatch instead of sixteen fancy-index gathers: ~19 ms -> 0.17
+    # ms on eager jax for a 60x50 grid, which is ~80% of this function.
+    flat = _take(
+        xp,
+        xp.reshape(cb, (kx + 1, ky + 1, cb.shape[2] * ny)),
+        ix * ny + iy,
+        axis=2,
+    )
+    rows = _unstack0(xp, flat)
     # 2D Horner: outer Horner in dx over the x-powers; each x-power coefficient is
     # itself a Horner in dy over the y-powers.
     out = None
     for px in range(kx + 1):
+        cy = _unstack0(xp, rows[px])
         cyacc = None
         for py in range(ky + 1):
-            coef = cb[px, py, ix, iy]
+            coef = cy[py]
             cyacc = coef if cyacc is None else cyacc * dy + coef
         out = cyacc if out is None else out * dx + cyacc
     return out
@@ -1285,9 +1300,46 @@ class Spline2D:
             Yb = asarray_on_device(xp, Y, device_of(ref))
             X = Xb[:, None]
             Y = Yb[None, :]
-        return eval_rect_ppoly(
-            xp, self._xbr, self._ybr, self._c, X, Y, extrapolate=self._extrapolate
-        )
+        xbr, ybr, cb = self._rect_on(xp, ref)
+        return eval_rect_ppoly(xp, xbr, ybr, cb, X, Y, extrapolate=self._extrapolate)
+
+    def _rect_on(self, xp, ref):
+        """The frozen ``(xbr, ybr, c)`` block on ``ref``'s namespace and device.
+
+        Same reason as :meth:`Spline1D._ppoly_on`: the block is a numpy constant,
+        and converting it per evaluation re-uploads the whole coefficient array
+        (342 kB for a 60x50 grid) to interpolate at ONE point. Cached per
+        (namespace, device); `eval_rect_ppoly`'s `asarray_on_device` then takes
+        its already-right-dtype-and-device fast path.
+        """
+        dev = device_of(ref)
+        if under_trace(ref):
+            # see Spline1D._ppoly_on: a conversion made inside a trace is a
+            # TRACER, and caching it leaks that trace into the next call.
+            return (
+                asarray_on_device(xp, self._xbr, dev),
+                asarray_on_device(xp, self._ybr, dev),
+                asarray_on_device(xp, self._c, dev),
+            )
+        key = (xp.__name__, repr(dev))
+        cache = self.__dict__.get("_rect_dev_cache")
+        if cache is None:
+            cache = self._rect_dev_cache = {}
+        hit = cache.get(key)
+        if hit is None:
+            hit = cache[key] = (
+                asarray_on_device(xp, self._xbr, dev),
+                asarray_on_device(xp, self._ybr, dev),
+                asarray_on_device(xp, self._c, dev),
+            )
+        return hit
+
+    def __getstate__(self):
+        # backend arrays: rebuildable, and not picklable across processes or
+        # backends (see Spline1D.__getstate__).
+        state = self.__dict__.copy()
+        state.pop("_rect_dev_cache", None)
+        return state
 
 
 ###############################################################################
