@@ -24,6 +24,7 @@ from galpy.backend.interpolate import (
     make_smoothing_spline,
     map_coordinates,
     native_rect_cubic_coeffs,
+    rect_bivariate_to_ppoly,
     smoothing_spline,
     spline_filter,
 )
@@ -1457,3 +1458,85 @@ def test_spline1d_device_cache_is_not_populated_under_a_trace():
         0
     ] / 2e-6
     numpy.testing.assert_allclose(float(as_numpy(d)[0]), fd, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline2d_device_cache_survives_pickling(backend):
+    # The 2D block is the larger constant (342 kB for a 60x50 grid), so the same
+    # cache -- and the same two rules -- apply: not pickled, and never populated
+    # from inside a trace, where the conversion is a tracer.
+    import pickle
+
+    x = numpy.linspace(0.1, 3.0, 22)
+    y = numpy.linspace(-1.0, 1.0, 18)
+    Z = numpy.cos(2.0 * x[:, None]) * numpy.exp(-(y[None, :] ** 2))
+    s = Spline2D(x, y, Z)
+    Xq = numpy.array([0.4, 1.7, 2.6])
+    Yq = numpy.array([-0.8, 0.1, 0.77])
+    want = s(Xq, Yq, grid=False)
+    got = s(_asarray(backend, Xq), _asarray(backend, Yq), grid=False)
+    numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-12, atol=0.0)
+    assert s.__dict__.get("_rect_dev_cache"), "the device copy was not cached"
+    assert "_rect_dev_cache" not in s.__getstate__()
+
+    back = pickle.loads(pickle.dumps(s))
+    numpy.testing.assert_array_equal(back(Xq, Yq, grid=False), want)
+    numpy.testing.assert_allclose(
+        as_numpy(back(_asarray(backend, Xq), _asarray(backend, Yq), grid=False)),
+        want,
+        rtol=1e-12,
+        atol=0.0,
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_rect_ppoly_flat_gather_matches_nested(backend):
+    # eval_rect_ppoly pulls all (kx+1)*(ky+1) cell coefficients in ONE gather off
+    # the flattened interval axes. `c[px, py, ix, iy]` PAIRS ix with iy rather
+    # than forming their outer product, so the flat index must be ix*ny + iy --
+    # get that wrong and array queries silently read the wrong cell while scalar
+    # ones still pass. Asserted bit-for-bit against the nested form, with array
+    # queries included for exactly that reason.
+    rs = numpy.random.RandomState(11)
+    x = numpy.linspace(0.1, 3.0, 14)
+    y = numpy.linspace(-1.0, 1.0, 11)
+    Z = numpy.cos(2.0 * x[:, None]) * numpy.exp(-(y[None, :] ** 2)) + 0.1 * rs.randn(
+        14, 11
+    )
+    xb, yb, c = rect_bivariate_to_ppoly(si.RectBivariateSpline(x, y, Z))
+
+    def nested(X, Y):
+        ix = numpy.clip(numpy.searchsorted(xb, X, side="right") - 1, 0, c.shape[2] - 1)
+        iy = numpy.clip(numpy.searchsorted(yb, Y, side="right") - 1, 0, c.shape[3] - 1)
+        dx, dy = X - xb[ix], Y - yb[iy]
+        out = None
+        for px in range(c.shape[0]):
+            cyacc = None
+            for py in range(c.shape[1]):
+                coef = c[px, py, ix, iy]
+                cyacc = coef if cyacc is None else cyacc * dy + coef
+            out = cyacc if out is None else out * dx + cyacc
+        return out
+
+    xp = _xp(backend)
+    for X, Y in (
+        (
+            numpy.array([0.4, 1.7, 2.6, 0.1, 3.0]),
+            numpy.array([-0.8, 0.1, 0.77, -1.0, 1.0]),
+        ),
+        # the diagonal-vs-outer-product distinction: same indices, swapped pairing
+        (numpy.array([0.4, 2.6]), numpy.array([0.77, -0.8])),
+    ):
+        got = as_numpy(
+            eval_rect_ppoly(
+                xp,
+                _asarray(backend, xb),
+                _asarray(backend, yb),
+                _asarray(backend, c),
+                _asarray(backend, X),
+                _asarray(backend, Y),
+            )
+        )
+        numpy.testing.assert_array_equal(
+            got, nested(X, Y), err_msg=f"{backend}: not the nested-gather value"
+        )
