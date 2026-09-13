@@ -1473,7 +1473,11 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
 		     umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
 		     vmin,I3V,cosh2u0,potupi2,npot,aaArgs,order);
   gsl_integration_glfixed_table * Tang= gsl_integration_glfixed_table_alloc(order);
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) \
+  private(ii,tdelta) shared(Tang,aaArgs,ojac,ajac)
   for (ii=0;ii<ndata;ii++){
+    struct potentialArg * targs= AA_TARGS(aaArgs,npot);
     int kk;
     tdelta= *(delta+ii*ds);
     double sh=shx[ii],ch=chx[ii],sv=svx[ii],cv=cvx[ii];
@@ -1483,14 +1487,14 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     double dux_dR=ch*sv/(tdelta*D),dux_dz=sh*cv/(tdelta*D);
     double dvx_dR=sh*cv/(tdelta*D),dvx_dz=-ch*sv/(tdelta*D);
     double dux[5]={dux_dR,0.,0.,dux_dz,0.},dvx[5]={dvx_dR,0.,0.,dvx_dz,0.};
-    double dE[5]={-calcRforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvR,tvT,
-                  -calczforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvz};
+    double dE[5]={-calcRforce(R[ii],z[ii],0.,0.,npot,targs),tvR,tvT,
+                  -calczforce(R[ii],z[ii],0.,0.,npot,targs),tvz};
     double dLz[5]={tvT,0.,R[ii],0.,0.};
     double du0[5],du0dE=0.,du0dLz=0.;
     if ( useu0==2 ){
       double L2=0.5*tLz*tLz/(tdelta*tdelta),hh=1.e-5;
-      double fpp=( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,aaArgs)
-                  -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,aaArgs) )/(2.*hh);
+      double fpp=( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,targs)
+                  -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,targs) )/(2.*hh);
       du0dE=-2.*sh0*ch0/fpp; du0dLz=-2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
     }
     for (kk=0;kk<5;kk++) du0[kk]= useu0==0?dux[kk]:(useu0==1?0.:du0dE*dE[kk]+du0dLz*dLz[kk]);
@@ -1499,14 +1503,14 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     double dpux[5],dpvx[5];
     for (kk=0;kk<5;kk++){ dpux[kk]=dpux_dux*dux[kk]+dpux_dvx*dvx[kk]; dpvx[kk]=dpvx_dux*dux[kk]+dpvx_dvx*dvx[kk]; }
     dpux[1]+=tdelta*ch*sv; dpux[4]+=tdelta*sh*cv; dpvx[1]+=tdelta*sh*cv; dpvx[4]+=-tdelta*ch*sv;
-    double Pux=evaluatePotentialsUV(ux[ii],0.5*M_PI,tdelta,npot,aaArgs);
-    double FRux=calcRforce(tdelta*sh,0.,0.,0.,npot,aaArgs),dPux_dux=-FRux*tdelta*ch;
+    double Pux=evaluatePotentialsUV(ux[ii],0.5*M_PI,tdelta,npot,targs);
+    double FRux=calcRforce(tdelta*sh,0.,0.,0.,npot,targs),dPux_dux=-FRux*tdelta*ch;
     double dI3Ut_dE=sh*sh,dI3Ut_dLz=-tLz/(tdelta*tdelta*sh*sh),dI3Ut_dpux=-tpux/(tdelta*tdelta);
     double dI3Ut_dux=2.*sh*ch*tE+tLz*tLz*ch/(tdelta*tdelta*sh*sh*sh)-2.*sh*ch*Pux-(sh*sh+1.)*dPux_dux;
-    double P0v=evaluatePotentialsUV(tu0,vx[ii],tdelta,npot,aaArgs);
-    double FRu0=calcRforce(tdelta*sh0,0.,0.,0.,npot,aaArgs);
+    double P0v=evaluatePotentialsUV(tu0,vx[ii],tdelta,npot,targs);
+    double FRu0=calcRforce(tdelta*sh0,0.,0.,0.,npot,targs);
     double Rp=tdelta*sh0*sv,zp=tdelta*ch0*cv;
-    double FRp=calcRforce(Rp,zp,0.,0.,npot,aaArgs),Fzp=calczforce(Rp,zp,0.,0.,npot,aaArgs);
+    double FRp=calcRforce(Rp,zp,0.,0.,npot,targs),Fzp=calczforce(Rp,zp,0.,0.,npot,targs);
     double dPu0_du0=-FRu0*tdelta*ch0;
     double dP0v_dvx=-FRp*tdelta*sh0*cv+Fzp*tdelta*ch0*sv,dP0v_du0=-FRp*tdelta*ch0*sv-Fzp*tdelta*sh0*cv;
     double dI3V_dE=-sv*sv,dI3V_dLz=tLz/(tdelta*tdelta*sv*sv),dI3V_dpvx=tpvx/(tdelta*tdelta);
@@ -1587,11 +1591,11 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     struct dJRStaeckelArg pu;
     pu.E=tE; pu.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pu.I3U=I3U[ii]; pu.delta=tdelta;
     pu.u0=tu0; pu.sinh2u0=sinh2u0[ii]; pu.v0=v0[ii]; pu.sin2v0=sin2v0[ii];
-    pu.potu0v0=potu0v0[ii]; pu.umin=tumin; pu.umax=tumax; pu.nargs=npot; pu.actionAngleArgs=aaArgs;
+    pu.potu0v0=potu0v0[ii]; pu.umin=tumin; pu.umax=tumax; pu.nargs=npot; pu.actionAngleArgs=targs;
     struct dJzStaeckelArg pv;
     pv.E=tE; pv.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pv.I3V=I3V[ii]; pv.delta=tdelta;
     pv.u0=tu0; pv.cosh2u0=cosh2u0[ii]; pv.sinh2u0=sinh2u0[ii]; pv.potupi2=potupi2[ii];
-    pv.vmin=tvmin; pv.nargs=npot; pv.actionAngleArgs=aaArgs;
+    pv.vmin=tvmin; pv.nargs=npot; pv.actionAngleArgs=targs;
     double Pval[3],Qval[3],dPu[15],dQv[15];
     calcAnglePartialDerivU(&pu,Tang,order,base_u,sign_u,mid_u,Ld2,dE,dLz,dI3Ut,dux,Pval,dPu);
     calcAnglePartialDerivV(&pv,Tang,order,base_v,sign_v,mid_v,Ld2,!low_v,dE,dLz,dI3V_,du0,dvx_eff,Qval,dQv);
