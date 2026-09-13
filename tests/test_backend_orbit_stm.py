@@ -6,6 +6,8 @@
 # orbit, grad == finite-difference, jacrev == the directly-assembled STM, torch
 # gradcheck, and agreement with the independent in-backend ODE path.
 ###############################################################################
+import warnings
+
 import numpy
 import pytest
 
@@ -888,18 +890,40 @@ def test_lowdim_orbit_integrate_routing(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("method", _SYMPLEC_METHODS)
-def test_symplectic_not_autorouted(backend, method):
-    # The symplectic methods are deliberately NOT auto-routed by Orbit.integrate:
-    # symplec4_c is galpy's DEFAULT integrator, so routing it would silently reroute
-    # every internal default-method integration (e.g. streamspraydf sample orbits)
-    # to the C-STM under a forced backend. So a backend IC + a symplectic method
-    # falls through to the (non-differentiable) numpy/C path -- getOrbit is numpy.
-    # Symplectic C-STM differentiation stays available via orbit_stm.integrate.
+def test_symplectic_not_autorouted(backend, method, monkeypatch):
+    # The symplectic methods are deliberately NOT auto-routed to the C-STM for a
+    # CONCRETE backend IC: symplec4_c is galpy's DEFAULT integrator, so routing it
+    # would send every internal default-method integration (streamspraydf sample
+    # orbits and the like) through the 42-wide augmented system under a forced
+    # backend -- measured at 800x the plain C cost, for an STM a concrete IC can
+    # never differentiate through. So it stays on the numpy/C path.
+    #
+    # The returned type can no longer say that: the finished trajectory is cast
+    # onto the IC's backend, exactly as every other method's is. Assert the
+    # routing itself instead (the C-STM entry must not be reached) plus the
+    # consequence that matters -- the values are the plain-C ones, bit for bit.
     from galpy.orbit import Orbit
 
-    o = Orbit(_arr(backend, _IC))
-    o.integrate(_arr(backend, _LOWDIM_TS), MWPotential2014, method=method)
-    assert isinstance(o.getOrbit(), numpy.ndarray)
+    def _boom(*args, **kwargs):  # pragma: no cover - must never be called
+        raise AssertionError(f"{method}: concrete backend IC routed to the C-STM")
+
+    ref = Orbit(list(_IC))
+    ref.integrate(_LOWDIM_TS, MWPotential2014, method=method)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        o = Orbit(_arr(backend, _IC))
+        monkeypatch.setattr(Orbit, "_integrate_cstm", _boom)
+        o.integrate(_arr(backend, _LOWDIM_TS), MWPotential2014, method=method)
+        monkeypatch.undo()
+    assert _is_backend(backend, o.getOrbit()), (
+        f"{method}: a backend IC must not come back as numpy"
+    )
+    numpy.testing.assert_array_equal(
+        as_numpy(o.getOrbit()),
+        ref.getOrbit(),
+        err_msg=f"{method}: not the plain-C trajectory a numpy IC gets",
+    )
     # the explicit functional interface still differentiates this same method
     assert _is_backend(
         backend,
