@@ -42,7 +42,44 @@
 # the numpy-on-Tensor collision it was simultaneously fixing (6.47 s to raise
 # TypeError), so the "fast" reading measured a fail-fast, not the work. Torch is
 # the same un-vectorized dissipative path as jax above; it belongs here with them.
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 619.0s (2026-08-21) -> 507.1s re-measured 2026-09-11 after the friction force stopped
+# RE-MEASURED 2026-09-12. The force did get ~2x faster -- gh#1482 stopped the
+# friction force paying the @backend_input decorator stack per force evaluation,
+# and gh#1484 fixed a force cache that had never stored anything since the class
+# was written -- so the 507.1 s recorded above is stale. It is NOT enough:
+#
+#   arm                          local     x0.62      cap    verdict
+#   torch central_limit         291.85 s   181 s     300 s   KEEP  (see below)
+#   torch-jit central_limit     305.68 s   190 s     300 s   KEEP
+#   torch-jit const_FDMfactor   135.52 s    84 s     300 s   RETIRED
+#
+# torch central_limit projects under the cap, and it is still kept, because the
+# local number is NOT STABLE at the boundary: the run above measured 291.85 s
+# with --timeout=3000, and the very next run of the same shard on the same
+# quiet box (load 1.3) TIMED OUT at the real 300 s cap. A row that has already
+# been un-deferred once on a bad reading (gh#1284, which mistook a 6.47 s crash
+# for speed) does not come out on a number that flips.
+#
+# The 0.62 is measured for TORCH rather than assumed: the CI junit of this exact
+# shard (run 34642044516) against the same shard locally gives 0.60-0.65 over
+# its 7 tests longer than 5 s, median 0.62. This file previously recorded "I
+# have no torch-specific ratio" and fell back to jax's 0.71.
+#
+# Where the time goes, so the next attempt starts from fact: the test has two
+# legs, and only one of them costs anything under a backend --
+#
+#              leg1 dop853_c   leg2 dop853 (Python)   total
+#   numpy         4.73 s            55.54 s          60.27 s
+#   torch         4.83 s           272.11 s         276.94 s
+#
+# The C leg is genuinely C and backend-independent; ALL of the cost is the
+# 1001-step Python stepper. And the force is no longer carrying dispatch fat --
+# 22 torch ops per evaluation, measured by attributing every torch op to its
+# innermost galpy frame -- so there is no eval_ppoly-style win left here. Making
+# this row retirable means fewer force evaluations or an in-backend stepper, not
+# another micro-optimisation. (torchdiffeq was tried and is far slower; see
+# tests/conftest.py::_inbackend_method.)
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 291.9s in-shard, flips to a 300s timeout
+torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 305.7s traced
 # calling the DECORATED evaluateDensities once per force evaluation (98,800 @backend_input
 # crossings for a five-point integration -> 0). Its sibling const_FDMfactor went 253.1 -> 188.6s
 # and stays un-ledgered. STILL OVER the cap here, and the residue is NOT backend overhead:
@@ -80,7 +117,21 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still over the cap. The grid build is no longer the cost (the vT mode search is one batched DF call), but eager rejection needs O(10) DF evaluations per round over the remaining points. 228s for 800 points locally, and a CI shard runs ~3x slower than the dev box for eager backend work -- an isolated-run measurement UNDERSTATES it badly (244s isolated -> >300s in-shard). Un-skip needs jit, not another vectorization.
+# RE-MEASURED 2026-09-12, and both numbers in the old note were wrong even
+# though its verdict was right. In its REAL shard (test_qdf + test_pv2qdf +
+# test_streamgapdf_impulse + test_noninertial, alone on an idle box, 133 passed)
+# test_sampleV_interpolate takes 2837.5 s -- not the ">300 s" recorded, and 11.6x
+# its own 244 s isolated reading. Running test_qdf.py ALONE gives 2826.5 s, i.e.
+# the same number, so this is not a shard interaction and "isolated" in the old
+# note cannot have meant a file-level run; a hand-picked nodeid builds a
+# different setup than the file does. For scale, test_sampleV (no interpolate) is
+# 17.1 s in the same run. Whatever the factor is, it is not CI speed:
+# pairing this shard's CI junit against the same shard run locally gives 0.74-0.95
+# for its test_python_vs_c/linacc/impulse tests and 0.36-0.40 for its qdf ones,
+# i.e. CI is ~2.7x FASTER than this box for exactly the family this row is in --
+# the opposite of the old note's "a CI shard runs ~3x slower". Even at 0.40 this
+# is ~1135 s against a 300 s cap. Un-skip needs jit, not another vectorization.
+jax tests/test_qdf.py::test_sampleV_interpolate  # 2837.5s in-shard (244s isolated)
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
@@ -366,7 +417,24 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # re-measured 2026-09-06: still
 # torch-only -- jax uses its native -expi(-x) -- so the traced case measured
 # 292.2 s before the fix and 296.25 s after it. Same reason its eager twin is
 # 198.8 s while torch's was 340.4 s.
-jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 296.2s traced
+# RE-MEASURED 2026-09-12 in its EXACT CI split group (--splits 5 --group 4,
+# jax --jit), alone on an idle box, twice:
+#
+#     run 1, --timeout=3000   285.41 s   PASSES
+#     run 2, --timeout=300    300.11 s   TIMES OUT
+#
+# Same code, same box, same group. That is the second row today to behave this
+# way -- torch FDM central_limit read 291.85 s and then timed out on the very
+# next run -- and the pattern is the useful part: a row within ~5% of the cap
+# FLIPS between runs, so one passing measurement is not evidence for retiring
+# it. Both stay.
+#
+# There is also no eval_ppoly-style dispatch win waiting here. ExpTruncNFW is
+# 19x its NFW sibling ON NUMPY (0.573 ms vs 0.030 ms per Rforce), so the cost is
+# the truncated-mass computation itself, not backend overhead -- and it is only
+# 7.6x numpy under jax where plain NFW is 36x. Making this retirable is a
+# numerics task, not a dispatch one.
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 285.4s / 300.1s -- flips
 
 jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
@@ -412,8 +480,6 @@ jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # by "jax-jit" but NOT by "torch-jit", and they do not need to be -- torch's eager
 # dispatch is ~4.5x cheaper per op than jax's, which is exactly the gap between
 # 219.0s here and the 493.2s that made Ferrers a permanent skip under jax.
-torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # measured 2026-09-07 in the traced CI dispatch (run 34082291086): Failed: Timeout (>300.0s). Recorded now only because CI had never run the suite traced, not because anything got slower.
 #
 # UN-DEFER (2026-08-21): the nine tests/test_interp_potential.py entries are
 # STALE -- the interpRZPotential grid-build vectorisation made them fast and they
