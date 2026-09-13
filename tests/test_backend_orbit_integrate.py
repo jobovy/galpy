@@ -620,14 +620,19 @@ def test_integrate_diffrax_numpy_times():
 def test_integrate_concrete_backend_ic_numpy_method_works():
     # a CONCRETE (eager) jax-IC Orbit keeps its real values in self.vxvv, so a
     # non-dxdv numpy/C integrator runs normally and matches the numpy-IC result --
-    # this lets the existing suite be driven under a forced jax/torch backend. (A
-    # dxdv-capable C method instead routes to the differentiable C-STM and returns a
-    # backend array; see test_backend_orbit_stm.py::test_orbit_integrate_*.)
+    # this lets the existing suite be driven under a forced jax/torch backend. The
+    # finished trajectory is cast back onto the IC's namespace, so it is a jax
+    # array holding exactly the numpy values. (A dxdv-capable RK C method instead
+    # routes to the differentiable C-STM; see test_backend_orbit_stm.py.)
     pot = PlummerPotential(amp=1.0, b=0.6)
-    o = Orbit(jnp.asarray(_IC))
-    o.integrate(_TS, pot, method="leapfrog_c")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(_TS, pot, method="leapfrog_c")
     ref = Orbit(list(_IC))
     ref.integrate(_TS, pot, method="leapfrog_c")
+    numpy.testing.assert_array_equal(as_numpy(o.getOrbit()), ref.getOrbit())
+    assert is_backend_array(o.orbit), "a jax IC must not come back as numpy"
     numpy.testing.assert_allclose(o.R(_TS), ref.R(_TS), rtol=1e-12, atol=1e-12)
 
 
@@ -875,7 +880,12 @@ def test_accessor_jittable_at_traced_grid_times():
 #   ias15_c                             ndarray   no dxdv, so no C-STM
 #   dop853_c / rk4_c / rk6_c / dopr54_c Tensor    C-STM, differentiable
 ###############################################################################
-_DEMOTES_TO_NUMPY = [
+# Methods whose trajectory is COMPUTED in numpy/C for a concrete backend IC: the
+# Python steppers, the symplectic C family (galpy's default symplec4_c included)
+# and ias15_c, which has no C dxdv Hessian. They still hand the finished orbit
+# back on the backend -- the exit cast -- so nothing is demoted; what they cannot
+# do is carry a gradient, which is what the warning is about.
+_NUMPY_COMPUTED = [
     "dop853",
     "odeint",
     "leapfrog",
@@ -884,6 +894,7 @@ _DEMOTES_TO_NUMPY = [
     "symplec6_c",
     "ias15_c",
 ]
+# The Runge-Kutta dxdv C methods route to the differentiable C-STM instead.
 _KEEPS_BACKEND_ARRAY = ["dop853_c", "rk4_c", "rk6_c", "dopr54_c"]
 
 
@@ -892,14 +903,46 @@ def _demotion_warnings(record):
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
-@pytest.mark.parametrize("method", _DEMOTES_TO_NUMPY)
+@pytest.mark.parametrize("method", _NUMPY_COMPUTED)
 def test_integrate_concrete_backend_ic_numpy_method_warns(method):
     o = Orbit(torch.tensor(_IC))
     with pytest.warns(galpyWarning, match="integrates in numpy"):
         o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
-    assert not is_backend_array(o.orbit), (
-        f"{method}: the warning says the orbit is demoted to numpy, but it is not"
+    # what the warning is about is the missing gradient, NOT a numpy return: the
+    # orbit comes back on the backend like every other method's.
+    assert is_backend_array(o.orbit), (
+        f"{method}: a backend IC must not come back as numpy"
     )
+    assert o.orbit.grad_fn is None, (
+        f"{method}: computed in numpy, so there is nothing for a gradient to "
+        "flow through -- a grad_fn here would mean the warning is wrong"
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", _NUMPY_COMPUTED + _KEEPS_BACKEND_ARRAY)
+def test_integrate_concrete_backend_ic_matches_numpy_ic_exactly(method):
+    # The exit cast must not perturb a single bit: a concrete backend IC runs the
+    # same numpy/C integration a numpy IC does, so the two trajectories are the
+    # SAME float64 values, not merely close. (The C-STM methods integrate the
+    # augmented 42-wide system, so they are held to the looser bar their different
+    # step sequence earns.)
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = Orbit(list(_IC))
+    ref.integrate(_TS, pot, method=method)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        o = Orbit(torch.tensor(_IC))
+        o.integrate(_TS, pot, method=method)
+    got = as_numpy(o.getOrbit())
+    if method in _KEEPS_BACKEND_ARRAY:
+        numpy.testing.assert_allclose(got, ref.getOrbit(), rtol=1e-9, atol=1e-9)
+    else:
+        numpy.testing.assert_array_equal(
+            got,
+            ref.getOrbit(),
+            err_msg=f"{method}: backend-IC trajectory differs from the numpy-IC one",
+        )
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
@@ -929,3 +972,42 @@ def test_integrate_numpy_ic_under_forced_backend_does_not_warn():
             warnings.simplefilter("always")
             o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853")
     assert not _demotion_warnings(rec)
+
+
+# ---------------- continuing an integration keeps the backend orbit intact
+_CONTINUATION_TS2 = {
+    "forward": numpy.linspace(6.0, 12.0, 120),
+    "backward": numpy.linspace(0.0, -6.0, 120),
+}
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("direction", list(_CONTINUATION_TS2))
+@pytest.mark.parametrize("method", _NUMPY_COMPUTED)
+def test_integrate_continuation_backend_ic_matches_numpy_ic(method, direction):
+    # Integrating a second time from where the first leg ended MERGES the two
+    # legs. The merge used to be numpy-only -- `self.orbit.copy()` on a torch
+    # tensor raises AttributeError, and the backward branch reverses with a
+    # negative-step slice torch does not support -- which only became reachable
+    # once a backend IC started storing a backend trajectory.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ts2 = _CONTINUATION_TS2[direction]
+    ref = Orbit(list(_IC))
+    ref.integrate(_TS, pot, method=method)
+    ref.integrate(ts2, pot, method=method)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        o = Orbit(torch.tensor(_IC))
+        o.integrate(_TS, pot, method=method)
+        o.integrate(ts2, pot, method=method)
+    assert is_backend_array(o.orbit), f"{method}/{direction}: merged orbit left torch"
+    assert o.orbit.shape == ref.orbit.shape, (
+        f"{method}/{direction}: merged to {tuple(o.orbit.shape)}, "
+        f"numpy IC gives {ref.orbit.shape} -- a leg was dropped"
+    )
+    numpy.testing.assert_array_equal(
+        as_numpy(o.getOrbit()),
+        ref.getOrbit(),
+        err_msg=f"{method}/{direction}: merged trajectory differs from the numpy one",
+    )
+    numpy.testing.assert_array_equal(as_numpy(o.t), numpy.asarray(ref.t))
