@@ -4,6 +4,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
     HernquistPotential,
     MiyamotoNagaiPotential,
@@ -1243,8 +1244,12 @@ def test_time_dependent_density_at_multiple_times():
     cached_after_t1 = mp._cached_t
     d2 = evaluateDensities(mp, 1.0, 0.0, t=t2)
     cached_after_t2 = mp._cached_t
-    assert cached_after_t1 == t1
-    assert cached_after_t2 == t2
+    if not is_backend_array(d1):
+        # _cached_t is a numpy-path implementation detail: the backend density
+        # path (_backend_dens) computes functionally and never populates it.
+        assert cached_after_t1 == t1
+        assert cached_after_t2 == t2
+    d1, d2 = as_numpy(d1), as_numpy(d2)
     assert d1 != d2, "Density should differ at different times"
     # Density should increase with time since factor is (1 + 0.1*t)
     assert d2 > d1, "Density at t=4 should be larger than at t=1"
@@ -1256,7 +1261,7 @@ def test_time_dependent_array_t_evaluate():
 
     mp = _make_tdep_axi_mp(L=2)
     t_arr = numpy.array([0.0, 1.0, 2.5, 5.0])
-    vals = evaluatePotentials(mp, 1.0, 0.0, t=t_arr)
+    vals = as_numpy(evaluatePotentials(mp, 1.0, 0.0, t=t_arr))
     assert vals.shape == (4,), f"Expected shape (4,), got {vals.shape}"
     assert numpy.all(numpy.isfinite(vals))
     # Values should change with time
@@ -1580,12 +1585,14 @@ def test_time_dependent_nonaxi_c_orbit():
     ts = numpy.linspace(0, 2, 51)
     o.integrate(ts, mp, method="dop853_c")
     # For a time-dependent potential energy is not conserved, but should be bounded
-    E = o.E(ts)
+    # as_numpy: forced-backend accessors return backend arrays (numpy no-op)
+    E = as_numpy(o.E(ts))
     assert numpy.all(numpy.isfinite(E)), "Orbit energy not finite"
     # Compare C orbit to Python orbit for consistency
     o_py = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
     o_py.integrate(ts, mp, method="odeint")
-    assert numpy.max(numpy.abs(o.R(ts) - o_py.R(ts))) / numpy.mean(o.R(ts)) < 0.01, (
+    oR, opyR = as_numpy(o.R(ts)), as_numpy(o_py.R(ts))
+    assert numpy.max(numpy.abs(oR - opyR)) / numpy.mean(oR) < 0.01, (
         "C and Python orbits disagree"
     )
 
@@ -1603,7 +1610,7 @@ def test_time_dependent_nonaxi_array_t():
 
     mp = _make_tdep_nonaxi_sincos_mp(L=3)
     t_arr = numpy.array([0.0, 1.0, 2.5, 5.0])
-    vals = evaluatePotentials(mp, 1.0, 0.5, phi=0.7, t=t_arr)
+    vals = as_numpy(evaluatePotentials(mp, 1.0, 0.5, phi=0.7, t=t_arr))
     assert vals.shape == (4,), f"Expected shape (4,), got {vals.shape}"
     assert numpy.all(numpy.isfinite(vals))
     assert not numpy.all(vals == vals[0]), "Values should vary with time"
@@ -1734,7 +1741,7 @@ def test_time_dependent_nonaxi_array_density():
     hp = HernquistPotential(amp=2.0, a=1.0)
     mp = _make_tdep_nonaxi_sincos_mp(L=3)
     R_arr = numpy.array([0.5, 1.0, 2.0])
-    d = evaluateDensities(mp, R_arr, 0.0, phi=0.5, t=1.0, use_physical=False)
+    d = as_numpy(evaluateDensities(mp, R_arr, 0.0, phi=0.5, t=1.0, use_physical=False))
     assert d.shape == (3,), f"Expected shape (3,), got {d.shape}"
     assert numpy.all(numpy.isfinite(d))
 
@@ -1825,7 +1832,7 @@ def test_finalize_pot_args_trailing_scalars():
     ts = numpy.linspace(0, 1, 21)
     o.integrate(ts, mp + pp, method="dop853_c")
     # Energy approximately conserved (time-dep perturbation is very weak: 1e-6*t)
-    E = o.E(ts)
+    E = as_numpy(o.E(ts))
     dE = numpy.max(numpy.abs((E - E[0]) / E[0]))
     assert dE < 1e-4, f"Energy not conserved: dE/E = {dE:.2e}"
 

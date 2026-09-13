@@ -14,6 +14,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 SYMPLECTIC = ["leapfrog_c", "symplec4_c", "symplec6_c"]
 ORDER = {"leapfrog_c": 2, "symplec4_c": 4, "symplec6_c": 6}
 
@@ -143,14 +145,16 @@ def _fd_of_flow_M_p(ic, times, pot, method, dt, eps=1e-6):
 
 # ----------------------------------------------------------------------------
 def test_symplectic_dxdv_base_bit_identity():
-    """The base orbit carried alongside the deviation must be BIT-IDENTICAL to a
-    plain (no-dxdv) integration with the same method/dt/IC: the symplectic dxdv
-    step estimates its stepsize from the base block only and steps the base via
-    the same drift/kick sequence, so the deviation machinery cannot perturb the
-    base integration. The cyl<->rect transform of the base is done by the same
-    C helpers as in plain integrate (see
-    test_symplectic_dxdv_base_independent_of_python_coord_transforms), so this
-    is exact rather than merely round-off-close."""
+    """The base orbit carried alongside the deviation must match a plain (no-dxdv)
+    integration with the same method/dt/IC to MACHINE PRECISION (matching the
+    planar sibling's tolerance): the symplectic dxdv step estimates its stepsize
+    from the base block only and steps the base via the same drift/kick sequence,
+    so the deviation machinery cannot perturb the base integration. It is
+    bit-identical on most compilers, but the base kick is evaluated by the
+    augmented force's base block (not the plain force), which some compilers round
+    ~1 ULP differently -- widened by the dissipative-force calcRforce macro -- so
+    the exact-equality claim is not portable; 1e-13 (~450x the observed ~5.6e-16)
+    still catches any real base perturbation (which grows >>1e-13)."""
     from galpy.orbit import Orbit
     from galpy.potential import MiyamotoNagaiPotential
 
@@ -171,10 +175,10 @@ def test_symplectic_dxdv_base_bit_identity():
         o2 = Orbit(_IC)
         o2.integrate(times, pot, method=method, dt=0.01)
         base_plain = numpy.asarray(o2.getOrbit())
-        assert numpy.array_equal(base_dxdv, base_plain), (
-            f"symplectic dxdv base orbit not bit-identical to plain integrate "
-            f"for {method}: max|diff|="
-            f"{numpy.amax(numpy.fabs(base_dxdv - base_plain)):g}"
+        err = numpy.amax(numpy.fabs(base_dxdv - base_plain))
+        assert err < 1e-13, (
+            f"symplectic dxdv base orbit differs from plain integrate by {err:g} "
+            f"for {method}"
         )
     return None
 
@@ -289,8 +293,14 @@ def test_symplectic_dxdv_closed_form_harmonic():
     o = Orbit(_IC)
     times_pre = numpy.linspace(0.0, T, 51)
     o.integrate(times_pre, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(times_pre) ** 2 + o.y(times_pre) ** 2 + o.z(times_pre) ** 2)
-    assert numpy.amax(r) < 0.9 * pot.R
+    # as_numpy: the accessors return backend arrays under a forced backend and
+    # numpy.amax dispatches to Tensor.max(axis=, out=), which torch rejects.
+    r = numpy.sqrt(
+        as_numpy(o.x(times_pre)) ** 2
+        + as_numpy(o.y(times_pre)) ** 2
+        + as_numpy(o.z(times_pre)) ** 2
+    )
+    assert numpy.amax(r) < 0.9 * float(pot.R)
     # order-appropriate absolute tolerances at dt=0.02 (a lower-order method
     # cannot reach a higher-order method's bound)
     abstol = {"leapfrog_c": 1e-3, "symplec4_c": 1e-6, "symplec6_c": 1e-9}
@@ -516,8 +526,8 @@ def test_symplectic_dxdv_planar_closed_form_harmonic():
     o = Orbit(_IC_p)
     tpre = numpy.linspace(0.0, T, 51)
     o.integrate(tpre, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(tpre) ** 2 + o.y(tpre) ** 2)
-    assert numpy.amax(r) < 0.9 * hs.R
+    r = numpy.sqrt(as_numpy(o.x(tpre)) ** 2 + as_numpy(o.y(tpre)) ** 2)
+    assert numpy.amax(r) < 0.9 * float(hs.R)
     abstol = {"leapfrog_c": 1e-3, "symplec4_c": 1e-6, "symplec6_c": 1e-9}
     for method in SYMPLECTIC:
         dt = 0.02

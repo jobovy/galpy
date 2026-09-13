@@ -2,8 +2,9 @@
 #   RingPotential.py: The gravitational potential of a thin, circular ring
 ###############################################################################
 import numpy
-from scipy import special
 
+from ..backend import coerce_coords, get_namespace
+from ..backend.special import ellipe, ellipk
 from ..util import conversion
 from .Potential import Potential
 
@@ -43,7 +44,8 @@ class RingPotential(Potential):
         a = conversion.parse_length(a, ro=self._ro)
         self.a = a
         self.a2 = self.a**2
-        self._amp /= 2.0 * numpy.pi * self.a
+        self._amp = self._amp / (2.0 * numpy.pi * self.a)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -56,26 +58,24 @@ class RingPotential(Potential):
         self.hasC_dxdv = False
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         # Stable as r -> infty
-        m = 4.0 * self.a / ((numpy.sqrt(R) + self.a / numpy.sqrt(R)) ** 2 + z**2 / R)
-        return -4.0 * self.a / numpy.sqrt((R + self.a) ** 2 + z**2) * special.ellipk(m)
+        m = 4.0 * self.a / ((xp.sqrt(R) + self.a / xp.sqrt(R)) ** 2 + z**2 / R)
+        return -4.0 * self.a / xp.sqrt((R + self.a) ** 2 + z**2) * ellipk(m)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         m = 4.0 * R * self.a / ((R + self.a) ** 2 + z**2)
         return (
             -2.0
             * self.a
             / R
-            / numpy.sqrt((R + self.a) ** 2 + z**2)
+            / xp.sqrt((R + self.a) ** 2 + z**2)
             * (
-                m
-                * (R**2 - self.a2 - z**2)
-                / 4.0
-                / (1.0 - m)
-                / self.a
-                / R
-                * special.ellipe(m)
-                + special.ellipk(m)
+                m * (R**2 - self.a2 - z**2) / 4.0 / (1.0 - m) / self.a / R * ellipe(m)
+                + ellipk(m)
             )
         )
 
@@ -87,28 +87,24 @@ class RingPotential(Potential):
             * self.a
             / (1.0 - m)
             * ((R + self.a) ** 2 + z**2) ** -1.5
-            * special.ellipe(m)
+            * ellipe(m)
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Raz2 = (R + self.a) ** 2 + z**2
-        Raz = numpy.sqrt(Raz2)
+        Raz = xp.sqrt(Raz2)
         m = 4.0 * R * self.a / Raz2
         R2ma2mz2o4aR1m = (R**2 - self.a2 - z**2) / 4.0 / self.a / R / (1.0 - m)
         return (2 * R**2 + self.a2 + 3 * R * self.a + z**2) / R / Raz2 * self._Rforce(
             R, z
         ) + 2.0 * self.a / R / Raz * (
-            m
-            * (R**2 + self.a2 + z**2)
-            / 4.0
-            / (1.0 - m)
-            / self.a
-            / R**2
-            * special.ellipe(m)
+            m * (R**2 + self.a2 + z**2) / 4.0 / (1.0 - m) / self.a / R**2 * ellipe(m)
             + (
-                R2ma2mz2o4aR1m / (1.0 - m) * special.ellipe(m)
-                + 0.5 * R2ma2mz2o4aR1m * (special.ellipe(m) - special.ellipk(m))
-                + 0.5 * (special.ellipe(m) / (1.0 - m) - special.ellipk(m)) / m
+                R2ma2mz2o4aR1m / (1.0 - m) * ellipe(m)
+                + 0.5 * R2ma2mz2o4aR1m * (ellipe(m) - ellipk(m))
+                + 0.5 * (ellipe(m) / (1.0 - m) - ellipk(m)) / m
             )
             * 4
             * self.a
@@ -127,7 +123,7 @@ class RingPotential(Potential):
                 3.0 * z**2 / Raz2
                 - 1.0
                 + 4.0
-                * ((1.0 + m) / (1.0 - m) - special.ellipk(m) / special.ellipe(m))
+                * ((1.0 + m) / (1.0 - m) - ellipk(m) / ellipe(m))
                 * self.a
                 * R
                 * z**2
@@ -137,7 +133,7 @@ class RingPotential(Potential):
             * self.a
             / (1.0 - m)
             * ((R + self.a) ** 2 + z**2) ** -1.5
-            * special.ellipe(m)
+            * ellipe(m)
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -146,7 +142,7 @@ class RingPotential(Potential):
         return (
             3.0 * (R + self.a) / Raz2
             - 2.0
-            * ((1.0 + m) / (1.0 - m) - special.ellipk(m) / special.ellipe(m))
+            * ((1.0 + m) / (1.0 - m) - ellipk(m) / ellipe(m))
             * self.a
             * (self.a2 + z**2 - R**2)
             / Raz2**2

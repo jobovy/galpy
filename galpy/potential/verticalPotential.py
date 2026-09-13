@@ -1,11 +1,19 @@
 import numpy
 
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import Potential, PotentialError, _check_potential_list_and_deprecate
+from .Potential import (
+    Potential,
+    PotentialError,
+    _check_backend_compatible,
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+    _evaluatezforces,
+)
 
 
 class verticalPotential(linearPotential):
@@ -56,6 +64,8 @@ class verticalPotential(linearPotential):
         # potential's z2deriv in C; that is only wired (in the full-orbit parse)
         # for potentials with the full 3D Hessian, so gate on hasC_dxdv3d.
         self.hasC_dxdv = getattr(Pot, "hasC_dxdv3d", False)
+        # Backend-aware iff the wrapped 3D potential is (this wrapper itself is).
+        self._backend_compatible = _check_backend_compatible(Pot)
         # Also transfer roSet and voSet
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
@@ -108,11 +118,13 @@ class verticalPotential(linearPotential):
         - 2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
         - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
         """
-        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
-        tphi = (
-            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
-        )
-        return self._Pot(tR, z, phi=tphi, t=t, use_physical=False) - self._midplanePot
+        # Follow z's actual type: a backend array (also under a forced-backend
+        # context) -> the backend; a numpy/scalar z (e.g. an un-migrated parent)
+        # -> numpy, so the broadcast matches what the parent will receive.
+        xp = get_namespace(z) if is_backend_array(z) else numpy
+        tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
+        tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
+        return _evaluatePotentials(self._Pot, tR, z, phi=tphi, t=t) - self._midplanePot
 
     def _force(self, z, t=0.0):
         """
@@ -137,20 +149,71 @@ class verticalPotential(linearPotential):
         - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
 
         """
-        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
-        tphi = (
-            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
-        )
-        return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
+        # Follow z's actual type: a backend array (also under a forced-backend
+        # context) -> the backend; a numpy/scalar z (e.g. an un-migrated parent)
+        # -> numpy, so the broadcast matches what the parent will receive.
+        xp = get_namespace(z) if is_backend_array(z) else numpy
+        tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
+        tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
+        return _evaluatezforces(self._Pot, tR, z, phi=tphi, t=t)
 
     def _force2deriv(self, z, t=0.0):
         # d^2 Phi / dz^2 of the wrapped 3D potential at (R,z,phi), mirroring
         # _force (which returns the wrapped z-force); for the 1D dxdv equations.
-        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
-        tphi = (
-            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
-        )
+        xp = get_namespace(z) if is_backend_array(z) else numpy
+        tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
+        tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
         return self._Pot.z2deriv(tR, z, phi=tphi, t=t, use_physical=False)
+
+
+class _BatchedVerticalPotential(verticalPotential):
+    """verticalPotential with a per-element (array) R, broadcast against z.
+
+    Used by actionAngleAdiabatic's jax/torch backend path, which needs the
+    effective vertical potential ``Phi(R_i,z)-Phi(R_i,0)`` for a whole BATCH of
+    objects at once (each with its own ``R_i``), so it can reuse
+    actionAngleVertical's vectorised backend Gauss-Legendre / root-find machinery.
+    The parent pins a single scalar ``_R``; here ``_R`` is the ``(N,)`` batch
+    array, broadcast against ``z``'s leading (object) axis on each call (``z`` is
+    ``(N,)`` for calcxmax / angle limits or ``(N, n)`` for the quadrature node
+    grid), and the midplane term is recomputed per call so it follows ``z``'s
+    shape. Backend-agnostic: runs under numpy too (the all-backend suite forces
+    numpy through the adiabatic backend branch); numpy is otherwise untouched
+    because actionAngleAdiabatic only builds it on the is_backend_array-gated path.
+    """
+
+    def __init__(self, Pot, R, phi=None, t0=0.0):
+        # Init via the scalar parent at a representative R (R[0]) for the
+        # _Pot/_phi/amp/unit bookkeeping, then overwrite _R with the batch array
+        # (_midplanePot from the parent is unused here; _evaluate recomputes it).
+        xp = get_namespace(R)
+        if is_backend_array(R):
+            # the parent scalar R0 only feeds the (unused) _midplanePot, so any
+            # representative works; avoid float() on a backend array (raises on a
+            # jax tracer, warns + host-syncs a grad torch tensor). numpy path
+            # keeps the true R0 (byte-identical stored attribute).
+            R0 = 1.0
+        else:
+            R0 = float(xp.reshape(R, (-1,))[0]) if hasattr(R, "shape") else float(R)
+        verticalPotential.__init__(self, Pot, R=R0, phi=phi, t0=t0)
+        self._R = R
+
+    def _Rb(self, z):
+        # Reshape the batch R to broadcast against z (leading-axis aligned).
+        xp = get_namespace(z)
+        R = self._R
+        extra = z.ndim - R.ndim
+        if extra > 0:
+            R = xp.reshape(R, R.shape + (1,) * extra)
+        return R
+
+    def _evaluate(self, z, t=0.0):
+        xp = get_namespace(z)
+        Rb = self._Rb(z)
+        tphi = self._phi * xp.ones_like(z)
+        full = _evaluatePotentials(self._Pot, Rb, z, phi=tphi, t=t)
+        mid = _evaluatePotentials(self._Pot, Rb, 0.0 * z, phi=tphi, t=t)
+        return full - mid
 
 
 def RZToverticalPotential(RZPot, R):

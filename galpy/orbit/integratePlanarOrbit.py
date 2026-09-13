@@ -44,7 +44,7 @@ def _parse_pot(pot, t=None):
 
     # Initialize everything
     pot_type = []
-    pot_args = []
+    pot_args = _PotArgs()
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
@@ -671,13 +671,46 @@ def _parse_pot(pot, t=None):
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 
+class _PotArgs(list):
+    """The C potential-argument list, with array-valued ``extend`` kept whole.
+
+    ``_finalize_pot_args`` below concatenates array elements as chunks, so the
+    bytes handed to C are the same either way -- but ``extend(<array>)`` splats a
+    table into one Python object per entry. For the potentials that carry one (a
+    MovingObjectPotential trajectory, an interpRZ grid, the
+    DoubleExponentialDisk quadrature nodes) that is tens of thousands of objects
+    per integration, and under a FORCED backend every one of them is a 0-d
+    backend array that ``_finalize_pot_args`` then converts individually -- one
+    device transfer each. Keeping the array as a single element makes it one.
+    """
+
+    def extend(self, other):
+        from ..backend import is_backend_array
+
+        if isinstance(other, numpy.ndarray) or is_backend_array(other):
+            self.append(other)
+        else:
+            super().extend(other)
+
+
 def _finalize_pot_args(pot_args):
     """Convert pot_args list to a contiguous float64 numpy array.
 
     Handles the case where pot_args contains numpy arrays (e.g., from
     MultipoleExpansionPotential) by concatenating chunks efficiently
     instead of converting millions of Python floats via numpy.array().
+
+    A backend (jax/torch) potential parameter -- e.g. an ``amp`` that a user
+    differentiates through -- reaches the compiled C integrator as its concrete
+    numpy value: the C path carries no d/d(parameter) sensitivity (parameter
+    gradients come from the in-backend ODE integrators, diffrax/torchdiffeq), so
+    a grad-tracking tensor is detached to numpy here. numpy potentials have no
+    backend arrays, so this is a no-op and the numpy path stays byte-identical.
     """
+    from ..backend import as_numpy, is_backend_array
+
+    if any(is_backend_array(a) for a in pot_args):
+        pot_args = [as_numpy(a) if is_backend_array(a) else a for a in pot_args]
     if any(isinstance(a, numpy.ndarray) for a in pot_args):
         chunks = []
         scalars = []
@@ -763,9 +796,15 @@ def _parse_scf_pot(p, extra_amp=1.0):
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)
     pot_args.append(0)  # Nt=0 (static)
-    pot_args.extend(amp * p._Acos.flatten(order="C"))
+    from ..backend import as_numpy
+
+    # C-extension boundary: the coefficients must cross as numpy. Since the
+    # coefficient routines follow the ambient namespace, a potential built under
+    # a forced backend stores backend arrays, and Tensor.flatten() has no
+    # `order` keyword. as_numpy is a no-op on the numpy path.
+    pot_args.extend(amp * as_numpy(p._Acos).flatten(order="C"))
     if isNonAxi:
-        pot_args.extend(amp * p._Asin.flatten(order="C"))
+        pot_args.extend(amp * as_numpy(p._Asin).flatten(order="C"))
     pot_args.extend(cache)
     return (24, pot_args, [])  # latter is pot_tfuncs
 
@@ -787,7 +826,7 @@ def _parse_disk_approx_pairs(p, extra_amp=1.0, per_pair_suffix=None):
     # Stand-alone parser for disk approximation [Sigma_i, h_i] pairs used
     # in the KuijkenDubinskiDiskExpansionPotential-based potentials, bc reused
     pot_types = []
-    pot_args = []
+    pot_args = _PotArgs()
     for Sigma, hz in zip(p._Sigma_dict, p._hz_dict):
         pot_types.append(26)
         stype = Sigma.get("type", "exp")

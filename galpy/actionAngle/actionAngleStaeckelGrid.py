@@ -14,6 +14,14 @@ import numpy
 from scipy import interpolate, ndimage, optimize
 
 from .. import potential
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    device_of,
+    get_namespace,
+)
+from ..backend import interpolate as backend_interpolate
+from ..backend import is_backend_array, promote_scalars, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -27,7 +35,11 @@ _PRINTOUTSIDEGRID = False
 
 
 class actionAngleStaeckelGrid(actionAngle):
-    """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
+    """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation
+
+    jax/torch input is supported and differentiable, but evaluates the
+    interpolation grid only (no off-grid fallback): inputs must lie within the
+    grid, whereas the numpy path falls back to a per-point solve off-grid."""
 
     def __init__(
         self,
@@ -91,6 +103,15 @@ class actionAngleStaeckelGrid(actionAngle):
         )
         # Build grid
         self._Lzmin = 0.01
+        xp = get_namespace()
+        if xp is not numpy:
+            # Forced/default backend: build the whole grid ON the backend so the
+            # frozen tables are backend arrays (GPU-resident) fit NATIVELY, and the
+            # grid build differentiates through to the query. The numpy body below
+            # is left byte-identical (scipy).
+            self._build_grid_backend(xp, nE, npsi, nLz, numcores, interpecc)
+            self._check_consistent_units()
+            return None
         self._Lzs = numpy.linspace(
             self._Lzmin, self._Rmax * potential.vcirc(self._pot, self._Rmax), nLz
         )
@@ -324,8 +345,298 @@ class actionAngleStaeckelGrid(actionAngle):
             self._rapFiltered = ndimage.spline_filter(
                 numpy.log(self._rap + 10.0**-10.0), order=3
             )
+        # Backend-agnostic eval wrappers built from the SAME fitted scipy
+        # objects/filtered grids (numpy path stays byte-identical scipy).
+        self._build_backend_interp(y, interpecc)
         # Check the units
         self._check_consistent_units()
+        return None
+
+    def _build_backend_interp(self, y, interpecc):
+        """Build the jax/torch eval wrappers from the RAW frozen tables (dual-path).
+
+        On the numpy path the tables are numpy, so the Spline1D/Spline2D/
+        MapCoordinates wrappers fit scipy internally and are byte-identical to the
+        scipy interpolators used by the numpy ``_evaluate``; on a forced backend
+        the tables are backend arrays, so the wrappers fit NATIVELY (Spline2D
+        not-a-knot cubic, native spline_filter) and stay backend arrays,
+        differentiable through to the query. ``bc='not-a-knot'`` matches FITPACK's
+        s=0 interpolating cubic on the backend (mode-2) path; it is ignored on the
+        numpy (scipy) path.
+        """
+        xp = get_namespace(self._u0)  # numpy or the forced/data backend
+        Lz_geom = as_numpy(self._Lzs)  # fit x-geometry (breakpoints) is numpy
+        self._logu0Interp_b = backend_interpolate.Spline2D(
+            Lz_geom, as_numpy(y), xp.log(self._u0)
+        )
+        self._jrLzInterp_b = backend_interpolate.Spline1D(
+            Lz_geom, xp.log(self._jrLzE + 10.0**-5.0), k=3, bc="not-a-knot"
+        )
+        self._jzLzInterp_b = backend_interpolate.Spline1D(
+            Lz_geom, xp.log(self._jzLzE + 10.0**-5.0), k=3, bc="not-a-knot"
+        )
+        self._ERLInterp_b = backend_interpolate.Spline1D(
+            Lz_geom, xp.log(-(self._ERL - self._ERLmax)), k=3, bc="not-a-knot"
+        )
+        self._ERaInterp_b = backend_interpolate.Spline1D(
+            Lz_geom, xp.log(-(self._ERa - self._ERamax)), k=3, bc="not-a-knot"
+        )
+        # The filtered grids feed the backend cubic map_coordinates (mode/order
+        # matching the scipy calls in _evaluate/_EccZmaxRperiRap).
+        self._jrMap_b = backend_interpolate.MapCoordinates(
+            xp.log(self._jr + 10.0**-10.0)
+        )
+        self._jzMap_b = backend_interpolate.MapCoordinates(
+            xp.log(self._jz + 10.0**-10.0)
+        )
+        if interpecc:
+            self._zmaxLzInterp_b = backend_interpolate.Spline1D(
+                Lz_geom, xp.log(self._zmaxLzE + 10.0**-5.0), k=3, bc="not-a-knot"
+            )
+            self._rperiLzInterp_b = backend_interpolate.Spline1D(
+                Lz_geom, xp.log(self._rperiLzE + 10.0**-5.0), k=3, bc="not-a-knot"
+            )
+            self._rapLzInterp_b = backend_interpolate.Spline1D(
+                Lz_geom, xp.log(self._rapLzE + 10.0**-5.0), k=3, bc="not-a-knot"
+            )
+            self._eccMap_b = backend_interpolate.MapCoordinates(
+                xp.log(self._ecc + 10.0**-10.0)
+            )
+            self._zmaxMap_b = backend_interpolate.MapCoordinates(
+                xp.log(self._zmax + 10.0**-10.0)
+            )
+            self._rperiMap_b = backend_interpolate.MapCoordinates(
+                xp.log(self._rperi + 10.0**-10.0)
+            )
+            self._rapMap_b = backend_interpolate.MapCoordinates(
+                xp.log(self._rap + 10.0**-10.0)
+            )
+        return None
+
+    def _build_grid_backend(self, xp, nE, npsi, nLz, numcores, interpecc):
+        """Backend (jax/torch) counterpart of the numpy grid build.
+
+        Produces the SAME frozen-table attributes as the numpy path
+        (``_Lzs, _RL, _ERL, _ERa, _u0, _jr, _jz, _jrLzE, _jzLzE`` + the interpecc
+        analogues), but as BACKEND arrays fit NATIVELY -- so the tables are
+        GPU-resident and the grid build differentiates through to the query. The
+        non-differentiable per-orbit solvers (``rl``, the ``calcu0`` root-find /
+        C kernel, the ``actionAngleStaeckel`` action solve) run as they do on
+        numpy; their outputs are brought onto the backend for the elementwise
+        energy math and the native fits. The values match the numpy(scipy) grid
+        to grid-parity tolerance; the fit-produced tables agree to ~1e-13, while
+        the ``_u0``-derived tables agree to ~1e-7 because ``calcu0`` is
+        ill-conditioned (a 1-ULP-reorder difference in the energy handed to the
+        root-find amplifies ~1e8 -- a benign floating-point sensitivity, not a
+        native-fit error). Reductions/clips use ``xp.where``/``xp.max``
+        (numpy's in-place boolean-index writes are jax-immutable).
+        """
+        vc = potential.vcirc(self._pot, self._Rmax)
+        dev = device_of(vc)
+        # --- Lz grid (differentiable in Lzmax = Rmax*vcirc) ---
+        frac = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nLz), dev)
+        self._Lzs = self._Lzmin + frac * (self._Rmax * vc - self._Lzmin)
+        self._Lzmax = self._Lzs[-1]
+        self._nLz = nLz
+        # rl root-find (non-differentiable) -> RL, brought onto the backend
+        with use("numpy", force=True):
+            RL_np = numpy.array(
+                [potential.rl(self._pot, as_numpy(l)) for l in self._Lzs]
+            )
+        self._RL = asarray_on_device(xp, RL_np, dev)
+        self._ERL = (
+            _evaluatePotentials(self._pot, self._RL, xp.zeros(self._nLz))
+            + self._Lzs**2.0 / 2.0 / self._RL**2.0
+        )
+        self._ERLmax = xp.max(self._ERL) + 1.0
+        self._Ramax = 200.0 / 8.0
+        self._ERa = (
+            _evaluatePotentials(self._pot, self._Ramax, 0.0)
+            + self._Lzs**2.0 / 2.0 / self._Ramax**2.0
+        )
+        self._ERamax = xp.max(self._ERa) + 1.0
+        y = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nE), dev)
+        self._nE = nE
+        psis = asarray_on_device(
+            xp, numpy.linspace(0.0, 1.0, npsi) * numpy.pi / 2.0, dev
+        )
+        self._npsi = npsi
+        # --- u0 grid (via the numpy calcu0 solver) ---
+        thisLzs = _tileT_flat(xp, self._Lzs, nE)
+        thisERL = _tileT_flat(xp, self._ERL, nE)
+        thisERa = _tileT_flat(xp, self._ERa, nE)
+        this = xp.reshape(xp.tile(y, (nLz, 1)), (-1,))
+        thisE = _invEfunc(
+            _Efunc(thisERa, thisERL)
+            + this * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
+            thisERL,
+        )
+        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+            self._pot, "_origPot"
+        ):
+            u0pot = self._pot._origPot
+        else:
+            u0pot = self._pot
+        with use("numpy", force=True):
+            thisE_np = as_numpy(thisE)
+            thisLzs_np = as_numpy(thisLzs)
+            if self._c:
+                mu0 = actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
+                    thisE_np, thisLzs_np, u0pot, self._delta
+                )[0]
+            else:
+                mu0 = numpy.array(
+                    [self.calcu0(thisE_np[x], thisLzs_np[x]) for x in range(nE * nLz)]
+                )
+        u0 = asarray_on_device(xp, numpy.reshape(mu0, (nLz, nE)), dev)
+        thisR = self._delta * xp.sinh(u0)
+        thisv = xp.reshape(
+            self.vatu0(
+                xp.reshape(thisE, (-1,)),
+                xp.reshape(thisLzs, (-1,)),
+                xp.reshape(u0, (-1,)),
+                xp.reshape(thisR, (-1,)),
+            ),
+            (nLz, nE),
+        )
+        self.thisv = thisv
+        # tile over psi (mirrors the numpy layout exactly)
+        thisLzs = xp.reshape(thisLzs, (nLz, nE))
+        thispsi = xp.reshape(xp.tile(psis, (nLz, nE, 1)), (-1,))
+        thisLzs = xp.reshape(
+            _revT(xp, xp.tile(_revT(xp, thisLzs), (npsi, 1, 1))), (-1,)
+        )
+        thisR = xp.reshape(_revT(xp, xp.tile(_revT(xp, thisR), (npsi, 1, 1))), (-1,))
+        thisv = xp.reshape(_revT(xp, xp.tile(_revT(xp, thisv), (npsi, 1, 1))), (-1,))
+        mjr, mlz, mjz = self._aA(
+            thisR,
+            thisv * xp.cos(thispsi),
+            thisLzs / thisR,
+            xp.zeros(thisR.shape[0]),
+            thisv * xp.sin(thispsi),
+            fixed_quad=True,
+        )
+        if interpecc:
+            mecc, mzmax, mrperi, mrap = self._aA.EccZmaxRperiRap(
+                thisR,
+                thisv * xp.cos(thispsi),
+                thisLzs / thisR,
+                xp.zeros(thisR.shape[0]),
+                thisv * xp.sin(thispsi),
+            )
+        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+            self._pot, "_origPot"
+        ):
+            # Interpolated potentials fail on extreme orbits (jr/jz == 9999.99);
+            # recompute those with the ORIGINAL potential's Staeckel, matching the
+            # numpy build.
+            bad = (mjr == 9999.99) | (mjz == 9999.99)
+            # jr/jz: BACKEND-NATIVE recompute -- the orig potential and its
+            # C-native action solve take the backend inputs directly (no numpy
+            # island), and the action solve preserves the 9999.99 failure sentinel
+            # for orbits it cannot resolve either (so the _nanmax_ne per-Lz maxima
+            # still exclude them, as on the numpy grid). Recompute for all orbits
+            # and keep the result only where the interp solve failed (xp.where:
+            # namespace-generic, both branches finite so dead-branch-safe); one
+            # extra coarse-grid solve at setup.
+            tmpaA = actionAngleStaeckel.actionAngleStaeckel(
+                pot=self._pot._origPot, delta=self._delta, c=self._c
+            )
+            vR = thisv * xp.cos(thispsi)
+            vT = thisLzs / thisR
+            vz = thisv * xp.sin(thispsi)
+            rjr, _, rjz = tmpaA(
+                thisR, vR, vT, xp.zeros_like(thisR), vz, fixed_quad=True
+            )
+            mjr = xp.where(bad, rjr, mjr)
+            mjz = xp.where(bad, rjz, mjz)
+            if interpecc:
+                # ecc-family: self._aA.EccZmaxRperiRap already ran on ALL orbits
+                # above; for the good orbits its backend value matches numpy. For
+                # the BAD orbits the backend C-STM path returns FINITE AD-safety-
+                # guarded numbers, but the numpy grid keeps this potential's C
+                # turning-point SENTINELS -- and a jr/jz failure always coincides
+                # with a turning-point failure (unbound orbit), so numpy never
+                # recovers a finite value there. The sentinels are a deterministic
+                # consequence of the C umin/umax = -9999.99 failure flags
+                # (ecc = NaN; zmax = delta*sinh(|umax|) = +inf; rperi =
+                # delta*sinh(umin) = -inf; rap = +inf) -- verified uniform across
+                # potentials + grid resolutions (696/696 bad orbits: ecc=NaN,
+                # zmax=+inf, rperi=-inf, rap=+inf, zero finite ecc). So mark the
+                # bad orbits with those exact sentinels (backend-native, no numpy
+                # island): the raw tables then equal the numpy grid's, and the
+                # inf-excluding _max_finite per-Lz normalizers + the NaN/inf clamps
+                # below reproduce the numpy grid EXACTLY. (rperi must be -inf, NOT
+                # +inf: after normalization +inf would clamp >1 -> 1, but numpy's
+                # -inf clamps isinf -> 0.)
+                nan = xp.full_like(mecc, numpy.nan)
+                pinf = xp.full_like(mecc, numpy.inf)
+                ninf = xp.full_like(mecc, -numpy.inf)
+                mecc = xp.where(bad, nan, mecc)
+                mzmax = xp.where(bad, pinf, mzmax)
+                mrperi = xp.where(bad, ninf, mrperi)
+                mrap = xp.where(bad, pinf, mrap)
+        jr = xp.reshape(mjr, (nLz, nE, npsi))
+        jz = xp.reshape(mjz, (nLz, nE, npsi))
+        if interpecc:
+            ecc = xp.reshape(mecc, (nLz, nE, npsi))
+            zmax = xp.reshape(mzmax, (nLz, nE, npsi))
+            rperi = xp.reshape(mrperi, (nLz, nE, npsi))
+            rap = xp.reshape(mrap, (nLz, nE, npsi))
+        # per-Lz maxima (nanmax over the non-9999.99 / finite entries)
+        jrLzE = xp.stack([_nanmax_ne(xp, jr[ii], 9999.99) for ii in range(nLz)])
+        jzLzE = xp.stack([_nanmax_ne(xp, jz[ii], 9999.99) for ii in range(nLz)])
+        jrLzE = _fill_zeros_minpos(xp, jrLzE)
+        jzLzE = _fill_zeros_minpos(xp, jzLzE)
+        if interpecc:
+            zmaxLzE = xp.stack([_max_finite(xp, zmax[ii]) for ii in range(nLz)])
+            rperiLzE = xp.stack([_max_finite(xp, rperi[ii]) for ii in range(nLz)])
+            rapLzE = xp.stack([_max_finite(xp, rap[ii]) for ii in range(nLz)])
+            zmaxLzE = _fill_zeros_minpos(xp, zmaxLzE)
+            rperiLzE = _fill_zeros_minpos(xp, rperiLzE)
+            rapLzE = _fill_zeros_minpos(xp, rapLzE)
+        # normalize + clamp (jr>1 -> 1; NaN -> 0)
+        jr = jr / jrLzE[:, None, None]
+        jz = jz / jzLzE[:, None, None]
+        jr = xp.where(jr > 1.0, 1.0, jr)
+        jz = xp.where(jz > 1.0, 1.0, jz)
+        jr = xp.where(xp.isnan(jr), 0.0, jr)
+        jz = xp.where(xp.isnan(jz), 0.0, jz)
+        if interpecc:
+            # ecc is NOT normalized by a per-Lz maximum (unlike zmax/rperi/rap).
+            zmax = zmax / zmaxLzE[:, None, None]
+            rperi = rperi / rperiLzE[:, None, None]
+            rap = rap / rapLzE[:, None, None]
+            ecc = xp.where(ecc < 0.0, 0.0, ecc)
+            ecc = xp.where(ecc > 1.0, 1.0, ecc)
+            ecc = xp.where(xp.isnan(ecc), 0.0, ecc)
+            ecc = xp.where(xp.isinf(ecc), 1.0, ecc)
+            zmax = xp.where(zmax > 1.0, 1.0, zmax)
+            zmax = xp.where(xp.isnan(zmax), 0.0, zmax)
+            zmax = xp.where(xp.isinf(zmax), 1.0, zmax)
+            rperi = xp.where(rperi > 1.0, 1.0, rperi)
+            rperi = xp.where(xp.isnan(rperi), 0.0, rperi)
+            rperi = xp.where(xp.isinf(rperi), 0.0, rperi)
+            rap = xp.where(rap > 1.0, 1.0, rap)
+            rap = xp.where(xp.isnan(rap), 0.0, rap)
+            rap = xp.where(xp.isinf(rap), 1.0, rap)
+        # store the frozen tables (backend arrays)
+        self._jr = jr
+        self._jz = jz
+        self._u0 = u0
+        self._jrLzE = jrLzE
+        self._jzLzE = jzLzE
+        if interpecc:
+            self._ecc = ecc
+            self._zmax = zmax
+            self._rperi = rperi
+            self._rap = rap
+            self._zmaxLzE = zmaxLzE
+            self._rperiLzE = rperiLzE
+            self._rapLzE = rapLzE
+        # native fits + backend eval wrappers (no scipy fits: numpy _evaluate is
+        # never reached under a forced backend)
+        self._build_backend_interp(y, interpecc)
         return None
 
     def _evaluate(self, *args, **kwargs):
@@ -363,6 +674,10 @@ class actionAngleStaeckelGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._evaluate_backend(R, vR, vT, z, vz)
         Lz = R * vT
         Phi = _evaluatePotentials(self._pot, R, z)
         E = Phi + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
@@ -399,6 +714,9 @@ class actionAngleStaeckelGrid(actionAngle):
                     )
                 )
                 sinh2u0 = numpy.sinh(u0) ** 2.0
+                potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                    u0, numpy.pi / 2.0, self._pot, self._delta
+                )
                 thisEr = self.Er(
                     R[indxc],
                     z[indxc],
@@ -408,6 +726,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisEz = self.Ez(
                     R[indxc],
@@ -418,6 +737,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisv2 = self.vatu0(
                     E[indxc], Lz[indxc], u0, self._delta * numpy.sinh(u0), retv2=True
@@ -601,6 +921,10 @@ class actionAngleStaeckelGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
         Lz = R * vT
         Phi = _evaluatePotentials(self._pot, R, z)
         E = Phi + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
@@ -639,6 +963,9 @@ class actionAngleStaeckelGrid(actionAngle):
                     )
                 )
                 sinh2u0 = numpy.sinh(u0) ** 2.0
+                potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                    u0, numpy.pi / 2.0, self._pot, self._delta
+                )
                 thisEr = self.Er(
                     R[indxc],
                     z[indxc],
@@ -648,6 +975,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisEz = self.Ez(
                     R[indxc],
@@ -658,6 +986,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisv2 = self.vatu0(
                     E[indxc], Lz[indxc], u0, self._delta * numpy.sinh(u0), retv2=True
@@ -757,6 +1086,76 @@ class actionAngleStaeckelGrid(actionAngle):
         rap[rap < 0.0] = 0.0
         return (ecc, zmax, rperi, rap)
 
+    def _grid_common_backend(self, xp, R, vR, vT, z, vz):
+        """Shared backend coordinate/energy/u0/psi math for the grid lookups.
+
+        Assumes on-grid inputs (off-grid fallback to self._aA is numpy-only);
+        clamps are xp.where guards for AD/round-off, not an off-grid dispatch.
+        Returns the map_coordinates query stacks (cos2psi- and sin2psi-based) and
+        the per-point Lz for the 1D maxima splines.
+        """
+        Lz = R * vT
+        Phi = _evaluatePotentials(self._pot, R, z)
+        E = Phi + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
+        thisERL = -xp.exp(self._ERLInterp_b(Lz)) + self._ERLmax
+        thisERa = -xp.exp(self._ERaInterp_b(Lz)) + self._ERamax
+        frac = (E - thisERa) / (thisERL - thisERa)
+        # Snap the two near-boundary cases (mirrors the numpy E[indx]= writes).
+        E = xp.where((frac > 1.0) & ((frac - 1.0) < 10.0**-2.0), thisERL, E)
+        E = xp.where((frac < 0.0) & (frac > -(10.0**-2.0)), thisERa, E)
+        # u0 from the (Lz, y) RectBivariate table; y is the rescaled energy.
+        y = (_Efunc(E, thisERL) - _Efunc(thisERa, thisERL)) / (
+            _Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)
+        )
+        u0 = xp.exp(self._logu0Interp_b(Lz, y, grid=False))
+        sinh2u0 = xp.sinh(u0) ** 2.0
+        thisEr = self.Er(R, z, vR, vz, E, Lz, sinh2u0, u0)
+        thisEz = self.Ez(R, z, vR, vz, E, Lz, sinh2u0, u0)
+        thisv2 = self.vatu0(E, Lz, u0, self._delta * xp.sinh(u0), retv2=True)
+        cos2psi = 2.0 * thisEr / thisv2 / (1.0 + sinh2u0)  # latter is cosh2u0
+        cos2psi = xp.clip(cos2psi, 0.0, 1.0)  # AD/round-off guard (numpy clamps too)
+        sin2psi = 2.0 * thisEz / thisv2 / (1.0 + sinh2u0)
+        sin2psi = xp.clip(sin2psi, 0.0, 1.0)
+        psi = xp.arccos(xp.sqrt(cos2psi))
+        psiz = xp.arcsin(xp.sqrt(sin2psi))
+        c0 = (Lz - self._Lzmin) / (self._Lzmax - self._Lzmin) * (self._nLz - 1.0)
+        c1 = y * (self._nE - 1.0)
+        coords_r = xp.stack([c0, c1, psi / numpy.pi * 2.0 * (self._npsi - 1.0)])
+        coords_z = xp.stack([c0, c1, psiz / numpy.pi * 2.0 * (self._npsi - 1.0)])
+        return Lz, coords_r, coords_z
+
+    def _evaluate_backend(self, R, vR, vT, z, vz):
+        xp = get_namespace(R)
+        Lz, coords_r, coords_z = self._grid_common_backend(xp, R, vR, vT, z, vz)
+        jr = (xp.exp(self._jrMap_b(coords_r)) - 10.0**-10.0) * (
+            xp.exp(self._jrLzInterp_b(Lz)) - 10.0**-5.0
+        )
+        jz = (xp.exp(self._jzMap_b(coords_z)) - 10.0**-10.0) * (
+            xp.exp(self._jzLzInterp_b(Lz)) - 10.0**-5.0
+        )
+        jr = xp.where(jr < 0.0, 0.0, jr)
+        jz = xp.where(jz < 0.0, 0.0, jz)
+        return (jr, Lz, jz)
+
+    def _EccZmaxRperiRap_backend(self, R, vR, vT, z, vz):
+        xp = get_namespace(R)
+        Lz, coords_r, coords_z = self._grid_common_backend(xp, R, vR, vT, z, vz)
+        ecc = xp.exp(self._eccMap_b(coords_r)) - 10.0**-10.0
+        rperi = (xp.exp(self._rperiMap_b(coords_r)) - 10.0**-10.0) * (
+            xp.exp(self._rperiLzInterp_b(Lz)) - 10.0**-5.0
+        )
+        zmax = (xp.exp(self._zmaxMap_b(coords_z)) - 10.0**-10.0) * (
+            xp.exp(self._zmaxLzInterp_b(Lz)) - 10.0**-5.0
+        )
+        rap = (xp.exp(self._rapMap_b(coords_z)) - 10.0**-10.0) * (
+            xp.exp(self._rapLzInterp_b(Lz)) - 10.0**-5.0
+        )
+        ecc = xp.where(ecc < 0.0, 0.0, ecc)
+        zmax = xp.where(zmax < 0.0, 0.0, zmax)
+        rperi = xp.where(rperi < 0.0, 0.0, rperi)
+        rap = xp.where(rap < 0.0, 0.0, rap)
+        return (ecc, zmax, rperi, rap)
+
     def vatu0(self, E, Lz, u0, R, retv2=False):
         """
         Calculate the velocity at u0.
@@ -783,6 +1182,7 @@ class actionAngleStaeckelGrid(actionAngle):
         -----
         - 2012-11-29 - Written - Bovy (IAS).
         """
+        xp = get_namespace(E) if is_backend_array(E) else numpy
         v2 = (
             2.0
             * (
@@ -795,6 +1195,8 @@ class actionAngleStaeckelGrid(actionAngle):
         )
         if retv2:
             return v2
+        if is_backend_array(v2):  # masked clip -> xp.where (no in-place write)
+            return xp.sqrt(xp.where((v2 < 0.0) & (v2 > -(10.0**-7.0)), 0.0, v2))
         v2[(v2 < 0.0) * (v2 > -(10.0**-7.0))] = 0.0
         return numpy.sqrt(v2)
 
@@ -821,7 +1223,7 @@ class actionAngleStaeckelGrid(actionAngle):
         logu0 = optimize.brent(_u0Eq, args=(self._delta, self._pot, E, Lz**2.0 / 2.0))
         return numpy.exp(logu0)
 
-    def Er(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
+    def Er(self, R, z, vR, vz, E, Lz, sinh2u0, u0, potu0pi2=None):
         """
         Calculate the 'radial energy'
 
@@ -853,8 +1255,15 @@ class actionAngleStaeckelGrid(actionAngle):
         -----
         - 2012-11-29 - Written - Bovy (IAS).
         """
+        xp = get_namespace(R) if is_backend_array(R) else numpy
         u, v = coords.Rz_to_uv(R, z, self._delta)
-        pu = vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(
+        # potentialStaeckel(u0, pi/2) is identical in Er and Ez; the caller may
+        # pass it precomputed to evaluate it once per orbit instead of twice.
+        if potu0pi2 is None:
+            potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                u0, numpy.pi / 2.0, self._pot, self._delta
+            )
+        pu = vR * xp.cosh(u) * xp.sin(v) + vz * xp.sinh(u) * xp.cos(
             v
         )  # no delta, bc we will divide it out
         out = (
@@ -862,22 +1271,19 @@ class actionAngleStaeckelGrid(actionAngle):
             + Lz**2.0
             / 2.0
             / self._delta**2.0
-            * (1.0 / numpy.sinh(u) ** 2.0 - 1.0 / sinh2u0)
-            - E * (numpy.sinh(u) ** 2.0 - sinh2u0)
-            + (numpy.sinh(u) ** 2.0 + 1.0)
+            * (1.0 / xp.sinh(u) ** 2.0 - 1.0 / sinh2u0)
+            - E * (xp.sinh(u) ** 2.0 - sinh2u0)
+            + (xp.sinh(u) ** 2.0 + 1.0)
             * actionAngleStaeckel.potentialStaeckel(
                 u, numpy.pi / 2.0, self._pot, self._delta
             )
-            - (sinh2u0 + 1.0)
-            * actionAngleStaeckel.potentialStaeckel(
-                u0, numpy.pi / 2.0, self._pot, self._delta
-            )
+            - (sinh2u0 + 1.0) * potu0pi2
         )
         #              +(numpy.sinh(u)**2.+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u,v,self._pot,self._delta)
         #              -(sinh2u0+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u0,v,self._pot,self._delta))
         return out
 
-    def Ez(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
+    def Ez(self, R, z, vR, vz, E, Lz, sinh2u0, u0, potu0pi2=None):
         """
         Calculate the 'vertical energy'
 
@@ -909,19 +1315,23 @@ class actionAngleStaeckelGrid(actionAngle):
         -----
         - 2012-12-23 - Written - Bovy (IAS)
         """
+        xp = get_namespace(R) if is_backend_array(R) else numpy
         u, v = coords.Rz_to_uv(R, z, self._delta)
-        pv = vR * numpy.sinh(u) * numpy.cos(v) - vz * numpy.cosh(u) * numpy.sin(
+        # potentialStaeckel(u0, pi/2) is identical in Er and Ez; the caller may
+        # pass it precomputed to evaluate it once per orbit instead of twice.
+        if potu0pi2 is None:
+            potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                u0, numpy.pi / 2.0, self._pot, self._delta
+            )
+        pv = vR * xp.sinh(u) * xp.cos(v) - vz * xp.cosh(u) * xp.sin(
             v
         )  # no delta, bc we will divide it out
         out = (
             pv**2.0 / 2.0
-            + Lz**2.0 / 2.0 / self._delta**2.0 * (1.0 / numpy.sin(v) ** 2.0 - 1.0)
-            - E * (numpy.sin(v) ** 2.0 - 1.0)
-            - (sinh2u0 + 1.0)
-            * actionAngleStaeckel.potentialStaeckel(
-                u0, numpy.pi / 2.0, self._pot, self._delta
-            )
-            + (sinh2u0 + numpy.sin(v) ** 2.0)
+            + Lz**2.0 / 2.0 / self._delta**2.0 * (1.0 / xp.sin(v) ** 2.0 - 1.0)
+            - E * (xp.sin(v) ** 2.0 - 1.0)
+            - (sinh2u0 + 1.0) * potu0pi2
+            + (sinh2u0 + xp.sin(v) ** 2.0)
             * actionAngleStaeckel.potentialStaeckel(u0, v, self._pot, self._delta)
         )
         return out
@@ -939,10 +1349,46 @@ def _u0Eq(logu, delta, pot, E, Lz22):
 def _Efunc(E, *args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
     #    return ((E-args[0]))**0.5
-    return numpy.log(E - args[0] + 10.0**-10.0)
+    xp = get_namespace(E) if is_backend_array(E) else numpy
+    return xp.log(E - args[0] + 10.0**-10.0)
 
 
 def _invEfunc(Ef, *args):
     """Inverse of Efunc"""
     #    return Ef**2.+args[0]
-    return numpy.exp(Ef) + args[0] - 10.0**-10.0
+    xp = get_namespace(Ef) if is_backend_array(Ef) else numpy
+    return xp.exp(Ef) + args[0] - 10.0**-10.0
+
+
+def _revT(xp, a):
+    """Full-axis-reversing transpose (numpy ``.T`` for any ndim), namespace-generic."""
+    return xp.permute_dims(a, tuple(reversed(range(a.ndim))))
+
+
+def _tileT_flat(xp, a, reps):
+    """``(tile(a, (reps, 1)).T).flatten()`` -- the numpy grid-tiling idiom, in xp.
+    ``a`` is 1-D (n,); returns (n*reps,) with ``a`` varying slowest."""
+    return xp.reshape(xp.matrix_transpose(xp.tile(a, (reps, 1))), (-1,))
+
+
+def _nanmax_ne(xp, slc, exclude):
+    """``nanmax`` over the entries of ``slc`` that are neither NaN nor ``exclude``
+    (matches ``numpy.nanmax(slc[slc != exclude])`` on the physical grid, where at
+    least one valid entry remains)."""
+    neg_inf = asarray_on_device(xp, numpy.array(-numpy.inf), device_of(slc))
+    masked = xp.where((slc != exclude) & ~xp.isnan(slc), slc, neg_inf)
+    return xp.max(masked)
+
+
+def _max_finite(xp, slc):
+    """``numpy.amax(slc[numpy.isfinite(slc)])`` -- max over the finite entries."""
+    neg_inf = asarray_on_device(xp, numpy.array(-numpy.inf), device_of(slc))
+    return xp.max(xp.where(xp.isfinite(slc), slc, neg_inf))
+
+
+def _fill_zeros_minpos(xp, a):
+    """Replace zero entries with the minimum strictly-positive entry (mirrors
+    ``a[a == 0.0] = numpy.nanmin(a[a > 0.0])``)."""
+    pos_inf = asarray_on_device(xp, numpy.array(numpy.inf), device_of(a))
+    minpos = xp.min(xp.where(a > 0.0, a, pos_inf))
+    return xp.where(a == 0.0, minpos, a)

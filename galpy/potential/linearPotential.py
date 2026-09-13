@@ -5,6 +5,7 @@ import pickle
 
 import numpy
 
+from ..backend import backend_input, coerce_coords, get_namespace
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -20,6 +21,28 @@ from .Potential import (
 )
 
 
+def _coerce_x(pot, x):
+    """Bring ``x`` onto the active backend for a backend-compatible potential.
+
+    The ``_*_nodecorator`` entries below are the RAW ones the integrators call,
+    so they bypass ``@backend_input`` -- which is the point, no per-step
+    decorator cost -- but it means that under a forced backend they see whatever
+    the integrator hands over, i.e. a numpy scalar. A migrated 1D potential then
+    does real backend arithmetic on it (``xp.sqrt(x**2 + D2)``) and torch
+    rejects a numpy scalar outright.
+
+    This is the 1D analogue of the coercion
+    :func:`~galpy.potential.Potential.check_potential_inputs_not_arrays` already
+    performs for 3D, and it is gated the same way. ``t`` is left alone, also as
+    in 3D: it may be used as a hashable cache key downstream. The numpy path is
+    byte-identical -- ``coerce_coords`` is an object-identical pass-through when
+    the namespace is numpy.
+    """
+    if not getattr(pot, "_backend_compatible", False):
+        return x
+    return coerce_coords(get_namespace(x), x)[0]
+
+
 class linearPotential:
     """Class representing 1D potentials"""
 
@@ -31,6 +54,8 @@ class linearPotential:
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
+        # Backend-aware compute methods? Set True on migrated potentials.
+        self._backend_compatible = False
         # Parse ro and vo
         if ro is None:
             self._ro = config.__config__.getfloat("normalization", "ro")
@@ -229,6 +254,7 @@ class linearPotential:
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
+    @backend_input("x", "t")
     def __call__(self, x, t=0.0):
         """
         Evaluate the potential.
@@ -254,6 +280,7 @@ class linearPotential:
 
     def _call_nodecorator(self, x, t=0.0):
         # Separate, so it can be used during orbit integration
+        x = _coerce_x(self, x)
         try:
             return self._amp * self._evaluate(x, t=t)
         except AttributeError:  # pragma: no cover
@@ -263,6 +290,7 @@ class linearPotential:
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
+    @backend_input("x", "t")
     def force(self, x, t=0.0):
         """
         Evaluate the force.
@@ -288,6 +316,7 @@ class linearPotential:
 
     def _force_nodecorator(self, x, t=0.0):
         # Separate, so it can be used during orbit integration
+        x = _coerce_x(self, x)
         try:
             return self._amp * self._force(x, t=t)
         except AttributeError:  # pragma: no cover
@@ -299,6 +328,7 @@ class linearPotential:
         # the 1D variational (dxdv) equations; the RHS applies the sign to get
         # the force gradient dF/dx = -d^2 Phi / dx^2. Separate, so it can be
         # used during orbit integration.
+        x = _coerce_x(self, x)
         try:
             return self._amp * self._force2deriv(x, t=t)
         except AttributeError:  # pragma: no cover
@@ -357,6 +387,7 @@ class linearPotential:
 @potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("energy", pop=True)
+@backend_input("x", "t")
 def evaluatelinearPotentials(Pot, x, t=0.0):
     """
     Evaluate the sum of a combination of potentials.
@@ -397,6 +428,7 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 @potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("force", pop=True)
+@backend_input("x", "t")
 def evaluatelinearForces(Pot, x, t=0.0):
     """
     Evaluate the forces due to a combination of potentials.

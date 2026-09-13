@@ -6,8 +6,10 @@ import pytest
 PY3 = sys.version > "3"
 PY_GE_314 = sys.version_info >= (3, 14)
 import numpy
+from conftest import _ic_on_backend, _inbackend_method
 
 from galpy import potential
+from galpy.backend import as_numpy
 from galpy.util import galpyWarning
 
 
@@ -45,17 +47,19 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
 
     # Also run this test using the Python implementation, but for less time
     t = numpy.linspace(0.0, 2 * tau_pred / 5, 1001)
     r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
-    o.integrate(t, Loghalo + fdf, method="dop853")
+    _m = _inbackend_method("dop853")
+    o = o if _m == "dop853" else Orbit(_ic_on_backend(o))
+    o.integrate(t, Loghalo + fdf, method=_m)
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -106,10 +110,12 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor():
     fdf = FDMDynamicalFrictionForce(
         GMs=GMs, dens=Loghalo, m=m, const_FDMfactor=const_FDMfactor
     )
-    o.integrate(t, Loghalo + fdf, method="dop853")
+    _m = _inbackend_method("dop853")
+    o = o if _m == "dop853" else Orbit(_ic_on_backend(o))
+    o.integrate(t, Loghalo + fdf, method=_m)
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -163,7 +169,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor_c():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -326,30 +332,47 @@ def test_FDMDynamicalFrictionForce_pickling():
 
 # Test whether dynamical friction in C works (compare to Python, which is
 # tested below; put here because a test of many potentials)
-def test_dynamfric_c():
+def _fdm_mwpotential3021():
     import copy
 
+    pot = copy.deepcopy(potential.MWPotential2014)
+    pot[2] *= 1.5  # Increase mass by 50%
+    return pot
+
+
+# One case per potential, like tests/test_dynamfric.py: the case id is what a
+# failure -- or a backend ledger entry -- names. FACTORIES, not instances:
+# conftest forces the backend per TEST, so building a potential at collection
+# time would build it on numpy even under --backend jax.
+_FDM_DYNAMFRIC_POTS = {
+    "LogarithmicHaloPotential": lambda: potential.LogarithmicHaloPotential(normalize=1),
+    "LogarithmicHaloPotential_nonaxi": lambda: potential.LogarithmicHaloPotential(
+        normalize=1.3, q=0.9, b=0.7
+    ),
+    "NFWPotential": lambda: potential.NFWPotential(normalize=1.0, a=1.5),
+    "DehnenSphericalPotential": lambda: potential.DehnenSphericalPotential(
+        normalize=4.0, alpha=1.2
+    ),
+    "DehnenCoreSphericalPotential": lambda: potential.DehnenCoreSphericalPotential(
+        normalize=4.0
+    ),
+    "PlummerPotential": lambda: potential.PlummerPotential(normalize=0.6, b=3.0),
+    "HomogeneousSpherePotential": lambda: potential.HomogeneousSpherePotential(
+        normalize=0.02, R=82.0 / 8
+    ),
+    "MWPotential3021": _fdm_mwpotential3021,
+}
+
+
+@pytest.mark.parametrize("potid", list(_FDM_DYNAMFRIC_POTS))
+def test_dynamfric_c(potid):
     from galpy.orbit import Orbit
-    from galpy.potential.mwpotentials import McMillan17
     from galpy.potential.Potential import _check_c
 
     # Basic parameters for the test
     times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle
     integrator = "dop853_c"
-    py_integrator = "dop853"
-    # Define all of the potentials (by hand, because need reasonable setup)
-    MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
-    MWPotential3021[2] *= 1.5  # Increase mass by 50%
-    pots = [
-        potential.LogarithmicHaloPotential(normalize=1),
-        potential.LogarithmicHaloPotential(normalize=1.3, q=0.9, b=0.7),  # nonaxi
-        potential.NFWPotential(normalize=1.0, a=1.5),
-        potential.DehnenSphericalPotential(normalize=4.0, alpha=1.2),
-        potential.DehnenCoreSphericalPotential(normalize=4.0),
-        potential.PlummerPotential(normalize=0.6, b=3.0),
-        potential.HomogeneousSpherePotential(normalize=0.02, R=82.0 / 8),
-        MWPotential3021,
-    ]
+    py_integrator = _inbackend_method("dop853")
     # tolerances in log10
     tol = {}
     tol["default"] = -7.0
@@ -362,46 +385,48 @@ def test_dynamfric_c():
     tol["HomogeneousSpherePotential"] = -6.0
     tol["interpSphericalPotential"] = -6.0  # == HomogeneousSpherePotential
     tol["McMillan17"] = -6.0
-    for p in pots:
-        if not _check_c(p, dens=True):
-            continue  # dynamfric not in C!
-        pname = type(p).__name__
-        if pname == "list":
-            if (
-                isinstance(p[0], potential.PowerSphericalPotentialwCutoff)
-                and len(p) > 1
-                and isinstance(p[1], potential.MiyamotoNagaiPotential)
-                and len(p) > 2
-                and isinstance(p[2], potential.NFWPotential)
-            ):
-                pname = "MWPotential3021"  # Must be!
-        if pname in list(tol.keys()):
-            ttol = tol[pname]
-        else:
-            ttol = tol["default"]
-        # Setup orbit, ~ LMC
-        o = Orbit(
-            [5.13200034, 1.08033051, 0.23323391, -3.48068653, 0.94950884, -1.54626091]
-        )
-        # Setup dynamical friction object
-        fdf = potential.FDMDynamicalFrictionForce(
-            GMs=0.5553870441722593,
-            rhm=5.0 / 8.0,
-            dens=p,
-            m=3e-102,
-            maxr=500.0 / 8,
-            nr=201,
-        )
-        ttimes = times
-        # Integrate in C
-        o.integrate(ttimes, p + fdf, method=integrator)
-        # Integrate in Python
-        op = o()
-        op.integrate(ttimes, p + fdf, method=py_integrator)
-        # Compare r (most important)
-        assert numpy.amax(numpy.fabs(o.r(ttimes) - op.r(ttimes))) < 10**ttol, (
-            f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
-        )
+    p = _FDM_DYNAMFRIC_POTS[potid]()
+    if not _check_c(p, dens=True):  # dynamical friction is not in C without it
+        pytest.skip(f"{potid} has no C density, so C dynamical friction is unavailable")
+    pname = type(p).__name__
+    if pname == "list":
+        if (
+            isinstance(p[0], potential.PowerSphericalPotentialwCutoff)
+            and len(p) > 1
+            and isinstance(p[1], potential.MiyamotoNagaiPotential)
+            and len(p) > 2
+            and isinstance(p[2], potential.NFWPotential)
+        ):
+            pname = "MWPotential3021"  # Must be!
+    if pname in list(tol.keys()):
+        ttol = tol[pname]
+    else:
+        ttol = tol["default"]
+    # Setup orbit, ~ LMC
+    o = Orbit(
+        [5.13200034, 1.08033051, 0.23323391, -3.48068653, 0.94950884, -1.54626091]
+    )
+    # Setup dynamical friction object
+    fdf = potential.FDMDynamicalFrictionForce(
+        GMs=0.5553870441722593,
+        rhm=5.0 / 8.0,
+        dens=p,
+        m=3e-102,
+        maxr=500.0 / 8,
+        nr=201,
+    )
+    ttimes = times
+    # Integrate in C
+    o.integrate(ttimes, p + fdf, method=integrator)
+    # Integrate in Python
+    op = o()
+    op = op if py_integrator == "dop853" else Orbit(_ic_on_backend(op))
+    op.integrate(ttimes, p + fdf, method=py_integrator)
+    # Compare r (most important)
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(ttimes) - op.r(ttimes)))) < 10**ttol, (
+        f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
+    )
+
     return None
 
 
@@ -430,7 +455,7 @@ def test_dynamfric_c_minr():
     op = o()
     op.integrate(times, pot, method=integrator)
     # Compare r (most important)
-    assert numpy.amax(numpy.fabs(o.r(times) - op.r(times))) < 10**-8.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(times) - op.r(times)))) < 10**-8.0, (
         "Dynamical friction in C does not properly use minr"
     )
     return None

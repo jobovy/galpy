@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
 from .linearPotential import linearPotential
 
@@ -42,21 +43,34 @@ class IsothermalDiskPotential(linearPotential):
         linearPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         sigma = conversion.parse_velocity(sigma, vo=self._vo)
         self._sigma2 = sigma**2.0
-        self._H = sigma / numpy.sqrt(8.0 * numpy.pi * self._amp)
+        # amp is folded into the scale height H; make the sqrt backend-aware so a
+        # jax/torch amp differentiates through H. Dispatch on is_backend_array
+        # (NOT get_namespace): a plain numpy amp must stay numpy even under a
+        # forced backend (torch.sqrt rejects a bare python/numpy scalar), so the
+        # numpy path is byte-identical.
+        xp = get_namespace(self._amp) if is_backend_array(self._amp) else numpy
+        self._H = sigma / xp.sqrt(8.0 * numpy.pi * self._amp)
         self._amp = 1.0  # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2
         self.hasC = True
         self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
+        self._backend_compatible = True
 
     def _evaluate(self, x, t=0.0):
-        return 2.0 * self._sigma2 * numpy.log(numpy.cosh(0.5 * x / self._H))
+        xp = get_namespace(x)
+        (x,) = coerce_coords(xp, x)
+        return 2.0 * self._sigma2 * xp.log(xp.cosh(0.5 * x / self._H))
 
     def _force(self, x, t=0.0):
-        return -self._sigma2 * numpy.tanh(0.5 * x / self._H) / self._H
+        xp = get_namespace(x)
+        (x,) = coerce_coords(xp, x)
+        return -self._sigma2 * xp.tanh(0.5 * x / self._H) / self._H
 
     def _force2deriv(self, x, t=0.0):
         # d^2 Phi / dx^2 = sigma^2 / (2 H^2) sech^2(x/2H)
+        xp = get_namespace(x)
+        (x,) = coerce_coords(xp, x)
         return (
             self._sigma2
             / (2.0 * self._H**2.0)
-            * (1.0 - numpy.tanh(0.5 * x / self._H) ** 2.0)
+            * (1.0 - xp.tanh(0.5 * x / self._H) ** 2.0)
         )
