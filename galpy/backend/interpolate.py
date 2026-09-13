@@ -44,6 +44,7 @@ from ._namespaces import (
     is_backend_array,
     name_of_namespace,
     prefer_backend_namespace,
+    under_trace,
 )
 from ._resolver import get_namespace
 
@@ -88,26 +89,71 @@ def spline_to_ppoly(spl):
     return numpy.append(ppoly.x[:-1][keep], ppoly.x[-1]), ppoly.c[:, keep]
 
 
-def _take0(xp, a, idx):
-    """``a[idx]`` along axis 0, written so torch survives ``vmap(grad(...))``.
+def _take(xp, a, idx, axis=0):
+    """``a[..., idx, ...]`` along ``axis``, written so torch survives
+    ``vmap(grad(...))``.
 
     Plain ``a[idx]`` with a *computed* index is fine under vmap alone and under
     grad alone, but raises inside the composition that autodiff.py builds for
     the fE chain. ``take`` is batched correctly; the reshape carries 0-d ``idx``
     (one scalar per vmap element) through, since ``take`` wants a 1-D index.
+
+    ``axis=1`` is how ``eval_ppoly`` pulls all of a piecewise polynomial's
+    coefficient rows in ONE gather: on jax a gather is ~300 us of eager dispatch,
+    so four of them cost more than the rest of the evaluation put together.
     """
     if xp is numpy:
         # numpy stays on the original expression: take() on a 0-d index returns
         # a 0-d ARRAY where a[idx] returns a numpy SCALAR, and callers here
         # (interpSphericalPotential._revaluate) depend on the scalar.
-        return a[idx]
-    flat = xp.reshape(idx, (-1,))
+        return a[idx] if axis == 0 else a[(slice(None),) * axis + (idx,)]
     # xp may be the RAW torch module (not array-api-compat's), whose take() has
-    # no axis kwarg; and jax/numpy have no index_select. Prefer whichever the
-    # namespace actually provides -- both mean "gather along axis 0".
+    # no axis kwarg; and jax has no index_select. Prefer whichever the namespace
+    # actually provides -- both mean "gather along ``axis``".
     sel = getattr(xp, "index_select", None)
-    out = sel(a, 0, flat) if sel is not None else xp.take(a, flat, axis=0)
-    return xp.reshape(out, tuple(idx.shape) + tuple(a.shape[1:]))
+    if sel is None:
+        # take() accepts an index of ANY shape and already returns
+        # a.shape[:axis] + idx.shape + a.shape[axis+1:], so the reshape pair the
+        # index_select path needs is pure overhead here -- and on eager jax each
+        # reshape is ~130 us against ~14 us for the gather itself, i.e. the
+        # reshapes cost 10x the work they wrap.
+        return xp.take(a, idx, axis=axis)
+    # index_select wants a 1-D index; the reshape is also what carries a 0-d
+    # index (one scalar per vmap element) through the vmap(grad(...))
+    # composition autodiff.py builds for the fE chain.
+    out = sel(a, axis, xp.reshape(idx, (-1,)))
+    return xp.reshape(
+        out,
+        tuple(a.shape[:axis]) + tuple(idx.shape) + tuple(a.shape[axis + 1 :]),
+    )
+
+
+def _take0(xp, a, idx):
+    """``a[idx]`` along axis 0; see :func:`_take`."""
+    return _take(xp, a, idx, axis=0)
+
+
+def _unstack0(xp, a):
+    """``a`` split into its rows along axis 0, as a tuple.
+
+    ``a[0], a[1], ...`` would do it, but an integer index into a backend array is
+    a dispatch apiece (~130 us each on eager jax) where ``unstack`` is one call
+    for all of them. It is a pure split -- no arithmetic -- so callers get the
+    same values either way. Namespaces predating the array-API ``unstack`` (the
+    RAW torch module, which ``get_namespace`` can hand back) fall back.
+    """
+    # Only jax. numpy must keep the indexing form -- on a 1-D `a` it yields numpy
+    # SCALARS where unstack yields 0-d ARRAYS, and callers downstream of
+    # eval_ppoly (interpSphericalPotential._revaluate) depend on the scalar. And
+    # array-api-compat implements torch's unstack as `tuple(moveaxis(x, axis, 0))`,
+    # which has NO vmap batching rule -- under the vmap(grad(...)) composition
+    # autodiff.py builds for the fE chain it dies with "Batching rule not
+    # implemented for aten::moveaxis.int". Nothing is lost by indexing there:
+    # torch dispatch is ~3.8 us against jax's ~130 us, which is the whole reason
+    # this helper exists.
+    if name_of_namespace(xp) == "jax":
+        return xp.unstack(a)
+    return tuple(a[j] for j in range(a.shape[0]))
 
 
 def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
@@ -166,14 +212,22 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         # axis; give dr a matching trailing axis so the Horner step broadcasts.
         dr = dr[..., None]
     k = cb.shape[0] - 1  # polynomial degree
+    # ONE gather for every coefficient row, then ONE unstack into the per-degree
+    # rows the Horner step consumes. Both matter on an eager backend, where a
+    # gather and an integer index are each a full dispatch: for a cubic, four
+    # `cb[j][idx]` gathers plus four `ci[j]` indexes cost ~1.8 ms of jax dispatch
+    # against ~0.12 ms for the gather+unstack pair -- and `unstack` is a pure
+    # split, so the Horner recurrence below is evaluated on exactly the same
+    # numbers it always was.
+    ci = _unstack0(xp, _take(xp, cb, idx, axis=1))
     if nu == 0:
-        out = _take0(xp, cb[0], idx)
+        out = ci[0]
         for j in range(1, cb.shape[0]):
-            out = out * dr + _take0(xp, cb[j], idx)
+            out = out * dr + ci[j]
         return out
     if nu > k:
         # derivative past the degree is identically zero (broadcast over r)
-        return _take0(xp, cb[0], idx) * 0.0
+        return ci[0] * 0.0
     # Analytic nu-th derivative of sum_j c[j]*(dr)**(k-j): the term of original
     # power p=k-j survives with the falling-factorial factor p*(p-1)*...*(p-nu+1)
     # and reduced power p-nu. Horner over the surviving (descending-power) terms.
@@ -183,7 +237,7 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         fall = 1.0
         for m in range(nu):
             fall *= p - m
-        term = _take0(xp, cb[j], idx) * fall
+        term = ci[j] * fall
         out = term if out is None else out * dr + term
     return out
 
@@ -982,6 +1036,37 @@ class Spline1D:
             )
             self._ppoly_x, self._ppoly_c = spline_to_ppoly(self._spl)
 
+    @classmethod
+    def from_ppoly(cls, pp, ext=0):
+        """A :class:`Spline1D` wrapping an ALREADY-FITTED scipy piecewise polynomial.
+
+        The ``(x, y)`` constructor fits an ``InterpolatedUnivariateSpline``, which
+        is a *different* spline from, say, ``CubicSpline(bc_type="natural")``. A
+        caller that needs a specific one -- because it must match a C
+        implementation knot-for-knot -- builds it itself and passes it here.
+
+        numpy queries call ``pp`` directly (byte-identical to using it), and a
+        backend evaluates ``pp``'s own power-basis coefficients through the
+        namespace, so the two paths interpolate the SAME polynomial.
+
+        ``pp`` must be a scipy ``PPoly`` (``CubicSpline`` is one) with strictly
+        increasing breakpoints; its ``.x``/``.c`` already use ``eval_ppoly``'s
+        layout, so nothing is refitted or converted.
+        """
+        if numpy.any(numpy.diff(pp.x) <= 0.0):
+            raise ValueError("from_ppoly needs strictly increasing breakpoints")
+        self = cls.__new__(cls)
+        self._k = int(pp.c.shape[0]) - 1
+        self._ext = ext
+        self._extrapolate = True if ext in (0, "extrapolate") else "const"
+        self._bc = None
+        self._mode2 = False
+        self._x = numpy.asarray(pp.x, dtype=float)
+        self._spl = pp
+        self._ppoly_x = self._x
+        self._ppoly_c = numpy.asarray(pp.c, dtype=float)
+        return self
+
     def __call__(self, r, nu=0):
         """Evaluate the spline (``nu=0``) or its ``nu``-th derivative at ``r``.
 
@@ -1025,14 +1110,47 @@ class Spline1D:
             return eval_cubic(
                 xp, self._x, self._coeffs, r, nu=nu, extrapolate=self._extrapolate
             )
-        return eval_ppoly(
-            xp,
-            self._ppoly_x,
-            self._ppoly_c,
-            r,
-            nu=nu,
-            extrapolate=self._extrapolate,
-        )
+        xb, cb = self._ppoly_on(xp, r)
+        return eval_ppoly(xp, xb, cb, r, nu=nu, extrapolate=self._extrapolate)
+
+    def _ppoly_on(self, xp, r):
+        """The frozen ``(x, c)`` table as arrays of ``r``'s namespace and device.
+
+        The table is a numpy constant, so without this every evaluation re-uploads
+        it -- for a 3000-knot spline that is a (3000,) and a (4, 2999) transfer per
+        call, ~35% of the eager cost of evaluating the spline at ONE point. Cached
+        per (namespace, device); `eval_ppoly`'s own `asarray_on_device` then takes
+        its "already the right dtype and device" fast path.
+        """
+        dev = device_of(r)
+        if under_trace(r):
+            # Inside a trace, jax lifts even a numpy constant into the jaxpr, so
+            # the converted arrays come back as TRACERS -- caching one would leak
+            # this trace's tracers into the next call and blow up there, far from
+            # here. Nothing is lost: a per-trace conversion is constant-folded
+            # once by the compiler, which is the whole point of tracing.
+            return (
+                asarray_on_device(xp, self._ppoly_x, dev),
+                asarray_on_device(xp, self._ppoly_c, dev),
+            )
+        key = (xp.__name__, repr(dev))
+        cache = self.__dict__.get("_ppoly_dev_cache")
+        if cache is None:
+            cache = self._ppoly_dev_cache = {}
+        hit = cache.get(key)
+        if hit is None:
+            hit = cache[key] = (
+                asarray_on_device(xp, self._ppoly_x, dev),
+                asarray_on_device(xp, self._ppoly_c, dev),
+            )
+        return hit
+
+    def __getstate__(self):
+        # the cached device copies are backend arrays -- rebuildable, and not
+        # picklable across processes/backends; drop them.
+        state = self.__dict__.copy()
+        state.pop("_ppoly_dev_cache", None)
+        return state
 
     def derivative(self, n=1):
         """Return a callable for the ``n``-th derivative.

@@ -4085,7 +4085,9 @@ def test_actionAngle_oblatestaeckelwrapper_cache_c():
             out.extend(aAS.EccZmaxRperiRap(R, vR, vT, z, vz))
             out.extend(aAA(R, vR, vT, z, vz))
             out.extend(aAA.EccZmaxRperiRap(R, vR, vT, z, vz))
-            results.append(out)
+            # under a forced backend these come back as backend arrays; the
+            # reductions below are numpy's
+            results.append([as_numpy(a) for a in out])
         for first, second in zip(*results):
             assert numpy.all(first == second), (
                 "OblateStaeckelWrapperPotential C actionAngle evaluation is not "
@@ -4102,7 +4104,7 @@ def test_actionAngle_oblatestaeckelwrapper_cache_c():
         )
     aASpy = actionAngleStaeckel(pot=swp, delta=0.45, c=False)
     sub = slice(0, n, 16)
-    jpy = aASpy(R[sub], vR[sub], vT[sub], z[sub], vz[sub])
+    jpy = [as_numpy(a) for a in aASpy(R[sub], vR[sub], vT[sub], z[sub], vz[sub])]
     for jc, jp in zip(all_results[0][:3], jpy):
         assert numpy.amax(numpy.fabs(jc[sub] - jp)) < 1e-4, (
             "C and Python actions of the cached OblateStaeckelWrapperPotential disagree"
