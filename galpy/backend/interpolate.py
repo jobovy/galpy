@@ -915,26 +915,46 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     # combo[d] in {-1,0,1,2} per dim; clamp the (base+offset) index to the edge
     # (mode='nearest'); multiply the per-dim weights; accumulate.
     offs = (-1, 0, 1, 2)
-    out = None
-    for combo in itertools.product(range(4), repeat=D):
-        gather_idx = []
-        wt = None
-        for d in range(D):
-            idx_d = base[d] + offs[combo[d]]
+    # Per-dimension tap indices, folded ONCE. The loop this replaces re-derived
+    # them inside every one of the 4**D combos -- for a 3-D grid that is 192
+    # boundary folds computing the same 12 index arrays.
+    idx_rows = []
+    for d in range(D):
+        hi = shape[d] - 1
+        row = []
+        for k in range(4):
+            idx_d = base[d] + offs[k]
             if mode == "mirror":
                 # Whole-sample symmetric fold, the pair to spline_filter's
                 # mode='mirror': i<0 -> -i ; i>n-1 -> 2(n-1)-i.
-                hi = shape[d] - 1
                 idx_d = hi - xp.abs(hi - xp.abs(idx_d))
             else:  # 'nearest': clamp the tap index to the edge
-                idx_d = xp.clip(idx_d, 0, shape[d] - 1)
-            gather_idx.append(idx_d)
-            w_d = weights[d][combo[d]]
-            wt = w_d if wt is None else wt * w_d
-        vals = cb[tuple(gather_idx)]
-        contrib = vals * wt
-        out = contrib if out is None else out + contrib
-    return out
+                idx_d = xp.clip(idx_d, 0, hi)
+            row.append(idx_d)
+        idx_rows.append(row)
+    # ONE gather for all 4**D taps. The tap block is built by BROADCASTING the
+    # per-dimension indices against C-order strides instead of by 4**D separate
+    # fancy-index gathers -- on eager jax a gather is ~300 us of dispatch, so a
+    # 3-D cubic was paying 64 of them (plus their index arithmetic) to
+    # interpolate at ONE point.
+    strides = [1] * D
+    for d in range(D - 2, -1, -1):
+        strides[d] = strides[d + 1] * shape[d + 1]
+    flat = None
+    wt = None
+    for d in range(D):
+        bshape = [1] * D + [-1]
+        bshape[d] = 4
+        i_d = xp.reshape(xp.stack(idx_rows[d], axis=0), tuple(bshape))
+        w_d = xp.reshape(xp.stack(list(weights[d]), axis=0), tuple(bshape))
+        term = i_d * strides[d]
+        flat = term if flat is None else flat + term
+        wt = w_d if wt is None else wt * w_d
+    npts = flat.shape[-1]
+    vals = _take0(xp, xp.reshape(cb, (-1,)), xp.reshape(flat, (-1,)))
+    # sum over the D tap axes; the taps are the same ones and in the same
+    # C-order the itertools.product loop visited them in.
+    return xp.sum(xp.reshape(vals, (-1, npts)) * xp.reshape(wt, (-1, npts)), axis=0)
 
 
 def _index_dtype(xp):
