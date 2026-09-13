@@ -109,6 +109,19 @@ def _quad_apeak(f, R, z):
     )
 
 
+def _node_axes(v, n_axes):
+    """``v`` with ``n_axes`` trailing axes added, to broadcast against quadrature nodes.
+
+    A rule calls its integrand with ONE trailing node axis, except
+    :meth:`_bk_split_quad`'s panel call, whose limits already carry a panel axis
+    and so presents TWO. A no-op on a scalar/0-d ``v``, which is what lets the
+    scalar path stay exactly as it was.
+    """
+    for _ in range(n_axes):
+        v = _bquad.node_axis(v)
+    return v
+
+
 def _finite_part_quad(integrand_d, R, az, C):
     """Integrate ``integrand_d(d)`` over the disc, as a Hadamard finite part.
 
@@ -159,6 +172,15 @@ def _default_surfdens(R):
 
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
+
+    # Backend ARRAY input is accepted: the six _gl integrands broadcast over a
+    # trailing node axis, which is what lets the traced surfdens/mass Poisson
+    # quadratures hand this potential a whole Gauss-Legendre node array in ONE
+    # call. The traced value uses GL where concrete SCALAR input reuses scipy,
+    # so it is knowingly the less accurate of the two near z = 0 (the a = R
+    # principal value) -- that asymmetry is by design and predates this flag;
+    # the gate merely used to stop arrays from reaching it.
+    _backend_accepts_arrays = True
 
     def __init__(
         self,
@@ -254,7 +276,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     # scipy value is wrapped as a backend array so no downstream ``xp.`` op meets
     # a bare python float.
     # -----------------------------------------------------------------------
-    def _bk_split_quad(self, integrand, R, xp, dev, z, K=24, n=50):
+    def _bk_split_quad(self, make_integrand, R, xp, dev, z, K=24, n=50):
         # int_0^inf integrand(a) da as [0, R] + [R, 2R] + [2R, inf); the
         # symmetric plain-GL split at R handles the a=R (m->1) singularity.
         #
@@ -280,7 +302,12 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         # is singular there and marching panels in makes a finite difference
         # of this potential in R blow up, so grading is switched off; for
         # z>0 the peak is genuinely resolvable and the FD stays clean.
-        ones = xp.ones_like(Rp)
+        # Rp must carry z's shape too: with an ARRAY z every point wants its
+        # own ladder (dmin = 4|z|), so the panel edges below are z-shaped and
+        # the a=0 edge has to match them. Broadcasting here keeps the scalar
+        # case exactly as it was (ones is 1.0).
+        ones = xp.ones_like(Rp * xp.ones_like(z))
+        Rp = Rp * ones
         half = 0.5 * Rp
         dmin = xp.where(
             xp.abs(z) * ones > 0.0,
@@ -305,7 +332,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         inner = xp.sum(
             _bquad.fixed_quad(
                 xp,
-                integrand,
+                make_integrand(2),  # panel limits -> TWO trailing node axes
                 xp.stack(lo, axis=-1),
                 xp.stack(hi, axis=-1),
                 n=n,
@@ -315,7 +342,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         )
         out = xp.where(positive, inner, xp.zeros_like(inner)) + (
             _bquad.fixed_quad_semiinfinite(
-                xp, integrand, 2.0 * Rs, n=_GLORDER, device=dev
+                xp, make_integrand(1), 2.0 * Rs, n=_GLORDER, device=dev
             )
         )
         return xp.where(finite, out, xp.zeros_like(out))
@@ -339,7 +366,11 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         dev = device_of(R, z)
         # torch.compile does not raise from the float() probe below (dynamo
         # makes it symbolic) and would trace scipy's quad instead: ask.
-        if not (requires_backend_grad(R, z) or under_trace(R, z)):
+        # An ARRAY reaches here now that this class opts in to backend array
+        # input: scipy's quad is scalar-only, so an array takes the GL path just
+        # as a traced value does. Scalars are untouched.
+        arrays = bool(getattr(R, "ndim", 0)) or bool(getattr(z, "ndim", 0))
+        if not (arrays or requires_backend_grad(R, z) or under_trace(R, z)):
             # plain concrete backend input: reuse scipy's accurate value. No
             # try/except around float(): every caller is guarded by
             # @check_potential_inputs_not_arrays, so R and z are scalar here, and
@@ -392,11 +423,14 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -4 * _quad_apeak(potint, R, z)
 
     def _evaluate_gl(self, R, z, xp, dev):
-        z2 = z**2
         sdens = self._sdens
+        # transformed_quad / fixed_quad_semiinfinite present ONE trailing node
+        # axis; a no-op for scalar R, z.
+        Rb = _node_axes(R, 1)
+        z2 = _node_axes(z, 1) ** 2
 
         def potint(a):
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, Rb, z2, xp)
             return a * sdens(a) / xp.sqrt(aRz) * _bspecial.ellipkm1(m1)
 
         # NOT _bk_split_quad, unlike Rforce and zforce. Phi's peak at a=R is
@@ -479,26 +513,33 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         )
 
     def _Rforce_gl(self, R, z, xp, dev):
-        R2 = R**2
-        z2 = z**2
         sdens = self._sdens
 
-        def rforceint(a):
-            a2 = a**2
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
-            return (
-                a
-                * sdens(a)
-                * (
-                    (a2 - R2 + z2) * _bspecial.ellipe(1.0 - m1)
-                    - ((a - R) ** 2 + z2) * _bspecial.ellipkm1(m1)
-                )
-                / R
-                / ((a - R) ** 2 + z2)
-                / xp.sqrt(aRz)
-            )
+        def make_integrand(n_axes):
+            # R and z broadcast against however many trailing node axes the
+            # rule presents; a no-op for scalar R, z.
+            Rb = _node_axes(R, n_axes)
+            R2 = Rb**2
+            z2 = _node_axes(z, n_axes) ** 2
 
-        return 2.0 * self._bk_split_quad(rforceint, R, xp, dev, z)
+            def rforceint(a):
+                a2 = a**2
+                m1, aRz = self._bk_m1_aRz(a, Rb, z2, xp)
+                return (
+                    a
+                    * sdens(a)
+                    * (
+                        (a2 - R2 + z2) * _bspecial.ellipe(1.0 - m1)
+                        - ((a - Rb) ** 2 + z2) * _bspecial.ellipkm1(m1)
+                    )
+                    / Rb
+                    / ((a - Rb) ** 2 + z2)
+                    / xp.sqrt(aRz)
+                )
+
+            return rforceint
+
+        return 2.0 * self._bk_split_quad(make_integrand, R, xp, dev, z)
 
     # ------------------------------- zforce --------------------------------
     @check_potential_inputs_not_arrays
@@ -552,23 +593,31 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         # branch is dead, but keep it finite so it cannot poison a gradient.
         az = xp.where(az > 0, az, xp.ones_like(az))
         z_safe = xp.where(z == 0, xp.ones_like(z), z)
-        z2 = az**2
         sdens = self._sdens
 
-        def zforceint(a):
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
-            return (
-                a
-                * sdens(a)
-                * _bspecial.ellipe(1.0 - m1)
-                / ((a - R) ** 2 + z2)
-                / xp.sqrt(aRz)
-            )
+        def make_integrand(n_axes):
+            # R and z broadcast against however many trailing node axes the
+            # rule presents; a no-op for scalar R, z.
+            Rb = _node_axes(R, n_axes)
+            R2 = Rb**2
+            z2 = _node_axes(az, n_axes) ** 2
+
+            def zforceint(a):
+                m1, aRz = self._bk_m1_aRz(a, Rb, z2, xp)
+                return (
+                    a
+                    * sdens(a)
+                    * _bspecial.ellipe(1.0 - m1)
+                    / ((a - Rb) ** 2 + z2)
+                    / xp.sqrt(aRz)
+                )
+
+            return zforceint
 
         # az, not z, on BOTH sides: the panel grading must see the floored width
         # it was integrated at, and -4 |z| I(|z|) is what tends to the limit. Fz
         # is odd in z, so the sign is reapplied here rather than carried through.
-        integral = self._bk_split_quad(zforceint, R, xp, dev, az)
+        integral = self._bk_split_quad(make_integrand, R, xp, dev, az)
         return xp.where(
             z == 0, xp.zeros_like(z), -4.0 * xp.sign(z_safe) * az * integral
         )
@@ -625,26 +674,29 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return _finite_part_quad(r2derivint, R, az, self._sdens(R) / 2.0)
 
     def _R2deriv_gl(self, R, z, xp, dev):
-        R2 = R**2
         # Mirror the numpy floor: below it the finite-|z| branch cannot resolve
         # the peak, and numpy evaluates the z=0 limit instead. Without it the
         # sinh branch of finite_part_quad is entered at a width where the
         # substitution cannot work.
         az = xp.abs(z)
         az = xp.where(az < _R2DERIV_ZFLOOR, xp.zeros_like(az), az)
-        z2 = az**2
         sdens = self._sdens
+        # finite_part_quad / fixed_quad_semiinfinite present ONE trailing node
+        # axis; a no-op for scalar R, z.
+        Rb = _node_axes(R, 1)
+        R2 = Rb**2
+        z2 = _node_axes(az, 1) ** 2
 
         def r2derivint(d):
-            # Parameterised by the OFFSET d = a - R, never by a: a^2-R^2 =
-            # d(2R+d) and (a-R)^2+z^2 = d^2+z^2 are exact in d, whereas
-            # recovering d from a-R loses the digits that 1/(d^2+z^2)^2 then
-            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 R a.
-            a = R + d
-            a2 = R2 + 2.0 * R * d + d * d
+            # Parameterised by the OFFSET d = a - Rb, never by a: a^2-Rb^2 =
+            # d(2R+d) and (a-Rb)^2+z^2 = d^2+z^2 are exact in d, whereas
+            # recovering d from a-Rb loses the digits that 1/(d^2+z^2)^2 then
+            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 Rb a.
+            a = Rb + d
+            a2 = R2 + 2.0 * Rb * d + d * d
             dz = d * d + z2
-            a2mR2 = d * (2.0 * R + d)
-            aRz = (2.0 * R + d) ** 2.0 + z2
+            a2mR2 = d * (2.0 * Rb + d)
+            aRz = (2.0 * Rb + d) ** 2.0 + z2
             m1 = dz / aRz
             return (
                 a
@@ -718,26 +770,29 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return _finite_part_quad(z2derivint, R, az, -self._sdens(R) / 2.0)
 
     def _z2deriv_gl(self, R, z, xp, dev):
-        R2 = R**2
         # Mirror the numpy floor: below it the finite-|z| branch cannot resolve
         # the peak, and numpy evaluates the z=0 limit instead. Without it the
         # sinh branch of finite_part_quad is entered at a width where the
         # substitution cannot work.
         az = xp.abs(z)
         az = xp.where(az < _R2DERIV_ZFLOOR, xp.zeros_like(az), az)
-        z2 = az**2
         sdens = self._sdens
+        # finite_part_quad / fixed_quad_semiinfinite present ONE trailing node
+        # axis; a no-op for scalar R, z.
+        Rb = _node_axes(R, 1)
+        R2 = Rb**2
+        z2 = _node_axes(az, 1) ** 2
 
         def z2derivint(d):
-            # Parameterised by the OFFSET d = a - R, never by a: a^2-R^2 =
-            # d(2R+d) and (a-R)^2+z^2 = d^2+z^2 are exact in d, whereas
-            # recovering d from a-R loses the digits that 1/(d^2+z^2)^2 then
-            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 R a.
-            a = R + d
-            a2 = R2 + 2.0 * R * d + d * d
+            # Parameterised by the OFFSET d = a - Rb, never by a: a^2-Rb^2 =
+            # d(2R+d) and (a-Rb)^2+z^2 = d^2+z^2 are exact in d, whereas
+            # recovering d from a-Rb loses the digits that 1/(d^2+z^2)^2 then
+            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 Rb a.
+            a = Rb + d
+            a2 = R2 + 2.0 * Rb * d + d * d
             dz = d * d + z2
-            a2mR2 = d * (2.0 * R + d)
-            aRz = (2.0 * R + d) ** 2.0 + z2
+            a2mR2 = d * (2.0 * Rb + d)
+            aRz = (2.0 * Rb + d) ** 2.0 + z2
             m1 = dz / aRz
             return (
                 a
@@ -803,37 +858,44 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -2 * z * _quad_apeak(rzderivint, R, z)
 
     def _Rzderiv_gl(self, R, z, xp, dev):
-        R2 = R**2
         # z==0 -> Rzderiv=0 by symmetry; guard the 1/(a-R)^2 pole with z_safe.
         z_safe = xp.where(z == 0, xp.ones_like(z), z)
-        z2 = z_safe**2
         sdens = self._sdens
 
-        def rzderivint(a):
-            a2 = a**2
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
-            return (
-                a
-                * sdens(a)
-                * (
-                    -(
-                        (
-                            a**4
-                            - 7.0 * R**4
-                            - 6.0 * R2 * z2
-                            + z2**2
-                            + 2.0 * a2 * (3.0 * R2 + z2)
-                        )
-                        * _bspecial.ellipe(1.0 - m1)
-                    )
-                    + ((a - R) ** 2 + z2) * (a2 - R2 + z2) * _bspecial.ellipkm1(m1)
-                )
-                / R
-                / ((a - R) ** 2 + z2) ** 2
-                / aRz**1.5
-            )
+        def make_integrand(n_axes):
+            # R and z broadcast against however many trailing node axes the
+            # rule presents; a no-op for scalar R, z.
+            Rb = _node_axes(R, n_axes)
+            R2 = Rb**2
+            z2 = _node_axes(z_safe, n_axes) ** 2
 
-        integral = self._bk_split_quad(rzderivint, R, xp, dev, z)
+            def rzderivint(a):
+                a2 = a**2
+                m1, aRz = self._bk_m1_aRz(a, Rb, z2, xp)
+                return (
+                    a
+                    * sdens(a)
+                    * (
+                        -(
+                            (
+                                a**4
+                                - 7.0 * Rb**4
+                                - 6.0 * R2 * z2
+                                + z2**2
+                                + 2.0 * a2 * (3.0 * R2 + z2)
+                            )
+                            * _bspecial.ellipe(1.0 - m1)
+                        )
+                        + ((a - Rb) ** 2 + z2) * (a2 - R2 + z2) * _bspecial.ellipkm1(m1)
+                    )
+                    / Rb
+                    / ((a - Rb) ** 2 + z2) ** 2
+                    / aRz**1.5
+                )
+
+            return rzderivint
+
+        integral = self._bk_split_quad(make_integrand, R, xp, dev, z)
         return xp.where(z == 0, xp.zeros_like(z), -2.0 * z * integral)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
