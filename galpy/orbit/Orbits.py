@@ -32,6 +32,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
 )
+from ..backend._namespaces import under_trace
 from ..potential import (
     _INF,
     CompositePotential,
@@ -441,7 +442,9 @@ class Orbit:
             # -- falls back to a placeholder and is restricted to the in-backend
             # methods.
             try:
-                vxvv = numpy.asarray(vxvv)
+                # .copy(): asarray on a jax array is a READ-ONLY view, and vxvv is
+                # writable bookkeeping (cf. the as_numpy(...).copy() sites below).
+                vxvv = numpy.asarray(vxvv).copy()
             except Exception:  # traced (jax.grad/jit/vmap) or grad-requiring tensor
                 self._ic_backend_concrete = False
                 vxvv = numpy.zeros(tuple(vxvv.shape))
@@ -1806,12 +1809,18 @@ class Orbit:
                 # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
                 # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
                 _pdim = self.phasedim()
-                if _check_c(_potl) and (
-                    _check_c(_potl, dxdv3d=True)
-                    if _pdim == 6
-                    else _check_c(_potl, dxdv=True)
-                    if _pdim in (2, 4)
-                    else False
+                # A TRACED t cannot take the C-STM: it pure_callbacks into the C
+                # integrator, which closes over a CONCRETE ts (orbit_stm.integrate).
+                if (
+                    _check_c(_potl)
+                    and not under_trace(t)
+                    and (
+                        _check_c(_potl, dxdv3d=True)
+                        if _pdim == 6
+                        else _check_c(_potl, dxdv=True)
+                        if _pdim in (2, 4)
+                        else False
+                    )
                 ):
                     return self._integrate_backend_continued(
                         lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
@@ -2381,7 +2390,10 @@ class Orbit:
             ts = t
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
-            ts = xp.asarray(t)
+            # Keep a numpy t NUMPY (both orbit_stm backends accept it): xp.asarray
+            # inside a trace lifts the constant to a tracer, which the C-STM's
+            # static ts cannot take.
+            ts = t
         if name_of_namespace(xp) == "jax":
             from ..backend._jax import orbit_stm
         else:
@@ -6984,8 +6996,12 @@ class Orbit:
             "solarmotion": self._solarmotion,
         }
         thiso = self._call_internal(*args, **kwargs)
+        # Reshape on whatever namespace the state came back on, so a backend
+        # orbit stays one; numpy keeps numpy.reshape / .T exactly.
+        thisoT = _backend_T(thiso)
+        _xp = get_namespace(thiso) if is_backend_array(thiso) else numpy
         out = Orbit(
-            vxvv=numpy.reshape(thiso.T, self.shape + thiso.T.shape[1:]),
+            vxvv=_xp.reshape(thisoT, self.shape + tuple(thisoT.shape[1:])),
             **orbSetupKwargs,
         )
         out._roSet = self._roSet
@@ -7021,7 +7037,18 @@ class Orbit:
         # (_call_internal_backend_interp), never scipy.
         _orbit_is_backend = is_backend_array(getattr(self, "orbit", None))
         if len(args) == 0 or (not hasattr(self, "t") and args[0] == 0.0):
-            return numpy.array(self.vxvv).T
+            ic_backend = getattr(self, "_ic_backend", None)
+            if ic_backend is None:
+                return numpy.array(self.vxvv).T
+            # self.vxvv is the numpy shape/phasedim BOOKKEEPING; the IC's real
+            # values live on the backend. Returning the numpy copy here made the
+            # no-time accessors disagree with the timed ones for the same orbit
+            # -- o.R() came back numpy while o.R(t), o.R(0.0) and o.E() all came
+            # back on the backend -- and it is what made o() launder a backend
+            # orbit into a numpy one, which streamdf._progenitor_setup then
+            # inherits for its whole setup (progenitor() is its first line).
+            _xp = get_namespace(ic_backend)
+            return _backend_T(_xp.reshape(ic_backend, tuple(numpy.shape(self.vxvv))))
         elif not hasattr(self, "t"):
             raise ValueError(
                 "Integrate instance before evaluating it at a specific time"

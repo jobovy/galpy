@@ -867,14 +867,24 @@ class basestreamspraydf(df):
         # The center's own backend triggers (cases the progenitor-side detection misses).
         cic_backend = getattr(self._orig_center, "_ic_backend", None)
         ic_backend = is_backend_array(cic_backend)
+
+        def _cc(name, i):
+            # Concrete coordinate for the TYPE probe below. A backend center's
+            # accessors return the IC, which under jit is a tracer with no float();
+            # self.vxvv is the concrete bookkeeping they handed back before.
+            try:
+                return float(as_numpy(getattr(_c, name)(0.0)))
+            except Exception:  # noqa: BLE001 -- traced IC has no concrete value
+                return float(numpy.asarray(_c.vxvv).reshape(-1)[i])
+
         with use("numpy", force=True):
             _cf = evaluateRforces(
                 self._centerpot,
-                float(_c.R(0.0)),
-                float(_c.z(0.0)),
-                phi=float(_c.phi(0.0)),
+                _cc("R", 0),
+                _cc("z", 3),
+                phi=_cc("phi", 5),
                 v=numpy.array(
-                    [float(_c.vR(0.0)), float(_c.vT(0.0)), float(_c.vz(0.0))]
+                    [_cc("vR", 1), _cc("vT", 2), _cc("vz", 4)]
                 ),  # a dynamical-friction centerpot is velocity-dependent
             )
         centerpot_theta = is_backend_array(_cf)
