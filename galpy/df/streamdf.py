@@ -27,6 +27,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import special as _bspecial
+from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
 from ..backend.linalg import real_eig as _bk_real_eig
@@ -99,6 +100,18 @@ def _stack3(x, y, z):
     return xp.stack([xp.reshape(v, ()) for v in (x, y, z)])
 
 
+def _ns_coerce(*xs):
+    """``(xp, *xs)`` with every input lifted onto the AMBIENT namespace.
+
+    The reader-side companion to the coercion in ``_progenitor_setup``: a stored
+    attribute can be numpy while the ambient namespace is a backend (a
+    module-scoped fixture is built before the --backend force fixture runs), so
+    compute on ``xp`` after coercing rather than assuming either side.
+    """
+    xp = get_namespace(xs[0])
+    return (xp, *coerce_coords(xp, *xs))
+
+
 def _sig_mean_sign(leading, omega_along):
     """-1 when the mean-offset direction points the wrong way for this tail.
 
@@ -114,6 +127,13 @@ def _sig_mean_sign(leading, omega_along):
         return 1.0
     xp = get_namespace(omega_along)
     wrong = omega_along < 0.0 if leading else omega_along > 0.0
+    if not under_trace(omega_along):
+        # A SIGN: structural, and xp.where(cond, -1.0, 1.0) carries no gradient
+        # either way. Concretely it is a plain float, which keeps the numpy
+        # consumers of _sigMeanSign working (streamgapdf multiplies numpy kick
+        # arrays by it in place). Traced, keep the where so __init__ stays
+        # traceable.
+        return -1.0 if bool(wrong) else 1.0
     return xp.where(wrong, -1.0, 1.0)
 
 
@@ -444,12 +464,26 @@ class streamdf(df):
         # it is the backend even for a numpy dO/dJ -- COERCE onto it rather than
         # data-guarding back to numpy, so the forced suite exercises the backend
         # (numpy is a strict coerce_coords pass-through -> byte-identical).
+        # RUN on the ambient namespace (a forced backend must exercise the backend
+        # leaves: cholesky/eigh/matmul), then hand the results back in the kind the
+        # caller gave us. Casting back is safe EXACTLY when the input was not a
+        # backend array: numpy carries no autodiff tape, so there is no gradient to
+        # lose. A backend IC (or a backend potential parameter) makes calcaAJac
+        # return a genuine backend dO/dJ, `_native` is True, and nothing is cast.
+        _native = is_backend_array(self._dOdJp)
         _ixp = get_namespace(self._dOdJp)
-        # assign BACK onto self: everything downstream (_real_eig here,
-        # _offset_setup, misalignment, the spread) must see one namespace
-        (self._dOdJp,) = coerce_coords(_ixp, self._dOdJp)
-        self._dOdJpInv = _ixp.linalg.inv(self._dOdJp)
-        self._dOdJpEig = _real_eig(self._dOdJp)
+        (_dodj,) = coerce_coords(_ixp, self._dOdJp)
+        _inv = _ixp.linalg.inv(_dodj)
+        _eig = _real_eig(_dodj)
+        if _native:
+            self._dOdJp, self._dOdJpInv, self._dOdJpEig = _dodj, _inv, _eig
+        else:
+            self._dOdJpInv = numpy.asarray(as_numpy(_inv))
+            self._dOdJpEig = (
+                numpy.asarray(as_numpy(_eig[0])),
+                numpy.asarray(as_numpy(_eig[1])),
+            )
+
         return None
 
     def _offset_setup(self, sigangle, leading, deltaAngleTrack):
@@ -461,11 +495,14 @@ class streamdf(df):
         self._siglz = self._progenitor.rperi() * self._sigv
         self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
-        # Ambient namespace + coerce (see _progenitor_setup): under a forced backend
-        # this RUNS the offset setup on the backend even for a numpy dO/dJ; plain
-        # numpy is a coerce_coords pass-through, so that path is byte-identical.
+        # Same contract as _progenitor_setup: RUN on the ambient namespace, then
+        # hand the derived moments back in the caller's kind. _native says whether
+        # dO/dJ arrived carrying a gradient; if it did not, casting back loses
+        # nothing and keeps the (27) numpy consumers of these moments working.
+        _native = is_backend_array(self._dOdJp)
         _xp = get_namespace(self._dOdJp)
         (self._dOdJp,) = coerce_coords(_xp, self._dOdJp)
+
         self._sigjmatrix = _xp.diag(
             _stack3(self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0)
         )
@@ -513,6 +550,39 @@ class streamdf(df):
             self._sigomatrix / self._sigomatrixNorm, 10.0**-15.0, logdet=True
         )
         self._sigomatrixinv /= self._sigomatrixNorm
+        # Hand the derived moments back in the caller's kind. Safe EXACTLY when
+        # dO/dJ was not a backend array: numpy carries no autodiff tape, so there
+        # is no gradient to lose, and the many numpy consumers of these moments
+        # (meanOmega, sigOmega, ptdAngle, streamgapdf's kick arrays, ...) keep
+        # working. A backend IC -- or a backend potential parameter -- makes
+        # calcaAJac return a genuine backend dO/dJ, and then nothing is cast.
+        if not _native:
+            for _nm in (
+                "_dOdJp",
+                "_sigjmatrix",
+                "_sigomatrix",
+                "_sigomatrixEigsortIndx",
+                "_dsigomeanProgDirection",
+                "_progenitor_Omega_along_dOmega",
+                "_sigomean",
+                "_dsigomeanProg",
+                "_meandO",
+                "_sigomatrixNorm",
+                "_sigomatrixinv",
+                "_sigomatrixLogdet",
+                # the acfs are backend under a forced context even for a numpy
+                # progenitor; cast them HERE, after _offset_setup's backend math
+                # has used them, or the object is left MIXED
+                "_progenitor_Omega",
+                "_progenitor_angle",
+            ):
+                setattr(self, _nm, numpy.asarray(as_numpy(getattr(self, _nm))))
+            self._sigomatrixEig = (
+                numpy.asarray(as_numpy(self._sigomatrixEig[0])),
+                numpy.asarray(as_numpy(self._sigomatrixEig[1])),
+            )
+            self._sortedSigOEig = sorted(numpy.asarray(as_numpy(self._sortedSigOEig)))
+
         deltaAngleTrackLim = (
             (self._sigMeanOffset + 4.0)
             * numpy.sqrt(self._sortedSigOEig[2])
@@ -707,7 +777,8 @@ class streamdf(df):
         - 2013-11-27 - Written - Bovy (IAS)
 
         """
-        return deltaAngle / numpy.sqrt(numpy.sum(self._dsigomeanProg**2.0))
+        _xp, _dsp = _ns_coerce(self._dsigomeanProg)
+        return deltaAngle / _xp.sqrt(_xp.sum(_dsp**2.0))
 
     def subhalo_encounters(
         self, venc=numpy.inf, sigma=150.0 / 220.0, nsubhalo=0.3, bmax=0.025, yoon=False
@@ -3251,11 +3322,17 @@ class streamdf(df):
         # backend (jax/torch) t/dangle -> xp.where (the numpy in-place mask write is not
         # jit/grad-safe). Guard the dead branch: dO = dangle / t -> inf at t=0, and
         # dO**2 * exp(-inf) = inf*0 = nan poisons AD, so evaluate on a masked-safe t.
-        if is_backend_array(t) or is_backend_array(dangle):
-            xp = get_namespace(t, dangle)
-            meandO = as_backend_constant(xp, self._meandO, dangle)
-            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
-            t = xp.asarray(t)
+        # also dispatch on the STORED moments: under a forced backend the offset
+        # setup runs on the backend, so _meandO/_sortedSigOEig are backend arrays
+        # even when the caller passes numpy t/dangle -- coerce and run on xp.
+        if (
+            is_backend_array(t)
+            or is_backend_array(dangle)
+            or is_backend_array(self._meandO)
+        ):
+            xp, t, dangle = _ns_coerce(t, dangle)
+            (meandO,) = coerce_coords(xp, self._meandO)
+            (sig,) = coerce_coords(xp, self._sortedSigOEig[2])
             mask = (t > 0.0) & (t < self._tdisrupt)
             t_safe = xp.where(mask, t, xp.ones_like(t))
             dO = dangle / t_safe

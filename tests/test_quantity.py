@@ -18689,56 +18689,57 @@ def test_streamdf_method_value():
     assert (
         numpy.fabs(
             sdf_bovy14.misalignment().to(units.rad).value
-            - sdf_bovy14_nou.misalignment()
+            - as_numpy(sdf_bovy14_nou.misalignment())
         )
         < _NUMPY_1_22 * 1e-7 + (1 - _NUMPY_1_22) * 1e-8
     ), "streamdf method misalignment does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.estimateTdisrupt(0.1).to(units.Gyr).value
-            - sdf_bovy14_nou.estimateTdisrupt(0.1) * conversion.time_in_Gyr(vo, ro)
+            - as_numpy(sdf_bovy14_nou.estimateTdisrupt(0.1))
+            * conversion.time_in_Gyr(vo, ro)
         )
         < _NUMPY_1_22 * 1e-7 + (1 - _NUMPY_1_22) * 1e-8
     ), "streamdf method estimateTdisrupt does not return correct Quantity"
     assert numpy.all(
         numpy.fabs(
             sdf_bovy14.meanOmega(0.1).to(1 / units.Gyr).value
-            - sdf_bovy14_nou.meanOmega(0.1) * conversion.freq_in_Gyr(vo, ro)
+            - as_numpy(sdf_bovy14_nou.meanOmega(0.1)) * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
     ), "streamdf method meanOmega does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.sigOmega(0.1).to(1 / units.Gyr).value
-            - sdf_bovy14_nou.sigOmega(0.1) * conversion.freq_in_Gyr(vo, ro)
+            - as_numpy(sdf_bovy14_nou.sigOmega(0.1)) * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
     ), "streamdf method sigOmega does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.meantdAngle(0.1).to(units.Gyr).value
-            - sdf_bovy14_nou.meantdAngle(0.1) * conversion.time_in_Gyr(vo, ro)
+            - as_numpy(sdf_bovy14_nou.meantdAngle(0.1)) * conversion.time_in_Gyr(vo, ro)
         )
         < 10.0**-7.0
     ), "streamdf method meantdAngle does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.sigtdAngle(0.1).to(units.Gyr).value
-            - sdf_bovy14_nou.sigtdAngle(0.1) * conversion.time_in_Gyr(vo, ro)
+            - as_numpy(sdf_bovy14_nou.sigtdAngle(0.1)) * conversion.time_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
     ), "streamdf method sigtdAngle does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.meanangledAngle(0.1).to(units.rad).value
-            - sdf_bovy14_nou.meanangledAngle(0.1)
+            - as_numpy(sdf_bovy14_nou.meanangledAngle(0.1))
         )
         < 10.0**-8.0
     ), "streamdf method meanangledAngle does not return correct Quantity"
     assert (
         numpy.fabs(
             sdf_bovy14.sigangledAngle(0.1).to(units.rad).value
-            - sdf_bovy14_nou.sigangledAngle(0.1)
+            - as_numpy(sdf_bovy14_nou.sigangledAngle(0.1))
         )
         < 10.0**-8.0
     ), "streamdf method sigangledAngle does not return correct Quantity"
@@ -18790,20 +18791,24 @@ def test_streamdf_method_inputAsQuantity():
             bmax=1.0 * units.kpc,
             yoon=False,
         )
-        - sdf_bovy14_nou.subhalo_encounters(
-            venc=200.0 / vo,
-            sigma=150.0 / vo,
-            nsubhalo=38.35 / (4.0 * 25.0**3.0 * numpy.pi / 3.0) * ro**3.0,
-            bmax=1.0 / ro,
-            yoon=False,
+        - as_numpy(
+            sdf_bovy14_nou.subhalo_encounters(
+                venc=200.0 / vo,
+                sigma=150.0 / vo,
+                nsubhalo=38.35 / (4.0 * 25.0**3.0 * numpy.pi / 3.0) * ro**3.0,
+                bmax=1.0 / ro,
+                yoon=False,
+            )
         )
     ) < 1e-6 * _NUMPY_1_22 + 1e-8 * (1 - _NUMPY_1_22), (
         "streamdf method subhalo_encounters with Quantity input does not return correct Quantity"
     )
     assert numpy.fabs(
         sdf_bovy14.pOparapar(0.2 / units.Gyr, 30.0 * units.deg)
-        - sdf_bovy14_nou.pOparapar(
-            0.2 / conversion.freq_in_Gyr(vo, ro), 30.0 * numpy.pi / 180.0
+        - as_numpy(
+            sdf_bovy14_nou.pOparapar(
+                0.2 / conversion.freq_in_Gyr(vo, ro), 30.0 * numpy.pi / 180.0
+            )
         )
     ) < 1e-5 * _NUMPY_1_22 + 1e-8 * (1 - _NUMPY_1_22), (
         "streamdf method pOparapar with Quantity input does not return correct Quantity"
@@ -18852,7 +18857,7 @@ def test_streamdf_sample():
     numpy.random.seed(1)
     acfsdt = sdf_bovy14.sample(1, returnaAdt=True)
     numpy.random.seed(1)
-    acfsdtnou = sdf_bovy14_nou.sample(1, returnaAdt=True)
+    acfsdtnou = as_numpy(sdf_bovy14_nou.sample(1, returnaAdt=True))
     assert numpy.all(
         numpy.fabs(
             acfsdt[0].to(1 / units.Gyr).value / conversion.freq_in_Gyr(vo, ro)
@@ -19300,7 +19305,7 @@ def test_streamgapdf_method_value():
         numpy.fabs(
             sdf_sanders15.meanOmega(0.1).to(1 / units.Gyr).value
             / conversion.freq_in_Gyr(sdf_sanders15._vo, sdf_sanders15._ro)
-            - sdf_sanders15_nou.meanOmega(0.1)
+            - as_numpy(sdf_sanders15_nou.meanOmega(0.1))
         )
         < 10.0**-8.0
     ), "streamgapdf method meanOmega does not return correct Quantity"
@@ -19338,9 +19343,11 @@ def test_streamgapdf_inputAsQuantity():
     assert (
         numpy.fabs(
             sdf_sanders15.pOparapar(0.2 / units.Gyr, 30.0 * units.deg)
-            - sdf_sanders15_nou.pOparapar(
-                0.2 / conversion.freq_in_Gyr(sdf_sanders15._vo, sdf_sanders15._ro),
-                30.0 * numpy.pi / 180.0,
+            - as_numpy(
+                sdf_sanders15_nou.pOparapar(
+                    0.2 / conversion.freq_in_Gyr(sdf_sanders15._vo, sdf_sanders15._ro),
+                    30.0 * numpy.pi / 180.0,
+                )
             )
         )
         < 1e-4
@@ -19357,7 +19364,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     RvR = sdf_sanders15.sample(1)
     numpy.random.seed(1)
-    RvRnou = sdf_sanders15_nou.sample(1)
+    RvRnou = as_numpy(sdf_sanders15_nou.sample(1))
     assert (
         numpy.fabs(RvR[0].to(units.kpc).value / sdf_sanders15._ro - RvRnou[0])
         < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
@@ -19384,7 +19391,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     RvRdt = sdf_sanders15.sample(1, returndt=True)
     numpy.random.seed(1)
-    RvRdtnou = sdf_sanders15_nou.sample(1, returndt=True)
+    RvRdtnou = as_numpy(sdf_sanders15_nou.sample(1, returndt=True))
     assert (
         numpy.fabs(RvRdt[0].to(units.kpc).value / sdf_sanders15._ro - RvRdtnou[0])
         < 1e-6
@@ -19426,7 +19433,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     xy = sdf_sanders15.sample(1, xy=True)
     numpy.random.seed(1)
-    xynou = sdf_sanders15_nou.sample(1, xy=True)
+    xynou = as_numpy(sdf_sanders15_nou.sample(1, xy=True))
     assert (
         numpy.fabs(xy[0].to(units.kpc).value / sdf_sanders15._ro - xynou[0]) < 1e-6
     ), "streamgapdf sample xy does not return a correct Quantity"
@@ -19452,7 +19459,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     xydt = sdf_sanders15.sample(1, xy=True, returndt=True)
     numpy.random.seed(1)
-    xydtnou = sdf_sanders15_nou.sample(1, xy=True, returndt=True)
+    xydtnou = as_numpy(sdf_sanders15_nou.sample(1, xy=True, returndt=True))
     assert (
         numpy.fabs(xy[0].to(units.kpc).value / sdf_sanders15._ro - xynou[0]) < 1e-6
     ), "streamgapdf sample xy does not return a correct Quantity"
@@ -19486,7 +19493,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     lb = sdf_sanders15.sample(1, lb=True)
     numpy.random.seed(1)
-    lbnou = sdf_sanders15_nou.sample(1, lb=True)
+    lbnou = as_numpy(sdf_sanders15_nou.sample(1, lb=True))
     assert (
         numpy.fabs(lb[0].to(units.deg).value - lbnou[0])
         < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-5
@@ -19515,7 +19522,7 @@ def test_streamgapdf_sample():
     numpy.random.seed(1)
     lbdt = sdf_sanders15.sample(1, lb=True, returndt=True)
     numpy.random.seed(1)
-    lbdtnou = sdf_sanders15_nou.sample(1, lb=True, returndt=True)
+    lbdtnou = as_numpy(sdf_sanders15_nou.sample(1, lb=True, returndt=True))
     assert (
         numpy.fabs(lbdt[0].to(units.deg).value - lbdtnou[0])
         < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
