@@ -1228,3 +1228,150 @@ def test_streamtrack_class_backend_cov_sky_bases_match_numpy(backend):
             rtol=1e-8,
             atol=1e-10 * scale,
         )
+
+
+# --- accessors differentiable w.r.t. the QUERY POINT tp ----------------------
+# The accessors pushed tp through numpy.asarray and converted it straight back
+# to the backend, which drops a tracer: every accessor raised
+# TracerArrayConversionError for a traced tp, so nothing read OFF a track could
+# be differentiated w.r.t. where it was read. The query axis now stays on the
+# backend (_tp_query_axis); the range mask is a plain comparison, so it needed
+# no numpy round-trip either.
+# the sky accessors need a solar frame; a bare StreamTrack has none
+_SOLAR_FRAME = dict(ro=8.0, vo=220.0, zo=0.0208, solarmotion=[-11.1, 24.0, 7.25])
+
+_TP_ACCESSORS = (
+    "x",
+    "y",
+    "z",
+    "vx",
+    "vy",
+    "vz",
+    "R",
+    "vR",
+    "vT",
+    "phi",
+    "ll",
+    "bb",
+    "dist",
+    "pmll",
+    "pmbb",
+    "vlos",
+)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("acc", _TP_ACCESSORS)
+def test_accessor_grad_wrt_tp_matches_fd(acc):
+    import jax
+    import jax.numpy as jnp
+
+    tpg, xyz, v, cov, _ = _grad_setup()
+    tr = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    tr.turn_physical_off()
+    tp0 = 0.5 * (float(tpg[0]) + float(tpg[-1]))
+
+    def f(t):
+        return jnp.reshape(jnp.asarray(getattr(tr, acc)(t, use_physical=False)), ())
+
+    val = f(jnp.asarray(tp0))
+    assert is_backend_array(val), f"{acc} left the backend"
+    g = float(jax.grad(f)(jnp.asarray(tp0)))
+    h = 1e-5 * max(abs(tp0), 1.0)
+    fd = float((f(jnp.asarray(tp0 + h)) - f(jnp.asarray(tp0 - h))) / (2 * h))
+    assert abs(g - fd) <= 1e-6 * max(abs(fd), 1.0), f"{acc}: AD {g} vs FD {fd}"
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_accessor_numpy_tp_on_backend_track_unchanged():
+    # a NUMPY tp on a BACKEND track keeps its exact values (the helper only
+    # removes the round-trip; it must not change what comes out)
+    tpg, xyz, v, cov, q = _grad_setup()
+    tr_np = StreamTrack(tpg, xyz, v, cov_xyz=cov, parameter_kind="time", **_SOLAR_FRAME)
+    tr_bk = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    for acc in _TP_ACCESSORS:
+        a = numpy.asarray(as_numpy(getattr(tr_bk, acc)(q, use_physical=False)))
+        b = numpy.asarray(getattr(tr_np, acc)(q, use_physical=False))
+        numpy.testing.assert_allclose(a, b, rtol=1e-12, atol=1e-13, err_msg=acc)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_accessor_out_of_range_still_nan_for_traced_tp():
+    # the range mask moved onto the backend; out-of-range must still be NaN
+    tpg, xyz, v, cov, _ = _grad_setup()
+    tr = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    far = float(tpg[-1]) + 10.0 * (float(tpg[-1]) - float(tpg[0]))
+    out = numpy.asarray(
+        as_numpy(tr.x(_arr("jax", numpy.array([far])), use_physical=False))
+    )
+    assert numpy.all(numpy.isnan(out))
+
+
+# --- the point of the accessors: read a value OFF the track and differentiate --
+# it w.r.t. the theory inputs. Only STATISTICAL quantities of the whole particle
+# cloud are meaningful here: the fit freezes its STRUCTURE (closest-point
+# assignment, spline basis, GCV lambda are stop_gradient'd) and lets the offset
+# VALUES flow, so individual particles crossing an assignment boundary is exactly
+# the thing that is meant to average out over the cloud. A single-particle FD is
+# NOT a fair check of this gradient; a coherent whole-cloud perturbation is.
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("acc,axis", (("x", 0), ("y", 1), ("z", 2)))
+def test_accessor_grad_wrt_rigid_cloud_translation_is_one(acc, axis):
+    # Translate EVERY particle along one Cartesian axis: the offsets all shift by
+    # the same amount, so the fitted track must shift with them and
+    # d(track coord)/d(shift) is analytically 1 -- no finite differences needed.
+    import jax
+    import jax.numpy as jnp
+
+    xv, prog_cart, tg = _track_case()
+    tp0 = 0.5 * (float(tg[0]) + float(tg[-1]))
+
+    # xv rows are (R, vR, vT, z, vz, phi); shift in CARTESIAN x/y/z via phi=0 rows
+    # is not direct, so shift the cartesian track input instead: use the particle
+    # cloud's own cartesian representation through a small helper perturbation.
+    def f(delta):
+        xvb = _shift_cloud_cartesian(_arr("jax", xv), axis, delta)
+        tr = StreamTrack.from_particles(
+            xvb, _arr("jax", prog_cart), tg, **_TRACK_KW, **_SOLAR_FRAME
+        )
+        tr.turn_physical_off()
+        return jnp.reshape(jnp.asarray(getattr(tr, acc)(tp0, use_physical=False)), ())
+
+    g = float(jax.grad(f)(0.0))
+    assert abs(g - 1.0) < 2e-3, f"{acc}: d/d(rigid {acc}-shift) = {g}, expected 1"
+
+
+def _shift_cloud_cartesian(xv, axis, delta):
+    """Rigidly translate the whole cloud by ``delta`` along cartesian ``axis``,
+    returning the cloud back in (R, vR, vT, z, vz, phi) form."""
+    import jax.numpy as jnp
+
+    R, vR, vT, z, vz, phi = xv
+    if axis == 2:  # z is already cartesian
+        return jnp.stack([R, vR, vT, z + delta, vz, phi])
+    x = R * jnp.cos(phi) + (delta if axis == 0 else 0.0)
+    y = R * jnp.sin(phi) + (delta if axis == 1 else 0.0)
+    Rn = jnp.sqrt(x**2 + y**2)
+    phin = jnp.arctan2(y, x)
+    return jnp.stack([Rn, vR, vT, z, vz, phin])
