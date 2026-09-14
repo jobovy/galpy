@@ -1218,3 +1218,36 @@ def test_orbit_integrate_cstm_continuation_warns_on_changed_potential(backend):
     numpy.testing.assert_allclose(
         as_numpy(o.getOrbit()), ref.getOrbit(), rtol=1e-7, atol=1e-8
     )
+
+
+# --- a TRACED integration time must not take the C-STM ------------------------
+# The C-STM pure_callbacks into the compiled C integrator, which closes over a
+# CONCRETE ts (orbit_stm.integrate: "pot/ts/method are static"). Under jax.jit
+# the time grid is a tracer, so the C-STM route died in numpy.asarray(ts); the
+# router now sends a traced t to the in-backend ODE solver, which handles it.
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jit_traced_time_routes_to_inbackend_and_matches_eager():
+    pytest.importorskip("diffrax")
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+
+    def traj(tmax):
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.linspace(0.0, tmax, 51), pot, method="dop853_c")
+        return o.getOrbit()
+
+    with use("jax", force=True):
+        eager = numpy.asarray(as_numpy(traj(2.0)))
+        jitted = numpy.asarray(as_numpy(jax.jit(traj)(2.0)))
+        # the trajectory is genuinely time-varying, so this is not a degenerate
+        # comparison of two copies of the initial condition
+        assert numpy.ptp(eager[..., 0]) > 0.05
+        # C-STM (eager) vs in-backend ODE (jitted): two independent integrators
+        numpy.testing.assert_allclose(jitted, eager, rtol=1e-8, atol=1e-8)
+        # and it is differentiable w.r.t. the integration time, vs central FD
+        F = lambda tm: float(jnp.sum(traj(tm)))  # noqa: E731
+        g = float(jax.grad(lambda tm: jnp.sum(traj(tm)))(2.0))
+        h = 1e-5
+        numpy.testing.assert_allclose(g, (F(2.0 + h) - F(2.0 - h)) / (2 * h), rtol=1e-6)
