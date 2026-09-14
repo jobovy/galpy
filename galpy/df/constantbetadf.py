@@ -9,6 +9,7 @@ from scipy import integrate, interpolate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    asarray_on_device,
     autodiff_ops,
     device_of,
     get_namespace,
@@ -16,7 +17,9 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, use
+from ..backend import resolve_namespace
+from ..backend import special as _bspecial
+from ..backend import use
 from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
@@ -30,6 +33,11 @@ from .sphericaldf import (
     anisotropicsphericaldf,
     sphericaldf,
 )
+
+# cos(eta) inverse-CDF grid size. 20001 is what the numpy path has always used;
+# shared so the backend rebuild inverts the same grid.
+_NCOSETA = 20001
+
 
 # Gauss-Legendre order for the backend (jax/torch) fE inversion integral; the
 # post-substitution integrand is smooth, so this matches scipy's adaptive numpy
@@ -215,6 +223,72 @@ class _constantbetadf(anisotropicsphericaldf):
         )
         return xp.where(pos, prefac * fE * integral, xp.zeros_like(fE))
 
+    def _ensure_coseta_grid(self):
+        """Build and cache the numpy (coseta_cmf, cosetas) inverse-CDF grid."""
+        if hasattr(self, "_coseta_icmf_interp"):
+            return
+        # Cumulative dist for cos(eta) =
+        # 0.5 + x 2F1(0.5,beta,1.5,x^2)/sqrt(pi)/Gamma(1-beta)*Gamma(1.5-beta)
+        cosetas = numpy.linspace(-1.0, 1.0, _NCOSETA)
+        coseta_cmf = (
+            cosetas
+            * special.hyp2f1(0.5, self._beta, 1.5, cosetas**2.0)
+            / numpy.sqrt(numpy.pi)
+            / special.gamma(1.0 - self._beta)
+            * special.gamma(1.5 - self._beta)
+            + 0.5
+        )
+        # cache the raw grids for the backend inverse-CDF (the numpy path
+        # keeps using the scipy interp1d below, byte-identically)
+        self._coseta_cmf_grid = coseta_cmf
+        self._cosetas_grid = cosetas
+        self._coseta_icmf_interp = interpolate.interp1d(
+            coseta_cmf, cosetas, bounds_error=False, fill_value="extrapolate"
+        )
+
+    def _coseta_icmf_grid_backend(self, xp, ref):
+        """(coseta_cmf, cosetas) on ``xp``, differentiable in beta when it can be.
+
+        A numpy ``beta`` reuses the cached scipy grid as a CONSTANT -- fast, and
+        identical to what the numpy path inverts. A BACKEND ``beta`` rebuilds the
+        grid through the backend special functions instead, which is what makes
+        the sampled eta differentiable in beta: with the frozen grid,
+        d(eta)/d(beta) did not merely come back zero, it RAISED
+        (TracerArrayConversionError out of scipy's hyp2f1 on a traced beta).
+
+        Nothing is cached on the backend branch: under a trace the grid is built
+        from a tracer, and caching one leaks it into the next call.
+
+        The series is never evaluated AT cos(eta) = +-1. The backend hyp2f1
+        returns NaN at z = 1 exactly (measured; it is accurate to 1e-16..1e-14
+        for z < 1), and an xp.where fix-up would still evaluate the NaN branch
+        and poison the gradient. The endpoints are analytic anyway --
+        2F1(0.5,b;1.5;1) = G(1.5)G(1-b)/G(1.5-b) makes the CDF exactly 1 at
+        cos(eta)=+1 and 0 at -1, for ANY beta (verified to 1e-16 at
+        beta = -0.5, 0, 0.3, 0.7) -- so they are pinned rather than computed.
+        """
+        beta = self._beta
+        if not is_backend_array(beta):
+            self._ensure_coseta_grid()
+            return (
+                as_backend_constant(xp, self._coseta_cmf_grid, ref),
+                as_backend_constant(xp, self._cosetas_grid, ref),
+            )
+        dev = device_of(ref)
+        cosetas = asarray_on_device(xp, numpy.linspace(-1.0, 1.0, _NCOSETA), dev)
+        inner = cosetas[1:-1]
+        cmf_inner = (
+            inner
+            * _bspecial.hyp2f1(0.5, beta, 1.5, inner**2.0)
+            / numpy.sqrt(numpy.pi)
+            / _bspecial.gamma(1.0 - beta)
+            * _bspecial.gamma(1.5 - beta)
+            + 0.5
+        )
+        edge = xp.ones_like(cmf_inner[:1])
+        cmf = xp.concat([0.0 * edge, cmf_inner, edge])
+        return cmf, cosetas
+
     def _sample_eta(self, r, n=1, key=None):
         """Sample the angle eta which defines radial vs tangential velocities
 
@@ -222,38 +296,25 @@ class _constantbetadf(anisotropicsphericaldf):
         p(eta) ∝ sin(eta)^(1-2β) by inverting its cos(eta) CDF. ``key=None``
         draws from the global ``numpy.random`` and inverts the CDF with the
         scipy ``interp1d`` (byte-identical); a backend key draws a backend
-        uniform and inverts the SAME frozen (coseta_cmf, cosetas) inverse-CDF
-        grid natively via ``interp_linear`` -- so eta is a backend array
-        differentiable in the CDF grid (and hence, via the grid, in β)."""
-        if not hasattr(self, "_coseta_icmf_interp"):
-            # Cumulative dist for cos(eta) =
-            # 0.5 + x 2F1(0.5,beta,1.5,x^2)/sqrt(pi)/Gamma(1-beta)*Gamma(1.5-beta)
-            cosetas = numpy.linspace(-1.0, 1.0, 20001)
-            coseta_cmf = (
-                cosetas
-                * special.hyp2f1(0.5, self._beta, 1.5, cosetas**2.0)
-                / numpy.sqrt(numpy.pi)
-                / special.gamma(1.0 - self._beta)
-                * special.gamma(1.5 - self._beta)
-                + 0.5
-            )
-            # cache the raw grids for the backend inverse-CDF (the numpy path
-            # keeps using the scipy interp1d below, byte-identically)
-            self._coseta_cmf_grid = coseta_cmf
-            self._cosetas_grid = cosetas
-            self._coseta_icmf_interp = interpolate.interp1d(
-                coseta_cmf, cosetas, bounds_error=False, fill_value="extrapolate"
-            )
+        uniform and inverts the same inverse-CDF grid natively via
+        ``interp_linear``.
+
+        LINEAR on both sides on purpose: the numpy path's ``interp1d`` is
+        linear, so inverting with a cubic here would change the sampled
+        distribution relative to numpy for no stated reason.
+
+        The grid itself is a constant for a numpy β and is rebuilt natively for
+        a BACKEND β -- see :meth:`_coseta_icmf_grid_backend` -- so eta is
+        differentiable in β exactly when β is something to differentiate."""
         if key is None:
+            self._ensure_coseta_grid()
             # numpy path (byte-identical): global-numpy uniform + scipy interp1d
             return numpy.arccos(self._coseta_icmf_interp(numpy.random.uniform(size=n)))
-        # backend key: native linear inverse-CDF on the frozen (coseta_cmf,
-        # cosetas) grid -- extrapolate=True matches interp1d(fill_value=
-        # "extrapolate"); eta is a backend array differentiable in the CDF grid
+        # backend key: native linear inverse-CDF -- extrapolate=True matches
+        # interp1d(fill_value="extrapolate")
         u = grandom.uniform(key, n)
         xp = get_namespace(u)
-        cg = as_backend_constant(xp, self._coseta_cmf_grid, u)
-        vg = as_backend_constant(xp, self._cosetas_grid, u)
+        cg, vg = self._coseta_icmf_grid_backend(xp, u)
         coseta = interp_linear(xp, cg, vg, u, extrapolate=True)
         return xp.arccos(coseta)
 

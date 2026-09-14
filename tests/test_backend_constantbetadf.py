@@ -507,3 +507,98 @@ def test_fE_traceable_in_beta_under_external_jit(beta, rtol):
 # grad vs finite differences, both DF classes, both backends). What is left
 # uncovered is specifically grad-composed-with-jit; closing it needs the
 # compile cost brought down first, not a slower test.
+
+
+# --------------------------------------------------------- eta sampling in beta
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_eta_grid_matches_scipy_and_pins_its_endpoints(backend):
+    # With a BACKEND beta the cos(eta) inverse-CDF grid is rebuilt through the
+    # backend special functions instead of scipy's. It must be the same grid.
+    #
+    # The endpoints are asserted EXACTLY, not to a tolerance: the backend hyp2f1
+    # returns NaN at z = 1 (measured; it is 1e-16..1e-14 accurate for z < 1), so
+    # the series is never evaluated there and the analytic values are pinned
+    # instead -- 2F1(0.5,b;1.5;1) = G(1.5)G(1-b)/G(1.5-b) makes the CDF exactly 1
+    # at cos(eta)=+1 and 0 at -1 for ANY beta. A NaN leaking in here would make
+    # the whole inverse-CDF NaN, so this is the load-bearing assertion.
+    from scipy import special as sp
+
+    from galpy.df.constantbetadf import _NCOSETA
+
+    b0 = 0.3
+    cosetas = numpy.linspace(-1.0, 1.0, _NCOSETA)
+    ref = (
+        cosetas
+        * sp.hyp2f1(0.5, b0, 1.5, cosetas**2.0)
+        / numpy.sqrt(numpy.pi)
+        / sp.gamma(1.0 - b0)
+        * sp.gamma(1.5 - b0)
+        + 0.5
+    )
+    with use(backend, force=True):
+        beta = (
+            jnp.asarray(b0)
+            if backend == "jax"
+            else torch.tensor(b0, dtype=torch.float64)
+        )
+        xp = galpy.backend.get_namespace(beta)
+        cg, vg = _mk_hern(beta)._coseta_icmf_grid_backend(xp, beta)
+        cg, vg = as_numpy(cg), as_numpy(vg)
+    numpy.testing.assert_allclose(cg, ref, rtol=0.0, atol=1e-11)
+    numpy.testing.assert_array_equal(vg, cosetas)
+    assert cg[0] == 0.0 and cg[-1] == 1.0, "CDF endpoints are not pinned exactly"
+    assert numpy.all(numpy.isfinite(cg)), "NaN leaked out of hyp2f1 at z=1"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_eta_differentiable_in_beta(backend):
+    # d<cos eta>/d beta. Before this, the grid was built with scipy.special on
+    # beta and frozen via as_backend_constant, so differentiating the SAMPLER
+    # did not return a zero gradient -- it RAISED (TracerArrayConversionError
+    # out of scipy's hyp2f1 on a traced beta).
+    #
+    # Held to h-CONVERGENCE rather than one finite difference: the quantity is a
+    # mean over a fixed set of draws, so the FD error is dominated by the
+    # truncation term and must shrink with h. A constant offset would be a real
+    # gradient bug that a single loose comparison could hide.
+    from galpy.backend import random as grandom
+
+    b0, n = 0.3, 4000
+
+    def mean_coseta(beta, key):
+        eta = _mk_hern(beta)._sample_eta(1.0, n=n, key=key)
+        xp = galpy.backend.get_namespace(eta)
+        return xp.mean(xp.cos(eta))
+
+    with use(backend, force=True):
+        key = grandom.key(7, backend)
+        if backend == "jax":
+            got = float(jax.grad(lambda b: mean_coseta(b, key))(b0))
+        else:
+            b = torch.tensor(b0, dtype=torch.float64, requires_grad=True)
+            (grad,) = torch.autograd.grad(mean_coseta(b, key), b)
+            got = float(grad)
+        errs = []
+        for h in (1e-3, 1e-5):
+            fd = float(
+                as_numpy(
+                    (mean_coseta(b0 + h, key) - mean_coseta(b0 - h, key)) / (2.0 * h)
+                )
+            )
+            errs.append(abs(got - fd) / abs(fd))
+    assert errs[1] < 1e-3, f"AD vs FD(h=1e-5) off by {errs[1]:.2e}"
+    assert errs[1] < errs[0], (
+        f"FD error did not shrink with h ({errs[0]:.2e} -> {errs[1]:.2e}); "
+        "a constant offset means the gradient is wrong, not merely approximate"
+    )
+
+
+def test_sample_eta_numpy_beta_keeps_the_frozen_grid():
+    # A numpy beta must keep reusing the cached scipy grid -- the rebuild is for
+    # a backend beta only, so the ordinary path pays nothing and stays identical.
+    df = _mk_hern(0.3)
+    numpy.random.seed(42)
+    eta = df._sample_eta(1.0, n=50)
+    assert hasattr(df, "_coseta_icmf_interp"), "the numpy path stopped caching"
+    numpy.random.seed(42)
+    numpy.testing.assert_array_equal(eta, df._sample_eta(1.0, n=50))
