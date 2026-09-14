@@ -2514,12 +2514,8 @@ def test_estimateDeltaStaeckel_scalar_only_potential(backend):
     # element. MWPotential2014 in the parity test above is array-capable, so
     # that fallback had no coverage at all.
     #
-    # A SYNTHETIC, not a real potential. This used to use
-    # AnyAxisymmetricRazorThinDisk, whose _bk_dispatch raised TypeError from
-    # float(R) on an array -- but that class now opts in to backend arrays
-    # (_backend_accepts_arrays) and no longer raises, so naming it here stopped
-    # covering the fallback at all. No shipped potential reliably takes this
-    # branch any more: the scalar-only decorator sits on the PUBLIC methods and
+    # A SYNTHETIC, not a real potential: no shipped potential reliably takes
+    # this branch -- the scalar-only decorator sits on the PUBLIC methods and
     # estimateDeltaStaeckel goes through the internal
     # _evaluateRforces/_evaluatezforces, which bypass it.
     #

@@ -1099,20 +1099,8 @@ def test_orbits_E_planar_scalar_only_potential_fallback():
     # in ONE vectorised call; a potential whose evaluator rejects array input
     # makes that raise, and E() falls back to evaluating element by element.
     #
-    # Until this PR that fallback was reached by SphericalShellPotential and
-    # HomogeneousSpherePotential -- which is precisely what this PR stops: they
-    # now accept arrays and take the fast path, leaving the fallback with no
-    # caller. Verified by tracing both, before and after: they hit it before and
-    # do not after. AnyAxisymmetricRazorThinDiskPotential keeps the branch
-    # reachable, and this test keeps it CHECKED rather than merely executed.
-    #
-    # Scope, since that class now opts in to BACKEND arrays
-    # (_backend_accepts_arrays): it still rejects NUMPY arrays, which is the
-    # documented off-backend contract, so the numpy run is what covers the
-    # fallback. Under a forced backend the array is coerced at the boundary and
-    # the fast path is taken instead -- this test still passes there, because
-    # its assertion is a VALUE comparison against a per-element reference, but
-    # it is not exercising the fallback in that mode.
+    # AnyAxisymmetricRazorThinDiskPotential rejects numpy arrays, which keeps
+    # that fallback reachable and CHECKED here rather than merely executed.
     from galpy.orbit import Orbit
     from galpy.potential import (
         AnyAxisymmetricRazorThinDiskPotential,

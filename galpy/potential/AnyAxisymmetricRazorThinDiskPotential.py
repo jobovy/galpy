@@ -178,8 +178,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     # quadratures hand this potential a whole Gauss-Legendre node array in ONE
     # call. The traced value uses GL where concrete SCALAR input reuses scipy,
     # so it is knowingly the less accurate of the two near z = 0 (the a = R
-    # principal value) -- that asymmetry is by design and predates this flag;
-    # the gate merely used to stop arrays from reaching it.
+    # principal value); that asymmetry is by design.
     _backend_accepts_arrays = True
 
     def __init__(

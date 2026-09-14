@@ -1999,7 +1999,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
             # potentials whose evaluators reject a whole-array call are done
             # element-by-element; each scalar is a backend scalar so the migrated
             # scalar path still runs on the backend. No SHIPPED potential lands
-            # here any more: DoubleExponentialDisk does not (its scalar-only
+            # here: DoubleExponentialDisk does not (its scalar-only
             # decorator sits on the public methods, and the calls above go
             # through the internal _evaluateRforces/_evaluatezforces, which
             # bypass it), and AnyAxisymmetricRazorThinDisk -- which did, via a

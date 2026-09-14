@@ -15,7 +15,7 @@
 #   (b) numpy arrays are still rejected, i.e. the documented scalars-only
 #       contract is unchanged off the backend;
 #   (c) a potential that has NOT opted in still rejects backend arrays -- tested
-#       on a synthetic, since no shipped potential is in that state any more;
+#       on a synthetic, since no shipped potential is in that state;
 #   (d) the capability this buys: the traced Poisson surfdens of
 #       DoubleExponentialDisk now reproduces the numpy value.
 ###############################################################################
@@ -127,10 +127,9 @@ def test_doubleexp_numpy_scalars_unaffected():
 
 @pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
 def test_not_opted_in_potential_still_rejects_backend_arrays():
-    # The gate is tested on a SYNTHETIC, not on a named real potential. This
-    # test used to name AnyAxisymmetricRazorThinDisk -- which now opts in, and
-    # after that there is no shipped potential left that uses the decorator
-    # without opting in. The same fragility already bit the _backend_compatible
+    # The gate is tested on a SYNTHETIC, not on a named real potential: no
+    # shipped potential uses the decorator without opting in. The same fragility
+    # already bit the _backend_compatible
     # negatives (gh#1113), and the durable thing to guard is the MECHANISM: a
     # potential that declares its methods scalar-only and does NOT opt in must
     # still refuse a backend array rather than silently evaluate one.
@@ -221,8 +220,7 @@ def test_planar_adapter_inherits_backend_compatibility():
 def test_anyaxisym_traced_poisson_surfdens_matches_numpy():
     # The capability the opt-in buys, and the reason the two
     # test_poisson_surfdens_potential[AnyAxisym] ledger rows are gone: the
-    # traced Poisson route feeds the forces a whole node array in ONE call,
-    # which previously raised TypeError.
+    # traced Poisson route feeds the forces a whole node array in ONE call.
     #
     # The bar is the SCIPY value, because that is what the concrete path
     # returns and what the ledgered test compares against. The traced route is
