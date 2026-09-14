@@ -208,16 +208,19 @@
 #     reaches 2.6e-14). A constant order is accurate only inside whatever range
 #     was tested and silently wrong outside it, so this needs a range-aware
 #     scheme, not a swap. Attempted and reverted deliberately.
-#   * AnyAxisymmetricRazorThinDisk           ~4  -- BY DESIGN, not a defect. Its
-#     backend path deliberately uses GL so gradients exist, while concrete input
-#     reuses scipy; the class comment states GL cannot resolve the a=R principal
-#     value or form the z=0 Hadamard-type 2nd derivative. Under a trace the input
-#     IS a tracer, so the traced value is knowingly less accurate there.
+#   * AnyAxisymmetricRazorThinDisk -- RETIRED 2026-09-12. The traced value is
+#     still knowingly less accurate than the concrete scipy one near z=0, and
+#     that asymmetry is still by design; what changed is that the two
+#     poisson_surfdens rows were never about accuracy. They were a refusal --
+#     "Methods in AnyAxisymmetricRazorThinDiskPotential do not accept array
+#     inputs" -- because the class did not set _backend_accepts_arrays. Its six
+#     _gl integrands now broadcast over a trailing node axis, so the Poisson
+#     quadrature can hand them a whole GL node array, and at the z the test
+#     actually uses (|z| >= 0.125) the traced surfdens matches scipy to 7e-15
+#     against its 1e-4 bar.
 #   * one-offs                               ~9  -- Cautun20, DehnenBinney98,
 #     ExpDisk_special, McMillan17, mass_spheroidal, plotting, ...
 # Only reachable via workflow_dispatch(jit=true); shrink it.
-torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 
 # --- torch --jit: parallel_map's fork is fixed for EAGER torch only ----------
 # The child-side torch.set_num_threads(1) cure (fix/parallel-map-fork-safety)
