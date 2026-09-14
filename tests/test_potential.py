@@ -14442,6 +14442,7 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
     return None
 
 
+@pytest.mark.backend_managed  # numpy-only contract: see test_backend_array_inputs
 def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
     """Every evaluation method must keep @check_potential_inputs_not_arrays.
 
