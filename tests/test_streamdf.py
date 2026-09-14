@@ -2892,7 +2892,7 @@ def test_fardalpot_trackaa():
     assert numpy.all(
         numpy.fabs(
             (aastream[:, :3] - aastream_expl[:, :3])
-            / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
+            / (aastream[0, :3] - numpy.asarray(as_numpy(sdf_fardal._progenitor_Omega)))
         )
         < 0.05
     ), (
@@ -2948,7 +2948,7 @@ def test_fardalwmwpot_trackaa():
     assert numpy.all(
         numpy.fabs(
             (aastream[:, :3] - aastream_expl[:, :3])
-            / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
+            / (aastream[0, :3] - numpy.asarray(as_numpy(sdf_fardal._progenitor_Omega)))
         )
         < 0.05
     ), (

@@ -20,6 +20,7 @@ from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    coerce_coords,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -116,17 +117,22 @@ def _sig_mean_sign(leading, omega_along):
     return xp.where(wrong, -1.0, 1.0)
 
 
-def _lb_track(slbd, svlbd):
+def _lb_track(slbd, svlbd, ref):
     """(N,6) (l, b, dist, vlos, pmll, pmbb) track from the two conversions.
 
     galpy.util.coords is backend-aware, so on a backend track slbd/svlbd come
     back as backend arrays; building the result with numpy.empty_like + column
     assignment would drop them to numpy (and item assignment is not traceable).
+
+    Keyed on ``ref`` (the cartesian track this is derived from), NOT on the
+    converted columns: under a FORCED backend the coords helpers return backend
+    arrays even for a numpy track, and a numpy-progenitor streamdf must keep a
+    numpy -- and hence still mutable -- LB track.
     """
     cols = (slbd[:, 0], slbd[:, 1], slbd[:, 2], svlbd[:, 0], svlbd[:, 1], svlbd[:, 2])
-    if not any(is_backend_array(c) for c in cols):
-        return numpy.stack(cols, axis=1)
-    return get_namespace(cols[0]).stack(cols, axis=1)
+    if not is_backend_array(ref):
+        return numpy.stack([numpy.asarray(as_numpy(c)) for c in cols], axis=1)
+    return get_namespace(ref).stack(cols, axis=1)
 
 
 def _sorted_eigvals(w):
@@ -434,7 +440,15 @@ class streamdf(df):
                 dOdJ=True,
                 _initacfs=acfs,
             )
-        self._dOdJpInv = get_namespace(self._dOdJp).linalg.inv(self._dOdJp)
+        # get_namespace resolves the AMBIENT namespace, so under a forced backend
+        # it is the backend even for a numpy dO/dJ -- COERCE onto it rather than
+        # data-guarding back to numpy, so the forced suite exercises the backend
+        # (numpy is a strict coerce_coords pass-through -> byte-identical).
+        _ixp = get_namespace(self._dOdJp)
+        # assign BACK onto self: everything downstream (_real_eig here,
+        # _offset_setup, misalignment, the spread) must see one namespace
+        (self._dOdJp,) = coerce_coords(_ixp, self._dOdJp)
+        self._dOdJpInv = _ixp.linalg.inv(self._dOdJp)
         self._dOdJpEig = _real_eig(self._dOdJp)
         return None
 
@@ -447,14 +461,18 @@ class streamdf(df):
         self._siglz = self._progenitor.rperi() * self._sigv
         self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
-        # Follow whatever namespace dO/dJ came back on: get_namespace of a numpy
-        # array IS the numpy module, so the numpy path stays byte-identical.
+        # Ambient namespace + coerce (see _progenitor_setup): under a forced backend
+        # this RUNS the offset setup on the backend even for a numpy dO/dJ; plain
+        # numpy is a coerce_coords pass-through, so that path is byte-identical.
         _xp = get_namespace(self._dOdJp)
+        (self._dOdJp,) = coerce_coords(_xp, self._dOdJp)
         self._sigjmatrix = _xp.diag(
             _stack3(self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0)
         )
-        self._sigomatrix = _xp.dot(
-            self._dOdJp, _xp.dot(self._sigjmatrix, self._dOdJp.T)
+        # matmul, NOT dot: numpy.dot on 2-D is a matrix product but torch.dot is
+        # 1-D only ("1D tensors expected, but got 2D and 2D tensors").
+        self._sigomatrix = _xp.matmul(
+            self._dOdJp, _xp.matmul(self._sigjmatrix, self._dOdJp.T)
         )
         # Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig = _real_eig(self._sigomatrix)
@@ -622,13 +640,21 @@ class streamdf(df):
             galpyWarning,
         )
         if isotropic:
-            dODir = self._dOdJpEig[1][:, numpy.argmax(numpy.fabs(self._dOdJpEig[0]))]
+            # COERCE, don't assume: a module-scoped streamdf fixture is built
+            # BEFORE the function-scoped --backend force fixture runs, so the
+            # stored eigendecomposition can be numpy while the ambient namespace
+            # is the backend.
+            _exp = get_namespace(self._dOdJpEig[0])
+            _ev, _evec = coerce_coords(_exp, self._dOdJpEig[0], self._dOdJpEig[1])
+            dODir = _evec[:, _exp.argmax(_exp.abs(_ev))]
         else:
             dODir = self._dsigomeanProgDirection
-        out = numpy.arccos(
-            numpy.sum(self._progenitor_Omega * dODir)
-            / numpy.sqrt(numpy.sum(self._progenitor_Omega**2.0))
-        )
+        # Follow the namespace: under a forced backend the offset setup runs on
+        # the backend, so these are backend arrays and numpy.sum would dispatch
+        # into torch.sum with numpy's axis=/out= kwargs.
+        _mxp = get_namespace(self._progenitor_Omega)
+        _pO, dODir = coerce_coords(_mxp, self._progenitor_Omega, dODir)
+        out = _mxp.acos(_mxp.sum(_pO * dODir) / _mxp.sqrt(_mxp.sum(_pO**2.0)))
         if out > numpy.pi / 2.0:
             return out - numpy.pi
         else:
@@ -1294,14 +1320,14 @@ class streamdf(df):
         if not nTrackIterations is None:
             self.nTrackIterations = nTrackIterations
             return None
-        if numpy.fabs(self.misalignment(quantity=False)) < 1.0 / 180.0 * numpy.pi:
+        # a structural (non-differentiable) choice, so read it off concretely --
+        # misalignment is a backend scalar under a forced backend
+        _mis = numpy.fabs(float(as_numpy(self.misalignment(quantity=False))))
+        if _mis < 1.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 0
-        elif (
-            numpy.fabs(self.misalignment(quantity=False)) >= 1.0 / 180.0 * numpy.pi
-            and numpy.fabs(self.misalignment(quantity=False)) < 3.0 / 180.0 * numpy.pi
-        ):
+        elif _mis >= 1.0 / 180.0 * numpy.pi and _mis < 3.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 1
-        elif numpy.fabs(self.misalignment(quantity=False)) >= 3.0 / 180.0 * numpy.pi:
+        elif _mis >= 3.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 2
         return None
 
@@ -1324,9 +1350,10 @@ class streamdf(df):
             return self._determine_stream_track_TM()
         # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
         # numpy body below stays byte-identical (dispatched away).
-        if getattr(
-            self._progenitor, "_ic_backend", None
-        ) is not None or is_backend_array(self._progenitor_angle):
+        # _ic_backend is the PRECONDITION, not just a trigger: the backend track
+        # dereferences it. A numpy progenitor under a forced backend has backend
+        # acfs (so _progenitor_angle is a backend array) but no _ic_backend.
+        if getattr(self._progenitor, "_ic_backend", None) is not None:
             return self._determine_stream_track_backend()
         # Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
         prog_stream_offset = _determine_stream_track_single(
@@ -2466,7 +2493,7 @@ class streamdf(df):
         svlbd = coords.vxvyvz_to_vrpmllpmbb(
             vXYZ[0], vXYZ[1], vXYZ[2], slbd[:, 0], slbd[:, 1], slbd[:, 2], degree=True
         )
-        self._ObsTrackLB = _lb_track(slbd, svlbd)
+        self._ObsTrackLB = _lb_track(slbd, svlbd, self._ObsTrack)
         if hasattr(self, "_interpolatedObsTrackXY"):
             # Do the same for the interpolated track
             XYZ = coords.galcenrect_to_XYZ(
@@ -2494,7 +2521,9 @@ class streamdf(df):
                 slbd[:, 2],
                 degree=True,
             )
-            self._interpolatedObsTrackLB = _lb_track(slbd, svlbd)
+            self._interpolatedObsTrackLB = _lb_track(
+                slbd, svlbd, self._interpolatedObsTrackXY
+            )
         if hasattr(self, "_allErrCovsLBUnscaled"):
             # Re-calculate this
             self._determine_stream_spreadLB(
@@ -5250,7 +5279,18 @@ def _determine_stream_spread_single_backend(
     dispersions (``sigOmega``/``sigAngle``) and the track Jacobian
     (``allinvjacsTrack``). Reproduces the numpy assembly exactly.
     """
-    xp = get_namespace(allinvjacsTrack)
+    # Coerce EVERY array input onto one namespace: under a forced backend the
+    # offset setup runs on the backend while the (numpy-progenitor) track stays
+    # numpy, so this can be reached with a numpy allinvjacsTrack and a backend
+    # sigomatrixEig -- which then hits "unsupported operand @: ndarray, Tensor".
+    xp = get_namespace(
+        allinvjacsTrack if is_backend_array(allinvjacsTrack) else sigomatrixEig[1]
+    )
+    (allinvjacsTrack,) = coerce_coords(xp, allinvjacsTrack)
+    sigomatrixEig = (
+        coerce_coords(xp, sigomatrixEig[0])[0],
+        coerce_coords(xp, sigomatrixEig[1])[0],
+    )
     eigvals, eigvecs = sigomatrixEig[0], sigomatrixEig[1]
     inv_eigvecs = xp.linalg.inv(eigvecs)
     ar = xp.arange(eigvals.shape[0])  # (3,)
