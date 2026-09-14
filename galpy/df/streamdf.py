@@ -27,6 +27,8 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
+from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
+from ..backend.linalg import real_eig as _bk_real_eig
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
@@ -83,9 +85,58 @@ def _real_eig(a):
     # with real eigenvalues (e.g. the symmetric dO/dJ = d^2H/dJ^2 and covariance
     # matrices used here); return the real part so the downstream real-valued
     # math (fabs/sqrt/argsort) works. No-op (byte-identical) on numpy<2.5, where
-    # eig already returns real arrays for these inputs.
-    w, v = numpy.linalg.eig(a)
-    return numpy.real(w), numpy.real(v)
+    # eig already returns real arrays for these inputs. A backend a stays on its
+    # namespace (galpy.backend.linalg.real_eig).
+    return _bk_real_eig(a)
+
+
+def _stack3(x, y, z):
+    """(3,) from three scalars, on their own namespace (numpy stays numpy)."""
+    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+        return numpy.array([x, y, z]).reshape(3)
+    xp = get_namespace(x if is_backend_array(x) else (y if is_backend_array(y) else z))
+    return xp.stack([xp.reshape(v, ()) for v in (x, y, z)])
+
+
+def _sig_mean_sign(leading, omega_along):
+    """-1 when the mean-offset direction points the wrong way for this tail.
+
+    numpy keeps the Python float the if/elif produced; a backend value goes
+    through ``xp.where`` so the choice is traceable (both arms are constants, so
+    eager double-evaluation costs nothing and cannot NaN-poison a gradient).
+    """
+    if not is_backend_array(omega_along):
+        if leading and omega_along < 0.0:
+            return -1.0
+        elif not leading and omega_along > 0.0:
+            return -1.0
+        return 1.0
+    xp = get_namespace(omega_along)
+    wrong = omega_along < 0.0 if leading else omega_along > 0.0
+    return xp.where(wrong, -1.0, 1.0)
+
+
+def _sorted_eigvals(w):
+    """Eigenvalues ascending. numpy keeps ``sorted()``'s list object exactly;
+    a backend array uses ``xp.sort`` (``sorted()`` would iterate it into Python
+    scalars, which a tracer cannot supply)."""
+    if not is_backend_array(w):
+        return sorted(w)
+    return get_namespace(w).sort(w)
+
+
+def _progenitor_xv(o):
+    """The progenitor's (6,) phase-space IC, differentiable when it has one.
+
+    ``o.vxvv[0]`` is the numpy shape/phasedim bookkeeping, which lands calcaAJac
+    on its finite-difference path; ``_ic_backend`` is the grad-connected IC that
+    reaches calcaAJac's exact-AD path.
+    """
+    ic = getattr(o, "_ic_backend", None)
+    if ic is None:
+        return o.vxvv[0]
+    xp = get_namespace(ic)
+    return xp.reshape(ic, (-1,))
 
 
 _labelDict = {
@@ -338,11 +389,11 @@ class streamdf(df):
         self._progenitor_Omegar = acfs[3]
         self._progenitor_Omegaphi = acfs[4]
         self._progenitor_Omegaz = acfs[5]
-        self._progenitor_Omega = numpy.array([acfs[3], acfs[4], acfs[5]]).reshape(3)
+        self._progenitor_Omega = _stack3(acfs[3], acfs[4], acfs[5])
         self._progenitor_angler = acfs[6]
         self._progenitor_anglephi = acfs[7]
         self._progenitor_anglez = acfs[8]
-        self._progenitor_angle = numpy.array([acfs[6], acfs[7], acfs[8]]).reshape(3)
+        self._progenitor_angle = _stack3(acfs[6], acfs[7], acfs[8])
         # Calculate dO/dJ Jacobian at the progenitor
         if useTMHessian:
             h, fr, fp, fz, e = self._aAT.hessianFreqs(
@@ -361,14 +412,16 @@ class streamdf(df):
                 ]
             ).reshape(3)
         else:
+            # _ic_backend is the grad-connected (6,) IC; vxvv is numpy bookkeeping,
+            # which lands calcaAJac on its finite-difference path.
             self._dOdJp = calcaAJac(
-                self._progenitor.vxvv[0],
+                _progenitor_xv(self._progenitor),
                 self._aA,
                 dxv=None,
                 dOdJ=True,
                 _initacfs=acfs,
             )
-        self._dOdJpInv = numpy.linalg.inv(self._dOdJp)
+        self._dOdJpInv = get_namespace(self._dOdJp).linalg.inv(self._dOdJp)
         self._dOdJpEig = _real_eig(self._dOdJp)
         return None
 
@@ -381,16 +434,20 @@ class streamdf(df):
         self._siglz = self._progenitor.rperi() * self._sigv
         self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
-        self._sigjmatrix = numpy.diag(
-            [self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0]
+        # Follow whatever namespace dO/dJ came back on: get_namespace of a numpy
+        # array IS the numpy module, so the numpy path stays byte-identical.
+        _xp = get_namespace(self._dOdJp)
+        self._sigjmatrix = _xp.diag(
+            _stack3(self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0)
         )
-        self._sigomatrix = numpy.dot(
-            self._dOdJp, numpy.dot(self._sigjmatrix, self._dOdJp.T)
+        self._sigomatrix = _xp.dot(
+            self._dOdJp, _xp.dot(self._sigjmatrix, self._dOdJp.T)
         )
         # Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig = _real_eig(self._sigomatrix)
-        self._sigomatrixEigsortIndx = numpy.argsort(self._sigomatrixEig[0])
-        self._sortedSigOEig = sorted(self._sigomatrixEig[0])
+        self._sigomatrixEigsortIndx = _xp.argsort(self._sigomatrixEig[0])
+        # sorted() on a backend array would iterate it into Python scalars
+        self._sortedSigOEig = _sorted_eigvals(self._sigomatrixEig[0])
         if sigangle is None:
             self._sigangle = self._sigv * 1.8
         else:
@@ -399,36 +456,30 @@ class streamdf(df):
         self._lnsigangle = numpy.log(self._sigangle)
         # Estimate the frequency mean as lying along the direction of the largest eigenvalue
         self._dsigomeanProgDirection = self._sigomatrixEig[1][
-            :, numpy.argmax(self._sigomatrixEig[0])
+            :, _xp.argmax(self._sigomatrixEig[0])
         ]
-        self._progenitor_Omega_along_dOmega = numpy.dot(
+        self._progenitor_Omega_along_dOmega = _xp.dot(
             self._progenitor_Omega, self._dsigomeanProgDirection
         )
         # Make sure we are modeling the correct part of the stream
         self._leading = leading
-        self._sigMeanSign = 1.0
-        if self._leading and self._progenitor_Omega_along_dOmega < 0.0:
-            self._sigMeanSign = -1.0
-        elif not self._leading and self._progenitor_Omega_along_dOmega > 0.0:
-            self._sigMeanSign = -1.0
+        self._sigMeanSign = _sig_mean_sign(leading, self._progenitor_Omega_along_dOmega)
         self._progenitor_Omega_along_dOmega *= self._sigMeanSign
         self._sigomean = (
             self._progenitor_Omega
             + self._sigMeanOffset
             * self._sigMeanSign
-            * numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
+            * _xp.sqrt(_xp.max(self._sigomatrixEig[0]))
             * self._dsigomeanProgDirection
         )
         # numpy.dot(self._dOdJp,
         #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         self._dsigomeanProg = self._sigomean - self._progenitor_Omega
-        self._meandO = self._sigMeanOffset * numpy.sqrt(
-            numpy.amax(self._sigomatrixEig[0])
-        )
+        self._meandO = self._sigMeanOffset * _xp.sqrt(_xp.max(self._sigomatrixEig[0]))
         # Store cholesky of sigomatrix for fast evaluation
-        self._sigomatrixNorm = numpy.sqrt(numpy.sum(self._sigomatrix**2.0))
-        self._sigomatrixinv, self._sigomatrixLogdet = fast_cholesky_invert(
-            self._sigomatrix / self._sigomatrixNorm, tiny=10.0**-15.0, logdet=True
+        self._sigomatrixNorm = _xp.sqrt(_xp.sum(self._sigomatrix**2.0))
+        self._sigomatrixinv, self._sigomatrixLogdet = _bk_cholesky_invert(
+            self._sigomatrix / self._sigomatrixNorm, 10.0**-15.0, logdet=True
         )
         self._sigomatrixinv /= self._sigomatrixNorm
         deltaAngleTrackLim = (
