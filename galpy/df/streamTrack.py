@@ -1354,6 +1354,25 @@ class StreamTrack:
             return self._tp_grid * self._tp_scale  # normalized axis -> physical
         return self._tp_grid.copy()
 
+    def _tp_query_axis(self, tp, xp, dev):
+        """``(tp_b, in_range, tp_physical)`` for an accessor's backend query axis.
+
+        A backend ``tp`` stays ON the backend: ``numpy.asarray`` drops a tracer,
+        so the accessors could not be differentiated w.r.t. the query point. The
+        range mask is a plain comparison, so it needs no numpy round-trip either.
+        """
+        if is_backend_array(tp):
+            tp_b = xp.reshape(tp, (-1,))
+        else:
+            tp_b = asarray_on_device(
+                xp, numpy.atleast_1d(numpy.asarray(tp, dtype=float)), dev
+            )
+        tp_phys = tp_b  # pre-normalization, for the cov Jacobian
+        if self._tp_scale is not None:
+            tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+        in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
+        return tp_b, in_range, tp_phys
+
     def _in_range(self, tp_arr):
         """Boolean mask over ``tp_arr`` for entries inside the track's
         valid ``tp`` range. Out-of-range tps get NaN accessor / cov
@@ -1364,13 +1383,7 @@ class StreamTrack:
         if self._backend:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
-            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
-            if self._tp_scale is None:
-                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
-            else:
-                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
-                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
+            tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
             rows = [
                 xp.where(
                     in_range,
@@ -1404,13 +1417,7 @@ class StreamTrack:
         if self._backend:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
-            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
-            if self._tp_scale is None:
-                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
-            else:
-                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
-                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
+            tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
             val = xp.where(
                 in_range,
                 eval_cubic(xp, self._tp_grid, self._cart_coeffs[idx], tp_b),
@@ -1586,7 +1593,8 @@ class StreamTrack:
 
     def _cyl_at(self, tp):
         """Return (R, vR, vT, z, vz, phi) along the track (internal units)."""
-        tp = numpy.atleast_1d(tp)
+        # no numpy.atleast_1d here: _eval_cart normalises the query axis itself,
+        # and converting first would drop a traced tp
         xyz = self._eval_cart(tp)  # (6, len)
         x, y, zc, vxc, vyc, vzc = xyz
         R, phi, zcyl = coords.rect_to_cyl(x, y, zc)
@@ -1732,7 +1740,7 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _helio_xv(self, tp):
         """Compute heliocentric XYZ, vxvyvz at tp using ro/vo/zo/solarmotion."""
-        xyzvxyz = self._eval_cart(numpy.atleast_1d(tp))  # (6, len)
+        xyzvxyz = self._eval_cart(tp)  # (6, len); _eval_cart normalises the axis
         zo_kpc = self._zo if self._zo is not None else 0.0
         xyz_helio = coords.galcenrect_to_XYZ(
             xyzvxyz[0] * self._ro,
@@ -2338,14 +2346,7 @@ class StreamTrack:
             # numpy-only follow-up; only galcenrect is supported here.
             xp = get_namespace(self._cov_xyz)
             dev = device_of(self._cov_xyz)
-            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
-            tp_for_jac = tp_b  # physical tp (pre-normalization) for the Jacobian
-            if self._tp_scale is None:
-                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
-            else:
-                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
-                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
+            tp_b, in_range, tp_for_jac = self._tp_query_axis(tp, xp, dev)
             rows = []
             for a in range(6):
                 cols = [
