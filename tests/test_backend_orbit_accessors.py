@@ -620,3 +620,62 @@ def test_numerical_accessor_forced_backend_on_numpy_orbit(acc, backend_name):
         atol=1e-14,
         err_msg=f"{acc} forced-{backend_name} numpy orbit",
     )
+
+
+# --- no-time accessors and o() keep a backend orbit on its backend -----------
+# o.R() (no time argument) returned the numpy self.vxvv bookkeeping even for a
+# jax/torch orbit, so it disagreed with o.R(t) / o.R(0.0) / o.E() for the SAME
+# orbit, and o() laundered a backend orbit into a numpy one. streamdf inherits
+# that: `self._progenitor = progenitor()` is the first line of its setup, so the
+# whole track determination silently ran on numpy for a backend progenitor.
+_IC_IDX = {"R": 0, "vR": 1, "vT": 2, "z": 3, "vz": 4, "phi": 5}
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+@pytest.mark.parametrize("acc", list(_IC_IDX))
+@pytest.mark.parametrize("integrated", [False, True])
+def test_noarg_accessor_stays_on_backend(acc, integrated):
+    o = Orbit(jnp.asarray(_IC))
+    if integrated:
+        o.integrate(jnp.asarray(_TS), _POT, method="diffrax")
+    val = getattr(o, acc)(use_physical=False)
+    assert is_backend_array(val), f"{acc}() left the backend"
+    # value is the IC component, and agrees with the timed accessor at t=0
+    numpy.testing.assert_allclose(
+        numpy.asarray(as_numpy(val)).reshape(()), _IC[_IC_IDX[acc]], rtol=1e-14
+    )
+    if integrated:
+        at0 = getattr(o, acc)(jnp.asarray(_TS)[0], use_physical=False)
+        numpy.testing.assert_allclose(
+            numpy.asarray(as_numpy(val)).reshape(()),
+            numpy.asarray(as_numpy(at0)).reshape(()),
+            rtol=1e-12,
+        )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_call_preserves_backend_ic():
+    o = Orbit(jnp.asarray(_IC))
+    oc = o()
+    assert is_backend_array(oc._ic_backend), "o() laundered the backend IC to numpy"
+    numpy.testing.assert_allclose(
+        numpy.asarray(as_numpy(oc._ic_backend)).reshape(-1), _IC, rtol=1e-14
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_backend_ic_vxvv_bookkeeping_is_writable():
+    # self.vxvv is numpy bookkeeping; numpy.asarray on a jax array is a READ-ONLY
+    # view, which made in-place numpy math on it (streamdf's calcaAJac finite
+    # differences: xv[ii] += dxv[ii]) raise "assignment destination is read-only".
+    o = Orbit(jnp.asarray(_IC))
+    assert o.vxvv.flags.writeable
+    o.vxvv[0] += 1.0  # must not raise
+
+
+def test_noarg_accessor_numpy_path_unchanged():
+    o = Orbit(numpy.array(_IC))
+    for acc, i in _IC_IDX.items():
+        v = getattr(o, acc)(use_physical=False)
+        assert not is_backend_array(v)
+        numpy.testing.assert_allclose(numpy.asarray(v).reshape(()), _IC[i], rtol=1e-14)
