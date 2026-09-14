@@ -1228,3 +1228,101 @@ def test_streamtrack_class_backend_cov_sky_bases_match_numpy(backend):
             rtol=1e-8,
             atol=1e-10 * scale,
         )
+
+
+# --- accessors differentiable w.r.t. the QUERY POINT tp ----------------------
+# The accessors pushed tp through numpy.asarray and converted it straight back
+# to the backend, which drops a tracer: every accessor raised
+# TracerArrayConversionError for a traced tp, so nothing read OFF a track could
+# be differentiated w.r.t. where it was read. The query axis now stays on the
+# backend (_tp_query_axis); the range mask is a plain comparison, so it needed
+# no numpy round-trip either.
+# the sky accessors need a solar frame; a bare StreamTrack has none
+_SOLAR_FRAME = dict(ro=8.0, vo=220.0, zo=0.0208, solarmotion=[-11.1, 24.0, 7.25])
+
+_TP_ACCESSORS = (
+    "x",
+    "y",
+    "z",
+    "vx",
+    "vy",
+    "vz",
+    "R",
+    "vR",
+    "vT",
+    "phi",
+    "ll",
+    "bb",
+    "dist",
+    "pmll",
+    "pmbb",
+    "vlos",
+)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("acc", _TP_ACCESSORS)
+def test_accessor_grad_wrt_tp_matches_fd(acc):
+    import jax
+    import jax.numpy as jnp
+
+    tpg, xyz, v, cov, _ = _grad_setup()
+    tr = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    tr.turn_physical_off()
+    tp0 = 0.5 * (float(tpg[0]) + float(tpg[-1]))
+
+    def f(t):
+        return jnp.reshape(jnp.asarray(getattr(tr, acc)(t, use_physical=False)), ())
+
+    val = f(jnp.asarray(tp0))
+    assert is_backend_array(val), f"{acc} left the backend"
+    g = float(jax.grad(f)(jnp.asarray(tp0)))
+    h = 1e-5 * max(abs(tp0), 1.0)
+    fd = float((f(jnp.asarray(tp0 + h)) - f(jnp.asarray(tp0 - h))) / (2 * h))
+    assert abs(g - fd) <= 1e-6 * max(abs(fd), 1.0), f"{acc}: AD {g} vs FD {fd}"
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_accessor_numpy_tp_on_backend_track_unchanged():
+    # a NUMPY tp on a BACKEND track keeps its exact values (the helper only
+    # removes the round-trip; it must not change what comes out)
+    tpg, xyz, v, cov, q = _grad_setup()
+    tr_np = StreamTrack(tpg, xyz, v, cov_xyz=cov, parameter_kind="time", **_SOLAR_FRAME)
+    tr_bk = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    for acc in _TP_ACCESSORS:
+        a = numpy.asarray(as_numpy(getattr(tr_bk, acc)(q, use_physical=False)))
+        b = numpy.asarray(getattr(tr_np, acc)(q, use_physical=False))
+        numpy.testing.assert_allclose(a, b, rtol=1e-12, atol=1e-13, err_msg=acc)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_accessor_out_of_range_still_nan_for_traced_tp():
+    # the range mask moved onto the backend; out-of-range must still be NaN
+    tpg, xyz, v, cov, _ = _grad_setup()
+    tr = StreamTrack(
+        _arr("jax", tpg),
+        _arr("jax", xyz),
+        _arr("jax", v),
+        cov_xyz=_arr("jax", cov),
+        parameter_kind="time",
+        **_SOLAR_FRAME,
+    )
+    far = float(tpg[-1]) + 10.0 * (float(tpg[-1]) - float(tpg[0]))
+    out = numpy.asarray(
+        as_numpy(tr.x(_arr("jax", numpy.array([far])), use_physical=False))
+    )
+    assert numpy.all(numpy.isnan(out))
