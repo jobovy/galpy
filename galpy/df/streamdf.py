@@ -116,6 +116,19 @@ def _sig_mean_sign(leading, omega_along):
     return xp.where(wrong, -1.0, 1.0)
 
 
+def _lb_track(slbd, svlbd):
+    """(N,6) (l, b, dist, vlos, pmll, pmbb) track from the two conversions.
+
+    galpy.util.coords is backend-aware, so on a backend track slbd/svlbd come
+    back as backend arrays; building the result with numpy.empty_like + column
+    assignment would drop them to numpy (and item assignment is not traceable).
+    """
+    cols = (slbd[:, 0], slbd[:, 1], slbd[:, 2], svlbd[:, 0], svlbd[:, 1], svlbd[:, 2])
+    if not any(is_backend_array(c) for c in cols):
+        return numpy.stack(cols, axis=1)
+    return get_namespace(cols[0]).stack(cols, axis=1)
+
+
 def _sorted_eigvals(w):
     """Eigenvalues ascending. numpy keeps ``sorted()``'s list object exactly;
     a backend array uses ``xp.sort`` (``sorted()`` would iterate it into Python
@@ -2433,7 +2446,6 @@ class streamdf(df):
             Zsun = self._Zsun
         if vsun is None:
             vsun = self._vsun
-        self._ObsTrackLB = numpy.empty_like(self._ObsTrack)
         XYZ = coords.galcencyl_to_XYZ(
             self._ObsTrack[:, 0] * ro,
             self._ObsTrack[:, 5],
@@ -2454,17 +2466,9 @@ class streamdf(df):
         svlbd = coords.vxvyvz_to_vrpmllpmbb(
             vXYZ[0], vXYZ[1], vXYZ[2], slbd[:, 0], slbd[:, 1], slbd[:, 2], degree=True
         )
-        self._ObsTrackLB[:, 0] = slbd[:, 0]
-        self._ObsTrackLB[:, 1] = slbd[:, 1]
-        self._ObsTrackLB[:, 2] = slbd[:, 2]
-        self._ObsTrackLB[:, 3] = svlbd[:, 0]
-        self._ObsTrackLB[:, 4] = svlbd[:, 1]
-        self._ObsTrackLB[:, 5] = svlbd[:, 2]
+        self._ObsTrackLB = _lb_track(slbd, svlbd)
         if hasattr(self, "_interpolatedObsTrackXY"):
             # Do the same for the interpolated track
-            self._interpolatedObsTrackLB = numpy.empty_like(
-                self._interpolatedObsTrackXY
-            )
             XYZ = coords.galcenrect_to_XYZ(
                 self._interpolatedObsTrackXY[:, 0] * ro,
                 self._interpolatedObsTrackXY[:, 1] * ro,
@@ -2490,12 +2494,7 @@ class streamdf(df):
                 slbd[:, 2],
                 degree=True,
             )
-            self._interpolatedObsTrackLB[:, 0] = slbd[:, 0]
-            self._interpolatedObsTrackLB[:, 1] = slbd[:, 1]
-            self._interpolatedObsTrackLB[:, 2] = slbd[:, 2]
-            self._interpolatedObsTrackLB[:, 3] = svlbd[:, 0]
-            self._interpolatedObsTrackLB[:, 4] = svlbd[:, 1]
-            self._interpolatedObsTrackLB[:, 5] = svlbd[:, 2]
+            self._interpolatedObsTrackLB = _lb_track(slbd, svlbd)
         if hasattr(self, "_allErrCovsLBUnscaled"):
             # Re-calculate this
             self._determine_stream_spreadLB(

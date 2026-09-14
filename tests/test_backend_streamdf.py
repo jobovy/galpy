@@ -2228,3 +2228,27 @@ def test_c3_setup_matches_numpy_within_the_fd_gap(_c3_pair, attr, rtol):
     assert numpy.max(numpy.abs(got - want)) < rtol * scale, (
         f"{attr}: rel {numpy.max(numpy.abs(got - want)) / scale:.3e} > {rtol:g}"
     )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_c3_lb_track_stays_on_backend(_c3_pair):
+    # galpy.util.coords is already backend-aware, so the (l,b) track only left
+    # the backend because it was assembled with numpy.empty_like + per-column
+    # item assignment (which is also not traceable).
+    ref, bk = _c3_pair
+    for attr in ("_ObsTrackLB", "_interpolatedObsTrackLB"):
+        got = getattr(bk, attr)
+        assert is_backend_array(got), f"{attr} was laundered to numpy"
+        want = getattr(ref, attr)
+        got = as_numpy(got)
+        assert got.shape == want.shape
+        # These inherit the track's FD-vs-AD gap. Compare each column against
+        # ITS OWN scale: b and vlos pass through zero, so an elementwise rtol
+        # explodes on the small values while the absolute gap stays ~3e-5 (in
+        # degrees / km|s). Measured worst column here is ~4e-7 of scale.
+        for col in range(want.shape[1]):
+            scale = numpy.max(numpy.abs(want[:, col]))
+            gap = numpy.max(numpy.abs(got[:, col] - want[:, col]))
+            assert gap < 1e-5 * scale, (
+                f"{attr} col {col}: {gap:.3e} vs scale {scale:.3e}"
+            )
