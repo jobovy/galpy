@@ -1338,3 +1338,22 @@ def test_traced_potential_is_detected():
 
     jax.grad(probe)(1.0)
     assert seen["traced"], "a traced potential parameter must divert to the ODE"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_param_probe_has_no_side_effect():
+    # The predicate must not perturb what it inspects. It used to evaluate a
+    # force, which populates the evaluation cache of potentials that keep one --
+    # that silently changed streamgapdf's sampled values (test_streamgapdf_sample)
+    # even though nothing was traced and the routing decision was unaffected.
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.05)
+    before = dict(vars(pot))
+    assert not _pot_has_traced_param(pot)
+    after = vars(pot)
+    assert set(before) == set(after), "the probe added state to the potential"
+    for k, v in before.items():
+        if isinstance(v, (int, float, str, bool, type(None))):
+            assert after[k] == v, f"the probe mutated {k}"

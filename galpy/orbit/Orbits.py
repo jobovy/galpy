@@ -321,27 +321,36 @@ def _copy_for_continuation(x):
     return x.clone() if hasattr(x, "clone") else x.copy()
 
 
-def _pot_has_traced_param(pot):
-    """True if ``pot`` carries a TRACED parameter.
+def _pot_has_traced_param(pot, _depth=0):
+    """True if ``pot`` -- or anything it wraps -- STORES a traced parameter.
 
-    Probed with a force evaluation at a fixed CONCRETE point under FORCED NUMPY,
-    so a merely-forced context does not count.
+    Structural inspection, deliberately NOT a force probe. Evaluating a force to
+    detect this perturbs potentials that cache their last evaluation: it changed
+    streamgapdf's sampled values (test_streamgapdf_sample) even though nothing
+    was traced and the routing was unaffected. A detector must not have side
+    effects on the thing it inspects.
 
     TRACED, not merely backend: only a tracer breaks the C-STM's callback (its
     parser calls as_numpy on the potential arguments). A potential that merely
     HOLDS backend data with concrete values -- e.g. a MovingObjectPotential built
     on a backend progenitor orbit -- converts fine and must keep the fast C-STM.
-    Using is_backend_array here instead sent those to the in-backend ODE and broke
-    streamspraydf's progenitor-potential tests.
     """
-    from ..potential import evaluateRforces
-
-    try:
-        with _use_backend("numpy", force=True):
-            f = evaluateRforces(pot, 1.0, 0.0, phi=0.0, t=0.0, use_physical=False)
-    except Exception:  # noqa: BLE001 -- an unprobeable potential is not a tracer
+    if _depth > 5:  # pragma: no cover - guards against a cyclic wrapper chain
         return False
-    return under_trace(f)
+    if isinstance(pot, (list, tuple)):
+        return any(_pot_has_traced_param(p, _depth + 1) for p in pot)
+    if under_trace(pot):
+        return True
+    for v in getattr(pot, "__dict__", {}).values():
+        if under_trace(v):
+            return True
+        if isinstance(v, (list, tuple)):
+            if any(_pot_has_traced_param(x, _depth + 1) for x in v):
+                return True
+        elif hasattr(v, "_amp"):  # a wrapped / composite potential
+            if _pot_has_traced_param(v, _depth + 1):
+                return True
+    return False
 
 
 def _backend_T(x):
