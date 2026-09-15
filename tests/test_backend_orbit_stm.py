@@ -1251,3 +1251,36 @@ def test_jit_traced_time_routes_to_inbackend_and_matches_eager():
         g = float(jax.grad(lambda tm: jnp.sum(traj(tm)))(2.0))
         h = 1e-5
         numpy.testing.assert_allclose(g, (F(2.0 + h) - F(2.0 - h)) / (2 * h), rtol=1e-6)
+
+
+# --- a BACKEND POTENTIAL PARAMETER must not take the C-STM --------------------
+# The C-STM pure_callbacks into the compiled C integrator, whose parser needs
+# CONCRETE potential arguments, and it carries d/d(IC) only -- never d/d(theta).
+# A traced theta therefore died in _parse_pot (as_numpy on the tracer). It now
+# routes to the in-backend ODE, which is differentiable in theta.
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_potential_parameter_routes_to_inbackend():
+    pytest.importorskip("diffrax")
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    ic = jnp.asarray(_IC)
+    ts = numpy.linspace(0.0, 2.0, 51)
+
+    def traj(amp):
+        with use("jax", force=True):
+            o = Orbit(ic)
+            o.integrate(ts, MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05), "dop853_c")
+            return o.getOrbit()
+
+    def loss(amp):
+        return jnp.sum(traj(amp))
+
+    # the orbit is genuinely time-varying, so this is not a degenerate comparison
+    assert numpy.ptp(numpy.asarray(as_numpy(traj(1.0)))[..., 0]) > 0.05
+    g = float(jax.grad(loss)(1.0))
+    assert numpy.isfinite(g) and abs(g) > 0
+    h = 1e-5
+    fd = float((loss(1.0 + h) - loss(1.0 - h)) / (2 * h))
+    numpy.testing.assert_allclose(g, fd, rtol=1e-7, atol=1e-9)

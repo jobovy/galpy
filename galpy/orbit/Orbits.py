@@ -32,6 +32,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
 )
+from ..backend import use as _use_backend
 from ..backend._namespaces import under_trace
 from ..potential import (
     _INF,
@@ -318,6 +319,23 @@ def _copy_for_continuation(x):
     tensor has ``.clone()`` instead, which (unlike a detached copy) stays in the
     autograd graph."""
     return x.clone() if hasattr(x, "clone") else x.copy()
+
+
+def _pot_has_backend_param(pot):
+    """True if ``pot`` carries a backend (possibly traced) parameter.
+
+    Probed with a force evaluation at a fixed CONCRETE point under FORCED NUMPY,
+    so a genuine backend theta (which survives forced numpy) is distinguished
+    from a merely-forced context. Mirrors streamspraydf's theta probe.
+    """
+    from ..potential import evaluateRforces
+
+    try:
+        with _use_backend("numpy", force=True):
+            f = evaluateRforces(pot, 1.0, 0.0, phi=0.0, t=0.0, use_physical=False)
+    except Exception:  # noqa: BLE001 -- an unprobeable potential is not a tracer
+        return False
+    return is_backend_array(f)
 
 
 def _backend_T(x):
@@ -1811,9 +1829,15 @@ class Orbit:
                 _pdim = self.phasedim()
                 # A TRACED t cannot take the C-STM: it pure_callbacks into the C
                 # integrator, which closes over a CONCRETE ts (orbit_stm.integrate).
+                # Neither can a BACKEND POTENTIAL PARAMETER: the same callback
+                # parses concrete pot args, so a traced theta dies in _parse_pot
+                # (as_numpy on the tracer). The C-STM carries d/d(IC) but never
+                # d/d(theta), so such a potential must reach the in-backend ODE --
+                # the same conclusion streamspraydf reached for its own dispatch.
                 if (
                     _check_c(_potl)
                     and not under_trace(t)
+                    and not _pot_has_backend_param(_potl)
                     and (
                         _check_c(_potl, dxdv3d=True)
                         if _pdim == 6
