@@ -20,13 +20,17 @@ from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    coerce_coords,
     get_namespace,
     is_backend_array,
     name_of_namespace,
     promote_scalars,
 )
 from ..backend import special as _bspecial
+from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
+from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
+from ..backend.linalg import real_eig as _bk_real_eig
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
@@ -83,9 +87,95 @@ def _real_eig(a):
     # with real eigenvalues (e.g. the symmetric dO/dJ = d^2H/dJ^2 and covariance
     # matrices used here); return the real part so the downstream real-valued
     # math (fabs/sqrt/argsort) works. No-op (byte-identical) on numpy<2.5, where
-    # eig already returns real arrays for these inputs.
-    w, v = numpy.linalg.eig(a)
-    return numpy.real(w), numpy.real(v)
+    # eig already returns real arrays for these inputs. A backend a stays on its
+    # namespace (galpy.backend.linalg.real_eig).
+    return _bk_real_eig(a)
+
+
+def _stack3(x, y, z):
+    """(3,) from three scalars, on their own namespace (numpy stays numpy)."""
+    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+        return numpy.array([x, y, z]).reshape(3)
+    xp = get_namespace(x if is_backend_array(x) else (y if is_backend_array(y) else z))
+    return xp.stack([xp.reshape(v, ()) for v in (x, y, z)])
+
+
+def _ns_coerce(*xs):
+    """``(xp, *xs)`` with every input lifted onto the AMBIENT namespace.
+
+    The reader-side companion to the coercion in ``_progenitor_setup``: a stored
+    attribute can be numpy while the ambient namespace is a backend (a
+    module-scoped fixture is built before the --backend force fixture runs), so
+    compute on ``xp`` after coercing rather than assuming either side.
+    """
+    xp = get_namespace(xs[0])
+    return (xp, *coerce_coords(xp, *xs))
+
+
+def _sig_mean_sign(leading, omega_along):
+    """-1 when the mean-offset direction points the wrong way for this tail.
+
+    numpy keeps the Python float the if/elif produced; a backend value goes
+    through ``xp.where`` so the choice is traceable (both arms are constants, so
+    eager double-evaluation costs nothing and cannot NaN-poison a gradient).
+    """
+    if not is_backend_array(omega_along):
+        if leading and omega_along < 0.0:
+            return -1.0
+        elif not leading and omega_along > 0.0:
+            return -1.0
+        return 1.0
+    xp = get_namespace(omega_along)
+    wrong = omega_along < 0.0 if leading else omega_along > 0.0
+    if not under_trace(omega_along):
+        # A SIGN: structural, and xp.where(cond, -1.0, 1.0) carries no gradient
+        # either way. Concretely it is a plain float, which keeps the numpy
+        # consumers of _sigMeanSign working (streamgapdf multiplies numpy kick
+        # arrays by it in place). Traced, keep the where so __init__ stays
+        # traceable.
+        return -1.0 if bool(wrong) else 1.0
+    return xp.where(wrong, -1.0, 1.0)
+
+
+def _lb_track(slbd, svlbd, ref):
+    """(N,6) (l, b, dist, vlos, pmll, pmbb) track from the two conversions.
+
+    galpy.util.coords is backend-aware, so on a backend track slbd/svlbd come
+    back as backend arrays; building the result with numpy.empty_like + column
+    assignment would drop them to numpy (and item assignment is not traceable).
+
+    Keyed on ``ref`` (the cartesian track this is derived from), NOT on the
+    converted columns: under a FORCED backend the coords helpers return backend
+    arrays even for a numpy track, and a numpy-progenitor streamdf must keep a
+    numpy -- and hence still mutable -- LB track.
+    """
+    cols = (slbd[:, 0], slbd[:, 1], slbd[:, 2], svlbd[:, 0], svlbd[:, 1], svlbd[:, 2])
+    if not is_backend_array(ref):
+        return numpy.stack([numpy.asarray(as_numpy(c)) for c in cols], axis=1)
+    return get_namespace(ref).stack(cols, axis=1)
+
+
+def _sorted_eigvals(w):
+    """Eigenvalues ascending. numpy keeps ``sorted()``'s list object exactly;
+    a backend array uses ``xp.sort`` (``sorted()`` would iterate it into Python
+    scalars, which a tracer cannot supply)."""
+    if not is_backend_array(w):
+        return sorted(w)
+    return get_namespace(w).sort(w)
+
+
+def _progenitor_xv(o):
+    """The progenitor's (6,) phase-space IC, differentiable when it has one.
+
+    ``o.vxvv[0]`` is the numpy shape/phasedim bookkeeping, which lands calcaAJac
+    on its finite-difference path; ``_ic_backend`` is the grad-connected IC that
+    reaches calcaAJac's exact-AD path.
+    """
+    ic = getattr(o, "_ic_backend", None)
+    if ic is None:
+        return o.vxvv[0]
+    xp = get_namespace(ic)
+    return xp.reshape(ic, (-1,))
 
 
 _labelDict = {
@@ -338,11 +428,11 @@ class streamdf(df):
         self._progenitor_Omegar = acfs[3]
         self._progenitor_Omegaphi = acfs[4]
         self._progenitor_Omegaz = acfs[5]
-        self._progenitor_Omega = numpy.array([acfs[3], acfs[4], acfs[5]]).reshape(3)
+        self._progenitor_Omega = _stack3(acfs[3], acfs[4], acfs[5])
         self._progenitor_angler = acfs[6]
         self._progenitor_anglephi = acfs[7]
         self._progenitor_anglez = acfs[8]
-        self._progenitor_angle = numpy.array([acfs[6], acfs[7], acfs[8]]).reshape(3)
+        self._progenitor_angle = _stack3(acfs[6], acfs[7], acfs[8])
         # Calculate dO/dJ Jacobian at the progenitor
         if useTMHessian:
             h, fr, fp, fz, e = self._aAT.hessianFreqs(
@@ -361,15 +451,39 @@ class streamdf(df):
                 ]
             ).reshape(3)
         else:
+            # _ic_backend is the grad-connected (6,) IC; vxvv is numpy bookkeeping,
+            # which lands calcaAJac on its finite-difference path.
             self._dOdJp = calcaAJac(
-                self._progenitor.vxvv[0],
+                _progenitor_xv(self._progenitor),
                 self._aA,
                 dxv=None,
                 dOdJ=True,
                 _initacfs=acfs,
             )
-        self._dOdJpInv = numpy.linalg.inv(self._dOdJp)
-        self._dOdJpEig = _real_eig(self._dOdJp)
+        # get_namespace resolves the AMBIENT namespace, so under a forced backend
+        # it is the backend even for a numpy dO/dJ -- COERCE onto it rather than
+        # data-guarding back to numpy, so the forced suite exercises the backend
+        # (numpy is a strict coerce_coords pass-through -> byte-identical).
+        # RUN on the ambient namespace (a forced backend must exercise the backend
+        # leaves: cholesky/eigh/matmul), then hand the results back in the kind the
+        # caller gave us. Casting back is safe EXACTLY when the input was not a
+        # backend array: numpy carries no autodiff tape, so there is no gradient to
+        # lose. A backend IC (or a backend potential parameter) makes calcaAJac
+        # return a genuine backend dO/dJ, `_native` is True, and nothing is cast.
+        _native = is_backend_array(self._dOdJp)
+        _ixp = get_namespace(self._dOdJp)
+        (_dodj,) = coerce_coords(_ixp, self._dOdJp)
+        _inv = _ixp.linalg.inv(_dodj)
+        _eig = _real_eig(_dodj)
+        if _native:
+            self._dOdJp, self._dOdJpInv, self._dOdJpEig = _dodj, _inv, _eig
+        else:
+            self._dOdJpInv = numpy.asarray(as_numpy(_inv))
+            self._dOdJpEig = (
+                numpy.asarray(as_numpy(_eig[0])),
+                numpy.asarray(as_numpy(_eig[1])),
+            )
+
         return None
 
     def _offset_setup(self, sigangle, leading, deltaAngleTrack):
@@ -381,16 +495,27 @@ class streamdf(df):
         self._siglz = self._progenitor.rperi() * self._sigv
         self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
-        self._sigjmatrix = numpy.diag(
-            [self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0]
+        # Same contract as _progenitor_setup: RUN on the ambient namespace, then
+        # hand the derived moments back in the caller's kind. _native says whether
+        # dO/dJ arrived carrying a gradient; if it did not, casting back loses
+        # nothing and keeps the (27) numpy consumers of these moments working.
+        _native = is_backend_array(self._dOdJp)
+        _xp = get_namespace(self._dOdJp)
+        (self._dOdJp,) = coerce_coords(_xp, self._dOdJp)
+
+        self._sigjmatrix = _xp.diag(
+            _stack3(self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0)
         )
-        self._sigomatrix = numpy.dot(
-            self._dOdJp, numpy.dot(self._sigjmatrix, self._dOdJp.T)
+        # matmul, NOT dot: numpy.dot on 2-D is a matrix product but torch.dot is
+        # 1-D only ("1D tensors expected, but got 2D and 2D tensors").
+        self._sigomatrix = _xp.matmul(
+            self._dOdJp, _xp.matmul(self._sigjmatrix, self._dOdJp.T)
         )
         # Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig = _real_eig(self._sigomatrix)
-        self._sigomatrixEigsortIndx = numpy.argsort(self._sigomatrixEig[0])
-        self._sortedSigOEig = sorted(self._sigomatrixEig[0])
+        self._sigomatrixEigsortIndx = _xp.argsort(self._sigomatrixEig[0])
+        # sorted() on a backend array would iterate it into Python scalars
+        self._sortedSigOEig = _sorted_eigvals(self._sigomatrixEig[0])
         if sigangle is None:
             self._sigangle = self._sigv * 1.8
         else:
@@ -399,38 +524,65 @@ class streamdf(df):
         self._lnsigangle = numpy.log(self._sigangle)
         # Estimate the frequency mean as lying along the direction of the largest eigenvalue
         self._dsigomeanProgDirection = self._sigomatrixEig[1][
-            :, numpy.argmax(self._sigomatrixEig[0])
+            :, _xp.argmax(self._sigomatrixEig[0])
         ]
-        self._progenitor_Omega_along_dOmega = numpy.dot(
+        self._progenitor_Omega_along_dOmega = _xp.dot(
             self._progenitor_Omega, self._dsigomeanProgDirection
         )
         # Make sure we are modeling the correct part of the stream
         self._leading = leading
-        self._sigMeanSign = 1.0
-        if self._leading and self._progenitor_Omega_along_dOmega < 0.0:
-            self._sigMeanSign = -1.0
-        elif not self._leading and self._progenitor_Omega_along_dOmega > 0.0:
-            self._sigMeanSign = -1.0
+        self._sigMeanSign = _sig_mean_sign(leading, self._progenitor_Omega_along_dOmega)
         self._progenitor_Omega_along_dOmega *= self._sigMeanSign
         self._sigomean = (
             self._progenitor_Omega
             + self._sigMeanOffset
             * self._sigMeanSign
-            * numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
+            * _xp.sqrt(_xp.max(self._sigomatrixEig[0]))
             * self._dsigomeanProgDirection
         )
         # numpy.dot(self._dOdJp,
         #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         self._dsigomeanProg = self._sigomean - self._progenitor_Omega
-        self._meandO = self._sigMeanOffset * numpy.sqrt(
-            numpy.amax(self._sigomatrixEig[0])
-        )
+        self._meandO = self._sigMeanOffset * _xp.sqrt(_xp.max(self._sigomatrixEig[0]))
         # Store cholesky of sigomatrix for fast evaluation
-        self._sigomatrixNorm = numpy.sqrt(numpy.sum(self._sigomatrix**2.0))
-        self._sigomatrixinv, self._sigomatrixLogdet = fast_cholesky_invert(
-            self._sigomatrix / self._sigomatrixNorm, tiny=10.0**-15.0, logdet=True
+        self._sigomatrixNorm = _xp.sqrt(_xp.sum(self._sigomatrix**2.0))
+        self._sigomatrixinv, self._sigomatrixLogdet = _bk_cholesky_invert(
+            self._sigomatrix / self._sigomatrixNorm, 10.0**-15.0, logdet=True
         )
         self._sigomatrixinv /= self._sigomatrixNorm
+        # Hand the derived moments back in the caller's kind. Safe EXACTLY when
+        # dO/dJ was not a backend array: numpy carries no autodiff tape, so there
+        # is no gradient to lose, and the many numpy consumers of these moments
+        # (meanOmega, sigOmega, ptdAngle, streamgapdf's kick arrays, ...) keep
+        # working. A backend IC -- or a backend potential parameter -- makes
+        # calcaAJac return a genuine backend dO/dJ, and then nothing is cast.
+        if not _native:
+            for _nm in (
+                "_dOdJp",
+                "_sigjmatrix",
+                "_sigomatrix",
+                "_sigomatrixEigsortIndx",
+                "_dsigomeanProgDirection",
+                "_progenitor_Omega_along_dOmega",
+                "_sigomean",
+                "_dsigomeanProg",
+                "_meandO",
+                "_sigomatrixNorm",
+                "_sigomatrixinv",
+                "_sigomatrixLogdet",
+                # the acfs are backend under a forced context even for a numpy
+                # progenitor; cast them HERE, after _offset_setup's backend math
+                # has used them, or the object is left MIXED
+                "_progenitor_Omega",
+                "_progenitor_angle",
+            ):
+                setattr(self, _nm, numpy.asarray(as_numpy(getattr(self, _nm))))
+            self._sigomatrixEig = (
+                numpy.asarray(as_numpy(self._sigomatrixEig[0])),
+                numpy.asarray(as_numpy(self._sigomatrixEig[1])),
+            )
+            self._sortedSigOEig = sorted(numpy.asarray(as_numpy(self._sortedSigOEig)))
+
         deltaAngleTrackLim = (
             (self._sigMeanOffset + 4.0)
             * numpy.sqrt(self._sortedSigOEig[2])
@@ -558,13 +710,21 @@ class streamdf(df):
             galpyWarning,
         )
         if isotropic:
-            dODir = self._dOdJpEig[1][:, numpy.argmax(numpy.fabs(self._dOdJpEig[0]))]
+            # COERCE, don't assume: a module-scoped streamdf fixture is built
+            # BEFORE the function-scoped --backend force fixture runs, so the
+            # stored eigendecomposition can be numpy while the ambient namespace
+            # is the backend.
+            _exp = get_namespace(self._dOdJpEig[0])
+            _ev, _evec = coerce_coords(_exp, self._dOdJpEig[0], self._dOdJpEig[1])
+            dODir = _evec[:, _exp.argmax(_exp.abs(_ev))]
         else:
             dODir = self._dsigomeanProgDirection
-        out = numpy.arccos(
-            numpy.sum(self._progenitor_Omega * dODir)
-            / numpy.sqrt(numpy.sum(self._progenitor_Omega**2.0))
-        )
+        # Follow the namespace: under a forced backend the offset setup runs on
+        # the backend, so these are backend arrays and numpy.sum would dispatch
+        # into torch.sum with numpy's axis=/out= kwargs.
+        _mxp = get_namespace(self._progenitor_Omega)
+        _pO, dODir = coerce_coords(_mxp, self._progenitor_Omega, dODir)
+        out = _mxp.acos(_mxp.sum(_pO * dODir) / _mxp.sqrt(_mxp.sum(_pO**2.0)))
         if out > numpy.pi / 2.0:
             return out - numpy.pi
         else:
@@ -617,7 +777,8 @@ class streamdf(df):
         - 2013-11-27 - Written - Bovy (IAS)
 
         """
-        return deltaAngle / numpy.sqrt(numpy.sum(self._dsigomeanProg**2.0))
+        _xp, _dsp = _ns_coerce(self._dsigomeanProg)
+        return deltaAngle / _xp.sqrt(_xp.sum(_dsp**2.0))
 
     def subhalo_encounters(
         self, venc=numpy.inf, sigma=150.0 / 220.0, nsubhalo=0.3, bmax=0.025, yoon=False
@@ -1230,14 +1391,14 @@ class streamdf(df):
         if not nTrackIterations is None:
             self.nTrackIterations = nTrackIterations
             return None
-        if numpy.fabs(self.misalignment(quantity=False)) < 1.0 / 180.0 * numpy.pi:
+        # a structural (non-differentiable) choice, so read it off concretely --
+        # misalignment is a backend scalar under a forced backend
+        _mis = numpy.fabs(float(as_numpy(self.misalignment(quantity=False))))
+        if _mis < 1.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 0
-        elif (
-            numpy.fabs(self.misalignment(quantity=False)) >= 1.0 / 180.0 * numpy.pi
-            and numpy.fabs(self.misalignment(quantity=False)) < 3.0 / 180.0 * numpy.pi
-        ):
+        elif _mis >= 1.0 / 180.0 * numpy.pi and _mis < 3.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 1
-        elif numpy.fabs(self.misalignment(quantity=False)) >= 3.0 / 180.0 * numpy.pi:
+        elif _mis >= 3.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 2
         return None
 
@@ -1260,9 +1421,10 @@ class streamdf(df):
             return self._determine_stream_track_TM()
         # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
         # numpy body below stays byte-identical (dispatched away).
-        if getattr(
-            self._progenitor, "_ic_backend", None
-        ) is not None or is_backend_array(self._progenitor_angle):
+        # _ic_backend is the PRECONDITION, not just a trigger: the backend track
+        # dereferences it. A numpy progenitor under a forced backend has backend
+        # acfs (so _progenitor_angle is a backend array) but no _ic_backend.
+        if getattr(self._progenitor, "_ic_backend", None) is not None:
             return self._determine_stream_track_backend()
         # Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
         prog_stream_offset = _determine_stream_track_single(
@@ -2382,7 +2544,6 @@ class streamdf(df):
             Zsun = self._Zsun
         if vsun is None:
             vsun = self._vsun
-        self._ObsTrackLB = numpy.empty_like(self._ObsTrack)
         XYZ = coords.galcencyl_to_XYZ(
             self._ObsTrack[:, 0] * ro,
             self._ObsTrack[:, 5],
@@ -2403,17 +2564,9 @@ class streamdf(df):
         svlbd = coords.vxvyvz_to_vrpmllpmbb(
             vXYZ[0], vXYZ[1], vXYZ[2], slbd[:, 0], slbd[:, 1], slbd[:, 2], degree=True
         )
-        self._ObsTrackLB[:, 0] = slbd[:, 0]
-        self._ObsTrackLB[:, 1] = slbd[:, 1]
-        self._ObsTrackLB[:, 2] = slbd[:, 2]
-        self._ObsTrackLB[:, 3] = svlbd[:, 0]
-        self._ObsTrackLB[:, 4] = svlbd[:, 1]
-        self._ObsTrackLB[:, 5] = svlbd[:, 2]
+        self._ObsTrackLB = _lb_track(slbd, svlbd, self._ObsTrack)
         if hasattr(self, "_interpolatedObsTrackXY"):
             # Do the same for the interpolated track
-            self._interpolatedObsTrackLB = numpy.empty_like(
-                self._interpolatedObsTrackXY
-            )
             XYZ = coords.galcenrect_to_XYZ(
                 self._interpolatedObsTrackXY[:, 0] * ro,
                 self._interpolatedObsTrackXY[:, 1] * ro,
@@ -2439,12 +2592,9 @@ class streamdf(df):
                 slbd[:, 2],
                 degree=True,
             )
-            self._interpolatedObsTrackLB[:, 0] = slbd[:, 0]
-            self._interpolatedObsTrackLB[:, 1] = slbd[:, 1]
-            self._interpolatedObsTrackLB[:, 2] = slbd[:, 2]
-            self._interpolatedObsTrackLB[:, 3] = svlbd[:, 0]
-            self._interpolatedObsTrackLB[:, 4] = svlbd[:, 1]
-            self._interpolatedObsTrackLB[:, 5] = svlbd[:, 2]
+            self._interpolatedObsTrackLB = _lb_track(
+                slbd, svlbd, self._interpolatedObsTrackXY
+            )
         if hasattr(self, "_allErrCovsLBUnscaled"):
             # Re-calculate this
             self._determine_stream_spreadLB(
@@ -3172,11 +3322,17 @@ class streamdf(df):
         # backend (jax/torch) t/dangle -> xp.where (the numpy in-place mask write is not
         # jit/grad-safe). Guard the dead branch: dO = dangle / t -> inf at t=0, and
         # dO**2 * exp(-inf) = inf*0 = nan poisons AD, so evaluate on a masked-safe t.
-        if is_backend_array(t) or is_backend_array(dangle):
-            xp = get_namespace(t, dangle)
-            meandO = as_backend_constant(xp, self._meandO, dangle)
-            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
-            t = xp.asarray(t)
+        # also dispatch on the STORED moments: under a forced backend the offset
+        # setup runs on the backend, so _meandO/_sortedSigOEig are backend arrays
+        # even when the caller passes numpy t/dangle -- coerce and run on xp.
+        if (
+            is_backend_array(t)
+            or is_backend_array(dangle)
+            or is_backend_array(self._meandO)
+        ):
+            xp, t, dangle = _ns_coerce(t, dangle)
+            (meandO,) = coerce_coords(xp, self._meandO)
+            (sig,) = coerce_coords(xp, self._sortedSigOEig[2])
             mask = (t > 0.0) & (t < self._tdisrupt)
             t_safe = xp.where(mask, t, xp.ones_like(t))
             dO = dangle / t_safe
@@ -5200,7 +5356,18 @@ def _determine_stream_spread_single_backend(
     dispersions (``sigOmega``/``sigAngle``) and the track Jacobian
     (``allinvjacsTrack``). Reproduces the numpy assembly exactly.
     """
-    xp = get_namespace(allinvjacsTrack)
+    # Coerce EVERY array input onto one namespace: under a forced backend the
+    # offset setup runs on the backend while the (numpy-progenitor) track stays
+    # numpy, so this can be reached with a numpy allinvjacsTrack and a backend
+    # sigomatrixEig -- which then hits "unsupported operand @: ndarray, Tensor".
+    xp = get_namespace(
+        allinvjacsTrack if is_backend_array(allinvjacsTrack) else sigomatrixEig[1]
+    )
+    (allinvjacsTrack,) = coerce_coords(xp, allinvjacsTrack)
+    sigomatrixEig = (
+        coerce_coords(xp, sigomatrixEig[0])[0],
+        coerce_coords(xp, sigomatrixEig[1])[0],
+    )
     eigvals, eigvecs = sigomatrixEig[0], sigomatrixEig[1]
     inv_eigvecs = xp.linalg.inv(eigvecs)
     ar = xp.arange(eigvals.shape[0])  # (3,)
