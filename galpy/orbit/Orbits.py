@@ -321,12 +321,18 @@ def _copy_for_continuation(x):
     return x.clone() if hasattr(x, "clone") else x.copy()
 
 
-def _pot_has_backend_param(pot):
-    """True if ``pot`` carries a backend (possibly traced) parameter.
+def _pot_has_traced_param(pot):
+    """True if ``pot`` carries a TRACED parameter.
 
     Probed with a force evaluation at a fixed CONCRETE point under FORCED NUMPY,
-    so a genuine backend theta (which survives forced numpy) is distinguished
-    from a merely-forced context. Mirrors streamspraydf's theta probe.
+    so a merely-forced context does not count.
+
+    TRACED, not merely backend: only a tracer breaks the C-STM's callback (its
+    parser calls as_numpy on the potential arguments). A potential that merely
+    HOLDS backend data with concrete values -- e.g. a MovingObjectPotential built
+    on a backend progenitor orbit -- converts fine and must keep the fast C-STM.
+    Using is_backend_array here instead sent those to the in-backend ODE and broke
+    streamspraydf's progenitor-potential tests.
     """
     from ..potential import evaluateRforces
 
@@ -335,7 +341,7 @@ def _pot_has_backend_param(pot):
             f = evaluateRforces(pot, 1.0, 0.0, phi=0.0, t=0.0, use_physical=False)
     except Exception:  # noqa: BLE001 -- an unprobeable potential is not a tracer
         return False
-    return is_backend_array(f)
+    return under_trace(f)
 
 
 def _backend_T(x):
@@ -1837,7 +1843,7 @@ class Orbit:
                 if (
                     _check_c(_potl)
                     and not under_trace(t)
-                    and not _pot_has_backend_param(_potl)
+                    and not _pot_has_traced_param(_potl)
                     and (
                         _check_c(_potl, dxdv3d=True)
                         if _pdim == 6
