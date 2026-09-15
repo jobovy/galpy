@@ -47,6 +47,7 @@ from galpy.df.streamdf import (
     _determine_stream_spread_single,
     _determine_stream_track_single,
     _real_eig,
+    _sig_mean_sign,
     _vmap_track_chunks,
     calcaAJac,
 )
@@ -2127,3 +2128,176 @@ def test_call_backend_value_and_grad(sdf, backend_name):
     assert numpy.isfinite(ad) and abs(ad - fd) < 1e-5 * abs(fd) + 1e-6, (
         f"{backend_name} __call__ grad {ad} vs FD {fd}"
     )
+
+
+# --- Phase C.3: the progenitor/offset setup itself runs on the backend --------
+# `self._progenitor = progenitor()` keeps a backend IC, so calcaAJac takes its
+# exact-AD path and the whole offset setup (sigomatrix, its eigendecomposition,
+# the Cholesky inverse, the mean-offset direction) stays on the backend instead
+# of being laundered through numpy.
+_C3_SETUP_ATTRS = (
+    "_dOdJp",
+    "_dOdJpInv",
+    "_sigomatrix",
+    "_sigomean",
+    "_dsigomeanProg",
+    "_dsigomeanProgDirection",
+    "_meandO",
+    "_sigomatrixinv",
+)
+
+
+def _c3_sdf(ic):
+    from galpy.df import streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    return streamdf(
+        0.365 / 220.0,
+        progenitor=Orbit(ic),
+        pot=lp,
+        aA=actionAngleIsochroneApprox(pot=lp, b=0.8),
+        leading=True,
+        nTrackChunks=5,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+    )
+
+
+@pytest.fixture(scope="module")
+def _c3_pair():
+    """(numpy sdf, jax sdf) built from the same IC. Assembling a track is slow."""
+    import galpy.backend as gb
+
+    ref = _c3_sdf(numpy.array(_STREAM_IC))
+    with gb.use("jax", force=True):
+        bk = _c3_sdf(jnp.asarray(_STREAM_IC))
+    return ref, bk
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("attr", _C3_SETUP_ATTRS)
+def test_c3_setup_stays_on_backend(_c3_pair, attr):
+    _, bk = _c3_pair
+    assert is_backend_array(getattr(bk, attr)), f"{attr} was laundered to numpy"
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_c3_eig_and_track_stay_on_backend(_c3_pair):
+    _, bk = _c3_pair
+    assert is_backend_array(bk._sigomatrixEig[0])
+    assert is_backend_array(bk._sigomatrixEig[1])
+    assert is_backend_array(bk._allinvjacsTrack)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_c3_progenitor_acfs_match_numpy_to_roundoff(_c3_pair):
+    # these do NOT go through calcaAJac, so they carry no finite-difference
+    # error and must agree with numpy essentially exactly
+    ref, bk = _c3_pair
+    for attr in ("_progenitor_Omega", "_progenitor_angle"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(bk, attr)), getattr(ref, attr), rtol=1e-11, atol=1e-13
+        )
+    assert float(as_numpy(bk._sigMeanSign)) == ref._sigMeanSign
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "attr,rtol",
+    [
+        # numpy finite-differences dO/dJ with dxv=1e-8; the backend is exact AD.
+        # An FD step study (1e-5..1e-9) puts the FD error MINIMUM at h=1e-7 and
+        # shows numpy's default step sitting past it, so these gaps are numpy's
+        # truncation+roundoff, not backend error -- the backend is the accurate
+        # one. Bars are ~5x the measured gap, tight enough that a real breakage
+        # (orders of magnitude) cannot hide.
+        ("_dOdJp", 1e-5),  # measured 1.7e-6
+        ("_sigomatrix", 5e-6),  # measured 7.9e-7
+        ("_sigomean", 1e-7),  # measured 3.3e-9
+        ("_dsigomeanProgDirection", 5e-7),  # measured 7.8e-8
+        ("_dOdJpInv", 2e-5),  # measured 4.0e-6 (inverse amplifies)
+        ("_sigomatrixinv", 5e-5),  # measured 7.6e-6 (near-singular inverse)
+    ],
+)
+def test_c3_setup_matches_numpy_within_the_fd_gap(_c3_pair, attr, rtol):
+    ref, bk = _c3_pair
+    got, want = (
+        numpy.asarray(as_numpy(getattr(bk, attr))),
+        numpy.asarray(getattr(ref, attr)),
+    )
+    assert got.shape == want.shape
+    scale = numpy.max(numpy.abs(want))
+    assert numpy.max(numpy.abs(got - want)) < rtol * scale, (
+        f"{attr}: rel {numpy.max(numpy.abs(got - want)) / scale:.3e} > {rtol:g}"
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_c3_lb_track_stays_on_backend(_c3_pair):
+    # galpy.util.coords is already backend-aware, so the (l,b) track only left
+    # the backend because it was assembled with numpy.empty_like + per-column
+    # item assignment (which is also not traceable).
+    ref, bk = _c3_pair
+    for attr in ("_ObsTrackLB", "_interpolatedObsTrackLB"):
+        got = getattr(bk, attr)
+        assert is_backend_array(got), f"{attr} was laundered to numpy"
+        want = getattr(ref, attr)
+        got = as_numpy(got)
+        assert got.shape == want.shape
+        # These inherit the track's FD-vs-AD gap. Compare each column against
+        # ITS OWN scale: b and vlos pass through zero, so an elementwise rtol
+        # explodes on the small values while the absolute gap stays ~3e-5 (in
+        # degrees / km|s). Measured worst column here is ~4e-7 of scale.
+        for col in range(want.shape[1]):
+            scale = numpy.max(numpy.abs(want[:, col]))
+            gap = numpy.max(numpy.abs(got[:, col] - want[:, col]))
+            assert gap < 1e-5 * scale, (
+                f"{attr} col {col}: {gap:.3e} vs scale {scale:.3e}"
+            )
+
+
+# --- _sig_mean_sign: the tail-direction sign ---------------------------------
+# It is a SIGN (structural, no gradient), so it is a plain float whenever the
+# value is concrete -- streamgapdf multiplies numpy kick arrays by it IN PLACE,
+# which an immutable backend scalar breaks. Under a trace it must stay an
+# xp.where so __init__ remains traceable.
+@pytest.mark.parametrize(
+    "leading,omega_along,want",
+    [
+        (True, -0.5, -1.0),  # leading, pointing backwards -> flip
+        (True, 0.5, 1.0),
+        (False, 0.5, -1.0),  # trailing, pointing forwards -> flip
+        (False, -0.5, 1.0),
+    ],
+)
+def test_sig_mean_sign_numpy(leading, omega_along, want):
+    got = _sig_mean_sign(leading, omega_along)
+    assert isinstance(got, float)
+    assert got == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "leading,omega_along,want", [(True, -0.5, -1.0), (False, 0.5, -1.0)]
+)
+def test_sig_mean_sign_concrete_backend_is_a_float(leading, omega_along, want):
+    # a CONCRETE backend scalar still yields a plain float
+    got = _sig_mean_sign(leading, jnp.asarray(omega_along))
+    assert isinstance(got, float)
+    assert got == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "leading,omega_along,want",
+    [(True, -0.5, -1.0), (True, 0.5, 1.0), (False, 0.5, -1.0)],
+)
+def test_sig_mean_sign_traced_uses_where(leading, omega_along, want):
+    # TRACED: no concrete bool available, so the xp.where branch must run
+    import jax
+
+    def f(o):
+        return _sig_mean_sign(leading, o) * jnp.ones(())
+
+    out = jax.jit(f)(jnp.asarray(omega_along))
+    assert is_backend_array(out)
+    assert float(out) == want
