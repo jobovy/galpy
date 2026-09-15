@@ -119,9 +119,7 @@ class EinastoPotential(SphericalPotential):
         s = r / self.h
         gamma_3n = special.gamma(3 * self.n)
         gamma_lower_3n = special.gammainc(3 * self.n, (s ** (1 / self.n)))
-        return (
-            (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (-gamma_lower_3n)
-        )
+        return (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (-gamma_lower_3n)
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
