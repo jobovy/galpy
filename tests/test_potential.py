@@ -11211,6 +11211,38 @@ def test_einasto_potential_rs_definition():
     return None
 
 
+def test_einasto_n6_smallr_force_from_lower_regularized_gamma():
+    from scipy import special
+
+    from galpy.potential import EinastoPotential
+
+    # n=6, h=2, r=1: gammaincc(18, 0.5**(1/6)) underflows to 1, so Q-1 is 0
+    # while density is finite. The enclosed-mass factor is P=gammainc.
+    r, h, n = 1.0, 2.0, 6.0
+    s = r / h
+    p = special.gammainc(3 * n, s ** (1 / n))
+    q = special.gammaincc(3 * n, s ** (1 / n))
+    assert q == 1.0
+    assert p > 0.0
+    ep = EinastoPotential(amp=1.0, h=h, n=n)
+    force = ep._rforce(r)
+    expect = (4 * numpy.pi * h * n * special.gamma(3 * n)) * (s ** -2) * (-p)
+    assert numpy.fabs(force) > 1.0, (
+        "EinastoPotential n=6 force vanished at r=h/2 where density is finite"
+    )
+    assert numpy.fabs(force - expect) < 1e-12
+    # n=1 is well away from the underflow; P and Q-1 agree.
+    ep1 = EinastoPotential(amp=1.0, h=h, n=1.0)
+    s1 = 0.1 / h
+    p1 = special.gammainc(3.0, s1)
+    q1 = special.gammaincc(3.0, s1)
+    f1 = ep1._rforce(0.1)
+    expect1 = (4 * numpy.pi * h * 1.0 * special.gamma(3.0)) * (s1 ** -2) * (-p1)
+    assert numpy.fabs((q1 - 1.0) + p1) < 1e-12
+    assert numpy.fabs(f1 - expect1) < 1e-12
+    return None
+
+
 # Test that CylindricallySeparablePotentialWrapper creates a separable potential for
 # MWPotential2014
 def test_CylindricallySeparablePotentialWrapper_separability():
