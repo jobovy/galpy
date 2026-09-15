@@ -145,6 +145,21 @@ def test_cholesky_invert_backend_matches_scipy(backend, tiny):
     numpy.testing.assert_allclose(float(as_numpy(got_l)), ref_l, rtol=1e-14)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cholesky_invert_backend_without_logdet(backend):
+    # logdet=False on the BACKEND path returns the inverse alone (the numpy
+    # branch of this is covered above; this is the backend twin)
+    from galpy.util import fast_cholesky_invert
+
+    a = _spd()
+    got = cholesky_invert(_arr(backend, a), 1e-15)
+    assert is_backend_array(got)
+    assert not isinstance(got, tuple), "logdet=False must return the inverse alone"
+    numpy.testing.assert_allclose(
+        as_numpy(got), fast_cholesky_invert(a, tiny=1e-15), rtol=1e-13, atol=1e-15
+    )
+
+
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_cholesky_invert_logdet_grad_is_ainv_T():
     # d logdet(A)/dA = A^-T exactly, so this is a reference match, not a probe
