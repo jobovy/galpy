@@ -7,6 +7,8 @@ import os
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 
 def test_overview():
     from galpy.potential import NFWPotential
@@ -303,7 +305,7 @@ def test_orbmethods():
     )
     o.L()  # Angular momentum
     assert numpy.all(
-        numpy.fabs(o.L() - numpy.array([[0.0, -0.16, 0.6]])) < 10.0**-5.0
+        numpy.fabs(as_numpy(o.L()) - numpy.array([[0.0, -0.16, 0.6]])) < 10.0**-5.0
     ), "Orbit method does not work as expected"
     o.Jacobi(OmegaP=0.65)  # Jacobi integral E-OmegaP Lz
     assert (

@@ -8,9 +8,16 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
+from ..backend import get_namespace, is_backend_array
+from ..backend import special as _backend_special
+from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _check_c, _check_potential_list_and_deprecate, evaluateDensities
+from .Potential import (
+    _check_c,
+    _check_potential_list_and_deprecate,
+    _evaluateDensities,
+)
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 _INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
@@ -112,8 +119,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 sigmar = lambda x: _INVSQRTTWO
         dens = _check_potential_list_and_deprecate(dens)
         self._dens_pot = dens
-        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
-            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        # The UNDECORATED evaluator, like every other force in the EOM: this is
+        # called once per force evaluation, and the decorated public one re-enters
+        # unit parsing + @backend_input coercion every time (98,800 boundary
+        # crossings for a five-point integration under a forced backend).
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: _evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t
         )
         from ..df import jeans
 
@@ -158,14 +169,15 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                     fill_value="extrapolate",
                 )(self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig = sigmar
-        self.sigmar = interpolate.InterpolatedUnivariateSpline(
-            self._sigmar_rs_4interp, self._sigmars_4interp, k=3
-        )
+        # Backend-agnostic spline: numpy queries hit the scipy spline
+        # (byte-identical), backend (jax/torch) queries evaluate the frozen
+        # piecewise-polynomial through the namespace (jit/grad-safe).
+        self.sigmar = Spline1D(self._sigmar_rs_4interp, self._sigmars_4interp, k=3)
         if const_lnLambda:
             self._lnLambda = const_lnLambda
         else:
             self._lnLambda = False
-        self._amp *= 4.0 * numpy.pi
+        self._amp = self._amp * (4.0 * numpy.pi)
         self._force_hash = None
         self.hasC = _check_c(self._dens_pot, dens=True)
         # The rectangular force Jacobian (dF/dx, dF/dv) for the 3D variational
@@ -181,7 +193,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     def GMs(self, gms):
         gms = conversion.parse_mass(gms, ro=self._ro, vo=self._vo)
-        self._amp *= gms / self._ms
+        self._amp = self._amp * (gms / self._ms)
         self._ms = gms
         # Reset the hash
         self._force_hash = None
@@ -229,6 +241,24 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             lnLambda = 0.5 * numpy.log(1.0 + Lambda**2.0)
         return lnLambda
 
+    def _lnLambda_backend(self, r, v, xp):
+        # jit/grad-safe Coulomb logarithm for backend (jax/torch) inputs; value
+        # matches lnLambda(). The rhm/GM-over-v^2 selection is an xp.where; the
+        # rhm==0 (black-hole default) case is handled in Python (static attr) so
+        # the r/gamma/rhm dead branch (division by zero) never poisons autodiff.
+        if self._lnLambda:
+            return self._lnLambda
+        GMvs = self._ms / v**2.0
+        if self._rhm == 0.0:
+            Lambda = r / self._gamma / GMvs
+        else:
+            Lambda = xp.where(
+                GMvs < self._rhm,
+                r / self._gamma / self._rhm,
+                r / self._gamma / GMvs,
+            )
+        return 0.5 * xp.log(1.0 + Lambda**2.0)
+
     def _calc_force(self, R, phi, z, v, t):
         r = numpy.sqrt(R**2.0 + z**2.0)
         if r < self._minr:
@@ -246,6 +276,19 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
+    def _calc_force_backend(self, R, phi, z, v, t, xp):
+        # jit/grad-safe common friction factor for backend inputs; no hashing/
+        # caching (traced arrays are unhashable). Returns the scalar that the
+        # cylindrical force components are built from.
+        r = xp.sqrt(R**2.0 + z**2.0)
+        vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
+        sr = self.sigmar(r)
+        X = vs * _INVSQRTTWO / sr
+        Xfactor = _backend_special.erf(X) - 2.0 * X * _INVSQRTPI * xp.exp(-(X**2.0))
+        lnLambda = self._lnLambda_backend(r, vs, xp)
+        force = -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
+        return xp.where(r < self._minr, xp.zeros_like(force), force)
+
     def _cached_force_factor(self, R, phi, z, v, t):
         """The shared friction factor, recomputed only when (R, phi, z, v, t) moves.
 
@@ -254,6 +297,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         evaluation behind it -- is computed once per step rather than three times.
         The hash was previously computed and compared but never STORED, so
         ``self._force_hash`` stayed ``None`` and the cache never hit.
+
+        Backend inputs never reach here: each component takes the
+        ``_calc_force_backend`` branch first, which is uncached by design (traced
+        arrays are unhashable).
         """
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
@@ -264,12 +311,26 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+        # Dispatch on the DATA, not get_namespace: this DissipativeForce is queried
+        # via a path that skips the input-coercion gate, so under a forced backend
+        # get_namespace would return that backend for bare python/numpy inputs and
+        # send them into the backend arithmetic (torch.sqrt(float) crashes). Only
+        # genuine backend arrays take the backend path; else the numpy/cache path.
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[0]
         return self._cached_force_factor(R, phi, z, v, t) * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[1] * R
         return self._cached_force_factor(R, phi, z, v, t) * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[2]
         return self._cached_force_factor(R, phi, z, v, t) * v[2]
 
     # Pickling functions
@@ -287,8 +348,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def __setstate__(self, pdict):
         self.__dict__ = pdict
         # Re-setup _dens_host
-        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
-            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        # The UNDECORATED evaluator, like every other force in the EOM: this is
+        # called once per force evaluation, and the decorated public one re-enters
+        # unit parsing + @backend_input coercion every time (98,800 boundary
+        # crossings for a five-point integration under a forced backend).
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: _evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t
         )
         # Re-setup sigmar_orig
         if self._dens_kwarg is None and self._sigmar_kwarg is None:

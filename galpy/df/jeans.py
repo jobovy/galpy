@@ -2,6 +2,8 @@
 import numpy
 from scipy import integrate, interpolate
 
+from ..backend import get_namespace
+from ..backend.quadrature import fixed_quad_semiinfinite, quad
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     evaluateDensities,
@@ -48,14 +50,58 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             phi=numpy.pi / 4.0,
             use_physical=False,
         )
-    if callable(beta):
-        intFactor = lambda x: numpy.exp(
-            2.0 * integrate.quad(lambda y: beta(y) / y, 1.0, x)[0]
+    xp = get_namespace(r)
+    if xp is numpy:
+        # numpy path: scipy.integrate.quad over [r, inf) -- byte-identical.
+        if callable(beta):
+            intFactor = lambda x: numpy.exp(
+                2.0 * integrate.quad(lambda y: beta(y) / y, 1.0, x)[0]
+            )
+        else:  # assume to be number
+            intFactor = lambda x: x ** (2.0 * beta)
+        return numpy.sqrt(
+            integrate.quad(
+                lambda x: (
+                    -intFactor(x)
+                    * dens(x)
+                    * evaluaterforces(
+                        Pot,
+                        x * _INVSQRTTWO,
+                        x * _INVSQRTTWO,
+                        phi=numpy.pi / 4.0,
+                        use_physical=False,
+                    )
+                ),
+                r,
+                numpy.inf,
+                # epsabs=0: match main (#1439) -- the default 1.49e-8 absolute
+                # floor truncates the small tail at large r (~6e-6 in sigma_r at
+                # r=25); rely on the relative tol so this stays byte-identical to
+                # the numpy sigmar on main.
+                epsabs=0.0,
+            )[0]
+            / dens(r)
+            / intFactor(r)
         )
-    else:  # assume to be number
+    # jax/torch: fixed-order Gauss-Legendre on the mapped semi-infinite range,
+    # differentiable in r and through the potential's parameters. Coerce r onto
+    # the resolved namespace first: under a forced backend the caller may still
+    # pass a numpy/Python scalar, and then `quad` below returns a plain float
+    # that `xp.exp` rejects (torch: "argument 'input' must be Tensor, not float").
+    r = xp.asarray(r)
+    if callable(beta):
+        # Substitute y = exp(t): int_1^x beta(y)/y dy = int_0^ln(x) beta(e^t) dt.
+        # The nodes of the outer map run out to very large x, where fixed-order
+        # GL on the raw 1/y integrand is hopeless (it has to resolve a log over
+        # decades); in t it is smooth and bounded over a range of length ln(x).
+        intFactor = lambda x: xp.exp(
+            2.0 * quad(lambda t: beta(xp.exp(t)), 0.0, xp.log(x))
+        )
+    else:
         intFactor = lambda x: x ** (2.0 * beta)
-    return numpy.sqrt(
-        integrate.quad(
+    return xp.sqrt(
+        fixed_quad_semiinfinite(
+            xp,
             lambda x: (
                 -intFactor(x)
                 * dens(x)
@@ -68,12 +114,13 @@ def sigmar(Pot, r, dens=None, beta=0.0):
                 )
             ),
             r,
-            numpy.inf,
-            # epsabs=0: scipy's default 1.49e-8 absolute floor truncates the small
-            # tail at large r (~6e-6 error in sigma_r at r=25); use only the
-            # relative tolerance so accuracy is scale-invariant.
-            epsabs=0.0,
-        )[0]
+            # The integrand varies on scale r, so the map must too: with the
+            # default unit scale, accuracy collapses as r -> 0 (1.1e-2 at
+            # r=1e-3) instead of converging. n=100 then reaches scipy's own
+            # accuracy there; n=50 leaves 1.2e-6.
+            n=100,
+            scale=r,
+        )
         / dens(r)
         / intFactor(r)
     )
@@ -214,6 +261,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     - 2018-08-27 - Written - Bovy (UofT)
     """
     Pot = _check_potential_list_and_deprecate(Pot)
+    xp = get_namespace(R)
     if dens is None:
         densPot = True
         dens = lambda r: evaluateDensities(
@@ -225,16 +273,23 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
         called_surfdens = surfdens(R)
     elif surfdens is None:
         if densPot:
-            called_surfdens = evaluateSurfaceDensities(
-                Pot, R, numpy.inf, use_physical=False
-            )
-        if not densPot or numpy.isnan(called_surfdens):
-            called_surfdens = (
-                2.0
-                * integrate.quad(
-                    lambda x: dens(numpy.sqrt(R**2.0 + x**2.0)), 0.0, numpy.inf
-                )[0]
-            )
+            # z=None asks for the whole line structurally; z=inf would be a value
+            # a trace cannot inspect (it returns NaN under jit).
+            called_surfdens = evaluateSurfaceDensities(Pot, R, None, use_physical=False)
+        # xp.isnan == numpy.isnan on the numpy path (byte-identical); the
+        # surfdens is a scalar here (scipy.quad / the R-scalar backend path).
+        if not densPot or xp.isnan(called_surfdens):
+            if xp is numpy:
+                called_surfdens = (
+                    2.0
+                    * integrate.quad(
+                        lambda x: dens(numpy.sqrt(R**2.0 + x**2.0)), 0.0, numpy.inf
+                    )[0]
+                )
+            else:
+                called_surfdens = 2.0 * fixed_quad_semiinfinite(
+                    xp, lambda x: dens(xp.sqrt(R**2.0 + x**2.0)), 0.0
+                )
     else:
         called_surfdens = surfdens
     if callable(beta):
@@ -249,18 +304,30 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
         call_sigma_r = lambda x: sigma_r
     else:
         call_sigma_r = sigma_r
-    return numpy.sqrt(
-        2.0
-        * integrate.quad(
-            lambda x: (
-                (1.0 - call_beta(x) * R**2.0 / x**2.0)
-                * x
-                * dens(x)
-                * call_sigma_r(x) ** 2.0
-                / numpy.sqrt(x**2.0 - R**2.0)
-            ),
-            R,
-            numpy.inf,
-        )[0]
-        / called_surfdens
+    if xp is numpy:
+        return numpy.sqrt(
+            2.0
+            * integrate.quad(
+                lambda x: (
+                    (1.0 - call_beta(x) * R**2.0 / x**2.0)
+                    * x
+                    * dens(x)
+                    * call_sigma_r(x) ** 2.0
+                    / numpy.sqrt(x**2.0 - R**2.0)
+                ),
+                R,
+                numpy.inf,
+            )[0]
+            / called_surfdens
+        )
+
+    # Substitute x = sqrt(R^2 + s^2): dx = (s/x) ds and sqrt(x^2-R^2) = s cancel
+    # the endpoint singularity, leaving a smooth integrand over s in [0, inf) that
+    # fixed-order GL integrates accurately (the raw 1/sqrt(x^2-R^2) form loses ~1%).
+    def _los_integrand(s):
+        x = xp.sqrt(R**2.0 + s**2.0)
+        return (1.0 - call_beta(x) * R**2.0 / x**2.0) * dens(x) * call_sigma_r(x) ** 2.0
+
+    return xp.sqrt(
+        2.0 * fixed_quad_semiinfinite(xp, _los_integrand, 0.0) / called_surfdens
     )

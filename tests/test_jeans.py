@@ -259,7 +259,9 @@ def test_sigmalos_wlog_zerobeta():
                         lp,
                         r,
                         dens=lambda x: lp.dens(x, 0.0),
-                        surfdens=lambda x: lp.surfdens(x, numpy.inf),
+                        # z=None is the whole-line spelling; z=inf is a value a
+                        # trace cannot inspect (byte-identical here on numpy)
+                        surfdens=lambda x: lp.surfdens(x, None),
                         sigma_r=lambda x: 1.0 / numpy.sqrt(2.0),
                     )
                     for r in rs
@@ -282,7 +284,7 @@ def test_sigmalos_wlog_zerobeta():
                         lp,
                         r,
                         dens=lambda x: lp.dens(x, 0.0),
-                        surfdens=lp.surfdens(r, numpy.inf),
+                        surfdens=lp.surfdens(r, None),
                         sigma_r=lambda x: 1.0 / numpy.sqrt(2.0),
                     )
                     for r in rs

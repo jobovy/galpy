@@ -1,9 +1,12 @@
 ###############################################################################
 #   AnySphericalPotential: Potential of an arbitrary spherical density
 ###############################################################################
+import copy
+
 import numpy
 from scipy import integrate
 
+from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.quadpack import quad_over_limits
@@ -13,13 +16,19 @@ if _APY_LOADED:
     from astropy import units
 
 
+def _default_dens(r):
+    # A module-level function rather than a lambda so the default potential is
+    # picklable (a lambda is looked up by qualname, which <lambda> has not).
+    return 0.64 / r / (1 + r) ** 3
+
+
 class AnySphericalPotential(SphericalPotential):
     """Class that implements the potential of an arbitrary spherical density distribution :math:`\\rho(r)`"""
 
     def __init__(
         self,
         amp=1.0,
-        dens=lambda r: 0.64 / r / (1 + r) ** 3,
+        dens=_default_dens,
         normalize=False,
         ro=None,
         vo=None,
@@ -46,44 +55,48 @@ class AnySphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)
+        # Drive Potential.mass's backend GL quadrature node-by-node
+        # (vectorized=False) rather than feeding it the whole node array.
+        #
+        # This is now a PERFORMANCE/driving choice, not a correctness guard:
+        # _rawmass integrates element-wise over an array upper limit (see its
+        # docstring), so feeding it the node array would be correct, just
+        # loop-per-node internally either way. It was originally a workaround
+        # for _rawmass silently collapsing an array r to r[0].
+        self._force_accepts_arrays = False
+        # A jax/torch coord routes _rawmass / the _revaluate tail to in-backend
+        # Gauss-Legendre quadrature (see below); flag as backend-capable.
+        self._backend_compatible = True
+        # A units-based density is numpy-only (astropy Quantity arithmetic
+        # strips a jax/torch node to numpy); on a backend node it is evaluated
+        # on numpy and the result anchored back on the backend (see
+        # _backend_dens). Set True below when the density involves units.
+        self._dens_needs_numpy = False
+        self._dens_input = dens
+        self._dens_unit_input = False
+        self._dens_unit_output = False
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
-            _dens_unit_input = False
             try:
                 dens(1)
             except (units.UnitConversionError, units.UnitTypeError):
-                _dens_unit_input = True
-            _dens_unit_output = False
-            if _dens_unit_input:
+                self._dens_unit_input = True
+            if self._dens_unit_input:
                 try:
                     dens(1.0 * units.kpc).to(units.Msun / units.pc**3)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
-                    _dens_unit_output = True
+                    self._dens_unit_output = True
             else:
                 try:
                     dens(1.0).to(units.Msun / units.pc**3)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
-                    _dens_unit_output = True
-            if _dens_unit_input and _dens_unit_output:
-                self._rawdens = lambda R: conversion.parse_dens(
-                    dens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
-                )
-            elif _dens_unit_input:
-                self._rawdens = lambda R: dens(R * self._ro * units.kpc)
-            elif _dens_unit_output:
-                self._rawdens = lambda R: conversion.parse_dens(
-                    dens(R), ro=self._ro, vo=self._vo
-                )
-        if not hasattr(self, "_rawdens"):  # unitless
-            self._rawdens = dens
-
-        self._rawmass = lambda r: (
-            4.0 * numpy.pi * quad_over_limits(lambda a: a**2 * self._rawdens(a), 0, r)
-        )
+                    self._dens_unit_output = True
+            self._dens_needs_numpy = self._dens_unit_input or self._dens_unit_output
+        self._set_rawdens()
         # The potential at zero, try to figure out whether it's finite
         _zero_msg = integrate.quad(
             lambda a: a * self._rawdens(a), 0, numpy.inf, full_output=True
@@ -111,8 +124,104 @@ class AnySphericalPotential(SphericalPotential):
             self.normalize(normalize)
         return None
 
+    def _set_rawdens(self):
+        """Wrap the input density so it takes and returns internal units.
+
+        Called from ``__init__`` and again on unpickling, because the wrappers
+        are closures (see ``__getstate__``).
+        """
+        dens = self._dens_input
+        if self._dens_unit_input and self._dens_unit_output:
+            self._rawdens = lambda R: conversion.parse_dens(
+                dens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
+            )
+        elif self._dens_unit_input:
+            self._rawdens = lambda R: dens(R * self._ro * units.kpc)
+        elif self._dens_unit_output:
+            self._rawdens = lambda R: conversion.parse_dens(
+                dens(R), ro=self._ro, vo=self._vo
+            )
+        else:  # unitless: use the input density directly
+            self._rawdens = dens
+        return None
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict = copy.copy(self.__dict__)
+        if self._dens_needs_numpy:
+            # rm the units wrapper (a lambda); _dens_input it closes over stays,
+            # so a dens that is itself unpicklable still raises, as it should
+            del pdict["_rawdens"]
+        return pdict
+
+    def __setstate__(self, pdict):
+        self.__dict__ = pdict
+        self._set_rawdens()
+        return None
+
+    def _backend_dens(self, a):
+        """Evaluate the density, keeping the backend-quadrature path type-clean.
+
+        A units-based ``dens`` runs through astropy Quantity arithmetic, which
+        strips a jax/torch node to numpy (emitting a numpy-2 ``__array__``
+        deprecation) and yields numpy -- and ``numpy * Tensor`` then raises. Such
+        a density is inherently non-differentiable, so on a backend node it is
+        evaluated on the numpy node and the result anchored back on the node's
+        backend/dtype/device. A backend-native (differentiable) density and the
+        numpy path both pass through untouched (``is_backend_array(a)`` is False
+        for numpy), so the numpy path stays byte-identical.
+        """
+        if is_backend_array(a) and self._dens_needs_numpy:
+            d = numpy.asarray(self._rawdens(as_numpy(a)))
+            return as_backend_constant(get_namespace(a), d, a)
+        return self._rawdens(a)
+
+    def _rawmass(self, r):
+        r"""Enclosed mass :math:`4\pi\int_0^r a^2\rho(a)\,da`.
+
+        numpy: `quad_over_limits`, i.e. scipy's quad driven element by element
+        over an array upper limit. Scalar in, scalar out, through exactly the
+        same `quad` call as before, so the scalar path stays byte-identical.
+        (It previously integrated to ``numpy.atleast_1d(r).flatten()[0]``, so an
+        array ``r`` silently returned the mass inside ``r[0]`` at every element
+        -- 76 of 77 grid cells wrong, up to 0.94 relative, via `_rforce`.)
+
+        A jax/torch ``r`` routes to in-backend fixed-order Gauss-Legendre so the
+        mass (and the force / 2nd derivative built on it) differentiates w.r.t.
+        ``r`` and through the density's parameters.
+        """
+        if is_backend_array(r):
+            from ..backend.quadrature import quad as _bk_quad
+
+            return (
+                4.0
+                * numpy.pi
+                * _bk_quad(lambda a: a**2 * self._backend_dens(a), 0.0, r)
+            )
+        return (
+            4.0 * numpy.pi * quad_over_limits(lambda a: a**2 * self._rawdens(a), 0, r)
+        )
+
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        if is_backend_array(r):
+            from ..backend.quadrature import fixed_quad_semiinfinite
+
+            xp = get_namespace(r)
+            # -M(r)/r - 4 pi int_r^inf rho(a) a da (tail via the recip s=1/u^2-1
+            # substitution, differentiable in r). The scalar edges r == 0
+            # (M/r -> 0/0) and r == inf (both terms -> 0) DO reach this path from
+            # the forced-backend test_potential; evaluate the bulk formula at a
+            # safe r (keeps the dead where-branch finite for reverse-mode AD too)
+            # and select the precomputed edge values.
+            edge = (r == 0) | xp.isinf(r)
+            r_safe = xp.where(edge, xp.ones_like(r), r)
+            tail = fixed_quad_semiinfinite(
+                xp, lambda a: self._backend_dens(a) * a, r_safe, kind="recip"
+            )
+            bulk = -self._rawmass(r_safe) / r_safe - 4.0 * numpy.pi * tail
+            out = xp.where(r == 0, self._pot_zero, bulk)
+            return xp.where(xp.isinf(r), self._pot_inf, out)
         # r == 0 / isinf(r) are per-element questions, so an array r has to be
         # handled element by element; scipy's quad wants a scalar limit anyway.
         if numpy.ndim(r) == 0:
@@ -134,7 +243,7 @@ class AnySphericalPotential(SphericalPotential):
         return -self._rawmass(r) / r**2
 
     def _r2deriv(self, r, t=0.0):
-        return -2 * self._rawmass(r) / r**3.0 + 4.0 * numpy.pi * self._rawdens(r)
+        return -2 * self._rawmass(r) / r**3.0 + 4.0 * numpy.pi * self._backend_dens(r)
 
     def _rdens(self, r, t=0.0):
-        return self._rawdens(r)
+        return self._backend_dens(r)

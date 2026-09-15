@@ -7,6 +7,17 @@ from scipy import integrate, interpolate, optimize
 
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
+from ..backend import random as grandom
+from ..backend import use
+from ..backend.interpolate import Spline1D, interp_bilinear
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -30,6 +41,15 @@ if _APY_LOADED:
 _NSIGMA = 4
 _DEFAULTNGL = 10
 _DEFAULTNGL2 = 20
+# sampleV_interpolate: vT window and refinement of the LOCAL mode search that
+# centres the rejection proposal (backend path; numpy uses scipy's fmin_powell)
+_MAXVT_LO = 0.02
+_MAXVT_HI = 1.6
+_MAXVT_N = 60
+_MAXVT_X0 = 1.0  # same local-search start as scipy's fmin_powell on the numpy path
+# rounds of vectorised rejection before giving up (acceptance is O(10%), so the
+# chance a point survives this many rounds is negligible)
+_SAMPLEV_MAXROUNDS = 200
 
 
 class quasiisothermaldf(df):
@@ -132,8 +152,13 @@ class quasiisothermaldf(df):
             self._precomputergrmax = _precomputergrmax
             self._precomputergnLz = _precomputergnLz
             self._precomputergLzmin = 0.01
-            self._precomputergLzmax = self._precomputergrmax * potential.vcirc(
-                self._pot, self._precomputergrmax
+            # float(): under a forced backend vcirc returns a backend scalar, which
+            # would make this grid bound a Tensor and break the numpy _rg branch's
+            # `lz > self._precomputergLzmax` (ndarray > Tensor raises). Keep it a
+            # Python scalar; the numpy path is byte-identical (linspace stop value).
+            self._precomputergLzmax = float(
+                self._precomputergrmax
+                * potential.vcirc(self._pot, self._precomputergrmax)
             )
             self._precomputergLzgrid = numpy.linspace(
                 self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
@@ -145,9 +170,12 @@ class quasiisothermaldf(df):
             self._rgInterp = interpolate.InterpolatedUnivariateSpline(
                 self._precomputergLzgrid, self._rls, k=3
             )
+            # backend-array eval of the same spline (numpy path stays byte-identical)
+            self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
         else:
             self._precomputergrmax = 0.0
             self._rgInterp = None
+            self._rgInterpBackend = None
             self._rls = None
             self._precomputergnr = None
             self._precomputergLzgrid = None
@@ -235,7 +263,14 @@ class quasiisothermaldf(df):
                     return 0.0
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
-        if not isinstance(lz, numpy.ndarray) and self._cutcounter and lz < 0.0:
+        xp = get_namespace(jr, lz, jz)
+        jr, lz, jz = coerce_coords(xp, jr, lz, jz)  # torch rejects python-float xp.abs
+        if (
+            not isinstance(lz, numpy.ndarray)
+            and not is_backend_array(lz)
+            and self._cutcounter
+            and lz < 0.0
+        ):
             if log:
                 return -numpy.finfo(numpy.dtype(numpy.float64)).max
             else:
@@ -245,7 +280,7 @@ class quasiisothermaldf(df):
             thisrg = self._rg(lz)
             # Then calculate the epicycle and vertical frequencies
             kappa, nu = self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
-            Omega = numpy.fabs(lz) / thisrg / thisrg
+            Omega = xp.abs(lz) / thisrg / thisrg
         # calculate surface-densities and sigmas
         lnsurfmass = (self._refr - thisrg) / self._hr
         lnsr = self._lnsr + (self._refr - thisrg) / self._hsr
@@ -253,7 +288,7 @@ class quasiisothermaldf(df):
         # Calculate func
         if not _func is None:
             if log:
-                funcTerm = numpy.log(_func(jr, lz, jz))
+                funcTerm = xp.log(_func(jr, lz, jz))
             else:
                 funcFactor = _func(jr, lz, jz)
         # Calculate fsr
@@ -264,42 +299,51 @@ class quasiisothermaldf(df):
                 funcFactor = 1.0
         if log:
             lnfsr = (
-                numpy.log(Omega)
+                xp.log(Omega)
                 + lnsurfmass
                 - 2.0 * lnsr
                 - numpy.log(numpy.pi)
-                - numpy.log(kappa)
-                + numpy.log(1.0 + numpy.tanh(lz / self._lo))
-                - kappa * jr * numpy.exp(-2.0 * lnsr)
+                - xp.log(kappa)
+                + xp.log(1.0 + xp.tanh(lz / self._lo))
+                - kappa * jr * xp.exp(-2.0 * lnsr)
             )
             lnfsz = (
-                numpy.log(nu)
+                xp.log(nu)
                 - numpy.log(2.0 * numpy.pi)
                 - 2.0 * lnsz
-                - nu * jz * numpy.exp(-2.0 * lnsz)
+                - nu * jz * xp.exp(-2.0 * lnsz)
             )
             out = lnfsr + lnfsz + funcTerm
-            if isinstance(lz, numpy.ndarray):
+            if is_backend_array(out):
+                sentinel = -xp.finfo(out.dtype).max
+                out = xp.where(xp.isnan(out), sentinel, out)
+                if self._cutcounter:
+                    out = xp.where(lz < 0.0, sentinel, out)
+            elif isinstance(lz, numpy.ndarray):
                 out[numpy.isnan(out)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
                 if self._cutcounter:
                     out[(lz < 0.0)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
             elif numpy.isnan(out):  # pragma: no cover
                 out = -numpy.finfo(numpy.dtype(numpy.float64)).max
         else:
-            srm2 = numpy.exp(-2.0 * lnsr)
+            srm2 = xp.exp(-2.0 * lnsr)
             fsr = (
                 Omega
-                * numpy.exp(lnsurfmass)
+                * xp.exp(lnsurfmass)
                 * srm2
                 / numpy.pi
                 / kappa
-                * (1.0 + numpy.tanh(lz / self._lo))
-                * numpy.exp(-kappa * jr * srm2)
+                * (1.0 + xp.tanh(lz / self._lo))
+                * xp.exp(-kappa * jr * srm2)
             )
-            szm2 = numpy.exp(-2.0 * lnsz)
-            fsz = nu / 2.0 / numpy.pi * szm2 * numpy.exp(-nu * jz * szm2)
+            szm2 = xp.exp(-2.0 * lnsz)
+            fsz = nu / 2.0 / numpy.pi * szm2 * xp.exp(-nu * jz * szm2)
             out = fsr * fsz * funcFactor
-            if isinstance(lz, numpy.ndarray):
+            if is_backend_array(out):
+                out = xp.where(xp.isnan(out), 0.0, out)
+                if self._cutcounter:
+                    out = xp.where(lz < 0.0, 0.0, out)
+            elif isinstance(lz, numpy.ndarray):
                 out[numpy.isnan(out)] = 0.0
                 if self._cutcounter:
                     out[(lz < 0.0)] = 0.0
@@ -487,6 +531,19 @@ class quasiisothermaldf(df):
         - 2012-08-30 - Written - Bovy (IAS)
         """
         if fixed_quad:
+            xp = get_namespace(R)
+            if xp is not numpy:
+                # backend GL quadrature (scipy fixed_quad multiplies its numpy
+                # weights by the backend integrand -> breaks torch); numpy path
+                # below is byte-identical (scipy).
+                (R,) = promote_scalars(xp, R)
+                return 2.0 * _backend_fixed_quad(
+                    xp,
+                    lambda x: self.density(R * xp.ones_like(x), x, use_physical=False),
+                    0.0,
+                    0.5,
+                    n=fixed_order,
+                )
             return (
                 2.0
                 * integrate.fixed_quad(
@@ -607,25 +664,30 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of vmomentdensity, otherwise the same"""
-        if isinstance(R, numpy.ndarray):
-            return numpy.array(
-                [
-                    self._vmomentdensity(
-                        r,
-                        zz,
-                        n,
-                        m,
-                        o,
-                        nsigma=nsigma,
-                        mc=mc,
-                        nmc=nmc,
-                        gl=gl,
-                        ngl=ngl,
-                        **kwargs,
-                    )
-                    for r, zz in zip(R, z)
-                ]
-            )
+        xp = get_namespace(R, z)
+        if getattr(R, "ndim", 0) > 0:
+            # array R (numpy or backend): the GL grid below is per-scalar-R, so
+            # recurse per (r,z) and collect on the resolved namespace -- xp.stack
+            # under a forced backend (so numpy-array inputs run on the backend
+            # too), numpy.array on numpy (byte-identical). 0-D backend scalars
+            # from the recursion have ndim==0 and fall through to the scalar body.
+            results = [
+                self._vmomentdensity(
+                    r,
+                    zz,
+                    n,
+                    m,
+                    o,
+                    nsigma=nsigma,
+                    mc=mc,
+                    nmc=nmc,
+                    gl=gl,
+                    ngl=ngl,
+                    **kwargs,
+                )
+                for r, zz in zip(R, z)
+            ]
+            return numpy.array(results) if xp is numpy else xp.stack(results)
         if isinstance(
             self._aA,
             (actionAngle.actionAngleAdiabatic, actionAngle.actionAngleAdiabaticGrid),
@@ -634,12 +696,16 @@ class quasiisothermaldf(df):
                 return 0.0  # we know this must be the case
         if nsigma == None:
             nsigma = _NSIGMA
+        if xp is not numpy:
+            # promote the scalar (R,z) up to the backend so xp.exp(...) etc. run
+            # on it (torch rejects Python floats); numpy path is a no-op.
+            R, z = promote_scalars(xp, R, z)
         if _sigmaR1 is None:
-            sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+            sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         else:
             sigmaR1 = _sigmaR1
         if _sigmaz1 is None:
-            sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+            sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         else:
             sigmaz1 = _sigmaz1
         thisvc = potential.vcirc(self._pot, R, use_physical=False)
@@ -655,7 +721,9 @@ class quasiisothermaldf(df):
                 + R * (1.0 / self._hr + 2.0 / self._hsr)
             )
         )
-        if numpy.fabs(va) > sigmaR1:
+        if is_backend_array(va):
+            va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
+        elif numpy.fabs(va) > sigmaR1:
             va = 0.0  # To avoid craziness near the center
         if gl:
             if ngl % 2 == 1:
@@ -672,6 +740,11 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:
+                # promote the precomputed GL node/weight tables to the backend
+                # (numpy path keeps the numpy tables -> byte-identical)
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -685,49 +758,43 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vzglw = glw
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                # vRgl= 1.5/2.*(glx12+1.)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                # vRgl.extend(-1.5/2.*(glx12+1.))
-                vRgl = numpy.array(vRgl)
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                # vzgl= 1.5/2.*(glx12+1.)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                # vzgl.extend(-1.5/2.*(glx12+1.))
-                vzgl = numpy.array(vzgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
+                vzglw = xp.concatenate([glw12, glw12])
             vTmax = kwargs.get("vTmax", 1.5)
             vTgl = vTmax / 2.0 * (glx + 1.0)
-            # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, ngl, 1)).T
-            vRgl = numpy.tile(numpy.reshape(vRgl, (1, ngl)).T, (ngl, 1, ngl))
-            vzgl = numpy.tile(vzgl, (ngl, ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, ngl, 1)).T  # also tile weights
-            vRglw = numpy.tile(numpy.reshape(vRglw, (1, ngl)).T, (ngl, 1, ngl))
-            vzglw = numpy.tile(vzglw, (ngl, ngl, 1))
+            # Tile everything (permute_dims not .T: torch errors on 3-D .T under -W)
+            vTgl = xp.permute_dims(xp.tile(vTgl, (ngl, ngl, 1)), (2, 1, 0))
+            vRgl = xp.tile(xp.reshape(vRgl, (1, ngl)).T, (ngl, 1, ngl))
+            vzgl = xp.tile(vzgl, (ngl, ngl, 1))
+            vTglw = xp.permute_dims(xp.tile(glw, (ngl, ngl, 1)), (2, 1, 0))
+            vRglw = xp.tile(xp.reshape(vRglw, (1, ngl)).T, (ngl, 1, ngl))
+            vzglw = xp.tile(vzglw, (ngl, ngl, 1))
             # evaluate
             if _glqeval is None and _jr is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
-                    R + numpy.zeros(ngl * ngl * ngl),
+                    R + xp.zeros(ngl * ngl * ngl),
                     vRgl.flatten(),
                     vTgl.flatten(),
-                    z + numpy.zeros(ngl * ngl * ngl),
+                    z + xp.zeros(ngl * ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     _return_actions=True,
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             elif not _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -736,7 +803,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -749,13 +816,13 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             else:
                 logqeval = _glqeval
             if _returngl:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -772,8 +839,8 @@ class quasiisothermaldf(df):
                 )
             elif _return_actions and _return_freqs:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -796,8 +863,8 @@ class quasiisothermaldf(df):
                 )
             elif _return_actions:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -815,8 +882,8 @@ class quasiisothermaldf(df):
                     jz,
                 )
             else:
-                return numpy.sum(
-                    numpy.exp(logqeval)
+                return xp.sum(
+                    xp.exp(logqeval)
                     * vRgl**n
                     * vTgl**m
                     * vzgl**o
@@ -835,23 +902,28 @@ class quasiisothermaldf(df):
                 vrs = numpy.random.normal(size=nmc)
             else:
                 vrs = _vrs
+            # mvT is baked into the vt samples when freshly drawn or when raw
+            # gaussians are supplied; defer the add so the numpy.random draw order
+            # (hence the stream) is byte-identical to the original interleaving.
+            add_mvT_to_vts = _vts is None or _rawgausssamples
             if _vts is None:
-                vts = numpy.random.normal(size=nmc) + mvT
+                vts = numpy.random.normal(size=nmc)
             else:
-                if _rawgausssamples:
-                    vts = _vts + mvT
-                else:
-                    vts = _vts
+                vts = _vts
             if _vzs is None:
                 vzs = numpy.random.normal(size=nmc)
             else:
                 vzs = _vzs
+            if xp is not numpy:  # promote the (numpy) draws to combine with backend
+                vrs, vts, vzs = promote_scalars(xp, vrs, vts, vzs)
+            if add_mvT_to_vts:
+                vts = vts + mvT
             Is = _vmomentsurfaceMCIntegrand(
                 vzs,
                 vrs,
                 vts,
-                numpy.ones(nmc) * R,
-                numpy.ones(nmc) * z,
+                xp.ones(nmc) * R,
+                xp.ones(nmc) * z,
                 self,
                 sigmaR1,
                 gamma,
@@ -864,7 +936,7 @@ class quasiisothermaldf(df):
             if _returnmc:
                 if _rawgausssamples:
                     return (
-                        numpy.mean(Is)
+                        xp.mean(Is)
                         * sigmaR1 ** (2.0 + n + m)
                         * gamma ** (1.0 + m)
                         * sigmaz1 ** (1.0 + o),
@@ -874,7 +946,7 @@ class quasiisothermaldf(df):
                     )
                 else:
                     return (
-                        numpy.mean(Is)
+                        xp.mean(Is)
                         * sigmaR1 ** (2.0 + n + m)
                         * gamma ** (1.0 + m)
                         * sigmaz1 ** (1.0 + o),
@@ -884,7 +956,7 @@ class quasiisothermaldf(df):
                     )
             else:
                 return (
-                    numpy.mean(Is)
+                    xp.mean(Is)
                     * sigmaR1 ** (2.0 + n + m)
                     * gamma ** (1.0 + m)
                     * sigmaz1 ** (1.0 + o)
@@ -986,10 +1058,13 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of jmomentdensity, otherwise the same"""
+        xp = get_namespace(R, z)
         if nsigma == None:
             nsigma = _NSIGMA
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        if xp is not numpy:  # promote scalar (R,z) so xp.exp etc. run on backend
+            R, z = promote_scalars(xp, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         thisvc = potential.vcirc(self._pot, R, use_physical=False)
         # Use the asymmetric drift equation to estimate va
         gamma = numpy.sqrt(0.5)
@@ -1003,7 +1078,9 @@ class quasiisothermaldf(df):
                 + R * (1.0 / self._hr + 2.0 / self._hsr)
             )
         )
-        if numpy.fabs(va) > sigmaR1:
+        if is_backend_array(va):
+            va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
+        elif numpy.fabs(va) > sigmaR1:
             va = 0.0  # To avoid craziness near the center
         if mc:
             mvT = (thisvc - va) / gamma / sigmaR1
@@ -1011,20 +1088,26 @@ class quasiisothermaldf(df):
                 vrs = numpy.random.normal(size=nmc)
             else:
                 vrs = _vrs
+            # defer the mvT add so the numpy.random draw order is byte-identical
+            add_mvT_to_vts = _vts is None
             if _vts is None:
-                vts = numpy.random.normal(size=nmc) + mvT
+                vts = numpy.random.normal(size=nmc)
             else:
                 vts = _vts
             if _vzs is None:
                 vzs = numpy.random.normal(size=nmc)
             else:
                 vzs = _vzs
+            if xp is not numpy:  # promote the (numpy) draws to combine with backend
+                vrs, vts, vzs = promote_scalars(xp, vrs, vts, vzs)
+            if add_mvT_to_vts:
+                vts = vts + mvT
             Is = _jmomentsurfaceMCIntegrand(
                 vzs,
                 vrs,
                 vts,
-                numpy.ones(nmc) * R,
-                numpy.ones(nmc) * z,
+                xp.ones(nmc) * R,
+                xp.ones(nmc) * z,
                 self,
                 sigmaR1,
                 gamma,
@@ -1036,13 +1119,13 @@ class quasiisothermaldf(df):
             )
             if _returnmc:
                 return (
-                    numpy.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1,
+                    xp.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1,
                     vrs,
                     vts,
                     vzs,
                 )
             else:
-                return numpy.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1
+                return xp.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1
         else:  # pragma: no cover because this is too slow; a warning is shown
             warnings.warn(
                 "Calculations using direct numerical integration using tplquad is not recommended and extremely slow; it has also not been carefully tested",
@@ -1378,7 +1461,8 @@ class quasiisothermaldf(df):
                 )
                 / surfmass
             )
-            return 0.5 * numpy.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
+            xp = get_namespace(tsigmarz, tsigmar2, tsigmaz2)
+            return 0.5 * xp.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
         elif gl:
             surfmass, glqeval = self._vmomentdensity(
                 R, z, 0.0, 0.0, 0.0, gl=gl, ngl=ngl, _returngl=True, **kwargs
@@ -1401,7 +1485,8 @@ class quasiisothermaldf(df):
                 )
                 / surfmass
             )
-            return 0.5 * numpy.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
+            xp = get_namespace(tsigmarz, tsigmar2, tsigmaz2)
+            return 0.5 * xp.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
 
@@ -2100,56 +2185,18 @@ class quasiisothermaldf(df):
         """
         use_physical = kwargs.pop("use_physical", True)
         vo = kwargs.pop("vo", None)
+        key = kwargs.pop("key", None)
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
-        # Determine the maximum of the velocity distribution
-        maxVR = 0.0
-        maxVz = 0.0
-        # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
-        # so squeeze out single dimensions by hand
-        maxVT = numpy.squeeze(
-            optimize.fmin_powell(
-                (lambda x: -self(R, 0.0, x, z, 0.0, log=True, use_physical=False)), 1.0
-            )
-        )
-        logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-        # Now rejection-sample
-        vRs = []
-        vTs = []
-        vzs = []
-        while len(vRs) < n:
-            nmore = n - len(vRs) + 1
-            # sample
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-            VDatprop = (
-                self(
-                    R + numpy.zeros(nmore),
-                    propvR,
-                    propvT,
-                    z + numpy.zeros(nmore),
-                    propvz,
-                    log=True,
-                    use_physical=False,
-                )
-                - logmaxVD
-            )
-            VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT) ** 2.0 / 4.0 / self._sr**2.0
-            )
-            VDatprop = numpy.reshape(VDatprop, (nmore))
-            indx = VDatprop > numpy.log(numpy.random.random(size=nmore))  # accept
-            vRs.extend(list(propvR[indx]))
-            vTs.extend(list(propvT[indx]))
-            vzs.extend(list(propvz[indx]))
-        out = numpy.empty((n, 3))
-        out[:, 0] = vRs[0:n]
-        out[:, 1] = vTs[0:n]
-        out[:, 2] = vzs[0:n]
+        # Dispatch on the KEY, as the spherical DFs do: key=None keeps the
+        # historical numpy-output contract (the CDF build and inversion still run
+        # on the active backend), while a backend key draws its uniforms in that
+        # namespace and returns BACKEND arrays -- which is what makes the sampled
+        # velocity differentiable in the DF and potential parameters, inverse-CDF
+        # sampling being v = Q(u) with Q built from the DF itself.
+        raw = self._sampleV_icdf(R, z, n, get_namespace(), key=key)
+        out = raw if key is not None else as_numpy(raw)
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(out * vo, unit=units.km / units.s)
@@ -2157,6 +2204,122 @@ class quasiisothermaldf(df):
                 return out * vo
         else:
             return out
+
+    def _sampleV_icdf(self, R, z, n, xp, nsigma=5.0, nvT=40, nvR=40, nvz=50, key=None):
+        """Sample n (vR, vT, vz) at one (R, z) by inverse-CDF (backend-native).
+
+        The quasi-isothermal DF factorises, so p(vR,vT,vz|R,z) is drawn by the
+        chain vT -> vR|vT -> vz|vR,vT. ONE 3-D velocity mesh feeds all three: the
+        vT marginal (integrate over vR,vz), p(vR,vT) (integrate over vz) and
+        p(vz|vR,vT) (the mesh). CDFs are cumulative trapezoids inverted piecewise-
+        linearly (no rejection loop), reproducing every marginal AND the tilt.
+        Single path (numpy included): replaces the old fmin_powell + numpy.random
+        rejection sampler, which was pathologically slow under a forced backend.
+        """
+        from ..backend.sampling import (
+            batched_inverse_cdf_sample,
+            ensure_strictly_increasing,
+            linear_inverse_cdf_sample,
+        )
+
+        def _seg(p, g, axis):
+            d = g[1] - g[0]
+            lo = [slice(None)] * p.ndim
+            lo[axis] = slice(0, -1)
+            hi = [slice(None)] * p.ndim
+            hi[axis] = slice(1, None)
+            return 0.5 * (p[tuple(lo)] + p[tuple(hi)]) * d
+
+        def _trapz(p, g, axis):
+            return xp.sum(_seg(p, g, axis), axis=axis)
+
+        def _cumcdf(p, g, axis):
+            c = xp.cumulative_sum(_seg(p, g, axis), axis=axis)
+            zsh = list(p.shape)
+            zsh[axis] = 1
+            c = xp.concatenate([xp.zeros(tuple(zsh), dtype=c.dtype), c], axis=axis)
+            last = [slice(None)] * p.ndim
+            last[axis] = slice(c.shape[axis] - 1, c.shape[axis])
+            tot = c[tuple(last)]
+            # A slice with no probability at all (the vT=0 node: Lz = R*vT = 0,
+            # so the DF vanishes there) would normalise 0/0 -> NaN, and the
+            # conditional blend below mixes that row in whenever a sampled vT
+            # lands in the first cell, turning the whole draw into NaN (rare --
+            # ~1 in 2e5 -- and silent). Give such a slice a uniform CDF instead:
+            # it carries no weight in the marginal, so the choice is immaterial,
+            # but it keeps every CDF finite and non-decreasing.
+            ramp = xp.reshape(
+                xp.linspace(0.0, 1.0, c.shape[axis]),
+                tuple(-1 if k == axis else 1 for k in range(p.ndim)),
+            )
+            good = tot > 0.0
+            return xp.where(good, c / xp.where(good, tot, xp.ones_like(tot)), ramp)
+
+        # The local dispersions set the velocity-grid extents. Scale a UNIT
+        # linspace by them rather than passing them as linspace limits: torch
+        # rejects tensor limits, and numpy.exp here would break the moment a
+        # dispersion is traced (differentiating w.r.t. hsr/sr, or w.r.t. R, makes
+        # these tracers). Scaling keeps both backends happy AND keeps the grid --
+        # hence the CDFs, hence the draws -- differentiable in them.
+        # xp.asarray so a plain-float R works under torch, whose exp() rejects
+        # python floats (why this used numpy.exp before); a 0-d array is fine
+        # now that it SCALES a unit linspace instead of being a linspace limit.
+        sigmaR1 = self._sr * xp.exp(xp.asarray((self._refr - R) / self._hsr) * 1.0)
+        sigmaz1 = self._sz * xp.exp(xp.asarray((self._refr - R) / self._hsz) * 1.0)
+        vTg = xp.linspace(0.0, 1.8, nvT)
+        vRg = xp.linspace(-1.0, 1.0, nvR) * (nsigma * sigmaR1)
+        vzg = xp.linspace(-1.0, 1.0, nvz) * (nsigma * sigmaz1)
+        VT, VR, VZ = xp.meshgrid(vTg, vRg, vzg, indexing="ij")
+        base = xp.reshape(VR, (-1,)) * 0.0
+        # Evaluate the density directly rather than exp(log-density). The DF is
+        # exactly zero over part of this grid, where log=True gives -inf: the
+        # VALUE then exponentiates back to a harmless 0, but its gradient is NaN
+        # and survives the exp as 0 * NaN, poisoning d(sample)/d(anything). The
+        # linear form has no such singularity, and the grid is already clamped
+        # non-negative downstream.
+        mesh = xp.reshape(
+            self(
+                R + base,
+                xp.reshape(VR, (-1,)),
+                xp.reshape(VT, (-1,)),
+                z + base,
+                xp.reshape(VZ, (-1,)),
+                log=False,
+                use_physical=False,
+            ),
+            (nvT, nvR, nvz),
+        )
+        FvT = _cumcdf(_trapz(_trapz(mesh, vzg, 2), vRg, 1), vTg, 0)
+        FvR = _cumcdf(_trapz(mesh, vzg, 2), vRg, 1)
+        Fvz = _cumcdf(mesh, vzg, 2)
+        # key=None keeps the global-numpy stream (byte-identical); a backend key
+        # draws the same three uniforms in the active namespace, so the draw is
+        # reproducible AND differentiable rather than an opaque numpy constant.
+        if key is None:
+            u = xp.asarray(numpy.random.random((3, n)))
+        else:
+            u = grandom.uniform(key, (3, n))
+        # Floor the vT-marginal steps before inverting. The marginal is genuinely
+        # flat over much of the grid (p(vT) ~ 0 near vT=0 and in the tail), and a
+        # quantile is ill-conditioned there: d(quantile)/d(CDF) goes as 1/step^2,
+        # which overflows to inf and then NaN-poisons the whole gradient even
+        # though the VALUE is fine. Flooring is a no-op in the bulk (real steps
+        # are orders of magnitude larger) and only nudges steps that carry no
+        # probability, so the sampled distribution is preserved.
+        FvT = ensure_strictly_increasing(xp, FvT)
+        vT = linear_inverse_cdf_sample(xp, vTg, FvT, u[0])
+        iT = xp.clip(xp.searchsorted(vTg, vT) - 1, 0, nvT - 2)
+        wT = xp.reshape((vT - vTg[iT]) / (vTg[1] - vTg[0]), (n, 1))
+        vR = batched_inverse_cdf_sample(
+            xp, vRg, (1.0 - wT) * FvR[iT] + wT * FvR[iT + 1], u[1]
+        )
+        iR = xp.clip(xp.searchsorted(vRg, vR) - 1, 0, nvR - 2)
+        wR = xp.reshape((vR - vRg[iR]) / (vRg[1] - vRg[0]), (n, 1))
+        Fvzj = (1.0 - wT) * ((1.0 - wR) * Fvz[iT, iR] + wR * Fvz[iT, iR + 1]) + wT * (
+            (1.0 - wR) * Fvz[iT + 1, iR] + wR * Fvz[iT + 1, iR + 1]
+        )
+        vz = batched_inverse_cdf_sample(xp, vzg, Fvzj, u[2])
+        return xp.stack([vR, vT, vz], axis=1)
 
     @potential_physical_input
     def sampleV_interpolate(
@@ -2207,10 +2370,20 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = parse_velocity_kms(vo)
+        # What gets interpolated over (R, z) is maxVT -- the MODE of p(vT) that
+        # centres the rejection proposal -- not the velocity distribution itself.
+        # The sampler below re-evaluates the true DF at every proposal, so an
+        # interpolated maxVT costs only acceptance efficiency, and only at second
+        # order (dlogf/dvT = 0 at the mode); it never biases the draws.
+        # Interpolating the CDFs instead would bias them at FIRST order: on the
+        # pixel grids this API actually builds (int((R_max-R_min)/R_pixel) is 2
+        # for the default test grid, i.e. 0.2-wide cells) that is ~0.05 in <vT>.
+        xp = get_namespace()
         # Initialize output array
         coord_v = numpy.empty((numpy.size(R), 3))
         # Since the sign of z doesn't matter, work with absolute value of z
-        z = numpy.abs(z)
+        R = numpy.asarray(as_numpy(R), dtype=float)
+        z = numpy.abs(numpy.asarray(as_numpy(z), dtype=float))
         # Grid edges
         if R_min is None:
             R_min = numpy.amax([numpy.mean(R) - num_std * numpy.std(R), numpy.amin(R)])
@@ -2229,17 +2402,18 @@ class quasiisothermaldf(df):
         # Sample the velocity of outliers directly (without interpolation)
         outlier_coord_v = numpy.empty((outliers_R.size, 3))
         for i in range(outliers_R.size):
-            outlier_coord_v[i] = self.sampleV(
-                outliers_R[i], outliers_z[i], use_physical=False
+            outlier_coord_v[i] = as_numpy(
+                self.sampleV(outliers_R[i], outliers_z[i], use_physical=False)
             )[0]
         # Prepare for optimizing maxVT on a grid
         # Get the new hash of the parameters of grid
         new_hash = hashlib.md5(
             numpy.array([R_min, R_max, z_max, R_pixel, z_pixel])
         ).hexdigest()
+        bk = getattr(xp, "__name__", "numpy")
         # Reuse old interpolated object if new hash matches the old one
-        if new_hash == self._maxVT_hash:
-            ip_max_vT = self._maxVT_ip
+        if new_hash == self._maxVT_hash and bk == self._maxVT_backend:
+            grid_max_vT, R_linspace, z_linspace = self._maxVT_ip
         # Generate a new interpolation object if different from before
         else:
             R_number = int((R_max - R_min) / R_pixel)
@@ -2247,41 +2421,35 @@ class quasiisothermaldf(df):
             R_linspace = numpy.linspace(R_min, R_max, R_number)
             z_linspace = numpy.linspace(z_min, z_max, z_number)
             Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
-            grid = numpy.dstack((Rv, zv))  # This grid stores (R,z) coordinate
-            # Grid is a 3 dimensional array since it stores pairs of values, but
-            # grid max vT is a 2 dimensional array
-            grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
             # Optimize max_vT on the grid
-            for i in range(z_number):
-                for j in range(R_number):
-                    R, z = grid[i][j]
-                    grid_max_vT[i][j] = numpy.squeeze(
-                        optimize.fmin_powell(
-                            (
-                                lambda x: (
-                                    -self(
-                                        R, 0.0, x, z, 0.0, log=True, use_physical=False
-                                    )
-                                )
-                            ),
-                            1.0,
-                        )
-                    )
-            # Determine degree of interpolation
-            ky = numpy.min([R_number - 1, 3])
-            kx = numpy.min([z_number - 1, 3])
-            # Generate interpolation object
-            ip_max_vT = interpolate.RectBivariateSpline(
-                z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
-            )
-            # Store interpolation object
-            self._maxVT_ip = ip_max_vT
-            # Update hash of parameters
+            grid_max_vT = self._maxVT_on_grid(Rv, zv, xp)
+            # Store the grid and update the hash of the parameters
+            self._maxVT_ip = (grid_max_vT, R_linspace, z_linspace)
             self._maxVT_hash = new_hash
-        # Evaluate interpolation object to get maxVT at the normal coordinates
-        normal_max_vT = ip_max_vT.ev(normal_z, normal_R)
+            self._maxVT_backend = bk
+        # Evaluate the interpolant to get maxVT at the normal coordinates. numpy
+        # keeps scipy's RectBivariateSpline (byte-identical); a backend blends the
+        # same node grid natively (degree 1 -- maxVT only sets the proposal, see
+        # above), so nothing is forced back to numpy.
+        if xp is numpy:
+            ky = numpy.min([len(R_linspace) - 1, 3])
+            kx = numpy.min([len(z_linspace) - 1, 3])
+            normal_max_vT = interpolate.RectBivariateSpline(
+                z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
+            ).ev(normal_z, normal_R)
+        else:
+            normal_max_vT = interp_bilinear(
+                xp,
+                xp.asarray(z_linspace),
+                xp.asarray(R_linspace),
+                grid_max_vT,
+                xp.asarray(normal_z),
+                xp.asarray(normal_R),
+            )
         # Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v = self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT)
+        normal_coord_v = as_numpy(
+            self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT, xp)
+        )
         # Combine normal and outlier result, preserving original order
         coord_v[mask] = outlier_coord_v
         coord_v[~mask] = normal_coord_v
@@ -2293,73 +2461,194 @@ class quasiisothermaldf(df):
         else:
             return coord_v
 
-    def _sampleV_preoptimized(self, R, z, maxVT):
+    def _maxVT_on_grid(self, Rv, zv, xp):
+        """The mode of p(vT) at each (R, z) node: the rejection proposal's centre.
+
+        numpy keeps scipy's ``fmin_powell`` LOCAL search from x0=1.0 (so the
+        numpy path stays byte-identical). A backend reproduces that local search
+        vectorised: walk out from the same x0 to the FIRST sign change of
+        dlogf/dvT and bisect there. It must be a local search, not a global
+        argmax over vT -- the action-domain edges (and ``cutcounter``) carry
+        their own maxima that a global search would lock onto.
         """
-        Sample a radial, azimuthal, and vertical velocity at R,z.
+        if xp is numpy:
+            grid_max_vT = numpy.empty(Rv.shape)
+            for i in range(Rv.shape[0]):
+                for j in range(Rv.shape[1]):
+                    R, z = Rv[i][j], zv[i][j]
+                    grid_max_vT[i][j] = numpy.squeeze(
+                        optimize.fmin_powell(
+                            (
+                                lambda x: (
+                                    -as_numpy(
+                                        self(
+                                            R,
+                                            0.0,
+                                            x,
+                                            z,
+                                            0.0,
+                                            log=True,
+                                            use_physical=False,
+                                        )
+                                    )
+                                )
+                            ),
+                            1.0,
+                        )
+                    )
+            return grid_max_vT
+        # Backend: ONE batched qdf evaluation over the (node, vT) mesh, then a
+        # branch-free bracket and a 3-point parabolic vertex. Evaluating the vT
+        # scan node-by-node instead costs one eager dispatch per vT sample and is
+        # what makes this minutes-slow; the mode only centres the rejection
+        # proposal (and is interpolated across ~0.2-wide cells afterwards), so
+        # the parabola is far more precision than the envelope can use.
+        Rf = xp.asarray(numpy.reshape(Rv, (-1,))) * 1.0
+        zf = xp.asarray(numpy.reshape(zv, (-1,))) * 1.0
+        npt = int(Rf.shape[0])
+        vTn = numpy.linspace(_MAXVT_LO, _MAXVT_HI, _MAXVT_N)
+        vTg = xp.asarray(vTn)
+        # flattened (node, vT) mesh -> a single DF call
+        Rr = xp.reshape(xp.repeat(Rf, _MAXVT_N), (-1,))
+        zr = xp.reshape(xp.repeat(zf, _MAXVT_N), (-1,))
+        VV = xp.reshape(xp.tile(vTg, (npt,)), (-1,))
+        zero = xp.zeros_like(VV)
+        lf = xp.reshape(
+            self(Rr, zero, VV, zr, zero, log=True, use_physical=False),
+            (npt, _MAXVT_N),
+        )
+        # central-difference dlogf/dvT on the interior nodes
+        g = (lf[:, 2:] - lf[:, :-2]) / (vTg[2:] - vTg[:-2])
+        ni = _MAXVT_N - 2
+        idx = xp.arange(ni)
+        i0 = int(numpy.argmin(numpy.abs(vTn[1:-1] - _MAXVT_X0)))
+        left = g[:, i0] < 0.0  # the mode lies below x0
+        # left: LARGEST interior index below i0 whose gradient is still positive
+        jl = xp.max(xp.where((g > 0.0) & (idx[None, :] < i0), idx[None, :], 0), axis=1)
+        # right: SMALLEST interior index above i0 whose gradient has turned negative
+        jr = xp.min(
+            xp.where((g < 0.0) & (idx[None, :] > i0), idx[None, :], ni - 1), axis=1
+        )
+        # interior index k is full-grid index k+1, so the peak brackets full
+        # indices (j+1, j+2) on the left branch and (j, j+1) on the right branch
+        j = xp.where(left, jl, xp.clip(jr - 1, 0, ni - 1))
+        rows = xp.arange(npt)
+        m = xp.clip(j + 1, 1, _MAXVT_N - 2)
+        m = xp.where(lf[rows, m + 1] > lf[rows, m], m + 1, m)
+        m = xp.clip(m, 1, _MAXVT_N - 2)
+        y0, y1, y2 = lf[rows, m - 1], lf[rows, m], lf[rows, m + 1]
+        h = float(vTn[1] - vTn[0])
+        denom = y0 - 2.0 * y1 + y2
+        shift = xp.where(
+            xp.abs(denom) > 0.0,
+            0.5 * h * (y0 - y2) / xp.where(denom == 0.0, 1.0, denom),
+            0.0,
+        )
+        root = vTg[m] + xp.clip(shift, -h, h)
+        return xp.reshape(root, Rv.shape)
 
-        Parameters
-        ----------
-        R : float or numpy.ndarray
-            Galactocentric distance.
-        z : float or numpy.ndarray
-            Height.
-        maxVT : numpy.ndarray
-            An array of pre-optimized maximum vT at corresponding R,z.
+    def _sampleV_preoptimized(self, R, z, maxVT, xp):
+        """Sample (vR, vT, vz) by rejection with a PRE-COMPUTED vT mode.
 
-        Returns
-        -------
-        numpy.ndarray
-            A numpy array containing the sampled velocity, (vR, vT, vz), where each row correspond to the row of (R,z).
-
-        Notes
-        -----
-        - 2018-08-10 - Written - Samuel Wong (University of Toronto)
-
+        Splitting the mode out is what makes ``sampleV_interpolate`` cheap: the
+        mode is interpolated over the (R, z) grid while the acceptance test below
+        still evaluates the true DF at every proposal, so the draws stay exact.
+        numpy keeps the historical loop (byte-identical random stream); a backend
+        runs the same rejection natively, blending accepted proposals in with
+        ``xp.where`` (no boolean-mask assignment, which jax arrays disallow).
         """
         length = numpy.size(R)
-        out = numpy.empty((length, 3))  # Initialize output
-        # Determine the maximum of the velocity distribution
-        maxVR = numpy.zeros(length)
-        maxVz = numpy.zeros(length)
-        logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
-        # Now rejection-sample
-        # Initialize boolean index of position remaining to be sampled
-        remain_indx = numpy.full(length, True)
-        while numpy.any(remain_indx):
-            nmore = numpy.sum(remain_indx)
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = (
-                numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT[remain_indx]
+        if xp is numpy:
+            out = numpy.empty((length, 3))  # Initialize output
+            # Determine the maximum of the velocity distribution
+            maxVR = numpy.zeros(length)
+            maxVz = numpy.zeros(length)
+            # as_numpy: fmin_powell's optimum is fed straight into the numpy
+            # rejection arithmetic below; under a forced backend self() hands back a
+            # backend scalar here too. No-op on numpy.
+            logmaxVD = as_numpy(
+                self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
             )
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
-            VDatprop = (
-                self(
-                    R[remain_indx],
-                    propvR,
-                    propvT,
-                    z[remain_indx],
-                    propvz,
-                    log=True,
-                    use_physical=False,
+            # Now rejection-sample
+            # Initialize boolean index of position remaining to be sampled
+            remain_indx = numpy.full(length, True)
+            while numpy.any(remain_indx):
+                nmore = numpy.sum(remain_indx)
+                propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
+                propvT = (
+                    numpy.random.normal(size=nmore) * 2.0 * self._sr
+                    + maxVT[remain_indx]
                 )
-                - logmaxVD[remain_indx]
+                propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+                # as_numpy for the same reason as in sampleV above
+                VDatprop = (
+                    as_numpy(
+                        self(
+                            R[remain_indx],
+                            propvR,
+                            propvT,
+                            z[remain_indx],
+                            propvz,
+                            log=True,
+                            use_physical=False,
+                        )
+                    )
+                    - logmaxVD[remain_indx]
+                )
+                VDatprop -= -0.5 * (
+                    propvR**2.0 / 4.0 / self._sr**2.0
+                    + propvz**2.0 / 4.0 / self._sz**2.0
+                    + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                )
+                accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
+                vR_accept = propvR[accept_indx]
+                vT_accept = propvT[accept_indx]
+                vz_accept = propvz[accept_indx]
+                # Get the indexing of rows of output array that need to be updated
+                # with newly accepted velocity
+                to_change = numpy.copy(remain_indx)
+                to_change[remain_indx] = accept_indx
+                out[to_change] = numpy.stack((vR_accept, vT_accept, vz_accept), axis=1)
+                # Removing accepted sampled from remain index
+                remain_indx[remain_indx] = ~accept_indx
+            return out
+        # Backend: the same rejection, but proposing only for the points still
+        # outstanding (as the numpy loop does) -- proposing for the whole vector
+        # every round costs one full DF evaluation per round and is what made the
+        # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
+        # are scattered in with .at[].set() rather than a boolean assignment.
+        Rb = xp.asarray(R) * 1.0
+        zb = xp.asarray(z) * 1.0
+        mvT = xp.asarray(maxVT) * 1.0
+        zero = xp.zeros_like(Rb)
+        logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
+        out = xp.zeros((length, 3))
+        remain = xp.arange(length)
+        for _ in range(_SAMPLEV_MAXROUNDS):
+            nmore = int(remain.shape[0])
+            if nmore == 0:
+                break
+            Rr, zr, mr = Rb[remain], zb[remain], mvT[remain]
+            propvR = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr
+            propvT = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr + mr
+            propvz = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sz
+            VDatprop = (
+                self(Rr, propvR, propvT, zr, propvz, log=True, use_physical=False)
+                - logmaxVD[remain]
             )
             VDatprop -= -0.5 * (
                 propvR**2.0 / 4.0 / self._sr**2.0
                 + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
             )
-            accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
-            vR_accept = propvR[accept_indx]
-            vT_accept = propvT[accept_indx]
-            vz_accept = propvz[accept_indx]
-            # Get the indexing of rows of output array that need to be updated
-            # with newly accepted velocity
-            to_change = numpy.copy(remain_indx)
-            to_change[remain_indx] = accept_indx
-            out[to_change] = numpy.stack((vR_accept, vT_accept, vz_accept), axis=1)
-            # Removing accepted sampled from remain index
-            remain_indx[remain_indx] = ~accept_indx
+            accept = VDatprop > xp.log(xp.asarray(numpy.random.random(size=nmore)))
+            prop = xp.stack([propvR, propvT, propvz], axis=1)
+            sel = remain[accept]
+            if hasattr(out, "at"):  # jax: immutable, scatter through .at[]
+                out = out.at[sel].set(prop[accept])
+            else:
+                out[sel] = prop[accept]
+            remain = remain[~accept]
         return out
 
     @actionAngle_physical_input
@@ -2395,7 +2684,10 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS@MPIA)
 
         """
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vR, R, z)
+        if xp is not numpy:
+            vR, R, z = promote_scalars(xp, vR, R, z)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2409,6 +2701,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2421,38 +2716,37 @@ class quasiisothermaldf(df):
                 vzglw = glw
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzglw = xp.concatenate([glw12, glw12])
                 vzfac = (
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, 1)).T
-            vzgl = numpy.tile(vzgl, (ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, 1)).T  # also tile weights
-            vzglw = numpy.tile(vzglw, (ngl, 1))
+            vTgl = xp.tile(vTgl, (ngl, 1)).T
+            vzgl = xp.tile(vzgl, (ngl, 1))
+            vTglw = xp.tile(glw, (ngl, 1)).T  # also tile weights
+            vzglw = xp.tile(vzglw, (ngl, 1))
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(
-                    R + numpy.zeros(ngl * ngl),
-                    vR + numpy.zeros(ngl * ngl),
+                    R + xp.zeros(ngl * ngl),
+                    vR + xp.zeros(ngl * ngl),
                     vTgl.flatten(),
-                    z + numpy.zeros(ngl * ngl),
+                    z + xp.zeros(ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     use_physical=False,
                 ),
                 (ngl, ngl),
             )
-            return numpy.sum(numpy.exp(logqeval) * vTglw * vzglw * vzfac) * vTfac
+            return xp.sum(xp.exp(logqeval) * vTglw * vzglw * vzfac) * vTfac
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
@@ -2486,8 +2780,11 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
 
         """
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vT, R, z)
+        if xp is not numpy:
+            vT, R, z = promote_scalars(xp, vT, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2501,6 +2798,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2516,22 +2816,20 @@ class quasiisothermaldf(df):
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
+                vzglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
@@ -2539,24 +2837,24 @@ class quasiisothermaldf(df):
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             # Tile everything
-            vRgl = numpy.tile(vRgl, (ngl, 1)).T
-            vzgl = numpy.tile(vzgl, (ngl, 1))
-            vRglw = numpy.tile(vRglw, (ngl, 1)).T  # also tile weights
-            vzglw = numpy.tile(vzglw, (ngl, 1))
+            vRgl = xp.tile(vRgl, (ngl, 1)).T
+            vzgl = xp.tile(vzgl, (ngl, 1))
+            vRglw = xp.tile(vRglw, (ngl, 1)).T  # also tile weights
+            vzglw = xp.tile(vzglw, (ngl, 1))
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(
-                    R + numpy.zeros(ngl * ngl),
+                    R + xp.zeros(ngl * ngl),
                     vRgl.flatten(),
-                    vT + numpy.zeros(ngl * ngl),
-                    z + numpy.zeros(ngl * ngl),
+                    vT + xp.zeros(ngl * ngl),
+                    z + xp.zeros(ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     use_physical=False,
                 ),
                 (ngl, ngl),
             )
-            return numpy.sum(numpy.exp(logqeval) * vRglw * vzglw * vRfac * vzfac)
+            return xp.sum(xp.exp(logqeval) * vRglw * vzglw * vRfac * vzfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
@@ -2609,8 +2907,13 @@ class quasiisothermaldf(df):
         -----
         - 2012-12-22 - Written - Bovy (IAS)
         """
+        xp = get_namespace(vz, R, z)
+        if xp is not numpy:
+            # promote inputs (scalars or numpy arrays) to the backend so the GL
+            # grid arithmetic below runs on tensors (numpy path: no-op).
+            vz, R, z = promote_scalars(xp, vz, R, z)
         if _sigmaR1 is None:
-            sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+            sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         else:
             sigmaR1 = _sigmaR1
         if gl:
@@ -2626,6 +2929,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2638,43 +2944,42 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
             else:
-                vRgl = glx12 + 1.0
-                vRgl = list(vRgl)
-                vRgl.extend(-(glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
+                vRgl = xp.concatenate([glx12 + 1.0, -(glx12 + 1.0)])
+                vRglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, 1)).T
-            vRgl = numpy.tile(vRgl, (ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, 1)).T  # also tile weights
-            vRglw = numpy.tile(vRglw, (ngl, 1))
-            # If inputs are arrays, tile
-            if isinstance(R, numpy.ndarray):
+            vTgl = xp.tile(vTgl, (ngl, 1)).T
+            vRgl = xp.tile(vRgl, (ngl, 1))
+            vTglw = xp.tile(glw, (ngl, 1)).T  # also tile weights
+            vRglw = xp.tile(vRglw, (ngl, 1))
+            # If inputs are arrays, tile (permute_dims not 3-D .T: torch -W errors)
+            if getattr(R, "ndim", 0) > 0:
                 nR = len(R)
-                R = numpy.tile(R, (ngl, ngl, 1)).T.flatten()
-                z = numpy.tile(z, (ngl, ngl, 1)).T.flatten()
-                vz = numpy.tile(vz, (ngl, ngl, 1)).T.flatten()
-                vTgl = numpy.tile(vTgl, (nR, 1, 1)).flatten()
-                vRgl = numpy.tile(vRgl, (nR, 1, 1)).flatten()
-                vTglw = numpy.tile(vTglw, (nR, 1, 1))
-                vRglw = numpy.tile(vRglw, (nR, 1, 1))
+                R = xp.permute_dims(xp.tile(R, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                z = xp.permute_dims(xp.tile(z, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                vz = xp.permute_dims(xp.tile(vz, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                vTgl = xp.tile(vTgl, (nR, 1, 1)).flatten()
+                vRgl = xp.tile(vRgl, (nR, 1, 1)).flatten()
+                vTglw = xp.tile(vTglw, (nR, 1, 1))
+                vRglw = xp.tile(vRglw, (nR, 1, 1))
                 scalarOut = False
             else:
-                R = R + numpy.zeros(ngl * ngl)
-                z = z + numpy.zeros(ngl * ngl)
-                vz = vz + numpy.zeros(ngl * ngl)
+                R = R + xp.zeros(ngl * ngl)
+                z = z + xp.zeros(ngl * ngl)
+                vz = vz + xp.zeros(ngl * ngl)
                 nR = 1
                 scalarOut = True
                 vRgl = vRgl.flatten()
-            vRgl *= numpy.tile(nsigma * sigmaR1 / 2.0, (ngl, ngl, 1)).T.flatten()
+            vRgl = (
+                vRgl
+                * xp.permute_dims(
+                    xp.tile(nsigma * sigmaR1 / 2.0, (ngl, ngl, 1)), (2, 1, 0)
+                ).flatten()
+            )
             # evaluate
             if _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
@@ -2688,7 +2993,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -2701,7 +3006,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif not _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -2710,7 +3015,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     R,
@@ -2727,20 +3032,16 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
-            vRglw = numpy.reshape(vRglw, (nR, ngl * ngl))
-            vTglw = numpy.reshape(vTglw, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
+            vRglw = xp.reshape(vRglw, (nR, ngl * ngl))
+            vTglw = xp.reshape(vTglw, (nR, ngl * ngl))
             if scalarOut:
                 result = (
-                    numpy.sum(numpy.exp(logqeval) * vTglw * vRglw, axis=1)[0]
-                    * vRfac
-                    * vTfac
+                    xp.sum(xp.exp(logqeval) * vTglw * vRglw, axis=1)[0] * vRfac * vTfac
                 )
             else:
                 result = (
-                    numpy.sum(numpy.exp(logqeval) * vTglw * vRglw, axis=1)
-                    * vRfac
-                    * vTfac
+                    xp.sum(xp.exp(logqeval) * vTglw * vRglw, axis=1) * vRfac * vTfac
                 )
             if _return_actions and _return_freqs:
                 return (result, jr, lz, jz, rg, kappa, nu, Omega)
@@ -2784,7 +3085,10 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
         """
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vR, vT, R, z)
+        if xp is not numpy:
+            vR, vT, R, z = promote_scalars(xp, vR, vT, R, z)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2798,6 +3102,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2810,28 +3117,27 @@ class quasiisothermaldf(df):
                 vzglw = glw
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzglw = xp.concatenate([glw12, glw12])
                 vzfac = (
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             # evaluate
             logqeval = self(
-                R + numpy.zeros(ngl),
-                vR + numpy.zeros(ngl),
-                vT + numpy.zeros(ngl),
-                z + numpy.zeros(ngl),
+                R + xp.zeros(ngl),
+                vR + xp.zeros(ngl),
+                vT + xp.zeros(ngl),
+                z + xp.zeros(ngl),
                 vzgl,
                 log=True,
                 use_physical=False,
             )
-            return numpy.sum(numpy.exp(logqeval) * vzglw * vzfac)
+            return xp.sum(xp.exp(logqeval) * vzglw * vzfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity", pop=True)
@@ -2867,7 +3173,10 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+        xp = get_namespace(vT, vz, R, z)
+        if xp is not numpy:
+            vT, vz, R, z = promote_scalars(xp, vT, vz, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2881,6 +3190,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2893,28 +3205,27 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
             # evaluate
             logqeval = self(
-                R + numpy.zeros(ngl),
+                R + xp.zeros(ngl),
                 vRgl,
-                vT + numpy.zeros(ngl),
-                z + numpy.zeros(ngl),
-                vz + numpy.zeros(ngl),
+                vT + xp.zeros(ngl),
+                z + xp.zeros(ngl),
+                vz + xp.zeros(ngl),
                 log=True,
                 use_physical=False,
             )
-            return numpy.sum(numpy.exp(logqeval) * vRglw * vRfac)
+            return xp.sum(xp.exp(logqeval) * vRglw * vRfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity", pop=True)
@@ -2949,6 +3260,9 @@ class quasiisothermaldf(df):
         - 2013-01-02 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
         """
+        xp = get_namespace(vR, vz, R, z)
+        if xp is not numpy:
+            vR, vz, R, z = promote_scalars(xp, vR, vz, R, z)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2962,32 +3276,35 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTglw = glw
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # If inputs are arrays, tile
-            if isinstance(R, numpy.ndarray):
+            if getattr(R, "ndim", 0) > 0:
                 nR = len(R)
-                R = numpy.tile(R, (ngl, 1)).T.flatten()
-                z = numpy.tile(z, (ngl, 1)).T.flatten()
-                vR = numpy.tile(vR, (ngl, 1)).T.flatten()
-                vz = numpy.tile(vz, (ngl, 1)).T.flatten()
-                vTgl = numpy.tile(vTgl, (nR, 1)).flatten()
-                vTglw = numpy.tile(vTglw, (nR, 1))
+                R = xp.tile(R, (ngl, 1)).T.flatten()
+                z = xp.tile(z, (ngl, 1)).T.flatten()
+                vR = xp.tile(vR, (ngl, 1)).T.flatten()
+                vz = xp.tile(vz, (ngl, 1)).T.flatten()
+                vTgl = xp.tile(vTgl, (nR, 1)).flatten()
+                vTglw = xp.tile(vTglw, (nR, 1))
                 scalarOut = False
             else:
-                R = R + numpy.zeros(ngl)
-                vR = vR + numpy.zeros(ngl)
-                z = z + numpy.zeros(ngl)
-                vz = vz + numpy.zeros(ngl)
+                R = R + xp.zeros(ngl)
+                vR = vR + xp.zeros(ngl)
+                z = z + xp.zeros(ngl)
+                vz = vz + xp.zeros(ngl)
                 nR = 1
                 scalarOut = True
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(R, vR, vTgl, z, vz, log=True, use_physical=False), (nR, ngl)
             )
-            out = numpy.sum(numpy.exp(logqeval) * vTglw * vTfac, axis=1)
+            out = xp.sum(xp.exp(logqeval) * vTglw * vTfac, axis=1)
             if scalarOut:
                 return out[0]
             else:
@@ -3051,6 +3368,15 @@ class quasiisothermaldf(df):
         -----
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
+            if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
+                return potential.rl(self._pot, lz)
+            # _precomputerg=True: spline everywhere. This mirrors the numpy-array
+            # path, whose out-of-range rl branch is dead for a valid Lz grid
+            # (indx = (lz>Lzmax)&(lz<Lzmin) is empty when Lzmin<Lzmax), so it too
+            # only ever splines an array. AD-safe (no root-find), and it avoids the
+            # eager full-array rl solve an xp.where(indx, rl, spline) would run.
+            return self._rgInterpBackend(lz)
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
             indxc = True ^ indx
@@ -3082,12 +3408,13 @@ def _vmomentsurfaceMCIntegrand(
     vz, vR, vT, R, z, df, sigmaR1, gamma, sigmaz1, mvT, n, m, o
 ):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
+    xp = get_namespace(vz, vR, vT, R, z)
     return (
         vR**n
         * vT**m
         * vz**o
         * df(R, vR * sigmaR1, vT * sigmaR1 * gamma, z, vz * sigmaz1, use_physical=False)
-        * numpy.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
+        * xp.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
     )
 
 
@@ -3110,6 +3437,7 @@ def _jmomentsurfaceMCIntegrand(
     vz, vR, vT, R, z, df, sigmaR1, gamma, sigmaz1, mvT, n, m, o
 ):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
+    xp = get_namespace(vz, vR, vT, R, z)
     return df(
         R,
         vR * sigmaR1,
@@ -3118,4 +3446,4 @@ def _jmomentsurfaceMCIntegrand(
         vz * sigmaz1,
         use_physical=False,
         func=(lambda x, y, z: x**n * y**m * z**o),
-    ) * numpy.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
+    ) * xp.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)

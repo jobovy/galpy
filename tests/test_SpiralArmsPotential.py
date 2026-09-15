@@ -1628,7 +1628,11 @@ class TestSpiralArmsPotential(unittest.TestCase):
 
     def test_Rzderiv(self):
         """Test Rzderiv against a numerical derivative."""
-        dx = 1e-8
+        # dx stays 1e-6 (backend branch, galpy #1258): at 1e-8 the finite
+        # difference is amplification-bound and fails under jax. main's
+        # 80a10d66 dropped the expired _NUMPY_1_23 conditional -- take that
+        # cleanup, keep the backend-compatible dx.
+        dx = 1e-6
         # Amplification-bound finite-difference reference; see test_phi2deriv.
         rtol = 3e-6
 

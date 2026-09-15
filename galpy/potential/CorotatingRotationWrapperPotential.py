@@ -60,6 +60,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
         self._pa = pa
         self._to = to
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
         # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own

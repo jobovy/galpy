@@ -2,6 +2,7 @@
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
 
+from ..backend import resolve_namespace
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
 from .osipkovmerrittdf import _osipkovmerrittdf
@@ -71,32 +72,57 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         -----
         - 2020-11-12 - Written - Bovy (UofT)
         """
-        Qtilde = numpy.atleast_1d(conversion.parse_energy(Q, vo=self._vo) / self._psi0)
-        # Handle potential Q outside of bounds
-        Qtilde_out = numpy.where(numpy.logical_or(Qtilde < 0.0, Qtilde > 1.0))[0]
-        if len(Qtilde_out) > 0:
-            # Dummy variable now and 0 later, prevents numerical issues
-            Qtilde[Qtilde_out] = 0.5
-        sqrtQtilde = numpy.sqrt(Qtilde)
-        # The 'ergodic' part
+        Qi = conversion.parse_energy(Q, vo=self._vo)
+        xp = resolve_namespace(Qi, self._psi0)
+        if xp is numpy:
+            Qtilde = numpy.atleast_1d(Qi / self._psi0)
+            # Handle potential Q outside of bounds
+            Qtilde_out = numpy.where(numpy.logical_or(Qtilde < 0.0, Qtilde > 1.0))[0]
+            if len(Qtilde_out) > 0:
+                # Dummy variable now and 0 later, prevents numerical issues
+                Qtilde[Qtilde_out] = 0.5
+            sqrtQtilde = numpy.sqrt(Qtilde)
+            # The 'ergodic' part
+            fQ = (
+                sqrtQtilde
+                / (1.0 - Qtilde) ** 2.0
+                * (
+                    (1.0 - 2.0 * Qtilde) * (8.0 * Qtilde**2.0 - 8.0 * Qtilde - 3.0)
+                    + (
+                        (3.0 * numpy.arcsin(sqrtQtilde))
+                        / numpy.sqrt(Qtilde * (1.0 - Qtilde))
+                    )
+                )
+            )
+            # The other part
+            fQ += 8.0 * self._a2overra2 * sqrtQtilde * (1.0 - 2.0 * Qtilde)
+            if len(Qtilde_out) > 0:
+                fQ[Qtilde_out] = 0.0
+            return self._fQnorm * fQ.reshape(Q.shape)
+        # jax/torch: functional out-of-bounds handling; Qtilde==0 is 0/0 in the
+        # arcsin term but fQ -> 0 (~ sqrt(Qtilde)), guarded NaN-free under autodiff
+        Qb = xp.asarray(Qi) * 1.0
+        Qtilde = xp.atleast_1d(Qb) / self._psi0
+        dead = (Qtilde < 0.0) | (Qtilde > 1.0) | (Qtilde == 0.0)
+        Qtilde = xp.where(dead, 0.5, Qtilde)
+        sqrtQtilde = xp.sqrt(Qtilde)
         fQ = (
             sqrtQtilde
             / (1.0 - Qtilde) ** 2.0
             * (
                 (1.0 - 2.0 * Qtilde) * (8.0 * Qtilde**2.0 - 8.0 * Qtilde - 3.0)
-                + (
-                    (3.0 * numpy.arcsin(sqrtQtilde))
-                    / numpy.sqrt(Qtilde * (1.0 - Qtilde))
-                )
+                + (3.0 * xp.arcsin(sqrtQtilde)) / xp.sqrt(Qtilde * (1.0 - Qtilde))
             )
         )
-        # The other part
-        fQ += 8.0 * self._a2overra2 * sqrtQtilde * (1.0 - 2.0 * Qtilde)
-        if len(Qtilde_out) > 0:
-            fQ[Qtilde_out] = 0.0
-        return self._fQnorm * fQ.reshape(Q.shape)
+        fQ = fQ + 8.0 * self._a2overra2 * sqrtQtilde * (1.0 - 2.0 * Qtilde)
+        fQ = xp.where(dead, xp.zeros_like(fQ), fQ)
+        return self._fQnorm * fQ.reshape(Qb.shape)
 
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]"""
-        return self._pot.a * numpy.sqrt(ms) / (1 - numpy.sqrt(ms))
+        xp = resolve_namespace(ms)
+        if xp is numpy:
+            return self._pot.a * numpy.sqrt(ms) / (1 - numpy.sqrt(ms))
+        sq = xp.sqrt(xp.asarray(ms) * 1.0)  # coerce: torch.sqrt rejects numpy
+        return self._pot.a * sq / (1 - sq)

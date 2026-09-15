@@ -11,6 +11,7 @@ import pytest
 
 matplotlib.use("Agg")
 
+from galpy.backend import as_numpy
 from galpy.df import chen24spraydf, fardal15spraydf
 from galpy.df.streamTrack import (
     StreamTrack,
@@ -87,7 +88,9 @@ def test_streamTrack_sample_consistency(_simple_spdf):
     track = _simple_spdf.streamTrack(n=4000, ntp=41, tail="leading")
     # Reproduce the closest-point assignment from the saved particles ->
     # closest point on the dense track itself (a stable, public reference).
-    particles_cart = coords.galcencyl_to_galcenrect(*track.particles)
+    # galcencyl_to_galcenrect is backend-native now, so under a forced backend
+    # this is a Tensor and the numpy reductions below (.std(ddof=...)) reject it.
+    particles_cart = as_numpy(coords.galcencyl_to_galcenrect(*track.particles))
     tp_grid = track.tp_grid()
     track_cart = numpy.column_stack(
         [
@@ -202,8 +205,9 @@ def test_streamTrack_iteration_changes_track(_simple_spdf):
     hi = min(tr0.tp_grid()[-1], tr1.tp_grid()[-1])
     tps = numpy.linspace(lo, hi, 101)
     # Track-to-track difference should be small compared to the stream size
-    ampl = numpy.ptp(tr0.x(tps))
-    dmax = numpy.max(numpy.abs(tr0.x(tps) - tr1.x(tps)))
+    x0, x1 = as_numpy(tr0.x(tps)), as_numpy(tr1.x(tps))
+    ampl = numpy.ptp(x0)
+    dmax = numpy.max(numpy.abs(x0 - x1))
     assert dmax < 0.5 * max(ampl, 0.1), (
         "Iteration changed the track by more than half the stream amplitude"
     )
@@ -418,14 +422,14 @@ def test_streamTrack_out_of_range_returns_nan(_simple_spdf):
     assert numpy.isnan(xs[2])
     # cov() honors the same convention; out-of-range entries are NaN
     Cs = track.cov(tps)
-    assert numpy.all(numpy.isnan(Cs[0]))
-    assert numpy.all(numpy.isfinite(Cs[1]))
-    assert numpy.all(numpy.isnan(Cs[2]))
+    assert numpy.all(numpy.isnan(as_numpy(Cs[0])))
+    assert numpy.all(numpy.isfinite(as_numpy(Cs[1])))
+    assert numpy.all(numpy.isnan(as_numpy(Cs[2])))
     # cov(basis=...) too — NaN entries skip the Jacobian path safely
     Cs_sky = track.cov(tps, basis="sky")
-    assert numpy.all(numpy.isnan(Cs_sky[0]))
-    assert numpy.all(numpy.isfinite(Cs_sky[1]))
-    assert numpy.all(numpy.isnan(Cs_sky[2]))
+    assert numpy.all(numpy.isnan(as_numpy(Cs_sky[0])))
+    assert numpy.all(numpy.isfinite(as_numpy(Cs_sky[1])))
+    assert numpy.all(numpy.isnan(as_numpy(Cs_sky[2])))
 
 
 def test_streamTrack_order1_no_cov(_simple_spdf):
@@ -477,10 +481,20 @@ def test_streamTrackPair_particles_property(_simple_spdf):
     tps_l = numpy.linspace(max(g_l[0], g_l2[0]), min(g_l[-1], g_l2[-1]), 21)
     tps_t = numpy.linspace(max(g_t[0], g_t2[0]), min(g_t[-1], g_t2[-1]), 21)
     assert (
-        numpy.max(numpy.abs(pair.leading.x(tps_l) - pair_reuse.leading.x(tps_l))) < 1e-3
+        numpy.max(
+            numpy.abs(
+                as_numpy(pair.leading.x(tps_l)) - as_numpy(pair_reuse.leading.x(tps_l))
+            )
+        )
+        < 1e-3
     )
     assert (
-        numpy.max(numpy.abs(pair.trailing.x(tps_t) - pair_reuse.trailing.x(tps_t)))
+        numpy.max(
+            numpy.abs(
+                as_numpy(pair.trailing.x(tps_t))
+                - as_numpy(pair_reuse.trailing.x(tps_t))
+            )
+        )
         < 1e-3
     )
 
@@ -594,7 +608,9 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     # tp grids (modulo small FITPACK iteration noise).
     g_a, g_b = tr_gcv.tp_grid(), tr_reuse.tp_grid()
     tps = numpy.linspace(max(g_a[0], g_b[0]), min(g_a[-1], g_b[-1]), 21)
-    assert numpy.max(numpy.abs(tr_gcv.x(tps) - tr_reuse.x(tps))) < 5e-3
+    assert (
+        numpy.max(numpy.abs(as_numpy(tr_gcv.x(tps)) - as_numpy(tr_reuse.x(tps)))) < 5e-3
+    )
     # order=1 returns only 6 s values
     numpy.random.seed(18)
     tr_o1 = _simple_spdf.streamTrack(n=800, tail="leading", order=1)
@@ -661,7 +677,10 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         velocity_weight=1.0,
     )
     tps = tr_default.tp_grid()
-    assert numpy.max(numpy.abs(tr_default.x(tps) - tr_unity.x(tps))) < 1e-3
+    assert (
+        numpy.max(numpy.abs(as_numpy(tr_default.x(tps)) - as_numpy(tr_unity.x(tps))))
+        < 1e-3
+    )
     # The saved smoothing_s round-trips through ``smoothing=`` with
     # smoothing_factor=1.0 — passing both the smoothed s values and
     # factor=1 should reproduce the smoother track (FITPACK iteration
@@ -674,7 +693,10 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         smoothing_factor=1.0,
         velocity_weight=1.0,
     )
-    assert numpy.max(numpy.abs(tr_smoother.x(tps) - tr_reuse.x(tps))) < 1e-3
+    assert (
+        numpy.max(numpy.abs(as_numpy(tr_smoother.x(tps)) - as_numpy(tr_reuse.x(tps))))
+        < 1e-3
+    )
 
 
 def test_smooth_series_too_few_valid_bins():
