@@ -47,6 +47,7 @@ from galpy.df.streamdf import (
     _determine_stream_spread_single,
     _determine_stream_track_single,
     _real_eig,
+    _sig_mean_sign,
     _vmap_track_chunks,
     calcaAJac,
 )
@@ -2252,3 +2253,51 @@ def test_c3_lb_track_stays_on_backend(_c3_pair):
             assert gap < 1e-5 * scale, (
                 f"{attr} col {col}: {gap:.3e} vs scale {scale:.3e}"
             )
+
+
+# --- _sig_mean_sign: the tail-direction sign ---------------------------------
+# It is a SIGN (structural, no gradient), so it is a plain float whenever the
+# value is concrete -- streamgapdf multiplies numpy kick arrays by it IN PLACE,
+# which an immutable backend scalar breaks. Under a trace it must stay an
+# xp.where so __init__ remains traceable.
+@pytest.mark.parametrize(
+    "leading,omega_along,want",
+    [
+        (True, -0.5, -1.0),  # leading, pointing backwards -> flip
+        (True, 0.5, 1.0),
+        (False, 0.5, -1.0),  # trailing, pointing forwards -> flip
+        (False, -0.5, 1.0),
+    ],
+)
+def test_sig_mean_sign_numpy(leading, omega_along, want):
+    got = _sig_mean_sign(leading, omega_along)
+    assert isinstance(got, float)
+    assert got == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "leading,omega_along,want", [(True, -0.5, -1.0), (False, 0.5, -1.0)]
+)
+def test_sig_mean_sign_concrete_backend_is_a_float(leading, omega_along, want):
+    # a CONCRETE backend scalar still yields a plain float
+    got = _sig_mean_sign(leading, jnp.asarray(omega_along))
+    assert isinstance(got, float)
+    assert got == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "leading,omega_along,want",
+    [(True, -0.5, -1.0), (True, 0.5, 1.0), (False, 0.5, -1.0)],
+)
+def test_sig_mean_sign_traced_uses_where(leading, omega_along, want):
+    # TRACED: no concrete bool available, so the xp.where branch must run
+    import jax
+
+    def f(o):
+        return _sig_mean_sign(leading, o) * jnp.ones(())
+
+    out = jax.jit(f)(jnp.asarray(omega_along))
+    assert is_backend_array(out)
+    assert float(out) == want
