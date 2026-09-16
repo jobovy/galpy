@@ -2301,3 +2301,136 @@ def test_sig_mean_sign_traced_uses_where(leading, omega_along, want):
     out = jax.jit(f)(jnp.asarray(omega_along))
     assert is_backend_array(out)
     assert float(out) == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_traced_angle_grids_keep_their_endpoint_gradient():
+    # _trackts and _thetasTrack span an extent that depends on the potential
+    # (dt = deltaAngleTrack / Omega_along_dOmega), so with a backend potential
+    # the extent is a backend array and the grids must be built as
+    # extent * linspace(0, 1) rather than linspace(0, extent): torch's linspace
+    # does not carry a gradient through its endpoints, so the direct form
+    # silently drops d(grid)/d(theta). The two forms must agree in VALUE, and
+    # only the first one differentiates.
+    n = 9
+    ref = numpy.linspace(0.0, 2.7, n)
+    built = jnp.asarray(2.7) * jnp.linspace(0.0, 1.0, n)
+    assert numpy.max(numpy.abs(as_numpy(built) - ref)) < 1e-14, (
+        "the endpoint-preserving form must not change the grid values"
+    )
+    if "torch" in BACKENDS:
+        e = torch.as_tensor(2.7, dtype=torch.float64).requires_grad_(True)
+        tbuilt = e * torch.linspace(0.0, 1.0, n, dtype=torch.float64)
+        assert numpy.max(numpy.abs(as_numpy(tbuilt.detach()) - ref)) < 1e-14
+        tbuilt.sum().backward()
+        assert e.grad is not None and float(e.grad) > 0.0, (
+            "torch must carry a gradient through the grid extent"
+        )
+
+    def grid_sum(e):
+        return jnp.sum(e * jnp.linspace(0.0, 1.0, n))
+
+    g = float(jax.grad(grid_sum)(2.7))
+    assert abs(g - float(jnp.sum(jnp.linspace(0.0, 1.0, n)))) < 1e-12, (
+        "d(grid)/d(extent) must be sum(linspace(0,1))"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_backend_streamdf_builds_its_angle_grids_on_the_backend():
+    # A backend potential must leave the track/angle grids as backend arrays --
+    # they used to be frozen through numpy.linspace(0, float(extent)), which
+    # throws outright once the extent is traced.
+    from galpy.backend import is_backend_array
+
+    sdf = _build_numpy_sdf(0.9, 3, 8.0)
+    aA = actionAngleIsochroneApprox(
+        pot=sdf._pot, b=0.8, tintJ=sdf._aA._tintJ, integrate_method="diffrax"
+    )
+    progb = Orbit(jnp.asarray(numpy.asarray(sdf._progenitor.vxvv[0], dtype=float)))
+    progb.turn_physical_off()
+    sdf._aA = aA
+    sdf._progenitor = progb
+    sdf._determine_stream_track(sdf._nTrackChunks)
+    assert is_backend_array(sdf._thetasTrack), (
+        "the angle grid must stay on the backend so its knots can be traced"
+    )
+    assert (
+        numpy.max(
+            numpy.abs(
+                as_numpy(sdf._thetasTrack)
+                - numpy.linspace(
+                    0.0, float(as_numpy(sdf._deltaAngleTrack)), sdf._nTrackChunks
+                )
+            )
+        )
+        < 1e-13
+    ), "the backend angle grid must match the numpy one"
+
+
+def test_span_grid_and_ns_sqrt_concrete_are_plain_numpy():
+    # The concrete arms must stay numpy: these feed the numpy track path, and a
+    # backend array there dies in _determine_stream_track_single.
+    from galpy.df.streamdf import _ns_sqrt, _span_grid
+
+    g = _span_grid(2.7, 9)
+    assert isinstance(g, numpy.ndarray), "a concrete extent must give a numpy grid"
+    assert numpy.array_equal(g, numpy.linspace(0.0, 2.7, 9)), (
+        "the concrete grid must be byte-identical to the linspace it replaced"
+    )
+    r = _ns_sqrt(numpy.float64(4.0))
+    assert isinstance(r, numpy.floating) and float(r) == 2.0
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_span_grid_and_ns_sqrt_carry_a_traced_gradient():
+    # Under a trace both helpers must switch to the namespace form -- numpy.sqrt
+    # of a tracer raises, and linspace(0, traced) drops the endpoint gradient --
+    # while returning the same values.
+    from galpy.df.streamdf import _ns_sqrt, _span_grid
+
+    n = 9
+    traced = jax.jit(lambda e: _span_grid(e, n))(jnp.asarray(2.7))
+    assert (
+        numpy.max(numpy.abs(as_numpy(traced) - numpy.linspace(0.0, 2.7, n))) < 1e-15
+    ), "the traced grid must reproduce the concrete one"
+
+    def f(e):
+        return jnp.sum(_span_grid(e, n)) + _ns_sqrt(e)
+
+    ad = float(jax.grad(f)(2.7))
+    h = 1e-6
+    fd = (float(f(2.7 + h)) - float(f(2.7 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-8, (
+        f"d/d(extent) through the grid+sqrt is wrong (AD {ad}, FD {fd})"
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_nTrackIterations_refuses_to_be_chosen_under_a_trace():
+    # nTrackIterations is a structural integer read off the misalignment. Under a
+    # trace there is no concrete value to choose from, and silently picking one
+    # would make a traced construction differ from the eager one without saying
+    # so -- so it must ask to be passed explicitly instead.
+    from galpy.df.streamdf import streamdf as _streamdf
+
+    class _Mock:
+        def misalignment(self, quantity=False):
+            return self._mis
+
+    m = _Mock()
+    seen = {}
+
+    def probe(x):
+        m._mis = x
+        try:
+            _streamdf._determine_nTrackIterations(m, None)
+        except ValueError as e:
+            seen["msg"] = str(e)
+        return x * 1.0
+
+    jax.grad(probe)(0.5)
+    assert "nTrackIterations" in seen.get("msg", ""), (
+        "a traced misalignment must raise, not silently pick a value"
+    )
