@@ -2718,7 +2718,7 @@ def test_actionangle_c_jac_entries_are_thread_safe():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("firstFlip", [False])
+@pytest.mark.parametrize("firstFlip", [False, True])
 def test_isochroneapprox_parse_args_backend_assembly(backend, firstFlip):
     # The Orbit-argument path: _parse_args assembles the forward/backward halves
     # of an ALREADY-integrated orbit. A backend orbit cannot be item-assigned
@@ -2746,17 +2746,24 @@ def test_isochroneapprox_parse_args_backend_assembly(backend, firstFlip):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_isochroneapprox_firstFlip_refuses_a_backend_orbit(backend):
-    # _firstFlip (a TRAILING stream) flips the STORED velocities in place, which
-    # a backend array cannot do, and the reversed-buffer order it then relies on
-    # has no verified backend counterpart. It has never worked -- it used to die
-    # with "JAX arrays are immutable" -- so it must refuse clearly rather than
-    # return a silently different orbit.
+def test_isochroneapprox_firstFlip_flips_the_backend_ic(backend):
+    # _firstFlip (a TRAILING stream) flips the IC so the orbit integrates the
+    # other way. For a backend Orbit the IC the integrator uses is _ic_backend,
+    # NOT the numpy vxvv bookkeeping -- flipping vxvv alone left the orbit
+    # integrating unflipped, silently, and the assembled track came out ~10%
+    # wrong rather than erroring.
     from galpy.orbit import Orbit
 
-    aAIA = _aAIA(0.8)
-    ic = [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]
-    with pytest.raises(NotImplementedError, match="_firstFlip"):
-        aAIA._parse_args(True, True, Orbit(_arr(backend, ic)))
-    # the leading order is unaffected
-    aAIA._parse_args(True, False, Orbit(_arr(backend, ic)))
+    o = Orbit(_arr(backend, [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]))
+    before = as_numpy(o._ic_backend).copy()
+    o.flip(inplace=True)
+    after = as_numpy(o._ic_backend)
+    assert (
+        after[1] == -before[1] and after[2] == -before[2] and after[4] == -before[4]
+    ), "flip must negate the velocities of the IC the integrator actually uses"
+    assert after[0] == before[0] and after[3] == before[3] and after[5] == before[5]
+    # and the non-inplace form must keep the IC on the backend, not rebuild it
+    # from the numpy bookkeeping
+    o2 = Orbit(_arr(backend, [1.0, 0.1, 1.1, 0.05, -0.02, 0.3])).flip()
+    assert o2._ic_backend is not None and _is_backend_array(backend, o2._ic_backend)
+    assert as_numpy(o2._ic_backend)[1] == -0.1

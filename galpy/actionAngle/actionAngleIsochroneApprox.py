@@ -808,10 +808,11 @@ class actionAngleIsochroneApprox(actionAngle):
             self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0], "orbit"):  # not integrated yet
                 if _firstFlip:
+                    # flip() also flips _ic_backend, which is the IC a backend
+                    # orbit actually integrates -- writing into vxvv alone left
+                    # the backend orbit integrating UNFLIPPED, silently
                     for o in os:
-                        o.vxvv[..., 1] = -o.vxvv[..., 1]
-                        o.vxvv[..., 2] = -o.vxvv[..., 2]
-                        o.vxvv[..., 4] = -o.vxvv[..., 4]
+                        o.flip(inplace=True)
                 [
                     o.integrate(
                         self._tsJ,
@@ -823,23 +824,8 @@ class actionAngleIsochroneApprox(actionAngle):
                     for o in os
                 ]
                 if _firstFlip:
-                    if any(is_backend_array(o.getOrbit()) for o in os):
-                        raise NotImplementedError(
-                            "actionAngleIsochroneApprox does not support "
-                            "_firstFlip (a TRAILING stream) with a backend orbit: "
-                            "the numpy assembly flips the stored velocities in "
-                            "place, which a backend array cannot do, and the "
-                            "reversed-buffer order it then relies on has no "
-                            "verified backend counterpart. Use a numpy "
-                            "progenitor, or leading=True."
-                        )
                     for o in os:
-                        o.vxvv[..., 1] = -o.vxvv[..., 1]
-                        o.vxvv[..., 2] = -o.vxvv[..., 2]
-                        o.vxvv[..., 4] = -o.vxvv[..., 4]
-                        o.orbit[..., 1] = -o.orbit[..., 1]
-                        o.orbit[..., 2] = -o.orbit[..., 2]
-                        o.orbit[..., 4] = -o.orbit[..., 4]
+                        o.flip(inplace=True)
                 integrated = False
             ntJ = os[0].getOrbit().shape[0]
             no = len(os)
@@ -987,15 +973,22 @@ class actionAngleIsochroneApprox(actionAngle):
                 bvz = _back("vz") if _sixd else _tiny + _xp.zeros_like(bR)
                 zf = z if _sixd else _tiny + _xp.zeros_like(R)
                 vzf = vz if _sixd else _tiny + _xp.zeros_like(R)
-                # _firstFlip is refused above for a backend orbit, so only the
-                # leading order is assembled here: backward REVERSED and
-                # sign-flipped in the head, forward in the tail (mirroring the
-                # numpy `o*[:, :nt-1] = ...[::-1]` / `o*[:, nt-1:] = ...` writes).
-                cat = lambda b, a: _xp.concat(  # noqa: E731
-                    [_xp.flip(b, axis=1), a], axis=1
-                )
-                oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
-                oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
+                if _firstFlip:
+                    # head = forward REVERSED, tail = backward as-is, mirroring
+                    # the numpy buffer's `o*[:, :nt] = *[:, ::-1]` /
+                    # `o*[:, nt:] = os[ii].*(ts[1:])` writes
+                    cat = lambda a, b: _xp.concat(  # noqa: E731
+                        [_xp.flip(a, axis=1), b], axis=1
+                    )
+                    oR, ovR, ovT = cat(R, bR), cat(vR, bvR), cat(vT, bvT)
+                    oz, ovz, ophi = cat(zf, bz), cat(vzf, bvz), cat(phi, bphi)
+                else:
+                    # head = backward REVERSED and sign-flipped, tail = forward
+                    cat = lambda b, a: _xp.concat(  # noqa: E731
+                        [_xp.flip(b, axis=1), a], axis=1
+                    )
+                    oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
+                    oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
                 return (oR, ovR, ovT, oz, ovz, ophi)
             if _firstFlip:
                 for ii in range(no):
