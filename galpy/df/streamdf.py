@@ -585,10 +585,21 @@ class streamdf(df):
 
         # namespace math: numpy.sqrt on a TRACED moment raises (it works eagerly,
         # which is why this only shows up under jax.grad of the constructor)
-        _dxp, _s2 = _ns_coerce(self._sortedSigOEig[2])
-        deltaAngleTrackLim = (
-            (self._sigMeanOffset + 4.0) * _dxp.sqrt(_s2) * self._tdisrupt
-        )
+        # Take the namespace route ONLY when traced: _ns_coerce resolves the
+        # AMBIENT namespace, so using it unconditionally makes _deltaAngleTrack a
+        # backend array under ANY forced backend -- the numpy track path then
+        # builds a backend thetasTrack and dies in _determine_stream_track_single.
+        if under_trace(self._sortedSigOEig[2]):
+            _dxp, _s2 = _ns_coerce(self._sortedSigOEig[2])
+            deltaAngleTrackLim = (
+                (self._sigMeanOffset + 4.0) * _dxp.sqrt(_s2) * self._tdisrupt
+            )
+        else:
+            deltaAngleTrackLim = (
+                (self._sigMeanOffset + 4.0)
+                * numpy.sqrt(self._sortedSigOEig[2])
+                * self._tdisrupt
+            )
         if deltaAngleTrack is None:
             deltaAngleTrack = deltaAngleTrackLim
         else:
@@ -1430,7 +1441,7 @@ class streamdf(df):
         # and torch's linspace does not carry a gradient through its endpoints, so
         # the direct form would silently drop d(trackts)/d(theta).
         _n_tt = 2 * self._nTrackChunks - 1
-        if is_backend_array(dt):
+        if under_trace(dt):
             _txp = get_namespace(dt)
             self._trackts = 2.0 * dt * _txp.linspace(0.0, 1.0, _n_tt)
         else:
@@ -1726,7 +1737,7 @@ class streamdf(df):
             ],
             axis=-1,
         )  # (nTrackChunks, 6)
-        if is_backend_array(self._deltaAngleTrack):
+        if under_trace(self._deltaAngleTrack):
             # traced angle extent: dAT * linspace(0,1) keeps the endpoint gradient
             # (torch's linspace drops it), as for _trackts above
             thetasTrack = self._deltaAngleTrack * get_namespace(
@@ -2436,7 +2447,7 @@ class streamdf(df):
         self._interpTrackvZ = Spline1D(thetas_np, TrackvZ, k=3, ext=0, bc="not-a-knot")
         # Fine grid: geometry (numpy host bookkeeping, matching the numpy path);
         # coerce onto the backend to evaluate so d(track)/d(_ObsTrack) flows.
-        if is_backend_array(self._deltaAngleTrack):
+        if under_trace(self._deltaAngleTrack):
             self._interpolatedThetasTrack = self._deltaAngleTrack * get_namespace(
                 self._deltaAngleTrack
             ).linspace(0.0, 1.0, self.nInterpolatedTrackChunks)
