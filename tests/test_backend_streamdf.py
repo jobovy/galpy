@@ -2301,3 +2301,69 @@ def test_sig_mean_sign_traced_uses_where(leading, omega_along, want):
     out = jax.jit(f)(jnp.asarray(omega_along))
     assert is_backend_array(out)
     assert float(out) == want
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_traced_angle_grids_keep_their_endpoint_gradient():
+    # _trackts and _thetasTrack span an extent that depends on the potential
+    # (dt = deltaAngleTrack / Omega_along_dOmega), so with a backend potential
+    # the extent is a backend array and the grids must be built as
+    # extent * linspace(0, 1) rather than linspace(0, extent): torch's linspace
+    # does not carry a gradient through its endpoints, so the direct form
+    # silently drops d(grid)/d(theta). The two forms must agree in VALUE, and
+    # only the first one differentiates.
+    n = 9
+    ref = numpy.linspace(0.0, 2.7, n)
+    built = jnp.asarray(2.7) * jnp.linspace(0.0, 1.0, n)
+    assert numpy.max(numpy.abs(as_numpy(built) - ref)) < 1e-14, (
+        "the endpoint-preserving form must not change the grid values"
+    )
+    if "torch" in BACKENDS:
+        e = torch.as_tensor(2.7, dtype=torch.float64).requires_grad_(True)
+        tbuilt = e * torch.linspace(0.0, 1.0, n, dtype=torch.float64)
+        assert numpy.max(numpy.abs(as_numpy(tbuilt.detach()) - ref)) < 1e-14
+        tbuilt.sum().backward()
+        assert e.grad is not None and float(e.grad) > 0.0, (
+            "torch must carry a gradient through the grid extent"
+        )
+
+    def grid_sum(e):
+        return jnp.sum(e * jnp.linspace(0.0, 1.0, n))
+
+    g = float(jax.grad(grid_sum)(2.7))
+    assert abs(g - float(jnp.sum(jnp.linspace(0.0, 1.0, n)))) < 1e-12, (
+        "d(grid)/d(extent) must be sum(linspace(0,1))"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_backend_streamdf_builds_its_angle_grids_on_the_backend():
+    # A backend potential must leave the track/angle grids as backend arrays --
+    # they used to be frozen through numpy.linspace(0, float(extent)), which
+    # throws outright once the extent is traced.
+    from galpy.backend import is_backend_array
+
+    sdf = _build_numpy_sdf(0.9, 3, 8.0)
+    aA = actionAngleIsochroneApprox(
+        pot=sdf._pot, b=0.8, tintJ=sdf._aA._tintJ, integrate_method="diffrax"
+    )
+    progb = Orbit(jnp.asarray(numpy.asarray(sdf._progenitor.vxvv[0], dtype=float)))
+    progb.turn_physical_off()
+    sdf._aA = aA
+    sdf._progenitor = progb
+    sdf._determine_stream_track(sdf._nTrackChunks)
+    assert is_backend_array(sdf._thetasTrack), (
+        "the angle grid must stay on the backend so its knots can be traced"
+    )
+    assert (
+        numpy.max(
+            numpy.abs(
+                as_numpy(sdf._thetasTrack)
+                - numpy.linspace(
+                    0.0, float(as_numpy(sdf._deltaAngleTrack)), sdf._nTrackChunks
+                )
+            )
+        )
+        < 1e-13
+    ), "the backend angle grid must match the numpy one"

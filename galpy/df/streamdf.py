@@ -583,10 +583,11 @@ class streamdf(df):
             )
             self._sortedSigOEig = sorted(numpy.asarray(as_numpy(self._sortedSigOEig)))
 
+        # namespace math: numpy.sqrt on a TRACED moment raises (it works eagerly,
+        # which is why this only shows up under jax.grad of the constructor)
+        _dxp, _s2 = _ns_coerce(self._sortedSigOEig[2])
         deltaAngleTrackLim = (
-            (self._sigMeanOffset + 4.0)
-            * numpy.sqrt(self._sortedSigOEig[2])
-            * self._tdisrupt
+            (self._sigMeanOffset + 4.0) * _dxp.sqrt(_s2) * self._tdisrupt
         )
         if deltaAngleTrack is None:
             deltaAngleTrack = deltaAngleTrackLim
@@ -1392,8 +1393,19 @@ class streamdf(df):
             self.nTrackIterations = nTrackIterations
             return None
         # a structural (non-differentiable) choice, so read it off concretely --
-        # misalignment is a backend scalar under a forced backend
-        _mis = numpy.fabs(float(as_numpy(self.misalignment(quantity=False))))
+        # misalignment is a backend scalar under a forced backend. TRACED there is
+        # no concrete value to choose from, and silently picking one would make a
+        # traced construction diverge from the eager one without saying so, so ask
+        # for it explicitly instead.
+        _mis_val = self.misalignment(quantity=False)
+        if under_trace(_mis_val):
+            raise ValueError(
+                "nTrackIterations cannot be chosen from the data under a trace "
+                "(it is a structural integer read off the misalignment, which has "
+                "no concrete value here). Pass nTrackIterations=... explicitly "
+                "when constructing a streamdf inside jax.grad/jit."
+            )
+        _mis = numpy.fabs(float(as_numpy(_mis_val)))
         if _mis < 1.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 0
         elif _mis >= 1.0 / 180.0 * numpy.pi and _mis < 3.0 / 180.0 * numpy.pi:
@@ -1414,9 +1426,17 @@ class streamdf(df):
         if not hasattr(self, "nInterpolatedTrackChunks"):
             self.nInterpolatedTrackChunks = 1001
         dt = self._deltaAngleTrack / self._progenitor_Omega_along_dOmega
-        self._trackts = numpy.linspace(
-            0.0, 2 * dt, 2 * self._nTrackChunks - 1
-        )  # to be sure that we cover it
+        # 2*dt * linspace(0,1), NOT linspace(0, 2*dt): the endpoint is traced here
+        # and torch's linspace does not carry a gradient through its endpoints, so
+        # the direct form would silently drop d(trackts)/d(theta).
+        _n_tt = 2 * self._nTrackChunks - 1
+        if is_backend_array(dt):
+            _txp = get_namespace(dt)
+            self._trackts = 2.0 * dt * _txp.linspace(0.0, 1.0, _n_tt)
+        else:
+            self._trackts = numpy.linspace(
+                0.0, 2 * dt, _n_tt
+            )  # to be sure that we cover it
         if self._useTM:
             return self._determine_stream_track_TM()
         # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
@@ -1706,9 +1726,16 @@ class streamdf(df):
             ],
             axis=-1,
         )  # (nTrackChunks, 6)
-        thetasTrack = xp.asarray(
-            numpy.linspace(0.0, float(self._deltaAngleTrack), self._nTrackChunks)
-        )
+        if is_backend_array(self._deltaAngleTrack):
+            # traced angle extent: dAT * linspace(0,1) keeps the endpoint gradient
+            # (torch's linspace drops it), as for _trackts above
+            thetasTrack = self._deltaAngleTrack * get_namespace(
+                self._deltaAngleTrack
+            ).linspace(0.0, 1.0, self._nTrackChunks)
+        else:
+            thetasTrack = xp.asarray(
+                numpy.linspace(0.0, float(self._deltaAngleTrack), self._nTrackChunks)
+            )
 
         def single(xv0, th):
             return _determine_stream_track_single_backend(
@@ -2099,10 +2126,16 @@ class streamdf(df):
         # jax-traceable AND differentiable w.r.t. the eigenvalues (so the fine
         # grid is differentiable too -- exceeding the Phase-E deferral). The numpy
         # path is untouched (still scipy, byte-identical).
-        thetas_np = as_numpy(thetas)  # spline knots are geometry (concrete)
+        # knots are geometry when concrete; a TRACED angle grid stays on the
+        # backend so the gradient flows through the knot positions too
+        thetas_np = thetas if under_trace(thetas) else as_numpy(thetas)
         interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
         nInterp = len(interpThetas_np)
-        interpThetas = as_backend_constant(xp, interpThetas_np, ref)
+        interpThetas = (
+            interpThetas_np
+            if under_trace(interpThetas_np)
+            else as_backend_constant(xp, interpThetas_np, ref)
+        )
         coeffs = cubic_spline_coeffs(xp, thetas_np, eigvals, bc="not-a-knot")
         interpolatedEigval = eval_ppoly(
             xp, thetas_np, coeffs, interpThetas
@@ -2379,7 +2412,13 @@ class streamdf(df):
         """
         xp = get_namespace(self._ObsTrack)
         ObsTrack = self._ObsTrack
-        thetas_np = as_numpy(self._thetasTrack)  # spline knots are geometry (concrete)
+        # knots are geometry when concrete; a TRACED angle grid stays on the
+        # backend so d(track)/d(theta) flows through the knots as well
+        thetas_np = (
+            self._thetasTrack
+            if under_trace(self._thetasTrack)
+            else as_numpy(self._thetasTrack)
+        )
         phi = ObsTrack[:, 5]
         TrackX = ObsTrack[:, 0] * xp.cos(phi)
         TrackY = ObsTrack[:, 0] * xp.sin(phi)
@@ -2397,10 +2436,18 @@ class streamdf(df):
         self._interpTrackvZ = Spline1D(thetas_np, TrackvZ, k=3, ext=0, bc="not-a-knot")
         # Fine grid: geometry (numpy host bookkeeping, matching the numpy path);
         # coerce onto the backend to evaluate so d(track)/d(_ObsTrack) flows.
-        self._interpolatedThetasTrack = numpy.linspace(
-            0.0, float(self._deltaAngleTrack), self.nInterpolatedTrackChunks
-        )
-        interpThetas = as_backend_constant(xp, self._interpolatedThetasTrack, ObsTrack)
+        if is_backend_array(self._deltaAngleTrack):
+            self._interpolatedThetasTrack = self._deltaAngleTrack * get_namespace(
+                self._deltaAngleTrack
+            ).linspace(0.0, 1.0, self.nInterpolatedTrackChunks)
+            interpThetas = self._interpolatedThetasTrack
+        else:
+            self._interpolatedThetasTrack = numpy.linspace(
+                0.0, float(self._deltaAngleTrack), self.nInterpolatedTrackChunks
+            )
+            interpThetas = as_backend_constant(
+                xp, self._interpolatedThetasTrack, ObsTrack
+            )
         iX = self._interpTrackX(interpThetas)
         iY = self._interpTrackY(interpThetas)
         iZ = self._interpTrackZ(interpThetas)
@@ -3202,10 +3249,17 @@ class streamdf(df):
         dOmin = dangle / tdisrupt
         # backend (jax/torch) dangle -> native erf/exp/sqrt (d(meanOmega)/d(dangle)
         # flows); numpy stays scipy (byte-identical). sqrt(2/pi) is a constant.
-        if is_backend_array(dangle):
-            xp = get_namespace(dangle)
-            meandO = as_backend_constant(xp, self._meandO, dangle)
-            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+        # dispatch on the STORED moments too (same reason as ptdAngle): with a
+        # backend progenitor they are backend arrays, so the numpy branch below
+        # would hit numpy.sqrt / scipy.erf on a tracer even for a numpy dangle.
+        if (
+            is_backend_array(dangle)
+            or is_backend_array(self._meandO)
+            or is_backend_array(self._sortedSigOEig[2])
+        ):
+            xp, dangle, dOmin = _ns_coerce(dangle, dOmin)
+            (meandO,) = coerce_coords(xp, self._meandO)
+            (sig,) = coerce_coords(xp, self._sortedSigOEig[2])
             dO1D = (
                 numpy.sqrt(2.0 / numpy.pi)
                 * xp.sqrt(sig)
@@ -3214,12 +3268,9 @@ class streamdf(df):
             ) + meandO
             if oned:
                 return dO1D
-            return (
-                as_backend_constant(xp, self._progenitor_Omega, dangle)
-                + dO1D
-                * as_backend_constant(xp, self._dsigomeanProgDirection, dangle)
-                * offset_sign
-            )
+            (_pO,) = coerce_coords(xp, self._progenitor_Omega)
+            (_dsd,) = coerce_coords(xp, self._dsigomeanProgDirection)
+            return _pO + dO1D * _dsd * offset_sign
         meandO = self._meandO
         dO1D = (
             numpy.sqrt(2.0 / numpy.pi)

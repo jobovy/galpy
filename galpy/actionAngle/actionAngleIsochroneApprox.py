@@ -833,62 +833,95 @@ class actionAngleIsochroneApprox(actionAngle):
                 integrated = False
             ntJ = os[0].getOrbit().shape[0]
             no = len(os)
-            R = numpy.empty((no, ntJ))
-            vR = numpy.empty((no, ntJ))
-            vT = numpy.empty((no, ntJ))
-            z = numpy.zeros((no, ntJ)) + 10.0**-7.0  # To avoid numpy warnings for
-            vz = numpy.zeros((no, ntJ)) + 10.0**-7.0  # planarOrbits
-            phi = numpy.empty((no, ntJ))
-            for ii in range(len(os)):
-                this_orbit = os[ii].getOrbit()
-                R[ii, :] = this_orbit[:, 0]
-                vR[ii, :] = this_orbit[:, 1]
-                vT[ii, :] = this_orbit[:, 2]
-                if this_orbit.shape[1] == 6:
-                    z[ii, :] = this_orbit[:, 3]
-                    vz[ii, :] = this_orbit[:, 4]
-                    phi[ii, :] = this_orbit[:, 5]
+            _orbs = [o.getOrbit() for o in os]
+            if any(is_backend_array(_o) for _o in _orbs):
+                # same reason as the assembly below: a traced trajectory cannot be
+                # written into numpy.empty, so stack the per-orbit rows instead
+                _oxp = get_namespace(_orbs[0])
+                _t7 = 10.0**-7.0
+                _six = _orbs[0].shape[1] == 6
+                R = _oxp.stack([_o[:, 0] for _o in _orbs], axis=0)
+                vR = _oxp.stack([_o[:, 1] for _o in _orbs], axis=0)
+                vT = _oxp.stack([_o[:, 2] for _o in _orbs], axis=0)
+                if _six:
+                    z = _oxp.stack([_o[:, 3] for _o in _orbs], axis=0)
+                    vz = _oxp.stack([_o[:, 4] for _o in _orbs], axis=0)
+                    phi = _oxp.stack([_o[:, 5] for _o in _orbs], axis=0)
                 else:
-                    phi[ii, :] = this_orbit[:, 3]
+                    z = _t7 + _oxp.zeros_like(R)
+                    vz = _t7 + _oxp.zeros_like(R)
+                    phi = _oxp.stack([_o[:, 3] for _o in _orbs], axis=0)
+            else:
+                R = numpy.empty((no, ntJ))
+                vR = numpy.empty((no, ntJ))
+                vT = numpy.empty((no, ntJ))
+                z = numpy.zeros((no, ntJ)) + 10.0**-7.0  # To avoid numpy warnings
+                vz = numpy.zeros((no, ntJ)) + 10.0**-7.0  # for planarOrbits
+                phi = numpy.empty((no, ntJ))
+                for ii in range(len(os)):
+                    this_orbit = _orbs[ii]
+                    R[ii, :] = this_orbit[:, 0]
+                    vR[ii, :] = this_orbit[:, 1]
+                    vT[ii, :] = this_orbit[:, 2]
+                    if this_orbit.shape[1] == 6:
+                        z[ii, :] = this_orbit[:, 3]
+                        vz[ii, :] = this_orbit[:, 4]
+                        phi[ii, :] = this_orbit[:, 5]
+                    else:
+                        phi[ii, :] = this_orbit[:, 3]
         if (
             freqsAngles and not integrated
         ):  # also integrate backwards in time, such that the requested point is not at the edge
             no = R.shape[0]
             nt = R.shape[1]
-            oR = numpy.empty((no, 2 * nt - 1))
-            ovR = numpy.empty((no, 2 * nt - 1))
-            ovT = numpy.empty((no, 2 * nt - 1))
-            oz = (
-                numpy.zeros((no, 2 * nt - 1)) + 10.0**-7.0
-            )  # To avoid numpy warnings for
-            ovz = numpy.zeros((no, 2 * nt - 1)) + 10.0**-7.0  # planarOrbits
-            ophi = numpy.empty((no, 2 * nt - 1))
-            if _firstFlip:
-                oR[:, :nt] = R[:, ::-1]
-                ovR[:, :nt] = vR[:, ::-1]
-                ovT[:, :nt] = vT[:, ::-1]
-                oz[:, :nt] = z[:, ::-1]
-                ovz[:, :nt] = vz[:, ::-1]
-                ophi[:, :nt] = phi[:, ::-1]
+            # A backend (possibly TRACED) block cannot be item-assigned into a
+            # numpy.empty buffer, and torch has no negative-step slicing, so the
+            # backend path defers assembly to ONE concat after the backward
+            # integration below (see `if _bk_assemble:`). numpy keeps the buffer.
+            _bk_assemble = is_backend_array(R)
+            if _bk_assemble:
+                oR = ovR = ovT = oz = ovz = ophi = None
             else:
-                oR[:, nt - 1 :] = R
-                ovR[:, nt - 1 :] = vR
-                ovT[:, nt - 1 :] = vT
-                oz[:, nt - 1 :] = z
-                ovz[:, nt - 1 :] = vz
-                ophi[:, nt - 1 :] = phi
+                oR = numpy.empty((no, 2 * nt - 1))
+                ovR = numpy.empty((no, 2 * nt - 1))
+                ovT = numpy.empty((no, 2 * nt - 1))
+                oz = (
+                    numpy.zeros((no, 2 * nt - 1)) + 10.0**-7.0
+                )  # To avoid numpy warnings for
+                ovz = numpy.zeros((no, 2 * nt - 1)) + 10.0**-7.0  # planarOrbits
+                ophi = numpy.empty((no, 2 * nt - 1))
+                if _firstFlip:
+                    oR[:, :nt] = R[:, ::-1]
+                    ovR[:, :nt] = vR[:, ::-1]
+                    ovT[:, :nt] = vT[:, ::-1]
+                    oz[:, :nt] = z[:, ::-1]
+                    ovz[:, :nt] = vz[:, ::-1]
+                    ophi[:, :nt] = phi[:, ::-1]
+                else:
+                    oR[:, nt - 1 :] = R
+                    ovR[:, nt - 1 :] = vR
+                    ovT[:, nt - 1 :] = vT
+                    oz[:, nt - 1 :] = z
+                    ovz[:, nt - 1 :] = vz
+                    ophi[:, nt - 1 :] = phi
             # load orbits
-            if _firstFlip:
+            _sgn = 1.0 if _firstFlip else -1.0
+            if is_backend_array(R):
+                # Orbit(<list of traced scalars>) dies in __init__'s numpy.asarray;
+                # hand it ONE stacked backend IC so the vxvv stays grad-connected.
+                _lxp = get_namespace(R)
                 os = [
                     Orbit(
-                        [
-                            R[ii, 0],
-                            vR[ii, 0],
-                            vT[ii, 0],
-                            z[ii, 0],
-                            vz[ii, 0],
-                            phi[ii, 0],
-                        ]
+                        _lxp.stack(
+                            [
+                                R[ii, 0],
+                                _sgn * vR[ii, 0],
+                                _sgn * vT[ii, 0],
+                                z[ii, 0],
+                                _sgn * vz[ii, 0],
+                                phi[ii, 0],
+                            ]
+                        )
                     )
                     for ii in range(R.shape[0])
                 ]
@@ -897,10 +930,10 @@ class actionAngleIsochroneApprox(actionAngle):
                     Orbit(
                         [
                             R[ii, 0],
-                            -vR[ii, 0],
-                            -vT[ii, 0],
+                            _sgn * vR[ii, 0],
+                            _sgn * vT[ii, 0],
                             z[ii, 0],
-                            -vz[ii, 0],
+                            _sgn * vz[ii, 0],
                             phi[ii, 0],
                         ]
                     )
@@ -919,6 +952,44 @@ class actionAngleIsochroneApprox(actionAngle):
             ]
             # extract phase-space points along the orbit
             ts = self._tsJ
+            if _bk_assemble:
+                # ONE concat per coordinate instead of a masked write: the pieces
+                # are [reversed-forward | backward] for _firstFlip, and
+                # [reversed-backward | forward] otherwise (with the velocity signs
+                # the numpy branch applies). xp.flip replaces [::-1], which torch
+                # has no slice form for.
+                _xp = get_namespace(R)
+                _sixd = os[0].getOrbit().shape[1] == 6
+                _tiny = 10.0**-7.0
+
+                def _back(acc):
+                    return _xp.stack(
+                        [getattr(os[ii], acc)(ts[1:]) for ii in range(no)], axis=0
+                    )
+
+                bR, bvR, bvT, bphi = (
+                    _back("R"),
+                    _back("vR"),
+                    _back("vT"),
+                    _back("phi"),
+                )
+                bz = _back("z") if _sixd else _tiny + _xp.zeros_like(bR)
+                bvz = _back("vz") if _sixd else _tiny + _xp.zeros_like(bR)
+                zf = z if _sixd else _tiny + _xp.zeros_like(R)
+                vzf = vz if _sixd else _tiny + _xp.zeros_like(R)
+                if _firstFlip:
+                    cat = lambda a, b: _xp.concat(  # noqa: E731
+                        [_xp.flip(a, axis=1), b], axis=1
+                    )
+                    oR, ovR, ovT = cat(R, bR), cat(vR, bvR), cat(vT, bvT)
+                    oz, ovz, ophi = cat(zf, bz), cat(vzf, bvz), cat(phi, bphi)
+                else:
+                    cat = lambda b, a: _xp.concat(  # noqa: E731
+                        [_xp.flip(b, axis=1), a], axis=1
+                    )
+                    oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
+                    oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
+                return (oR, ovR, ovT, oz, ovz, ophi)
             if _firstFlip:
                 for ii in range(no):
                     oR[ii, nt:] = os[ii].R(ts[1:])  # drop t=0, which we have
