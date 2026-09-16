@@ -7098,7 +7098,11 @@ class Orbit:
         # to return) and not differentiated, so compare/select against a numpy
         # view of it -- self.t may itself be a (concrete) jax/torch array for an
         # in-backend orbit. The returned orbit values stay on their backend.
-        _self_t = numpy.asarray(self.t)
+        # self.t is TRACED when the orbit was integrated on traced times (e.g.
+        # streamdf's track grid, which depends on theta). Only its ndim/len are
+        # used structurally below; the value comparison is already guarded by a
+        # try/except that falls through to the in-backend interpolator.
+        _self_t = self.t if under_trace(self.t) else numpy.asarray(self.t)
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
         if _self_t.ndim > 1:
             return self._call_internal_indiv_t(t)
@@ -7117,7 +7121,14 @@ class Orbit:
             and _t_has_len
             and (len(t) == len(_self_t))
         )
-        if t_exact_integration_times:
+        if t_exact_integration_times and t is self.t:
+            # Queried at the very grid we integrated on (streamdf asks its track
+            # orbit for exactly its _trackts). Identical object => identical
+            # values, so skip the comparison -- which is the only step that needs
+            # a concrete t, and so the only thing standing between a traced grid
+            # and the stored trajectory.
+            pass
+        elif t_exact_integration_times:
             # The value match needs a concrete t; a traced (jit) backend evaluation
             # time cannot be compared to the grid -> fall through to the in-backend
             # differentiable interpolator (mirrors _call_internal_backend_interp).
@@ -7478,7 +7489,12 @@ class Orbit:
         scalar) -- ``size`` 1 for a single orbit.
         """
         xp = get_namespace(self.orbit)
-        self_t = numpy.asarray(self.t)  # integration grid (geometry; numpy)
+        # A TRACED grid (the orbit was integrated at traced times -- streamdf's
+        # track grid depends on theta) cannot be compared or reversed concretely,
+        # so order it with argsort instead. The concrete path keeps the exact
+        # numpy reversal and stays byte-identical.
+        grid_traced = under_trace(self.t)
+        self_t = self.t if grid_traced else numpy.asarray(self.t)
         scalar = isinstance(t, (int, float, numpy.number)) or (
             is_backend_array(t) and getattr(t, "ndim", 1) == 0
         )
@@ -7490,9 +7506,13 @@ class Orbit:
             t_np = numpy.atleast_1d(numpy.asarray(t, dtype=float))
         except Exception:  # noqa: BLE001 -- traced backend evaluation time
             t_np = None
-        if t_np is not None and (
-            numpy.any(t_np > numpy.nanmax(self_t))
-            or numpy.any(t_np < numpy.nanmin(self_t))
+        if (
+            t_np is not None
+            and not grid_traced
+            and (
+                numpy.any(t_np > numpy.nanmax(self_t))
+                or numpy.any(t_np < numpy.nanmin(self_t))
+            )
         ):
             raise ValueError("Found time value not in the integration time domain")
         # Evaluation times onto the orbit's backend (a backend-array t is kept as
@@ -7503,8 +7523,19 @@ class Orbit:
         # The spline needs a strictly increasing grid; a backward integration
         # (decreasing self.t) is flipped to ascending (shared across the batch),
         # and each orbit with it (a differentiable reversal) inside _interp_one.
-        descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
-        grid = numpy.array(self_t[::-1]) if descending else self_t
+        if grid_traced:
+            order = xp.argsort(self_t)
+            grid = xp.take(self_t, order, axis=0)
+
+            def _ascending(a, axis):
+                return xp.take(a, order, axis=axis)
+
+        else:
+            descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
+            grid = numpy.array(self_t[::-1]) if descending else self_t
+
+            def _ascending(a, axis):
+                return xp.flip(a, axis=axis) if descending else a
 
         size = self.orbit.shape[0]
         pd = self.phasedim()
@@ -7516,7 +7547,7 @@ class Orbit:
             # back below for a <=3-point (k=1) grid or a single orbit.
             from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 
-            orb = xp.flip(self.orbit, axis=1) if descending else self.orbit
+            orb = _ascending(self.orbit, 1)
             if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
                 rr = orb[:, :, 0]
                 ph = orb[:, :, -1]
@@ -7545,7 +7576,7 @@ class Orbit:
 
             def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
                 # backward integration -> flip orb to match the ascending grid
-                o = xp.flip(orb, axis=0) if descending else orb
+                o = _ascending(orb, 0)
                 return self._backend_spline_orbit(o, grid, tq)
 
             # spline each orbit on the shared grid and stack on the trailing
