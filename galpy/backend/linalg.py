@@ -40,7 +40,7 @@ def cholesky_invert(a, tiny, logdet=False):
     return ainv
 
 
-def real_eig(a):
+def real_eig(a, freeze_vectors=True):
     """Real eigenvalues/eigenvectors of a symmetric ``a``, as ``(w, v)``.
 
     numpy ``a`` -> ``numpy.linalg.eig`` with the real part taken, byte-identical
@@ -68,8 +68,15 @@ def real_eig(a):
         return numpy.real(w), numpy.real(v)
     xp = get_namespace(a)
     name = name_of_namespace(xp)
-    _, evecs = xp.linalg.eigh(_stop_gradient(a, name))
-    evecs = _stop_gradient(evecs, name)
+    if freeze_vectors:
+        _, evecs = xp.linalg.eigh(_stop_gradient(a, name))
+        evecs = _stop_gradient(evecs, name)
+    else:
+        # The caller has established that the eigenvector it READS is separated
+        # from the rest by a large eigenvalue ratio, so the 1/gap sensitivity
+        # that motivates freezing does not bite and the rotation must carry its
+        # gradient. Freezing it silently drops d(rotation)/d(theta).
+        _, evecs = xp.linalg.eigh(a)
     evecsT = xp.matrix_transpose(evecs)
     evals = xp.sum(evecsT * xp.matrix_transpose(a @ evecs), axis=-1)
     return evals, evecs
