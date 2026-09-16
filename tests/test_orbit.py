@@ -79,6 +79,7 @@ from test_potential import (
     prolateNFWPotential,
     sech2DiskMultipoleExpansionPotential,
     sech2DiskSCFPotential,
+    specialEinastoN6Potential,
     specialFlattenedPowerPotential,
     specialMiyamotoNagaiPotential,
     testlinearMWPotential,
