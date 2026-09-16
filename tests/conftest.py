@@ -584,6 +584,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockSlowFlatSteadyLogSpiralPotential")
         pots.append("mockFlatTransientLogSpiralPotential")
         pots.append("specialMiyamotoNagaiPotential")
+        pots.append("specialEinastoN6Potential")
         pots.append("specialFlattenedPowerPotential")
         pots.append("BurkertPotentialNoC")
         pots.append("testMWPotential")

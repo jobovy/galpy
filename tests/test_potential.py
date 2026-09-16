@@ -11211,35 +11211,64 @@ def test_einasto_potential_rs_definition():
     return None
 
 
-def test_einasto_n6_smallr_force_from_lower_regularized_gamma():
+def test_einasto_n6_smallr_force_from_density_integral():
     from scipy import special
+    from scipy.integrate import quad
 
     from galpy.potential import EinastoPotential
 
-    # n=6, h=2, r=1: gammaincc(18, 0.5**(1/6)) underflows to 1, so Q-1 is 0
-    # while density is finite. The enclosed-mass factor is P=gammainc.
+    def enclosed_mass(ep, r):
+        mass, _err = quad(lambda s: s**2 * ep.dens(s, 0.0), 0.0, r, epsabs=1e-14)
+        return 4.0 * numpy.pi * mass
+
+    def check_radius(ep, r, h, n, force_atol=1e-7, r2_atol=1e-6):
+        mass = enclosed_mass(ep, r)
+        dens = ep.dens(r, 0.0)
+        force_expect = -mass / r**2
+        r2_expect = 4.0 * numpy.pi * dens + 2.0 * force_expect / r
+        force = ep.Rforce(r, 0.0)
+        r2 = ep.r2deriv(r, 0.0)
+        assert numpy.isfinite(force), (
+            "EinastoPotential Python force is non-finite at "
+            f"amp=1, h={h}, n={n}, r={r}; got {force}"
+        )
+        assert numpy.fabs(force - force_expect) < force_atol, (
+            "EinastoPotential Python force disagrees with density-integral "
+            f"-M(<r)/r^2 at amp=1, h={h}, n={n}, r={r}: "
+            f"got {force}, expected {force_expect}"
+        )
+        assert numpy.fabs(r2 - r2_expect) < r2_atol, (
+            "EinastoPotential second derivative disagrees with "
+            f"4 pi rho + 2 F_r/r at amp=1, h={h}, n={n}, r={r}: "
+            f"got {r2}, expected {r2_expect}"
+        )
+        return dens, force, r2, force_expect
+
     r, h, n = 1.0, 2.0, 6.0
     s = r / h
-    p = special.gammainc(3 * n, s ** (1 / n))
     q = special.gammaincc(3 * n, s ** (1 / n))
-    assert q == 1.0
-    assert p > 0.0
-    ep = EinastoPotential(amp=1.0, h=h, n=n)
-    force = ep._rforce(r)
-    expect = (4 * numpy.pi * h * n * special.gamma(3 * n)) * (s**-2) * (-p)
-    assert numpy.fabs(force) > 1.0, (
-        "EinastoPotential n=6 force vanished at r=h/2 where density is finite"
+    assert q == 1.0, (
+        f"gammaincc(3n, (r/h)**(1/n)) should round to 1 at "
+        f"h={h}, n={n}, r={r}; got Q={q}"
     )
-    assert numpy.fabs(force - expect) < 1e-12
-    # n=1 is well away from the underflow; P and Q-1 agree.
+    ep = EinastoPotential(amp=1.0, h=h, n=n)
+    dens, force, r2, force_expect = check_radius(ep, r, h, n)
+    four_pi_rho = 4.0 * numpy.pi * dens
+    # Old _r2deriv dropped the enclosed-mass term and returned 4 pi rho.
+    assert numpy.fabs(r2 - four_pi_rho) > 1.0, (
+        "EinastoPotential r2deriv still matches the old leftover 4 pi rho "
+        f"at h={h}, n={n}, r={r}: r2deriv={r2}, 4 pi rho={four_pi_rho}"
+    )
+    assert numpy.fabs(force) > 1.0, (
+        f"EinastoPotential Python force vanished at h={h}, n={n}, r={r} "
+        f"where density is finite (dens={dens}, force={force}, "
+        f"density-integral expected {force_expect})"
+    )
+    # r=h: Q is not exactly 1, but Q-1 is still a bad enclosed mass.
+    check_radius(ep, 2.0, h, n)
+    # n=1 is well away from the rounding; density integral still governs.
     ep1 = EinastoPotential(amp=1.0, h=h, n=1.0)
-    s1 = 0.1 / h
-    p1 = special.gammainc(3.0, s1)
-    q1 = special.gammaincc(3.0, s1)
-    f1 = ep1._rforce(0.1)
-    expect1 = (4 * numpy.pi * h * 1.0 * special.gamma(3.0)) * (s1**-2) * (-p1)
-    assert numpy.fabs((q1 - 1.0) + p1) < 1e-12
-    assert numpy.fabs(f1 - expect1) < 1e-12
+    check_radius(ep1, 0.1, h, 1.0)
     return None
 
 
@@ -11692,6 +11721,7 @@ from galpy.potential import (
     BurkertPotential,
     DiskMultipoleExpansionPotential,
     DiskSCFPotential,
+    EinastoPotential,
     FerrersPotential,
     FlattenedPowerPotential,
     LogarithmicHaloPotential,
@@ -11779,6 +11809,14 @@ class specialPowerSphericalPotential(PowerSphericalPotential):
 class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
     def __init__(self):
         MiyamotoNagaiPotential.__init__(self, amp=1.0, a=0.0, b=0.1)
+        return None
+
+
+class specialEinastoN6Potential(EinastoPotential):
+    def __init__(self):
+        # n=6, h=2 puts the Solar-circle Jacobi orbit at s=r/h=1/2, where
+        # gammaincc(18, 0.5**(1/6)) rounds to 1.
+        EinastoPotential.__init__(self, amp=1.0, h=2.0, n=6.0)
         return None
 
 
