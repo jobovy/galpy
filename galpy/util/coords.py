@@ -1524,6 +1524,7 @@ def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
 
 @scalarDecorator
+@backendNative
 def galcencyl_to_XYZ(R, phi, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     Transform cylindrical Galactocentric coordinates to XYZ coordinates (wrt Sun)
@@ -1754,6 +1755,7 @@ def galcenrect_to_vxvyvz(
 
 
 @scalarDecorator
+@backendNative
 def galcencyl_to_vxvyvz(
     vR, vT, vZ, phi, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
