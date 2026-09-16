@@ -1212,3 +1212,45 @@ def test_streamspray_sample_theta_grad_fd_jax():
         f"spray sample d<R^2>/dq: AD={ad:.6e} best|AD-CRN_FD|={best:.2e} "
         f"({best / abs(ad):.2%})"
     )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_sample_torch_generative_grad_fd():
+    # TORCH's generative gradient: the spray is re-drawn INSIDE the loss, so
+    # xv(theta) flows (the frozen-xv gradient elsewhere in this file is a
+    # different, non-physical quantity for d/dtheta). Every other generative
+    # gradient test here is jax-only, so nothing covered torch's autograd path
+    # through sample() at all.
+    #
+    # Deliberately small (n=10): measured ~9.2s per particle plus ~52s fixed on
+    # this box, and stream gradients must be h-CONVERGED rather than checked at
+    # a single h, so the particle count is what buys the h points. The gradient
+    # itself is exact -- measured REL 3.4e-7 at n=10 and 1.8e-7 at n=40 -- so
+    # 1e-5 is a real regression detector with ~30x margin.
+    key = grandom.key(_SEED, backend="torch")
+
+    def loss(amp_t):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(torch.tensor(_JIT_IC)),
+            pot=LogarithmicHaloPotential(amp=amp_t, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        s = spdf.sample(n=10, return_orbit=False, key=key)
+        s = s[0] if isinstance(s, (list, tuple)) else s
+        return torch.sum(s[0] ** 2)
+
+    with use("torch", force=True):
+        amp = torch.tensor(1.1, requires_grad=True)
+        loss(amp).backward()
+        g = float(amp.grad)
+        assert numpy.isfinite(g) and abs(g) != 0.0, "torch d(sample)/d(amp) is dead"
+        best = 1e30
+        with torch.no_grad():
+            for h in (1e-4, 1e-5):
+                fd = float(
+                    (loss(torch.tensor(1.1 + h)) - loss(torch.tensor(1.1 - h)))
+                    / (2 * h)
+                )
+                best = min(best, abs(g - fd) / max(abs(g), 1e-9))
+    assert best < 1e-5, f"torch generative sample grad-vs-FD best REL={best:.2e}"

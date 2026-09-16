@@ -1251,3 +1251,153 @@ def test_jit_traced_time_routes_to_inbackend_and_matches_eager():
         g = float(jax.grad(lambda tm: jnp.sum(traj(tm)))(2.0))
         h = 1e-5
         numpy.testing.assert_allclose(g, (F(2.0 + h) - F(2.0 - h)) / (2 * h), rtol=1e-6)
+
+
+# --- a BACKEND POTENTIAL PARAMETER must not take the C-STM --------------------
+# The C-STM pure_callbacks into the compiled C integrator, whose parser needs
+# CONCRETE potential arguments, and it carries d/d(IC) only -- never d/d(theta).
+# A traced theta therefore died in _parse_pot (as_numpy on the tracer). It now
+# routes to the in-backend ODE, which is differentiable in theta.
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_potential_parameter_routes_to_inbackend():
+    pytest.importorskip("diffrax")
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    ic = jnp.asarray(_IC)
+    ts = numpy.linspace(0.0, 2.0, 51)
+
+    def traj(amp):
+        with use("jax", force=True):
+            o = Orbit(ic)
+            o.integrate(ts, MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05), "dop853_c")
+            return o.getOrbit()
+
+    def loss(amp):
+        return jnp.sum(traj(amp))
+
+    # the orbit is genuinely time-varying, so this is not a degenerate comparison
+    assert numpy.ptp(numpy.asarray(as_numpy(traj(1.0)))[..., 0]) > 0.05
+    g = float(jax.grad(loss)(1.0))
+    assert numpy.isfinite(g) and abs(g) > 0
+    h = 1e-5
+    fd = float((loss(1.0 + h) - loss(1.0 - h)) / (2 * h))
+    numpy.testing.assert_allclose(g, fd, rtol=1e-7, atol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_concrete_backend_potential_keeps_the_cstm():
+    # The guard above must key on TRACED, not merely backend: a potential that
+    # HOLDS backend data with concrete values converts fine in the C parser and
+    # must keep the fast C-STM. Keying on is_backend_array instead diverted these
+    # to the in-backend ODE and broke streamspraydf's progenitor-potential tests.
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import MiyamotoNagaiPotential
+
+    # a CONCRETE backend amp -- backend array, but not a tracer
+    pot_concrete = MiyamotoNagaiPotential(amp=jnp.asarray(1.0), a=0.5, b=0.05)
+    with use("jax", force=True):
+        assert not _pot_has_traced_param(pot_concrete), (
+            "a concrete backend parameter must NOT divert away from the C-STM"
+        )
+        # and it still integrates, on the backend, matching the numpy value
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(numpy.linspace(0.0, 2.0, 51), pot_concrete, method="dop853_c")
+        got = numpy.asarray(as_numpy(o.getOrbit()))
+    onp = Orbit(numpy.array(_IC))
+    onp.integrate(
+        numpy.linspace(0.0, 2.0, 51),
+        MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.05),
+        method="dop853_c",
+    )
+    # the backend path runs the C-STM (an AUGMENTED variational system) while the
+    # numpy one runs plain dop853_c, so they agree to integrator roundoff rather
+    # than bitwise -- measured 2.3e-12 absolute here. 1e-8 still catches a real
+    # divergence (a wrong route differs by orders of magnitude, not 1e-12).
+    numpy.testing.assert_allclose(got, onp.getOrbit(), rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_potential_is_detected():
+    # the other side of the same predicate: a TRACED parameter must be spotted
+    from galpy.backend import use
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import MiyamotoNagaiPotential
+
+    seen = {}
+
+    def probe(amp):
+        with use("jax", force=True):
+            seen["traced"] = _pot_has_traced_param(
+                MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05)
+            )
+        return amp * 1.0
+
+    jax.grad(probe)(1.0)
+    assert seen["traced"], "a traced potential parameter must divert to the ODE"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_param_probe_has_no_side_effect():
+    # The predicate must not perturb what it inspects. It used to evaluate a
+    # force, which populates the evaluation cache of potentials that keep one --
+    # that silently changed streamgapdf's sampled values (test_streamgapdf_sample)
+    # even though nothing was traced and the routing decision was unaffected.
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.05)
+    before = dict(vars(pot))
+    assert not _pot_has_traced_param(pot)
+    after = vars(pot)
+    assert set(before) == set(after), "the probe added state to the potential"
+    for k, v in before.items():
+        if isinstance(v, (int, float, str, bool, type(None))):
+            assert after[k] == v, f"the probe mutated {k}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_param_found_through_every_nesting():
+    # The predicate's contract is "pot -- or anything it wraps". Each nesting
+    # shape reaches the traced leaf by a different recursion branch, so cover
+    # them separately: a potential LIST, a wrapper's single potential, and a
+    # list-valued attribute (whose elements may be raw arrays, not potentials).
+    from galpy.backend import use
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import (
+        DehnenSmoothWrapperPotential,
+        HernquistPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    seen = {}
+
+    def probe(amp):
+        with use("jax", force=True):
+            traced = MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05)
+            plain = HernquistPotential(amp=1.0, a=2.0)
+            # a list of potentials, traced one not first
+            seen["list"] = _pot_has_traced_param([plain, traced])
+            seen["list_clean"] = _pot_has_traced_param([plain, plain])
+            # a wrapper around the traced potential
+            seen["wrapped"] = _pot_has_traced_param(
+                DehnenSmoothWrapperPotential(pot=traced, tform=-1.0, tsteady=1.0)
+            )
+            seen["wrapped_clean"] = _pot_has_traced_param(
+                DehnenSmoothWrapperPotential(pot=plain, tform=-1.0, tsteady=1.0)
+            )
+            # a list-valued attribute holding raw traced arrays
+            holder = HernquistPotential(amp=1.0, a=2.0)
+            holder._amps = [1.0, amp * 2.0]
+            seen["list_attr"] = _pot_has_traced_param(holder)
+        return amp * 1.0
+
+    jax.grad(probe)(1.0)
+    assert seen["list"], "a traced potential in a list must be found"
+    assert seen["wrapped"], "a traced potential behind a wrapper must be found"
+    assert seen["list_attr"], "a traced array in a list-valued attribute must be found"
+    assert not seen["list_clean"], "an untraced list must keep the C-STM"
+    assert not seen["wrapped_clean"], "an untraced wrapper must keep the C-STM"
