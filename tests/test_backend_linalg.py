@@ -204,3 +204,46 @@ def test_real_eig_eigenvalue_grad_survives_degeneracy(gap):
     g = jax.grad(lambda x: jnp.sum(real_eig(x)[0]))(jnp.asarray(a))
     assert numpy.all(numpy.isfinite(numpy.asarray(g)))
     numpy.testing.assert_allclose(numpy.asarray(g), numpy.eye(3), rtol=0, atol=1e-12)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_real_eig_freeze_vectors_controls_the_rotation_gradient():
+    # freeze_vectors=True takes the eigenVECTORS from a stop-gradient copy, so
+    # anything read off them is a constant to autodiff. That is right when the
+    # eigenvalues are near-degenerate (the eigenvector derivative goes like
+    # 1/gap), and wrong when one eigenvalue dominates -- which is the case
+    # streamdf reads, where freezing costs ~70% of d(track)/d(theta).
+    #
+    # Use a WELL-SEPARATED spectrum, like a stream frequency covariance
+    # (measured ~600x between the top two eigenvalues).
+    q = numpy.linalg.qr(numpy.random.default_rng(3).normal(size=(3, 3)))[0]
+
+    def top_direction_sum(scale):
+        # a(scale) has eigenvalues (1.0*scale, 2e-3, 4e-4) in a fixed basis
+        w = jnp.stack([1.0 * scale, jnp.asarray(2e-3), jnp.asarray(4e-4)])
+        a = jnp.asarray(q) @ jnp.diag(w) @ jnp.asarray(q).T
+        # rotate a slightly with scale so the eigenVECTORS genuinely move
+        tilt = jnp.asarray(numpy.eye(3)) + 0.1 * scale * jnp.asarray(
+            numpy.triu(numpy.ones((3, 3)), 1) - numpy.tril(numpy.ones((3, 3)), -1)
+        )
+        a = tilt @ a @ tilt.T
+        return a
+
+    def frozen(scale):
+        w, v = real_eig(top_direction_sum(scale), freeze_vectors=True)
+        return jnp.sum(v[:, jnp.argmax(w)])
+
+    def live(scale):
+        w, v = real_eig(top_direction_sum(scale), freeze_vectors=False)
+        return jnp.sum(v[:, jnp.argmax(w)])
+
+    g_frozen = float(jax.grad(frozen)(1.0))
+    g_live = float(jax.grad(live)(1.0))
+    h = 1e-6
+    fd = (float(live(1.0 + h)) - float(live(1.0 - h))) / (2.0 * h)
+    assert abs(g_frozen) < 1e-12, "frozen vectors must carry NO rotation gradient"
+    assert abs(g_live - fd) / max(abs(fd), 1e-12) < 1e-5, (
+        f"unfrozen vectors must match a finite difference (AD {g_live}, FD {fd})"
+    )
+    # values are identical either way -- stop_gradient is the identity forward
+    numpy.testing.assert_allclose(float(frozen(1.0)), float(live(1.0)), rtol=1e-12)
