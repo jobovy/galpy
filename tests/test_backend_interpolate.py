@@ -1540,3 +1540,73 @@ def test_eval_rect_ppoly_flat_gather_matches_nested(backend):
         numpy.testing.assert_array_equal(
             got, nested(X, Y), err_msg=f"{backend}: not the nested-gather value"
         )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_knots_match_concrete_and_carry_a_gradient():
+    # The tridiagonal system is normally assembled by numpy item assignment from
+    # the knots, which assumes they are a constant. streamdf integrates its track
+    # orbit on theta-DEPENDENT times, so the knots become traced and the matrix
+    # has to be built on the backend from one-hot rows instead. That branch must
+    # reproduce the numpy assembly exactly, for both boundary conditions.
+    x = numpy.array([0.0, 0.3, 0.7, 1.4, 2.0, 3.1, 4.0, 5.2, 6.0])
+    y = numpy.sin(x) + 0.1 * x**2
+    xb, yb = jnp.asarray(x), jnp.asarray(y)
+    for bc in ("natural", "not-a-knot"):
+        concrete = cubic_spline_coeffs(jnp, xb, yb, bc=bc)
+        traced = jax.jit(lambda xx, yy: cubic_spline_coeffs(jnp, xx, yy, bc=bc))(xb, yb)
+        assert numpy.max(numpy.abs(as_numpy(traced) - as_numpy(concrete))) < 1e-15, (
+            f"traced knot assembly must reproduce the numpy one ({bc})"
+        )
+    # and the knot positions are now a live gradient input, not just the values
+    w = jnp.asarray(numpy.cos(3.0 * numpy.arange(4 * (len(x) - 1))).reshape(4, -1))
+
+    def f(xx):
+        return jnp.sum(cubic_spline_coeffs(jnp, xx, yb, bc="not-a-knot") * w)
+
+    ad = as_numpy(jax.grad(f)(xb))
+    h = 1e-6
+    fd = numpy.empty_like(x)
+    for i in range(len(x)):
+        xp_, xm_ = x.copy(), x.copy()
+        xp_[i] += h
+        xm_[i] -= h
+        fd[i] = (float(f(jnp.asarray(xp_))) - float(f(jnp.asarray(xm_)))) / (2 * h)
+    assert numpy.max(numpy.abs(ad - fd)) / numpy.max(numpy.abs(fd)) < 1e-8, (
+        "d(coeffs)/d(knots) must match a central finite difference"
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_spline1d_keeps_traced_knots():
+    # Spline1D froze the knots with numpy.asarray, which throws on a tracer.
+    x = numpy.array([0.0, 0.5, 1.1, 1.9, 2.4, 3.3, 4.1])
+    y = numpy.cos(x)
+    r = numpy.array([0.2, 1.3, 2.9, 3.9])
+
+    def ev(xx):
+        return jnp.sum(
+            Spline1D(xx, jnp.asarray(y), k=3, ext=0, bc="not-a-knot")(jnp.asarray(r))
+        )
+
+    val = jax.jit(ev)(jnp.asarray(x))
+    ref = ev(jnp.asarray(x))
+    assert abs(float(val) - float(ref)) < 1e-12, (
+        "traced knots must not change the value"
+    )
+    g = as_numpy(jax.grad(ev)(jnp.asarray(x)))
+    assert numpy.all(numpy.isfinite(g))
+    h = 1e-6
+    fd = numpy.array(
+        [
+            (
+                float(ev(jnp.asarray(numpy.where(numpy.arange(len(x)) == i, x + h, x))))
+                - float(
+                    ev(jnp.asarray(numpy.where(numpy.arange(len(x)) == i, x - h, x)))
+                )
+            )
+            / (2 * h)
+            for i in range(len(x))
+        ]
+    )
+    assert numpy.max(numpy.abs(g - fd)) / max(numpy.max(numpy.abs(fd)), 1e-12) < 1e-7

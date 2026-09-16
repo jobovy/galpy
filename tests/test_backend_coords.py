@@ -784,3 +784,58 @@ def test_python_scalar_is_not_silently_single_precision():
         f"python-scalar input fell to single precision: |v|^2 off by "
         f"{abs(speed2 - want) / want:.2e} (float64 sits at ~2e-16)"
     )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_galcencyl_transforms_are_backend_native(backend_name):
+    # Their rect twins were already @backendNative; these two forced numpy, so a
+    # backend array was silently promoted -- and a TRACED one (streamdf's track,
+    # which depends on theta) could not be converted at all. Values must be
+    # unchanged, and a backend input must come back on its backend.
+    R = numpy.array([1.0, 1.2, 0.8, 2.0, 1.1])
+    phi = numpy.array([0.1, -0.4, 2.0, 3.0, 1.0])
+    Z = numpy.array([0.05, -0.1, 0.2, 0.0, 0.3])
+    vR = numpy.array([0.1, -0.2, 0.05, 0.3, 0.0])
+    vT = numpy.array([1.0, 0.9, 1.1, 0.8, 1.0])
+    vZ = numpy.array([0.02, -0.03, 0.0, 0.1, -0.05])
+    ref_x = coords.galcencyl_to_XYZ(R, phi, Z, Xsun=1.0, Zsun=0.02)
+    ref_v = coords.galcencyl_to_vxvyvz(vR, vT, vZ, phi, vsun=[0.0, 1.0, 0.0], Xsun=1.0)
+    cast = lambda a: _asarray(backend_name, a)  # noqa: E731
+    with use(backend_name, force=True):
+        gx = coords.galcencyl_to_XYZ(cast(R), cast(phi), cast(Z), Xsun=1.0, Zsun=0.02)
+        gv = coords.galcencyl_to_vxvyvz(
+            cast(vR), cast(vT), cast(vZ), cast(phi), vsun=[0.0, 1.0, 0.0], Xsun=1.0
+        )
+    assert numpy.max(numpy.abs(as_numpy(gx) - ref_x)) < 1e-14, (
+        "galcencyl_to_XYZ must be unchanged on the backend"
+    )
+    assert numpy.max(numpy.abs(as_numpy(gv) - ref_v)) < 1e-14, (
+        "galcencyl_to_vxvyvz must be unchanged on the backend"
+    )
+    if backend_name != "numpy":
+        assert is_backend_array(gx), "a backend input must not be demoted to numpy"
+        assert is_backend_array(gv), "a backend input must not be demoted to numpy"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_galcencyl_to_XYZ_differentiates_through_R():
+    R = numpy.array([1.0, 1.2, 0.8, 2.0, 1.1])
+    phi = jnp.asarray([0.1, -0.4, 2.0, 3.0, 1.0])
+    Z = jnp.asarray([0.05, -0.1, 0.2, 0.0, 0.3])
+
+    def f(r):
+        return jnp.sum(coords.galcencyl_to_XYZ(r, phi, Z, Xsun=1.0, Zsun=0.02))
+
+    ad = as_numpy(jax.grad(f)(jnp.asarray(R)))
+    h = 1e-6
+    fd = numpy.array(
+        [
+            (
+                float(f(jnp.asarray(numpy.where(numpy.arange(5) == i, R + h, R))))
+                - float(f(jnp.asarray(numpy.where(numpy.arange(5) == i, R - h, R))))
+            )
+            / (2 * h)
+            for i in range(5)
+        ]
+    )
+    assert numpy.max(numpy.abs(ad - fd)) / numpy.max(numpy.abs(fd)) < 1e-8
