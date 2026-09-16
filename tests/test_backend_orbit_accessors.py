@@ -679,3 +679,32 @@ def test_noarg_accessor_numpy_path_unchanged():
         v = getattr(o, acc)(use_physical=False)
         assert not is_backend_array(v)
         numpy.testing.assert_allclose(numpy.asarray(v).reshape(()), _IC[i], rtol=1e-14)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("direction", [1.0, -1.0])
+def test_accessor_on_a_traced_integration_grid(direction):
+    # streamdf integrates its track orbit on theta-DEPENDENT times, so the
+    # orbit's own self.t is a tracer. The accessor then cannot compare the grid
+    # to the query, order it by a concrete `t[1] < t[0]`, or hand the spline
+    # numpy knots -- it orders with argsort and keeps the knots on the backend.
+    # Both grid directions go through that branch (backward -> argsort reverses
+    # the grid AND the trajectory rows).
+    ibk = {"nsteps": 40, "adjoint": "direct", "max_steps": 60}
+
+    def f(scale):
+        with use("jax", force=True):
+            o = Orbit(jnp.asarray([1.0, 0.1, 1.1, 0.05, -0.02, 0.3]))
+            ts = direction * scale * jnp.linspace(0.0, 1.0, 21)
+            o.integrate(ts, _POT, method="diffrax", inbackend_kwargs=ibk)
+            return jnp.sum(o.R(ts * 0.5) ** 2)  # OFF-grid query on a traced grid
+
+    ad = float(jax.grad(f)(2.0))
+    prev = None
+    for h in (1e-3, 1e-4):
+        fd = (float(f(2.0 + h)) - float(f(2.0 - h))) / (2.0 * h)
+        rel = abs(ad - fd) / abs(fd)
+        if prev is not None:
+            assert rel < prev, "the AD-vs-FD gap must shrink as h does"
+        prev = rel
+    assert rel < 1e-8, f"d/d(scale) through a traced grid is wrong (rel {rel:.2e})"

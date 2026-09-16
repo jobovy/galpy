@@ -267,11 +267,15 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
       interior knot (scipy ``CubicSpline``'s default), for byte-for-byte
       comparison against scipy.
 
-    ``x`` must be strictly increasing. ``x`` may be a frozen numpy array (its
-    spacing is just geometry); differentiability is in ``y``.
+    ``x`` must be strictly increasing. ``x`` is usually a frozen numpy array
+    (its spacing is just geometry), but a backend ``x`` is kept as is so a
+    TRACED grid -- streamdf integrates its track orbit on theta-dependent
+    times -- stays differentiable alongside ``y``.
     """
     dev = device_of(y, x)
-    xb = asarray_on_device(xp, numpy.asarray(x), dev) * 1.0
+    xb = (
+        asarray_on_device(xp, x if is_backend_array(x) else numpy.asarray(x), dev) * 1.0
+    )
     yb = xp.astype(y, xb.dtype) if hasattr(xp, "astype") else y * 1.0
     n = xb.shape[0]
     if n < 3:
@@ -291,37 +295,60 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     # Build the dense (n, n) A from the *geometry only* (x), so A is a constant
     # w.r.t. y; rhs carries the y-dependence (and hence the gradient). Assembled
     # with numpy on x (init-time geometry), then placed on-device as a constant.
-    A = numpy.zeros((n, n))
-    hnp = numpy.asarray(numpy.diff(numpy.asarray(x, dtype=float)))
-    for i in range(1, n - 1):
-        A[i, i - 1] = hnp[i - 1]
-        A[i, i] = 2.0 * (hnp[i - 1] + hnp[i])
-        A[i, i + 1] = hnp[i]
-    if bc == "natural":
-        # zero second derivative at the ends: M[0] = M[n-1] = 0.
-        A[0, 0] = 1.0
-        A[n - 1, n - 1] = 1.0
-    elif bc == "not-a-knot":
-        # continuous third derivative across the first/last interior knot.
-        A[0, 0] = hnp[1]
-        A[0, 1] = -(hnp[0] + hnp[1])
-        A[0, 2] = hnp[0]
-        A[n - 1, n - 3] = hnp[-1]
-        A[n - 1, n - 2] = -(hnp[-2] + hnp[-1])
-        A[n - 1, n - 1] = hnp[-2]
-    else:
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    if bc not in ("natural", "not-a-knot"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
-    Ab = asarray_on_device(xp, A, dev)
-    Ab = xp.astype(Ab, xb.dtype) if hasattr(xp, "astype") else Ab
+    if under_trace(x):
+        # A depends on the TRACED knots, so it is no longer a constant and
+        # cannot be assembled by numpy item assignment: build each row as a
+        # combination of one-hot rows. Interior row i carries h[i-1],
+        # 2(h[i-1]+h[i]), h[i] at columns i-1, i, i+1.
+        eye = xp.eye(n)
+        eye = xp.astype(eye, xb.dtype) if hasattr(xp, "astype") else eye
+        rows_mid = (
+            h[: n - 2][:, None] * eye[0 : n - 2]
+            + (2.0 * (h[: n - 2] + h[1 : n - 1]))[:, None] * eye[1 : n - 1]
+            + h[1 : n - 1][:, None] * eye[2:n]
+        )
+        if bc == "natural":
+            row0, rowN = eye[0], eye[n - 1]
+        else:  # not-a-knot
+            row0 = h[1] * eye[0] - (h[0] + h[1]) * eye[1] + h[0] * eye[2]
+            rowN = (
+                h[n - 2] * eye[n - 3]
+                - (h[n - 3] + h[n - 2]) * eye[n - 2]
+                + h[n - 3] * eye[n - 1]
+            )
+        Ab = concat([row0[None], rows_mid, rowN[None]], axis=0)
+    else:
+        A = numpy.zeros((n, n))
+        hnp = numpy.asarray(numpy.diff(numpy.asarray(x, dtype=float)))
+        for i in range(1, n - 1):
+            A[i, i - 1] = hnp[i - 1]
+            A[i, i] = 2.0 * (hnp[i - 1] + hnp[i])
+            A[i, i + 1] = hnp[i]
+        if bc == "natural":
+            # zero second derivative at the ends: M[0] = M[n-1] = 0.
+            A[0, 0] = 1.0
+            A[n - 1, n - 1] = 1.0
+        else:  # not-a-knot
+            # continuous third derivative across the first/last interior knot.
+            A[0, 0] = hnp[1]
+            A[0, 1] = -(hnp[0] + hnp[1])
+            A[0, 2] = hnp[0]
+            A[n - 1, n - 3] = hnp[-1]
+            A[n - 1, n - 2] = -(hnp[-2] + hnp[-1])
+            A[n - 1, n - 1] = hnp[-2]
+        Ab = asarray_on_device(xp, A, dev)
+        Ab = xp.astype(Ab, xb.dtype) if hasattr(xp, "astype") else Ab
 
     # rhs (length n): interior entries 6*(dslope[i]-dslope[i-1]); both end rows
     # are homogeneous (0) for the two supported boundary conditions. The rhs
     # carries the whole y-dependence, so the gradient flows through here.
     zero = yb[:1] * 0.0  # (1,) on y's device/dtype, kept differentiable
     interior = 6.0 * (dslope[1:] - dslope[:-1])  # (n-2,)
-    concat = getattr(xp, "concat", None) or xp.concatenate
     rhs = concat([zero, interior, zero])  # (n,)
 
     M = xp.linalg.solve(Ab, rhs)  # (n,)
@@ -1055,7 +1082,10 @@ class Spline1D:
 
             self._xp = array_api_compat.array_namespace(y)
             self._y = y
-            self._x = numpy.asarray(x, dtype=float)
+            # TRACED knots (streamdf's angle grid depends on theta) stay on the
+            # backend so the gradient flows through the knot positions too;
+            # concrete knots keep the numpy geometry path.
+            self._x = x if under_trace(x) else numpy.asarray(x, dtype=float)
             if self._k == 3:
                 self._coeffs = cubic_spline_coeffs(self._xp, self._x, y, bc=bc)
             elif self._k == 1:
