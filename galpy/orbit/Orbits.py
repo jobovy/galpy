@@ -32,6 +32,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
 )
+from ..backend import use as _use_backend
 from ..backend._namespaces import under_trace
 from ..potential import (
     _INF,
@@ -318,6 +319,38 @@ def _copy_for_continuation(x):
     tensor has ``.clone()`` instead, which (unlike a detached copy) stays in the
     autograd graph."""
     return x.clone() if hasattr(x, "clone") else x.copy()
+
+
+def _pot_has_traced_param(pot, _depth=0):
+    """True if ``pot`` -- or anything it wraps -- STORES a traced parameter.
+
+    Structural inspection, deliberately NOT a force probe. Evaluating a force to
+    detect this perturbs potentials that cache their last evaluation: it changed
+    streamgapdf's sampled values (test_streamgapdf_sample) even though nothing
+    was traced and the routing was unaffected. A detector must not have side
+    effects on the thing it inspects.
+
+    TRACED, not merely backend: only a tracer breaks the C-STM's callback (its
+    parser calls as_numpy on the potential arguments). A potential that merely
+    HOLDS backend data with concrete values -- e.g. a MovingObjectPotential built
+    on a backend progenitor orbit -- converts fine and must keep the fast C-STM.
+    """
+    if _depth > 5:  # pragma: no cover - guards against a cyclic wrapper chain
+        return False
+    if isinstance(pot, (list, tuple)):
+        return any(_pot_has_traced_param(p, _depth + 1) for p in pot)
+    if under_trace(pot):
+        return True
+    for v in getattr(pot, "__dict__", {}).values():
+        if under_trace(v):
+            return True
+        if isinstance(v, (list, tuple)):
+            if any(_pot_has_traced_param(x, _depth + 1) for x in v):
+                return True
+        elif hasattr(v, "_amp"):  # a wrapped / composite potential
+            if _pot_has_traced_param(v, _depth + 1):
+                return True
+    return False
 
 
 def _backend_T(x):
@@ -1811,9 +1844,15 @@ class Orbit:
                 _pdim = self.phasedim()
                 # A TRACED t cannot take the C-STM: it pure_callbacks into the C
                 # integrator, which closes over a CONCRETE ts (orbit_stm.integrate).
+                # Neither can a BACKEND POTENTIAL PARAMETER: the same callback
+                # parses concrete pot args, so a traced theta dies in _parse_pot
+                # (as_numpy on the tracer). The C-STM carries d/d(IC) but never
+                # d/d(theta), so such a potential must reach the in-backend ODE --
+                # the same conclusion streamspraydf reached for its own dispatch.
                 if (
                     _check_c(_potl)
                     and not under_trace(t)
+                    and not _pot_has_traced_param(_potl)
                     and (
                         _check_c(_potl, dxdv3d=True)
                         if _pdim == 6
