@@ -15,18 +15,26 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 ) + (_NUMPY_VERSION > parse_version("1.23")) * (
     _NUMPY_VERSION < parse_version("1.25")
 )  # For testing 1.22/1.24 precision issues
+
+
 # test_streamgapdf_sample compares the SKY-frame sample -- degrees, kpc, km/s,
 # mas/yr -- where the rest of that test normalises to natural units (dividing by
-# _ro, or using radians) and applies an absolute 1e-6. Since l is ~234 deg where
-# R is ~1, the same absolute bar is ~230x tighter for lb: at 1e-5 it was ~4e-8
-# RELATIVE, i.e. ~25x stricter than what its siblings ask of O(1) quantities.
-# That is below the level at which two independently constructed streamgapdf
-# objects' SAMPLES can be expected to agree at all -- the sampled positions
-# decorrelate over the 4.5 Gyr integration, so any last-bit difference in the
-# setup lands at ~1e-5 deg regardless of how small it was (measured: a 1-ulp
-# change in sigv moves l by 1.2e-5 - 5.4e-5, flat from 1 to 1e6 ulp). 1e-4 on
-# ~234 deg is ~4e-7 relative, still tighter than the siblings' 1e-6.
-_LB_SAMPLE_TOL = 1e-4
+# _ro, or using radians) and applies an ABSOLUTE 1e-6, i.e. ~1e-6 relative. The
+# sky-frame quantities are not O(1): l ~ 234 deg, vlos ~ 257 km/s, d ~ 12 kpc.
+# So the same absolute number was 25-250x tighter there (4.3e-9 relative on l),
+# which is below the level at which the quantity is even defined -- the
+# comparison is between two INDEPENDENTLY constructed streamgapdf objects'
+# SAMPLES, and sampled positions decorrelate over the 4.5 Gyr integration (a
+# 1-ulp change in sigv moves l by 1.2e-5 - 5.4e-5, flat from 1 to 1e6 ulp).
+# Compare on the same RELATIVE footing as the rest of the test instead, with an
+# O(1) floor so nothing gets TIGHTER than the absolute bar it replaces.
+def _lb_close(q, ref, unit):
+    ref = numpy.asarray(ref)
+    return numpy.all(
+        numpy.fabs(numpy.asarray(q.to(unit).value) - ref)
+        < 1e-6 * numpy.maximum(1.0, numpy.fabs(ref))
+    )
+
 
 from astropy import constants, units
 
@@ -19507,52 +19515,47 @@ def test_streamgapdf_sample():
     lb = sdf_sanders15.sample(1, lb=True)
     numpy.random.seed(1)
     lbnou = as_numpy(sdf_sanders15_nou.sample(1, lb=True))
-    assert numpy.fabs(lb[0].to(units.deg).value - lbnou[0]) < _LB_SAMPLE_TOL, (
+    assert _lb_close(lb[0], lbnou[0], units.deg), (
         "streamgapdf sample lb does not return a correct Quantity"
     )
-    assert numpy.fabs(lb[1].to(units.deg).value - lbnou[1]) < _LB_SAMPLE_TOL, (
+    assert _lb_close(lb[1], lbnou[1], units.deg), (
         "streamgapdf sample lb does not return a correct Quantity"
     )
-    assert numpy.fabs(lb[2].to(units.kpc).value - lbnou[2]) < _LB_SAMPLE_TOL, (
+    assert _lb_close(lb[2], lbnou[2], units.kpc), (
         "streamgapdf sample lb does not return a correct Quantity"
     )
-    assert numpy.fabs(lb[3].to(units.km / units.s).value - lbnou[3]) < _LB_SAMPLE_TOL, (
+    assert _lb_close(lb[3], lbnou[3], units.km / units.s), (
         "streamgapdf sample lb does not return a correct Quantity"
     )
-    assert (
-        numpy.fabs(lb[4].to(units.mas / units.yr).value - lbnou[4]) < _LB_SAMPLE_TOL
-    ), "streamgapdf sample lb does not return a correct Quantity"
-    assert (
-        numpy.fabs(lb[5].to(units.mas / units.yr).value - lbnou[5]) < _LB_SAMPLE_TOL
-    ), "streamgapdf sample lb does not return a correct Quantity"
+    assert _lb_close(lb[4], lbnou[4], units.mas / units.yr), (
+        "streamgapdf sample lb does not return a correct Quantity"
+    )
+    assert _lb_close(lb[5], lbnou[5], units.mas / units.yr), (
+        "streamgapdf sample lb does not return a correct Quantity"
+    )
     # lbdt
     numpy.random.seed(1)
     lbdt = sdf_sanders15.sample(1, lb=True, returndt=True)
     numpy.random.seed(1)
     lbdtnou = as_numpy(sdf_sanders15_nou.sample(1, lb=True, returndt=True))
-    assert (
-        numpy.fabs(lbdt[0].to(units.deg).value - lbdtnou[0])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
-    assert (
-        numpy.fabs(lbdt[1].to(units.deg).value - lbdtnou[1])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
-    assert numpy.fabs(lbdt[2].to(units.kpc).value - lbdtnou[2]) < _LB_SAMPLE_TOL, (
+    assert _lb_close(lbdt[0], lbdtnou[0], units.deg), (
         "streamgapdf sample lbdt does not return a correct Quantity"
     )
-    assert (
-        numpy.fabs(lbdt[3].to(units.km / units.s).value - lbdtnou[3])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
-    assert (
-        numpy.fabs(lbdt[4].to(units.mas / units.yr).value - lbdtnou[4])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
-    assert (
-        numpy.fabs(lbdt[5].to(units.mas / units.yr).value - lbdtnou[5])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
+    assert _lb_close(lbdt[1], lbdtnou[1], units.deg), (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
+    assert _lb_close(lbdt[2], lbdtnou[2], units.kpc), (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
+    assert _lb_close(lbdt[3], lbdtnou[3], units.km / units.s), (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
+    assert _lb_close(lbdt[4], lbdtnou[4], units.mas / units.yr), (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
+    assert _lb_close(lbdt[5], lbdtnou[5], units.mas / units.yr), (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
     assert (
         numpy.fabs(
             lbdt[6].to(units.Gyr).value
