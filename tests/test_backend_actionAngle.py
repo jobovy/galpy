@@ -2715,3 +2715,55 @@ def test_actionangle_c_jac_entries_are_thread_safe():
         "threads; the potentialArg copies are shared, not per-thread",
     )
     return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("firstFlip", [False, True])
+def test_isochroneapprox_parse_args_backend_assembly(backend, firstFlip):
+    # The Orbit-argument path: _parse_args assembles the forward/backward halves
+    # of an ALREADY-integrated orbit. A backend orbit cannot be item-assigned
+    # into a numpy buffer and torch has no negative-step slicing, so it defers to
+    # ONE concat per coordinate -- with a different piece ORDER for _firstFlip.
+    # Both orders, and the planar (4-column) shape that has to synthesise z/vz,
+    # must reproduce the numpy assembly. (Backend *coordinate* args take a
+    # different route entirely, so they cannot reach this.)
+    from galpy.orbit import Orbit
+
+    aAIA = _aAIA(0.8)
+    ic6 = [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]
+    ic4 = [1.0, 0.1, 1.1, 0.3]
+    for ic in (ic6, ic4):
+        ref = aAIA._parse_args(True, firstFlip, Orbit(numpy.array(ic)))
+        got = aAIA._parse_args(True, firstFlip, Orbit(_arr(backend, ic)))
+        assert len(got) == len(ref)
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g), (
+                "a backend orbit must not be demoted to numpy"
+            )
+            numpy.testing.assert_allclose(
+                as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_firstFlip_flips_the_backend_ic(backend):
+    # _firstFlip (a TRAILING stream) flips the IC so the orbit integrates the
+    # other way. For a backend Orbit the IC the integrator uses is _ic_backend,
+    # NOT the numpy vxvv bookkeeping -- flipping vxvv alone left the orbit
+    # integrating unflipped, silently, and the assembled track came out ~10%
+    # wrong rather than erroring.
+    from galpy.orbit import Orbit
+
+    o = Orbit(_arr(backend, [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]))
+    before = as_numpy(o._ic_backend).copy()
+    o.flip(inplace=True)
+    after = as_numpy(o._ic_backend)
+    assert (
+        after[1] == -before[1] and after[2] == -before[2] and after[4] == -before[4]
+    ), "flip must negate the velocities of the IC the integrator actually uses"
+    assert after[0] == before[0] and after[3] == before[3] and after[5] == before[5]
+    # and the non-inplace form must keep the IC on the backend, not rebuild it
+    # from the numpy bookkeeping
+    o2 = Orbit(_arr(backend, [1.0, 0.1, 1.1, 0.05, -0.02, 0.3])).flip()
+    assert o2._ic_backend is not None and _is_backend_array(backend, o2._ic_backend)
+    assert as_numpy(o2._ic_backend)[1] == -0.1
