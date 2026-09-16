@@ -1357,3 +1357,47 @@ def test_traced_param_probe_has_no_side_effect():
     for k, v in before.items():
         if isinstance(v, (int, float, str, bool, type(None))):
             assert after[k] == v, f"the probe mutated {k}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_traced_param_found_through_every_nesting():
+    # The predicate's contract is "pot -- or anything it wraps". Each nesting
+    # shape reaches the traced leaf by a different recursion branch, so cover
+    # them separately: a potential LIST, a wrapper's single potential, and a
+    # list-valued attribute (whose elements may be raw arrays, not potentials).
+    from galpy.backend import use
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import (
+        DehnenSmoothWrapperPotential,
+        HernquistPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    seen = {}
+
+    def probe(amp):
+        with use("jax", force=True):
+            traced = MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05)
+            plain = HernquistPotential(amp=1.0, a=2.0)
+            # a list of potentials, traced one not first
+            seen["list"] = _pot_has_traced_param([plain, traced])
+            seen["list_clean"] = _pot_has_traced_param([plain, plain])
+            # a wrapper around the traced potential
+            seen["wrapped"] = _pot_has_traced_param(
+                DehnenSmoothWrapperPotential(pot=traced, tform=-1.0, tsteady=1.0)
+            )
+            seen["wrapped_clean"] = _pot_has_traced_param(
+                DehnenSmoothWrapperPotential(pot=plain, tform=-1.0, tsteady=1.0)
+            )
+            # a list-valued attribute holding raw traced arrays
+            holder = HernquistPotential(amp=1.0, a=2.0)
+            holder._amps = [1.0, amp * 2.0]
+            seen["list_attr"] = _pot_has_traced_param(holder)
+        return amp * 1.0
+
+    jax.grad(probe)(1.0)
+    assert seen["list"], "a traced potential in a list must be found"
+    assert seen["wrapped"], "a traced potential behind a wrapper must be found"
+    assert seen["list_attr"], "a traced array in a list-valued attribute must be found"
+    assert not seen["list_clean"], "an untraced list must keep the C-STM"
+    assert not seen["wrapped_clean"], "an untraced wrapper must keep the C-STM"
