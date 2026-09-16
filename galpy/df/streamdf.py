@@ -112,6 +112,38 @@ def _ns_coerce(*xs):
     return (xp, *coerce_coords(xp, *xs))
 
 
+def _span_grid(extent, n):
+    """``linspace(0, extent, n)`` that survives a TRACED ``extent``.
+
+    A concrete extent keeps numpy (byte-identical). A traced one is spanned as
+    ``extent * linspace(0, 1)`` rather than ``linspace(0, extent)``: torch's
+    ``linspace`` carries no gradient through its endpoints, so the direct form
+    would silently drop ``d(grid)/d(extent)``.
+
+    Gated on TRACEDNESS, not backend-ness: ``get_namespace`` resolves the
+    AMBIENT namespace, so keying on ``is_backend_array`` would build a backend
+    grid under any forced backend and leak it into the numpy track path.
+    """
+    if under_trace(extent):
+        return extent * get_namespace(extent).linspace(0.0, 1.0, n)
+    return numpy.linspace(0.0, float(extent), n)
+
+
+def _ns_sqrt(x):
+    """``sqrt(x)``, on ``x``'s own namespace when it is TRACED.
+
+    ``numpy.sqrt`` of a tracer raises (it works eagerly, which is why this only
+    shows up under ``jax.grad`` of the constructor). Concrete input keeps
+    ``numpy.sqrt`` so the eager path is byte-identical -- and, as for
+    :func:`_span_grid`, so a forced backend does not silently turn a derived
+    scalar into a backend array.
+    """
+    if under_trace(x):
+        xp, xv = _ns_coerce(x)
+        return xp.sqrt(xv)
+    return numpy.sqrt(x)
+
+
 def _sig_mean_sign(leading, omega_along):
     """-1 when the mean-offset direction points the wrong way for this tail.
 
@@ -585,21 +617,11 @@ class streamdf(df):
 
         # namespace math: numpy.sqrt on a TRACED moment raises (it works eagerly,
         # which is why this only shows up under jax.grad of the constructor)
-        # Take the namespace route ONLY when traced: _ns_coerce resolves the
-        # AMBIENT namespace, so using it unconditionally makes _deltaAngleTrack a
-        # backend array under ANY forced backend -- the numpy track path then
-        # builds a backend thetasTrack and dies in _determine_stream_track_single.
-        if under_trace(self._sortedSigOEig[2]):
-            _dxp, _s2 = _ns_coerce(self._sortedSigOEig[2])
-            deltaAngleTrackLim = (
-                (self._sigMeanOffset + 4.0) * _dxp.sqrt(_s2) * self._tdisrupt
-            )
-        else:
-            deltaAngleTrackLim = (
-                (self._sigMeanOffset + 4.0)
-                * numpy.sqrt(self._sortedSigOEig[2])
-                * self._tdisrupt
-            )
+        deltaAngleTrackLim = (
+            (self._sigMeanOffset + 4.0)
+            * _ns_sqrt(self._sortedSigOEig[2])
+            * self._tdisrupt
+        )
         if deltaAngleTrack is None:
             deltaAngleTrack = deltaAngleTrackLim
         else:
@@ -1440,14 +1462,8 @@ class streamdf(df):
         # 2*dt * linspace(0,1), NOT linspace(0, 2*dt): the endpoint is traced here
         # and torch's linspace does not carry a gradient through its endpoints, so
         # the direct form would silently drop d(trackts)/d(theta).
-        _n_tt = 2 * self._nTrackChunks - 1
-        if under_trace(dt):
-            _txp = get_namespace(dt)
-            self._trackts = 2.0 * dt * _txp.linspace(0.0, 1.0, _n_tt)
-        else:
-            self._trackts = numpy.linspace(
-                0.0, 2 * dt, _n_tt
-            )  # to be sure that we cover it
+        # to be sure that we cover it
+        self._trackts = _span_grid(2 * dt, 2 * self._nTrackChunks - 1)
         if self._useTM:
             return self._determine_stream_track_TM()
         # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
@@ -1737,16 +1753,9 @@ class streamdf(df):
             ],
             axis=-1,
         )  # (nTrackChunks, 6)
-        if under_trace(self._deltaAngleTrack):
-            # traced angle extent: dAT * linspace(0,1) keeps the endpoint gradient
-            # (torch's linspace drops it), as for _trackts above
-            thetasTrack = self._deltaAngleTrack * get_namespace(
-                self._deltaAngleTrack
-            ).linspace(0.0, 1.0, self._nTrackChunks)
-        else:
-            thetasTrack = xp.asarray(
-                numpy.linspace(0.0, float(self._deltaAngleTrack), self._nTrackChunks)
-            )
+        thetasTrack = _span_grid(self._deltaAngleTrack, self._nTrackChunks)
+        if not is_backend_array(thetasTrack):
+            thetasTrack = xp.asarray(thetasTrack)
 
         def single(xv0, th):
             return _determine_stream_track_single_backend(
@@ -2447,18 +2456,16 @@ class streamdf(df):
         self._interpTrackvZ = Spline1D(thetas_np, TrackvZ, k=3, ext=0, bc="not-a-knot")
         # Fine grid: geometry (numpy host bookkeeping, matching the numpy path);
         # coerce onto the backend to evaluate so d(track)/d(_ObsTrack) flows.
-        if under_trace(self._deltaAngleTrack):
-            self._interpolatedThetasTrack = self._deltaAngleTrack * get_namespace(
-                self._deltaAngleTrack
-            ).linspace(0.0, 1.0, self.nInterpolatedTrackChunks)
-            interpThetas = self._interpolatedThetasTrack
-        else:
-            self._interpolatedThetasTrack = numpy.linspace(
-                0.0, float(self._deltaAngleTrack), self.nInterpolatedTrackChunks
-            )
-            interpThetas = as_backend_constant(
-                xp, self._interpolatedThetasTrack, ObsTrack
-            )
+        self._interpolatedThetasTrack = _span_grid(
+            self._deltaAngleTrack, self.nInterpolatedTrackChunks
+        )
+        # a traced fine grid is already on the backend and must stay traced;
+        # a concrete one is host bookkeeping, coerced on to evaluate
+        interpThetas = (
+            self._interpolatedThetasTrack
+            if is_backend_array(self._interpolatedThetasTrack)
+            else as_backend_constant(xp, self._interpolatedThetasTrack, ObsTrack)
+        )
         iX = self._interpTrackX(interpThetas)
         iY = self._interpTrackY(interpThetas)
         iZ = self._interpTrackZ(interpThetas)

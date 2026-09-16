@@ -2367,3 +2367,70 @@ def test_backend_streamdf_builds_its_angle_grids_on_the_backend():
         )
         < 1e-13
     ), "the backend angle grid must match the numpy one"
+
+
+def test_span_grid_and_ns_sqrt_concrete_are_plain_numpy():
+    # The concrete arms must stay numpy: these feed the numpy track path, and a
+    # backend array there dies in _determine_stream_track_single.
+    from galpy.df.streamdf import _ns_sqrt, _span_grid
+
+    g = _span_grid(2.7, 9)
+    assert isinstance(g, numpy.ndarray), "a concrete extent must give a numpy grid"
+    assert numpy.array_equal(g, numpy.linspace(0.0, 2.7, 9)), (
+        "the concrete grid must be byte-identical to the linspace it replaced"
+    )
+    r = _ns_sqrt(numpy.float64(4.0))
+    assert isinstance(r, numpy.floating) and float(r) == 2.0
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_span_grid_and_ns_sqrt_carry_a_traced_gradient():
+    # Under a trace both helpers must switch to the namespace form -- numpy.sqrt
+    # of a tracer raises, and linspace(0, traced) drops the endpoint gradient --
+    # while returning the same values.
+    from galpy.df.streamdf import _ns_sqrt, _span_grid
+
+    n = 9
+    traced = jax.jit(lambda e: _span_grid(e, n))(jnp.asarray(2.7))
+    assert (
+        numpy.max(numpy.abs(as_numpy(traced) - numpy.linspace(0.0, 2.7, n))) < 1e-15
+    ), "the traced grid must reproduce the concrete one"
+
+    def f(e):
+        return jnp.sum(_span_grid(e, n)) + _ns_sqrt(e)
+
+    ad = float(jax.grad(f)(2.7))
+    h = 1e-6
+    fd = (float(f(2.7 + h)) - float(f(2.7 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-8, (
+        f"d/d(extent) through the grid+sqrt is wrong (AD {ad}, FD {fd})"
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_nTrackIterations_refuses_to_be_chosen_under_a_trace():
+    # nTrackIterations is a structural integer read off the misalignment. Under a
+    # trace there is no concrete value to choose from, and silently picking one
+    # would make a traced construction differ from the eager one without saying
+    # so -- so it must ask to be passed explicitly instead.
+    from galpy.df.streamdf import streamdf as _streamdf
+
+    class _Mock:
+        def misalignment(self, quantity=False):
+            return self._mis
+
+    m = _Mock()
+    seen = {}
+
+    def probe(x):
+        m._mis = x
+        try:
+            _streamdf._determine_nTrackIterations(m, None)
+        except ValueError as e:
+            seen["msg"] = str(e)
+        return x * 1.0
+
+    jax.grad(probe)(0.5)
+    assert "nTrackIterations" in seen.get("msg", ""), (
+        "a traced misalignment must raise, not silently pick a value"
+    )

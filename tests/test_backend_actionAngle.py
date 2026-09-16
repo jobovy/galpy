@@ -2715,3 +2715,48 @@ def test_actionangle_c_jac_entries_are_thread_safe():
         "threads; the potentialArg copies are shared, not per-thread",
     )
     return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("firstFlip", [False])
+def test_isochroneapprox_parse_args_backend_assembly(backend, firstFlip):
+    # The Orbit-argument path: _parse_args assembles the forward/backward halves
+    # of an ALREADY-integrated orbit. A backend orbit cannot be item-assigned
+    # into a numpy buffer and torch has no negative-step slicing, so it defers to
+    # ONE concat per coordinate -- with a different piece ORDER for _firstFlip.
+    # Both orders, and the planar (4-column) shape that has to synthesise z/vz,
+    # must reproduce the numpy assembly. (Backend *coordinate* args take a
+    # different route entirely, so they cannot reach this.)
+    from galpy.orbit import Orbit
+
+    aAIA = _aAIA(0.8)
+    ic6 = [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]
+    ic4 = [1.0, 0.1, 1.1, 0.3]
+    for ic in (ic6, ic4):
+        ref = aAIA._parse_args(True, firstFlip, Orbit(numpy.array(ic)))
+        got = aAIA._parse_args(True, firstFlip, Orbit(_arr(backend, ic)))
+        assert len(got) == len(ref)
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g), (
+                "a backend orbit must not be demoted to numpy"
+            )
+            numpy.testing.assert_allclose(
+                as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_firstFlip_refuses_a_backend_orbit(backend):
+    # _firstFlip (a TRAILING stream) flips the STORED velocities in place, which
+    # a backend array cannot do, and the reversed-buffer order it then relies on
+    # has no verified backend counterpart. It has never worked -- it used to die
+    # with "JAX arrays are immutable" -- so it must refuse clearly rather than
+    # return a silently different orbit.
+    from galpy.orbit import Orbit
+
+    aAIA = _aAIA(0.8)
+    ic = [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]
+    with pytest.raises(NotImplementedError, match="_firstFlip"):
+        aAIA._parse_args(True, True, Orbit(_arr(backend, ic)))
+    # the leading order is unaffected
+    aAIA._parse_args(True, False, Orbit(_arr(backend, ic)))

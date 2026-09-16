@@ -823,6 +823,16 @@ class actionAngleIsochroneApprox(actionAngle):
                     for o in os
                 ]
                 if _firstFlip:
+                    if any(is_backend_array(o.getOrbit()) for o in os):
+                        raise NotImplementedError(
+                            "actionAngleIsochroneApprox does not support "
+                            "_firstFlip (a TRAILING stream) with a backend orbit: "
+                            "the numpy assembly flips the stored velocities in "
+                            "place, which a backend array cannot do, and the "
+                            "reversed-buffer order it then relies on has no "
+                            "verified backend counterpart. Use a numpy "
+                            "progenitor, or leading=True."
+                        )
                     for o in os:
                         o.vxvv[..., 1] = -o.vxvv[..., 1]
                         o.vxvv[..., 2] = -o.vxvv[..., 2]
@@ -977,18 +987,15 @@ class actionAngleIsochroneApprox(actionAngle):
                 bvz = _back("vz") if _sixd else _tiny + _xp.zeros_like(bR)
                 zf = z if _sixd else _tiny + _xp.zeros_like(R)
                 vzf = vz if _sixd else _tiny + _xp.zeros_like(R)
-                if _firstFlip:
-                    cat = lambda a, b: _xp.concat(  # noqa: E731
-                        [_xp.flip(a, axis=1), b], axis=1
-                    )
-                    oR, ovR, ovT = cat(R, bR), cat(vR, bvR), cat(vT, bvT)
-                    oz, ovz, ophi = cat(zf, bz), cat(vzf, bvz), cat(phi, bphi)
-                else:
-                    cat = lambda b, a: _xp.concat(  # noqa: E731
-                        [_xp.flip(b, axis=1), a], axis=1
-                    )
-                    oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
-                    oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
+                # _firstFlip is refused above for a backend orbit, so only the
+                # leading order is assembled here: backward REVERSED and
+                # sign-flipped in the head, forward in the tail (mirroring the
+                # numpy `o*[:, :nt-1] = ...[::-1]` / `o*[:, nt-1:] = ...` writes).
+                cat = lambda b, a: _xp.concat(  # noqa: E731
+                    [_xp.flip(b, axis=1), a], axis=1
+                )
+                oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
+                oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
                 return (oR, ovR, ovT, oz, ovz, ophi)
             if _firstFlip:
                 for ii in range(no):
