@@ -353,6 +353,29 @@ def _pot_has_traced_param(pot, _depth=0):
     return False
 
 
+def _flip_velocity_columns(a, phasedim):
+    """Negate the velocity columns of a phase-space block (vR, vT and vz).
+
+    numpy is flipped IN PLACE and returned, so the numpy path is byte-identical
+    to the item assignment this replaces. A backend array is immutable, so it is
+    rebuilt by multiplying with a sign vector -- which also keeps it connected to
+    a gradient, where an in-place write could not exist at all.
+    """
+    cols = [1]
+    if phasedim > 2:
+        cols.append(2)
+    if phasedim > 4:
+        cols.append(4)
+    if not is_backend_array(a):
+        for c in cols:
+            a[..., c] = -a[..., c]
+        return a
+    sgn = numpy.ones(a.shape[-1])
+    sgn[cols] = -1.0
+    xp = get_namespace(a)
+    return a * xp.asarray(sgn, dtype=a.dtype)
+
+
 def _backend_T(x):
     """Backend-safe ``x.T`` (reverse all axes). numpy/jax keep ``.T`` (numpy path
     byte-identical); a torch tensor of ndim != 2 emits a deprecation warning for
@@ -3324,17 +3347,15 @@ class Orbit:
 
         """
         if inplace:
-            self.vxvv[..., 1] = -self.vxvv[..., 1]
-            if self.phasedim() > 2:
-                self.vxvv[..., 2] = -self.vxvv[..., 2]
-            if self.phasedim() > 4:
-                self.vxvv[..., 4] = -self.vxvv[..., 4]
+            _pd = self.phasedim()
+            self.vxvv = _flip_velocity_columns(self.vxvv, _pd)
+            # vxvv is only phasedim bookkeeping for a backend Orbit -- the IC the
+            # integrator actually uses is _ic_backend, so flipping vxvv alone
+            # leaves the orbit integrating UNFLIPPED (silently, with no error).
+            if getattr(self, "_ic_backend", None) is not None:
+                self._ic_backend = _flip_velocity_columns(self._ic_backend, _pd)
             if hasattr(self, "orbit"):
-                self.orbit[..., 1] = -self.orbit[..., 1]
-                if self.phasedim() > 2:
-                    self.orbit[..., 2] = -self.orbit[..., 2]
-                if self.phasedim() > 4:
-                    self.orbit[..., 4] = -self.orbit[..., 4]
+                self.orbit = _flip_velocity_columns(self.orbit, _pd)
                 if hasattr(self, "_orbInterp"):
                     delattr(self, "_orbInterp")
             return None
@@ -3344,6 +3365,18 @@ class Orbit:
             "zo": self._zo,
             "solarmotion": self._solarmotion,
         }
+        if getattr(self, "_ic_backend", None) is not None:
+            # build from the BACKEND IC: going through self.vxvv would rebuild
+            # from the numpy bookkeeping and silently drop both the backend
+            # values and the gradient attached to them
+            out = Orbit(
+                _flip_velocity_columns(self._ic_backend, self.phasedim()),
+                **orbSetupKwargs,
+            )
+            out._roSet = self._roSet
+            out._voSet = self._voSet
+            out.reshape(self.shape)
+            return out
         if self.phasedim() == 2:
             orbSetupKwargs.pop("zo", None)
             orbSetupKwargs.pop("solarmotion", None)
