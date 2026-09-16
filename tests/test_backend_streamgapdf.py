@@ -526,3 +526,39 @@ def test_gapdf_kick_spline_order_1(_gapdf_kick, backend):
         assert numpy.isfinite(float(as_numpy(sdf._density_par(0.1))))
     finally:
         _reset_kick_numpy(sdf, deltav_np)
+
+
+def test_replace_at_matches_the_concat_it_replaces():
+    # The numpy body writes Oparb[lowbindx+1] in place. The backend rebuilds it
+    # functionally: a CONCRETE index can concat around the slot, but a TRACED one
+    # cannot size a slice (arr[:idx] has a data-dependent length), so it masks
+    # instead. Both must give the same array.
+    import array_api_compat.numpy as xnp
+
+    from galpy.df.streamgapdf import _replace_at
+
+    a = numpy.arange(7.0)
+    for idx in (0, 3, 6):
+        ref = numpy.concatenate([a[:idx], numpy.array([99.0]), a[idx + 1 :]])
+        got = _replace_at(xnp, a, idx, numpy.float64(99.0))
+        numpy.testing.assert_array_equal(got, ref)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_replace_at_traced_index_matches_concrete():
+    from galpy.df.streamgapdf import _replace_at
+
+    a = jnp.arange(7.0)
+    for idx in (0, 3, 6):
+        ref = as_numpy(_replace_at(jnp, a, idx, jnp.asarray(99.0)))
+        got = as_numpy(
+            jax.jit(lambda i: _replace_at(jnp, a, i, jnp.asarray(99.0)))(
+                jnp.asarray(idx)
+            )
+        )
+        numpy.testing.assert_array_equal(got, ref)
+    # and it stays differentiable in the VALUE through the masked branch
+    g = jax.grad(lambda v: jnp.sum(_replace_at(jnp, a, jnp.asarray(3), v) ** 2))(
+        jnp.asarray(99.0)
+    )
+    assert abs(float(g) - 2.0 * 99.0) < 1e-9, "d/d(value) must be 2*value"
