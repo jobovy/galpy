@@ -3,8 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace, ns_mul
-from ..backend._namespaces import differentiating
+from ..backend import coerce_coords, is_backend_array, resolve_namespace
 from ..backend.interpolate import interp_linear
 from ..util import conversion
 from .Force import Force
@@ -72,17 +71,21 @@ class KingPotential(interpSphericalPotential):
             # one -- with rt concrete (the common d/dM case) r/radius_scale is
             # plain numpy and this stays byte-identical.
             q = r / radius_scale
-            if not differentiating(q):
+            if not is_backend_array(q):
                 return numpy.interp(q, sfkdf._r, sfkdf._dWdr)
-            xp = get_namespace(q)
+            xp = resolve_namespace(q)
             return interp_linear(
                 xp, sfkdf._r, sfkdf._dWdr, coerce_coords(xp, q)[0], extrapolate="clip"
             )
 
+        # coerce onto one namespace first: a grad-tracking tensor times an
+        # ndarray raises in BOTH operand orders
+        _xp = resolve_namespace(sfkdf._r, radius_scale)
+        _rg, _rs = coerce_coords(_xp, sfkdf._r, radius_scale)
         interpSphericalPotential.__init__(
             self,
             rforce=lambda r: mass_scale / radius_scale**2.0 * _dWdr(r),
-            rgrid=ns_mul(sfkdf._r, radius_scale),
+            rgrid=_rg * _rs,
             Phi0=-W0 * mass_scale / radius_scale - M / rt,
             ro=ro,
             vo=vo,

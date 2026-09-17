@@ -1703,3 +1703,37 @@ def test_ppoly_derivative_past_the_degree_is_zero(backend_name):
     numpy.testing.assert_allclose(
         as_numpy(eval_ppoly(xp, _PP_X, d, cast(_PP_Q))), 0.0, atol=0.0
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline1d_antiderivative(backend_name):
+    # mode 1 (numpy y): numpy queries are scipy's own antiderivative, byte for
+    # byte; a backend query evaluates the same polynomial.
+    ref = si.InterpolatedUnivariateSpline(_PP_X, _PP_Y, k=3, ext=0).antiderivative()
+    s1 = Spline1D(_PP_X, _PP_Y, k=3, ext=0).antiderivative()
+    assert s1(_PP_Q).tobytes() == ref(_PP_Q).tobytes()
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    numpy.testing.assert_allclose(as_numpy(s1(cast(_PP_Q))), ref(_PP_Q), rtol=1e-12)
+    # mode 2 (backend y): built in-backend, so it is differentiable in y; the
+    # additive constant is scipy's, so both sides are pinned at x[0].
+    s2 = Spline1D(_PP_X, cast(_PP_Y), k=3, ext=0, bc="not-a-knot").antiderivative()
+    got = as_numpy(s2(cast(_PP_Q))) - float(as_numpy(s2(cast(_PP_X[:1])))[0])
+    numpy.testing.assert_allclose(got, ref(_PP_Q) - ref(_PP_X[0]), rtol=1e-12)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_spline1d_antiderivative_differentiable_in_y():
+    q = jnp.asarray(numpy.array([0.05, 0.9, 7.0]))
+
+    def f(scale):
+        sp = Spline1D(
+            _PP_X, scale * jnp.asarray(_PP_Y), k=3, ext=0, bc="not-a-knot"
+        ).antiderivative()
+        return jnp.sum(sp(q))
+
+    # linear in y, so d/d(scale) is the value itself
+    numpy.testing.assert_allclose(float(jax.grad(f)(1.0)), float(f(1.0)), rtol=1e-12)

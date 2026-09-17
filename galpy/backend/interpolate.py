@@ -41,7 +41,6 @@ from ..util import galpyWarning
 from ._namespaces import (
     asarray_on_device,
     device_of,
-    differentiating,
     is_backend_array,
     name_of_namespace,
     prefer_backend_namespace,
@@ -301,8 +300,8 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
-    if differentiating(x):
-        # A depends on the DIFFERENTIATED knots, so it is no longer a constant and
+    if is_backend_array(x):
+        # A depends on the BACKEND knots, so it is no longer a constant and
         # cannot be assembled by numpy item assignment: build each row as a
         # combination of one-hot rows. Interior row i carries h[i-1],
         # 2(h[i-1]+h[i]), h[i] at columns i-1, i, i+1.
@@ -1134,10 +1133,10 @@ class Spline1D:
 
             self._xp = array_api_compat.array_namespace(y)
             self._y = y
-            # DIFFERENTIATED knots (streamdf's angle grid depends on theta) stay on the
+            # BACKEND knots (streamdf's angle grid depends on theta) stay on the
             # backend so the gradient flows through the knot positions too;
             # concrete knots keep the numpy geometry path.
-            self._x = x if differentiating(x) else numpy.asarray(x, dtype=float)
+            self._x = x if is_backend_array(x) else numpy.asarray(x, dtype=float)
             if self._k == 3:
                 self._coeffs = cubic_spline_coeffs(self._xp, self._x, y, bc=bc)
             elif self._k == 1:
@@ -1268,6 +1267,55 @@ class Spline1D:
         state = self.__dict__.copy()
         state.pop("_ppoly_dev_cache", None)
         return state
+
+    def _like(self, **over):
+        """A sibling :class:`Spline1D` sharing this one's evaluation settings."""
+        out = Spline1D.__new__(Spline1D)
+        out._ext = self._ext
+        out._extrapolate = self._extrapolate
+        out._bc = self._bc
+        out._spl = None
+        out._y = None
+        for k, v in over.items():
+            setattr(out, k, v)
+        return out
+
+    def antiderivative(self, n=1):
+        """Return the ``n``-th antiderivative as another :class:`Spline1D`.
+
+        Mirrors ``InterpolatedUnivariateSpline.antiderivative()``, but the result
+        is a Spline1D rather than a scipy spline, so it evaluates on a backend
+        array too. On the numpy (mode-1) path it wraps scipy's own antiderivative
+        and numpy queries go straight to it (BYTE-IDENTICAL); on a mode-2
+        in-backend spline the coefficients are integrated in-namespace, so the
+        antiderivative stays differentiable in the ``y`` values -- the capability
+        a frozen scipy PPoly cannot provide, and what lets an interpolated
+        potential get Phi(r) from a differentiated force grid.
+
+        The additive constant follows scipy's convention (zero at ``x[0]``);
+        callers that need a particular zero point pin it themselves.
+        """
+        if self._spl is not None:
+            anti = self._spl.antiderivative(n)
+            if hasattr(anti, "c") and hasattr(anti, "x"):
+                px = numpy.asarray(anti.x, dtype=float)
+                pc = numpy.asarray(anti.c, dtype=float)
+            else:
+                px, pc = spline_to_ppoly(anti)
+            return self._like(
+                _k=self._k + n,
+                _mode2=False,
+                _x=self._x,
+                _spl=anti,
+                _ppoly_x=px,
+                _ppoly_c=pc,
+            )
+        c = self._coeffs
+        for _ in range(int(n)):
+            c = ppoly_antiderivative(self._xp, self._x, c)
+        return self._like(
+            _k=self._k + n, _mode2=True, _xp=self._xp, _x=self._x, _coeffs=c
+        )
 
     def derivative(self, n=1):
         """Return a callable for the ``n``-th derivative.

@@ -365,7 +365,8 @@ def test_king_numpy_construction_keeps_scipy_splines():
     # build still fits the scipy splines (byte-identical) and sets no backend
     # coefficient tables.
     pot = KingPotential(M=1.3, rt=1.4, **_KING_FIXED)
-    assert not pot._traced
-    assert pot._force_spline is not None and pot._pot_spline is not None
+    # mode 1: the scipy spline is fitted and numpy queries go straight to it
+    assert pot._force_spline._spl is not None
+    assert pot._pot_spline._spl is not None
     assert isinstance(pot._rforce_grid, numpy.ndarray)
     assert isinstance(pot._Phi0, (float, numpy.floating, numpy.ndarray))

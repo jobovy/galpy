@@ -286,10 +286,13 @@ def test_kingdf_velocity_scale_gradient_is_analytic(backend):
 
 
 def test_kingdf_numpy_construction_keeps_scipy_icmf_spline():
-    # the traced branch must not leak into the numpy path
+    # the backend branch must not leak into the numpy path: the scipy icmf
+    # spline is fitted, and the potential's force spline is a mode-1 Spline1D
+    # (scipy-backed) rather than an in-backend fit
     df = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)
     assert df._icmf_spline is not None
-    assert not df._pot._traced
+    assert df._pot._force_spline._spl is not None
+    assert not df._pot._force_spline._mode2
 
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
