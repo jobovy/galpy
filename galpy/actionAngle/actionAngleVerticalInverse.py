@@ -233,6 +233,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Store mean(ja), this is only a better approx. of j w/ no PT!
         self._js_orig = copy.copy(self._js)
         self._js = numpy.nanmean(self._ja, axis=1)
+        # With a polynomial point transformation the mean auxiliary action is
+        # NOT the torus's action: the transformation is only approximately
+        # canonical in the sheared gauge, and the mean is off by O(residual)
+        # (4e-4 at degree 7, growing with energy).  The Fourier structure
+        # below is built on that mean, so each torus keeps it as its INTERNAL
+        # action, while selecting a torus by action, J(E), and the J <-> E
+        # interpolants go through the torus's actual action, so that a
+        # requested action returns the torus that has it (previously the
+        # torus returned was off by the residual, and the top torus's actual
+        # action lay outside the stored range altogether).  Without a point
+        # transformation, and with the exact one, the two agree to ~1e-11 and
+        # the mean is the more accurate, so nothing changes there.
+        self._pt_poly = bool(use_pointtransform) and not self._pt_exact
+        self._js_label = self._js_orig if self._pt_poly else self._js
         # Store better approximation to Omega
         self._Omegas_orig = copy.copy(self._Omegas)
         self._Omegas /= numpy.nanmean(self._djadj, axis=1)
@@ -988,7 +1002,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 raise ValueError(
                     "Given energy not found; please specify an energy used in the initialization of the instance"
                 )
-            tJ = self._js[indx]
+            tJ = self._js_label[indx]
         else:
             tJ = self.J(E)
         x, v = self(tJ, ta)
@@ -1031,8 +1045,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSnNormalize = numpy.ones(self._nnSn)
         self._nSnFiltered = ndimage.spline_filter(self._nSn, order=3)
         self._dSndJFiltered = ndimage.spline_filter(self._dSndJ, order=3)
-        self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
-        self.E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js_label, k=3)
+        self.E = interpolate.InterpolatedUnivariateSpline(self._js_label, self._Es, k=3)
+        self._Jint = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
         self.OmegaHO = interpolate.InterpolatedUnivariateSpline(
             self._Es, self._OmegaHO, k=3
         )
@@ -1230,7 +1245,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Check energy along the torus
         pyplot.subplot(2, 3, 3)
         ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
-        x, v = truthaAV(truthaAV._js, ta)
+        # J(E) is the torus's label, which the public evaluator looks up
+        # (with a polynomial point transformation the internal action _js
+        # differs from it)
+        x, v = truthaAV(truthaAV.J(E), ta)
         Edirect = v**2.0 / 2.0 + evaluatelinearPotentials(
             self._pot, x, use_physical=False
         )
@@ -1289,7 +1307,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             raise ValueError(
                 "Given energy not found; please specify an energy used in the initialization of the instance"
             )
-        return self._js[indx]
+        return self._js_label[indx]
 
     def _evaluate(self, j, angle, **kwargs):
         """
@@ -1335,11 +1353,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js))
-            if numpy.fabs(j - self._js[indx]) > 1e-10:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js_label))
+            if numpy.fabs(j - self._js_label[indx]) > 1e-10:
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )
+            if self._pt_poly:
+                # the torus's internal action, the base of its Fourier structure
+                j = self._js[indx]
             tnSn = self._nSn[indx]
             tdSndJ = self._dSndJ[indx]
             tOmegaHO = self._OmegaHO[indx]
@@ -1350,6 +1371,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
         else:
             tE = self.E(j)
+            if self._pt_poly:
+                # the internal action at this energy, the base of the
+                # interpolated Fourier structure
+                j = float(self._Jint(tE))
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
             tOmegaHO = self.OmegaHO(tE)
@@ -1524,8 +1549,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js))
-            if numpy.fabs(j - self._js[indx]) > 1e-10:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js_label))
+            if numpy.fabs(j - self._js_label[indx]) > 1e-10:
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )

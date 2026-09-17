@@ -1,6 +1,18 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``actionAngleVerticalInverse`` with a polynomial point transformation
+  (``use_pointtransform=True``) now selects tori by their actual action. Each
+  torus's stored action was the mean auxiliary action in the sheared gauge,
+  which differs from the actual action by the residual of the polynomial
+  transformation (4e-4 at the default degree 7, growing with energy), so
+  requesting a torus's actual action returned a neighboring torus and the top
+  torus's actual action fell outside the stored range and crashed the
+  interpolated lookup. The mean stays the internal base of each torus's
+  Fourier structure; ``J(E)`` and the action-to-energy lookups use the actual
+  action. Nothing changes without a point transformation or with the exact
+  one, where the two agree to ~1e-11.
+
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration
   order was raised. Such an orbit's inner turning point sits near u = 0, where the

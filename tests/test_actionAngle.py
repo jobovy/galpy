@@ -8089,6 +8089,23 @@ def test_actionAngleVerticalInverse_interpolation_plotting(
     pyplot.close()
     aAVI.plot_interp(3.706)
     pyplot.close()
+    # and with a polynomial point transformation, whose internal action
+    # differs from the label the public evaluator looks up: plot_interp's
+    # single-torus truth instance used to hand the internal one to it
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    aAVIpt = actionAngleVerticalInverse(
+        pot=IsothermalDiskPotential(amp=1.0, sigma=0.5),
+        Es=numpy.linspace(0.0, 2.0, 9),
+        nta=128,
+        use_pointtransform=True,
+        setup_interp=True,
+    )
+    aAVIpt.plot_orbit(1.0)
+    pyplot.close()
+    aAVIpt.plot_interp(1.0)
+    pyplot.close()
     return None
 
 
@@ -8768,4 +8785,59 @@ def test_actionAngleStaeckel_nearaxis_c_python_parity():
     assert numpy.fabs(j0 - j1) < 1e-6, (
         "C actionAngleStaeckel jr is discontinuous at Lz = 0"
     )
+    return None
+
+
+def test_actionAngleVerticalInverse_polynomial_pt_true_action():
+    # With a polynomial point transformation, each torus's stored action used
+    # to be the mean auxiliary action in the sheared gauge, which is off from
+    # the torus's actual action by O(residual) (4e-4 at degree 7, growing
+    # with energy): asking for a torus's actual action returned a neighbor,
+    # and the top torus's actual action lay outside the stored range and
+    # crashed the interpolated lookup. Tori are now selected by their actual
+    # action while the Fourier structure keeps the mean as its internal base.
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    angles = numpy.linspace(0.05, 6.2, 41)
+    for setup_interp in (False, True):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot, Es=Es, nta=128, use_pointtransform=True, setup_interp=setup_interp
+        )
+        # the label is the actual action, the internal one is not
+        assert (
+            numpy.amax(numpy.fabs(aAVI._js_label - aAVI._js) / aAVI._js_label[1:].min())
+            > 1e-5
+        ), (
+            "The polynomial point transformation's internal action is not distinct from the label"
+        )
+        for ii in range(1, len(Es)):  # including the top torus
+            jtrue = float(
+                numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0]
+            )
+            assert numpy.fabs(aAVI.J(Es[ii]) / jtrue - 1.0) < 1e-8, (
+                "J(E) does not return the torus's actual action"
+            )
+            x, v = aAVI(jtrue, angles)
+            assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
+                "Requesting the actual action of a torus fails (setup_interp=%s)"
+                % setup_interp
+            )
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - jtrue)) / jtrue < 1e-7, (
+                "Requesting the actual action of a torus returns a different torus "
+                "(setup_interp=%s)" % setup_interp
+            )
+            assert numpy.isfinite(float(aAVI.Freqs(jtrue))), (
+                "Freqs fails at the actual action"
+            )
+    # without a point transformation, and with the exact one, nothing changes:
+    # the mean auxiliary action IS the torus's action and remains the label
+    for kwargs in (dict(), dict(use_pointtransform="exact")):
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
+        assert aAVI._js_label is aAVI._js, (
+            "The action label changed for a non-polynomial mode"
+        )
     return None
