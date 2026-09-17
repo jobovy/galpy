@@ -10,7 +10,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 
 pytestmark = pytest.mark.backend_managed
 
@@ -836,3 +836,46 @@ def test_pvr_backend_warns_on_negative_df(backend):
         with pytest.warns(galpyWarning, match="negative regions"):
             ip = df._make_pvr_interpolator(r_a_end=1)
     assert ip is not None
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_rphi_rootfind_reproduces_the_spline():
+    # r(Phi) is normally a 10001-knot spline over a numpy grid. That cannot be
+    # built for a TRACED potential: the r=0 test branches on a traced value, the
+    # monotonicity cleanup DELETES entries (a data-dependent array size), and the
+    # knots would be the traced potential values -- a dense (n, n) solve at that
+    # size. The traced path inverts by root-find instead, which must agree.
+    from galpy.df.sphericaldf import _RphiRootFind
+
+    df0 = isotropicHernquistdf(pot=_HP)
+    spl = df0._setup_rphi_interpolator()
+    rf = _RphiRootFind(_HP, df0._scale, 1e-6 * df0._scale, 1e6 * df0._scale)
+    Es = numpy.array([0.3, 0.5, 0.7]) * (-abs(_HP(0.0, 0.0)))
+    ref = numpy.asarray(spl(Es), dtype=float)
+    with use("jax", force=True):
+        got = as_numpy(rf(jnp.asarray(Es)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-8)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize(
+    "dfcls",
+    ["isotropicHernquistdf", "constantbetaHernquistdf", "osipkovmerrittHernquistdf"],
+)
+def test_spherical_df_dMdE_differentiates_in_the_potential(dfcls):
+    # the fit parameter enters the CONSTRUCTOR, so dM/dE has to be
+    # differentiable through it, not just evaluable
+    import galpy.df as _df
+
+    cls = getattr(_df, dfcls)
+    E0 = float(-0.5 * abs(_HP(0.0, 0.0)))
+
+    def f(a):
+        pot = HernquistPotential(amp=2.3, a=a)
+        return jnp.sum(jnp.asarray(cls(pot=pot).dMdE(jnp.asarray([E0]))))
+
+    with use("jax", force=True):
+        ad = float(jax.grad(f)(1.3))
+        h = 1e-6
+        fd = (float(f(1.3 + h)) - float(f(1.3 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-6, f"{dfcls} d/d(a) wrong (AD {ad}, FD {fd})"
