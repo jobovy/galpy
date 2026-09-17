@@ -120,7 +120,19 @@ def psd_project(a):
     # diag(V^T a V): differentiable in a, no eigh JVP
     evals_live = xp.sum(evecsT * xp.swapaxes(a @ evecs, -1, -2), axis=-1)
     evals = xp.clip(evals_live, 0.0, None)
-    return (evecs * evals[..., None, :]) @ evecsT
+    projected = (evecs * evals[..., None, :]) @ evecsT
+    # Where NOTHING is clipped the projection IS the identity, so return `a`
+    # itself and the gradient is exact. That matters: with the eigenvectors
+    # frozen, d(projected)/da keeps only the DIAGONAL of da in the (frozen)
+    # eigenbasis and drops the off-diagonal part entirely -- measured 100% wrong
+    # for a purely off-diagonal perturbation and 50.6% for a generic one, against
+    # a finite difference. Unfreezing instead is not an option here: this is
+    # applied to a smoothed covariance whose small noise eigenvalues can be
+    # near-degenerate, which is exactly where the eigenvector derivative blows up
+    # like 1/gap. Clipping is the rare case, and there the frozen rotation is the
+    # deliberate approximation it always was.
+    anyneg = xp.any(evals_live < 0.0, axis=-1)
+    return xp.where(anyneg[..., None, None], projected, a)
 
 
 def _stop_gradient(a, name):
