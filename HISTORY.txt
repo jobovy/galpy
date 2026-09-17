@@ -36,7 +36,13 @@ v1.12.1 (expected around 2026-11-01)
   fewer than four energies or when ``use_pointtransform`` is set. Also fixes
   the zero-energy grid torus, whose frequency was a placeholder copied from
   the first torus (off by O(J_1)); it is now the midplane's harmonic
-  frequency sqrt(Phi''(0)).
+  frequency sqrt(Phi''(0)). The evaluation inverts the angle relation by
+  safeguarded Newton steps on its closed-form derivative, started from the
+  requested angle (three to four evaluations of a one-pass kernel per call,
+  ~20x faster than the bisection it replaces and faster than the older
+  evaluations), and the per-torus fit of the anomaly map uses an analytic
+  Jacobian with a warm start from the neighboring torus (~2x faster
+  construction).
 
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration
