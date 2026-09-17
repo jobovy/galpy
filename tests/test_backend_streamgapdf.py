@@ -631,7 +631,16 @@ def test_impact_coordtransform_backend_matches_numpy():
         prog = Orbit(jnp.asarray(ic))
         prog.turn_physical_off()
         sdf._progenitor = prog
-        sdf._determine_impact_coordtransform_backend()
+        # through the DISPATCH, not the private method: that also re-runs
+        # _gap_progenitor_setup, which has to pick the backend integrator
+        # NB the SIGNED impact angle: the object stores numpy.fabs(...), and
+        # feeding that back flips the arm and trips the leading/trailing check
+        sdf._determine_impact_coordtransform(
+            sdf._deltaAngleTrackImpact,
+            sdf._nTrackChunksImpact,
+            sdf._timpact,
+            -2.34,
+        )
     # the Jacobian determinant and its inverse amplify, as in the streamdf track
     tols = {"_gap_detdOdJps": 1e-3, "_gap_allinvjacsTrack": 1e-3}
     for k, r in ref.items():
