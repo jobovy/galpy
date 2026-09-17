@@ -198,3 +198,95 @@ def test_param_grad_under_jit_and_vmap():
         ]
     )
     numpy.testing.assert_allclose(grads, fd, rtol=1e-5, atol=1e-8)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("method", ["zforce", "dens", "z2deriv", "Rzderiv"])
+def test_miyamotonagai_differentiates_in_a_under_grad_and_jit(method):
+    # These four branch on `if self._a == 0.0`, which has no concrete value when
+    # `a` is the parameter being fitted. Under plain grad that used to work by
+    # accident (grad linearizes with concrete primals); inside a compiled region
+    # -- an ODE solve -- it raised TracerBoolConversionError, so a differentiable
+    # orbit fit in MiyamotoNagai w.r.t. `a` was impossible. MWPotential2014 uses
+    # this potential, so that is the common case.
+    from galpy.potential import MiyamotoNagaiPotential
+
+    R, Z = jnp.asarray(1.1), jnp.asarray(0.2)
+
+    def f(a):
+        p = MiyamotoNagaiPotential(amp=1.0, a=a, b=0.1)
+        return jnp.asarray(getattr(p, method)(R, Z))[()]
+
+    ad = float(jax.grad(f)(0.5))
+    h = 1e-6
+    fd = (float(f(0.5 + h)) - float(f(0.5 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-6, f"d/d(a) {method} wrong (AD {ad}, FD {fd})"
+    # and the compiled path must agree with the eager one, not just run
+    assert abs(float(jax.jit(jax.grad(f))(0.5)) - ad) < 1e-12, (
+        f"jit(grad) must match grad for {method}"
+    )
+    # the a==0 SPECIAL case is still taken when a is concrete
+    p0 = MiyamotoNagaiPotential(amp=1.0, a=0.0, b=0.1)
+    assert numpy.isfinite(float(numpy.asarray(getattr(p0, method)(1.1, 0.2))))
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_miyamotonagai_orbit_integration_differentiates_in_a():
+    # the point of the above: an ODE solve in MiyamotoNagai, differentiated
+    # w.r.t. the scale length
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    ts = jnp.asarray(numpy.linspace(0.0, 1.0, 21))
+
+    def f(a):
+        o = Orbit(jnp.asarray([1.0, 0.1, 1.1, 0.05, -0.02, 0.3]))
+        o.integrate(ts, MiyamotoNagaiPotential(amp=1.0, a=a, b=0.1), method="diffrax")
+        return jnp.sum(o.R(ts) ** 2)
+
+    ad = float(jax.grad(f)(0.5))
+    h = 1e-5
+    fd = (float(f(0.5 + h)) - float(f(0.5 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-5, f"d/d(a) of the orbit wrong ({ad} vs {fd})"
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_mn3_exponentialdisk_differentiates_in_hz():
+    # _brd is derived from hz/hr and was range-CHECKED with Python comparisons
+    # (a raise and a warning). Those are validity checks, not model branches, so
+    # they are skipped for a traced parameter rather than made traceable.
+    from galpy.potential import MN3ExponentialDiskPotential
+
+    R, Z = jnp.asarray(1.1), jnp.asarray(0.2)
+
+    def f(hz):
+        return jnp.asarray(
+            MN3ExponentialDiskPotential(amp=1.0, hr=1.0, hz=hz).Rforce(R, Z)
+        )[()]
+
+    ad = float(jax.grad(f)(0.1))
+    h = 1e-7
+    fd = (float(f(0.1 + h)) - float(f(0.1 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-6
+    assert abs(float(jax.jit(jax.grad(f))(0.1)) - ad) < 1e-12
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_chandrasekhar_differentiates_in_rhm():
+    # the rhm==0 arm is the GMvs>=rhm branch of the where with the 1/rhm removed
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        HernquistPotential,
+    )
+
+    hp = HernquistPotential(amp=1.0, a=2.0)
+    v = jnp.asarray([0.1, 1.0, 0.05])
+
+    def f(rhm):
+        cdf = ChandrasekharDynamicalFrictionForce(amp=1.0, GMs=0.01, rhm=rhm, dens=hp)
+        return jnp.asarray(cdf.Rforce(jnp.asarray(1.1), jnp.asarray(0.2), v=v))[()]
+
+    ad = float(jax.grad(f)(0.05))
+    h = 1e-8
+    fd = (float(f(0.05 + h)) - float(f(0.05 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-6, f"d/d(rhm) wrong (AD {ad}, FD {fd})"
