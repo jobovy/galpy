@@ -191,3 +191,11 @@ def test_ns_unary_torch_eager_grad():
     t = torch.tensor(4.0, dtype=torch.float64, requires_grad=True)
     ns_unary("log", t).backward()
     numpy.testing.assert_allclose(float(t.grad), 0.25, rtol=1e-14)
+
+
+def test_grad_namespace_falls_back_to_ambient_for_plain_values():
+    # Nothing differentiated and nothing on a backend: grad_namespace has no
+    # preferred operand and defers to the ordinary ambient resolution.
+    from galpy.backend import grad_namespace
+
+    assert grad_namespace(1.0, numpy.arange(3.0)) is numpy

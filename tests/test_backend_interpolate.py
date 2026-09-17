@@ -1683,3 +1683,23 @@ def test_ppoly_calculus_differentiable_in_y():
 
     # the construction is linear in y, so d/dscale at any point is f(1.0) itself
     numpy.testing.assert_allclose(float(jax.grad(f)(1.0)), float(f(1.0)), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ppoly_derivative_past_the_degree_is_zero(backend_name):
+    # Differentiating a cubic four times exhausts the degree: the fourth pass
+    # sees k == 0 and returns zeros rather than an empty coefficient array.
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    c = cubic_spline_coeffs(xp, _PP_X, cast(_PP_Y), bc="not-a-knot")
+    d = ppoly_derivative(xp, c, nu=4)
+    got = as_numpy(d)
+    assert got.shape[0] == 1
+    numpy.testing.assert_allclose(got, numpy.zeros_like(got), atol=0.0)
+    # and it evaluates to zero everywhere
+    numpy.testing.assert_allclose(
+        as_numpy(eval_ppoly(xp, _PP_X, d, cast(_PP_Q))), 0.0, atol=0.0
+    )
