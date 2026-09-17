@@ -12,6 +12,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    ns_unary,
     promote_scalars,
 )
 from ..backend import random as grandom
@@ -121,8 +122,8 @@ class quasiisothermaldf(df):
         self._hsz = parse_length(hsz, ro=self._ro)
         self._refr = parse_length(refr, ro=self._ro)
         self._lo = parse_angmom(lo, ro=self._ro, vo=self._vo)
-        self._lnsr = numpy.log(self._sr)
-        self._lnsz = numpy.log(self._sz)
+        self._lnsr = ns_unary("log", self._sr)
+        self._lnsz = ns_unary("log", self._sz)
         self._maxVT_hash = None
         self._maxVT_ip = None
         if pot is None:

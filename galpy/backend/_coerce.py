@@ -62,9 +62,12 @@ from ._namespaces import (
     _is_floating_dtype,
     asarray_on_device,
     device_of,
+    differentiating,
     effective_device,
     is_backend_array,
+    under_trace,
 )
+from ._resolver import get_namespace
 
 
 def coerce_coords(xp, *coords, device=None):
@@ -169,3 +172,64 @@ def zeros_like_backend(xp, R):
     backend array (torch functions require Tensors) on the right
     device/dtype."""
     return 0.0 if xp is numpy else xp.zeros_like(R)
+
+
+def ns_unary(name, x):
+    """``numpy.<name>(x)``, but on ``x``'s own namespace when it is TRACED.
+
+    ``numpy.sqrt``/``numpy.log``/... of a tracer raises. They work EAGERLY on a
+    concrete backend array (via ``__array__``), which is why this only bites
+    once a stored parameter is being differentiated -- typically in a DF or
+    potential constructor, where a scale factor is derived from a fit parameter.
+
+    numpy/python input keeps the numpy call, so those paths stay byte-identical.
+    A backend array takes the namespace route whether or not it is being
+    differentiated: ``numpy.sqrt`` of a plain tensor does return the right value,
+    but it converts out of the backend on the way and emits a numpy-2
+    DeprecationWarning that CI escalates to an error.
+    """
+    if not (is_backend_array(x) or differentiating(x)):
+        return getattr(numpy, name)(x)
+    xp = get_namespace(x)
+    (xv,) = coerce_coords(xp, x)
+    return getattr(xp, name)(xv)
+
+
+def ns_mul(a, b):
+    """``a * b`` where either side may be a grad-carrying backend array.
+
+    A grad-tracking torch tensor multiplied by a numpy array raises in BOTH
+    operand orders -- each side tries to convert the other, and the conversion
+    is what fails -- so the operands are brought onto a common namespace first.
+    Concrete operands keep the plain product, so numpy stays byte-identical.
+
+    This is the shape almost every "scale factor x tabulated grid" line in a DF
+    or potential constructor takes once the scale factor becomes a fit
+    parameter.
+    """
+    if not (is_backend_array(a) or is_backend_array(b) or differentiating(a, b)):
+        return a * b
+    av, bv = coerce_coords(grad_namespace(a, b), a, b)
+    return av * bv
+
+
+def grad_namespace(*xs):
+    """The namespace of whichever of ``xs`` carries the gradient.
+
+    ``get_namespace(numpy_array, tracer)`` RAISES ("Multiple namespaces for array
+    inputs") -- and mixing the two is exactly the situation a gradient creates,
+    where one operand is a differentiated parameter and the other a plain
+    tabulated grid. Resolving from the differentiated operand alone gives the
+    namespace the result has to live in; the concrete operands are then coerced
+    onto it.
+
+    Falls back to the ordinary ambient resolution when nothing is being
+    differentiated.
+    """
+    for x in xs:
+        if differentiating(x):
+            return get_namespace(x)
+    for x in xs:
+        if is_backend_array(x):
+            return get_namespace(x)
+    return get_namespace(*xs)

@@ -4,11 +4,16 @@ from scipy import integrate, interpolate, special
 
 from ..backend import (
     as_backend_constant,
+    coerce_coords,
     get_namespace,
+    grad_namespace,
     is_backend_array,
+    ns_mul,
+    ns_unary,
     resolve_namespace,
 )
 from ..backend import special as _bspecial
+from ..backend._namespaces import differentiating
 from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
 from .df import df
@@ -64,7 +69,7 @@ class kingdf(isotropicsphericaldf):
         # Set up scaling factors
         self._radius_scale = self.rt / self._scalefree_kdf.rt
         self._mass_scale = self.M / self._scalefree_kdf.mass
-        self._velocity_scale = numpy.sqrt(self._mass_scale / self._radius_scale)
+        self._velocity_scale = ns_unary("sqrt", self._mass_scale / self._radius_scale)
         self._density_scale = self._mass_scale / self._radius_scale**3.0
         # Store central density, r0...
         self.rho0 = self._scalefree_kdf.rho0 * self._density_scale
@@ -90,16 +95,23 @@ class kingdf(isotropicsphericaldf):
         # r via a differentiable interp_linear, plus the scipy k=1 spline for the
         # byte-identical numpy path (see _icmf below).
         self._icmf_cmf_grid = (
-            self._mass_scale * self._scalefree_kdf._cumul_mass / self.M
+            ns_mul(self._scalefree_kdf._cumul_mass, self._mass_scale) / self.M
         )
-        self._icmf_r_grid = self._radius_scale * self._scalefree_kdf._r
-        self._icmf_spline = interpolate.InterpolatedUnivariateSpline(
-            self._icmf_cmf_grid, self._icmf_r_grid, k=1
+        self._icmf_r_grid = ns_mul(self._scalefree_kdf._r, self._radius_scale)
+        # A TRACED grid (M/rt being differentiated) has no scipy spline: the
+        # numpy path it exists for cannot be reached anyway, and fitting one
+        # would raise on the tracers.
+        self._icmf_spline = (
+            None
+            if differentiating(self._icmf_cmf_grid, self._icmf_r_grid)
+            else interpolate.InterpolatedUnivariateSpline(
+                self._icmf_cmf_grid, self._icmf_r_grid, k=1
+            )
         )
         # Setup velocity DF interpolator for velocity sampling here
         self._rmin_sampling = 0.0
         self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(
-            r_a_end=numpy.log10(self.rt / self._scale)
+            r_a_end=ns_unary("log10", self.rt / self._scale)
         )
 
     def _icmf(self, ms):
@@ -109,15 +121,29 @@ class kingdf(isotropicsphericaldf):
         byte-identical scipy k=1 spline; a backend ``ms`` (from a backend
         ``sample(key=...)``) is sampled by a differentiable linear interp on the
         stored (cumulative-mass, radius) grids."""
-        if not is_backend_array(ms):
+        if not is_backend_array(ms) and self._icmf_spline is not None:
             return self._icmf_spline(ms)
-        xp = get_namespace(ms)
-        x = as_backend_constant(xp, self._icmf_cmf_grid, ms)
-        y = as_backend_constant(xp, self._icmf_r_grid, ms)
-        return interp_linear(xp, x, y, ms, extrapolate="clip")
+        # No scipy spline means the grids are differentiated (M/rt), so the
+        # namespace comes from them; otherwise ms is the backend side.
+        # as_backend_constant passes a differentiated grid through unchanged, so
+        # d(r)/d(M, rt) survives.
+        xp = (
+            get_namespace(ms)
+            if is_backend_array(ms)
+            else grad_namespace(self._icmf_cmf_grid)
+        )
+        # ms may still be numpy here (differentiated grids, plain query); it has
+        # to come onto the namespace before it can serve as the dtype/device
+        # reference for the grids.
+        (msv,) = coerce_coords(xp, ms)
+        x = as_backend_constant(xp, self._icmf_cmf_grid, msv)
+        y = as_backend_constant(xp, self._icmf_r_grid, msv)
+        return interp_linear(xp, x, y, msv, extrapolate="clip")
 
     def dens(self, r):
-        return self._scalefree_kdf.dens(r / self._radius_scale) * self._density_scale
+        return ns_mul(
+            self._scalefree_kdf.dens(r / self._radius_scale), self._density_scale
+        )
 
     def fE(self, E):
         xp = resolve_namespace(E)

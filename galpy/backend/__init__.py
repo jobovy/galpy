@@ -14,6 +14,9 @@
 from ._coerce import (
     as_backend_constant,
     coerce_coords,
+    grad_namespace,
+    ns_mul,
+    ns_unary,
     promote_scalars,
     zeros_like_backend,
 )
@@ -78,6 +81,9 @@ __all__ = [
     "restrict_to_single_thread",
     "as_backend_constant",
     "coerce_coords",
+    "grad_namespace",
+    "ns_mul",
+    "ns_unary",
     "promote_scalars",
     "zeros_like_backend",
 ]

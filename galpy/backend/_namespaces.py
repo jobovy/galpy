@@ -184,6 +184,25 @@ def requires_backend_grad(*xs):
     return any(getattr(x, "requires_grad", False) for x in xs)
 
 
+def differentiating(*xs):
+    """True iff a gradient has to be kept alive through ``xs``.
+
+    ``under_trace or requires_backend_grad``: the two ways a value can carry a
+    derivative. Both must be tested, and testing only one is the recurring bug --
+    ``under_trace`` misses EAGER torch autograd (there is no trace behind it) and
+    ``requires_backend_grad`` misses jax (which has no ``requires_grad`` flag).
+    Either way the numpy/scipy escape hatch is wrong: it raises on a tracer and
+    silently DETACHES a grad-tracking tensor, which is worse, because the value
+    comes back right and only the gradient is wrong.
+
+    This is the gate for "must I stay on the backend?". It is NOT the gate for
+    "is this a backend array?" -- see ``is_backend_array`` -- because the ambient
+    namespace can be a backend while nothing is being differentiated, and taking
+    the backend branch there needlessly abandons the byte-identical numpy path.
+    """
+    return under_trace(*xs) or requires_backend_grad(*xs)
+
+
 def untraceable_setup(method):
     """Mark a lazy SETUP/table builder so a tracer never traces it.
 

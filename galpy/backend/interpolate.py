@@ -41,6 +41,7 @@ from ..util import galpyWarning
 from ._namespaces import (
     asarray_on_device,
     device_of,
+    differentiating,
     is_backend_array,
     name_of_namespace,
     prefer_backend_namespace,
@@ -300,8 +301,8 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
-    if under_trace(x):
-        # A depends on the TRACED knots, so it is no longer a constant and
+    if differentiating(x):
+        # A depends on the DIFFERENTIATED knots, so it is no longer a constant and
         # cannot be assembled by numpy item assignment: build each row as a
         # combination of one-hot rows. Interior row i carries h[i-1],
         # 2(h[i-1]+h[i]), h[i] at columns i-1, i, i+1.
@@ -360,6 +361,57 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     a1 = dslope - hh * (2.0 * M[:-1] + M[1:]) / 6.0
     a0 = yb[:-1]
     return xp.stack([a3, a2, a1, a0], axis=0)  # (4, n-1) or (4, n-1, m)
+
+
+def ppoly_derivative(xp, c, nu=1):
+    """Coefficients of the ``nu``-th derivative of a power-basis piecewise poly.
+
+    ``c`` is laid out as ``spline_to_ppoly``/``cubic_spline_coeffs`` return it --
+    on ``x[i] <= r < x[i+1]`` the polynomial is ``sum_j c[j, i] * (r-x[i])**(k-j)``
+    -- and the result is the same layout one degree lower per derivative. Pure
+    namespace arithmetic on ``c``, so it stays differentiable in the coefficients
+    (hence in the ``y`` values a traced ``cubic_spline_coeffs`` was built from).
+
+    Differentiating the COEFFICIENTS rather than passing ``nu`` to ``eval_ppoly``
+    is what lets the derivative be handed out as a standalone table (the
+    interpolated-potential classes keep one per quantity).
+    """
+    for _ in range(int(nu)):
+        k = c.shape[0] - 1
+        if k == 0:
+            return xp.zeros_like(c)
+        powers = xp.asarray([float(k - j) for j in range(k)], dtype=c.dtype)
+        c = c[:k] * powers[:, None]
+    return c
+
+
+def ppoly_antiderivative(xp, x, c):
+    """Coefficients of the antiderivative of a power-basis piecewise polynomial.
+
+    Inverse of :func:`ppoly_derivative`: returns the same layout one degree
+    HIGHER, with each interval's constant term set so the antiderivative is
+    continuous across breakpoints and zero at ``x[0]`` (scipy ``PPoly``'s
+    convention, so it matches ``InterpolatedUnivariateSpline.antiderivative()``
+    up to the additive constant callers pin themselves).
+
+    The running constant is a ``cumsum`` of the per-interval integrals, so -- like
+    :func:`ppoly_derivative` -- the whole construction is namespace arithmetic and
+    differentiable w.r.t. both the coefficients and the breakpoints.
+    """
+    k = c.shape[0] - 1
+    xb = x if is_backend_array(x) else xp.asarray(x)
+    h = xb[1:] - xb[:-1]
+    # integrate each term: c[j] t**(k-j) -> c[j]/(k-j+1) t**(k-j+1)
+    scale = xp.asarray([1.0 / float(k - j + 1) for j in range(k + 1)], dtype=c.dtype)
+    a = c * scale[:, None]
+    # per-interval definite integral, then the continuity constants (0 on the first)
+    seg = xp.zeros_like(h)
+    for j in range(k + 1):
+        seg = seg + a[j] * h ** float(k - j + 1)
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    cumsum = getattr(xp, "cumulative_sum", None) or xp.cumsum
+    const = concat([xp.zeros_like(seg[:1]), cumsum(seg[:-1])])
+    return concat([a, const[None, :]], axis=0)
 
 
 def eval_cubic(xp, x, coeffs, r, *, nu=0, extrapolate=True):
@@ -1082,10 +1134,10 @@ class Spline1D:
 
             self._xp = array_api_compat.array_namespace(y)
             self._y = y
-            # TRACED knots (streamdf's angle grid depends on theta) stay on the
+            # DIFFERENTIATED knots (streamdf's angle grid depends on theta) stay on the
             # backend so the gradient flows through the knot positions too;
             # concrete knots keep the numpy geometry path.
-            self._x = x if under_trace(x) else numpy.asarray(x, dtype=float)
+            self._x = x if differentiating(x) else numpy.asarray(x, dtype=float)
             if self._k == 3:
                 self._coeffs = cubic_spline_coeffs(self._xp, self._x, y, bc=bc)
             elif self._k == 1:

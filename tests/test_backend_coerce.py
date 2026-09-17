@@ -151,3 +151,43 @@ def test_as_backend_constant_preserves_values_dtype_and_device(backend_name):
         assert out.dtype == ref.dtype
         assert getattr(out, "device", None) == getattr(ref, "device", None)
         assert numpy.array_equal(as_numpy(out), value)
+
+
+# --- ns_unary ---------------------------------------------------------------
+# numpy.<fn>(x) for a concrete x, the namespace's own for a differentiated one.
+# numpy's ufuncs work EAGERLY on a concrete backend array, so this only bites
+# once a stored parameter is differentiated -- typically a DF/potential
+# constructor deriving a scale factor from a fit parameter (kingdf's
+# velocity_scale = sqrt(...), quasiisothermaldf's _lnsr = log(sr)).
+def test_ns_unary_numpy_is_byte_identical():
+    from galpy.backend import ns_unary
+
+    for name, x in (("sqrt", 2.0), ("log", 3.0), ("log10", 7.5)):
+        got, ref = ns_unary(name, x), getattr(numpy, name)(x)
+        assert type(got) is type(ref)
+        assert got.tobytes() == ref.tobytes()
+
+
+def test_ns_unary_differentiates():
+    pytest.importorskip("jax")
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    from galpy.backend import ns_unary
+
+    # d/dx sqrt(x) = 1/(2 sqrt(x)); d/dx log(x) = 1/x
+    numpy.testing.assert_allclose(
+        float(jax.grad(lambda x: ns_unary("sqrt", x))(4.0)), 0.25, rtol=1e-14
+    )
+    numpy.testing.assert_allclose(
+        float(jax.grad(lambda x: ns_unary("log", x))(4.0)), 0.25, rtol=1e-14
+    )
+
+
+def test_ns_unary_torch_eager_grad():
+    torch = pytest.importorskip("torch")
+    from galpy.backend import ns_unary
+
+    t = torch.tensor(4.0, dtype=torch.float64, requires_grad=True)
+    ns_unary("log", t).backward()
+    numpy.testing.assert_allclose(float(t.grad), 0.25, rtol=1e-14)
