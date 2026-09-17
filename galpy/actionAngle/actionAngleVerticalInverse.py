@@ -896,6 +896,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 - se[nz] ** 2.0 * deta[nz] * ct[nz] / st[nz] ** 2.0
             )
         )
+        # exactly on a turning point the ratio's limit is finite:
+        # p ~ (2 J / xmax) eta'^3 cos(tau) (tau - tau_0), so dp/dtau there is
+        # its slope
+        dp[~nz] = 2.0 * j / xmax * deta[~nz] ** 3.0 * ct[~nz]
         dangle = (
             2.0 * se**2.0 * deta
             + 2.0 * j * (2.0 * se * ce * deta * detadj + se**2.0 * ddetadj)
