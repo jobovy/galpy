@@ -8,6 +8,7 @@
 import math
 
 from ..backend import coerce_coords, get_namespace
+from ..backend._namespaces import under_trace
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -84,6 +85,22 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                -z
+                * asqrtbz
+                / _sq
+                / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0)
+                ** (3.0 / 2.0)
+            )
         if self._a == 0.0:
             # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
             return -z / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
@@ -103,6 +120,23 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                (self._a * R**2.0 + (self._a + 3.0 * sqrtbz) * asqrtbz**2.0)
+                / (R**2.0 + asqrtbz**2.0) ** 2.5
+                / _sq**3.0
+                / 4.0
+                / math.pi
+                * self._b2
+            )
         if self._a == 0.0:
             # a == 0 simplification (avoids sqrtbz**3 in the denominator)
             return 3.0 / (R**2.0 + sqrtbz**2.0) ** 2.5 / 4.0 / math.pi * self._b2
@@ -131,6 +165,24 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                self._a**3.0 * self._b2
+                + self._a**2.0
+                * (3.0 * self._b2 - 2.0 * z**2.0)
+                * xp.sqrt(self._b2 + z**2.0)
+                + (self._b2 + R**2.0 - 2.0 * z**2.0) * (self._b2 + z**2.0) ** 1.5
+                + self._a
+                * (3.0 * self._b2**2.0 - 4.0 * z**4.0 + self._b2 * (R**2.0 - z**2.0))
+            ) / (_sq**3.0 * (R**2.0 + asqrtbz**2.0) ** 2.5)
         if self._a == 0.0:
             # a == 0 simplification (avoids (b2+z2)**1.5 in the denominator)
             return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
@@ -152,6 +204,16 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return -(3.0 * R * z * asqrtbz / _sq / (R**2.0 + asqrtbz**2.0) ** 2.5)
         if self._a == 0.0:
             # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
             return -(3.0 * R * z / (R**2.0 + asqrtbz**2.0) ** 2.5)
