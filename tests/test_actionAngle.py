@@ -8841,3 +8841,67 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
             "The action label changed for a non-polynomial mode"
         )
     return None
+
+
+def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
+    # With a polynomial point transformation, the mean auxiliary action of
+    # the sheared gauge v_a = v / pi'(x_a) -- the internal action each torus's
+    # Fourier structure is built on -- differs from the torus's actual action.
+    # Because (x_a, v_a) -> (j_a, theta_a) is the harmonic action-angle map,
+    # 2 pi <j_a> is the loop integral of v_a dx_a = v pi'^-2 dx, so the
+    # offset is the loop integral
+    #     dJ = (1 / 2 pi) Int v(x) [ pi'(x_a)^-2 - 1 ] dx
+    # along the orbit, from the potential and the fitted transformation
+    # alone: zero for the identity and for the exact transformation, and
+    # reproduced here to round-off for the polynomial one, which is what
+    # makes the mechanism a prediction rather than an observation
+    from numpy.polynomial import polynomial
+    from scipy import integrate
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    for pt_deg in (3, 7, 11):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=pt_deg
+        )
+        for ii in (2, 5, 8):
+            E, xmax, ptxmax = aAVI._Es[ii], aAVI._xmaxs[ii], aAVI._pt_xmaxs[ii]
+            c, dc = aAVI._pt_coeffs[ii], aAVI._pt_deriv_coeffs[ii]
+
+            def integrand(u):
+                # u = x_a / ptxmax on [-1, 1]; x = pi(x_a); dx = pi' dx_a
+                x = polynomial.polyval(u, c) * xmax
+                piprime = polynomial.polyval(u, dc) * xmax / ptxmax
+                v = numpy.sqrt(
+                    max(
+                        2.0
+                        * (E - evaluatelinearPotentials(pot, x, use_physical=False)),
+                        0.0,
+                    )
+                )
+                return v * (piprime**-2.0 - 1.0) * polynomial.polyval(u, dc) * xmax
+
+            predicted = (
+                integrate.quad(
+                    integrand, -1.0, 1.0, limit=200, epsabs=1e-13, epsrel=1e-12
+                )[0]
+                / numpy.pi
+            )
+            stored = aAVI._js[ii] - aAVI._js_orig[ii]
+            assert numpy.fabs(stored) > 1e-8, "The offset is not there to be predicted"
+            assert numpy.fabs(stored - predicted) < 1e-12, (
+                "The sheared-gauge action offset is not the closed-form quadrature "
+                "(degree %d, node %d): stored %g, predicted %g"
+                % (pt_deg, ii, stored, predicted)
+            )
+    # and the exact point transformation has no offset to speak of
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=Es, nta=128, use_pointtransform="exact"
+    )
+    assert numpy.amax(numpy.fabs(aAVI._js - aAVI._js_orig)[1:]) < 1e-9, (
+        "The exact point transformation has a sheared-gauge action offset"
+    )
+    return None
