@@ -8,6 +8,7 @@ import warnings
 
 import numpy
 
+from ..backend._namespaces import under_trace
 from ..util import conversion, galpyWarning
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -81,12 +82,18 @@ class MN3ExponentialDiskPotential(Potential):
             self._brd = _b_sechhz(self._hz / self._hr)
         else:
             self._brd = _b_exphz(self._hz / self._hr)
-        if self._brd < 0.0:
+        # A VALIDITY check, not a model branch: it cannot run on a tracer (hz/hr
+        # may be fit parameters), and skipping it there is the honest choice --
+        # the check still runs for every concrete construction.
+        if not under_trace(self._brd) and self._brd < 0.0:
             raise OSError(
                 "MN3ExponentialDiskPotential's b/Rd is negative for the given hz"
             )
         # Check range
-        if (not posdens and self._brd > 3.0) or (posdens and self._brd > 1.35):
+        # another concrete-only check (a range WARNING, not a model branch)
+        if not under_trace(self._brd) and (
+            (not posdens and self._brd > 3.0) or (posdens and self._brd > 1.35)
+        ):
             warnings.warn(
                 "MN3ExponentialDiskPotential's b/Rd = %g is outside of the interpolation range of Smith et al. (2015)"
                 % self._brd,
