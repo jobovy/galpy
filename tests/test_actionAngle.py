@@ -8996,8 +8996,8 @@ def test_actionAngleVerticalInverse_momentum_matched_family():
         assert numpy.fabs(dK - (Kp - Km) / (2.0 * h)) < 1e-6 * (1.0 + numpy.fabs(dK)), (
             "d K / d j does not differentiate the stored interpolant"
         )
-    # the top of the grid lands on the last row exactly, where the stencil
-    # has to step back to keep its four taps inside the table
+    # the top of the grid is reproduced exactly by the splines, as is every
+    # node (an interpolant, not a fit)
     Dtop, _, Ktop, _ = aAVI._mm_tables(aAVI._js[-1])
     assert numpy.fabs(Ktop - aAVI._mm_K[-1]) < 1e-10, (
         "The top grid node is not reproduced"
@@ -9170,7 +9170,12 @@ def test_actionAngleVerticalInverse_momentum_matched_angle():
     assert s33 < 1e-6, (
         "The angle relation does not reproduce the forward angle: %g" % s33
     )
-    assert s33 < 1e-3 * s9, (
+    # (measured 7.9e-6 -> 1.8e-8: the nine-node grid is already nearly
+    # converged now that the end intervals interpolate correctly, which is
+    # what leaves the ratio at ~2e-3 rather than the 1e-3 of the version
+    # whose coarse-grid error was dominated by the edge defects)
+    assert s9 < 1e-4, "The angle residual on the coarse grid is too large: %g" % s9
+    assert s33 < 1e-2 * s9, (
         "The angle residual does not converge with the grid: {:g} vs {:g}".format(
             s33, s9
         )
@@ -9219,7 +9224,7 @@ def test_actionAngleVerticalInverse_momentum_matched_evaluation():
     assert dj9 < 1e-10, "The evaluation does not land on the requested torus"
     assert dj33 < 1e-10, "The evaluation does not land on the requested torus"
     # the angle carries the family's interpolation error, so it improves
-    assert dth9 < 5e-3, "The evaluated angle is wrong"
+    assert dth9 < 1e-4, "The evaluated angle is wrong"
     assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge with the grid"
     return None
 
@@ -9264,9 +9269,10 @@ def test_actionAngleVerticalInverse_momentum_matched_public():
     assert dj33 < 1e-10, "The public evaluation leaves the requested torus"
     # the angle and the frequency carry the family's interpolation, and so
     # both have to improve with the grid
-    assert dth9 < 5e-3, "The public evaluation is wrong"
-    # the angle reads the family, so it converges with the grid
-    assert dth33 < 1e-3 * dth9, "The evaluated angle does not converge"
+    assert dth9 < 1e-4, "The public evaluation is wrong"
+    # the angle reads the family, so it converges with the grid (measured
+    # 7.3e-6 -> 1.7e-8; see the note in the angle test on the ratio)
+    assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge"
     # the frequency does NOT: E(J) is a Hermite spline through the exactly
     # known dE/dJ, so the frequency is exact at the nodes whatever the grid
     assert dom9 < 1e-9 and dom33 < 1e-9, "The frequency is not exact at the nodes"
@@ -9332,4 +9338,93 @@ def test_actionAngleVerticalInverse_momentum_matched_offnode_frequency():
     with pytest.raises(ValueError) as excinfo:
         old._Freqs(jm)
     assert "not found" in str(excinfo.value)
+    return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_between_tori():
+    # Between the grid tori the evaluation reads interpolated tables, and
+    # two things used to spoil the end intervals while the interior was fine:
+    # a mirror-symmetric spline extension that imposed a zero slope at both
+    # ends of the grid (D grows linearly out of the harmonic bottom), and a
+    # zero-energy node whose frequency was a placeholder copied from the
+    # first torus, off by O(J_1). Both cost ~1e-2 in the action in the end
+    # intervals on a nine-node grid, converging only at first order. The
+    # tables are now not-a-knot cubic splines in the action, which also
+    # needs no assumption about the spacing of the energy grid, so a
+    # non-uniform grid must do as well as a uniform one.
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    angles = numpy.linspace(0.05, 6.2, 41)
+
+    def worst_between(n, uniform):
+        r = numpy.linspace(0.0, 1.0, n)
+        Es = 2.0 * r if uniform else 2.0 * (0.55 * r + 0.45 * r**2.5)
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        assert aAVI._momentum_matched
+        # at the nodes the construction preserves the action whatever the
+        # tables contain
+        for ii in range(1, n):
+            x, v = aAVI(aAVI._js[ii], angles)
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI._js[ii])) < 1e-7, (
+                "The evaluation leaves the requested torus at a grid node"
+            )
+        # between EVERY pair of nodes, including the first and the last
+        # interval, which are the ones that used to be wrong
+        out = 0.0
+        for ii in range(n - 1):
+            jm = 0.5 * (aAVI._js[ii] + aAVI._js[ii + 1])
+            x, v = aAVI(jm, angles)
+            out = max(out, numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm)
+        return out
+
+    for uniform in (True, False):
+        w9, w33 = worst_between(9, uniform), worst_between(33, uniform)
+        assert w9 < 2e-4, (
+            "The evaluation between grid tori is inaccurate on a %s grid: %g"
+            % ("uniform" if uniform else "non-uniform", w9)
+        )
+        assert w33 < 1e-6, (
+            "The evaluation between grid tori is inaccurate on a %s grid: %g"
+            % ("uniform" if uniform else "non-uniform", w33)
+        )
+        # and it converges with the grid at the interpolant's order rather
+        # than at the first order the edge defects imposed
+        assert w33 < 3e-2 * w9, (
+            "The evaluation between grid tori does not converge with the grid"
+        )
+    return None
+
+
+def test_actionAngleVerticalInverse_zero_energy_frequency():
+    # The zero-energy torus is the harmonic oscillator at the midplane, so its
+    # frequency is sqrt(Phi''(0)) -- for the isothermal disk with amp=1 that is
+    # sqrt(4 pi) exactly, whatever sigma. It used to be a placeholder copied
+    # from the first torus, off by O(J_1), which the momentum-matched family
+    # then interpolated through.
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    omega0 = numpy.sqrt(4.0 * numpy.pi)
+    for momentum_matched in (True, False):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot,
+            Es=numpy.linspace(0.0, 2.0, 9),
+            nta=128,
+            momentum_matched=momentum_matched,
+        )
+        assert numpy.fabs(aAVI._Omegas[0] / omega0 - 1.0) < 1e-8, (
+            "The zero-energy torus does not have the midplane's harmonic frequency"
+        )
+        assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-8, (
+            "Freqs at zero action is not the midplane's harmonic frequency"
+        )
+    # and the stored amplitude variable takes its harmonic limit there
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128)
+    assert numpy.fabs(aAVI._mm_K[0] * omega0 / 2.0 - 1.0) < 1e-8, (
+        "K at zero action is not its harmonic limit 2/omega"
+    )
     return None

@@ -284,10 +284,21 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._dSndJ /= numpy.atleast_2d(self._nforSn)[:, 1:]
         self._nforSn = self._nforSn[1:]
         self._js[self._Es < 1e-10] = 0.0
-        # Should use sqrt(2nd deriv. pot), but currently not implemented for 1D
-        if self._nE > 1:
-            self._OmegaHO[self._Es < 1e-10] = self._OmegaHO[1]
-            self._Omegas[self._Es < 1e-10] = self._Omegas[1]
+        if self._nE > 1 and numpy.any(self._Es < 1e-10):
+            # The zero-energy torus is the harmonic oscillator at the
+            # midplane, whose frequency is sqrt(Phi''(0)).  Linear potentials
+            # have no second-derivative method, so it comes from a five-point
+            # stencil of the force at a step small against the first torus
+            # (~1e-10 relative), rather than from the first torus's frequency,
+            # which is off by O(J_1) and would spoil everything interpolated
+            # through the bottom of the grid.
+            h = 1e-3 * numpy.amax(self._xmaxs) / max(self._nE - 1, 1)
+            F = lambda x: evaluatelinearForces(self._pot, x, use_physical=False)
+            omega0 = numpy.sqrt(
+                -(-F(2.0 * h) + 8.0 * F(h) - 8.0 * F(-h) + F(-2.0 * h)) / (12.0 * h)
+            )
+            self._OmegaHO[self._Es < 1e-10] = omega0
+            self._Omegas[self._Es < 1e-10] = omega0
         self._nSn[self._js < 1e-10] = 0.0
         self._dSndJ[self._js < 1e-10] = 0.0
         # When evaluating using the point transformation only, the computed
@@ -466,36 +477,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
         return None
 
-    def _can_row(self, table_c, x):
-        """Value and d/d(row) of a row-filtered table at fractional row x,
-        by the four-point cubic B-spline stencil (mirror boundary)."""
-        x = min(max(x, 0.0), self._nE - 1.0)
-        i0 = int(numpy.floor(x))
-        if i0 > self._nE - 2:
-            i0 = self._nE - 2
-        t = x - i0
-        taps = numpy.array([i0 - 1, i0, i0 + 1, i0 + 2])
-        taps = numpy.abs(taps)
-        taps[taps > self._nE - 1] = 2 * (self._nE - 1) - taps[taps > self._nE - 1]
-        C = table_c[taps]
-        w = numpy.array(
-            [
-                (1.0 - t) ** 3 / 6.0,
-                (4.0 - 6.0 * t**2 + 3.0 * t**3) / 6.0,
-                (1.0 + 3.0 * t + 3.0 * t**2 - 3.0 * t**3) / 6.0,
-                t**3 / 6.0,
-            ]
-        )
-        wd = numpy.array(
-            [
-                -((1.0 - t) ** 2) / 2.0,
-                (-12.0 * t + 9.0 * t**2) / 6.0,
-                (3.0 + 6.0 * t - 9.0 * t**2) / 6.0,
-                t**2 / 2.0,
-            ]
-        )
-        return w @ C, wd @ C
-
     def _momentum_matched_map(self, ii, npt=16, nta=1024):
         """
         Momentum-matched anomaly map of torus ii.
@@ -613,11 +594,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._mm_D = D
         self._mm_K = K
         self._mm_npt = npt
-        # Filtered once so that evaluation differentiates the SAME interpolant
-        # it evaluates; storing separate derivative tables is what would break
-        # manifest canonicity.
-        self._mm_D_c = ndimage.spline_filter1d(D, order=3, axis=0, mode="mirror")
-        self._mm_K_c = ndimage.spline_filter1d(K, order=3, axis=0, mode="mirror")
+        # Stored as cubic splines in the action, and differentiated below by
+        # the same spline objects the evaluation reads: storing separate
+        # derivative tables is what would break manifest canonicity.  Splines
+        # in J directly need no assumption about the spacing of the energy
+        # grid, and their not-a-knot ends matter: a mirror-symmetric
+        # extension would impose a zero slope at both ends of the grid, which
+        # the tables do not have (D grows linearly out of the harmonic
+        # bottom), and would cost ~1e-2 in the action in the end intervals
+        # while the interior sits at ~1e-5 on the same nine-node grid.
+        self._mm_Dspl = interpolate.CubicSpline(self._js, D, axis=0)
+        self._mm_dDspl = self._mm_Dspl.derivative()
+        self._mm_Kspl = interpolate.CubicSpline(self._js, K)
+        self._mm_dKspl = self._mm_Kspl.derivative()
         # E(J) is interpolated as a Hermite spline, matching the energies at
         # the nodes AND their slopes, because those slopes are already known
         # exactly: dE/dJ is the frequency.  Fitting E alone and
@@ -632,10 +621,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         The anomaly map, the storage variable, and their exact action
         derivatives at action j.
 
-        Both derivatives come from differentiating the stored interpolants
-        and chaining through E(j); nothing is finite-differenced and no
-        derivative is stored separately, which is what makes the resulting
-        map symplectic whatever the tables happen to contain.
+        Both derivatives come from differentiating the stored interpolants;
+        nothing is finite-differenced and no derivative is stored separately,
+        which is what makes the resulting map symplectic whatever the tables
+        happen to contain.  Outside the grid the splines extrapolate.
 
         Parameters
         ----------
@@ -651,13 +640,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2026-08-29 - Written - Bovy (UofT)
         """
-        tE = float(self._mm_E(j))
-        Emin, Emax = self._Es[0], self._Es[-1]
-        row = (tE - Emin) / (Emax - Emin) * (self._nE - 1.0)
-        drowdj = (self._nE - 1.0) / (Emax - Emin) * float(self._mm_dEdj(j))
-        D, dD_drow = self._can_row(self._mm_D_c, row)
-        K, dK_drow = self._can_row(self._mm_K_c, row)
-        return D, dD_drow * drowdj, float(K), float(dK_drow) * drowdj
+        return (
+            self._mm_Dspl(j),
+            self._mm_dDspl(j),
+            float(self._mm_Kspl(j)),
+            float(self._mm_dKspl(j)),
+        )
 
     def _mm_xp_of_tau(self, j, tau):
         """
