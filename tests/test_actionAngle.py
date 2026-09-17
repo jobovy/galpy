@@ -8089,6 +8089,23 @@ def test_actionAngleVerticalInverse_interpolation_plotting(
     pyplot.close()
     aAVI.plot_interp(3.706)
     pyplot.close()
+    # and with a polynomial point transformation, whose internal action
+    # differs from the label the public evaluator looks up: plot_interp's
+    # single-torus truth instance used to hand the internal one to it
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    aAVIpt = actionAngleVerticalInverse(
+        pot=IsothermalDiskPotential(amp=1.0, sigma=0.5),
+        Es=numpy.linspace(0.0, 2.0, 9),
+        nta=128,
+        use_pointtransform=True,
+        setup_interp=True,
+    )
+    aAVIpt.plot_orbit(1.0)
+    pyplot.close()
+    aAVIpt.plot_interp(1.0)
+    pyplot.close()
     return None
 
 

@@ -1245,7 +1245,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Check energy along the torus
         pyplot.subplot(2, 3, 3)
         ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
-        x, v = truthaAV(truthaAV._js, ta)
+        # J(E) is the torus's label, which the public evaluator looks up
+        # (with a polynomial point transformation the internal action _js
+        # differs from it)
+        x, v = truthaAV(truthaAV.J(E), ta)
         Edirect = v**2.0 / 2.0 + evaluatelinearPotentials(
             self._pot, x, use_physical=False
         )
