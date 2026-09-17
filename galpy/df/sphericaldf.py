@@ -33,7 +33,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
-from ..backend._namespaces import under_jax_trace
+from ..backend._namespaces import under_jax_trace, under_trace
 from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
@@ -250,6 +250,36 @@ class _PVRInterpolator:
             else as_backend_constant(xp, self._z, X)
         )
         return interp_bilinear(xp, xg, yg, zg, X, Y, extrapolate="clip")
+
+
+class _RphiRootFind:
+    """``r(Phi)`` by root-find, for a TRACED potential.
+
+    Drop-in for the ``Spline1D`` :meth:`sphericaldf._setup_rphi_interpolator`
+    returns: called with an energy (scalar or array) it returns the radius where
+    ``Phi(r) == E``. Differentiable in the potential's parameters through the
+    backend ``brentq`` (bisection + one Newton step, so the value is the exact
+    root and the derivative comes from the implicit function theorem).
+    """
+
+    def __init__(self, pot, scale, r_lo, r_hi):
+        self._pot = pot
+        self._scale = scale
+        self._r_lo = r_lo
+        self._r_hi = r_hi
+
+    def __call__(self, E):
+        from ..backend.optimize import brentq
+
+        xp = get_namespace(E)
+        E = xp.asarray(E)
+
+        def f(r, Ev):
+            return _evaluatePotentials(self._pot, r, 0) - Ev
+
+        lo = xp.full(E.shape, self._r_lo) if E.ndim else xp.asarray(self._r_lo)
+        hi = xp.full(E.shape, self._r_hi) if E.ndim else xp.asarray(self._r_hi)
+        return brentq(f, lo, hi, args=(E,))
 
 
 class sphericaldf(df):
@@ -1247,6 +1277,20 @@ class sphericaldf(df):
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
         xp = get_namespace()  # context/forced default only (the grid is numpy)
+        if xp is not numpy and under_trace(
+            _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
+        ):
+            # A TRACED potential cannot build this grid at all: the r=0 test is a
+            # branch on a traced value, the monotonicity cleanup DELETES entries
+            # (a data-dependent array size), and the spline's knots would be the
+            # traced potential values -- at nra=10001 that is a dense (n, n)
+            # tridiagonal solve, ~800 MB. Invert by root-find instead: r(Phi) is
+            # the root of Phi(r) - E, the bracket is the same [r_a_min, r_a_max],
+            # and the backend brentq differentiates it exactly (implicit function
+            # theorem) rather than to spline accuracy.
+            return _RphiRootFind(
+                self._pot, self._scale, r_a_min * self._scale, r_a_max * self._scale
+            )
         if xp is numpy:
             phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
         else:
