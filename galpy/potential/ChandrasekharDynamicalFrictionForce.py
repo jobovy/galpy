@@ -10,6 +10,7 @@ from scipy import interpolate, special
 
 from ..backend import get_namespace, is_backend_array
 from ..backend import special as _backend_special
+from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
@@ -249,7 +250,18 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         if self._lnLambda:
             return self._lnLambda
         GMvs = self._ms / v**2.0
-        if self._rhm == 0.0:
+        if under_trace(self._rhm):
+            # rhm is a fit parameter here, so rhm == 0.0 has no concrete value.
+            # The rhm==0 arm is the GMvs>=rhm branch of the where below with the
+            # 1/rhm removed, so take the where and guard that denominator -- an
+            # unguarded 1/0 would NaN-poison d/d(rhm) everywhere.
+            _rhm = xp.where(self._rhm == 0.0, 1.0, self._rhm)
+            Lambda = xp.where(
+                GMvs < self._rhm,
+                r / self._gamma / _rhm,
+                r / self._gamma / GMvs,
+            )
+        elif self._rhm == 0.0:
             Lambda = r / self._gamma / GMvs
         else:
             Lambda = xp.where(
