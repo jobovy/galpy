@@ -247,3 +247,50 @@ def test_real_eig_freeze_vectors_controls_the_rotation_gradient():
     )
     # values are identical either way -- stop_gradient is the identity forward
     numpy.testing.assert_allclose(float(frozen(1.0)), float(live(1.0)), rtol=1e-12)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_psd_project_is_exact_where_nothing_is_clipped():
+    # psd_project takes its eigenVECTORS from a stop-gradient copy, so
+    # d(out)/d(a) keeps only the DIAGONAL of da in that frozen basis. Where no
+    # eigenvalue is negative the projection IS the identity, and returning `a`
+    # there makes the gradient exact; measured against a finite difference, the
+    # frozen form was 100% wrong for a purely off-diagonal perturbation and
+    # ~51% for a generic one.
+    rng = numpy.random.default_rng(5)
+    Q = numpy.linalg.qr(rng.normal(size=(6, 6)))[0]
+    A0 = Q @ numpy.diag(numpy.array([3.0, 1.5, 0.8, 0.4, 0.2, 0.05])) @ Q.T
+    E = rng.normal(size=(6, 6))
+    E = 0.5 * (E + E.T)
+    E_off = E - Q @ numpy.diag(numpy.diag(Q.T @ E @ Q)) @ Q.T  # pure off-diagonal
+    W = rng.normal(size=(6, 6))
+    W = 0.5 * (W + W.T)
+
+    def loss(t, pert):
+        a = jnp.asarray(A0) + t * jnp.asarray(pert)
+        return jnp.sum(psd_project(a[None, ...])[0] * jnp.asarray(W))
+
+    for pert in (E_off, E):
+        ad = float(jax.grad(lambda t: loss(t, pert))(0.0))
+        h = 1e-6
+        fd = (float(loss(h, pert)) - float(loss(-h, pert))) / (2.0 * h)
+        assert abs(ad - fd) / abs(fd) < 1e-7, (
+            f"psd_project gradient wrong where nothing is clipped ({ad} vs {fd})"
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_psd_project_still_clips_negative_eigenvalues(backend):
+    # the exactness above must not cost the projection itself
+    rng = numpy.random.default_rng(7)
+    Q = numpy.linalg.qr(rng.normal(size=(5, 5)))[0]
+    for w in (
+        numpy.array([2.0, 1.0, 0.5, 0.3, 0.1]),
+        numpy.array([2.0, 1.0, 0.5, 0.3, -0.2]),
+        numpy.array([2.0, 1.0, -0.1, -0.4, 0.3]),
+    ):
+        A = Q @ numpy.diag(w) @ Q.T
+        ref = psd_project(A[None, ...])[0]
+        got = as_numpy(psd_project(_arr(backend, A)[None, ...])[0])
+        numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-13)
+        assert numpy.linalg.eigvalsh(got).min() > -1e-12, "output must be PSD"
