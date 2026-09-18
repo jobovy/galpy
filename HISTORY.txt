@@ -31,18 +31,35 @@ v1.12.1 (expected around 2026-11-01)
   frequencies. The map is exactly symplectic whatever the stored tables
   contain, preserves the requested action to ~1e-13 at the grid tori, and
   evaluates between them; ``Freqs`` returns the map's own dE/dJ so that it is
-  exactly the frequency of the returned orbits. The older evaluation remains
-  available with ``momentum_matched=False``, and is used automatically for
-  fewer than four energies or when ``use_pointtransform`` is set. Also fixes
-  the zero-energy grid torus, whose frequency was a placeholder copied from
-  the first torus (off by O(J_1)); it is now the midplane's harmonic
-  frequency sqrt(Phi''(0)). The evaluation inverts the angle relation by
-  safeguarded Newton steps on its closed-form derivative, started from the
-  requested angle (three to four evaluations of a one-pass kernel per call,
-  ~20x faster than the bisection it replaces and faster than the older
+  exactly the frequency of the returned orbits. The number of harmonics of
+  the map and of anomaly samples per torus are set with ``mm_npt`` and
+  ``mm_nta``, and a warning is raised when the truncated map does not
+  reconstruct the momentum of a torus. With ``setup_interp=True``, ``J(E)``
+  and ``E(J)`` come from the same Hermite energy interpolant as the
+  frequency, for any number of tori. The older evaluation remains
+  available with ``momentum_matched=False``, and is used when
+  ``use_pointtransform`` is set; its coefficient tables (``nSn``,
+  ``dSndJ``, ``pt_coeffs``, ``pt_deriv_coeffs``) do not exist under the
+  canonical map, whose ``plot_power``, ``plot_convergence``, and
+  ``plot_interp`` instead show the map's harmonics and their action
+  derivatives, its matching residual and angle against the forward
+  transformation, and the interpolated family against a torus built on its
+  own. Also fixes the zero-energy grid torus, whose frequency was a
+  placeholder copied from the first torus (off by O(J_1)); it is now the
+  midplane's harmonic frequency sqrt(Phi''(0)). The evaluation inverts the
+  angle relation by safeguarded Newton steps on its closed-form derivative,
+  started from the requested angle (three to four evaluations of a one-pass
+  kernel per call,
+  ~20x faster than the bisection it replaces and comparable to the older
   evaluations), and the per-torus fit of the anomaly map uses an analytic
   Jacobian with a warm start from the neighboring torus (~2x faster
-  construction).
+  construction). The action derivatives of the anomaly map and of
+  ``K`` that the angle needs are computed on each torus from that torus
+  alone (the variation of the matching condition) and stored as Hermite
+  constraints of the family's interpolants, so the angle at a grid torus
+  is at the map's floor (~1e-11) whatever the grid, the family is several
+  times more accurate between its tori, and it can be as small as a single
+  torus.
 
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration
