@@ -9005,13 +9005,23 @@ def test_actionAngleVerticalInverse_momentum_matched_family():
     assert numpy.amax(numpy.fabs(Dtop - aAVI._mm_D[-1])) < 1e-10, (
         "The top grid node is not reproduced"
     )
-    # a cubic spline in the action needs four energies
-    small = actionAngleVerticalInverse(
-        pot=pot, Es=[0.5, 1.0, 2.0], nta=128, use_pointtransform=False
-    )
-    with pytest.raises(RuntimeError) as excinfo:
-        small._setup_momentum_matched_family()
-    assert "four energies" in str(excinfo.value)
+    # the derivative of the stored interpolant at a node IS the analytic
+    # slope computed on that torus (Hermite constraints), so the angle at a
+    # node no longer waits for the grid
+    for ii in range(1, len(aAVI._js)):
+        _, dD, _, dK = aAVI._mm_tables(aAVI._js[ii])
+        assert numpy.amax(numpy.fabs(dD - aAVI._mm_dD[ii])) < 1e-10 * (
+            1.0 + numpy.amax(numpy.fabs(aAVI._mm_dD[ii]))
+        ), "The interpolant's derivative at a node is not the torus's analytic slope"
+        assert numpy.fabs(dK - aAVI._mm_dK[ii]) < 1e-10 * (
+            1.0 + numpy.fabs(aAVI._mm_dK[ii])
+        ), "The interpolant's derivative at a node is not the torus's analytic slope"
+    # and a family no longer needs four energies: three, two, or one will do
+    for Es in ([0.5, 1.0, 1.5], [0.5, 1.5], [1.0]):
+        small = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        assert small._momentum_matched, (
+            "A short grid does not use the momentum-matched map"
+        )
     return None
 
 
@@ -9165,17 +9175,16 @@ def test_actionAngleVerticalInverse_momentum_matched_angle():
         return numpy.amax(numpy.fabs(d))
 
     s9, s33 = spread(9), spread(33)
-    # the residual is the interpolated dD_m/dJ, so refining the grid removes
-    # it; a relation with a genuine error term would not converge
-    assert s33 < 1e-6, (
+    # the family carries the action derivatives of every torus as Hermite
+    # constraints, so at a node the relation reads the exact dD_m/dJ and the
+    # residual sits at the floor of the map's truncation (~1e-11) whatever
+    # the grid; before the constraints it was the family's interpolation of
+    # dD_m/dJ (7.9e-6 on nine nodes, 1.8e-8 on 33)
+    assert s9 < 1e-9, "The angle relation does not reproduce the forward angle: %g" % s9
+    assert s33 < 1e-9, (
         "The angle relation does not reproduce the forward angle: %g" % s33
     )
-    # (measured 7.9e-6 -> 1.8e-8: the nine-node grid is already nearly
-    # converged now that the end intervals interpolate correctly, which is
-    # what leaves the ratio at ~2e-3 rather than the 1e-3 of the version
-    # whose coarse-grid error was dominated by the edge defects)
-    assert s9 < 1e-4, "The angle residual on the coarse grid is too large: %g" % s9
-    assert s33 < 1e-2 * s9, (
+    assert s33 < 1e2 * s9 and s9 < 1e2 * s33, (
         "The angle residual does not converge with the grid: {:g} vs {:g}".format(
             s33, s9
         )
@@ -9224,8 +9233,10 @@ def test_actionAngleVerticalInverse_momentum_matched_evaluation():
     assert dj9 < 1e-10, "The evaluation does not land on the requested torus"
     assert dj33 < 1e-10, "The evaluation does not land on the requested torus"
     # the angle carries the family's interpolation error, so it improves
-    assert dth9 < 1e-4, "The evaluated angle is wrong"
-    assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge with the grid"
+    # at a node the angle reads the torus's own action derivatives, so it is
+    # at the floor whatever the grid
+    assert dth9 < 1e-9, "The evaluated angle is wrong"
+    assert dth33 < 1e-9, "The evaluated angle is wrong"
     return None
 
 
@@ -9269,10 +9280,10 @@ def test_actionAngleVerticalInverse_momentum_matched_public():
     assert dj33 < 1e-10, "The public evaluation leaves the requested torus"
     # the angle and the frequency carry the family's interpolation, and so
     # both have to improve with the grid
-    assert dth9 < 1e-4, "The public evaluation is wrong"
-    # the angle reads the family, so it converges with the grid (measured
-    # 7.3e-6 -> 1.7e-8; see the note in the angle test on the ratio)
-    assert dth33 < 1e-2 * dth9, "The evaluated angle does not converge"
+    # the angle at a node reads the torus's own action derivatives (Hermite
+    # constraints), so it is at the floor whatever the grid
+    assert dth9 < 1e-9, "The public evaluation is wrong"
+    assert dth33 < 1e-9, "The public evaluation is wrong"
     # the frequency does NOT: E(J) is a Hermite spline through the exactly
     # known dE/dJ, so the frequency is exact at the nodes whatever the grid
     assert dom9 < 1e-9 and dom33 < 1e-9, "The frequency is not exact at the nodes"
@@ -9296,11 +9307,13 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
     assert not actionAngleVerticalInverse(
         pot=pot, Es=Es, nta=128, momentum_matched=False
     )._momentum_matched, "The old evaluation is no longer reachable"
-    # a family needs four energies to interpolate, so a shorter grid falls
-    # back rather than refusing to construct
-    assert not actionAngleVerticalInverse(
-        pot=pot, Es=[0.1, 0.3], nta=128
-    )._momentum_matched, "A two-energy grid did not fall back"
+    # any number of energies will do, down to one
+    assert actionAngleVerticalInverse(pot=pot, Es=Es[:3], nta=128)._momentum_matched, (
+        "A three-energy grid does not use the momentum-matched map"
+    )
+    assert actionAngleVerticalInverse(pot=pot, Es=[Es[2]], nta=128)._momentum_matched, (
+        "A single torus does not use the momentum-matched map"
+    )
     # and the old point transformation selects the old evaluation, since the
     # momentum-matched map is itself a point transformation
     assert not actionAngleVerticalInverse(
@@ -9503,4 +9516,69 @@ def test_actionAngleVerticalInverse_momentum_matched_kernel():
         "The warm-started fit lands on different coefficients"
     )
     assert K_cold == K_warm, "The storage variable depends on the fit's starting point"
+    return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_slopes():
+    # The action derivatives of the anomaly map and of the storage variable
+    # are computed on each torus from that torus alone -- the variation of
+    # the matching condition with respect to the action at fixed anomaly --
+    # and stored as Hermite constraints. Checks: the bottom node's slopes,
+    # obtained from the polynomial through the exact bottom value and the
+    # first two tori, reproduce the perturbative anharmonic values for the
+    # isothermal disk, dD_2/dJ(0) = Phi4 / (96 omega^3) and dK/dJ(0) =
+    # -5 Phi4 / (24 omega^4) with Phi4 the fourth derivative of the
+    # potential at the midplane, converging with the grid; a single torus
+    # and a two-torus family return their tori to the floor; and the family
+    # is accurate between its nodes, the bottom interval included
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    angles = numpy.linspace(0.05, 6.2, 41)
+    # for the isothermal disk with amp = 1: omega^2 = 4 pi and
+    # Phi4 = -16 pi^2 / sigma^2
+    omega2 = 4.0 * numpy.pi
+    phi4 = -16.0 * numpy.pi**2.0 / 0.25
+    dD2_pert = phi4 / (96.0 * omega2**1.5)
+    dK_pert = -5.0 * phi4 / (24.0 * omega2**2.0)
+    prev = None
+    for nE in (9, 17, 33):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot, Es=numpy.linspace(0.0, 2.0, nE), nta=128
+        )
+        errD = numpy.fabs(aAVI._mm_dD[0][0] / dD2_pert - 1.0)
+        errK = numpy.fabs(aAVI._mm_dK[0] / dK_pert - 1.0)
+        assert errD < 1e-3 and errK < 1e-3, (
+            "The bottom node's slopes do not match the anharmonic expansion: %g, %g"
+            % (errD, errK)
+        )
+        if prev is not None:
+            assert errD < prev[0] and errK < prev[1], (
+                "The bottom node's slopes do not converge with the grid"
+            )
+        prev = (errD, errK)
+        # every interval, including the bottom one
+        for ii in range(nE - 1):
+            jm = 0.5 * (aAVI._js[ii] + aAVI._js[ii + 1])
+            x, v = aAVI(jm, angles)
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm < 1e-5, (
+                "The family is inaccurate between its nodes (%d energies, interval %d)"
+                % (nE, ii)
+            )
+    for Es in ([1.0], [0.5, 1.5], [0.0, 1.0]):
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        for j in aAVI._js[aAVI._js > 0.0]:
+            x, v = aAVI(j, angles)
+            jf, _, thf = aAV.actionsFreqsAngles(x, v)
+            assert numpy.amax(numpy.fabs(jf - j)) / j < 1e-9, (
+                "A %d-torus family does not return its torus" % len(Es)
+            )
+            assert (
+                numpy.amax(
+                    numpy.fabs((thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+                )
+                < 1e-9
+            ), "A %d-torus family does not return its torus's angles" % len(Es)
     return None

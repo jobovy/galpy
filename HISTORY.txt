@@ -42,7 +42,13 @@ v1.12.1 (expected around 2026-11-01)
   ~20x faster than the bisection it replaces and faster than the older
   evaluations), and the per-torus fit of the anomaly map uses an analytic
   Jacobian with a warm start from the neighboring torus (~2x faster
-  construction).
+  construction). The action derivatives of the anomaly map and of
+  ``K`` that the angle needs are computed on each torus from that torus
+  alone (the variation of the matching condition) and stored as Hermite
+  constraints of the family's interpolants, so the angle at a grid torus
+  is at the map's floor (~1e-11) whatever the grid, the family is several
+  times more accurate between its tori, and it can be as small as a single
+  torus.
 
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration

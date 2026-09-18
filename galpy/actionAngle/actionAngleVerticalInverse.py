@@ -35,6 +35,41 @@ from .actionAngleVertical import actionAngleVertical
 _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
 
 
+def _slope_at_zero(js, ys, dys):
+    """Slope at J = 0 of the polynomial with value 0 there and the given
+    values and slopes at the (one or two) actions js; ys may be 2D with the
+    action along the first axis."""
+    ys = numpy.atleast_1d(ys)
+    dys = numpy.atleast_1d(dys)
+    if len(js) == 1:
+        return 2.0 * ys[0] / js[0] - dys[0]
+    # quartic c1 J + c2 J^2 + c3 J^3 + c4 J^4 through (y, y') at two actions
+    A = numpy.array(
+        [
+            [js[0], js[0] ** 2.0, js[0] ** 3.0, js[0] ** 4.0],
+            [1.0, 2.0 * js[0], 3.0 * js[0] ** 2.0, 4.0 * js[0] ** 3.0],
+            [js[1], js[1] ** 2.0, js[1] ** 3.0, js[1] ** 4.0],
+            [1.0, 2.0 * js[1], 3.0 * js[1] ** 2.0, 4.0 * js[1] ** 3.0],
+        ]
+    )
+    b = numpy.array([ys[0], dys[0], ys[1], dys[1]])
+    return numpy.linalg.solve(A, b.reshape(4, -1))[0].reshape(numpy.shape(ys[0]))
+
+
+class _linearHermite:
+    """A single node with its slope, as the value and derivative of a
+    linear function of the action: the one-torus family."""
+
+    def __init__(self, j0, y0, dy0):
+        self._j0, self._y0, self._dy0 = j0, numpy.array(y0), numpy.array(dy0)
+
+    def __call__(self, j):
+        return self._y0 + self._dy0 * (j - self._j0)
+
+    def derivative(self):
+        return _linearHermite(self._j0, self._dy0, 0.0 * self._dy0)
+
+
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
 
@@ -86,7 +121,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         bisect : bool
             if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
         momentum_matched : bool
-            if True (default), evaluate through the momentum-matched canonical map: the auxiliary torus carries the same action, corresponding points are those that have swept the same cumulative action, and the amplitude is stored as K = xmax^2/J. This is the same construction the spherical and Staeckel inverses use. Set to False to use the older evaluation instead. The canonical map needs at least four energies to interpolate its family, and it is itself a point transformation, so it is not used when fewer energies are given or when use_pointtransform is set; in either case the older evaluation runs.
+            if True (default), evaluate through the momentum-matched canonical map: the auxiliary torus carries the same action, corresponding points are those that have swept the same cumulative action, and the amplitude is stored as K = xmax^2/J. This is the same construction the spherical and Staeckel inverses use. Set to False to use the older evaluation instead. The canonical map is itself a point transformation, so it is not used when use_pointtransform is set, in which case the older evaluation runs; it works for any number of energies, down to a single torus.
         mm_npt : int
             number of (even) harmonics of the momentum-matched anomaly map; the reconstruction converges spectrally in this, reaching ~1e-8 at the default and ~1e-10 at 28 (only used when momentum_matched is True)
 
@@ -333,9 +368,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Asking for the old point transformation explicitly selects the old
         # evaluation: the momentum-matched map IS a point transformation, and
         # the two cannot both be in force.
-        self._momentum_matched = (
-            momentum_matched and self._nE >= 4 and not use_pointtransform
-        )
+        self._momentum_matched = momentum_matched and not use_pointtransform
         if self._momentum_matched:
             self._setup_momentum_matched_family(npt=mm_npt, nta=2 * nta)
         return None
@@ -588,12 +621,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2026-08-29 - Written - Bovy (UofT)
         """
-        if self._nE < 4:
-            raise RuntimeError(
-                "The momentum-matched family interpolates the stored tables "
-                "with a cubic spline in the action, which needs at least "
-                "four energies"
-            )
         D = numpy.zeros((self._nE, npt))
         K = numpy.empty(self._nE)
         for ii in range(self._nE):
@@ -614,27 +641,134 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._mm_D = D
         self._mm_K = K
         self._mm_npt = npt
-        # Stored as cubic splines in the action, and differentiated below by
-        # the same spline objects the evaluation reads: storing separate
-        # derivative tables is what would break manifest canonicity.  Splines
-        # in J directly need no assumption about the spacing of the energy
-        # grid, and their not-a-knot ends matter: a mirror-symmetric
-        # extension would impose a zero slope at both ends of the grid, which
-        # the tables do not have (D grows linearly out of the harmonic
-        # bottom), and would cost ~1e-2 in the action in the end intervals
-        # while the interior sits at ~1e-5 on the same nine-node grid.
-        self._mm_Dspl = interpolate.CubicSpline(self._js, D, axis=0)
+        # The action derivatives dD_m/dJ and dK/dJ that the angle needs are
+        # known on every torus from that torus alone (the variation of the
+        # matching condition, _momentum_matched_slopes), so they go INTO
+        # the interpolants as Hermite constraints, the way E(J) below takes
+        # the frequency: the evaluation still differentiates the same
+        # interpolant it reads, which is what keeps the map symplectic
+        # whatever the tables contain, but the derivative is now exact at
+        # the nodes and one order better between them, and a family can be
+        # as small as a single torus.  (Storing the slopes as separate
+        # tables instead would be exactly what breaks manifest canonicity.)
+        dD = numpy.zeros((self._nE, npt))
+        dK = numpy.zeros(self._nE)
+        for ii in range(self._nE):
+            if self._js[ii] > 0.0:
+                dD[ii], dK[ii] = self._momentum_matched_slopes(
+                    self._Es[ii],
+                    self._xmaxs[ii],
+                    self._js[ii],
+                    self._Omegas[ii],
+                    D[ii],
+                    nta=nta,
+                )
+        # At the bottom of the grid the values are exact (D = 0, K = 2 /
+        # omega) but their slopes are anharmonic quantities the harmonic limit
+        # does not give, and the fit above degenerates as J -> 0.  They are
+        # the slope at J = 0 of the polynomial through the exact bottom value
+        # and the value AND slope of the next two tori (a quartic; with a
+        # single torus above the bottom, the quadratic through it), which is
+        # fourth (second) order in the spacing: for D_2 it reproduces the
+        # perturbative value, the fourth derivative of Phi at 0 over
+        # 96 omega^3, to ~1e-3 on a nine-node grid.
+        pos = numpy.where(self._js > 0.0)[0]
+        for ii in numpy.where(self._js <= 0.0)[0]:
+            if len(pos) == 0:
+                break
+            dD[ii] = _slope_at_zero(self._js[pos[:2]], D[pos[:2]] - D[ii], dD[pos[:2]])
+            dK[ii] = _slope_at_zero(self._js[pos[:2]], K[pos[:2]] - K[ii], dK[pos[:2]])
+        self._mm_dD = dD
+        self._mm_dK = dK
+        if self._nE > 1:
+            self._mm_Dspl = interpolate.CubicHermiteSpline(self._js, D, dD, axis=0)
+            self._mm_Kspl = interpolate.CubicHermiteSpline(self._js, K, dK)
+            # E(J) is interpolated as a Hermite spline, matching the energies
+            # at the nodes AND their slopes, because those slopes are already
+            # known exactly: dE/dJ is the frequency.  Fitting E alone and
+            # differentiating would throw that information away and leave the
+            # map's frequency disagreeing with the tabulated one.
+            self._mm_E = interpolate.CubicHermiteSpline(
+                self._js, self._Es, self._Omegas
+            )
+        else:
+            # a single torus: the family is one node with its slopes
+            self._mm_Dspl = _linearHermite(self._js[0], D[0], dD[0])
+            self._mm_Kspl = _linearHermite(self._js[0], K[0], dK[0])
+            self._mm_E = _linearHermite(self._js[0], self._Es[0], self._Omegas[0])
         self._mm_dDspl = self._mm_Dspl.derivative()
-        self._mm_Kspl = interpolate.CubicSpline(self._js, K)
         self._mm_dKspl = self._mm_Kspl.derivative()
-        # E(J) is interpolated as a Hermite spline, matching the energies at
-        # the nodes AND their slopes, because those slopes are already known
-        # exactly: dE/dJ is the frequency.  Fitting E alone and
-        # differentiating would throw that information away and leave the
-        # map's frequency disagreeing with the tabulated one.
-        self._mm_E = interpolate.CubicHermiteSpline(self._js, self._Es, self._Omegas)
         self._mm_dEdj = self._mm_E.derivative()
         return None
+
+    def _momentum_matched_slopes(self, E, xmax, J, Om, D, nta=1024):
+        """
+        The action derivatives of the anomaly map and of the storage
+        variable on a single torus, from that torus alone.
+
+        Differentiating the matching condition A^A(eta(tau; J); J) =
+        A(tau; J) with respect to J at fixed anomaly gives
+
+            (eta - sin eta cos eta) + 2 J sin^2(eta) sum_m dD_m/dJ sin(m tau)
+                = dA/dJ |_tau ,
+
+        where the right-hand side varies through dE/dJ = Omega and through
+        the moving turning point, dxmax/dJ = Omega / Phi'(xmax): its
+        integrand, the J-derivative of the flux p dx/dtau, is regular at the
+        turning points (numerator ~ tau^2 against p ~ tau) and is integrated
+        spectrally like the flux itself.  The coefficients dD_m/dJ then
+        follow from a LINEAR least-squares fit with the vanishing factor
+        2 J sin^2(eta) multiplying the unknowns, as in the map's own fit.
+
+        Parameters
+        ----------
+        E, xmax, J, Om : float
+            Energy, turning point, action, and frequency of the torus.
+        D : numpy.ndarray
+            The torus's anomaly-map coefficients.
+        nta : int, optional
+            Number of anomaly samples.
+
+        Returns
+        -------
+        tuple
+            (dD/dJ, dK/dJ) with K = xmax^2 / J.
+
+        Notes
+        -----
+        - 2026-09-18 - Written - Bovy (UofT)
+        """
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        tau = 2.0 * numpy.pi * numpy.arange(nta) / nta
+        x = -xmax * numpy.cos(tau)
+        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(
+            numpy.clip(
+                2.0 * (E - evaluatelinearPotentials(self._pot, x, use_physical=False)),
+                0.0,
+                None,
+            )
+        )
+        dPhi = -evaluatelinearForces(self._pot, x, use_physical=False)
+        dxmaxdJ = Om / (-evaluatelinearForces(self._pot, xmax, use_physical=False))
+        dxdJ = -dxmaxdJ * numpy.cos(tau)
+        dpdJ = numpy.zeros_like(tau)
+        nz = p != 0.0
+        dpdJ[nz] = (Om - dPhi[nz] * dxdJ[nz]) / p[nz]
+        gJ = (dpdJ * xmax + p * dxmaxdJ) * numpy.sin(tau)
+        k = numpy.fft.fftfreq(nta, d=1.0 / nta)
+        gh = numpy.fft.fft(gJ - numpy.mean(gJ))
+        ah = numpy.zeros_like(gh)
+        ah[1:] = gh[1:] / (1j * k[1:])
+        dAdJ = numpy.real(numpy.fft.ifft(ah))
+        dAdJ = dAdJ - dAdJ[0] + numpy.mean(gJ) * tau
+        S = numpy.sin(tau[:, None] * ms[None, :])
+        eta = tau + S @ D
+        rhs = dAdJ - (eta - numpy.sin(eta) * numpy.cos(eta))
+        dDdJ = numpy.linalg.lstsq(
+            (2.0 * J * numpy.sin(eta) ** 2.0)[:, None] * S, rhs, rcond=None
+        )[0]
+        dKdJ = 2.0 * xmax * dxmaxdJ / J - xmax**2.0 / J**2.0
+        return dDdJ, dKdJ
 
     def _mm_tables(self, j):
         """
