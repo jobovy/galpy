@@ -14076,3 +14076,47 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
         with pytest.raises(TypeError):
             meth(1.0, arr, use_physical=False)
     return None
+
+
+# Test that the second derivative of 1D potentials is the derivative of
+# their force, for each 1D potential and for a composite
+def test_linear_x2deriv():
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        MWPotential2014,
+        PotentialError,
+        RZToverticalPotential,
+        evaluatelinearForces,
+        evaluatelinearx2derivs,
+    )
+
+    pots = [
+        KGPotential(),
+        IsothermalDiskPotential(amp=1.0, sigma=0.5),
+        RZToverticalPotential(MWPotential2014, 1.0),
+        KGPotential() + IsothermalDiskPotential(amp=1.0, sigma=0.5),
+    ]
+    xs = numpy.array([-1.3, -0.4, 0.0, 0.2, 0.9, 2.5])
+    dx = 1e-5
+    for pot in pots:
+        fd = -(
+            evaluatelinearForces(pot, xs + dx, use_physical=False)
+            - evaluatelinearForces(pot, xs - dx, use_physical=False)
+        ) / (2.0 * dx)
+        d2 = evaluatelinearx2derivs(pot, xs, use_physical=False)
+        assert numpy.all(numpy.fabs(d2 - fd) < 1e-7 * (1.0 + numpy.fabs(fd))), (
+            "The second derivative of a 1D potential is not the derivative of its force"
+        )
+        # the method agrees with the function, element by element
+        if hasattr(pot, "x2deriv"):
+            assert numpy.all(
+                numpy.fabs(
+                    numpy.array([pot.x2deriv(x, use_physical=False) for x in xs]) - d2
+                )
+                < 1e-12
+            ), "x2deriv and evaluatelinearx2derivs disagree"
+    # and the function refuses a non-linear potential
+    with pytest.raises(PotentialError):
+        evaluatelinearx2derivs(MWPotential2014, 1.0)
+    return None

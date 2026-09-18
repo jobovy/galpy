@@ -293,17 +293,42 @@ class linearPotential:
         except AttributeError:  # pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 
-    def _force2deriv_nodecorator(self, x, t=0.0):
-        # Second derivative of the potential, d^2 Phi / dx^2 (the potential
-        # second derivative, matching the R2deriv/z2deriv convention). Used by
-        # the 1D variational (dxdv) equations; the RHS applies the sign to get
-        # the force gradient dF/dx = -d^2 Phi / dx^2. Separate, so it can be
-        # used during orbit integration.
+    @potential_physical_input
+    @physical_conversion("forcederivative", pop=True)
+    def x2deriv(self, x, t=0.0):
+        """
+        Evaluate the second derivative of the potential, d^2 Phi / dx^2.
+
+        Parameters
+        ----------
+        x : float or Quantity
+            Position.
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            Second derivative of the potential at position x and time t.
+
+        Notes
+        -----
+        - 2026-09-18 - Written - Bovy (UofT)
+
+        """
+        return self._x2deriv_nodecorator(x, t=t)
+
+    def _x2deriv_nodecorator(self, x, t=0.0):
+        # Second derivative of the potential, d^2 Phi / dx^2 (matching the
+        # R2deriv/z2deriv convention). Also used by the 1D variational (dxdv)
+        # equations, whose RHS applies the sign to get the force gradient
+        # dF/dx = -d^2 Phi / dx^2. Separate, so it can be used during orbit
+        # integration.
         try:
-            return self._amp * self._force2deriv(x, t=t)
+            return self._amp * self._x2deriv(x, t=t)
         except AttributeError:  # pragma: no cover
             raise PotentialError(
-                "'_force2deriv' function not implemented for this potential"
+                "'_x2deriv' function not implemented for this potential"
             )
 
     def plot(self, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
@@ -432,9 +457,42 @@ def _evaluatelinearForces(Pot, x, t=0.0):
     return Pot._force_nodecorator(x, t=t)
 
 
-def _evaluatelinearForce2derivs(Pot, x, t=0.0):
-    """Raw, undecorated d^2 Phi / dx^2 for internal use (1D variational eqns)"""
-    return Pot._force2deriv_nodecorator(x, t=t)
+@potential_positional_arg
+@potential_list_of_potentials_input
+@potential_physical_input
+@physical_conversion("forcederivative", pop=True)
+def evaluatelinearx2derivs(Pot, x, t=0.0):
+    """
+    Evaluate the second derivative of a combination of potentials, d^2 Phi / dx^2.
+
+    Parameters
+    ----------
+    Pot : linearPotential or linearCompositePotential
+        The potential(s) to evaluate.
+    x : float or Quantity
+        The position at which to evaluate the second derivative.
+    t : float or Quantity, optional
+        The time at which to evaluate the second derivative. Default is 0.0.
+
+    Returns
+    -------
+    float or Quantity
+        The value of the second derivative of the potential at the given position and time.
+
+    Notes
+    -----
+    - 2026-09-18 - Written - Bovy (UofT)
+    """
+    if not isinstance(Pot, linearPotential):
+        raise PotentialError(
+            "Input to 'evaluatelinearx2derivs' is neither a linearPotential-instance or a linearCompositePotential-instance"
+        )
+    return _evaluatelinearx2derivs(Pot, x, t=t)
+
+
+def _evaluatelinearx2derivs(Pot, x, t=0.0):
+    """Raw, undecorated function for internal use"""
+    return Pot._x2deriv_nodecorator(x, t=t)
 
 
 @potential_list_of_potentials_input
