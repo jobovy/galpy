@@ -9567,6 +9567,12 @@ def test_actionAngleVerticalInverse_momentum_matched_slopes():
                 "The family is inaccurate between its nodes (%d energies, interval %d)"
                 % (nE, ii)
             )
+    # the degenerate grid of only the harmonic bottom builds, with the
+    # identity map and no slopes to speak of
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=[0.0], nta=128)
+    assert aAVI._momentum_matched and numpy.all(aAVI._mm_dD == 0.0), (
+        "The bottom-only family does not build as the identity"
+    )
     for Es in ([1.0], [0.5, 1.5], [0.0, 1.0]):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
         for j in aAVI._js[aAVI._js > 0.0]:
