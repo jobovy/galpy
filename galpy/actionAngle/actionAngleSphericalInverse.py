@@ -18,6 +18,7 @@ from scipy.optimize import brentq, minimize
 
 from ..potential import (
     IsochronePotential,
+    epifreq,
     evaluatePotentials,
     evaluateRforces,
     rl,
@@ -50,6 +51,23 @@ def _spec_eval(c, tau, deriv=False):
     cc = c * (1j * k) if deriv else c
     ph = numpy.exp(1j * numpy.atleast_1d(tau)[:, None] * k[None, :])
     return numpy.real(ph @ (w * cc))
+
+
+def _slope_at_zero(us, ys, dys):
+    """Slope at u = 0 of the quartic through zero and the given values and
+    slopes at two abscissae us (ys may carry a trailing axis)"""
+    ys = numpy.asarray(ys, dtype="float")
+    dys = numpy.asarray(dys, dtype="float")
+    A = numpy.array(
+        [
+            [us[0], us[0] ** 2, us[0] ** 3, us[0] ** 4],
+            [1.0, 2.0 * us[0], 3.0 * us[0] ** 2, 4.0 * us[0] ** 3],
+            [us[1], us[1] ** 2, us[1] ** 3, us[1] ** 4],
+            [1.0, 2.0 * us[1], 3.0 * us[1] ** 2, 4.0 * us[1] ** 3],
+        ]
+    )
+    rhs = numpy.stack([ys[0], dys[0], ys[1], dys[1]], axis=0)
+    return numpy.linalg.solve(A, rhs.reshape(4, -1))[0].reshape(ys[0].shape)
 
 
 class _HermiteFamily:
@@ -271,27 +289,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """Radial turning points of the (E, L) torus"""
         rc = rl(self._pot, L, use_physical=False)
         pr2 = lambda r: 2.0 * (E - self._Phi(r)) - L**2 / r**2
-        if pr2(rc) < 0.0:
-            raise ValueError(
-                f"No orbit exists at E = {E}, L = {L}: the energy lies below "
-                "the circular orbit's"
-            )
         ttol = 1e-12
         rlo, rhi = rc, rc
         while pr2(rlo) > 0.0 and rlo > 1e-12:
             rlo /= 1.3
         while pr2(rhi) > 0.0 and rhi < 1e12:
             rhi *= 1.3
-        rp = rc if pr2(rc * (1.0 - 1e-14)) <= 0.0 else brentq(pr2, rlo, rc, xtol=ttol)
-        ra = rc if pr2(rc * (1.0 + 1e-14)) <= 0.0 else brentq(pr2, rc, rhi, xtol=ttol)
-        if ra - rp < 1e-10 * rc:
-            raise ValueError(
-                f"The (E, L) = ({E}, {L}) torus is (numerically) circular, "
-                "which the discrete torus construction does not support; "
-                "the interpolation grid handles J_r -> 0 through its "
-                "circular edge"
-            )
-        return rp, ra
+        return brentq(pr2, rlo, rc, xtol=ttol), brentq(pr2, rc, rhi, xtol=ttol)
 
     def _sample_torus(self, E, L):
         """Exact phase-space samples along the radial loop, parametrized by
@@ -307,9 +311,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     # ---------- the toy
     def _sample_all(self):
+        # a circular torus has no libration to sample: it is stored as its
+        # radius alone, and its tables are the harmonic limit's
         self._samples = []
         for E, L in zip(self._Es, self._Ls):
-            self._samples.append(self._sample_torus(E, L) + (E, L))
+            if self._is_circular(E, L):
+                rc = rl(self._pot, L, use_physical=False)
+                self._samples.append((None, None, None, rc, rc, E, L))
+            else:
+                self._samples.append(self._sample_torus(E, L) + (E, L))
         return None
 
     def _setup_toy(self):
@@ -324,9 +334,22 @@ class actionAngleSphericalInverse(actionAngleInverse):
         lift is then required to clear escape by a fraction of its own
         auxiliary torus's binding energy, which fails only when the stored
         anomaly map is under-resolved."""
-        imid = len(self._Es) // 2
-        E, L = self._Es[imid], self._Ls[imid]
-        tau, r, pr, rp, ra = self._sample_torus(E, L)
+        librating = [smp for smp in self._samples if smp[0] is not None]
+        if not librating:
+            # only circular orbits: any auxiliary serves, since the lift is
+            # undone with the target's own radius; take the isochrone with
+            # the central torus's circular radius as its scale
+            L = self._Ls[len(self._Ls) // 2]
+            rc = rl(self._pot, L, use_physical=False)
+            self._GM, self._b = (
+                L**2 * numpy.sqrt(2.0) * (1.0 + numpy.sqrt(2.0)) ** 2 / rc,
+                rc,
+            )
+            self._ip = IsochronePotential(amp=self._GM, b=self._b)
+            self._aAI = actionAngleIsochrone(ip=self._ip)
+            self._aAIinv = actionAngleIsochroneInverse(ip=self._ip)
+            return None
+        tau, r, pr, rp, ra, E, L = librating[len(librating) // 2]
         # frequency ratio of the central torus by regular quadrature in tau:
         # dt/dtau = (dr/dtau)/p_r is periodic and finite (dr/dtau and p_r
         # vanish together at the turning points)
@@ -355,8 +378,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             GM = GMn
         # fit the isochrone's rotation curve to the target's over the
         # sampled radial range (zero-point free, two parameters)
-        rlo = min(smp[3] for smp in self._samples)
-        rhi = max(smp[4] for smp in self._samples)
+        rlo = min(smp[3] for smp in librating)
+        rhi = max(smp[4] for smp in librating)
         rf = numpy.geomspace(rlo, rhi, 25)
         lnvc2 = numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
 
@@ -375,7 +398,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         GM, b = numpy.exp(res.x)
         self._GM, self._b = GM, b
         self._ip = IsochronePotential(amp=GM, b=b)
-        for stau, sr, spr, srp, sra, sE, sL in self._samples:
+        for stau, sr, spr, srp, sra, sE, sL in librating:
             Jrq, a, e, _, _, _, rA, pA = self._pt_match(stau, sr, spr, srp, sra, sL)
             EAs = numpy.max(
                 0.5 * (pA**2 + sL**2 / rA**2) - GM / (b + numpy.sqrt(b**2 + rA**2))
@@ -404,7 +427,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """Closed-form (a, e) of the equal-action reference toy torus"""
         EA = self._iso_E_of_Jr(Jr, L)
         a = -self._GM / (2.0 * EA) - self._b
-        e = numpy.sqrt(1.0 + L**2 / (2.0 * EA * a**2))
+        # zero at the circular orbit, to round-off
+        e = numpy.sqrt(numpy.clip(1.0 + L**2 / (2.0 * EA * a**2), 0.0, None))
         return a, e
 
     def _toy_profile(self, a, e, eta):
@@ -561,6 +585,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
         (the map's truncation, which should be at round-off), and the
         anomaly-to-angle tables that the discrete evaluation path reads"""
         tau, r, pr, rp, ra, E, L = self._samples[ii]
+        if tau is None:
+            # the circular orbit: no libration, the identity map, the
+            # epicycle and circular frequencies, and the anomaly is the angle
+            rc, kappa, Omc = self._circular(L)
+            zero = numpy.zeros(self._ntau // 2 + 1, dtype=complex)
+            return {
+                "jr": 0.0,
+                "perr": 0.0,
+                "rp": rc,
+                "ra": rc,
+                "Dm": numpy.zeros(self._npt),
+                "dDm_dE": None,
+                "dDm_dL": None,
+                "OmR": kappa,
+                "Ompsi": Omc,
+                "cP": zero,
+                "cPt": zero,
+                "cD": zero,
+            }
         k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
 
         def _antider(f):
@@ -682,14 +725,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL):
         """Rectangular grid in (u, L): L between the circular angular
         momenta of Rmin and Rmax; E = Ec(L) + [E(Rinf) - Ec(L)] u^2 with u
-        uniform in (0, 1] -- quadratic energy spacing at the circular edge
-        (the phase-2 rectification lesson)"""
+        uniform in [0, 1], the circular orbits themselves forming the
+        bottom row -- quadratic energy spacing at the circular edge, where
+        the tables behave as sqrt(E - E_c)"""
         if nE < 4 or nL < 4:
             raise ValueError("setup_interp=True requires nE >= 4 and nL >= 4")
         Lmin = Rmin * vcirc(self._pot, Rmin, use_physical=False)
         Lmax = Rmax * vcirc(self._pot, Rmax, use_physical=False)
         self._Lgrid = numpy.linspace(Lmin, Lmax, nL)
-        self._us = (numpy.arange(nE) + 1.0) / nE
+        self._us = numpy.linspace(0.0, 1.0, nE)
         self._Emax = self._Phi(Rinf)
         self._Ecs = numpy.array([self._Ec(L)[0] for L in self._Lgrid])
         if numpy.any(self._Ecs >= self._Emax):
@@ -710,6 +754,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
         derivative dE_c/dL = L / r_c^2 (the circular frequency)"""
         rc = rl(self._pot, L, use_physical=False)
         return self._Phi(rc) + L**2 / (2.0 * rc**2), L / rc**2
+
+    def _circular(self, L):
+        """The circular orbit of angular momentum L: its radius, epicycle
+        frequency (the radial frequency in the limit J_r -> 0), and circular
+        frequency"""
+        rc = rl(self._pot, L, use_physical=False)
+        return rc, epifreq(self._pot, rc, use_physical=False), L / rc**2
+
+    def _is_circular(self, E, L):
+        """Whether the (E, L) torus is the circular orbit, to round-off;
+        raises when it lies below it"""
+        Ec, _ = self._Ec(L)
+        tol = 1e-12 * (1.0 + numpy.fabs(Ec))
+        if E < Ec - tol:
+            raise ValueError(
+                f"No orbit exists at E = {E}, L = {L}: the energy lies below "
+                "the circular orbit's"
+            )
+        return E < Ec + tol
 
     def _E_of_uL(self, u, L):
         """The grid's energy variable, analytic: E = E_c(L) + [E_max -
@@ -763,12 +826,34 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 # dE/dL at fixed u
                 self._jr_dx[ii, jj] = (self._Emax - self._Ecs[jj]) / node["OmR"]
                 self._jr_dL[ii, jj] = (dE_dL - node["Ompsi"]) / node["OmR"]
+                if node["jr"] == 0.0:
+                    # the circular edge: the turning points leave the circular
+                    # radius linearly in u, at the rate the epicycle sets
+                    # (E - E_c = kappa^2 w^2 / 2 with w the half-width), and
+                    # move with it along L (L^2 = r_c^3 Phi'(r_c) gives
+                    # dr_c/dL = 2 L / [r_c^3 kappa^2]); the map's slopes come
+                    # from the next two rows below
+                    rc, kappa, _ = self._circular(L)
+                    w1 = numpy.sqrt(2.0 * (self._Emax - self._Ecs[jj])) / kappa
+                    drc = 2.0 * L / (rc**3 * kappa**2)
+                    self._sup_du[ii, jj] = [-w1, w1]
+                    self._sup_dL[ii, jj] = [drc, drc]
+                    self._Dm_dL[ii, jj] = 0.0
+                    continue
                 for q, r in enumerate((node["rp"], node["ra"])):
                     dr_dE, dr_dL = self._turning_point_derivs(r, E, L)
                     self._sup_du[ii, jj, q] = dr_dE * dE_du
                     self._sup_dL[ii, jj, q] = dr_dE * dE_dL + dr_dL
                 self._Dm_du[ii, jj] = node["dDm_dE"] * dE_du
                 self._Dm_dL[ii, jj] = node["dDm_dE"] * dE_dL + node["dDm_dL"]
+        # the map's coefficients vanish at the circular edge and grow
+        # linearly in u out of it (the first anharmonic correction of the
+        # radial libration is linear in its amplitude); their slope there is
+        # that of the quartic through zero and the next two rows, as the 1D
+        # family does at its harmonic bottom
+        self._Dm_du[0] = _slope_at_zero(
+            self._us[1:3], self._Dm_tab[1:3], self._Dm_du[1:3]
+        )
         self._warn_unresolved(
             perr.flatten(), self._E_tab.flatten(), numpy.tile(self._Lgrid, nu)
         )
@@ -1042,12 +1127,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         Ec, _ = self._Ec(L)
         u2 = (E - Ec) / (self._Emax - Ec)
-        if u2 < 0.0 or u2 > 1.0:
+        if u2 < -1e-12 or u2 > 1.0:
             raise ValueError(
                 f"E = {E} outside the interpolation grid at L = {L}: "
                 f"[{Ec}, {self._Emax}]"
             )
-        return self._jr_ip(u2, L)[0, 0]
+        return self._jr_ip(max(u2, 0.0), L)[0, 0]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """(J, theta) -> (x, v): solve for the anomaly of each requested
@@ -1063,6 +1148,27 @@ class actionAngleSphericalInverse(actionAngleInverse):
             numpy.atleast_1d(anglez).astype(float),
         )
         thr = angler % (2.0 * numpy.pi)
+        if jr == 0.0:
+            # the circular orbit: the point sits at the circular radius with
+            # no radial motion, and the requested radial angle is the
+            # epicyclic phase, which does not enter. The plane geometry is
+            # the auxiliary's at the same (L, J_phi) and in-plane angle,
+            # which the isochrone inverse gives exactly at the pericentre
+            # of any of its librating tori (the in-plane angle equals the
+            # angle variable there); its own circular orbit is degenerate
+            # for it, so a moderately eccentric auxiliary torus is used and
+            # the lift undone with the circular radius
+            if not self._interp:
+                self._match_node(jr, L)
+            rc, OmR, OmL = self._circular(L)
+            out = self._unlift(
+                self._aAIinv._xvFreqs(0.1 * L, jphi, jz, 0.0 * thr, anglephi, anglez)[
+                    :6
+                ],
+                rc + 0.0 * thr,
+                0.0 * thr,
+            )
+            return (*out, OmR, numpy.sign(jphi) * OmL, OmL)
         if self._interp:
             _, OmR, OmL, ptdata = self._interp_tables(jr, L)
             a, e = self._toy_params(jr, L)
@@ -1117,7 +1223,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         quadrature values"""
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         L = jz + numpy.fabs(jphi)
-        if self._interp:
+        if jr == 0.0:
+            if not self._interp:
+                self._match_node(jr, L)
+            _, OmR, OmL = self._circular(L)
+        elif self._interp:
             _, OmR, OmL, _ = self._interp_tables(jr, L)
         else:
             ii = self._match_node(jr, L)
