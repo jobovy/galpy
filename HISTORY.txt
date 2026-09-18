@@ -45,7 +45,12 @@ v1.12.1 (expected around 2026-11-01)
   turning points' from the level-set rule, and the anomaly map's from the
   variation of the matching condition on each torus alone, so a grid
   torus's angles and frequencies are exact and the family between its
-  nodes is accurate to ~1e-7 in angle on a 16 x 16 grid. A warning is raised when the anomaly map does not
+  nodes is accurate to ~1e-7 in angle on a 16 x 16 grid. The evaluation is
+  a single vectorized pass in the anomaly: the auxiliary anomaly and radial
+  angle, the target's radius and radial momentum, and the compensations
+  come from the tables in closed form, Newton runs on the anomaly, and the
+  three-dimensional reconstruction is one call of the analytic isochrone
+  inverse for all points (0.02 ms per point). A warning is raised when the anomaly map does not
   resolve a torus, and a torus that reaches beyond the depth of the fitted
   auxiliary raises.
 
