@@ -1334,17 +1334,113 @@ def test_actionAngleSpherical_smallr():
     from galpy.potential import IsochronePotential
 
     ip = IsochronePotential()
-    # Orbit at rperi, very small r
+    # Circular orbit at very small r: rperi is r itself (an epicycle of zero
+    # amplitude around the circular orbit, whose radius is found to the root
+    # tolerance of the circular-orbit condition)
     o = Orbit([0.000000001, 0.0, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
-    # Code should have rperi = 0
     assert (
-        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-10.0
-    ), "rperi is not 0 for very small r"
+        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-8.0
+    ), "rperi is not tiny for a circular orbit at very small r"
     # Orbit just outside rperi, very small r
     o = Orbit([0.000000001, 0.0001, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
     assert (
         numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-10.0
     ), "rperi is not 0 for very small r"
+    return None
+
+
+# Test actionAngleSpherical for circular and near-circular orbits, against
+# the isochrone's exact transformation: the general quadratures lose precision
+# as the epicyclic amplitude shrinks (and the turning-point search its bracket),
+# so below an amplitude of 1e-4 of the circular radius the actions, frequencies
+# and angles are the epicycle's; both regimes and the circular orbit itself
+def test_actionAngleSpherical_near_circular():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
+    from galpy.potential import (
+        IsochronePotential,
+        LogarithmicHaloPotential,
+        epifreq,
+        omegac,
+        vcirc,
+    )
+
+    ip = IsochronePotential(normalize=1.0, b=1.2)
+    aAS = actionAngleSpherical(pot=ip)
+    aAI = actionAngleIsochrone(ip=ip)
+    wrap = lambda d: numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+    R, z, phi = 0.9, 0.3, 0.7
+    r = numpy.sqrt(R**2 + z**2)
+    vc = vcirc(ip, r, use_physical=False)
+    rhat, that = numpy.array([R, z]) / r, numpy.array([-z, R]) / r
+    # an inclined orbit at its guiding radius with a radial kick v_r, from
+    # an amplitude of ~1e-2 of the radius down to the circular orbit
+    for vr in (1e-2, 1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 1e-6, 1e-7, 1e-9, 0.0):
+        vRz = vr * rhat + 0.6 * vc * that
+        args = (R, vRz[0], 0.8 * vc, z, vRz[1], phi)
+        f = aAS.actionsFreqsAngles(*args)
+        g = aAI.actionsFreqsAngles(*args)
+        assert numpy.fabs(f[0][0] - g[0][0]) < 3e-5 * g[0][0] + 1e-15, (
+            "J_r of a near-circular orbit is wrong at v_r = %g: %g vs %g"
+            % (vr, f[0][0], g[0][0])
+        )
+        assert numpy.fabs(f[3][0] / g[3][0] - 1.0) < 3e-5, (
+            "Omega_r of a near-circular orbit is wrong at v_r = %g" % vr
+        )
+        assert numpy.fabs(f[5][0] / g[5][0] - 1.0) < 1e-7, (
+            "Omega_z of a near-circular orbit is wrong at v_r = %g" % vr
+        )
+        # the isochrone's own angles are not finite for the tiniest orbits
+        if numpy.isfinite(g[6][0]) and g[0][0] > 1e-14:
+            assert wrap(f[6][0] - g[6][0]) < 3e-4, (
+                "theta_r of a near-circular orbit is wrong at v_r = %g" % vr
+            )
+        if numpy.isfinite(g[8][0]):
+            assert wrap(f[8][0] - g[8][0]) < 1e-7, (
+                "theta_z of a near-circular orbit is wrong at v_r = %g" % vr
+            )
+        assert numpy.all(numpy.isfinite(numpy.array([x[0] for x in f]))), (
+            "The forward transformation is not finite at v_r = %g" % vr
+        )
+        # the actions-only and actions-and-frequencies paths agree with it
+        assert numpy.fabs(aAS(*args)[0][0] - f[0][0]) < 1e-15
+        assert numpy.fabs(aAS.actionsFreqs(*args)[3][0] - f[3][0]) < 1e-15
+    # the cases that used to fail or return NaN, in a logarithmic halo
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aAS = actionAngleSpherical(pot=lp)
+    r = 0.99
+    vc = vcirc(lp, r, use_physical=False)
+    kappa = epifreq(lp, r, use_physical=False)
+    for args, jr_expect in (
+        ((r, 0.0, vc, 0.0, 0.0, 0.3), 0.0),  # exactly circular
+        ((r, 1e-8, vc, 0.0, 0.0, 0.3), 0.5e-16 / kappa),  # a tiny radial kick
+        (
+            (r * (1.0 + 1e-7), 0.0, vc / (1.0 + 1e-7), 0.0, 0.0, 0.3),
+            0.5 * kappa * (r * 1e-7) ** 2,
+        ),  # at apocentre
+        (
+            (0.7, 5e-17 * 0.7, 0.8 * vc, 0.7, 5e-17 * 0.7, 0.3),
+            None,
+        ),  # an eccentric orbit at its apocentre to round-off
+    ):
+        f = aAS.actionsFreqsAngles(*args)
+        assert numpy.all(numpy.isfinite(numpy.array([x[0] for x in f]))), (
+            f"The forward transformation is not finite at {args}"
+        )
+        if jr_expect is not None:
+            assert numpy.fabs(f[0][0] - jr_expect) < 1e-3 * jr_expect + 1e-16, (
+                "J_r at {} is not the epicycle's: {:g} vs {:g}".format(
+                    args, f[0][0], jr_expect
+                )
+            )
+            assert numpy.fabs(f[3][0] / kappa - 1.0) < 1e-6
+            assert numpy.fabs(f[5][0] / omegac(lp, r, use_physical=False) - 1.0) < 1e-6
+    # the epicycle's turning points are also what EccZmaxRperiRap returns
+    e, zmax, rperi, rap = aAS.EccZmaxRperiRap(r, 1e-6, vc, 0.0, 0.0, 0.3)
+    w = 1e-6 / kappa
+    # (r_c is found to the root tolerance of the circular-orbit condition)
+    assert numpy.fabs(rperi - (r - w)) < 1e-9 and numpy.fabs(rap - (r + w)) < 1e-9, (
+        "The turning points of an epicycle are not r_c -/+ w"
+    )
     return None
 
 

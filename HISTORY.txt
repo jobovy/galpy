@@ -21,6 +21,22 @@ v1.12.1 (expected around 2026-11-01)
   point-transformed one. Nothing changes without a point transformation or
   with the exact one, which have no offset.
 
+- ``actionAngleSpherical`` now handles circular and near-circular orbits:
+  below an epicyclic amplitude of 1e-4 of the circular radius the actions,
+  frequencies, and angles are the epicycle's (J_r = [E - E_c(L)] / kappa,
+  Omega_r = kappa, Omega_psi = Omega_c, the radial angle from the epicycle's
+  phase, and the azimuthal angle with the epicycle's leading correction),
+  where the general quadratures lost precision, returned NaN, or failed to
+  bracket a turning point; above it, the turning-point search brackets with
+  an offset set by the epicyclic half-width rather than a fixed length, a
+  point at a turning point is recognized to round-off in its radial kinetic
+  energy, and the action integrand's radicand is clipped at zero next to the
+  turning points. Measured against the isochrone's exact transformation, the
+  two regimes cross at that amplitude with errors below 3e-5 in the action
+  and the frequencies and 3e-4 in the radial angle at the crossover. The
+  exactly circular orbit returns J_r = 0, the epicycle and circular
+  frequencies, and finite angles.
+
 - ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
   canonical map by default: the auxiliary torus is the harmonic oscillator of
   the same action, corresponding points are those that have swept the same

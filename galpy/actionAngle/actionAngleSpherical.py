@@ -14,16 +14,23 @@ import copy
 import numpy
 from scipy import integrate, optimize
 
-from ..potential import _dim, epifreq, omegac, vcirc
+from ..potential import _dim, epifreq, omegac, rl, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
-    _evaluatePotentials,
 )
 from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
+# below this epicyclic half-width relative to the circular radius, an orbit is
+# treated as an epicycle around the circular orbit: the quadratures of the
+# general path lose precision there (the radicands are differences of nearly
+# equal energies, and the turning points are found to a fixed absolute
+# tolerance), while the epicyclic approximation is accurate to (w/r_c)^2 in
+# the action and the frequencies and to w/r_c in the radial angle; measured
+# against the isochrone's exact transformation, the two cross at w/r_c ~ 1e-4
+_EPICYCLE = 10.0**-4.0
 
 
 class actionAngleSpherical(actionAngle):
@@ -142,7 +149,13 @@ class actionAngleSpherical(actionAngle):
             # Jr requires some more work
             Jr = []
             for ii in range(len(r)):
-                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], vt[ii], E[ii], L[ii])
+                rc, kappa, Omc, dE, w = self._epicycle(E[ii], L[ii])
+                if w < _EPICYCLE * rc:
+                    Jr.append(dE / kappa)
+                    continue
+                rperi, rap = self._calc_rperi_rap(
+                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
+                )
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
             return (numpy.array(Jr), Jphi, Jz)
 
@@ -219,13 +232,17 @@ class actionAngleSpherical(actionAngle):
             Or = []
             Op = []
             for ii in range(len(r)):
-                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], vt[ii], E[ii], L[ii])
+                rc, kappa, Omc, dE, w = self._epicycle(E[ii], L[ii])
+                if w < _EPICYCLE * rc:
+                    Jr.append(dE / kappa)
+                    Or.append(kappa)
+                    Op.append(Omc)
+                    continue
+                rperi, rap = self._calc_rperi_rap(
+                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
+                )
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
                 # Radial period
-                if Jr[-1] < 10.0**-9.0:  # Circular orbit
-                    Or.append(epifreq(self._2dpot, r[ii], use_physical=False))
-                    Op.append(omegac(self._2dpot, r[ii], use_physical=False))
-                    continue
                 Rmean = (
                     numpy.exp((numpy.log(rperi) + numpy.log(rap)) / 2.0)
                     if rperi > 0.0
@@ -324,7 +341,23 @@ class actionAngleSpherical(actionAngle):
             # Calculate the longitude of the ascending node
             asc = self._calc_long_asc(z, R, vtheta, phi, Lz, L)
             for ii in range(len(r)):
-                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], vt[ii], E[ii], L[ii])
+                rc, kappa, Omc, dE, w = self._epicycle(E[ii], L[ii])
+                if w < _EPICYCLE * rc:
+                    # an epicycle: r = r_c - w cos(theta_r), v_r = w kappa
+                    # sin(theta_r), and the azimuth runs ahead of its angle
+                    # by (2 Omega_c / kappa)(w / r_c) sin(theta_r)
+                    Jr.append(dE / kappa)
+                    Or.append(kappa)
+                    Op.append(Omc)
+                    ar.append(numpy.arctan2(vr[ii] / kappa, rc - r[ii]))
+                    az.append(
+                        self._calc_psi(z[ii], r[ii], L[ii], Lz[ii], vtheta[ii], phi[ii])
+                        - 2.0 * Omc / kappa * w / rc * numpy.sin(ar[-1])
+                    )
+                    continue
+                rperi, rap = self._calc_rperi_rap(
+                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
+                )
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
                 # Radial period
                 Rmean = (
@@ -332,27 +365,21 @@ class actionAngleSpherical(actionAngle):
                     if rperi > 0
                     else rap / 2.0
                 )
-                if Jr[-1] < 10.0**-9.0:  # Circular orbit
-                    Or.append(epifreq(self._2dpot, r[ii], use_physical=False))
-                    Op.append(omegac(self._2dpot, r[ii], use_physical=False))
-                else:
-                    Or.append(
-                        self._calc_or(
-                            Rmean, rperi, rap, E[ii], L[ii], fixed_quad, **kwargs
-                        )
+                Or.append(
+                    self._calc_or(Rmean, rperi, rap, E[ii], L[ii], fixed_quad, **kwargs)
+                )
+                Op.append(
+                    self._calc_op(
+                        Or[-1],
+                        Rmean,
+                        rperi,
+                        rap,
+                        E[ii],
+                        L[ii],
+                        fixed_quad,
+                        **kwargs,
                     )
-                    Op.append(
-                        self._calc_op(
-                            Or[-1],
-                            Rmean,
-                            rperi,
-                            rap,
-                            E[ii],
-                            L[ii],
-                            fixed_quad,
-                            **kwargs,
-                        )
-                    )
+                )
                 # Angles
                 ar.append(
                     self._calc_angler(
@@ -463,7 +490,13 @@ class actionAngleSpherical(actionAngle):
                 E += L**2.0 / 2.0 / r**2.0 - vt**2.0 / 2.0
             rperi, rap = [], []
             for ii in range(len(r)):
-                trperi, trap = self._calc_rperi_rap(r[ii], vr[ii], vt[ii], E[ii], L[ii])
+                rc, kappa, Omc, dE, w = self._epicycle(E[ii], L[ii])
+                if w < _EPICYCLE * rc:
+                    trperi, trap = rc - w, rc + w
+                else:
+                    trperi, trap = self._calc_rperi_rap(
+                        r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
+                    )
                 rperi.append(trperi)
                 rap.append(trap)
             rperi = numpy.array(rperi)
@@ -475,15 +508,39 @@ class actionAngleSpherical(actionAngle):
                 rap,
             )
 
-    def _calc_rperi_rap(self, r, vr, vt, E, L):
-        if (
-            vr == 0.0
-            and numpy.fabs(vt - vcirc(self._2dpot, r, use_physical=False)) < _EPS
-        ):
-            # We are on a circular orbit
-            rperi = r
-            rap = r
-        elif vr == 0.0 and vt > vcirc(self._2dpot, r, use_physical=False):
+    def _epicycle(self, E, L):
+        """The circular orbit of angular momentum L, and the (E, L) orbit's
+        epicyclic amplitude around it: the circular radius, the epicycle and
+        circular frequencies, the energy above the circular orbit's, and the
+        harmonic half-width w = sqrt(2 dE) / kappa"""
+        rc = rl(self._2dpot, L, use_physical=False)
+        kappa = epifreq(self._2dpot, rc, use_physical=False)
+        Omc = omegac(self._2dpot, rc, use_physical=False)
+        dE = max(
+            E - _evaluateplanarPotentials(self._2dpot, rc) - L**2.0 / 2.0 / rc**2.0,
+            0.0,
+        )
+        return rc, kappa, Omc, dE, numpy.sqrt(2.0 * dE) / kappa
+
+    def _calc_psi(self, z, r, L, Lz, vtheta, phi):
+        """The angle in the orbital plane from the ascending node"""
+        i = numpy.arccos(Lz / L)
+        sinpsi = z / r / numpy.sin(i)
+        if numpy.isfinite(sinpsi):
+            sinpsi = 1.0 if sinpsi > 1.0 else (-1.0 if sinpsi < -1.0 else sinpsi)
+            psi = numpy.arcsin(sinpsi)
+            if vtheta > 0.0:
+                psi = numpy.pi - psi
+        else:
+            psi = phi
+        return psi % (2.0 * numpy.pi)
+
+    def _calc_rperi_rap(self, r, vr, vt, E, L, w=None):
+        # at a turning point when the radial kinetic energy is at round-off
+        # (a circular orbit never reaches this: it is an epicycle of zero
+        # amplitude, handled before the turning points are looked for)
+        at_turning = 0.5 * vr**2.0 <= _EPS * (0.5 * vt**2.0 + numpy.fabs(E))
+        if at_turning and vt > vcirc(self._2dpot, r, use_physical=False):
             # We are exactly at pericenter
             rperi = r
             if self._gamma != 0.0:
@@ -494,10 +551,13 @@ class actionAngleSpherical(actionAngle):
             rend = _rapRperiAxiFindStart(
                 r, E, L, self._2dpot, rap=True, startsign=startsign
             )
+            # an offset inside the libration: a fraction of the epicyclic
+            # half-width, which the actual width always exceeds
+            delta = 0.00001 if w is None else min(0.00001, 0.1 * w)
             rap = optimize.brentq(
-                _rapRperiAxiEq, rperi + 0.00001, rend, args=(E, L, self._2dpot)
+                _rapRperiAxiEq, rperi + delta, rend, args=(E, L, self._2dpot)
             )
-        elif vr == 0.0 and vt < vcirc(self._2dpot, r, use_physical=False):
+        elif at_turning and vt < vcirc(self._2dpot, r, use_physical=False):
             # We are exactly at apocenter
             rap = r
             if self._gamma != 0.0:
@@ -509,8 +569,9 @@ class actionAngleSpherical(actionAngle):
             if rstart == 0.0:
                 rperi = 0.0
             else:
+                delta = 0.000001 if w is None else min(0.000001, 0.1 * w)
                 rperi = optimize.brentq(
-                    _rapRperiAxiEq, rstart, rap - 0.000001, args=(E, L, self._2dpot)
+                    _rapRperiAxiEq, rstart, rap - delta, args=(E, L, self._2dpot)
                 )
         else:
             if self._gamma != 0.0:
@@ -741,17 +802,7 @@ class actionAngleSpherical(actionAngle):
         fixed_quad,
         **kwargs,
     ):
-        # First calculate psi
-        i = numpy.arccos(Lz / L)
-        sinpsi = z / r / numpy.sin(i)
-        if numpy.isfinite(sinpsi):
-            sinpsi = 1.0 if sinpsi > 1.0 else (-1.0 if sinpsi < -1.0 else sinpsi)
-            psi = numpy.arcsin(sinpsi)
-            if vtheta > 0.0:
-                psi = numpy.pi - psi
-        else:
-            psi = phi
-        psi = psi % (2.0 * numpy.pi)
+        psi = self._calc_psi(z, r, L, Lz, vtheta, phi)
         # Calculate dSr/dL
         dpsi = Op / Or * 2.0 * numpy.pi  # this is the full I integral
         if r < Rmean:
@@ -818,8 +869,14 @@ class actionAngleSpherical(actionAngle):
 
 
 def _JrSphericalIntegrand(r, E, L, pot):
-    """The J_r integrand"""
-    return numpy.sqrt(2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0)
+    """The J_r integrand; its radicand is clipped at zero, where round-off
+    in the difference of nearly equal energies next to a turning point would
+    otherwise take it negative"""
+    return numpy.sqrt(
+        numpy.clip(
+            2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0, 0.0, None
+        )
+    )
 
 
 def _TrSphericalIntegrandSmall(t, E, L, pot, rperi):
