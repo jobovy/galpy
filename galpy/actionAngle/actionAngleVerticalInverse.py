@@ -2173,7 +2173,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         D, _, K, _ = self._mm_tables(J)
         ms = 2.0 * numpy.arange(1, self._mm_npt + 1)
         pyplot.subplot(1, 3, 1)
-        y = numpy.fabs(D - truthaAV._mm_D[0]) / (numpy.fabs(truthaAV._mm_D[0]) + 1e-16)
+        # absolute differences of the coefficients, which are themselves at
+        # round-off beyond the first few tens of harmonics, and the relative
+        # difference of the storage variable K
+        y = numpy.fabs(D - truthaAV._mm_D[0])
+        dK = numpy.fabs(K / truthaAV._mm_K[0] - 1.0)
         plot.plot(
             ms,
             y,
@@ -2182,13 +2186,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
             semilogy=True,
             xrange=[0.0, ms[-1] + 1.0],
             yrange=[
-                numpy.amax([numpy.amin(y), 1e-17]),
-                numpy.amax([numpy.amax(y), 1e-16]),
+                numpy.amax([numpy.amin(numpy.append(y, dK)), 1e-17]) / 3.0,
+                numpy.amax([numpy.amax(numpy.append(y, dK)), 1e-16]) * 3.0,
             ],
             xlabel=r"$m$",
-            ylabel=r"$|D_m^{\mathrm{interp}}/D_m^{\mathrm{truth}}-1|$",
+            ylabel=r"$|\Delta D_m|$ (solid), $|\Delta K/K|$ (dashed)",
         )
-        pyplot.axhline(numpy.fabs(K / truthaAV._mm_K[0] - 1.0), color="k", ls="--")
+        pyplot.axhline(dK, color="k", ls="--")
         ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
         x, v = self(J, ta)
         xt, vt = truthaAV(truthaAV._js[0], ta)
