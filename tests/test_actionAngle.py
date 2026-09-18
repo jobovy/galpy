@@ -8983,7 +8983,7 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
     )
     # the samples resolve the series once there are more than four per
     # harmonic; beyond that the map is converged
-    aAVI1 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_nta=128)
+    aAVI1 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_nta=192)
     aAVI2 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_nta=1024)
     for E in Es[1:]:
         x1, v1 = aAVI1(aAVI1.J(E), angles)

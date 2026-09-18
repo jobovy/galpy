@@ -50,7 +50,7 @@ v1.12.1 (expected around 2026-11-01)
   angle relation by safeguarded Newton steps on its closed-form derivative,
   started from the requested angle (three to four evaluations of a one-pass
   kernel per call,
-  ~20x faster than the bisection it replaces and faster than the older
+  ~20x faster than the bisection it replaces and comparable to the older
   evaluations), and the per-torus fit of the anomaly map uses an analytic
   Jacobian with a warm start from the neighboring torus (~2x faster
   construction). The action derivatives of the anomaly map and of

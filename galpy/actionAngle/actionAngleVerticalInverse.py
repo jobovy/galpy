@@ -89,7 +89,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         angle_tol=1e-12,
         bisect=False,
         momentum_matched=True,
-        mm_npt=20,
+        mm_npt=40,
         mm_nta=None,
         **kwargs,
     ):
@@ -125,7 +125,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         momentum_matched : bool
             if True (default), evaluate through the momentum-matched canonical map: the auxiliary torus carries the same action, corresponding points are those that have swept the same cumulative action, and the amplitude is stored as K = xmax^2/J. This is the same construction the spherical and Staeckel inverses use. Set to False to use the older evaluation instead. The canonical map is itself a point transformation, so it is not used when use_pointtransform is set, in which case the older evaluation runs; it works for any number of energies, down to a single torus, and always interpolates between the grid tori; setup_interp=True then only provides E(J) and J(E), from the same Hermite energy interpolant that the frequency derives from.
         mm_npt : int
-            number of (even) harmonics of the momentum-matched anomaly map; the reconstruction converges spectrally in this, reaching ~1e-8 at the default and ~1e-10 at 28 (only used when momentum_matched is True)
+            number of (even) harmonics of the momentum-matched anomaly map; the reconstruction converges spectrally in this, reaching round-off (~1e-13) at the default for tori within a few scale heights of the midplane (~1e-8 at 20); tori reaching further need more, growing as xmax over the scale height, and a warning is raised when the default does not suffice (only used when momentum_matched is True)
         mm_nta : int, optional
             number of anomaly samples per torus used to fit the momentum-matched anomaly map and to compute the torus's action and frequency; must exceed 4 * mm_npt for the samples to resolve the map's highest harmonic; default is 2 * nta, raised to 8 * mm_npt if that is larger (only used when momentum_matched is True)
 
