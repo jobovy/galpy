@@ -9428,3 +9428,79 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
         "K at zero action is not its harmonic limit 2/omega"
     )
     return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_kernel():
+    # The one-pass evaluation kernel must agree with the three reference
+    # methods it consolidates, its closed-form d(angle)/d(tau) with a finite
+    # difference, and the Newton inversion of the angle relation must reach
+    # round-off for every angle -- including at and next to the turning
+    # points, where d(angle)/d(tau) vanishes -- on every torus of the grid
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128)
+    tau = numpy.linspace(0.0, 2.0 * numpy.pi, 257)
+    angles = numpy.concatenate(
+        [
+            numpy.linspace(0.0, 2.0 * numpy.pi, 400, endpoint=False),
+            [1e-9, numpy.pi - 1e-9, numpy.pi + 1e-9, 2.0 * numpy.pi - 1e-9],
+        ]
+    )
+    for ii in range(1, 9):
+        j = aAVI._js[ii]
+        tables = aAVI._mm_tables(j)
+        x, p, th, dth = aAVI._mm_eval_tau(j, tau, tables, deriv=True)
+        xr, pr = aAVI._mm_xp_of_tau(j, tau)
+        thr = aAVI._mm_angle_of_tau(j, tau)
+        assert numpy.amax(numpy.fabs(x - xr)) < 1e-14, (
+            "The kernel's x differs from _mm_xp_of_tau"
+        )
+        assert numpy.amax(numpy.fabs(p - pr)) < 1e-14, (
+            "The kernel's p differs from _mm_xp_of_tau"
+        )
+        assert numpy.amax(numpy.fabs(th - thr)) < 1e-13, (
+            "The kernel's angle differs from _mm_angle_of_tau"
+        )
+        h = 1e-6
+        fd = (aAVI._mm_angle_of_tau(j, tau + h) - aAVI._mm_angle_of_tau(j, tau - h)) / (
+            2.0 * h
+        )
+        # exactly at fl(pi) and fl(2 pi) the sub-ulp deviation from the turning
+        # point survives in sin(tau) (~1e-16) but is rounded away when added
+        # to pi inside eta, so the ratio sin^2(eta)/sin(tau) there loses its
+        # eta'^2 factor and the derivative is off by ~1e-3 relative -- at
+        # points where the momentum is ~1e-16 and the inversion never lands;
+        # tau = 0 is exact and is covered
+        ok = numpy.fabs(numpy.sin(tau)) > 1e-12
+        ok[0] = True
+        assert (
+            numpy.amax(numpy.fabs(dth - fd)[ok] / (1.0 + numpy.fabs(fd[ok]))) < 1e-6
+        ), "The closed-form d(angle)/d(tau) disagrees with a finite difference"
+        tinv = aAVI._mm_tau_of_angle(j, angles, tables=tables)
+        res = numpy.fabs(
+            (aAVI._mm_angle_of_tau(j, tinv) - angles + numpy.pi) % (2.0 * numpy.pi)
+            - numpy.pi
+        )
+        assert numpy.amax(res) < 1e-12, (
+            "The Newton inversion of the angle relation does not reach round-off: %g"
+            % numpy.amax(res)
+        )
+        # the public evaluation is the kernel at that anomaly
+        xe, ve = aAVI(j, angles)
+        xref, pref = aAVI._mm_xp_of_tau(j, tinv)
+        assert numpy.amax(numpy.fabs(xe - xref)) < 1e-14, (
+            "The public x is not the kernel's"
+        )
+        assert numpy.amax(numpy.fabs(ve - pref)) < 1e-14, (
+            "The public v is not the kernel's"
+        )
+    # the warm-started, analytic-Jacobian fit lands where the cold one does
+    D_cold, K_cold = aAVI._momentum_matched_map(4, npt=20, nta=256)
+    D_warm, K_warm = aAVI._momentum_matched_map(4, npt=20, nta=256, D0=aAVI._mm_D[3])
+    assert numpy.amax(numpy.fabs(D_cold - D_warm)) < 1e-12, (
+        "The warm-started fit lands on different coefficients"
+    )
+    assert K_cold == K_warm, "The storage variable depends on the fit's starting point"
+    return None

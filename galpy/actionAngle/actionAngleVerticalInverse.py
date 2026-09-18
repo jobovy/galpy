@@ -477,7 +477,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
         return None
 
-    def _momentum_matched_map(self, ii, npt=16, nta=1024):
+    def _momentum_matched_map(self, ii, npt=16, nta=1024, D0=None):
         """
         Momentum-matched anomaly map of torus ii.
 
@@ -508,6 +508,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Number of (even) harmonics to fit.
         nta : int, optional
             Number of anomaly samples.
+        D0 : numpy.ndarray, optional
+            Starting coefficients for the fit (e.g., those of the previous
+            torus of the grid); zero if not given.
 
         Returns
         -------
@@ -543,8 +546,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
             eta = tau + S @ D
             return J * (eta - numpy.sin(eta) * numpy.cos(eta)) - A
 
+        def _jac(D):
+            # d resid / d D_m = J (1 - cos 2 eta) sin(m tau) = 2 J sin^2(eta) sin(m tau)
+            eta = tau + S @ D
+            return (2.0 * J * numpy.sin(eta) ** 2.0)[:, None] * S
+
         sol = optimize.least_squares(
-            _resid, numpy.zeros(len(ms)), xtol=1e-15, ftol=1e-15, gtol=1e-15
+            _resid,
+            numpy.zeros(len(ms)) if D0 is None else numpy.array(D0, dtype="float"),
+            jac=_jac,
+            xtol=1e-15,
+            ftol=1e-15,
+            gtol=1e-15,
         )
         return sol.x, xmax**2.0 / J
 
@@ -590,7 +603,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 # identity (D = 0), and K takes its limit 2 / omega.
                 K[ii] = 2.0 / self._Omegas[ii]
                 continue
-            D[ii], K[ii] = self._momentum_matched_map(ii, npt=npt, nta=nta)
+            # warm start from the previous torus: the coefficients vary
+            # smoothly along the grid
+            D[ii], K[ii] = self._momentum_matched_map(
+                ii,
+                npt=npt,
+                nta=nta,
+                D0=D[ii - 1] if ii > 0 and self._js[ii - 1] > 0.0 else None,
+            )
         self._mm_D = D
         self._mm_K = K
         self._mm_npt = npt
@@ -807,16 +827,98 @@ class actionAngleVerticalInverse(actionAngleInverse):
             - 0.5 * numpy.pi
         )
 
-    def _mm_tau_of_angle(self, j, angle):
+    def _mm_eval_tau(self, j, tau, tables, deriv=False):
+        """
+        Position, momentum, and angle at anomaly tau on the torus of action
+        j, from table values read once, in a single pass, optionally with
+        the closed-form derivative of the angle with respect to the anomaly.
+
+        This is the evaluation kernel: it computes exactly what
+        _mm_xp_of_tau, _mm_compensation and _mm_angle_of_tau compute, but
+        shares the table read and the trigonometry between them, and adds
+        the derivative that the Newton inversion of the angle relation needs.
+
+        Parameters
+        ----------
+        j : float
+            Action.
+        tau : numpy.ndarray
+            Anomalies.
+        tables : tuple
+            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j).
+        deriv : bool, optional
+            If True, also return d(angle)/d(tau).
+
+        Returns
+        -------
+        tuple
+            (x, p, angle) or (x, p, angle, dangle/dtau).
+
+        Notes
+        -----
+        - 2026-09-17 - Written - Bovy (UofT)
+        """
+        D, dDdj, K, dKdj = tables
+        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        mt = tau[:, None] * ms[None, :]
+        smt, cmt = numpy.sin(mt), numpy.cos(mt)
+        eta = tau + smt @ D
+        deta = 1.0 + cmt @ (ms * D)
+        detadj = smt @ dDdj
+        xmax = numpy.sqrt(K * j)
+        dxmaxdj = (K + j * dKdj) / (2.0 * xmax)
+        se, ce = numpy.sin(eta), numpy.cos(eta)
+        st, ct = numpy.sin(tau), numpy.cos(tau)
+        x = -xmax * ct
+        p = numpy.zeros_like(tau)
+        nz = st != 0.0
+        p[nz] = 2.0 * j * se[nz] ** 2.0 * deta[nz] / (xmax * st[nz])
+        angle = (
+            eta
+            - se * ce
+            + 2.0 * j * se**2.0 * detadj
+            + p * dxmaxdj * ct
+            - 0.5 * numpy.pi
+        )
+        if not deriv:
+            return x, p, angle
+        d2eta = -smt @ (ms**2.0 * D)
+        ddetadj = cmt @ (ms * dDdj)
+        dp = numpy.zeros_like(tau)
+        dp[nz] = (
+            2.0
+            * j
+            / xmax
+            * (
+                (2.0 * se[nz] * ce[nz] * deta[nz] ** 2.0 + se[nz] ** 2.0 * d2eta[nz])
+                / st[nz]
+                - se[nz] ** 2.0 * deta[nz] * ct[nz] / st[nz] ** 2.0
+            )
+        )
+        # exactly on a turning point the ratio's limit is finite:
+        # p ~ (2 J / xmax) eta'^3 cos(tau) (tau - tau_0), so dp/dtau there is
+        # its slope
+        dp[~nz] = 2.0 * j / xmax * deta[~nz] ** 3.0 * ct[~nz]
+        dangle = (
+            2.0 * se**2.0 * deta
+            + 2.0 * j * (2.0 * se * ce * deta * detadj + se**2.0 * ddetadj)
+            + dxmaxdj * (dp * ct - p * st)
+        )
+        return x, p, angle, dangle
+
+    def _mm_tau_of_angle(self, j, angle, tables=None):
         """
         Invert the angle relation: the anomaly at a requested angle.
 
         The angle advances monotonically with the anomaly, by exactly 2 pi
         over a libration, so the root on [0, 2 pi) is unique and can be
-        bracketed.  Bisection is used rather than Newton because it needs no
-        derivative of the relation and cannot fail: the construction
-        guarantees the bracket, and fifty-odd halvings of [0, 2 pi) reach
-        the resolution of a double.
+        bracketed.  Safeguarded Newton steps on the closed-form
+        d(angle)/d(tau), started from the requested angle itself (the
+        relation is the auxiliary's angle plus small corrections), reach
+        double precision in a few iterations; a step that would leave the
+        bracket, which shrinks around the root as the iteration proceeds, is
+        replaced by the bracket's midpoint, so the inversion cannot fail.
 
         Parameters
         ----------
@@ -824,6 +926,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Action.
         angle : float or numpy.ndarray
             Angle.
+        tables : tuple, optional
+            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j), if already
+            in hand.
 
         Returns
         -------
@@ -833,6 +938,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Notes
         -----
         - 2026-08-29 - Written - Bovy (UofT)
+        - 2026-09-17 - Bracketed Newton replaces the 60-step bisection - Bovy (UofT)
         """
         # Solve in the anomaly's own origin: the relation runs from 0 to
         # 2 pi there, so it is monotone and unwrapped, while the requested
@@ -841,15 +947,35 @@ class actionAngleVerticalInverse(actionAngleInverse):
             numpy.atleast_1d(numpy.array(angle, dtype="float")) + 0.5 * numpy.pi,
             2.0 * numpy.pi,
         )
+        if tables is None:
+            tables = self._mm_tables(j)
         lo = numpy.zeros_like(angle)
         hi = numpy.zeros_like(angle) + 2.0 * numpy.pi
-        for _ in range(60):
-            mid = 0.5 * (lo + hi)
-            f = self._mm_angle_of_tau(j, mid) + 0.5 * numpy.pi
-            low = f < angle
-            lo = numpy.where(low, mid, lo)
-            hi = numpy.where(low, hi, mid)
-        return 0.5 * (lo + hi)
+        # The relation is the auxiliary's own angle plus small corrections,
+        # so the requested angle itself is a starting point within a few
+        # percent of the root; the bracket only serves as a safeguard.
+        tau = numpy.clip(angle, 1e-6, 2.0 * numpy.pi - 1e-6)
+        conv = numpy.zeros(len(angle), dtype="bool")
+        for _ in range(40):
+            _, _, th, dth = self._mm_eval_tau(j, tau, tables, deriv=True)
+            f = th + 0.5 * numpy.pi - angle
+            with numpy.errstate(divide="ignore", invalid="ignore"):
+                step = f / dth
+            # converged: the residual is at round-off, or the step could no
+            # longer move the anomaly
+            conv |= (numpy.fabs(f) < 8.0 * numpy.finfo(float).eps * (1.0 + angle)) | (
+                numpy.fabs(step) <= 4.0 * numpy.finfo(float).eps * (1.0 + tau)
+            )
+            if numpy.all(conv):
+                break
+            low = f < 0.0
+            lo = numpy.where(low, tau, lo)
+            hi = numpy.where(low, hi, tau)
+            new = tau - step
+            bad = ~numpy.isfinite(new) | (new <= lo) | (new >= hi)
+            new = numpy.where(bad, 0.5 * (lo + hi), new)
+            tau = numpy.where(conv, tau, new)
+        return tau
 
     def _mm_xp_of_angle(self, j, angle):
         """
@@ -859,7 +985,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         This is the composition the construction is built to deliver -- the
         angle shift, the auxiliary's inverse, and the inverse cotangent lift
         -- with every ingredient either closed form or a derivative of the
-        stored interpolants.
+        stored interpolants.  The tables are read once per call.
 
         Parameters
         ----------
@@ -877,7 +1003,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2026-08-29 - Written - Bovy (UofT)
         """
-        return self._mm_xp_of_tau(j, self._mm_tau_of_angle(j, angle))
+        tables = self._mm_tables(j)
+        tau = self._mm_tau_of_angle(j, angle, tables=tables)
+        x, p, _ = self._mm_eval_tau(j, tau, tables)
+        return x, p
 
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
