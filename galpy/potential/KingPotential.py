@@ -3,6 +3,8 @@
 ###############################################################################
 import numpy
 
+from ..backend import coerce_coords, is_backend_array, resolve_namespace
+from ..backend.interpolate import interp_linear
 from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
@@ -62,14 +64,28 @@ class KingPotential(interpSphericalPotential):
         # Remember whether to turn units on
         ro = self._ro if self._roSet else ro
         vo = self._vo if self._voSet else vo
+
+        def _dWdr(r):
+            # numpy.interp clamps outside [_r[0], _r[-1]]; interp_linear's 'clip'
+            # is the same rule. Only a DIFFERENTIATED abscissa needs the backend
+            # one -- with rt concrete (the common d/dM case) r/radius_scale is
+            # plain numpy and this stays byte-identical.
+            q = r / radius_scale
+            if not is_backend_array(q):
+                return numpy.interp(q, sfkdf._r, sfkdf._dWdr)
+            xp = resolve_namespace(q)
+            return interp_linear(
+                xp, sfkdf._r, sfkdf._dWdr, coerce_coords(xp, q)[0], extrapolate="clip"
+            )
+
+        # coerce onto one namespace first: a grad-tracking tensor times an
+        # ndarray raises in BOTH operand orders
+        _xp = resolve_namespace(sfkdf._r, radius_scale)
+        _rg, _rs = coerce_coords(_xp, sfkdf._r, radius_scale)
         interpSphericalPotential.__init__(
             self,
-            rforce=lambda r: (
-                mass_scale
-                / radius_scale**2.0
-                * numpy.interp(r / radius_scale, sfkdf._r, sfkdf._dWdr)
-            ),
-            rgrid=sfkdf._r * radius_scale,
+            rforce=lambda r: mass_scale / radius_scale**2.0 * _dWdr(r),
+            rgrid=_rg * _rs,
             Phi0=-W0 * mass_scale / radius_scale - M / rt,
             ro=ro,
             vo=vo,

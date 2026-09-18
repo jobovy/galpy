@@ -24,6 +24,8 @@ from galpy.backend.interpolate import (
     make_smoothing_spline,
     map_coordinates,
     native_rect_cubic_coeffs,
+    ppoly_antiderivative,
+    ppoly_derivative,
     rect_bivariate_to_ppoly,
     smoothing_spline,
     spline_filter,
@@ -1610,3 +1612,144 @@ def test_spline1d_keeps_traced_knots():
         ]
     )
     assert numpy.max(numpy.abs(g - fd)) / max(numpy.max(numpy.abs(fd)), 1e-12) < 1e-7
+
+
+# --- ppoly_derivative / ppoly_antiderivative -------------------------------
+# These give a piecewise polynomial's derivative/antiderivative as COEFFICIENTS
+# (rather than via eval_ppoly's nu=), which is what lets a caller hand the
+# derived table out as a standalone spline -- interpSphericalPotential keeps one
+# per quantity. Both are pure namespace arithmetic, so unlike a scipy
+# .derivative()/.antiderivative() they stay differentiable in the y-values.
+_PP_X = numpy.geomspace(0.01, 20.0, 101)
+_PP_Y = -1.0 / _PP_X**2.0 * (1.0 - numpy.exp(-_PP_X))
+_PP_Q = numpy.geomspace(0.011, 19.0, 397)
+
+
+def _pp_scipy():
+    return si.InterpolatedUnivariateSpline(_PP_X, _PP_Y, k=3, ext=0)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ppoly_derivative_matches_scipy(backend_name):
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    c = cubic_spline_coeffs(xp, _PP_X, cast(_PP_Y), bc="not-a-knot")
+    got = as_numpy(eval_ppoly(xp, _PP_X, ppoly_derivative(xp, c), cast(_PP_Q)))
+    numpy.testing.assert_allclose(got, _pp_scipy().derivative()(_PP_Q), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ppoly_antiderivative_matches_scipy(backend_name):
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    c = cubic_spline_coeffs(xp, _PP_X, cast(_PP_Y), bc="not-a-knot")
+    ac = ppoly_antiderivative(xp, _PP_X, c)
+    # both sides pinned to zero at x[0]: the antiderivative is only defined up
+    # to a constant, and scipy's own choice is an implementation detail.
+    got = as_numpy(eval_ppoly(xp, _PP_X, ac, cast(_PP_Q)))
+    got = got - float(as_numpy(eval_ppoly(xp, _PP_X, ac, cast(_PP_X[:1])))[0])
+    aspl = _pp_scipy().antiderivative()
+    numpy.testing.assert_allclose(got, aspl(_PP_Q) - aspl(_PP_X[0]), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ppoly_calculus_roundtrip(backend_name):
+    # d/dx of the antiderivative recovers the original coefficients exactly.
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    c = cubic_spline_coeffs(xp, _PP_X, cast(_PP_Y), bc="not-a-knot")
+    back = ppoly_derivative(xp, ppoly_antiderivative(xp, _PP_X, c))
+    numpy.testing.assert_allclose(as_numpy(back), as_numpy(c), rtol=1e-13)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_ppoly_calculus_differentiable_in_y():
+    # the capability scipy's PPoly.antiderivative() cannot provide: the integral
+    # of a spline stays differentiable w.r.t. the table VALUES it was built from.
+    q = jnp.asarray(numpy.array([0.05, 0.9, 7.0]))
+
+    def f(scale):
+        c = cubic_spline_coeffs(jnp, _PP_X, scale * jnp.asarray(_PP_Y), bc="not-a-knot")
+        return jnp.sum(eval_ppoly(jnp, _PP_X, ppoly_antiderivative(jnp, _PP_X, c), q))
+
+    # the construction is linear in y, so d/dscale at any point is f(1.0) itself
+    numpy.testing.assert_allclose(float(jax.grad(f)(1.0)), float(f(1.0)), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ppoly_derivative_past_the_degree_is_zero(backend_name):
+    # Differentiating a cubic four times exhausts the degree: the fourth pass
+    # sees k == 0 and returns zeros rather than an empty coefficient array.
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    c = cubic_spline_coeffs(xp, _PP_X, cast(_PP_Y), bc="not-a-knot")
+    d = ppoly_derivative(xp, c, nu=4)
+    got = as_numpy(d)
+    assert got.shape[0] == 1
+    numpy.testing.assert_allclose(got, numpy.zeros_like(got), atol=0.0)
+    # and it evaluates to zero everywhere
+    numpy.testing.assert_allclose(
+        as_numpy(eval_ppoly(xp, _PP_X, d, cast(_PP_Q))), 0.0, atol=0.0
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline1d_antiderivative(backend_name):
+    # mode 1 (numpy y): numpy queries are scipy's own antiderivative, byte for
+    # byte; a backend query evaluates the same polynomial.
+    ref = si.InterpolatedUnivariateSpline(_PP_X, _PP_Y, k=3, ext=0).antiderivative()
+    s1 = Spline1D(_PP_X, _PP_Y, k=3, ext=0).antiderivative()
+    assert s1(_PP_Q).tobytes() == ref(_PP_Q).tobytes()
+    xp = _xp(backend_name)
+
+    def cast(v):
+        return _asarray(backend_name, v)
+
+    numpy.testing.assert_allclose(as_numpy(s1(cast(_PP_Q))), ref(_PP_Q), rtol=1e-12)
+    # mode 2 (backend y): built in-backend, so it is differentiable in y; the
+    # additive constant is scipy's, so both sides are pinned at x[0].
+    s2 = Spline1D(_PP_X, cast(_PP_Y), k=3, ext=0, bc="not-a-knot").antiderivative()
+    got = as_numpy(s2(cast(_PP_Q))) - float(as_numpy(s2(cast(_PP_X[:1])))[0])
+    numpy.testing.assert_allclose(got, ref(_PP_Q) - ref(_PP_X[0]), rtol=1e-12)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_spline1d_antiderivative_differentiable_in_y():
+    q = jnp.asarray(numpy.array([0.05, 0.9, 7.0]))
+
+    def f(scale):
+        sp = Spline1D(
+            _PP_X, scale * jnp.asarray(_PP_Y), k=3, ext=0, bc="not-a-knot"
+        ).antiderivative()
+        return jnp.sum(sp(q))
+
+    # linear in y, so d/d(scale) is the value itself
+    numpy.testing.assert_allclose(float(jax.grad(f)(1.0)), float(f(1.0)), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline1d_antiderivative_from_ppoly(backend_name):
+    # from_ppoly wraps an already-fitted scipy PPoly (the C-parity route), and a
+    # PPoly's .antiderivative() is itself a PPoly -- so it carries .x/.c directly
+    # and needs no spline_to_ppoly conversion, unlike the IUS route above.
+    cs = si.CubicSpline(_PP_X, _PP_Y, bc_type="natural")
+    sp = Spline1D.from_ppoly(cs).antiderivative()
+    ref = cs.antiderivative()
+    # numpy queries go straight to the wrapped PPoly: byte for byte
+    assert sp(_PP_Q).tobytes() == ref(_PP_Q).tobytes()
+    # and the backend evaluates the same polynomial
+    xp = _xp(backend_name)
+    got = as_numpy(sp(_asarray(backend_name, _PP_Q)))
+    numpy.testing.assert_allclose(got, ref(_PP_Q), rtol=1e-12)

@@ -4,9 +4,16 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import as_numpy, get_namespace, match_input_dtype
-from ..backend.interpolate import eval_ppoly as _ppoly_eval
-from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    match_input_dtype,
+    resolve_namespace,
+)
+from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend.interpolate import Spline1D
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
@@ -69,35 +76,62 @@ class interpSphericalPotential(SphericalPotential):
                 self.turn_physical_on(ro=phys["ro"])
             if phys["voSet"]:
                 self.turn_physical_on(vo=phys["vo"])
-        self._rforce_grid = numpy.array([_rforce(r) for r in rgrid])
-        self._force_spline = interpolate.InterpolatedUnivariateSpline(
-            self._rgrid, self._rforce_grid, k=3, ext=0
+        _fgrid = [_rforce(r) for r in rgrid]
+        # Only a DIFFERENTIATED force grid stays on the backend: numpy.array()
+        # of tracers raises and would sever d/d(parameter). Backend-ness alone is
+        # not the test -- under a forced backend every value is a backend array
+        # while nothing is being differentiated, and fitting in-backend there
+        # would abandon the scipy fit the numpy queries want.
+        if any(under_trace(f) or requires_backend_grad(f) for f in _fgrid):
+            xp = resolve_namespace(*_fgrid)
+            self._rforce_grid = xp.stack(list(coerce_coords(xp, *_fgrid)))
+
+            def _q(v):  # a query point on the spline's own namespace
+                return coerce_coords(xp, v)[0]
+
+        else:
+            self._rforce_grid = numpy.array(_fgrid)
+
+            def _q(v):
+                return v
+
+        # Spline1D picks its own mode: a numpy grid fits the scipy
+        # InterpolatedUnivariateSpline (numpy queries byte-identical, backend
+        # queries through its frozen PPoly), a backend grid is fitted IN-backend
+        # so the coefficients carry d/d(parameter). 'not-a-knot' is exactly the
+        # InterpolatedUnivariateSpline(k=3) end condition, so both modes are the
+        # same spline (agreeing to ~1e-15).
+        self._force_spline = Spline1D(
+            self._rgrid, self._rforce_grid, k=3, ext=0, bc="not-a-knot"
         )
-        # Get potential and r2deriv as splines for the integral and derivative
+        # Phi and d2Phi/dr2 come from the SAME spline: its antiderivative, and
+        # its nu=1 derivative at evaluation time (bitwise equal to scipy's
+        # .derivative()(r), so no third spline is needed).
         self._pot_spline = self._force_spline.antiderivative()
-        # Freeze Phi0 on the numpy side: every other derived scalar here comes
-        # from a scipy spline and is numpy, and _revaluate's numpy branch mixes
-        # them directly. Built under a forced backend, _evaluatePotentials returns
-        # a backend scalar, which used to make _Phi0/_Phimax backend arrays while
-        # _total_mass/_rmax stayed numpy -- numpy expression + Tensor on line ~105.
-        # Nothing is lost: the splines are scipy, so parameter gradients are
-        # already unavailable, and the backend branch coerces with xp.asarray.
-        self._Phi0 = as_numpy(Phi0) + self._pot_spline(self._rgrid[0])
-        self._r2deriv_spline = self._force_spline.derivative()
-        # Piecewise-power (PPoly) representation of the three splines for the
-        # non-numpy backends (see _ppoly_eval). The antiderivative/derivative
-        # splines share the force spline's knots, so a single breakpoint array
-        # serves all three coefficient sets.
-        self._ppoly_x, self._force_ppoly_c = _spline_to_ppoly_data(self._force_spline)
-        _, self._pot_ppoly_c = _spline_to_ppoly_data(self._pot_spline)
-        _, self._r2deriv_ppoly_c = _spline_to_ppoly_data(self._r2deriv_spline)
+        # Freeze Phi0 on the numpy side unless the grid itself is on the backend:
+        # every other derived scalar here comes from the spline and is numpy, and
+        # _revaluate's numpy branch mixes them directly.
+        self._Phi0 = (
+            Phi0
+            if (under_trace(Phi0) or requires_backend_grad(Phi0))
+            else as_numpy(Phi0)
+        ) + self._pot_spline(_q(self._rgrid[0]))
         # Extrapolate as mass within rgrid[-1]
         self._rmin = rgrid[0]
         self._rmax = rgrid[-1]
-        self._total_mass = -(self._rmax**2.0) * self._force_spline(self._rmax)
+        self._total_mass = -(self._rmax**2.0) * self._force_spline(_q(self._rmax))
         self._Phimax = (
-            -self._pot_spline(self._rmax) + self._Phi0 + self._total_mass / self._rmax
+            -self._pot_spline(_q(self._rmax))
+            + self._Phi0
+            + self._total_mass / self._rmax
         )
+        # Concretize the derived scalars on the numpy side, once, so the backend
+        # branches below can mix them as plain floats. A backend grid leaves them
+        # on the namespace, keeping d/d(parameter).
+        for _attr in ("_Phi0", "_total_mass", "_Phimax"):
+            _val = getattr(self, _attr)
+            if not is_backend_array(_val):
+                setattr(self, _attr, float(_val))
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True
@@ -117,11 +151,9 @@ class interpSphericalPotential(SphericalPotential):
         # the where), while the Kepler piece guards its dead-side r=0 (r >= rmax
         # implies r > 0 on the live side), so autodiff stays NaN-free.
         r = xp.asarray(r)
-        inside = -_ppoly_eval(xp, self._ppoly_x, self._pot_ppoly_c, r) + float(
-            self._Phi0
-        )
+        inside = -self._pot_spline(r) + self._Phi0
         rsafe = xp.where(r >= self._rmax, r, 1.0)
-        outside = -float(self._total_mass) / rsafe + float(self._Phimax)
+        outside = -self._total_mass / rsafe + self._Phimax
         # the spline knots/coefficients are deliberately float64 (precision);
         # cast the result to the input dtype at exit (no-op for float64 input;
         # the numpy path above already follows the input dtype via empty_like)
@@ -135,9 +167,9 @@ class interpSphericalPotential(SphericalPotential):
             out[r < self._rmax] = self._force_spline(r[r < self._rmax])
             return out
         r = xp.asarray(r)
-        inside = _ppoly_eval(xp, self._ppoly_x, self._force_ppoly_c, r)
+        inside = self._force_spline(r)
         rsafe = xp.where(r >= self._rmax, r, 1.0)
-        outside = -float(self._total_mass) / rsafe**2.0
+        outside = -self._total_mass / rsafe**2.0
         # float64 spline interior, input-dtype exit cast (see _revaluate)
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
@@ -146,12 +178,12 @@ class interpSphericalPotential(SphericalPotential):
         if xp is numpy:
             out = numpy.empty_like(r)
             out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
-            out[r < self._rmax] = -self._r2deriv_spline(r[r < self._rmax])
+            out[r < self._rmax] = -self._force_spline(r[r < self._rmax], nu=1)
             return out
         r = xp.asarray(r)
-        inside = -_ppoly_eval(xp, self._ppoly_x, self._r2deriv_ppoly_c, r)
+        inside = -self._force_spline(r, nu=1)
         rsafe = xp.where(r >= self._rmax, r, 1.0)
-        outside = -2.0 * float(self._total_mass) / rsafe**3.0
+        outside = -2.0 * self._total_mass / rsafe**3.0
         # float64 spline interior, input-dtype exit cast (see _revaluate)
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
