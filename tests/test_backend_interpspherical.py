@@ -33,6 +33,9 @@ from galpy.backend import as_numpy
 from galpy.potential import (
     HernquistPotential,
     KingPotential,
+    evaluateDensities,
+    evaluatePotentials,
+    evaluateRforces,
     interpSphericalPotential,
 )
 
@@ -258,3 +261,112 @@ def test_force_hessian_identities(backend_name, pot):
                 rtol=1e-9,
                 err_msg=f"{type(pot).__name__}: AD({lower})==-{higher} at r={r0}",
             )
+
+
+# --- d/d(potential parameter) ----------------------------------------------
+# The tests above differentiate w.r.t. the EVALUATION POINT, which only needs
+# the frozen scipy PPoly coefficients. These differentiate w.r.t. a CONSTRUCTOR
+# parameter, which the frozen coefficients cannot carry: under a differentiated
+# parameter the force grid is fitted in-backend instead (cubic_spline_coeffs
+# with 'not-a-knot', the same end condition InterpolatedUnivariateSpline(k=3)
+# uses, so it is the SAME spline -- see test_king_traced_spline_matches_scipy),
+# and the potential/2nd-derivative tables come from ppoly_antiderivative /
+# ppoly_derivative rather than scipy's .antiderivative()/.derivative().
+_KING_METHODS = {
+    "Phi": evaluatePotentials,
+    "Rforce": evaluateRforces,
+    "dens": evaluateDensities,
+}
+_KING_FIXED = {"W0": 3.0, "npt": 201}
+_KING_R, _KING_Z = 0.7, 0.3
+_KING_EPS = 1e-5
+
+
+def _king_value(pname, theta, method, R, z):
+    base = {"M": 1.3, "rt": 1.4, **_KING_FIXED}
+    pot = KingPotential(**{**base, pname: theta})
+    return _KING_METHODS[method](pot, R, z, use_physical=False)
+
+
+def _king_fd(pname, th0, method):
+    def f(theta):
+        return float(_king_value(pname, theta, method, _KING_R, _KING_Z))
+
+    d1 = (f(th0 + _KING_EPS) - f(th0 - _KING_EPS)) / (2 * _KING_EPS)
+    d2 = (f(th0 + _KING_EPS / 2) - f(th0 - _KING_EPS / 2)) / _KING_EPS
+    return (4 * d2 - d1) / 3  # Richardson: O(eps^4)
+
+
+def _king_ad(backend_name, pname, th0, method):
+    # the coordinates are backend arrays too: that is the param-grad usage
+    # contract (a numpy-float coordinate pins the namespace to numpy, which
+    # then cannot hold the differentiated parameter) -- see
+    # test_backend_paramgrad.py.
+    if backend_name == "jax":
+        R, z = jnp.asarray(_KING_R), jnp.asarray(_KING_Z)
+        return float(
+            jax.grad(lambda th: _king_value(pname, th, method, R, z))(jnp.asarray(th0))
+        )
+    R = torch.as_tensor(_KING_R, dtype=torch.float64)
+    z = torch.as_tensor(_KING_Z, dtype=torch.float64)
+    th = torch.tensor(th0, dtype=torch.float64, requires_grad=True)
+    _king_value(pname, th, method, R, z).backward()
+    return float(th.grad)
+
+
+@pytest.mark.parametrize("method", ["Phi", "Rforce", "dens"])
+@pytest.mark.parametrize("pname,th0", [("M", 1.3), ("rt", 1.4)])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_king_param_grad_vs_finite_difference(backend_name, pname, th0, method):
+    ad = _king_ad(backend_name, pname, th0, method)
+    fd = _king_fd(pname, th0, method)
+    # dens goes through the Poisson second derivative, so the FD reference is
+    # two orders noisier than for Phi/Rforce; 1e-6 still leaves ~60x margin on
+    # the observed agreement (1.5e-8 worst case).
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-11)
+
+
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS, reason="needs both"
+)
+@pytest.mark.parametrize("pname,th0", [("M", 1.3), ("rt", 1.4)])
+def test_king_param_grad_jax_matches_torch(pname, th0):
+    numpy.testing.assert_allclose(
+        _king_ad("jax", pname, th0, "Phi"),
+        _king_ad("torch", pname, th0, "Phi"),
+        rtol=1e-12,
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_king_traced_spline_matches_scipy():
+    # the in-backend fit must reproduce the scipy spline the numpy path uses --
+    # 'natural' end conditions (the cubic_spline_coeffs default) would silently
+    # ship a ~1e-3 different potential, so this pins the end condition.
+    ref = KingPotential(M=1.3, rt=1.4, **_KING_FIXED)
+    rs = numpy.array([0.05, 0.3, 0.7, 1.0, 1.35])
+    got = [
+        float(
+            evaluatePotentials(
+                KingPotential(M=jnp.asarray(1.3), rt=1.4, **_KING_FIXED),
+                jnp.asarray(r),
+                jnp.asarray(0.0),
+                use_physical=False,
+            )
+        )
+        for r in rs
+    ]
+    want = [float(evaluatePotentials(ref, r, 0.0, use_physical=False)) for r in rs]
+    numpy.testing.assert_allclose(got, want, rtol=1e-12)
+
+
+def test_king_numpy_construction_keeps_scipy_splines():
+    # the traced branch must not leak into the numpy path: an undifferentiated
+    # build still fits the scipy splines (byte-identical) and sets no backend
+    # coefficient tables.
+    pot = KingPotential(M=1.3, rt=1.4, **_KING_FIXED)
+    # mode 1: the scipy spline is fitted and numpy queries go straight to it
+    assert pot._force_spline._spl is not None
+    assert pot._pot_spline._spl is not None
+    assert isinstance(pot._rforce_grid, numpy.ndarray)
+    assert isinstance(pot._Phi0, (float, numpy.floating, numpy.ndarray))
