@@ -12,6 +12,7 @@ from ..backend import (
     match_input_dtype,
     resolve_namespace,
 )
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.interpolate import Spline1D
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
@@ -76,10 +77,12 @@ class interpSphericalPotential(SphericalPotential):
             if phys["voSet"]:
                 self.turn_physical_on(vo=phys["vo"])
         _fgrid = [_rforce(r) for r in rgrid]
-        # A BACKEND force grid (a parameter of the interpolated potential is
-        # being differentiated) must stay on the backend: numpy.array() of
-        # tracers raises and would sever d/d(parameter).
-        if any(is_backend_array(f) for f in _fgrid):
+        # Only a DIFFERENTIATED force grid stays on the backend: numpy.array()
+        # of tracers raises and would sever d/d(parameter). Backend-ness alone is
+        # not the test -- under a forced backend every value is a backend array
+        # while nothing is being differentiated, and fitting in-backend there
+        # would abandon the scipy fit the numpy queries want.
+        if any(under_trace(f) or requires_backend_grad(f) for f in _fgrid):
             xp = resolve_namespace(*_fgrid)
             self._rforce_grid = xp.stack(list(coerce_coords(xp, *_fgrid)))
 
@@ -109,7 +112,9 @@ class interpSphericalPotential(SphericalPotential):
         # every other derived scalar here comes from the spline and is numpy, and
         # _revaluate's numpy branch mixes them directly.
         self._Phi0 = (
-            Phi0 if is_backend_array(self._rforce_grid) else as_numpy(Phi0)
+            Phi0
+            if (under_trace(Phi0) or requires_backend_grad(Phi0))
+            else as_numpy(Phi0)
         ) + self._pot_spline(_q(self._rgrid[0]))
         # Extrapolate as mass within rgrid[-1]
         self._rmin = rgrid[0]

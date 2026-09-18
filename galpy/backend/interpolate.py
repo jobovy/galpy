@@ -44,6 +44,7 @@ from ._namespaces import (
     is_backend_array,
     name_of_namespace,
     prefer_backend_namespace,
+    requires_backend_grad,
     under_trace,
 )
 from ._resolver import get_namespace
@@ -300,8 +301,8 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
-    if is_backend_array(x):
-        # A depends on the BACKEND knots, so it is no longer a constant and
+    if under_trace(x) or requires_backend_grad(x):
+        # A depends on the DIFFERENTIATED knots, so it is no longer a constant and
         # cannot be assembled by numpy item assignment: build each row as a
         # combination of one-hot rows. Interior row i carries h[i-1],
         # 2(h[i-1]+h[i]), h[i] at columns i-1, i, i+1.
@@ -1133,10 +1134,14 @@ class Spline1D:
 
             self._xp = array_api_compat.array_namespace(y)
             self._y = y
-            # BACKEND knots (streamdf's angle grid depends on theta) stay on the
+            # DIFFERENTIATED knots (streamdf's angle grid depends on theta) stay on the
             # backend so the gradient flows through the knot positions too;
             # concrete knots keep the numpy geometry path.
-            self._x = x if is_backend_array(x) else numpy.asarray(x, dtype=float)
+            self._x = (
+                x
+                if (under_trace(x) or requires_backend_grad(x))
+                else numpy.asarray(x, dtype=float)
+            )
             if self._k == 3:
                 self._coeffs = cubic_spline_coeffs(self._xp, self._x, y, bc=bc)
             elif self._k == 1:
