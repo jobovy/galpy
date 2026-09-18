@@ -13172,13 +13172,12 @@ def test_actionAngleSphericalInverse_units():
         pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
         Es=[E * (vo * units.km / units.s) ** 2.0],
         Ls=[L * (ro * vo * units.kpc * units.km / units.s)],
-        ntau=128,
-        nn=12,
+        mm_nta=128,
         ro=ro,
         vo=vo,
     )
     aASC_int = actionAngleSphericalInverse(
-        pot=LogarithmicHaloPotential(normalize=1.0), Es=[E], Ls=[L], ntau=128, nn=12
+        pot=LogarithmicHaloPotential(normalize=1.0), Es=[E], Ls=[L], mm_nta=128
     )
     assert numpy.fabs(aASC._Es[0] - E) < 1e-10, (
         "actionAngleSphericalInverse does not parse an energy given as a Quantity"
