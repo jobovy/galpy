@@ -479,3 +479,73 @@ def test_sampleV_preoptimized_samples_natively(backend):
     arr = as_numpy(out)
     assert arr.shape == (3, 3)
     assert numpy.all(numpy.isfinite(arr))
+
+
+# --- d/d(DF parameter): the CONSTRUCTOR is differentiable ------------------
+# quasiisothermaldf stores log(sigma_r)/log(sigma_z) at construction; a
+# numpy.log there raises on a jax tracer and silently DETACHES an eager-torch
+# parameter, so every downstream gradient w.r.t. the velocity dispersions was
+# either an error or a silent zero.
+_QDF_SR = 0.2
+
+
+def _qdf_with_sr(sr):
+    return quasiisothermaldf(
+        1.0 / 4.0, sr, 0.1, 1.0, 1.0, pot=MWPotential, aA=_aAS, cutcounter=True
+    )
+
+
+_QDF_COORDS = (0.9, 0.1, 0.9, 0.05, 0.02)
+
+
+def _qdf_lnsr(sr, backend="numpy"):
+    # No forced backend: the gate that keeps a differentiated parameter on the
+    # namespace tests the VALUE (differentiating()), not the ambient namespace,
+    # so passing sr as a backend array is by itself enough.
+    return _qdf_with_sr(sr)._lnsr
+
+
+def _qdf_call(sr, backend):
+    # The full DF core still resolves the ambient namespace in places, so this
+    # one does need the forced backend.
+    with galpy.backend.use(backend, force=True):
+        return _qdf_with_sr(sr)(*_QDF_COORDS, use_physical=False).sum()
+
+
+def _ad(fn, backend, x0):
+    if backend == "jax":
+        return float(jax.grad(lambda v: fn(v, backend))(jnp.asarray(x0)))
+    t = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+    fn(t, backend).backward()
+    return float(t.grad)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_qdf_lnsr_gradient_is_analytic(backend):
+    # d/dsr log(sr) = 1/sr. A detached numpy.log would give 0 here while still
+    # returning the correct _lnsr value.
+    numpy.testing.assert_allclose(
+        _ad(_qdf_lnsr, backend, _QDF_SR), 1.0 / _QDF_SR, rtol=1e-12
+    )
+
+
+# scipy's brentq (reached via Potential.py's rl root find under a FORCED
+# backend) trips a numpy-2 __array_wrap__ DeprecationWarning that CI escalates
+# to an error. That path is pre-existing and unrelated to what is asserted here.
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_qdf_call_grad_wrt_sigmar_vs_finite_difference(backend):
+    eps = 1e-6
+
+    def f(sr):
+        return float(_qdf_call(sr, "numpy"))
+
+    d1 = (f(_QDF_SR + eps) - f(_QDF_SR - eps)) / (2 * eps)
+    d2 = (f(_QDF_SR + eps / 2) - f(_QDF_SR - eps / 2)) / eps
+    fd = (4 * d2 - d1) / 3
+    numpy.testing.assert_allclose(_ad(_qdf_call, backend, _QDF_SR), fd, rtol=1e-6)
+
+
+def test_qdf_numpy_lnsr_byte_identical():
+    q = _qdf_with_sr(_QDF_SR)
+    assert numpy.asarray(q._lnsr).tobytes() == numpy.log(_QDF_SR).tobytes()
