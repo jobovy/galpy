@@ -21,6 +21,27 @@ v1.12.1 (expected around 2026-11-01)
   point-transformed one. Nothing changes without a point transformation or
   with the exact one, which have no offset.
 
+- New ``actionAngleSphericalInverse``: the inverse action-angle transformation
+  for spherical potentials, through the same momentum-matched canonical map
+  as the one-dimensional case. Each torus is sampled exactly in its radial
+  anomaly and mapped onto the torus of equal (J_r, L) of a frozen isochrone
+  auxiliary by the radial point transformation that matches cumulative
+  radial actions (a sine series in the anomaly, ``mm_npt`` harmonics fitted
+  to ``mm_nta`` samples), lifted to the momenta cotangent-consistently; the
+  polar libration needs no map because it does not depend on the potential,
+  and the radial and polar angles carry the closed-form compensation for
+  the moving turning points. Evaluation goes through the analytic isochrone
+  inverse and undoes the lift; the map is exactly symplectic for any stored
+  tables because every derivative it needs is that of the stored
+  interpolant itself. Tori are given as explicit (E, L) pairs or as an
+  (E, L) grid with ``setup_interp=True`` (angular momenta of the circular
+  orbits between ``Rmin`` and ``Rmax``, energies up to the potential at
+  ``Rinf``, quadratically spaced from the circular edge), with ``Jr(E, L)``
+  giving a torus's radial action; ``Freqs`` returns the frequencies of the
+  returned orbits. A warning is raised when the anomaly map does not
+  resolve a torus, and a torus that reaches beyond the depth of the fitted
+  auxiliary raises.
+
 - ``actionAngleSpherical`` now handles circular and near-circular orbits,
   where the general quadratures lost precision, returned NaN, or failed to
   bracket a turning point. An orbit close to circular (radial velocity and
