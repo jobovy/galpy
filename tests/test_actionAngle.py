@@ -9597,14 +9597,14 @@ def test_actionAngleSphericalInverse_interpolation():
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
     Lgrid = numpy.linspace(0.7, 1.4, 8)
-    # (u, L) = (4/8, Lgrid[4]) is a node of this grid, where the action, the
-    # angles, and the frequencies are all at the forward transformation's
-    # floor, because the family's first partials are exact there (its
-    # frequencies and the analytic slopes of its tables are Hermite
-    # constraints); (0.55, 0.99) is between nodes, at the family's
-    # interpolation error
+    # (u, L) = (3/7, Lgrid[4]) is a node of this grid (u runs from the
+    # circular edge, 0, to 1 in eight steps), where the action, the angles,
+    # and the frequencies are all at the forward transformation's floor,
+    # because the family's first partials are exact there (its frequencies
+    # and the analytic slopes of its tables are Hermite constraints);
+    # (0.55, 0.99) is between nodes, at the family's interpolation error
     for u, L, tolJ, tolth, tolOm in (
-        (0.5, Lgrid[4], 1e-10, 1e-7, 1e-8),
+        (3.0 / 7.0, Lgrid[4], 1e-10, 1e-7, 1e-8),
         (0.55, 0.99, 1e-4, 1e-4, 1e-4),
     ):
         E = _spherical_inverse_E_of_u(u, L)
@@ -9782,9 +9782,6 @@ def test_actionAngleSphericalInverse_errors():
     with pytest.raises(ValueError, match="below"):
         # E below the circular orbit's energy at this L
         actionAngleSphericalInverse(pot=pot, Es=[0.0], Ls=[1.0])
-    with pytest.raises(ValueError, match="circular"):
-        # E exactly at the circular orbit's energy: degenerate torus
-        actionAngleSphericalInverse(pot=pot, Es=[0.5], Ls=[1.0])
     with pytest.raises(ValueError, match="Rinf"):
         # Rinf below the grid's radial range
         actionAngleSphericalInverse(
@@ -9806,6 +9803,100 @@ def test_actionAngleSphericalInverse_errors():
         aAD(0.123, 0.4, 0.2, 0.3, 1.0, 2.0)
     with pytest.raises(ValueError, match="not one of the set-up tori"):
         aAD.Jr(0.8, 0.9)
+    return None
+
+
+def test_actionAngleSphericalInverse_circular():
+    # The circular orbit is the edge of the family and a torus in its own
+    # right: the family's grid has the circular orbits as its bottom row,
+    # with the epicycle limit's exact partials (J_r, the turning points) and
+    # the map's slope extrapolated from the next rows, so J_r -> 0 is
+    # reached continuously; the circular orbit itself (J_r = 0) evaluates
+    # in closed form, with the epicycle and circular frequencies, in both
+    # kinds of family. The forward transformation cannot take an exactly
+    # circular orbit, so that one is checked through its invariants and its
+    # continuity with tiny J_r
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import epifreq, evaluatePotentials, omegac, rl
+
+    pot = _spherical_inverse_potential()
+    aAI = _spherical_inverse_interp()
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+
+    def invariants(aAI, L, jphi):
+        rc = rl(pot, L, use_physical=False)
+        R, vR, vT, z, vz, phi = aAI(
+            0.0, jphi, L - numpy.fabs(jphi), angler, anglephi, anglez
+        )
+        r = numpy.sqrt(R**2 + z**2)
+        Ltot = numpy.sqrt((R * vT) ** 2 + (z * vT) ** 2 + (R * vz - z * vR) ** 2)
+        E = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+        Ec = evaluatePotentials(pot, rc, 0.0) + L**2 / (2.0 * rc**2)
+        return max(
+            numpy.amax(numpy.fabs(r / rc - 1.0)),
+            numpy.amax(numpy.fabs((R * vR + z * vz) / rc)),
+            numpy.amax(numpy.fabs(R * vT - jphi)),
+            numpy.amax(numpy.fabs(Ltot - L)),
+            numpy.amax(numpy.fabs(E - Ec)),
+        )
+
+    for L, jphi in ((0.99, 0.7 * 0.99), (0.99, -0.4 * 0.99), (1.3, 1.3)):
+        rc = rl(pot, L, use_physical=False)
+        Ec = evaluatePotentials(pot, rc, 0.0) + L**2 / (2.0 * rc**2)
+        assert aAI.Jr(Ec, L) == 0.0, "The circular orbit's radial action is not zero"
+        Om = aAI.Freqs(0.0, jphi, L - numpy.fabs(jphi))
+        assert numpy.fabs(Om[0] / epifreq(pot, rc, use_physical=False) - 1.0) < 1e-12, (
+            "The circular orbit's radial frequency is not the epicycle frequency"
+        )
+        assert numpy.fabs(Om[2] / omegac(pot, rc, use_physical=False) - 1.0) < 1e-12, (
+            "The circular orbit's vertical frequency is not the circular frequency"
+        )
+        assert invariants(aAI, L, jphi) < 1e-13, (
+            "The circular orbit is not at the circular radius with no radial "
+            "motion and the requested angular momenta and energy"
+        )
+    # continuity: the map at tiny J_r approaches the circular orbit as its
+    # amplitude, sqrt(2 J_r / kappa)
+    L, jphi = 0.99, 0.7 * 0.99
+    rc = rl(pot, L, use_physical=False)
+    circ = numpy.array(aAI(0.0, jphi, L - jphi, angler, anglephi, anglez))
+    for jr in (1e-6, 1e-8):
+        near = numpy.array(aAI(jr, jphi, L - jphi, angler, anglephi, anglez))
+        amp = numpy.sqrt(2.0 * jr / epifreq(pot, rc, use_physical=False)) / rc
+        assert numpy.amax(numpy.fabs(near - circ)) < 5.0 * amp, (
+            "The map does not approach the circular orbit as its amplitude"
+        )
+    # the first cell above the edge round-trips through the forward
+    # transformation at the family's accuracy
+    for u in (0.02, 0.08):
+        E = _spherical_inverse_E_of_u(u, L)
+        jr = _spherical_inverse_forward_jr(E, L)
+        dJ, dth, dOm, dH = _spherical_inverse_roundtrip(
+            aAI, jr, jphi, L - jphi, angler, anglephi, anglez
+        )
+        assert dJ < 1e-5 and dth < 1e-3 and dOm < 1e-5, (
+            "The family is inaccurate just above the circular edge: %g %g %g"
+            % (dJ, dth, dOm)
+        )
+    # discrete families: a circular torus among librating ones, and alone
+    L = 0.9
+    rc = rl(pot, L, use_physical=False)
+    Ec = evaluatePotentials(pot, rc, 0.0) + L**2 / (2.0 * rc**2)
+    for Es in ([Ec, 0.9], [Ec]):
+        aAD = actionAngleSphericalInverse(pot=pot, Es=Es, Ls=[L] * len(Es))
+        assert aAD.Jr(Ec, L) == 0.0
+        assert invariants(aAD, L, 0.63) < 1e-13, (
+            "A discrete family's circular torus is not the circular orbit"
+        )
+        assert (
+            numpy.fabs(
+                aAD.Freqs(0.0, 0.63, L - 0.63)[0] / epifreq(pot, rc, use_physical=False)
+                - 1.0
+            )
+            < 1e-12
+        )
     return None
 
 

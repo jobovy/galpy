@@ -50,7 +50,11 @@ v1.12.1 (expected around 2026-11-01)
   angle, the target's radius and radial momentum, and the compensations
   come from the tables in closed form, Newton runs on the anomaly, and the
   three-dimensional reconstruction is one call of the analytic isochrone
-  inverse for all points (0.02 ms per point). A warning is raised when the anomaly map does not
+  inverse for all points (0.02 ms per point). The circular orbits are the
+  bottom row of the grid, with the epicycle limit's exact partials, so the
+  family reaches J_r -> 0 continuously, and the circular orbit itself
+  (J_r = 0) evaluates in closed form with the epicycle and circular
+  frequencies, in a grid or as an explicit torus. A warning is raised when the anomaly map does not
   resolve a torus, and a torus that reaches beyond the depth of the fitted
   auxiliary raises.
 
