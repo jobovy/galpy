@@ -54,14 +54,16 @@ def _spec_eval(c, tau, deriv=False):
 
 class _HermiteFamily:
     """A tensor-product Hermite interpolant on a rectangular grid, quintic
-    in the first variable and cubic in the second.  The values and the
-    first partials are prescribed at every node and reproduced exactly
-    there, together with the first partial's derivative along the second
-    variable; the second derivatives in the first variable (and their
-    derivative along the second) are estimated by differentiating cubic
-    splines of the prescribed first partials, which makes the interpolant's
-    first derivative in that variable accurate to one order beyond a cubic
-    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0]."""
+    in the first variable and cubic in the second, of one table or of a
+    stack of tables on the same grid.  The values and the first partials
+    are prescribed at every node and reproduced exactly there, together
+    with the first partial's derivative along the second variable; the
+    second derivatives in the first variable (and their derivative along
+    the second) are estimated by differentiating cubic splines of the
+    prescribed first partials, which makes the interpolant's first
+    derivative in that variable accurate to one order beyond a cubic
+    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0],
+    which is a number for one table and a vector for a stack of tables."""
 
     # the coefficient matrices of the unit-interval Hermite polynomials:
     # quintic through (f, f', f'') at both ends, cubic through (f, f')
@@ -85,12 +87,19 @@ class _HermiteFamily:
     )
 
     def __init__(self, x, y, f, fx, fy):
+        # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
+        # tables on the same grid, interpolated together
         self._x, self._y = numpy.asarray(x), numpy.asarray(y)
         nx, ny = len(x), len(y)
-        fxy = numpy.array([CubicSpline(y, fx[i])(y, 1) for i in range(nx)])
-        fxx = numpy.array([CubicSpline(x, fx[:, j])(x, 1) for j in range(ny)]).T
-        fxxy = numpy.array([CubicSpline(x, fxy[:, j])(x, 1) for j in range(ny)]).T
-        self._c = numpy.empty((nx - 1, ny - 1, 6, 4))
+        f, fx, fy = (numpy.asarray(t, dtype="float") for t in (f, fx, fy))
+        self._scalar = f.ndim == 2
+        if self._scalar:
+            f, fx, fy = f[..., None], fx[..., None], fy[..., None]
+        k = f.shape[2]
+        fxy = CubicSpline(self._y, fx, axis=1)(self._y, 1)
+        fxx = CubicSpline(self._x, fx, axis=0)(self._x, 1)
+        fxxy = CubicSpline(self._x, fxy, axis=0)(self._x, 1)
+        self._c = numpy.empty((nx - 1, ny - 1, 6, 4, k))
         for i in range(nx - 1):
             hx = self._x[i + 1] - self._x[i]
             for j in range(ny - 1):
@@ -98,18 +107,18 @@ class _HermiteFamily:
                 # rows: (f, hx f_x, hx^2 f_xx) at x_i then at x_{i+1};
                 # columns: values at y_j, y_{j+1}, then hy times the
                 # y-derivatives there
-                F = numpy.empty((6, 4))
+                F = numpy.empty((6, 4, k))
                 for r, (tab, sc) in enumerate(((f, 1.0), (fx, hx), (fxx, hx * hx))):
-                    for k, ii in enumerate((i, i + 1)):
-                        F[r + 3 * k, 0] = tab[ii, j] * sc
-                        F[r + 3 * k, 1] = tab[ii, j + 1] * sc
+                    for q, ii in enumerate((i, i + 1)):
+                        F[r + 3 * q, 0] = tab[ii, j] * sc
+                        F[r + 3 * q, 1] = tab[ii, j + 1] * sc
                 for r, (tab, sc) in enumerate(
                     ((fy, hy), (fxy, hx * hy), (fxxy, hx * hx * hy))
                 ):
-                    for k, ii in enumerate((i, i + 1)):
-                        F[r + 3 * k, 2] = tab[ii, j] * sc
-                        F[r + 3 * k, 3] = tab[ii, j + 1] * sc
-                self._c[i, j] = self._Mq @ F @ self._Mc.T
+                    for q, ii in enumerate((i, i + 1)):
+                        F[r + 3 * q, 2] = tab[ii, j] * sc
+                        F[r + 3 * q, 3] = tab[ii, j + 1] * sc
+                self._c[i, j] = numpy.einsum("ab,bcK,dc->adK", self._Mq, F, self._Mc)
 
     def __call__(self, x, y, dx=0, dy=0):
         i = min(
@@ -132,7 +141,8 @@ class _HermiteFamily:
             pt = tv ** numpy.arange(4)
         else:
             pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
-        return numpy.array([[ps @ self._c[i, j] @ pt]])
+        v = numpy.einsum("a,abk,b->k", ps, self._c[i, j], pt)
+        return v.reshape(1, 1) if self._scalar else v[None, None, :]
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -488,12 +498,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             out.append(numpy.linalg.lstsq(B, rhs, rcond=None)[0])
         return out[0], out[1]
 
-    def _toy_coseta(self, rA, a, e):
-        """Invert the toy radius profile: from (a y + b)^2 = b^2 + r^A2,
-        y = 1 - e cos(eta) follows in closed form"""
-        y = (numpy.sqrt(self._b**2 + rA**2) - self._b) / a
-        return numpy.clip((1.0 - y) / e, -1.0, 1.0)
-
     def _pt_match(self, tau, r, pr, rp, ra, L):
         """The momentum-matched lift of one torus: match cumulative radial
         actions from pericenter, eta(tau) = A_A^{-1}(A_t(tau)); both
@@ -547,29 +551,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         rA, _, drAdeta_t = self._toy_profile(a, e, etat)
         pA = pr * drdtau_s / (drAdeta_t * detadtau)
         return Jrq, a, e, Dm, etat, detadtau, rA, pA
-
-    def _toy_radial(self, JAr, L, thetaAr):
-        """The radial half of the analytic isochrone inverse: (J^A_r, L,
-        theta^A_r) -> (r^A, p^A_r), vectorized over points (each target
-        point sits on its own toy torus)"""
-        amp, bb = self._GM, self._b
-        sqrtfourbkL2 = numpy.sqrt(L**2 + 4.0 * bb * amp)
-        H = -2.0 * amp**2 / (2.0 * JAr + L + sqrtfourbkL2) ** 2
-        a = -amp / 2.0 / H - bb
-        ab = a + bb
-        e = numpy.sqrt(1.0 + L**2 / (2.0 * H * a**2))
-        ar = numpy.atleast_1d(thetaAr) % (2.0 * numpy.pi)
-        aeab = a * e / ab
-        x = numpy.array(ar)
-        for _ in range(100):
-            f = x - aeab * numpy.sin(x) - ar
-            x -= numpy.clip(f / (1.0 - aeab * numpy.cos(x)), -1.0, 1.0)
-            if numpy.max(numpy.fabs(f)) < 1e-14:
-                break
-        coseta = numpy.cos(x)
-        rA = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * bb / a))
-        pA = numpy.sqrt(amp / ab) * a * e * numpy.sin(x) / rA
-        return rA, pA
 
     # ---------- the generating-function tables, computed (never fitted)
     def _node_tables(self, ii):
@@ -804,20 +785,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         interpolants of J_r (in the normalized energy), of the turning
         points and of the anomaly-map coefficients (in u), all with their
         first partials exact at the nodes"""
-        u, Lg = self._us, self._Lgrid
+        u = self._us
         self._jr_ip = self._hermite(u**2, self._jr_tab, self._jr_dx, self._jr_dL)
-        self._sup_ip = [
-            self._hermite(
-                u, self._sup_tab[:, :, q], self._sup_du[:, :, q], self._sup_dL[:, :, q]
-            )
-            for q in range(2)
-        ]
-        self._Dm_ip = [
-            self._hermite(
-                u, self._Dm_tab[:, :, q], self._Dm_du[:, :, q], self._Dm_dL[:, :, q]
-            )
-            for q in range(self._npt)
-        ]
+        self._sup_ip = self._hermite(u, self._sup_tab, self._sup_du, self._sup_dL)
+        self._Dm_ip = self._hermite(u, self._Dm_tab, self._Dm_du, self._Dm_dL)
         return None
 
     # ---------- evaluation: the manifest chain
@@ -841,12 +812,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"[{jlo}, {jhi}] at L = {L}"
             )
         jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
-        x = brentq(
-            lambda xx: self._jr_ip(xx, L)[0, 0] - jr,
-            self._us[0] ** 2,
-            self._us[-1] ** 2,
-            xtol=1e-14,
-        )
+        # J_r is monotone in x: safeguarded Newton on the interpolant's own
+        # derivative, from the linear guess, bisecting when a step leaves
+        # the bracket
+        xlo, xhi = self._us[0] ** 2, self._us[-1] ** 2
+        x = xlo + (jr - jlo) / (jhi - jlo) * (xhi - xlo)
+        for _ in range(100):
+            f = self._jr_ip(x, L)[0, 0] - jr
+            if f > 0.0:
+                xhi = x
+            else:
+                xlo = x
+            if numpy.fabs(f) < 1e-14 * (1.0 + jr):
+                break
+            xn = x - f / self._jr_ip(x, L, dx=1)[0, 0]
+            x = xn if xlo < xn < xhi else 0.5 * (xlo + xhi)
         u = numpy.sqrt(x)
         djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
@@ -855,22 +835,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # interpolants' own derivatives
         OmR = dE_du / djr_du
         OmL = dE_dL - dE_du * djr_dL / djr_du
-        sup = numpy.array([ip(u, L)[0, 0] for ip in self._sup_ip])
-        dsup_du = numpy.array([ip(u, L, dx=1)[0, 0] for ip in self._sup_ip])
-        dsup_dL = numpy.array([ip(u, L, dy=1)[0, 0] for ip in self._sup_ip])
-        Dm = numpy.array([ip(u, L)[0, 0] for ip in self._Dm_ip])
-        dDm_du = numpy.array([ip(u, L, dx=1)[0, 0] for ip in self._Dm_ip])
-        dDm_dL = numpy.array([ip(u, L, dy=1)[0, 0] for ip in self._Dm_ip])
-        # the auxiliary torus has the requested radial action itself, so
-        # its parameter chain is the identity in J_r and nothing in L
+        sup = self._sup_ip(u, L)[0, 0]
+        dsup_du = self._sup_ip(u, L, dx=1)[0, 0]
+        dsup_dL = self._sup_ip(u, L, dy=1)[0, 0]
+        Dm = self._Dm_ip(u, L)[0, 0]
+        dDm_du = self._Dm_ip(u, L, dx=1)[0, 0]
+        dDm_dL = self._Dm_ip(u, L, dy=1)[0, 0]
         ptdata = {
-            "L": L,
             "sup": sup,
             "dsupJ": dsup_du / djr_du,
             "dsupL": dsup_dL - dsup_du * djr_dL / djr_du,
-            "Jrq": jr,
-            "dJrqJ": 1.0,
-            "dJrqL": 0.0,
             "Dm": Dm,
             "dDmJ": dDm_du / djr_du,
             "dDmL": dDm_dL - dDm_du * djr_dL / djr_du,
@@ -895,112 +869,104 @@ class actionAngleSphericalInverse(actionAngleInverse):
         ) / (2.0 * e)
         return a, e, da, de
 
-    def _tau_of_eta(self, eta, Dm):
-        """Invert the stored anomaly map eta = tau + sum_m D_m sin(m tau)
-        (monotone) for tau, vectorized"""
-        # the map is monotone and smooth: Newton converges to round-off in a
-        # handful of steps, so this has its own budget and tolerance and
-        # maxiter / angle_tol govern only the angle solves
+    def _kernel(self, tau, a, e, Dm, rp, ra, chains=None):
+        """Everything the evaluation needs at anomaly tau, in one pass and
+        from the tables alone: the auxiliary anomaly eta(tau) and radial
+        angle theta^A_r (the isochrone's mean-anomaly relation, closed
+        form), the target's radius and radial momentum (the flux identity
+        p_r dr/dtau = p^A dr^A/dtau, with sin(eta)/sin(tau) grouped so that
+        every factor is regular at the turning points), and, for each chain
+        alpha in chains (the J_r-chain at fixed L and the L-chain at fixed
+        J_r, each given as (da, de, drp, dra, dDm)), the compensation
+        p^A (dr^A/dalpha)|_tau - p_r (dr/dalpha)|_tau. Also returns
+        d theta^A_r / d tau for the Newton solve of the angle relation."""
         ms = self._nforDm
-        x = numpy.array(eta, dtype="float")
-        for _ in range(100):
-            f = x + numpy.sin(x[:, None] * ms[None, :]) @ Dm - eta
-            fp = 1.0 + numpy.cos(x[:, None] * ms[None, :]) @ (ms * Dm)
-            dx = numpy.clip(-f / fp, -0.5, 0.5)
-            x += dx
-            if numpy.max(numpy.fabs(f)) < 1e-14:
-                break
-        return x
-
-    def _pt_comp(self, rA, pA, ptdata, dJrq, dsup, dDm, dLex):
-        """The point transformation's compensation term along one chain:
-        -p_r (d pi/d alpha)|_{r^A} = p^A (d r^A/d alpha)|_tau
-        - p_r (d r/d alpha)|_tau, grouped through the action-flux identity
-        p_r dr/dtau = p^A dr^A/dtau so every factor is regular at the
-        turning points"""
-        L, Dm = ptdata["L"], ptdata["Dm"]
-        rp, ra = ptdata["sup"]
-        drp, dra = dsup
-        a, e, da, de = self._toy_param_chains(ptdata["Jrq"], L, dJrq, dLex)
-        coseta = self._toy_coseta(rA, a, e)
-        sineta = numpy.sign(pA) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
-        eta = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
-        tauv = self._tau_of_eta(eta, Dm)
-        ms = self._nforDm
-        s = numpy.sqrt(self._b**2 + rA**2)
-        y = (s - self._b) / a
-        # d r^A/d alpha at fixed tau: through (a, e) and the stored map
-        drAdeta = (
-            a * e * sineta * (y + self._b / a) / numpy.sqrt(y * (y + 2.0 * self._b / a))
-        )
-        drA = (
-            y * s / rA * da
-            - a * s * coseta / rA * de
-            + drAdeta * (numpy.sin(tauv[:, None] * ms[None, :]) @ dDm)
-        )
-        # d r/d alpha at fixed tau, and p_r through the flux identity
-        costau = numpy.cos(tauv)
-        dr = drp * (1.0 + costau) / 2.0 + dra * (1.0 - costau) / 2.0
-        detadtau = 1.0 + numpy.cos(tauv[:, None] * ms[None, :]) @ (ms * Dm)
-        sintau = numpy.sin(tauv)
-        # pi' = (dr/dtau)/(dr^A/dtau); p_r = p^A/pi'; group the sine ratio
+        mt = tau[:, None] * ms[None, :]
+        smt, cmt = numpy.sin(mt), numpy.cos(mt)
+        eta = tau + smt @ Dm
+        deta = 1.0 + cmt @ (ms * Dm)
+        b = self._b
+        se, ce = numpy.sin(eta), numpy.cos(eta)
+        y = 1.0 - e * ce
+        sq = numpy.sqrt(y * (y + 2.0 * b / a))
+        rA = a * sq
+        gA = a * e * (y + b / a) / sq  # dr^A/deta / sin(eta)
+        pA = numpy.sqrt(self._GM / (a + b)) * a * e * se / rA
+        kap = a * e / (a + b)
+        thetaA = eta - kap * se
+        dthetaA = (1.0 - kap * ce) * deta
+        st, ct = numpy.sin(tau), numpy.cos(tau)
+        r = rp * (1.0 + ct) / 2.0 + ra * (1.0 - ct) / 2.0
+        # sin(eta)/sin(tau) -> eta'(tau) at the turning points
         sratio = numpy.where(
-            numpy.fabs(sintau) > 1e-12,
-            sineta / numpy.maximum(numpy.fabs(sintau), 1e-12) * numpy.sign(sintau),
-            1.0,
+            numpy.fabs(st) > 1e-12, se / numpy.where(st == 0.0, 1.0, st), deta
         )
-        gA = a * e * (y + self._b / a) / numpy.sqrt(y * (y + 2.0 * self._b / a))
-        pr = pA * gA * sratio * detadtau / (0.5 * (ra - rp))
-        return pA * drA - pr * dr
+        pr = pA * gA * sratio * deta / (0.5 * (ra - rp))
+        if chains is None:
+            return eta, thetaA, dthetaA, r, pr
+        sA = numpy.sqrt(b**2 + rA**2)
+        comps = []
+        for da, de, drp, dra, dDm in chains:
+            drA = y * sA / rA * da - a * sA * ce / rA * de + gA * se * (smt @ dDm)
+            dr = drp * (1.0 + ct) / 2.0 + dra * (1.0 - ct) / 2.0
+            comps.append(pA * drA - pr * dr)
+        return eta, thetaA, dthetaA, r, pr, comps
 
-    def _thetaA_solve(self, thr, jr, L, ptdata):
-        """Newton solve of theta_r = theta^A_r - p_r (d pi / d J_r)|_{r^A}
-        for the auxiliary angle theta^A_r, vectorized over the requested
-        angles; the residual is exact and the Jacobian approximates by
-        dropping the compensation's derivative (the 1D-validated approach),
-        with a safeguarded scalar fallback"""
+    def _tau_solve_interp(self, thr, a, e, Dm, rp, ra, chainJ):
+        """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
+        along the J_r-chain](tau) for the anomaly of each requested angle,
+        on the derivative of the auxiliary angle alone (the compensation is
+        a small correction), with a safeguarded scalar fallback for any
+        angle that does not converge within maxiter iterations"""
 
-        def _residual(x, target):
-            rA, pA = self._toy_radial(jr, L, x)
-            return (
-                x
-                - target
-                + self._pt_comp(
-                    rA,
-                    pA,
-                    ptdata,
-                    ptdata["dJrqJ"],
-                    ptdata["dsupJ"],
-                    ptdata["dDmJ"],
-                    0.0,
-                )
+        def _f(x):
+            _, thetaA, dthetaA, _, _, (compJ,) = self._kernel(
+                x, a, e, Dm, rp, ra, chains=(chainJ,)
             )
+            return thetaA + compJ, dthetaA
 
         x = numpy.array(thr, dtype="float")
         for _ in range(self._maxiter):
-            f = _residual(x, thr)
-            dx = numpy.clip(-f, -0.5, 0.5)
-            x += dx
+            f, fp = _f(x)
+            f = f - thr
+            x += numpy.clip(-f / fp, -0.5, 0.5)
             if numpy.max(numpy.fabs(f)) < self._angle_tol:
                 break
         else:
-            # the approximate-Jacobian Newton can cycle on hard tori even
-            # where the angle map is monotone; fall back to safeguarded
-            # scalar root-finding per non-converged point. The residual is
-            # x + Q(x) - theta with Q periodic, so [theta - maxQ - eps,
-            # theta + maxQ + eps] is a guaranteed bracket.
-            f = _residual(x, thr)
+            # theta_r(tau) - tau is periodic and bounded, so [theta - s,
+            # theta + s] with s beyond its extreme is a guaranteed bracket
+            f = _f(x)[0] - thr
             bad = numpy.flatnonzero(numpy.fabs(f) >= self._angle_tol)
             xscan = numpy.linspace(0.0, 2.0 * numpy.pi, 256, endpoint=False)
-            s = numpy.max(numpy.fabs(_residual(xscan, numpy.zeros(256)) - xscan)) + 0.1
+            sc = numpy.max(numpy.fabs(_f(xscan)[0] - xscan)) + 0.1
             for ii in bad:
                 thri = thr[ii]
 
                 def _fi(xx):
-                    return _residual(numpy.array([xx]), numpy.array([thri]))[0]
+                    return _f(numpy.array([xx]))[0][0] - thri
 
-                x[ii] = brentq(_fi, thri - s, thri + s, xtol=1e-15, maxiter=200)
+                x[ii] = brentq(_fi, thri - sc, thri + sc, xtol=1e-15, maxiter=200)
         return x
+
+    def _unlift(self, out, r, pr):
+        """Undo the lift: the auxiliary-chart reconstruction (R, v_R, v_T,
+        z, v_z, phi) becomes the target's by replacing the radius and the
+        radial velocity with the kernel's r and p_r; the position direction,
+        the plane, and the azimuth are untouched, and the tangential speed
+        rescales to keep |L| = r x v exact"""
+        R, vR, vT, z, vz, phi = out
+        rA = numpy.sqrt(R**2 + z**2)
+        vth = (vR * z - vz * R) / rA
+        scale = r / rA
+        vth2 = vth / scale
+        return (
+            R * scale,
+            pr * R / rA + vth2 * z / rA,
+            vT / scale,
+            z * scale,
+            pr * z / rA - vth2 * R / rA,
+            phi,
+        )
 
     def _tau_solve(self, ii, thr):
         """Newton solve of theta_r = tau + Pt(tau) for the anomaly tau on
@@ -1084,10 +1050,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return self._jr_ip(u2, L)[0, 0]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        """(J, theta) -> (x, v): solve the 1-D Newton for theta^A_r, shift
-        the two companion angles by the map's L-compensation, delegate the
-        full 3-D reconstruction to the analytic isochrone inverse (L^A = L,
-        so the plane geometry is the auxiliary's own), and undo the lift"""
+        """(J, theta) -> (x, v): solve for the anomaly of each requested
+        radial angle, shift the two companion angles by the map's
+        L-compensation, delegate the full 3-D reconstruction to the analytic
+        isochrone inverse (L^A = L, so the plane geometry is the auxiliary's
+        own), and undo the lift"""
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         L = jz + numpy.fabs(jphi)
         angler, anglephi, anglez = numpy.broadcast_arrays(
@@ -1097,22 +1064,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         thr = angler % (2.0 * numpy.pi)
         if self._interp:
-            u, OmR, OmL, ptdata = self._interp_tables(jr, L)
-            thetaAr = self._thetaA_solve(thr, jr, L, ptdata)
-            # the map's L-chain compensates the psi-angles the same way
-            # its J_r-chain compensates theta_r
-            rA, pA = self._toy_radial(jr, L, thetaAr)
-            Delta = self._pt_comp(
-                rA,
-                pA,
-                ptdata,
-                ptdata["dJrqL"],
-                ptdata["dsupL"],
-                ptdata["dDmL"],
-                1.0,
-            )
+            _, OmR, OmL, ptdata = self._interp_tables(jr, L)
             a, e = self._toy_params(jr, L)
-            params = (a, e, ptdata["Dm"], ptdata["sup"][0], ptdata["sup"][1])
+            Dm, (rp, ra) = ptdata["Dm"], ptdata["sup"]
+            # the J_r-chain at fixed L compensates theta_r, the L-chain at
+            # fixed J_r the psi-angles, both through the auxiliary torus's
+            # parameters, the turning points, and the map's coefficients
+            _, _, daJ, deJ = self._toy_param_chains(jr, L, 1.0, 0.0)
+            _, _, daL, deL = self._toy_param_chains(jr, L, 0.0, 1.0)
+            chainJ = (daJ, deJ, ptdata["dsupJ"][0], ptdata["dsupJ"][1], ptdata["dDmJ"])
+            chainL = (daL, deL, ptdata["dsupL"][0], ptdata["dsupL"][1], ptdata["dDmL"])
+            taus = self._tau_solve_interp(thr, a, e, Dm, rp, ra, chainJ)
+            _, thetaAr, _, r, pr, (Delta,) = self._kernel(
+                taus, a, e, Dm, rp, ra, chains=(chainL,)
+            )
         else:
             ii = self._match_node(jr, L)
             OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
@@ -1120,17 +1085,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
             thetaAr = taus + _spec_eval(self._cP[ii], taus)
             Delta = _spec_eval(self._cD[ii], taus)
             a, e = self._toy_params(self._jrs[ii], L)
-            params = (a, e, self._Dms[ii], self._rps[ii], self._ras[ii])
+            _, _, _, r, pr = self._kernel(
+                taus, a, e, self._Dms[ii], self._rps[ii], self._ras[ii]
+            )
         thetaAz = anglez - Delta
         thetaAphi = anglephi - numpy.sign(jphi) * Delta
-        out = numpy.empty((6, len(thr)))
-        for ii in range(len(thr)):
-            oo = self._aAIinv._xvFreqs(
-                jr, jphi, jz, thetaAr[ii], thetaAphi[ii], thetaAz[ii]
-            )
-            for jj in range(6):
-                out[jj, ii] = oo[jj][0]
-        out = self._pt_unlift(out, params)
+        # the three-dimensional reconstruction on the auxiliary torus, in one
+        # vectorized call (the auxiliary has the requested actions), then
+        # the lift undone with the kernel's radius and radial momentum
+        out = self._unlift(
+            self._aAIinv._xvFreqs(jr, jphi, jz, thetaAr, thetaAphi, thetaAz)[:6],
+            r,
+            pr,
+        )
         return (
             out[0],
             out[1],
@@ -1141,49 +1108,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             OmR,
             numpy.sign(jphi) * OmL,
             OmL,
-        )
-
-    def _pt_unlift(self, out, params):
-        """Undo the lift: from the auxiliary-chart reconstruction to the
-        target chart. The auxiliary anomaly from the closed-form radius inversion, the stored anomaly
-        map, then the target's cosine form give the radius; the radial
-        momentum maps through 1/pi' (grouped through the action-flux
-        identity so every factor is regular at the turning points); the
-        position direction, the plane, and the azimuth are untouched, and
-        the tangential speed rescales to keep |L| = r x v exact"""
-        a, e, Dm, rp, ra = params
-        R, vR, vT, z, vz, phi = out
-        rA = numpy.sqrt(R**2 + z**2)
-        vr = (R * vR + z * vz) / rA
-        vth = (vR * z - vz * R) / rA
-        coseta = self._toy_coseta(rA, a, e)
-        sineta = numpy.sign(vr) * numpy.sqrt(numpy.clip(1.0 - coseta**2, 0.0, None))
-        eta = numpy.arctan2(sineta, coseta) % (2.0 * numpy.pi)
-        tauv = self._tau_of_eta(eta, Dm)
-        costau = numpy.cos(tauv)
-        r = rp * (1.0 + costau) / 2.0 + ra * (1.0 - costau) / 2.0
-        y = (numpy.sqrt(self._b**2 + rA**2) - self._b) / a
-        gA = a * e * (y + self._b / a) / numpy.sqrt(y * (y + 2.0 * self._b / a))
-        ms = self._nforDm
-        detadtau = 1.0 + numpy.cos(tauv[:, None] * ms[None, :]) @ (ms * Dm)
-        sintau = numpy.sin(tauv)
-        sratio = numpy.where(
-            numpy.fabs(sintau) > 1e-12,
-            sineta / numpy.maximum(numpy.fabs(sintau), 1e-12) * numpy.sign(sintau),
-            1.0,
-        )
-        prT = vr * gA * sratio * detadtau / (0.5 * (ra - rp))
-        scale = r / rA
-        vth2 = vth / scale
-        return numpy.array(
-            [
-                R * scale,
-                prT * R / rA + vth2 * z / rA,
-                vT / scale,
-                z * scale,
-                prT * z / rA - vth2 * R / rA,
-                phi,
-            ]
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
