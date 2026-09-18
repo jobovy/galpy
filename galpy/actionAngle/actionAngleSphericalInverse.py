@@ -13,10 +13,16 @@
 import warnings
 
 import numpy
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import CubicSpline
 from scipy.optimize import brentq, minimize
 
-from ..potential import IsochronePotential, evaluatePotentials, rl, vcirc
+from ..potential import (
+    IsochronePotential,
+    evaluatePotentials,
+    evaluateRforces,
+    rl,
+    vcirc,
+)
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from .actionAngleInverse import actionAngleInverse
@@ -44,6 +50,89 @@ def _spec_eval(c, tau, deriv=False):
     cc = c * (1j * k) if deriv else c
     ph = numpy.exp(1j * numpy.atleast_1d(tau)[:, None] * k[None, :])
     return numpy.real(ph @ (w * cc))
+
+
+class _HermiteFamily:
+    """A tensor-product Hermite interpolant on a rectangular grid, quintic
+    in the first variable and cubic in the second.  The values and the
+    first partials are prescribed at every node and reproduced exactly
+    there, together with the first partial's derivative along the second
+    variable; the second derivatives in the first variable (and their
+    derivative along the second) are estimated by differentiating cubic
+    splines of the prescribed first partials, which makes the interpolant's
+    first derivative in that variable accurate to one order beyond a cubic
+    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0]."""
+
+    # the coefficient matrices of the unit-interval Hermite polynomials:
+    # quintic through (f, f', f'') at both ends, cubic through (f, f')
+    _Mq = numpy.array(
+        [
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.5, 0.0, 0.0, 0.0],
+            [-10.0, -6.0, -1.5, 10.0, -4.0, 0.5],
+            [15.0, 8.0, 1.5, -15.0, 7.0, -1.0],
+            [-6.0, -3.0, -0.5, 6.0, -3.0, 0.5],
+        ]
+    )
+    _Mc = numpy.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [-3.0, 3.0, -2.0, -1.0],
+            [2.0, -2.0, 1.0, 1.0],
+        ]
+    )
+
+    def __init__(self, x, y, f, fx, fy):
+        self._x, self._y = numpy.asarray(x), numpy.asarray(y)
+        nx, ny = len(x), len(y)
+        fxy = numpy.array([CubicSpline(y, fx[i])(y, 1) for i in range(nx)])
+        fxx = numpy.array([CubicSpline(x, fx[:, j])(x, 1) for j in range(ny)]).T
+        fxxy = numpy.array([CubicSpline(x, fxy[:, j])(x, 1) for j in range(ny)]).T
+        self._c = numpy.empty((nx - 1, ny - 1, 6, 4))
+        for i in range(nx - 1):
+            hx = self._x[i + 1] - self._x[i]
+            for j in range(ny - 1):
+                hy = self._y[j + 1] - self._y[j]
+                # rows: (f, hx f_x, hx^2 f_xx) at x_i then at x_{i+1};
+                # columns: values at y_j, y_{j+1}, then hy times the
+                # y-derivatives there
+                F = numpy.empty((6, 4))
+                for r, (tab, sc) in enumerate(((f, 1.0), (fx, hx), (fxx, hx * hx))):
+                    for k, ii in enumerate((i, i + 1)):
+                        F[r + 3 * k, 0] = tab[ii, j] * sc
+                        F[r + 3 * k, 1] = tab[ii, j + 1] * sc
+                for r, (tab, sc) in enumerate(
+                    ((fy, hy), (fxy, hx * hy), (fxxy, hx * hx * hy))
+                ):
+                    for k, ii in enumerate((i, i + 1)):
+                        F[r + 3 * k, 2] = tab[ii, j] * sc
+                        F[r + 3 * k, 3] = tab[ii, j + 1] * sc
+                self._c[i, j] = self._Mq @ F @ self._Mc.T
+
+    def __call__(self, x, y, dx=0, dy=0):
+        i = min(
+            max(numpy.searchsorted(self._x, x, side="right") - 1, 0), len(self._x) - 2
+        )
+        j = min(
+            max(numpy.searchsorted(self._y, y, side="right") - 1, 0), len(self._y) - 2
+        )
+        hx, hy = self._x[i + 1] - self._x[i], self._y[j + 1] - self._y[j]
+        sv = (x - self._x[i]) / hx
+        tv = (y - self._y[j]) / hy
+        if dx == 0:
+            ps = sv ** numpy.arange(6)
+        else:
+            ps = (
+                numpy.array([0.0, 1.0, 2.0 * sv, 3.0 * sv**2, 4.0 * sv**3, 5.0 * sv**4])
+                / hx
+            )
+        if dy == 0:
+            pt = tv ** numpy.arange(4)
+        else:
+            pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
+        return numpy.array([[ps @ self._c[i, j] @ pt]])
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -320,6 +409,85 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         return rA, pA, drAdeta
 
+    def _toy_flux_derivs(self, a, e, eta):
+        """The auxiliary's radial action flux f^A = p^A dr^A/deta at
+        eccentric anomaly eta, and its partials with respect to the torus
+        parameters (a, e) at fixed eta, all closed forms of the isochrone:
+        with beta = b/a, y = 1 - e cos(eta), c = sqrt(GM/(a+b)) and
+        g(y) = (y + beta) / [y (y + 2 beta)], f^A = c a e^2 sin^2(eta) g"""
+        b = self._b
+        beta = b / a
+        y = 1.0 - e * numpy.cos(eta)
+        c = numpy.sqrt(self._GM / (a + b))
+        s2 = numpy.sin(eta) ** 2
+        g = (y + beta) / (y * (y + 2.0 * beta))
+        dg_dy = -(y**2 + 2.0 * beta * y + 2.0 * beta**2) / (y * (y + 2.0 * beta)) ** 2
+        dg_da = (b / a**2) / (y + 2.0 * beta) ** 2
+        fA = c * a * e**2 * s2 * g
+        dfA_da = e**2 * s2 * (c * (a + 2.0 * b) / (2.0 * (a + b)) * g + c * a * dg_da)
+        dfA_de = c * a * s2 * (2.0 * e * g - e**2 * dg_dy * numpy.cos(eta))
+        return fA, dfA_da, dfA_de
+
+    def _map_slopes(self, tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi):
+        """The derivatives of the anomaly-map coefficients with respect to E
+        at fixed L and to L at fixed E, on one torus from that torus alone:
+        the variation of the matching condition A^A(eta(tau); a, e) =
+        A(tau; E, L) at fixed anomaly,
+
+            f^A(eta) sum_m dD_m/dalpha sin(m tau)
+                = dA/dalpha|_tau - dA^A/da a_alpha - dA^A/de e_alpha ,
+
+        a LINEAR least-squares problem for the dD_m/dalpha with the
+        vanishing flux f^A multiplying the unknowns, as in the map's own
+        fit. The target's flux derivative at fixed tau goes through the
+        moving turning points and is regular there (its numerator vanishes
+        with p_r), so it integrates spectrally like the flux itself; the
+        auxiliary's goes through its torus parameters' closed-form chains."""
+        k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
+
+        def _cum(f):
+            # the integral from tau = 0 of a periodic f sampled on the
+            # (half-offset) grid: its mean times tau plus the periodic part,
+            # evaluated at the grid and returned with its spectral
+            # coefficients for evaluation elsewhere
+            m = numpy.mean(f)
+            fh = numpy.fft.fft(f - m)
+            ah = numpy.zeros_like(fh)
+            ah[1:] = fh[1:] / (1j * k[1:])
+            q = numpy.real(numpy.fft.ifft(ah))
+            cq = _spec_coeffs(q)
+            q0 = _spec_eval(cq, 0.0)[0]
+            return m, cq, q0
+
+        costau, sintau = numpy.cos(tau), numpy.sin(tau)
+        drdtau = 0.5 * (ra - rp) * sintau
+        dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
+        fA, dfA_da, dfA_de = self._toy_flux_derivs(a, e, tau)
+        cfA = _spec_coeffs(fA)
+        mA_a, cqa, qa0 = _cum(dfA_da)
+        mA_e, cqe, qe0 = _cum(dfA_de)
+        FAa = mA_a * etat + _spec_eval(cqa, etat) - qa0
+        FAe = mA_e * etat + _spec_eval(cqe, etat) - qe0
+        B = _spec_eval(cfA, etat)[:, None] * numpy.sin(
+            tau[:, None] * self._nforDm[None, :]
+        )
+        out = []
+        for alpha in ("E", "L"):
+            drp = self._turning_point_derivs(rp, E, L)[alpha == "L"]
+            dra = self._turning_point_derivs(ra, E, L)[alpha == "L"]
+            dr = drp * (1.0 + costau) / 2.0 + dra * (1.0 - costau) / 2.0
+            num = (1.0 if alpha == "E" else -L / r**2) - dPhieff * dr
+            dft = num / pr * drdtau + pr * 0.5 * (dra - drp) * sintau
+            mt, cqt, qt0 = _cum(dft)
+            dA = mt * tau + _spec_eval(cqt, tau) - qt0
+            if alpha == "E":
+                _, _, da, de = self._toy_param_chains(Jrq, L, 1.0 / OmR, 0.0)
+            else:
+                _, _, da, de = self._toy_param_chains(Jrq, L, -Ompsi / OmR, 1.0)
+            rhs = dA - FAa * da - FAe * de
+            out.append(numpy.linalg.lstsq(B, rhs, rcond=None)[0])
+        return out[0], out[1]
+
     def _toy_coseta(self, rA, a, e):
         """Invert the toy radius profile: from (a y + b)^2 = b^2 + r^A2,
         y = 1 - e cos(eta) follows in closed form"""
@@ -464,12 +632,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # i.e. Dpsi = theta_psi - theta^A_psi): the samples sit at azimuth
         # zero, where the auxiliary's in-plane angle is o[7] directly
         Dpsi = numpy.unwrap(chi - numpy.atleast_1d(o[7]))
+        dDm_dE, dDm_dL = self._map_slopes(
+            tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi
+        )
         return {
             "jr": Jrq,
             "perr": perr,
             "rp": rp,
             "ra": ra,
             "Dm": Dm,
+            "dDm_dE": dDm_dE,
+            "dDm_dL": dDm_dL,
             "OmR": OmR,
             "Ompsi": Ompsi,
             "cP": _spec_coeffs(P),
@@ -537,10 +710,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._Lgrid = numpy.linspace(Lmin, Lmax, nL)
         self._us = (numpy.arange(nE) + 1.0) / nE
         self._Emax = self._Phi(Rinf)
-        self._Ecs = numpy.empty(nL)
-        for jj, L in enumerate(self._Lgrid):
-            rc = rl(self._pot, L, use_physical=False)
-            self._Ecs[jj] = self._Phi(rc) + L**2 / (2.0 * rc**2)
+        self._Ecs = numpy.array([self._Ec(L)[0] for L in self._Lgrid])
         if numpy.any(self._Ecs >= self._Emax):
             raise ValueError(
                 "Rinf is too small: the grid's top energy lies below a "
@@ -554,6 +724,29 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._Ls = numpy.tile(self._Lgrid, nE)
         return None
 
+    def _Ec(self, L):
+        """Energy of the circular orbit of angular momentum L, and its
+        derivative dE_c/dL = L / r_c^2 (the circular frequency)"""
+        rc = rl(self._pot, L, use_physical=False)
+        return self._Phi(rc) + L**2 / (2.0 * rc**2), L / rc**2
+
+    def _E_of_uL(self, u, L):
+        """The grid's energy variable, analytic: E = E_c(L) + [E_max -
+        E_c(L)] u^2, with its partials in u and in L at fixed u"""
+        Ec, dEc = self._Ec(L)
+        return (
+            Ec + (self._Emax - Ec) * u**2,
+            2.0 * u * (self._Emax - Ec),
+            dEc * (1.0 - u**2),
+        )
+
+    def _turning_point_derivs(self, r, E, L):
+        """Closed-form derivatives of a radial turning point (a root of
+        E - Phi(r) - L^2 / 2 r^2) with respect to E at fixed L and to L at
+        fixed E, by the level-set rule"""
+        dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
+        return 1.0 / dPhieff, -(L / r**2) / dPhieff
+
     def _setup_tori_interp(self):
         nu, nLg = len(self._us), len(self._Lgrid)
         self._jr_tab = numpy.empty((nu, nLg))
@@ -561,9 +754,22 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._Ompsi_tab = numpy.empty((nu, nLg))
         self._sup_tab = numpy.empty((nu, nLg, 2))  # rp, ra
         self._Dm_tab = numpy.empty((nu, nLg, self._npt))
+        # exact first partials at every node: of J_r from the node's
+        # frequencies (dJ_r = [dE - Omega_psi dL] / Omega_r), in the
+        # normalized energy x = u^2 in which J_r is smooth up to the circular
+        # edge (in u its derivative would vanish there), and of the turning
+        # points, which behave as u at the edge, in u itself; both from the
+        # level-set rule
+        self._jr_dx = numpy.empty((nu, nLg))
+        self._jr_dL = numpy.empty((nu, nLg))
+        self._sup_du = numpy.empty((nu, nLg, 2))
+        self._sup_dL = numpy.empty((nu, nLg, 2))
+        self._Dm_du = numpy.empty((nu, nLg, self._npt))
+        self._Dm_dL = numpy.empty((nu, nLg, self._npt))
         perr = numpy.empty((nu, nLg))
         for ii in range(nu):
             for jj in range(nLg):
+                L = self._Lgrid[jj]
                 node = self._node_tables(ii * nLg + jj)
                 self._jr_tab[ii, jj] = node["jr"]
                 self._OmR_tab[ii, jj] = node["OmR"]
@@ -571,25 +777,45 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._sup_tab[ii, jj] = [node["rp"], node["ra"]]
                 self._Dm_tab[ii, jj] = node["Dm"]
                 perr[ii, jj] = node["perr"]
+                E, dE_du, dE_dL = self._E_of_uL(self._us[ii], L)
+                # dE/dx at fixed L is E_max - E_c, and dE/dL at fixed x is
+                # dE/dL at fixed u
+                self._jr_dx[ii, jj] = (self._Emax - self._Ecs[jj]) / node["OmR"]
+                self._jr_dL[ii, jj] = (dE_dL - node["Ompsi"]) / node["OmR"]
+                for q, r in enumerate((node["rp"], node["ra"])):
+                    dr_dE, dr_dL = self._turning_point_derivs(r, E, L)
+                    self._sup_du[ii, jj, q] = dr_dE * dE_du
+                    self._sup_dL[ii, jj, q] = dr_dE * dE_dL + dr_dL
+                self._Dm_du[ii, jj] = node["dDm_dE"] * dE_du
+                self._Dm_dL[ii, jj] = node["dDm_dE"] * dE_dL + node["dDm_dL"]
         self._warn_unresolved(
             perr.flatten(), self._E_tab.flatten(), numpy.tile(self._Lgrid, nu)
         )
         self._rebuild_interp()
         return None
 
+    def _hermite(self, xs, f, fx, fL):
+        """The family's interpolant of a table on (xs, L) with exact first
+        partials at the nodes: quintic Hermite along xs, cubic along L"""
+        return _HermiteFamily(xs, self._Lgrid, f, fx, fL)
+
     def _rebuild_interp(self):
-        """(Re)build the spline interpolants from the stored tables; kept
-        separate so that table perturbations (e.g. the noise-injection
-        manifest test) re-enter through exactly this call"""
+        """(Re)build the interpolants from the stored tables: Hermite
+        interpolants of J_r (in the normalized energy), of the turning
+        points and of the anomaly-map coefficients (in u), all with their
+        first partials exact at the nodes"""
         u, Lg = self._us, self._Lgrid
-        self._jr_ip = RectBivariateSpline(u, Lg, self._jr_tab, kx=3, ky=3, s=0.0)
-        self._E_ip = RectBivariateSpline(u, Lg, self._E_tab, kx=3, ky=3, s=0.0)
+        self._jr_ip = self._hermite(u**2, self._jr_tab, self._jr_dx, self._jr_dL)
         self._sup_ip = [
-            RectBivariateSpline(u, Lg, self._sup_tab[:, :, q], kx=3, ky=3, s=0.0)
+            self._hermite(
+                u, self._sup_tab[:, :, q], self._sup_du[:, :, q], self._sup_dL[:, :, q]
+            )
             for q in range(2)
         ]
         self._Dm_ip = [
-            RectBivariateSpline(u, Lg, self._Dm_tab[:, :, q], kx=3, ky=3, s=0.0)
+            self._hermite(
+                u, self._Dm_tab[:, :, q], self._Dm_du[:, :, q], self._Dm_dL[:, :, q]
+            )
             for q in range(self._npt)
         ]
         return None
@@ -606,23 +832,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"L = {L} outside the interpolation grid "
                 f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
             )
-        jlo = self._jr_ip(self._us[0], L)[0, 0]
-        jhi = self._jr_ip(self._us[-1], L)[0, 0]
-        if jr < jlo or jr > jhi:
+        jlo = self._jr_ip(self._us[0] ** 2, L)[0, 0]
+        jhi = self._jr_ip(self._us[-1] ** 2, L)[0, 0]
+        tol = 1e-12 * (1.0 + numpy.fabs(jr))
+        if jr < jlo - tol or jr > jhi + tol:
             raise ValueError(
                 f"J_r = {jr} outside the interpolated family's range "
                 f"[{jlo}, {jhi}] at L = {L}"
             )
-        u = brentq(
-            lambda uu: self._jr_ip(uu, L)[0, 0] - jr,
-            self._us[0],
-            self._us[-1],
+        jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
+        x = brentq(
+            lambda xx: self._jr_ip(xx, L)[0, 0] - jr,
+            self._us[0] ** 2,
+            self._us[-1] ** 2,
             xtol=1e-14,
         )
-        djr_du = self._jr_ip(u, L, dx=1)[0, 0]
-        djr_dL = self._jr_ip(u, L, dy=1)[0, 0]
-        dE_du = self._E_ip(u, L, dx=1)[0, 0]
-        dE_dL = self._E_ip(u, L, dy=1)[0, 0]
+        u = numpy.sqrt(x)
+        djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
+        djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
+        _, dE_du, dE_dL = self._E_of_uL(u, L)
         # chains at fixed L resp. fixed J_r, all from the stored
         # interpolants' own derivatives
         OmR = dE_du / djr_du
@@ -846,15 +1074,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"L = {L} outside the interpolation grid "
                 f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
             )
-        rc = rl(self._pot, L, use_physical=False)
-        Ec = self._Phi(rc) + L**2 / (2.0 * rc**2)
+        Ec, _ = self._Ec(L)
         u2 = (E - Ec) / (self._Emax - Ec)
         if u2 < 0.0 or u2 > 1.0:
             raise ValueError(
                 f"E = {E} outside the interpolation grid at L = {L}: "
                 f"[{Ec}, {self._Emax}]"
             )
-        return self._jr_ip(numpy.sqrt(u2), L)[0, 0]
+        return self._jr_ip(u2, L)[0, 0]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """(J, theta) -> (x, v): solve the 1-D Newton for theta^A_r, shift

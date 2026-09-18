@@ -38,7 +38,14 @@ v1.12.1 (expected around 2026-11-01)
   orbits between ``Rmin`` and ``Rmax``, energies up to the potential at
   ``Rinf``, quadratically spaced from the circular edge), with ``Jr(E, L)``
   giving a torus's radial action; ``Freqs`` returns the frequencies of the
-  returned orbits. A warning is raised when the anomaly map does not
+  returned orbits. The family's tables are Hermite interpolants (quintic
+  along the energy variable, cubic along L) whose first partials are exact
+  at every node: the energy is analytic in the grid's variables, the
+  radial action's partials follow from the node's own frequencies, the
+  turning points' from the level-set rule, and the anomaly map's from the
+  variation of the matching condition on each torus alone, so a grid
+  torus's angles and frequencies are exact and the family between its
+  nodes is accurate to ~1e-7 in angle on a 16 x 16 grid. A warning is raised when the anomaly map does not
   resolve a torus, and a torus that reaches beyond the depth of the fitted
   auxiliary raises.
 
