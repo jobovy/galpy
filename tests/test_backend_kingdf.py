@@ -222,3 +222,97 @@ def test_construct_under_forced_backend(backend):
     assert numpy.array_equal(
         dfb._scalefree_kdf._cumul_mass, ref._scalefree_kdf._cumul_mass
     )
+
+
+# --- d/d(DF parameter): the CONSTRUCTOR is differentiable ------------------
+# The tests above differentiate DF outputs w.r.t. their arguments. These
+# differentiate w.r.t. a constructor parameter, which additionally requires
+# (a) the derived scale factors to be computed on the namespace (velocity_scale
+# is a sqrt of them), and (b) the interpolated King potential underneath to fit
+# its force spline in-backend rather than in scipy.
+_KDF_FIXED = {"W0": 3.0, "npt": 201}
+_KDF_M, _KDF_RT = 1.3, 1.4
+
+
+def _kdf_quantity(M, which, backend="numpy"):
+    # The backend is forced for the build: kingdf evaluates its own potential at
+    # a plain-float radius during __init__ (_potInf), which resolves the ambient
+    # namespace, so a differentiated M alone would land in the numpy branch.
+    with galpy.backend.use(backend, force=True):
+        df = kingdf(M=M, rt=_KDF_RT, **_KDF_FIXED)
+        return {
+            "velocity_scale": lambda: df._velocity_scale,
+            "rho0": lambda: df.rho0,
+            "dens": lambda: df.dens(0.7),
+        }[which]()
+
+
+def _kdf_ad(backend, M0, which):
+    if backend == "jax":
+        return float(
+            jax.grad(lambda M: _kdf_quantity(M, which, backend))(jnp.asarray(M0))
+        )
+    M = torch.tensor(M0, dtype=torch.float64, requires_grad=True)
+    _kdf_quantity(M, which, backend).backward()
+    return float(M.grad)
+
+
+@pytest.mark.parametrize("which", ["velocity_scale", "rho0", "dens"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_constructor_grad_vs_finite_difference(backend, which):
+    eps = 1e-5
+
+    def f(M):
+        return float(_kdf_quantity(M, which))
+
+    d1 = (f(_KDF_M + eps) - f(_KDF_M - eps)) / (2 * eps)
+    d2 = (f(_KDF_M + eps / 2) - f(_KDF_M - eps / 2)) / eps
+    fd = (4 * d2 - d1) / 3  # Richardson, O(eps^4)
+    numpy.testing.assert_allclose(_kdf_ad(backend, _KDF_M, which), fd, rtol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_velocity_scale_gradient_is_analytic(backend):
+    # velocity_scale = sqrt(mass_scale/radius_scale) with mass_scale linear in M,
+    # so d/dM = velocity_scale/(2M) exactly. This pins the ns_unary("sqrt") path:
+    # a numpy.sqrt there raises on jax and DETACHES on eager torch, and a
+    # detached value would still return the right NUMBER with a zero gradient.
+    ref = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)._velocity_scale
+    numpy.testing.assert_allclose(
+        _kdf_ad(backend, _KDF_M, "velocity_scale"),
+        float(ref) / (2.0 * _KDF_M),
+        rtol=1e-12,
+    )
+
+
+def test_kingdf_numpy_construction_keeps_scipy_icmf_spline():
+    # the backend branch must not leak into the numpy path: the scipy icmf
+    # spline is fitted, and the potential's force spline is a mode-1 Spline1D
+    # (scipy-backed) rather than an in-backend fit
+    df = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)
+    assert df._icmf_spline is not None
+    assert df._pot._force_spline._spl is not None
+    assert not df._pot._force_spline._mode2
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+@pytest.mark.parametrize("ms_on_backend", [False, True])
+def test_kingdf_icmf_with_differentiated_grids(ms_on_backend):
+    # With M differentiated the (cumulative-mass, radius) grids are backend
+    # arrays and no scipy spline is fitted, so _icmf must take the interp_linear
+    # path for BOTH a numpy and a backend ms. The sampled radii are unchanged:
+    # the normalized cumulative mass is mass_scale*cumul_mass/M, in which M
+    # cancels, so this is a pure dispatch change.
+    #
+    # torch rather than jax because eager autograd differentiates through REAL
+    # tensors: the same assertions under jax.grad would only see tracers, whose
+    # values cannot be compared against the reference. The code path is shared.
+    ms = numpy.array([0.05, 0.4, 0.75, 0.99])
+    ref = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)._icmf(ms)
+    M = torch.tensor(_KDF_M, dtype=torch.float64, requires_grad=True)
+    with galpy.backend.use("torch", force=True):
+        df = kingdf(M=M, rt=_KDF_RT, **_KDF_FIXED)
+        assert df._icmf_spline is None
+        got = df._icmf(_arr("torch", ms) if ms_on_backend else ms)
+    assert torch.is_tensor(got)
+    numpy.testing.assert_allclose(as_numpy(got.detach()), ref, rtol=1e-12)

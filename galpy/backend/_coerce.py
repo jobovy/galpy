@@ -64,6 +64,7 @@ from ._namespaces import (
     device_of,
     effective_device,
     is_backend_array,
+    under_trace,
 )
 
 
