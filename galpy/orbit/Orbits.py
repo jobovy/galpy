@@ -33,7 +33,7 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import use as _use_backend
-from ..backend._namespaces import under_trace
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential import (
     _INF,
     CompositePotential,
@@ -4113,6 +4113,16 @@ class Orbit:
         # evaluatePotentials and E return backend arrays; bring both Einf and the
         # energy back to numpy so the unbound mask stays a plain numpy index into
         # the numpy/C EccZmaxRperiRap arrays (no-op for numpy -> byte-identical).
+        #
+        # A DIFFERENTIATED energy cannot be concretized at all, and the mask is a
+        # discrete selection that carries no gradient anyway. Signal that with
+        # indx=None: the callers then evaluate every orbit instead of masking,
+        # which is what a differentiable run wants (and an unbound orbit raises
+        # there, loudly, rather than being silently dropped).
+        if under_trace(Einf) or requires_backend_grad(Einf):
+            return None, (
+                {"delta": self._aA._delta} if hasattr(self._aA, "_delta") else {}
+            )
         if is_backend_array(Einf):
             Einf = as_numpy(Einf)
         if numpy.isnan(Einf):
@@ -4161,7 +4171,22 @@ class Orbit:
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
-        if numpy.sum(indx) > 0:
+        if indx is None:  # differentiated: no mask, evaluate every orbit
+            (
+                self._aA_ecc,
+                self._aA_zmax,
+                self._aA_rperi,
+                self._aA_rap,
+            ) = self._aA.EccZmaxRperiRap(
+                self.R(use_physical=False, dontreshape=True),
+                self.vR(use_physical=False, dontreshape=True),
+                self.vT(use_physical=False, dontreshape=True),
+                tz,
+                tvz,
+                use_physical=False,
+                **aAkwargs,
+            )
+        elif numpy.sum(indx) > 0:
             (
                 self._aA_ecc[indx],
                 self._aA_zmax[indx],
@@ -4219,7 +4244,28 @@ class Orbit:
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
-        if numpy.sum(indx) > 0:
+        if indx is None:  # differentiated: no mask, evaluate every orbit
+            (
+                self._aA_jr,
+                self._aA_jp,
+                self._aA_jz,
+                self._aA_Or,
+                self._aA_Op,
+                self._aA_Oz,
+                self._aA_wr,
+                self._aA_wp,
+                self._aA_wz,
+            ) = self._aA.actionsFreqsAngles(
+                self.R(use_physical=False, dontreshape=True),
+                self.vR(use_physical=False, dontreshape=True),
+                self.vT(use_physical=False, dontreshape=True),
+                tz,
+                tvz,
+                self.phi(use_physical=False, dontreshape=True),
+                use_physical=False,
+                **aAkwargs,
+            )
+        elif numpy.sum(indx) > 0:
             (
                 self._aA_jr[indx],
                 self._aA_jp[indx],
