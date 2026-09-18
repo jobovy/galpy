@@ -54,14 +54,16 @@ def _spec_eval(c, tau, deriv=False):
 
 class _HermiteFamily:
     """A tensor-product Hermite interpolant on a rectangular grid, quintic
-    in the first variable and cubic in the second.  The values and the
-    first partials are prescribed at every node and reproduced exactly
-    there, together with the first partial's derivative along the second
-    variable; the second derivatives in the first variable (and their
-    derivative along the second) are estimated by differentiating cubic
-    splines of the prescribed first partials, which makes the interpolant's
-    first derivative in that variable accurate to one order beyond a cubic
-    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0]."""
+    in the first variable and cubic in the second, of one table or of a
+    stack of tables on the same grid.  The values and the first partials
+    are prescribed at every node and reproduced exactly there, together
+    with the first partial's derivative along the second variable; the
+    second derivatives in the first variable (and their derivative along
+    the second) are estimated by differentiating cubic splines of the
+    prescribed first partials, which makes the interpolant's first
+    derivative in that variable accurate to one order beyond a cubic
+    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0],
+    which is a number for one table and a vector for a stack of tables."""
 
     # the coefficient matrices of the unit-interval Hermite polynomials:
     # quintic through (f, f', f'') at both ends, cubic through (f, f')
@@ -85,12 +87,19 @@ class _HermiteFamily:
     )
 
     def __init__(self, x, y, f, fx, fy):
+        # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
+        # tables on the same grid, interpolated together
         self._x, self._y = numpy.asarray(x), numpy.asarray(y)
         nx, ny = len(x), len(y)
-        fxy = numpy.array([CubicSpline(y, fx[i])(y, 1) for i in range(nx)])
-        fxx = numpy.array([CubicSpline(x, fx[:, j])(x, 1) for j in range(ny)]).T
-        fxxy = numpy.array([CubicSpline(x, fxy[:, j])(x, 1) for j in range(ny)]).T
-        self._c = numpy.empty((nx - 1, ny - 1, 6, 4))
+        f, fx, fy = (numpy.asarray(t, dtype="float") for t in (f, fx, fy))
+        self._scalar = f.ndim == 2
+        if self._scalar:
+            f, fx, fy = f[..., None], fx[..., None], fy[..., None]
+        k = f.shape[2]
+        fxy = CubicSpline(self._y, fx, axis=1)(self._y, 1)
+        fxx = CubicSpline(self._x, fx, axis=0)(self._x, 1)
+        fxxy = CubicSpline(self._x, fxy, axis=0)(self._x, 1)
+        self._c = numpy.empty((nx - 1, ny - 1, 6, 4, k))
         for i in range(nx - 1):
             hx = self._x[i + 1] - self._x[i]
             for j in range(ny - 1):
@@ -98,18 +107,18 @@ class _HermiteFamily:
                 # rows: (f, hx f_x, hx^2 f_xx) at x_i then at x_{i+1};
                 # columns: values at y_j, y_{j+1}, then hy times the
                 # y-derivatives there
-                F = numpy.empty((6, 4))
+                F = numpy.empty((6, 4, k))
                 for r, (tab, sc) in enumerate(((f, 1.0), (fx, hx), (fxx, hx * hx))):
-                    for k, ii in enumerate((i, i + 1)):
-                        F[r + 3 * k, 0] = tab[ii, j] * sc
-                        F[r + 3 * k, 1] = tab[ii, j + 1] * sc
+                    for q, ii in enumerate((i, i + 1)):
+                        F[r + 3 * q, 0] = tab[ii, j] * sc
+                        F[r + 3 * q, 1] = tab[ii, j + 1] * sc
                 for r, (tab, sc) in enumerate(
                     ((fy, hy), (fxy, hx * hy), (fxxy, hx * hx * hy))
                 ):
-                    for k, ii in enumerate((i, i + 1)):
-                        F[r + 3 * k, 2] = tab[ii, j] * sc
-                        F[r + 3 * k, 3] = tab[ii, j + 1] * sc
-                self._c[i, j] = self._Mq @ F @ self._Mc.T
+                    for q, ii in enumerate((i, i + 1)):
+                        F[r + 3 * q, 2] = tab[ii, j] * sc
+                        F[r + 3 * q, 3] = tab[ii, j + 1] * sc
+                self._c[i, j] = numpy.einsum("ab,bcK,dc->adK", self._Mq, F, self._Mc)
 
     def __call__(self, x, y, dx=0, dy=0):
         i = min(
@@ -132,7 +141,8 @@ class _HermiteFamily:
             pt = tv ** numpy.arange(4)
         else:
             pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
-        return numpy.array([[ps @ self._c[i, j] @ pt]])
+        v = numpy.einsum("a,abk,b->k", ps, self._c[i, j], pt)
+        return v.reshape(1, 1) if self._scalar else v[None, None, :]
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -777,18 +787,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         first partials exact at the nodes"""
         u = self._us
         self._jr_ip = self._hermite(u**2, self._jr_tab, self._jr_dx, self._jr_dL)
-        self._sup_ip = [
-            self._hermite(
-                u, self._sup_tab[:, :, q], self._sup_du[:, :, q], self._sup_dL[:, :, q]
-            )
-            for q in range(2)
-        ]
-        self._Dm_ip = [
-            self._hermite(
-                u, self._Dm_tab[:, :, q], self._Dm_du[:, :, q], self._Dm_dL[:, :, q]
-            )
-            for q in range(self._npt)
-        ]
+        self._sup_ip = self._hermite(u, self._sup_tab, self._sup_du, self._sup_dL)
+        self._Dm_ip = self._hermite(u, self._Dm_tab, self._Dm_du, self._Dm_dL)
         return None
 
     # ---------- evaluation: the manifest chain
@@ -812,12 +812,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"[{jlo}, {jhi}] at L = {L}"
             )
         jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
-        x = brentq(
-            lambda xx: self._jr_ip(xx, L)[0, 0] - jr,
-            self._us[0] ** 2,
-            self._us[-1] ** 2,
-            xtol=1e-14,
-        )
+        # J_r is monotone in x: safeguarded Newton on the interpolant's own
+        # derivative, from the linear guess, bisecting when a step leaves
+        # the bracket
+        xlo, xhi = self._us[0] ** 2, self._us[-1] ** 2
+        x = xlo + (jr - jlo) / (jhi - jlo) * (xhi - xlo)
+        for _ in range(100):
+            f = self._jr_ip(x, L)[0, 0] - jr
+            if f > 0.0:
+                xhi = x
+            else:
+                xlo = x
+            if numpy.fabs(f) < 1e-14 * (1.0 + jr):
+                break
+            xn = x - f / self._jr_ip(x, L, dx=1)[0, 0]
+            x = xn if xlo < xn < xhi else 0.5 * (xlo + xhi)
         u = numpy.sqrt(x)
         djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
@@ -826,12 +835,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # interpolants' own derivatives
         OmR = dE_du / djr_du
         OmL = dE_dL - dE_du * djr_dL / djr_du
-        sup = numpy.array([ip(u, L)[0, 0] for ip in self._sup_ip])
-        dsup_du = numpy.array([ip(u, L, dx=1)[0, 0] for ip in self._sup_ip])
-        dsup_dL = numpy.array([ip(u, L, dy=1)[0, 0] for ip in self._sup_ip])
-        Dm = numpy.array([ip(u, L)[0, 0] for ip in self._Dm_ip])
-        dDm_du = numpy.array([ip(u, L, dx=1)[0, 0] for ip in self._Dm_ip])
-        dDm_dL = numpy.array([ip(u, L, dy=1)[0, 0] for ip in self._Dm_ip])
+        sup = self._sup_ip(u, L)[0, 0]
+        dsup_du = self._sup_ip(u, L, dx=1)[0, 0]
+        dsup_dL = self._sup_ip(u, L, dy=1)[0, 0]
+        Dm = self._Dm_ip(u, L)[0, 0]
+        dDm_du = self._Dm_ip(u, L, dx=1)[0, 0]
+        dDm_dL = self._Dm_ip(u, L, dy=1)[0, 0]
         ptdata = {
             "sup": sup,
             "dsupJ": dsup_du / djr_du,
