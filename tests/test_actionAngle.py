@@ -8794,8 +8794,9 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
     # the torus's actual action by O(residual) (4e-4 at degree 7, growing
     # with energy): asking for a torus's actual action returned a neighbor,
     # and the top torus's actual action lay outside the stored range and
-    # crashed the interpolated lookup. Tori are now selected by their actual
-    # action while the Fourier structure keeps the mean as its internal base.
+    # crashed the interpolated lookup. The offset is now computed in closed
+    # form and subtracted, so the stored action is the actual one while the
+    # Fourier structure keeps the point-transformed action as its base.
     from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
@@ -8807,12 +8808,10 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
         aAVI = actionAngleVerticalInverse(
             pot=pot, Es=Es, nta=128, use_pointtransform=True, setup_interp=setup_interp
         )
-        # the label is the actual action, the internal one is not
-        assert (
-            numpy.amax(numpy.fabs(aAVI._js_label - aAVI._js) / aAVI._js_label[1:].min())
-            > 1e-5
-        ), (
-            "The polynomial point transformation's internal action is not distinct from the label"
+        # the stored action is the actual one; the point-transformed action
+        # the Fourier structure is built on differs from it by the offset
+        assert numpy.amax(numpy.fabs(aAVI._jaoffset) / aAVI._js[1:].min()) > 1e-5, (
+            "The polynomial point transformation has no action offset to correct"
         )
         for ii in range(1, len(Es)):  # including the top torus
             jtrue = float(
@@ -8833,11 +8832,68 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
             assert numpy.isfinite(float(aAVI.Freqs(jtrue))), (
                 "Freqs fails at the actual action"
             )
-    # without a point transformation, and with the exact one, nothing changes:
-    # the mean auxiliary action IS the torus's action and remains the label
+    # without a point transformation, and with the exact one, there is no
+    # offset: the mean auxiliary action IS the torus's action
     for kwargs in (dict(), dict(use_pointtransform="exact")):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
-        assert aAVI._js_label is aAVI._js, (
-            "The action label changed for a non-polynomial mode"
+        assert numpy.all(aAVI._jaoffset == 0.0), (
+            "An action offset appeared for a non-polynomial mode"
         )
+    return None
+
+
+def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
+    # With a polynomial point transformation, the mean auxiliary action of
+    # the sheared gauge v_a = v / pi' -- the point-transformed action J^A that
+    # each torus's Fourier structure is built on -- differs from the torus's
+    # actual action. Because (x_a, v_a) -> (j_a, theta_a) is the harmonic
+    # action-angle map, 2 pi <j_a> is the loop integral of v_a dx_a =
+    # v pi'^-2 dx, so the offset is the loop integral
+    #     J^A - J = (1 / 2 pi) Int v(x) [ pi'(x_a)^-2 - 1 ] dx
+    # along the orbit, from the potential and the fitted transformation
+    # alone. The class computes it at construction and stores the actual
+    # action J = <j_a> - offset, which must then agree with the forward
+    # transformation's action, an independent quadrature, on every torus
+    # and for every degree; and the offset is what it claims to be: the
+    # difference between the mean auxiliary action and the stored action
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    jforward = numpy.array(
+        [
+            float(numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * E))[0]).ravel()[0])
+            for E in Es[1:]
+        ]
+    )
+    for pt_deg in (3, 7, 11):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=pt_deg
+        )
+        assert numpy.amax(numpy.fabs(aAVI._jaoffset[1:]) / jforward) > 1e-8, (
+            "The offset is not there to be corrected (degree %d)" % pt_deg
+        )
+        assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+            "The stored action, mean auxiliary action minus the closed-form offset, "
+            "does not agree with the forward transformation (degree %d)" % pt_deg
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(numpy.nanmean(aAVI._ja, axis=1) - aAVI._js - aAVI._jaoffset)
+            )
+            < 1e-15
+        ), "The offset is not the difference it is defined as"
+    # and the exact point transformation has no offset
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=Es, nta=128, use_pointtransform="exact"
+    )
+    assert numpy.all(aAVI._jaoffset == 0.0), (
+        "The exact point transformation has an action offset"
+    )
+    assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+        "The exact point transformation's stored action disagrees with the forward "
+        "transformation"
+    )
     return None

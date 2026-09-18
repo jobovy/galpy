@@ -230,23 +230,22 @@ class actionAngleVerticalInverse(actionAngleInverse):
             * numpy.atleast_2d(self._Omegas / self._OmegaHO).T
         )  # In case not 1!
         self._djadj[self._js < 1e-10] = 1.0  # J = 0 special case
-        # Store mean(ja), this is only a better approx. of j w/ no PT!
-        self._js_orig = copy.copy(self._js)
-        self._js = numpy.nanmean(self._ja, axis=1)
-        # With a polynomial point transformation the mean auxiliary action is
-        # NOT the torus's action: the transformation is only approximately
-        # canonical in the sheared gauge, and the mean is off by O(residual)
-        # (4e-4 at degree 7, growing with energy).  The Fourier structure
-        # below is built on that mean, so each torus keeps it as its INTERNAL
-        # action, while selecting a torus by action, J(E), and the J <-> E
-        # interpolants go through the torus's actual action, so that a
-        # requested action returns the torus that has it (previously the
-        # torus returned was off by the residual, and the top torus's actual
-        # action lay outside the stored range altogether).  Without a point
-        # transformation, and with the exact one, the two agree to ~1e-11 and
-        # the mean is the more accurate, so nothing changes there.
-        self._pt_poly = bool(use_pointtransform) and not self._pt_exact
-        self._js_label = self._js_orig if self._pt_poly else self._js
+        # The mean of the auxiliary action over the auxiliary-angle grid is
+        # the action of the POINT-TRANSFORMED torus, J^A = (1/2pi) times the
+        # loop integral of v^A dx^A (the harmonic action-angle map is
+        # canonical, so the mean over a regular grid in theta^A is that
+        # integral, to spectral accuracy).  It is the base the Fourier structure below is built
+        # on, and it is the torus's actual action only when the
+        # transformation conserves the action: the identity and the exact
+        # one do, a polynomial one in the v^A = v / pi' gauge used here does
+        # not (4e-4 relative at degree 7, growing with energy).  The
+        # difference has a closed form, J^A - J = (1/2pi) Int v (pi'^-2 - 1)
+        # dx around the torus, computed here by quadrature from the potential and the fitted
+        # transformation, so that _js is the actual action in every mode
+        # (without a transformation the mean is the more accurate estimate
+        # of it) and the internal base is _js + _jaoffset everywhere below.
+        self._jaoffset = self._pt_action_offset(use_pointtransform)
+        self._js = numpy.nanmean(self._ja, axis=1) - self._jaoffset
         # Store better approximation to Omega
         self._Omegas_orig = copy.copy(self._Omegas)
         self._Omegas /= numpy.nanmean(self._djadj, axis=1)
@@ -308,6 +307,70 @@ class actionAngleVerticalInverse(actionAngleInverse):
         else:
             self._interp = False
         return None
+
+    def _pt_action_offset(self, use_pointtransform):
+        """
+        The offset between the point-transformed action J^A = <j^A> and the
+        torus's actual action J, for every torus of the grid, in closed
+        form.
+
+        Because (x^A, v^A) -> (j^A, theta^A) is the harmonic action-angle
+        map, 2 pi <j^A> is the loop integral of v^A dx^A = v pi'^-2 dx, so
+
+            J^A - J = (1 / 2 pi) Int v(x) [pi'(x^A)^-2 - 1] dx ,
+
+        a quadrature along the torus from the potential and the fitted
+        transformation alone.  It vanishes for the identity and for the
+        exact point transformation (v / pi' is then exactly the harmonic
+        velocity), so it is only computed for a polynomial one.
+
+        Parameters
+        ----------
+        use_pointtransform : bool or str
+            The constructor's use_pointtransform.
+
+        Returns
+        -------
+        numpy.ndarray
+            J^A - J for each torus (zeros without a polynomial point
+            transformation).
+
+        Notes
+        -----
+        - 2026-09-18 - Written - Bovy (UofT)
+        """
+        offset = numpy.zeros(self._nE)
+        if not use_pointtransform or self._pt_exact:
+            return offset
+        for ii in range(self._nE):
+            if self._js[ii] <= 0.0:
+                continue
+            E, xmax, ptxmax = self._Es[ii], self._xmaxs[ii], self._pt_xmaxs[ii]
+            c, dc = self._pt_coeffs[ii], self._pt_deriv_coeffs[ii]
+
+            def integrand(u):
+                # u = x^A / ptxmax on [-1, 1]; x = pi(x^A); dx = pi' dx^A
+                x = polynomial.polyval(u, c) * xmax
+                piprime = polynomial.polyval(u, dc) * xmax / ptxmax
+                v = numpy.sqrt(
+                    max(
+                        2.0
+                        * (
+                            E
+                            - evaluatelinearPotentials(self._pot, x, use_physical=False)
+                        ),
+                        0.0,
+                    )
+                )
+                return v * (piprime**-2.0 - 1.0) * polynomial.polyval(u, dc) * xmax
+
+            offset[ii] = (
+                integrate.quad(
+                    integrand, -1.0, 1.0, limit=200, epsabs=1e-13, epsrel=1e-12
+                )[0]
+                / numpy.pi
+            )
+        return offset
 
     def _setup_pointtransform(self, pt_deg, pt_nxa):
         # Setup a point transformation for each torus
@@ -813,7 +876,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             overplot=overplot,
         )
         pyplot.axhline(
-            self._js[indx] + shift_action * (self._js_orig[indx] - self._js[indx]),
+            self._js[indx] + (0.0 if shift_action else self._jaoffset[indx]),
             color="k",
             ls="--",
         )
@@ -826,6 +889,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 numpy.array(
                     [
                         self._js[indx]
+                        + self._jaoffset[indx]
                         + 2.0 * numpy.sum(self._nSn[indx] * numpy.cos(self._nforSn * x))
                         for x in self._thetaa
                     ]
@@ -1002,7 +1066,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 raise ValueError(
                     "Given energy not found; please specify an energy used in the initialization of the instance"
                 )
-            tJ = self._js_label[indx]
+            tJ = self._js[indx]
         else:
             tJ = self.J(E)
         x, v = self(tJ, ta)
@@ -1045,9 +1109,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSnNormalize = numpy.ones(self._nnSn)
         self._nSnFiltered = ndimage.spline_filter(self._nSn, order=3)
         self._dSndJFiltered = ndimage.spline_filter(self._dSndJ, order=3)
-        self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js_label, k=3)
-        self.E = interpolate.InterpolatedUnivariateSpline(self._js_label, self._Es, k=3)
-        self._Jint = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
+        self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
+        self.E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        self.jaoffset = interpolate.InterpolatedUnivariateSpline(
+            self._Es, self._jaoffset, k=3
+        )
         self.OmegaHO = interpolate.InterpolatedUnivariateSpline(
             self._Es, self._OmegaHO, k=3
         )
@@ -1307,7 +1373,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             raise ValueError(
                 "Given energy not found; please specify an energy used in the initialization of the instance"
             )
-        return self._js_label[indx]
+        return self._js[indx]
 
     def _evaluate(self, j, angle, **kwargs):
         """
@@ -1353,14 +1419,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js_label))
-            if numpy.fabs(j - self._js_label[indx]) > 1e-10:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js))
+            if numpy.fabs(j - self._js[indx]) > 1e-10:
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )
-            if self._pt_poly:
-                # the torus's internal action, the base of its Fourier structure
-                j = self._js[indx]
+            tjaoffset = self._jaoffset[indx]
             tnSn = self._nSn[indx]
             tdSndJ = self._dSndJ[indx]
             tOmegaHO = self._OmegaHO[indx]
@@ -1371,10 +1435,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
         else:
             tE = self.E(j)
-            if self._pt_poly:
-                # the internal action at this energy, the base of the
-                # interpolated Fourier structure
-                j = float(self._Jint(tE))
+            tjaoffset = float(self.jaoffset(tE))
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
             tOmegaHO = self.OmegaHO(tE)
@@ -1389,7 +1450,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # skip solving for the auxiliary angles and action
             angle = numpy.atleast_1d(angle)
             anglea = copy.copy(angle)
-            ja = j * numpy.ones_like(angle)
+            ja = (j + tjaoffset) * numpy.ones_like(angle)
         else:
             # First we need to solve for a<nglea
             angle = numpy.atleast_1d(angle)
@@ -1480,7 +1541,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
                         )
                         break
             # Then compute the auxiliary action
-            ja = j + 2.0 * numpy.sum(
+            # the point-transformed action J^A = J + offset is the base of
+            # the Fourier structure
+            ja = (j + tjaoffset) + 2.0 * numpy.sum(
                 tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
             )
         hoaainv = actionAngleHarmonicInverse(omega=tOmegaHO)
@@ -1549,8 +1612,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx = numpy.nanargmin(numpy.fabs(j - self._js_label))
-            if numpy.fabs(j - self._js_label[indx]) > 1e-10:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js))
+            if numpy.fabs(j - self._js[indx]) > 1e-10:
                 raise ValueError(
                     "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
                 )
