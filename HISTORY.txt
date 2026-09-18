@@ -8,10 +8,12 @@ v1.12.1 (expected around 2026-11-01)
   transformation (4e-4 at the default degree 7, growing with energy), so
   requesting a torus's actual action returned a neighboring torus and the top
   torus's actual action fell outside the stored range and crashed the
-  interpolated lookup. The mean stays the internal base of each torus's
-  Fourier structure; ``J(E)`` and the action-to-energy lookups use the actual
-  action. Nothing changes without a point transformation or with the exact
-  one, where the two agree to ~1e-11.
+  interpolated lookup. The offset has a closed form, (1/2pi) times the loop
+  integral of v (pi'^-2 - 1) dx along the torus, which is now computed at
+  construction and subtracted, so that every torus is labeled by its actual
+  action in every mode while the mapping internally uses the
+  point-transformed one. Nothing changes without a point transformation or
+  with the exact one, which have no offset.
 
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration
