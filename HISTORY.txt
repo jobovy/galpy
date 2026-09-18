@@ -21,6 +21,23 @@ v1.12.1 (expected around 2026-11-01)
   point-transformed one. Nothing changes without a point transformation or
   with the exact one, which have no offset.
 
+- ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
+  canonical map by default: the auxiliary torus is the harmonic oscillator of
+  the same action, corresponding points are those that have swept the same
+  cumulative action, and the map's momentum, compensation for the moving
+  turning point, and angle are all closed form, with the family stored as
+  cubic splines in the action (``K = xmax^2/J`` and the anomaly-map
+  coefficients) and ``E(J)`` as a Hermite spline through the exactly known
+  frequencies. The map is exactly symplectic whatever the stored tables
+  contain, preserves the requested action to ~1e-13 at the grid tori, and
+  evaluates between them; ``Freqs`` returns the map's own dE/dJ so that it is
+  exactly the frequency of the returned orbits. The older evaluation remains
+  available with ``momentum_matched=False``, and is used automatically for
+  fewer than four energies or when ``use_pointtransform`` is set. Also fixes
+  the zero-energy grid torus, whose frequency was a placeholder copied from
+  the first torus (off by O(J_1)); it is now the midplane's harmonic
+  frequency sqrt(Phi''(0)).
+
 - ``actionAngleStaeckel`` with ``c=True`` computed the radial action inaccurately
   for orbits that pass close to the axis, and returned NaN once the integration
   order was raised. Such an orbit's inner turning point sits near u = 0, where the
