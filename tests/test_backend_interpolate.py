@@ -1737,3 +1737,19 @@ def test_spline1d_antiderivative_differentiable_in_y():
 
     # linear in y, so d/d(scale) is the value itself
     numpy.testing.assert_allclose(float(jax.grad(f)(1.0)), float(f(1.0)), rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline1d_antiderivative_from_ppoly(backend_name):
+    # from_ppoly wraps an already-fitted scipy PPoly (the C-parity route), and a
+    # PPoly's .antiderivative() is itself a PPoly -- so it carries .x/.c directly
+    # and needs no spline_to_ppoly conversion, unlike the IUS route above.
+    cs = si.CubicSpline(_PP_X, _PP_Y, bc_type="natural")
+    sp = Spline1D.from_ppoly(cs).antiderivative()
+    ref = cs.antiderivative()
+    # numpy queries go straight to the wrapped PPoly: byte for byte
+    assert sp(_PP_Q).tobytes() == ref(_PP_Q).tobytes()
+    # and the backend evaluates the same polynomial
+    xp = _xp(backend_name)
+    got = as_numpy(sp(_asarray(backend_name, _PP_Q)))
+    numpy.testing.assert_allclose(got, ref(_PP_Q), rtol=1e-12)
