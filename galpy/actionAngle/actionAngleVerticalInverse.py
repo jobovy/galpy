@@ -17,6 +17,7 @@ from numpy.polynomial import chebyshev, polynomial
 from scipy import integrate, interpolate, ndimage, optimize
 
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
+from ..potential.linearPotential import _evaluatelinearx2derivs
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 
@@ -198,18 +199,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._angle_tol = angle_tol
         self._bisect = bisect
         # The zero-energy torus is the harmonic oscillator at the midplane,
-        # whose frequency is sqrt(Phi''(0)).  Linear potentials have no
-        # second-derivative method, so it comes from a five-point stencil of
-        # the force at a step small against the first torus (~1e-10
-        # relative), rather than from the first torus's frequency, which is
-        # off by O(J_1) and would spoil everything interpolated through the
-        # bottom of the grid.
-        if self._nE > 1 and numpy.any(self._Es < 1e-10):
-            h = 1e-3 * numpy.amax(self._xmaxs) / max(self._nE - 1, 1)
-            F = lambda x: evaluatelinearForces(self._pot, x, use_physical=False)
-            omega0 = numpy.sqrt(
-                -(-F(2.0 * h) + 8.0 * F(h) - 8.0 * F(-h) + F(-2.0 * h)) / (12.0 * h)
-            )
+        # whose frequency is sqrt(Phi''(0)), rather than the first torus's
+        # frequency, which is off by O(J_1) and would spoil everything
+        # interpolated through the bottom of the grid.
+        if numpy.any(self._Es < 1e-10):
+            omega0 = numpy.sqrt(_evaluatelinearx2derivs(self._pot, 0.0))
             self._OmegaHO[self._Es < 1e-10] = omega0
             self._Omegas[self._Es < 1e-10] = omega0
         # The momentum-matched canonical map replaces the evaluation rather
@@ -949,11 +943,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2026-08-29 - Written - Bovy (UofT)
         """
+        tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
         if j <= 0.0:
-            raise RuntimeError(
-                "The momentum-matched reconstruction needs a positive "
-                "action: the zero-action torus is a point"
-            )
+            # the zero-action torus is the point at the bottom
+            return numpy.zeros_like(tau), numpy.zeros_like(tau)
         D, _, K, _ = self._mm_tables(j)
         ms = 2.0 * numpy.arange(1, len(D) + 1)
         tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
@@ -1152,7 +1145,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         )
         return x, p, angle, dangle
 
-    def _mm_tau_of_angle(self, j, angle, tables=None):
+    def _mm_tau_of_angle(self, j, angle, tables):
         """
         Invert the angle relation: the anomaly at a requested angle.
 
@@ -1171,8 +1164,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Action.
         angle : float or numpy.ndarray
             Angle.
-        tables : tuple, optional
-            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j), if already
+        tables : tuple
+            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j), already
             in hand.
 
         Returns
@@ -1192,8 +1185,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
             numpy.atleast_1d(numpy.array(angle, dtype="float")) + 0.5 * numpy.pi,
             2.0 * numpy.pi,
         )
-        if tables is None:
-            tables = self._mm_tables(j)
         lo = numpy.zeros_like(angle)
         hi = numpy.zeros_like(angle) + 2.0 * numpy.pi
         # The relation is the auxiliary's own angle plus small corrections,
@@ -1250,10 +1241,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 out[ii] = self._mm_E._j0 + (tE - self._mm_E._y0) / self._mm_E._dy0
                 continue
             roots = numpy.real(self._mm_E.solve(tE, extrapolate=True))
-            if len(roots) == 0:
-                raise ValueError(
-                    "Energy %g is outside the range of the energy interpolant" % tE
-                )
             # E(J) is monotonic on the grid; the extrapolated end pieces may
             # turn over and add far-away roots, so take the root nearest
             # the grid
@@ -1818,11 +1805,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
         eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ self._mm_D[indx]
         xr, pr = self._mm_xp_of_tau(J, tau)
         Er = 0.5 * pr**2.0 + evaluatelinearPotentials(self._pot, xr, use_physical=False)
-        th = self._mm_angle_of_tau(J, tau)
-        # the forward angle is undefined at the turning points
-        keep = numpy.fabs(pr) > 1e-6 * numpy.amax(numpy.fabs(pr))
-        _, _, thf = self._aAV.actionsFreqsAngles(xr[keep], pr[keep])
-        dth = (th[keep] - thf + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        if J > 0.0:
+            th = self._mm_angle_of_tau(J, tau)
+            # the forward angle is undefined at the turning points
+            keep = numpy.fabs(pr) > 1e-6 * numpy.amax(numpy.fabs(pr))
+            _, _, thf = self._aAV.actionsFreqsAngles(xr[keep], pr[keep])
+            dth = (th[keep] - thf + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        else:
+            # the zero-action torus is a point with no angle to compare
+            keep = numpy.ones(len(tau), dtype="bool")
+            dth = numpy.zeros(len(tau))
         if not overplot:
             gs = gridspec.GridSpec(2, 2, hspace=0.3, wspace=0.3)
         else:

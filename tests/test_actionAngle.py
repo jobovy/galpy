@@ -7539,6 +7539,15 @@ def test_actionAngleVerticalInverse_ptonly_warnings_errors():
         actionAngleVerticalInverse(
             pot=isopot, nta=128, Es=[1.0], use_pointtransform=False, pt_only=True
         )
+    with pytest.raises(ValueError):
+        actionAngleVerticalInverse(
+            pot=isopot,
+            nta=128,
+            Es=[1.0],
+            use_pointtransform=False,
+            momentum_matched=False,
+            pt_only=True,
+        )
     return None
 
 
@@ -8076,13 +8085,24 @@ def test_actionAngleVerticalInverse_plotting():
         pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
     )
 
-    gs = aAVI.plot_convergence(1.0, return_gridspec=True)
-    aAVIpt.plot_convergence(1.0, overplot=gs)
+    # the older evaluations' convergence plot, alone and overplotted
+    gs = aAVIpt.plot_convergence(1.0, return_gridspec=True)
     aAVIept.plot_convergence(1.0, overplot=gs)
+    pyplot.close()
+    # the momentum-matched map's, alone, overplotted, and on the bottom torus
+    gs = aAVI.plot_convergence(1.0, return_gridspec=True)
+    aAVI.plot_convergence(0.1, overplot=gs)
+    pyplot.close()
+    aAVI.plot_convergence(1.0)
+    pyplot.close()
+    aAVI0 = actionAngleVerticalInverse(pot=isopot, nta=128, Es=[0.0, 1.0])
+    aAVI0.plot_convergence(0.0)
     pyplot.close()
     gs = aAVI.plot_power(0.1, return_gridspec=True)
     gs = aAVI.plot_power([0.1, 1.0, 10.0], overplot=gs)
     gs = aAVIept.plot_power([0.1, 1.0, 10.0], overplot=gs)
+    pyplot.close()
+    gs = aAVIpt.plot_power(0.1, return_gridspec=True)
     pyplot.close()
     aAVI.plot_orbit(1.0)
     aAVIept.plot_orbit(1.0)
@@ -8091,12 +8111,18 @@ def test_actionAngleVerticalInverse_plotting():
 
 
 # Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
-def test_actionAngleVerticalInverse_interpolation_plotting(
-    setup_actionAngleVerticalInverse_interpolated,
-):
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        "setup_actionAngleVerticalInverse_interpolated",
+        "setup_actionAngleVerticalInverse_interpolated_pointtransform",
+        "setup_actionAngleVerticalInverse_interpolated_exactpointtransform",
+    ],
+)
+def test_actionAngleVerticalInverse_interpolation_plotting(fixture, request):
     import matplotlib.pyplot as pyplot
 
-    aAVI, _ = setup_actionAngleVerticalInverse_interpolated
+    aAVI, _ = request.getfixturevalue(fixture)
     gs = aAVI.plot_convergence(3.7, return_gridspec=True)
     pyplot.close()
     aAVI.plot_power(numpy.linspace(0.0, 4.0, 1001))
@@ -8173,6 +8199,15 @@ def test_actionAngleVerticalInverse_plotting_errors():
     )
     with pytest.raises(ValueError) as excinfo:
         gs = aAVI.plot_convergence(1.1, return_gridspec=True)
+        pytest.fail(
+            "Calling plot_convergence with an energy not given should have given a ValueError, but did not"
+        )
+    # and in the older evaluation
+    aAVIold = actionAngleVerticalInverse(
+        pot=isopot, nta=128, Es=[0.1, 1.0], momentum_matched=False
+    )
+    with pytest.raises(ValueError) as excinfo:
+        aAVIold.plot_convergence(1.1)
         pytest.fail(
             "Calling plot_convergence with an energy not given should have given a ValueError, but did not"
         )
@@ -9191,7 +9226,7 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
         )
     # any number of energies will do, down to one, and each family returns
     # its tori
-    for tEs in (Es[:3], Es[1:3], [Es[2]]):
+    for tEs in (Es[:3], Es[:2], Es[1:3], [Es[2]]):
         small = actionAngleVerticalInverse(pot=pot, Es=tEs, nta=128)
         for E in tEs:
             if E == 0.0:
@@ -9357,7 +9392,8 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
     # frequency is sqrt(Phi''(0)) -- for the isothermal disk with amp=1 that is
     # sqrt(4 pi) exactly, whatever sigma. It used to be a placeholder copied
     # from the first torus, off by O(J_1), which the momentum-matched family
-    # then interpolated through.
+    # then interpolated through; it now comes from the potential's second
+    # derivative, so it is exact to round-off
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
@@ -9370,7 +9406,7 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
             nta=128,
             momentum_matched=momentum_matched,
         )
-        assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-8, (
+        assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-14, (
             "Freqs at zero action is not the midplane's harmonic frequency"
         )
     return None
