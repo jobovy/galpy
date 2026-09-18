@@ -9597,13 +9597,15 @@ def test_actionAngleSphericalInverse_interpolation():
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
     Lgrid = numpy.linspace(0.7, 1.4, 8)
-    # (u, L) = (4/8, Lgrid[4]) is a node of this grid, where the action is
-    # exact while the angle and the frequency read the family's interpolated
-    # derivatives (the Hermite constraints of the next PR bring those to the
-    # floor); (0.55, 0.99) is between nodes
+    # (u, L) = (4/8, Lgrid[4]) is a node of this grid, where the action, the
+    # angles, and the frequencies are all at the forward transformation's
+    # floor, because the family's first partials are exact there (its
+    # frequencies and the analytic slopes of its tables are Hermite
+    # constraints); (0.55, 0.99) is between nodes, at the family's
+    # interpolation error
     for u, L, tolJ, tolth, tolOm in (
-        (0.5, Lgrid[4], 1e-10, 1e-3, 1e-3),
-        (0.55, 0.99, 1e-3, 1e-3, 1e-3),
+        (0.5, Lgrid[4], 1e-10, 1e-7, 1e-8),
+        (0.55, 0.99, 1e-4, 1e-4, 1e-4),
     ):
         E = _spherical_inverse_E_of_u(u, L)
         jrf = _spherical_inverse_forward_jr(E, L)
@@ -9623,6 +9625,36 @@ def test_actionAngleSphericalInverse_interpolation():
             numpy.array(aAI.Freqs(jrf, jphi, jz))
             == numpy.array(aAI.xvFreqs(jrf, jphi, jz, 0.3, 1.0, 2.0)[6:])
         ), "Freqs and xvFreqs disagree"
+    return None
+
+
+def test_actionAngleSphericalInverse_turning_point_derivatives():
+    # The closed-form derivatives of the radial turning points with respect
+    # to E at fixed L and to L at fixed E (the level-set rule on the
+    # effective potential, which the family's Hermite constraints use) agree
+    # with finite differences of the turning points themselves
+    from galpy.actionAngle import actionAngleSphericalInverse
+
+    aAI = actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(), Es=[0.9, 1.5], Ls=[0.9, 0.75]
+    )
+    h = 1e-6
+    for E, L in ((0.9, 0.9), (1.5, 0.75)):
+        for q in range(2):
+            r = aAI._turning_points(E, L)[q]
+            dE, dL = aAI._turning_point_derivs(r, E, L)
+            fdE = (
+                aAI._turning_points(E + h, L)[q] - aAI._turning_points(E - h, L)[q]
+            ) / (2.0 * h)
+            fdL = (
+                aAI._turning_points(E, L + h)[q] - aAI._turning_points(E, L - h)[q]
+            ) / (2.0 * h)
+            assert numpy.fabs(dE - fdE) < 1e-7 * (1.0 + numpy.fabs(fdE)), (
+                "The turning point's E-derivative is not the level-set rule's"
+            )
+            assert numpy.fabs(dL - fdL) < 1e-7 * (1.0 + numpy.fabs(fdL)), (
+                "The turning point's L-derivative is not the level-set rule's"
+            )
     return None
 
 
