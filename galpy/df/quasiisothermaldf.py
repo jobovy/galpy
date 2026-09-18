@@ -15,7 +15,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import random as grandom
-from ..backend import use
+from ..backend import resolve_namespace, use
 from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -121,8 +121,11 @@ class quasiisothermaldf(df):
         self._hsz = parse_length(hsz, ro=self._ro)
         self._refr = parse_length(refr, ro=self._ro)
         self._lo = parse_angmom(lo, ro=self._ro, vo=self._vo)
-        self._lnsr = numpy.log(self._sr)
-        self._lnsz = numpy.log(self._sz)
+        # coerce first: under a forced backend torch.log rejects a plain float
+        _lxp = resolve_namespace(self._sr, self._sz)
+        _srv, _szv = coerce_coords(_lxp, self._sr, self._sz)
+        self._lnsr = _lxp.log(_srv)
+        self._lnsz = _lxp.log(_szv)
         self._maxVT_hash = None
         self._maxVT_ip = None
         if pot is None:
