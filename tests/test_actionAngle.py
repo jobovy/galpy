@@ -7439,7 +7439,11 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     )
     # Compare against no point transformation, where the coefficients are O(0.01-1)
     aAVI_nopt = actionAngleVerticalInverse(
-        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform=False
+        pot=isopot,
+        nta=4 * 128,
+        Es=[0.1, 1.0, 10.0],
+        use_pointtransform=False,
+        momentum_matched=False,
     )
     assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-6 * numpy.nanmax(
         numpy.fabs(aAVI_nopt._nSn)
@@ -8115,7 +8119,12 @@ def test_actionAngleVerticalInverse_convergence_warnings():
             reset_warning_registry("galpy")
         warnings.simplefilter("always", galpyWarning)
         aAVI = actionAngleVerticalInverse(
-            pot=isopot, nta=4 * 128, Es=[300.0], use_pointtransform=False, maxiter=100
+            pot=isopot,
+            nta=4 * 128,
+            Es=[300.0],
+            use_pointtransform=False,
+            momentum_matched=False,
+            maxiter=100,
         )
         # Should raise convergence warnings
         raisedWarning = False
@@ -8139,6 +8148,14 @@ def test_actionAngleVerticalInverse_convergence_warnings():
         assert raisedWarning, (
             "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
         )
+    # The momentum-matched map warns when its truncated anomaly series does
+    # not reconstruct the momentum, which for this potential's nearly
+    # linear outskirts happens at high energy with the default number of
+    # harmonics, and fails outright when the turning point cannot be found
+    with pytest.warns(galpyWarning, match="not converged for energies: 30"):
+        actionAngleVerticalInverse(pot=isopot, nta=128, Es=[1.0, 30.0])
+    with pytest.raises(RuntimeError, match="turning point could not be found"):
+        actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
     return None
 
 
@@ -8829,7 +8846,7 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
             )
     # without a point transformation, and with the exact one, there is no
     # offset: the mean auxiliary action IS the torus's action
-    for kwargs in (dict(), dict(use_pointtransform="exact")):
+    for kwargs in (dict(momentum_matched=False), dict(use_pointtransform="exact")):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
         assert numpy.all(aAVI._jaoffset == 0.0), (
             "An action offset appeared for a non-polynomial mode"
@@ -8894,309 +8911,74 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
     return None
 
 
-def test_actionAngleVerticalInverse_momentum_matched_map():
-    # The momentum-matched map is what makes the auxiliary torus carry the
-    # target's content: corresponding points sweep the same action. Three
-    # properties it must have, each of which the construction relies on
-    import numpy
-
-    from galpy.actionAngle import actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    aAVI = actionAngleVerticalInverse(
-        pot=pot, Es=[0.5, 2.0], nta=128, use_pointtransform=False
-    )
-    for ii, E in enumerate(aAVI._Es):
-        D, K = aAVI._momentum_matched_map(ii, npt=24)
-        J = aAVI._js[ii]
-        # (1) the fit reproduces the matching condition to near machine
-        # precision; a pointwise inversion of A^A would floor at 1/nta
-        tau = 2.0 * numpy.pi * numpy.arange(1024) / 1024
-        ms = 2 * numpy.arange(1, len(D) + 1)
-        eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
-        AA = J * (eta - numpy.sin(eta) * numpy.cos(eta))
-        # rebuild A on the same grid
-        x = -aAVI._xmaxs[ii] * numpy.cos(tau)
-        from galpy.potential import evaluatelinearPotentials
-
-        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(
-            numpy.clip(
-                2.0 * (E - evaluatelinearPotentials(pot, x, use_physical=False)),
-                0.0,
-                None,
-            )
-        )
-        g = p * aAVI._xmaxs[ii] * numpy.sin(tau)
-        k = numpy.fft.fftfreq(1024, d=1.0 / 1024)
-        gh = numpy.fft.fft(g - numpy.mean(g))
-        ah = numpy.zeros_like(gh)
-        ah[1:] = gh[1:] / (1j * k[1:])
-        A = numpy.real(numpy.fft.ifft(ah))
-        A = A - A[0] + numpy.mean(g) * tau
-        assert numpy.amax(numpy.fabs(AA - A)) / (2.0 * numpy.pi * J) < 1e-8, (
-            "The momentum-matched map does not satisfy the matching condition"
-        )
-        # (2) the coefficients decay, so a short series suffices
-        assert numpy.fabs(D[-1]) < 0.05 * numpy.fabs(D[0]), (
-            "The anomaly map's coefficients do not decay"
-        )
-        # (3) K stays finite and O(1): it is xmax^2/J precisely so that it
-        # does not vanish with the action, unlike xmax itself
-        assert 0.1 < K < 10.0, "The storage variable K is not O(1): %g" % K
-    return None
-
-
-def test_actionAngleVerticalInverse_momentum_matched_family():
-    # The stored content of the canonical map in the new scheme is the
-    # anomaly map plus K = xmax^2 / J, and their action derivatives must come
-    # from differentiating those same stored interpolants.
-    import numpy
-    import pytest
-
-    from galpy.actionAngle import actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    # the bottom of the grid is the harmonic limit, where J = 0
-    Es = numpy.linspace(0.0, 2.0, 9)
-    aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, use_pointtransform=False)
-    aAVI._setup_momentum_matched_family(npt=12, nta=512)
-    for ii in range(aAVI._nE):
-        if aAVI._js[ii] <= 0.0:
-            # the torus IS its auxiliary here: identity map, K -> 2 / omega
-            assert numpy.amax(numpy.fabs(aAVI._mm_D[ii])) == 0.0, (
-                "The anomaly map is not the identity in the harmonic limit"
-            )
-            assert numpy.fabs(aAVI._mm_K[ii] - 2.0 / aAVI._Omegas[ii]) < 1e-12, (
-                "K does not take its harmonic limit 2 / omega"
-            )
-        else:
-            assert (
-                numpy.fabs(numpy.sqrt(aAVI._mm_K[ii] * aAVI._js[ii]) - aAVI._xmaxs[ii])
-                < 1e-8
-            ), "K does not reconstruct xmax"
-    # K is O(1) across the whole grid, which is the point of storing it
-    # rather than xmax: xmax vanishes at the bottom and K does not
-    assert numpy.all(aAVI._mm_K > 0.1) and numpy.all(aAVI._mm_K < 10.0), (
-        "K is not O(1) across the grid"
-    )
-    assert aAVI._xmaxs[0] == 0.0, "The grid does not reach the harmonic limit"
-    # the chain differentiates the interpolant it evaluates: compare against
-    # finite differences OF THE INTERPOLANT, which is the statement that
-    # makes the resulting map symplectic whatever the tables contain
-    h = 1e-6
-    for j in numpy.linspace(aAVI._js[1], aAVI._js[-2], 5):
-        D, dD, K, dK = aAVI._mm_tables(j)
-        Dp, _, Kp, _ = aAVI._mm_tables(j + h)
-        Dm, _, Km, _ = aAVI._mm_tables(j - h)
-        assert numpy.amax(numpy.fabs(dD - (Dp - Dm) / (2.0 * h))) < 1e-6 * (
-            1.0 + numpy.amax(numpy.fabs(dD))
-        ), "d D / d j does not differentiate the stored interpolant"
-        assert numpy.fabs(dK - (Kp - Km) / (2.0 * h)) < 1e-6 * (1.0 + numpy.fabs(dK)), (
-            "d K / d j does not differentiate the stored interpolant"
-        )
-    # the top of the grid is reproduced exactly by the splines, as is every
-    # node (an interpolant, not a fit)
-    Dtop, _, Ktop, _ = aAVI._mm_tables(aAVI._js[-1])
-    assert numpy.fabs(Ktop - aAVI._mm_K[-1]) < 1e-10, (
-        "The top grid node is not reproduced"
-    )
-    assert numpy.amax(numpy.fabs(Dtop - aAVI._mm_D[-1])) < 1e-10, (
-        "The top grid node is not reproduced"
-    )
-    # the derivative of the stored interpolant at a node IS the analytic
-    # slope computed on that torus (Hermite constraints), so the angle at a
-    # node no longer waits for the grid
-    for ii in range(1, len(aAVI._js)):
-        _, dD, _, dK = aAVI._mm_tables(aAVI._js[ii])
-        assert numpy.amax(numpy.fabs(dD - aAVI._mm_dD[ii])) < 1e-10 * (
-            1.0 + numpy.amax(numpy.fabs(aAVI._mm_dD[ii]))
-        ), "The interpolant's derivative at a node is not the torus's analytic slope"
-        assert numpy.fabs(dK - aAVI._mm_dK[ii]) < 1e-10 * (
-            1.0 + numpy.fabs(aAVI._mm_dK[ii])
-        ), "The interpolant's derivative at a node is not the torus's analytic slope"
-    # and a family no longer needs four energies: three, two, or one will do
-    for Es in ([0.5, 1.0, 1.5], [0.5, 1.5], [1.0]):
-        small = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        assert small._momentum_matched, (
-            "A short grid does not use the momentum-matched map"
-        )
-    return None
-
-
 def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
-    # Reconstructing (x, p) from the stored family alone must put the point
-    # back on the torus it came from: H(x, p) = E(J) at every anomaly.
-    import numpy
-    import pytest
-
-    from galpy.actionAngle import actionAngleVerticalInverse
+    # The momentum-matched map returns points that lie on the requested
+    # torus: at every grid torus the energy of (x, v) is the torus's energy
+    # and the forward transformation returns the requested action. The map
+    # is exact up to the truncation of its anomaly series, so refining
+    # mm_npt converges spectrally rather than at some fixed order, and the
+    # anomaly samples mm_nta only need to resolve that series
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
 
     pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    aAVI = actionAngleVerticalInverse(
-        pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128, use_pointtransform=False
-    )
-    tau = 2.0 * numpy.pi * numpy.arange(257) / 257.0
-
-    def worst(npt):
-        aAVI._setup_momentum_matched_family(npt=npt, nta=1024)
-        w = 0.0
-        for ii in range(1, aAVI._nE):
-            x, p = aAVI._mm_xp_of_tau(aAVI._js[ii], tau)
-            H = 0.5 * p**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
-            w = max(w, numpy.amax(numpy.fabs(H - aAVI._Es[ii])) / aAVI._Es[ii])
-        return w
-
-    w12, w28 = worst(12), worst(28)
-    # the reconstruction is exact up to the truncation of the anomaly map,
-    # so refining it converges spectrally rather than at some fixed order
-    assert w28 < 1e-9, "The reconstruction does not return the torus: %g" % w28
-    assert w28 < 1e-2 * w12, (
-        "The reconstruction error is not limited by the anomaly-map "
-        "truncation: %g vs %g" % (w28, w12)
-    )
-    # the turning points are where the momentum vanishes and the potential
-    # alone carries the energy, which is what fixes xmax
-    x, p = aAVI._mm_xp_of_tau(aAVI._js[5], numpy.array([0.0, numpy.pi]))
-    # sin(pi) is not exactly zero in floating point, so the grouped ratio is
-    # actually evaluated at the upper turning point; it stays finite and
-    # returns machine zero, which is the property being claimed
-    assert numpy.amax(numpy.fabs(p)) < 1e-14, (
-        "The momentum does not vanish at the turning points: %g"
-        % numpy.amax(numpy.fabs(p))
-    )
-    assert (
-        numpy.amax(
-            numpy.fabs(
-                evaluatelinearPotentials(pot, x, use_physical=False) - aAVI._Es[5]
-            )
-        )
-        / aAVI._Es[5]
-        < 1e-9
-    ), "The turning points do not sit at the energy"
-    # the zero-action torus is a point, and has no reconstruction
-    with pytest.raises(RuntimeError) as excinfo:
-        aAVI._mm_xp_of_tau(0.0, tau)
-    assert "positive" in str(excinfo.value)
-    return None
-
-
-def test_actionAngleVerticalInverse_momentum_matched_compensation():
-    # The compensation is a product of a factor that diverges at the turning
-    # points and one that vanishes there. Grouping them is what makes it
-    # computable, and the grouping must not change the value.
-    import numpy
-
-    from galpy.actionAngle import actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    aAVI = actionAngleVerticalInverse(
-        pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128, use_pointtransform=False
-    )
-    aAVI._setup_momentum_matched_family(npt=20, nta=1024)
-    j = aAVI._js[5]
-    # a grid whose first node sits exactly on a turning point
-    tau = 2.0 * numpy.pi * numpy.arange(2048) / 2048.0
-    D, _, K, dKdj = aAVI._mm_tables(j)
-    ms = 2.0 * numpy.arange(1, len(D) + 1)
-    eta = tau + numpy.sin(tau[:, None] * ms[None, :]) @ D
-    detadtau = 1.0 + numpy.cos(tau[:, None] * ms[None, :]) @ (ms * D)
-    xmax = numpy.sqrt(K * j)
-    dxmaxdj = (K + j * dKdj) / (2.0 * numpy.sqrt(K * j))
-    # the amplitude derivative differentiates the stored interpolant
-    h = 1e-6
-    fd = (
-        numpy.sqrt(aAVI._mm_tables(j + h)[2] * (j + h))
-        - numpy.sqrt(aAVI._mm_tables(j - h)[2] * (j - h))
-    ) / (2.0 * h)
-    assert numpy.fabs(fd - dxmaxdj) < 1e-8, (
-        "d xmax / d J does not differentiate the stored K"
-    )
-    with numpy.errstate(divide="ignore", invalid="ignore"):
-        factored = (
-            2.0
-            * j
-            * numpy.sin(eta) ** 2.0
-            * detadtau
-            * dxmaxdj
-            / xmax
-            * numpy.cos(tau)
-            / numpy.sin(tau)
-        )
-    grouped = aAVI._mm_compensation(j, tau)
-    assert numpy.all(numpy.isfinite(grouped)), (
-        "The grouped compensation is not finite everywhere"
-    )
-    # exactly the node on the turning point is lost by the factored form
-    assert numpy.sum(~numpy.isfinite(factored)) == 1, (
-        "The factored compensation is not the one that fails at the turning "
-        "point: %d bad nodes" % numpy.sum(~numpy.isfinite(factored))
-    )
-    ok = numpy.isfinite(factored)
-    assert numpy.amax(numpy.fabs(grouped[ok] - factored[ok])) < 1e-15, (
-        "Grouping changed the value of the compensation"
-    )
-    return None
-
-
-def test_actionAngleVerticalInverse_momentum_matched_angle():
-    # The angle relation is the action derivative of the generating function
-    # that the matching condition makes explicit. It is checked against the
-    # forward transformation, and its residual must be the family
-    # interpolation of dD_m/dJ -- so it must converge as the grid refines.
-    import numpy
-
-    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     aAV = actionAngleVertical(pot=pot)
-    tau = numpy.linspace(0.05, 2.0 * numpy.pi - 0.05, 33)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    angles = numpy.linspace(0.05, 6.2, 41)
 
-    def spread(nE):
-        aAVI = actionAngleVerticalInverse(
-            pot=pot,
-            Es=numpy.linspace(0.0, 2.0, nE),
-            nta=128,
-            use_pointtransform=False,
-        )
-        aAVI._setup_momentum_matched_family(npt=20, nta=1024)
-        j = aAVI._js[(nE - 1) // 2]
-        th = aAVI._mm_angle_of_tau(j, tau)
-        x, p = aAVI._mm_xp_of_tau(j, tau)
-        jt, _, thfwd = aAV.actionsFreqsAngles(x, p)
-        assert numpy.amax(numpy.fabs(jt - j)) < 1e-8, (
-            "The reconstructed point is not on the requested torus"
-        )
-        d = (th - thfwd + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        return numpy.amax(numpy.fabs(d))
+    def worst(**kwargs):
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
+        wE, wJ = 0.0, 0.0
+        for E in Es[1:]:
+            J = aAVI.J(E)
+            x, v = aAVI(J, angles)
+            H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
+            wE = max(wE, numpy.amax(numpy.fabs(H / E - 1.0)))
+            wJ = max(wJ, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+        return wE, wJ
 
-    s9, s33 = spread(9), spread(33)
-    # the family carries the action derivatives of every torus as Hermite
-    # constraints, so at a node the relation reads the exact dD_m/dJ and the
-    # residual sits at the floor of the map's truncation (~1e-11) whatever
-    # the grid; before the constraints it was the family's interpolation of
-    # dD_m/dJ (7.9e-6 on nine nodes, 1.8e-8 on 33)
-    assert s9 < 1e-9, "The angle relation does not reproduce the forward angle: %g" % s9
-    assert s33 < 1e-9, (
-        "The angle relation does not reproduce the forward angle: %g" % s33
+    wE8, _ = worst(mm_npt=8)
+    wE12, _ = worst(mm_npt=12)
+    wE28, wJ28 = worst(mm_npt=28)
+    assert wE28 < 1e-9, "The reconstruction does not return the torus: %g" % wE28
+    assert wJ28 < 1e-9, "The reconstruction does not return the action: %g" % wJ28
+    assert wE28 < 1e-2 * wE12 and wE12 < 3e-1 * wE8, (
+        "The reconstruction error is not limited by the anomaly-map "
+        "truncation: %g, %g, %g" % (wE8, wE12, wE28)
     )
-    assert s33 < 1e2 * s9 and s9 < 1e2 * s33, (
-        "The angle residual does not converge with the grid: {:g} vs {:g}".format(
-            s33, s9
+    # the samples resolve the series once there are more than four per
+    # harmonic; beyond that the map is converged
+    aAVI1 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_nta=128)
+    aAVI2 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_nta=1024)
+    for E in Es[1:]:
+        x1, v1 = aAVI1(aAVI1.J(E), angles)
+        x2, v2 = aAVI2(aAVI2.J(E), angles)
+        assert numpy.amax(numpy.fabs(x1 - x2)) < 1e-9, (
+            "The map depends on the number of anomaly samples beyond the resolved series"
         )
+        assert numpy.amax(numpy.fabs(v1 - v2)) < 1e-9, (
+            "The map depends on the number of anomaly samples beyond the resolved series"
+        )
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, mm_npt=20, mm_nta=64)
+    assert "mm_nta" in str(excinfo.value)
+    # and the default number of samples is safe whatever nta is
+    aAVI3 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=16)
+    x3, v3 = aAVI3(aAVI3.J(1.0), angles)
+    x2, v2 = aAVI2(aAVI2.J(1.0), angles)
+    assert numpy.amax(numpy.fabs(x3 - x2)) < 1e-9, (
+        "A small nta breaks the momentum-matched map"
     )
     return None
 
 
-def test_actionAngleVerticalInverse_momentum_matched_evaluation():
+def test_actionAngleVerticalInverse_momentum_matched_angles():
     # End to end: enter at a requested action and angle, come out at a point,
     # and let the forward transformation say whether it is the right one.
-    import numpy
-
+    # The family carries the action derivatives of every torus (Hermite
+    # constraints), so at a grid torus the angle is at the floor of the
+    # map's truncation whatever the grid; the frequency likewise, because
+    # E(J) is a Hermite spline through the exactly known dE/dJ
     from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
@@ -9204,67 +8986,17 @@ def test_actionAngleVerticalInverse_momentum_matched_evaluation():
     aAV = actionAngleVertical(pot=pot)
     # off the turning points, where the FORWARD transformation cannot place
     # an angle: there p = 0 and the angle is 0 or pi by definition
-    th = 2.0 * numpy.pi * (numpy.arange(32) + 0.37) / 32.0
+    th = 2.0 * numpy.pi * (numpy.arange(400) + 0.37) / 400.0
 
     def errs(nE):
-        aAVI = actionAngleVerticalInverse(
-            pot=pot,
-            Es=numpy.linspace(0.0, 2.0, nE),
-            nta=128,
-            use_pointtransform=False,
-        )
-        aAVI._setup_momentum_matched_family(npt=20, nta=1024)
-        j = aAVI._js[(nE - 1) // 2]
-        # the anomaly inversion is exact to round-off
-        tau = numpy.linspace(0.1, 2.0 * numpy.pi - 0.1, 17)
-        back = aAVI._mm_tau_of_angle(j, aAVI._mm_angle_of_tau(j, tau))
-        assert numpy.amax(numpy.fabs(back - tau)) < 1e-12, (
-            "The angle relation does not invert"
-        )
-        x, p = aAVI._mm_xp_of_angle(j, th)
-        jf, _, thfwd = aAV.actionsFreqsAngles(x, p)
-        dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-        return numpy.amax(numpy.fabs(jf - j)), numpy.amax(dth)
-
-    dj9, dth9 = errs(9)
-    dj33, dth33 = errs(33)
-    # the action is what the construction preserves exactly, and it does so
-    # whatever the tables contain -- it does not need a fine grid
-    assert dj9 < 1e-10, "The evaluation does not land on the requested torus"
-    assert dj33 < 1e-10, "The evaluation does not land on the requested torus"
-    # the angle carries the family's interpolation error, so it improves
-    # at a node the angle reads the torus's own action derivatives, so it is
-    # at the floor whatever the grid
-    assert dth9 < 1e-9, "The evaluated angle is wrong"
-    assert dth33 < 1e-9, "The evaluated angle is wrong"
-    return None
-
-
-def test_actionAngleVerticalInverse_momentum_matched_public():
-    # With the flag set, the public interface IS the canonical map: no part
-    # of the evaluation goes through the old correspondence.
-    import numpy
-
-    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    aAV = actionAngleVertical(pot=pot)
-    th = 2.0 * numpy.pi * (numpy.arange(16) + 0.37) / 16.0
-
-    def errs(nE):
-        aAVI = actionAngleVerticalInverse(
-            pot=pot,
-            Es=numpy.linspace(0.0, 2.0, nE),
-            nta=128,
-            use_pointtransform=False,
-            momentum_matched=True,
-        )
-        j = aAVI._js[(nE - 1) // 2]
+        Es = numpy.linspace(0.0, 2.0, nE)
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        j = aAVI.J(Es[(nE - 1) // 2])
         x, v = aAVI(j, th)
-        xf, vf, Om = aAVI._xvFreqs(j, th)
-        assert numpy.amax(numpy.fabs(xf - x)) == 0.0, "__call__ and _xvFreqs disagree"
-        assert numpy.amax(numpy.fabs(vf - v)) == 0.0, "__call__ and _xvFreqs disagree"
+        xf, vf, Om = aAVI.xvFreqs(j, th)
+        assert numpy.amax(numpy.fabs(xf - x)) == 0.0, "__call__ and xvFreqs disagree"
+        assert numpy.amax(numpy.fabs(vf - v)) == 0.0, "__call__ and xvFreqs disagree"
+        assert Om == aAVI.Freqs(j), "xvFreqs and Freqs disagree"
         jf, Omf, thfwd = aAV.actionsFreqsAngles(x, v)
         dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
         return (
@@ -9273,83 +9005,247 @@ def test_actionAngleVerticalInverse_momentum_matched_public():
             numpy.amax(numpy.fabs(Omf - Om)) / numpy.mean(Omf),
         )
 
-    dj9, dth9, dom9 = errs(9)
-    dj33, dth33, dom33 = errs(33)
-    # the action is preserved whatever the tables contain
-    assert dj9 < 1e-10, "The public evaluation leaves the requested torus"
-    assert dj33 < 1e-10, "The public evaluation leaves the requested torus"
-    # the angle and the frequency carry the family's interpolation, and so
-    # both have to improve with the grid
-    # the angle at a node reads the torus's own action derivatives (Hermite
-    # constraints), so it is at the floor whatever the grid
-    assert dth9 < 1e-9, "The public evaluation is wrong"
-    assert dth33 < 1e-9, "The public evaluation is wrong"
-    # the frequency does NOT: E(J) is a Hermite spline through the exactly
-    # known dE/dJ, so the frequency is exact at the nodes whatever the grid
-    assert dom9 < 1e-9 and dom33 < 1e-9, "The frequency is not exact at the nodes"
+    for nE in (9, 33):
+        dj, dth, dom = errs(nE)
+        assert dj < 1e-10, "The evaluation leaves the requested torus: %g" % dj
+        assert dth < 1e-9, "The evaluated angle is wrong: %g" % dth
+        assert dom < 1e-9, "The frequency is not exact at the nodes: %g" % dom
+    return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_turning_points():
+    # The map's factors diverge and vanish together at the turning points
+    # and are grouped so that the evaluation is finite there and next to
+    # them: at the turning-point angles the velocity vanishes and the
+    # potential alone carries the energy, and the orbit is smooth through
+    # them. The zero-action torus is the point at the bottom, and the map
+    # goes over to the harmonic oscillator there with corrections linear in
+    # the action
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    Es = numpy.linspace(0.0, 2.0, 9)
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+    for E in Es[1:]:
+        J = aAVI.J(E)
+        x, v = aAVI(J, numpy.array([0.5 * numpy.pi, 1.5 * numpy.pi]))
+        assert numpy.amax(numpy.fabs(v)) < 1e-14, (
+            "The velocity does not vanish at the turning points: %g"
+            % numpy.amax(numpy.fabs(v))
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    evaluatelinearPotentials(pot, x, use_physical=False) / E - 1.0
+                )
+            )
+            < 1e-12
+        ), "The turning points do not sit at the energy"
+        assert numpy.fabs(x[0] + x[1]) < 1e-14, "The turning points are not symmetric"
+        xmax = x[0]
+        # smooth through the turning points: x is stationary, v linear
+        for delta in (1e-9, 1e-6, 1e-4):
+            th = 0.5 * numpy.pi + numpy.array([-delta, 0.0, delta])
+            for tth in (th, th + numpy.pi):
+                x, v = aAVI(J, tth)
+                assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
+                    "The evaluation is not finite next to a turning point"
+                )
+                assert numpy.amax(numpy.fabs(x - x[1])) < xmax * delta**2.0, (
+                    "The orbit is not stationary in x through a turning point"
+                )
+                assert numpy.amax(numpy.fabs(v)) < 4.0 * xmax * delta, (
+                    "The velocity does not vanish linearly at a turning point"
+                )
+                assert (
+                    numpy.fabs(v[0] + v[2]) < 1e-6 * numpy.fabs(v[0] - v[2]) + 1e-15
+                ), "The velocity is not odd about a turning point"
+    # the zero-action torus is a point
+    x, v = aAVI(0.0, numpy.linspace(0.0, 2.0 * numpy.pi, 11))
+    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+        "The zero-action torus is not the point at the bottom"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        aAVI(-0.1, numpy.array([0.3]))
+    assert "non-negative" in str(excinfo.value)
+    # the harmonic limit: xmax^2 omega / (2 J) -> 1 and Omega -> omega, with
+    # the anharmonic corrections vanishing linearly in J
+    omega0 = numpy.sqrt(4.0 * numpy.pi)
+    th = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
+    J1 = aAVI.J(Es[1])
+    prev = None
+    for J in (1e-4 * J1, 1e-3 * J1, 1e-2 * J1):
+        x, v = aAVI(J, th)
+        dev = numpy.array(
+            [
+                numpy.amax(x) ** 2.0 * omega0 / (2.0 * J) - 1.0,
+                numpy.amax(v) ** 2.0 / (2.0 * J * omega0) - 1.0,
+                aAVI.Freqs(J) / omega0 - 1.0,
+            ]
+        )
+        assert numpy.amax(numpy.fabs(dev)) < 30.0 * J / J1, (
+            "The map does not go over to the harmonic oscillator at small action"
+        )
+        if prev is not None:
+            ratio = numpy.fabs(dev) / numpy.fabs(prev)
+            assert numpy.all(ratio > 5.0) and numpy.all(ratio < 20.0), (
+                "The anharmonic corrections are not linear in the action"
+            )
+        prev = dev
+    return None
+
+
+def test_actionAngleVerticalInverse_momentum_matched_symplectic():
+    # The point of the construction: the map (J, theta) -> (x, v) is
+    # canonical whatever the tables contain, because the evaluation
+    # differentiates the same interpolants it reads. So the Poisson bracket
+    # {x, v} in (theta, J), by finite differences of the public map, is one
+    # at the grid tori and between them -- also on a grid so coarse that
+    # the interpolation error between tori is large. The older evaluation
+    # keeps separate tables for the generating function and its action
+    # derivative and has a symplectic defect even at its grid tori
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    angles = numpy.linspace(0.05, 6.2, 41)
+
+    def bracket(aAVI, J, h=1e-5):
+        hj = h * J
+        xp, vp = aAVI(J, angles + h)
+        xm, vm = aAVI(J, angles - h)
+        xJp, vJp = aAVI(J + hj, angles)
+        xJm, vJm = aAVI(J - hj, angles)
+        return numpy.amax(
+            numpy.fabs(
+                (xp - xm) / (2.0 * h) * (vJp - vJm) / (2.0 * hj)
+                - (xJp - xJm) / (2.0 * hj) * (vp - vm) / (2.0 * h)
+                - 1.0
+            )
+        )
+
+    for nE in (3, 9):
+        Es = numpy.linspace(0.0, 2.0, nE)
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        js = numpy.array([aAVI.J(E) for E in Es])
+        # at a node, and in the middle of every interval, the first and the
+        # last included
+        for J in numpy.concatenate([js[1:], 0.5 * (js[:-1] + js[1:])]):
+            assert bracket(aAVI, J) < 1e-6, (
+                "The momentum-matched map is not canonical (%d energies, J = %g)"
+                % (nE, J)
+            )
+        if nE == 3:
+            # while on this grid the interpolation error between the tori
+            # is large, so the canonicity is not the accuracy of the tables
+            J = 0.5 * (js[1] + js[2])
+            x, v = aAVI(J, angles)
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J > 1e-5, (
+                "The coarse grid is too accurate for this check to mean anything"
+            )
+    old = actionAngleVerticalInverse(
+        pot=pot,
+        Es=numpy.linspace(0.0, 2.0, 9),
+        nta=128,
+        momentum_matched=False,
+        setup_interp=True,
+    )
+    assert bracket(old, float(old.J(1.0))) > 1e-4, (
+        "The older evaluation has no symplectic defect to contrast with"
+    )
     return None
 
 
 def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
     # The canonical map is the default, so that the inverse methods agree
-    # with each other; the old evaluation remains reachable.
-    import numpy
-
-    from galpy.actionAngle import actionAngleVerticalInverse
+    # with each other, for any number of energies down to one; the older
+    # evaluation remains reachable, and its coefficient tables do not exist
+    # under the canonical map
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
     pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
     Es = numpy.linspace(0.0, 2.0, 9)
-    assert actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)._momentum_matched, (
-        "The canonical map is not the default"
+    angles = numpy.linspace(0.05, 6.2, 41)
+    aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, setup_interp=True)
+    for func in (aAVI.nSn, aAVI.dSndJ, aAVI.pt_coeffs, aAVI.pt_deriv_coeffs):
+        with pytest.raises(RuntimeError) as excinfo:
+            func(1.0)
+        assert "momentum_matched" in str(excinfo.value), (
+            "The older evaluation's tables did not raise under the canonical map"
+        )
+    # explicitly off, and off through the older point transformation, since
+    # the momentum-matched map is itself a point transformation
+    for kwargs in (
+        {"momentum_matched": False},
+        {"use_pointtransform": True, "pt_deg": 7},
+    ):
+        old = actionAngleVerticalInverse(
+            pot=pot, Es=Es, nta=128, setup_interp=True, **kwargs
+        )
+        assert numpy.all(numpy.isfinite(old.nSn(1.0))), (
+            "The older evaluation is no longer reachable"
+        )
+    # any number of energies will do, down to one, and each family returns
+    # its tori
+    for tEs in (Es[:3], Es[1:3], [Es[2]]):
+        small = actionAngleVerticalInverse(pot=pot, Es=tEs, nta=128)
+        for E in tEs:
+            if E == 0.0:
+                continue
+            J = small.J(E)
+            x, v = small(J, angles)
+            jf, _, thf = aAV.actionsFreqsAngles(x, v)
+            assert numpy.amax(numpy.fabs(jf - J)) / J < 1e-9, (
+                "A %d-torus family does not return its torus" % len(tEs)
+            )
+            assert (
+                numpy.amax(
+                    numpy.fabs((thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+                )
+                < 1e-9
+            ), "A %d-torus family does not return its torus's angles" % len(tEs)
+    # the degenerate grid of only the harmonic bottom builds
+    bottom = actionAngleVerticalInverse(pot=pot, Es=[0.0], nta=128)
+    x, v = bottom(0.0, angles)
+    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+        "The bottom-only family does not build as the point at the bottom"
     )
-    # explicitly off
-    assert not actionAngleVerticalInverse(
-        pot=pot, Es=Es, nta=128, momentum_matched=False
-    )._momentum_matched, "The old evaluation is no longer reachable"
-    # any number of energies will do, down to one
-    assert actionAngleVerticalInverse(pot=pot, Es=Es[:3], nta=128)._momentum_matched, (
-        "A three-energy grid does not use the momentum-matched map"
-    )
-    assert actionAngleVerticalInverse(pot=pot, Es=[Es[2]], nta=128)._momentum_matched, (
-        "A single torus does not use the momentum-matched map"
-    )
-    # and the old point transformation selects the old evaluation, since the
-    # momentum-matched map is itself a point transformation
-    assert not actionAngleVerticalInverse(
-        pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=7
-    )._momentum_matched, "An explicit point transformation did not fall back"
     return None
 
 
 def test_actionAngleVerticalInverse_momentum_matched_offnode_frequency():
     # The canonical map can evaluate between grid tori, so it can report a
-    # frequency there too; the tabulated frequencies cannot, and used to
-    # raise. Only that case changes.
-    import numpy
-    import pytest
-
-    from galpy.actionAngle import actionAngleVerticalInverse
+    # frequency there too, and it is the map's own (the derivative of the
+    # energy interpolant the map reads), so it agrees with what xvFreqs
+    # reports; the tabulated frequencies of the older evaluation cannot,
+    # and raise
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
     pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
     Es = numpy.linspace(0.0, 2.0, 9)
     aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-    jm = 0.5 * (aAVI._js[3] + aAVI._js[4])
-    Om = aAVI._Freqs(jm)
+    jm = 0.5 * (aAVI.J(Es[3]) + aAVI.J(Es[4]))
+    Om = aAVI.Freqs(jm)
     assert numpy.isfinite(Om) and Om > 0.0, "No frequency between the grid tori"
-    # it is the map's own frequency, so it agrees with what _xvFreqs reports
-    assert Om == aAVI._xvFreqs(jm, numpy.array([0.3]))[2], (
+    assert Om == aAVI.xvFreqs(jm, numpy.array([0.3]))[2], (
         "The off-node frequency is not the map's own"
     )
-    # on a node the tabulated frequency still answers, unchanged
-    assert aAVI._Freqs(aAVI._js[4]) == aAVI._Omegas[4], (
-        "The on-node frequency no longer comes from the table"
+    # on a node it is the true frequency of the torus
+    J = aAVI.J(Es[4])
+    x, v = aAVI(J, numpy.array([0.3]))
+    assert numpy.fabs(aAVI.Freqs(J) / aAV.actionsFreqs(x, v)[1][0] - 1.0) < 1e-9, (
+        "The on-node frequency is not the torus's"
     )
-    # and with the old evaluation the off-node case still raises
+    # and with the older evaluation the off-node case raises
     old = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, momentum_matched=False)
     with pytest.raises(ValueError) as excinfo:
-        old._Freqs(jm)
+        old.Freqs(jm)
     assert "not found" in str(excinfo.value)
     return None
 
@@ -9362,9 +9258,9 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
     # zero-energy node whose frequency was a placeholder copied from the
     # first torus, off by O(J_1). Both cost ~1e-2 in the action in the end
     # intervals on a nine-node grid, converging only at first order. The
-    # tables are now not-a-knot cubic splines in the action, which also
-    # needs no assumption about the spacing of the energy grid, so a
-    # non-uniform grid must do as well as a uniform one.
+    # tables are now Hermite splines in the action, which also need no
+    # assumption about the spacing of the energy grid, so a non-uniform
+    # grid must do as well as a uniform one.
     from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
@@ -9376,19 +9272,18 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         r = numpy.linspace(0.0, 1.0, n)
         Es = 2.0 * r if uniform else 2.0 * (0.55 * r + 0.45 * r**2.5)
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        assert aAVI._momentum_matched
+        js = numpy.array([aAVI.J(E) for E in Es])
         # at the nodes the construction preserves the action whatever the
         # tables contain
-        for ii in range(1, n):
-            x, v = aAVI(aAVI._js[ii], angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI._js[ii])) < 1e-7, (
+        for J in js[1:]:
+            x, v = aAVI(J, angles)
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) < 1e-7, (
                 "The evaluation leaves the requested torus at a grid node"
             )
         # between EVERY pair of nodes, including the first and the last
         # interval, which are the ones that used to be wrong
         out = 0.0
-        for ii in range(n - 1):
-            jm = 0.5 * (aAVI._js[ii] + aAVI._js[ii + 1])
+        for jm in 0.5 * (js[:-1] + js[1:]):
             x, v = aAVI(jm, angles)
             out = max(out, numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm)
         return out
@@ -9411,6 +9306,52 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
     return None
 
 
+def test_actionAngleVerticalInverse_momentum_matched_bottom_interval():
+    # The bottom node is the harmonic limit, where the map is the identity
+    # and its action derivatives come from the polynomial through the exact
+    # bottom value and the first two tori, so the bottom interval is as
+    # accurate as the rest and converges with the grid; a family of one
+    # torus agrees with the same torus inside a larger family, so the fit
+    # does not depend on its starting point
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=pot)
+    angles = numpy.linspace(0.05, 6.2, 41)
+    prev = None
+    for nE in (9, 17, 33):
+        Es = numpy.linspace(0.0, 2.0, nE)
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
+        J1 = aAVI.J(Es[1])
+        worst = 0.0
+        for J in (0.1 * J1, 0.5 * J1, 0.9 * J1):
+            x, v = aAVI(J, angles)
+            worst = max(worst, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+        assert worst < 1e-5, (
+            "The family is inaccurate in the bottom interval (%d energies): %g"
+            % (nE, worst)
+        )
+        if prev is not None:
+            assert worst < 0.3 * prev, (
+                "The bottom interval does not converge with the grid"
+            )
+        prev = worst
+    single = actionAngleVerticalInverse(pot=pot, Es=[1.0], nta=128)
+    family = actionAngleVerticalInverse(
+        pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128
+    )
+    xs, vs = single(single.J(1.0), angles)
+    xf, vf = family(family.J(1.0), angles)
+    assert numpy.amax(numpy.fabs(xs - xf)) < 1e-12, (
+        "A torus depends on the family it is built in"
+    )
+    assert numpy.amax(numpy.fabs(vs - vf)) < 1e-12, (
+        "A torus depends on the family it is built in"
+    )
+    return None
+
+
 def test_actionAngleVerticalInverse_zero_energy_frequency():
     # The zero-energy torus is the harmonic oscillator at the midplane, so its
     # frequency is sqrt(Phi''(0)) -- for the isothermal disk with amp=1 that is
@@ -9429,162 +9370,53 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
             nta=128,
             momentum_matched=momentum_matched,
         )
-        assert numpy.fabs(aAVI._Omegas[0] / omega0 - 1.0) < 1e-8, (
-            "The zero-energy torus does not have the midplane's harmonic frequency"
-        )
         assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-8, (
             "Freqs at zero action is not the midplane's harmonic frequency"
         )
-    # and the stored amplitude variable takes its harmonic limit there
-    aAVI = actionAngleVerticalInverse(pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128)
-    assert numpy.fabs(aAVI._mm_K[0] * omega0 / 2.0 - 1.0) < 1e-8, (
-        "K at zero action is not its harmonic limit 2/omega"
-    )
     return None
 
 
-def test_actionAngleVerticalInverse_momentum_matched_kernel():
-    # The one-pass evaluation kernel must agree with the three reference
-    # methods it consolidates, its closed-form d(angle)/d(tau) with a finite
-    # difference, and the Newton inversion of the angle relation must reach
-    # round-off for every angle -- including at and next to the turning
-    # points, where d(angle)/d(tau) vanishes -- on every torus of the grid
-    from galpy.actionAngle import actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
-
-    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    aAVI = actionAngleVerticalInverse(pot=pot, Es=numpy.linspace(0.0, 2.0, 9), nta=128)
-    tau = numpy.linspace(0.0, 2.0 * numpy.pi, 257)
-    angles = numpy.concatenate(
-        [
-            numpy.linspace(0.0, 2.0 * numpy.pi, 400, endpoint=False),
-            [1e-9, numpy.pi - 1e-9, numpy.pi + 1e-9, 2.0 * numpy.pi - 1e-9],
-        ]
-    )
-    for ii in range(1, 9):
-        j = aAVI._js[ii]
-        tables = aAVI._mm_tables(j)
-        x, p, th, dth = aAVI._mm_eval_tau(j, tau, tables, deriv=True)
-        xr, pr = aAVI._mm_xp_of_tau(j, tau)
-        thr = aAVI._mm_angle_of_tau(j, tau)
-        assert numpy.amax(numpy.fabs(x - xr)) < 1e-14, (
-            "The kernel's x differs from _mm_xp_of_tau"
-        )
-        assert numpy.amax(numpy.fabs(p - pr)) < 1e-14, (
-            "The kernel's p differs from _mm_xp_of_tau"
-        )
-        assert numpy.amax(numpy.fabs(th - thr)) < 1e-13, (
-            "The kernel's angle differs from _mm_angle_of_tau"
-        )
-        h = 1e-6
-        fd = (aAVI._mm_angle_of_tau(j, tau + h) - aAVI._mm_angle_of_tau(j, tau - h)) / (
-            2.0 * h
-        )
-        # exactly at fl(pi) and fl(2 pi) the sub-ulp deviation from the turning
-        # point survives in sin(tau) (~1e-16) but is rounded away when added
-        # to pi inside eta, so the ratio sin^2(eta)/sin(tau) there loses its
-        # eta'^2 factor and the derivative is off by ~1e-3 relative -- at
-        # points where the momentum is ~1e-16 and the inversion never lands;
-        # tau = 0 is exact and is covered
-        ok = numpy.fabs(numpy.sin(tau)) > 1e-12
-        ok[0] = True
-        assert (
-            numpy.amax(numpy.fabs(dth - fd)[ok] / (1.0 + numpy.fabs(fd[ok]))) < 1e-6
-        ), "The closed-form d(angle)/d(tau) disagrees with a finite difference"
-        tinv = aAVI._mm_tau_of_angle(j, angles, tables=tables)
-        res = numpy.fabs(
-            (aAVI._mm_angle_of_tau(j, tinv) - angles + numpy.pi) % (2.0 * numpy.pi)
-            - numpy.pi
-        )
-        assert numpy.amax(res) < 1e-12, (
-            "The Newton inversion of the angle relation does not reach round-off: %g"
-            % numpy.amax(res)
-        )
-        # the public evaluation is the kernel at that anomaly
-        xe, ve = aAVI(j, angles)
-        xref, pref = aAVI._mm_xp_of_tau(j, tinv)
-        assert numpy.amax(numpy.fabs(xe - xref)) < 1e-14, (
-            "The public x is not the kernel's"
-        )
-        assert numpy.amax(numpy.fabs(ve - pref)) < 1e-14, (
-            "The public v is not the kernel's"
-        )
-    # the warm-started, analytic-Jacobian fit lands where the cold one does
-    D_cold, K_cold = aAVI._momentum_matched_map(4, npt=20, nta=256)
-    D_warm, K_warm = aAVI._momentum_matched_map(4, npt=20, nta=256, D0=aAVI._mm_D[3])
-    assert numpy.amax(numpy.fabs(D_cold - D_warm)) < 1e-12, (
-        "The warm-started fit lands on different coefficients"
-    )
-    assert K_cold == K_warm, "The storage variable depends on the fit's starting point"
-    return None
-
-
-def test_actionAngleVerticalInverse_momentum_matched_slopes():
-    # The action derivatives of the anomaly map and of the storage variable
-    # are computed on each torus from that torus alone -- the variation of
-    # the matching condition with respect to the action at fixed anomaly --
-    # and stored as Hermite constraints. Checks: the bottom node's slopes,
-    # obtained from the polynomial through the exact bottom value and the
-    # first two tori, reproduce the perturbative anharmonic values for the
-    # isothermal disk, dD_2/dJ(0) = Phi4 / (96 omega^3) and dK/dJ(0) =
-    # -5 Phi4 / (24 omega^4) with Phi4 the fourth derivative of the
-    # potential at the midplane, converging with the grid; a single torus
-    # and a two-torus family return their tori to the floor; and the family
-    # is accurate between its nodes, the bottom interval included
+def test_actionAngleVerticalInverse_momentum_matched_interpolation():
+    # With setup_interp=True, J(E) and E(J) are available between the grid
+    # tori, from the same Hermite energy interpolant whose derivative is the
+    # frequency, so E(J(E)) = E to round-off, Freqs is the derivative of E,
+    # and the map evaluated at J(E) returns a torus of energy E to the
+    # family's interpolation accuracy -- for any number of tori down to one
     from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
-    from galpy.potential import IsothermalDiskPotential
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
 
     pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     aAV = actionAngleVertical(pot=pot)
     angles = numpy.linspace(0.05, 6.2, 41)
-    # for the isothermal disk with amp = 1: omega^2 = 4 pi and
-    # Phi4 = -16 pi^2 / sigma^2
-    omega2 = 4.0 * numpy.pi
-    phi4 = -16.0 * numpy.pi**2.0 / 0.25
-    dD2_pert = phi4 / (96.0 * omega2**1.5)
-    dK_pert = -5.0 * phi4 / (24.0 * omega2**2.0)
-    prev = None
-    for nE in (9, 17, 33):
-        aAVI = actionAngleVerticalInverse(
-            pot=pot, Es=numpy.linspace(0.0, 2.0, nE), nta=128
+    Et = numpy.array([0.9, 1.0, 1.3])
+    for Es in ([1.0], [0.5, 1.5], [0.0, 1.0, 2.0], numpy.linspace(0.0, 2.0, 9)):
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, setup_interp=True)
+        Jt = aAVI.J(Et)
+        assert numpy.amax(numpy.fabs(aAVI.E(Jt) - Et)) < 1e-12, (
+            "E(J(E)) does not return the energy"
         )
-        errD = numpy.fabs(aAVI._mm_dD[0][0] / dD2_pert - 1.0)
-        errK = numpy.fabs(aAVI._mm_dK[0] / dK_pert - 1.0)
-        assert errD < 1e-3 and errK < 1e-3, (
-            "The bottom node's slopes do not match the anharmonic expansion: %g, %g"
-            % (errD, errK)
-        )
-        if prev is not None:
-            assert errD < prev[0] and errK < prev[1], (
-                "The bottom node's slopes do not converge with the grid"
+        assert (
+            numpy.amax(numpy.fabs(Jt - numpy.array([aAVI.J(E) for E in Et]).flatten()))
+            == 0.0
+        ), "J(E) differs between array and scalar input"
+        h = 1e-6
+        for J in Jt:
+            fd = (aAVI.E(J + h) - aAVI.E(J - h)) / (2.0 * h)
+            assert numpy.fabs(aAVI.Freqs(J) / fd - 1.0) < 1e-6, (
+                "Freqs is not the derivative of E(J)"
             )
-        prev = (errD, errK)
-        # every interval, including the bottom one
-        for ii in range(nE - 1):
-            jm = 0.5 * (aAVI._js[ii] + aAVI._js[ii + 1])
-            x, v = aAVI(jm, angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm < 1e-5, (
-                "The family is inaccurate between its nodes (%d energies, interval %d)"
-                % (nE, ii)
-            )
-    # the degenerate grid of only the harmonic bottom builds, with the
-    # identity map and no slopes to speak of
-    aAVI = actionAngleVerticalInverse(pot=pot, Es=[0.0], nta=128)
-    assert aAVI._momentum_matched and numpy.all(aAVI._mm_dD == 0.0), (
-        "The bottom-only family does not build as the identity"
-    )
-    for Es in ([1.0], [0.5, 1.5], [0.0, 1.0]):
-        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        for j in aAVI._js[aAVI._js > 0.0]:
-            x, v = aAVI(j, angles)
-            jf, _, thf = aAV.actionsFreqsAngles(x, v)
-            assert numpy.amax(numpy.fabs(jf - j)) / j < 1e-9, (
-                "A %d-torus family does not return its torus" % len(Es)
-            )
-            assert (
-                numpy.amax(
-                    numpy.fabs((thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        if len(Es) == 9:
+            for E, J in zip(Et, Jt):
+                x, v = aAVI(J, angles)
+                H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
+                assert numpy.amax(numpy.fabs(H / E - 1.0)) < 1e-5, (
+                    "The interpolated torus does not have the requested energy"
                 )
-                < 1e-9
-            ), "A %d-torus family does not return its torus's angles" % len(Es)
+                assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J < 1e-5, (
+                    "The interpolated torus does not have the requested action"
+                )
+            # at a grid energy the interpolant returns the grid torus
+            assert numpy.fabs(aAVI.E(aAVI.J(1.0)) - 1.0) < 1e-14
+            x, v = aAVI(aAVI.J(1.0), angles)
+            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI.J(1.0))) < 1e-10
     return None
