@@ -360,7 +360,7 @@ def test_linear_dxdv_multiple_orbits():
 
 def test_linear_dxdv_composite_potential():
     # A composite (sum of) linear potentials: the pure-Python integrator's
-    # variational RHS calls the composite _force2deriv (sum of the components),
+    # variational RHS calls the composite _x2deriv (sum of the components),
     # which the C integrators bypass. Check it agrees with the C integrator (which
     # sums the components' C linear2deriv).
     from galpy.orbit import Orbit
@@ -371,7 +371,7 @@ def test_linear_dxdv_composite_potential():
     )
     times = numpy.linspace(0.0, 5.0, 101)
     o = Orbit([0.2, 0.05])
-    o.integrate_dxdv([1.0, 0.0], times, comp, method="dop853")  # Python -> _force2deriv
+    o.integrate_dxdv([1.0, 0.0], times, comp, method="dop853")  # Python -> _x2deriv
     Mpy = numpy.asarray(o.getOrbit_dxdv())
     assert Mpy.shape == (101, 2)
     assert numpy.all(numpy.isfinite(Mpy))

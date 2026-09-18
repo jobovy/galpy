@@ -4450,6 +4450,9 @@ def test_linearPotential_method_returntype():
     assert isinstance(pot.force(1.1), units.Quantity), (
         "Potential method Rforce does not return Quantity when it should"
     )
+    assert isinstance(pot.x2deriv(1.1), units.Quantity), (
+        "Potential method x2deriv does not return Quantity when it should"
+    )
     return None
 
 
@@ -4746,6 +4749,12 @@ def test_linearPotential_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError(
             "Potential method force does not return Quantity with the right units"
+        )
+    try:
+        pot.x2deriv(1.1).to(1 / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "Potential method x2deriv does not return Quantity with the right units"
         )
     return None
 
@@ -5056,6 +5065,15 @@ def test_linearPotential_method_value():
         )
         < 10.0**-4.0
     ), "Potential method force does not return the correct value as Quantity"
+    assert (
+        numpy.fabs(
+            pot.x2deriv(1.1).to(1 / units.s**2).value
+            - potu.x2deriv(1.1)
+            * (vo * units.km / units.s / (ro * units.kpc)).to(1 / units.s).value ** 2.0
+        )
+        < 10.0**-4.0
+        * (vo * units.km / units.s / (ro * units.kpc)).to(1 / units.s).value ** 2.0
+    ), "Potential method x2deriv does not return the correct value as Quantity"
     return None
 
 
@@ -5215,6 +5233,9 @@ def test_linearPotential_function_returntype():
     )
     assert isinstance(potential.evaluatelinearForces(pot, 1.1), units.Quantity), (
         "Potential function Rforce does not return Quantity when it should"
+    )
+    assert isinstance(potential.evaluatelinearx2derivs(pot, 1.1), units.Quantity), (
+        "Potential function evaluatelinearx2derivs does not return Quantity when it should"
     )
     return None
 
@@ -5495,6 +5516,12 @@ def test_linearPotential_function_returnunit():
     except units.UnitConversionError:
         raise AssertionError(
             "Potential function force does not return Quantity with the right units"
+        )
+    try:
+        potential.evaluatelinearx2derivs(pot, 1.1).to(1 / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "Potential function evaluatelinearx2derivs does not return Quantity with the right units"
         )
     return None
 

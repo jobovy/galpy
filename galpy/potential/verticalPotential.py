@@ -143,7 +143,7 @@ class verticalPotential(linearPotential):
         )
         return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
 
-    def _force2deriv(self, z, t=0.0):
+    def _x2deriv(self, z, t=0.0):
         # d^2 Phi / dz^2 of the wrapped 3D potential at (R,z,phi), mirroring
         # _force (which returns the wrapped z-force); for the 1D dxdv equations.
         tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)

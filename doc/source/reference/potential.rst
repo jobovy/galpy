@@ -400,6 +400,7 @@ Use as ``Potential-instance.method(...)``
    plot <potential1dplot.rst>
    turn_physical_off <potential1dturnphysicaloff.rst>
    turn_physical_on <potential1dturnphysicalon.rst>
+   x2deriv <potential1dx2deriv.rst>
 
 General 1D potential routines
 +++++++++++++++++++++++++++++
@@ -411,6 +412,7 @@ Use as ``method(...)``
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
+   evaluatelinearx2derivs <potential1dx2derivs.rst>
    flatten <potentialflatten.rst>
    plotlinearPotentials <potential1dplots.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>

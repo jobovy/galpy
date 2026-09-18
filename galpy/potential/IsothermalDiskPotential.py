@@ -53,7 +53,7 @@ class IsothermalDiskPotential(linearPotential):
     def _force(self, x, t=0.0):
         return -self._sigma2 * numpy.tanh(0.5 * x / self._H) / self._H
 
-    def _force2deriv(self, x, t=0.0):
+    def _x2deriv(self, x, t=0.0):
         # d^2 Phi / dx^2 = sigma^2 / (2 H^2) sech^2(x/2H)
         return (
             self._sigma2

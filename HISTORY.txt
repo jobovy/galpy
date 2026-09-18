@@ -1,6 +1,12 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Added ``x2deriv`` to 1D (``linearPotential``) potentials and the
+  corresponding ``evaluatelinearx2derivs`` function: the second derivative
+  of the potential, d^2 Phi / dx^2, in the units of the other second
+  derivatives. It was already computed internally for the 1D variational
+  equations; it is now part of the interface, with physical units.
+
 - ``actionAngleVerticalInverse`` with a polynomial point transformation
   (``use_pointtransform=True``) now selects tori by their actual action. Each
   torus's stored action was the mean auxiliary action in the sheared gauge,

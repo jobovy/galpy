@@ -7,8 +7,8 @@ from scipy import integrate
 
 from .. import potential
 from ..potential.linearPotential import (
-    _evaluatelinearForce2derivs,
     _evaluatelinearForces,
+    _evaluatelinearx2derivs,
 )
 from ..potential.verticalPotential import verticalPotential
 from ..util import _load_extension_libs, symplecticode
@@ -620,5 +620,5 @@ def _linearEOM_dxdv(y, t, pot):
         y[1],
         _evaluatelinearForces(pot, y[0], t=t),
         y[3],
-        -_evaluatelinearForce2derivs(pot, y[0], t=t) * y[2],
+        -_evaluatelinearx2derivs(pot, y[0], t=t) * y[2],
     ]

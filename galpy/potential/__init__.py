@@ -118,6 +118,7 @@ evaluateplanarR2derivs = planarPotential.evaluateplanarR2derivs
 evaluateplanarphitorques = planarPotential.evaluateplanarphitorques
 evaluatelinearPotentials = linearPotential.evaluatelinearPotentials
 evaluatelinearForces = linearPotential.evaluatelinearForces
+evaluatelinearx2derivs = linearPotential.evaluatelinearx2derivs
 PotentialError = Potential.PotentialError
 _INF = Potential._INF
 LinShuReductionFactor = planarPotential.LinShuReductionFactor
