@@ -4049,12 +4049,12 @@ class Orbit:
             self._aA = actionAngle.actionAngleAdiabatic(pot=self._aAPot, **kwargs)
         elif self._aAType.lower() == "staeckel":
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             self._aA_delta_automagic = False
             if delta is None:
                 self._aA_delta_automagic = True
@@ -4147,12 +4147,12 @@ class Orbit:
             return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
@@ -4160,17 +4160,17 @@ class Orbit:
         # self.dim() == 1 error caught by _setupaA
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        (
-            self._aA_ecc,
-            self._aA_zmax,
-            self._aA_rperi,
-            self._aA_rap,
-        ) = (
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-        )
+        if indx is not None:  # masked path: preallocate the nan-filled outputs
+            (
+                self._aA_ecc,
+                self._aA_zmax,
+                self._aA_rperi,
+                self._aA_rap,
+            ) = tuple(
+                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
+                + numpy.nan
+                for _ in range(4)
+            )
         if indx is None:  # differentiated: no mask, evaluate every orbit
             (
                 self._aA_ecc,
@@ -4210,12 +4210,12 @@ class Orbit:
             return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
@@ -4223,27 +4223,22 @@ class Orbit:
         # self.dim() == 1 error caught by _setupaA
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        (
-            self._aA_jr,
-            self._aA_jp,
-            self._aA_jz,
-            self._aA_Or,
-            self._aA_Op,
-            self._aA_Oz,
-            self._aA_wr,
-            self._aA_wp,
-            self._aA_wz,
-        ) = (
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-        )
+        if indx is not None:  # masked path: preallocate the nan-filled outputs
+            (
+                self._aA_jr,
+                self._aA_jp,
+                self._aA_jz,
+                self._aA_Or,
+                self._aA_Op,
+                self._aA_Oz,
+                self._aA_wr,
+                self._aA_wp,
+                self._aA_wz,
+            ) = tuple(
+                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
+                + numpy.nan
+                for _ in range(9)
+            )
         if indx is None:  # differentiated: no mask, evaluate every orbit
             (
                 self._aA_jr,
