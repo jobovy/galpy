@@ -33,7 +33,12 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
-from ..backend._namespaces import requires_backend_grad, under_jax_trace, under_trace
+from ..backend._namespaces import (
+    requires_backend_grad,
+    stop_gradient,
+    under_jax_trace,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
@@ -1086,12 +1091,21 @@ class sphericaldf(df):
                 )
             )
         # coerce coords: undecorated potential evals reject numpy/scalars (torch)
+        phi_max = _evaluatePotentials(
+            self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0
+        )
+        if not numpy.isfinite(self._rmax):
+            # Phi(inf) is the zero point of a potential that vanishes at
+            # infinity, so its derivative w.r.t. any potential parameter is
+            # EXACTLY 0 -- but evaluating that limit numerically at r=inf gives
+            # nan (an inf-inf), which then poisons the whole backward pass and
+            # is what made sigmar/sigmat/vmomentdensity/beta return nan.
+            # stop_gradient restores the correct derivative, it does not
+            # approximate one. A FINITE rmax (King's tidal radius) keeps its
+            # gradient, which is why this is gated on isfinite.
+            phi_max = stop_gradient(phi_max)
         return xp.sqrt(
-            2.0
-            * (
-                _evaluatePotentials(self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0)
-                - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0)
-            )
+            2.0 * (phi_max - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
         )
 
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
