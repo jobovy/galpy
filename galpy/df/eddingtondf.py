@@ -86,18 +86,27 @@ class eddingtondf(isotropicsphericaldf):
             # namespace's own isfinite: numpy.isfinite cannot convert a
             # DIFFERENTIATED value, while bool() reads the concrete primal that
             # jax.grad and torch autograd both carry (see _handle_rmin).
-            _dn = self._dnudr(numpy.inf)
-            _fr = _evaluateRforces(self._pot, numpy.inf, 0)
-
             def _finite(v):
-                # the namespace's isfinite only for a BACKEND value: under a
-                # forced backend these are often still plain floats, and
-                # torch.isfinite rejects those
+                # bool() on the namespace's own isfinite for a BACKEND value: a
+                # DIFFERENTIATED value cannot go through numpy.isfinite, while
+                # bool() reads the concrete primal jax.grad and torch autograd
+                # carry. Gate on the VALUE, not the ambient namespace -- under a
+                # forced backend these are often still plain floats and
+                # torch.isfinite rejects a float.
                 if not is_backend_array(v):
                     return bool(numpy.isfinite(v))
                 return bool(resolve_namespace(v).isfinite(v))
 
-            self._rInf = numpy.inf if _finite(_dn) and _finite(_fr) else 1e12
+            # NB the `and` short-circuits, and must keep doing so: evaluating
+            # the forces at r=inf warns ("invalid value encountered in scalar
+            # divide") for potentials where dnu/dr is already non-finite there,
+            # which test_eddington_hernquist_no_warning forbids.
+            self._rInf = (
+                numpy.inf
+                if _finite(self._dnudr(numpy.inf))
+                and _finite(_evaluateRforces(self._pot, numpy.inf, 0))
+                else 1e12
+            )
         except ZeroDivisionError:
             self._rInf = 1e12
         # Build interpolator r(pot), starting at rmin for divergent potentials
