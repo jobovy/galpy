@@ -904,8 +904,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             self._kick_deltav = impulse_deltav_general_curvedstream(
                 self._kick_interpolatedObsTrackXY[:, 3:],
                 self._kick_interpolatedObsTrackXY[:, :3],
-                self._impactb,
-                self._subhalovel,
+                self._kick_coerce(self._impactb),
+                self._kick_coerce(self._subhalovel),
                 self._kick_ObsTrackXY_closest[:3],
                 self._kick_ObsTrackXY_closest[3:],
                 subhalopot,
@@ -918,8 +918,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             self._kick_deltav = deltav_func(
                 self._kick_interpolatedObsTrackXY[:, 3:],
                 self._kick_interpolatedObsTrackXY[:, :3],
-                self._impactb,
-                self._subhalovel,
+                self._kick_coerce(self._impactb),
+                self._kick_coerce(self._subhalovel),
                 self._kick_ObsTrackXY_closest[:3],
                 self._kick_ObsTrackXY_closest[3:],
                 GM,
@@ -1195,8 +1195,59 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
     def _kick_interpdaz(self, da):
         return self._kick_interpdaz_raw(da)
 
+    def _interpolate_stream_track_kick_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track_kick`.
+
+        Same splines and the same interpolated grid, but built with ``Spline1D``
+        and ``stack`` instead of six ``scipy`` ``InterpolatedUnivariateSpline``
+        objects and ``numpy.empty`` + column assignment -- neither of which can
+        hold a traced value. ``Spline1D(..., k=3, ext=0)`` reproduces
+        ``InterpolatedUnivariateSpline(k=3)``, and the knots are the (possibly
+        traced) ``_gap_thetasTrack``.
+        """
+        xp = get_namespace(self._gap_ObsTrack)
+        thetas = self._gap_thetasTrack
+        self._kick_interpolatedThetasTrack = _span_grid(
+            thetas[-1] - thetas[0], self._nKickPoints
+        ) + (thetas[0] if under_trace(thetas) else float(as_numpy(thetas[0])))
+        phi = self._gap_ObsTrack[:, 5]
+        TrackX = self._gap_ObsTrack[:, 0] * xp.cos(phi)
+        TrackY = self._gap_ObsTrack[:, 0] * xp.sin(phi)
+        TrackZ = self._gap_ObsTrack[:, 3]
+        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
+            self._gap_ObsTrack[:, 1],
+            self._gap_ObsTrack[:, 2],
+            self._gap_ObsTrack[:, 4],
+            phi,
+        )
+        names = ("X", "Y", "Z", "vX", "vY", "vZ")
+        vals = (TrackX, TrackY, TrackZ, TrackvX, TrackvY, TrackvZ)
+        spls = []
+        for nm, v in zip(names, vals):
+            spl = Spline1D(thetas, v, k=3, ext=0, bc="not-a-knot")
+            setattr(self, f"_kick_interpTrack{nm}", spl)
+            spls.append(spl)
+        itp = self._kick_interpolatedThetasTrack
+        if not is_backend_array(itp):
+            itp = as_backend_constant(xp, itp, self._gap_ObsTrack)
+        cols = [spl(itp) for spl in spls]
+        self._kick_interpolatedObsTrackXY = xp.stack(cols, axis=1)
+        tR, tphi, tZ = coords.rect_to_cyl(cols[0], cols[1], cols[2])
+        tvR, tvT, tvZ = coords.rect_to_cyl_vec(
+            cols[3], cols[4], cols[5], tR, tphi, tZ, cyl=True
+        )
+        self._kick_interpolatedObsTrack = xp.stack(
+            [tR, tvR, tvT, tZ, tvZ, tphi], axis=1
+        )
+        self._store_closest()
+        return None
+
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
+        if is_backend_array(self._gap_ObsTrack) and not hasattr(
+            self, "_kick_interpolatedThetasTrack"
+        ):
+            return self._interpolate_stream_track_kick_backend()
         if hasattr(self, "_kick_interpolatedThetasTrack"):  # pragma: no cover
             self._store_closest()
             return None  # Already did this
@@ -1282,17 +1333,89 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         self._store_closest()
         return None
 
+    def _kick_coerce(self, x):
+        """Lift a stored numpy input onto the kick track's namespace.
+
+        The interpolated kick track is a backend array once the gap track is, and
+        the impulse kernels reject a MIX of namespaces."""
+        trk = self._kick_interpolatedObsTrackXY
+        if not is_backend_array(trk) or is_backend_array(x):
+            return x
+        return as_backend_constant(get_namespace(trk), numpy.asarray(x), trk)
+
     def _store_closest(self):
         # Also store (x,v) for the point of closest approach
-        self._kick_ObsTrackXY_closest = numpy.array(
+        # Coerce the QUERY too: Spline1D with a numpy query evaluates its
+        # backend coefficients through numpy, which drops both the namespace and
+        # the gradient.
+        _ang = self._kick_coerce(self._impact_angle)
+        _vals = [
+            self._kick_interpTrackX(_ang),
+            self._kick_interpTrackY(_ang),
+            self._kick_interpTrackZ(_ang),
+            self._kick_interpTrackvX(_ang),
+            self._kick_interpTrackvY(_ang),
+            self._kick_interpTrackvZ(_ang),
+        ]
+        # follow the track: with a backend _kick_interpTrack* these are backend
+        # values, and numpy.array would both convert them and then MIX
+        # namespaces at the kick call site
+        if any(is_backend_array(v) for v in _vals):
+            _xp = get_namespace(*[v for v in _vals if is_backend_array(v)])
+            self._kick_ObsTrackXY_closest = _xp.stack(
+                [_xp.reshape(_xp.asarray(v), ()) for v in _vals]
+            )
+        else:
+            self._kick_ObsTrackXY_closest = numpy.array(_vals)
+        return None
+
+    def _interpolate_stream_track_kick_aA_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track_kick_aA`.
+
+        Mirrors ``streamdf._interpolate_stream_track_aA_backend`` with the gap's
+        arguments: ``_gap_sigMeanSign``, the progenitor angle wound back by
+        ``timpact``, and a disruption time shortened to ``tdisrupt - timpact``.
+        The frequency/angle blocks are assembled functionally -- the numpy body's
+        ``numpy.empty`` plus per-row assignment cannot hold a traced value.
+        """
+        xp = get_namespace(self._gap_ObsTrack)
+        thetas = self._kick_interpolatedThetasTrack
+        if not is_backend_array(thetas):
+            thetas = as_backend_constant(xp, thetas, self._gap_ObsTrack)
+        dmOs = xp.stack(
             [
-                self._kick_interpTrackX(self._impact_angle),
-                self._kick_interpTrackY(self._impact_angle),
-                self._kick_interpTrackZ(self._impact_angle),
-                self._kick_interpTrackvX(self._impact_angle),
-                self._kick_interpTrackvY(self._impact_angle),
-                self._kick_interpTrackvZ(self._impact_angle),
+                super(streamgapdf, self).meanOmega(
+                    thetas[ii],
+                    oned=True,
+                    tdisrupt=self._tdisrupt - self._timpact,
+                    use_physical=False,
+                )
+                for ii in range(thetas.shape[0])
             ]
+        )
+        # Vestigial spline, rebuilt for API parity (not read downstream).
+        self._kick_interpTrackAAdmeanOmegaOneD = Spline1D(
+            self._kick_interpolatedThetasTrack, dmOs, k=3, ext=0, bc="not-a-knot"
+        )
+        progOmega = self._progenitor_Omega
+        progAngle = self._progenitor_angle
+        dsig = self._dsigomeanProgDirection
+        if not is_backend_array(progOmega):
+            progOmega = as_backend_constant(xp, progOmega, self._gap_ObsTrack)
+        if not is_backend_array(progAngle):
+            progAngle = as_backend_constant(xp, progAngle, self._gap_ObsTrack)
+        if not is_backend_array(dsig):
+            dsig = as_backend_constant(xp, dsig, self._gap_ObsTrack)
+        sign = self._gap_sigMeanSign
+        Omega_block = progOmega[None, :] + dmOs[:, None] * dsig[None, :] * sign
+        angle_block = xp.remainder(
+            progAngle[None, :]
+            + thetas[:, None] * dsig[None, :] * sign
+            - self._timpact * progOmega[None, :],
+            2.0 * numpy.pi,
+        )
+        self._kick_interpolatedObsTrackAA = xp.concat(
+            [Omega_block, angle_block], axis=1
         )
         return None
 
@@ -1300,6 +1423,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         """Build interpolations of the stream track near the impact in action-angle coordinates"""
         if hasattr(self, "_kick_interpolatedObsTrackAA"):  # pragma: no cover
             return None  # Already did this
+        if is_backend_array(self._gap_ObsTrack):
+            return self._interpolate_stream_track_kick_aA_backend()
         # Calculate 1D meanOmega on a fine grid in angle and interpolate
         dmOs = numpy.array(
             [
