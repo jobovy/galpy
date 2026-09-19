@@ -698,18 +698,21 @@ class actionAngleSpherical(actionAngle):
 
     def _radial_force(self):
         """The radial force in the plane at an array of radii, through the
-        three-dimensional potential with an array of zero heights when there
-        is one (some potentials' forces stack their coordinates and want them
-        all of one shape)"""
-        if _dim(self._pot) == 3:
+        planar potential; a force that stacks its coordinates and wants them
+        all of one shape (the ellipsoidal potentials) rejects the planar
+        wrapper's scalar height, and is evaluated through the wrapped
+        three-dimensional potential with an array of zero heights instead
+        (which other forces, branching on a scalar height, reject in turn)"""
+        pots = self._2dpot if isinstance(self._2dpot, list) else [self._2dpot]
 
-            def _force(x):
-                return _evaluateRforces(self._pot, x, 0.0 * x)
-
-        else:
-
-            def _force(x):
-                return _evaluateplanarRforces(self._2dpot, x)
+        def _force(x):
+            out = 0.0
+            for pp in pots:
+                try:
+                    out = out + _evaluateplanarRforces(pp, x)
+                except ValueError:
+                    out = out + _evaluateRforces(pp._Pot, x, 0.0 * x)
+            return out
 
         return _force
 
