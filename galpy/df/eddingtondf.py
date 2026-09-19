@@ -3,7 +3,7 @@
 import numpy
 from scipy import integrate, interpolate
 
-from ..backend import as_numpy, get_namespace, resolve_namespace
+from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
@@ -82,10 +82,29 @@ class eddingtondf(isotropicsphericaldf):
         self._Emin = _evaluatePotentials(pot, self._rmin, 0)
         # Current calculation of the boundary term uses r -> inf limit
         try:
+            # a discrete choice of the boundary radius, so bool() on the
+            # namespace's own isfinite: numpy.isfinite cannot convert a
+            # DIFFERENTIATED value, while bool() reads the concrete primal that
+            # jax.grad and torch autograd both carry (see _handle_rmin).
+            def _finite(v):
+                # bool() on the namespace's own isfinite for a BACKEND value: a
+                # DIFFERENTIATED value cannot go through numpy.isfinite, while
+                # bool() reads the concrete primal jax.grad and torch autograd
+                # carry. Gate on the VALUE, not the ambient namespace -- under a
+                # forced backend these are often still plain floats and
+                # torch.isfinite rejects a float.
+                if not is_backend_array(v):
+                    return bool(numpy.isfinite(v))
+                return bool(resolve_namespace(v).isfinite(v))
+
+            # NB the `and` short-circuits, and must keep doing so: evaluating
+            # the forces at r=inf warns ("invalid value encountered in scalar
+            # divide") for potentials where dnu/dr is already non-finite there,
+            # which test_eddington_hernquist_no_warning forbids.
             self._rInf = (
                 numpy.inf
-                if numpy.isfinite(self._dnudr(numpy.inf))
-                and numpy.isfinite(_evaluateRforces(self._pot, numpy.inf, 0))
+                if _finite(self._dnudr(numpy.inf))
+                and _finite(_evaluateRforces(self._pot, numpy.inf, 0))
                 else 1e12
             )
         except ZeroDivisionError:
