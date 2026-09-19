@@ -19,10 +19,11 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend import use
-from ..backend._namespaces import namespace_from_arrays
+from ..backend._namespaces import namespace_from_arrays, under_trace
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
+from ..orbit.Orbits import _flip_velocity_columns
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
@@ -30,7 +31,13 @@ from ..util._pickle import SplinePickleMixin
 from ..util.conversion import physical_conversion
 from . import streamdf
 from .df import df
-from .streamdf import _determine_stream_track_single
+from .streamdf import (
+    _determine_stream_track_single,
+    _determine_stream_track_single_backend,
+    _ns_sqrt,
+    _span_grid,
+    _vmap_track_chunks,
+)
 
 
 def impact_check_range(func):
@@ -57,6 +64,19 @@ def impact_check_range(func):
             return func(*args, **kwargs)
 
     return impact_wrapper
+
+
+def _replace_at(xp, arr, idx, value):
+    """``arr`` with ``arr[idx]`` replaced by ``value``, shape-preserving.
+
+    A CONCRETE idx keeps the concat that mirrors the numpy body's in-place
+    write. A TRACED idx cannot size a slice (``arr[:idx]`` has a data-dependent
+    length), so select with a mask instead -- same result, static shape.
+    """
+    if isinstance(idx, (int, numpy.integer)):
+        v = value[None] if getattr(value, "ndim", 0) == 0 else value
+        return xp.concat([arr[:idx], v, arr[idx + 1 :]])
+    return xp.where(xp.arange(arr.shape[0]) == idx, value, arr)
 
 
 class streamgapdf(streamdf.streamdf, SplinePickleMixin):
@@ -407,21 +427,26 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         xp = get_namespace(ref)
         c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
         px = as_backend_constant(xp, poly.x, ref)
-        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), ref)
-        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), ref)
+        # these come from _offset_setup, which runs on the backend -- they may
+        # already BE backend (and traced), so numpy.asarray would throw
+        meandO = (
+            self._meandO
+            if is_backend_array(self._meandO)
+            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        )
+        _s2 = self._sortedSigOEig[2]
+        sig = (
+            _s2
+            if is_backend_array(_s2)
+            else as_backend_constant(xp, numpy.asarray(_s2), ref)
+        )
         c1 = c[-1]  # dOpar value at the left knot of each interval
         c2 = c[-2]  # dOpar slope
         Oparb = (dangle - px) / self._timpact
         lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
         # numpy does Oparb[lowbindx+1] = Oparb[lowbindx] - lowx (in place); rebuild
         # functionally (lowbindx is a concrete stop-gradient int, lowx is backend).
-        Oparb = xp.concat(
-            [
-                Oparb[: lowbindx + 1],
-                (Oparb[lowbindx] - lowx)[None],
-                Oparb[lowbindx + 2 :],
-            ]
-        )
+        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
         sqrt2sig = xp.sqrt(2.0 * sig)
         Oparb_roll = xp.roll(Oparb, -1)
         a = Oparb[:-1] - c1 - meandO
@@ -579,7 +604,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             - dangle
         ) / ((tdisrupt - self._timpact) * (1.0 + c[-2] * self._timpact) + self._timpact)
         lowx = xp.where(lowx < 0.0, float("inf"), lowx)
-        lowbindx = int(as_numpy(xp.argmin(lowx)))
+        _am = xp.argmin(lowx)
+        # a traced lowx has no concrete argmin; keep the index on the backend and
+        # let the consumers gather/mask with it
+        lowbindx = _am if under_trace(_am) else int(as_numpy(_am))
         if _return_raw:
             return (lowbindx, lowx[lowbindx])
         else:
@@ -745,19 +773,24 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         xp = get_namespace(ref)
         c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
         px = as_backend_constant(xp, poly.x, ref)
-        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), ref)
-        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), ref)
+        # these come from _offset_setup, which runs on the backend -- they may
+        # already BE backend (and traced), so numpy.asarray would throw
+        meandO = (
+            self._meandO
+            if is_backend_array(self._meandO)
+            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        )
+        _s2 = self._sortedSigOEig[2]
+        sig = (
+            _s2
+            if is_backend_array(_s2)
+            else as_backend_constant(xp, numpy.asarray(_s2), ref)
+        )
         c1 = c[-1]
         c2 = c[-2]
         Oparb = (dangle - px) / self._timpact
         lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
-        Oparb = xp.concat(
-            [
-                Oparb[: lowbindx + 1],
-                (Oparb[lowbindx] - lowx)[None],
-                Oparb[lowbindx + 2 :],
-            ]
-        )
+        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
         Oparb_roll = xp.roll(Oparb, -1)
         onepc2t = 1.0 + c2 * self._timpact
         dens_arr = self._density_par_approx(dangle, tdisrupt, _return_array=True)
@@ -1309,7 +1342,11 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         self._timpact = timpact
         deltaAngleTrackLim = (
             (self._sigMeanOffset + 4.0)
-            * numpy.sqrt(self._sortedSigOEig[2])
+            # numpy.sqrt of a TRACED moment raises (it works eagerly, which is why
+            # this only shows up under jax.grad of the constructor); _ns_sqrt takes
+            # the namespace route ONLY when traced, so the concrete path is
+            # byte-identical -- the same fix streamdf needed.
+            * _ns_sqrt(self._sortedSigOEig[2])
             * (self._tdisrupt - self._timpact)
         )
         if deltaAngleTrackImpact is None:
@@ -1321,6 +1358,156 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
                     galpyWarning,
                 )
         self._deltaAngleTrackImpact = deltaAngleTrackImpact
+        return None
+
+    def _determine_impact_coordtransform_backend(self):
+        """Backend (jax/torch) twin of the (x,v) <-> (O,theta) setup at the impact.
+
+        Mirrors ``streamdf._determine_stream_track_backend`` with the impact-time
+        arguments the numpy body uses: the progenitor angle wound back by
+        ``timpact``, ``_gap_sigMeanSign``, and a ``meanOmega`` whose disruption
+        time is shortened to ``tdisrupt - timpact``. Arrays are built with
+        stack/concat -- the numpy body's ``numpy.empty`` buffers and item
+        assignment cannot hold a traced value.
+
+        The leading/trailing bookkeeping (``_gap_leading``, ``_gap_sigMeanSign``,
+        ``_nTrackChunksImpact``) is set by the caller and is structural.
+        """
+        from ..orbit import Orbit
+
+        # The numpy body passes (gap_progenitor, timpact) to the per-chunk helper;
+        # the backend helper takes a phase-space POINT and no time, so evaluate
+        # the gap progenitor AT the impact time. Using its _ic_backend (the t=0
+        # state) gave an offset point at R~44 with |v|~35 vc -- an orbit so wild
+        # the adaptive solver exhausted max_steps.
+        _gp = self._gap_progenitor
+        _ti = self._timpact
+        xv0_prog = get_namespace(_gp._ic_backend).stack(
+            [
+                _gp.R(_ti),
+                _gp.vR(_ti),
+                _gp.vT(_ti),
+                _gp.z(_ti),
+                _gp.vz(_ti),
+                _gp.phi(_ti),
+            ]
+        )
+        xp = get_namespace(xv0_prog)
+        method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+        ikw = getattr(self._aA, "_integrate_kwargs", None)
+        dt = (
+            self._deltaAngleTrackImpact
+            / self._progenitor_Omega_along_dOmega
+            / self._sigMeanSign
+            * self._gap_sigMeanSign
+        )
+        _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
+        self._gap_trackts = _span_grid(
+            (-2.0 if _dt_neg else 2.0) * dt, 2 * self._nTrackChunksImpact - 1
+        )
+        prog_angle_imp = self._progenitor_angle - self._timpact * self._progenitor_Omega
+
+        def meanOmega(x):
+            return super(streamgapdf, self).meanOmega(
+                x,
+                offset_sign=self._gap_sigMeanSign,
+                tdisrupt=self._tdisrupt - self._timpact,
+                use_physical=False,
+            )
+
+        prog_offset = _determine_stream_track_single_backend(
+            self._aA,
+            xv0_prog,
+            prog_angle_imp,
+            self._gap_sigMeanSign,
+            self._dsigomeanProgDirection,
+            meanOmega,
+            0.0,
+        )
+        auxiliaryTrack = Orbit(prog_offset[3])
+        if _dt_neg:
+            auxiliaryTrack = auxiliaryTrack.flip()
+        auxiliaryTrack.integrate(
+            xp.asarray(self._gap_trackts),
+            self._pot,
+            method=method,
+            inbackend_kwargs=ikw,
+        )
+        if _dt_neg:
+            auxiliaryTrack.orbit = _flip_velocity_columns(
+                auxiliaryTrack.orbit, auxiliaryTrack.phasedim()
+            )
+        aux0 = xp.stack(
+            [
+                auxiliaryTrack.R(0.0),
+                auxiliaryTrack.vR(0.0),
+                auxiliaryTrack.vT(0.0),
+                auxiliaryTrack.z(0.0),
+                auxiliaryTrack.vz(0.0),
+                auxiliaryTrack.phi(0.0),
+            ]
+        )
+        aux_acfs = self._aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
+        auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
+        dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
+        factor = xp.abs(
+            xp.sum(xp.asarray(self._progenitor_Omega) * dsig)
+            / xp.sum(auxiliary_Omega * dsig)
+        )
+        times = xp.asarray(self._gap_trackts[: self._nTrackChunksImpact]) * factor
+        xv0_all = xp.stack(
+            [
+                auxiliaryTrack.R(times),
+                auxiliaryTrack.vR(times),
+                auxiliaryTrack.vT(times),
+                auxiliaryTrack.z(times),
+                auxiliaryTrack.vz(times),
+                auxiliaryTrack.phi(times),
+            ],
+            axis=-1,
+        )
+        thetasTrack = _span_grid(self._deltaAngleTrackImpact, self._nTrackChunksImpact)
+
+        def single(xv0, th):
+            return _determine_stream_track_single_backend(
+                self._aA,
+                xv0,
+                prog_angle_imp,
+                self._gap_sigMeanSign,
+                self._dsigomeanProgDirection,
+                meanOmega,
+                th,
+            )
+
+        outs = _vmap_track_chunks(xp, single, xv0_all, thetasTrack)
+        ObsTrack = outs[3]
+        for _ in range(self.nTrackIterations):
+            outs = _vmap_track_chunks(xp, single, ObsTrack, thetasTrack)
+            ObsTrack = outs[3]
+        (
+            self._gap_allAcfsTrack,
+            self._gap_alljacsTrack,
+            self._gap_allinvjacsTrack,
+            self._gap_ObsTrack,
+            self._gap_ObsTrackAA,
+            self._gap_detdOdJps,
+        ) = outs
+        self._gap_thetasTrack = thetasTrack
+        self._gap_meandetdOdJp = xp.mean(self._gap_detdOdJps)
+        self._gap_logmeandetdOdJp = xp.log(self._gap_meandetdOdJp)
+        phi = self._gap_ObsTrack[:, 5]
+        TrackX = self._gap_ObsTrack[:, 0] * xp.cos(phi)
+        TrackY = self._gap_ObsTrack[:, 0] * xp.sin(phi)
+        TrackZ = self._gap_ObsTrack[:, 3]
+        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
+            self._gap_ObsTrack[:, 1],
+            self._gap_ObsTrack[:, 2],
+            self._gap_ObsTrack[:, 4],
+            phi,
+        )
+        self._gap_ObsTrackXY = xp.stack(
+            [TrackX, TrackY, TrackZ, TrackvX, TrackvY, TrackvZ], axis=1
+        )
         return None
 
     def _determine_impact_coordtransform(
@@ -1361,6 +1548,11 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             )
         else:
             self._nTrackChunksImpact = nTrackChunksImpact
+        # _ic_backend is the PRECONDITION for the backend twin (it dereferences
+        # it), as in streamdf._determine_stream_track. Everything above is
+        # structural bookkeeping and concrete either way.
+        if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
+            return self._determine_impact_coordtransform_backend()
         dt = (
             self._deltaAngleTrackImpact
             / self._progenitor_Omega_along_dOmega
@@ -1574,11 +1766,30 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         self._gap_progenitor.turn_physical_off()
         # Now integrate backward in time until tdisrupt
         ts = numpy.linspace(0.0, self._tdisrupt, 1001)
-        self._gap_progenitor.integrate(ts, self._pot)
-        # Flip its velocities, should really write a function for this
-        self._gap_progenitor.orbit[..., 1] = -self._gap_progenitor.orbit[..., 1]
-        self._gap_progenitor.orbit[..., 2] = -self._gap_progenitor.orbit[..., 2]
-        self._gap_progenitor.orbit[..., 4] = -self._gap_progenitor.orbit[..., 4]
+        # A backend progenitor must use the SAME solver (and options) as the rest
+        # of the graph: this spans tdisrupt, far longer than the track segments,
+        # and mixing adjoints corrupts nested gradients.
+        if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
+            _m = (
+                "diffrax"
+                if name_of_namespace(get_namespace(self._gap_progenitor._ic_backend))
+                == "jax"
+                else "torchdiffeq"
+            )
+            self._gap_progenitor.integrate(
+                ts,
+                self._pot,
+                method=_m,
+                inbackend_kwargs=getattr(self._aA, "_integrate_kwargs", None),
+            )
+        else:
+            self._gap_progenitor.integrate(ts, self._pot)
+        # Flip the stored trajectory's velocities -- only the trajectory, NOT
+        # vxvv, which keeps the backward IC (so Orbit.flip is not a drop-in
+        # here). A backend trajectory cannot be item-assigned, hence the helper.
+        self._gap_progenitor.orbit = _flip_velocity_columns(
+            self._gap_progenitor.orbit, self._gap_progenitor.phasedim()
+        )
         return None
 
     ################################SAMPLE THE DF##################################

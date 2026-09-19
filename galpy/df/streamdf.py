@@ -34,6 +34,7 @@ from ..backend.linalg import real_eig as _bk_real_eig
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
+from ..orbit.Orbits import _flip_velocity_columns
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
     conversion,
@@ -1675,19 +1676,19 @@ class streamdf(df):
         ``integrate_method='diffrax'/'torchdiffeq'`` aA -- the track uses the AA
         Jacobian, its 2nd derivative w.r.t. a parameter). The progenitor freqs/
         angles are recomputed (below) so the offset carries the gradient; only the
-        frequency-covariance moments (``_meandO``/``_sortedSigOEig``/
-        ``_dsigomeanProgDirection``, an eigendecomposition) stay constant here (a
-        later differentiable-``__init__`` phase; a subdominant ~10% of d(track)/dp).
+        frequency-covariance moments (``_meandO``/``_sortedSigOEig``) stay constant
+        here. ``_dsigomeanProgDirection`` -- the frame rotation -- does NOT: it was
+        frozen, which cost ~70% of d(track)/d(theta) (not the ~10% once claimed
+        here), and ``real_eig(..., freeze_vectors=False)`` now differentiates it.
         """
         from ..orbit import Orbit
 
         dt = self._deltaAngleTrack / self._progenitor_Omega_along_dOmega
-        if dt < 0.0:
-            raise NotImplementedError(
-                "backend stream track requires dt>=0 (the normal leading/trailing "
-                "setup, where _progenitor_Omega_along_dOmega>0); dt<0 needs an "
-                "in-place orbit.flip on a backend orbit -- a follow-up"
-            )
+        # dt<0 (the reversed setup) integrates the auxiliary orbit with flipped
+        # velocities over |2 dt| and flips the trajectory back, exactly as the
+        # numpy body does. Orbit.flip now carries a backend IC and rebuilds an
+        # immutable trajectory, so this no longer has to be refused.
+        _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         xp = get_namespace(xv0_prog)
         method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
@@ -1722,12 +1723,22 @@ class streamdf(df):
         # with the SAME solver options as the AA (a consistent adjoint across every
         # integration in the graph -- mixing diffrax adjoints corrupts nested grads).
         auxiliaryTrack = Orbit(prog_offset[3])
+        if _dt_neg:
+            # _trackts was built with the SIGNED dt before the dispatch; the numpy
+            # body overrides it with |2 dt| here. Flipping alone would reverse the
+            # orbit twice and the track comes out ~80% wrong.
+            self._trackts = _span_grid(-2.0 * dt, 2 * self._nTrackChunks - 1)
+            auxiliaryTrack = auxiliaryTrack.flip()
         auxiliaryTrack.integrate(
             xp.asarray(self._trackts),
             self._pot,
             method=method,
             inbackend_kwargs=getattr(self._aA, "_integrate_kwargs", None),
         )
+        if _dt_neg:  # flip the stored trajectory's velocities back
+            auxiliaryTrack.orbit = _flip_velocity_columns(
+                auxiliaryTrack.orbit, auxiliaryTrack.phasedim()
+            )
         # auxiliary frequency (rescales progenitor vs. auxiliary orbital time)
         aux0 = xp.stack(
             [
