@@ -1329,6 +1329,33 @@ def test_actionAngleSpherical_otherIsochrone_angles():
 
 
 # Test that actionAngleSpherical works at small r
+# Test that the adiabatic approximation, which sends the spherical code a
+# planar point with an angular momentum increased by gamma J_z, handles a
+# circular planar orbit with vertical motion: the point is a turning point of
+# the modified radial problem but not a circular orbit of it
+def test_actionAngleAdiabatic_circular_planar_gamma():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import HernquistPotential
+
+    hp = HernquistPotential(normalize=1.0)
+    aAA = actionAngleAdiabatic(pot=hp, gamma=1.0, c=False)
+    ecc, zmax, rperi, rap = aAA.EccZmaxRperiRap(1.0, 0.0, 1.0, 0.05, 0.03)
+    assert numpy.all(numpy.isfinite([ecc, zmax, rperi, rap])), (
+        "Adiabatic EccZmaxRperiRap of a circular planar orbit with vertical motion is not finite"
+    )
+    assert rperi <= 1.0 <= rap, (
+        "Adiabatic EccZmaxRperiRap of a circular planar orbit with vertical motion does not bracket its radius"
+    )
+    assert rap > rperi + 1e-4, (
+        "The adiabatic approximation's modified radial problem for a circular planar orbit with vertical motion is not a libration"
+    )
+    jr, jz = aAA(1.0, 0.0, 1.0, 0.05, 0.03)[0], aAA(1.0, 0.0, 1.0, 0.05, 0.03)[2]
+    assert numpy.isfinite(jr) and jr > 0.0, (
+        "Adiabatic radial action of a circular planar orbit with vertical motion is not finite and positive"
+    )
+    return None
+
+
 def test_actionAngleSpherical_smallr():
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential

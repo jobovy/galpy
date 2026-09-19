@@ -153,9 +153,7 @@ class actionAngleSpherical(actionAngle):
                 if w < _EPICYCLE * rc:
                     Jr.append(dE / kappa)
                     continue
-                rperi, rap = self._calc_rperi_rap(
-                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
-                )
+                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], E[ii], L[ii], w=w)
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
             return (numpy.array(Jr), Jphi, Jz)
 
@@ -238,9 +236,7 @@ class actionAngleSpherical(actionAngle):
                     Or.append(kappa)
                     Op.append(Omc)
                     continue
-                rperi, rap = self._calc_rperi_rap(
-                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
-                )
+                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], E[ii], L[ii], w=w)
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
                 # Radial period
                 Rmean = (
@@ -355,9 +351,7 @@ class actionAngleSpherical(actionAngle):
                         - 2.0 * Omc / kappa * w / rc * numpy.sin(ar[-1])
                     )
                     continue
-                rperi, rap = self._calc_rperi_rap(
-                    r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
-                )
+                rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], E[ii], L[ii], w=w)
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
                 # Radial period
                 Rmean = (
@@ -495,7 +489,7 @@ class actionAngleSpherical(actionAngle):
                     trperi, trap = rc - w, rc + w
                 else:
                     trperi, trap = self._calc_rperi_rap(
-                        r[ii], vr[ii], vt[ii], E[ii], L[ii], w=w
+                        r[ii], vr[ii], E[ii], L[ii], w=w
                     )
                 rperi.append(trperi)
                 rap.append(trap)
@@ -535,12 +529,16 @@ class actionAngleSpherical(actionAngle):
             psi = phi
         return psi % (2.0 * numpy.pi)
 
-    def _calc_rperi_rap(self, r, vr, vt, E, L, w=None):
+    def _calc_rperi_rap(self, r, vr, E, L, w=None):
         # at a turning point when the radial kinetic energy is at round-off
         # (a circular orbit never reaches this: it is an epicycle of zero
-        # amplitude, handled before the turning points are looked for)
-        at_turning = 0.5 * vr**2.0 <= _EPS * (0.5 * vt**2.0 + numpy.fabs(E))
-        if at_turning and vt > vcirc(self._2dpot, r, use_physical=False):
+        # amplitude, handled before the turning points are looked for); a
+        # turning point is the pericenter when the effective potential of
+        # the angular momentum L that enters the radial equation -- the
+        # adiabatic approximation's gamma modifies it -- rises inward there,
+        # that is, when L / r exceeds the circular speed
+        at_turning = 0.5 * vr**2.0 <= _EPS * (0.5 * L**2.0 / r**2.0 + numpy.fabs(E))
+        if at_turning and L / r >= vcirc(self._2dpot, r, use_physical=False):
             # We are exactly at pericenter
             rperi = r
             if self._gamma != 0.0:
@@ -557,7 +555,7 @@ class actionAngleSpherical(actionAngle):
             rap = optimize.brentq(
                 _rapRperiAxiEq, rperi + delta, rend, args=(E, L, self._2dpot)
             )
-        elif at_turning and vt < vcirc(self._2dpot, r, use_physical=False):
+        elif at_turning:
             # We are exactly at apocenter
             rap = r
             if self._gamma != 0.0:
