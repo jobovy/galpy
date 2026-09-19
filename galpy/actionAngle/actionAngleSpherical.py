@@ -506,7 +506,10 @@ class actionAngleSpherical(actionAngle):
         """The circular orbit of angular momentum L, and the (E, L) orbit's
         epicyclic amplitude around it: the circular radius, the epicycle and
         circular frequencies, the energy above the circular orbit's, and the
-        harmonic half-width w = sqrt(2 dE) / kappa"""
+        harmonic half-width w = sqrt(2 dE) / kappa; a radial orbit has no
+        circular orbit to be an epicycle around: an infinite half-width"""
+        if L == 0.0:
+            return 0.0, numpy.nan, numpy.nan, numpy.nan, numpy.inf
         rc = rl(self._2dpot, L, use_physical=False)
         kappa = epifreq(self._2dpot, rc, use_physical=False)
         Omc = omegac(self._2dpot, rc, use_physical=False)

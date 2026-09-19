@@ -1356,6 +1356,49 @@ def test_actionAngleAdiabatic_circular_planar_gamma():
     return None
 
 
+# Test that actionAngleSpherical handles exactly radial orbits (L = 0), which
+# have no circular orbit to be an epicycle around, against the isochrone's
+# closed forms J_r = GM / sqrt(-2E) - sqrt(GM b) and Omega_r = (-2E)^(3/2) / GM,
+# mid-flight and at apocentre, where the pericentre is the centre
+def test_actionAngleSpherical_radial():
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import IsochronePotential
+
+    GM, b = 2.0, 1.0
+    ip = IsochronePotential(amp=GM, b=b)
+    aAS = actionAngleSpherical(pot=ip)
+    for R, vR in [(0.5, 0.3), (0.5, 0.0), (1.3, 0.0)]:
+        E = 0.5 * vR**2.0 + ip(R, 0.0)
+        jr_true = GM / numpy.sqrt(-2.0 * E) - numpy.sqrt(GM * b)
+        Or_true = (-2.0 * E) ** 1.5 / GM
+        jr, Lz, jz = aAS(R, vR, 0.0, 0.0, 0.0)
+        assert numpy.fabs(jr - jr_true) < 1e-10, (
+            "actionAngleSpherical J_r of a radial isochrone orbit is off"
+        )
+        assert Lz == 0.0 and jz == 0.0, (
+            "actionAngleSpherical L_z, J_z of a radial orbit are not zero"
+        )
+        jr, _, _, Or, _, _ = aAS.actionsFreqs(R, vR, 0.0, 0.0, 0.0)
+        assert numpy.fabs(jr - jr_true) < 1e-10, (
+            "actionAngleSpherical J_r of a radial isochrone orbit is off"
+        )
+        assert numpy.fabs(Or - Or_true) < 1e-8, (
+            "actionAngleSpherical Omega_r of a radial isochrone orbit is off"
+        )
+    # at apocentre, the pericentre is the centre
+    ecc, zmax, rperi, rap = aAS.EccZmaxRperiRap(0.5, 0.0, 0.0, 0.0, 0.0)
+    assert ecc == 1.0 and rperi == 0.0 and numpy.fabs(rap - 0.5) < 1e-14, (
+        "actionAngleSpherical turning points of a radial orbit at apocentre are off"
+    )
+    # continuity with a nearly radial orbit at apocentre
+    jr0 = aAS(0.5, 0.0, 0.0, 0.0, 0.0)[0]
+    jr1 = aAS(0.5, 0.0, 1e-12, 0.0, 0.0)[0]
+    assert numpy.fabs(jr0 - jr1) < 1e-10, (
+        "actionAngleSpherical J_r is discontinuous between a radial and a nearly radial orbit"
+    )
+    return None
+
+
 def test_actionAngleSpherical_smallr():
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential
