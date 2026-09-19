@@ -3,7 +3,7 @@
 import numpy
 from scipy import integrate, interpolate
 
-from ..backend import as_numpy, get_namespace, resolve_namespace
+from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
@@ -82,12 +82,22 @@ class eddingtondf(isotropicsphericaldf):
         self._Emin = _evaluatePotentials(pot, self._rmin, 0)
         # Current calculation of the boundary term uses r -> inf limit
         try:
-            self._rInf = (
-                numpy.inf
-                if numpy.isfinite(self._dnudr(numpy.inf))
-                and numpy.isfinite(_evaluateRforces(self._pot, numpy.inf, 0))
-                else 1e12
-            )
+            # a discrete choice of the boundary radius, so bool() on the
+            # namespace's own isfinite: numpy.isfinite cannot convert a
+            # DIFFERENTIATED value, while bool() reads the concrete primal that
+            # jax.grad and torch autograd both carry (see _handle_rmin).
+            _dn = self._dnudr(numpy.inf)
+            _fr = _evaluateRforces(self._pot, numpy.inf, 0)
+
+            def _finite(v):
+                # the namespace's isfinite only for a BACKEND value: under a
+                # forced backend these are often still plain floats, and
+                # torch.isfinite rejects those
+                if not is_backend_array(v):
+                    return bool(numpy.isfinite(v))
+                return bool(resolve_namespace(v).isfinite(v))
+
+            self._rInf = numpy.inf if _finite(_dn) and _finite(_fr) else 1e12
         except ZeroDivisionError:
             self._rInf = 1e12
         # Build interpolator r(pot), starting at rmin for divergent potentials
