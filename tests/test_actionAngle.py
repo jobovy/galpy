@@ -1513,6 +1513,282 @@ def test_actionAngleSpherical_screen():
     return None
 
 
+def _near_circular_point(pot, rc, wrc, phase):
+    """A point of the epicycle of relative half-width wrc around the circular
+    orbit at rc, at the given radial phase: (r, v_r, v_t)"""
+    from galpy.potential import epifreq, vcirc
+
+    w = wrc * rc
+    r = rc - w * numpy.cos(phase)
+    return (
+        r,
+        w * epifreq(pot, rc, use_physical=False) * numpy.sin(phase),
+        rc * vcirc(pot, rc, use_physical=False) / r,
+    )
+
+
+# Test actionAngleSpherical across the hand-over to the epicycle at a harmonic
+# half-width of 1e-5 of the circular radius, at several radial phases and radii
+# and in several potentials:
+# everything finite, the frequencies within the epicycle's own accuracy of the
+# epicycle and circular frequencies, the radial angle within the epicycle's own
+# accuracy of the phase, and no jump across either hand-over
+def test_actionAngleSpherical_epicycle_handover():
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import (
+        BurkertPotential,
+        HernquistPotential,
+        IsochronePotential,
+        NFWPotential,
+        epifreq,
+        omegac,
+    )
+
+    def wrap(x):
+        return numpy.fabs(((x + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi)
+
+    pots = [
+        IsochronePotential(normalize=1.0, b=1.2),
+        HernquistPotential(normalize=1.0),
+        NFWPotential(normalize=1.0),
+        BurkertPotential(normalize=1.0),
+    ]
+    phases = [0.1, 0.5 * numpy.pi, numpy.pi - 0.16, 1.9 * numpy.pi]
+    for pot in pots:
+        aAS = actionAngleSpherical(pot=pot)
+        for rc in (1.0, 0.1):
+            kappa = epifreq(pot, rc, use_physical=False)
+            Omc = omegac(pot, rc, use_physical=False)
+            for wrc in (3e-5, 1.01e-5, 0.99e-5, 3e-6, 3e-7):
+                for phase in phases:
+                    r, vr, vt = _near_circular_point(pot, rc, wrc, phase)
+                    f = aAS.actionsFreqsAngles(r, vr, vt, 0.0, 0.0, 0.7)
+                    assert numpy.all(numpy.isfinite(numpy.array([x[0] for x in f]))), (
+                        "actionAngleSpherical is not finite for {} at rc={}, w/rc={}, phase={}".format(
+                            type(pot).__name__, rc, wrc, phase
+                        )
+                    )
+                    # the quadratures' accuracy is bounded by the potential's
+                    # own round-off in the force, amplified next to the turning
+                    # points as the libration shrinks (the Burkert force loses
+                    # four digits at a tenth of its scale radius); the
+                    # epicycle's by (w/rc)^2
+                    noisy = isinstance(pot, BurkertPotential)
+                    tol = 1e-4 if noisy else 1e-7
+                    assert numpy.fabs(f[3][0] / kappa - 1.0) < tol, (
+                        "Omega_r for {} at rc={}, w/rc={}, phase={} is off from kappa by {:g}".format(
+                            type(pot).__name__, rc, wrc, phase, f[3][0] / kappa - 1.0
+                        )
+                    )
+                    assert numpy.fabs(f[4][0] / Omc - 1.0) < tol, (
+                        "Omega_phi for {} at rc={}, w/rc={}, phase={} is off from Omega_c by {:g}".format(
+                            type(pot).__name__, rc, wrc, phase, f[4][0] / Omc - 1.0
+                        )
+                    )
+                    assert wrap(f[6][0] - phase) < 10.0 * wrc + 3e-4 * noisy, (
+                        "theta_r for {} at rc={}, w/rc={}, phase={} is off from the phase by {:g}".format(
+                            type(pot).__name__, rc, wrc, phase, wrap(f[6][0] - phase)
+                        )
+                    )
+            # no jump across the hand-over: the two sides of the threshold
+            # agree to what the epicycle's approximation allows
+            for wlo, whi in ((0.99e-5, 1.01e-5),):
+                for phase in phases:
+                    flo = aAS.actionsFreqsAngles(
+                        *_near_circular_point(pot, rc, wlo, phase), 0.0, 0.0, 0.7
+                    )
+                    fhi = aAS.actionsFreqsAngles(
+                        *_near_circular_point(pot, rc, whi, phase), 0.0, 0.0, 0.7
+                    )
+                    noisy = isinstance(pot, BurkertPotential)
+                    tol = 1e-4 if noisy else 1e-7
+                    assert (
+                        numpy.fabs(flo[0][0] / fhi[0][0] - (wlo / whi) ** 2)
+                        < 0.1 * (whi - wlo) / whi + tol
+                    ), "J_r jumps across the hand-over at w/rc={} for {}".format(
+                        whi, type(pot).__name__
+                    )
+                    assert (
+                        numpy.fabs(flo[3][0] / fhi[3][0] - 1.0) < tol
+                        and numpy.fabs(flo[4][0] / fhi[4][0] - 1.0) < tol
+                    ), (
+                        "The frequencies jump across the hand-over at w/rc={} for {}".format(
+                            whi, type(pot).__name__
+                        )
+                    )
+                    assert (
+                        wrap(flo[6][0] - fhi[6][0]) < 10.0 * whi + 3e-4 * noisy
+                        and wrap(flo[8][0] - fhi[8][0]) < 10.0 * whi + 3e-4 * noisy
+                    ), "The angles jump across the hand-over at w/rc={} for {}".format(
+                        whi, type(pot).__name__
+                    )
+    return None
+
+
+# Test that the adiabatic approximation, which sends the spherical code a
+# planar point with an angular momentum raised by gamma J_z, handles
+# near-circular orbits at small radii, where a fixed probe of the radial
+# equation's sign next to the turning point used to overshoot the whole
+# libration and declare the orbit unbound
+def test_actionAngleAdiabatic_near_circular_small_radius():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import (
+        HernquistPotential,
+        IsochronePotential,
+        MiyamotoNagaiPotential,
+        vcirc,
+    )
+
+    for pot in (
+        IsochronePotential(normalize=1.0),
+        HernquistPotential(normalize=1.0),
+        MiyamotoNagaiPotential(normalize=1.0),
+    ):
+        aAA = actionAngleAdiabatic(pot=pot, c=False)
+        for r in (1e-4, 1e-6):
+            vc = vcirc(pot, r, use_physical=False)
+            for vz in (0.0, 1e-3 * vc):
+                ecc, zmax, rperi, rap = aAA.EccZmaxRperiRap(
+                    r, 0.0, 1.00001 * vc, 0.0, vz
+                )
+                assert numpy.all(numpy.isfinite([ecc, zmax, rperi, rap])), (
+                    "Adiabatic EccZmaxRperiRap is not finite for a near-circular orbit at r={} in {}".format(
+                        r, type(pot).__name__
+                    )
+                )
+                assert rperi <= r <= rap and rap > rperi, (
+                    "Adiabatic turning points do not bracket a near-circular orbit at r={} in {}".format(
+                        r, type(pot).__name__
+                    )
+                )
+                assert numpy.all(numpy.isfinite(aAA(r, 0.0, 1.00001 * vc, 0.0, vz))), (
+                    "Adiabatic actions are not finite for a near-circular orbit at r={} in {}".format(
+                        r, type(pot).__name__
+                    )
+                )
+    return None
+
+
+# Test that small orbits far from circular, whose energy above the potential's
+# is a tiny fraction of the potential's, keep the exact isochrone's accuracy:
+# the radial frequency of radial orbits down to r=1e-6 against its closed form
+# (-2E)^(3/2) / GM, and small eccentric orbits, which are solved relative to
+# the point itself; also a small eccentric Kepler orbit near its apocentre,
+# where the turning-point brackets must stay inside the allowed interval
+def test_actionAngleSpherical_small_orbits():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
+    from galpy.potential import IsochronePotential, KeplerPotential, vcirc
+
+    def wrap(x):
+        return numpy.fabs(((x + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi)
+
+    GM, b = 2.0, 1.2
+    ip = IsochronePotential(amp=GM, b=b)
+    aAS = actionAngleSpherical(pot=ip)
+    aAI = actionAngleIsochrone(ip=ip)
+    for r in (1e-6, 1e-4, 1e-2):
+        for vr in (0.0, 0.3 * numpy.sqrt(-2.0 * ip(r, 0.0))):
+            E = 0.5 * vr**2.0 + ip(r, 0.0)
+            Or_true = (-2.0 * E) ** 1.5 / GM
+            f = aAS.actionsFreqs(r, vr, 0.0, 0.0, 0.0)
+            assert numpy.fabs(f[3][0] / Or_true - 1.0) < 1e-8, (
+                "Omega_r of a radial isochrone orbit at r={}, vr={} is off by {:g}".format(
+                    r, vr, f[3][0] / Or_true - 1.0
+                )
+            )
+    for r, vrf, vtf in (
+        (1e-3, 0.3, 0.7),
+        (1e-4, 0.5, 0.5),
+        (1e-2, 0.2, 0.9),
+        (1e-6, 0.0, 0.5),
+    ):
+        vc = vcirc(ip, r, use_physical=False)
+        args = (r, vrf * vc, vtf * vc, 0.0, 0.0, 0.7)
+        f = aAS.actionsFreqsAngles(*args)
+        g = aAI.actionsFreqsAngles(*args)
+        assert (
+            numpy.fabs(f[3][0] / g[3][0] - 1.0) < 1e-8
+            and numpy.fabs(f[4][0] / g[4][0] - 1.0) < 1e-8
+        ), (
+            "The frequencies of a small eccentric isochrone orbit at r={} are off".format(
+                r
+            )
+        )
+        # the isochrone's own action and angles lose their digits at the
+        # smallest radii
+        if g[0][0] > 1e-9:
+            assert numpy.fabs(f[0][0] / g[0][0] - 1.0) < 1e-6, (
+                "J_r of a small eccentric isochrone orbit at r={} is off by {:g}".format(
+                    r, f[0][0] / g[0][0] - 1.0
+                )
+            )
+            assert wrap(f[6][0] - g[6][0]) < 1e-6 and wrap(f[8][0] - g[8][0]) < 1e-6, (
+                "The angles of a small eccentric isochrone orbit at r={} are off".format(
+                    r
+                )
+            )
+    # a small Kepler orbit near apocentre: J_r = sqrt(GM / -2E) - L
+    kp = KeplerPotential(amp=1.0)
+    aAK = actionAngleSpherical(pot=kp)
+    R, vR, vT = 1e-6, 1e-5, 300.0
+    jr = aAK(R, vR, vT, 0.0, 0.0)[0]
+    E = 0.5 * (vR**2.0 + vT**2.0) - 1.0 / R
+    assert numpy.fabs(jr / (1.0 / numpy.sqrt(-2.0 * E) - R * vT) - 1.0) < 1e-8, (
+        "J_r of a small eccentric Kepler orbit near apocentre is off"
+    )
+    return None
+
+
+# Test actionAngleSpherical's near-circular path outside the isochrone, against
+# an integrated orbit: along the orbit the actions are constant, the frequencies
+# are constant, and the angles advance linearly at the frequencies
+def test_actionAngleSpherical_near_circular_integrated_orbit():
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, epifreq
+
+    def wrap(x):
+        return ((x + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi
+
+    hp = HernquistPotential(normalize=1.0)
+    aAS = actionAngleSpherical(pot=hp)
+    rc = 0.7
+    ts = numpy.linspace(
+        0.0, 3.0 * 2.0 * numpy.pi / epifreq(hp, rc, use_physical=False), 61
+    )
+    for wrc, tolJ, tolO, tolA in ((1e-3, 1e-6, 1e-7, 1e-6), (3e-6, 1e-3, 1e-7, 3e-5)):
+        r, vr, vt = _near_circular_point(hp, rc, wrc, 0.3)
+        o = Orbit([r, vr, vt, 0.0, 0.0, 0.7])
+        o.integrate(ts, hp, method="dop853_c", rtol=1e-14, atol=1e-14)
+        f = aAS.actionsFreqsAngles(
+            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+        )
+        assert numpy.all(numpy.isfinite(numpy.array(f))), (
+            "Angles along an integrated near-circular orbit are not finite at w/rc={}".format(
+                wrc
+            )
+        )
+        assert numpy.std(f[0]) / numpy.mean(f[0]) < tolJ, (
+            "J_r is not constant along an integrated near-circular orbit at w/rc={}: {:g}".format(
+                wrc, numpy.std(f[0]) / numpy.mean(f[0])
+            )
+        )
+        for ii in (3, 4):
+            assert numpy.std(f[ii]) / numpy.mean(f[ii]) < tolO, (
+                "The frequencies are not constant along an integrated near-circular orbit at w/rc={}".format(
+                    wrc
+                )
+            )
+        for ia, io in ((6, 3), (7, 4)):
+            resid = wrap(f[ia] - f[ia][0] - numpy.mean(f[io]) * ts)
+            assert numpy.max(numpy.fabs(resid)) < tolA, (
+                "Angle {} does not advance linearly along an integrated near-circular orbit at w/rc={}: {:g}".format(
+                    ia, wrc, numpy.max(numpy.fabs(resid))
+                )
+            )
+    return None
+
+
 # Test that actionAngleSpherical handles exactly radial orbits (L = 0), which
 # have no circular orbit to be an epicycle around, against the isochrone's
 # closed forms J_r = GM / sqrt(-2E) - sqrt(GM b) and Omega_r = (-2E)^(3/2) / GM,

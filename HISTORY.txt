@@ -32,15 +32,21 @@ v1.12.1 (expected around 2026-11-01)
   two energies of the order of the potential's. Measured against the
   isochrone's exact transformation, the frequencies and the angles are then
   accurate to 1e-9 at any radius down to a harmonic half-width of 1e-5 of
-  the circular radius, below which the action and the frequencies are the
-  epicycle's (accurate to the square of that ratio) and, below 1e-6, the
-  angles and the turning points as well. The exactly circular orbit returns
+  the circular radius, below which the orbit is an epicycle: its action
+  and frequencies accurate to the square of that ratio, its angles and
+  turning points to the ratio. The exactly circular orbit returns
   J_r = 0, the epicycle and circular frequencies, and finite angles.
   Eccentric orbits, radial orbits, and potentials without second
   derivatives never reach the circular-orbit machinery; a near-circular
   orbit in a potential without second derivatives gets its epicycle
-  frequency from the force's finite difference. The turning points are
-  solved for to a relative rather than an absolute tolerance.
+  frequency from the force's finite difference. Small orbits far from
+  circular, whose energy above the effective potential's minimum is a tiny
+  fraction of the potential's, are solved the same way relative to the
+  point itself, which keeps the radial frequency of radial orbits exact
+  down to any radius. The turning points are
+  solved for to a relative tolerance, the bracket offsets and the sign
+  probe scale with the radius, and the relative radicand is anchored to
+  vanish exactly at the turning points found.
 
 - ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
   canonical map by default: the auxiliary torus is the harmonic oscillator of

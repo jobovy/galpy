@@ -10,6 +10,7 @@
 #
 ###############################################################################
 import copy
+import warnings
 from collections import namedtuple
 
 import numpy
@@ -35,63 +36,93 @@ _EPS = 10.0**-15.0
 # relative half-width w / r_c has |v_r| / v_c <= 2 w / r_c and
 # |v_t / v_c(r) - 1| ~ w / r_c)
 _NEARCIRC = 0.05
+# an orbit is small, and has its radial problem solved relative to the point
+# itself, when its energy above the effective potential's minimum (harmonic
+# estimate from the point's radial velocity and effective force) is below this
+# fraction of the effective potential there: the plain energy difference then
+# has few digits left, and the force is smooth across the whole orbit
+_SMALL = 10.0**-4.0
 # the turning points are solved for to this relative tolerance
 _XTOL = 10.0**-14.0
-# below this harmonic half-width relative to the circular radius, an orbit's
-# action and frequencies are the epicycle's, accurate to (w / r_c)^2, where
-# the general path's quadratures, even formulated relative to the circular
-# orbit, have lost that accuracy; measured against the isochrone's exact
-# transformation, the two cross here
+# below this harmonic half-width relative to the circular radius, an orbit is
+# an epicycle: its action and frequencies are the epicycle's, accurate to
+# (w / r_c)^2, its angles and turning points too, accurate to w / r_c. Above
+# it the general path's quadratures, relative to the circular orbit, are more
+# accurate for a potential whose force is evaluated to round-off; for one
+# whose force loses digits (the Burkert and NFW forces at radii well inside
+# their scale) the quadratures' accuracy is that round-off, amplified next to
+# the turning points as the libration shrinks
 _EPICYCLE = 10.0**-5.0
-# below this, the angles and the turning points are the epicycle's as well:
-# the epicyclic radial angle is accurate to w / r_c only, so the general
-# path's quadratures, relative to the circular orbit, keep them down to
-# here, an order of magnitude above where their round-off zone next to the
-# turning points is sampled
-_EPICYCLE_ANGLES = 10.0**-6.0
+# the order of the relative problem's Gaussian quadratures is capped, so that
+# their nodes stay clear of the round-off zone next to the turning points (a
+# force that loses digits keeps successive orders from agreeing, and the
+# innermost node of a high order lands in that zone); the integrands, with
+# the turning points' square roots substituted away, converge well before
+_RELATIVE_MAXITER = 20
 
 
 class _RelativeEffectivePotential:
     """The effective potential Phi(r) + L^2 / (2 r^2) of the angular momentum
-    L relative to its value at the circular orbit r_c(L), free of the
-    cancellation between two energies of the order of the potential's that
-    limits the general path close to the circular orbit: within a window
-    around r_c the potential's difference is a Gauss-Legendre quadrature of
-    the radial force from r_c (a smooth integrand over a short interval,
-    exact to round-off there), and the centrifugal term's difference is in
-    closed form; outside the window the direct difference is accurate. Stands in for the planar potential in the radial equation and in
-    the quadratures of the general path, with the energy above the circular
-    orbit's in place of the energy."""
+    L relative to its value at a reference radius r_0 (the circular orbit of
+    an orbit close to circular, the point itself of a small orbit), free of
+    the cancellation between two energies of the order of the potential's
+    that limits the general path there: within a window around r_0 the
+    potential's difference is a Gauss-Legendre quadrature of the radial
+    force from r_0 (a smooth integrand, exact to round-off), and the
+    centrifugal term's difference is in closed form; outside the window the
+    direct difference is accurate. Stands in for the planar potential in the
+    radial equation and in the quadratures of the general path, with the
+    energy above Phi_eff(r_0) in place of the energy. Once the turning
+    points have been found, the radicand is anchored to vanish exactly at
+    them by subtracting the linear interpolant of its residuals there (a
+    correction at round-off), so that the quadratures next to a turning
+    point see the radicand's leading behaviour rather than a residual whose
+    sign is random."""
 
     _x, _w = numpy.polynomial.legendre.leggauss(6)
-    # |r - r_c| / r_c within which the force is integrated: beyond the reach
-    # of any orbit that passes the near-circular screen, so that the direct
-    # difference, whose round-off next to a turning point is that of the
-    # potential itself, only serves the bracket search's far probes
-    _window = 0.1
 
-    def __init__(self, pot, force, rc, L):
+    def __init__(self, pot, force, r0, L, window):
         # pot: the planar potential; force: the radial force at an array of
         # radii in the plane (through the three-dimensional potential with an
         # array of zero heights when there is one: some potentials' forces
-        # stack their coordinates and want them all of one shape)
-        self._pot, self._force, self._rc, self._L2 = pot, force, rc, L**2.0
-        self._Phic = _evaluateplanarPotentials(pot, rc)
+        # stack their coordinates and want them all of one shape); window:
+        # |r - r_0| within which the force is integrated
+        self._pot, self._force, self._r0, self._L2 = pot, force, r0, L**2.0
+        self._window = window
+        self._Phi0 = _evaluateplanarPotentials(pot, r0)
+        self._anchor = None
+
+    def anchor(self, E, rperi, rap):
+        """Anchor the radicand 2 [E - Phi_eff] to vanish exactly at the
+        turning points found"""
+        self._anchor = None
+        # the centre is not a turning point: a radial orbit's pericentre
+        self._anchor = (
+            rperi,
+            rap,
+            E - self(rperi) if rperi > 0.0 else 0.0,
+            E - self(rap),
+        )
 
     def __call__(self, r):
         scalar = numpy.ndim(r) == 0
         r = numpy.atleast_1d(numpy.asarray(r, dtype="float"))
-        d = r - self._rc
+        d = r - self._r0
         dPhi = numpy.empty_like(d)
-        near = numpy.fabs(d) < self._window * self._rc
+        near = numpy.fabs(d) < self._window
         if numpy.any(near):
             dn = d[near]
-            sn = self._rc + dn[:, None] * (self._x[None, :] + 1.0) / 2.0
+            sn = self._r0 + dn[:, None] * (self._x[None, :] + 1.0) / 2.0
             F = self._force(sn.ravel()).reshape(sn.shape)
             dPhi[near] = -0.5 * dn * (F @ self._w)
         if not numpy.all(near):
-            dPhi[~near] = _evaluateplanarPotentials(self._pot, r[~near]) - self._Phic
-        out = dPhi - self._L2 * d * (r + self._rc) / (2.0 * r**2.0 * self._rc**2.0)
+            dPhi[~near] = _evaluateplanarPotentials(self._pot, r[~near]) - self._Phi0
+        out = dPhi
+        if self._L2 > 0.0:
+            out = out - self._L2 * d * (r + self._r0) / (2.0 * r**2.0 * self._r0**2.0)
+        if self._anchor is not None:
+            rperi, rap, dp, da = self._anchor
+            out = out + (dp * (rap - r) + da * (r - rperi)) / (rap - rperi)
         return out[0] if scalar else out
 
 
@@ -99,6 +130,18 @@ class _RelativeEffectivePotential:
 # radius, the epicycle and circular frequencies, the energy above it, the
 # harmonic half-width, and the effective potential relative to it
 _Epicycle = namedtuple("_Epicycle", ["rc", "kappa", "Omc", "dE", "w", "relpot"])
+
+
+def _quadrature(pot, func, a, b, args=(), **kwargs):
+    """The fixed-tolerance Gaussian quadrature of the general path; for the
+    relative problem with its order capped and the cap's warning silenced
+    (the accuracy is then the potential's own round-off)"""
+    if isinstance(pot, _RelativeEffectivePotential):
+        kwargs = {"maxiter": _RELATIVE_MAXITER, **kwargs}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", quadpack.AccuracyWarning)
+            return quadpack.quadrature(func, a, b, args=args, **kwargs)
+    return quadpack.quadrature(func, a, b, args=args, **kwargs)
 
 
 def _is_epicycle(epi, threshold=None):
@@ -429,7 +472,7 @@ class actionAngleSpherical(actionAngle):
             asc = self._calc_long_asc(z, R, vtheta, phi, Lz, L)
             for ii in range(len(r)):
                 epi, Eu, potu, w = self._problem(r[ii], vr[ii], E[ii], L[ii])
-                if _is_epicycle(epi, _EPICYCLE_ANGLES):
+                if _is_epicycle(epi):
                     # an epicycle: r = r_c - w cos(theta_r), v_r = w kappa
                     # sin(theta_r), and the azimuth runs ahead of its angle
                     # by (2 Omega_c / kappa)(w / r_c) sin(theta_r)
@@ -472,10 +515,6 @@ class actionAngleSpherical(actionAngle):
                         **kwargs,
                     )
                 )
-                if _is_epicycle(epi):
-                    # the epicycle's action and frequencies are the more
-                    # accurate; the angles below use them
-                    Jr[-1], Or[-1], Op[-1] = epi.dE / epi.kappa, epi.kappa, epi.Omc
                 # Angles
                 ar.append(
                     self._calc_angler(
@@ -589,7 +628,7 @@ class actionAngleSpherical(actionAngle):
             rperi, rap = [], []
             for ii in range(len(r)):
                 epi, Eu, potu, w = self._problem(r[ii], vr[ii], E[ii], L[ii])
-                if _is_epicycle(epi, _EPICYCLE_ANGLES):
+                if _is_epicycle(epi):
                     # a circular orbit to round-off has its radius as both
                     # turning points, exactly
                     trperi, trap = (
@@ -650,6 +689,18 @@ class actionAngleSpherical(actionAngle):
         for _ in range(2):
             rc -= _feff(rc) / kappa**2.0
         kappa = _kappa(rc)
+        relpot = _RelativeEffectivePotential(
+            self._2dpot, self._radial_force(), rc, L, 0.1 * rc
+        )
+        dE = max(0.5 * vr**2.0 + relpot(r), 0.0)
+        w = numpy.sqrt((r - rc) ** 2.0 + (vr / kappa) ** 2.0)
+        return _Epicycle(rc, kappa, L / rc**2.0, dE, w, relpot)
+
+    def _radial_force(self):
+        """The radial force in the plane at an array of radii, through the
+        three-dimensional potential with an array of zero heights when there
+        is one (some potentials' forces stack their coordinates and want them
+        all of one shape)"""
         if _dim(self._pot) == 3:
 
             def _force(x):
@@ -660,20 +711,53 @@ class actionAngleSpherical(actionAngle):
             def _force(x):
                 return _evaluateplanarRforces(self._2dpot, x)
 
-        relpot = _RelativeEffectivePotential(self._2dpot, _force, rc, L)
-        dE = max(0.5 * vr**2.0 + relpot(r), 0.0)
-        w = numpy.sqrt((r - rc) ** 2.0 + (vr / kappa) ** 2.0)
-        return _Epicycle(rc, kappa, L / rc**2.0, dE, w, relpot)
+        return _force
+
+    def _small_orbit(self, r, vr, L):
+        """A small orbit, one whose energy above the effective potential's
+        minimum (the harmonic estimate v_r^2 / 2 + f^2 / 2 kappa_eff^2 from
+        the point's radial velocity, effective force f and its slope
+        kappa_eff^2, by finite differences of the force) is a tiny fraction
+        of the effective potential there, has its radial problem solved
+        relative to the point itself: the energy above Phi_eff(r) is
+        v_r^2 / 2 exactly, and the force is smooth across the whole orbit.
+        Returns (v_r^2 / 2, the relative effective potential, the harmonic
+        half-width) or None when the orbit is not small (or the effective
+        potential is not convex at the point, where the estimate fails)"""
+        force = self._radial_force()
+
+        def _feff(x):  # d Phi_eff / dr
+            return -force(x) - (L**2.0 / x**3.0 if L > 0.0 else 0.0)
+
+        f = _feff(r)
+        h = 10.0**-4.0 * r
+        k2 = (_feff(r + h) - _feff(r - h)) / (2.0 * h)
+        if not k2 > 0.0:
+            return None
+        dE = 0.5 * vr**2.0 + f**2.0 / (2.0 * k2)
+        Phieff = _evaluateplanarPotentials(self._2dpot, r) + L**2.0 / (2.0 * r**2.0)
+        if not dE < _SMALL * numpy.fabs(Phieff):
+            return None
+        return (
+            0.5 * vr**2.0,
+            _RelativeEffectivePotential(self._2dpot, force, r, L, r),
+            numpy.sqrt(2.0 * dE / k2),
+        )
 
     def _problem(self, r, vr, E, L):
         """The radial problem an orbit's general path solves: for an orbit
         close to circular, the energy above the circular orbit's and the
         effective potential relative to it, with the epicycle's half-width
-        for the bracket offsets; otherwise the energy and the potential"""
+        for the bracket offsets; for a small orbit, the radial kinetic energy
+        and the effective potential relative to the point itself; otherwise
+        the energy and the potential"""
         epi = self._epicycle(r, vr, E, L)
-        if epi is None:
-            return None, E, self._2dpot, None
-        return epi, epi.dE, epi.relpot, epi.w
+        if epi is not None:
+            return epi, epi.dE, epi.relpot, epi.w
+        small = self._small_orbit(r, vr, L)
+        if small is not None:
+            return None, small[0], small[1], small[2]
+        return None, E, self._2dpot, None
 
     def _calc_psi(self, z, r, L, Lz, vtheta, phi):
         """The angle in the orbital plane from the ascending node"""
@@ -703,18 +787,23 @@ class actionAngleSpherical(actionAngle):
             else 0.5 * L**2.0 / r**2.0 + numpy.fabs(E)
         )
         at_turning = 0.5 * vr**2.0 <= _EPS * scale
+        # the probe for the sign of the radial equation next to a turning
+        # point (the adiabatic approximation's gamma can turn it) and the
+        # bracket offsets inside the libration scale with the radius, and
+        # with the libration's half-width when that is known
+        probe = 10.0**-8.0 * r if w is None else min(10.0**-8.0 * r, 0.1 * w)
         if at_turning and L / r >= vcirc(self._2dpot, r, use_physical=False):
             # We are exactly at pericenter
             rperi = r
             if self._gamma != 0.0:
-                startsign = _rapRperiAxiEq(r + 10.0**-8.0, E, L, pot)
+                startsign = _rapRperiAxiEq(r + probe, E, L, pot)
                 startsign /= numpy.fabs(startsign)
             else:
                 startsign = 1.0
             rend = _rapRperiAxiFindStart(r, E, L, pot, rap=True, startsign=startsign)
             # an offset inside the libration: a fraction of the epicyclic
             # half-width, which the actual width always exceeds
-            delta = 0.00001 if w is None else min(0.00001, 0.1 * w)
+            delta = 10.0**-5.0 * r if w is None else min(10.0**-5.0 * r, 0.1 * w)
             rap = optimize.brentq(
                 _rapRperiAxiEq, rperi + delta, rend, args=(E, L, pot), xtol=_XTOL * r
             )
@@ -722,7 +811,7 @@ class actionAngleSpherical(actionAngle):
             # We are exactly at apocenter
             rap = r
             if self._gamma != 0.0:
-                startsign = _rapRperiAxiEq(r - 10.0**-8.0, E, L, pot)
+                startsign = _rapRperiAxiEq(r - probe, E, L, pot)
                 startsign /= numpy.fabs(startsign)
             else:
                 startsign = 1.0
@@ -730,7 +819,7 @@ class actionAngleSpherical(actionAngle):
             if rstart == 0.0:
                 rperi = 0.0
             else:
-                delta = 0.000001 if w is None else min(0.000001, 0.1 * w)
+                delta = 10.0**-6.0 * r if w is None else min(10.0**-6.0 * r, 0.1 * w)
                 rperi = optimize.brentq(
                     _rapRperiAxiEq,
                     rstart,
@@ -761,6 +850,8 @@ class actionAngleSpherical(actionAngle):
                     raise UnboundError("Orbit seems to be unbound")
             rend = _rapRperiAxiFindStart(r, E, L, pot, rap=True, startsign=startsign)
             rap = optimize.brentq(_rapRperiAxiEq, r, rend, (E, L, pot), xtol=_XTOL * r)
+        if isinstance(pot, _RelativeEffectivePotential):
+            pot.anchor(E, rperi, rap)
         return (rperi, rap)
 
     def _calc_jr(self, rperi, rap, E, L, fixed_quad, pot=None, **kwargs):
@@ -774,14 +865,16 @@ class actionAngleSpherical(actionAngle):
             Rmean = 0.5 * (rperi + rap)
             kwargs = {"tol": 0.0, **kwargs}
             return (
-                quadpack.quadrature(
+                _quadrature(
+                    pot,
                     _JrSphericalIntegrandSmall,
                     0.0,
                     numpy.sqrt(Rmean - rperi),
                     args=(E, L, pot, rperi),
                     **kwargs,
                 )[0]
-                + quadpack.quadrature(
+                + _quadrature(
+                    pot,
                     _JrSphericalIntegrandLarge,
                     0.0,
                     numpy.sqrt(rap - Rmean),
@@ -819,7 +912,8 @@ class actionAngleSpherical(actionAngle):
         Tr = 0.0
         if Rmean > rperi and not fixed_quad:
             Tr += numpy.array(
-                quadpack.quadrature(
+                _quadrature(
+                    pot,
                     _TrSphericalIntegrandSmall,
                     0.0,
                     numpy.sqrt(Rmean - rperi),
@@ -838,7 +932,8 @@ class actionAngleSpherical(actionAngle):
             )[0]
         if Rmean < rap and not fixed_quad:
             Tr += numpy.array(
-                quadpack.quadrature(
+                _quadrature(
+                    pot,
                     _TrSphericalIntegrandLarge,
                     0.0,
                     numpy.sqrt(rap - Rmean),
@@ -864,7 +959,8 @@ class actionAngleSpherical(actionAngle):
         I = 0.0
         if Rmean > rperi and not fixed_quad:
             I += numpy.array(
-                quadpack.quadrature(
+                _quadrature(
+                    pot,
                     _ISphericalIntegrandSmall,
                     0.0,
                     numpy.sqrt(Rmean - rperi),
@@ -883,7 +979,8 @@ class actionAngleSpherical(actionAngle):
             )[0]
         if Rmean < rap and not fixed_quad:
             I += numpy.array(
-                quadpack.quadrature(
+                _quadrature(
+                    pot,
                     _ISphericalIntegrandLarge,
                     0.0,
                     numpy.sqrt(rap - Rmean),
@@ -925,7 +1022,8 @@ class actionAngleSpherical(actionAngle):
             if r > rperi and not fixed_quad:
                 wr = (
                     Or
-                    * quadpack.quadrature(
+                    * _quadrature(
+                        pot,
                         _TrSphericalIntegrandSmall,
                         0.0,
                         numpy.sqrt(r - rperi),
@@ -953,7 +1051,8 @@ class actionAngleSpherical(actionAngle):
             if r < rap and not fixed_quad:
                 wr = (
                     Or
-                    * quadpack.quadrature(
+                    * _quadrature(
+                        pot,
                         _TrSphericalIntegrandLarge,
                         0.0,
                         numpy.sqrt(rap - r),
@@ -1011,7 +1110,8 @@ class actionAngleSpherical(actionAngle):
             elif not fixed_quad:
                 wz = (
                     L
-                    * quadpack.quadrature(
+                    * _quadrature(
+                        pot,
                         _ISphericalIntegrandSmall,
                         0.0,
                         numpy.sqrt(r - rperi),
@@ -1039,7 +1139,8 @@ class actionAngleSpherical(actionAngle):
             elif not fixed_quad:
                 wz = (
                     L
-                    * quadpack.quadrature(
+                    * _quadrature(
+                        pot,
                         _ISphericalIntegrandLarge,
                         0.0,
                         numpy.sqrt(rap - r),
