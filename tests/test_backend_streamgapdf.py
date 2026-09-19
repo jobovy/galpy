@@ -34,7 +34,7 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
-from galpy.backend import as_numpy, is_backend_array
+from galpy.backend import as_numpy, is_backend_array, use
 from galpy.df.streamgapdf import (
     HernquistX,
     _rotation_vy,
@@ -526,3 +526,130 @@ def test_gapdf_kick_spline_order_1(_gapdf_kick, backend):
         assert numpy.isfinite(float(as_numpy(sdf._density_par(0.1))))
     finally:
         _reset_kick_numpy(sdf, deltav_np)
+
+
+def test_replace_at_matches_the_concat_it_replaces():
+    # The numpy body writes Oparb[lowbindx+1] in place. The backend rebuilds it
+    # functionally: a CONCRETE index can concat around the slot, but a TRACED one
+    # cannot size a slice (arr[:idx] has a data-dependent length), so it masks
+    # instead. Both must give the same array.
+    import array_api_compat.numpy as xnp
+
+    from galpy.df.streamgapdf import _replace_at
+
+    a = numpy.arange(7.0)
+    for idx in (0, 3, 6):
+        ref = numpy.concatenate([a[:idx], numpy.array([99.0]), a[idx + 1 :]])
+        got = _replace_at(xnp, a, idx, numpy.float64(99.0))
+        numpy.testing.assert_array_equal(got, ref)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_replace_at_traced_index_matches_concrete():
+    from galpy.df.streamgapdf import _replace_at
+
+    a = jnp.arange(7.0)
+    for idx in (0, 3, 6):
+        ref = as_numpy(_replace_at(jnp, a, idx, jnp.asarray(99.0)))
+        got = as_numpy(
+            jax.jit(lambda i: _replace_at(jnp, a, i, jnp.asarray(99.0)))(
+                jnp.asarray(idx)
+            )
+        )
+        numpy.testing.assert_array_equal(got, ref)
+    # and it stays differentiable in the VALUE through the masked branch
+    g = jax.grad(lambda v: jnp.sum(_replace_at(jnp, a, jnp.asarray(3), v) ** 2))(
+        jnp.asarray(99.0)
+    )
+    assert abs(float(g) - 2.0 * 99.0) < 1e-9, "d/d(value) must be 2*value"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_impact_coordtransform_backend_matches_numpy():
+    # streamgapdf's (x,v) <-> (O,theta) setup at the impact used streamdf's NUMPY
+    # per-chunk helper directly, bypassing the backend dispatch. The backend twin
+    # must reproduce it. Built on numpy first and then re-run with a backend
+    # progenitor + diffrax aA (the idiom test_backend_streamdf uses), because a
+    # full backend __init__ is ~280 s -- too close to the per-test cap.
+    import numpy as _np
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    V0, R0 = 220.0, 8.0
+    ic = [
+        2.6556151742081835,
+        0.2183747276300308,
+        0.67876510797240575,
+        -2.0143395648974671,
+        -0.3273737682604374,
+        0.24218273922966019,
+    ]
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    sdf = streamgapdf(
+        0.365 * (10.0 / 2.0) ** (1.0 / 3.0) / V0,
+        progenitor=Orbit(_np.array(ic)),
+        pot=lp,
+        aA=actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0),
+        leading=False,
+        nTrackChunks=5,
+        nTrackIterations=1,
+        nTrackChunksImpact=5,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        impactb=0.1 / R0,
+        subhalovel=_np.array([6.82200571, 132.7700529, 149.4174464]) / V0,
+        timpact=0.88 / conversion.time_in_Gyr(V0, R0),
+        impact_angle=-2.34,
+        GM=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0),
+        rs=0.625 / R0,
+    )
+    ref = {
+        k: _np.asarray(getattr(sdf, k), dtype=float)
+        for k in (
+            "_gap_thetasTrack",
+            "_gap_ObsTrack",
+            "_gap_ObsTrackAA",
+            "_gap_ObsTrackXY",
+            "_gap_detdOdJps",
+            "_gap_alljacsTrack",
+            "_gap_allinvjacsTrack",
+        )
+    }
+    with use("jax", force=True):
+        sdf._aA = actionAngleIsochroneApprox(
+            pot=lp,
+            b=0.8,
+            tintJ=20.0,
+            integrate_method="diffrax",
+            integrate_kwargs={"max_steps": 2000000},
+        )
+        prog = Orbit(jnp.asarray(ic))
+        prog.turn_physical_off()
+        sdf._progenitor = prog
+        # through the DISPATCH, not the private method: that also re-runs
+        # _gap_progenitor_setup, which has to pick the backend integrator
+        # NB the SIGNED impact angle: the object stores numpy.fabs(...), and
+        # feeding that back flips the arm and trips the leading/trailing check
+        sdf._determine_impact_coordtransform(
+            sdf._deltaAngleTrackImpact,
+            sdf._nTrackChunksImpact,
+            sdf._timpact,
+            -2.34,
+        )
+    # the Jacobian determinant and its inverse amplify, as in the streamdf track
+    tols = {"_gap_detdOdJps": 1e-3, "_gap_allinvjacsTrack": 1e-3}
+    for k, r in ref.items():
+        got = as_numpy(getattr(sdf, k))
+        # the chunk-map OUTPUTS must stay on the backend; _gap_thetasTrack
+        # follows its extent, which is numpy for an object built on numpy
+        if k != "_gap_thetasTrack":
+            assert is_backend_array(getattr(sdf, k)), f"{k} must stay on the backend"
+        rel = _np.max(_np.abs(_np.asarray(got, dtype=float) - r)) / max(
+            _np.max(_np.abs(r)), 1e-30
+        )
+        assert rel < tols.get(k, 1e-4), f"{k} backend-vs-numpy {rel:.3e}"
