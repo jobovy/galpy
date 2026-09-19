@@ -15,6 +15,7 @@ from ..backend import (
 )
 from ..df.df import df
 from ..orbit import Orbit
+from ..orbit.Orbits import _backend_T
 from ..potential import MovingObjectPotential, evaluateRforces, rtide
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
@@ -239,8 +240,12 @@ class basestreamspraydf(df):
             )
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
+            # Orbit takes a backend IC directly (it keeps the real one in
+            # _ic_backend), so do NOT go through as_numpy here: that silently
+            # dropped the gradient for the DEFAULT return_orbit=True output,
+            # while return_orbit=False stayed differentiable.
             o = Orbit(
-                vxvv=as_numpy(out).T,
+                vxvv=_backend_T(out) if is_backend_array(out) else as_numpy(out).T,
                 ro=self._orig_progenitor._ro,
                 vo=self._orig_progenitor._vo,
                 zo=self._orig_progenitor._zo,
