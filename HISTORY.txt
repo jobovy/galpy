@@ -21,21 +21,26 @@ v1.12.1 (expected around 2026-11-01)
   point-transformed one. Nothing changes without a point transformation or
   with the exact one, which have no offset.
 
-- ``actionAngleSpherical`` now handles circular and near-circular orbits:
-  below an epicyclic amplitude of 1e-4 of the circular radius the actions,
-  frequencies, and angles are the epicycle's (J_r = [E - E_c(L)] / kappa,
-  Omega_r = kappa, Omega_psi = Omega_c, the radial angle from the epicycle's
-  phase, and the azimuthal angle with the epicycle's leading correction),
+- ``actionAngleSpherical`` now handles circular and near-circular orbits,
   where the general quadratures lost precision, returned NaN, or failed to
-  bracket a turning point; above it, the turning-point search brackets with
-  an offset set by the epicyclic half-width rather than a fixed length, a
-  point at a turning point is recognized to round-off in its radial kinetic
-  energy, and the action integrand's radicand is clipped at zero next to the
-  turning points. Measured against the isochrone's exact transformation, the
-  two regimes cross at that amplitude with errors below 3e-5 in the action
-  and the frequencies and 3e-4 in the radial angle at the crossover. The
-  exactly circular orbit returns J_r = 0, the epicycle and circular
-  frequencies, and finite angles.
+  bracket a turning point. An orbit close to circular (radial velocity and
+  tangential excess over the local circular speed both within five percent
+  of it) has its radial problem solved relative to its circular orbit: the
+  effective potential's difference from the circular orbit's by a
+  Gauss-Legendre quadrature of the force and the energy above the circular
+  orbit's in place of the energy, which removes the cancellation between
+  two energies of the order of the potential's. Measured against the
+  isochrone's exact transformation, the frequencies and the angles are then
+  accurate to 1e-9 at any radius down to a harmonic half-width of 1e-5 of
+  the circular radius, below which the action and the frequencies are the
+  epicycle's (accurate to the square of that ratio) and, below 1e-6, the
+  angles and the turning points as well. The exactly circular orbit returns
+  J_r = 0, the epicycle and circular frequencies, and finite angles.
+  Eccentric orbits, radial orbits, and potentials without second
+  derivatives never reach the circular-orbit machinery; a near-circular
+  orbit in a potential without second derivatives gets its epicycle
+  frequency from the force's finite difference. The turning points are
+  solved for to a relative rather than an absolute tolerance.
 
 - ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
   canonical map by default: the auxiliary torus is the harmonic oscillator of

@@ -1349,9 +1349,152 @@ def test_actionAngleAdiabatic_circular_planar_gamma():
     assert rap > rperi + 1e-4, (
         "The adiabatic approximation's modified radial problem for a circular planar orbit with vertical motion is not a libration"
     )
-    jr, jz = aAA(1.0, 0.0, 1.0, 0.05, 0.03)[0], aAA(1.0, 0.0, 1.0, 0.05, 0.03)[2]
+    jr = aAA(1.0, 0.0, 1.0, 0.05, 0.03)[0]
     assert numpy.isfinite(jr) and jr > 0.0, (
         "Adiabatic radial action of a circular planar orbit with vertical motion is not finite and positive"
+    )
+    return None
+
+
+# Test that actionAngleSpherical's near-circular path, which solves the radial
+# problem relative to the circular orbit, keeps the exact isochrone's accuracy
+# at small radii and small amplitudes, where the plain energy difference has
+# no digits left: frequencies and angles to 1e-7 down to the hand-over to the
+# epicycle, the exactly circular orbit at a tiny radius included
+def test_actionAngleSpherical_near_circular_small_radius():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
+    from galpy.potential import IsochronePotential, epifreq, vcirc
+
+    def wrap(x):
+        return numpy.fabs(((x + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi)
+
+    ip = IsochronePotential(normalize=1.0, b=1.2)
+    aAS = actionAngleSpherical(pot=ip)
+    aAI = actionAngleIsochrone(ip=ip)
+    for rc in (0.1, 1e-2, 1e-4):
+        kappa = epifreq(ip, rc, use_physical=False)
+        vc = vcirc(ip, rc, use_physical=False)
+        for wrc in (1e-2, 1e-3, 1.01e-4, 1e-5):
+            w = wrc * rc
+            # mid-flight and a third of the way to apocentre
+            for r, vr in (
+                (rc, w * kappa),
+                (
+                    rc + w * numpy.cos(numpy.pi / 3.0),
+                    -w * kappa * numpy.sin(numpy.pi / 3.0),
+                ),
+            ):
+                args = (r, vr, rc * vc / r, 0.0, 0.0, 0.7)
+                f = aAS.actionsFreqsAngles(*args)
+                g = aAI.actionsFreqsAngles(*args)
+                assert numpy.all(numpy.isfinite(numpy.array([x[0] for x in f]))), (
+                    "actionAngleSpherical is not finite at rc={}, w/rc={}".format(
+                        rc, wrc
+                    )
+                )
+                assert numpy.fabs(f[3][0] / g[3][0] - 1.0) < 1e-7, (
+                    "Omega_r at rc={}, w/rc={} is off by {:g}".format(
+                        rc, wrc, f[3][0] / g[3][0] - 1.0
+                    )
+                )
+                assert numpy.fabs(f[4][0] / g[4][0] - 1.0) < 1e-7, (
+                    "Omega_phi at rc={}, w/rc={} is off by {:g}".format(
+                        rc, wrc, f[4][0] / g[4][0] - 1.0
+                    )
+                )
+                # the isochrone's own action and angles lose their digits at
+                # small radii; compare where they have them
+                if g[0][0] > 1e-9:
+                    assert numpy.fabs(f[0][0] / g[0][0] - 1.0) < 1e-6, (
+                        "J_r at rc={}, w/rc={} is off by {:g}".format(
+                            rc, wrc, f[0][0] / g[0][0] - 1.0
+                        )
+                    )
+                    assert wrap(f[6][0] - g[6][0]) < 1e-7, (
+                        "theta_r at rc={}, w/rc={} is off by {:g}".format(
+                            rc, wrc, wrap(f[6][0] - g[6][0])
+                        )
+                    )
+                    assert wrap(f[8][0] - g[8][0]) < 1e-7, (
+                        "theta_z at rc={}, w/rc={} is off by {:g}".format(
+                            rc, wrc, wrap(f[8][0] - g[8][0])
+                        )
+                    )
+    # the exactly circular orbit at a tiny radius, where the energy above the
+    # circular orbit's is pure round-off
+    r = 1e-6
+    f = aAS.actionsFreqsAngles(r, 0.0, vcirc(ip, r, use_physical=False), 0.0, 0.0, 0.7)
+    g = aAI.actionsFreqs(r, 0.0, vcirc(ip, r, use_physical=False), 0.0, 0.0)
+    assert f[0][0] == 0.0, "J_r of a circular orbit at r=1e-6 is not zero"
+    assert numpy.all(numpy.isfinite(numpy.array([x[0] for x in f]))), (
+        "actionAngleSpherical is not finite for a circular orbit at r=1e-6"
+    )
+    assert (
+        numpy.fabs(f[3][0] / g[3][0] - 1.0) < 1e-10
+        and numpy.fabs(f[4][0] / g[4][0] - 1.0) < 1e-10
+    ), "The frequencies of a circular orbit at r=1e-6 are not the epicycle's"
+    return None
+
+
+# Test that the circular-orbit machinery is only reached by orbits close to
+# circular: a nearly radial orbit in a potential whose circular speed is not
+# finite near the centre, and an eccentric orbit in a potential that has forces
+# but no second derivatives, both evaluate as before; and a near-circular orbit
+# in the latter gets its epicycle frequency from the force's finite difference
+def test_actionAngleSpherical_screen():
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import (
+        HernquistPotential,
+        NFWPotential,
+        Potential,
+        epifreq,
+        vcirc,
+    )
+
+    # nearly radial in an NFW potential: the circular radius of L=1e-12 has a
+    # NaN circular speed, which must never be looked up
+    aAS = actionAngleSpherical(pot=NFWPotential(normalize=1.0))
+    jr = aAS(1.0, 0.2, 1e-12, 0.0, 0.0)[0]
+    jr0 = aAS(1.0, 0.2, 0.0, 0.0, 0.0)[0]
+    assert numpy.isfinite(jr) and numpy.fabs(jr - jr0) < 1e-8, (
+        "A nearly radial NFW orbit's J_r is not finite or not the radial orbit's"
+    )
+    assert numpy.all(numpy.isfinite(aAS.EccZmaxRperiRap(1.0, 0.2, 1e-12, 0.0, 0.0))), (
+        "A nearly radial NFW orbit's turning points are not finite"
+    )
+
+    class ForceOnlyHernquist(Potential):
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return -0.5 / (1.0 + numpy.hypot(R, z))
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            r = numpy.hypot(R, z)
+            return -0.5 * R / r / (1.0 + r) ** 2
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            r = numpy.hypot(R, z)
+            return -0.5 * z / r / (1.0 + r) ** 2
+
+    fpot = ForceOnlyHernquist()
+    hp = HernquistPotential(amp=1.0, a=1.0)
+    aAF = actionAngleSpherical(pot=fpot)
+    aAH = actionAngleSpherical(pot=hp)
+    # eccentric: as with the full potential, no second derivative needed
+    assert (
+        numpy.fabs(aAF(1.0, 0.1, 0.2, 0.0, 0.0)[0] - aAH(1.0, 0.1, 0.2, 0.0, 0.0)[0])
+        < 1e-10
+    ), (
+        "An eccentric orbit's J_r in a force-only potential differs from the full potential's"
+    )
+    # near-circular: the epicycle frequency from the force's finite difference
+    vc = vcirc(hp, 1.0, use_physical=False)
+    ff = aAF.actionsFreqs(1.0, 1e-5 * vc, vc, 0.0, 0.0)
+    fh = aAH.actionsFreqs(1.0, 1e-5 * vc, vc, 0.0, 0.0)
+    assert numpy.fabs(ff[3][0] / epifreq(hp, 1.0, use_physical=False) - 1.0) < 1e-7, (
+        "A near-circular orbit's Omega_r in a force-only potential is not the epicycle frequency"
+    )
+    assert numpy.fabs(ff[0][0] / fh[0][0] - 1.0) < 1e-6, (
+        "A near-circular orbit's J_r in a force-only potential differs from the full potential's"
     )
     return None
 
