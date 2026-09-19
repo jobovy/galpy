@@ -564,14 +564,20 @@ def test_replace_at_traced_index_matches_concrete():
     assert abs(float(g) - 2.0 * 99.0) < 1e-9, "d/d(value) must be 2*value"
 
 
-@pytest.mark.slow
-@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
-def test_impact_coordtransform_backend_matches_numpy():
-    # streamgapdf's (x,v) <-> (O,theta) setup at the impact used streamdf's NUMPY
-    # per-chunk helper directly, bypassing the backend dispatch. The backend twin
-    # must reproduce it. Built on numpy first and then re-run with a backend
-    # progenitor + diffrax aA (the idiom test_backend_streamdf uses), because a
-    # full backend __init__ is ~280 s -- too close to the per-test cap.
+@pytest.fixture(scope="module")
+def _gapdf_backend_ct():
+    """A streamgapdf whose impact coordtransform has been re-run on the backend.
+
+    Built on numpy first and then re-run with a backend progenitor + diffrax aA
+    (the idiom test_backend_streamdf uses), because a full backend __init__ is
+    ~280 s -- too close to the per-test cap. Module-scoped so the several
+    backend-parity assertions below share the one expensive setup.
+
+    Returns ``(sdf, ref, kick_ref)``: the object with backend-side track
+    quantities, the numpy reference for the coordtransform, and the numpy
+    reference for the kick interpolation (captured before the switch, with the
+    kick attributes then cleared so the backend run rebuilds them).
+    """
     import numpy as _np
 
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -620,6 +626,29 @@ def test_impact_coordtransform_backend_matches_numpy():
             "_gap_allinvjacsTrack",
         )
     }
+    # numpy reference for the kick interpolation, then clear the cached
+    # attributes: _interpolate_stream_track_kick early-returns when
+    # _kick_interpolatedThetasTrack already exists, so the backend run would
+    # otherwise never build anything.
+    sdf._interpolate_stream_track_kick()
+    sdf._interpolate_stream_track_kick_aA()
+    kick_ref = {
+        k: _np.asarray(getattr(sdf, k), dtype=float)
+        for k in (
+            "_kick_interpolatedThetasTrack",
+            "_kick_interpolatedObsTrackXY",
+            "_kick_interpolatedObsTrack",
+            "_kick_interpolatedObsTrackAA",
+            "_kick_ObsTrackXY_closest",
+        )
+    }
+    for k in (
+        "_kick_interpolatedThetasTrack",
+        "_kick_interpolatedObsTrackXY",
+        "_kick_interpolatedObsTrack",
+        "_kick_interpolatedObsTrackAA",
+    ):
+        delattr(sdf, k)
     with use("jax", force=True):
         sdf._aA = actionAngleIsochroneApprox(
             pot=lp,
@@ -641,6 +670,18 @@ def test_impact_coordtransform_backend_matches_numpy():
             sdf._timpact,
             -2.34,
         )
+    return sdf, ref, kick_ref
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_impact_coordtransform_backend_matches_numpy(_gapdf_backend_ct):
+    # streamgapdf's (x,v) <-> (O,theta) setup at the impact used streamdf's NUMPY
+    # per-chunk helper directly, bypassing the backend dispatch; the backend twin
+    # must reproduce it.
+    import numpy as _np
+
+    sdf, ref, _ = _gapdf_backend_ct
     # the Jacobian determinant and its inverse amplify, as in the streamdf track
     tols = {"_gap_detdOdJps": 1e-3, "_gap_allinvjacsTrack": 1e-3}
     for k, r in ref.items():
@@ -653,3 +694,41 @@ def test_impact_coordtransform_backend_matches_numpy():
             _np.max(_np.abs(r)), 1e-30
         )
         assert rel < tols.get(k, 1e-4), f"{k} backend-vs-numpy {rel:.3e}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_kick_interpolation_backend_matches_numpy(_gapdf_backend_ct):
+    # With the track on the backend, _interpolate_stream_track_kick and its
+    # _aA twin take their backend branches: six Spline1D fits and a stack in
+    # place of six scipy InterpolatedUnivariateSplines and numpy column
+    # assignment, neither of which can hold a traced value. Both are driven
+    # through the DISPATCH so the branch selection is covered too.
+    import numpy as _np
+
+    sdf, _, kick_ref = _gapdf_backend_ct
+    with use("jax", force=True):
+        sdf._interpolate_stream_track_kick()
+        sdf._interpolate_stream_track_kick_aA()
+    for k, r in kick_ref.items():
+        got = getattr(sdf, k)
+        # _kick_interpolatedThetasTrack is the interpolation GRID: _span_grid
+        # keeps it numpy unless the knots are themselves traced, which they are
+        # not for an object built on numpy (same exception the coordtransform
+        # test makes for _gap_thetasTrack). Its VALUES are still checked below.
+        if k != "_kick_interpolatedThetasTrack":
+            assert is_backend_array(got), f"{k} must stay on the backend"
+        rel = _np.max(_np.abs(_np.asarray(as_numpy(got), dtype=float) - r)) / max(
+            _np.max(_np.abs(r)), 1e-30
+        )
+        assert rel < 1e-4, f"{k} backend-vs-numpy {rel:.3e}"
+    # the six per-coordinate splines must be the backend Spline1D, and agree
+    # with the interpolated track they were used to build
+    itp = sdf._kick_interpolatedThetasTrack
+    for ii, nm in enumerate(("X", "Y", "Z", "vX", "vY", "vZ")):
+        spl = getattr(sdf, f"_kick_interpTrack{nm}")
+        col = as_numpy(spl(itp))
+        want = _np.asarray(
+            as_numpy(sdf._kick_interpolatedObsTrackXY)[:, ii], dtype=float
+        )
+        _np.testing.assert_allclose(_np.asarray(col, dtype=float), want, rtol=1e-12)
