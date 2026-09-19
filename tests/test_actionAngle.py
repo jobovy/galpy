@@ -1818,6 +1818,38 @@ def test_actionAngleSpherical_radial():
         assert numpy.fabs(Or - Or_true) < 1e-8, (
             "actionAngleSpherical Omega_r of a radial isochrone orbit is off"
         )
+    # the angles of a radial orbit, at a point inside its mean radius and at
+    # one outside: finite, with the radial angle advancing from the
+    # pericentre (the centre, where the azimuthal integral has nothing to
+    # sweep) to the apocentre
+    vr = 0.9 * numpy.sqrt(-2.0 * ip(0.1, 0.0))
+    fin = aAS.actionsFreqsAngles(0.1, vr, 0.0, 0.0, 0.0, 0.7)
+    fout = aAS.actionsFreqsAngles(0.1, -vr, 0.0, 0.0, 0.0, 0.7)
+    assert numpy.isfinite(fin[6][0]) and numpy.isfinite(fout[6][0]), (
+        "actionAngleSpherical radial angle of a radial orbit is not finite"
+    )
+    assert 0.0 < fin[6][0] < numpy.pi < fout[6][0] < 2.0 * numpy.pi, (
+        "actionAngleSpherical radial angle of a radial orbit is not on the right side of the apocentre"
+    )
+    assert numpy.fabs(fin[6][0] + fout[6][0] - 2.0 * numpy.pi) < 1e-10, (
+        "actionAngleSpherical radial angles of a radial orbit are not symmetric about the apocentre"
+    )
+    # the angles of a radial orbit, at a point inside its mean radius and at
+    # one outside: finite, with the radial angle advancing from the
+    # pericentre (the centre, where the azimuthal integral has nothing to
+    # sweep) to the apocentre
+    vr = 0.9 * numpy.sqrt(-2.0 * ip(0.1, 0.0))
+    fin = aAS.actionsFreqsAngles(0.1, vr, 0.0, 0.0, 0.0, 0.7)
+    fout = aAS.actionsFreqsAngles(0.1, -vr, 0.0, 0.0, 0.0, 0.7)
+    assert numpy.isfinite(fin[6][0]) and numpy.isfinite(fout[6][0]), (
+        "actionAngleSpherical radial angle of a radial orbit is not finite"
+    )
+    assert 0.0 < fin[6][0] < numpy.pi < fout[6][0] < 2.0 * numpy.pi, (
+        "actionAngleSpherical radial angle of a radial orbit is not on the right side of the apocentre"
+    )
+    assert numpy.fabs(fin[6][0] + fout[6][0] - 2.0 * numpy.pi) < 1e-10, (
+        "actionAngleSpherical radial angles of a radial orbit are not symmetric about the apocentre"
+    )
     # at apocentre, the pericentre is the centre
     ecc, zmax, rperi, rap = aAS.EccZmaxRperiRap(0.5, 0.0, 0.0, 0.0, 0.0)
     assert ecc == 1.0 and rperi == 0.0 and numpy.fabs(rap - 0.5) < 1e-14, (
@@ -1844,11 +1876,14 @@ def test_actionAngleSpherical_smallr():
     assert (
         numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-8.0
     ), "rperi is not tiny for a circular orbit at very small r"
-    # Orbit just outside rperi, very small r
+    # Orbit just outside rperi, very small r; the Orbit interface lifts a
+    # planar orbit to a height of 1e-10, which gives this one an angular
+    # momentum of that height times its radial velocity and a pericentre of
+    # 1e-10, resolved now that the search no longer gives up at 1e-9
     o = Orbit([0.000000001, 0.0001, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
-    assert (
-        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-10.0
-    ), "rperi is not 0 for very small r"
+    assert numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 2e-10, (
+        "rperi is not ~0 for very small r"
+    )
     return None
 
 

@@ -81,14 +81,15 @@ class _RelativeEffectivePotential:
 
     _x, _w = numpy.polynomial.legendre.leggauss(6)
 
-    def __init__(self, pot, force, r0, L, window):
+    def __init__(self, pot, force, r0, L, window, maxiter=None):
         # pot: the planar potential; force: the radial force at an array of
-        # radii in the plane (through the three-dimensional potential with an
-        # array of zero heights when there is one: some potentials' forces
-        # stack their coordinates and want them all of one shape); window:
-        # |r - r_0| within which the force is integrated
+        # radii in the plane; window: |r - r_0| within which the force is
+        # integrated; maxiter: a cap on the order of the problem's Gaussian
+        # quadratures, for the near-circular problem, whose integrands
+        # converge at low order (a small orbit far from circular needs the
+        # full order: its azimuthal integrand is peaked at the pericentre)
         self._pot, self._force, self._r0, self._L2 = pot, force, r0, L**2.0
-        self._window = window
+        self._window, self._maxiter = window, maxiter
         self._Phi0 = _evaluateplanarPotentials(pot, r0)
         self._anchor = None
 
@@ -134,10 +135,10 @@ _Epicycle = namedtuple("_Epicycle", ["rc", "kappa", "Omc", "dE", "w", "relpot"])
 
 def _quadrature(pot, func, a, b, args=(), **kwargs):
     """The fixed-tolerance Gaussian quadrature of the general path; for the
-    relative problem with its order capped and the cap's warning silenced
-    (the accuracy is then the potential's own round-off)"""
-    if isinstance(pot, _RelativeEffectivePotential):
-        kwargs = {"maxiter": _RELATIVE_MAXITER, **kwargs}
+    near-circular relative problem with its order capped and the cap's
+    warning silenced (the accuracy is then the potential's own round-off)"""
+    if isinstance(pot, _RelativeEffectivePotential) and pot._maxiter is not None:
+        kwargs = {"maxiter": pot._maxiter, **kwargs}
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", quadpack.AccuracyWarning)
             return quadpack.quadrature(func, a, b, args=args, **kwargs)
@@ -690,7 +691,7 @@ class actionAngleSpherical(actionAngle):
             rc -= _feff(rc) / kappa**2.0
         kappa = _kappa(rc)
         relpot = _RelativeEffectivePotential(
-            self._2dpot, self._radial_force(), rc, L, 0.1 * rc
+            self._2dpot, self._radial_force(), rc, L, 0.1 * rc, _RELATIVE_MAXITER
         )
         dE = max(0.5 * vr**2.0 + relpot(r), 0.0)
         w = numpy.sqrt((r - rc) ** 2.0 + (vr / kappa) ** 2.0)
@@ -958,24 +959,25 @@ class actionAngleSpherical(actionAngle):
 
     def _calc_op(self, Or, Rmean, rperi, rap, E, L, fixed_quad, pot=None, **kwargs):
         pot = self._2dpot if pot is None else pot
-        # Azimuthal period
+        # Azimuthal period, in the inverse radius; an orbit whose pericentre
+        # is the centre (a radial one) has no inner segment
         I = 0.0
-        if Rmean > rperi and not fixed_quad:
+        if Rmean > rperi > 0.0 and not fixed_quad:
             I += numpy.array(
                 _quadrature(
                     pot,
                     _ISphericalIntegrandSmall,
                     0.0,
-                    numpy.sqrt(Rmean - rperi),
+                    numpy.sqrt(1.0 / rperi - 1.0 / Rmean),
                     args=(E, L, pot, rperi),
                     **kwargs,
                 )
             )[0]
-        elif Rmean > rperi and fixed_quad:
+        elif Rmean > rperi > 0.0 and fixed_quad:
             I += integrate.fixed_quad(
                 _ISphericalIntegrandSmall,
                 0.0,
-                numpy.sqrt(Rmean - rperi),
+                numpy.sqrt(1.0 / rperi - 1.0 / Rmean),
                 args=(E, L, pot, rperi),
                 n=10,
                 **kwargs,
@@ -986,7 +988,7 @@ class actionAngleSpherical(actionAngle):
                     pot,
                     _ISphericalIntegrandLarge,
                     0.0,
-                    numpy.sqrt(rap - Rmean),
+                    numpy.sqrt(1.0 / Rmean - 1.0 / rap),
                     args=(E, L, pot, rap),
                     **kwargs,
                 )
@@ -995,7 +997,7 @@ class actionAngleSpherical(actionAngle):
             I += integrate.fixed_quad(
                 _ISphericalIntegrandLarge,
                 0.0,
-                numpy.sqrt(rap - Rmean),
+                numpy.sqrt(1.0 / Rmean - 1.0 / rap),
                 args=(E, L, pot, rap),
                 n=10,
                 **kwargs,
@@ -1108,7 +1110,9 @@ class actionAngleSpherical(actionAngle):
         # Calculate dSr/dL
         dpsi = Op / Or * 2.0 * numpy.pi  # this is the full I integral
         if r < Rmean:
-            if numpy.sqrt(r - rperi) == 0.0:
+            # in the inverse radius; nothing swept from a pericentre at the
+            # centre (a radial orbit) or from the point itself
+            if rperi == 0.0 or r == rperi:
                 wz = 0.0
             elif not fixed_quad:
                 wz = (
@@ -1117,7 +1121,7 @@ class actionAngleSpherical(actionAngle):
                         pot,
                         _ISphericalIntegrandSmall,
                         0.0,
-                        numpy.sqrt(r - rperi),
+                        numpy.sqrt(1.0 / rperi - 1.0 / r),
                         args=(E, L, pot, rperi),
                         **kwargs,
                     )[0]
@@ -1128,7 +1132,7 @@ class actionAngleSpherical(actionAngle):
                     * integrate.fixed_quad(
                         _ISphericalIntegrandSmall,
                         0.0,
-                        numpy.sqrt(r - rperi),
+                        numpy.sqrt(1.0 / rperi - 1.0 / r),
                         args=(E, L, pot, rperi),
                         n=10,
                         **kwargs,
@@ -1146,7 +1150,7 @@ class actionAngleSpherical(actionAngle):
                         pot,
                         _ISphericalIntegrandLarge,
                         0.0,
-                        numpy.sqrt(rap - r),
+                        numpy.sqrt(1.0 / r - 1.0 / rap),
                         args=(E, L, pot, rap),
                         **kwargs,
                     )[0]
@@ -1157,7 +1161,7 @@ class actionAngleSpherical(actionAngle):
                     * integrate.fixed_quad(
                         _ISphericalIntegrandLarge,
                         0.0,
-                        numpy.sqrt(rap - r),
+                        numpy.sqrt(1.0 / r - 1.0 / rap),
                         args=(E, L, pot, rap),
                         n=10,
                         **kwargs,
@@ -1204,14 +1208,21 @@ def _TrSphericalIntegrandLarge(t, E, L, pot, rap):
     return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot)
 
 
-def _ISphericalIntegrandSmall(t, E, L, pot, rperi):
-    r = rperi + t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+def _ISphericalIntegrandSmall(s, E, L, pot, rperi):
+    """The azimuthal integrand dr / (r^2 v_r) = du / v_r in the inverse
+    radius u = 1 / r, inner segment, with u = 1 / r_peri - s^2 to remove
+    the turning point's square root: regular whatever the orbit, where the
+    integrand in r = r_peri + t^2 is peaked at the pericentre of a nearly
+    radial orbit, within a fraction (r_peri / r_ap)^(1/4) of its range"""
+    r = 1.0 / (1.0 / rperi - s**2.0)
+    return 2.0 * s / _JrSphericalIntegrand(r, E, L, pot)
 
 
-def _ISphericalIntegrandLarge(t, E, L, pot, rap):
-    r = rap - t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+def _ISphericalIntegrandLarge(s, E, L, pot, rap):
+    """The azimuthal integrand du / v_r in the inverse radius, outer
+    segment, with u = 1 / r_ap + s^2"""
+    r = 1.0 / (1.0 / rap + s**2.0)
+    return 2.0 * s / _JrSphericalIntegrand(r, E, L, pot)
 
 
 def _rapRperiAxiEq(R, E, L, pot):
@@ -1254,13 +1265,17 @@ def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
         rtry = 2.0 * R
     else:
         rtry = R / 2.0
-    while startsign * _rapRperiAxiEq(rtry, E, L, pot) > 0.0 and rtry > 0.000000001:
+    # the search for the pericentre gives up, and the pericentre is the
+    # centre, below this fraction of the radius (the centrifugal barrier of a
+    # nearly radial small orbit can sit far below any fixed radius)
+    floor = 10.0**-12.0 * R
+    while startsign * _rapRperiAxiEq(rtry, E, L, pot) > 0.0 and rtry > floor:
         if rap:
             if rtry > 100.0:  # pragma: no cover
                 raise UnboundError("Orbit seems to be unbound")
             rtry *= 2.0
         else:
             rtry /= 2.0
-    if rtry < 0.000000001:
+    if rtry < floor:
         return 0.0
     return rtry
