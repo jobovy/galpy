@@ -1420,6 +1420,20 @@ def test_actionAngleSpherical_near_circular_small_radius():
                             rc, wrc, wrap(f[8][0] - g[8][0])
                         )
                     )
+    # the same through the planar potential
+    from galpy.potential import toPlanarPotential
+
+    aAP = actionAngleSpherical(pot=toPlanarPotential(ip))
+    rc = 0.1
+    kappa = epifreq(ip, rc, use_physical=False)
+    vc = vcirc(ip, rc, use_physical=False)
+    args = (rc, 1e-3 * rc * kappa, vc, 0.0, 0.0, 0.7)
+    f = aAS.actionsFreqsAngles(*args)
+    g = aAP.actionsFreqsAngles(*args)
+    for ii in (0, 3, 4, 6):
+        assert numpy.fabs(f[ii][0] - g[ii][0]) < 1e-12, (
+            "The near-circular path through a planar potential differs from the three-dimensional one"
+        )
     # the exactly circular orbit at a tiny radius, where the energy above the
     # circular orbit's is pure round-off
     r = 1e-6
