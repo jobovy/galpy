@@ -23,6 +23,7 @@ from ..potential.planarPotential import (
 from ..potential.Potential import (
     PotentialError,
     _check_potential_list_and_deprecate,
+    _evaluateRforces,
 )
 from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
@@ -69,8 +70,12 @@ class _RelativeEffectivePotential:
     # potential itself, only serves the bracket search's far probes
     _window = 0.1
 
-    def __init__(self, pot, rc, L):
-        self._pot, self._rc, self._L2 = pot, rc, L**2.0
+    def __init__(self, pot, force, rc, L):
+        # pot: the planar potential; force: the radial force at an array of
+        # radii in the plane (through the three-dimensional potential with an
+        # array of zero heights when there is one: some potentials' forces
+        # stack their coordinates and want them all of one shape)
+        self._pot, self._force, self._rc, self._L2 = pot, force, rc, L**2.0
         self._Phic = _evaluateplanarPotentials(pot, rc)
 
     def __call__(self, r):
@@ -82,7 +87,7 @@ class _RelativeEffectivePotential:
         if numpy.any(near):
             dn = d[near]
             sn = self._rc + dn[:, None] * (self._x[None, :] + 1.0) / 2.0
-            F = _evaluateplanarRforces(self._pot, sn.ravel()).reshape(sn.shape)
+            F = self._force(sn.ravel()).reshape(sn.shape)
             dPhi[near] = -0.5 * dn * (F @ self._w)
         if not numpy.all(near):
             dPhi[~near] = _evaluateplanarPotentials(self._pot, r[~near]) - self._Phic
@@ -645,7 +650,17 @@ class actionAngleSpherical(actionAngle):
         for _ in range(2):
             rc -= _feff(rc) / kappa**2.0
         kappa = _kappa(rc)
-        relpot = _RelativeEffectivePotential(self._2dpot, rc, L)
+        if _dim(self._pot) == 3:
+
+            def _force(x):
+                return _evaluateRforces(self._pot, x, 0.0 * x)
+
+        else:
+
+            def _force(x):
+                return _evaluateplanarRforces(self._2dpot, x)
+
+        relpot = _RelativeEffectivePotential(self._2dpot, _force, rc, L)
         dE = max(0.5 * vr**2.0 + relpot(r), 0.0)
         w = numpy.sqrt((r - rc) ** 2.0 + (vr / kappa) ** 2.0)
         return _Epicycle(rc, kappa, L / rc**2.0, dE, w, relpot)
