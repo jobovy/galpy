@@ -290,3 +290,62 @@ def test_chandrasekhar_differentiates_in_rhm():
     h = 1e-8
     fd = (float(f(0.05 + h)) - float(f(0.05 - h))) / (2.0 * h)
     assert abs(ad - fd) / abs(fd) < 1e-6, f"d/d(rhm) wrong (AD {ad}, FD {fd})"
+
+
+# --------------------------------------------------------------------------
+# Orbit's ANALYTIC estimators w.r.t. a potential parameter.
+#
+# Orbit.rperi/rap/zmax/e(analytic=True) and the analytic actions/frequencies/
+# angles used to concretize the energy to build the bound/unbound mask
+# (as_numpy(Einf)), which raises on a tracer and, on torch, silently DETACHED --
+# rap w.r.t. MiyamotoNagai a came back 0 against a finite difference of 6.77.
+# The mask is a discrete selection carrying no gradient, so a differentiated
+# energy now skips it and every orbit is evaluated.
+#
+# A Python actionAngle is required: the C implementations cannot carry
+# d/d(potential parameter) by construction.
+# --------------------------------------------------------------------------
+_ORB_IC = [1.0, 0.1, 0.5, 0.05, 0.03, 0.0]  # bound in the Hernquist below
+_ORB_A0 = 1.3
+
+
+def _orb_analytic(a, method, cast):
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential
+
+    pot = HernquistPotential(amp=2.0, a=a)
+    o = Orbit(cast(_ORB_IC))
+    out = getattr(o, method)(
+        analytic=True, pot=pot, type="spherical", use_physical=False
+    )
+    return out.reshape(-1)[0] if numpy.ndim(out) else out
+
+
+@pytest.mark.parametrize("method", ["rperi", "rap", "zmax", "e", "jr", "Or", "wr"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_orbit_analytic_grad_wrt_potential_parameter(backend_name, method):
+    def value(a, bk, cast):
+        with backend.use(bk, force=True):
+            return _orb_analytic(a, method, cast)
+
+    h = 1e-5 * _ORB_A0
+    npcast = numpy.array
+    fd = (
+        float(value(_ORB_A0 + h, "numpy", npcast))
+        - float(value(_ORB_A0 - h, "numpy", npcast))
+    ) / (2.0 * h)
+    if backend_name == "jax":
+        ad = float(
+            jax.grad(lambda t: value(t, "jax", jnp.asarray))(jnp.asarray(_ORB_A0))
+        )
+    else:
+        t = torch.tensor(_ORB_A0, dtype=torch.float64, requires_grad=True)
+        out = value(
+            t, "torch", lambda v: torch.as_tensor(numpy.asarray(v, dtype=float))
+        )
+        out.backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad), f"{method}: gradient must not be nan/inf"
+    # a DETACHED gradient is the failure this guards: it returns a finite 0
+    assert abs(ad) > 0.0, f"{method}: gradient is identically zero (detached?)"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-10)
