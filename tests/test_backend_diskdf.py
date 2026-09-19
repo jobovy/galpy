@@ -161,3 +161,50 @@ def test_moment_grad_vs_fd(backend, dfname, df, fn):
             getattr(df, fn)(Rt, use_physical=False).backward()
         g = float(Rt.grad)
     numpy.testing.assert_allclose(g, gfd, rtol=1e-5, atol=1e-8)
+
+
+# --------------------------------------------------------------------------
+# d/d(profile parameter): the surfaceSigmaProfile's own scale lengths.
+#
+# surfacemass / sigma2surfacemass / _vmomentsurfacemass and _ssp all dispatched
+# on is_backend_array(R) ALONE. A differentiated profile parameter makes the
+# result traced whatever R is (surfacemass is exp(-R/params[0])), so with a
+# plain float R these fell into the numpy branch and ran numpy.sqrt / numpy.exp
+# on a tracer: jax raised, and torch DETACHED to a silent zero -- a wrong
+# gradient with a right value, which no value-only test can catch. The backend
+# quadrature twin already existed; only the dispatch was wrong.
+# --------------------------------------------------------------------------
+_HR0 = 1.0 / 3.0
+
+
+def _dehnen_quantity(hr, fn, backend):
+    from galpy.df import dehnendf
+
+    with use(backend, force=True):
+        df = dehnendf(beta=0.0, profileParams=(hr, 1.0, 0.2))
+        v = getattr(df, fn)(0.9, use_physical=False)
+        return (
+            v.reshape(-1)[0]
+            if is_backend_array(v)
+            else numpy.atleast_1d(v).reshape(-1)[0]
+        )
+
+
+@pytest.mark.parametrize("fn", ["surfacemass", "sigma2"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dehnendf_grad_wrt_profile_parameter(backend, fn):
+    h = 1e-6
+    gfd = (
+        float(_dehnen_quantity(_HR0 + h, fn, "numpy"))
+        - float(_dehnen_quantity(_HR0 - h, fn, "numpy"))
+    ) / (2.0 * h)
+    if backend == "jax":
+        g = float(jax.grad(lambda t: _dehnen_quantity(t, fn, "jax"))(jnp.asarray(_HR0)))
+    else:
+        t = torch.tensor(_HR0, dtype=torch.float64, requires_grad=True)
+        _dehnen_quantity(t, fn, "torch").backward()
+        g = float(t.grad)
+    assert numpy.isfinite(g), f"{fn}: gradient must not be nan/inf"
+    # the silent-zero guard: torch used to return a finite 0 here
+    assert abs(g) > 0.0, f"{fn}: gradient is identically zero (detached?)"
+    numpy.testing.assert_allclose(g, gfd, rtol=1e-6, atol=1e-12)
