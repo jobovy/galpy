@@ -4034,8 +4034,22 @@ class streamdf(df):
         choose_minus = (jacIndx != 0) & ((jacIndx == K - 1) | (dm1 < dm2))
         jacIndx2 = xp.where(choose_minus, jm1, jp1)  # integer
         dmJacIndx2 = xp.where(choose_minus, dm1, dm2)  # continuous
-        sq, sq2 = xp.sqrt(dmJacIndx), xp.sqrt(dmJacIndx2)
-        ampJacIndx = sq / (sq + sq2)  # (n,)
+        # sqrt of a squared distance, and the query can sit exactly ON a track
+        # point (streamgapdf's kick passes cindx=range(...), i.e. the track
+        # points themselves), where the distance is 0. sqrt is finite there but
+        # d(sqrt)/dx = 1/(2 sqrt x) is INFINITE, so reverse mode returns nan for
+        # a value that is perfectly well defined -- and the weight below then
+        # compounds it with 0/0. Both are guarded with the dead-branch pattern:
+        # the live values and their gradients are bit-identical (only the
+        # singular point changes, from nan to the correct 0).
+        pos, pos2 = dmJacIndx > 0.0, dmJacIndx2 > 0.0
+        sq = xp.where(pos, xp.sqrt(xp.where(pos, dmJacIndx, 1.0)), 0.0)
+        sq2 = xp.where(pos2, xp.sqrt(xp.where(pos2, dmJacIndx2, 1.0)), 0.0)
+        den = sq + sq2
+        dpos = den > 0.0
+        # den == 0 means the query coincides with BOTH bracketing points: the
+        # two Jacobians are then the same, so any weight gives the same M.
+        ampJacIndx = xp.where(dpos, sq / xp.where(dpos, den, 1.0), 0.0)  # (n,)
         # Make sure phi hasn't wrapped around (only the phi offset, index 5)
         dxv = xp.concat(
             [
@@ -4234,7 +4248,14 @@ class streamdf(df):
         choose_minus = (jacIndx != 0) & ((jacIndx == K2 - 1) | (dm1 < dm2))
         jacIndx2 = xp.where(choose_minus, jm1, jp1)  # integer
         dmJacIndx2 = xp.where(choose_minus, dm1, dm2)  # continuous
-        ampJacIndx = dmJacIndx / (dmJacIndx + dmJacIndx2)  # (n,)
+        # same guard as _approxaA_backend: dapar can land exactly on a track
+        # angle, making both distances 0 and the weight 0/0 (nan, forward AND
+        # backward). The live branch is unchanged.
+        _den = dmJacIndx + dmJacIndx2
+        _dpos = _den > 0.0
+        ampJacIndx = xp.where(
+            _dpos, dmJacIndx / xp.where(_dpos, _den, 1.0), 0.0
+        )  # (n,)
         # Wrap the angle offsets to [-pi,pi)
         dOa = xp.concat(
             [
