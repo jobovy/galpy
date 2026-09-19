@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.backend import as_numpy, get_namespace, is_backend_array
+from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend.jacobian import jacobian
 from galpy.df.streamdf import (
     _determine_stream_spread_single,
@@ -2434,3 +2434,48 @@ def test_nTrackIterations_refuses_to_be_chosen_under_a_trace():
     assert "nTrackIterations" in seen.get("msg", ""), (
         "a traced misalignment must raise, not silently pick a value"
     )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_backend_track_handles_dt_negative_trailing():
+    # dt<0 is the reversed setup: the numpy body integrates the auxiliary orbit
+    # with flipped velocities over |2 dt| and flips the trajectory back. The
+    # backend track used to refuse it outright. _trackts is built with the
+    # SIGNED dt BEFORE the dispatch, so the flip alone reverses the orbit twice
+    # and the track comes out ~80% wrong -- hence the override, and hence a
+    # value check rather than "it runs".
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf as _streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ic = _STREAM_IC
+
+    def build(backend):
+        kw = dict(integrate_method="diffrax") if backend else {}
+        aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0, **kw)
+        prog = Orbit(jnp.asarray(ic)) if backend else Orbit(numpy.array(ic))
+        return _streamdf(
+            0.365 / 220.0,
+            progenitor=prog,
+            pot=lp,
+            aA=aA,
+            leading=False,  # the dt<0 arm
+            nTrackChunks=5,
+            nTrackIterations=0,
+            tdisrupt=_tdisrupt(),
+            nospreadsetup=True,
+            useInterp=False,
+            interpTrack=False,
+        )
+
+    with use("numpy", force=True):
+        ref = numpy.asarray(build(False)._ObsTrack, dtype=float)
+    with use("jax", force=True):
+        got = as_numpy(build(True)._ObsTrack)
+    rel = numpy.max(numpy.abs(numpy.asarray(got, dtype=float) - ref)) / numpy.max(
+        numpy.abs(ref)
+    )
+    assert rel < 1e-5, f"trailing backend track vs numpy {rel:.3e}"
