@@ -1926,6 +1926,51 @@ def test_approxaA_value_parity(sdf, backend_name, interp):
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaA_grad_at_a_track_point(sdf, backend_name):
+    # A query landing EXACTLY on a chunk track point makes the minimum squared
+    # distance identically 0. sqrt is finite there, but d(sqrt)/dx = 1/(2 sqrt x)
+    # is INFINITE, and the smoothing weight sq/(sq+sq2) then compounds it into
+    # 0/0 -- so reverse mode returned nan for a gradient that is perfectly well
+    # defined (it is just the limit of the off-track one).
+    #
+    # This is not a corner case: streamgapdf's kick calls _approxaA with
+    # cindx=range(N), i.e. the track points THEMSELVES, so it hit this on every
+    # call and every d/d(potential parameter) downstream of the kick came back
+    # nan. _approxaa_query above deliberately perturbs OFF the track ("near-but-
+    # not-ON a chunk"), which is why the existing gradient tests never saw it.
+    from galpy import backend as _bk
+
+    onpt = numpy.asarray(sdf._ObsTrack)[2]  # exactly a chunk track point
+    off = onpt + 1e-4  # same query, nudged off the track
+
+    def grad_of(p0):
+        with _bk.use(backend_name, force=True):
+            if backend_name == "jax":
+                return numpy.asarray(
+                    jax.grad(
+                        lambda p: jnp.sum(
+                            jnp.asarray(
+                                sdf._approxaA(
+                                    p[0], p[1], p[2], p[3], p[4], p[5], interp=True
+                                )
+                            )
+                            ** 2.0
+                        )
+                    )(jnp.asarray(p0))
+                )
+            t = torch.tensor(p0, dtype=torch.float64, requires_grad=True)
+            out = sdf._approxaA(*(t[i] for i in range(6)), interp=True)
+            (out**2.0).sum().backward()
+            return as_numpy(t.grad)
+
+    g_on, g_off = grad_of(onpt), grad_of(off)
+    assert numpy.all(numpy.isfinite(g_on)), "gradient ON a track point must be finite"
+    # and it must be the CONTINUOUS limit of the off-track gradient, not merely
+    # finite -- a guard that silently returned zero would pass the check above
+    numpy.testing.assert_allclose(g_on, g_off, rtol=2e-3, atol=1e-8)
+
+
 @pytest.mark.parametrize("interp", [True, False], ids=["interp", "noninterp"])
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_approxaA_cindx_identity_parity(sdf, backend_name, interp):
