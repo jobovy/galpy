@@ -387,7 +387,7 @@ def test_kick_track_value_parity(_gapdf_kick, backend):
                 bv, ref["evals"][name], rtol=1e-7, atol=1e-9, err_msg=name
             )
     finally:
-        _reset_kick_numpy(sdf, deltav_np)
+        del sdf  # the copy; the shared fixture was never touched
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -732,3 +732,91 @@ def test_kick_interpolation_backend_matches_numpy(_gapdf_backend_ct):
             as_numpy(sdf._kick_interpolatedObsTrackXY)[:, ii], dtype=float
         )
         _np.testing.assert_allclose(_np.asarray(col, dtype=float), want, rtol=1e-12)
+
+
+# --------------------------------------------------------------------------
+# End-to-end perturber chain: GM / rs / impactb -> deltav -> d(Omega,theta),
+# differentiated in ONE pass through the assembled DF. The pieces were covered
+# separately before (the impulse kernels vs d/d(deltav) of the DF observables),
+# but nothing differentiated a perturber parameter all the way through, which
+# is the gradient a subhalo fit actually needs.
+# --------------------------------------------------------------------------
+_CHAIN_V0, _CHAIN_R0 = 220.0, 8.0
+
+
+def _chain_kick(sdf, param, val, spline_order=3):
+    """Re-run the kick determination with one perturber parameter replaced."""
+    from galpy.util import conversion
+
+    # the SIGNED angle: the object stores numpy.fabs(impact_angle), and feeding
+    # that back flips the arm and trips the leading/trailing guard
+    signed_angle = sdf._impact_angle if sdf._leading else -sdf._impact_angle
+    base = dict(
+        impact_angle=signed_angle,
+        impactb=0.1 / _CHAIN_R0,
+        subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464]) / _CHAIN_V0,
+        GM=10.0**-2.0 / conversion.mass_in_1010msol(_CHAIN_V0, _CHAIN_R0),
+        rs=0.625 / _CHAIN_R0,
+    )
+    base[param] = val
+    sdf._determine_deltav_kick(
+        base["impact_angle"],
+        base["impactb"],
+        base["subhalovel"],
+        base["GM"],
+        base["rs"],
+        None,
+        spline_order,
+        False,
+    )
+    sdf._determine_deltaOmegaTheta_kick(spline_order)
+    return sdf._kick_dOap
+
+
+@pytest.mark.parametrize("param", ["GM", "rs", "impactb"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_perturber_chain_grad_vs_fd(_gapdf_kick, backend, param, request):
+    import copy
+
+    from galpy.util import conversion
+
+    # deepcopy: _determine_deltav_kick rebuilds _kick_ObsTrackXY_closest on
+    # whichever backend is active, and the fixture is module-scoped, so mutating
+    # it in place leaks a jax array into the torch run (and vice versa) and the
+    # namespace probe then sees two backends. A copy costs far less than
+    # rebuilding the DF and keeps each parametrization independent.
+    sdf = copy.deepcopy(_gapdf_kick[0])
+    deltav_np = _gapdf_kick[2]
+    x0 = {
+        "GM": 10.0**-2.0 / conversion.mass_in_1010msol(_CHAIN_V0, _CHAIN_R0),
+        "rs": 0.625 / _CHAIN_R0,
+        "impactb": 0.1 / _CHAIN_R0,
+    }[param]
+
+    def loss_np(v):
+        return float(
+            numpy.sum(numpy.asarray(as_numpy(_chain_kick(sdf, param, v))) ** 2.0)
+        )
+
+    try:
+        h = 1e-6 * x0
+        fd = (loss_np(x0 + h) - loss_np(x0 - h)) / (2.0 * h)
+        with use(backend, force=True):
+            if backend == "jax":
+                ad = float(
+                    jax.grad(
+                        lambda v: jnp.sum(
+                            jnp.asarray(_chain_kick(sdf, param, v)) ** 2.0
+                        )
+                    )(jnp.asarray(x0))
+                )
+            else:
+                t = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+                (torch.as_tensor(_chain_kick(sdf, param, t)) ** 2.0).sum().backward()
+                ad = float(t.grad)
+        # the chain is pure arithmetic on the impulse kernels, so it is exact --
+        # the FD reference is the only error (rtol 1e-5 leaves ~1000x margin on
+        # the observed ~1e-10 agreement)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-12)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)

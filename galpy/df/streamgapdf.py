@@ -1976,8 +1976,18 @@ def impulse_deltav_plummer(v, y, b, w, GM, rs):
     - 2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
     """
     xp = (
-        namespace_from_arrays((v, y, w)) or numpy
-    )  # data-first: leaf consumed by numpy streamgapdf setup
+        namespace_from_arrays(
+            tuple(a for a in (v, y, w, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, y, w, b, GM, rs = coerce_coords(xp, v, y, w, b, GM, rs)
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
         y = xp.reshape(y, (1, 1))
@@ -2048,8 +2058,18 @@ def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
     - 2015-05-04 - Written based on above - Sanders (Cambridge)
     """
     xp = (
-        namespace_from_arrays((v, x, w, x0, v0)) or numpy
-    )  # data-first: leaf consumed by numpy streamgapdf setup
+        namespace_from_arrays(
+            tuple(a for a in (v, x, w, x0, v0, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, x, w, x0, v0, b, GM, rs = coerce_coords(xp, v, x, w, x0, v0, b, GM, rs)
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -2122,8 +2142,18 @@ def impulse_deltav_hernquist(v, y, b, w, GM, rs):
 
     """
     xp = (
-        namespace_from_arrays((v, y, w)) or numpy
-    )  # data-first: leaf consumed by numpy streamgapdf setup
+        namespace_from_arrays(
+            tuple(a for a in (v, y, w, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, y, w, b, GM, rs = coerce_coords(xp, v, y, w, b, GM, rs)
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -2197,8 +2227,18 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
 
     """
     xp = (
-        namespace_from_arrays((v, x, w, x0, v0)) or numpy
-    )  # data-first: leaf consumed by numpy streamgapdf setup
+        namespace_from_arrays(
+            tuple(a for a in (v, x, w, x0, v0, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, x, w, x0, v0, b, GM, rs = coerce_coords(xp, v, x, w, x0, v0, b, GM, rs)
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
