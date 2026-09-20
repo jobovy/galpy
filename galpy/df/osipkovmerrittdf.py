@@ -2,10 +2,12 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, device_of, get_namespace
+from ..backend import as_numpy, asarray_on_device, device_of, get_namespace
 from ..backend import random as grandom
 from ..backend import resolve_namespace
+from ..backend._namespaces import stop_gradient
 from ..backend.interpolate import Spline1D
+from ..backend.optimize import bisect_root, newton_polish
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
@@ -17,6 +19,10 @@ from .sphericaldf import (
     anisotropicsphericaldf,
     sphericaldf,
 )
+
+# Interior fractions of [0, rphi] scanned to bracket the two panel edges in
+# _dMdE; only needs to land inside the region where the fQ-support ceiling bites
+_RSCAN = numpy.linspace(0.0, 1.0, 34)[1:-1]
 
 
 # This is the general Osipkov-Merritt superclass, implementation of general
@@ -57,6 +63,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         )
         self._ra = conversion.parse_length(ra, ro=self._ro)
         self._ra2 = self._ra**2.0
+        # Smallest Q with fQ(Q) != 0. Subclasses whose fQ is truncated (e.g. the
+        # NFW one, cut off at Phi(rmax)) override this; _dMdE integrates L only
+        # over the support, so fQ's jump to zero never lands inside the range.
+        self._Qsupportmin = 0.0
 
     def _call_internal(self, *args):
         """
@@ -145,24 +155,79 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             # happens at dMdE ~ 0, so just set to zero
             out[numpy.isnan(out)] = 0.0
             return out.reshape(E.shape)
-        # jax/torch: nested GL over the Q>0 region after r = rphi - s^2 (outer
-        # turning point) and t = Lmax sin(phi) with phi clustered as phi_low+span*w^2
-        # (cancels the fQ sqrt(Q) endpoint at the Q=0 boundary phi_low)
+        # jax/torch: nested GL after r = rphi - s^2 (outer turning point) and
+        # t = Lmax sin(phi), phi clustered as phi_low+span*w^2 (cancels the fQ
+        # sqrt(Q) endpoint where fQ tapers). Q = -E - L^2/(2 ra^2), so fQ's
+        # support Q > _Qsupportmin caps L at Lsupp and the inner ceiling is
+        # min(Lmax(r), Lsupp). Integrating past Lsupp would put fQ's jump to zero
+        # INSIDE the range (O(1/n)), and the min corners the outer integrand at
+        # the two radii where Lmax(r) = Lsupp -- so integrate only the support
+        # AND split the outer integral there. Each alone leaves the result too
+        # rough in the potential parameters to differentiate.
         Eb = xp.asarray(E) * 1.0
         rphiE = xp.asarray(self._rphi(E)) * 1.0
         rpos = rphiE > 0.0
         smax = xp.where(rpos, xp.sqrt(xp.where(rpos, rphiE, xp.ones_like(rphiE))), 0.0)
-        E_bb = Eb[..., None, None]
-        rphi_bb = xp.where(rpos, rphiE, xp.ones_like(rphiE))[..., None, None]
+        rphi_safe = xp.where(rpos, rphiE, xp.ones_like(rphiE))
+        Lsupp2 = -2.0 * self._ra2 * (Eb + self._Qsupportmin)
 
-        def _integrand(s, w):
+        def _gap_ax(r, Ev, Lv):
+            # Lmax(r)^2 - Lsupp^2: negative at both ends of [0, rphi], positive
+            # where the ceiling bites, so its two roots are the panel edges.
+            # Ev/Lv carry E's trailing axis so this serves both the (..., nscan)
+            # scan grid and the plain (...,) brackets the bisection walks.
+            return 2.0 * r**2.0 * (Ev - _evaluatePotentials(self._pot, r, 0.0)) - Lv
+
+        def _gap(r):
+            return _gap_ax(r, Eb, Lsupp2)
+
+        # Coarse scan for a radius inside the positive region; any such radius
+        # separates the two roots, so the argmax needs no accuracy of its own
+        rscan = rphi_safe[..., None] * asarray_on_device(xp, _RSCAN, device_of(rphiE))
+        gscan = _gap_ax(rscan, Eb[..., None], Lsupp2[..., None])
+        gtop = xp.max(gscan, axis=-1)
+        sel = gscan >= gtop[..., None]
+        rdiv = stop_gradient(
+            xp.sum(xp.where(sel, rscan, 0.0), axis=-1)
+            / xp.sum(xp.where(sel, xp.ones_like(rscan), 0.0), axis=-1)
+        )
+        binds = gtop > 0.0
+        # Dead-branch guard: with no positive region the brackets hold no sign
+        # change, so bisect a dummy and collapse both panels to zero width
+        rmid = xp.where(binds, rdiv, rphi_safe)
+        r_inner = self._panel_root(xp, _gap, xp.zeros_like(rdiv), rmid)
+        r_outer = self._panel_root(xp, _gap, rmid, rphi_safe)
+        # s = sqrt(rphi - r) reverses the ordering, so r_outer gives the SMALLER s
+        zero = xp.zeros_like(smax)
+        s_out = xp.where(binds, xp.sqrt(xp.abs(rphi_safe - r_outer)), zero)
+        s_in = xp.where(binds, xp.sqrt(xp.abs(rphi_safe - r_inner)), zero)
+        lo_s = xp.stack([zero, s_out, s_in], axis=-1)
+        hi_s = xp.stack([s_out, s_in, smax], axis=-1)
+
+        E_bb = Eb[..., None, None, None]
+        rphi_bb = rphi_safe[..., None, None, None]
+        Lsupp2_bb = Lsupp2[..., None, None, None]
+        lo_bb = lo_s[..., None, None]
+        hi_bb = hi_s[..., None, None]
+
+        def _integrand(x, w):
+            # Cosine map onto each panel. In u = L^2 the inner integral reads
+            # int_0^Lsupp^2 g(u)/(2 sqrt(Lmax(r)^2 - u)) du, whose endpoint
+            # singularity collides with the support edge exactly AT the panel
+            # edges, so the outer integrand has a sqrt branch point at both ends
+            # of every panel. The map clusters nodes quadratically there (the
+            # same cure as r = rphi - s^2 for the turning point) and buys ~8
+            # digits at the same node count.
+            half = 0.5 * (hi_bb - lo_bb)
+            s = lo_bb + half * (1.0 - xp.cos(numpy.pi * x))
+            dsdx = half * numpy.pi * xp.sin(numpy.pi * x)
             r = rphi_bb - s**2.0
             twoRsq = 2.0 * r**2.0 * (E_bb - _evaluatePotentials(self._pot, r, 0.0))
             live = twoRsq > 0.0
             Lmax = xp.where(
                 live, xp.sqrt(xp.where(live, twoRsq, xp.ones_like(twoRsq))), 0.0
             )
-            Llow2 = twoRsq + 2.0 * E_bb * self._ra2  # Q>=0 boundary in t^2
+            Llow2 = twoRsq - Lsupp2_bb  # edge of fQ's support, in t^2
             Llow2 = xp.where(Llow2 > 0.0, Llow2, xp.zeros_like(Llow2))
             ratio = xp.sqrt(Llow2) / xp.where(live, Lmax, xp.ones_like(Lmax))
             ratio = xp.where(ratio < 1.0, ratio, xp.ones_like(ratio))
@@ -177,18 +242,35 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
                 * span
                 * (2.0 * w)
                 * (2.0 * s)
+                * dsdx
             )
 
         return (
             16.0
             * numpy.pi**2.0
-            * nested_quad(
-                xp,
-                _integrand,
-                [[0.0, smax[..., None, None]], [0.0, 1.0]],
-                n=_QUAD_N_VMOM2D,
+            * xp.sum(
+                nested_quad(
+                    xp,
+                    _integrand,
+                    [[0.0, 1.0], [0.0, 1.0]],
+                    n=_QUAD_N_VMOM2D,
+                    device=device_of(rphiE),
+                ),
+                axis=-1,
             )
         )
+
+    @staticmethod
+    def _panel_root(xp, f, lo, hi):
+        """Root of ``f`` on ``[lo, hi]``, Newton-polished so it carries the
+        implicit-function gradient (the bisection alone is piecewise constant)."""
+        r = bisect_root(f, lo, hi, xp, xtol=1e-12, maxiter=100)
+        h = 1e-7 * (1.0 + xp.abs(r))
+        # stop_gradient on the slope: the root's gradient is -df/da / df/dr, so
+        # holding df/dr constant IS the implicit-function derivative, and it
+        # keeps a finite difference out of the backward pass
+        dfdr = stop_gradient((f(r + h) - f(r - h)) / (2.0 * h))
+        return newton_polish(r, f(r), dfdr, xp)
 
     def _sample_eta(self, r, n=1, key=None):
         """Sample the angle eta which defines radial vs tangential velocities
