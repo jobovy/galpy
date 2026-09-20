@@ -708,3 +708,65 @@ def test_accessor_on_a_traced_integration_grid(direction):
             assert rel < prev, "the AD-vs-FD gap must shrink as h does"
         prev = rel
     assert rel < 1e-8, f"d/d(scale) through a traced grid is wrong (rel {rel:.2e})"
+
+
+# ---------------------------------------------------------------------------
+# d/d(POTENTIAL PARAMETER) through the analytic (un-integrated) accessors
+#
+# These reach the potential three different ways, and each had its own numpy
+# cut before this was tested:
+#   rguiding/rE/LcE -> Potential.rl/rE, whose backend dispatch keyed on the
+#                      root-finder's ARGUMENT (lz, E), missing a traced
+#                      potential; then numpy.array([...]) could not collect the
+#                      backend scalars the fixed rl/rE return.
+#   rperi/rap/zmax/e -> actionAngleStaeckel with an AUTOMAGIC delta, which
+#                      reads the potential's second derivatives and so carries
+#                      the gradient; it was cut with as_numpy/atleast_1d.
+# c=False throughout: the C path cannot carry potential derivatives by design.
+# ---------------------------------------------------------------------------
+_PGRAD_B0 = 0.6
+_PGRAD_IC = [1.0, 0.12, 1.08, 0.06, 0.09, 0.3]
+_PGRAD_ACCESSORS = ["rguiding", "rE", "LcE", "rperi", "rap", "zmax", "e"]
+
+
+def _accessor_of_b(name, b, cast):
+    from galpy.potential import PlummerPotential as _PP
+
+    pot = _PP(amp=1.0, b=b)
+    o = Orbit(cast(_PGRAD_IC))
+    kw = dict(pot=pot, use_physical=False)
+    if name in ("rperi", "rap", "zmax", "e"):
+        kw.update(analytic=True, c=False)
+    out = getattr(o, name)(**kw)
+    arr = out if is_backend_array(out) else numpy.atleast_1d(out)
+    return arr.reshape(()) if getattr(arr, "shape", ()) == (1,) else arr
+
+
+@pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
+@pytest.mark.parametrize("name", _PGRAD_ACCESSORS)
+def test_accessor_grad_wrt_potential_parameter(name):
+    h = 1e-6 * _PGRAD_B0
+    fd = (
+        float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 + h, numpy.array)))
+        - float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 - h, numpy.array)))
+    ) / (2.0 * h)
+    assert abs(fd) > 1e-6, "finite difference is ~0: the test would prove nothing"
+    if HAVE_JAX:
+        with use("jax", force=True):
+            ad = float(
+                jax.grad(lambda t: _accessor_of_b(name, t, jnp.asarray))(
+                    jnp.asarray(_PGRAD_B0)
+                )
+            )
+        assert numpy.isfinite(ad), (name, ad)
+        assert ad != 0.0, (name, "gradient is identically zero (detached?)")
+        numpy.testing.assert_allclose(ad, fd, rtol=2e-4, atol=1e-8)
+    if HAVE_TORCH:
+        with use("torch", force=True):
+            t = torch.tensor(_PGRAD_B0, dtype=torch.float64, requires_grad=True)
+            _accessor_of_b(
+                name, t, lambda v: torch.as_tensor(numpy.asarray(v, dtype=float))
+            ).backward()
+            ad_t = float(t.grad)
+        assert numpy.isfinite(ad_t), (name, ad_t)
+        numpy.testing.assert_allclose(ad_t, fd, rtol=2e-4, atol=1e-8)

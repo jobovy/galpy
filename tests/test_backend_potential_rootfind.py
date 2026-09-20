@@ -461,3 +461,52 @@ def test_mass_slab_torch(R, z):
         fm = float(mass_fn(_MN, xs[0], z=xs[1], use_physical=False))
         fd = (fp - fm) / (2.0 * eps)
         assert numpy.isclose(grad, fd, rtol=1e-3, atol=1e-5), (i, grad, fd)
+
+
+# ---------------------------------------------------------------------------
+# d/d(POTENTIAL PARAMETER) through the scalar root-finders
+#
+# Distinct from the d/d(lz), d/d(E) tests above, and the reason the gap existed:
+# rl/rE dispatched on is_backend_array(lz) / is_backend_array(E), i.e. on the
+# root-finder's own ARGUMENT. A plain-float lz against a differentiated
+# potential therefore fell through to the scipy branch and raised, even though
+# r*vc(r) - |lz| depends on the potential just as much as on lz. Only a
+# potential-parameter gradient can catch that, so pin it here.
+# ---------------------------------------------------------------------------
+_PGRAD_A0 = 0.6
+
+
+def _rootfind_of_a(name, a, mk):
+    from galpy.potential import MiyamotoNagaiPotential as _MN
+
+    pot = _MN(amp=1.0, a=a, b=0.3)
+    if name == "rl":
+        return rl_fn(pot, mk(0.8), use_physical=False)
+    if name == "rE":
+        return rE_fn(pot, mk(-1.0), use_physical=False)
+    return LcE_fn(pot, mk(-1.0), use_physical=False)
+
+
+@pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
+@pytest.mark.parametrize("name", ["rl", "rE", "LcE"])
+def test_scalar_grad_wrt_potential_parameter(name):
+    h = 1e-6 * _PGRAD_A0
+    fd = (
+        float(_rootfind_of_a(name, _PGRAD_A0 + h, float))
+        - float(_rootfind_of_a(name, _PGRAD_A0 - h, float))
+    ) / (2.0 * h)
+    assert abs(fd) > 1e-6, "finite difference is ~0: the test would prove nothing"
+    if _HAS_JAX:
+        ad = float(
+            jax.grad(lambda t: _rootfind_of_a(name, t, lambda v: v))(
+                jnp.asarray(_PGRAD_A0)
+            )
+        )
+        assert numpy.isfinite(ad), (name, ad)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-4, atol=1e-8)
+    if _HAS_TORCH:
+        t = torch.tensor(_PGRAD_A0, dtype=torch.float64, requires_grad=True)
+        _rootfind_of_a(name, t, lambda v: v).backward()
+        ad_t = float(t.grad)
+        assert numpy.isfinite(ad_t), (name, ad_t)
+        numpy.testing.assert_allclose(ad_t, fd, rtol=1e-4, atol=1e-8)
