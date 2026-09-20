@@ -1,6 +1,7 @@
 import numpy
 import scipy.special as sp
 
+from ..backend import coerce_coords
 from ..backend import special as _backend_special
 from ..util import conversion
 from .ChandrasekharDynamicalFrictionForce import (
@@ -274,6 +275,9 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         return xp.minimum(C, C_cdm)
 
     def _calc_force_backend(self, R, phi, z, v, t, xp):
+        # v is a caller-supplied triple, not coerced by @backend_input like R/z,
+        # so torch rejects a numpy v here. No-op when xp is numpy.
+        v = coerce_coords(xp, *v)
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
         if self._const_FDMfactor:
