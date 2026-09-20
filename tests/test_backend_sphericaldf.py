@@ -879,3 +879,71 @@ def test_spherical_df_dMdE_differentiates_in_the_potential(dfcls):
         h = 1e-6
         fd = (float(f(1.3 + h)) - float(f(1.3 - h))) / (2.0 * h)
     assert abs(ad - fd) / abs(fd) < 1e-6, f"{dfcls} d/d(a) wrong (AD {ad}, FD {fd})"
+
+
+# --------------------------------------------------------------------------
+# d/d(potential parameter) of the velocity moments.
+#
+# _vmax_at_r builds the escape velocity from Phi(self._rmax + 1e-10). For a DF
+# whose _rmax is INFINITE, Phi(inf) has a fine value (-0) but its derivative
+# w.r.t. a potential parameter evaluates to nan -- an inf-inf limit -- which
+# poisoned the whole backward pass and made vmomentdensity, sigmar, sigmat and
+# beta return nan on both backends. dPhi(inf)/dparam is EXACTLY 0 for a
+# potential that vanishes at infinity, so stop_gradient there restores the
+# correct derivative rather than masking a wrong one.
+#
+# Both sides of that gate are tested: a finite _rmax (kingdf's tidal radius) has
+# a genuinely non-zero dPhi(rmax)/dparam and must keep its gradient, so the
+# isfinite gate cannot be simplified away.
+# --------------------------------------------------------------------------
+_VM_A0 = 1.3
+
+
+def _vm_quantity(a, what, backend, xp):
+    with use(backend, force=True):
+        df = isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=a))
+        if what == "sigmar":
+            return df.sigmar(1.1)
+        if what == "sigmat":
+            return df.sigmat(1.1)
+        return xp.asarray(df.vmomentdensity(1.1, 0, 0)).reshape(-1)[0]
+
+
+def _ad_of(fn, backend, th0):
+    if backend == "jax":
+        return float(jax.grad(lambda t: fn(t, jnp))(jnp.asarray(th0)))
+    t = torch.tensor(th0, dtype=torch.float64, requires_grad=True)
+    fn(t, torch).backward()
+    return float(t.grad)
+
+
+@pytest.mark.parametrize("what", ["vmomentdensity", "sigmar", "sigmat"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vmoments_grad_wrt_potential_parameter_infinite_rmax(backend, what):
+    h = 1e-5 * _VM_A0
+    fd = (
+        float(_vm_quantity(_VM_A0 + h, what, "numpy", numpy))
+        - float(_vm_quantity(_VM_A0 - h, what, "numpy", numpy))
+    ) / (2.0 * h)
+    ad = _ad_of(lambda t, xp: _vm_quantity(t, what, backend, xp), backend, _VM_A0)
+    assert numpy.isfinite(ad), f"{what}: nan gradient (Phi(inf) poisoning)"
+    assert abs(ad) > 0.0, f"{what}: gradient is identically zero (over-stopped?)"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vmoments_grad_keeps_finite_rmax_gradient(backend):
+    # kingdf's _rmax is the tidal radius: FINITE, so dPhi(rmax)/dM is not zero
+    # and must still flow. This is the other side of the isfinite gate.
+    from galpy.df import kingdf
+
+    def sig(M, _xp):
+        with use(backend if not isinstance(M, float) else "numpy", force=True):
+            return kingdf(W0=3.0, M=M, rt=1.4, npt=201).sigmar(0.7)
+
+    m0 = 1.3
+    h = 1e-5 * m0
+    fd = (float(sig(m0 + h, None)) - float(sig(m0 - h, None))) / (2.0 * h)
+    ad = _ad_of(sig, backend, m0)
+    assert abs(ad) > 0.0, "a finite rmax must keep its dPhi(rmax)/dparam"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
