@@ -954,7 +954,10 @@ def test_streamtrack_class_backend_eval(backend):
     tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
     tr_b = StreamTrack.from_particles(_arr(backend, xv), prog_cart, tg, **_TRACK_KW)
     assert tr_b._backend and not tr_np._backend
-    assert tr_b._cart_coeffs is not None and tr_b._cart_splines is None
+    # one vector-valued spline now; the mode check is which representation
+    # it built -- in-backend coefficients rather than scipy splines
+    assert tr_b._cart_spline._coeffs is not None
+    assert getattr(tr_b._cart_spline, "_spl_cols", None) is None
     q = _class_query(tr_np)
     for m in _COORD_METHODS:
         vb = getattr(tr_b, m)(q)
@@ -1178,13 +1181,17 @@ def test_streamtrack_class_spdf_backend_particles(backend):
 
 def test_streamtrack_class_numpy_path_unchanged():
     # The numpy StreamTrack path is untouched: _backend is False, the scipy
-    # splines are built (coeffs unset), and evaluation stays numpy. (Byte-identity
-    # is guaranteed by keeping the numpy body verbatim; tests/test_streamTrack.py
-    # covers the values.)
+    # splines are built (coeffs unset), and evaluation stays numpy. Byte-identity
+    # no longer follows from "the numpy body is verbatim" -- the per-column scipy
+    # loop is now one vector-valued Spline1D -- but from that spline reproducing
+    # the per-column fit EXACTLY (test_vector_valued_matches_per_column_scipy
+    # asserts array_equal); tests/test_streamTrack.py covers the values.
     xv, prog_cart, tg = _track_case()
     tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
     assert tr_np._backend is False
-    assert tr_np._cart_splines is not None and tr_np._cart_coeffs is None
+    # numpy path builds the scipy per-column splines, not backend coeffs
+    assert tr_np._cart_spline._spl_cols is not None
+    assert getattr(tr_np._cart_spline, "_coeffs", None) is None
     q = _class_query(tr_np)
     xn = numpy.asarray(tr_np.x(q))
     assert numpy.all(numpy.isfinite(xn))
