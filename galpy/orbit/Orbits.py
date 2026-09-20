@@ -4495,8 +4495,9 @@ class Orbit:
             rls = [rl(pot, lz, use_physical=False) for lz in Lz]
             # rl follows the gradient, so against a traced potential these are
             # backend scalars that numpy.array() cannot collect; stack them in
-            # their own namespace instead. numpy input -> numpy.array as before.
-            if any(map(is_backend_array, rls)):
+            # their own namespace instead. A merely forced backend (no gradient)
+            # keeps the numpy collection, and with it the numpy return type.
+            if any(under_trace(v) or requires_backend_grad(v) for v in rls):
                 xp = get_namespace(*rls)
                 return xp.reshape(xp.stack(rls), Lz_shape)
             return numpy.array(rls).reshape(Lz_shape)
@@ -4544,12 +4545,15 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        # E depends on the potential, so it carries d/d(potential parameter) and
-        # numpy.atleast_1d refuses it; numpy input takes the same path as before
-        _xpE = get_namespace(_E) if is_backend_array(_E) else numpy
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten() if _xpE is numpy else _xpE.reshape(E, (-1,))
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4563,8 +4567,9 @@ class Orbit:
         else:
             vals = [rE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect
-            if any(map(is_backend_array, vals)):
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
             return numpy.array(vals).reshape(E_shape)
@@ -4612,12 +4617,15 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        # E depends on the potential, so it carries d/d(potential parameter) and
-        # numpy.atleast_1d refuses it; numpy input takes the same path as before
-        _xpE = get_namespace(_E) if is_backend_array(_E) else numpy
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten() if _xpE is numpy else _xpE.reshape(E, (-1,))
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4631,8 +4639,9 @@ class Orbit:
         else:
             vals = [LcE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect
-            if any(map(is_backend_array, vals)):
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
             return numpy.array(vals).reshape(E_shape)
