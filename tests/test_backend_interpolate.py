@@ -159,10 +159,14 @@ def test_grad_in_eval_point(backend):
     numpy.testing.assert_allclose(ad, ref, rtol=1e-6)
 
 
+@pytest.mark.parametrize("bc", ["natural", "not-a-knot"])
 @pytest.mark.parametrize("backend", AD_BACKENDS)
-def test_grad_in_table_values(backend):
+def test_grad_in_table_values(backend, bc):
     # THE key capability: d(spline value)/d(y) -- lets gradients flow to the
     # parameters that built a table (e.g. dynamical-friction sigma_r(r)).
+    # Parametrised over the boundary condition, and the scipy reference is built
+    # with the SAME one: the property under test is that AD matches a finite
+    # difference OF THE SAME SPLINE, not which bc the constructor defaults to.
     r0 = 2.7
     fd = numpy.empty_like(_YG)
     for i in range(len(_XG)):
@@ -171,18 +175,18 @@ def test_grad_in_table_values(backend):
         ym = _YG.copy()
         ym[i] -= 1e-6
         fd[i] = (
-            si.CubicSpline(_XG, yp, bc_type="natural")(r0)
-            - si.CubicSpline(_XG, ym, bc_type="natural")(r0)
+            si.CubicSpline(_XG, yp, bc_type=bc)(r0)
+            - si.CubicSpline(_XG, ym, bc_type=bc)(r0)
         ) / 2e-6
     if backend == "jax":
         g = numpy.asarray(
-            jax.grad(lambda y: Spline1D(jnp.asarray(_XG), y, k=3)(jnp.asarray(r0)))(
-                jnp.asarray(_YG)
-            )
+            jax.grad(
+                lambda y: Spline1D(jnp.asarray(_XG), y, k=3, bc=bc)(jnp.asarray(r0))
+            )(jnp.asarray(_YG))
         )
     else:
         yt = torch.tensor(_YG, requires_grad=True)
-        Spline1D(txp.asarray(_XG), yt, k=3)(txp.asarray(r0)).backward()
+        Spline1D(txp.asarray(_XG), yt, k=3, bc=bc)(txp.asarray(r0)).backward()
         g = yt.grad.numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
 
@@ -1753,3 +1757,78 @@ def test_spline1d_antiderivative_from_ppoly(backend_name):
     xp = _xp(backend_name)
     got = as_numpy(sp(_asarray(backend_name, _PP_Q)))
     numpy.testing.assert_allclose(got, ref(_PP_Q), rtol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Vector-valued y, and the boundary condition mode 2 defaults to
+# ---------------------------------------------------------------------------
+_XV = numpy.linspace(0.0, 3.0, 40)
+_YV = numpy.stack(
+    [numpy.sin(_XV), numpy.cos(2.0 * _XV), 0.3 * _XV**2.0], axis=-1
+)  # (40, 3)
+_QV = numpy.array([0.13, 1.1, 2.77])
+
+
+@pytest.mark.parametrize("nu", [0, 1])
+def test_vector_valued_matches_per_column_scipy(nu):
+    # A vector-valued y is one spline per column over shared knots, which is
+    # exactly what callers were writing by hand -- so it must reproduce that
+    # bit for bit, not merely closely.
+    ref = numpy.stack(
+        [
+            si.InterpolatedUnivariateSpline(_XV, _YV[:, j], k=3)(_QV, nu=nu)
+            for j in range(_YV.shape[1])
+        ],
+        axis=-1,
+    )
+    got = Spline1D(_XV, _YV, k=3)(_QV, nu=nu)
+    assert got.shape == ref.shape
+    assert numpy.array_equal(got, ref)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_vector_valued_column_independence(backend):
+    # column j of a vector-valued spline == the same column passed alone.
+    # To round-off, not bit for bit: the vector path solves all columns in ONE
+    # multi-RHS solve while the single column is its own solve, so the two
+    # associate the same arithmetic differently (~1 ulp). The numpy path IS bit
+    # for bit -- see test_vector_valued_matches_per_column_scipy.
+    xp = jnp if backend == "jax" else txp
+    sp_v = Spline1D(_XV, xp.asarray(_YV), k=3)
+    got = numpy.asarray(sp_v(xp.asarray(_QV)))
+    for j in range(_YV.shape[1]):
+        alone = numpy.asarray(
+            Spline1D(_XV, xp.asarray(_YV[:, j]), k=3)(xp.asarray(_QV))
+        )
+        numpy.testing.assert_allclose(got[..., j], alone, rtol=1e-14, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_default_bc_matches_the_numpy_path(backend):
+    # mode 1 is scipy (not-a-knot), so mode 2 must default to not-a-knot too:
+    # a 'natural' default silently made the BACKEND path ~2e-4 worse than the
+    # numpy path it exists to match, at every call site that took the default.
+    xp = jnp if backend == "jax" else txp
+    m1 = Spline1D(_XV, _YV, k=3)(_QV)
+    m2 = numpy.asarray(Spline1D(_XV, xp.asarray(_YV), k=3)(xp.asarray(_QV)))
+    numpy.testing.assert_allclose(m2, m1, rtol=1e-13, atol=1e-13)
+    # and an explicit natural is still honoured (and is the WORSE one here)
+    nat = numpy.asarray(
+        Spline1D(_XV, xp.asarray(_YV), k=3, bc="natural")(xp.asarray(_QV))
+    )
+    assert numpy.max(numpy.abs(nat - m1)) > 1e-6
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_default_bc_falls_back_below_four_knots(backend):
+    # not-a-knot needs a knot either side of the first/last interior knot; at
+    # n=3 its two end rows collapse onto the same knots, so the default falls
+    # back to natural rather than solving a singular system
+    xp = jnp if backend == "jax" else txp
+    x3 = numpy.array([0.0, 1.0, 2.5])
+    y3 = numpy.array([0.0, 1.0, 0.25])
+    q3 = numpy.array([0.4, 1.7])
+    got = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3)(xp.asarray(q3)))
+    exp = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
+    assert numpy.all(numpy.isfinite(got))
+    numpy.testing.assert_allclose(got, exp, rtol=0, atol=0)
