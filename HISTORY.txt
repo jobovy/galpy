@@ -52,7 +52,8 @@ v1.12.1 (expected around 2026-11-01)
   angles) now run in the inverse radius, where their integrand is regular,
   instead of in the radius, where it is peaked at the pericentre of a
   nearly radial orbit: the azimuthal frequency of nearly radial orbits
-  improves from 1e-4 to better than 1e-7 (typically 1e-9).
+  improves from 1e-4 to typically around 1e-9 in tested cases, with larger
+  errors (up to a few 1e-6) for some nearly radial orbits.
 
 - ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
   canonical map by default: the auxiliary torus is the harmonic oscillator of
