@@ -8,7 +8,7 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..backend import special as _backend_special
 from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D
@@ -292,6 +292,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # jit/grad-safe common friction factor for backend inputs; no hashing/
         # caching (traced arrays are unhashable). Returns the scalar that the
         # cylindrical force components are built from.
+        # v is a caller-supplied triple, not coerced by @backend_input like R/z,
+        # so torch rejects a numpy v here. No-op when xp is numpy.
+        v = coerce_coords(xp, *v)
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
         sr = self.sigmar(r)
