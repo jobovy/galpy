@@ -335,3 +335,51 @@ def test_dynamfric_inbackend_integration_matches_analytic(backend):
         f"{method}: dynamical friction with constant lnLambda does not match the "
         f"analytic circular-orbit prediction (got {r_end}, expected {r_pred})"
     )
+
+
+# --------------------------------------------------------------------------
+# d/d(amp) with the velocity supplied as NUMPY.
+#
+# v is a velocity triple the caller passes in; unlike R/z it is not coerced by
+# the @backend_input decorator, so a numpy v reaching a backend xp made
+# xp.sqrt(v[0]**2 + ...) raise -- torch rejects a numpy scalar (jax tolerated
+# it). Both spellings must work, and give the same gradient.
+# --------------------------------------------------------------------------
+_DF_V = numpy.array([0.1, 1.0, 0.05])
+
+
+@pytest.mark.parametrize("vkind", ["numpy", "backend"])
+@pytest.mark.parametrize(
+    "cls", ["ChandrasekharDynamicalFrictionForce", "FDMDynamicalFrictionForce"]
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_grad_wrt_amp_numpy_velocity(backend, cls, vkind):
+    from galpy import potential as _pot
+
+    ctor = getattr(_pot, cls)
+
+    from galpy.backend import use as _use
+
+    def val(amp, bk, cast, vmk):
+        with _use(bk, force=True):
+            return ctor(amp=amp).Rforce(
+                cast(1.1), cast(0.2), v=vmk(), use_physical=False
+            )
+
+    h = 1e-6
+    fd = (
+        float(val(1.0 + h, "numpy", lambda v: v, lambda: _DF_V))
+        - float(val(1.0 - h, "numpy", lambda v: v, lambda: _DF_V))
+    ) / (2.0 * h)
+    if backend == "jax":
+        vmk = (lambda: _DF_V) if vkind == "numpy" else (lambda: jnp.asarray(_DF_V))
+        ad = float(
+            jax.grad(lambda t: val(t, "jax", jnp.asarray, vmk))(jnp.asarray(1.0))
+        )
+    else:
+        vmk = (lambda: _DF_V) if vkind == "numpy" else (lambda: torch.as_tensor(_DF_V))
+        t = torch.tensor(1.0, dtype=torch.float64, requires_grad=True)
+        val(t, "torch", lambda v: torch.as_tensor(float(v)), vmk).backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad) and abs(ad) > 0.0
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
