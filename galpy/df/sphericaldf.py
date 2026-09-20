@@ -33,7 +33,12 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
-from ..backend._namespaces import under_jax_trace, under_trace
+from ..backend._namespaces import (
+    requires_backend_grad,
+    stop_gradient,
+    under_jax_trace,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
@@ -105,10 +110,19 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     xp = get_namespace()  # context/forced default only (inputs are scalars)
     if xp is numpy:
         phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+        is_divergent = not numpy.isfinite(phi_at_zero)
     else:
         # coerce coords: undecorated potential evals reject scalars (torch)
-        phi_at_zero = as_numpy(_evaluatePotentials(pot, xp.asarray(0.0), 0))
-    is_divergent = not numpy.isfinite(phi_at_zero)
+        phi_at_zero = _evaluatePotentials(pot, xp.asarray(0.0), 0)
+        # bool(), not as_numpy(): this is only a divergence TEST. A
+        # DIFFERENTIATED Phi(0) cannot be converted to numpy at all -- that is
+        # what blocked building any spherical DF inside jax.grad/torch autograd
+        # w.r.t. a potential parameter -- while bool() reads the concrete primal
+        # that both carry. Inside jit there is no primal; pass rmin explicitly
+        # there, as the note above says.
+        is_divergent = not bool(
+            (xp if is_backend_array(phi_at_zero) else numpy).isfinite(phi_at_zero)
+        )
 
     # Check all potentials for known problematic types
     for p in denspot:
@@ -291,8 +305,14 @@ class _RphiRootFind:
         def f(r, Ev):
             return _evaluatePotentials(self._pot, r, 0) - Ev
 
-        lo = xp.full(E.shape, self._r_lo) if E.ndim else xp.asarray(self._r_lo)
-        hi = xp.full(E.shape, self._r_hi) if E.ndim else xp.asarray(self._r_hi)
+        # broadcast rather than xp.full: the bracket is r_a_min/max * scale, so
+        # a DIFFERENTIATED scale makes it a backend array, and full() wants a
+        # scalar fill (torch raises). Adding zeros also keeps the gradient that
+        # flows through the bracket itself.
+        lo, hi = xp.asarray(self._r_lo), xp.asarray(self._r_hi)
+        if E.ndim:
+            _z = xp.zeros(E.shape, dtype=lo.dtype)
+            lo, hi = lo + _z, hi + _z
         return brentq(f, lo, hi, args=(E,))
 
 
@@ -1071,12 +1091,21 @@ class sphericaldf(df):
                 )
             )
         # coerce coords: undecorated potential evals reject numpy/scalars (torch)
+        phi_max = _evaluatePotentials(
+            self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0
+        )
+        if not numpy.isfinite(self._rmax):
+            # Phi(inf) is the zero point of a potential that vanishes at
+            # infinity, so its derivative w.r.t. any potential parameter is
+            # EXACTLY 0 -- but evaluating that limit numerically at r=inf gives
+            # nan (an inf-inf), which then poisons the whole backward pass and
+            # is what made sigmar/sigmat/vmomentdensity/beta return nan.
+            # stop_gradient restores the correct derivative, it does not
+            # approximate one. A FINITE rmax (King's tidal radius) keeps its
+            # gradient, which is why this is gated on isfinite.
+            phi_max = stop_gradient(phi_max)
         return xp.sqrt(
-            2.0
-            * (
-                _evaluatePotentials(self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0)
-                - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0)
-            )
+            2.0 * (phi_max - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
         )
 
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
@@ -1291,9 +1320,15 @@ class sphericaldf(df):
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
         xp = get_namespace()  # context/forced default only (the grid is numpy)
-        if xp is not numpy and under_trace(
+        _probe = (
             _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
-        ):
+            if xp is not numpy
+            else None
+        )
+        # under_trace alone misses EAGER torch autograd (there is no trace behind
+        # it), so a torch-differentiated potential fell through to the grid path
+        # below and died on ndarray * Tensor
+        if xp is not numpy and (under_trace(_probe) or requires_backend_grad(_probe)):
             # A TRACED potential cannot build this grid at all: the r=0 test is a
             # branch on a traced value, the monotonicity cleanup DELETES entries
             # (a data-dependent array size), and the spline's knots would be the
