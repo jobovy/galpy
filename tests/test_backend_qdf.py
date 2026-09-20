@@ -549,3 +549,44 @@ def test_qdf_call_grad_wrt_sigmar_vs_finite_difference(backend):
 def test_qdf_numpy_lnsr_byte_identical():
     q = _qdf_with_sr(_QDF_SR)
     assert numpy.asarray(q._lnsr).tobytes() == numpy.log(_QDF_SR).tobytes()
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_qdf_call_grad_wrt_hr_vs_finite_difference(backend):
+    # d/d(hr) specifically: hr sets the extent of the rg(Lz) precompute table
+    # (5*hr), so a differentiated hr made that bound traced -- and the bound has
+    # to be a concrete Python scalar, so jax raised ConcretizationTypeError.
+    # The table is a pure optimization, so it is skipped while hr carries a
+    # gradient and _rg root-finds with potential.rl instead.
+    hr0 = 1.0 / 3.0
+
+    def val(hr, bk):
+        with galpy.backend.use(bk, force=True):
+            aA = actionAngleStaeckel(pot=MWPotential, c=True, delta=0.5)
+            q = quasiisothermaldf(
+                hr, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aA, cutcounter=True
+            )
+            return q(*_QDF_COORDS, use_physical=False).sum()
+
+    h = 1e-6
+    fd = (float(val(hr0 + h, "numpy")) - float(val(hr0 - h, "numpy"))) / (2.0 * h)
+    if backend == "jax":
+        ad = float(jax.grad(lambda t: val(t, "jax"))(jnp.asarray(hr0)))
+    else:
+        t = torch.tensor(hr0, dtype=torch.float64, requires_grad=True)
+        val(t, "torch").backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad), "gradient must not be nan/inf"
+    assert abs(ad) > 0.0, "gradient is identically zero (detached?)"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-10)
+
+
+def test_qdf_precompute_table_kept_when_not_differentiated():
+    # the skip above must NOT fire for an ordinary build: the table is the fast
+    # path and dropping it silently would be a performance regression
+    aA = actionAngleStaeckel(pot=MWPotential, c=True, delta=0.5)
+    q = quasiisothermaldf(
+        1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aA, cutcounter=True
+    )
+    assert q._precomputerg is True
+    assert q._rgInterp is not None and q._rgInterpBackend is not None
