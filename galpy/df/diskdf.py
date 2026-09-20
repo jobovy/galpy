@@ -30,6 +30,7 @@ from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
 from ..backend import as_numpy, get_namespace, is_backend_array, use
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
@@ -475,10 +476,23 @@ class diskdf(df):
     #     every call. Pin numpy for the duration instead. The profile stays
     #     island-free: it is the CONSUMER choosing numpy for its own numpy-only
     #     quadrature, not the leaf dispatching on dtype.
+    def _profile_differentiated(self):
+        """True when the surfaceSigmaProfile's parameters carry a gradient.
+
+        These paths dispatch on R, but a DIFFERENTIATED profile parameter makes
+        the result traced whatever R is (surfacemass is exp(-R/params[0])). With
+        a plain float R the numpy branch would then run numpy ufuncs on a tracer:
+        d/d(hr) raised on jax and DETACHED to a silent 0 on torch.
+        """
+        return any(
+            under_trace(p) or requires_backend_grad(p)
+            for p in getattr(self._surfaceSigmaProfile, "_params", ())
+        )
+
     def _ssp(self, name, R, **kwargs):
         ssp = self._surfaceSigmaProfile
         bound = getattr(ssp, name)
-        if is_backend_array(R):
+        if is_backend_array(R) or self._profile_differentiated():
             return bound(R, **kwargs)
         if get_namespace(R) is numpy:
             inner = getattr(bound, "__wrapped__", None)
@@ -849,7 +863,9 @@ class diskdf(df):
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if is_backend_array(R) and not self._correct:
+        if (
+            is_backend_array(R) or self._profile_differentiated()
+        ) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
@@ -947,7 +963,9 @@ class diskdf(df):
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if is_backend_array(R) and not self._correct:
+        if (
+            is_backend_array(R) or self._profile_differentiated()
+        ) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
@@ -1078,7 +1096,9 @@ class diskdf(df):
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if is_backend_array(R) and not self._correct:
+        if (
+            is_backend_array(R) or self._profile_differentiated()
+        ) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
