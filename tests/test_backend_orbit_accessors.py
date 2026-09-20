@@ -729,10 +729,20 @@ _PGRAD_IC = [1.0, 0.12, 1.08, 0.06, 0.09, 0.3]
 _PGRAD_ACCESSORS = ["rguiding", "rE", "LcE", "rperi", "rap", "zmax", "e"]
 
 
-def _accessor_of_b(name, b, cast):
-    from galpy.potential import PlummerPotential as _PP
+def _accessor_of_b(name, b, cast, potkind="axi"):
+    # Both potential classes, because they take DIFFERENT routes through
+    # _setupaA: for a spherical potential estimateDeltaStaeckel returns the
+    # degenerate 1e-6 and it falls back to type="spherical", so only an
+    # axisymmetric one reaches the automagic-delta Staeckel path (and its
+    # functional clip) that these tests exist for.
+    if potkind == "sph":
+        from galpy.potential import PlummerPotential as _PP
 
-    pot = _PP(amp=1.0, b=b)
+        pot = _PP(amp=1.0, b=b)
+    else:
+        from galpy.potential import MiyamotoNagaiPotential as _MN
+
+        pot = _MN(amp=1.0, a=b, b=0.3)
     o = Orbit(cast(_PGRAD_IC))
     kw = dict(pot=pot, use_physical=False)
     if name in ("rperi", "rap", "zmax", "e"):
@@ -743,18 +753,21 @@ def _accessor_of_b(name, b, cast):
 
 
 @pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
+@pytest.mark.parametrize("potkind", ["sph", "axi"])
 @pytest.mark.parametrize("name", _PGRAD_ACCESSORS)
-def test_accessor_grad_wrt_potential_parameter(name):
+def test_accessor_grad_wrt_potential_parameter(name, potkind):
     h = 1e-6 * _PGRAD_B0
     fd = (
-        float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 + h, numpy.array)))
-        - float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 - h, numpy.array)))
+        float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 + h, numpy.array, potkind)))
+        - float(
+            numpy.asarray(_accessor_of_b(name, _PGRAD_B0 - h, numpy.array, potkind))
+        )
     ) / (2.0 * h)
     assert abs(fd) > 1e-6, "finite difference is ~0: the test would prove nothing"
     if HAVE_JAX:
         with use("jax", force=True):
             ad = float(
-                jax.grad(lambda t: _accessor_of_b(name, t, jnp.asarray))(
+                jax.grad(lambda t: _accessor_of_b(name, t, jnp.asarray, potkind))(
                     jnp.asarray(_PGRAD_B0)
                 )
             )
@@ -765,7 +778,10 @@ def test_accessor_grad_wrt_potential_parameter(name):
         with use("torch", force=True):
             t = torch.tensor(_PGRAD_B0, dtype=torch.float64, requires_grad=True)
             _accessor_of_b(
-                name, t, lambda v: torch.as_tensor(numpy.asarray(v, dtype=float))
+                name,
+                t,
+                lambda v: torch.as_tensor(numpy.asarray(v, dtype=float)),
+                potkind,
             ).backward()
             ad_t = float(t.grad)
         assert numpy.isfinite(ad_t), (name, ad_t)

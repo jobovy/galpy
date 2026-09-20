@@ -3659,11 +3659,6 @@ def _pot_grad_namespace(Pot, _depth=0):
     if _depth > 2:  # pragma: no cover - deeper nesting than any galpy wrapper
         return None
     for p in Pot if isinstance(Pot, (list, tuple)) else [Pot]:
-        if isinstance(p, (list, tuple)):
-            sub = _pot_grad_namespace(p, _depth + 1)
-            if sub is not None:
-                return sub
-            continue
         for v in getattr(p, "__dict__", {}).values():
             try:
                 if under_trace(v) or requires_backend_grad(v):
