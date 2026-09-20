@@ -1727,6 +1727,29 @@ def test_actionAngleSpherical_small_orbits():
                     r
                 )
             )
+    # nearly radial: the azimuthal frequency's quadrature must converge (it
+    # was capped short of convergence once), and the pericentre of a tiny
+    # angular momentum must be found rather than replaced by the centre; in
+    # a harmonic potential every orbit has (Omega_r, Omega_phi) = (2, 1)
+    from galpy.potential import PowerSphericalPotential
+
+    ipn = IsochronePotential(normalize=1.0, b=1.2)
+    aASn = actionAngleSpherical(pot=ipn)
+    aAIn = actionAngleIsochrone(ip=ipn)
+    args = (1e-3, 0.0, 3e-4 * vcirc(ipn, 1e-3, use_physical=False), 0.0, 0.0)
+    assert (
+        numpy.fabs(
+            aASn.actionsFreqs(*args)[4][0] / aAIn.actionsFreqs(*args)[4][0] - 1.0
+        )
+        < 1e-7
+    ), "Omega_phi of a small nearly radial isochrone orbit has not converged"
+    hp = PowerSphericalPotential(alpha=0.0, normalize=1.0)
+    fh = actionAngleSpherical(pot=hp).actionsFreqs(1e-6, 0.0, 1e-12, 0.0, 0.0)
+    assert (
+        numpy.fabs(fh[3][0] / 2.0 - 1.0) < 1e-7
+        and numpy.fabs(fh[4][0] - 1.0) < 1e-7
+        and numpy.fabs(fh[5][0] - 1.0) < 1e-7
+    ), "The frequencies of a tiny nearly radial harmonic orbit are not (2, 1, 1)"
     # a small Kepler orbit near apocentre: J_r = sqrt(GM / -2E) - L
     kp = KeplerPotential(amp=1.0)
     aAK = actionAngleSpherical(pot=kp)
@@ -1818,36 +1841,20 @@ def test_actionAngleSpherical_radial():
         assert numpy.fabs(Or - Or_true) < 1e-8, (
             "actionAngleSpherical Omega_r of a radial isochrone orbit is off"
         )
-    # the angles of a radial orbit, at a point inside its mean radius and at
-    # one outside: finite, with the radial angle advancing from the
-    # pericentre (the centre, where the azimuthal integral has nothing to
-    # sweep) to the apocentre
+    # the angles of a radial orbit at the same radius on the way out and on
+    # the way in: finite, and symmetric about the apocentre (the radial
+    # angle advances from the pericentre, the centre, where the azimuthal
+    # integral has nothing to sweep)
     vr = 0.9 * numpy.sqrt(-2.0 * ip(0.1, 0.0))
-    fin = aAS.actionsFreqsAngles(0.1, vr, 0.0, 0.0, 0.0, 0.7)
-    fout = aAS.actionsFreqsAngles(0.1, -vr, 0.0, 0.0, 0.0, 0.7)
-    assert numpy.isfinite(fin[6][0]) and numpy.isfinite(fout[6][0]), (
+    fout = aAS.actionsFreqsAngles(0.1, vr, 0.0, 0.0, 0.0, 0.7)
+    fin = aAS.actionsFreqsAngles(0.1, -vr, 0.0, 0.0, 0.0, 0.7)
+    assert numpy.isfinite(fout[6][0]) and numpy.isfinite(fin[6][0]), (
         "actionAngleSpherical radial angle of a radial orbit is not finite"
     )
-    assert 0.0 < fin[6][0] < numpy.pi < fout[6][0] < 2.0 * numpy.pi, (
+    assert 0.0 < fout[6][0] < numpy.pi < fin[6][0] < 2.0 * numpy.pi, (
         "actionAngleSpherical radial angle of a radial orbit is not on the right side of the apocentre"
     )
-    assert numpy.fabs(fin[6][0] + fout[6][0] - 2.0 * numpy.pi) < 1e-10, (
-        "actionAngleSpherical radial angles of a radial orbit are not symmetric about the apocentre"
-    )
-    # the angles of a radial orbit, at a point inside its mean radius and at
-    # one outside: finite, with the radial angle advancing from the
-    # pericentre (the centre, where the azimuthal integral has nothing to
-    # sweep) to the apocentre
-    vr = 0.9 * numpy.sqrt(-2.0 * ip(0.1, 0.0))
-    fin = aAS.actionsFreqsAngles(0.1, vr, 0.0, 0.0, 0.0, 0.7)
-    fout = aAS.actionsFreqsAngles(0.1, -vr, 0.0, 0.0, 0.0, 0.7)
-    assert numpy.isfinite(fin[6][0]) and numpy.isfinite(fout[6][0]), (
-        "actionAngleSpherical radial angle of a radial orbit is not finite"
-    )
-    assert 0.0 < fin[6][0] < numpy.pi < fout[6][0] < 2.0 * numpy.pi, (
-        "actionAngleSpherical radial angle of a radial orbit is not on the right side of the apocentre"
-    )
-    assert numpy.fabs(fin[6][0] + fout[6][0] - 2.0 * numpy.pi) < 1e-10, (
+    assert numpy.fabs(fout[6][0] + fin[6][0] - 2.0 * numpy.pi) < 1e-10, (
         "actionAngleSpherical radial angles of a radial orbit are not symmetric about the apocentre"
     )
     # at apocentre, the pericentre is the centre
