@@ -327,3 +327,72 @@ def test_general_sample_forced_construction(backend):
     for g, r in zip(got, ref):
         assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
         numpy.testing.assert_allclose(g, r, rtol=1e-6, atol=1e-8)
+
+
+# --- fQ-support ceiling + outer panel split (dM/dE) --------------------------
+# _DFN's ra=2.3 is wide enough that the fQ-support ceiling never bites; this
+# narrower one puts it INSIDE the radial range (Lmax(r) > Lsupp for r in roughly
+# [1.79, 4.65] at E=-0.6), which is what exercises the panel split.
+_NFW_A0 = 1.3
+_DMDE_E = -0.6
+# Gold values, and why they are pinned rather than compared to numpy in-test:
+# the numpy nested adaptive quad takes MINUTES for the NFW variant. The backend
+# quadrature is converged to ~1e-14 here (stable from n=60 to n=400, and
+# reproduced by the same paneled+cosine-mapped scheme written independently in
+# pure numpy); galpy's own numpy path gives 4.1670824294, 1.0e-7 below, which is
+# that path's own default-tolerance error. A numpy central difference of it
+# gives -0.72173 at h=1e-3, 1e-3 from the gradient below -- the FD's own error.
+_DMDE_GOLD = 4.16708285585
+_DMDE_DA_GOLD = -0.72104498
+
+
+def _nfw_dMdE(a, cast, backend):
+    with galpy.backend.use(backend, force=True):
+        df = osipkovmerrittNFWdf(pot=NFWPotential(amp=2.0, a=a), ra=1.4)
+        return df.dMdE(cast([_DMDE_E]), use_physical=False).reshape(-1)[0]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dMdE_nfw_support_ceiling(backend):
+    # NFW's fQ is TRUNCATED at rmax -- it jumps to zero rather than tapering --
+    # so dM/dE must integrate L only over the support and split the outer
+    # integral where Lmax(r) crosses the support edge. Carrying the integration
+    # out to the Q=0 boundary instead puts that jump inside the range and the
+    # corner inside a panel, which costs four digits (3.9e-05 -> 2.0e-08).
+    got = _nfw_dMdE(_NFW_A0, lambda v: _arr(backend, numpy.array(v)), backend)
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), _DMDE_GOLD, rtol=1e-8)
+
+
+@pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dMdE_nfw_grad_wrt_potential_parameter(backend):
+    # d(dM/dE)/d(NFW scale radius). The value alone cannot catch the bug this
+    # guards: before the split the quadrature error OSCILLATED with a, so the
+    # value still looked right to four digits while the gradient came back
+    # +19.6 -- wrong sign and 27x too large. So check the gradient against its
+    # gold value AND against a finite difference of the backend itself, which
+    # only agrees if the discretisation is smooth in a.
+    if backend == "jax":
+        ad = float(
+            jax.grad(lambda t: _nfw_dMdE(t, jnp.asarray, "jax"))(jnp.asarray(_NFW_A0))
+        )
+    else:
+        t = torch.tensor(_NFW_A0, dtype=torch.float64, requires_grad=True)
+        _nfw_dMdE(
+            t, lambda v: torch.as_tensor(numpy.asarray(v, dtype=float)), "torch"
+        ).backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad), "gradient must not be nan/inf"
+    numpy.testing.assert_allclose(ad, _DMDE_DA_GOLD, rtol=1e-5)
+    h = 1e-2 * _NFW_A0
+    cast = (
+        jnp.asarray
+        if backend == "jax"
+        else (lambda v: torch.as_tensor(numpy.asarray(v, dtype=float)))
+    )
+    fd = (
+        float(as_numpy(_nfw_dMdE(_NFW_A0 + h, cast, backend)))
+        - float(as_numpy(_nfw_dMdE(_NFW_A0 - h, cast, backend)))
+    ) / (2.0 * h)
+    numpy.testing.assert_allclose(ad, fd, rtol=2e-3)

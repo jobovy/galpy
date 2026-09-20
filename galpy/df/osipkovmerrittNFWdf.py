@@ -69,6 +69,9 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
         _osipkovmerrittdf.__init__(self, pot=pot, ra=ra, rmax=rmax, ro=ro, vo=vo)
         self._Qtildemax = pot._amp / pot.a
         self._Qtildemin = -pot(self._rmax, 0, use_physical=False) / self._Qtildemax
+        # fQ jumps to zero (it does not taper) at the rmax truncation, so tell
+        # _dMdE where the support starts; see _osipkovmerrittdf.__init__.
+        self._Qsupportmin = self._Qtildemin * self._Qtildemax
         self._a2overra2 = self._pot.a**2.0 / self._ra2
         self._fQnorm = self._a2overra2 / (4.0 * numpy.pi) / pot.a**1.5 / pot._amp**0.5
         # Initialize isotropic version to use as part of fQ
