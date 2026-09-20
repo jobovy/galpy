@@ -16,6 +16,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, use
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -149,6 +150,16 @@ class quasiisothermaldf(df):
                 )
         self._check_consistent_units()
         self._cutcounter = cutcounter
+        # The rg(Lz) interpolation table is a pure OPTIMIZATION whose extent is
+        # 5*hr, so a DIFFERENTIATED hr makes that bound traced -- and the bound
+        # has to be a concrete Python scalar (see the float() below, and the
+        # numpy _rg branch's `lz > self._precomputergLzmax`). A grid extent is a
+        # discretization choice carrying no gradient, but it cannot be
+        # concretized under a trace either, so skip the table entirely: _rg then
+        # root-finds with potential.rl, which IS differentiable. Only the speed
+        # changes, and only while differentiating w.r.t. hr.
+        if _precomputerg and (under_trace(self._hr) or requires_backend_grad(self._hr)):
+            _precomputerg = False
         if _precomputerg:
             if _precomputergrmax is None:
                 _precomputergrmax = 5 * self._hr
