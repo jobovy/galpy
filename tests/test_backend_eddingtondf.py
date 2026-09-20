@@ -251,3 +251,54 @@ def test_sample_powerspherical_mass_array_fallback(backend):
         got = eddingtondf(pot=pot, rmax=5.0).sample(n=50, rmin=0.1, return_orbit=False)
     assert not _is_backend_array(backend, got[0])
     assert len(got[0]) == 50 and numpy.all(numpy.isfinite(got[0]))
+
+
+# --------------------------------------------------------------------------
+# d/d(potential parameter) through the DF construction.
+#
+# Building any spherical DF from a DIFFERENTIATED potential used to be blocked
+# four times over, each a discrete test or a scalar-fill that cannot take a
+# traced value:
+#   1. _handle_rmin read a concrete Phi(0) (as_numpy) just to test divergence;
+#   2. eddingtondf's _rInf did the same with numpy.isfinite to pick inf vs 1e12;
+#   3. the _RphiRootFind guard tested under_trace ALONE, so eager torch autograd
+#      fell through to the grid path and died on ndarray * Tensor; and
+#   4. that root-find's bracket used xp.full(shape, r_lo), and r_lo is
+#      r_a_min * scale -- a backend array once scale is differentiated, which
+#      torch's full() rejects.
+# Only (1) and (2) affect jax; (3) and (4) are torch-only, which is why this is
+# parametrized over both rather than jax alone.
+# --------------------------------------------------------------------------
+_PGRAD_A0 = 1.3
+
+
+def _edd_fE(a, cast, backend):
+    from galpy.potential import HernquistPotential
+
+    with galpy.backend.use(backend, force=True):
+        df = eddingtondf(pot=HernquistPotential(amp=2.0, a=a))
+        return df.fE(cast([-0.6]))[0]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eddingtondf_fE_grad_wrt_potential_parameter(backend):
+    h = 1e-5 * _PGRAD_A0
+    fd = (
+        float(_edd_fE(_PGRAD_A0 + h, numpy.array, "numpy"))
+        - float(_edd_fE(_PGRAD_A0 - h, numpy.array, "numpy"))
+    ) / (2.0 * h)
+    if backend == "jax":
+        ad = float(
+            jax.grad(lambda t: _edd_fE(t, jnp.asarray, "jax"))(jnp.asarray(_PGRAD_A0))
+        )
+    else:
+        t = torch.tensor(_PGRAD_A0, dtype=torch.float64, requires_grad=True)
+        _edd_fE(
+            t, lambda v: torch.as_tensor(numpy.asarray(v, dtype=float)), "torch"
+        ).backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad), "gradient must not be nan/inf"
+    assert abs(ad) > 0.0, "gradient is identically zero (detached?)"
+    # the DF construction runs a quadrature and a root-find, so this is not a
+    # 1e-12 identity; 1e-5 still leaves ~400x margin on the observed ~2.3e-08
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-12)
