@@ -26,6 +26,7 @@ from ..backend import (
     match_input_dtype,
 )
 from ..backend import use as _use_backend
+from ..backend.interpolate import eval_ppoly
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -398,12 +399,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             )
         N, L, M = self._coeff_shape
         tb = asarray_on_device(xp, t, dev)
-        acos_flat = _interp_ppoly_vec(
-            xp, self._Acos_interp.x, self._Acos_interp.c, tb, dev
-        )
-        asin_flat = _interp_ppoly_vec(
-            xp, self._Asin_interp.x, self._Asin_interp.c, tb, dev
-        )
+        # the shared eval_ppoly already broadcasts a trailing coefficient axis
+        # (cb.ndim == 3), which is all the removed local clone added; it also
+        # does the one-gather+unstack the clone did not.
+        acos_flat = eval_ppoly(xp, self._Acos_interp.x, self._Acos_interp.c, tb)
+        asin_flat = eval_ppoly(xp, self._Asin_interp.x, self._Asin_interp.c, tb)
         shape = (N, L, M) if getattr(tb, "ndim", 0) == 0 else (tb.shape[0], N, L, M)
         return xp.reshape(acos_flat, shape), xp.reshape(asin_flat, shape)
 
@@ -1645,34 +1645,6 @@ def _phiTilde_basis(r, N, L, a):
             * (4 * numpy.pi) ** 0.5
         )
     return phi
-
-
-def _interp_ppoly_vec(xp, x, c, t, dev):
-    """Evaluate a scipy ``PPoly``/``CubicSpline`` with a trailing coefficient axis
-    at ``t`` through the namespace ``xp``, differentiably in ``t``.
-
-    ``x`` are the knots (shape ``(Nt,)``) and ``c`` the power-basis coefficients
-    (shape ``(k+1, Nt-1, ncoeff)``, descending degree, exactly ``CubicSpline.c``):
-    on ``x[i] <= t < x[i+1]`` the value is ``sum_j c[j, i] * (t - x[i])**(k-j)``.
-    A ``searchsorted`` interval lookup plus Horner over the (static) polynomial
-    degree; the interval index is clamped to ``[0, Nt-2]`` so a ``t`` outside the
-    grid evaluates the edge polynomial (finite extrapolation, matching scipy's
-    default ``extrapolate=True`` and byte-for-byte-equivalent to the numpy path to
-    ~1 ulp). This mirrors ``galpy.backend.interpolate.eval_ppoly`` but broadcasts
-    the ``(t - x)`` Horner factor against the extra trailing ``ncoeff`` axis so a
-    ``(P,)`` time array yields ``(P, ncoeff)`` (each point its own time). Returns
-    ``(ncoeff,)`` for a scalar ``t`` or ``(P, ncoeff)`` for a ``(P,)`` array ``t``.
-    """
-    xb = asarray_on_device(xp, numpy.asarray(x), dev)
-    cb = asarray_on_device(xp, numpy.asarray(c), dev)
-    idx = xp.clip(xp.searchsorted(xb, t, side="right") - 1, 0, cb.shape[1] - 1)
-    dt = t - xb[idx]
-    if getattr(t, "ndim", 0) != 0:
-        dt = dt[:, None]  # (P, 1): broadcast Horner over the trailing coeff axis
-    out = cb[0, idx]
-    for j in range(1, cb.shape[0]):
-        out = out * dt + cb[j, idx]
-    return out
 
 
 def _xiToR(xi, a=1):
