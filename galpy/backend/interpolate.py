@@ -1455,6 +1455,16 @@ class Spline2D:
         self._spl = spl
         self._xbr, self._ybr, self._c = rect_bivariate_to_ppoly(spl)
 
+    def ev(self, X, Y):
+        """Point-by-point evaluation, the ``RectBivariateSpline.ev`` spelling.
+
+        Kept as an alias so a caller holding EITHER a scipy
+        ``RectBivariateSpline`` or a ``Spline2D`` can write ``.ev`` and get
+        pointwise evaluation from both -- scipy's ``__call__`` defaults to
+        ``grid=True``, so the bare call is NOT interchangeable between them.
+        """
+        return self(X, Y, grid=False)
+
     def __call__(self, X, Y, grid=False):
         """Evaluate the bivariate spline at ``(X, Y)``.
 
