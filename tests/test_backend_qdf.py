@@ -590,3 +590,100 @@ def test_qdf_precompute_table_kept_when_not_differentiated():
     )
     assert q._precomputerg is True
     assert q._rgInterp is not None and q._rgInterpBackend is not None
+
+
+# ---------------------------------------------------------------------------
+# d/d(POTENTIAL PARAMETER) through the velocity moments and pv*
+#
+# Distinct from the d/d(orbit) tests above, and the reason the gap existed: the
+# rg(Lz) table's extent is float(rmax * vcirc(pot, rmax)), so it is the
+# POTENTIAL -- not just hr -- that can make it untraceable. __init__ guarded on
+# hr alone, so every moment and pv* of a qdf built on a differentiated
+# potential raised ConcretizationTypeError.
+#
+# Both arms use _precomputerg=False so they run the SAME code path: with the
+# guard active the traced arm root-finds, and a numpy arm still interpolating
+# the table is a different function (~1e-2 apart, which is not a gradient bug).
+# ---------------------------------------------------------------------------
+_PGRAD_MN_A = 0.6
+
+
+def _qdf_of_a(a, name, cast):
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=a, b=0.3)
+    aA = actionAngleAdiabatic(pot=pot, c=False)
+    q = quasiisothermaldf(
+        1.0 / 3.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=pot,
+        aA=aA,
+        cutcounter=True,
+        _precomputerg=False,
+    )
+    if name == "meanvT":
+        return q.meanvT(cast(1.1), cast(0.1), gl=True)
+    if name == "sigmaR2":
+        return q.sigmaR2(cast(1.1), cast(0.1), gl=True)
+    if name == "pvT":
+        return q.pvT(cast(0.9), cast(1.1), cast(0.1))
+    raise AssertionError(name)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("name", ["meanvT", "sigmaR2", "pvT"])
+def test_moment_grad_wrt_potential_parameter(name):
+    h = 1e-5
+
+    def npval(a):
+        return float(
+            numpy.atleast_1d(numpy.asarray(_qdf_of_a(a, name, numpy.array))).reshape(
+                -1
+            )[0]
+        )
+
+    fd = (npval(_PGRAD_MN_A + h) - npval(_PGRAD_MN_A - h)) / (2.0 * h)
+    assert abs(fd) > 1e-6, "finite difference is ~0: the test would prove nothing"
+    with galpy.backend.use("jax", force=True):
+        ad = float(
+            jax.grad(
+                lambda t: jnp.sum(
+                    jnp.asarray(_qdf_of_a(t, name, jnp.asarray)).reshape(-1)
+                )
+            )(jnp.asarray(_PGRAD_MN_A))
+        )
+    assert numpy.isfinite(ad), (name, ad)
+    assert ad != 0.0, (name, "gradient is identically zero (detached?)")
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-10)
+
+
+def test_rg_no_precompute_numpy_array():
+    # _precomputerg=False leaves _rgInterp None and sets the bounds INVERTED, so
+    # the array branch's indx is all-True and indxc all-False -- it still called
+    # _rgInterp(empty), i.e. None(...), which raises. The scalar branch was fine
+    # (the inverted bounds route it to rl), so only arrays were affected.
+    from galpy.potential import rl
+
+    q0 = quasiisothermaldf(
+        1.0 / 4.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=_aAS,
+        cutcounter=True,
+        _precomputerg=False,
+    )
+    lzs = numpy.array([0.4, 0.8, 1.1])
+    got = numpy.asarray(q0._rg(lzs))
+    exp = numpy.array([rl(MWPotential, l, use_physical=False) for l in lzs])
+    numpy.testing.assert_allclose(got, exp, rtol=1e-12, atol=1e-12)
+    # the scalar branch keeps working and agrees with the array one
+    numpy.testing.assert_allclose(
+        float(numpy.atleast_1d(q0._rg(0.8))[0]), float(got[1]), rtol=1e-12
+    )
