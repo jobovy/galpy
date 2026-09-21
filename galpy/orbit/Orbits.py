@@ -7438,16 +7438,16 @@ class Orbit:
         out = numpy.empty((self.phasedim(), nt_q, self.size))
         for kk in range(self.size):
             tk = t_arr[kk]
+            vals = self._orbInterp[kk](tk)  # (nt_q, phasedim), one call
             if self.phasedim() == 4 or self.phasedim() == 6:
-                x_vals = self._orbInterp[0][kk](tk)
-                y_vals = self._orbInterp[-1][kk](tk)
+                x_vals, y_vals = vals[:, 0], vals[:, -1]
                 out[0, :, kk] = numpy.sqrt(x_vals * x_vals + y_vals * y_vals)
                 out[-1, :, kk] = numpy.arctan2(y_vals, x_vals)
                 for ii in range(1, self.phasedim() - 1):
-                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+                    out[ii, :, kk] = vals[:, ii]
             else:
                 for ii in range(self.phasedim()):
-                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+                    out[ii, :, kk] = vals[:, ii]
         if not has_time_axis:
             return out[:, 0]
         return out
@@ -7695,6 +7695,8 @@ class Orbit:
         return out  # (phasedim, nt_query, size)
 
     def _setupOrbitInterp(self):
+        from ..backend.interpolate import Spline1D
+
         if hasattr(self, "_orbInterp"):
             return None
         # Per-orbit integration grids: build a list of phasedim entries, each a
@@ -7702,7 +7704,7 @@ class Orbit:
         # NaN padding (bruteSOS uses this when orbits have unequal numbers of
         # crossings) — drop those entries before fitting the spline.
         if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
-            orbInterp = [[None] * self.size for _ in range(self.phasedim())]
+            orbInterp = [None] * self.size
             for kk in range(self.size):
                 tk = numpy.asarray(self.t[kk])
                 ok = self.orbit[kk]
@@ -7716,18 +7718,26 @@ class Orbit:
                     sindx = numpy.argsort(tk)
                     tk = tk[sindx]
                     ok = ok[sindx]
+                # every phasedim of THIS orbit shares tk, so fit them as one
+                # vector-valued spline rather than phasedim separate ones: one
+                # object per orbit instead of size*phasedim, and one evaluation
+                # per orbit below instead of phasedim of them. The columns keep
+                # the same order and the same per-column scipy fit.
+                cols = []
                 for ii in range(self.phasedim()):
                     if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
-                        ys = ok[:, 0] * numpy.cos(ok[:, -1])
+                        cols.append(ok[:, 0] * numpy.cos(ok[:, -1]))
                     elif (
                         self.phasedim() == 4 or self.phasedim() == 6
                     ) and ii == self.phasedim() - 1:
-                        ys = ok[:, 0] * numpy.sin(ok[:, -1])
+                        cols.append(ok[:, 0] * numpy.sin(ok[:, -1]))
                     else:
-                        ys = ok[:, ii]
-                    orbInterp[ii][kk] = interpolate.InterpolatedUnivariateSpline(
-                        tk, ys, k=3 if tk.size > 3 else max(1, tk.size - 1)
-                    )
+                        cols.append(ok[:, ii])
+                orbInterp[kk] = Spline1D(
+                    tk,
+                    numpy.column_stack(cols),
+                    k=3 if tk.size > 3 else max(1, tk.size - 1),
+                )
             self._orbInterp = orbInterp
             self._orb_indx_4orbInterp = numpy.arange(self.size)
             return None
