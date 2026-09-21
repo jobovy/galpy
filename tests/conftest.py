@@ -336,11 +336,103 @@ def pytest_addoption(parser):
     )
 
 
+# --- traced-share accounting for --jit --------------------------------------
+# A --jit run can pass while every galpy entry point falls back to eager:
+# traced_call returns NOT_TRACED when the mode is off, a trace is already
+# active, or the caller's namespace is not the trace mode's. Nothing about that
+# shows up in pass counts -- the suite would be green, the shards would run the
+# same tests, and the traced half of the matrix would be validating nothing.
+# Measured on tests/test_sphericaldf.py --backend jax --jit: 49868 boundary
+# calls, 49393 traced, 475 NOT_TRACED = 99.0% traced. The floor below is set far
+# under that: it is there to catch a collapse to ~0, not to police the exact
+# share, which legitimately varies by shard (a file that never leaves numpy can
+# sit low without anything being wrong).
+_JIT_MIN_TRACED_SHARE = 0.25
+_JITCOV = {"traced": 0, "not_traced": 0}
+
+
+def _install_jit_counter():
+    import galpy.backend._jit as _J
+
+    orig = _J.traced_call
+
+    def counting(method, args, kwargs, slots, nargs, xp=None):
+        out = orig(method, args, kwargs, slots, nargs, xp=xp)
+        _JITCOV["not_traced" if out is _J.NOT_TRACED else "traced"] += 1
+        return out
+
+    _J.traced_call = counting
+    for mod in list(sys.modules.values()):
+        if getattr(mod, "traced_call", None) is orig:
+            mod.traced_call = counting
+
+
 def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "backend_managed: test manages its own array backend; exempt from --backend",
     )
+
+
+def pytest_collection_finish(session):
+    # Install the counter HERE, not in pytest_configure. _install_jit_counter
+    # imports galpy, and pytest_configure runs BEFORE any test module is
+    # imported -- so importing galpy there locks in the DEFAULT
+    # astropy-units=False before tests/test_quantity.py's module-level
+    # config.__config__.set(...) can turn it on. conversion.py binds
+    # `_APY_UNITS` as an import-time copy, so the late config change never
+    # reaches it and every physical_conversion silently returns a bare array
+    # instead of a Quantity: 104 jax-jit test_quantity failures, scattered, with
+    # correct VALUES and no units. Collection is when test modules are imported,
+    # so by collection_finish the config is set and no test has run yet (and
+    # more modules are loaded, making the traced_call re-patch loop MORE
+    # complete than it was at configure time).
+    config = session.config
+    if config.getoption("--jit") and config.getoption("--backend") != "numpy":
+        _install_jit_counter()
+
+
+def _record_jitcov_property(config, traced, not_traced, share):
+    """Write the traced share into the junit xml as a testsuite property."""
+    xml = getattr(config, "_store", None) and config.pluginmanager.get_plugin(
+        "junitxml"
+    )
+    xml = getattr(config, "_xml", None) or xml
+    if xml is None:  # no --junitxml on this run (local use): terminal line only
+        return
+    try:
+        xml.add_global_property("jitcov_traced", str(traced))
+        xml.add_global_property("jitcov_not_traced", str(not_traced))
+        xml.add_global_property("jitcov_traced_share", f"{share:.6f}")
+    except Exception:  # pragma: no cover - junit plugin shape changed
+        pass
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Report, and floor, the share of entry-point calls that actually traced."""
+    if not config.getoption("--jit") or config.getoption("--backend") == "numpy":
+        return
+    t, n = _JITCOV["traced"], _JITCOV["not_traced"]
+    tot = t + n
+    if not tot:  # a shard that never reached a galpy entry point: nothing to say
+        terminalreporter.write_line("JITCOV: no galpy entry-point calls recorded")
+        return
+    share = t / tot
+    terminalreporter.write_line(
+        f"JITCOV: boundary calls={tot} traced={t} NOT_TRACED={n} "
+        f"traced_share={share:.1%}"
+    )
+    # The job log is not where anyone looks: 88 shards, and the burndown people
+    # read is the sticky PR comment rendered by backend_status_report.py from
+    # the junit artifacts. Put the share IN the junit so it reaches that table.
+    _record_jitcov_property(config, t, n, share)
+    if share < _JIT_MIN_TRACED_SHARE:
+        terminalreporter.write_line(
+            f"JITCOV: FAILED -- traced share {share:.1%} is below the "
+            f"{_JIT_MIN_TRACED_SHARE:.0%} floor, so --jit ran essentially eager "
+            f"and this shard proves nothing about traced mode"
+        )
+        terminalreporter._session.exitstatus = 1
 
 
 def _matches(nodeid, entries):

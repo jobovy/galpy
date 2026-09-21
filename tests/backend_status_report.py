@@ -66,7 +66,11 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
-BACKENDS = ["jax", "torch"]
+# Four columns, not two: the backend-suite matrix runs every shard eager AND
+# traced, uploading backend-junit-<backend>[-jit]-<sid>.xml. The "-jit" keys
+# are also what conftest writes into the xfail ledger, so the per-backend
+# ledger accounting below lines up with them.
+BACKENDS = ["jax", "torch", "jax-jit", "torch-jit"]
 
 # Canonical list of the 14 TEST_FILES shards, in matrix order, each with a
 # short human-readable label for the table rows. MUST stay in sync with the
@@ -172,6 +176,10 @@ class Counts:
     backend_skipped: int = 0  # backend-skip: not backend-meaningful (permanent exempt)
     found: bool = False  # was an xml present/parseable for this cell?
     parse_error: str = ""
+    # Share of galpy entry-point calls that actually TRACED, recorded by
+    # conftest on a --jit shard. None on an eager shard -- absence is no data,
+    # not zero.
+    jitcov: tuple[int, int] | None = None  # (traced, NOT_TRACED) entry-point calls
 
     @property
     def total(self) -> int:
@@ -195,6 +203,29 @@ class Counts:
         return bool(self.failed or self.errored)
 
 
+def _jitcov_from_root(root) -> float | None:
+    """(traced, NOT_TRACED) entry-point call counts from a --jit shard's junit.
+
+    Counts, not the share: shards differ by more than three orders of magnitude
+    in call volume (test_sphericaldf ~50k, test_streamgapdf ~20), so a mean of
+    per-shard shares weights a 20-call shard like a 50000-call one. Only a
+    traced shard writes these, so None means "eager shard", NOT zero -- absence
+    of a result is no data.
+    """
+    traced = not_traced = None
+    for prop in root.iter("property"):
+        if prop.get("name") == "jitcov_traced":
+            traced = prop.get("value")
+        elif prop.get("name") == "jitcov_not_traced":
+            not_traced = prop.get("value")
+    if traced is None or not_traced is None:
+        return None
+    try:
+        return (int(traced), int(not_traced))
+    except (TypeError, ValueError):  # pragma: no cover - malformed
+        return None
+
+
 def parse_junit(path: str) -> Counts:
     """Parse one junit xml file into a Counts. Robust to malformed/empty files."""
     c = Counts(found=True)
@@ -204,6 +235,7 @@ def parse_junit(path: str) -> Counts:
         c.found = False
         c.parse_error = str(e)
         return c
+    c.jitcov = _jitcov_from_root(root)
     for tc in root.iter("testcase"):
         fail = tc.find("failure")
         err = tc.find("error")
@@ -342,6 +374,9 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
                     merged.skipped += c.skipped
                     merged.slow_skipped += c.slow_skipped
                     merged.backend_skipped += c.backend_skipped
+                    if c.jitcov is not None:
+                        pt, pn = merged.jitcov or (0, 0)
+                        merged.jitcov = (pt + c.jitcov[0], pn + c.jitcov[1])
                 if merged.total == 0 and all(not parse_junit(f).found for f in matched):
                     merged.found = False
                 cells[(idx, backend)] = merged
@@ -363,9 +398,40 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
 
     led_total, led_per = ledger_size(ledger_path)
 
+    # Traced coverage per -jit column: the share of galpy entry-point calls that
+    # actually compiled. A --jit run that fell back to eager everywhere would
+    # pass exactly like the eager half and be invisible in the table below, so
+    # the number is surfaced next to it.
+    jit_cov: dict[str, list[float]] = {}
+    for backend in BACKENDS:
+        if not backend.endswith("-jit"):
+            continue
+        vals = [
+            c.jitcov
+            for (_idx, b), c in cells.items()
+            if b == backend and c.jitcov is not None
+        ]
+        if vals:
+            jit_cov[backend] = vals
+
     lines: list[str] = []
     lines.append("## All-backend test status (jax / torch)")
     lines.append("")
+    if jit_cov:
+        parts = []
+        for backend, vals in jit_cov.items():
+            tot_t = sum(v[0] for v in vals)
+            tot_n = sum(v[1] for v in vals)
+            agg = tot_t / (tot_t + tot_n) if (tot_t + tot_n) else 0.0
+            # the weakest shard that made enough calls for its share to mean
+            # anything (a 20-call shard at 50% is noise, not a signal)
+            sig = [v[0] / (v[0] + v[1]) for v in vals if (v[0] + v[1]) >= 100]
+            lo = f", weakest shard {min(sig):.0%}" if sig else ""
+            parts.append(f"`{backend}` {agg:.1%} of {tot_t + tot_n:,} calls{lo}")
+        lines.append(
+            "**Traced coverage** (entry-point calls compiled): " + "; ".join(parts)
+        )
+        lines.append("")
     if sha:
         lines.append(f"Commit `{sha}`")
         lines.append("")
