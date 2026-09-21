@@ -655,12 +655,11 @@ class evolveddiskdf(df):
         # which is invisible to is_backend_array(R) and used to be computed in
         # numpy and returned as a bare float64 with the gradient silently lost.
         _direct_backend = is_backend_array(R) or _xp_pot is not None
+        # No second _xp_pot fix-up is needed here: when the gradient lives in
+        # the potential the moments above were already lifted onto it, so
+        # get_namespace resolves the backend through sigmaR1 even though R is a
+        # plain float. (A fix-up here measured as dead code.)
         xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
-        if xp is numpy and _xp_pot is not None:
-            # every argument is a plain float: the gradient lives in the
-            # potential, so take the namespace from there or the "backend" path
-            # would run on numpy and drop it again.
-            xp = _xp_pot
         if not _direct_backend:
             if initvmoment == 0.0:
                 initvmoment = 1.0
