@@ -375,3 +375,34 @@ def test_direct_moment_jit_matches_eager():
         # trace that folded it away returns a constant and would match eager
         # vacuously, which a bare allclose cannot see.
         assert_jit_matches_eager(call, jnp.asarray(_R), rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("n,m", [(1, 0), (0, 1), (0, 0)])
+def test_direct_moment_with_a_zero_initdf_moment(backend, n, m):
+    # The vanishing-normalisation guard: when the INITIAL df's (n,m) moment is
+    # exactly 0 the code substitutes 1.0 so the ratio stays finite. For the
+    # ODD radial moment (n=1,m=0) dehnendf's <vR> is 0 BY SYMMETRY, so that
+    # branch is the live one -- and every other direct-path test here uses
+    # (0,0), whose initdf moment is never zero, so the branch was never
+    # executed on a backend. On torch it raised
+    #   TypeError: where() received an invalid combination of arguments
+    # because initvmoment is a numpy scalar, making the condition a numpy bool.
+    edf = _make_edf()
+    initvmoment = edf._initdf.vmomentsurfacemass(_R, n, m, nsigma=3.0, phi=_PHI)
+    assert (float(initvmoment) == 0.0) == (n == 1), "fixture no longer pins the branch"
+    ref = edf.vmomentsurfacemass(_R, n, m, phi=_PHI, grid=False, nsigma=3.0)
+    with use(backend, force=True):
+        got = edf.vmomentsurfacemass(
+            _scalar(backend, _R), n, m, phi=_PHI, grid=False, nsigma=3.0
+        )
+        assert is_backend_array(got), "direct path fell back to numpy"
+    # Tolerance from measurement, not guesswork: the adaptive-dblquad and
+    # polar-GL rules agree to |diff| = 3.1e-06 (0,0), 7.2e-08 (1,0), 2.0e-06
+    # (0,1). The ODD moment is near-cancelling (~3.2e-05 against a 6.6e-02
+    # surface density), so its RELATIVE error is 2.2e-03 while its ABSOLUTE
+    # error is the smallest of the three -- the backend rule is not the looser
+    # one. Hence rtol for the even moments and a small atol for the odd one.
+    numpy.testing.assert_allclose(
+        float(as_numpy(got)), float(ref), rtol=1e-4, atol=1e-6
+    )
