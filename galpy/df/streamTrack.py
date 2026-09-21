@@ -15,6 +15,7 @@ from ..backend import (
 )
 from ..backend._namespaces import stop_gradient
 from ..backend.interpolate import (
+    Spline1D,
     _apply_frozen_smoother,
     _fitpack_operator,
     _gcv_operator,
@@ -769,17 +770,10 @@ def _fit_track_from_particles(
         # takes precedence over the prog_orbit numpy-interpolation reuse.
         xpp = get_namespace(prog_cart)
         devp = device_of(prog_cart)
-        prog_coeffs = [
-            cubic_spline_coeffs(xpp, track_t_grid, prog_cart[:, i], bc="not-a-knot")
-            for i in range(6)
-        ]
+        prog_spline = Spline1D(track_t_grid, prog_cart, k=3)
 
         def _prog_at(tp):
-            tp_b = asarray_on_device(xpp, numpy.atleast_1d(tp), devp)
-            return xpp.stack(
-                [eval_cubic(xpp, track_t_grid, prog_coeffs[i], tp_b) for i in range(6)],
-                axis=-1,
-            )
+            return prog_spline(asarray_on_device(xpp, numpy.atleast_1d(tp), devp))
     elif prog_orbit is not None:
         # Reuse the Orbit's internal interpolation directly — the orbit
         # has already been integrated densely on track_t_grid.
@@ -796,14 +790,10 @@ def _fit_track_from_particles(
                 ]
             )
     else:
-        prog_splines = [
-            interpolate.InterpolatedUnivariateSpline(track_t_grid, prog_cart[:, i], k=3)
-            for i in range(6)
-        ]
+        prog_spline = Spline1D(track_t_grid, prog_cart_np, k=3)
 
         def _prog_at(tp):
-            tp = numpy.atleast_1d(tp)
-            return numpy.column_stack([spl(tp) for spl in prog_splines])
+            return prog_spline(numpy.atleast_1d(tp))
 
     # Raw xv snapshot the user can pass back via ``particles=`` to refit
     # at different smoothing without re-sampling the spray DF.
@@ -1187,25 +1177,15 @@ class StreamTrack:
                 ],
                 axis=-1,
             )  # (N, 6)
-            # not-a-knot matches numpy's InterpolatedUnivariateSpline boundary
-            # condition (natural diverges by ~1e-6 in the end intervals). On a
-            # dense track (the default ninterp=1001) the two agree to machine
-            # precision; only a very coarse track leaves a ~1e-6
-            # FITPACK-vs-tridiagonal-solver residual.
-            self._cart_coeffs = [
-                cubic_spline_coeffs(xp, self._tp_grid, track6[:, i], bc="not-a-knot")
-                for i in range(6)
-            ]
-            self._cart_splines = None
+            # One VECTOR-VALUED spline over the shared tp grid rather than six
+            # per-column ones, so the numpy and backend paths are the same
+            # object and the same call below. Spline1D defaults to not-a-knot,
+            # which is what numpy's InterpolatedUnivariateSpline uses (natural
+            # diverges by ~1e-6 in the end intervals).
+            self._cart_spline = Spline1D(self._tp_grid, track6, k=3)
         else:
             track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
-            self._cart_splines = [
-                interpolate.InterpolatedUnivariateSpline(
-                    self._tp_grid, track_fine[:, i], k=3
-                )
-                for i in range(6)
-            ]
-            self._cart_coeffs = None
+            self._cart_spline = Spline1D(self._tp_grid, track_fine, k=3)
 
     # -----------------------------------------------------------------
     # Particle-fit constructor (the streamspraydf pipeline)
@@ -1380,23 +1360,16 @@ class StreamTrack:
         return (tp_arr >= self._tp_grid[0]) & (tp_arr <= self._tp_grid[-1])
 
     def _eval_cart(self, tp):
+        # (6, len); out-of-range tps are NaN, not silent cubic extrapolation
         if self._backend:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
-            rows = [
-                xp.where(
-                    in_range,
-                    eval_cubic(xp, self._tp_grid, self._cart_coeffs[i], tp_b),
-                    float("nan"),
-                )
-                for i in range(6)
-            ]
-            return xp.stack(rows, axis=0)  # (6, len)
+            vals = self._cart_spline(tp_b)  # (len, 6)
+            return xp.where(in_range[None, :], xp.matrix_transpose(vals), float("nan"))
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
-        out = numpy.array([spl(tp_arr) for spl in self._cart_splines])  # (6, len)
-        return numpy.where(in_range[None, :], out, numpy.nan)
+        return numpy.where(in_range[None, :], self._cart_spline(tp_arr).T, numpy.nan)
 
     def _maybe_scalar(self, tp, arr):
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
@@ -1418,15 +1391,11 @@ class StreamTrack:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
-            val = xp.where(
-                in_range,
-                eval_cubic(xp, self._tp_grid, self._cart_coeffs[idx], tp_b),
-                float("nan"),
-            )
+            val = xp.where(in_range, self._cart_spline(tp_b)[..., idx], float("nan"))
             return self._maybe_scalar(tp, val)
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
-        val = numpy.where(in_range, self._cart_splines[idx](tp_arr), numpy.nan)
+        val = numpy.where(in_range, self._cart_spline(tp_arr)[..., idx], numpy.nan)
         return self._maybe_scalar(tp, val)
 
     @physical_conversion("position", pop=True)
