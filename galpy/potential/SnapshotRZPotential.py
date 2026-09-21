@@ -5,6 +5,7 @@ from os import system
 import numpy
 from scipy import interpolate
 
+from ..backend.interpolate import Spline1D, Spline2D
 from ..util._optional_deps import _PYNBODY_GE_20, _PYNBODY_LOADED
 from .interpRZPotential import (
     calc_2dsplinecoeffs_c,
@@ -271,50 +272,36 @@ class InterpSnapshotRZPotential(interpRZPotential):
             self._zforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._zforceGrid)
 
         else:
-            self._potInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._potGrid, kx=3, ky=3, s=0.0
-            )
-            self._rforceInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
-            )
-            self._zforceInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
-            )
+            self._potInterp = Spline2D(rs, self._zgrid, self._potGrid, kx=3, ky=3)
+            self._rforceInterp = Spline2D(rs, self._zgrid, self._rforceGrid, kx=3, ky=3)
+            self._zforceInterp = Spline2D(rs, self._zgrid, self._zforceGrid, kx=3, ky=3)
         if interpepifreq:
-            self._R2interp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._R2derivGrid, kx=3, ky=3, s=0.0
-            )
+            self._R2interp = Spline2D(rs, self._zgrid, self._R2derivGrid, kx=3, ky=3)
 
         if interpverticalfreq:
-            self._z2interp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
-            )
+            self._z2interp = Spline2D(rs, self._zgrid, self._z2derivGrid, kx=3, ky=3)
 
         if interpepifreq and interpverticalfreq:
-            self._Rzinterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._RzderivGrid, kx=3, ky=3, s=0.0
-            )
+            self._Rzinterp = Spline2D(rs, self._zgrid, self._RzderivGrid, kx=3, ky=3)
 
         # setup the derived quantities
         if interpPot:
             self._vcircGrid = numpy.sqrt(self._rgrid * (-self._rforceGrid[:, 0]))
-            self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                rs, self._vcircGrid, k=3
-            )
+            self._vcircInterp = Spline1D(rs, self._vcircGrid, k=3)
 
         if interpepifreq:
             self._epifreqGrid = numpy.sqrt(
                 self._R2derivGrid[:, 0] - 3.0 / self._rgrid * self._rforceGrid[:, 0]
             )
             goodindx = True ^ numpy.isnan(self._epifreqGrid)
-            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+            self._epifreqInterp = Spline1D(
                 rs[goodindx], self._epifreqGrid[goodindx], k=3
             )
             self._epigoodindx = goodindx
         if interpverticalfreq:
             self._verticalfreqGrid = numpy.sqrt(numpy.abs(self._z2derivGrid[:, 0]))
             goodindx = True ^ numpy.isnan(self._verticalfreqGrid)
-            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+            self._verticalfreqInterp = Spline1D(
                 rs[goodindx], self._verticalfreqGrid[goodindx], k=3
             )
             self._verticalgoodindx = goodindx
@@ -564,31 +551,21 @@ class InterpSnapshotRZPotential(interpRZPotential):
             ):
                 self._savedsplines[name] = spline
 
-            self._potInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._potGrid / R0, kx=3, ky=3, s=0.0
-            )
-            self._rforceInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
-            )
-            self._zforceInterp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
-            )
+            self._potInterp = Spline2D(rs, self._zgrid, self._potGrid / R0, kx=3, ky=3)
+            self._rforceInterp = Spline2D(rs, self._zgrid, self._rforceGrid, kx=3, ky=3)
+            self._zforceInterp = Spline2D(rs, self._zgrid, self._zforceGrid, kx=3, ky=3)
         elif self._enable_c and self._interpPot:
             self._potGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._potGrid / R0)
 
         if self._interpPot:
             self._savedsplines["vcirc"] = self._vcircInterp
-            self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                rs, self._vcircGrid / Vc0, k=3
-            )
+            self._vcircInterp = Spline1D(rs, self._vcircGrid / Vc0, k=3)
 
         if self._interpepifreq:
             self._savedsplines["R2deriv"] = self._R2interp
             self._savedsplines["epifreq"] = self._epifreqInterp
-            self._R2interp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._R2derivGrid, kx=3, ky=3, s=0.0
-            )
-            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+            self._R2interp = Spline2D(rs, self._zgrid, self._R2derivGrid, kx=3, ky=3)
+            self._epifreqInterp = Spline1D(
                 rs[self._epigoodindx],
                 self._epifreqGrid[self._epigoodindx] / numpy.sqrt(Phi0 / R0),
                 k=3,
@@ -597,10 +574,8 @@ class InterpSnapshotRZPotential(interpRZPotential):
         if self._interpverticalfreq:
             self._savedsplines["z2deriv"] = self._z2interp
             self._savedsplines["verticalfreq"] = self._verticalfreqInterp
-            self._z2interp = interpolate.RectBivariateSpline(
-                rs, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
-            )
-            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+            self._z2interp = Spline2D(rs, self._zgrid, self._z2derivGrid, kx=3, ky=3)
+            self._verticalfreqInterp = Spline1D(
                 rs[self._verticalgoodindx],
                 self._verticalfreqGrid[self._verticalgoodindx] / numpy.sqrt(Phi0 / R0),
                 k=3,
