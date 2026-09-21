@@ -97,7 +97,9 @@ jobs:
   # ordinary pushes/PRs elsewhere in the repo; the job-level `if` additionally
   # pins the PR case to those two base branches.
   backend-suite:
-    name: backend ${{ matrix.BACKEND }} ${{ matrix.TEST_FILES }}
+    # The -jit suffix keeps the traced half of the matrix distinguishable from
+    # the eager half in the checks list and in the status report.
+    name: backend ${{ matrix.BACKEND }}${{ (matrix.MODE == 'jit' || github.event.inputs.jit == 'true') && '-jit' || '' }} ${{ matrix.TEST_FILES }}
     runs-on: ubuntu-latest
     # Backstop: even with the per-test --timeout below, cap the whole shard so a
     # pathological accumulation of slow tests can't keep the report job waiting.
@@ -131,6 +133,18 @@ jobs:
         # duplicated multi-python / macOS orbit shards are not repeated (one
         # ubuntu orbit shard each).
         BACKEND: [jax, torch]
+        # THIRD cross-product axis: every {BACKEND, TEST_FILES} shard runs both
+        # eager and TRACED (jax.jit / torch.compile at each galpy entry point).
+        # Traced mode previously had no automatic run at all -- --jit was
+        # reachable only through workflow_dispatch, and the weekly cron below
+        # has never fired because GitHub only schedules workflows from the
+        # DEFAULT branch and this file does not exist on main. So the jax-jit /
+        # torch-jit burndown was validated locally and never by CI. As an axis
+        # it rides the same push/pull_request triggers as eager, which is the
+        # point: a traced gap now shows up on the PR that introduces it.
+        # `include:` below keys on TEST_FILES only, so each REQUIRES_* flag
+        # merges into BOTH modes of that shard.
+        MODE: [eager, jit]
         TEST_FILES:
           - tests/test_actionAngle.py
           - tests/test_sphericaldf.py
@@ -300,20 +314,26 @@ jobs:
       env:
         TEST_FILES: ${{ matrix.TEST_FILES }}
         BACKEND: ${{ matrix.BACKEND }}
+        # eager and traced run the SAME {BACKEND, shard} pair, so the junit
+        # name has to carry the mode or the two halves of the matrix collide on
+        # one artifact name inside a single run and download-artifact keeps
+        # only one of them (silently halving the report).
+        BACKEND_TAG: ${{ matrix.BACKEND }}${{ (matrix.MODE == 'jit' || github.event.inputs.jit == 'true') && '-jit' || '' }}
       run: |
         SHARD_ID=$(python tests/backend_status_report.py --id)
         echo "SHARD_ID=${SHARD_ID}" >> "$GITHUB_ENV"
-        echo "JUNIT_PATH=${GITHUB_WORKSPACE}/backend-junit-${BACKEND}-${SHARD_ID}.xml" >> "$GITHUB_ENV"
+        echo "BACKEND_TAG=${BACKEND_TAG}" >> "$GITHUB_ENV"
+        echo "JUNIT_PATH=${GITHUB_WORKSPACE}/backend-junit-${BACKEND_TAG}-${SHARD_ID}.xml" >> "$GITHUB_ENV"
     - name: Test with pytest (backend=${{ matrix.BACKEND }})
       env:
         TEST_FILES: ${{ matrix.TEST_FILES }}
         BACKEND: ${{ matrix.BACKEND }}
-        # workflow_dispatch(jit=true): trace every galpy entry point instead of
-        # running eager. Same shards, same ledger machinery -- conftest keys the
+        # The MODE axis, or workflow_dispatch(jit=true) which forces every
+        # shard traced. Same shards, same ledger machinery -- conftest keys the
         # burndown lists "<backend>-jit" so traced gaps stay separate from eager
-        # ones. Dispatch-only for now: tracing costs roughly what eager jax does
-        # again, and the eager jax matrix already sits near the session timeout.
-        JIT_FLAG: ${{ github.event.inputs.jit == 'true' && '--jit' || '' }}
+        # ones. Tracing costs roughly what eager jax does again, which is what
+        # the 180-minute timeout above is sized for.
+        JIT_FLAG: ${{ (matrix.MODE == 'jit' || github.event.inputs.jit == 'true') && '--jit' || '' }}
       run: |
         # -rxX reports XFAIL/XPASS; junit xml drives the burndown summary and the
         # report job's per-file table. Do NOT pass -W error here: under a backend
@@ -436,7 +456,7 @@ jobs:
       if: ${{ always() }}
       uses: actions/upload-artifact@v4
       with:
-        name: backend-junit-${{ matrix.BACKEND }}-${{ env.SHARD_ID }}
+        name: backend-junit-${{ env.BACKEND_TAG }}-${{ env.SHARD_ID }}
         path: ${{ env.JUNIT_PATH }}
         if-no-files-found: warn
     - name: Upload regenerated ledger (regen mode)
