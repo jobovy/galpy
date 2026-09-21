@@ -3586,13 +3586,24 @@ def rl(Pot, lz, t=0.0):
 
     """
     lz = conversion.parse_angmom(lz, **conversion.get_physical(Pot))
-    if is_backend_array(lz):
+    # Follow the GRADIENT, not just the argument: the root r*vc(r) - |lz| also
+    # depends on the POTENTIAL, so a plain-float lz against a traced potential
+    # still needs the backend solver. Probing vcirc is the only way to see that
+    # -- a differentiated potential parameter is invisible from lz alone -- and
+    # it is what made Orbit.rguiding raise under d/d(potential parameter).
+    _xp_pot = _pot_grad_namespace(Pot)
+    if is_backend_array(lz) or _xp_pot is not None:
         # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
         # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
         # is found from the PRIMAL of |lz| (no gradient needed for it); the solve
         # closes over the live |lz| so the implicit-function gradient is exact.
         from ..backend.optimize import brentq as _bk_brentq
 
+        # lift a plain-float lz into the potential's namespace: the bracket is
+        # fed straight to vcirc, and a float radius there makes vcirc resolve
+        # NUMPY and then numpy.sqrt the traced force
+        if not is_backend_array(lz):
+            lz = _xp_pot.asarray(lz) * 1.0
         alz = _abs_backend(lz)
         f = lambda r: _rlfunc(r, alz, Pot, t)
         # Start the upper bound at 2*|lz| (the numpy _rlFindStart seed); the
@@ -3630,6 +3641,36 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
         else:
             rtry *= 2.0
     return rtry
+
+
+def _pot_grad_namespace(Pot, _depth=0):
+    """The array namespace of a gradient-carrying parameter of ``Pot``, else None.
+
+    A differentiated potential PARAMETER is invisible from a root-finder's own
+    argument, so rl/rE ask this before choosing the scipy or the backend solver.
+    Answered by inspecting the stored parameters rather than by evaluating the
+    potential: an evaluation probe has to pick a radius, and a plain-float
+    radius makes vcirc resolve the NUMPY namespace and then numpy.sqrt a traced
+    force -- the probe itself raises.
+
+    Gated on under_trace/requires_backend_grad rather than is_backend_array so a
+    merely-forced backend keeps the scipy path, and its numbers, unchanged.
+    """
+    if _depth > 2:  # pragma: no cover - deeper nesting than any galpy wrapper
+        return None
+    for p in Pot if isinstance(Pot, (list, tuple)) else [Pot]:
+        for v in getattr(p, "__dict__", {}).values():
+            try:
+                if under_trace(v) or requires_backend_grad(v):
+                    return get_namespace(v)
+            except Exception:  # pragma: no cover - not an array-like
+                continue
+            # wrapper potentials keep the differentiated parameters one level in
+            if isinstance(v, (list, tuple, Force)):
+                sub = _pot_grad_namespace(v, _depth + 1)
+                if sub is not None:
+                    return sub
+    return None
 
 
 def _abs_backend(x):
@@ -3701,12 +3742,19 @@ def rE(Pot, E, t=0.0):
 
     """
     E = conversion.parse_energy(E, **conversion.get_physical(Pot))
-    if is_backend_array(E):
+    # Same as rl: vc^2/2 + Phi(rE) - E depends on the potential too, so a
+    # plain-float E against a traced potential still needs the backend solver.
+    _xp_pot = _pot_grad_namespace(Pot)
+    if is_backend_array(E) or _xp_pot is not None:
         # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
         # which increases with r, so d rE / d E (and through theta) flows. The
         # bracket is found branch-free; the solve closes over the live E.
         from ..backend.optimize import brentq as _bk_brentq
 
+        # as in rl: lift a plain-float E so the bracket radii reach the potential
+        # in ITS namespace rather than as numpy floats
+        if not is_backend_array(E):
+            E = _xp_pot.asarray(E) * 1.0
         f = lambda r: _rEfunc(r, E, Pot, t)
         rstart, rlower = _backend_rootbracket(f, E, lower_default=1e-5, hi0=2.0)
         return _bk_brentq(f, rlower, rstart, maxiter=200)

@@ -4077,19 +4077,27 @@ class Orbit:
                         )
                     else:  # pragma: no cover
                         raise
-            # Analytic Staeckel is a numpy/C computation; estimateDeltaStaeckel
-            # (or a user-passed value) may be a backend tensor under a forced
-            # backend, so bring delta back to a writable numpy array (jax's
-            # as_numpy view is read-only, and delta is clipped in place below)
-            # before the numpy/C machinery consumes it. No-op for numpy -> the
-            # numpy path stays byte-identical.
-            if is_backend_array(delta):
+            # estimateDeltaStaeckel reads the potential's second derivatives, so
+            # an automagic delta CARRIES the gradient w.r.t. the potential
+            # parameters. Cutting it to numpy (below) would not merely detach it,
+            # it raises on a tracer -- which is what made rperi/rap/zmax/e
+            # undifferentiable while an explicitly passed delta worked fine.
+            # So keep a differentiated delta on the backend and clip it
+            # functionally; everything else still goes back to a writable numpy
+            # array, because as_numpy's jax view is read-only and the clip below
+            # is in place. No-op for numpy -> that path stays byte-identical.
+            delta_grad = under_trace(delta) or requires_backend_grad(delta)
+            if is_backend_array(delta) and not delta_grad:
                 delta = numpy.array(as_numpy(delta))
-            if numpy.all(delta == 1e-6):
+            if bool((delta == 1e-6).all() if delta_grad else numpy.all(delta == 1e-6)):
                 self._setupaA(pot=pot, type="spherical")
             else:
                 if hasattr(delta, "__len__"):
-                    delta[delta < 1e-6] = 1e-6
+                    if delta_grad:
+                        xp = get_namespace(delta)
+                        delta = xp.where(delta < 1e-6, 1e-6, delta)
+                    else:
+                        delta[delta < 1e-6] = 1e-6
                 self._aA = actionAngle.actionAngleStaeckel(
                     pot=self._aAPot, delta=delta, **kwargs
                 )
@@ -4484,9 +4492,15 @@ class Orbit:
                 precomputergLzgrid, rls, k=3
             )(Lz).reshape(Lz_shape)
         else:
-            return numpy.array([rl(pot, lz, use_physical=False) for lz in Lz]).reshape(
-                Lz_shape
-            )
+            rls = [rl(pot, lz, use_physical=False) for lz in Lz]
+            # rl follows the gradient, so against a traced potential these are
+            # backend scalars that numpy.array() cannot collect; stack them in
+            # their own namespace instead. A merely forced backend (no gradient)
+            # keeps the numpy collection, and with it the numpy return type.
+            if any(under_trace(v) or requires_backend_grad(v) for v in rls):
+                xp = get_namespace(*rls)
+                return xp.reshape(xp.stack(rls), Lz_shape)
+            return numpy.array(rls).reshape(Lz_shape)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4530,11 +4544,16 @@ class Orbit:
                 "Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        E = numpy.atleast_1d(
-            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        )
+        _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
+        E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten()
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4546,9 +4565,14 @@ class Orbit:
                 precomputerEEgrid, rEs, k=3
             )(E).reshape(E_shape)
         else:
-            return numpy.array([rE(pot, tE, use_physical=False) for tE in E]).reshape(
-                E_shape
-            )
+            vals = [rE(pot, tE, use_physical=False) for tE in E]
+            # as in rguiding: against a traced potential these are backend
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
+                xp = get_namespace(*vals)
+                return xp.reshape(xp.stack(vals), E_shape)
+            return numpy.array(vals).reshape(E_shape)
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4592,11 +4616,16 @@ class Orbit:
                 "Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        E = numpy.atleast_1d(
-            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        )
+        _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
+        E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten()
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4608,9 +4637,14 @@ class Orbit:
                 precomputeLcEEgrid, LcEs, k=3
             )(E).reshape(E_shape)
         else:
-            return numpy.array([LcE(pot, tE, use_physical=False) for tE in E]).reshape(
-                E_shape
-            )
+            vals = [LcE(pot, tE, use_physical=False) for tE in E]
+            # as in rguiding: against a traced potential these are backend
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
+                xp = get_namespace(*vals)
+                return xp.reshape(xp.stack(vals), E_shape)
+            return numpy.array(vals).reshape(E_shape)
 
     @physical_conversion("position")
     @shapeDecorator

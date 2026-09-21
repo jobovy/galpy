@@ -1644,7 +1644,15 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2017-12-12 - Written - Bovy (UofT)
         """
-        delta = numpy.atleast_1d(kwargs.pop("delta", self._delta))
+        _delta = kwargs.pop("delta", self._delta)
+        # an automagically estimated delta reads the potential's second
+        # derivatives, so it carries d/d(potential parameter); numpy.atleast_1d
+        # refuses it. numpy input keeps the numpy call.
+        delta = (
+            get_namespace(_delta).atleast_1d(_delta)
+            if is_backend_array(_delta)
+            else numpy.atleast_1d(_delta)
+        )
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
