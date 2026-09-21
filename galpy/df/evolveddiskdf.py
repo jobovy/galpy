@@ -21,7 +21,13 @@ import warnings
 import numpy
 from scipy import integrate
 
-from ..backend import device_of, get_namespace, is_backend_array, name_of_namespace
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
 from ..backend import quadrature as _bquad
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
@@ -617,7 +623,13 @@ class evolveddiskdf(df):
             # comparison is a tracer and `if` raises TracerBoolConversionError.
             # Kept OFF the numpy path deliberately -- xp.where would return a 0-d
             # array there, changing the public return type from a float.
-            initvmoment = xp.where(initvmoment == 0.0, 1.0, initvmoment)
+            # initvmoment is a plain numpy scalar whenever the initdf is numpy
+            # (the usual case), and torch.where rejects a numpy-bool condition,
+            # so lift it onto the namespace/device first.
+            initvmoment = asarray_on_device(xp, initvmoment, device_of(R))
+            initvmoment = xp.where(
+                initvmoment == 0.0, xp.ones_like(initvmoment), initvmoment
+            )
         norm = sigmaR1 ** (n + 1) * sigmaT1 ** (m + 1) * initvmoment
         if isinstance(t, (list, numpy.ndarray)):
             raise OSError("list of times is only supported with grid-based calculation")
