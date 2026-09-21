@@ -1332,6 +1332,18 @@ def test_setup_diffsetups():
     assert numpy.fabs(qdf._rg(1.1) - qdfnpc._rg(1.1)) < 10.0**-5.0, (
         "rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set"
     )
+    # ... and the SCALAR out-of-table branch of _rg. lz=1.1 above sits inside
+    # [_precomputergLzmin, _precomputergLzmax], so it only exercises the spline.
+    # Beyond the table the spline must NOT be extrapolated: _rg falls back to
+    # the exact potential.rl. (Before the _precomputerg=False early return was
+    # added, this branch happened to be covered by the no-table instance, whose
+    # sentinel bounds are inverted so every scalar took it.)
+    from galpy.potential import rl
+
+    for lz in (qdf._precomputergLzmax * 1.5, qdf._precomputergLzmin * 0.5):
+        assert numpy.fabs(qdf._rg(lz) - rl(MWPotential, lz)) < 10.0**-10.0, (
+            "rg outside the precomputed table does not fall back to potential.rl"
+        )
 
 
 def test_call_diffinoutputs():
