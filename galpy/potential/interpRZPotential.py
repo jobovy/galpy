@@ -672,9 +672,9 @@ class interpRZPotential(Potential):
                     out[indx] = eval_potential_c(self, R[indx], z[indx])[0] / self._amp
                 else:
                     if self._logR:
-                        out[indx] = self._potInterp(numpy.log(R[indx]), z[indx])
+                        out[indx] = self._potInterp.ev(numpy.log(R[indx]), z[indx])
                     else:
-                        out[indx] = self._potInterp(R[indx], z[indx])
+                        out[indx] = self._potInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluatePotentials(
                     self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -703,9 +703,9 @@ class interpRZPotential(Potential):
                     out[indx] = eval_force_c(self, R[indx], z[indx])[0] / self._amp
                 else:
                     if self._logR:
-                        out[indx] = self._rforceInterp(numpy.log(R[indx]), z[indx])
+                        out[indx] = self._rforceInterp.ev(numpy.log(R[indx]), z[indx])
                     else:
-                        out[indx] = self._rforceInterp(R[indx], z[indx])
+                        out[indx] = self._rforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluateRforces(
                     self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -736,9 +736,9 @@ class interpRZPotential(Potential):
                     )
                 else:
                     if self._logR:
-                        out[indx] = self._zforceInterp(numpy.log(R[indx]), z[indx])
+                        out[indx] = self._zforceInterp.ev(numpy.log(R[indx]), z[indx])
                     else:
-                        out[indx] = self._zforceInterp(R[indx], z[indx])
+                        out[indx] = self._zforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluatezforces(
                     self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -777,9 +777,9 @@ class interpRZPotential(Potential):
                 )
             else:
                 if self._logR:
-                    out[indx] = self._r2derivInterp(numpy.log(R[indx]), z[indx])
+                    out[indx] = self._r2derivInterp.ev(numpy.log(R[indx]), z[indx])
                 else:
-                    out[indx] = self._r2derivInterp(R[indx], z[indx])
+                    out[indx] = self._r2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluateR2derivs(
                 self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -816,9 +816,9 @@ class interpRZPotential(Potential):
                 )
             else:
                 if self._logR:
-                    out[indx] = self._z2derivInterp(numpy.log(R[indx]), z[indx])
+                    out[indx] = self._z2derivInterp.ev(numpy.log(R[indx]), z[indx])
                 else:
-                    out[indx] = self._z2derivInterp(R[indx], z[indx])
+                    out[indx] = self._z2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluatez2derivs(
                 self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -855,9 +855,9 @@ class interpRZPotential(Potential):
                 )
             else:
                 if self._logR:
-                    out[indx] = self._rzderivInterp(numpy.log(R[indx]), z[indx])
+                    out[indx] = self._rzderivInterp.ev(numpy.log(R[indx]), z[indx])
                 else:
-                    out[indx] = self._rzderivInterp(R[indx], z[indx])
+                    out[indx] = self._rzderivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluateRzderivs(
                 self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
@@ -882,12 +882,12 @@ class interpRZPotential(Potential):
             if numpy.sum(indx) > 0:
                 if self._logR:
                     out[indx] = (
-                        numpy.exp(self._densInterp(numpy.log(R[indx]), z[indx]))
+                        numpy.exp(self._densInterp.ev(numpy.log(R[indx]), z[indx]))
                         - 10.0**-10.0
                     )
                 else:
                     out[indx] = (
-                        numpy.exp(self._densInterp(R[indx], z[indx])) - 10.0**-10.0
+                        numpy.exp(self._densInterp.ev(R[indx], z[indx])) - 10.0**-10.0
                     )
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluateDensities(
