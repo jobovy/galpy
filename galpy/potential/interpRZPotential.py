@@ -8,12 +8,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 
 from ..backend import get_namespace, is_backend_array, match_input_dtype
-from ..backend.interpolate import (
-    eval_ppoly,
-    eval_rect_ppoly,
-    rect_bivariate_to_ppoly,
-    spline_to_ppoly,
-)
+from ..backend.interpolate import Spline1D, Spline2D
 from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
 from .Potential import Potential
@@ -381,12 +376,12 @@ class interpRZPotential(Potential):
                     evaluatePotentials, self._origPot, self._rgrid, self._zgrid
                 )
             if self._logR:
-                self._potInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._potGrid, kx=3, ky=3, s=0.0
+                self._potInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._potGrid, kx=3, ky=3
                 )
             else:
-                self._potInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._potGrid, kx=3, ky=3, s=0.0
+                self._potInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._potGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._potGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._potGrid)
@@ -402,12 +397,12 @@ class interpRZPotential(Potential):
                     evaluateRforces, self._origPot, self._rgrid, self._zgrid
                 )
             if self._logR:
-                self._rforceInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
+                self._rforceInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._rforceGrid, kx=3, ky=3
                 )
             else:
-                self._rforceInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
+                self._rforceInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._rforceGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._rforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._rforceGrid)
@@ -423,12 +418,12 @@ class interpRZPotential(Potential):
                     evaluatezforces, self._origPot, self._rgrid, self._zgrid
                 )
             if self._logR:
-                self._zforceInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
+                self._zforceInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._zforceGrid, kx=3, ky=3
                 )
             else:
-                self._zforceInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
+                self._zforceInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._zforceGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._zforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._zforceGrid)
@@ -447,12 +442,12 @@ class interpRZPotential(Potential):
                 evaluateR2derivs, self._origPot, self._rgrid, self._zgrid
             )
             if self._logR:
-                self._r2derivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                self._r2derivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3
                 )
             else:
-                self._r2derivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                self._r2derivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._r2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -465,12 +460,12 @@ class interpRZPotential(Potential):
                 evaluatez2derivs, self._origPot, self._rgrid, self._zgrid
             )
             if self._logR:
-                self._z2derivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                self._z2derivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3
                 )
             else:
-                self._z2derivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                self._z2derivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._z2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -483,12 +478,12 @@ class interpRZPotential(Potential):
                 evaluateRzderivs, self._origPot, self._rgrid, self._zgrid
             )
             if self._logR:
-                self._rzderivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                self._rzderivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3
                 )
             else:
-                self._rzderivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                self._rzderivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._rzderivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -501,22 +496,20 @@ class interpRZPotential(Potential):
                 evaluateDensities, self._origPot, self._rgrid, self._zgrid
             )
             if self._logR:
-                self._densInterp = interpolate.RectBivariateSpline(
+                self._densInterp = Spline2D(
                     self._logrgrid,
                     self._zgrid,
                     numpy.log(self._densGrid + 10.0**-10.0),
                     kx=3,
                     ky=3,
-                    s=0.0,
                 )
             else:
-                self._densInterp = interpolate.RectBivariateSpline(
+                self._densInterp = Spline2D(
                     self._rgrid,
                     self._zgrid,
                     numpy.log(self._densGrid + 10.0**-10.0),
                     kx=3,
                     ky=3,
-                    s=0.0,
                 )
         if interpvcirc:
             from ..potential import vcirc
@@ -536,13 +529,9 @@ class interpRZPotential(Potential):
                     [vcirc(self._origPot, r, use_physical=False) for r in self._rgrid]
                 )
             if self._logR:
-                self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._logrgrid, self._vcircGrid, k=3
-                )
+                self._vcircInterp = Spline1D(self._logrgrid, self._vcircGrid, k=3)
             else:
-                self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._rgrid, self._vcircGrid, k=3
-                )
+                self._vcircInterp = Spline1D(self._rgrid, self._vcircGrid, k=3)
         if interpdvcircdr:
             from ..potential import dvcircdR
 
@@ -564,13 +553,9 @@ class interpRZPotential(Potential):
                     ]
                 )
             if self._logR:
-                self._dvcircdrInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._logrgrid, self._dvcircdrGrid, k=3
-                )
+                self._dvcircdrInterp = Spline1D(self._logrgrid, self._dvcircdrGrid, k=3)
             else:
-                self._dvcircdrInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._rgrid, self._dvcircdrGrid, k=3
-                )
+                self._dvcircdrInterp = Spline1D(self._rgrid, self._dvcircdrGrid, k=3)
         if interpepifreq:
             from ..potential import epifreq
 
@@ -593,20 +578,20 @@ class interpRZPotential(Potential):
             indx = True ^ numpy.isnan(self._epifreqGrid)
             if numpy.sum(indx) < 4:
                 if self._logR:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._logrgrid[indx], self._epifreqGrid[indx], k=1
                     )
                 else:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._rgrid[indx], self._epifreqGrid[indx], k=1
                     )
             else:
                 if self._logR:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._logrgrid[indx], self._epifreqGrid[indx], k=3
                     )
                 else:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._rgrid[indx], self._epifreqGrid[indx], k=3
                     )
         if interpverticalfreq:
@@ -630,70 +615,41 @@ class interpRZPotential(Potential):
                     ]
                 )
             if self._logR:
-                self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+                self._verticalfreqInterp = Spline1D(
                     self._logrgrid, self._verticalfreqGrid, k=3
                 )
             else:
-                self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+                self._verticalfreqInterp = Spline1D(
                     self._rgrid, self._verticalfreqGrid, k=3
                 )
         return None
 
-    def _grid_ppoly(self, which):
-        """Lazily build & cache the backend tensor-product PPoly block for the
-        interpolated 2D quantity ``which`` (``pot``/``rforce``/``zforce``/
-        ``r2deriv``/``z2deriv``/``rzderiv``/``dens``). Built once, on first
-        backend use, from the SAME scipy ``RectBivariateSpline`` the numpy path
-        uses, so the backend interpolation reuses its knots/coefficients. numpy
-        setup is untouched (no extra work for numpy-only users)."""
-        attr = "_" + which + "PPoly"
-        pp = getattr(self, attr, None)
-        if pp is None:
-            pp = rect_bivariate_to_ppoly(getattr(self, "_" + which + "Interp"))
-            setattr(self, attr, pp)
-        return pp
-
     def _eval_grid_backend(self, which, R, z, *, log_transform=False):
         """Backend (jax/torch) evaluation of an interpolated 2D quantity: the same
-        frozen tensor-product spline as the numpy ``.ev`` path, evaluated through
-        namespace-agnostic ``eval_rect_ppoly`` (searchsorted + 2D Horner), so the
-        value is computed natively and is exactly autodifferentiable w.r.t. (R,z).
-        Matches ``RectBivariateSpline.ev`` to ~1 ulp; like scipy's ``.ev`` it
-        extrapolates the edge polynomial outside the grid (finite, NaN-free)."""
+        Spline2D the numpy path calls -- one object, so there is no second
+        representation to keep in step. It dispatches internally: numpy queries
+        are byte-identical to ``RectBivariateSpline.ev`` and backend queries go
+        through the namespace-agnostic 2D Horner, matching it to ~1 ulp and
+        autodifferentiable w.r.t. (R,z). Like scipy's ``.ev`` it extrapolates the
+        edge polynomial outside the grid (finite, NaN-free)."""
         xp = get_namespace(R, z)
-        xbr, ybr, c = self._grid_ppoly(which)
         Rq = xp.log(R) if self._logR else R
-        out = eval_rect_ppoly(xp, xbr, ybr, c, Rq, z, extrapolate=True)
+        out = getattr(self, "_" + which + "Interp")(Rq, z)
         if log_transform:
             out = xp.exp(out) - 10.0**-10.0
         return match_input_dtype(out, R, z)
 
-    def _grid_ppoly1d(self, which):
-        """Lazily build & cache the backend 1D piecewise-power block for the
-        interpolated 1D quantity ``which`` (``vcirc``/``dvcircdr``/``epifreq``/
-        ``verticalfreq``), converting the SAME fitted scipy
-        ``InterpolatedUnivariateSpline`` the numpy path uses (so the backend eval
-        reuses its knots/coefficients). Built once, on first backend use; numpy
-        setup is untouched."""
-        attr = "_" + which + "PPoly1d"
-        pp = getattr(self, attr, None)
-        if pp is None:
-            pp = spline_to_ppoly(getattr(self, "_" + which + "Interp"))
-            setattr(self, attr, pp)
-        return pp
-
     def _eval_grid_backend_1d(self, which, R):
         """Backend (jax/torch) evaluation of an interpolated 1D quantity: the same
-        frozen spline as the numpy ``InterpolatedUnivariateSpline`` call, through
-        namespace-agnostic ``eval_ppoly`` (searchsorted + Horner), so the value is
-        native and exactly autodifferentiable w.r.t. R. Matches the scipy spline
-        to ~1 ulp; like scipy (ext=0) it extrapolates the edge polynomial outside
+        Spline1D the numpy path calls -- one object rather than a spline plus a
+        derived coefficient cache. numpy queries are byte-identical to the scipy
+        spline, backend queries match it to ~1 ulp and are autodifferentiable
+        w.r.t. R. Like scipy (ext=0) it extrapolates the edge polynomial outside
         the grid (finite, NaN-free) -- the backend path is on-grid interpolation
         only (the numpy off-grid fallback to the orig potential is numpy-only)."""
         xp = get_namespace(R)
-        x, c = self._grid_ppoly1d(which)
         Rq = xp.log(R) if self._logR else R
-        out = eval_ppoly(xp, x, c, Rq, extrapolate=True)
+        out = getattr(self, "_" + which + "Interp")(Rq)
         return match_input_dtype(out, R)
 
     @scalarVectorDecorator
