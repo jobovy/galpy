@@ -66,7 +66,11 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
-BACKENDS = ["jax", "torch"]
+# Four columns, not two: the backend-suite matrix runs every shard eager AND
+# traced, uploading backend-junit-<backend>[-jit]-<sid>.xml. The "-jit" keys
+# are also what conftest writes into the xfail ledger, so the per-backend
+# ledger accounting below lines up with them.
+BACKENDS = ["jax", "torch", "jax-jit", "torch-jit"]
 
 # Canonical list of the 14 TEST_FILES shards, in matrix order, each with a
 # short human-readable label for the table rows. MUST stay in sync with the
