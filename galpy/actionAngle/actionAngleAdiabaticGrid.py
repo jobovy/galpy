@@ -10,6 +10,8 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import warnings
+
 import numpy
 from scipy import interpolate
 
@@ -26,8 +28,9 @@ from ..backend._namespaces import under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
+    _pot_grad_namespace,
 )
-from ..util import multi
+from ..util import galpyWarning, multi
 from .actionAngle import UnboundError, actionAngle
 from .actionAngleAdiabatic import actionAngleAdiabatic
 
@@ -97,6 +100,23 @@ class actionAngleAdiabaticGrid(actionAngle):
         self._Rmin = 0.01
         # Set up the actionAngleAdiabatic object that we will use to interpolate
         self._aA = actionAngleAdiabatic(pot=self._pot, gamma=self._gamma, c=self._c)
+        # No grid under a trace: its nodes need numpy evaluation, and
+        # stop_gradient-ing them would make the table constant in the
+        # differentiated parameter -- a silently zero gradient, worse than an
+        # error. The exact actionAngleAdiabatic IS differentiable: same
+        # numbers, slower. Warned, since the caller asked for the grid.
+        self._grid_bypassed = _pot_grad_namespace(self._pot) is not None
+        if self._grid_bypassed:
+            warnings.warn(
+                "actionAngleAdiabaticGrid: the potential carries a gradient, so "
+                "the interpolation grid cannot be built (its nodes need "
+                "non-differentiable numpy evaluation). Delegating to the exact "
+                "actionAngleAdiabatic -- results are unchanged, evaluation is "
+                "slower.",
+                galpyWarning,
+            )
+            self._check_consistent_units()
+            return None
         xp = get_namespace()
         if xp is not numpy:
             # Forced/default backend: build the whole grid ON the backend so the
@@ -512,6 +532,8 @@ class actionAngleAdiabaticGrid(actionAngle):
         -----
         - 2012-07-27 - Written - Bovy (IAS@MPIA)
         """
+        if getattr(self, "_grid_bypassed", False):  # no grid: the exact aA has it
+            return self._aA(*args, **kwargs)
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -807,6 +829,8 @@ class actionAngleAdiabaticGrid(actionAngle):
         - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
+        if getattr(self, "_grid_bypassed", False):  # no grid: the exact aA has it
+            return self._aA(*args, **kwargs)[2]  # actionAngleAdiabatic has no .Jz
         self._parse_eval_args(*args)
         xp = get_namespace(
             self._eval_R, self._eval_vR, self._eval_vT, self._eval_z, self._eval_vz
