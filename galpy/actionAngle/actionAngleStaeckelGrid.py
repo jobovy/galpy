@@ -10,6 +10,8 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import warnings
+
 import numpy
 from scipy import interpolate, ndimage, optimize
 
@@ -25,8 +27,9 @@ from ..backend import is_backend_array, promote_scalars, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
+    _pot_grad_namespace,
 )
-from ..util import conversion, coords, multi
+from ..util import conversion, coords, galpyWarning, multi
 from . import actionAngleStaeckel, actionAngleStaeckel_c
 from .actionAngle import actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -101,6 +104,23 @@ class actionAngleStaeckelGrid(actionAngle):
         self._aA = actionAngleStaeckel.actionAngleStaeckel(
             pot=self._pot, delta=self._delta, c=self._c
         )
+        # No grid under a trace: the Lz nodes need rl root-finds that
+        # materialise in numpy, and stop_gradient-ing them would make the table
+        # constant in the differentiated parameter -- a silently zero gradient,
+        # worse than an error. The exact actionAngleStaeckel IS differentiable:
+        # same numbers, slower. Warned, since the caller asked for the grid.
+        self._grid_bypassed = _pot_grad_namespace(self._pot) is not None
+        if self._grid_bypassed:
+            warnings.warn(
+                "actionAngleStaeckelGrid: the potential carries a gradient, so "
+                "the interpolation grid cannot be built (its nodes need "
+                "non-differentiable root-finds). Delegating to the exact "
+                "actionAngleStaeckel -- results are unchanged, evaluation is "
+                "slower.",
+                galpyWarning,
+            )
+            self._check_consistent_units()
+            return None
         # Build grid
         self._Lzmin = 0.01
         xp = get_namespace()
@@ -663,6 +683,8 @@ class actionAngleStaeckelGrid(actionAngle):
         -----
         - 2012-11-29 - Written - Bovy (IAS)
         """
+        if getattr(self, "_grid_bypassed", False):  # no grid: the exact aA has it
+            return self._aA(*args, **kwargs)
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -910,6 +932,8 @@ class actionAngleStaeckelGrid(actionAngle):
         -----
         - 2017-12-15 - Written - Bovy (UofT)
         """
+        if getattr(self, "_grid_bypassed", False):  # no grid: the exact aA has it
+            return self._aA.EccZmaxRperiRap(*args, **kwargs)
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi

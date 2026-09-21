@@ -2767,3 +2767,126 @@ def test_isochroneapprox_firstFlip_flips_the_backend_ic(backend):
     o2 = Orbit(_arr(backend, [1.0, 0.1, 1.1, 0.05, -0.02, 0.3])).flip()
     assert o2._ic_backend is not None and _is_backend_array(backend, o2._ic_backend)
     assert as_numpy(o2._ic_backend)[1] == -0.1
+
+
+# --- the grid actionAngle classes under a potential that carries a gradient ---
+# Their nodes need non-differentiable numpy work (rl root-finds for Staeckel,
+# Rs/EzZmax materialisation for adiabatic), so the grid cannot be built under a
+# trace. stop_gradient-ing the nodes would freeze the table in the
+# differentiated parameter and return a silently ZERO gradient, so the classes
+# instead delegate to the exact actionAngle* they interpolate -- warned, since
+# the caller explicitly asked for the grid.
+_BYPASS_IC = (
+    numpy.array([1.0]),
+    numpy.array([0.12]),
+    numpy.array([1.08]),
+    numpy.array([0.06]),
+    numpy.array([0.09]),
+)
+_BYPASS_A = 0.6
+
+
+def _bypass_aa(a, aa, exact):
+    """The grid class (exact=False) or the exact class it delegates TO."""
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=a, b=0.3)
+    if aa == "staeckel":
+        return (
+            actionAngleStaeckel(pot=pot, delta=0.4, c=False)
+            if exact
+            else actionAngleStaeckelGrid(
+                pot=pot, delta=0.4, nE=9, npsi=9, nLz=9, c=False
+            )
+        )
+    return (
+        actionAngleAdiabatic(pot=pot, c=False)
+        if exact
+        else actionAngleAdiabaticGrid(pot=pot, nR=9, nEz=9, nEr=11, nLz=11, c=False)
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("aa", ["staeckel", "adiabatic"])
+def test_gridaa_bypassed_grad_wrt_potential_matches_the_exact_class(backend, aa):
+    # The point of the bypass: d jr / d(potential parameter) now EXISTS and is
+    # right. The FD arm must use the EXACT class -- FD-ing the grid class on
+    # numpy builds the grid and so measures a different (interpolated)
+    # function, which mismatches by ~20% for reasons that are not a gradient bug.
+    from galpy import backend as galpy_backend
+
+    def f_be(t):
+        with galpy_backend.use(backend, force=True):
+            jr = _bypass_aa(t, aa, exact=False)(*_BYPASS_IC)[0]
+        return jr.sum()
+
+    def f_np(a_val):
+        return numpy.asarray(_bypass_aa(float(a_val), aa, exact=True)(*_BYPASS_IC)[0])
+
+    g = _grad(backend, f_be, _BYPASS_A)
+    fd = _fd(f_np, _BYPASS_A, eps=1e-5)
+    assert numpy.isfinite(g) and abs(g) > 1e-6  # not the silently-zero gradient
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-9)
+
+
+# The ROUTING tests below run on torch eager autograd specifically. They need a
+# potential parameter that CARRIES A GRADIENT (a plain backend array does not --
+# that is the whole is_backend_array-vs-requires_grad distinction) while the
+# resulting actions stay CONCRETE enough to compare. Under jax.grad every value
+# is a tracer, so as_numpy cannot see it; torch's eager autograd gives both.
+# The jax side of these same six lines is covered by the grad test above.
+_needs_torch = pytest.mark.skipif(torch is None, reason="torch not installed")
+
+
+@_needs_torch
+@pytest.mark.parametrize("aa", ["staeckel", "adiabatic"])
+def test_gridaa_bypasses_the_grid_when_the_potential_carries_a_gradient(aa):
+    from galpy import backend as galpy_backend
+    from galpy.util import galpyWarning
+
+    with galpy_backend.use("torch", force=True):
+        a = torch.tensor(_BYPASS_A, requires_grad=True)
+        with pytest.warns(galpyWarning, match="cannot be built"):
+            g = _bypass_aa(a, aa, exact=False)
+        assert g._grid_bypassed
+        # the grid tables were never built
+        for attr in ("_jr", "_jz") if aa == "staeckel" else ("_jzInterp",):
+            assert not hasattr(g, attr), attr
+        got = g(*_BYPASS_IC)
+        ref = _bypass_aa(a, aa, exact=True)(*_BYPASS_IC)
+    # it IS the exact class, so this is equality, not a tolerance
+    for c_got, c_ref in zip(got, ref):
+        numpy.testing.assert_allclose(
+            as_numpy(c_got), as_numpy(c_ref), rtol=1e-14, atol=0.0
+        )
+
+
+@_needs_torch
+def test_staeckelgrid_bypassed_ecczmax_delegates():
+    from galpy import backend as galpy_backend
+    from galpy.util import galpyWarning
+
+    with galpy_backend.use("torch", force=True):
+        a = torch.tensor(_BYPASS_A, requires_grad=True)
+        with pytest.warns(galpyWarning, match="cannot be built"):
+            g = _bypass_aa(a, "staeckel", exact=False)
+        got = g.EccZmaxRperiRap(*_BYPASS_IC)
+        ref = _bypass_aa(a, "staeckel", exact=True).EccZmaxRperiRap(*_BYPASS_IC)
+    for c_got, c_ref in zip(got, ref):
+        numpy.testing.assert_allclose(
+            as_numpy(c_got), as_numpy(c_ref), rtol=1e-14, atol=0.0
+        )
+
+
+@_needs_torch
+def test_adiabaticgrid_bypassed_jz_delegates():
+    # adiabatic's Jz has its OWN body (it does not route through _evaluate), so
+    # it needs its own bypass gate; Staeckel's Jz/JR do route through __call__.
+    from galpy import backend as galpy_backend
+    from galpy.util import galpyWarning
+
+    with galpy_backend.use("torch", force=True):
+        a = torch.tensor(_BYPASS_A, requires_grad=True)
+        with pytest.warns(galpyWarning, match="cannot be built"):
+            g = _bypass_aa(a, "adiabatic", exact=False)
+        got = g.Jz(*_BYPASS_IC)
+        ref = _bypass_aa(a, "adiabatic", exact=True)(*_BYPASS_IC)[2]
+    numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-14, atol=0.0)
