@@ -21,7 +21,10 @@ from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
 from ..potential import IsochronePotential
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _pot_grad_namespace,
+)
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import (
@@ -157,8 +160,19 @@ class quasiisothermaldf(df):
         # discretization choice carrying no gradient, but it cannot be
         # concretized under a trace either, so skip the table entirely: _rg then
         # root-finds with potential.rl, which IS differentiable. Only the speed
-        # changes, and only while differentiating w.r.t. hr.
-        if _precomputerg and (under_trace(self._hr) or requires_backend_grad(self._hr)):
+        # changes, and only while differentiating.
+        #
+        # The same applies to a differentiated POTENTIAL, and for the same
+        # reason: the bound is rmax * vcirc(pot, rmax), so a traced potential
+        # parameter makes the float() below raise
+        # ConcretizationTypeError. hr alone was not the whole question -- asking
+        # only about it left every velocity moment and pv* of a qdf built on a
+        # traced potential undifferentiable.
+        if _precomputerg and (
+            under_trace(self._hr)
+            or requires_backend_grad(self._hr)
+            or _pot_grad_namespace(self._pot) is not None
+        ):
             _precomputerg = False
         if _precomputerg:
             if _precomputergrmax is None:
@@ -3391,6 +3405,15 @@ class quasiisothermaldf(df):
             # only ever splines an array. AD-safe (no root-find), and it avoids the
             # eager full-array rl solve an xp.where(indx, rl, spline) would run.
             return self._rgInterpBackend(lz)
+        if self._rgInterp is None:  # _precomputerg=False: rl everywhere
+            # The backend branch above already had this fallback; the numpy one
+            # did not, so _precomputerg=False -- a documented constructor
+            # option -- raised "'NoneType' object is not callable" here. It also
+            # became reachable internally once the guard in __init__ skips the
+            # table for a differentiated POTENTIAL, not just a differentiated hr.
+            if isinstance(lz, numpy.ndarray):
+                return numpy.array([potential.rl(self._pot, t) for t in lz])
+            return potential.rl(self._pot, lz)
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
             indxc = True ^ indx
