@@ -372,6 +372,22 @@ def pytest_configure(config):
         "markers",
         "backend_managed: test manages its own array backend; exempt from --backend",
     )
+
+
+def pytest_collection_finish(session):
+    # Install the counter HERE, not in pytest_configure. _install_jit_counter
+    # imports galpy, and pytest_configure runs BEFORE any test module is
+    # imported -- so importing galpy there locks in the DEFAULT
+    # astropy-units=False before tests/test_quantity.py's module-level
+    # config.__config__.set(...) can turn it on. conversion.py binds
+    # `_APY_UNITS` as an import-time copy, so the late config change never
+    # reaches it and every physical_conversion silently returns a bare array
+    # instead of a Quantity: 104 jax-jit test_quantity failures, scattered, with
+    # correct VALUES and no units. Collection is when test modules are imported,
+    # so by collection_finish the config is set and no test has run yet (and
+    # more modules are loaded, making the traced_call re-patch loop MORE
+    # complete than it was at configure time).
+    config = session.config
     if config.getoption("--jit") and config.getoption("--backend") != "numpy":
         _install_jit_counter()
 
