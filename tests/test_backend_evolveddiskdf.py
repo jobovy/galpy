@@ -486,14 +486,17 @@ def _hierarch(pot_a, R, **kw):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_hierarchical_grid_matches_numpy_on_the_backend(backend):
+@pytest.mark.parametrize("nlevels", [2, 0])
+def test_hierarchical_grid_matches_numpy_on_the_backend(backend, nlevels):
     # The hierarchical levels now build with one vectorised multi-orbit
     # integrate each (plus a static hole mask where the finer level takes
     # over), so the whole grid is a backend array. The backend ODE solver is
     # not dop853_c, so this agrees at quadrature level, not bit-for-bit.
-    ref = float(_hierarch(_GRAD_A, _R))
+    # nlevels=0 is the no-subgrid case (the recursion stops at nlevels > 1, so
+    # only an explicit 0 reaches it); the numpy suite covers it the same way.
+    ref = float(_hierarch(_GRAD_A, _R, nlevels=nlevels))
     with use(backend, force=True):
-        got = _hierarch(_GRAD_A, _scalar(backend, _R))
+        got = _hierarch(_GRAD_A, _scalar(backend, _R), nlevels=nlevels)
         assert is_backend_array(got), "hierarchical grid fell back to numpy"
     numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-6)
 
