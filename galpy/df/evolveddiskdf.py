@@ -542,9 +542,9 @@ class evolveddiskdf(df):
         # moment in numpy and returned a bare float64. _pot_grad_namespace is
         # None for a plain numpy potential even under a forced backend, which is
         # exactly what keeps the merely-forced case on numpy.
-        # The hierarchical grid is NOT migrated, so it is excluded: see the
-        # warning below rather than a silently detached result.
-        _xp_pot = None if hierarchgrid else _pot_grad_namespace(self._pot)
+        # The hierarchical grid is migrated too now (its levels build with one
+        # vectorised multi-orbit integrate each), so it is no longer excluded.
+        _xp_pot = _pot_grad_namespace(self._pot)
         xp = get_namespace(R) if is_backend_array(R) else numpy
         if xp is numpy and _xp_pot is not None:
             xp = _xp_pot
@@ -612,17 +612,6 @@ class evolveddiskdf(df):
                 else:
                     return self._vmomentsurfacemassGrid(n, m, grido)
             else:  # hierarchical grid
-                if _pot_grad_namespace(self._pot) is not None or is_backend_array(R):
-                    # The hierarchical grid is not backend-migrated, so it would
-                    # return a DETACHED float and the caller would see a zero /
-                    # missing gradient with no indication. Say so instead.
-                    warnings.warn(
-                        "evolveddiskdf: hierarchgrid=True is not backend-migrated, "
-                        "so the moment is computed in numpy and carries NO "
-                        "gradient. Use hierarchgrid=False (the regular grid) or "
-                        "grid=False (the direct integral) to differentiate.",
-                        galpyWarning,
-                    )
                 grido = evolveddiskdfHierarchicalGrid(
                     self,
                     R,
@@ -3530,21 +3519,54 @@ class evolveddiskdfHierarchicalGrid:
         self.meanvR = meanvR
         self.meanvT = meanvT
         self.gridpoints = gridpoints
-        self.vRgrid = numpy.linspace(
-            self.meanvR - nsigma * self.sigmaR1,
-            self.meanvR + nsigma * self.sigmaR1,
-            self.gridpoints,
+        # Backend levels build their velocity grids the same way
+        # _buildvgrid_backend does: lo + (hi-lo)*frac with a STATIC frac, because
+        # torch.linspace drops the gradient w.r.t. tensor endpoints. numpy keeps
+        # linspace and stays byte-identical.
+        self._backend = any(
+            is_backend_array(_v) for _v in (R, meanvR, meanvT, sigmaR1, sigmaT1)
         )
-        self.vTgrid = numpy.linspace(
-            self.meanvT - nsigma * self.sigmaT1,
-            self.meanvT + nsigma * self.sigmaT1,
-            self.gridpoints,
-        )
+        if self._backend:
+            xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
+            _dev = device_of(meanvR, meanvT, sigmaR1, sigmaT1)
+            frac = xp.linspace(
+                0.0,
+                1.0,
+                self.gridpoints,
+                **({"device": _dev} if _dev is not None else {}),
+            )
+            self.vRgrid = (
+                self.meanvR - nsigma * self.sigmaR1
+            ) + 2.0 * nsigma * self.sigmaR1 * frac
+            self.vTgrid = (
+                self.meanvT - nsigma * self.sigmaT1
+            ) + 2.0 * nsigma * self.sigmaT1 * frac
+        else:
+            self.vRgrid = numpy.linspace(
+                self.meanvR - nsigma * self.sigmaR1,
+                self.meanvR + nsigma * self.sigmaR1,
+                self.gridpoints,
+            )
+            self.vTgrid = numpy.linspace(
+                self.meanvT - nsigma * self.sigmaT1,
+                self.meanvT + nsigma * self.sigmaT1,
+                self.gridpoints,
+            )
         self.t = t
         if nlevelsTotal is None:
             nlevelsTotal = nlevels
         self.nlevels = nlevels
         self.nlevelsTotal = nlevelsTotal
+        if isinstance(t, (list, numpy.ndarray)) and self._backend:
+            # Only the scalar-t hierarchical build is vectorised; a time LIST
+            # would need the per-level hole mask broadcast over nt as well.
+            # Say so rather than fall into the numpy loop below, which would
+            # index a backend vRgrid with numpy machinery and fail obscurely.
+            raise NotImplementedError(
+                "evolveddiskdf: hierarchgrid=True with a list of times is not "
+                "supported on the jax/torch backend; use a scalar t, "
+                "hierarchgrid=False, or grid=False"
+            )
         if isinstance(t, (list, numpy.ndarray)):
             nt = len(t)
             self.df = numpy.zeros((gridpoints, gridpoints, nt))
@@ -3603,6 +3625,35 @@ class evolveddiskdfHierarchicalGrid:
                         )  # turn this off for now
             if print_progress:
                 sys.stdout.write("\n")  # pragma: no cover
+        elif self._backend:
+            # ONE vectorized multi-orbit integrate for the whole level, then
+            # zero the central hole the finer subgrid covers. The hole is a
+            # STATIC index rectangle (it depends on gridpoints, not on any grid
+            # VALUE), so masking with xp.where is traceable -- and it avoids a
+            # scatter, which is the part that misbehaves under vmap(grad).
+            # Evaluating the ~25% of points inside the hole and discarding them
+            # is far cheaper than the per-gridpoint Python loop it replaces.
+            dxdy = (self.vRgrid[1] - self.vRgrid[0]) * (self.vTgrid[1] - self.vTgrid[0])
+            if nlevels > 0:
+                xsubmin = int(gridpoints) // 4
+                xsubmax = gridpoints - int(gridpoints) // 4
+            else:
+                xsubmin = gridpoints
+                xsubmax = 0
+            ysubmin, ysubmax = xsubmin, xsubmax
+            VR, VT = xp.meshgrid(self.vRgrid, self.vTgrid, indexing="ij")
+            dfvals = edf._df_at_velocities_backend(
+                R, phi, t, xp.reshape(VR, (-1,)), xp.reshape(VT, (-1,)), xp
+            )
+            self.df = xp.reshape(dfvals, (gridpoints, gridpoints))
+            _ii = numpy.arange(gridpoints)
+            _hole = numpy.zeros((gridpoints, gridpoints), dtype=bool)
+            if nlevels > 1:
+                _m = (_ii >= xsubmin) & (_ii < xsubmax)
+                _hole = _m[:, None] & _m[None, :]
+            _hole_b = asarray_on_device(xp, _hole, device_of(self.df))
+            self.df = xp.where(_hole_b, 0.0, self.df * dxdy)
+            self.df = xp.where(xp.isnan(self.df), 0.0, self.df)
         else:
             self.df = numpy.zeros((gridpoints, gridpoints))
             dxdy = (self.vRgrid[1] - self.vRgrid[0]) * (self.vTgrid[1] - self.vTgrid[0])
