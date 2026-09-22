@@ -1655,6 +1655,13 @@ def _xiToR(xi, a=1):
     # follows a FORCED backend even for a Python float, which then takes plain
     # Python arithmetic and raises ZeroDivisionError at xi = 1 where numpy.divide
     # returns the inf the xi -> 1 limit requires.
+    # `a` can carry the gradient too (a differentiated potential scale) while
+    # the grid stays plain numpy. `Tensor * ndarray` returns NotImplemented, so
+    # numpy's __rmul__ takes over and calls .numpy() on the grad tensor ->
+    # RuntimeError. jax accepts the mix, so a jax-only check misses this. Lift
+    # the numpy operand and let the existing backend branch run.
+    if is_backend_array(a) and not is_backend_array(xi):
+        xi = asarray_on_device(get_namespace(a), xi, device_of(a))
     if not is_backend_array(xi):
         return a * numpy.divide((1.0 + xi), (1.0 - xi))
     return a * ((1.0 + xi) / (1.0 - xi))
@@ -1665,6 +1672,10 @@ def _RToxi(r, a=1):
     # evaluation: dispatch on the DATA, not the (possibly forced) namespace, so a
     # numpy/scalar r stays numpy (byte-identical, keeps numpy parents working)
     # while a backend array routes to the differentiable backend path.
+    if is_backend_array(a) and not is_backend_array(r):
+        # Same asymmetry as _xiToR above: numpy.divide on `r / a` would hit
+        # ndarray.__truediv__(Tensor) and call .numpy() on a grad tensor.
+        r = asarray_on_device(get_namespace(a), r, device_of(a))
     if not is_backend_array(r):
         out = numpy.divide((r / a - 1.0), (r / a + 1.0), where=True ^ numpy.isinf(r))
         if numpy.any(numpy.isinf(r)):
