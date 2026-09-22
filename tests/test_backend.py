@@ -235,3 +235,47 @@ def test_force_mode_runs_numpy_inputs_in_backend():
     assert "jax" in type(out).__module__
     ref = numpy.asarray(pot._evaluate(numpy.asarray(_RS), numpy.asarray(_ZS)))
     numpy.testing.assert_allclose(numpy.asarray(out), ref, rtol=1e-12)
+
+
+def test_namespace_of_ignores_a_forced_context():
+    # get_namespace resolves a FORCED default ahead of the data -- "forced
+    # default beats the data" in its own source. That is right for "what
+    # namespace should this computation use", and WRONG for "what namespace
+    # does this value live in", which is what a lift onto that value needs.
+    # Lifting via get_namespace inside use("numpy", force=True) produces an
+    # ndarray, which then raises against a grad tensor and silently loses the
+    # namespace/device otherwise.
+    import numpy
+
+    import galpy.backend as gb
+    from galpy.backend import get_namespace, is_backend_array, namespace_of
+
+    for backend in BACKENDS:
+        x = _arr(backend, numpy.array([1.0, 2.0]))
+        assert namespace_of(x) is get_namespace(x)  # agree with no context
+        with gb.use("numpy", force=True):
+            assert get_namespace(x) is numpy, "get_namespace should follow force"
+            assert namespace_of(x) is not numpy, (
+                "namespace_of must follow the DATA, not the forced default"
+            )
+    assert namespace_of(1.0) is None  # nothing array-like -> caller falls back
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_xitor_rtoxi_lift_onto_the_data_under_a_forced_numpy_context(backend):
+    # The concrete consequence at a real call site: constantbetadf's
+    # construction runs inside use("numpy", force=True), and these leaves lift
+    # the numpy grid onto the scale. Resolved via get_namespace they produced
+    # an ndarray and the following multiply met a tensor.
+    import numpy
+
+    import galpy.backend as gb
+    from galpy.backend import is_backend_array
+    from galpy.potential.SCFPotential import _RToxi, _xiToR
+
+    a = _arr(backend, numpy.array(1.3))
+    with gb.use("numpy", force=True):
+        r_out = _xiToR(numpy.array([-0.5, 0.0, 0.5]), a=a)
+        xi_out = _RToxi(numpy.array([0.5, 1.0, 2.0]), a=a)
+    assert is_backend_array(r_out), "_xiToR lifted onto the forced namespace"
+    assert is_backend_array(xi_out), "_RToxi lifted onto the forced namespace"

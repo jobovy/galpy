@@ -86,6 +86,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    namespace_of,
     prefer_backend_namespace,
     promote_common_dtype,
     promote_scalars,
@@ -342,7 +343,7 @@ def degreeDecorator(inDegrees, outDegrees):
                 # this decorator also wraps functions that are still numpy-only,
                 # whose `out` is a plain ndarray even under a forced backend.
                 if is_backend_array(out):
-                    scale = asarray_on_device(get_namespace(out), scale, device_of(out))
+                    scale = asarray_on_device(namespace_of(out), scale, device_of(out))
                 out = out * scale
             return out
 

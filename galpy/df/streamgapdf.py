@@ -16,6 +16,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    namespace_of,
 )
 from ..backend import special as _bspecial
 from ..backend import use
@@ -1341,7 +1342,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         trk = self._kick_interpolatedObsTrackXY
         if not is_backend_array(trk) or is_backend_array(x):
             return x
-        return as_backend_constant(get_namespace(trk), numpy.asarray(x), trk)
+        return as_backend_constant(namespace_of(trk), numpy.asarray(x), trk)
 
     def _store_closest(self):
         # Also store (x,v) for the point of closest approach

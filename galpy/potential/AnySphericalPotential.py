@@ -6,7 +6,13 @@ import copy
 import numpy
 from scipy import integrate
 
-from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    get_namespace,
+    is_backend_array,
+    namespace_of,
+)
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.quadpack import quad_over_limits
@@ -173,7 +179,7 @@ class AnySphericalPotential(SphericalPotential):
         """
         if is_backend_array(a) and self._dens_needs_numpy:
             d = numpy.asarray(self._rawdens(as_numpy(a)))
-            return as_backend_constant(get_namespace(a), d, a)
+            return as_backend_constant(namespace_of(a), d, a)
         return self._rawdens(a)
 
     def _rawmass(self, r):
