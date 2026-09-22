@@ -1024,3 +1024,87 @@ def test_xitor_rtoxi_accept_a_gradient_carrying_scale(backend):
         (rs / _SAMPLE_A - 1.0) / (rs / _SAMPLE_A + 1.0),
         rtol=1e-12,
     )
+
+
+# --- constantbetadf differentiable w.r.t. the POTENTIAL parameter ----------
+# The DF bakes the potential in at construction, so d/d(potential parameter)
+# requires CONSTRUCTING under the gradient. Three things blocked that:
+#   * _autodiff_xp() picked the grad engine by AVAILABILITY (preferring jax for
+#     the byte-identical numpy fE path), so a torch-differentiated potential got
+#     a JAX gradfunc and a jax tracer met a torch tensor;
+#   * _evalpot_asnumpy looked only at the ambient namespace, so inside the
+#     construction block's forced-numpy it reached _evaluate UNDECORATED and did
+#     numpy ops on a backend parameter;
+#   * _RphiRootFind / the r(Phi) spline knots hit the Tensor/ndarray asymmetry.
+#
+# TORCH ONLY, and not an oversight: getting here on jax needs the construction
+# itself to be traceable, and it is not -- _evalpot_asnumpy calls as_numpy on a
+# tracer, and the startt calibration is a `while numpy.any(startval == 0.0)`
+# loop, i.e. data-dependent control flow. Torch EAGER autograd keeps values
+# concrete, so neither blocks it. Making jax work is a calibration redesign.
+_CB_A, _CB_E = 1.2, -0.8
+
+
+def _constantbeta(a):
+    from galpy.df import constantbetadf
+
+    return constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_fE_grad_wrt_potential_parameter():
+    with use("torch", force=True):
+        a = torch.tensor(_CB_A, requires_grad=True)
+        out = _constantbeta(a).fE(torch.tensor([_CB_E]))
+        assert torch.is_tensor(out) and out.grad_fn is not None, (
+            "fE came back detached: the construction table severed the gradient"
+        )
+        out.sum().backward()
+        ad = float(a.grad)
+
+    # FD on the SAME quadrature. fE dispatches on E's namespace, so a numpy E
+    # runs scipy-adaptive _fE_numpy while AD runs the GL fixed_quad
+    # _fE_backend -- comparing those two rules reports ~5e-4, which is the
+    # quadrature difference and not a gradient error.
+    def val(av):
+        with use("torch", force=True):
+            return float(
+                as_numpy(_constantbeta(torch.tensor(av)).fE(torch.tensor([_CB_E])))[0]
+            )
+
+    h = 1e-4  # fE carries ~1e-9 relative noise (brentq xtol + GL), so a smaller
+    # step is WORSE: differencing amplifies it by 1/(2h). Measured rel is
+    # 2.7e-05 at 1e-4, 4.6e-05 at 1e-5 and 5.4e-04 at 1e-6 -- the FD roundoff
+    # branch, so FD is the limited instrument here, not the gradient.
+    fd = (val(_CB_A + h) - val(_CB_A - h)) / (2.0 * h)
+    assert abs(ad) > 1.0, "zero gradient: the potential parameter is disconnected"
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-4)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_grad_engine_follows_the_potential():
+    # Pins the root cause directly: the autodiff engine must match the
+    # potential's FRAMEWORK. Picking jax here put a jax tracer and a torch
+    # tensor in one multiply, which neither framework can lift.
+    with use("torch", force=True):
+        d = _constantbeta(torch.tensor(_CB_A, requires_grad=True))
+        assert d._backend == "torch", d._backend
+        dplain = _constantbeta(1.2)  # numpy potential keeps the jax preference
+    assert dplain._backend in ("jax", "torch")
+
+
+def test_pot_grad_namespace_any_backend_keyword():
+    # The widened test is opt-in. The DEFAULT must stay gradient-only: that is
+    # what keeps a merely-forced backend on the scipy path with its numbers
+    # unchanged, so a regression here would be silent.
+    from galpy.potential.Potential import _pot_grad_namespace
+
+    for backend in BACKENDS:
+        plain = HernquistPotential(amp=2.0, a=_arr(backend, _CB_A))
+        assert _pot_grad_namespace(plain) is None, (
+            "default must ignore a non-gradient backend parameter"
+        )
+        assert _pot_grad_namespace(plain, any_backend=True) is not None
+    numpypot = HernquistPotential(amp=2.0, a=1.2)
+    assert _pot_grad_namespace(numpypot) is None
+    assert _pot_grad_namespace(numpypot, any_backend=True) is None
