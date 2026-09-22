@@ -469,7 +469,7 @@ def test_moment_grad_wrt_potential_parameter_with_float_R(backend, route):
     numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-8)
 
 
-def _hierarch(pot_a, R):
+def _hierarch(pot_a, R, **kw):
     return _grad_edf(pot_a).vmomentsurfacemass(
         R,
         0,
@@ -481,42 +481,60 @@ def _hierarch(pot_a, R):
         integrate_method="rk6_c",
         hierarchgrid=True,
         returnGrid=False,
+        **kw,
     )
 
 
-# The unmigrated hierarchical path runs numpy ops ON a backend array, which
-# numpy 2 flags (`__array__` copy kwarg). That deprecation is a SYMPTOM of
-# exactly what the galpyWarning under test announces, so it is scoped out here
-# rather than chased: build.yml runs tests/test_backend*.py with
-# `-W error::DeprecationWarning`, so without this the test passes locally and
-# fails CI-only.
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_hierarchical_grid_warns_for_a_backend_R(backend):
-    # The hierarchical grid is NOT backend-migrated: it must SAY so rather than
-    # hand back a detached float that reads as a zero/missing gradient.
-    from galpy.util import galpyWarning
-
+@pytest.mark.parametrize("nlevels", [2, 0])
+def test_hierarchical_grid_matches_numpy_on_the_backend(backend, nlevels):
+    # The hierarchical levels now build with one vectorised multi-orbit
+    # integrate each (plus a static hole mask where the finer level takes
+    # over), so the whole grid is a backend array. The backend ODE solver is
+    # not dop853_c, so this agrees at quadrature level, not bit-for-bit.
+    # nlevels=0 is the no-subgrid case (the recursion stops at nlevels > 1, so
+    # only an explicit 0 reaches it); the numpy suite covers it the same way.
+    ref = float(_hierarch(_GRAD_A, _R, nlevels=nlevels))
     with use(backend, force=True):
-        with pytest.warns(galpyWarning, match="hierarchgrid=True is not"):
-            out = _hierarch(_GRAD_A, _scalar(backend, _R))
-    assert not is_backend_array(out)
+        got = _hierarch(_GRAD_A, _scalar(backend, _R), nlevels=nlevels)
+        assert is_backend_array(got), "hierarchical grid fell back to numpy"
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-6)
 
 
-@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
-def test_hierarchical_grid_warns_for_a_gradient_carrying_potential():
-    # The other half of the same guard. Torch eager autograd specifically: it is
-    # the only way to hold a parameter that CARRIES a gradient while the result
-    # stays concrete (under jax.grad this route returns a plain float, which
-    # jax.grad cannot differentiate -- which is the very thing being warned
-    # about). The code path itself is backend-agnostic.
-    from galpy.util import galpyWarning
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hierarchical_grid_grad_wrt_potential_parameter(backend):
+    # The point of migrating it: hierarchgrid=True used to WARN that it could
+    # carry no gradient. FD is taken on the same route so the comparison is
+    # quadrature-consistent.
+    with use(backend, force=True):
+        if backend == "jax":
+            g = float(
+                jax.grad(lambda t: jnp.asarray(_hierarch(t, _R)).reshape(()))(
+                    jnp.asarray(_GRAD_A)
+                )
+            )
+        else:
+            t = torch.tensor(_GRAD_A, requires_grad=True)
+            out = _hierarch(t, _R)
+            assert is_backend_array(out), "hierarchical grid fell back to numpy"
+            out.reshape(()).backward()
+            g = float(t.grad)
+    h = 1e-5
+    fd = (float(_hierarch(_GRAD_A + h, _R)) - float(_hierarch(_GRAD_A - h, _R))) / (
+        2.0 * h
+    )
+    assert abs(g) > 1e-6, "zero gradient: the potential parameter is disconnected"
+    numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-8)
 
-    with use("torch", force=True):
-        a = torch.tensor(_GRAD_A, requires_grad=True)
-        with pytest.warns(galpyWarning, match="hierarchgrid=True is not"):
-            out = _hierarch(a, _R)
-    assert not is_backend_array(out)
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hierarchical_grid_time_list_says_it_is_unsupported(backend):
+    # Only the scalar-t hierarchical build is vectorised. A time list must say
+    # so rather than fall into the numpy loop and fail obscurely on a backend
+    # velocity grid.
+    with use(backend, force=True):
+        with pytest.raises(NotImplementedError, match="list of times"):
+            _hierarch(_GRAD_A, _scalar(backend, _R), t=[0.0, -0.5])
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
