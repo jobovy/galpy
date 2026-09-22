@@ -406,3 +406,131 @@ def test_direct_moment_with_a_zero_initdf_moment(backend, n, m):
     numpy.testing.assert_allclose(
         float(as_numpy(got)), float(ref), rtol=1e-4, atol=1e-6
     )
+
+
+# --- the gradient in the POTENTIAL, with R a plain float -------------------
+# The moment gate used to ask only `is_backend_array(R)`. A gradient carried by
+# a potential PARAMETER is invisible to that question, so with a plain-float R
+# the whole moment was computed in numpy and came back a bare float64 -- the
+# gradient silently lost, with no error. These pin the three routes.
+_GRAD_A = 0.6
+
+
+def _grad_edf(a):
+    """evolveddiskdf whose POTENTIAL carries the differentiated parameter."""
+    from galpy.potential import MiyamotoNagaiPotential
+
+    return evolveddiskdf(
+        dehnendf(beta=0.0),
+        pot=MiyamotoNagaiPotential(normalize=1.0, a=a, b=0.3),
+        to=-1.0,
+    )
+
+
+_GRAD_ROUTES = {
+    # R stays a PLAIN FLOAT in every one of these -- that is the point.
+    "direct": dict(grid=False),
+    "grid": dict(grid=True, gridpoints=8, integrate_method="rk6_c", returnGrid=False),
+}
+
+
+def _grad_moment(a, route):
+    return _grad_edf(a).vmomentsurfacemass(
+        _R, 0, 0, phi=_PHI, nsigma=3.0, **_GRAD_ROUTES[route]
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
+def test_moment_grad_wrt_potential_parameter_with_float_R(backend, route):
+    # AD vs FD, each route against ITSELF: the direct (polar-GL) and grid
+    # routes are different quadratures and legitimately give different
+    # derivatives (0.0712 vs 0.1087 here), so comparing one against the other's
+    # FD would report a ~50% "error" that is not a bug.
+    with use(backend, force=True):
+        if backend == "jax":
+            g = float(
+                jax.grad(lambda t: jnp.asarray(_grad_moment(t, route)).reshape(()))(
+                    jnp.asarray(_GRAD_A)
+                )
+            )
+        else:
+            t = torch.tensor(_GRAD_A, requires_grad=True)
+            out = _grad_moment(t, route)
+            assert is_backend_array(out), "moment fell back to numpy"
+            out.reshape(()).backward()
+            g = float(t.grad)
+    h = 1e-5
+    fd = (
+        float(_grad_moment(_GRAD_A + h, route))
+        - float(_grad_moment(_GRAD_A - h, route))
+    ) / (2.0 * h)
+    assert abs(g) > 1e-6, "zero gradient: the potential parameter is disconnected"
+    numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-8)
+
+
+def _hierarch(pot_a, R):
+    return _grad_edf(pot_a).vmomentsurfacemass(
+        R,
+        0,
+        0,
+        phi=_PHI,
+        nsigma=3.0,
+        grid=True,
+        gridpoints=8,
+        integrate_method="rk6_c",
+        hierarchgrid=True,
+        returnGrid=False,
+    )
+
+
+# The unmigrated hierarchical path runs numpy ops ON a backend array, which
+# numpy 2 flags (`__array__` copy kwarg). That deprecation is a SYMPTOM of
+# exactly what the galpyWarning under test announces, so it is scoped out here
+# rather than chased: build.yml runs tests/test_backend*.py with
+# `-W error::DeprecationWarning`, so without this the test passes locally and
+# fails CI-only.
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hierarchical_grid_warns_for_a_backend_R(backend):
+    # The hierarchical grid is NOT backend-migrated: it must SAY so rather than
+    # hand back a detached float that reads as a zero/missing gradient.
+    from galpy.util import galpyWarning
+
+    with use(backend, force=True):
+        with pytest.warns(galpyWarning, match="hierarchgrid=True is not"):
+            out = _hierarch(_GRAD_A, _scalar(backend, _R))
+    assert not is_backend_array(out)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_hierarchical_grid_warns_for_a_gradient_carrying_potential():
+    # The other half of the same guard. Torch eager autograd specifically: it is
+    # the only way to hold a parameter that CARRIES a gradient while the result
+    # stays concrete (under jax.grad this route returns a plain float, which
+    # jax.grad cannot differentiate -- which is the very thing being warned
+    # about). The code path itself is backend-agnostic.
+    from galpy.util import galpyWarning
+
+    with use("torch", force=True):
+        a = torch.tensor(_GRAD_A, requires_grad=True)
+        with pytest.warns(galpyWarning, match="hierarchgrid=True is not"):
+            out = _hierarch(a, _R)
+    assert not is_backend_array(out)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
+def test_merely_forced_backend_with_a_plain_potential_stays_numpy(backend, route):
+    # The NEGATIVE CONTROL for the widened gate, and the whole reason the guard
+    # exists: under a merely FORCED backend a plain numpy potential carries no
+    # gradient, so the fast numpy path must still be taken and the public
+    # return type must still be a float. If this ever flips, the numpy suite is
+    # silently running on diffrax/torchdiffeq.
+    ref = _grad_edf(_GRAD_A).vmomentsurfacemass(
+        _R, 0, 0, phi=_PHI, nsigma=3.0, **_GRAD_ROUTES[route]
+    )
+    with use(backend, force=True):
+        got = _grad_moment(_GRAD_A, route)  # plain float a -> no gradient anywhere
+    assert not is_backend_array(got), "a merely-forced backend flipped the numpy path"
+    numpy.testing.assert_allclose(float(got), float(ref), rtol=0.0, atol=0.0)
