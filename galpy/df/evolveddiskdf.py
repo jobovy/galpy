@@ -31,7 +31,12 @@ from ..backend import (
 from ..backend import quadrature as _bquad
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
-from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
+from ..potential.Potential import (
+    _check_c,
+    _check_potential_list_and_deprecate,
+    _dim,
+    _pot_grad_namespace,
+)
 from ..util import galpyWarning, plot
 from ..util.conversion import parse_time, physical_conversion, potential_physical_input
 from ..util.quadpack import dblquad
@@ -527,32 +532,54 @@ class evolveddiskdf(df):
             nsigma = _NSIGMA
         if _PROFILE:  # pragma: no cover
             start = time_module.time()
-        # TRANSITIONAL data-guard (to be lifted when the hierarchical-grid + direct
-        # paths are backend-migrated, like the diskdf-family guards, task #117): xp
-        # is numpy unless R is actually a backend array, so a *forced* backend does
-        # NOT flip a numpy R (which would break the unmigrated direct/hierarchical
-        # paths and the fast numpy suite). For a backend R the grid velocity bounds
-        # carry R's gradient into the differentiable grid build (_buildvgrid_backend).
+        # TRANSITIONAL data-guard (to be lifted when the HIERARCHICAL grid is
+        # backend-migrated, task #117): xp is numpy unless something here
+        # actually carries a gradient, so a *forced* backend does NOT flip a
+        # numpy R (which would break the fast numpy suite). Two things qualify:
+        # a backend R (its gradient reaches the grid bounds), and a potential
+        # PARAMETER carrying one -- the latter is invisible to
+        # is_backend_array(R), so gating on R alone silently computed the whole
+        # moment in numpy and returned a bare float64. _pot_grad_namespace is
+        # None for a plain numpy potential even under a forced backend, which is
+        # exactly what keeps the merely-forced case on numpy.
+        # The hierarchical grid is NOT migrated, so it is excluded: see the
+        # warning below rather than a silently detached result.
+        _xp_pot = None if hierarchgrid else _pot_grad_namespace(self._pot)
         xp = get_namespace(R) if is_backend_array(R) else numpy
+        if xp is numpy and _xp_pot is not None:
+            xp = _xp_pot
+
+        def _onbe(v):
+            # The initdf is numpy and does not depend on the potential, so these
+            # are plain numpy scalars carrying NO gradient -- but when the
+            # gradient lives in the POTENTIAL, R stays a float while xp is a
+            # backend, and torch's ops reject a numpy scalar (jax accepts one).
+            # Lifting them is therefore type-plumbing, not a semantic change.
+            return v if xp is numpy else asarray_on_device(xp, v, device_of(R))
+
         if (
             hasattr(self._initdf, "_estimatemeanvR")
             and hasattr(self._initdf, "_estimatemeanvT")
             and hasattr(self._initdf, "_estimateSigmaR2")
             and hasattr(self._initdf, "_estimateSigmaT2")
         ):
-            sigmaR1 = xp.sqrt(self._initdf._estimateSigmaR2(R, phi=az))
-            sigmaT1 = xp.sqrt(self._initdf._estimateSigmaT2(R, phi=az))
-            meanvR = self._initdf._estimatemeanvR(R, phi=az)
-            meanvT = self._initdf._estimatemeanvT(R, phi=az)
+            sigmaR1 = xp.sqrt(_onbe(self._initdf._estimateSigmaR2(R, phi=az)))
+            sigmaT1 = xp.sqrt(_onbe(self._initdf._estimateSigmaT2(R, phi=az)))
+            meanvR = _onbe(self._initdf._estimatemeanvR(R, phi=az))
+            meanvT = _onbe(self._initdf._estimatemeanvT(R, phi=az))
         else:
             warnings.warn(
                 "No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                 galpyWarning,
             )
-            sigmaR1 = xp.sqrt(self._initdf.sigmaR2(R, phi=az, use_physical=False))
-            sigmaT1 = xp.sqrt(self._initdf.sigmaT2(R, phi=az, use_physical=False))
-            meanvR = self._initdf.meanvR(R, phi=az, use_physical=False)
-            meanvT = self._initdf.meanvT(R, phi=az, use_physical=False)
+            sigmaR1 = xp.sqrt(
+                _onbe(self._initdf.sigmaR2(R, phi=az, use_physical=False))
+            )
+            sigmaT1 = xp.sqrt(
+                _onbe(self._initdf.sigmaT2(R, phi=az, use_physical=False))
+            )
+            meanvR = _onbe(self._initdf.meanvR(R, phi=az, use_physical=False))
+            meanvT = _onbe(self._initdf.meanvT(R, phi=az, use_physical=False))
         if _PROFILE:  # pragma: no cover
             setup_time = time_module.time() - start
         if not grid is None and isinstance(grid, bool) and grid:
@@ -585,6 +612,17 @@ class evolveddiskdf(df):
                 else:
                     return self._vmomentsurfacemassGrid(n, m, grido)
             else:  # hierarchical grid
+                if _pot_grad_namespace(self._pot) is not None or is_backend_array(R):
+                    # The hierarchical grid is not backend-migrated, so it would
+                    # return a DETACHED float and the caller would see a zero /
+                    # missing gradient with no indication. Say so instead.
+                    warnings.warn(
+                        "evolveddiskdf: hierarchgrid=True is not backend-migrated, "
+                        "so the moment is computed in numpy and carries NO "
+                        "gradient. Use hierarchgrid=False (the regular grid) or "
+                        "grid=False (the direct integral) to differentiate.",
+                        galpyWarning,
+                    )
                 grido = evolveddiskdfHierarchicalGrid(
                     self,
                     R,
@@ -609,11 +647,18 @@ class evolveddiskdf(df):
                     return self._vmomentsurfacemassHierarchicalGrid(n, m, grido)
         # Calculate the initdf moment and then calculate the ratio
         initvmoment = self._initdf.vmomentsurfacemass(R, n, m, nsigma=nsigma, phi=phi)
-        # TRANSITIONAL data-guard, mirroring _buildvgrid's gate on is_backend_array
-        # (not on a forced namespace): a forced backend with a plain-float R keeps
-        # the adaptive scipy path, so the fast numpy suite does not get flipped onto
-        # orbit integration. Only a genuine backend R takes the differentiable route.
-        _direct_backend = is_backend_array(R)
+        # TRANSITIONAL data-guard, mirroring _buildvgrid's gate (not a forced
+        # namespace): a merely FORCED backend with a plain-float R and a plain
+        # potential keeps the adaptive scipy path, so the fast numpy suite does
+        # not get flipped onto orbit integration. A genuine backend R takes the
+        # differentiable route -- and so does a gradient-carrying POTENTIAL,
+        # which is invisible to is_backend_array(R) and used to be computed in
+        # numpy and returned as a bare float64 with the gradient silently lost.
+        _direct_backend = is_backend_array(R) or _xp_pot is not None
+        # No second _xp_pot fix-up is needed here: when the gradient lives in
+        # the potential the moments above were already lifted onto it, so
+        # get_namespace resolves the backend through sigmaR1 even though R is a
+        # plain float. (A fix-up here measured as dead code.)
         xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
         if not _direct_backend:
             if initvmoment == 0.0:
@@ -2998,7 +3043,11 @@ class evolveddiskdf(df):
         # stays byte-identical. TRANSITIONAL data-guard (gate on is_backend_array, not
         # a forced backend) so a forced backend with a numpy R keeps the fast numpy
         # loop -- no diffrax flip in the numpy suite (sigmaR1/meanvR follow R).
-        if is_backend_array(R):
+        # sigmaR1 is also checked: when the gradient lives in the POTENTIAL, R
+        # stays a plain float and only the caller-lifted moments are backend
+        # arrays. Under a MERELY forced backend they stay numpy, so the fast
+        # numpy loop is still not flipped.
+        if is_backend_array(R) or is_backend_array(sigmaR1):
             return self._buildvgrid_backend(
                 R,
                 phi,
