@@ -23,7 +23,7 @@ from ..backend import use
 from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
-from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import _evaluatePotentials, _pot_grad_namespace
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED, _TORCH_LOADED
 from .sphericaldf import (
@@ -511,8 +511,19 @@ class constantbetadf(_constantbetadf):
         # numpy-facing m-th (dens r^2beta)/dPsi^m derivative for the byte-identical
         # numpy fE path; the backend fE path reuses/rebuilds the raw vmapped
         # closure per eval-backend via _raw_gradfunc.
+        # The grad engine must match the POTENTIAL's parameters, not merely what
+        # is installed. The nested-grad closures call _ddenstwobetadr, which is
+        # backend-agnostic only while ITS parameters are numpy: with a
+        # differentiated torch potential a jax LinearizeTracer meets a torch
+        # Tensor and the multiply raises (they are different frameworks, so
+        # neither operand can lift the other). For a plain numpy potential the
+        # jax preference stands, keeping the numpy fE path byte-identical.
+        _xp_pot = _pot_grad_namespace(self._pot, any_backend=True)
+        if _xp_pot is not None:
+            self._backend = name_of_namespace(_xp_pot)
         self._gradfunc = _make_gradfunc(
-            self._raw_gradfunc(_autodiff_xp()), self._backend
+            self._raw_gradfunc(_autodiff_xp() if _xp_pot is None else _xp_pot),
+            self._backend,
         )
         # Min and max energy (numpy scalars): Phi(rmax)/Phi(rmin) as numpy, robust
         # under a forced non-numpy backend (see _evalpot_asnumpy -- boundary
@@ -553,7 +564,14 @@ class constantbetadf(_constantbetadf):
                         Es[indx],
                         self._gradfunc,
                         self._alpha,
-                        self._rphi(Es[indx]),
+                        # Boundary coercion (the _evalpot_asnumpy pattern): this
+                        # calibration only fixes the fE integration LOWER LIMIT
+                        # and is deliberately numpy; _rphi is the root-find
+                        # drop-in under a traced potential and returns a backend
+                        # array. The fE VALUE is integrated live by _fE_backend,
+                        # so the gradient does not come through this table --
+                        # verified against FD, not assumed.
+                        as_numpy(self._rphi(Es[indx])),
                     )
                 # numpy queries hit the scipy spline (byte-identical); backend
                 # queries evaluate the frozen table natively, so the traced fE
@@ -721,6 +739,16 @@ class constantbetadf(_constantbetadf):
         # so the clamped energies stay on-backend and the limits stay traceable
         Ecl = xp.where(indx, Eb, xp.ones_like(Eb) * emin)
         rphiE = self._rphi(Ecl) * 1.0
+        # Masked entries get a BENIGN radius, not r(emin). Clamping the ENERGY
+        # is not enough: at E = emin the radius is r_min, where rforce -> 0, so
+        # the `grad(dens)(r) / rforce(r)` inside _deriv is infinite there.
+        # xp.where's backward multiplies the UNSELECTED branch's gradient by
+        # zero, and 0 * inf = NaN, which poisons the gradient for the WHOLE
+        # batch. The forward is unaffected -- these entries are zeroed by the
+        # same mask below -- so any finite radius will do. Invisible when every
+        # element is in bounds, which is why a single in-bounds energy tests
+        # clean while a batch spanning Emin does not.
+        rphiE = xp.where(indx, rphiE, xp.ones_like(rphiE))
         if self._halfint:
             val = self._deriv(xp, rphiE) / (
                 2.0
@@ -770,6 +798,17 @@ def _evalpot_asnumpy(pot, r):
     differentiable fE lives in the backend path).
     """
     xp = get_namespace()
+    # The POTENTIAL's parameters count, not just the ambient namespace: this
+    # runs inside the construction block's `use("numpy", force=False)`, so a
+    # differentiated potential leaves xp numpy while self.a is a backend array.
+    # _evaluatePotentials then reaches _evaluate UNDECORATED (no @backend_input
+    # coercion), whose namespace comes from the coordinates alone, and numpy
+    # ops meet a backend parameter. Coerce r onto the potential's namespace and
+    # pull the result back -- the boundary coercion this helper exists for.
+    if xp is numpy:
+        _xp_pot = _pot_grad_namespace(pot, any_backend=True)
+        if _xp_pot is not None:
+            xp = _xp_pot
     if xp is numpy:
         return _evaluatePotentials(pot, r, 0)
     return as_numpy(_evaluatePotentials(pot, xp.asarray(r) * 1.0, 0))
