@@ -1082,6 +1082,39 @@ def test_constantbetadf_fE_grad_wrt_potential_parameter():
 
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_fE_grad_over_a_batch_spanning_Emin():
+    # The case a single-energy test cannot see. Out-of-bounds energies are
+    # clamped to Emin, whose RADIUS is r_min where rforce -> 0, so
+    # `grad(dens)(r) / rforce(r)` is infinite there; xp.where's backward
+    # multiplies that unselected branch by zero and 0 * inf = NaN poisons the
+    # gradient for EVERY element. The forward stays correct throughout, which
+    # is what hides it.
+    import numpy as _np
+
+    Es = _np.linspace(-1.0, -0.6, 5)  # straddles Emin (-0.8333 for this pot)
+    with use("torch", force=True):
+        a = torch.tensor(_CB_A, requires_grad=True)
+        d = _constantbeta(a)
+        assert Es[0] < float(as_numpy(d._Emin)) < Es[-1], (
+            "fixture no longer straddles Emin"
+        )
+        out = d.fE(torch.as_tensor(Es))
+        assert not bool(torch.isnan(out).any()), "forward should never be NaN"
+        out.sum().backward()
+        g = float(a.grad)
+    assert not numpy.isnan(g), "NaN gradient: a masked branch poisoned the batch"
+    assert abs(g) > 1.0
+
+    # a batch entirely BELOW Emin is all-masked, so fE is 0 there and the
+    # gradient is exactly 0 -- finite, not NaN
+    with use("torch", force=True):
+        a2 = torch.tensor(_CB_A, requires_grad=True)
+        out2 = _constantbeta(a2).fE(torch.as_tensor(_np.linspace(-1.6, -1.2, 4)))
+        out2.sum().backward()
+    assert float(a2.grad) == 0.0
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
 def test_constantbetadf_grad_engine_follows_the_potential():
     # Pins the root cause directly: the autodiff engine must match the
     # potential's FRAMEWORK. Picking jax here put a jax tracer and a torch

@@ -739,6 +739,16 @@ class constantbetadf(_constantbetadf):
         # so the clamped energies stay on-backend and the limits stay traceable
         Ecl = xp.where(indx, Eb, xp.ones_like(Eb) * emin)
         rphiE = self._rphi(Ecl) * 1.0
+        # Masked entries get a BENIGN radius, not r(emin). Clamping the ENERGY
+        # is not enough: at E = emin the radius is r_min, where rforce -> 0, so
+        # the `grad(dens)(r) / rforce(r)` inside _deriv is infinite there.
+        # xp.where's backward multiplies the UNSELECTED branch's gradient by
+        # zero, and 0 * inf = NaN, which poisons the gradient for the WHOLE
+        # batch. The forward is unaffected -- these entries are zeroed by the
+        # same mask below -- so any finite radius will do. Invisible when every
+        # element is in bounds, which is why a single in-bounds energy tests
+        # clean while a batch spanning Emin does not.
+        rphiE = xp.where(indx, rphiE, xp.ones_like(rphiE))
         if self._halfint:
             val = self._deriv(xp, rphiE) / (
                 2.0
