@@ -3643,7 +3643,7 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
     return rtry
 
 
-def _pot_grad_namespace(Pot, _depth=0):
+def _pot_grad_namespace(Pot, _depth=0, any_backend=False):
     """The array namespace of a gradient-carrying parameter of ``Pot``, else None.
 
     A differentiated potential PARAMETER is invisible from a root-finder's own
@@ -3655,19 +3655,28 @@ def _pot_grad_namespace(Pot, _depth=0):
 
     Gated on under_trace/requires_backend_grad rather than is_backend_array so a
     merely-forced backend keeps the scipy path, and its numbers, unchanged.
+
+    ``any_backend=True`` widens the test to ANY backend-array parameter. That is
+    for callers which must match the potential's FRAMEWORK rather than detect a
+    gradient -- picking the autodiff engine, say, where a jax tracer cannot
+    multiply a torch tensor whether or not a gradient is involved. The default
+    stays gradient-only, because that is what keeps a merely-forced backend on
+    the scipy path.
     """
     if _depth > 2:  # pragma: no cover - deeper nesting than any galpy wrapper
         return None
     for p in Pot if isinstance(Pot, (list, tuple)) else [Pot]:
         for v in getattr(p, "__dict__", {}).values():
             try:
-                if under_trace(v) or requires_backend_grad(v):
+                if (any_backend and is_backend_array(v)) or (
+                    under_trace(v) or requires_backend_grad(v)
+                ):
                     return get_namespace(v)
             except Exception:  # pragma: no cover - not an array-like
                 continue
             # wrapper potentials keep the differentiated parameters one level in
             if isinstance(v, (list, tuple, Force)):
-                sub = _pot_grad_namespace(v, _depth + 1)
+                sub = _pot_grad_namespace(v, _depth + 1, any_backend=any_backend)
                 if sub is not None:
                     return sub
     return None

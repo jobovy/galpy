@@ -26,7 +26,9 @@ from scipy import integrate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    asarray_on_device,
     backend_input,
+    device_of,
     exit_cast,
     get_namespace,
     is_backend_array,
@@ -299,7 +301,17 @@ class _RphiRootFind:
     def __call__(self, E):
         from ..backend.optimize import brentq
 
+        # The bracket counts too, not just E: this class exists for a TRACED
+        # potential and the bracket is r_a_min/max * scale, so a differentiated
+        # scale makes it a backend array while a caller's E grid stays numpy
+        # (constantbetadf's construction-time calibration builds one). Passing
+        # all three to get_namespace is NOT the fix -- it refuses a mixed set.
         xp = get_namespace(E)
+        if xp is numpy:
+            for _b in (self._r_lo, self._r_hi):
+                if is_backend_array(_b):
+                    xp = get_namespace(_b)
+                    break
         E = xp.asarray(E)
 
         def f(r, Ev):
@@ -1390,8 +1402,18 @@ class sphericaldf(df):
             phis = numpy.delete(phim, indx_rm)
             r_a_values = numpy.delete(r_a_values, indx_rm)
         # backend-agnostic r(Phi): numpy queries hit the scipy spline
-        # (byte-identical); backend queries evaluate the frozen table natively
-        return Spline1D(phis, r_a_values * self._scale, k=3)
+        # (byte-identical); backend queries evaluate the frozen table natively.
+        # `ndarray * Tensor` raises (numpy's __rmul__ takes over and cannot
+        # handle a Tensor) while jax accepts the mix, so lift the numpy knots
+        # onto a backend scale. This is the NON-differentiated backend scale --
+        # a differentiated one returned the root-find above and never reaches
+        # here -- so the table is a plain backend array, not a gradient path.
+        if is_backend_array(self._scale) and not is_backend_array(r_a_values):
+            _xp_s = get_namespace(self._scale)
+            _rv = asarray_on_device(_xp_s, r_a_values, device_of(self._scale))
+        else:
+            _rv = r_a_values
+        return Spline1D(phis, _rv * self._scale, k=3)
 
 
 class isotropicsphericaldf(sphericaldf):
