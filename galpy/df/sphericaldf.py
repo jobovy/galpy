@@ -1041,8 +1041,12 @@ class sphericaldf(df):
         ``vmax`` -- so the sampled velocity is a backend array differentiable in
         ``r`` (and hence, through the radial inverse-CDF, in the CDF/potential)."""
         if not hasattr(self, "_v_vesc_pvr_interpolator"):
+            # as_numpy on the scale: this is the numpy sampling path (see
+            # below), and self._scale is pot._scale, which carries the gradient
+            # when the potential is differentiated.
+            _scale_np = as_numpy(self._scale)
             r_a_end = (
-                max(numpy.log10(self._rmax / self._scale), 3)
+                max(numpy.log10(self._rmax / _scale_np), 3)
                 if numpy.isfinite(self._rmax)
                 else 3
             )
@@ -1055,7 +1059,9 @@ class sphericaldf(df):
             # error).
             r = as_numpy(r)
             return self._v_vesc_pvr_interpolator(
-                numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
+                numpy.log10(r / as_numpy(self._scale)),
+                numpy.random.uniform(size=n),
+                grid=False,
             ) * as_numpy(self._vmax_at_r(self._pot, r))
         # backend key: native bilinear inverse-CDF pvr at (log10(r/scale),
         # backend-uniform), times the backend vmax -- r stays a backend array
@@ -1147,16 +1153,33 @@ class sphericaldf(df):
                 "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!",
                 galpyWarning,
             )
-        # Make an array of r/a by v/vesc and then calculate p(v|r)
+        # Make an array of r/a by v/vesc and then calculate p(v|r).
+        # The EXTENT is taken numpy-side even when the potential carries a
+        # gradient: self._scale is pot._scale (e.g. Hernquist's a), so
+        # numpy.log10 on it raises. Freezing the extent costs no gradient --
+        # it is a discretisation choice in r/a units, and the PHYSICAL radii
+        # below (r_a_grid * self._scale) still carry d/d(scale), which is what
+        # the DF is evaluated at. Frozen NODES would be a different matter; see
+        # the actionAngle grid classes, where that would have zeroed a gradient.
+        _scale_np = as_numpy(self._scale)
         r_a_start = numpy.amax(
-            [numpy.log10((self._rmin_sampling + 1e-8) / self._scale), r_a_start]
+            [numpy.log10((self._rmin_sampling + 1e-8) / _scale_np), r_a_start]
         )
-        r_a_end = numpy.amin([numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end])
+        r_a_end = numpy.amin([numpy.log10((self._rmax - 1e-8) / _scale_np), r_a_end])
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
-        vesc_raw = self._vmax_at_r(self._pot, r_a_grid * self._scale)
-        r_grid = r_a_grid * self._scale
+        # Lift the (numpy) r/a grid onto the namespace when the scale carries a
+        # gradient: `ndarray * Tensor` raises on torch, while jax accepts it --
+        # so a jax-only check would have looked fine here. The multiply is what
+        # carries d(r_grid)/d(scale) into the DF evaluation below.
+        _r_a_grid = (
+            as_backend_constant(get_namespace(self._scale), r_a_grid, self._scale)
+            if is_backend_array(self._scale)
+            else r_a_grid
+        )
+        vesc_raw = self._vmax_at_r(self._pot, _r_a_grid * self._scale)
+        r_grid = _r_a_grid * self._scale
         if is_backend_array(vesc_raw):
             # Keep the whole chain on the backend: vesc carries the potential's
             # parameters, and the velocities the DF is evaluated at are
