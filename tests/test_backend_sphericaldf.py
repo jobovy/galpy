@@ -947,3 +947,80 @@ def test_vmoments_grad_keeps_finite_rmax_gradient(backend):
     ad = _ad_of(sig, backend, m0)
     assert abs(ad) > 0.0, "a finite rmax must keep its dPhi(rmax)/dparam"
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+# --- sample() with the gradient in the POTENTIAL --------------------------
+# sphericaldf takes self._scale from pot._scale, so a differentiated potential
+# parameter (Hernquist/NFW `a`) IS the sampling grid's scale. Every numpy op on
+# it then raised, and sample() was unreachable for such a potential -- even for
+# a caller who only wants the samples and no gradient through them. The sampled
+# values must be UNCHANGED: the grid extent is frozen numpy-side (a
+# discretisation choice in r/a units) while the physical radii still carry the
+# scale, so this is a reachability fix, not a numerical one.
+#
+# torch specifically matters here: `Tensor * ndarray` returns NotImplemented so
+# numpy's __rmul__ calls .numpy() on a grad tensor, while jax accepts the same
+# mix -- several of these sites were invisible on jax.
+_SAMPLE_A = 1.2
+
+
+def _grad_scale(backend, a):
+    """A scale parameter that CARRIES a gradient (not merely a backend array)."""
+    if backend == "jax":
+        return jnp.asarray(a)
+    return torch.tensor(a, requires_grad=True)
+
+
+def _sample_df(a, which):
+    from galpy.df import isotropicNFWdf, osipkovmerrittHernquistdf
+    from galpy.potential import NFWPotential
+
+    if which == "isotropicHernquist":
+        return isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=a))
+    if which == "osipkovmerrittHernquist":
+        return osipkovmerrittHernquistdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.4)
+    return isotropicNFWdf(pot=NFWPotential(amp=2.0, a=a))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "which", ["isotropicHernquist", "osipkovmerrittHernquist", "isotropicNFW"]
+)
+def test_sample_runs_and_is_unchanged_under_a_gradient_carrying_potential(
+    backend, which
+):
+    numpy.random.seed(7)
+    ref = numpy.asarray(as_numpy(_sample_df(_SAMPLE_A, which).sample(n=4).r()))
+    numpy.random.seed(7)
+    with use(backend, force=True):
+        got = numpy.asarray(
+            as_numpy(_sample_df(_grad_scale(backend, _SAMPLE_A), which).sample(n=4).r())
+        )
+    # bit-identical: the same global-numpy draws through the same numpy sampler
+    numpy.testing.assert_array_equal(got, ref)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_xitor_rtoxi_accept_a_gradient_carrying_scale(backend):
+    # The leaf helpers behind the radial CMF grid data-guard on xi/r but used
+    # not to consider `a`, which is where the gradient lives when a potential
+    # scale is differentiated. Their own comments warn that a bare numpy op
+    # there silently drops the gradient; this pins the other operand.
+    from galpy.potential.SCFPotential import _RToxi, _xiToR
+
+    xis = numpy.arange(-0.5, 0.75, 0.25)
+    rs = numpy.array([0.5, 1.0, 2.0, 4.0])
+    with use(backend, force=True):
+        a = _grad_scale(backend, _SAMPLE_A)
+        r_out = _xiToR(xis, a=a)
+        xi_out = _RToxi(rs, a=a)
+    assert _is_backend_array(backend, r_out), "_xiToR dropped the backend scale"
+    assert _is_backend_array(backend, xi_out), "_RToxi dropped the backend scale"
+    numpy.testing.assert_allclose(
+        as_numpy(r_out), _SAMPLE_A * (1.0 + xis) / (1.0 - xis), rtol=1e-12
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(xi_out),
+        (rs / _SAMPLE_A - 1.0) / (rs / _SAMPLE_A + 1.0),
+        rtol=1e-12,
+    )
