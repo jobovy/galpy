@@ -27,11 +27,21 @@ from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._hermite import HermiteFamily2D, slope_at_zero
 from .actionAngleInverse import actionAngleInverse
-from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
+# The lift of every torus onto the auxiliary must stay bound in it, with
+# this fraction of its own auxiliary torus's binding energy in hand. The
+# value is not delicate: a resolved map puts the lifted curve on its torus
+# to round-off (the ratio of the highest lifted energy to the torus's is
+# 1.000000 on every node of a typical grid), and an under-resolved one
+# overshoots by orders of magnitude (a torus with apocentre 670 times its
+# pericentre gives ratios of -121, -25 and -1.5 at 32, 64 and 128
+# harmonics and 0.990 at 256), so any margin between a few per cent and
+# most of the binding energy sorts the same cases the same way.
+_BOUND_MARGIN = 0.05
 
-def _spec_coeffs(f):
+
+def _offset_spec_coeffs(f):
     """True Fourier coefficients c_k of a real periodic function sampled on
     the regular offset grid tau_j = 2 pi (j + 1/2)/N, such that
     f(tau) = Re c_0 + sum_{k=1}^{N/2-1} 2 Re[c_k e^{i k tau}] +
@@ -43,8 +53,8 @@ def _spec_coeffs(f):
 
 
 def _spec_eval(c, tau, deriv=False):
-    """Evaluate the Fourier series with coefficients c (from _spec_coeffs)
-    or its derivative at arbitrary tau"""
+    """Evaluate the Fourier series with coefficients c (from
+    _offset_spec_coeffs) or its derivative at arbitrary tau"""
     k = numpy.arange(len(c))
     w = numpy.ones(len(c))
     w[1:-1] = 2.0
@@ -68,6 +78,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
     compensation for the moving turning points. Canonicity is manifest: it
     holds for any stored table content, because every derivative the map
     needs is that of the stored interpolant itself.
+
+    The auxiliary is the ``IsochronePotential`` in the ``auxiliary``
+    attribute: the one given at construction, or the one fitted to the
+    potential's rotation curve over the sampled radial range.
     """
 
     def __init__(
@@ -82,7 +96,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         nE=16,
         nL=16,
         mm_npt=32,
-        mm_nta=256,
+        mm_nta=None,
+        auxiliary=None,
         maxiter=100,
         angle_tol=1e-12,
         **kwargs,
@@ -94,33 +109,48 @@ class actionAngleSphericalInverse(actionAngleInverse):
         ----------
         pot : Potential or list thereof
             A spherical potential.
-        Es, Ls : array-like
-            Energies and angular momenta of the tori to set up when
-            setup_interp is False (paired lists).
+        Es : array-like or Quantity
+            Energies of the tori to set up when setup_interp is False
+            (paired with Ls).
+        Ls : array-like or Quantity
+            Total angular momenta of the tori to set up when setup_interp
+            is False (paired with Es).
         setup_interp : bool, optional
             If True, set up an (E, L) grid of tori spanning the circular
             angular momenta of [Rmin, Rmax] and energies up to the
             potential at Rinf, and interpolate canonically between them.
-        Rmin, Rmax, Rinf : float, optional
-            Radial anchors of the interpolation grid: the angular momenta of
-            the grid span those of the circular orbits at Rmin and Rmax, and
-            its energies reach the potential at Rinf.
-        nE, nL : int, optional
-            Numbers of energies and angular momenta of the interpolation
-            grid.
+        Rmin : float or Quantity, optional
+            Radius of the circular orbit with the smallest angular momentum
+            of the interpolation grid.
+        Rmax : float or Quantity, optional
+            Radius of the circular orbit with the largest angular momentum
+            of the interpolation grid.
+        Rinf : float or Quantity, optional
+            Radius at which the potential equals the interpolation grid's
+            largest energy.
+        nE : int, optional
+            Number of energies of the interpolation grid.
+        nL : int, optional
+            Number of angular momenta of the interpolation grid.
         mm_npt : int, optional
             Number of harmonics of the momentum-matched anomaly map; the
             reconstruction converges spectrally in this, and a warning is
             raised when it does not suffice for a torus.
         mm_nta : int, optional
             Number of anomaly samples per torus (even), used to sample the
-            torus, to fit the map, and for the quadratures of its action,
-            frequencies, and angles; must exceed 4 * mm_npt for the samples
-            to resolve the map's highest harmonic, which is 2 * mm_npt.
+            torus, to fit the map, and for the quadratures of its action
+            and frequencies; must exceed 4 * mm_npt for the samples to
+            resolve the map's highest harmonic, which is 2 * mm_npt. The
+            default (None) is 8 * mm_npt.
+        auxiliary : IsochronePotential, optional
+            The isochrone auxiliary onto which every torus is lifted. By
+            default it is fitted to the potential's rotation curve over the
+            sampled radial range; either way it is available afterwards as
+            the ``auxiliary`` attribute.
         maxiter : int, optional
-            Maximum Newton iterations of the angle solves.
+            Maximum Newton iterations of the angle solve.
         angle_tol : float, optional
-            Convergence tolerance of the angle solves.
+            Convergence tolerance of the angle solve.
 
         Notes
         -----
@@ -130,6 +160,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if pot is None:
             raise OSError("Must specify pot= for actionAngleSphericalInverse")
         self._pot = _check_potential_list_and_deprecate(pot)
+        if mm_nta is None:
+            mm_nta = 8 * mm_npt
         if mm_nta % 2 == 1:
             raise ValueError("mm_nta has to be even")
         if mm_nta <= 4 * mm_npt:
@@ -144,6 +176,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._interp = setup_interp
+        self._rc_cache = {}
         if not setup_interp:
             self._Es = conversion._parse_grid_quantity(
                 Es, conversion.parse_energy, vo=self._vo
@@ -161,12 +194,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 nE,
                 nL,
             )
-        # sample every torus once (exact placement), then choose the frozen
-        # auxiliary (all torus-dependence beyond it lives in the
-        # momentum-matched map, whose compensation is closed-form), then
-        # compute the tables against it
+        # sample every torus once (exact placement), then fix the frozen
+        # auxiliary and lift every torus onto it (all torus-dependence
+        # beyond the auxiliary lives in the momentum-matched map, whose
+        # compensation is closed-form), then compute the tables
         self._sample_all()
-        self._setup_toy()
+        self._setup_auxiliary(auxiliary)
         self._setup_tori()
         self._check_consistent_units()
         return None
@@ -175,10 +208,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _Phi(self, r):
         return evaluatePotentials(self._pot, r, 0.0, use_physical=False)
 
+    def _rc(self, L):
+        """Radius of the circular orbit with angular momentum L, cached"""
+        if L not in self._rc_cache:
+            self._rc_cache[L] = rl(self._pot, L, use_physical=False)
+        return self._rc_cache[L]
+
     def _turning_points(self, E, L):
-        """Radial turning points of the (E, L) torus"""
-        rc = rl(self._pot, L, use_physical=False)
-        pr2 = lambda r: 2.0 * (E - self._Phi(r)) - L**2 / r**2
+        """Radial turning points of the (E, L) torus, bracketed outward
+        from the circular radius"""
+        rc = self._rc(L)
+
+        def pr2(r):
+            return 2.0 * (E - self._Phi(r)) - L**2 / r**2
+
         ttol = 1e-12
         rlo, rhi = rc, rc
         while pr2(rlo) > 0.0 and rlo > 1e-12:
@@ -189,8 +232,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _sample_torus(self, E, L):
         """Exact phase-space samples along the radial loop, parametrized by
-        the tau anomaly; placement is exact by construction (p_r from the
-        energy relation, not from a fit)"""
+        the tau anomaly on the offset grid tau_k = 2 pi (k + 1/2)/N, which
+        keeps every sample off the turning points; placement is exact by
+        construction (p_r from the energy relation, not from a fit)"""
         rp, ra = self._turning_points(E, L)
         tau = 2.0 * numpy.pi * (numpy.arange(self._ntau) + 0.5) / self._ntau
         r = 0.5 * (ra + rp) - 0.5 * (ra - rp) * numpy.cos(tau)
@@ -199,46 +243,84 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pr = numpy.where(tau < numpy.pi, 1.0, -1.0) * numpy.sqrt(pr2)
         return tau, r, pr, rp, ra
 
-    # ---------- the toy
     def _sample_all(self):
         # a circular torus has no libration to sample: it is stored as its
         # radius alone, and its tables are the harmonic limit's
         self._samples = []
         for E, L in zip(self._Es, self._Ls):
             if self._is_circular(E, L):
-                rc = rl(self._pot, L, use_physical=False)
+                rc = self._rc(L)
                 self._samples.append((None, None, None, rc, rc, E, L))
             else:
                 self._samples.append(self._sample_torus(E, L) + (E, L))
         return None
 
-    def _setup_toy(self):
-        """The frozen isochrone auxiliary of the whole family.
+    # ---------- the auxiliary: one isochrone for the whole family
+    def _setup_auxiliary(self, auxiliary):
+        """Fix the frozen isochrone auxiliary of the whole family and lift
+        every torus onto it.
 
         The momentum-matched map lifts every torus onto its equal-action
         auxiliary torus, so the auxiliary's only job is to be a
-        well-conditioned global surrogate of the target: its rotation curve
-        is fitted to the target's over the sampled radial range (two
-        parameters, starting from the isochrone whose circular radius and
-        frequency ratio match the central torus's). Every node's truncated
-        lift is then required to clear escape by a fraction of its own
-        auxiliary torus's binding energy, which fails only when the stored
-        anomaly map is under-resolved."""
+        well-conditioned global surrogate of the target. Unless one is
+        given, its rotation curve is fitted to the target's over the
+        sampled radial range (two parameters, starting from the isochrone
+        whose circular radius and frequency ratio match the central
+        torus's). Every torus's truncated lift is then required to clear
+        escape by a fraction of its own auxiliary torus's binding energy,
+        which fails only when the stored anomaly map is under-resolved."""
         librating = [smp for smp in self._samples if smp[0] is not None]
-        if not librating:
+        if auxiliary is not None:
+            if not isinstance(auxiliary, IsochronePotential):
+                raise TypeError("auxiliary= has to be an IsochronePotential")
+            self._GM, self._b = auxiliary._amp, auxiliary.b
+        elif not librating:
             # only circular orbits: any auxiliary serves, since the lift is
             # undone with the target's own radius; take the isochrone with
             # the central torus's circular radius as its scale
             L = self._Ls[len(self._Ls) // 2]
-            rc = rl(self._pot, L, use_physical=False)
+            rc = self._rc(L)
             self._GM, self._b = (
                 L**2 * numpy.sqrt(2.0) * (1.0 + numpy.sqrt(2.0)) ** 2 / rc,
                 rc,
             )
-            self._ip = IsochronePotential(amp=self._GM, b=self._b)
-            self._aAI = actionAngleIsochrone(ip=self._ip)
-            self._aAIinv = actionAngleIsochroneInverse(ip=self._ip)
-            return None
+        else:
+            self._GM, self._b = self._fit_auxiliary(librating)
+        self.auxiliary = (
+            auxiliary
+            if auxiliary is not None
+            else IsochronePotential(amp=self._GM, b=self._b)
+        )
+        self._aAIinv = actionAngleIsochroneInverse(ip=self.auxiliary)
+        # lift every librating torus once, keeping the lift for the tables,
+        # and require it to stay bound in the auxiliary
+        self._lifts = {}
+        for ii, (tau, r, pr, rp, ra, E, L) in enumerate(self._samples):
+            if tau is None:
+                continue
+            lift = self._momentum_matched_lift(tau, r, pr, rp, ra, L)
+            self._lifts[ii] = lift
+            Jrq, rA, pA = lift[0], lift[6], lift[7]
+            EAs = numpy.max(
+                0.5 * (pA**2 + L**2 / rA**2)
+                - self._GM / (self._b + numpy.sqrt(self._b**2 + rA**2))
+            )
+            if EAs >= _BOUND_MARGIN * self._auxiliary_E(Jrq, L):
+                raise RuntimeError(
+                    "The momentum-matched lift of the (E, L) = "
+                    f"({E}, {L}) torus is not bound in the fitted "
+                    "auxiliary: the torus reaches beyond the depth of the "
+                    "single isochrone fitted to the family's radial range, or "
+                    "the anomaly map is under-resolved (raise mm_npt and, with "
+                    "it, mm_nta)"
+                )
+        return None
+
+    def _fit_auxiliary(self, librating):
+        """Fit the isochrone's (GM, b) to the potential's rotation curve
+        over the sampled radial range (zero-point free, log residuals on
+        geometrically spaced radii), starting from the isochrone that pins
+        the central torus's circular radius and frequency ratio"""
         tau, r, pr, rp, ra, E, L = librating[len(librating) // 2]
         # frequency ratio of the central torus by regular quadrature in tau:
         # dt/dtau = (dr/dtau)/p_r is periodic and finite (dr/dtau and p_r
@@ -251,11 +333,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         Ompsi_over_OmR = numpy.mean(L / r**2 * dtdtau) / numpy.mean(dtdtau)
         rho = min(max(Ompsi_over_OmR, 0.501), 0.999)
-        rc = rl(self._pot, L, use_physical=False)
+        rc = self._rc(L)
 
         def _GM_rc_pinned(b):
-            # closed-form circular condition of the isochrone: the toy's
-            # circular radius at L equals rc exactly
+            # closed-form circular condition of the isochrone: the
+            # auxiliary's circular radius at L equals rc exactly
             s = numpy.sqrt(b**2 + rc**2)
             return L**2 * s * (b + s) ** 2 / rc**4
 
@@ -266,8 +348,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             if abs(GMn - GM) < 1e-14 * (1.0 + GM):
                 break
             GM = GMn
-        # fit the isochrone's rotation curve to the target's over the
-        # sampled radial range (zero-point free, two parameters)
         rlo = min(smp[3] for smp in librating)
         rhi = max(smp[4] for smp in librating)
         rf = numpy.geomspace(rlo, rhi, 25)
@@ -285,60 +365,75 @@ class actionAngleSphericalInverse(actionAngleInverse):
             numpy.log([GM, max(b, 1e-3 * numpy.sqrt(rlo * rhi))]),
             method="Nelder-Mead",
         )
-        GM, b = numpy.exp(res.x)
-        self._GM, self._b = GM, b
-        self._ip = IsochronePotential(amp=GM, b=b)
-        for stau, sr, spr, srp, sra, sE, sL in librating:
-            Jrq, a, e, _, _, _, rA, pA = self._pt_match(stau, sr, spr, srp, sra, sL)
-            EAs = numpy.max(
-                0.5 * (pA**2 + sL**2 / rA**2) - GM / (b + numpy.sqrt(b**2 + rA**2))
-            )
-            if EAs >= 0.05 * self._iso_E_of_Jr(Jrq, sL):
-                raise RuntimeError(
-                    "The momentum-matched lift of the (E, L) = "
-                    f"({sE}, {sL}) torus is not bound in the fitted "
-                    "auxiliary: the torus reaches beyond the depth of the "
-                    "single isochrone fitted to the family's radial range, or "
-                    "the anomaly map is under-resolved (raise mm_npt and, with "
-                    "it, mm_nta)"
-                )
-        self._aAI = actionAngleIsochrone(ip=self._ip)
-        self._aAIinv = actionAngleIsochroneInverse(ip=self._ip)
-        return None
+        return tuple(numpy.exp(res.x))
 
-    # ---------- the momentum-matched radial map, cotangent-lifted
-    def _iso_E_of_Jr(self, Jr, L):
-        """Energy of the toy torus with radial action Jr: the isochrone's
-        closed form"""
+    # ---------- the auxiliary's tori, in closed form
+    def _auxiliary_E(self, Jr, L):
+        """Energy of the auxiliary torus with actions (J_r, L)"""
         CA = 0.5 * (L + numpy.sqrt(L**2 + 4.0 * self._GM * self._b))
         return -(self._GM**2) / (2.0 * (Jr + CA) ** 2)
 
-    def _toy_params(self, Jr, L):
-        """Closed-form (a, e) of the equal-action reference toy torus"""
-        EA = self._iso_E_of_Jr(Jr, L)
+    def _auxiliary_Jr(self, E, L):
+        """Radial action of the auxiliary torus with energy E and angular
+        momentum L (the inverse of _auxiliary_E)"""
+        CA = 0.5 * (L + numpy.sqrt(L**2 + 4.0 * self._GM * self._b))
+        return self._GM / numpy.sqrt(-2.0 * E) - CA
+
+    def _auxiliary_orbital_params(self, Jr, L):
+        """Closed-form (a, e) of the auxiliary torus with actions (J_r, L)"""
+        EA = self._auxiliary_E(Jr, L)
         a = -self._GM / (2.0 * EA) - self._b
         # zero at the circular orbit, to round-off
         e = numpy.sqrt(numpy.clip(1.0 + L**2 / (2.0 * EA * a**2), 0.0, None))
         return a, e
 
-    def _toy_profile(self, a, e, eta):
-        """The reference toy torus's radius, momentum, and dr^A/deta at
-        eccentric anomaly eta -- all closed forms of the isochrone"""
-        b = self._b
-        y = 1.0 - e * numpy.cos(eta)
-        rA = a * numpy.sqrt(y * (y + 2.0 * b / a))
-        pA = numpy.sqrt(self._GM / (a + b)) * a * e * numpy.sin(eta) / rA
-        drAdeta = (
-            a * e * numpy.sin(eta) * (y + b / a) / numpy.sqrt(y * (y + 2.0 * b / a))
-        )
-        return rA, pA, drAdeta
+    def _auxiliary_orbital_param_chains(self, Jr, L, dJr, dL):
+        """(a, e) of the auxiliary torus and their derivatives along a
+        chain with dJr = dJ_r/dalpha and dL = dL/dalpha, all closed forms"""
+        GM, b = self._GM, self._b
+        sq = numpy.sqrt(L**2 + 4.0 * GM * b)
+        CA = 0.5 * (L + sq)
+        EA = -(GM**2) / (2.0 * (Jr + CA) ** 2)
+        dEA = GM**2 / (Jr + CA) ** 3 * (dJr + 0.5 * (1.0 + L / sq) * dL)
+        a = -GM / (2.0 * EA) - b
+        da = GM / (2.0 * EA**2) * dEA
+        e = numpy.sqrt(1.0 + L**2 / (2.0 * EA * a**2))
+        de = (
+            2.0 * L * dL / (2.0 * EA * a**2)
+            - L**2 * (dEA * a + 2.0 * EA * da) / (2.0 * EA**2 * a**3)
+        ) / (2.0 * e)
+        return a, e, da, de
 
-    def _toy_flux_derivs(self, a, e, eta):
+    def _auxiliary_profile(self, a, e, eta):
+        """The auxiliary torus's radius, radial momentum, and dr^A/deta with
+        its vanishing factor sin(eta) removed, at eccentric anomaly eta:
+        sqrt(b^2 + r^A^2) = b + a (1 - e cos eta), so that with
+        y = 1 - e cos eta and beta = b/a, r^A = a sqrt(y (y + 2 beta)),
+        p^A = sqrt(GM/(a+b)) a e sin(eta) / r^A and dr^A/deta = g^A sin(eta)
+        with g^A = a e (y + beta) / sqrt(y (y + 2 beta)), all closed forms"""
+        beta = self._b / a
+        y = 1.0 - e * numpy.cos(eta)
+        sq = numpy.sqrt(y * (y + 2.0 * beta))
+        rA = a * sq
+        pA = numpy.sqrt(self._GM / (a + self._b)) * a * e * numpy.sin(eta) / rA
+        gA = a * e * (y + beta) / sq
+        return rA, pA, gA
+
+    def _auxiliary_radius_partials(self, a, e, eta):
+        """Partials of the auxiliary radius with respect to its torus
+        parameters (a, e) at fixed eccentric anomaly, from r^A^2 =
+        a^2 y (y + 2 b/a) with y = 1 - e cos eta"""
+        y = 1.0 - e * numpy.cos(eta)
+        sA = self._b + a * y  # = sqrt(b^2 + r^A^2)
+        rA = numpy.sqrt(sA**2 - self._b**2)
+        return y * sA / rA, -a * sA * numpy.cos(eta) / rA
+
+    def _auxiliary_flux_derivs(self, a, e, eta):
         """The auxiliary's radial action flux f^A = p^A dr^A/deta at
         eccentric anomaly eta, and its partials with respect to the torus
-        parameters (a, e) at fixed eta, all closed forms of the isochrone:
-        with beta = b/a, y = 1 - e cos(eta), c = sqrt(GM/(a+b)) and
-        g(y) = (y + beta) / [y (y + 2 beta)], f^A = c a e^2 sin^2(eta) g"""
+        parameters (a, e) at fixed eta, all closed forms: with beta = b/a,
+        y = 1 - e cos(eta), c = sqrt(GM/(a+b)) and g(y) = (y + beta) /
+        [y (y + 2 beta)], f^A = c a e^2 sin^2(eta) g"""
         b = self._b
         beta = b / a
         y = 1.0 - e * numpy.cos(eta)
@@ -351,6 +446,71 @@ class actionAngleSphericalInverse(actionAngleInverse):
         dfA_da = e**2 * s2 * (c * (a + 2.0 * b) / (2.0 * (a + b)) * g + c * a * dg_da)
         dfA_de = c * a * s2 * (2.0 * e * g - e**2 * dg_dy * numpy.cos(eta))
         return fA, dfA_da, dfA_de
+
+    # ---------- the momentum-matched map and its lift
+    def _map(self, tau, Dm):
+        """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau), its
+        derivative, and the sine matrix sin(m tau) it is built from"""
+        mt = tau[:, None] * self._nforDm[None, :]
+        smt = numpy.sin(mt)
+        eta = tau + smt @ Dm
+        deta = 1.0 + numpy.cos(mt) @ (self._nforDm * Dm)
+        return eta, deta, smt
+
+    def _momentum_matched_lift(self, tau, r, pr, rp, ra, L):
+        """The momentum-matched lift of one torus onto the auxiliary: match
+        cumulative radial actions from pericentre, eta(tau) =
+        A_A^{-1}(A_t(tau)); both cumulatives share the linear part J_r (the
+        equal-action choice of the auxiliary torus), so eta - tau is
+        periodic and, by time-reversal parity, a pure sine series. The lift
+        is rebuilt from the TRUNCATED stored map cotangent-consistently
+        (p^A = pi' p_r), so the reconstruction is the one the stored tables
+        define; how far the truncation is from the exact map shows as the
+        variation of the auxiliary action along the lifted torus, which
+        _node_tables reports."""
+        k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
+
+        def _antider(f):
+            fh = numpy.fft.fft(f - numpy.mean(f))
+            ah = numpy.zeros_like(fh)
+            ah[1:] = fh[1:] / (1j * k[1:])
+            return numpy.real(numpy.fft.ifft(ah))
+
+        drdtau_s = 0.5 * (ra - rp) * numpy.sin(tau)
+        Jrq = float(numpy.mean(pr * drdtau_s))
+        a, e = self._auxiliary_orbital_params(Jrq, L)
+        ft = pr * drdtau_s  # target dA/dtau >= 0
+        fA = self._auxiliary_flux_derivs(a, e, tau)[0]  # auxiliary dA/deta
+        mt, mA = numpy.mean(ft), numpy.mean(fA)
+        scale = mt / mA
+        qt_t = _antider(ft)
+        At = mt * tau + qt_t - _spec_eval(_offset_spec_coeffs(qt_t), 0.0)[0]
+        qt_A = _antider(fA)
+        cqA = _offset_spec_coeffs(qt_A)
+        qA0 = _spec_eval(cqA, 0.0)[0]
+        # pointwise Newton on the spectral cumulative action, with the
+        # closed-form flux as its derivative; the matching is monotone, and
+        # a residual left by the iteration shows in the truncation
+        # diagnostic of _node_tables
+        eta_s = numpy.array(tau)
+        for _ in range(200):
+            fres = scale * (mA * eta_s + _spec_eval(cqA, eta_s) - qA0) - At
+            fp = numpy.maximum(
+                scale * self._auxiliary_flux_derivs(a, e, eta_s)[0], 1e-10 * mt
+            )
+            eta_s += numpy.clip(-fres / fp, -0.5, 0.5)
+            if numpy.max(numpy.fabs(fres)) < 1e-13 * max(mt, 1e-10):
+                break
+        # the sine projection of the pointwise map, then the truncated map
+        # and its cotangent lift
+        Dm = 2.0 * numpy.mean(
+            (eta_s - tau)[:, None] * numpy.sin(tau[:, None] * self._nforDm[None, :]),
+            axis=0,
+        )
+        etat, detadtau, _ = self._map(tau, Dm)
+        rA, _, gA = self._auxiliary_profile(a, e, etat)
+        pA = pr * drdtau_s / (gA * numpy.sin(etat) * detadtau)
+        return Jrq, a, e, Dm, etat, detadtau, rA, pA
 
     def _map_slopes(self, tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi):
         """The derivatives of the anomaly-map coefficients with respect to E
@@ -372,27 +532,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
         def _cum(f):
             # the integral from tau = 0 of a periodic f sampled on the
             # (half-offset) grid: its mean times tau plus the periodic part,
-            # evaluated at the grid and returned with its spectral
-            # coefficients for evaluation elsewhere
+            # the latter returned on the grid together with its spectral
+            # coefficients for evaluation elsewhere and its value at zero
             m = numpy.mean(f)
             fh = numpy.fft.fft(f - m)
             ah = numpy.zeros_like(fh)
             ah[1:] = fh[1:] / (1j * k[1:])
             q = numpy.real(numpy.fft.ifft(ah))
-            cq = _spec_coeffs(q)
-            q0 = _spec_eval(cq, 0.0)[0]
-            return m, cq, q0
+            cq = _offset_spec_coeffs(q)
+            return m, q, cq, _spec_eval(cq, 0.0)[0]
 
         costau, sintau = numpy.cos(tau), numpy.sin(tau)
         drdtau = 0.5 * (ra - rp) * sintau
         dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
-        fA, dfA_da, dfA_de = self._toy_flux_derivs(a, e, tau)
-        cfA = _spec_coeffs(fA)
-        mA_a, cqa, qa0 = _cum(dfA_da)
-        mA_e, cqe, qe0 = _cum(dfA_de)
+        fA, dfA_da, dfA_de = self._auxiliary_flux_derivs(a, e, tau)
+        mA_a, _, cqa, qa0 = _cum(dfA_da)
+        mA_e, _, cqe, qe0 = _cum(dfA_de)
         FAa = mA_a * etat + _spec_eval(cqa, etat) - qa0
         FAe = mA_e * etat + _spec_eval(cqe, etat) - qe0
-        B = _spec_eval(cfA, etat)[:, None] * numpy.sin(
+        B = self._auxiliary_flux_derivs(a, e, etat)[0][:, None] * numpy.sin(
             tau[:, None] * self._nforDm[None, :]
         )
         out = []
@@ -402,78 +560,28 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dr = drp * (1.0 + costau) / 2.0 + dra * (1.0 - costau) / 2.0
             num = (1.0 if alpha == "E" else -L / r**2) - dPhieff * dr
             dft = num / pr * drdtau + pr * 0.5 * (dra - drp) * sintau
-            mt, cqt, qt0 = _cum(dft)
-            dA = mt * tau + _spec_eval(cqt, tau) - qt0
+            mt, qt, _, qt0 = _cum(dft)
+            dA = mt * tau + qt - qt0
             if alpha == "E":
-                _, _, da, de = self._toy_param_chains(Jrq, L, 1.0 / OmR, 0.0)
+                _, _, da, de = self._auxiliary_orbital_param_chains(
+                    Jrq, L, 1.0 / OmR, 0.0
+                )
             else:
-                _, _, da, de = self._toy_param_chains(Jrq, L, -Ompsi / OmR, 1.0)
+                _, _, da, de = self._auxiliary_orbital_param_chains(
+                    Jrq, L, -Ompsi / OmR, 1.0
+                )
             rhs = dA - FAa * da - FAe * de
             out.append(numpy.linalg.lstsq(B, rhs, rcond=None)[0])
         return out[0], out[1]
 
-    def _pt_match(self, tau, r, pr, rp, ra, L):
-        """The momentum-matched lift of one torus: match cumulative radial
-        actions from pericenter, eta(tau) = A_A^{-1}(A_t(tau)); both
-        cumulatives share the linear part J_r (the equal-action choice of
-        the reference toy torus), so eta - tau is periodic and, by
-        time-reversal parity, a pure sine series. The lift is rebuilt from
-        the TRUNCATED stored map cotangent-consistently (p^A = pi' p_r), so
-        the reconstruction is the one the stored tables define; how far the
-        truncation is from the exact map shows as the variation of the
-        auxiliary action along the lifted torus, which _node_tables
-        reports."""
-        k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
-
-        def _antider(f):
-            fh = numpy.fft.fft(f - numpy.mean(f))
-            ah = numpy.zeros_like(fh)
-            ah[1:] = fh[1:] / (1j * k[1:])
-            return numpy.real(numpy.fft.ifft(ah))
-
-        drdtau_s = 0.5 * (ra - rp) * numpy.sin(tau)
-        Jrq = float(numpy.mean(pr * drdtau_s))
-        a, e = self._toy_params(Jrq, L)
-        ft = pr * drdtau_s  # target dA/dtau >= 0
-        _, pA_eta, drAdeta_eta = self._toy_profile(a, e, tau)
-        fA = pA_eta * drAdeta_eta  # toy dA/deta >= 0, on the eta grid
-        mt, mA = numpy.mean(ft), numpy.mean(fA)
-        scale = mt / mA
-        qt_t = _antider(ft)
-        At = mt * tau + qt_t - _spec_eval(_spec_coeffs(qt_t), 0.0)[0]
-        qt_A = _antider(fA)
-        qA0 = _spec_eval(_spec_coeffs(qt_A), 0.0)[0]
-        cqA = _spec_coeffs(qt_A)
-        cfA = _spec_coeffs(fA)
-        # the matching is monotone; a residual left by the iteration shows
-        # in the truncation diagnostic of _node_tables
-        eta_s = numpy.array(tau)
-        for _ in range(200):
-            fres = scale * (mA * eta_s + _spec_eval(cqA, eta_s) - qA0) - At
-            fp = numpy.maximum(scale * _spec_eval(cfA, eta_s), 1e-10 * mt)
-            de = numpy.clip(-fres / fp, -0.5, 0.5)
-            eta_s += de
-            if numpy.max(numpy.fabs(fres)) < 1e-13 * max(mt, 1e-10):
-                break
-        smat = numpy.sin(tau[:, None] * self._nforDm[None, :])
-        Dm = 2.0 * numpy.mean((eta_s - tau)[:, None] * smat, axis=0)
-        # rebuild the truncated map and its cotangent lift
-        etat = tau + smat @ Dm
-        detadtau = 1.0 + numpy.cos(tau[:, None] * self._nforDm[None, :]) @ (
-            self._nforDm * Dm
-        )
-        rA, _, drAdeta_t = self._toy_profile(a, e, etat)
-        pA = pr * drdtau_s / (drAdeta_t * detadtau)
-        return Jrq, a, e, Dm, etat, detadtau, rA, pA
-
     # ---------- the per-torus tables, computed (never fitted)
     def _node_tables(self, ii):
-        """One torus (the ii-th sampled): fit the momentum-matched map and
-        lift the samples onto the auxiliary, and return the torus's action
-        and frequencies by regular quadrature in the anomaly, the map's
-        coefficients with their slopes in (E, L) from the torus alone, and
-        the variation of the auxiliary action along the lifted torus (the
-        map's truncation, which should be at round-off)"""
+        """One torus (the ii-th sampled): from its lift onto the auxiliary,
+        return the torus's action and frequencies by regular quadrature in
+        the anomaly, the map's coefficients with their slopes in (E, L)
+        from the torus alone, and the variation of the auxiliary action
+        along the lifted torus (the map's truncation, which should be at
+        round-off)"""
         tau, r, pr, rp, ra, E, L = self._samples[ii]
         if tau is None:
             # the circular orbit: no libration, the identity map, and the
@@ -490,23 +598,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "OmR": kappa,
                 "Ompsi": Omc,
             }
-        Jrq, a, e, Dm, etat, detadtau, rA, pA = self._pt_match(tau, r, pr, rp, ra, L)
-        with numpy.errstate(invalid="ignore"):
-            # the samples are planar (j_z = 0), so the auxiliary's
-            # inclination angles divide by zero; only the action is read
-            JA = numpy.atleast_1d(
-                self._aAI.actionsFreqsAngles(
-                    rA,
-                    pA,
-                    L / rA,
-                    numpy.zeros_like(rA),
-                    numpy.zeros_like(rA),
-                    numpy.zeros_like(rA),
-                )[0]
-            )
+        Jrq, a, e, Dm, etat, detadtau, rA, pA = self._lifts[ii]
         # the truncated map's lift is not exactly the equal-action torus:
         # the auxiliary action varies along it by the truncation residual
-        perr = float(numpy.amax(numpy.fabs(JA - Jrq)) / Jrq)
+        EA = 0.5 * (pA**2 + L**2 / rA**2) - self._GM / (
+            self._b + numpy.sqrt(self._b**2 + rA**2)
+        )
+        perr = float(numpy.amax(numpy.fabs(self._auxiliary_Jr(EA, L) - Jrq)) / Jrq)
         # the target's frequencies by regular quadrature in tau: dt/dtau is
         # periodic and finite (dr/dtau and p_r vanish together at the
         # turning points), so the trapezoid rule on the periodic grid is
@@ -613,14 +711,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _Ec(self, L):
         """Energy of the circular orbit of angular momentum L, and its
         derivative dE_c/dL = L / r_c^2 (the circular frequency)"""
-        rc = rl(self._pot, L, use_physical=False)
+        rc = self._rc(L)
         return self._Phi(rc) + L**2 / (2.0 * rc**2), L / rc**2
 
     def _circular(self, L):
         """The circular orbit of angular momentum L: its radius, epicycle
         frequency (the radial frequency in the limit J_r -> 0), and circular
         frequency"""
-        rc = rl(self._pot, L, use_physical=False)
+        rc = self._rc(L)
         return rc, epifreq(self._pot, rc, use_physical=False), L / rc**2
 
     def _is_circular(self, E, L):
@@ -721,20 +819,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._rebuild_interp()
         return None
 
-    def _hermite(self, xs, f, fx, fL):
-        """The family's interpolant of a table on (xs, L) with exact first
-        partials at the nodes: quintic Hermite along xs, cubic along L"""
-        return HermiteFamily2D(xs, self._Lgrid, f, fx, fL)
-
     def _rebuild_interp(self):
         """(Re)build the interpolants from the stored tables: Hermite
         interpolants of J_r (in the normalized energy), of the turning
-        points and of the anomaly-map coefficients (in u), all with their
-        first partials exact at the nodes"""
-        u = self._us
-        self._jr_ip = self._hermite(u**2, self._jr_tab, self._jr_dx, self._jr_dL)
-        self._sup_ip = self._hermite(u, self._sup_tab, self._sup_du, self._sup_dL)
-        self._Dm_ip = self._hermite(u, self._Dm_tab, self._Dm_du, self._Dm_dL)
+        points and of the anomaly-map coefficients (in u), quintic along
+        the energy variable and cubic along L, all with their first
+        partials exact at the nodes"""
+        u, Lg = self._us, self._Lgrid
+        self._jr_ip = HermiteFamily2D(u**2, Lg, self._jr_tab, self._jr_dx, self._jr_dL)
+        self._sup_ip = HermiteFamily2D(u, Lg, self._sup_tab, self._sup_du, self._sup_dL)
+        self._Dm_ip = HermiteFamily2D(u, Lg, self._Dm_tab, self._Dm_du, self._Dm_dL)
         return None
 
     # ---------- evaluation: the manifest chain
@@ -749,8 +843,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"L = {L} outside the interpolation grid "
                 f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
             )
-        jlo = self._jr_ip(self._us[0] ** 2, L)[0, 0]
-        jhi = self._jr_ip(self._us[-1] ** 2, L)[0, 0]
+        xlo, xhi = self._us[0] ** 2, self._us[-1] ** 2
+        jlo = self._jr_ip(xlo, L)[0, 0]
+        jhi = self._jr_ip(xhi, L)[0, 0]
         tol = 1e-12 * (1.0 + numpy.fabs(jr))
         if jr < jlo - tol or jr > jhi + tol:
             raise ValueError(
@@ -758,21 +853,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"[{jlo}, {jhi}] at L = {L}"
             )
         jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
-        # J_r is monotone in x: safeguarded Newton on the interpolant's own
-        # derivative, from the linear guess, bisecting when a step leaves
-        # the bracket
-        xlo, xhi = self._us[0] ** 2, self._us[-1] ** 2
-        x = xlo + (jr - jlo) / (jhi - jlo) * (xhi - xlo)
-        for _ in range(100):
-            f = self._jr_ip(x, L)[0, 0] - jr
-            if f > 0.0:
-                xhi = x
-            else:
-                xlo = x
-            if numpy.fabs(f) < 1e-14 * (1.0 + jr):
-                break
-            xn = x - f / self._jr_ip(x, L, dx=1)[0, 0]
-            x = xn if xlo < xn < xhi else 0.5 * (xlo + xhi)
+        # J_r is monotone in x = u^2
+        if jr == jlo:
+            x = xlo
+        elif jr == jhi:
+            x = xhi
+        else:
+            x = brentq(lambda xx: self._jr_ip(xx, L)[0, 0] - jr, xlo, xhi, xtol=1e-15)
         u = numpy.sqrt(x)
         djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
@@ -797,24 +884,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         }
         return u, OmR, OmL, ptdata
 
-    def _toy_param_chains(self, Jrq, L, dJrq, dLex):
-        """(a, e) of the reference toy torus and their derivatives along a
-        chain with dJrq = d Jrq/d alpha and dLex = dL/d alpha (0 or 1),
-        all closed forms"""
-        GM, b = self._GM, self._b
-        sq = numpy.sqrt(L**2 + 4.0 * GM * b)
-        CA = 0.5 * (L + sq)
-        EA = -(GM**2) / (2.0 * (Jrq + CA) ** 2)
-        dEA = GM**2 / (Jrq + CA) ** 3 * (dJrq + 0.5 * (1.0 + L / sq) * dLex)
-        a = -GM / (2.0 * EA) - b
-        da = GM / (2.0 * EA**2) * dEA
-        e = numpy.sqrt(1.0 + L**2 / (2.0 * EA * a**2))
-        de = (
-            2.0 * L * dLex / (2.0 * EA * a**2)
-            - L**2 * (dEA * a + 2.0 * EA * da) / (2.0 * EA**2 * a**3)
-        ) / (2.0 * e)
-        return a, e, da, de
-
     def _kernel(self, tau, a, e, Dm, rp, ra, chains=None):
         """Everything the evaluation needs at anomaly tau, in one pass and
         from the tables alone: the auxiliary anomaly eta(tau) and radial
@@ -826,19 +895,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         J_r, each given as (da, de, drp, dra, dDm)), the compensation
         p^A (dr^A/dalpha)|_tau - p_r (dr/dalpha)|_tau. Also returns
         d theta^A_r / d tau for the Newton solve of the angle relation."""
-        ms = self._nforDm
-        mt = tau[:, None] * ms[None, :]
-        smt, cmt = numpy.sin(mt), numpy.cos(mt)
-        eta = tau + smt @ Dm
-        deta = 1.0 + cmt @ (ms * Dm)
-        b = self._b
+        eta, deta, smt = self._map(tau, Dm)
         se, ce = numpy.sin(eta), numpy.cos(eta)
-        y = 1.0 - e * ce
-        sq = numpy.sqrt(y * (y + 2.0 * b / a))
-        rA = a * sq
-        gA = a * e * (y + b / a) / sq  # dr^A/deta / sin(eta)
-        pA = numpy.sqrt(self._GM / (a + b)) * a * e * se / rA
-        kap = a * e / (a + b)
+        rA, pA, gA = self._auxiliary_profile(a, e, eta)
+        kap = a * e / (a + self._b)
         thetaA = eta - kap * se
         dthetaA = (1.0 - kap * ce) * deta
         st, ct = numpy.sin(tau), numpy.cos(tau)
@@ -850,10 +910,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pr = pA * gA * sratio * deta / (0.5 * (ra - rp))
         if chains is None:
             return eta, thetaA, dthetaA, r, pr
-        sA = numpy.sqrt(b**2 + rA**2)
+        drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
         comps = []
         for da, de, drp, dra, dDm in chains:
-            drA = y * sA / rA * da - a * sA * ce / rA * de + gA * se * (smt @ dDm)
+            drA = drA_da * da + drA_de * de + gA * se * (smt @ dDm)
             dr = drp * (1.0 + ct) / 2.0 + dra * (1.0 - ct) / 2.0
             comps.append(pA * drA - pr * dr)
         return eta, thetaA, dthetaA, r, pr, comps
@@ -862,8 +922,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
         along the J_r-chain](tau) for the anomaly of each requested angle,
         on the derivative of the auxiliary angle alone (the compensation is
-        a small correction), with a safeguarded scalar fallback for any
-        angle that does not converge within maxiter iterations"""
+        a small correction), vectorized over the angles, with a bracketed
+        scalar fallback for any angle that does not converge within maxiter
+        iterations"""
 
         def _f(x):
             _, thetaA, dthetaA, _, _, (compJ,) = self._kernel(
@@ -1036,12 +1097,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             draE, draLE = self._turning_point_derivs(ra, self._Es[ii], L)
             drpJ, draJ = drpE * OmR, draE * OmR
             drpL, draL = drpLE + drpE * OmL, draLE + draE * OmL
-        a, e = self._toy_params(jr, L)
+        a, e = self._auxiliary_orbital_params(jr, L)
         # the J_r-chain at fixed L compensates theta_r, the L-chain at
         # fixed J_r the psi-angles, both through the auxiliary torus's
         # parameters, the turning points, and the map's coefficients
-        _, _, daJ, deJ = self._toy_param_chains(jr, L, 1.0, 0.0)
-        _, _, daL, deL = self._toy_param_chains(jr, L, 0.0, 1.0)
+        _, _, daJ, deJ = self._auxiliary_orbital_param_chains(jr, L, 1.0, 0.0)
+        _, _, daL, deL = self._auxiliary_orbital_param_chains(jr, L, 0.0, 1.0)
         chainJ = (daJ, deJ, drpJ, draJ, dDmJ)
         chainL = (daL, deL, drpL, draL, dDmL)
         taus = self._tau_solve(thr, a, e, Dm, rp, ra, chainJ)
