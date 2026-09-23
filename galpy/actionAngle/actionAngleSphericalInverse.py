@@ -853,13 +853,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"[{jlo}, {jhi}] at L = {L}"
             )
         jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
-        # J_r is monotone in x = u^2
-        if jr == jlo:
-            x = xlo
-        elif jr == jhi:
-            x = xhi
-        else:
-            x = brentq(lambda xx: self._jr_ip(xx, L)[0, 0] - jr, xlo, xhi, xtol=1e-15)
+        # J_r is monotone in x = u^2 (brentq returns an end point at which
+        # the residual vanishes exactly, so the grid's edges need no case)
+        x = brentq(lambda xx: self._jr_ip(xx, L)[0, 0] - jr, xlo, xhi, xtol=1e-15)
         u = numpy.sqrt(x)
         djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
@@ -884,7 +880,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         }
         return u, OmR, OmL, ptdata
 
-    def _kernel(self, tau, a, e, Dm, rp, ra, chains=None):
+    def _kernel(self, tau, a, e, Dm, rp, ra, chains):
         """Everything the evaluation needs at anomaly tau, in one pass and
         from the tables alone: the auxiliary anomaly eta(tau) and radial
         angle theta^A_r (the isochrone's mean-anomaly relation, closed
@@ -908,8 +904,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             numpy.fabs(st) > 1e-12, se / numpy.where(st == 0.0, 1.0, st), deta
         )
         pr = pA * gA * sratio * deta / (0.5 * (ra - rp))
-        if chains is None:
-            return eta, thetaA, dthetaA, r, pr
         drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
         comps = []
         for da, de, drp, dra, dDm in chains:
