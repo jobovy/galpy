@@ -10394,6 +10394,45 @@ def test_actionAngleSphericalInverse_nodes(spherical_inverse_explicit):
     return None
 
 
+def test_actionAngleSphericalInverse_orbit(spherical_inverse_explicit):
+    # Traversing a torus at its frequencies is an orbit of the potential: at
+    # a node the energy is constant along the torus to the map's truncation,
+    # and the points agree with an integrated orbit started from the first
+    # of them over ten radial periods
+    from galpy.orbit import Orbit
+
+    aAI = spherical_inverse_explicit
+    pot = _spherical_inverse_potential()
+    wrap = lambda d: (d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    for E, L in zip([0.7, 1.1], [0.9, 0.7]):
+        jr, jphi, jz = aAI.Jr(E, L), 0.6 * L, 0.4 * L
+        Om = aAI.Freqs(jr, jphi, jz)
+        ts = numpy.linspace(0.0, 10.0 * 2.0 * numpy.pi / Om[0], 1001)
+        R, vR, vT, z, vz, phi = aAI(
+            jr, jphi, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+        )
+        H = 0.5 * (vR**2 + vT**2 + vz**2) + pot(R, z)
+        assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-10, (
+            "Energy is not conserved along an actionAngleSphericalInverse torus at a node: %g"
+            % (numpy.std(H) / numpy.fabs(numpy.mean(H)))
+        )
+        orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
+        orb.integrate(ts, pot, method="dop853_c")
+        for name, torus, orbit in (
+            ("R", R, orb.R(ts)),
+            ("z", z, orb.z(ts)),
+            ("vR", vR, orb.vR(ts)),
+            ("vT", vT, orb.vT(ts)),
+            ("vz", vz, orb.vz(ts)),
+            ("phi", phi, phi + wrap(orb.phi(ts) - phi)),
+        ):
+            assert numpy.amax(numpy.fabs(orbit - torus)) < 1e-8, (
+                "%s along an actionAngleSphericalInverse torus at a node does not agree with the integrated orbit: %g"
+                % (name, numpy.amax(numpy.fabs(orbit - torus)))
+            )
+    return None
+
+
 def test_actionAngleSphericalInverse_interpolation(spherical_inverse_interp):
     # The interpolated family: exact at a node of its own grid, accurate to
     # the family's interpolation error between nodes, its frequencies those
