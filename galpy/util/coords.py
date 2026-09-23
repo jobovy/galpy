@@ -91,6 +91,7 @@ from ..backend import (
     promote_scalars,
     resolve_namespace,
 )
+from ..backend._namespaces import namespace_from_arrays
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -342,7 +343,9 @@ def degreeDecorator(inDegrees, outDegrees):
                 # this decorator also wraps functions that are still numpy-only,
                 # whose `out` is a plain ndarray even under a forced backend.
                 if is_backend_array(out):
-                    scale = asarray_on_device(get_namespace(out), scale, device_of(out))
+                    scale = asarray_on_device(
+                        namespace_from_arrays((out,)), scale, device_of(out)
+                    )
                 out = out * scale
             return out
 
