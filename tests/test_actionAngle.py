@@ -10265,3 +10265,103 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
             x, v = aAVI(aAVI.J(1.0), angles)
             assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI.J(1.0))) < 1e-10
     return None
+
+
+# ---------- actionAngleSphericalInverse tests: the momentum-matched canonical
+# ---------- map for spherical potentials (canonical.tex, the spherical case)
+_aasi_cache = {}
+
+
+def _spherical_inverse_potential():
+    from galpy.potential import LogarithmicHaloPotential
+
+    return LogarithmicHaloPotential(normalize=1.0)
+
+
+def _spherical_inverse_discrete():
+    # two discrete tori in the logarithmic halo, cached
+    if "discrete" not in _aasi_cache:
+        from galpy.actionAngle import actionAngleSphericalInverse
+
+        _aasi_cache["discrete"] = actionAngleSphericalInverse(
+            pot=_spherical_inverse_potential(), Es=[0.7, 1.1], Ls=[0.9, 0.7]
+        )
+    return _aasi_cache["discrete"]
+
+
+def _spherical_inverse_forward_jr(E, L):
+    # the forward transformation's own J_r of a point on the (E, L) torus
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import evaluatePotentials, rl
+
+    pot = _spherical_inverse_potential()
+    r0 = rl(pot, L, use_physical=False)
+    vR = numpy.sqrt(2.0 * (E - evaluatePotentials(pot, r0, 0.0)) - L**2 / r0**2)
+    return float(actionAngleSpherical(pot=pot)(r0, vR, L / r0, 0.0, 0.0, 0.0)[0][0])
+
+
+def _spherical_inverse_roundtrip(aAI, jr, jphi, jz, angler, anglephi, anglez):
+    # evaluate the public map and pass the result through the forward
+    # transformation: (action, angle, frequency) errors and the energy spread
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import evaluatePotentials
+
+    pot = _spherical_inverse_potential()
+    R, vR, vT, z, vz, phi = aAI(jr, jphi, jz, angler, anglephi, anglez)
+    f = actionAngleSpherical(pot=pot).actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    Om = aAI.Freqs(jr, jphi, jz)
+    wrap = lambda d: numpy.amax(
+        numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+    )
+    dJ = numpy.amax(
+        numpy.fabs(f[0] - jr) + numpy.fabs(f[1] - jphi) + numpy.fabs(f[2] - jz)
+    ) / (jr + jz + numpy.fabs(jphi))
+    dth = max(wrap(f[6] - angler), wrap(f[7] - anglephi), wrap(f[8] - anglez))
+    dOm = max(
+        numpy.amax(numpy.fabs(f[3] / Om[0] - 1.0)),
+        numpy.amax(numpy.fabs(f[4] / Om[1] - 1.0)),
+        numpy.amax(numpy.fabs(f[5] / Om[2] - 1.0)),
+    )
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    return dJ, dth, dOm, numpy.ptp(H) / numpy.fabs(numpy.mean(H))
+
+
+def test_actionAngleSphericalInverse_nodes():
+    # A discrete family returns its own tori: the action label is the forward
+    # transformation's, and the map round-trips through it at the forward
+    # code's floor, for inclined orbits and all three angles
+    aAI = _spherical_inverse_discrete()
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    for E, L in ((0.7, 0.9), (1.1, 0.7)):
+        jr = aAI.Jr(E, L)
+        assert numpy.fabs(jr - _spherical_inverse_forward_jr(E, L)) < 1e-10, (
+            "The family's action label is not the forward transformation's"
+        )
+        for jphi in (0.7 * L, -0.4 * L):
+            jz = L - numpy.fabs(jphi)
+            dJ, dth, dOm, dH = _spherical_inverse_roundtrip(
+                aAI, jr, jphi, jz, angler, anglephi, anglez
+            )
+            assert dJ < 1e-10, "The map does not return the requested torus: %g" % dJ
+            assert dth < 1e-7, "The map does not return the requested angles: %g" % dth
+            assert dOm < 1e-8, "The frequencies are not the torus's: %g" % dOm
+            assert dH < 1e-10, "The reconstructed loop is not at one energy: %g" % dH
+    return None
+
+
+def test_actionAngleSphericalInverse_convergence_warnings():
+    # An under-resolved map warns and names the torus; a torus that reaches
+    # beyond the depth of the fitted auxiliary raises
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.util import galpyWarning
+
+    pot = _spherical_inverse_potential()
+    with pytest.warns(
+        galpyWarning, match="not converged for the \\(E, L\\) tori: \\(1.53, 0.9\\)"
+    ):
+        actionAngleSphericalInverse(pot=pot, Es=[1.53], Ls=[0.9], mm_npt=2, mm_nta=16)
+    with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+        actionAngleSphericalInverse(pot=pot, Es=[5.0], Ls=[0.8])
+    return None
