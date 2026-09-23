@@ -13,7 +13,6 @@
 import warnings
 
 import numpy
-from scipy.interpolate import CubicSpline
 from scipy.optimize import brentq, minimize
 
 from ..potential import (
@@ -26,6 +25,7 @@ from ..potential import (
 )
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
+from ..util._hermite import HermiteFamily2D, slope_at_zero
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -51,116 +51,6 @@ def _spec_eval(c, tau, deriv=False):
     cc = c * (1j * k) if deriv else c
     ph = numpy.exp(1j * numpy.atleast_1d(tau)[:, None] * k[None, :])
     return numpy.real(ph @ (w * cc))
-
-
-def _slope_at_zero(us, ys, dys):
-    """Slope at u = 0 of the quartic through zero and the given values and
-    slopes at two abscissae us (ys may carry a trailing axis)"""
-    ys = numpy.asarray(ys, dtype="float")
-    dys = numpy.asarray(dys, dtype="float")
-    A = numpy.array(
-        [
-            [us[0], us[0] ** 2, us[0] ** 3, us[0] ** 4],
-            [1.0, 2.0 * us[0], 3.0 * us[0] ** 2, 4.0 * us[0] ** 3],
-            [us[1], us[1] ** 2, us[1] ** 3, us[1] ** 4],
-            [1.0, 2.0 * us[1], 3.0 * us[1] ** 2, 4.0 * us[1] ** 3],
-        ]
-    )
-    rhs = numpy.stack([ys[0], dys[0], ys[1], dys[1]], axis=0)
-    return numpy.linalg.solve(A, rhs.reshape(4, -1))[0].reshape(ys[0].shape)
-
-
-class _HermiteFamily:
-    """A tensor-product Hermite interpolant on a rectangular grid, quintic
-    in the first variable and cubic in the second, of one table or of a
-    stack of tables on the same grid.  The values and the first partials
-    are prescribed at every node and reproduced exactly there, together
-    with the first partial's derivative along the second variable; the
-    second derivatives in the first variable (and their derivative along
-    the second) are estimated by differentiating cubic splines of the
-    prescribed first partials, which makes the interpolant's first
-    derivative in that variable accurate to one order beyond a cubic
-    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0],
-    which is a number for one table and a vector for a stack of tables."""
-
-    # the coefficient matrices of the unit-interval Hermite polynomials:
-    # quintic through (f, f', f'') at both ends, cubic through (f, f')
-    _Mq = numpy.array(
-        [
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.5, 0.0, 0.0, 0.0],
-            [-10.0, -6.0, -1.5, 10.0, -4.0, 0.5],
-            [15.0, 8.0, 1.5, -15.0, 7.0, -1.0],
-            [-6.0, -3.0, -0.5, 6.0, -3.0, 0.5],
-        ]
-    )
-    _Mc = numpy.array(
-        [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [-3.0, 3.0, -2.0, -1.0],
-            [2.0, -2.0, 1.0, 1.0],
-        ]
-    )
-
-    def __init__(self, x, y, f, fx, fy):
-        # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
-        # tables on the same grid, interpolated together
-        self._x, self._y = numpy.asarray(x), numpy.asarray(y)
-        nx, ny = len(x), len(y)
-        f, fx, fy = (numpy.asarray(t, dtype="float") for t in (f, fx, fy))
-        self._scalar = f.ndim == 2
-        if self._scalar:
-            f, fx, fy = f[..., None], fx[..., None], fy[..., None]
-        k = f.shape[2]
-        fxy = CubicSpline(self._y, fx, axis=1)(self._y, 1)
-        fxx = CubicSpline(self._x, fx, axis=0)(self._x, 1)
-        fxxy = CubicSpline(self._x, fxy, axis=0)(self._x, 1)
-        self._c = numpy.empty((nx - 1, ny - 1, 6, 4, k))
-        for i in range(nx - 1):
-            hx = self._x[i + 1] - self._x[i]
-            for j in range(ny - 1):
-                hy = self._y[j + 1] - self._y[j]
-                # rows: (f, hx f_x, hx^2 f_xx) at x_i then at x_{i+1};
-                # columns: values at y_j, y_{j+1}, then hy times the
-                # y-derivatives there
-                F = numpy.empty((6, 4, k))
-                for r, (tab, sc) in enumerate(((f, 1.0), (fx, hx), (fxx, hx * hx))):
-                    for q, ii in enumerate((i, i + 1)):
-                        F[r + 3 * q, 0] = tab[ii, j] * sc
-                        F[r + 3 * q, 1] = tab[ii, j + 1] * sc
-                for r, (tab, sc) in enumerate(
-                    ((fy, hy), (fxy, hx * hy), (fxxy, hx * hx * hy))
-                ):
-                    for q, ii in enumerate((i, i + 1)):
-                        F[r + 3 * q, 2] = tab[ii, j] * sc
-                        F[r + 3 * q, 3] = tab[ii, j + 1] * sc
-                self._c[i, j] = numpy.einsum("ab,bcK,dc->adK", self._Mq, F, self._Mc)
-
-    def __call__(self, x, y, dx=0, dy=0):
-        i = min(
-            max(numpy.searchsorted(self._x, x, side="right") - 1, 0), len(self._x) - 2
-        )
-        j = min(
-            max(numpy.searchsorted(self._y, y, side="right") - 1, 0), len(self._y) - 2
-        )
-        hx, hy = self._x[i + 1] - self._x[i], self._y[j + 1] - self._y[j]
-        sv = (x - self._x[i]) / hx
-        tv = (y - self._y[j]) / hy
-        if dx == 0:
-            ps = sv ** numpy.arange(6)
-        else:
-            ps = (
-                numpy.array([0.0, 1.0, 2.0 * sv, 3.0 * sv**2, 4.0 * sv**3, 5.0 * sv**4])
-                / hx
-            )
-        if dy == 0:
-            pt = tv ** numpy.arange(4)
-        else:
-            pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
-        v = numpy.einsum("a,abk,b->k", ps, self._c[i, j], pt)
-        return v.reshape(1, 1) if self._scalar else v[None, None, :]
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -822,7 +712,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # radial libration is linear in its amplitude); their slope there is
         # that of the quartic through zero and the next two rows, as the 1D
         # family does at its harmonic bottom
-        self._Dm_du[0] = _slope_at_zero(
+        self._Dm_du[0] = slope_at_zero(
             self._us[1:3], self._Dm_tab[1:3], self._Dm_du[1:3]
         )
         self._warn_unresolved(
@@ -834,7 +724,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _hermite(self, xs, f, fx, fL):
         """The family's interpolant of a table on (xs, L) with exact first
         partials at the nodes: quintic Hermite along xs, cubic along L"""
-        return _HermiteFamily(xs, self._Lgrid, f, fx, fL)
+        return HermiteFamily2D(xs, self._Lgrid, f, fx, fL)
 
     def _rebuild_interp(self):
         """(Re)build the interpolants from the stored tables: Hermite
