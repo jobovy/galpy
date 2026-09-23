@@ -10713,15 +10713,22 @@ def test_actionAngleSphericalInverse_circular():
 
 
 def test_actionAngleSphericalInverse_maxiter():
-    # maxiter governs the angle solves: with none, the discrete family's
-    # anomaly solve raises, and the interpolated family's solve falls back
-    # on safeguarded root-finding and still returns the torus
+    # maxiter governs the angle solve: with none, the solve falls back on
+    # safeguarded root-finding and still returns the torus, for explicit
+    # tori and for the interpolated family alike
     from galpy.actionAngle import actionAngleSphericalInverse
 
     pot = _spherical_inverse_potential()
+    angler = numpy.linspace(0.05, 6.2, 11)
     aAD = actionAngleSphericalInverse(pot=pot, Es=[0.7], Ls=[0.9], maxiter=0)
-    with pytest.raises(RuntimeError, match="anomaly did not converge"):
-        aAD(aAD.Jr(0.7, 0.9), 0.6, 0.3, 2.0, 1.0, 2.0)
+    aADN = actionAngleSphericalInverse(pot=pot, Es=[0.7], Ls=[0.9])
+    jrD = aAD.Jr(0.7, 0.9)
+    fbD = numpy.array(aAD(jrD, 0.6, 0.3, angler, 1.0, 2.0))
+    ntD = numpy.array(aADN(jrD, 0.6, 0.3, angler, 1.0, 2.0))
+    assert numpy.amax(numpy.fabs(fbD - ntD)) < 1e-9, (
+        "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
+        % numpy.amax(numpy.fabs(fbD - ntD))
+    )
     aAI = actionAngleSphericalInverse(
         pot=pot,
         setup_interp=True,
@@ -10747,7 +10754,6 @@ def test_actionAngleSphericalInverse_maxiter():
     )
     L = 0.99
     jr = _spherical_inverse_forward_jr(_spherical_inverse_E_of_u(0.55, L), L)
-    angler = numpy.linspace(0.05, 6.2, 11)
     fb = numpy.array(
         aAI(jr, 0.6 * L, 0.4 * L, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0)
     )

@@ -576,20 +576,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pA = pr * drdtau_s / (drAdeta_t * detadtau)
         return Jrq, a, e, Dm, etat, detadtau, rA, pA
 
-    # ---------- the generating-function tables, computed (never fitted)
+    # ---------- the per-torus tables, computed (never fitted)
     def _node_tables(self, ii):
-        """One node torus (the ii-th sampled): fit the momentum-matched map and
+        """One torus (the ii-th sampled): fit the momentum-matched map and
         lift the samples onto the auxiliary, and return the torus's action
         and frequencies by regular quadrature in the anomaly, the map's
-        tables, the variation of the auxiliary action along the lifted torus
-        (the map's truncation, which should be at round-off), and the
-        anomaly-to-angle tables that the discrete evaluation path reads"""
+        coefficients with their slopes in (E, L) from the torus alone, and
+        the variation of the auxiliary action along the lifted torus (the
+        map's truncation, which should be at round-off)"""
         tau, r, pr, rp, ra, E, L = self._samples[ii]
         if tau is None:
-            # the circular orbit: no libration, the identity map, the
-            # epicycle and circular frequencies, and the anomaly is the angle
+            # the circular orbit: no libration, the identity map, and the
+            # epicycle and circular frequencies
             rc, kappa, Omc = self._circular(L)
-            zero = numpy.zeros(self._ntau // 2 + 1, dtype=complex)
             return {
                 "jr": 0.0,
                 "perr": 0.0,
@@ -600,62 +599,37 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "dDm_dL": None,
                 "OmR": kappa,
                 "Ompsi": Omc,
-                "cP": zero,
-                "cPt": zero,
-                "cD": zero,
             }
-        k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
-
-        def _antider(f):
-            fh = numpy.fft.fft(f - numpy.mean(f))
-            ah = numpy.zeros_like(fh)
-            ah[1:] = fh[1:] / (1j * k[1:])
-            return numpy.real(numpy.fft.ifft(ah))
-
         Jrq, a, e, Dm, etat, detadtau, rA, pA = self._pt_match(tau, r, pr, rp, ra, L)
         with numpy.errstate(invalid="ignore"):
             # the samples are planar (j_z = 0), so the auxiliary's
-            # inclination angles divide by zero; only o[0], o[6], and o[7]
-            # are read, none of which involve the inclination
-            o = self._aAI.actionsFreqsAngles(
-                rA,
-                pA,
-                L / rA,
-                numpy.zeros_like(rA),
-                numpy.zeros_like(rA),
-                numpy.zeros_like(rA),
+            # inclination angles divide by zero; only the action is read
+            JA = numpy.atleast_1d(
+                self._aAI.actionsFreqsAngles(
+                    rA,
+                    pA,
+                    L / rA,
+                    numpy.zeros_like(rA),
+                    numpy.zeros_like(rA),
+                    numpy.zeros_like(rA),
+                )[0]
             )
-        JA = numpy.atleast_1d(o[0])
-        thetaA = numpy.atleast_1d(o[6])
         # the truncated map's lift is not exactly the equal-action torus:
         # the auxiliary action varies along it by the truncation residual
         perr = float(numpy.amax(numpy.fabs(JA - Jrq)) / Jrq)
-        P = numpy.unwrap(thetaA - tau + numpy.pi) - numpy.pi
-        # the target's own angles by regular quadrature in tau: dt/dtau is
+        # the target's frequencies by regular quadrature in tau: dt/dtau is
         # periodic and finite (dr/dtau and p_r vanish together at the
-        # turning points), so spectral antiderivatives apply
+        # turning points), so the trapezoid rule on the periodic grid is
+        # spectrally accurate; T_r = 2 pi <dt/dtau> and the azimuth per
+        # radial period is 2 pi <(L/r^2) dt/dtau>
         dtdtau = (
             0.5
             * (ra - rp)
             * numpy.fabs(numpy.sin(tau))
             / numpy.maximum(numpy.fabs(pr), 1e-300)
         )
-        Tr = 2.0 * numpy.pi * numpy.mean(dtdtau)
-        OmR = 2.0 * numpy.pi / Tr
-        gpsi = L / r**2 * dtdtau
-        Ompsi = numpy.mean(gpsi) / numpy.mean(dtdtau)
-        qt = _antider(dtdtau)
-        spsi = _antider(gpsi)
-        # fix the angle origins at pericenter (tau = 0): theta_r(0) = 0 and
-        # chi(0) = 0, evaluating the periodic antiderivatives there spectrally
-        qt0 = _spec_eval(_spec_coeffs(qt), 0.0)[0]
-        spsi0 = _spec_eval(_spec_coeffs(spsi), 0.0)[0]
-        Pt = OmR * (qt - qt0)  # theta_r(tau) = tau + Pt(tau)
-        chi = Ompsi * (qt - qt0) - (spsi - spsi0)  # theta_psi at psi = 0
-        # the psi-angle shift along the torus (theta^A_z = theta_z - Dpsi,
-        # i.e. Dpsi = theta_psi - theta^A_psi): the samples sit at azimuth
-        # zero, where the auxiliary's in-plane angle is o[7] directly
-        Dpsi = numpy.unwrap(chi - numpy.atleast_1d(o[7]))
+        OmR = 1.0 / numpy.mean(dtdtau)
+        Ompsi = numpy.mean(L / r**2 * dtdtau) * OmR
         dDm_dE, dDm_dL = self._map_slopes(
             tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi
         )
@@ -669,9 +643,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             "dDm_dL": dDm_dL,
             "OmR": OmR,
             "Ompsi": Ompsi,
-            "cP": _spec_coeffs(P),
-            "cPt": _spec_coeffs(Pt),
-            "cD": _spec_coeffs(Dpsi),
         }
 
     def _warn_unresolved(self, perr, Es, Ls):
@@ -695,16 +666,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if self._interp:
             return self._setup_tori_interp()
         ntori = len(self._Es)
-        nk = self._ntau // 2 + 1
         self._jrs = numpy.empty(ntori)
         self._rps = numpy.empty(ntori)
         self._ras = numpy.empty(ntori)
         self._Dms = numpy.empty((ntori, self._npt))
+        self._dDm_dEs = numpy.zeros((ntori, self._npt))
+        self._dDm_dLs = numpy.zeros((ntori, self._npt))
         self._OmRs = numpy.empty(ntori)
         self._Ompsis = numpy.empty(ntori)
-        self._cP = numpy.empty((ntori, nk), dtype=complex)
-        self._cPt = numpy.empty((ntori, nk), dtype=complex)
-        self._cD = numpy.empty((ntori, nk), dtype=complex)
         perr = numpy.empty(ntori)
         for ii in range(ntori):
             node = self._node_tables(ii)
@@ -712,11 +681,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._rps[ii] = node["rp"]
             self._ras[ii] = node["ra"]
             self._Dms[ii] = node["Dm"]
+            if node["dDm_dE"] is not None:
+                # a circular torus has no slopes to store: it is evaluated
+                # in closed form
+                self._dDm_dEs[ii] = node["dDm_dE"]
+                self._dDm_dLs[ii] = node["dDm_dL"]
             self._OmRs[ii] = node["OmR"]
             self._Ompsis[ii] = node["Ompsi"]
-            self._cP[ii] = node["cP"]
-            self._cPt[ii] = node["cPt"]
-            self._cD[ii] = node["cD"]
             perr[ii] = node["perr"]
         self._warn_unresolved(perr, self._Es, self._Ls)
         return None
@@ -997,7 +968,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             comps.append(pA * drA - pr * dr)
         return eta, thetaA, dthetaA, r, pr, comps
 
-    def _tau_solve_interp(self, thr, a, e, Dm, rp, ra, chainJ):
+    def _tau_solve(self, thr, a, e, Dm, rp, ra, chainJ):
         """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
         along the J_r-chain](tau) for the anomaly of each requested angle,
         on the derivative of the auxiliary angle alone (the compensation is
@@ -1053,23 +1024,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             phi,
         )
 
-    def _tau_solve(self, ii, thr):
-        """Newton solve of theta_r = tau + Pt(tau) for the anomaly tau on
-        the discrete node torus ii; theta_r(tau) is monotone"""
-        x = numpy.array(thr, dtype="float")
-        for _ in range(self._maxiter):
-            f = x + _spec_eval(self._cPt[ii], x) - thr
-            fp = 1.0 + _spec_eval(self._cPt[ii], x, deriv=True)
-            dx = numpy.clip(-f / fp, -0.5, 0.5)
-            x += dx
-            if numpy.max(numpy.fabs(f)) < self._angle_tol:
-                break
-        else:
-            raise RuntimeError("Newton's method for the anomaly did not converge")
-        return x
-
     def _match_node(self, jr, L):
-        """Locate the discrete node torus with actions (J_r, L)"""
+        """Locate the explicit torus with actions (J_r, L)"""
         dev = numpy.fabs(self._jrs - jr) + numpy.fabs(self._Ls - L)
         ii = numpy.argmin(dev)
         if dev[ii] > 1e-8 * (1.0 + numpy.fabs(jr) + numpy.fabs(L)):
@@ -1171,29 +1127,37 @@ class actionAngleSphericalInverse(actionAngleInverse):
             return (*out, OmR, numpy.sign(jphi) * OmL, OmL)
         if self._interp:
             _, OmR, OmL, ptdata = self._interp_tables(jr, L)
-            a, e = self._toy_params(jr, L)
             Dm, (rp, ra) = ptdata["Dm"], ptdata["sup"]
-            # the J_r-chain at fixed L compensates theta_r, the L-chain at
-            # fixed J_r the psi-angles, both through the auxiliary torus's
-            # parameters, the turning points, and the map's coefficients
-            _, _, daJ, deJ = self._toy_param_chains(jr, L, 1.0, 0.0)
-            _, _, daL, deL = self._toy_param_chains(jr, L, 0.0, 1.0)
-            chainJ = (daJ, deJ, ptdata["dsupJ"][0], ptdata["dsupJ"][1], ptdata["dDmJ"])
-            chainL = (daL, deL, ptdata["dsupL"][0], ptdata["dsupL"][1], ptdata["dDmL"])
-            taus = self._tau_solve_interp(thr, a, e, Dm, rp, ra, chainJ)
-            _, thetaAr, _, r, pr, (Delta,) = self._kernel(
-                taus, a, e, Dm, rp, ra, chains=(chainL,)
-            )
+            (drpJ, draJ), (drpL, draL) = ptdata["dsupJ"], ptdata["dsupL"]
+            dDmJ, dDmL = ptdata["dDmJ"], ptdata["dDmL"]
         else:
+            # an explicit torus is a one-node family: its own values and
+            # exact slopes stand in for the interpolants', the slopes in
+            # (E, L) chained to J_r at fixed L and to L at fixed J_r
+            # through the torus's frequencies (dE = Omega_r dJ_r +
+            # Omega_psi dL)
             ii = self._match_node(jr, L)
+            jr = self._jrs[ii]
             OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
-            taus = self._tau_solve(ii, thr)
-            thetaAr = taus + _spec_eval(self._cP[ii], taus)
-            Delta = _spec_eval(self._cD[ii], taus)
-            a, e = self._toy_params(self._jrs[ii], L)
-            _, _, _, r, pr = self._kernel(
-                taus, a, e, self._Dms[ii], self._rps[ii], self._ras[ii]
-            )
+            Dm, rp, ra = self._Dms[ii], self._rps[ii], self._ras[ii]
+            dDmJ = self._dDm_dEs[ii] * OmR
+            dDmL = self._dDm_dLs[ii] + self._dDm_dEs[ii] * OmL
+            drpE, drpLE = self._turning_point_derivs(rp, self._Es[ii], L)
+            draE, draLE = self._turning_point_derivs(ra, self._Es[ii], L)
+            drpJ, draJ = drpE * OmR, draE * OmR
+            drpL, draL = drpLE + drpE * OmL, draLE + draE * OmL
+        a, e = self._toy_params(jr, L)
+        # the J_r-chain at fixed L compensates theta_r, the L-chain at
+        # fixed J_r the psi-angles, both through the auxiliary torus's
+        # parameters, the turning points, and the map's coefficients
+        _, _, daJ, deJ = self._toy_param_chains(jr, L, 1.0, 0.0)
+        _, _, daL, deL = self._toy_param_chains(jr, L, 0.0, 1.0)
+        chainJ = (daJ, deJ, drpJ, draJ, dDmJ)
+        chainL = (daL, deL, drpL, draL, dDmL)
+        taus = self._tau_solve(thr, a, e, Dm, rp, ra, chainJ)
+        _, thetaAr, _, r, pr, (Delta,) = self._kernel(
+            taus, a, e, Dm, rp, ra, chains=(chainL,)
+        )
         thetaAz = anglez - Delta
         thetaAphi = anglephi - numpy.sign(jphi) * Delta
         # the three-dimensional reconstruction on the auxiliary torus, in one
@@ -1219,8 +1183,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """Frequencies of the (J_r, L) torus: in interpolation mode these
         are the stored energy interpolant's own derivatives through the
-        label chain (the integrator contract); in discrete mode the node
-        quadrature values"""
+        label chain (the integrator contract); for explicit tori the
+        torus's own quadrature values"""
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         L = jz + numpy.fabs(jphi)
         if jr == 0.0:
