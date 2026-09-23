@@ -10269,7 +10269,6 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
 
 # ---------- actionAngleSphericalInverse tests: the momentum-matched canonical
 # ---------- map for spherical potentials (canonical.tex, the spherical case)
-_aasi_cache = {}
 
 
 def _spherical_inverse_potential():
@@ -10278,34 +10277,32 @@ def _spherical_inverse_potential():
     return LogarithmicHaloPotential(normalize=1.0)
 
 
-def _spherical_inverse_interp():
-    # a small (E, L) interpolation grid in the logarithmic halo, cached
-    if "interp" not in _aasi_cache:
-        from galpy.actionAngle import actionAngleSphericalInverse
+@pytest.fixture(scope="module")
+def spherical_inverse_interp():
+    # a small (E, L) interpolation grid in the logarithmic halo
+    from galpy.actionAngle import actionAngleSphericalInverse
 
-        _aasi_cache["interp"] = actionAngleSphericalInverse(
-            pot=_spherical_inverse_potential(),
-            setup_interp=True,
-            Rmin=0.7,
-            Rmax=1.4,
-            Rinf=6.0,
-            nE=8,
-            nL=8,
-            mm_nta=128,
-            mm_npt=24,
-        )
-    return _aasi_cache["interp"]
+    return actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.4,
+        Rinf=6.0,
+        nE=8,
+        nL=8,
+        mm_nta=128,
+        mm_npt=24,
+    )
 
 
-def _spherical_inverse_discrete():
-    # two discrete tori in the logarithmic halo, cached
-    if "discrete" not in _aasi_cache:
-        from galpy.actionAngle import actionAngleSphericalInverse
+@pytest.fixture(scope="module")
+def spherical_inverse_explicit():
+    # two explicit tori in the logarithmic halo
+    from galpy.actionAngle import actionAngleSphericalInverse
 
-        _aasi_cache["discrete"] = actionAngleSphericalInverse(
-            pot=_spherical_inverse_potential(), Es=[0.7, 1.1], Ls=[0.9, 0.7]
-        )
-    return _aasi_cache["discrete"]
+    return actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(), Es=[0.7, 1.1], Ls=[0.9, 0.7]
+    )
 
 
 def _spherical_inverse_E_of_u(u, L, Rinf=6.0):
@@ -10372,11 +10369,11 @@ def _spherical_inverse_symplectic_defect(xvmap, jr, jphi, jz, ar, ap, az, h=1e-6
     return numpy.amax(numpy.fabs(A.T @ Omega @ A - Omega))
 
 
-def test_actionAngleSphericalInverse_nodes():
+def test_actionAngleSphericalInverse_nodes(spherical_inverse_explicit):
     # A discrete family returns its own tori: the action label is the forward
     # transformation's, and the map round-trips through it at the forward
     # code's floor, for inclined orbits and all three angles
-    aAI = _spherical_inverse_discrete()
+    aAI = spherical_inverse_explicit
     angler = numpy.linspace(0.05, 6.2, 41)
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
@@ -10397,11 +10394,11 @@ def test_actionAngleSphericalInverse_nodes():
     return None
 
 
-def test_actionAngleSphericalInverse_interpolation():
+def test_actionAngleSphericalInverse_interpolation(spherical_inverse_interp):
     # The interpolated family: exact at a node of its own grid, accurate to
     # the family's interpolation error between nodes, its frequencies those
     # of the returned orbits, and J_r(E, L) the forward transformation's
-    aAI = _spherical_inverse_interp()
+    aAI = spherical_inverse_interp
     angler = numpy.linspace(0.05, 6.2, 41)
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
@@ -10467,7 +10464,7 @@ def test_actionAngleSphericalInverse_turning_point_derivatives():
     return None
 
 
-def test_actionAngleSphericalInverse_symplectic():
+def test_actionAngleSphericalInverse_symplectic(spherical_inverse_interp):
     # Manifest canonicity: the symplectic defect of the public map is at the
     # finite-difference floor -- measured on the analytic isochrone inverse
     # with the same harness -- between the nodes of the family, and just as
@@ -10487,7 +10484,7 @@ def test_actionAngleSphericalInverse_symplectic():
         1.0,
         2.0,
     )
-    aAI = _spherical_inverse_interp()
+    aAI = spherical_inverse_interp
     L = 0.99
     jr = _spherical_inverse_forward_jr(_spherical_inverse_E_of_u(0.55, L), L)
     defect = _spherical_inverse_symplectic_defect(
@@ -10573,7 +10570,9 @@ def test_actionAngleSphericalInverse_convergence_warnings():
     return None
 
 
-def test_actionAngleSphericalInverse_errors():
+def test_actionAngleSphericalInverse_errors(
+    spherical_inverse_interp, spherical_inverse_explicit
+):
     # every guarded misuse raises informatively
     from galpy.actionAngle import actionAngleSphericalInverse
 
@@ -10599,7 +10598,7 @@ def test_actionAngleSphericalInverse_errors():
         actionAngleSphericalInverse(
             pot=pot, setup_interp=True, Rmin=0.7, Rmax=1.4, Rinf=1.0
         )
-    aAI = _spherical_inverse_interp()
+    aAI = spherical_inverse_interp
     with pytest.raises(ValueError, match="outside the interpolation grid"):
         aAI.Freqs(0.15, 5.0, 0.0)  # L outside the grid
     with pytest.raises(ValueError, match="outside the interpolated family"):
@@ -10608,7 +10607,7 @@ def test_actionAngleSphericalInverse_errors():
         aAI.Jr(1.0, 5.0)
     with pytest.raises(ValueError, match="outside the interpolation grid at L"):
         aAI.Jr(0.1, 1.0)  # below the circular orbit's energy
-    aAD = _spherical_inverse_discrete()
+    aAD = spherical_inverse_explicit
     with pytest.raises(ValueError, match="not one of the set-up tori"):
         aAD.Freqs(0.123, 0.4, 0.2)
     with pytest.raises(ValueError, match="not one of the set-up tori"):
@@ -10618,7 +10617,7 @@ def test_actionAngleSphericalInverse_errors():
     return None
 
 
-def test_actionAngleSphericalInverse_circular():
+def test_actionAngleSphericalInverse_circular(spherical_inverse_interp):
     # The circular orbit is the edge of the family and a torus in its own
     # right: the family's grid has the circular orbits as its bottom row,
     # with the epicycle limit's exact partials (J_r, the turning points) and
@@ -10632,7 +10631,7 @@ def test_actionAngleSphericalInverse_circular():
     from galpy.potential import epifreq, evaluatePotentials, omegac, rl
 
     pot = _spherical_inverse_potential()
-    aAI = _spherical_inverse_interp()
+    aAI = spherical_inverse_interp
     angler = numpy.linspace(0.05, 6.2, 41)
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
@@ -10709,6 +10708,39 @@ def test_actionAngleSphericalInverse_circular():
             )
             < 1e-12
         )
+    return None
+
+
+def test_actionAngleSphericalInverse_auxiliary():
+    # the fitted auxiliary is exposed; a given one is used instead of the
+    # fit and gives the same tori to the forward transformation's floor
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import IsochronePotential
+
+    pot = _spherical_inverse_potential()
+    Es, Ls = [0.7, 1.1], [0.9, 0.7]
+    aAF = actionAngleSphericalInverse(pot=pot, Es=Es, Ls=Ls)
+    assert isinstance(aAF.auxiliary, IsochronePotential), (
+        "The fitted auxiliary is not exposed as an IsochronePotential"
+    )
+    ip = IsochronePotential(amp=4.0, b=0.5)
+    aAG = actionAngleSphericalInverse(pot=pot, Es=Es, Ls=Ls, auxiliary=ip)
+    assert aAG.auxiliary is ip, "The given auxiliary is not the one used"
+    assert numpy.fabs(aAG.auxiliary._amp - aAF.auxiliary._amp) > 1e-3, (
+        "The given auxiliary coincides with the fitted one, so the test is void"
+    )
+    angler = numpy.linspace(0.0, 2.0 * numpy.pi, 17, endpoint=False)
+    for E, L in zip(Es, Ls):
+        for aAI in (aAF, aAG):
+            dj, dth, dOm, dE = _spherical_inverse_roundtrip(
+                aAI, aAI.Jr(E, L), 0.6 * L, 0.4 * L, angler, 0.3, 1.1
+            )
+            assert dj < 1e-9 and dth < 1e-7 and dOm < 1e-8 and dE < 1e-10, (
+                "A torus does not round-trip through the forward transformation with the %s auxiliary: %g %g %g %g"
+                % ("given" if aAI is aAG else "fitted", dj, dth, dOm, dE)
+            )
+    with pytest.raises(TypeError, match="IsochronePotential"):
+        actionAngleSphericalInverse(pot=pot, Es=Es, Ls=Ls, auxiliary=pot)
     return None
 
 
