@@ -285,6 +285,14 @@ Action-Angle Coordinates
       One-dimensional action-angle coordinates for harmonic oscillators
       and vertical oscillations, and their inverse transformations.
 
+   .. grid-item-card:: Inverse Transformations (spherical)
+      :img-top: images/tutorials/action_angle_spherical_inverse.png
+      :link: tutorials/action_angle/spherical_inverse
+      :link-type: doc
+
+      Compute phase-space coordinates from given actions and angles
+      in any spherical potential, through an exactly symplectic map.
+
    .. grid-item-card:: Inverse Transformations (TorusMapping)
       :img-top: images/tutorials/action_angle_torus.png
       :link: tutorials/action_angle/torus
