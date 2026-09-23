@@ -24,9 +24,9 @@ from ..backend import (
     is_backend_array,
     like,
     match_input_dtype,
-    namespace_of,
 )
 from ..backend import use as _use_backend
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.interpolate import eval_ppoly
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
@@ -1662,7 +1662,7 @@ def _xiToR(xi, a=1):
     # RuntimeError. jax accepts the mix, so a jax-only check misses this. Lift
     # the numpy operand and let the existing backend branch run.
     if is_backend_array(a) and not is_backend_array(xi):
-        xi = asarray_on_device(namespace_of(a), xi, device_of(a))
+        xi = asarray_on_device(namespace_from_arrays((a,)), xi, device_of(a))
     if not is_backend_array(xi):
         return a * numpy.divide((1.0 + xi), (1.0 - xi))
     return a * ((1.0 + xi) / (1.0 - xi))
@@ -1676,7 +1676,7 @@ def _RToxi(r, a=1):
     if is_backend_array(a) and not is_backend_array(r):
         # Same asymmetry as _xiToR above: numpy.divide on `r / a` would hit
         # ndarray.__truediv__(Tensor) and call .numpy() on a grad tensor.
-        r = asarray_on_device(namespace_of(a), r, device_of(a))
+        r = asarray_on_device(namespace_from_arrays((a,)), r, device_of(a))
     if not is_backend_array(r):
         out = numpy.divide((r / a - 1.0), (r / a + 1.0), where=True ^ numpy.isinf(r))
         if numpy.any(numpy.isinf(r)):
@@ -1692,7 +1692,7 @@ def _RToxi(r, a=1):
     # array, so it must use r's OWN namespace. get_namespace would hand back a
     # forced numpy default and the xp.where below would return an ndarray,
     # silently undoing the lift above.
-    xp = namespace_of(r)
+    xp = namespace_from_arrays((r,))
     rsafe = xp.where(xp.isinf(r), 0.0, r)
     return xp.where(xp.isinf(r), 1.0, (rsafe / a - 1.0) / (rsafe / a + 1.0))
 

@@ -102,7 +102,7 @@ def _mk(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
 
 
-def test_namespace_of_follows_the_data_not_a_forced_context():
+def test_namespace_from_arrays_follows_the_data_not_a_forced_context():
     # get_namespace resolves a FORCED default ahead of the data -- "forced
     # default beats the data", in its own source. That is right for "which
     # namespace should this computation use" and WRONG for "which namespace
@@ -111,17 +111,19 @@ def test_namespace_of_follows_the_data_not_a_forced_context():
     # yields an ndarray, which then raises against a grad tensor and otherwise
     # silently loses the namespace/device.
     import galpy.backend as gb
-    from galpy.backend import get_namespace, namespace_of
+    from galpy.backend import get_namespace
+    from galpy.backend._namespaces import namespace_from_arrays
 
     for backend in BACKENDS:
         x = _mk(backend, [1.0, 2.0])
-        assert namespace_of(x) is get_namespace(x)  # agree with no context
+        assert namespace_from_arrays((x,)) is get_namespace(x)  # agree, no context
         with gb.use("numpy", force=True):
             assert get_namespace(x) is numpy, "get_namespace should follow force"
-            assert namespace_of(x) is not numpy, (
-                "namespace_of must follow the DATA, not the forced default"
+            assert namespace_from_arrays((x,)) is not numpy, (
+                "the data-side resolver must follow the DATA, not the forced default"
             )
-    assert namespace_of(1.0) is None  # nothing array-like: caller falls back
+    # nothing array-like -> None, so callers keep their own fallback
+    assert namespace_from_arrays((1.0,)) is None
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

@@ -388,22 +388,6 @@ def match_input_dtype(out, *coords):
     return xp.astype(out, target)
 
 
-def namespace_of(*values):
-    """The namespace the VALUES themselves live in, ignoring any forced context.
-
-    The data-side counterpart to :func:`device_of`, and the one to use when
-    lifting another operand ONTO ``values``: ``get_namespace`` resolves a
-    forced default ahead of the data ("forced default beats the data" in its
-    own source), so inside ``use("numpy", force=True)`` it hands back numpy for
-    a torch tensor. Lifting onto THAT produces an ndarray, which then either
-    raises against a grad tensor or silently loses the namespace/device.
-
-    Returns None when nothing array-like is passed, exactly as
-    ``namespace_from_arrays`` does, so callers can fall back themselves.
-    """
-    return namespace_from_arrays(values)
-
-
 def device_of(*coords):
     """Return the device of the first backend (jax/torch) array in ``coords``.
 
