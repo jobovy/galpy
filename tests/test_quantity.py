@@ -13246,8 +13246,8 @@ def test_actionAngleSphericalInverse_units():
         Rinf=6.0 * ro * units.kpc,
         nE=4,
         nL=4,
-        ntau=64,
-        nn=8,
+        mm_nta=64,
+        mm_npt=12,
         ro=ro,
         vo=vo,
     )
@@ -13259,11 +13259,17 @@ def test_actionAngleSphericalInverse_units():
         Rinf=6.0,
         nE=4,
         nL=4,
-        ntau=64,
-        nn=8,
+        mm_nta=64,
+        mm_npt=12,
     )
     assert numpy.all(numpy.fabs(aASCg._Lgrid - aASCg_int._Lgrid) < 1e-10), (
-        "actionAngleSphericalInverse does not parse radial grid anchors given as Quantities"
+        "actionAngleSphericalInverse does not parse Rmin and Rmax given as Quantities"
+    )
+    assert numpy.fabs(aASCg._Emax - aASCg_int._Emax) < 1e-10, (
+        "actionAngleSphericalInverse does not parse Rinf given as a Quantity"
+    )
+    assert numpy.all(numpy.fabs(aASCg._E_tab - aASCg_int._E_tab) < 1e-10), (
+        "actionAngleSphericalInverse's energy grid differs between physical and internal radial anchors"
     )
     return None
 
