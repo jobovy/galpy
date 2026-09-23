@@ -142,3 +142,27 @@ def test_lift_helpers_resolve_the_data_under_a_forced_numpy_context(backend):
         xi_out = _RToxi(numpy.array([0.5, 1.0, 2.0]), a=a)
     assert is_backend_array(r_out), "_xiToR lifted onto the forced namespace"
     assert is_backend_array(xi_out), "_RToxi lifted onto the forced namespace"
+
+
+def test_as_numpy_constant_reads_the_primal_but_not_under_jit():
+    # For a value used only as a numerical constant (a calibration, bracket or
+    # integration limit). as_numpy itself refuses a jax tracer -- a guard kept on
+    # purpose -- while the primal IS concrete under eager jax.grad.
+    from galpy.backend import as_numpy_constant
+
+    assert as_numpy_constant(1.5) == 1.5  # numpy / scalars pass through
+    if "jax" in BACKENDS:
+        seen = []
+
+        def f(x):
+            seen.append(as_numpy_constant(x * 2.0))
+            return x * 3.0
+
+        assert float(jax.grad(f)(1.5)) == 3.0  # gradient unaffected
+        assert isinstance(seen[0], numpy.ndarray) and seen[0] == 3.0
+        with pytest.raises(Exception):  # no value exists under jit
+            jax.jit(lambda x: as_numpy_constant(x) + 0.0)(1.5)
+    if "torch" in BACKENDS:
+        t = torch.tensor(1.5, requires_grad=True)
+        c = as_numpy_constant(t * 2.0)
+        assert isinstance(c, numpy.ndarray) and c == 3.0

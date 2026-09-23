@@ -22,6 +22,7 @@ from ._input import backend_input
 from ._jit import jit, jit_mode, set_jit
 from ._namespaces import (
     as_numpy,
+    as_numpy_constant,
     asarray_on_device,
     concretely_true,
     device_of,
@@ -71,6 +72,7 @@ __all__ = [
     "asarray_on_device",
     "like",
     "as_numpy",
+    "as_numpy_constant",
     "exit_cast",
     "prefer_backend_namespace",
     "resolve_namespace",
