@@ -96,3 +96,49 @@ def test_set_at_leaves_a_grad_tracking_input_intact(backend):
         assert arr.requires_grad
     numpy.testing.assert_allclose(as_numpy(out), [1.0, 9.0, 3.0])
     numpy.testing.assert_allclose(as_numpy(arr), [1.0, 2.0, 3.0])
+
+
+def _mk(backend, x):
+    return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
+
+
+def test_namespace_from_arrays_follows_the_data_not_a_forced_context():
+    # get_namespace resolves a FORCED default ahead of the data -- "forced
+    # default beats the data", in its own source. That is right for "which
+    # namespace should this computation use" and WRONG for "which namespace
+    # does this VALUE live in", which is what lifting another operand onto it
+    # needs. Done with get_namespace inside use("numpy", force=True) the lift
+    # yields an ndarray, which then raises against a grad tensor and otherwise
+    # silently loses the namespace/device.
+    import galpy.backend as gb
+    from galpy.backend import get_namespace
+    from galpy.backend._namespaces import namespace_from_arrays
+
+    for backend in BACKENDS:
+        x = _mk(backend, [1.0, 2.0])
+        assert namespace_from_arrays((x,)) is get_namespace(x)  # agree, no context
+        with gb.use("numpy", force=True):
+            assert get_namespace(x) is numpy, "get_namespace should follow force"
+            assert namespace_from_arrays((x,)) is not numpy, (
+                "the data-side resolver must follow the DATA, not the forced default"
+            )
+    # nothing array-like -> None, so callers keep their own fallback
+    assert namespace_from_arrays((1.0,)) is None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_lift_helpers_resolve_the_data_under_a_forced_numpy_context(backend):
+    # The consequence at a real call site: constantbetadf's construction runs
+    # inside use("numpy", force=True), and these leaves lift the numpy grid
+    # onto the (backend) scale. Resolved through get_namespace the lift
+    # produced an ndarray and the multiply that follows met a tensor.
+    import galpy.backend as gb
+    from galpy.backend import is_backend_array
+    from galpy.potential.SCFPotential import _RToxi, _xiToR
+
+    a = _mk(backend, 1.3)
+    with gb.use("numpy", force=True):
+        r_out = _xiToR(numpy.array([-0.5, 0.0, 0.5]), a=a)
+        xi_out = _RToxi(numpy.array([0.5, 1.0, 2.0]), a=a)
+    assert is_backend_array(r_out), "_xiToR lifted onto the forced namespace"
+    assert is_backend_array(xi_out), "_RToxi lifted onto the forced namespace"
