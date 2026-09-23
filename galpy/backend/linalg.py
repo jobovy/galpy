@@ -93,15 +93,13 @@ def psd_project(a):
 
     numpy ``a`` -> the plain per-slice ``numpy.linalg.eigh`` computation
     (byte-identical to the inline loop it replaces). A backend ``a`` (jax/torch)
-    -> a BATCHED, differentiable projection: the eigenvectors are taken from a
-    stop-gradient copy of ``a`` (frozen structure) and the eigenvalues are
-    re-derived from the live ``a`` as ``diag(V^T a V)``, so the gradient flows
-    through the eigenvalue magnitudes (and the clamp) WITHOUT the singular
-    ``eigh`` JVP -- naive ``eigh(a)`` in the gradient path yields NaN gradients
-    at repeated eigenvalues (routine once several noise eigenvalues are clamped
-    to the same zero). The eigenvector ROTATION is treated as frozen (a
-    stop-gradient hyperparameter, like galpy's other frozen-structure backend
-    reconstructions); the eigenvalue-magnitude sensitivity dominates.
+    -> a BATCHED, differentiable projection: the eigendecomposition is taken of
+    a stop-gradient copy of ``a``, and the result carries the EXACT first
+    derivative through the Daleckii-Krein divided
+    differences (see below) WITHOUT the singular ``eigh`` JVP -- naive
+    ``eigh(a)`` in the gradient path yields NaN gradients at repeated
+    eigenvalues (routine once several noise eigenvalues are clamped to the same
+    zero).
     """
     if not is_backend_array(a):
         out = numpy.array(a, dtype=float)
@@ -113,25 +111,30 @@ def psd_project(a):
         return out
     xp = get_namespace(a)
     name = name_of_namespace(xp)
-    a_frozen = _stop_gradient(a, name)
-    _, evecs = xp.linalg.eigh(a_frozen)
-    evecs = _stop_gradient(evecs, name)
+    lam, evecs = xp.linalg.eigh(_stop_gradient(a, name))
+    lam, evecs = _stop_gradient(lam, name), _stop_gradient(evecs, name)
     evecsT = xp.swapaxes(evecs, -1, -2)
-    # diag(V^T a V): differentiable in a, no eigh JVP
-    evals_live = xp.sum(evecsT * xp.swapaxes(a @ evecs, -1, -2), axis=-1)
-    evals = xp.clip(evals_live, 0.0, None)
-    projected = (evecs * evals[..., None, :]) @ evecsT
-    # Where NOTHING is clipped the projection IS the identity, so return `a`
-    # itself and the gradient is exact. That matters: with the eigenvectors
-    # frozen, d(projected)/da keeps only the DIAGONAL of da in the (frozen)
-    # eigenbasis and drops the off-diagonal part entirely -- measured 100% wrong
-    # for a purely off-diagonal perturbation and 50.6% for a generic one, against
-    # a finite difference. Unfreezing instead is not an option here: this is
-    # applied to a smoothed covariance whose small noise eigenvalues can be
-    # near-degenerate, which is exactly where the eigenvector derivative blows up
-    # like 1/gap. Clipping is the rare case, and there the frozen rotation is the
-    # deliberate approximation it always was.
-    anyneg = xp.any(evals_live < 0.0, axis=-1)
+    projected = (evecs * xp.clip(lam, 0.0, None)[..., None, :]) @ evecsT
+    # Exact first derivative with the eigenvectors FROZEN (no eigh JVP, which
+    # blows up like 1/gap at the near-degenerate noise eigenvalues this
+    # sanitises): Daleckii-Krein, dP = V (F o V^T dA V) V^T with divided
+    # differences F_ij = (f(l_i) - f(l_j)) / (l_i - l_j) of f = max(l, 0) --
+    # exactly 1 (both > 0), 0 (both <= 0), or l+/(l+ - l-) in (0, 1): bounded,
+    # so repeated eigenvalues are harmless. Grafted: the value is `projected`.
+    pos = lam > 0.0
+    pi, pj = pos[..., :, None], pos[..., None, :]
+    li, lj = lam[..., :, None], lam[..., None, :]
+    mixed = pi != pj
+    den = xp.where(mixed, li - lj, xp.ones_like(li - lj))
+    F = xp.where(
+        pi & pj,
+        xp.ones_like(den),
+        xp.where(mixed, xp.where(pi, li, lj) / xp.where(pi, den, -den), 0.0 * den),
+    )
+    donor = evecs @ (F * (evecsT @ a @ evecs)) @ evecsT
+    projected = projected + (donor - _stop_gradient(donor, name))
+    # Where NOTHING is clipped the projection IS the identity: return `a` itself
+    anyneg = xp.any(lam < 0.0, axis=-1)
     return xp.where(anyneg[..., None, None], projected, a)
 
 
