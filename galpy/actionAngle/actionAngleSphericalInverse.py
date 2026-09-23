@@ -380,11 +380,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return self._GM / numpy.sqrt(-2.0 * E) - CA
 
     def _auxiliary_orbital_params(self, Jr, L):
-        """Closed-form (a, e) of the auxiliary torus with actions (J_r, L)"""
-        EA = self._auxiliary_E(Jr, L)
-        a = -self._GM / (2.0 * EA) - self._b
-        # zero at the circular orbit, to round-off
-        e = numpy.sqrt(numpy.clip(1.0 + L**2 / (2.0 * EA * a**2), 0.0, None))
+        """Closed-form (a, e) of the auxiliary torus with actions (J_r, L):
+        a + b = (J_r + C_A)^2 / GM, and e^2 = 1 - L^2 (a + b) / (GM a^2)
+        evaluated as the product J_r (J_r + s) [GM a + L (J_r + C_A)] /
+        (GM a)^2 with s = sqrt(L^2 + 4 GM b), the same quantity with its
+        cancellation at small J_r removed, so that e ~ sqrt(J_r) down to
+        round-off and vanishes exactly at the circular orbit"""
+        GM, b = self._GM, self._b
+        s = numpy.sqrt(L**2 + 4.0 * GM * b)
+        CA = 0.5 * (L + s)
+        a = (Jr + CA) ** 2 / GM - b
+        e = numpy.sqrt(Jr * (Jr + s) * (GM * a + L * (Jr + CA))) / (GM * a)
         return a, e
 
     def _auxiliary_orbital_param_chains(self, Jr, L, dJr, dL):
@@ -395,9 +401,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         CA = 0.5 * (L + sq)
         EA = -(GM**2) / (2.0 * (Jr + CA) ** 2)
         dEA = GM**2 / (Jr + CA) ** 3 * (dJr + 0.5 * (1.0 + L / sq) * dL)
-        a = -GM / (2.0 * EA) - b
+        a, e = self._auxiliary_orbital_params(Jr, L)
         da = GM / (2.0 * EA**2) * dEA
-        e = numpy.sqrt(1.0 + L**2 / (2.0 * EA * a**2))
         de = (
             2.0 * L * dL / (2.0 * EA * a**2)
             - L**2 * (dEA * a + 2.0 * EA * da) / (2.0 * EA**2 * a**3)
@@ -832,20 +837,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return None
 
     # ---------- evaluation: the manifest chain
+    def _check_L(self, L):
+        """Raise for an angular momentum outside the family's grid"""
+        if L < self._Lgrid[0] or L > self._Lgrid[-1]:
+            raise ValueError(
+                f"L = {L} outside the interpolation grid "
+                f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
+            )
+        return None
+
     def _interp_tables(self, jr, L):
         """Solve the implicit inverse label (u from (J_r, L) by root-finding
         on the stored J_r interpolant -- exact-in-the-family, so canonicity
         is untouched) and return the frequencies and the map's tables with
         their derivatives, all the interpolants' own, combined into the
         chains at fixed L and at fixed J_r that the evaluation needs"""
-        if L < self._Lgrid[0] or L > self._Lgrid[-1]:
-            raise ValueError(
-                f"L = {L} outside the interpolation grid "
-                f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
-            )
-        xlo, xhi = self._us[0] ** 2, self._us[-1] ** 2
-        jlo = self._jr_ip(xlo, L)[0, 0]
-        jhi = self._jr_ip(xhi, L)[0, 0]
+        self._check_L(L)
+        ulo, uhi = self._us[0], self._us[-1]
+        jlo = self._jr_ip(ulo**2, L)[0, 0]
+        jhi = self._jr_ip(uhi**2, L)[0, 0]
         tol = 1e-12 * (1.0 + numpy.fabs(jr))
         if jr < jlo - tol or jr > jhi + tol:
             raise ValueError(
@@ -853,17 +863,23 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 f"[{jlo}, {jhi}] at L = {L}"
             )
         jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
-        # J_r is monotone in x = u^2 (brentq returns an end point at which
-        # the residual vanishes exactly, so the grid's edges need no case)
-        x = brentq(lambda xx: self._jr_ip(xx, L)[0, 0] - jr, xlo, xhi, xtol=1e-15)
-        u = numpy.sqrt(x)
-        djr_du = 2.0 * u * self._jr_ip(x, L, dx=1)[0, 0]
+        # J_r is monotone in u; the root is found in u rather than in the
+        # interpolant's own variable x = u^2, because J_r ~ u^2 at the
+        # circular edge and a tiny radial action must resolve to a small u,
+        # not to zero (brentq returns an end point at which the residual
+        # vanishes exactly, so the grid's edges need no case)
+        u = brentq(lambda uu: self._jr_ip(uu * uu, L)[0, 0] - jr, ulo, uhi, xtol=1e-15)
+        x = u * u
+        jr_dx = self._jr_ip(x, L, dx=1)[0, 0]
+        djr_du = 2.0 * u * jr_dx
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
         _, dE_du, dE_dL = self._E_of_uL(u, L)
         # chains at fixed L resp. fixed J_r, all from the stored
-        # interpolants' own derivatives
-        OmR = dE_du / djr_du
-        OmL = dE_dL - dE_du * djr_dL / djr_du
+        # interpolants' own derivatives; the frequencies with the common
+        # factor 2u of dE/du and dJ_r/du cancelled, so that they are finite
+        # down to the circular edge
+        OmR = (self._Emax - self._Ec(L)[0]) / jr_dx
+        OmL = dE_dL - OmR * djr_dL
         sup = self._sup_ip(u, L)[0, 0]
         dsup_du = self._sup_ip(u, L, dx=1)[0, 0]
         dsup_dL = self._sup_ip(u, L, dy=1)[0, 0]
@@ -1021,11 +1037,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     "interpolation, initialize with setup_interp=True"
                 )
             return self._jrs[ii]
-        if L < self._Lgrid[0] or L > self._Lgrid[-1]:
-            raise ValueError(
-                f"L = {L} outside the interpolation grid "
-                f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
-            )
+        self._check_L(L)
         Ec, _ = self._Ec(L)
         u2 = (E - Ec) / (self._Emax - Ec)
         if u2 < -1e-12 or u2 > 1.0:
@@ -1059,7 +1071,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # angle variable there); its own circular orbit is degenerate
             # for it, so a moderately eccentric auxiliary torus is used and
             # the lift undone with the circular radius
-            if not self._interp:
+            if self._interp:
+                self._check_L(L)
+            else:
                 self._match_node(jr, L)
             rc, OmR, OmL = self._circular(L)
             out = self._unlift(
@@ -1133,7 +1147,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         L = jz + numpy.fabs(jphi)
         if jr == 0.0:
-            if not self._interp:
+            if self._interp:
+                self._check_L(L)
+            else:
                 self._match_node(jr, L)
             _, OmR, OmL = self._circular(L)
         elif self._interp:

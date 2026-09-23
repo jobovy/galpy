@@ -10559,6 +10559,100 @@ def test_actionAngleSphericalInverse_symplectic(spherical_inverse_interp):
     return None
 
 
+def test_actionAngleSphericalInverse_small_action(spherical_inverse_interp):
+    # A radial action down to round-off above zero resolves to a small u,
+    # not to the circular edge itself: the frequencies stay finite and tend
+    # to the epicycle and circular frequencies, and the point tends to the
+    # circular orbit's (L = 1 is a row of the fixture's grid, where the
+    # edge's slopes are exact)
+    from galpy.potential import epifreq, rl
+
+    aAI = spherical_inverse_interp
+    pot = _spherical_inverse_potential()
+    L, jphi, jz = 1.0, 0.6, 0.4
+    rc, kappa, Omc = rl(pot, L), epifreq(pot, rl(pot, L)), 1.0 / rl(pot, L)
+    circ = numpy.array(aAI(0.0, jphi, jz, 0.3, 1.0, 2.0)).flatten()
+    for jr in (1e-16, 1e-12, 1e-8):
+        Om = numpy.array(aAI.Freqs(jr, jphi, jz))
+        out = numpy.array(aAI(jr, jphi, jz, 0.3, 1.0, 2.0)).flatten()
+        assert numpy.all(numpy.isfinite(Om)) and numpy.all(numpy.isfinite(out)), (
+            "A tiny radial action J_r = %g gives non-finite output" % jr
+        )
+        assert (
+            numpy.fabs(Om[0] / kappa - 1.0) < 1e-6
+            and numpy.fabs(Om[2] / Omc - 1.0) < 1e-6
+        ), (
+            "The frequencies at J_r = %g are not the epicycle limit's: %s vs (%g, %g)"
+            % (jr, Om, kappa, Omc)
+        )
+        # the libration's half-width in the epicycle limit, sqrt(2 J_r / kappa)
+        amp = numpy.sqrt(2.0 * jr / kappa)
+        assert (
+            numpy.fabs(numpy.sqrt(out[0] ** 2 + out[3] ** 2) - rc) < 2.0 * amp + 1e-9
+        ), (
+            "The point at J_r = %g is not within the epicycle amplitude of the circular radius"
+            % jr
+        )
+        assert numpy.amax(numpy.fabs(out - circ)) < 3.0 * amp + 1e-9, (
+            "The point at J_r = %g is not continuous with the circular orbit's" % jr
+        )
+    return None
+
+
+def test_actionAngleSphericalInverse_symplectic_perturbed(spherical_inverse_interp):
+    # Manifest canonicity: the map is symplectic for whatever the tables
+    # contain, because every derivative it uses is the stored interpolant's
+    # own. Perturb the stored values and slopes of a copy of the family by
+    # amounts that spoil its accuracy, rebuild the interpolants, and check
+    # that the symplectic defect is still at the finite-difference floor
+    import copy
+
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    floor = _spherical_inverse_symplectic_defect(
+        actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.0, b=0.5)),
+        0.2,
+        0.6,
+        0.3,
+        0.7,
+        1.0,
+        2.0,
+    )
+    aAP = copy.deepcopy(spherical_inverse_interp)
+    rng = numpy.random.default_rng(3)
+    nu, nL = aAP._jr_tab.shape
+    # the action and its slopes (the edge row stays at J_r = 0)
+    aAP._jr_tab[1:] *= 1.0 + 1e-3 * rng.uniform(-1.0, 1.0, (nu - 1, nL))
+    aAP._jr_dx *= 1.0 + 1e-2 * rng.uniform(-1.0, 1.0, (nu, nL))
+    aAP._jr_dL += 1e-3 * rng.uniform(-1.0, 1.0, (nu, nL))
+    # the turning points, pericentres in and apocentres out, and their slopes
+    aAP._sup_tab[1:, :, 0] -= 1e-3 * rng.uniform(0.0, 1.0, (nu - 1, nL))
+    aAP._sup_tab[1:, :, 1] += 1e-3 * rng.uniform(0.0, 1.0, (nu - 1, nL))
+    aAP._sup_du *= 1.0 + 1e-2 * rng.uniform(-1.0, 1.0, aAP._sup_du.shape)
+    aAP._sup_dL += 1e-3 * rng.uniform(-1.0, 1.0, aAP._sup_dL.shape)
+    # the map's coefficients and their slopes
+    aAP._Dm_tab += 1e-3 * rng.uniform(-1.0, 1.0, aAP._Dm_tab.shape)
+    aAP._Dm_du *= 1.0 + 0.1 * rng.uniform(-1.0, 1.0, aAP._Dm_du.shape)
+    aAP._Dm_dL += 1e-3 * rng.uniform(-1.0, 1.0, aAP._Dm_dL.shape)
+    aAP._rebuild_interp()
+    L = 0.99
+    jr = _spherical_inverse_forward_jr(_spherical_inverse_E_of_u(0.55, L), L)
+    angler = numpy.linspace(0.05, 6.2, 21)
+    dJ = _spherical_inverse_roundtrip(
+        aAP, jr, 0.6 * L, 0.4 * L, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0
+    )[0]
+    assert dJ > 1e-5, "The perturbation of the tables is too small to mean anything"
+    defect = _spherical_inverse_symplectic_defect(
+        aAP, jr, 0.6 * L, 0.4 * L, 0.7, 1.0, 2.0
+    )
+    assert defect < 20.0 * floor + 1e-9, (
+        "The symplectic defect with perturbed tables is above the floor: %g vs %g, "
+        "so canonicity is contingent on the tables" % (defect, floor)
+    )
+    return None
+
+
 def test_actionAngleSphericalInverse_extremes():
     # A grid spanning a factor ~7 in angular momentum, with tori up to
     # eccentricity ~0.9: the defect stays at the floor and the round trip is
@@ -10646,6 +10740,10 @@ def test_actionAngleSphericalInverse_errors(
         aAI.Jr(1.0, 5.0)
     with pytest.raises(ValueError, match="outside the interpolation grid at L"):
         aAI.Jr(0.1, 1.0)  # below the circular orbit's energy
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.Freqs(0.0, 0.3, 0.2)  # a circular request outside the grid's L range
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI(0.0, 0.3, 0.2, 0.3, 1.0, 2.0)
     aAD = spherical_inverse_explicit
     with pytest.raises(ValueError, match="not one of the set-up tori"):
         aAD.Freqs(0.123, 0.4, 0.2)
@@ -10783,19 +10881,21 @@ def test_actionAngleSphericalInverse_auxiliary():
     return None
 
 
-def test_actionAngleSphericalInverse_maxiter():
+def test_actionAngleSphericalInverse_maxiter(
+    spherical_inverse_explicit, spherical_inverse_interp
+):
     # maxiter governs the angle solve: with none, the solve falls back on
     # safeguarded root-finding and still returns the torus, for explicit
-    # tori and for the interpolated family alike
+    # tori and for the interpolated family alike (the fixtures' tori, built
+    # again with maxiter=0, against the fixtures)
     from galpy.actionAngle import actionAngleSphericalInverse
 
     pot = _spherical_inverse_potential()
     angler = numpy.linspace(0.05, 6.2, 11)
-    aAD = actionAngleSphericalInverse(pot=pot, Es=[0.7], Ls=[0.9], maxiter=0)
-    aADN = actionAngleSphericalInverse(pot=pot, Es=[0.7], Ls=[0.9])
+    aAD = actionAngleSphericalInverse(pot=pot, Es=[0.7, 1.1], Ls=[0.9, 0.7], maxiter=0)
     jrD = aAD.Jr(0.7, 0.9)
     fbD = numpy.array(aAD(jrD, 0.6, 0.3, angler, 1.0, 2.0))
-    ntD = numpy.array(aADN(jrD, 0.6, 0.3, angler, 1.0, 2.0))
+    ntD = numpy.array(spherical_inverse_explicit(jrD, 0.6, 0.3, angler, 1.0, 2.0))
     assert numpy.amax(numpy.fabs(fbD - ntD)) < 1e-9, (
         "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
         % numpy.amax(numpy.fabs(fbD - ntD))
@@ -10806,22 +10906,11 @@ def test_actionAngleSphericalInverse_maxiter():
         Rmin=0.7,
         Rmax=1.4,
         Rinf=6.0,
-        nE=4,
-        nL=4,
+        nE=8,
+        nL=8,
         mm_nta=128,
         mm_npt=24,
         maxiter=0,
-    )
-    aAN = actionAngleSphericalInverse(
-        pot=pot,
-        setup_interp=True,
-        Rmin=0.7,
-        Rmax=1.4,
-        Rinf=6.0,
-        nE=4,
-        nL=4,
-        mm_nta=128,
-        mm_npt=24,
     )
     L = 0.99
     jr = _spherical_inverse_forward_jr(_spherical_inverse_E_of_u(0.55, L), L)
@@ -10829,7 +10918,9 @@ def test_actionAngleSphericalInverse_maxiter():
         aAI(jr, 0.6 * L, 0.4 * L, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0)
     )
     nt = numpy.array(
-        aAN(jr, 0.6 * L, 0.4 * L, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0)
+        spherical_inverse_interp(
+            jr, 0.6 * L, 0.4 * L, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0
+        )
     )
     assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
         "The safeguarded fallback of the angle solve does not agree with Newton: %g"
