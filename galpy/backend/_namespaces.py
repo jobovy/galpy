@@ -267,6 +267,18 @@ def graft_gradient(value, donor):
     return stop_gradient(value) + donor - stop_gradient(donor)
 
 
+def as_numpy_constant(x):
+    """``as_numpy`` for a value used ONLY as a numerical constant.
+
+    For a calibration, bracket or integration limit whose gradient is
+    deliberately not carried. Under eager ``jax.grad`` the primal is concrete
+    but ``as_numpy`` refuses a tracer -- a guard worth keeping everywhere else,
+    since it catches silently dropped gradients -- so detach first. Still
+    raises under ``jit``, where no value exists.
+    """
+    return as_numpy(stop_gradient(x))
+
+
 def as_numpy(x):
     """Pull a backend array back to numpy (a consumption/sampling boundary)."""
     if not is_backend_array(x):

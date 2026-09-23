@@ -1037,11 +1037,12 @@ def test_xitor_rtoxi_accept_a_gradient_carrying_scale(backend):
 #     numpy ops on a backend parameter;
 #   * _RphiRootFind / the r(Phi) spline knots hit the Tensor/ndarray asymmetry.
 #
-# TORCH ONLY, and not an oversight: getting here on jax needs the construction
-# itself to be traceable, and it is not -- _evalpot_asnumpy calls as_numpy on a
-# tracer, and the startt calibration is a `while numpy.any(startval == 0.0)`
-# loop, i.e. data-dependent control flow. Torch EAGER autograd keeps values
-# concrete, so neither blocks it. Making jax work is a calibration redesign.
+# Both backends, EAGER autodiff only. The construction-time calibration (the
+# startt search, a data-dependent `while` loop) is numpy and only sets the fE
+# integration LIMIT, so it runs on the potential's primal via
+# as_numpy_constant: concrete under torch autograd and under eager jax.grad,
+# but not under jit, where no value exists -- that needs a traceable
+# calibration and is out of scope here.
 _CB_A, _CB_E = 1.2, -0.8
 
 
@@ -1051,67 +1052,58 @@ def _constantbeta(a):
     return constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
 
 
-@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
-def test_constantbetadf_fE_grad_wrt_potential_parameter():
-    with use("torch", force=True):
-        a = torch.tensor(_CB_A, requires_grad=True)
-        out = _constantbeta(a).fE(torch.tensor([_CB_E]))
-        assert torch.is_tensor(out) and out.grad_fn is not None, (
-            "fE came back detached: the construction table severed the gradient"
-        )
-        out.sum().backward()
-        ad = float(a.grad)
+def _cb_fE(backend, a, Es):
+    with use(backend, force=True):
+        return _constantbeta(a).fE(_arr(backend, numpy.asarray(Es, dtype=float)))
 
-    # FD on the SAME quadrature. fE dispatches on E's namespace, so a numpy E
-    # runs scipy-adaptive _fE_numpy while AD runs the GL fixed_quad
-    # _fE_backend -- comparing those two rules reports ~5e-4, which is the
-    # quadrature difference and not a gradient error.
-    def val(av):
-        with use("torch", force=True):
-            return float(
-                as_numpy(_constantbeta(torch.tensor(av)).fE(torch.tensor([_CB_E])))[0]
-            )
 
-    h = 1e-4  # fE carries ~1e-9 relative noise (brentq xtol + GL), so a smaller
-    # step is WORSE: differencing amplifies it by 1/(2h). Measured rel is
-    # 2.7e-05 at 1e-4, 4.6e-05 at 1e-5 and 5.4e-04 at 1e-6 -- the FD roundoff
-    # branch, so FD is the limited instrument here, not the gradient.
-    fd = (val(_CB_A + h) - val(_CB_A - h)) / (2.0 * h)
+def _cb_grad(backend, Es):
+    """d(sum fE)/d(a), eager autodiff on ``backend``."""
+    if backend == "jax":
+        return float(jax.grad(lambda a: jnp.sum(_cb_fE("jax", a, Es)))(_CB_A))
+    a = torch.tensor(_CB_A, requires_grad=True)
+    out = _cb_fE("torch", a, Es)
+    assert out.grad_fn is not None, "fE came back detached from the potential"
+    out.sum().backward()
+    return float(a.grad)
+
+
+def _cb_val(backend, a, Es):
+    # FD on the SAME quadrature: a numpy E would run scipy-adaptive _fE_numpy
+    # while AD runs the GL _fE_backend, and that rule difference alone is ~5e-4.
+    return float(as_numpy(_cb_fE(backend, _arr(backend, a), Es)).sum())
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_constantbetadf_fE_grad_wrt_potential_parameter(backend):
+    ad = _cb_grad(backend, [_CB_E])
+    # fE carries ~1e-9 relative noise (brentq xtol + GL), so a smaller step is
+    # WORSE: measured rel 2.5e-05 at h=1e-4, 6.6e-05 at 1e-5 -- FD roundoff.
+    h = 1e-4
+    fd = (
+        _cb_val(backend, _CB_A + h, [_CB_E]) - _cb_val(backend, _CB_A - h, [_CB_E])
+    ) / (2.0 * h)
     assert abs(ad) > 1.0, "zero gradient: the potential parameter is disconnected"
     numpy.testing.assert_allclose(ad, fd, rtol=5e-4)
 
 
-@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
-def test_constantbetadf_fE_grad_over_a_batch_spanning_Emin():
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_constantbetadf_fE_grad_over_a_batch_spanning_Emin(backend):
     # The case a single-energy test cannot see. Out-of-bounds energies are
     # clamped to Emin, whose RADIUS is r_min where rforce -> 0, so
     # `grad(dens)(r) / rforce(r)` is infinite there; xp.where's backward
     # multiplies that unselected branch by zero and 0 * inf = NaN poisons the
-    # gradient for EVERY element. The forward stays correct throughout, which
-    # is what hides it.
-    import numpy as _np
-
-    Es = _np.linspace(-1.0, -0.6, 5)  # straddles Emin (-0.8333 for this pot)
-    with use("torch", force=True):
-        a = torch.tensor(_CB_A, requires_grad=True)
-        d = _constantbeta(a)
-        assert Es[0] < float(as_numpy(d._Emin)) < Es[-1], (
-            "fixture no longer straddles Emin"
-        )
-        out = d.fE(torch.as_tensor(Es))
-        assert not bool(torch.isnan(out).any()), "forward should never be NaN"
-        out.sum().backward()
-        g = float(a.grad)
+    # gradient for EVERY element. The forward stays correct throughout.
+    Es = numpy.linspace(-1.0, -0.6, 5)  # straddles Emin (-0.8333 for this pot)
+    with use(backend, force=True):
+        emin = float(as_numpy(_constantbeta(_arr(backend, _CB_A))._Emin))
+    assert Es[0] < emin < Es[-1], "fixture no longer straddles Emin"
+    assert not numpy.isnan(as_numpy(_cb_fE(backend, _arr(backend, _CB_A), Es))).any()
+    g = _cb_grad(backend, Es)
     assert not numpy.isnan(g), "NaN gradient: a masked branch poisoned the batch"
     assert abs(g) > 1.0
-
-    # a batch entirely BELOW Emin is all-masked, so fE is 0 there and the
-    # gradient is exactly 0 -- finite, not NaN
-    with use("torch", force=True):
-        a2 = torch.tensor(_CB_A, requires_grad=True)
-        out2 = _constantbeta(a2).fE(torch.as_tensor(_np.linspace(-1.6, -1.2, 4)))
-        out2.sum().backward()
-    assert float(a2.grad) == 0.0
+    # all below Emin: all masked, fE is 0, and so is the gradient -- not NaN
+    assert _cb_grad(backend, numpy.linspace(-1.6, -1.2, 4)) == 0.0
 
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")

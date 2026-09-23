@@ -9,6 +9,7 @@ from scipy import integrate, interpolate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    as_numpy_constant,
     asarray_on_device,
     autodiff_ops,
     device_of,
@@ -571,7 +572,7 @@ class constantbetadf(_constantbetadf):
                         # array. The fE VALUE is integrated live by _fE_backend,
                         # so the gradient does not come through this table --
                         # verified against FD, not assumed.
-                        as_numpy(self._rphi(Es[indx])),
+                        as_numpy_constant(self._rphi(Es[indx])),
                     )
                 # numpy queries hit the scipy spline (byte-identical); backend
                 # queries evaluate the frozen table natively, so the traced fE
@@ -811,14 +812,16 @@ def _evalpot_asnumpy(pot, r):
             xp = _xp_pot
     if xp is numpy:
         return _evaluatePotentials(pot, r, 0)
-    return as_numpy(_evaluatePotentials(pot, xp.asarray(r) * 1.0, 0))
+    return as_numpy_constant(_evaluatePotentials(pot, xp.asarray(r) * 1.0, 0))
 
 
 def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):
     # The 'raw', i.e., direct integrand in the constant-beta inversion
     out = numpy.zeros_like(r)  # Avoid JAX item assignment issues
     # print("r",r,dmp1nudrmp1(r),(_evaluatePotentials(pot,r,0)-E))
-    out[:] = dmp1nudrmp1(r) / (_evalpot_asnumpy(pot, r) - E) ** alpha
+    # numpy-only integrand (calibration + scipy fE); the traced fE path has its
+    # own. Under jax the gradfunc hands back a tracer: a constant here.
+    out[:] = as_numpy_constant(dmp1nudrmp1(r)) / (_evalpot_asnumpy(pot, r) - E) ** alpha
     out[True ^ numpy.isfinite(out)] = (
         0.0  # assume these are where denom is slightly neg.
     )
