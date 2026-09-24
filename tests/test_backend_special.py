@@ -292,15 +292,156 @@ def test_hyp2f1_value_parity(backend, a, b, c):
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
 
 
+# Large |z| (the TwoPower potential's z = -a/r reaches -1e11 at small r). The
+# reference is mpmath at 50 digits, not scipy: scipy itself drifts for a = b
+# (the NFW-like force), 4e-12 at |z| = 1e6 and 8e-7 at 1e12.
+_HYP2F1_BIG_Z = numpy.array(
+    [16.5, 50.0, 500.0, 10000.0, 1000000.0, 1000000000.0, 1000000000000.0]
+)
+_HYP2F1_BIG_Z_MPMATH = {
+    (2.0, 2.0, 3.0): [
+        0.014099862171330215,
+        0.0023611467806892647,
+        4.1748816872551176e-05,
+        1.6421080713955032e-07,
+        2.5631025115925547e-11,
+        3.9446531677892824e-17,
+        5.326204223186109e-23,
+    ],
+    (2.0, 3.0, 3.0): [
+        0.0032653061224489797,
+        0.00038446751249519417,
+        3.9840478723192335e-06,
+        9.998000299960006e-09,
+        9.99998000003e-13,
+        9.99999998e-19,
+        9.99999999998e-25,
+    ],
+    (1.0, 2.0, 2.0): [
+        0.05714285714285714,
+        0.0196078431372549,
+        0.001996007984031936,
+        9.999000099990002e-05,
+        9.99999000001e-07,
+        9.99999999e-10,
+        9.99999999999e-13,
+    ],
+    (1.5, 2.0, 2.5): [
+        0.024557826303731822,
+        0.005480041788339164,
+        0.00019876041318597247,
+        2.326196490012362e-06,
+        2.353194492192343e-09,
+        7.450641199347276e-14,
+        2.3561914901923448e-18,
+    ],
+    (0.5, 1.0, 1.5): [
+        0.3272789464839072,
+        0.20227590274856033,
+        0.06824947904602276,
+        0.015607966601082313,
+        0.0015697963271282297,
+        4.967194132898084e-05,
+        1.5707953267948966e-06,
+    ],
+    (1.0, 3.0, 3.0): [
+        0.05714285714285714,
+        0.0196078431372549,
+        0.001996007984031936,
+        9.999000099990002e-05,
+        9.99999000001e-07,
+        9.99999999e-10,
+        9.99999999999e-13,
+    ],
+    (0.5, 2.0, 2.5): [
+        0.2760374395682073,
+        0.16367278852019185,
+        0.05258473506594804,
+        0.011779804353316653,
+        0.001178096067998927,
+        3.7254705959481675e-05,
+        1.1780972450949944e-06,
+    ],
+    (1.0, 3.5, 3.0): [
+        0.04655262394717649,
+        0.01578725240474103,
+        0.0015978668569067952,
+        7.99946666719992e-05,
+        7.999994666666672e-07,
+        7.999999994666666e-10,
+        7.999999999994667e-13,
+    ],
+    (2.0, 4.0, 4.0): [
+        0.0032653061224489797,
+        0.00038446751249519417,
+        3.9840478723192335e-06,
+        9.998000299960006e-09,
+        9.99998000003e-13,
+        9.99999998e-19,
+        9.99999999998e-25,
+    ],
+    (1.5, 4.5, 3.5): [
+        0.008140099216924617,
+        0.001592013936364025,
+        5.103346045740296e-05,
+        5.713857142863392e-07,
+        5.714281428571429e-10,
+        1.8070158044552405e-14,
+        5.714285714281429e-19,
+    ],
+    (3.5, 0.02, 1.02): [
+        0.9145867940773463,
+        0.8945308636343933,
+        0.8542703486200457,
+        0.8045901889106895,
+        0.7337949735259679,
+        0.6391087044339041,
+        0.5566404115859328,
+    ],
+    (-1.3, 1.0, 3.0): [
+        12.188148452888692,
+        45.46348100625315,
+        855.6808708539357,
+        41776.449645950706,
+        16626071.848268561,
+        132065147636.67737,
+        1049030752450096.1,
+    ],
+}
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
-@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
-def test_hyp2f1_extreme_z_bounded_error(backend, a, b, c):
-    # Far beyond realistic radii (r/a up to 500) the fixed-order quadrature
-    # degrades gracefully -- still ~1e-5, never diverges (unlike jax native).
-    z = -numpy.array([100.0, 250.0, 500.0])
-    ref = scipy_special.hyp2f1(a, b, c, z)
-    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
-    numpy.testing.assert_allclose(got, ref, rtol=1e-4, atol=1e-8)
+@pytest.mark.parametrize(
+    "abc", list(_HYP2F1_BIG_Z_MPMATH), ids=[str(x) for x in _HYP2F1_BIG_Z_MPMATH]
+)
+def test_hyp2f1_large_z_accurate(backend, abc):
+    # A single fixed tanh-sinh grid under-resolved the t ~ 1/|z| turnover of
+    # the Euler integrand: 1e-10 at |z| = 1e3, 2e-6 at 1e5, 3e-2 at 1e12. The
+    # split at t0 = 1/(1-z) is ~1e-15 throughout (measured worst 3e-15).
+    got = as_numpy(gsp.hyp2f1(*abc, _asarray(backend, -_HYP2F1_BIG_Z)))
+    numpy.testing.assert_allclose(got, _HYP2F1_BIG_Z_MPMATH[abc], rtol=2e-14, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_mixed_small_and_large_z_grad(backend):
+    # one call with |z| on BOTH sides of the split: both routes run and are
+    # selected per entry; each must see a z valid for it (no NaN from the dead
+    # side), and d/dz must match the analytic derivative
+    # d/dz 2F1(a,b;c;z) = (a b / c) 2F1(a+1, b+1; c+1; z)
+    a, b, c = 1.0, 3.5, 3.0
+    z = numpy.array([-0.5, -10.0, -16.0, -17.0, -1e3, -1e9])
+    # scipy is accurate for this non-degenerate (a+1, b+1, c+1) (checked
+    # against mpmath: <= 1e-15 over this z)
+    ref = a * b / c * scipy_special.hyp2f1(a + 1, b + 1, c + 1, z)
+    if backend == "jax":
+        g = jax.grad(lambda zz: jnp.sum(gsp.hyp2f1(a, b, c, zz)))(jnp.asarray(z))
+    else:
+        zt = torch.tensor(z, requires_grad=True)
+        gsp.hyp2f1(a, b, c, zt).sum().backward()
+        g = zt.grad
+    g = as_numpy(g)
+    assert numpy.all(numpy.isfinite(g))
+    numpy.testing.assert_allclose(g, ref, rtol=1e-12)
 
 
 @pytest.mark.skipif("'torch' not in BACKENDS or not _TORCH_COMPILES")
