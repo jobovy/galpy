@@ -1688,6 +1688,23 @@ def test_king_dens_spherically_symmetric():
     return None
 
 
+def test_king_cumulative_mass_is_made_monotone():
+    # The ODE's -dW/dr r^2 can dip by roundoff where the density vanishes near
+    # rt; solve() repairs that so the cumulative mass stays non-decreasing (the
+    # inverse CMF used for sampling needs it). At the tight solve tolerance only
+    # small W0 still dips, so exercise it there -- and check the dip is real, or
+    # this test would stop covering the repair without failing.
+    from galpy.df.kingdf import _scalefreekingdf
+
+    sfk = _scalefreekingdf(0.01)
+    sfk.solve(1001)
+    raw = -sfk._dWdr * sfk._r**2.0
+    assert numpy.any(numpy.diff(raw) < 0.0), "no dip left to repair at W0=0.01"
+    assert numpy.all(numpy.diff(sfk._cumul_mass) >= 0.0)
+    assert sfk.mass == sfk._cumul_mass[-1]
+    return None
+
+
 def test_king_dens_massprofile():
     pot = potential.KingPotential(W0=3.0, M=2.3, rt=1.76)
     dfk = kingdf(W0=3.0, M=2.3, rt=1.76)
