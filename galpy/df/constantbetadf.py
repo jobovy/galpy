@@ -396,6 +396,22 @@ class _constantbetadf(anisotropicsphericaldf):
         # velocity magnitude are backend-native, differentiable, GPU/jit-able),
         # so it must NOT force numpy -- that would override the data dispatch.
         if grandom._backend_of_key(key) == "numpy":
+            # A differentiated potential cannot go down the forced-numpy route:
+            # _numpy_ctx forces numpy, so every potential evaluation still
+            # returns a tensor while every namespace resolves numpy, and the
+            # two meet deep inside the CMF/pvr tables. Say which key to pass
+            # instead of failing several frames down with a bare
+            # "Can't call numpy() on Tensor that requires grad".
+            # (Only constantbetadf wraps sampling this way -- the isotropic /
+            # Osipkov-Merritt families sample fine with key=None.)
+            if _pot_grad_namespace(self._pot, any_backend=True) is not None:
+                raise NotImplementedError(
+                    "constantbetadf.sample: a potential carrying a gradient "
+                    "needs a BACKEND key -- pass key=galpy.backend.random.key("
+                    "seed, 'jax'|'torch'), which samples natively and stays "
+                    "differentiable. key=None forces the numpy sampling path, "
+                    "which cannot consume backend potential parameters."
+                )
             with _numpy_ctx(_active_backend_name()):
                 return sphericaldf.sample(
                     self,
