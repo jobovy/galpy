@@ -85,11 +85,14 @@ def test_fE_dead_edge(backend):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_dens_parity(backend):
     # dens goes through the Spline1D W(r) table + the erf-based _dens_W; measured
-    # ~3e-13 (frozen-table eval + backend erf vs scipy)
+    # ~3e-13 (frozen-table eval + backend erf vs scipy). Near rt, W -> 0 and
+    # _dens_W is a catastrophic cancellation of O(W^1/2) terms, so the backend
+    # erf's last-bit difference is relative noise on a vanishing density
+    # (3e-9 at 0.999 rt: 4e-18 absolute) -- hence the round-off-scale atol.
     ref = _DF.dens(_DENSRS)
     got = _DF.dens(_arr(backend, _DENSRS))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10, atol=1e-16)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -320,25 +323,8 @@ def test_kingdf_icmf_with_differentiated_grids(ms_on_backend):
 
 # --- d/dW0: the scale-free King model is itself an ODE solution ---------------
 # W0 sets the SHAPE, so every table of the scale-free solve depends on it; d/dW0
-# comes from the forward sensitivities grafted onto the scipy solution. That is
-# the derivative of the EXACT model: galpy's solve runs at scipy's default
-# rtol=1e-3, whose own W0-dependence is ~1e-3 off, so the FD reference re-solves
-# at tight tolerance (AD vs the default-tolerance FD: 1.6e-3 on rt).
+# comes from the forward sensitivities grafted onto the scipy solution.
 _W0 = 3.0
-
-
-@pytest.fixture
-def tight_king_solve(monkeypatch):
-    import scipy.integrate
-
-    orig = scipy.integrate.solve_ivp
-
-    def tight(*args, **kwargs):
-        kwargs.setdefault("rtol", 1e-11)
-        kwargs.setdefault("atol", 1e-13)
-        return orig(*args, **kwargs)
-
-    monkeypatch.setattr(scipy.integrate, "solve_ivp", tight)
 
 
 _W0_QUANTITIES = {
@@ -369,7 +355,7 @@ def _w0_quantity(backend, W0, which):
 
 @pytest.mark.parametrize("which", list(_W0_QUANTITIES))
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_kingdf_W0_grad_vs_tight_finite_difference(backend, which, tight_king_solve):
+def test_kingdf_W0_grad_vs_finite_difference(backend, which):
     if backend == "jax":
         ad = float(jax.grad(lambda W: _w0_quantity("jax", W, which))(_W0))
     else:
