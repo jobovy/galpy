@@ -234,6 +234,10 @@ class _scalefreekingdf:
             [W0, 0.0],
             method="DOP853",
             t_eval=r[: npt // 2],
+            # scipy's default rtol=1e-3 left ~1e-4 errors in the tables (and
+            # ~1e-3 in their W0-dependence); this is ~1e-10 for ~10 ms more
+            rtol=1e-10,
+            atol=1e-12,
         )
         W[: npt // 2] = sol.y[0]
         dWdr[: npt // 2] = sol.y[1]
@@ -251,6 +255,8 @@ class _scalefreekingdf:
             [rbreak, sol.y[1, -1]],
             method="DOP853",
             t_eval=W[npt // 2 - 1 :],
+            rtol=1e-10,
+            atol=1e-12,
         )
         r[npt // 2 - 1 :] = sol.y[0]
         dWdr[npt // 2 - 1 :] = sol.y[1]
@@ -287,8 +293,8 @@ class _scalefreekingdf:
     def _graft_W0_derivative(self, W0, rbreak, npt):
         """Graft d/dW0 onto the (numpy) solution from its forward sensitivities.
 
-        Both ODE segments are re-integrated with their variational equations
-        (tight tolerances: this is the derivative of the exact solution). The
+        Both ODE segments are re-integrated with their variational equations,
+        at the same tolerances as the solve itself. The
         pieces that MOVE with W0 are carried explicitly: rbreak = r0(W0), the
         second segment's start Psi = W(rbreak), and both output grids. Values are
         unchanged; first order only (graft_gradient)."""
