@@ -116,9 +116,10 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             r,
             # The integrand varies on scale r, so the map must too: with the
             # default unit scale, accuracy collapses as r -> 0 (1.1e-2 at
-            # r=1e-3) instead of converging. n=100 then reaches scipy's own
-            # accuracy there; n=50 leaves 1.2e-6.
-            n=100,
+            # r=1e-3) instead of converging. n=200 reaches scipy's own accuracy
+            # down to r=1e-4 below an NFW scale of 16 (n=100 leaves 4.4e-6
+            # there, 1000x the numpy table's error).
+            n=200,
             scale=r,
         )
         / dens(r)
