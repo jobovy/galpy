@@ -253,3 +253,21 @@ def test_jeans_sigmalos_userdens_surfdens_fallback(backend):
             as_numpy(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
         )
     return None
+
+
+# The GL order of the backend path: at r=1e-4 inside an NFW of scale 16 the
+# integrand spans ~5 decades of the mapped range, and n=100 left 4.4e-6 --
+# 1000x the error of the numpy sigma_r table it stands in for when the
+# potential carries a gradient (dynamical friction). n=200 reaches the adaptive
+# rule's own accuracy.
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sigmar_small_r_deep_inside_a_large_scale_nfw(backend):
+    from galpy.backend import use
+    from galpy.potential import NFWPotential
+
+    nfw = NFWPotential(amp=4.0, a=16.0)
+    r = 1e-4
+    ref = jeans.sigmar(nfw, r, use_physical=False)
+    with use(backend, force=True):
+        got = jeans.sigmar(nfw, _arr(backend, r), use_physical=False)
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=2e-8)
