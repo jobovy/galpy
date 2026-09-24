@@ -6,7 +6,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, radial_limits
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -174,8 +174,8 @@ class PlummerPotential(Potential):
             raise AttributeError  # use general implementation
         xp = get_namespace(R)
         (R,) = coerce_coords(xp, R)
-        r2 = R**2.0
-        return (1.0 + self._b2 / r2) ** -1.5  # written so it works for r=inf
+        # written so it works for r=inf
+        return radial_limits(R, lambda R: (1.0 + self._b2 / R**2.0) ** -1.5, at0=0.0)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
