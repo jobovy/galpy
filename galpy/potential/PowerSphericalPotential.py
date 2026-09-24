@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, radial_limits
 from ..backend import special as _bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -266,7 +266,10 @@ class PowerSphericalPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        return (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha
+        # d/dalpha r**-alpha = -log(r) r**-alpha is inf*0 at r=inf
+        return radial_limits(
+            r, lambda r: (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha, atinf=0.0
+        )
 
     def _ddensdr(self, r, t=0.0):
         """
