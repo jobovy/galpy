@@ -18,6 +18,7 @@ from .Potential import (
     _check_c,
     _check_potential_list_and_deprecate,
     _evaluateDensities,
+    _pot_grad_namespace,
 )
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
@@ -139,17 +140,30 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # cumulative integral rather than one adaptive quadrature each; falls
         # back to the loop when that path does not apply (and always for a
         # user-supplied sigmar, whose cost is the caller's to control).
+        # A host potential carrying a gradient: the numpy grid and the per-radius
+        # loop both go through scipy, so build the table with the backend Jeans
+        # quadrature instead -- differentiable, and as accurate (Spline1D below
+        # then takes differentiated values: mode 2).
+        grad_xp = _pot_grad_namespace(self._dens_pot) if default_sigmar else None
         fast_sigmars = (
             jeans._sigmar_on_grid(self._dens_pot, self._sigmar_rs_4interp, beta=0.0)
-            if default_sigmar
+            if default_sigmar and grad_xp is None
             else None
         )
-        self._sigmars_4interp = (
-            fast_sigmars
-            if fast_sigmars is not None
-            else numpy.array([sigmar(x) for x in self._sigmar_rs_4interp])
-        )
-        if numpy.any(numpy.isnan(self._sigmars_4interp)):
+        if grad_xp is not None:
+            self._sigmars_4interp = jeans.sigmar(
+                self._dens_pot,
+                grad_xp.asarray(self._sigmar_rs_4interp),
+                beta=0.0,
+                use_physical=False,
+            )
+        else:
+            self._sigmars_4interp = (
+                fast_sigmars
+                if fast_sigmars is not None
+                else numpy.array([sigmar(x) for x in self._sigmar_rs_4interp])
+            )
+        if grad_xp is None and numpy.any(numpy.isnan(self._sigmars_4interp)):
             # Check for case where density is zero, in that case, just
             # paint in the nearest neighbor for the interpolation
             # (doesn't matter in the end, because force = 0 when dens = 0)
