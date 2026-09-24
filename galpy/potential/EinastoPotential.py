@@ -5,7 +5,13 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    radial_limits,
+)
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
@@ -120,6 +126,9 @@ class EinastoPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        return radial_limits(r, self._revaluate_body, atinf=0.0)
+
+    def _revaluate_body(self, r):
         xp = get_namespace(r)
         s = r / self.h
         # r == 0 is handled by the separate `core` branch below; eager backends
@@ -158,7 +167,11 @@ class EinastoPotential(SphericalPotential):
         )
 
     def _rdens(self, r, t=0.0):
-        return numpy.e ** -((r / self.h) ** (1 / self.n))
+        # (r/h)**(1/n) has an infinite slope at r=0 for n>1: its backward is
+        # 0*inf there
+        return radial_limits(
+            r, lambda r: numpy.e ** -((r / self.h) ** (1 / self.n)), at0=1.0, atinf=0.0
+        )
 
     def _estimate_dn(self, n):
         # see [2]
