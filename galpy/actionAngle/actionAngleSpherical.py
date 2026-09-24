@@ -1269,9 +1269,30 @@ def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
     # centre, below this fraction of the radius (the centrifugal barrier of a
     # nearly radial small orbit can sit far below any fixed radius)
     floor = 10.0**-12.0 * R
+    checked_bound = False
     while startsign * _rapRperiAxiEq(rtry, E, L, pot) > 0.0 and rtry > floor:
         if rap:
-            if rtry > 100.0:  # pragma: no cover
+            if rtry > 100.0 * R and not checked_bound:
+                # far beyond the radius: an apocentre exists only if the
+                # radial equation turns negative far out, that is, if the
+                # orbit is bound. Asked at infinity, where galpy's potentials
+                # give their finite or infinite limit; a potential that
+                # gives nothing usable there (NaN, or an error) is asked at
+                # 1e8 times the radius instead, and one that gives nothing
+                # there either leaves the decision to the cap below
+                checked_bound = True
+                for rfar in (numpy.inf, 10.0**8.0 * R):
+                    with numpy.errstate(all="ignore"):
+                        try:
+                            far = startsign * _rapRperiAxiEq(rfar, E, L, pot)
+                        except Exception:
+                            far = numpy.nan
+                    if numpy.isnan(far):
+                        continue
+                    if far >= 0.0:
+                        raise UnboundError("Orbit seems to be unbound")
+                    break
+            if rtry > 10.0**12.0 * R:  # pragma: no cover
                 raise UnboundError("Orbit seems to be unbound")
             rtry *= 2.0
         else:
