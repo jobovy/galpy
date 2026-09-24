@@ -15,6 +15,7 @@ from ._coerce import (
     as_backend_constant,
     coerce_coords,
     promote_scalars,
+    radial_limits,
     zeros_like_backend,
 )
 from ._compat import is_backend_compatible
@@ -82,4 +83,5 @@ __all__ = [
     "coerce_coords",
     "promote_scalars",
     "zeros_like_backend",
+    "radial_limits",
 ]
