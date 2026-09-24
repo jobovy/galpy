@@ -294,3 +294,66 @@ def test_psd_project_still_clips_negative_eigenvalues(backend):
         got = as_numpy(psd_project(_arr(backend, A)[None, ...])[0])
         numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-13)
         assert numpy.linalg.eigvalsh(got).min() > -1e-12, "output must be PSD"
+
+
+# The gradient against a FINITE DIFFERENCE, on slices that are actually CLIPPED
+# (the tests above only check finite / jax==torch, which the old frozen-
+# eigenvector gradient passed while being 77-210% off -- wrong in sign on the
+# generic slice). Daleckii-Krein gives the exact first derivative from the
+# frozen eigenvectors; spectra stay >=1e-1 from zero so a central FD step of
+# 1e-6 cannot cross the clamp's kink.
+def _clipped_batch():
+    rng = numpy.random.default_rng(1)
+    spectra = [
+        [2.0, 1.0, 0.5, -0.3, -0.7, 0.1],  # generic, two clipped
+        [2.0, 1.0, 0.5, -0.3, -0.3, -0.3],  # repeated clipped eigenvalue
+        [2.0, 1.0, 0.5, 0.3, 0.2, 0.1],  # nothing clipped: identity branch
+    ]
+    out = []
+    for s in spectra:
+        q, _ = numpy.linalg.qr(rng.standard_normal((6, 6)))
+        out.append(q @ numpy.diag(s) @ q.T)
+    d = rng.standard_normal((3, 6, 6))
+    return (
+        numpy.array(out),
+        d + numpy.swapaxes(d, -1, -2),
+        rng.standard_normal((3, 6, 6)),
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_psd_project_backend_grad_vs_fd_on_clipped_slices(backend):
+    a, d, w = _clipped_batch()
+
+    def f(t):
+        return numpy.sum(w * psd_project(a + t * d), axis=(-1, -2))
+
+    h = 1e-6
+    fd = (f(h) - f(-h)) / (2.0 * h)
+    if backend == "jax":
+        ad = numpy.asarray(
+            jax.jacfwd(
+                lambda t: jnp.sum(
+                    jnp.asarray(w) * psd_project(jnp.asarray(a) + t * jnp.asarray(d)),
+                    axis=(-1, -2),
+                )
+            )(0.0)
+        )
+    else:
+        ad = numpy.array(
+            [
+                float(
+                    torch.autograd.grad(
+                        (
+                            torch.tensor(w[k])
+                            * psd_project(torch.tensor(a) + t * torch.tensor(d))[k]
+                        ).sum(),
+                        t,
+                    )[0]
+                )
+                for k in range(3)
+                for t in [torch.tensor(0.0, requires_grad=True)]
+            ]
+        )
+    # measured 1.2e-10 - 3.3e-10
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
