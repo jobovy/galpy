@@ -135,7 +135,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         mm_npt : int, optional
             Number of harmonics of the momentum-matched anomaly map; the
             reconstruction converges spectrally in this, and a warning is
-            raised when it does not suffice for a torus.
+            raised when it does not suffice for a torus. The number needed
+            grows with a torus's ratio of apocentre to pericentre, roughly
+            in proportion to it; on a grid the most eccentric torus is the
+            one at the smallest angular momentum (set by Rmin) and the
+            highest energy (set by Rinf), and the set-up raises when the
+            harmonics cannot hold it.
         mm_nta : int, optional
             Number of anomaly samples per torus (even), used to sample the
             torus, to fit the map, and for the quadratures of its action
@@ -308,11 +313,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
             if EAs >= _BOUND_MARGIN * self._auxiliary_E(Jrq, L):
                 raise RuntimeError(
                     "The momentum-matched lift of the (E, L) = "
-                    f"({E}, {L}) torus is not bound in the fitted "
-                    "auxiliary: the torus reaches beyond the depth of the "
-                    "single isochrone fitted to the family's radial range, or "
-                    "the anomaly map is under-resolved (raise mm_npt and, with "
-                    "it, mm_nta)"
+                    f"({E:g}, {L:g}) torus is not bound in the fitted "
+                    "auxiliary: the anomaly map is under-resolved for it. "
+                    f"Its turning points are {rp:g} and {ra:g}, a ratio of "
+                    f"{ra / rp:.0f}, and the map needs a number of harmonics "
+                    "of the order of that ratio, against the mm_npt = "
+                    f"{self._npt} given; the most eccentric torus of a grid "
+                    "is the one at its smallest angular momentum (Rmin) and "
+                    "highest energy (Rinf). Raise mm_npt (and, with it, "
+                    "mm_nta), or raise Rmin or lower Rinf"
                 )
         return None
 
