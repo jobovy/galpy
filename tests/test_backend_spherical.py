@@ -816,3 +816,19 @@ def test_einasto_dn_solves_on_the_backend_inside_a_forced_context(backend_name):
     got = float(as_numpy(raw))
     tol = _EIN_TOL_FWD[backend_name]
     assert abs(got - _EIN_DN) < tol * _EIN_DN, f"{backend_name} forced: {got!r}"
+
+
+# Small r: the generic _evaluate is gamma * [(r/a)^(3-beta) 2F1(..., -a/r) - C] / r,
+# so 2F1 is needed at z = -a/r ~ -1e5 and the bracket cancels ~a/r-fold. A single
+# fixed quadrature grid lost the 2F1 there (3e-3 .. 6e-2 on Phi at r/a = 1e-5,
+# both backends); split at t ~ 1/|z| it is ~1e-15, leaving only the formula's
+# own cancellation floor (~a/r * 1e-16): measured <= 1.2e-10 at r/a = 1e-5.
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+@pytest.mark.parametrize("alpha,beta", [(1.5, 3.5), (1.5, 4.5), (0.5, 4.0), (1.0, 5.0)])
+def test_twopower_generic_potential_at_small_r(backend_name, alpha, beta):
+    pot = TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=alpha, beta=beta)
+    assert pot._specialSelf is None  # the generic hyp2f1 branch
+    R = 1.1 * numpy.array([1e-5, 3e-5, 1e-4, 1e-3])
+    z = numpy.zeros_like(R)
+    got = as_numpy(pot._evaluate(_asarray(backend_name, R), _asarray(backend_name, z)))
+    numpy.testing.assert_allclose(got, pot._evaluate(R, z), rtol=5e-10, atol=0.0)
