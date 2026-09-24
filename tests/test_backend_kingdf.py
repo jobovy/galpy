@@ -316,3 +316,71 @@ def test_kingdf_icmf_with_differentiated_grids(ms_on_backend):
         got = df._icmf(_arr("torch", ms) if ms_on_backend else ms)
     assert torch.is_tensor(got)
     numpy.testing.assert_allclose(as_numpy(got.detach()), ref, rtol=1e-12)
+
+
+# --- d/dW0: the scale-free King model is itself an ODE solution ---------------
+# W0 sets the SHAPE, so every table of the scale-free solve depends on it; d/dW0
+# comes from the forward sensitivities grafted onto the scipy solution. That is
+# the derivative of the EXACT model: galpy's solve runs at scipy's default
+# rtol=1e-3, whose own W0-dependence is ~1e-3 off, so the FD reference re-solves
+# at tight tolerance (AD vs the default-tolerance FD: 1.6e-3 on rt).
+_W0 = 3.0
+
+
+@pytest.fixture
+def tight_king_solve(monkeypatch):
+    import scipy.integrate
+
+    orig = scipy.integrate.solve_ivp
+
+    def tight(*args, **kwargs):
+        kwargs.setdefault("rtol", 1e-11)
+        kwargs.setdefault("atol", 1e-13)
+        return orig(*args, **kwargs)
+
+    monkeypatch.setattr(scipy.integrate, "solve_ivp", tight)
+
+
+_W0_QUANTITIES = {
+    "rt": lambda d: d._scalefree_kdf.rt,
+    "c": lambda d: d.c,
+    "mass": lambda d: d._scalefree_kdf.mass,
+    "cumul_mass[700]": lambda d: d._scalefree_kdf._cumul_mass[700],
+    "r[800]": lambda d: d._scalefree_kdf._r[800],
+    "dens": lambda d: d.dens(0.4),
+    "fE": lambda d: d.fE(-3.0),
+    "sigmar": lambda d: d.sigmar(0.3),
+    "pot": lambda d: d._pot(0.5, 0.0, use_physical=False),
+    "sample": lambda d: sum(
+        (x**2.0).sum()
+        for x in d.sample(
+            n=3, key=galpy.backend.random.key(5, d._backend), return_orbit=False
+        )
+    ),
+}
+
+
+def _w0_quantity(backend, W0, which):
+    with galpy.backend.use(backend, force=True):
+        d = kingdf(W0=W0, M=2.3, rt=1.4)
+        d._backend = backend
+        return _W0_QUANTITIES[which](d)
+
+
+@pytest.mark.parametrize("which", list(_W0_QUANTITIES))
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_W0_grad_vs_tight_finite_difference(backend, which, tight_king_solve):
+    if backend == "jax":
+        ad = float(jax.grad(lambda W: _w0_quantity("jax", W, which))(_W0))
+    else:
+        W = torch.tensor(_W0, requires_grad=True)
+        ad = float(torch.autograd.grad(_w0_quantity("torch", W, which), W)[0])
+    # h=1e-4: the sampled draws sit on a piecewise-linear inverse CDF whose
+    # kinks a wider step straddles (6.8e-4 at h=1e-2); measured max 7.2e-8
+    h = 1e-4
+    fd = (
+        float(as_numpy(_w0_quantity(backend, _W0 + h, which)))
+        - float(as_numpy(_w0_quantity(backend, _W0 - h, which)))
+    ) / (2.0 * h)
+    assert abs(ad) > 1e-4, "W0 gradient disconnected"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
