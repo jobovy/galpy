@@ -61,6 +61,11 @@ v1.12.1 (expected around 2026-11-01)
   ``_delta`` attribute, like the wrapper's) or an
   ``OblateStaeckelWrapperPotential``.
 
+- ``PerfectEllipsoidPotential`` supplies its focal length, a sqrt(1 - c^2),
+  when it is axisymmetric and oblate (b = 1, c < 1), for which it is an exact
+  Staeckel potential (de Zeeuw 1985), so that ``actionAngleStaeckel`` needs
+  no ``delta=`` for it.
+
 - ``actionAngleSpherical`` no longer gives up on bound orbits whose apocentre
   lies beyond a fixed radius of 100 (e.g. orbits with eccentricity above
   0.98 in a Hernquist potential), which it declared unbound. Whether an orbit

@@ -21,6 +21,8 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         \\rho(x,y,z) = \\frac{\\mathrm{amp\\,a}}{\\pi^2\\,bc}\\,\\frac{1}{(m^2+a^2)^2}
 
     where :math:`\\mathrm{amp} = GM` is the total mass and :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
+
+    An axisymmetric oblate perfect ellipsoid (b = 1, c < 1) is a Staeckel potential in the prolate spheroidal coordinates of focal length :math:`a\\sqrt{1-c^2}` (de Zeeuw 1985), which the potential supplies to ``actionAngleStaeckel``, so that no ``delta=`` is needed for it.
     """
 
     def __init__(
@@ -81,6 +83,11 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         self.a = a
         self.a2 = self.a**2
         self._scale = self.a
+        # an axisymmetric oblate perfect ellipsoid is a Staeckel potential in
+        # the prolate spheroidal coordinates of focal length a sqrt(1 - c^2)
+        # (de Zeeuw 1985), which actionAngleStaeckel picks up from here
+        if self._aligned and numpy.fabs(self._b - 1.0) < 1e-10 and self._c < 1.0:
+            self._delta = self.a * numpy.sqrt(1.0 - self._c2)
         # Adjust amp
         self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
         if normalize or (
