@@ -217,7 +217,7 @@ def _parse_pot(pot, t=None):
             p._Pot, potential.KuzminKutuzovStaeckelPotential
         ):
             pot_type.append(16)
-            pot_args.extend([p._Pot._amp, p._Pot._ac, p._Pot._Delta])
+            pot_args.extend([p._Pot._amp, p._Pot._ac, p._Pot._delta])
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.PlummerPotential
         ):
