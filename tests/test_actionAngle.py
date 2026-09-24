@@ -1871,6 +1871,90 @@ def test_actionAngleSpherical_radial():
     return None
 
 
+def test_actionAngleSpherical_far_apocentre():
+    # A bound orbit whose apocentre lies far beyond its current radius (here
+    # e = 0.993 with the apocentre at 245, in a Hernquist potential with
+    # a = 0.5): the search for the apocentre used to give up at a fixed
+    # radius of 100 and declare the orbit unbound. Whether an orbit is bound
+    # is now decided by the radial equation at infinity (or at a large
+    # radius, for a potential that cannot be evaluated at infinity)
+    from scipy import integrate, optimize
+
+    from galpy.actionAngle import UnboundError, actionAngleSpherical
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, evaluatePotentials, rl
+
+    def check(pot):
+        aAS = actionAngleSpherical(pot=pot)
+        o = Orbit([1.0, 1.265, 0.9, 0.9, 0.1, 0.0])
+        E, L = o.E(pot=pot), numpy.sqrt(numpy.sum(o.L() ** 2.0))
+        assert E < 0.0, "The test orbit is not bound"
+        jr, jphi, jz, Or, Op, Oz, ar, ap, az = aAS.actionsFreqsAngles(
+            o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+        )
+
+        # the turning points and the radial action by direct quadrature
+        def pr2(r):
+            return 2.0 * (E - evaluatePotentials(pot, r, 0.0)) - L**2.0 / r**2.0
+
+        rc = rl(pot, L)
+        rperi = optimize.brentq(pr2, 1e-6, rc, xtol=1e-14)
+        rap = optimize.brentq(pr2, rc, 1e6, xtol=1e-12)
+        assert rap > 200.0, "The test orbit's apocentre is not far"
+        jr_quad = (
+            integrate.quad(
+                lambda r: numpy.sqrt(numpy.fabs(pr2(r))), rperi, rap, limit=200
+            )[0]
+            / numpy.pi
+        )
+        assert numpy.fabs(jr[0] / jr_quad - 1.0) < 1e-8, (
+            "The radial action of a bound orbit with a far apocentre is not the quadrature's: %g vs %g"
+            % (jr[0], jr_quad)
+        )
+        assert numpy.fabs(o.rap(pot=pot, analytic=True) / rap - 1.0) < 1e-8, (
+            "The analytic apocentre of a bound orbit with a far apocentre is not the root of the radial equation"
+        )
+        # conserved along the orbit integrated over one full radial period
+        ts = numpy.linspace(0.0, 2.0 * numpy.pi / Or[0], 101)
+        o.integrate(ts, pot)
+        j = aAS.actionsFreqsAngles(
+            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+        )
+        assert numpy.ptp(j[0]) / numpy.mean(j[0]) < 1e-9, (
+            "The radial action is not conserved along a bound orbit with a far apocentre"
+        )
+        assert numpy.ptp(j[2]) / numpy.mean(j[2]) < 1e-9, (
+            "The vertical action is not conserved along a bound orbit with a far apocentre"
+        )
+        # an unbound orbit is still recognized as such
+        ou = Orbit([1.0, 0.3, 3.0, 0.5, 0.1, 0.0])
+        assert ou.E(pot=pot) > 0.0
+        with pytest.raises(UnboundError):
+            aAS.actionsFreqsAngles(ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi())
+        return None
+
+    check(HernquistPotential(normalize=1.0, a=0.5))
+
+    # the same for a potential that cannot be evaluated at infinity
+    class _NaNAtInfinityPotential(HernquistPotential):
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            if numpy.any(numpy.isinf(R)):
+                return numpy.nan
+            return super()._evaluate(R, z, phi=phi, t=t)
+
+    check(_NaNAtInfinityPotential(normalize=1.0, a=0.5))
+
+    # and for one that raises there
+    class _RaisesAtInfinityPotential(HernquistPotential):
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            if numpy.any(numpy.isinf(R)):
+                raise ValueError("cannot be evaluated at infinity")
+            return super()._evaluate(R, z, phi=phi, t=t)
+
+    check(_RaisesAtInfinityPotential(normalize=1.0, a=0.5))
+    return None
+
+
 def test_actionAngleSpherical_smallr():
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential

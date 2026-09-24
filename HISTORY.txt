@@ -55,6 +55,14 @@ v1.12.1 (expected around 2026-11-01)
   improves from 1e-4 to typically around 1e-9 in tested cases, with larger
   errors (up to a few 1e-6) for some nearly radial orbits.
 
+- ``actionAngleSpherical`` no longer gives up on bound orbits whose apocentre
+  lies beyond a fixed radius of 100 (e.g. orbits with eccentricity above
+  0.98 in a Hernquist potential), which it declared unbound. Whether an orbit
+  is bound is now decided by the radial equation at infinity, that is, by
+  the energy against the potential at infinity, and the search for the
+  apocentre continues as far as needed; unbound orbits are recognized
+  immediately.
+
 - ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
   canonical map by default: the auxiliary torus is the harmonic oscillator of
   the same action, corresponding points are those that have swept the same
