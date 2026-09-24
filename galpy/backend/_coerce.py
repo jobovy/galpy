@@ -64,6 +64,7 @@ from ._namespaces import (
     device_of,
     effective_device,
     is_backend_array,
+    namespace_from_arrays,
     under_trace,
 )
 
@@ -170,3 +171,27 @@ def zeros_like_backend(xp, R):
     backend array (torch functions require Tensors) on the right
     device/dtype."""
     return 0.0 if xp is numpy else xp.zeros_like(R)
+
+
+def radial_limits(r, fn, at0=None, atinf=None):
+    """``fn(r)``, with ``r == 0`` / ``r == inf`` given by their known limits.
+
+    Closed forms written in ``a/r`` or ``r/a`` evaluate FINITE at the edge where
+    that ratio is infinite, but their backward is ``0 * inf = NaN`` there. For a
+    backend ``r``, evaluate ``fn`` at a benign radius where ``r`` is an edge and
+    select the limit (``xp.where``'s dead branch then stays finite). Anything
+    else -- numpy, or a plain scalar under a forced backend -- gets ``fn(r)``
+    untouched (byte-identical). ``at0`` / ``atinf``: the limit value, or None to
+    leave that edge alone.
+    """
+    if not is_backend_array(r):
+        return fn(r)
+    xp = namespace_from_arrays((r,))
+    edges = [
+        (m, v) for m, v in ((r == 0.0, at0), (xp.isinf(r), atinf)) if v is not None
+    ]
+    bad = edges[0][0] if len(edges) == 1 else edges[0][0] | edges[1][0]
+    out = fn(xp.where(bad, xp.ones_like(r), r))
+    for mask, val in edges:
+        out = xp.where(mask, val * xp.ones_like(out), out)
+    return out
