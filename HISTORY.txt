@@ -107,6 +107,42 @@ v1.12.1 (expected around 2026-11-01)
   improves from 1e-4 to typically around 1e-9 in tested cases, with larger
   errors (up to a few 1e-6) for some nearly radial orbits.
 
+- New ``actionAngleStaeckelInverse``: the inverse action-angle transformation
+  for axisymmetric Staeckel potentials, through the same momentum-matched
+  canonical map as the spherical case, applied to each of a torus's two
+  librations: the u and v librations in the prolate spheroidal coordinates
+  of the potential's focal length are sampled exactly in their anomalies
+  (turning points and momenta from the separated Hamilton-Jacobi equation)
+  and mapped onto the torus of equal (J_R, L = J_z + |L_z|, L_z) of a frozen
+  isochrone auxiliary, u onto the auxiliary's radial libration and v onto
+  its polar one, each by the point transformation that matches cumulative
+  actions (a sine series in the anomaly of ``mm_npt`` harmonics fitted to
+  ``mm_nta`` samples; the v map's odd harmonics vanish by the symmetry
+  about the midplane), lifted to the momenta cotangent-consistently. The
+  three angles carry the closed-form compensation for the moving turning
+  points of both librations; the map is exactly symplectic for any stored
+  tables because every derivative it needs is that of the stored
+  interpolant itself. The potential must supply its focal length (an
+  ``OblateStaeckelWrapperPotential`` or an exact Staeckel potential such as
+  ``KuzminKutuzovStaeckelPotential``), or ``delta=`` wraps a general
+  axisymmetric potential in the Staeckel approximation. Tori are given as
+  explicit (E, L_z, I_3) triples (the third integral in the convention of
+  the separated momenta with the gauge V(pi/2) = 0), each a one-node
+  family with its own exact slopes; ``JR(E, Lz, I3)`` and ``Jz(E, Lz, I3)``
+  give a torus's actions; ``Freqs`` returns its frequencies, from its
+  period matrix; the isochrone auxiliary is fitted to the potential's
+  rotation curve unless given (``auxiliary=``), and is the ``auxiliary``
+  attribute either way. The circular orbit evaluates in closed form with
+  the epicycle, circular, and vertical frequencies. Evaluation solves the
+  two angle relations for the anomaly pair by a triangular Newton iteration
+  on the auxiliary's angles, reconstructs the point from the two
+  librations, and takes the azimuth from the auxiliary's angle relations.
+  A warning is raised when a map does not resolve a torus (the u map needs
+  harmonics of the order of a torus's ratio of outer to inner radius in
+  the plane, the v map of the order of L / |L_z| as the torus approaches a
+  polar orbit), and a torus that reaches beyond the depth of the fitted
+  auxiliary raises with the same advice.
+
 - ``actionAngleStaeckel`` takes the focal length from a potential that
   supplies its own when ``delta=`` is not given: an exact Staeckel potential
   such as ``KuzminKutuzovStaeckelPotential`` (whose focal length is now the

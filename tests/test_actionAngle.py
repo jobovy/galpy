@@ -11008,3 +11008,635 @@ def test_actionAngleSphericalInverse_maxiter(
         % numpy.amax(numpy.fabs(fb - nt))
     )
     return None
+
+
+# ---------- the momentum-matched Staeckel inverse
+def _staeckel_inverse_potential():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    return KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=1.3)
+
+
+_STAECKEL_INVERSE_DELTA = 1.3
+_STAECKEL_INVERSE_ICS = {
+    "benign": [1.1, 0.3, 0.9, 0.25, 0.2, 0.0],
+    "eccentric": [1.1, 0.9, 0.35, 0.15, 0.1, 0.0],
+    "near-shell": [1.1, 0.001, 0.8425895627614183, 0.15, 0.25, 0.0],
+    "near-planar": [1.1, 0.4, 0.9, 0.002, 0.002, 0.0],
+}
+
+
+def _staeckel_inverse_labels(ic, pot=None, delta=_STAECKEL_INVERSE_DELTA):
+    # (E, L_z, I_3) of a phase-space point, from the separated
+    # Hamilton-Jacobi equation in the prolate spheroidal coordinates of the
+    # potential's focal length, independently of the inverse's internals
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials
+
+    pot = _staeckel_inverse_potential() if pot is None else pot
+    o = Orbit(ic)
+    E = float(o.E(pot=pot))
+    Lz = float(o.R() * o.vT())
+    R, z, vR, vz = float(o.R()), float(o.z()), float(o.vR()), float(o.vz())
+    d1 = numpy.sqrt(R**2 + (z + delta) ** 2)
+    d2 = numpy.sqrt(R**2 + (z - delta) ** 2)
+    u = numpy.arccosh((d1 + d2) / 2.0 / delta)
+    v = numpy.arccos((d1 - d2) / 2.0 / delta)
+    pu = delta * (vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(v))
+    Uu = evaluatePotentials(pot, delta * numpy.sinh(u), 0.0) * (
+        numpy.sinh(u) ** 2 + 1.0
+    )
+    I3 = (
+        E * numpy.sinh(u) ** 2
+        - Uu
+        - (pu**2 + Lz**2 / numpy.sinh(u) ** 2) / (2.0 * delta**2)
+    )
+    return E, Lz, float(I3)
+
+
+def _staeckel_inverse_forward():
+    from galpy.actionAngle import actionAngleStaeckel
+
+    return actionAngleStaeckel(
+        pot=_staeckel_inverse_potential(),
+        delta=_STAECKEL_INVERSE_DELTA,
+        c=True,
+        order=200,
+    )
+
+
+@pytest.fixture(scope="module")
+def staeckel_inverse_explicit():
+    # two explicit tori, a benign and an eccentric one
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    labels = [
+        _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[k])
+        for k in ("benign", "eccentric")
+    ]
+    return actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(),
+        Es=[l[0] for l in labels],
+        Lzs=[l[1] for l in labels],
+        I3s=[l[2] for l in labels],
+    )
+
+
+def _staeckel_inverse_roundtrip(aAI, jr, jphi, jz, angler, anglephi, anglez, aAS=None):
+    # evaluate the public map and pass the result through the forward
+    # transformation: (action, angle, frequency) errors and the energy spread
+    from galpy.potential import evaluatePotentials
+
+    pot = _staeckel_inverse_potential()
+    aAS = _staeckel_inverse_forward() if aAS is None else aAS
+    R, vR, vT, z, vz, phi = aAI(jr, jphi, jz, angler, anglephi, anglez)
+    f = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    Om = aAI.Freqs(jr, jphi, jz)
+    wrap = lambda d: numpy.amax(
+        numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+    )
+    dJ = numpy.amax(
+        numpy.fabs(f[0] - jr) + numpy.fabs(f[1] - jphi) + numpy.fabs(f[2] - jz)
+    ) / (jr + jz + numpy.fabs(jphi))
+    dth = max(wrap(f[6] - angler), wrap(f[7] - anglephi), wrap(f[8] - anglez))
+    dOm = max(
+        numpy.amax(numpy.fabs(f[3] / Om[0] - 1.0)),
+        numpy.amax(numpy.fabs(f[4] / Om[1] - 1.0)),
+        numpy.amax(numpy.fabs(f[5] / Om[2] - 1.0)),
+    )
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    return dJ, dth, dOm, numpy.ptp(H) / numpy.fabs(numpy.mean(H))
+
+
+def test_actionAngleStaeckelInverse_nodes(staeckel_inverse_explicit):
+    # A discrete family returns its own tori: the action labels are the
+    # forward transformation's, and the map round-trips through it at the
+    # forward code's floor, for all three angles, for the benign and the
+    # eccentric torus
+    aAI = staeckel_inverse_explicit
+    aAS = _staeckel_inverse_forward()
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    for key in ("benign", "eccentric"):
+        ic = _STAECKEL_INVERSE_ICS[key]
+        E, Lz, I3 = _staeckel_inverse_labels(ic)
+        jrf, _, jzf = (float(numpy.atleast_1d(x)[0]) for x in aAS(*ic))
+        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        assert numpy.fabs(jr - jrf) < 1e-9 and numpy.fabs(jz - jzf) < 1e-9, (
+            "The family's action labels are not the forward transformation's"
+        )
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aAI, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS
+        )
+        assert dJ < 1e-9, "The map does not return the requested torus: %g" % dJ
+        assert dth < 1e-7, "The map does not return the requested angles: %g" % dth
+        assert dOm < 1e-8, "The frequencies are not the torus's: %g" % dOm
+        assert dH < 1e-10, "The reconstructed torus is not at one energy: %g" % dH
+    return None
+
+
+def test_actionAngleStaeckelInverse_angleconventions(staeckel_inverse_explicit):
+    # The forward actionAngleStaeckel's angles of a point, fed to the
+    # inverse, return that point: the angle conventions match (theta_R = 0
+    # at the inner u turning point, theta_z = 0 at the upward midplane
+    # crossing at pericentre)
+    aAI = staeckel_inverse_explicit
+    aAS = _staeckel_inverse_forward()
+    for key in ("benign", "eccentric"):
+        ic = _STAECKEL_INVERSE_ICS[key]
+        E, Lz, I3 = _staeckel_inverse_labels(ic)
+        out = aAS.actionsFreqsAngles(*ic)
+        ar, ap, az = (numpy.asarray(out[i]).ravel() for i in (6, 7, 8))
+        rec = numpy.array(
+            aAI(aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3), ar, ap, az)
+        ).flatten()
+        diff = rec - numpy.array(ic)
+        diff[5] = (diff[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(diff)) < 1e-9, (
+            "Feeding the forward actionAngleStaeckel angles to "
+            "actionAngleStaeckelInverse does not return the original point: %g"
+            % numpy.amax(numpy.fabs(diff))
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_orbit(staeckel_inverse_explicit):
+    # Traversing a torus at its frequencies is an orbit of the potential: at
+    # a node the energy is constant along the torus to the maps' truncation,
+    # and the points agree with an integrated orbit started from the first
+    # of them over ten radial periods
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials
+
+    aAI = staeckel_inverse_explicit
+    pot = _staeckel_inverse_potential()
+    wrap = lambda d: (d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    for key in ("benign", "eccentric"):
+        E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
+        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        Om = aAI.Freqs(jr, Lz, jz)
+        ts = numpy.linspace(0.0, 10.0 * 2.0 * numpy.pi / Om[0], 1001)
+        R, vR, vT, z, vz, phi = aAI(
+            jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+        )
+        H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+        assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-11, (
+            "Energy is not conserved along an actionAngleStaeckelInverse torus at a node: %g"
+            % (numpy.std(H) / numpy.fabs(numpy.mean(H)))
+        )
+        orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
+        orb.integrate(ts, pot, method="dop853_c")
+        for name, torus, orbit in (
+            ("R", R, orb.R(ts)),
+            ("z", z, orb.z(ts)),
+            ("vR", vR, orb.vR(ts)),
+            ("vT", vT, orb.vT(ts)),
+            ("vz", vz, orb.vz(ts)),
+            ("phi", phi, phi + wrap(orb.phi(ts) - phi)),
+        ):
+            assert numpy.amax(numpy.fabs(orbit - torus)) < 1e-7, (
+                "%s along an actionAngleStaeckelInverse torus at a node does not agree with the integrated orbit: %g"
+                % (name, numpy.amax(numpy.fabs(orbit - torus)))
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_turning_point_derivatives(
+    staeckel_inverse_explicit,
+):
+    # The closed-form derivatives of the turning points (the level-set rule
+    # on the separated momenta, which the family's Hermite constraints use)
+    # and of the shell u agree with finite differences of the turning points
+    # themselves across neighbouring tori
+    aAI = staeckel_inverse_explicit
+    h = 1e-6
+    for key in ("benign", "eccentric"):
+        E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
+        uc, wu, wv, ush, _, _ = aAI._turning_points(E, Lz, I3)
+        dinner = aAI._tp_derivs_u(uc - wu, E, Lz)
+        douter = aAI._tp_derivs_u(uc + wu, E, Lz)
+        dvm = aAI._tp_derivs_v(0.5 * numpy.pi - wv, E, Lz)
+        dush = aAI._dushell(ush, E, Lz)
+        for k, (dE, dI, dL) in enumerate(((h, 0.0, 0.0), (0.0, h, 0.0), (0.0, 0.0, h))):
+            up = aAI._turning_points(E + dE, Lz + dL, I3 + dI)
+            dn = aAI._turning_points(E - dE, Lz - dL, I3 - dI)
+            fd = [
+                ((up[0] - up[1]) - (dn[0] - dn[1])) / (2.0 * h),
+                ((up[0] + up[1]) - (dn[0] + dn[1])) / (2.0 * h),
+                ((0.5 * numpy.pi - up[2]) - (0.5 * numpy.pi - dn[2])) / (2.0 * h),
+            ]
+            for name, ana, num in (
+                ("inner u", dinner[k], fd[0]),
+                ("outer u", douter[k], fd[1]),
+                ("v", dvm[k], fd[2]),
+            ):
+                assert numpy.fabs(ana - num) < 1e-6 * (1.0 + numpy.fabs(num)), (
+                    "The %s turning point's derivative is not the level-set rule's"
+                    % name
+                )
+            if k != 1:
+                assert numpy.fabs(dush[k // 2] - (up[3] - dn[3]) / (2.0 * h)) < 1e-6 * (
+                    1.0 + numpy.fabs(dush[k // 2])
+                ), "The shell u's derivative is not the level-set rule's"
+    return None
+
+
+def test_actionAngleStaeckelInverse_extremes():
+    # Explicit tori at the edges of the (E, L_z, I_3) space: near-shell
+    # (J_R -> 0) and near-planar (J_z -> 0) tori are the forward
+    # transformation's tori and are orbits of the potential (the forward
+    # code's angles and frequencies are themselves inaccurate that close to
+    # a degenerate libration, so those are checked against an integrated
+    # orbit), and a near-polar torus (L_z -> 0) works with the many
+    # harmonics its v map needs, of the order of L / |L_z|
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials
+    from galpy.util import galpyWarning
+
+    pot = _staeckel_inverse_potential()
+    aAS = _staeckel_inverse_forward()
+    angler = numpy.linspace(0.05, 6.2, 21)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    wrap = lambda d: (d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    for key in ("near-shell", "near-planar"):
+        E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
+        aAI = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
+        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        dJ = _staeckel_inverse_roundtrip(
+            aAI, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS
+        )[0]
+        assert dJ < 1e-9, (
+            "The %s torus's actions do not round-trip through the forward transformation: %g"
+            % (key, dJ)
+        )
+        Om = aAI.Freqs(jr, Lz, jz)
+        ts = numpy.linspace(0.0, 5.0 * 2.0 * numpy.pi / Om[0], 501)
+        R, vR, vT, z, vz, phi = aAI(
+            jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+        )
+        H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+        assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-11, (
+            "Energy is not conserved along the %s torus" % key
+        )
+        orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
+        orb.integrate(ts, pot, method="dop853_c")
+        for name, torus, orbit in (
+            ("R", R, orb.R(ts)),
+            ("z", z, orb.z(ts)),
+            ("vR", vR, orb.vR(ts)),
+            ("vz", vz, orb.vz(ts)),
+            ("phi", phi, phi + wrap(orb.phi(ts) - phi)),
+        ):
+            assert numpy.amax(numpy.fabs(orbit - torus)) < 1e-7, (
+                "%s along the %s torus does not agree with the integrated orbit: %g"
+                % (name, key, numpy.amax(numpy.fabs(orbit - torus)))
+            )
+    # near-polar: a torus with L / |L_z| ~ 8
+    E, Lz, I3 = _staeckel_inverse_labels([1.0, 0.2, 0.03, 0.3, 0.6, 0.0])
+    with pytest.warns(galpyWarning, match="v anomaly map is not converged"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=16)
+    aAI = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=128)
+    assert aAI.Jz(E, Lz, I3) / numpy.fabs(Lz) > 5.0, (
+        "The near-polar torus is not near-polar"
+    )
+    dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+        aAI, aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3), angler, anglephi, anglez, aAS=aAS
+    )
+    assert dJ < 1e-8 and dth < 1e-6 and dOm < 1e-7 and dH < 1e-10, (
+        "The near-polar torus does not round-trip through the forward transformation: %g %g %g %g"
+        % (dJ, dth, dOm, dH)
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_convergence_warnings():
+    # An under-resolved map warns and names the torus; a torus that reaches
+    # beyond the depth of the fitted auxiliary raises
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.util import galpyWarning
+
+    pot = _staeckel_inverse_potential()
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["eccentric"])
+    with pytest.warns(
+        galpyWarning,
+        match="u anomaly map is not converged for the \\(E, L_z, I_3\\) tori: \\(%.6g, %.6g, %.6g\\)"
+        % (E, Lz, I3),
+    ):
+        actionAngleStaeckelInverse(
+            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=2, mm_nta=16
+        )
+    E, Lz, I3 = _staeckel_inverse_labels([1.0, 1.5, 0.15, 0.05, 0.05, 0.0])
+    with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+        actionAngleStaeckelInverse(
+            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=4, mm_nta=32
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
+    # every guarded misuse raises informatively
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import (
+        IsochronePotential,
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+    )
+
+    pot = _staeckel_inverse_potential()
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    with pytest.raises(OSError, match="Must specify pot="):
+        actionAngleStaeckelInverse()
+    with pytest.raises(OSError, match="supplies its focal length"):
+        actionAngleStaeckelInverse(pot=MWPotential2014, Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(TypeError, match="conflict"):
+        actionAngleStaeckelInverse(pot=pot, delta=1.3, Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(TypeError, match="conflict"):
+        actionAngleStaeckelInverse(
+            pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3),
+            delta=1.3,
+            Es=[E],
+            Lzs=[Lz],
+            I3s=[I3],
+        )
+    with pytest.raises(TypeError, match="u0= requires delta="):
+        actionAngleStaeckelInverse(pot=pot, u0=1.0, Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(TypeError, match="IsochronePotential"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], auxiliary=pot)
+    with pytest.raises(ValueError, match="same length"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E, E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(ValueError, match="L_z = 0"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[0.0], I3s=[I3])
+    with pytest.raises(ValueError, match="even"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=127)
+    with pytest.raises(ValueError, match="mm_nta must exceed"):
+        actionAngleStaeckelInverse(
+            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=64, mm_npt=20
+        )
+    with pytest.raises(ValueError, match="below the circular orbit's"):
+        actionAngleStaeckelInverse(pot=pot, Es=[-10.0], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(ValueError, match="unbound"):
+        actionAngleStaeckelInverse(pot=pot, Es=[0.1], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(ValueError, match="above the shell orbit's"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3 + 10.0])
+    with pytest.raises(ValueError, match="below the planar orbit's"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3 - 10.0])
+    aAD = staeckel_inverse_explicit
+    with pytest.raises(ValueError, match="non-negative"):
+        aAD(-0.1, 0.4, 0.2, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="L_z = 0"):
+        aAD(0.1, 0.0, 0.1, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        aAD.Freqs(0.123, 0.4, 0.2)
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        aAD(0.123, 0.4, 0.2, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        aAD.JR(E + 0.1, Lz, I3)
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        aAD(0.0, 0.4, 0.0, 0.3, 1.0, 2.0)  # a circular request that is not a node
+    return None
+
+
+def test_actionAngleStaeckelInverse_circular():
+    # The circular orbit is a torus in its own right: it evaluates in
+    # closed form at the circular radius in the plane, at the requested
+    # azimuthal angle, with the epicycle, circular, and vertical
+    # frequencies, among librating tori or alone
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import epifreq, evaluatePotentials, rl
+
+    pot = _staeckel_inverse_potential()
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+
+    def invariants(aAI, Lz):
+        Rc = rl(pot, numpy.fabs(Lz), use_physical=False)
+        R, vR, vT, z, vz, phi = aAI(0.0, Lz, 0.0, angler, anglephi, anglez)
+        return max(
+            numpy.amax(numpy.fabs(R / Rc - 1.0)),
+            numpy.amax(numpy.fabs(vR)),
+            numpy.amax(numpy.fabs(vz)),
+            numpy.amax(numpy.fabs(z)),
+            numpy.amax(numpy.fabs(R * vT - Lz)),
+            numpy.amax(
+                numpy.fabs((phi - anglephi + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+            ),
+        )
+
+    Lz = 0.93
+    Rc = rl(pot, Lz, use_physical=False)
+    # discrete families: a circular torus among librating ones, and alone
+    Ec = evaluatePotentials(pot, Rc, 0.0) + Lz**2 / (2.0 * Rc**2)
+    Ipl = Lz**2 / (2.0 * _STAECKEL_INVERSE_DELTA**2) - Ec
+    E1, Lz1, I31 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    for Es, Lzs, I3s in (([Ec, E1], [Lz, Lz1], [Ipl, I31]), ([Ec], [Lz], [Ipl])):
+        aAD = actionAngleStaeckelInverse(pot=pot, Es=Es, Lzs=Lzs, I3s=I3s)
+        assert aAD.JR(Ec, Lz, Ipl) == 0.0 and aAD.Jz(Ec, Lz, Ipl) == 0.0
+        assert invariants(aAD, Lz) < 1e-11, (
+            "A discrete family's circular torus is not the circular orbit"
+        )
+        assert (
+            numpy.fabs(
+                aAD.Freqs(0.0, Lz, 0.0)[0] / epifreq(pot, Rc, use_physical=False) - 1.0
+            )
+            < 1e-10
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_auxiliary(staeckel_inverse_explicit):
+    # the fitted auxiliary is exposed; a given one is used instead of the
+    # fit and gives the same tori to the forward transformation's floor
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import IsochronePotential
+
+    pot = _staeckel_inverse_potential()
+    aAF = staeckel_inverse_explicit
+    assert isinstance(aAF.auxiliary, IsochronePotential), (
+        "The fitted auxiliary is not exposed as an IsochronePotential"
+    )
+    ip = IsochronePotential(amp=4.0, b=0.5)
+    aAG = actionAngleStaeckelInverse(
+        pot=pot, Es=aAF._Es, Lzs=aAF._Lzs, I3s=aAF._I3s, auxiliary=ip
+    )
+    assert aAG.auxiliary is ip, "The given auxiliary is not the one used"
+    assert numpy.fabs(aAG.auxiliary._amp - aAF.auxiliary._amp) > 1e-3, (
+        "The given auxiliary coincides with the fitted one, so the test is void"
+    )
+    aAS = _staeckel_inverse_forward()
+    angler = numpy.linspace(0.0, 2.0 * numpy.pi, 17, endpoint=False)
+    for E, Lz, I3 in zip(aAF._Es, aAF._Lzs, aAF._I3s):
+        for aAI in (aAF, aAG):
+            dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+                aAI, aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3), angler, 0.3, 1.1, aAS=aAS
+            )
+            assert dJ < 1e-9 and dth < 1e-7 and dOm < 1e-8 and dH < 1e-10, (
+                "A torus does not round-trip through the forward transformation with the %s auxiliary: %g %g %g %g"
+                % ("given" if aAI is aAG else "fitted", dJ, dth, dOm, dH)
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_potentials():
+    # The potential's Staeckel form is taken from the potential itself, from
+    # an OblateStaeckelWrapperPotential, or from delta= for a general
+    # axisymmetric potential (which is then wrapped): the first two give the
+    # same tori for a Kuzmin-Kutuzov potential, the last two the same tori
+    # for a wrapped general potential; a retrograde torus is the prograde
+    # one mirrored
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    pot = _staeckel_inverse_potential()
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    angler = numpy.linspace(0.05, 6.2, 11)
+    aAK = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
+    aAW = actionAngleStaeckelInverse(
+        pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3),
+        Es=[E],
+        Lzs=[Lz],
+        I3s=[I3],
+    )
+    jr, jz = aAK.JR(E, Lz, I3), aAK.Jz(E, Lz, I3)
+    assert (
+        numpy.fabs(aAW.JR(E, Lz, I3) - jr) < 1e-12
+        and numpy.fabs(aAW.Jz(E, Lz, I3) - jz) < 1e-12
+    ), (
+        "A wrapped Staeckel potential does not give the same tori as the potential itself"
+    )
+    xK = numpy.array(aAK(jr, Lz, jz, angler, 1.0, 2.0))
+    xW = numpy.array(aAW(jr, Lz, jz, angler, 1.0, 2.0))
+    assert numpy.amax(numpy.fabs(xK - xW)) < 1e-10, (
+        "A wrapped Staeckel potential does not evaluate to the same points as the potential itself"
+    )
+    # retrograde: the mirror image, with the sign of the azimuthal frequency
+    aAR = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[-Lz], I3s=[I3])
+    assert (
+        numpy.fabs(aAR.JR(E, -Lz, I3) - jr) < 1e-12
+        and numpy.fabs(aAR.Jz(E, -Lz, I3) - jz) < 1e-12
+    )
+    OmP, OmR = numpy.array(aAK.Freqs(jr, Lz, jz)), numpy.array(aAR.Freqs(jr, -Lz, jz))
+    assert numpy.amax(numpy.fabs(OmR - OmP * [1.0, -1.0, 1.0])) < 1e-12, (
+        "The retrograde torus's frequencies are not the prograde one's mirrored"
+    )
+    dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(aAR, jr, -Lz, jz, angler, 1.0, 2.0)
+    assert dJ < 1e-9 and dth < 1e-7 and dOm < 1e-8 and dH < 1e-10, (
+        "The retrograde torus does not round-trip through the forward transformation"
+    )
+    # a general potential in the Staeckel approximation: delta= wraps it
+    swp = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
+    E, Lz, I3 = _staeckel_inverse_labels(
+        [1.0, 0.1, 1.05, 0.1, 0.1, 0.0], pot=swp, delta=0.45
+    )
+    aAG = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=0.45, Es=[E], Lzs=[Lz], I3s=[I3]
+    )
+    aAWG = actionAngleStaeckelInverse(pot=swp, Es=[E], Lzs=[Lz], I3s=[I3])
+    jr, jz = aAG.JR(E, Lz, I3), aAG.Jz(E, Lz, I3)
+    assert (
+        numpy.fabs(aAWG.JR(E, Lz, I3) - jr) < 1e-12
+        and numpy.fabs(aAWG.Jz(E, Lz, I3) - jz) < 1e-12
+    ), "delta= does not give the same tori as the explicitly wrapped potential"
+    # the torus lives in the wrapped model: the forward transformation of
+    # that model recovers it
+    R, vR, vT, z, vz, phi = aAG(jr, Lz, jz, angler, 1.0, 2.0)
+    f = actionAngleStaeckel(pot=swp, delta=0.45, c=False, order=200).actionsFreqsAngles(
+        R, vR, vT, z, vz, phi
+    )
+    assert (
+        numpy.amax(numpy.fabs(f[0] - jr)) < 1e-8
+        and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-8
+    ), (
+        "The torus in the Staeckel approximation of a general potential is not that model's"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_maxiter():
+    # maxiter governs the angle solve: with none, the solve falls back on
+    # safeguarded root-finding and still returns the torus
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    pot = _staeckel_inverse_potential()
+    angler = numpy.linspace(0.05, 6.2, 11)
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    aAN = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
+    aAF = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], maxiter=0)
+    jr, jz = aAN.JR(E, Lz, I3), aAN.Jz(E, Lz, I3)
+    nt = numpy.array(aAN(jr, Lz, jz, angler, 1.0, 2.0))
+    fb = numpy.array(aAF(jr, Lz, jz, angler, 1.0, 2.0))
+    assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
+        "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
+        % numpy.amax(numpy.fabs(fb - nt))
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_degenerate_tori():
+    # A planar orbit (J_z = 0) and a shell orbit (J_R = 0) are tori with one
+    # degenerate libration: they are set up from their labels (the planar
+    # orbit's third integral is that of any point in the plane, the shell
+    # orbit's the one at which the u libration closes, taken from the
+    # instance's own edge relation), evaluate in the plane and on the shell
+    # with the other action the forward transformation's, and a torus that
+    # reaches high latitudes brackets its v turning point beyond the
+    # default scan
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import evaluatePotentials
+
+    pot = _staeckel_inverse_potential()
+    aAS = _staeckel_inverse_forward()
+    angler = numpy.linspace(0.05, 6.2, 21)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    # planar
+    E, Lz, I3 = _staeckel_inverse_labels([1.1, 0.4, 0.9, 0.0, 0.0, 0.0])
+    aAP = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
+    assert aAP.Jz(E, Lz, I3) == 0.0, "The planar orbit's vertical action is not zero"
+    jr = aAP.JR(E, Lz, I3)
+    R, vR, vT, z, vz, phi = aAP(jr, Lz, 0.0, angler, anglephi, anglez)
+    assert numpy.amax(numpy.fabs(z)) < 1e-15 and numpy.amax(numpy.fabs(vz)) < 1e-15, (
+        "The planar orbit does not stay in the plane"
+    )
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    assert numpy.ptp(H) / numpy.fabs(E) < 1e-12, "The planar orbit is not at one energy"
+    f = aAS(R, vR, vT, z, vz, phi)
+    assert (
+        numpy.amax(numpy.fabs(f[0] - jr)) < 1e-9
+        and numpy.amax(numpy.fabs(f[2])) < 1e-12
+    ), "The planar orbit's radial action is not the forward transformation's"
+    # shell
+    E, Lz, _ = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    Ish = aAP._I3_shell(E, Lz, aAP._ushell(E, Lz))
+    aASh = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[Ish])
+    assert aASh.JR(E, Lz, Ish) == 0.0, "The shell orbit's radial action is not zero"
+    jz = aASh.Jz(E, Lz, Ish)
+    R, vR, vT, z, vz, phi = aASh(0.0, Lz, jz, angler, anglephi, anglez)
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    assert numpy.ptp(H) / numpy.fabs(E) < 1e-12, "The shell orbit is not at one energy"
+    f = aAS(R, vR, vT, z, vz, phi)
+    assert (
+        numpy.amax(numpy.fabs(f[0])) < 1e-7 and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-7
+    ), (
+        "The shell orbit's actions are not the forward transformation's: {:g} {:g}".format(
+            numpy.amax(numpy.fabs(f[0])),
+            numpy.amax(numpy.fabs(f[2] - jz)),
+        )
+    )
+    assert numpy.all(numpy.fabs(numpy.array(aASh.Freqs(0.0, Lz, jz))) > 0.0), (
+        "The shell orbit's frequencies are not all finite and non-zero"
+    )
+    # high latitudes
+    E, Lz, I3 = _staeckel_inverse_labels([1.0, 0.1, 0.3, 0.0, 1.2, 0.0])
+    aAH = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=64)
+    dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+        aAH, aAH.JR(E, Lz, I3), Lz, aAH.Jz(E, Lz, I3), angler, anglephi, anglez, aAS=aAS
+    )
+    assert dJ < 1e-7 and dth < 1e-6 and dOm < 1e-7 and dH < 1e-8, (
+        "The high-latitude torus does not round-trip through the forward transformation: %g %g %g %g"
+        % (dJ, dth, dOm, dH)
+    )
+    return None
