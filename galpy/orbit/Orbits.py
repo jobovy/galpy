@@ -1822,6 +1822,9 @@ class Orbit:
         # entire numpy/C/scipy path below is dead code for these methods and
         # byte-identical for every existing method.
         if method.lower() in ("diffrax", "torchdiffeq"):
+            # the same list -> CompositePotential conversion (and deprecation
+            # warning) every other method gets below
+            pot = _check_potential_list_and_deprecate(pot)
             return self._integrate_backend_continued(
                 lambda: self._integrate_inbackend(
                     t, pot, method, rtol, atol, inbackend_kwargs
