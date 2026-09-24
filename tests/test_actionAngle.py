@@ -9577,6 +9577,8 @@ def test_actionAngleStaeckel_delta_from_potential():
     for pot, delta in (
         (kksp, 1.4),
         (OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45), 0.45),
+        # a composite potential whose components share a focal length
+        (kksp + KuzminKutuzovStaeckelPotential(amp=0.3, ac=2.0, Delta=1.4), 1.4),
     ):
         given = numpy.array(
             actionAngleStaeckel(pot=pot, delta=delta, c=False).actionsFreqsAngles(
@@ -9593,6 +9595,11 @@ def test_actionAngleStaeckel_delta_from_potential():
         )
     with pytest.raises(OSError, match="delta="):
         actionAngleStaeckel(pot=MWPotential2014)
+    with pytest.raises(OSError, match="delta="):
+        # components with different focal lengths do not supply one
+        actionAngleStaeckel(
+            pot=kksp + KuzminKutuzovStaeckelPotential(amp=0.3, ac=2.0, Delta=1.1)
+        )
     return None
 
 

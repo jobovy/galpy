@@ -46,19 +46,18 @@ from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
 
 def _focal_length_of(pot):
-    """The focal length that a potential, or a list of potentials, supplies
-    through its _delta attribute, if every component supplies the same one;
-    None otherwise"""
-    pots = pot if isinstance(pot, list) else [pot]
-    deltas = [getattr(p, "_delta", None) for p in pots]
-    if not deltas or any(d is None for d in deltas):
-        return None
-    if any(
-        numpy.fabs(d - deltas[0]) > 1e-10 * (1.0 + numpy.fabs(deltas[0]))
-        for d in deltas
-    ):
-        return None
-    return deltas[0]
+    """The focal length that a potential supplies through its _delta
+    attribute, or that the components of a composite potential all supply,
+    if they supply the same one; None otherwise"""
+    if isinstance(pot, CompositePotential):
+        deltas = [getattr(p, "_delta", None) for p in pot]
+        if any(d is None for d in deltas) or any(
+            numpy.fabs(d - deltas[0]) > 1e-10 * (1.0 + numpy.fabs(deltas[0]))
+            for d in deltas
+        ):
+            return None
+        return deltas[0]
+    return getattr(pot, "_delta", None)
 
 
 class actionAngleStaeckel(actionAngle):
@@ -101,18 +100,17 @@ class actionAngleStaeckel(actionAngle):
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                 galpyWarning,
             )
-        if not "delta" in kwargs:
-            # a potential that supplies its own focal length (an exact
-            # Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
-            # OblateStaeckelWrapperPotential) does not need delta=
-            kwargs["delta"] = _focal_length_of(self._pot)
-            if kwargs["delta"] is None:
-                raise OSError(
-                    "Must specify delta= for actionAngleStaeckel, unless the "
-                    "potential supplies its own focal length (an exact "
-                    "Staeckel potential such as KuzminKutuzovStaeckelPotential, "
-                    "or an OblateStaeckelWrapperPotential)"
-                )
+        # a potential that supplies its own focal length (an exact Staeckel
+        # potential such as KuzminKutuzovStaeckelPotential, or an
+        # OblateStaeckelWrapperPotential) does not need delta=
+        delta = kwargs.pop("delta", _focal_length_of(self._pot))
+        if delta is None:
+            raise OSError(
+                "Must specify delta= for actionAngleStaeckel, unless the "
+                "potential supplies its own focal length (an exact "
+                "Staeckel potential such as KuzminKutuzovStaeckelPotential, "
+                "or an OblateStaeckelWrapperPotential)"
+            )
         if ext_loaded and (("c" in kwargs and kwargs["c"]) or not "c" in kwargs):
             self._c = _check_c(self._pot)
             if "c" in kwargs and kwargs["c"] and not self._c:
@@ -123,9 +121,8 @@ class actionAngleStaeckel(actionAngle):
         else:
             self._c = False
         self._useu0 = kwargs.get("useu0", False)
-        self._delta = kwargs["delta"]
         self._order = kwargs.get("order", 10)
-        self._delta = conversion.parse_length(self._delta, ro=self._ro)
+        self._delta = conversion.parse_length(delta, ro=self._ro)
         # Check the units
         self._check_consistent_units()
         return None
