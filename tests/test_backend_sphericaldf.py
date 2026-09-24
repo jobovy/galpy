@@ -1133,3 +1133,96 @@ def test_pot_grad_namespace_any_backend_keyword():
     numpypot = HernquistPotential(amp=2.0, a=1.2)
     assert _pot_grad_namespace(numpypot) is None
     assert _pot_grad_namespace(numpypot, any_backend=True) is None
+
+
+# --- d(sample)/d(potential parameter) with a backend key ---------------------
+# The DF is constructed under the gradient and sampled with a FIXED key (common
+# random numbers), so FD differences come from the parameter alone. FD runs on
+# the same gradient-carrying path: constantbetadf's plain path integrates fE by
+# scipy-adaptive quadrature, whose tolerance jitters the samples at ~5e-6 --
+# amplified to several % by an h=1e-4 difference.
+def _sample_rv2(backend, dfname, a, rmax, rmin):
+    from galpy.df import constantbetadf
+
+    with use(backend, force=True):
+        pot = HernquistPotential(amp=2.0, a=a)
+        kw = {} if rmax is None else {"rmax": rmax}
+        if dfname == "constantbeta":
+            d = constantbetadf(pot=pot, beta=-0.2, **kw)
+        else:
+            d = eddingtondf(pot=pot, **kw)
+        o = d.sample(n=4, rmin=rmin, key=_key(backend, 7))
+        return o.r(), o.vR() ** 2.0 + o.vT() ** 2.0 + o.vz() ** 2.0
+
+
+def _sample_rv2_jvp(backend, dfname, a, rmax, rmin):
+    """Per-sample (value, d/da) of (r, v^2) on the gradient-carrying path."""
+    if backend == "jax":
+        (r, v2), (dr, dv2) = jax.jvp(
+            lambda a: _sample_rv2("jax", dfname, a, rmax, rmin),
+            (jnp.asarray(a),),
+            (jnp.asarray(1.0),),
+        )
+        return [numpy.asarray(x) for x in (r, v2, dr, dv2)]
+    at = torch.tensor(a, requires_grad=True)
+    r, v2 = _sample_rv2("torch", dfname, at, rmax, rmin)
+    grads = [
+        numpy.array(
+            [
+                float(torch.autograd.grad(q[i], at, retain_graph=True)[0])
+                for i in range(len(q))
+            ]
+        )
+        for q in (r, v2)
+    ]
+    return [r.detach().numpy(), v2.detach().numpy(), *grads]
+
+
+# jax x constantbeta x rmax=inf is left out: eager jax constructs the DF in
+# ~45 s, so that case alone costs ~130 s. Measured by hand instead (radii exact
+# to 2.6e-13, v^2 within 2.0e-5); the rmax=8 case covers the jax path.
+_SAMPLE_GRAD_CASES = [
+    (backend, dfname, rmax, rmin)
+    for backend in BACKENDS
+    for dfname in ("constantbeta", "eddington")
+    for rmax, rmin in ((None, None), (8.0, 0.1))
+    if not (backend == "jax" and dfname == "constantbeta" and rmax is None)
+]
+
+
+@pytest.mark.parametrize("backend,dfname,rmax,rmin", _SAMPLE_GRAD_CASES)
+def test_sample_grad_wrt_potential_parameter(backend, dfname, rmax, rmin):
+    # Four defects, each visible here: the r=0 CMF knot NaN'd every gradient
+    # (Hernquist's mass has a 0*inf backward there); the CMF radii were
+    # detached while xi -> r stayed attached, counting d/da twice; the frozen
+    # f(E) table dropped d/da from every velocity (~11%); and a frozen p(v|r)
+    # extent missed rmax's motion in r/a units (~0.7%).
+    # h=3e-3: the gradient path carries ~3e-9 quadrature noise, which at
+    # h=1e-3 is already 7.5e-4 of a velocity derivative; measured max errors
+    # at 3e-3 are 4.3e-6 (r) and 7.7e-5 (v^2).
+    a0, h = 1.2, 3e-3
+    r, v2, dr, dv2 = _sample_rv2_jvp(backend, dfname, a0, rmax, rmin)
+    rp, v2p = _sample_rv2_jvp(backend, dfname, a0 + h, rmax, rmin)[:2]
+    rm, v2m = _sample_rv2_jvp(backend, dfname, a0 - h, rmax, rmin)[:2]
+    assert numpy.all(numpy.abs(dv2) > 1e-3), "velocity gradient disconnected"
+    numpy.testing.assert_allclose(dr, (rp - rm) / (2.0 * h), rtol=2e-5)
+    numpy.testing.assert_allclose(dv2, (v2p - v2m) / (2.0 * h), rtol=3e-4)
+    if dfname == "constantbeta" and rmax is None:
+        # Hernquist's CMF is self-similar in r/a, so with no truncation r_i is
+        # EXACTLY a * const (eddingtondf defaults to rmax=1e4, which breaks it)
+        numpy.testing.assert_allclose(dr, r / a0, rtol=1e-10)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_numpy_key_sample_with_differentiated_potential_raises():
+    # key=None forces the numpy sampling path, which cannot consume backend
+    # potential parameters: say which key to pass instead of failing deep down.
+    # torch only: the check is framework-agnostic, and eager jax construction
+    # alone costs ~60 s.
+    from galpy.df import constantbetadf
+
+    a = torch.tensor(1.2, requires_grad=True)
+    with use("torch", force=True):
+        d = constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
+        with pytest.raises(NotImplementedError, match="BACKEND key"):
+            d.sample(n=2)
