@@ -1279,8 +1279,9 @@ class sphericaldf(df):
         # self._scale) carry d/d(scale), which is what the DF is evaluated at;
         # a bound fixed by rmin/rmax is re-attached below.
         _scale_np = as_numpy_constant(self._scale)
-        lo_r = numpy.log10((self._rmin_sampling + 1e-8) / _scale_np)
-        hi_r = numpy.log10((self._rmax - 1e-8) / _scale_np)
+        r_a_start, r_a_end = as_numpy_constant(r_a_start), as_numpy_constant(r_a_end)
+        lo_r = numpy.log10((as_numpy_constant(self._rmin_sampling) + 1e-8) / _scale_np)
+        hi_r = numpy.log10((as_numpy_constant(self._rmax) - 1e-8) / _scale_np)
         lo_from_r, hi_from_r = lo_r >= r_a_start, hi_r <= r_a_end
         r_a_start = numpy.amax([lo_r, r_a_start])
         r_a_end = numpy.amin([hi_r, r_a_end])
@@ -1304,7 +1305,8 @@ class sphericaldf(df):
             else r_a_grid
         )
         xmap = None
-        if under_trace(self._scale) or requires_backend_grad(self._scale):
+        _bounds = (self._scale, self._rmin_sampling, self._rmax)
+        if under_trace(*_bounds) or requires_backend_grad(*_bounds):
             # ...except where a bound is set by rmin/rmax: a FIXED physical
             # radius, so in r/a units it moves with the scale (~0.7% off at a
             # finite rmax if frozen). Span the grid over the attached extent and
