@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import optimize
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, radial_limits
 from ..backend.special import gamma as _gamma
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -123,20 +123,24 @@ class TwoPowerSphericalPotential(Potential):
             r = (
                 xp.sqrt(R**2.0 + z**2.0) + 1e-11
             )  # avoid division by zero and numerical instability of the hyp2f1 function
-            return (
-                _gamma(self.beta - 3.0)
-                * (
-                    (r / self.a) ** (3.0 - self.beta)
-                    / _gamma(self.beta - 1.0)
-                    * _hyp2f1(
-                        self.beta - 3.0,
-                        self.beta - self.alpha,
-                        self.beta - 1.0,
-                        -self.a / r,
+            return radial_limits(
+                r,
+                lambda r: (
+                    _gamma(self.beta - 3.0)
+                    * (
+                        (r / self.a) ** (3.0 - self.beta)
+                        / _gamma(self.beta - 1.0)
+                        * _hyp2f1(
+                            self.beta - 3.0,
+                            self.beta - self.alpha,
+                            self.beta - 1.0,
+                            -self.a / r,
+                        )
+                        - _gamma(3.0 - self.alpha) / _gamma(self.beta - self.alpha)
                     )
-                    - _gamma(3.0 - self.alpha) / _gamma(self.beta - self.alpha)
-                )
-                / r
+                    / r
+                ),
+                atinf=0.0 if self.beta > 3.0 else None,
             )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
@@ -183,12 +187,16 @@ class TwoPowerSphericalPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        return (
-            (self.a / r) ** self.alpha
-            / (1.0 + r / self.a) ** (self.beta - self.alpha)
-            / 4.0
-            / math.pi
-            / self.a**3.0
+        return radial_limits(
+            r,
+            lambda r: (
+                (self.a / r) ** self.alpha
+                / (1.0 + r / self.a) ** (self.beta - self.alpha)
+                / 4.0
+                / math.pi
+                / self.a**3.0
+            ),
+            atinf=0.0,
         )
 
     def _ddensdr(self, r, t=0.0):
@@ -380,8 +388,13 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             xp = get_namespace(R, z)
             R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
-            return -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / (
-                self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
+            norm = self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
+            return radial_limits(
+                r,
+                lambda r: (
+                    -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / norm
+                ),
+                at0=-1.0 / norm,
             )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
@@ -445,20 +458,28 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        return (
-            (self.a / r) ** self.alpha
-            / (1.0 + r / self.a) ** (4.0 - self.alpha)
-            / 4.0
-            / math.pi
-            / self.a**3.0
+        return radial_limits(
+            r,
+            lambda r: (
+                (self.a / r) ** self.alpha
+                / (1.0 + r / self.a) ** (4.0 - self.alpha)
+                / 4.0
+                / math.pi
+                / self.a**3.0
+            ),
+            atinf=0.0,
         )
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** (3.0 - self.alpha) / (3.0 - self.alpha)
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: (
+                1.0 / (1.0 + self.a / R) ** (3.0 - self.alpha) / (3.0 - self.alpha)
+            ),
+            at0=0.0,
+        )
 
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
@@ -505,7 +526,11 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
+        return radial_limits(
+            r,
+            lambda r: -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a),
+            at0=-1.0 / (6.0 * self.a),
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
@@ -540,14 +565,20 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0
+        return radial_limits(
+            r,
+            lambda r: 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0,
+            atinf=0.0,
+        )
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** 3.0 / 3.0
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: 1.0 / (1.0 + self.a / R) ** 3.0 / 3.0,
+            at0=0.0,
+        )
 
 
 class HernquistPotential(DehnenSphericalPotential):
@@ -596,7 +627,11 @@ class HernquistPotential(DehnenSphericalPotential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
-        return -1.0 / (1.0 + xp.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
+        return radial_limits(
+            xp.sqrt(R**2.0 + z**2.0),
+            lambda r: -1.0 / (1.0 + r / self.a) / 2.0 / self.a,
+            atinf=0.0,
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
@@ -691,9 +726,11 @@ class HernquistPotential(DehnenSphericalPotential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** 2.0 / 2.0
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: 1.0 / (1.0 + self.a / R) ** 2.0 / 2.0,
+            at0=0.0,
+        )
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
@@ -856,7 +893,9 @@ class JaffePotential(DehnenSphericalPotential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return 1.0 / (1.0 + self.a / R)  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R, lambda R: 1.0 / (1.0 + self.a / R), at0=0.0
+        )
 
 
 class NFWPotential(TwoPowerSphericalPotential):

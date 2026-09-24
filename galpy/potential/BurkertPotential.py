@@ -3,7 +3,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import get_namespace, radial_limits
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -60,6 +60,9 @@ class BurkertPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        return radial_limits(r, self._revaluate_body, atinf=0.0)
+
+    def _revaluate_body(self, r):
         xp = get_namespace(r)
         x = r / self.a
         # special.xlogy(2/x, 1+x**2) == (2/x)*log(1+x**2), but with the convention
@@ -113,8 +116,11 @@ class BurkertPotential(SphericalPotential):
         )
 
     def _rdens(self, r, t=0.0):
-        x = r / self.a
-        return 1.0 / (1.0 + x) / (1.0 + x**2.0)
+        def dens(r):
+            x = r / self.a
+            return 1.0 / (1.0 + x) / (1.0 + x**2.0)
+
+        return radial_limits(r, dens, atinf=0.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
