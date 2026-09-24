@@ -383,3 +383,57 @@ def test_dynfric_grad_wrt_amp_numpy_velocity(backend, cls, vkind):
         ad = float(t.grad)
     assert numpy.isfinite(ad) and abs(ad) > 0.0
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+# --- d/d(host-potential parameter) --------------------------------------------
+# The sigma_r(r) table is the Jeans solution of the HOST potential. Its numpy
+# builders (the spline grid, the per-radius loop) both run through scipy, so a
+# host parameter under a gradient used to die there (ConcretizationTypeError /
+# numpy() on a grad tensor). The table now comes from the backend Jeans
+# quadrature, differentiable and as accurate (see test_backend_jeans).
+_HOST_A = 1.2
+
+
+def _dynfric_host_quantity(a, which, backend):
+    from galpy.backend import use
+    from galpy.potential import HernquistPotential
+
+    with use(backend, force=True):
+        host = HernquistPotential(amp=2.0, a=a)
+        cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=host)
+        if which == "sigmar":
+            return cdf.sigmar(_arr_like(backend, 0.7))
+        return evaluateRforces(
+            cdf,
+            _arr_like(backend, _R0),
+            _arr_like(backend, _Z0),
+            phi=_arr_like(backend, _PHI0),
+            v=_arr_like(backend, _V0),
+            use_physical=False,
+        )
+
+
+def _arr_like(backend, x):
+    if backend == "numpy":
+        return numpy.asarray(x) if isinstance(x, list) else x
+    return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
+
+
+@pytest.mark.parametrize("which", ["sigmar", "Rforce"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_grad_wrt_host_potential_parameter(backend, which):
+    if backend == "jax":
+        ad = float(jax.grad(lambda a: _dynfric_host_quantity(a, which, "jax"))(_HOST_A))
+    else:
+        a = torch.tensor(_HOST_A, requires_grad=True)
+        (g,) = torch.autograd.grad(_dynfric_host_quantity(a, which, "torch"), a)
+        ad = float(g)
+    # FD of the NUMPY path (float a: the scipy-built table)
+    h = 1e-4
+    fd = (
+        float(as_numpy(_dynfric_host_quantity(_HOST_A + h, which, "numpy")))
+        - float(as_numpy(_dynfric_host_quantity(_HOST_A - h, which, "numpy")))
+    ) / (2.0 * h)
+    assert abs(ad) > 1e-6, "host-parameter gradient disconnected"
+    # measured 9.0e-9 (sigmar) and 1.4e-7 (Rforce, FD-limited at h=1e-4)
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
