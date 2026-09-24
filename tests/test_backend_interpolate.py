@@ -1832,3 +1832,57 @@ def test_default_bc_falls_back_below_four_knots(backend):
     exp = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
     assert numpy.all(numpy.isfinite(got))
     numpy.testing.assert_allclose(got, exp, rtol=0, atol=0)
+
+
+# The in-backend spline solves its interior second derivatives by parallel
+# cyclic reduction (no (n, n) matrix). Not-a-knot needs the end rows folded
+# in first: on a UNIFORM grid the naive first pivot h1 - h0^2/h1 is exactly 0.
+# Spline VALUES are compared (the well-conditioned quantity); n=4 is the
+# smallest size on this path, where both folded end rows share the interior.
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("bc", ["natural", "not-a-knot"])
+@pytest.mark.parametrize(
+    "n,grid", [(4, "uniform"), (5, "log"), (64, "uniform"), (1001, "log")]
+)
+def test_cubic_spline_values_match_scipy_cubicspline(backend, bc, n, grid):
+    x = (
+        numpy.linspace(0.1, 3.0, n)
+        if grid == "uniform"
+        else numpy.geomspace(0.1, 3.0, n)
+    )
+    Y = numpy.stack([numpy.sin(2.0 * x), numpy.cos(x) ** 2], axis=1)
+    r = numpy.linspace(0.1, 3.0, 97)
+    xp = _xp(backend)
+    c = cubic_spline_coeffs(xp, x, _asarray(backend, Y), bc=bc)
+    got = as_numpy(eval_cubic(xp, x, c, _asarray(backend, r)))
+    ref = si.CubicSpline(x, Y, bc_type=bc)(r)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_cubic_spline_coeffs_grad_wrt_y_vs_fd(backend):
+    x = numpy.linspace(0.0, 3.0, 40)
+    y0 = numpy.sin(2.0 * x)
+    r = numpy.array([0.37, 1.51, 2.93])
+    w = numpy.random.default_rng(1).standard_normal(40)
+
+    def f(xp, y):
+        c = cubic_spline_coeffs(xp, x, y, bc="not-a-knot")
+        return xp.sum(
+            eval_cubic(xp, x, c, _asarray(backend, r) if xp is not numpy else r)
+        )
+
+    if backend == "jax":
+        ad = float(
+            jax.jvp(
+                lambda t: f(jnp, jnp.asarray(y0) + t * jnp.asarray(w)), (0.0,), (1.0,)
+            )[1]
+        )
+    else:
+        t = torch.tensor(0.0, requires_grad=True)
+        ad = float(
+            torch.autograd.grad(f(torch, torch.tensor(y0) + t * torch.tensor(w)), t)[0]
+        )
+    # the spline is LINEAR in y, so the central difference is exact up to roundoff
+    fd = (f(numpy, y0 + 1e-3 * w) - f(numpy, y0 - 1e-3 * w)) / 2e-3
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-10)

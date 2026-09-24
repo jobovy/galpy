@@ -301,6 +301,37 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
+    if n >= 4:
+        # Tridiagonal in the interior second derivatives M[1:n-1]: solve it by
+        # parallel cyclic reduction (O(n log n), no (n, n) matrix -- the dense
+        # solve below was ~800 MB and O(n^3) for a 10001-knot table). The
+        # not-a-knot end rows are not tridiagonal; eliminating M[0] / M[n-1]
+        # through them (as scipy does) leaves a strictly diagonally dominant
+        # interior system, which the unpivoted reduction solves stably.
+        from .linalg import solve_tridiagonal
+
+        rhs_int = 6.0 * (dslope[1:] - dslope[:-1])  # (n-2,) or (n-2, m)
+        hl, hr = h[: n - 2], h[1 : n - 1]  # left/right interval of rows 1..n-2
+        sub, diag, sup = hl * 1.0, 2.0 * (hl + hr), hr * 1.0
+        if bc == "not-a-knot":
+            # M0 = ((h0+h1) M1 - h0 M2) / h1 folded into row 1, and mirrored
+            h0, h1, hm2, hm1 = h[0], h[1], h[n - 3], h[n - 2]
+            first = diag[:1] + h0 * (h0 + h1) / h1
+            first_sup = sup[:1] - h0 * h0 / h1
+            last = diag[-1:] + hm1 * (hm2 + hm1) / hm2
+            last_sub = sub[-1:] - hm1 * hm1 / hm2
+            diag = concat([first, diag[1:-1], last])
+            sup = concat([first_sup, sup[1:]])
+            sub = concat([sub[:-1], last_sub])
+        Mi = solve_tridiagonal(xp, sub, diag, sup, rhs_int)
+        if bc == "natural":
+            zero = Mi[:1] * 0.0
+            M = concat([zero, Mi, zero])
+        else:
+            M0 = ((h0 + h1) * Mi[:1] - h0 * Mi[1:2]) / h1
+            Mn = ((hm2 + hm1) * Mi[-1:] - hm1 * Mi[-2:-1]) / hm2
+            M = concat([M0, Mi, Mn])
+        return _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb)
     if under_trace(x) or requires_backend_grad(x):
         # A depends on the DIFFERENTIATED knots, so it is no longer a constant and
         # cannot be assembled by numpy item assignment: build each row as a
@@ -353,7 +384,10 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     rhs = concat([zero, interior, zero])  # (n,)
 
     M = xp.linalg.solve(Ab, rhs)  # (n,)
+    return _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb)
 
+
+def _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb):
     # power-basis coefficients on each interval (descending degree to match
     # spline_to_ppoly / Horner in eval_ppoly): c[0]=cubic, c[3]=constant.
     a3 = (M[1:] - M[:-1]) / (6.0 * hh)
