@@ -8,7 +8,7 @@
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, radial_limits
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
@@ -75,7 +75,19 @@ class PowerSphericalPotentialwCutoff(Potential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
-        r = xp.sqrt(R**2.0 + z**2.0)
+        # Phi(inf) = 2 pi rc^(2-alpha) Gamma(1-alpha/2): gammainc's slope at
+        # x=inf is 0 times an infinite d x / d rc
+        return radial_limits(
+            xp.sqrt(R**2.0 + z**2.0),
+            self._revaluate_body,
+            atinf=2.0
+            * numpy.pi
+            * self.rc ** (2.0 - self.alpha)
+            * _gamma(1.0 - self.alpha / 2.0),
+        )
+
+    def _revaluate_body(self, r):
+        xp = get_namespace(r)
         # guard r=0 in the dead branch (the 1/r term -> 0/0=NaN there) so the
         # xp.where stays finite under autodiff/jit; the value at r=0 is 0.
         rsafe = xp.where(r == 0, 1.0, r)
@@ -215,8 +227,11 @@ class PowerSphericalPotentialwCutoff(Potential):
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
-        r = xp.sqrt(R**2.0 + z**2.0)
-        return 1.0 / r**self.alpha * xp.exp(-((r / self.rc) ** 2.0))
+        return radial_limits(
+            xp.sqrt(R**2.0 + z**2.0),
+            lambda r: 1.0 / r**self.alpha * xp.exp(-((r / self.rc) ** 2.0)),
+            atinf=0.0,
+        )
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -225,12 +240,25 @@ class PowerSphericalPotentialwCutoff(Potential):
         # This is backend-agnostic/jit-clean and needs no separate R=inf branch:
         # gammainc(a, inf)=1 recovers the total mass automatically. (The previous
         # hyp1f1 form is an equivalent representation; values agree to ~1e-15.)
-        return (
+        # gammainc(a, x) has an infinite slope at x=0 (a<1) and a zero one at
+        # x=inf, each against a zero / infinite d x / d rc
+        total = (
             2.0
             * numpy.pi
             * self.rc ** (3.0 - self.alpha)
             * _gamma(1.5 - 0.5 * self.alpha)
-            * _gammainc(1.5 - 0.5 * self.alpha, (R / self.rc) ** 2.0)
+        )
+        return radial_limits(
+            R,
+            lambda R: (
+                2.0
+                * numpy.pi
+                * self.rc ** (3.0 - self.alpha)
+                * _gamma(1.5 - 0.5 * self.alpha)
+                * _gammainc(1.5 - 0.5 * self.alpha, (R / self.rc) ** 2.0)
+            ),
+            at0=0.0,
+            atinf=total,
         )
 
     @kms_to_kpcGyrDecorator
