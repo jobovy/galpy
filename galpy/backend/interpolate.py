@@ -432,7 +432,13 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
         xb = x * 1.0
     else:
         xb = asarray_on_device(xp, numpy.asarray(x), dev) * 1.0
-    yb = y * 1.0
+    # a numpy y table on a backend path is lifted the same way: indexing it
+    # with a TRACED interval index (jax.jit) cannot go through numpy
+    yb = (
+        asarray_on_device(xp, numpy.asarray(y), dev) * 1.0
+        if xp is not numpy and not is_backend_array(y)
+        else y * 1.0
+    )
     if extrapolate is not True:
         if extrapolate not in ("clip", "const", 3):
             raise ValueError(
