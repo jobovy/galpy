@@ -24,14 +24,16 @@ import numpy
 
 from ..._namespaces import (
     asarray_on_device,
+    concretely_true,
     device_of,
     has_concrete_truth_value,
     is_backend_array,
 )
 
-# 128 nodes: ~1e-10 or better vs scipy at realistic radii (|z| = r/a <~ 50);
-# accuracy degrades smoothly to ~1e-6 at the extreme |z| ~ 500 (r/a ~ 500, far
-# beyond any realistic galactic radius) for awkward exponent combinations.
+# Accuracy of the Euler route: ~1e-15 against mpmath for all z <= 0 out to
+# |z| = 1e12 (beyond |z| = _SPLIT_Z the integral is split at t0 = 1/(1-z); see
+# _euler_quad_split). |z| that large is real use: the TwoPower potential's
+# z = -a/r reaches -1e11 at small r.
 
 
 # Terms for the series route below. Its argument is z/(z-1), so accuracy is set
@@ -258,6 +260,15 @@ def _euler_integral(xp, a, b, c, z):
 _TS_HALFWIDTH = 12.45
 _TS_STEP = 0.075
 _TS_NODES = int(math.ceil(2.0 * _TS_HALFWIDTH / _TS_STEP))
+# Beyond this |z| the Euler integral is split at t0 = 1/(1-z) (see
+# _euler_quad_split); below it the single grid is exact to ~1e-15 (measured
+# against mpmath up to |z| = 50).
+_SPLIT_Z = 16.0
+# The split route's [t0, 1] piece varies exponentially in sigma at a rate set by
+# ln|z|, so it wants a finer step: 0.075 leaves 4e-13 at |z| = 1e11 (where the
+# TwoPower potential's small-r cancellation amplifies it ~1e11-fold), 0.05 gives
+# ~1e-15 at every |z| to 1e12 -- measured; finer buys nothing more.
+_SPLIT_NODES = int(math.ceil(2.0 * _TS_HALFWIDTH / 0.05))
 
 
 def _log_sigmoid(xp, x):
@@ -313,24 +324,98 @@ def _euler_quad(xp, A, B, c, z):
         # float outright.
         Bx, cx = (asarray_on_device(xp, v, dev) for v in (B, c))
         pref = xp.exp(gammaln(cx) - gammaln(Bx) - gammaln(cx - Bx))
-    h = 2.0 * _TS_HALFWIDTH / _TS_NODES
+    # Large |z|: the single grid under-resolves the t ~ 1/|z| transition (see
+    # _euler_quad_split); split there instead. Each side gets a z that is
+    # valid for IT, so the dead branch stays finite under autodiff.
+    large = z < -_SPLIT_Z
+    # Eagerly, skip a route no entry needs -- the split costs ~3x the single
+    # grid, and most calls (|z| = r/a <~ 16) never reach it. Under a trace
+    # there is no answer, so both run and one is selected.
+    any_large, all_large = xp.any(large), xp.all(large)
+    if concretely_true(~any_large):
+        return pref * _euler_quad_single(xp, A, B, c, z)
+    if concretely_true(all_large):
+        return pref * _euler_quad_split(xp, A, B, c, z)
+    far = _euler_quad_split(xp, A, B, c, xp.where(large, z, -2.0 * _SPLIT_Z))
+    near = _euler_quad_single(xp, A, B, c, xp.where(large, -xp.ones_like(z), z))
+    return pref * xp.where(large, far, near)
+
+
+def _ts_nodes(xp, dev, nodes=None):
+    """The fixed tanh-sinh nodes: the step h, log s and log(1-s) for
+    s = sigmoid(2 v), v = (pi/2) sinh u, and the weight's pi cosh u."""
+    nodes = _TS_NODES if nodes is None else nodes
+    h = 2.0 * _TS_HALFWIDTH / nodes
     u = asarray_on_device(
-        xp, numpy.linspace(-_TS_HALFWIDTH, _TS_HALFWIDTH, _TS_NODES + 1), dev
+        xp, numpy.linspace(-_TS_HALFWIDTH, _TS_HALFWIDTH, nodes + 1), dev
     )
     v = (numpy.pi / 2.0) * xp.sinh(u)
+    return (
+        h,
+        _log_sigmoid(xp, 2.0 * v),
+        _log_sigmoid(xp, -2.0 * v),
+        numpy.pi * xp.cosh(u),
+    )
+
+
+def _euler_quad_single(xp, A, B, c, z):
+    """The Euler integral on ONE tanh-sinh grid over t in [0, 1] (|z| <= _SPLIT_Z)."""
+    h, log_t, log_omt, wcosh = _ts_nodes(xp, device_of(z))
     # t**B and (1-t)**(c-B) are formed in LOG space. Forming t first loses the
     # t=0 tail outright: t**B is still 1e-3 where t ~ 1e-300, so at B = 0.01 the
     # integrand matters until t ~ exp(-3684) -- thousands of orders below what a
     # double can hold. t underflows to 0, t**B with it, and the tail is silently
     # discarded. log t = -softplus(-2v) stays finite there (it is ~ 2v), so the
     # product B*log(t) is exactly what it should be.
-    log_t = _log_sigmoid(xp, 2.0 * v)
-    log_omt = _log_sigmoid(xp, -2.0 * v)
     t = xp.exp(log_t)  # only for (1-zt)^-A, which is 1 wherever t underflows
     fw = (
-        numpy.pi
-        * xp.exp(B * log_t + (c - B) * log_omt)
-        * (1.0 - z[..., None] * t) ** (-A)
-        * xp.cosh(u)
+        xp.exp(B * log_t + (c - B) * log_omt) * (1.0 - z[..., None] * t) ** (-A) * wcosh
     )
-    return pref * h * xp.sum(fw, axis=-1)
+    return h * xp.sum(fw, axis=-1)
+
+
+def _euler_quad_split(xp, A, B, c, z):
+    r"""The Euler integral for large |z|, split at the transition t0 = 1/(1-z).
+
+    On a single grid over [0, 1], (1 - z t)^{-A} turns over at t ~ 1/|z|, a
+    feature of width ~1 in log t sitting at log t ~ -ln|z|, where the nodes are
+    ~h |log t| apart in log t: 0.86 at |z| = 1e5, 1.9 at 1e11. Under-resolved,
+    and increasingly so -- measured against mpmath, 1e-10 at |z| = 1e3 growing
+    to 2e-6 at 1e5 and 3e-2 at 1e12 (the TwoPower potential's z = -a/r at small
+    r). Splitting at t0 gives two integrals with ONE scale each:
+
+    * [0, t0], t = t0 s: t0^B int s^{B-1} (1-t0 s)^{c-B-1} (1 - z t0 s)^{-A} ds,
+      where |z t0| < 1, so only the s^{B-1} endpoint is singular;
+    * [t0, 1], t = exp(-sigma L), L = ln(1-z):
+      L int t^B (1-t)^{c-B-1} (1 - z t)^{-A} dsigma, where the turnover is a
+      smooth exponential in sigma and (1-t)^{c-B-1} ~ (sigma L)^{c-B-1} is the
+      only endpoint singularity, at sigma = 0.
+
+    Both run on the same tanh-sinh nodes, singular exponents folded into log
+    space (as in _euler_quad_single), so the node count is still fixed and the
+    route is traceable and differentiable in A, B, c and z.
+    """
+    h, log_s, log_oms, wcosh = _ts_nodes(xp, device_of(z), _SPLIT_NODES)
+    s = xp.exp(log_s)
+    L = xp.log1p(-z)[..., None]  # = ln(1/t0) > ln(1 + _SPLIT_Z)
+    t0 = xp.exp(-L)
+    # [0, t0]
+    fa = (
+        xp.exp(B * (log_s - L) + log_oms)
+        * (1.0 - t0 * s) ** (c - B - 1.0)
+        * (1.0 - z[..., None] * t0 * s) ** (-A)
+        * wcosh
+    )
+    # [t0, 1]: log(1 - t) = log(sigma L) + g(sigma L), g(x) = log((1-e^-x)/x),
+    # so the sigma^{c-B-1} endpoint is exact however small sigma gets
+    x = s * L
+    small = x < 1e-5
+    xs = xp.where(small, xp.ones_like(x), x)
+    g = xp.where(small, -x / 2.0 + x * x / 24.0, xp.log(-xp.expm1(-xs) / xs))
+    t = xp.exp(-x)
+    fb = (
+        xp.exp((c - B) * (log_s + xp.log(L)) + log_oms - B * x + (c - B - 1.0) * g)
+        * (1.0 - z[..., None] * t) ** (-A)
+        * wcosh
+    )
+    return h * xp.sum(fa + fb, axis=-1)
