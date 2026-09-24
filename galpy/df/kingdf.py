@@ -4,12 +4,19 @@ from scipy import integrate, interpolate, special
 
 from ..backend import (
     as_backend_constant,
+    as_numpy,
     coerce_coords,
     get_namespace,
     is_backend_array,
     resolve_namespace,
 )
 from ..backend import special as _bspecial
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    requires_backend_grad,
+    stop_gradient,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
 from .df import df
@@ -197,14 +204,21 @@ class _scalefreekingdf:
         r = numpy.zeros(npt)
         W = numpy.zeros(npt)
         dWdr = numpy.zeros(npt)
+        # A differentiated W0 is solved on its value; d/dW0 is grafted on
+        # afterwards from the forward sensitivities (_graft_W0_derivative)
+        W0 = (
+            float(as_numpy(stop_gradient(self.W0)))
+            if is_backend_array(self.W0)
+            else self.W0
+        )
         # Initialize (r[0]=0 already)
-        W[0] = self.W0
+        W[0] = W0
         # Determine central density and r0
-        self.rho0 = self._dens_W(self.W0)
+        self.rho0 = self._dens_W(W0)
         self.r0 = numpy.sqrt(9.0 / 4.0 / numpy.pi / self.rho0)
         # First solve Poisson equation ODE from r=0 to r0 using form
         # d^2 Psi / dr^2 =  ... (d psi / dr = v, r^2 dv / dr = RHS-2*r*v)
-        if self.W0 < 2.0:
+        if W0 < 2.0:
             rbreak = self.r0 / 100.0
         else:
             rbreak = self.r0
@@ -217,7 +231,7 @@ class _scalefreekingdf:
                 -_FOURPI * self._dens_W(y[0]) - (2.0 * y[1] / t if t > 0.0 else 0.0),
             ],
             [0.0, rbreak],
-            [self.W0, 0.0],
+            [W0, 0.0],
             method="DOP853",
             t_eval=r[: npt // 2],
         )
@@ -259,7 +273,107 @@ class _scalefreekingdf:
                     self._cumul_mass[ii - 1] + 2.0 * numpy.finfo(float).eps
                 )
         self.mass = self._cumul_mass[-1]
+        if under_trace(self.W0) or requires_backend_grad(self.W0):
+            self._graft_W0_derivative(W0, rbreak, npt)
         return None
+
+    @staticmethod
+    def _ddens_dW(W):
+        """d(dens)/dW; the two 1/sqrt(W) terms cancel, so it is finite at W=0"""
+        return numpy.exp(W) * special.erf(numpy.sqrt(W)) - _TWOOVERSQRTPI * numpy.sqrt(
+            W
+        )
+
+    def _graft_W0_derivative(self, W0, rbreak, npt):
+        """Graft d/dW0 onto the (numpy) solution from its forward sensitivities.
+
+        Both ODE segments are re-integrated with their variational equations
+        (tight tolerances: this is the derivative of the exact solution). The
+        pieces that MOVE with W0 are carried explicitly: rbreak = r0(W0), the
+        second segment's start Psi = W(rbreak), and both output grids. Values are
+        unchanged; first order only (graft_gradient)."""
+        dr0 = -0.5 * self.r0 * self._ddens_dW(W0) / self.rho0
+        drb = rbreak / self.r0 * dr0
+        n1 = npt // 2
+        # Segment 1, in r: y = (W, v=dW/dr), s = dy/dW0 at fixed r
+        sol = integrate.solve_ivp(
+            lambda t, y: [
+                y[1],
+                -_FOURPI * self._dens_W(y[0]) - (2.0 * y[1] / t if t > 0.0 else 0.0),
+                y[3],
+                -_FOURPI * self._ddens_dW(y[0]) * y[2]
+                - (2.0 * y[3] / t if t > 0.0 else 0.0),
+            ],
+            [0.0, rbreak],
+            [W0, 0.0, 1.0, 0.0],
+            method="DOP853",
+            t_eval=self._r[:n1],
+            rtol=1e-10,
+            atol=1e-12,
+        )
+        r1, W1, v1 = self._r[:n1], self._W[:n1], self._dWdr[:n1]
+        frac = numpy.linspace(0.0, 1.0, n1)  # r1 = frac * rbreak
+        fv1 = -_FOURPI * self._dens_W(W1) - 2.0 * v1 / numpy.where(r1 > 0.0, r1, 1.0)
+        fv1[0] = 0.0
+        dW1 = sol.y[2] + v1 * frac * drb
+        dv1 = sol.y[3] + fv1 * frac * drb
+        dr1 = frac * drb
+
+        # Segment 2, in Psi from Wb = W(rbreak) to 0: z = (r, v)
+        def f2(t, r, v):
+            return 1.0 / v, -(_FOURPI * self._dens_W(t) + 2.0 * v / r) / v
+
+        Wb, vb = W1[-1], v1[-1]
+        fr0, fv0 = f2(Wb, rbreak, vb)
+        # sensitivity at fixed Psi, from the moving start (dt0 = dWb)
+        sig0 = [drb - fr0 * dW1[-1], dv1[-1] - fv0 * dW1[-1]]
+        sol = integrate.solve_ivp(
+            lambda t, y: [
+                *f2(t, y[0], y[1]),
+                -y[3] / y[1] ** 2.0,
+                2.0 * y[2] / y[0] ** 2.0
+                + _FOURPI * self._dens_W(t) / y[1] ** 2.0 * y[3],
+            ],
+            [Wb, 0.0],
+            [rbreak, vb, *sig0],
+            method="DOP853",
+            t_eval=self._W[n1 - 1 :],
+            rtol=1e-10,
+            atol=1e-12,
+        )
+        r2, W2, v2 = self._r[n1 - 1 :], self._W[n1 - 1 :], self._dWdr[n1 - 1 :]
+        dt2 = numpy.linspace(1.0, 0.0, len(W2)) * dW1[-1]  # the grid moves too
+        fr2, fv2 = f2(W2, r2, v2)
+        dr2 = sol.y[2] + fr2 * dt2
+        dv2 = sol.y[3] + fv2 * dt2
+        dr = numpy.concatenate((dr1[:-1], dr2))
+        dW = numpy.concatenate((dW1[:-1], dt2))
+        dv = numpy.concatenate((dv1[:-1], dv2))
+        drho = self._ddens_dW(self._W) * dW
+        dcm = -(dv * self._r**2.0 + 2.0 * self._dWdr * self._r * dr)
+
+        xp = namespace_from_arrays((self.W0,))
+
+        def graft(val, d):
+            ref = self.W0 * 1.0
+            dW0 = ref - stop_gradient(ref)  # zero valued, carries d/dW0 = 1
+            return as_backend_constant(xp, val, ref) + dW0 * as_backend_constant(
+                xp, d, ref
+            )
+
+        drt = dr[-1]
+        self.c = graft(self.c, (drt / self.rt - dr0 / self.r0) / numpy.log(10.0))
+        self.rho0 = graft(self.rho0, self._ddens_dW(W0))
+        self.r0 = graft(self.r0, dr0)
+        self.rt = graft(self.rt, drt)
+        self.mass = graft(self.mass, dcm[-1])
+        self._r = graft(self._r, dr)
+        self._W = graft(self._W, dW)
+        self._dWdr = graft(self._dWdr, dv)
+        self._rho = graft(self._rho, drho)
+        self._cumul_mass = graft(self._cumul_mass, dcm)
+        # knots AND values differentiated: Spline1D mode 2
+        self._W_from_r = Spline1D(self._r, self._W, k=3)
 
     def _dens_W(self, W):
         """Density as a function of W"""
