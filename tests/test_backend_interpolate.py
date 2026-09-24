@@ -1837,12 +1837,21 @@ def test_default_bc_falls_back_below_four_knots(backend):
 # The in-backend spline solves its interior second derivatives by parallel
 # cyclic reduction (no (n, n) matrix). Not-a-knot needs the end rows folded
 # in first: on a UNIFORM grid the naive first pivot h1 - h0^2/h1 is exactly 0.
-# Spline VALUES are compared (the well-conditioned quantity); n=4 is the
-# smallest size on this path, where both folded end rows share the interior.
+# Spline VALUES are compared (the well-conditioned quantity). n=3 not-a-knot
+# is scipy's single parabola; n=4 is where both folded end rows share the
+# interior.
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("bc", ["natural", "not-a-knot"])
 @pytest.mark.parametrize(
-    "n,grid", [(4, "uniform"), (5, "log"), (64, "uniform"), (1001, "log")]
+    "n,grid",
+    [
+        (3, "uniform"),
+        (3, "log"),
+        (4, "uniform"),
+        (5, "log"),
+        (64, "uniform"),
+        (1001, "log"),
+    ],
 )
 def test_cubic_spline_values_match_scipy_cubicspline(backend, bc, n, grid):
     x = (

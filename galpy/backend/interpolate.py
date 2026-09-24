@@ -15,7 +15,7 @@
 #
 #     mode 2 (in-backend construction, y-differentiable): ``cubic_spline_coeffs``
 #       builds the piecewise-cubic coefficients from (x, y) ENTIRELY in xp (a
-#       tridiagonal/linear solve via ``xp.linalg.solve``), so the spline is
+#       tridiagonal solve by parallel cyclic reduction), so the spline is
 #       differentiable w.r.t. the y-VALUES (interpax / jax-cosmo style). This is
 #       what lets d(orbit)/d(param) flow through a parameter-dependent table
 #       (e.g. the dynamical-friction sigma_r(r) table). ``interp_linear`` is the
@@ -253,7 +253,7 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     ``spline_to_ppoly`` -- on ``x[i] <= r < x[i+1]`` the spline is
     ``sum_j c[j, i] * (r - x[i])**(3-j)`` -- so it feeds straight into
     ``eval_ppoly``/``eval_cubic``. The whole construction (a tridiagonal linear
-    system for the second derivatives, solved with ``xp.linalg.solve``) is built
+    system for the second derivatives, solved by parallel cyclic reduction) is built
     from namespace operations, so the coefficients -- and hence the spline value
     -- are DIFFERENTIABLE w.r.t. the ``y`` values. This is the capability the
     frozen scipy PPoly cannot provide: a parameter-dependent table (e.g. the
@@ -283,8 +283,8 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError("cubic_spline_coeffs requires at least 3 points")
     h = xb[1:] - xb[:-1]  # (n-1,)
     # A 2-D y of shape (n, m) means m independent splines on the SAME grid -> one
-    # multi-RHS solve (xp.linalg.solve handles the (n, m) rhs), m-fold fewer dense
-    # factorizations. Broadcast the (n-1,) geometry factor h over the m columns;
+    # multi-RHS solve (one reduction for the (n, m) rhs). Broadcast the (n-1,)
+    # geometry factor h over the m columns;
     # a 1-D y keeps h unchanged, so that path is byte-identical.
     hh = h[:, None] if yb.ndim == 2 else h
     # slopes of the secants
@@ -293,97 +293,46 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     # Tridiagonal system A M = rhs for the second derivatives M (length n).
     # Interior rows i=1..n-2:  h[i-1] M[i-1] + 2(h[i-1]+h[i]) M[i] + h[i] M[i+1]
     #                          = 6 (dslope[i] - dslope[i-1]).
-    # Build the dense (n, n) A from the *geometry only* (x), so A is a constant
-    # w.r.t. y; rhs carries the y-dependence (and hence the gradient). Assembled
-    # with numpy on x (init-time geometry), then placed on-device as a constant.
     concat = getattr(xp, "concat", None) or xp.concatenate
     if bc not in ("natural", "not-a-knot"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
-    if n >= 4:
-        # Tridiagonal in the interior second derivatives M[1:n-1]: solve it by
-        # parallel cyclic reduction (O(n log n), no (n, n) matrix -- the dense
-        # solve below was ~800 MB and O(n^3) for a 10001-knot table). The
-        # not-a-knot end rows are not tridiagonal; eliminating M[0] / M[n-1]
-        # through them (as scipy does) leaves a strictly diagonally dominant
-        # interior system, which the unpivoted reduction solves stably.
-        from .linalg import solve_tridiagonal
+    if bc == "not-a-knot" and n == 3:
+        # a single interior knot: not-a-knot makes the three points one
+        # parabola (scipy CubicSpline's convention), whose second derivative
+        # is constant
+        Mc = 2.0 * (dslope[1:2] - dslope[:1]) / (h[0] + h[1])
+        return _cubic_coeffs_from_M(xp, concat([Mc, Mc, Mc]), h, hh, dslope, yb)
+    # Tridiagonal in the interior second derivatives M[1:n-1]: solved by
+    # parallel cyclic reduction (O(n log n), no (n, n) matrix -- a dense solve
+    # was ~800 MB and O(n^3) for a 10001-knot table). The not-a-knot end rows
+    # are not tridiagonal; eliminating M[0] / M[n-1] through them (as scipy
+    # does) leaves a strictly diagonally dominant interior system, which the
+    # unpivoted reduction solves stably. Differentiable in y and in a traced x.
+    from .linalg import solve_tridiagonal
 
-        rhs_int = 6.0 * (dslope[1:] - dslope[:-1])  # (n-2,) or (n-2, m)
-        hl, hr = h[: n - 2], h[1 : n - 1]  # left/right interval of rows 1..n-2
-        sub, diag, sup = hl * 1.0, 2.0 * (hl + hr), hr * 1.0
-        if bc == "not-a-knot":
-            # M0 = ((h0+h1) M1 - h0 M2) / h1 folded into row 1, and mirrored
-            h0, h1, hm2, hm1 = h[0], h[1], h[n - 3], h[n - 2]
-            first = diag[:1] + h0 * (h0 + h1) / h1
-            first_sup = sup[:1] - h0 * h0 / h1
-            last = diag[-1:] + hm1 * (hm2 + hm1) / hm2
-            last_sub = sub[-1:] - hm1 * hm1 / hm2
-            diag = concat([first, diag[1:-1], last])
-            sup = concat([first_sup, sup[1:]])
-            sub = concat([sub[:-1], last_sub])
-        Mi = solve_tridiagonal(xp, sub, diag, sup, rhs_int)
-        if bc == "natural":
-            zero = Mi[:1] * 0.0
-            M = concat([zero, Mi, zero])
-        else:
-            M0 = ((h0 + h1) * Mi[:1] - h0 * Mi[1:2]) / h1
-            Mn = ((hm2 + hm1) * Mi[-1:] - hm1 * Mi[-2:-1]) / hm2
-            M = concat([M0, Mi, Mn])
-        return _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb)
-    if under_trace(x) or requires_backend_grad(x):
-        # A depends on the DIFFERENTIATED knots, so it is no longer a constant and
-        # cannot be assembled by numpy item assignment: build each row as a
-        # combination of one-hot rows. Interior row i carries h[i-1],
-        # 2(h[i-1]+h[i]), h[i] at columns i-1, i, i+1.
-        eye = xp.eye(n)
-        eye = xp.astype(eye, xb.dtype) if hasattr(xp, "astype") else eye
-        rows_mid = (
-            h[: n - 2][:, None] * eye[0 : n - 2]
-            + (2.0 * (h[: n - 2] + h[1 : n - 1]))[:, None] * eye[1 : n - 1]
-            + h[1 : n - 1][:, None] * eye[2:n]
-        )
-        if bc == "natural":
-            row0, rowN = eye[0], eye[n - 1]
-        else:  # not-a-knot
-            row0 = h[1] * eye[0] - (h[0] + h[1]) * eye[1] + h[0] * eye[2]
-            rowN = (
-                h[n - 2] * eye[n - 3]
-                - (h[n - 3] + h[n - 2]) * eye[n - 2]
-                + h[n - 3] * eye[n - 1]
-            )
-        Ab = concat([row0[None], rows_mid, rowN[None]], axis=0)
+    rhs_int = 6.0 * (dslope[1:] - dslope[:-1])  # (n-2,) or (n-2, m)
+    hl, hr = h[: n - 2], h[1 : n - 1]  # left/right interval of rows 1..n-2
+    sub, diag, sup = hl * 1.0, 2.0 * (hl + hr), hr * 1.0
+    if bc == "not-a-knot":
+        # M0 = ((h0+h1) M1 - h0 M2) / h1 folded into row 1, and mirrored
+        h0, h1, hm2, hm1 = h[0], h[1], h[n - 3], h[n - 2]
+        first = diag[:1] + h0 * (h0 + h1) / h1
+        first_sup = sup[:1] - h0 * h0 / h1
+        last = diag[-1:] + hm1 * (hm2 + hm1) / hm2
+        last_sub = sub[-1:] - hm1 * hm1 / hm2
+        diag = concat([first, diag[1:-1], last])
+        sup = concat([first_sup, sup[1:]])
+        sub = concat([sub[:-1], last_sub])
+    Mi = solve_tridiagonal(xp, sub, diag, sup, rhs_int)
+    if bc == "natural":
+        zero = Mi[:1] * 0.0
+        M = concat([zero, Mi, zero])
     else:
-        A = numpy.zeros((n, n))
-        hnp = numpy.asarray(numpy.diff(numpy.asarray(x, dtype=float)))
-        for i in range(1, n - 1):
-            A[i, i - 1] = hnp[i - 1]
-            A[i, i] = 2.0 * (hnp[i - 1] + hnp[i])
-            A[i, i + 1] = hnp[i]
-        if bc == "natural":
-            # zero second derivative at the ends: M[0] = M[n-1] = 0.
-            A[0, 0] = 1.0
-            A[n - 1, n - 1] = 1.0
-        else:  # not-a-knot
-            # continuous third derivative across the first/last interior knot.
-            A[0, 0] = hnp[1]
-            A[0, 1] = -(hnp[0] + hnp[1])
-            A[0, 2] = hnp[0]
-            A[n - 1, n - 3] = hnp[-1]
-            A[n - 1, n - 2] = -(hnp[-2] + hnp[-1])
-            A[n - 1, n - 1] = hnp[-2]
-        Ab = asarray_on_device(xp, A, dev)
-        Ab = xp.astype(Ab, xb.dtype) if hasattr(xp, "astype") else Ab
-
-    # rhs (length n): interior entries 6*(dslope[i]-dslope[i-1]); both end rows
-    # are homogeneous (0) for the two supported boundary conditions. The rhs
-    # carries the whole y-dependence, so the gradient flows through here.
-    zero = yb[:1] * 0.0  # (1,) on y's device/dtype, kept differentiable
-    interior = 6.0 * (dslope[1:] - dslope[:-1])  # (n-2,)
-    rhs = concat([zero, interior, zero])  # (n,)
-
-    M = xp.linalg.solve(Ab, rhs)  # (n,)
+        M0 = ((h0 + h1) * Mi[:1] - h0 * Mi[1:2]) / h1
+        Mn = ((hm2 + hm1) * Mi[-1:] - hm1 * Mi[-2:-1]) / hm2
+        M = concat([M0, Mi, Mn])
     return _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb)
 
 
