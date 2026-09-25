@@ -370,3 +370,27 @@ def test_king_numpy_construction_keeps_scipy_splines():
     assert pot._pot_spline._spl is not None
     assert isinstance(pot._rforce_grid, numpy.ndarray)
     assert isinstance(pot._Phi0, (float, numpy.floating, numpy.ndarray))
+
+
+# A backend radial grid evaluates the force in ONE vectorized call (a
+# per-radius loop is 1001 scalar calls, ~380 s to trace under jax.jit for
+# KingPotential). A force that only takes scalars -- raising on an array, or
+# returning the wrong shape -- still falls back to the loop, with the same grid.
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+@pytest.mark.parametrize(
+    "rforce",
+    [
+        lambda r: -1.0 / (r.reshape(()) + 1.0) ** 2,  # scalars only
+        lambda r: -1.0 / (r + 1.0) ** 2 if r.ndim == 0 else r.sum() * 0.0 - 1.0,
+    ],
+    ids=["raises-on-array", "wrong-shape"],
+)
+def test_backend_grid_force_falls_back_to_the_per_radius_loop(rforce):
+    rgrid = torch.linspace(0.1, 5.0, 21, dtype=torch.float64, requires_grad=True)
+    ref = interpSphericalPotential(
+        rforce=lambda r: -1.0 / (r + 1.0) ** 2, rgrid=rgrid, Phi0=-1.0
+    )
+    got = interpSphericalPotential(rforce=rforce, rgrid=rgrid, Phi0=-1.0)
+    numpy.testing.assert_allclose(
+        as_numpy(got._rforce_grid), as_numpy(ref._rforce_grid), rtol=1e-15
+    )
