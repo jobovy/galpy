@@ -37,6 +37,7 @@ from ..backend import (
 from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend._namespaces import (
+    concretely_true,
     has_concrete_truth_value,
     namespace_from_arrays,
     requires_backend_grad,
@@ -427,7 +428,9 @@ class sphericaldf(df):
                     else 1.0
                 )
         # Check that interpolated potential has appropriate grid range for DF
-        if isinstance(pot, interpSphericalPotential) and pot._rmax < self._rmax:
+        if isinstance(pot, interpSphericalPotential) and concretely_true(
+            pot._rmax < self._rmax
+        ):  # skipped under a trace, where there is no value to compare
             warnings.warn(
                 "The interpolated potential's rmax is smaller than the DF's rmax",
                 galpyWarning,
@@ -1270,7 +1273,8 @@ class sphericaldf(df):
         phi_max = _evaluatePotentials(
             self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0
         )
-        if not numpy.isfinite(self._rmax):
+        if not is_backend_array(self._rmax) and not numpy.isfinite(self._rmax):
+            # (a traced rmax -- kingdf's tidal radius -- is finite)
             # Phi(inf) is the zero point of a potential that vanishes at
             # infinity, so its derivative w.r.t. any potential parameter is
             # EXACTLY 0 -- but evaluating that limit numerically at r=inf gives
@@ -1315,10 +1319,9 @@ class sphericaldf(df):
         - 2020-07-24 - Written - Lane (UofT)
         """
         # Check that interpolated potential has appropriate grid range
-        if (
-            isinstance(self._pot, interpSphericalPotential)
-            and self._rmin_sampling < self._pot._rmin
-        ):
+        if isinstance(self._pot, interpSphericalPotential) and concretely_true(
+            self._rmin_sampling < self._pot._rmin
+        ):  # skipped under a trace, where there is no value to compare
             warnings.warn(
                 "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!",
                 galpyWarning,
@@ -1338,7 +1341,8 @@ class sphericaldf(df):
             r_a_start = float(r_a_start) if not is_backend_array(r_a_start) else -3.0
             r_a_end = float(r_a_end) if not is_backend_array(r_a_end) else 3.0
             lo_from_r = self._rmin_sampling > 0.0
-            hi_from_r = bool(numpy.isfinite(self._rmax))
+            # a traced rmax is a finite radius (kingdf's tidal radius)
+            hi_from_r = is_backend_array(self._rmax) or bool(numpy.isfinite(self._rmax))
         else:
             _scale_np = as_numpy_constant(self._scale)
             r_a_start = as_numpy_constant(r_a_start)
