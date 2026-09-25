@@ -570,26 +570,26 @@ class constantbetadf(_constantbetadf):
                 guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
                 startt = numpy.ones_like(Es) * guesst
                 startval = numpy.zeros_like(Es)
+                # Boundary coercion (the _evalpot_asnumpy pattern): this
+                # calibration only fixes the fE integration LOWER LIMIT and is
+                # deliberately numpy; _rphi is the root-find drop-in under a
+                # traced potential and returns a backend array. The fE VALUE is
+                # integrated live by _fE_backend, so the gradient does not come
+                # through this table -- verified against FD, not assumed.
+                rmins = as_numpy_constant(self._rphi(Es))
                 while numpy.any(startval == 0.0):
                     guesspow += 1
                     guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
                     indx = startval == 0.0
                     startt[indx] = guesst
+                    # evaluate the FULL, fixed-shape arrays and keep the entries
+                    # still calibrating: a shrinking subset has a new shape each
+                    # pass, and eager jax (the gradfunc, even on the numpy path)
+                    # recompiles every primitive per shape -- 15 s of XLA
+                    # compiles. Only the ==0 decisions are kept, not the values.
                     startval[indx] = _fEintegrand_smallr(
-                        startt[indx],
-                        self._pot,
-                        Es[indx],
-                        self._gradfunc,
-                        self._alpha,
-                        # Boundary coercion (the _evalpot_asnumpy pattern): this
-                        # calibration only fixes the fE integration LOWER LIMIT
-                        # and is deliberately numpy; _rphi is the root-find
-                        # drop-in under a traced potential and returns a backend
-                        # array. The fE VALUE is integrated live by _fE_backend,
-                        # so the gradient does not come through this table --
-                        # verified against FD, not assumed.
-                        as_numpy_constant(self._rphi(Es[indx])),
-                    )
+                        startt, self._pot, Es, self._gradfunc, self._alpha, rmins
+                    )[indx]
                 # numpy queries hit the scipy spline (byte-identical); backend
                 # queries evaluate the frozen table natively, so the traced fE
                 # path can keep its integration limits on-backend
