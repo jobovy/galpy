@@ -26,6 +26,10 @@ from ..potential import (
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._hermite import HermiteFamily2D, slope_at_zero
+from ..util._optional_deps import _TQDM_LOADED
+
+if _TQDM_LOADED:
+    import tqdm
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
@@ -61,6 +65,49 @@ def _spec_eval(c, tau, deriv=False):
     cc = c * (1j * k) if deriv else c
     ph = numpy.exp(1j * numpy.atleast_1d(tau)[:, None] * k[None, :])
     return numpy.real(ph @ (w * cc))
+
+
+def _sine_project(g, ms):
+    """The sine coefficients 2 mean_k g_k sin(m tau_k) of a function sampled
+    on the regular offset grid tau_k = 2 pi (k + 1/2)/N, for the harmonics
+    ms, by one FFT (the grid's offset is the phase e^{i m pi/N}); g may have
+    several columns"""
+    N = len(g)
+    ph = numpy.exp(1j * ms * numpy.pi / N).reshape((len(ms),) + (1,) * (g.ndim - 1))
+    return 2.0 / N * numpy.imag(ph * numpy.conj(numpy.fft.fft(g, axis=0)[ms]))
+
+
+def _sine_series(N, Dm, ms):
+    """The sine series sum_m D_m sin(m tau_k) over the harmonics ms and its
+    derivative sum_m m D_m cos(m tau_k) on the regular offset grid tau_k =
+    2 pi (k + 1/2)/N, by one inverse FFT each"""
+    c = numpy.zeros(N, dtype="complex")
+    c[ms] = Dm * numpy.exp(1j * ms * numpy.pi / N)
+    s = numpy.imag(numpy.fft.ifft(c)) * N
+    c[ms] *= ms
+    return s, numpy.real(numpy.fft.ifft(c)) * N
+
+
+def _sine_galerkin(w, rhs, ms):
+    """Solve w(tau) sum_m x_m sin(m tau) = rhs(tau) over the harmonics ms
+    for the x_m in the Galerkin sense on the regular offset grid: project
+    both sides onto sin(m' tau), which gives the system sum_m G_{m'm} x_m =
+    r_{m'} with G_{m'm} = sum_k w_k sin(m tau_k) sin(m' tau_k) = [C_{|m-m'|}
+    - C_{m+m'}]/2, C_j = sum_k w_k cos(j tau_k), and r_{m'} = sum_k rhs_k
+    sin(m' tau_k), all of which one FFT each supplies; rhs may have several
+    columns. A vanishing weight (the flux at the turning points) enters the
+    matrix instead of dividing anything."""
+    N = len(w)
+    M = ms[-1]
+    j = numpy.arange(2 * M + 1)
+    C = numpy.real(numpy.exp(-1j * j * numpy.pi / N) * numpy.fft.fft(w)[: 2 * M + 1])
+    G = 0.5 * (C[numpy.abs(ms[:, None] - ms[None, :])] - C[ms[:, None] + ms[None, :]])
+    Fr = numpy.fft.fft(rhs, axis=0)[ms]
+    r = numpy.imag(
+        numpy.exp(1j * ms * numpy.pi / N).reshape((len(ms),) + (1,) * (rhs.ndim - 1))
+        * numpy.conj(Fr)
+    )
+    return numpy.linalg.solve(G, r)
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -100,6 +147,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         auxiliary=None,
         maxiter=100,
         angle_tol=1e-12,
+        progressbar=True,
         **kwargs,
     ):
         """
@@ -156,6 +204,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
             Maximum Newton iterations of the angle solve.
         angle_tol : float, optional
             Convergence tolerance of the angle solve.
+        progressbar : bool, optional
+            If True, display tqdm progress bars over the tori while they
+            are lifted and their tables computed (requires tqdm to be
+            installed). Default is True.
 
         Notes
         -----
@@ -180,6 +232,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._nforDm = numpy.arange(1, mm_npt + 1)
         self._maxiter = maxiter
         self._angle_tol = angle_tol
+        self._progressbar = progressbar and _TQDM_LOADED
         self._interp = setup_interp
         self._rc_cache = {}
         if not setup_interp:
@@ -233,6 +286,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             rlo /= 1.3
         while pr2(rhi) > 0.0 and rhi < 1e12:
             rhi *= 1.3
+        if pr2(rhi) > 0.0:
+            raise ValueError(
+                f"No bound radial libration exists at (E, L) = ({E:g}, {L:g}): "
+                "the torus is unbound"
+            )
         return brentq(pr2, rlo, rc, xtol=ttol), brentq(pr2, rc, rhi, xtol=ttol)
 
     def _sample_torus(self, E, L):
@@ -300,7 +358,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # lift every librating torus once, keeping the lift for the tables,
         # and require it to stay bound in the auxiliary
         self._lifts = {}
-        for ii, (tau, r, pr, rp, ra, E, L) in enumerate(self._samples):
+        for ii in self._progress(range(len(self._samples)), "lifting tori"):
+            tau, r, pr, rp, ra, E, L = self._samples[ii]
             if tau is None:
                 continue
             lift = self._momentum_matched_lift(tau, r, pr, rp, ra, L)
@@ -324,6 +383,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     "mm_nta), or raise Rmin or lower Rinf"
                 )
         return None
+
+    def _progress(self, iterator, desc):
+        """The iterator, wrapped in a tqdm progress bar when one is wanted"""
+        if self._progressbar:
+            return tqdm.tqdm(iterator, desc=desc, leave=False)
+        return iterator
 
     def _fit_auxiliary(self, librating):
         """Fit the isochrone's (GM, b) to the potential's rotation curve
@@ -461,6 +526,60 @@ class actionAngleSphericalInverse(actionAngleInverse):
         dfA_de = c * a * s2 * (2.0 * e * g - e**2 * dg_dy * numpy.cos(eta))
         return fA, dfA_da, dfA_de
 
+    def _auxiliary_cumulative(self, a, e, eta):
+        """The auxiliary's cumulative radial action from pericentre,
+        A^A(eta) = int_0^eta f^A, and its partials with respect to the torus
+        parameters (a, e) at fixed eta, all closed forms: with beta = b/a and
+        c = sqrt(GM/(a+b)), the flux's factor (y + beta)/[y (y + 2 beta)] is
+        [1/y + 1/(y + 2 beta)]/2, and each term integrates to
+        c a [e sin(eta)/2 + A eta/2 - sqrt(A^2 - e^2) Theta_A(eta)] with A = 1
+        and A = 1 + 2 beta, where Theta_A = arctan(sqrt((A+e)/(A-e))
+        tan(eta/2)), continued through its branches by the winding number of
+        eta -- the two arctangents of the isochrone's angle relation. The
+        secular rate over a libration is the auxiliary's radial action.
+
+        The sum is O(eta^3) at pericentre while its terms are O(eta), and
+        their cancellation would leave the round-off of the largest term,
+        (1 + beta) eta, on a cumulative action e^2 times smaller; the anomaly
+        that the matching's Newton finds on this function inherits that
+        error divided by the flux, and the map's derivative amplifies it by
+        the number of harmonics. So the linear parts are gathered
+        analytically: Theta_A = eta/2 + phi_A with phi_A = arctan(k_A t) -
+        arctan(t) = arctan[(k_A - 1) t/(1 + k_A t^2)] (t = tan(eta/2), no
+        branch to continue), the coefficient of eta that remains, lambda =
+        1 + beta - sum_A sqrt(A^2 - e^2)/2 = e^2/2 sum_A 1/(A + sqrt(A^2 -
+        e^2)), and k_A - 1 = 2 e/[(A - e)(k_A + 1)] are formed without
+        cancellation, and every term is O(e)."""
+        b = self._b
+        c = numpy.sqrt(self._GM / (a + b))
+        beta = b / a
+        eta = numpy.asarray(eta, dtype="float")
+        t = numpy.tan(0.5 * eta)
+        dca_da = c * (a + 2.0 * b) / (2.0 * (a + b))
+        dbeta_da = -b / a**2
+        bracket = e * numpy.sin(eta)
+        dbr_de = numpy.sin(eta)
+        dbr_da = numpy.zeros_like(eta)
+        lam, dlam_de, dlam_da = 0.0, 0.0, 0.0
+        for A, dA_da in ((1.0, 0.0), (1.0 + 2.0 * beta, 2.0 * dbeta_da)):
+            k = numpy.sqrt((A + e) / (A - e))
+            sq = numpy.sqrt(A**2 - e**2)
+            km1 = 2.0 * e / ((A - e) * (k + 1.0))
+            phi = numpy.arctan(km1 * t / (1.0 + k * t**2))
+            dphi_dk = t / (1.0 + k**2 * t**2)
+            dk_de = A / (k * (A - e) ** 2)
+            dk_dA = -e / (k * (A - e) ** 2)
+            lam = lam + 0.5 * e**2 / (A + sq)
+            dlam_de = dlam_de + 0.5 * e / sq
+            dlam_da = dlam_da - 0.5 * e**2 * dA_da / (sq * (A + sq))
+            bracket = bracket - sq * phi
+            dbr_de = dbr_de + (e / sq) * phi - sq * dphi_dk * dk_de
+            dbr_da = dbr_da - (A / sq) * dA_da * phi - sq * dphi_dk * dk_dA * dA_da
+        bracket = bracket + lam * eta
+        dbr_de = dbr_de + dlam_de * eta
+        dbr_da = dbr_da + dlam_da * eta
+        return c * a * bracket, dca_da * bracket + c * a * dbr_da, c * a * dbr_de
+
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau), its
@@ -494,21 +613,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Jrq = float(numpy.mean(pr * drdtau_s))
         a, e = self._auxiliary_orbital_params(Jrq, L)
         ft = pr * drdtau_s  # target dA/dtau >= 0
-        fA = self._auxiliary_flux_derivs(a, e, tau)[0]  # auxiliary dA/deta
-        mt, mA = numpy.mean(ft), numpy.mean(fA)
-        scale = mt / mA
+        mt = numpy.mean(ft)
         qt_t = _antider(ft)
         At = mt * tau + qt_t - _spec_eval(_offset_spec_coeffs(qt_t), 0.0)[0]
-        qt_A = _antider(fA)
-        cqA = _offset_spec_coeffs(qt_A)
-        qA0 = _spec_eval(cqA, 0.0)[0]
-        # pointwise Newton on the spectral cumulative action, with the
-        # closed-form flux as its derivative; the matching is monotone, and
-        # a residual left by the iteration shows in the truncation
+        # the auxiliary's cumulative action is closed form; its secular rate
+        # is J_r to round-off (the equal-action choice of the torus), and the
+        # ratio of the two rates makes the linear parts coincide exactly
+        AA = self._auxiliary_cumulative(a, e, tau)[0]
+        scale = mt / (
+            self._auxiliary_cumulative(a, e, 2.0 * numpy.pi)[0] / (2.0 * numpy.pi)
+        )
+        # pointwise Newton on the closed-form cumulative action, with the
+        # closed-form flux as its derivative, started from the inverse of
+        # the auxiliary's cumulative action interpolated between its grid
+        # values (both cumulatives are monotone); the matching is monotone,
+        # and a residual left by the iteration shows in the truncation
         # diagnostic of _node_tables
-        eta_s = numpy.array(tau)
+        eta_s = numpy.interp(At, scale * AA, tau)
         for _ in range(200):
-            fres = scale * (mA * eta_s + _spec_eval(cqA, eta_s) - qA0) - At
+            fres = scale * self._auxiliary_cumulative(a, e, eta_s)[0] - At
             fp = numpy.maximum(
                 scale * self._auxiliary_flux_derivs(a, e, eta_s)[0], 1e-10 * mt
             )
@@ -517,11 +640,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 break
         # the sine projection of the pointwise map, then the truncated map
         # and its cotangent lift
-        Dm = 2.0 * numpy.mean(
-            (eta_s - tau)[:, None] * numpy.sin(tau[:, None] * self._nforDm[None, :]),
-            axis=0,
-        )
-        etat, detadtau, _ = self._map(tau, Dm)
+        Dm = _sine_project(eta_s - tau, self._nforDm)
+        shift, dshift = _sine_series(self._ntau, Dm, self._nforDm)
+        etat, detadtau = tau + shift, 1.0 + dshift
         rA, _, gA = self._auxiliary_profile(a, e, etat)
         pA = pr * drdtau_s / (gA * numpy.sin(etat) * detadtau)
         return Jrq, a, e, Dm, etat, detadtau, rA, pA
@@ -535,12 +656,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
             f^A(eta) sum_m dD_m/dalpha sin(m tau)
                 = dA/dalpha|_tau - dA^A/da a_alpha - dA^A/de e_alpha ,
 
-        a LINEAR least-squares problem for the dD_m/dalpha with the
-        vanishing flux f^A multiplying the unknowns, as in the map's own
-        fit. The target's flux derivative at fixed tau goes through the
-        moving turning points and is regular there (its numerator vanishes
-        with p_r), so it integrates spectrally like the flux itself; the
-        auxiliary's goes through its torus parameters' closed-form chains."""
+        a LINEAR problem for the dD_m/dalpha with the vanishing flux f^A
+        multiplying the unknowns, solved by Galerkin projection onto the
+        sine basis (_sine_galerkin). The target's flux derivative at fixed
+        tau goes through the moving turning points and is regular there
+        (its numerator vanishes with p_r), so it integrates spectrally like
+        the flux itself; the auxiliary's cumulative action varies through
+        its torus parameters' closed-form chains, with the closed-form
+        partials of _auxiliary_cumulative."""
         k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
 
         def _cum(f):
@@ -559,16 +682,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         costau, sintau = numpy.cos(tau), numpy.sin(tau)
         drdtau = 0.5 * (ra - rp) * sintau
         dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
-        fA, dfA_da, dfA_de = self._auxiliary_flux_derivs(a, e, tau)
-        mA_a, _, cqa, qa0 = _cum(dfA_da)
-        mA_e, _, cqe, qe0 = _cum(dfA_de)
-        FAa = mA_a * etat + _spec_eval(cqa, etat) - qa0
-        FAe = mA_e * etat + _spec_eval(cqe, etat) - qe0
-        B = self._auxiliary_flux_derivs(a, e, etat)[0][:, None] * numpy.sin(
-            tau[:, None] * self._nforDm[None, :]
-        )
-        out = []
-        for alpha in ("E", "L"):
+        _, FAa, FAe = self._auxiliary_cumulative(a, e, etat)
+        fAeta = self._auxiliary_flux_derivs(a, e, etat)[0]
+        rhs = numpy.empty((self._ntau, 2))
+        for kk, alpha in enumerate(("E", "L")):
             drp = self._turning_point_derivs(rp, E, L)[alpha == "L"]
             dra = self._turning_point_derivs(ra, E, L)[alpha == "L"]
             dr = drp * (1.0 + costau) / 2.0 + dra * (1.0 - costau) / 2.0
@@ -584,9 +701,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 _, _, da, de = self._auxiliary_orbital_param_chains(
                     Jrq, L, -Ompsi / OmR, 1.0
                 )
-            rhs = dA - FAa * da - FAe * de
-            out.append(numpy.linalg.lstsq(B, rhs, rcond=None)[0])
-        return out[0], out[1]
+            rhs[:, kk] = dA - FAa * da - FAe * de
+        out = _sine_galerkin(fAeta, rhs, self._nforDm)
+        return out[:, 0], out[:, 1]
 
     # ---------- the per-torus tables, computed (never fitted)
     def _node_tables(self, ii):
@@ -677,7 +794,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._OmRs = numpy.empty(ntori)
         self._Ompsis = numpy.empty(ntori)
         perr = numpy.empty(ntori)
-        for ii in range(ntori):
+        for ii in self._progress(range(ntori), "node tables"):
             node = self._node_tables(ii)
             self._jrs[ii] = node["jr"]
             self._rps[ii] = node["rp"]
@@ -784,8 +901,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._Dm_du = numpy.empty((nu, nLg, self._npt))
         self._Dm_dL = numpy.empty((nu, nLg, self._npt))
         perr = numpy.empty((nu, nLg))
-        for ii in range(nu):
-            for jj in range(nLg):
+        for idx in self._progress(range(nu * nLg), "node tables"):
+            ii, jj = divmod(idx, nLg)
+            if True:
                 L = self._Lgrid[jj]
                 node = self._node_tables(ii * nLg + jj)
                 self._jr_tab[ii, jj] = node["jr"]

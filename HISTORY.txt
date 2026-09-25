@@ -52,7 +52,16 @@ v1.12.1 (expected around 2026-11-01)
   angle, the target's radius and radial momentum, and the compensations
   come from the tables in closed form, Newton runs on the anomaly, and the
   three-dimensional reconstruction is one call of the analytic isochrone
-  inverse for all points (0.02 ms per point). The circular orbits are the
+  inverse for all points (0.02 ms per point). The auxiliary's cumulative
+  action, which the matching inverts, is closed form (the two arctangents
+  of the isochrone's angle relation, with their linear parts gathered so
+  that the round-off is the action's own), as are its parameter partials
+  that the map's slopes need; the map's projection and evaluation on the
+  anomaly grid are FFTs, and the slopes are solved by a Galerkin projection
+  onto the sine basis formed by FFT, so a family's construction costs
+  nothing beyond its samples: 2 s for a 16 x 16 grid, and a minute at a
+  thousand harmonics; ``progressbar=`` (default True) shows tqdm bars over
+  the tori. The circular orbits are the
   bottom row of the grid, with the epicycle limit's exact partials, so the
   family reaches J_r -> 0 continuously, and the circular orbit itself
   (J_r = 0) evaluates in closed form with the epicycle and circular
