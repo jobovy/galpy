@@ -184,6 +184,19 @@ def _input_scales(obj, kwargs):
     return obj._ro if ro is None else ro, obj._vo if vo is None else vo
 
 
+def _attached_energy_bounds(gxp, pot, rmin, rmax, potInf):
+    """(Phi(rmin), Phi(rmax)) on ``gxp``, attached to a differentiated potential.
+
+    A DF may store these as numpy constants; an energy table whose knots span
+    them must move with the potential. Phi(inf) is the constant 0 whatever the
+    parameters (and its closed forms NaN the backward), so an infinite rmax
+    keeps the stored ``potInf``."""
+    Emin = _evaluatePotentials(pot, gxp.asarray(rmin) * 1.0, 0)
+    if numpy.isfinite(rmax):
+        return Emin, _evaluatePotentials(pot, gxp.asarray(rmax) * 1.0, 0)
+    return Emin, as_backend_constant(gxp, as_numpy_constant(potInf), Emin)
+
+
 class _PVRInterpolator:
     """Dual-path inverse-CDF v/vesc interpolator for spherical-DF velocity
     sampling.
@@ -531,23 +544,23 @@ class sphericaldf(df):
             # differentiated potential: knots AND values stay on-backend
             # (Spline1D mode 2), so the gradient is that of the interpolant
             # actually evaluated -- frozen knots miss their motion with the
-            # potential, ~7% off on p(v|r). The bounds are re-evaluated attached
-            # (a DF may store them as numpy constants); Phi(inf) is the constant
-            # 0 whatever the parameters, and its closed forms NaN the backward.
-            Emin = _evaluatePotentials(self._pot, gxp.asarray(self._rmin) * 1.0, 0)
-            potInf = (
-                _evaluatePotentials(self._pot, gxp.asarray(self._rmax) * 1.0, 0)
-                if numpy.isfinite(self._rmax)
-                else as_backend_constant(gxp, as_numpy_constant(self._potInf), Emin)
+            # potential, ~7% off on p(v|r)
+            Emin, potInf = _attached_energy_bounds(
+                gxp, self._pot, self._rmin, self._rmax, self._potInf
             )
             Es_b = (
                 as_backend_constant(gxp, numpy.ascontiguousarray(Es4interp[::-1]), Emin)
                 * (Emin - potInf)
                 + potInf
             )
-            fE_b = self.fE(Es_b)
-            keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(fE_b)))
-            self._fE_interp = Spline1D(Es_b[keep], fE_b[keep], k=3, ext=3)
+            # finite knots from a DETACHED pass, then evaluate only those
+            # attached: dropping entries after the fact still pushes a zero
+            # cotangent through their 0*inf backward (NaN)
+            keep = numpy.flatnonzero(
+                numpy.isfinite(as_numpy_constant(self.fE(stop_gradient(Es_b))))
+            )
+            Es_b = Es_b[keep]
+            self._fE_interp = Spline1D(Es_b, self.fE(Es_b), k=3, ext=3)
             return
         # the spline table is built on a numpy grid; under a forced backend the
         # potential bounds are backend scalars, so pull them numpy-side (no-op
