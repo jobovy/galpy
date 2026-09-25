@@ -11328,7 +11328,10 @@ def test_actionAngleStaeckelInverse_convergence_warnings():
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=2, mm_nta=16
         )
-    E, Lz, I3 = _staeckel_inverse_labels([1.0, 1.5, 0.15, 0.05, 0.05, 0.0])
+    # a deep radial orbit (its u libration spans a factor of a few hundred in
+    # radius), whose lift with four harmonics leaves the auxiliary by a wide
+    # margin on every platform
+    E, Lz, I3 = _staeckel_inverse_labels([1.0, 1.9, 0.15, 0.05, 0.05, 0.0])
     with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=4, mm_nta=32
