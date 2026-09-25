@@ -3319,7 +3319,7 @@ def test_actionAngleStaeckel_actions_order():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=False)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=False)
     # The chi-anomaly composite quadrature is machine-converged at any order,
     # so low and high order must both match a very-high-order reference at
     # machine precision (the old fixed-order rule converged only slowly here)
@@ -3352,7 +3352,7 @@ def test_actionAngleStaeckel_actions_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt = aAS(o, order=10000)
     jr1, jp1, jz1 = aAS(o, order=5)
@@ -3649,7 +3649,7 @@ def test_actionAngleStaeckel_freqs_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt, ort, opt, ozt = aAS.actionsFreqs(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1 = aAS.actionsFreqs(o, order=5)
@@ -3718,7 +3718,7 @@ def test_actionAngleStaeckel_angles_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt, ort, opt, ozt, art, apt, azt = aAS.actionsFreqsAngles(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1, ar1, ap1, az1 = aAS.actionsFreqsAngles(o, order=5)
@@ -9557,6 +9557,49 @@ def test_actionAngleStaeckel_nearaxis_c_python_parity():
     assert numpy.fabs(j0 - j1) < 1e-6, (
         "C actionAngleStaeckel jr is discontinuous at Lz = 0"
     )
+    return None
+
+
+def test_actionAngleStaeckel_delta_from_potential():
+    # A potential that supplies its own focal length does not need delta=:
+    # an exact Staeckel potential and an OblateStaeckelWrapperPotential give
+    # the same actions, frequencies, and angles as with delta= given; a
+    # potential without one still requires it
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+    )
+
+    R, vR, vT, z, vz, phi = 1.0, 0.1, 1.05, 0.1, 0.05, 2.0
+    kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
+    for pot, delta in (
+        (kksp, 1.4),
+        (OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45), 0.45),
+        # a composite potential whose components share a focal length
+        (kksp + KuzminKutuzovStaeckelPotential(amp=0.3, ac=2.0, Delta=1.4), 1.4),
+    ):
+        given = numpy.array(
+            actionAngleStaeckel(pot=pot, delta=delta, c=False).actionsFreqsAngles(
+                R, vR, vT, z, vz, phi
+            )
+        )
+        own = numpy.array(
+            actionAngleStaeckel(pot=pot, c=False).actionsFreqsAngles(
+                R, vR, vT, z, vz, phi
+            )
+        )
+        assert numpy.all(given == own), (
+            "actionAngleStaeckel with the potential's own focal length does not agree with delta= given"
+        )
+    with pytest.raises(OSError, match="delta="):
+        actionAngleStaeckel(pot=MWPotential2014)
+    with pytest.raises(OSError, match="delta="):
+        # components with different focal lengths do not supply one
+        actionAngleStaeckel(
+            pot=kksp + KuzminKutuzovStaeckelPotential(amp=0.3, ac=2.0, Delta=1.1)
+        )
     return None
 
 
