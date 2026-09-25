@@ -302,3 +302,57 @@ def test_eddingtondf_fE_grad_wrt_potential_parameter(backend):
     # the DF construction runs a quadrature and a root-find, so this is not a
     # 1e-12 identity; 1e-5 still leaves ~400x margin on the observed ~2.3e-08
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-12)
+
+
+# --- eddingtondf under jax.jit, differentiated w.r.t. the potential ------------
+# Inside jit there is no concrete value: the boundary radius for the r -> inf
+# limit is taken as 1e12 (which every standard profile already gets eagerly),
+# and the r(Phi) inversion, sampling grids and f(E) table stay traced (#1558's
+# machinery). Reference: EAGER construction under a gradient (same root-find).
+# Measured jit vs eager-traced: fE exact, sigmar 1.7e-13, sampled v^2 7.7e-10;
+# gradients <= 8e-10.
+from galpy.backend import random as _grandom
+
+_EJ_Q = {
+    "fE": lambda d: d.fE(jnp.asarray([-0.9, -0.5, -0.1])),
+    "sigmar": lambda d: d.sigmar(jnp.asarray(0.7)),
+    "sample_v2": lambda d: sum(
+        (x**2).sum()
+        for i, x in enumerate(
+            d.sample(n=3, key=_grandom.key(3, "jax"), return_orbit=False)
+        )
+        if i in (1, 2, 4)
+    ),
+}
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("which", list(_EJ_Q))
+def test_eddingtondf_under_jit_matches_eager_traced(which):
+    from galpy.potential import HernquistPotential
+
+    def f(a):
+        with galpy.backend.use("jax", force=True):
+            d = eddingtondf(pot=HernquistPotential(amp=2.0, a=a), rmin=0.0)
+            return jnp.sum(jnp.asarray(_EJ_Q[which](d)))
+
+    v_jit, g_jit = float(jax.jit(f)(1.2)), float(jax.jit(jax.grad(f))(1.2))
+    v_eager, g_eager = (float(x) for x in jax.jvp(f, (1.2,), (1.0,)))
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=5e-9)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=5e-9)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_osipkovmerrittdf_sample_under_jit_raises_clearly():
+    # f(Q) is non-finite at knots near Emin (numpy's too; eager drops them), so
+    # a fixed-shape jit table would differ there -- refuse rather than differ
+    from galpy.df import osipkovmerrittdf
+    from galpy.potential import HernquistPotential
+
+    def f(a):
+        with galpy.backend.use("jax", force=True):
+            d = osipkovmerrittdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.5, rmin=0.0)
+            return d.sample(n=2, key=_grandom.key(3, "jax"), return_orbit=False)[0]
+
+    with pytest.raises(NotImplementedError, match="under jax.jit"):
+        jax.jit(f)(1.2)

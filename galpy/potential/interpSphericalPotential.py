@@ -76,7 +76,18 @@ class interpSphericalPotential(SphericalPotential):
                 self.turn_physical_on(ro=phys["ro"])
             if phys["voSet"]:
                 self.turn_physical_on(vo=phys["vo"])
-        _fgrid = [_rforce(r) for r in rgrid]
+        _fgrid = None
+        if is_backend_array(rgrid):
+            # one vectorized force evaluation: the per-radius loop is 1001 scalar
+            # calls, which under a jax trace alone took ~380 s to trace
+            try:
+                _fv = _rforce(rgrid)
+                if getattr(_fv, "shape", None) == rgrid.shape:
+                    _fgrid = [_fv[i] for i in range(rgrid.shape[0])]
+            except Exception:  # a scalar-only force: loop below
+                _fgrid = None
+        if _fgrid is None:
+            _fgrid = [_rforce(r) for r in rgrid]
         # Only a DIFFERENTIATED force grid stays on the backend: numpy.array()
         # of tracers raises and would sever d/d(parameter). Backend-ness alone is
         # not the test -- under a forced backend every value is a backend array
