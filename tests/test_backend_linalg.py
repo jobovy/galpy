@@ -357,3 +357,27 @@ def test_psd_project_backend_grad_vs_fd_on_clipped_slices(backend):
         )
     # measured 1.2e-10 - 3.3e-10
     numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
+
+
+# --- solve_tridiagonal (parallel cyclic reduction) ----------------------------
+@pytest.mark.parametrize("backend", ["numpy"] + BACKENDS)
+@pytest.mark.parametrize("n", [1, 2, 3, 17, 1000])
+def test_solve_tridiagonal_matches_banded_lu(backend, n):
+    import scipy.linalg
+
+    from galpy.backend.linalg import solve_tridiagonal
+
+    rng = numpy.random.default_rng(n)
+    a, c = rng.uniform(0.1, 1.0, n), rng.uniform(0.1, 1.0, n)
+    b = 2.5 + a + c  # diagonally dominant
+    d = rng.standard_normal((n, 3))  # several right-hand sides at once
+    ab = numpy.zeros((3, n))
+    ab[0, 1:], ab[1], ab[2, :-1] = c[:-1], b, a[1:]
+    ref = scipy.linalg.solve_banded((1, 1), ab, d)
+    if backend == "numpy":
+        xp, arr = numpy, numpy.asarray
+    else:
+        xp = jnp if backend == "jax" else torch
+        arr = jnp.asarray if backend == "jax" else torch.tensor
+    got = numpy.asarray(solve_tridiagonal(xp, arr(a), arr(b), arr(c), arr(d)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-14)
