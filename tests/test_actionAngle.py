@@ -9603,6 +9603,47 @@ def test_actionAngleStaeckel_delta_from_potential():
     return None
 
 
+def test_actionAngleStaeckel_perfect_ellipsoid_delta():
+    # An axisymmetric oblate perfect ellipsoid is a Staeckel potential in the
+    # prolate spheroidal coordinates of focal length a sqrt(1 - c^2), which
+    # it supplies to actionAngleStaeckel: the actions along an orbit are
+    # then conserved to the quadrature's accuracy, and they are those with
+    # the focal length given; a triaxial or a prolate perfect ellipsoid
+    # supplies none
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import PerfectEllipsoidPotential
+
+    a, c = 1.3, 0.6
+    pot = PerfectEllipsoidPotential(amp=1.0, a=a, b=1.0, c=c, normalize=1.0)
+    o = Orbit([1.0, 0.3, 0.9, 0.2, 0.25, 0.0])
+    ts = numpy.linspace(0.0, 100.0, 1001)
+    o.integrate(ts, pot, method="dop853_c")
+    own = actionAngleStaeckel(pot=pot, c=True, order=100)
+    jr, lz, jz = own(o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts))
+    assert numpy.ptp(jr) < 1e-10 and numpy.ptp(jz) < 1e-10, (
+        "The actions of an orbit in an oblate perfect ellipsoid are not conserved with the potential's own focal length: %g %g"
+        % (numpy.ptp(jr), numpy.ptp(jz))
+    )
+    given = actionAngleStaeckel(
+        pot=pot, delta=a * numpy.sqrt(1.0 - c**2), c=True, order=100
+    )
+    assert numpy.all(
+        numpy.array(
+            given(o.R(ts[:5]), o.vR(ts[:5]), o.vT(ts[:5]), o.z(ts[:5]), o.vz(ts[:5]))
+        )
+        == numpy.array(
+            own(o.R(ts[:5]), o.vR(ts[:5]), o.vT(ts[:5]), o.z(ts[:5]), o.vz(ts[:5]))
+        )
+    ), "The perfect ellipsoid's own focal length does not agree with delta= given"
+    for kw in (dict(b=0.8, c=0.6), dict(b=1.0, c=1.4)):
+        with pytest.raises(OSError, match="delta="):
+            actionAngleStaeckel(
+                pot=PerfectEllipsoidPotential(amp=1.0, a=a, normalize=1.0, **kw)
+            )
+    return None
+
+
 def test_actionAngleVerticalInverse_polynomial_pt_true_action():
     # With a polynomial point transformation, each torus's stored action used
     # to be the mean auxiliary action in the sheared gauge, which is off from
