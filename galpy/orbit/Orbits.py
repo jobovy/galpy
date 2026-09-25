@@ -6,7 +6,7 @@ import copy
 import json
 import string
 import warnings
-from functools import singledispatchmethod, wraps
+from functools import wraps
 from random import choice
 from string import ascii_lowercase
 
@@ -34,6 +34,7 @@ from ..backend import (
 )
 from ..backend import use as _use_backend
 from ..backend._namespaces import (
+    compilable_singledispatchmethod,
     requires_backend_grad,
     under_jax_trace,
     under_trace,
@@ -2530,7 +2531,7 @@ class Orbit:
                 galpyWarning,
             )
 
-    @singledispatchmethod
+    @compilable_singledispatchmethod
     def integrate(
         self,
         t,
