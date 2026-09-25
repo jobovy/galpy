@@ -673,7 +673,11 @@ class sphericaldf(df):
         vr_grid = v_vesc_grid * vesc_grid
         # Calculate p(v|r) and normalize
         pvr_grid = self._p_v_at_r(vr_grid, r_grid)
-        pvr_grid_cml = numpy.cumsum(pvr_grid, axis=0)
+        # Integrate between velocity grid points: a plain cumulative sum
+        # shifts the inverse CDF down by roughly half a velocity bin.
+        pvr_grid_cml = integrate.cumulative_trapezoid(
+            pvr_grid, v_vesc_values, axis=0, initial=0.0
+        )
         pvr_grid_cml_norm = (
             pvr_grid_cml
             / numpy.repeat(
@@ -682,7 +686,8 @@ class sphericaldf(df):
         )
 
         # Construct the inverse cumulative distribution on a regular grid
-        n_new_pvr = 100  # Must be multiple of r_a_grid.shape[0]
+        # Resolve the curved inverse-CDF tails to avoid biasing velocity moments.
+        n_new_pvr = 1000
         icdf_pvr_grid_reg = numpy.zeros((n_new_pvr, len(r_a_values)))
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr, len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):

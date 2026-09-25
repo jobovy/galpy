@@ -1187,7 +1187,8 @@ def test_isotropic_nfw_sigmar():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     dfp = isotropicNFWdf(pot=pot)
     numpy.random.seed(10)
-    samp = dfp.sample(n=1000000)
+    # Populate the sparsely sampled inner radial bins sufficiently.
+    samp = dfp.sample(n=3000000)
     tol = 0.08
     check_sigmar_against_jeans(
         samp, pot, tol, rmin=pot._scale / 10.0, rmax=pot._scale * 10.0, bins=31
@@ -3117,6 +3118,48 @@ def test_eddington_jaffe_divergent_sample_massprofile():
     tol = 0.02  # 2% tolerance
     check_spherical_massprofile(samp, mass_profile, tol, skip=1000)
     return None
+
+
+@pytest.mark.parametrize(
+    "df_class, pot_class, kwargs, radial_factor",
+    [
+        (isotropicPlummerdf, potential.PlummerPotential, {}, 3.0),
+        (isotropicHernquistdf, potential.HernquistPotential, {}, 3.0),
+        (eddingtondf, potential.PlummerPotential, {}, 3.0),
+        (constantbetaHernquistdf, potential.HernquistPotential, {"beta": -0.5}, 4.0),
+        (constantbetaHernquistdf, potential.HernquistPotential, {"beta": 0.5}, 2.0),
+        (osipkovmerrittHernquistdf, potential.HernquistPotential, {"ra": 1.4}, 3.0),
+    ],
+)
+def test_pvr_interpolator_velocity_moment(df_class, pot_class, kwargs, radial_factor):
+    # Integrate the actual sampling inverse CDF, avoiding Monte Carlo noise.
+    # Both the cumulative velocity integral and the probability grid must be
+    # accurate: increasing just the velocity resolution can hide cancelling errors.
+    dfp = df_class(pot=pot_class(amp=2.0), **kwargs)
+    dfp.sample(R=1.0, z=0.0, n=1)
+    interp = dfp._v_vesc_pvr_interpolator
+    probabilities = numpy.unique(interp.get_knots()[1])
+    for r in [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]:
+        v = interp(numpy.log10(r / dfp._scale), probabilities)[0]
+        assert numpy.all(numpy.isfinite(v))
+        assert numpy.all(numpy.diff(v) >= 0.0)
+        assert numpy.all((v >= 0.0) & (v <= 1.0 + 1e-12))
+        # Exact integral of the square of a piecewise-linear inverse CDF.
+        mean_v2 = (
+            numpy.sum(
+                numpy.diff(probabilities)
+                * (v[:-1] ** 2 + v[:-1] * v[1:] + v[1:] ** 2)
+                / 3.0
+            )
+            * dfp._vmax_at_r(dfp._pot, r) ** 2
+        )
+        # For OM this interpolator samples the transformed speed, whose radial
+        # component is unchanged and whose angular distribution is isotropic.
+        expected = radial_factor * dfp.sigmar(r, use_physical=False) ** 2
+        # OM's square-root tail at the escape speed converges more slowly
+        # on the unchanged velocity grid.
+        tol = 3e-3 if df_class is osipkovmerrittHernquistdf else 1e-3
+        assert numpy.fabs(mean_v2 / expected - 1.0) < tol
 
 
 def test_pvr_interpolator_covers_rmax():
