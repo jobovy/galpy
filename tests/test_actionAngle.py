@@ -11328,13 +11328,15 @@ def test_actionAngleStaeckelInverse_convergence_warnings():
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=2, mm_nta=16
         )
-    # a deep radial orbit (its u libration spans a factor of a few hundred in
-    # radius), whose lift with four harmonics leaves the auxiliary by a wide
-    # margin on every platform
+    # a deep radial orbit (its u libration spans a factor of two hundred in
+    # radius), whose lift with two harmonics is unbound by a wide margin on
+    # every platform (the lifted energy is -0.46 of the auxiliary torus's,
+    # against the 0.05 at which the guard trips; four harmonics keep it bound,
+    # at 0.19, and only warn)
     E, Lz, I3 = _staeckel_inverse_labels([1.0, 1.9, 0.15, 0.05, 0.05, 0.0])
     with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
         actionAngleStaeckelInverse(
-            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=4, mm_nta=32
+            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=2, mm_nta=16
         )
     return None
 
@@ -11378,6 +11380,8 @@ def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=64, mm_npt=20
         )
+    with pytest.raises(ValueError, match="mm_npt must be at least 2"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=1)
     with pytest.raises(ValueError, match="below the circular orbit's"):
         actionAngleStaeckelInverse(pot=pot, Es=[-10.0], Lzs=[Lz], I3s=[I3])
     with pytest.raises(ValueError, match="unbound"):
