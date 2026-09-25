@@ -29,14 +29,21 @@ from ..potential import (
 )
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
+from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleSphericalInverse import (
     _BOUND_MARGIN,
     _offset_spec_coeffs,
+    _sine_galerkin,
+    _sine_project,
+    _sine_series,
     _spec_eval,
     actionAngleSphericalInverse,
 )
 from .actionAngleStaeckel import _focal_length_of
+
+if _TQDM_LOADED:
+    import tqdm  # noqa: F401 (used through the spherical inverse's _progress)
 
 
 def _cumulative(f):
@@ -105,6 +112,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     _auxiliary_profile = actionAngleSphericalInverse._auxiliary_profile
     _auxiliary_radius_partials = actionAngleSphericalInverse._auxiliary_radius_partials
     _auxiliary_flux_derivs = actionAngleSphericalInverse._auxiliary_flux_derivs
+    _auxiliary_cumulative = actionAngleSphericalInverse._auxiliary_cumulative
+    _progress = actionAngleSphericalInverse._progress
 
     def __init__(
         self,
@@ -117,6 +126,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         auxiliary=None,
         maxiter=100,
         angle_tol=1e-12,
+        progressbar=True,
         delta=None,
         u0=None,
         **kwargs,
@@ -165,6 +175,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Maximum Newton iterations of the angle solve.
         angle_tol : float, optional
             Convergence tolerance of the angle solve.
+        progressbar : bool, optional
+            If True, display tqdm progress bars over the tori while they
+            are lifted and their tables computed (requires tqdm to be
+            installed). Default is True.
         delta : float or Quantity, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
@@ -196,6 +210,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         self._ntau = mm_nta
         self._npt = mm_npt
+        if mm_npt < 2:
+            raise ValueError(
+                "mm_npt must be at least 2: the v anomaly map has even harmonics only and needs one"
+            )
         self._nforDm = numpy.arange(1, mm_npt + 1)
         # the v map's odd harmonics vanish: the libration is symmetric about
         # the midplane, and with it the matching, eta(pi - tau) = pi - eta(tau)
@@ -203,6 +221,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._nptv = len(self._nforDmv)
         self._maxiter = maxiter
         self._angle_tol = angle_tol
+        self._progressbar = progressbar and _TQDM_LOADED
         self._circ_cache = {}
         self._ush_cache = {}
         self._Es = conversion._parse_grid_quantity(
@@ -527,6 +546,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         s2 = numpy.sin(zeta) ** 2
         return L * c * s2 / (1.0 - c * numpy.cos(zeta) ** 2)
 
+    @staticmethod
+    def _aux_vcumulative(L, c, zeta):
+        """The auxiliary's cumulative polar action from the northern turning
+        point, A^A_theta(zeta) = int_0^zeta f^A_theta, and its partials with
+        respect to (L, c) at fixed zeta, all closed forms: the flux
+        L c sin^2 zeta/(1 - c cos^2 zeta) is L [1 - (1 - c)/(1 - c cos^2
+        zeta)], whose integral is L [zeta - s Theta(zeta)] with s = sqrt(1 -
+        c) and Theta = arctan(tan(zeta)/s) continued through its branches by
+        the winding number of zeta about pi; the secular rate over a
+        libration is L - |L_z|, the auxiliary's polar action. As for the
+        radial cumulative action (_auxiliary_cumulative), the linear parts
+        are gathered so that no term exceeds the O(c) result: Theta = zeta +
+        psi with psi = arctan(tan(zeta)/s) - arctan(tan(zeta)) = arctan[c
+        tan(zeta)/((1 + s)(s + tan^2 zeta))] (no branch to continue), and
+        1 - s = c/(1 + s)."""
+        zeta = numpy.asarray(zeta, dtype="float")
+        s = numpy.sqrt(1.0 - c)
+        t = numpy.tan(zeta)
+        psi = numpy.arctan(c * t / ((1.0 + s) * (s + t**2)))
+        A = L * (c * zeta / (1.0 + s) - s * psi)
+        return A, A / L, L * (0.5 * (zeta + psi) / s - 0.5 * t / (s**2 + t**2))
+
     def _setup_auxiliary(self, auxiliary):
         """Fix the frozen isochrone auxiliary of the whole family and lift
         every torus onto it, libration by libration.
@@ -551,7 +592,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             else IsochronePotential(amp=self._GM, b=self._b)
         )
         self._lifts = []
-        for smp in self._samples:
+        for ii in self._progress(range(len(self._samples)), "lifting tori"):
+            smp = self._samples[ii]
             L = smp["jz"] + numpy.fabs(smp["Lz"])
             lift_u = lift_v = None
             if smp["u"] is not None:
@@ -626,38 +668,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         smt = numpy.sin(mt)
         return tau + smt @ Dm, 1.0 + numpy.cos(mt) @ (ms * Dm), smt
 
-    def _match_anomaly(self, tau, ft, flux, ms):
+    def _match_anomaly(self, tau, ft, flux, cumulative, ms):
         """The momentum-matched map of one libration onto the auxiliary's:
         match cumulative actions from the inner turning point, eta(tau) =
         A_A^{-1}(A_t(tau)), for the target's flux ft = p dq/dtau sampled on
-        the offset grid and the auxiliary's flux, a closed form in its
-        anomaly. Both cumulatives share the linear part J (the equal-action
-        choice of the auxiliary torus), so eta - tau is periodic and, by
-        time-reversal parity, a pure sine series; the map is stored
-        truncated to the harmonics ms, and returned together with the
-        truncated map's values and derivative on the grid."""
+        the offset grid and the auxiliary's flux and cumulative action, both
+        closed forms in its anomaly. Both cumulatives share the linear part
+        J (the equal-action choice of the auxiliary torus), so eta - tau is
+        periodic and, by time-reversal parity, a pure sine series; the map
+        is stored truncated to the harmonics ms, and returned together with
+        the truncated map's values and derivative on the grid."""
         mt, qt, _, qt0 = _cumulative(ft)
         At = mt * tau + qt - qt0
-        mA, qA, cqA, qA0 = _cumulative(flux(tau))
-        scale = mt / mA
-        # pointwise Newton on the spectral cumulative action, with the
+        # the auxiliary's secular rate is the action to round-off; the ratio
+        # of the two rates makes the linear parts coincide exactly
+        scale = mt / (cumulative(2.0 * numpy.pi) / (2.0 * numpy.pi))
+        # pointwise Newton on the closed-form cumulative action, with the
         # closed-form flux as its derivative, started from the inverse of
         # the auxiliary's cumulative action interpolated between its grid
         # values (both cumulatives are monotone); the matching is monotone,
         # and a residual left by the iteration shows in the truncation
         # diagnostic of _node_tables
-        eta = numpy.interp(At, scale * (mA * tau + qA - qA0), tau)
+        eta = numpy.interp(At, scale * cumulative(tau), tau)
         for _ in range(200):
-            fres = scale * (mA * eta + _spec_eval(cqA, eta) - qA0) - At
+            fres = scale * cumulative(eta) - At
             fp = numpy.maximum(scale * flux(eta), 1e-10 * mt)
             eta += numpy.clip(-fres / fp, -0.5, 0.5)
             if numpy.max(numpy.fabs(fres)) < 1e-13 * max(mt, 1e-10):
                 break
-        Dm = 2.0 * numpy.mean(
-            (eta - tau)[:, None] * numpy.sin(tau[:, None] * ms[None, :]), axis=0
-        )
-        etat, detadtau, _ = self._map(tau, Dm, ms)
-        return Dm, etat, detadtau
+        Dm = _sine_project(eta - tau, ms)
+        shift, dshift = _sine_series(self._ntau, Dm, ms)
+        return Dm, tau + shift, 1.0 + dshift
 
     def _lift_u(self, smp, jr, L):
         """The u libration lifted onto the auxiliary's radial libration of
@@ -669,7 +710,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         a, e = self._auxiliary_orbital_params(jr, L)
         ft = smp["pu"] * smp["wu"] * numpy.sin(tau)
         Dm, eta, deta = self._match_anomaly(
-            tau, ft, lambda x: self._auxiliary_flux_derivs(a, e, x)[0], self._nforDm
+            tau,
+            ft,
+            lambda x: self._auxiliary_flux_derivs(a, e, x)[0],
+            lambda x: self._auxiliary_cumulative(a, e, x)[0],
+            self._nforDm,
         )
         rA, _, gA = self._auxiliary_profile(a, e, eta)
         return {
@@ -688,7 +733,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         tau = smp["tau"]
         ft = smp["pv"] * smp["wv"] * numpy.sin(tau)
         Dm, zeta, dzeta = self._match_anomaly(
-            tau, ft, lambda x: self._aux_vflux(L, c, x), self._nforDmv
+            tau,
+            ft,
+            lambda x: self._aux_vflux(L, c, x),
+            lambda x: self._aux_vcumulative(L, c, x)[0],
+            self._nforDmv,
         )
         sinth = numpy.sqrt(1.0 - c * numpy.cos(zeta) ** 2)
         return {
@@ -707,13 +756,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             f^A(eta) sum_m dD_m/dalpha sin(m tau)
                 = dA/dalpha|_tau - dA^A/da a_alpha - dA^A/de e_alpha ,
 
-        a LINEAR least-squares problem for the dD_m/dalpha with the
-        vanishing flux f^A multiplying the unknowns, as in the map's own
-        fit. The target's flux derivative at fixed tau goes through the
-        moving turning points and is regular there (its numerator vanishes
-        with p_u), so it integrates spectrally like the flux itself; the
-        auxiliary's goes through its torus parameters' closed-form chains,
-        with dJ^A_r/dalpha and dL^A/dalpha from the torus's period matrix."""
+        a LINEAR problem for the dD_m/dalpha with the vanishing flux f^A
+        multiplying the unknowns, solved by Galerkin projection onto the
+        sine basis (_sine_galerkin). The target's flux derivative at fixed
+        tau goes through the moving turning points and is regular there
+        (its numerator vanishes with p_u), so it integrates spectrally like
+        the flux itself; the auxiliary's cumulative action varies through
+        its torus parameters' closed-form chains, with dJ^A_r/dalpha and
+        dL^A/dalpha from the torus's period matrix and the closed-form
+        partials of _auxiliary_cumulative."""
         tau, u, pu, wu = smp["tau"], smp["u"], smp["pu"], smp["wu"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -722,14 +773,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dWdu = self._dWu(u, E, Lz)
         sh2 = numpy.sinh(u) ** 2
         dWda = (2.0 * d2 * sh2, -2.0 * d2 * numpy.ones_like(u), -2.0 * Lz / sh2)
-        _, dfA_da, dfA_de = self._auxiliary_flux_derivs(a, e, tau)
-        mAa, _, cqa, qa0 = _cumulative(dfA_da)
-        mAe, _, cqe, qe0 = _cumulative(dfA_de)
-        FAa = mAa * eta + _spec_eval(cqa, eta) - qa0
-        FAe = mAe * eta + _spec_eval(cqe, eta) - qe0
-        B = self._auxiliary_flux_derivs(a, e, eta)[0][:, None] * numpy.sin(
-            tau[:, None] * self._nforDm[None, :]
-        )
+        _, FAa, FAe = self._auxiliary_cumulative(a, e, eta)
+        fAeta = self._auxiliary_flux_derivs(a, e, eta)[0]
         rhs = numpy.empty((self._ntau, 3))
         for k in range(3):
             du = dsup[0, k] - dsup[1, k] * ct
@@ -737,13 +782,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             mt, qt, _, qt0 = _cumulative(dft)
             _, _, da, de = self._auxiliary_orbital_param_chains(jr, L, dJr[k], dL[k])
             rhs[:, k] = mt * tau + qt - qt0 - FAa * da - FAe * de
-        return numpy.linalg.lstsq(B, rhs, rcond=None)[0]
+        return _sine_galerkin(fAeta, rhs, self._nforDm)
 
     def _map_slopes_v(self, smp, L, c, zeta, dL, dwv):
         """The derivatives of the v map's coefficients with respect to
         (E, I_3, L_z), as _map_slopes_u for the u map: the auxiliary's polar
-        flux depends on its torus through (L, c = 1 - L_z^2/L^2), with
-        closed-form partials"""
+        cumulative action depends on its torus through (L, c = 1 -
+        L_z^2/L^2), with closed-form partials (_aux_vcumulative)"""
         tau, v, pv, wv = smp["tau"], smp["v"], smp["pv"], smp["wv"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -752,15 +797,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dWdv = self._dWv(v, E, Lz)
         sn2 = numpy.sin(v) ** 2
         dWda = (2.0 * d2 * sn2, 2.0 * d2 * numpy.ones_like(v), -2.0 * Lz / sn2)
-        fA = self._aux_vflux(L, c, tau)
-        den = 1.0 - c * numpy.cos(tau) ** 2
-        mL, _, cqL, qL0 = _cumulative(fA / L)
-        mc, _, cqc, qc0 = _cumulative(L * st**2 / den**2)
-        FL = mL * zeta + _spec_eval(cqL, zeta) - qL0
-        Fc = mc * zeta + _spec_eval(cqc, zeta) - qc0
-        B = self._aux_vflux(L, c, zeta)[:, None] * numpy.sin(
-            tau[:, None] * self._nforDmv[None, :]
-        )
+        _, FL, Fc = self._aux_vcumulative(L, c, zeta)
+        fAzeta = self._aux_vflux(L, c, zeta)
         dc = 2.0 * Lz**2 / L**3 * dL - 2.0 * Lz / L**2 * numpy.array([0.0, 0.0, 1.0])
         rhs = numpy.empty((self._ntau, 3))
         for k in range(3):
@@ -768,7 +806,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             dft = (dWda[k] + dWdv * dv) / (2.0 * pv) * dvdtau + pv * dwv[k] * st
             mt, qt, _, qt0 = _cumulative(dft)
             rhs[:, k] = mt * tau + qt - qt0 - FL * dL[k] - Fc * dc[k]
-        return numpy.linalg.lstsq(B, rhs, rcond=None)[0]
+        return _sine_galerkin(fAzeta, rhs, self._nforDmv)
 
     # ---------- the per-torus tables, computed (never fitted)
     def _node_tables(self, ii):
@@ -911,7 +949,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._dDmus = numpy.zeros((ntori, self._npt, 3))
         self._dDmvs = numpy.zeros((ntori, self._nptv, 3))
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
-        for ii in range(ntori):
+        for ii in self._progress(range(ntori), "node tables"):
             node = self._node_tables(ii)
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
