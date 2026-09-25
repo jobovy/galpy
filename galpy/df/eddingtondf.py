@@ -4,6 +4,7 @@ import numpy
 from scipy import integrate, interpolate
 
 from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace
+from ..backend._namespaces import has_concrete_truth_value
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
@@ -80,6 +81,10 @@ class eddingtondf(isotropicsphericaldf):
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)
         self._Emin = _evaluatePotentials(pot, self._rmin, 0)
+        # inside jax.jit the potential has no concrete value (see _rInf, _rphi)
+        self._jit = is_backend_array(self._Emin) and not has_concrete_truth_value(
+            self._Emin == self._Emin
+        )
         # Current calculation of the boundary term uses r -> inf limit
         try:
             # a discrete choice of the boundary radius, so bool() on the
@@ -101,17 +106,26 @@ class eddingtondf(isotropicsphericaldf):
             # the forces at r=inf warns ("invalid value encountered in scalar
             # divide") for potentials where dnu/dr is already non-finite there,
             # which test_eddington_hernquist_no_warning forbids.
-            self._rInf = (
-                numpy.inf
-                if _finite(self._dnudr(numpy.inf))
-                and _finite(_evaluateRforces(self._pot, numpy.inf, 0))
-                else 1e12
-            )
+            if self._jit:
+                # jax.jit: finiteness at infinity is undecidable without a value;
+                # take the finite boundary radius (the r -> inf limit to ~1e-12)
+                self._rInf = 1e12
+            else:
+                self._rInf = (
+                    numpy.inf
+                    if _finite(self._dnudr(numpy.inf))
+                    and _finite(_evaluateRforces(self._pot, numpy.inf, 0))
+                    else 1e12
+                )
         except ZeroDivisionError:
             self._rInf = 1e12
         # Build interpolator r(pot), starting at rmin for divergent potentials
         self._rphi = self._setup_rphi_interpolator(
-            r_a_min=max(1e-6, self._rmin / self._scale)
+            r_a_min=resolve_namespace(self._scale).maximum(
+                1e-6, self._rmin / self._scale
+            )
+            if self._jit
+            else max(1e-6, self._rmin / self._scale)
         )
 
     def sample(
