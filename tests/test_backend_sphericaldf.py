@@ -1142,13 +1142,15 @@ def test_pot_grad_namespace_any_backend_keyword():
 # scipy-adaptive quadrature, whose tolerance jitters the samples at ~5e-6 --
 # amplified to several % by an h=1e-4 difference.
 def _sample_rv2(backend, dfname, a, rmax, rmin):
-    from galpy.df import constantbetadf
+    from galpy.df import constantbetadf, osipkovmerrittdf
 
     with use(backend, force=True):
         pot = HernquistPotential(amp=2.0, a=a)
         kw = {} if rmax is None else {"rmax": rmax}
         if dfname == "constantbeta":
             d = constantbetadf(pot=pot, beta=-0.2, **kw)
+        elif dfname == "osipkovmerritt":
+            d = osipkovmerrittdf(pot=pot, ra=1.5, **kw)
         else:
             d = eddingtondf(pot=pot, **kw)
         o = d.sample(n=4, rmin=rmin, key=_key(backend, 7))
@@ -1184,7 +1186,7 @@ def _sample_rv2_jvp(backend, dfname, a, rmax, rmin):
 _SAMPLE_GRAD_CASES = [
     (backend, dfname, rmax, rmin)
     for backend in BACKENDS
-    for dfname in ("constantbeta", "eddington")
+    for dfname in ("constantbeta", "eddington", "osipkovmerritt")
     for rmax, rmin in ((None, None), (8.0, 0.1))
     if not (backend == "jax" and dfname == "constantbeta" and rmax is None)
 ]
@@ -1195,8 +1197,9 @@ def test_sample_grad_wrt_potential_parameter(backend, dfname, rmax, rmin):
     # Four defects, each visible here: the r=0 CMF knot NaN'd every gradient
     # (Hernquist's mass has a 0*inf backward there); the CMF radii were
     # detached while xi -> r stayed attached, counting d/da twice; the frozen
-    # f(E) table dropped d/da from every velocity (~11%); and a frozen p(v|r)
-    # extent missed rmax's motion in r/a units (~0.7%).
+    # f(E) table dropped d/da from every velocity (~11%; Osipkov-Merritt's f(Q)
+    # table likewise, 2-26%, and crashed on jax); and a frozen p(v|r) extent
+    # missed rmax's motion in r/a units (~0.7%).
     # h=3e-3: the gradient path carries ~3e-9 quadrature noise, which at
     # h=1e-3 is already 7.5e-4 of a velocity derivative; measured max errors
     # at 3e-3 are 4.3e-6 (r) and 7.7e-5 (v^2).
@@ -1204,7 +1207,8 @@ def test_sample_grad_wrt_potential_parameter(backend, dfname, rmax, rmin):
     r, v2, dr, dv2 = _sample_rv2_jvp(backend, dfname, a0, rmax, rmin)
     rp, v2p = _sample_rv2_jvp(backend, dfname, a0 + h, rmax, rmin)[:2]
     rm, v2m = _sample_rv2_jvp(backend, dfname, a0 - h, rmax, rmin)[:2]
-    assert numpy.all(numpy.abs(dv2) > 1e-3), "velocity gradient disconnected"
+    # d(v^2)/da scales like v^2/a, so a disconnected gradient is one far below it
+    assert numpy.all(numpy.abs(dv2) > 0.1 * v2), "velocity gradient disconnected"
     numpy.testing.assert_allclose(dr, (rp - rm) / (2.0 * h), rtol=2e-5)
     numpy.testing.assert_allclose(dv2, (v2p - v2m) / (2.0 * h), rtol=3e-4)
     if dfname == "constantbeta" and rmax is None:
