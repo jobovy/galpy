@@ -12,6 +12,7 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend._namespaces import (
+    has_concrete_truth_value,
     namespace_from_arrays,
     requires_backend_grad,
     stop_gradient,
@@ -206,6 +207,14 @@ class _scalefreekingdf:
         dWdr = numpy.zeros(npt)
         # A differentiated W0 is solved on its value; d/dW0 is grafted on
         # afterwards from the forward sensitivities (_graft_W0_derivative)
+        if is_backend_array(self.W0) and not has_concrete_truth_value(
+            self.W0 == self.W0
+        ):
+            raise NotImplementedError(
+                "kingdf: W0 under jax.jit -- the King ODE is solved by scipy on "
+                "W0's value, which a jit trace does not have; differentiate w.r.t. "
+                "W0 outside jit (M and rt are jit-safe)"
+            )
         W0 = (
             float(as_numpy(stop_gradient(self.W0)))
             if is_backend_array(self.W0)

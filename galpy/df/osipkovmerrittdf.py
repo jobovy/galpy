@@ -12,7 +12,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
-from ..backend._namespaces import stop_gradient
+from ..backend._namespaces import has_concrete_truth_value, stop_gradient
 from ..backend.interpolate import Spline1D
 from ..backend.optimize import bisect_root, newton_polish
 from ..backend.quadrature import fixed_quad, nested_quad
@@ -556,11 +556,16 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                 # find the finite knots on a DETACHED pass and evaluate only
                 # those attached: indexing after the fact still pushes a zero
                 # cotangent through the dropped knots' 0*inf backward (NaN)
-                keep = numpy.flatnonzero(
-                    numpy.isfinite(
-                        as_numpy_constant(xp.log(self.fQ(stop_gradient(Qs))))
+                probe = xp.log(self.fQ(stop_gradient(Qs)))
+                if not has_concrete_truth_value(xp.all(probe == probe)):
+                    # f(Q) is non-finite at knots near Emin (numpy's too; eager
+                    # drops them), so a fixed-shape jit table would differ there
+                    raise NotImplementedError(
+                        "osipkovmerrittdf.sample under jax.jit: the f(Q) table "
+                        "drops non-finite knots near Emin, which needs concrete "
+                        "values; sample outside jit (fQ and moments are jit-safe)"
                     )
-                )
+                keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
                 Qs = Qs[keep]
                 self._logfQ_interp = Spline1D(Qs, xp.log(self.fQ(Qs)), k=3, ext=3)
                 return
