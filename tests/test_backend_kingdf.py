@@ -370,3 +370,30 @@ def test_kingdf_W0_grad_vs_finite_difference(backend, which):
     ) / (2.0 * h)
     assert abs(ad) > 1e-4, "W0 gradient disconnected"
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
+
+
+# --- under jax.jit -------------------------------------------------------------
+# M and rt only rescale the (numpy) scale-free solution, so they are jit-safe:
+# measured jit vs eager-traced to <= 2.7e-15 (fE, sigmar, sampled v^2, and their
+# gradients). W0 changes the ODE solution itself, solved by scipy on W0's value,
+# which a trace does not have -- so it raises clearly.
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_rt_under_jit_matches_eager_traced():
+    def f(rt):
+        with galpy.backend.use("jax", force=True):
+            return jnp.sum(kingdf(W0=3.0, M=2.3, rt=rt).fE(jnp.asarray([-3.0, -2.0])))
+
+    v_jit, g_jit = float(jax.jit(f)(1.4)), float(jax.jit(jax.grad(f))(1.4))
+    v_eager, g_eager = (float(x) for x in jax.jvp(f, (1.4,), (1.0,)))
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=1e-13)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-13)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_W0_under_jit_raises_clearly():
+    def f(W0):
+        with galpy.backend.use("jax", force=True):
+            return kingdf(W0=W0, M=2.3, rt=1.4).fE(jnp.asarray(-3.0))
+
+    with pytest.raises(NotImplementedError, match="W0 under jax.jit"):
+        jax.jit(f)(3.0)
