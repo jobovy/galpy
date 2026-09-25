@@ -37,6 +37,7 @@ from ..backend import (
 from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend._namespaces import (
+    has_concrete_truth_value,
     namespace_from_arrays,
     requires_backend_grad,
     stop_gradient,
@@ -126,9 +127,14 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         # w.r.t. a potential parameter -- while bool() reads the concrete primal
         # that both carry. Inside jit there is no primal; pass rmin explicitly
         # there, as the note above says.
-        is_divergent = not bool(
-            (xp if is_backend_array(phi_at_zero) else numpy).isfinite(phi_at_zero)
-        )
+        finite = (xp if is_backend_array(phi_at_zero) else numpy).isfinite(phi_at_zero)
+        if not has_concrete_truth_value(finite):
+            raise ValueError(
+                f"{df_name}: inside jit whether Phi(0) diverges cannot be "
+                "decided (no concrete value); pass rmin explicitly (rmin=0 for "
+                "a potential finite at the centre)"
+            )
+        is_divergent = not bool(finite)
 
     # Check all potentials for known problematic types
     for p in denspot:
@@ -194,6 +200,8 @@ def _attached_energy_bounds(gxp, pot, rmin, rmax, potInf):
     Emin = _evaluatePotentials(pot, gxp.asarray(rmin) * 1.0, 0)
     if numpy.isfinite(rmax):
         return Emin, _evaluatePotentials(pot, gxp.asarray(rmax) * 1.0, 0)
+    if is_backend_array(potInf):  # traced (jax.jit): no numpy value to take
+        return Emin, stop_gradient(potInf)
     return Emin, as_backend_constant(gxp, as_numpy_constant(potInf), Emin)
 
 
@@ -556,9 +564,16 @@ class sphericaldf(df):
             # finite knots from a DETACHED pass, then evaluate only those
             # attached: dropping entries after the fact still pushes a zero
             # cotangent through their 0*inf backward (NaN)
-            keep = numpy.flatnonzero(
-                numpy.isfinite(as_numpy_constant(self.fE(stop_gradient(Es_b))))
-            )
+            probe = self.fE(stop_gradient(Es_b))
+            if not has_concrete_truth_value(xp.all(probe == probe)):
+                # jax.jit: which knots are finite is unknowable, so keep them
+                # all and zero any non-finite value (a fixed-shape table)
+                fE_b = self.fE(Es_b)
+                self._fE_interp = Spline1D(
+                    Es_b, xp.where(xp.isfinite(fE_b), fE_b, 0.0), k=3, ext=3
+                )
+                return
+            keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
             Es_b = Es_b[keep]
             self._fE_interp = Spline1D(Es_b, self.fE(Es_b), k=3, ext=3)
             return
@@ -1064,12 +1079,26 @@ class sphericaldf(df):
         # use("numpy", force=True) -- so xp is numpy here and the branch below
         # would hand a tensor to numpy ops. Coerce at the boundary, as
         # _evalpot_asnumpy does; the differentiable route is a BACKEND key.
+        # jax.jit: no concrete scale, so the grid cannot be sized from it
+        jit = (
+            xp is not numpy
+            and is_backend_array(self._scale)
+            and not has_concrete_truth_value(self._scale == self._scale)
+        )
         _scale_np = (
-            as_numpy_constant(self._scale)
+            None
+            if jit
+            else as_numpy_constant(self._scale)
             if is_backend_array(self._scale)
             else self._scale
         )
-        if xp is numpy:
+        if jit:
+            ximin_b = _RToxi(xp.asarray(self._rmin_sampling) * 1.0, a=self._scale)
+            ximax_b = _RToxi(xp.asarray(self._rmax) * 1.0, a=self._scale)
+            # fixed-size grid over [ximin, ximax): the eager 1e-4 xi spacing
+            # for the widest range (xi in [-1, 1])
+            ximin, ximax = 0.0, 1.0
+        elif xp is numpy:
             ximin = _RToxi(self._rmin_sampling, a=_scale_np)
             ximax = _RToxi(self._rmax, a=_scale_np)
         else:
@@ -1079,7 +1108,7 @@ class sphericaldf(df):
             ximax_b = _RToxi(xp.asarray(self._rmax) * 1.0, a=self._scale)
             ximin = float(as_numpy_constant(ximin_b))
             ximax = float(as_numpy_constant(ximax_b))
-        xis = numpy.arange(ximin, ximax, 1e-4)
+        xis = numpy.arange(20000) / 20000.0 if jit else numpy.arange(ximin, ximax, 1e-4)
         grad = xp is not numpy and (
             under_trace(self._scale) or requires_backend_grad(self._scale)
         )
@@ -1092,7 +1121,11 @@ class sphericaldf(df):
             # r=0 knot (rmin_sampling=0): closed-form masses (a/R, R**-n) are 0
             # there but their backward is 0*inf=NaN, poisoning every CDF knot.
             # M(0)=0, so evaluate a benign radius and zero it.
-            at0 = asarray_on_device(xp, xis == -1.0, device_of(self._scale))
+            at0 = asarray_on_device(
+                xp,
+                (xis == 0.0) & (self._rmin_sampling == 0.0) if jit else xis == -1.0,
+                device_of(self._scale),
+            )
             xis = ximin_b + as_backend_constant(
                 xp, (xis - ximin) / (ximax - ximin), self._scale
             ) * (ximax_b - ximin_b)
@@ -1176,12 +1209,17 @@ class sphericaldf(df):
             # as_numpy on the scale: this is the numpy sampling path (see
             # below), and self._scale is pot._scale, which carries the gradient
             # when the potential is differentiated.
-            _scale_np = as_numpy_constant(self._scale)
-            r_a_end = (
-                max(numpy.log10(self._rmax / _scale_np), 3)
-                if numpy.isfinite(self._rmax)
-                else 3
-            )
+            if is_backend_array(self._scale) and not has_concrete_truth_value(
+                self._scale == self._scale
+            ):
+                r_a_end = 3  # jax.jit: the pvr grid takes an attached extent
+            else:
+                _scale_np = as_numpy_constant(self._scale)
+                r_a_end = (
+                    max(numpy.log10(self._rmax / _scale_np), 3)
+                    if numpy.isfinite(self._rmax)
+                    else 3
+                )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
         if key is None:
             # numpy path: byte-identical scipy pvr + global-numpy uniform. A
@@ -1291,13 +1329,27 @@ class sphericaldf(df):
         # numpy.log10 on it raises. The PHYSICAL radii below (r_a_grid *
         # self._scale) carry d/d(scale), which is what the DF is evaluated at;
         # a bound fixed by rmin/rmax is re-attached below.
-        _scale_np = as_numpy_constant(self._scale)
-        r_a_start, r_a_end = as_numpy_constant(r_a_start), as_numpy_constant(r_a_end)
-        lo_r = numpy.log10((as_numpy_constant(self._rmin_sampling) + 1e-8) / _scale_np)
-        hi_r = numpy.log10((as_numpy_constant(self._rmax) - 1e-8) / _scale_np)
-        lo_from_r, hi_from_r = lo_r >= r_a_start, hi_r <= r_a_end
-        r_a_start = numpy.amax([lo_r, r_a_start])
-        r_a_end = numpy.amin([hi_r, r_a_end])
+        if is_backend_array(self._scale) and not has_concrete_truth_value(
+            self._scale == self._scale
+        ):
+            # jax.jit: which bound comes from rmin/rmax is decided statically
+            # (whether they are set); the frame stays nominal and the attached
+            # extent below carries the actual bounds
+            r_a_start = float(r_a_start) if not is_backend_array(r_a_start) else -3.0
+            r_a_end = float(r_a_end) if not is_backend_array(r_a_end) else 3.0
+            lo_from_r = self._rmin_sampling > 0.0
+            hi_from_r = bool(numpy.isfinite(self._rmax))
+        else:
+            _scale_np = as_numpy_constant(self._scale)
+            r_a_start = as_numpy_constant(r_a_start)
+            r_a_end = as_numpy_constant(r_a_end)
+            lo_r = numpy.log10(
+                (as_numpy_constant(self._rmin_sampling) + 1e-8) / _scale_np
+            )
+            hi_r = numpy.log10((as_numpy_constant(self._rmax) - 1e-8) / _scale_np)
+            lo_from_r, hi_from_r = lo_r >= r_a_start, hi_r <= r_a_end
+            r_a_start = numpy.amax([lo_r, r_a_start])
+            r_a_end = numpy.amin([hi_r, r_a_end])
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
@@ -1477,7 +1529,10 @@ class sphericaldf(df):
         t = xp.where(dc > 0.0, (u[:, None] - c0) / xp.where(dc > 0.0, dc, 1.0), 0.0)
         v = xp.where(good[None, :], v0 + t * (v1 - v0), xp.zeros_like(v0))
         return _PVRInterpolator(
-            numpy.log10(r_a_grid[0, :]), as_numpy(u), xp.matrix_transpose(v), xp
+            numpy.log10(r_a_grid[0, :]),
+            numpy.linspace(0.0, 1.0, n_new_pvr),  # u's values; u is traced under jit
+            xp.matrix_transpose(v),
+            xp,
         )
 
     def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):

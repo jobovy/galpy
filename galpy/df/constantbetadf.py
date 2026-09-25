@@ -21,6 +21,7 @@ from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend import special as _bspecial
 from ..backend import use
+from ..backend._namespaces import has_concrete_truth_value, stop_gradient
 from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
@@ -363,7 +364,25 @@ class _constantbetadf(anisotropicsphericaldf):
         integrand = lambda v: (
             v ** (2.0 - 2.0 * self._beta + m + n) * self.fE(Phir_b + 0.5 * v**2.0)
         )
-        if numpy.isinf(as_numpy(self._potInf)):
+        if getattr(self, "_jit", False):
+            # jax.jit: whether Phi(inf) diverges has no concrete answer, so take
+            # both quadratures and select (vmax guarded so neither branch NaNs)
+            divergent = xp.isinf(self._potInf)
+            vmax = self._vmax_at_r(self._pot, rb)
+            vmax = xp.where(divergent, xp.ones_like(vmax), vmax)
+            integral = xp.where(
+                divergent,
+                fixed_quad_semiinfinite(
+                    xp,
+                    integrand,
+                    0.0,
+                    n=_QUAD_N_VMOM,
+                    kind="recip",
+                    device=device_of(rb),
+                ),
+                fixed_quad(xp, integrand, 0.0, vmax, n=_QUAD_N_VMOM),
+            )
+        elif numpy.isinf(as_numpy(self._potInf)):
             # divergent potential (Phi(inf)=inf): v_esc is infinite, so map the
             # tail [0, inf) instead of integrating to an infinite limit (NaN)
             integral = fixed_quad_semiinfinite(
@@ -546,16 +565,34 @@ class constantbetadf(_constantbetadf):
         # under a forced non-numpy backend (see _evalpot_asnumpy -- boundary
         # coercion, not a compute island; the differentiable fE is the backend path
         # below). numpy is a strict pass-through, so this stays byte-identical.
-        self._potInf = _evalpot_asnumpy(self._pot, self._rmax)
-        self._Emin = _evalpot_asnumpy(self._pot, self._rmin)
-        # Build interpolator r(pot), starting at rmin for divergent potentials
-        self._rphi = self._setup_rphi_interpolator(
-            r_a_min=max(1e-6, self._rmin / self._scale)
+        # Inside jax.jit the potential has no concrete value: nothing can be
+        # pulled numpy-side, so construction keeps its tables traced (_jit).
+        self._jit = _xp_pot is not None and not _has_concrete_value(
+            _evaluatePotentials(self._pot, _xp_pot.asarray(1.0) * self._scale, 0)
         )
+        if self._jit:
+            self._potInf = _evaluatePotentials(
+                self._pot, _xp_pot.asarray(self._rmax) * 1.0, 0
+            )
+            if not numpy.isfinite(self._rmax):
+                # Phi(inf) is the constant 0; its closed forms NaN the backward
+                self._potInf = stop_gradient(self._potInf)
+            self._Emin = _evaluatePotentials(
+                self._pot, _xp_pot.asarray(self._rmin) * 1.0, 0
+            )
+            r_a_min = _xp_pot.maximum(1e-6, self._rmin / self._scale)
+        else:
+            self._potInf = _evalpot_asnumpy(self._pot, self._rmax)
+            self._Emin = _evalpot_asnumpy(self._pot, self._rmin)
+            r_a_min = max(1e-6, self._rmin / self._scale)
+        # Build interpolator r(pot), starting at rmin for divergent potentials
+        self._rphi = self._setup_rphi_interpolator(r_a_min=r_a_min)
         # Build interpolator for the lower limit of the integration (near the
         # 1/(Phi-E)^alpha divergence; at the end, we slightly adjust it up
         # to be sure to be above the point where things go haywire...
-        if not self._halfint:
+        if not self._halfint and self._jit:
+            self._logstartt = self._calibrate_startt_traced(_xp_pot)
+        elif not self._halfint:
             # numpy-side calibration of the integration lower limit; run it
             # data-first (non-forced) so the jax/torch gradfunc autodiff traces
             # on its own tracer regardless of any forced backend (evaluateRforces
@@ -596,6 +633,34 @@ class constantbetadf(_constantbetadf):
                 self._logstartt = Spline1D(
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
+
+    def _calibrate_startt_traced(self, xp, nladder=40):
+        """The startt calibration below, with no concrete values (jax.jit).
+
+        The eager loop raises t through 10**(p (1-alpha)), p = -16, -15, ...,
+        until the integrand is nonzero at every energy. Traced, evaluate that
+        same ladder at once and take each energy's FIRST nonzero rung -- the
+        eager loop's answer whenever it stops within the ladder (``nladder``
+        rungs; it has no upper bound, a trace cannot). Only the zero/nonzero
+        decisions matter, so the values carry no gradient.
+        """
+        top = self._potInf + 1e-3 * (self._Emin - self._potInf)
+        Es = self._Emin + as_backend_constant(
+            xp, numpy.linspace(0.0, 1.0, 51), self._Emin
+        ) * (top - self._Emin)
+        ts = 10.0 ** (numpy.arange(-16, -16 + nladder) * (1.0 - self._alpha))
+        T = as_backend_constant(xp, numpy.repeat(ts, 51), self._Emin)
+        E = xp.tile(Es, (nladder,))
+        rmins = xp.tile(self._rphi(Es), (nladder,))
+        r = T ** (1.0 / (1.0 - self._alpha)) + rmins
+        val = (
+            self._gradfunc(r)
+            / (_evaluatePotentials(self._pot, r, 0) - E) ** self._alpha
+        )
+        live = xp.reshape(stop_gradient(xp.isfinite(val) & (val != 0.0)), (nladder, 51))
+        first = xp.argmax(live, axis=0)  # the first nonzero rung per energy
+        startt = as_backend_constant(xp, ts, self._Emin)[first]
+        return Spline1D(Es, xp.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3)
 
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
@@ -746,7 +811,11 @@ class constantbetadf(_constantbetadf):
         # interpolators rphi/logstartt set the (non-differentiable) limits, as in
         # _dMdE. The post-substitution integrand is smooth, matching the scipy
         # numpy path to ~1e-6 in the physical range.
-        pinf, emin = float(self._potInf), float(self._Emin)
+        pinf, emin = (
+            (self._potInf, self._Emin)  # traced (jax.jit): no float to take
+            if getattr(self, "_jit", False)
+            else (float(self._potInf), float(self._Emin))
+        )
         # torch.asarray rejects the negative strides of a reversed numpy grid
         # (e.g. the [::-1] fE-interp energies), so make numpy input contiguous
         Ein = Ein if is_backend_array(Ein) else numpy.ascontiguousarray(Ein)
@@ -801,6 +870,12 @@ class constantbetadf(_constantbetadf):
         i2 = fixed_quad(xp, _larger, xp.zeros_like(rphiE), 0.5 / rphiE, n=_QUAD_N_FE)
         out = -(i1 + csmall + i2) * self._fE_prefactor
         return xp.where(indx, out, xp.zeros_like(out)).reshape(E.shape)
+
+
+def _has_concrete_value(x):
+    """False exactly inside a trace with no primal (jax.jit); eager autodiff
+    (torch autograd, eager jax.grad) still carries one."""
+    return has_concrete_truth_value(x == x)
 
 
 def _evalpot_asnumpy(pot, r):
