@@ -11615,6 +11615,8 @@ def test_actionAngleStaeckelInverse_errors(
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=64, mm_npt=20
         )
+    with pytest.raises(ValueError, match="mm_npt must be at least 2"):
+        actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=1)
     with pytest.raises(ValueError, match=">= 4"):
         actionAngleStaeckelInverse(pot=pot, setup_interp=True, nE=3)
     with pytest.raises(ValueError, match="below the circular orbit's"):

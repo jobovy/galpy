@@ -153,7 +153,11 @@ v1.12.1 (expected around 2026-11-01)
   the order of a torus's ratio of outer to inner radius in the plane, the
   v map of the order of L / |L_z| as the torus approaches a polar orbit),
   and a torus that reaches beyond the depth of the fitted auxiliary raises
-  with the same advice.
+  with the same advice. As for the spherical inverse, the auxiliary's
+  cumulative actions are closed forms with their linear parts gathered, the
+  maps' projections and evaluations on the anomaly grid are FFTs, and the
+  slopes are solved by a Galerkin projection; ``progressbar=`` (default
+  True) shows tqdm bars over the tori.
 
 - ``actionAngleStaeckel`` takes the focal length from a potential that
   supplies its own when ``delta=`` is not given: an exact Staeckel potential
