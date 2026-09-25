@@ -17,6 +17,7 @@ from ..backend._namespaces import (
     requires_backend_grad,
     stop_gradient,
     under_trace,
+    untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
@@ -198,6 +199,7 @@ class _scalefreekingdf:
     def __init__(self, W0):
         self.W0 = W0
 
+    @untraceable_setup  # torch.compile: run the scipy solve eagerly (opaque)
     def solve(self, npt=1001):
         """Solve the model W(r) at npt points (note: not equally spaced in
         either r or W, because combination of two ODEs for different r ranges)"""
@@ -210,11 +212,8 @@ class _scalefreekingdf:
         if is_backend_array(self.W0) and not has_concrete_truth_value(
             self.W0 == self.W0
         ):
-            raise NotImplementedError(
-                "kingdf: W0 under jax.jit -- the King ODE is solved by scipy on "
-                "W0's value, which a jit trace does not have; differentiate w.r.t. "
-                "W0 outside jit (M and rt are jit-safe)"
-            )
+            # jax.jit: no value to hand scipy, so solve with diffrax (traced W0)
+            return self._solve_traced(npt)
         W0 = (
             float(as_numpy(stop_gradient(self.W0)))
             if is_backend_array(self.W0)
@@ -290,6 +289,26 @@ class _scalefreekingdf:
         self.mass = self._cumul_mass[-1]
         if under_trace(self.W0) or requires_backend_grad(self.W0):
             self._graft_W0_derivative(W0, rbreak, npt)
+        return None
+
+    def _solve_traced(self, npt):
+        """solve() under jax.jit: the same two ODE segments with diffrax, so W0
+        (and with it rbreak, the second segment's start and both output grids)
+        can be traced; d/dW0 is AD through the discretized solve."""
+        import jax
+
+        from ..backend._jax.king_ode import solve as _king_solve
+
+        self.rho0, self.r0, r, W, dWdr = _king_solve(self._dens_W, self.W0, npt)
+        self._r, self._W, self._dWdr = r, W, dWdr
+        self._rho = self._dens_W(W)
+        self.rt = r[-1]
+        self.c = jax.numpy.log10(self.rt / self.r0)
+        self._W_from_r = Spline1D(r, W, k=3)
+        # the eager repair of small decreases (cm[i] = cm[i-1] + 2 eps) as a
+        # running maximum: equal up to ~npt eps where it bites at all
+        self._cumul_mass = jax.lax.cummax(-dWdr * r**2.0)
+        self.mass = self._cumul_mass[-1]
         return None
 
     @staticmethod
@@ -401,10 +420,15 @@ class _scalefreekingdf:
             )
         xp = get_namespace(W)
         Wb = xp.asarray(W) * 1.0
-        sqW = xp.sqrt(Wb)
-        return xp.exp(Wb) * _bspecial.erf(sqW) - _TWOOVERSQRTPI * sqW * (
-            1.0 + 2.0 / 3.0 * Wb
+        # dens(0) = 0 but sqrt's backward is infinite at W=0 (the tidal radius,
+        # where the traced solve ends): evaluate a benign W there and select 0
+        live = Wb > 0.0
+        Ws = xp.where(live, Wb, xp.ones_like(Wb))
+        sqW = xp.sqrt(Ws)
+        out = xp.exp(Ws) * _bspecial.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+            1.0 + 2.0 / 3.0 * Ws
         )
+        return xp.where(live, out, xp.zeros_like(out))
 
     def dens(self, r):
         return self._dens_W(self._W_from_r(r))

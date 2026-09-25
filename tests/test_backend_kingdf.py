@@ -7,6 +7,8 @@
 # grad-vs-FD, is-backend-array assertions, and the numpy-side sampling contract
 # (seeded draws unchanged under a forced backend).
 ###############################################################################
+import warnings
+
 import numpy
 import pytest
 
@@ -372,11 +374,13 @@ def test_kingdf_W0_grad_vs_finite_difference(backend, which):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
 
 
-# --- under jax.jit -------------------------------------------------------------
-# M and rt only rescale the (numpy) scale-free solution, so they are jit-safe:
-# measured jit vs eager-traced to <= 2.7e-15 (fE, sigmar, sampled v^2, and their
-# gradients). W0 changes the ODE solution itself, solved by scipy on W0's value,
-# which a trace does not have -- so it raises clearly.
+# --- under jax.jit / torch.compile -----------------------------------------------
+# M and rt only rescale the (numpy) scale-free solution: jit vs eager-traced to
+# <= 2.7e-15. W0 changes the ODE solution itself: under jax.jit it is solved with
+# diffrax (galpy.backend._jax.king_ode), d/dW0 by AD through the discretized
+# solve -- vs the eager scipy solve + forward-sensitivity graft: tables <= 7.9e-10,
+# d/dW0 <= 1e-8. Under torch.compile the scipy solve runs eagerly (opaque;
+# tested with the eager backend: dynamo is what failed, inductor adds ~7 min).
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_kingdf_rt_under_jit_matches_eager_traced():
     def f(rt):
@@ -390,10 +394,52 @@ def test_kingdf_rt_under_jit_matches_eager_traced():
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-def test_kingdf_W0_under_jit_raises_clearly():
-    def f(W0):
-        with galpy.backend.use("jax", force=True):
-            return kingdf(W0=W0, M=2.3, rt=1.4).fE(jnp.asarray(-3.0))
+def test_kingdf_W0_under_jit_diffrax_matches_eager_graft():
+    from galpy.df.kingdf import _scalefreekingdf
 
-    with pytest.raises(NotImplementedError, match="W0 under jax.jit"):
-        jax.jit(f)(3.0)
+    def tables(W0):
+        k = _scalefreekingdf(W0)
+        k.solve(1001)
+        return jnp.stack(
+            [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
+        )
+
+    ref = numpy.asarray(tables(3.0))  # numpy/scipy solve
+    numpy.testing.assert_allclose(numpy.asarray(jax.jit(tables)(3.0)), ref, rtol=2e-9)
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.jacrev(tables))(3.0)),
+        numpy.asarray(jax.jacfwd(tables)(3.0)),  # eager: scipy + graft
+        rtol=3e-8,
+    )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_kingdf_W0_under_torch_compile_matches_eager():
+    def f(W0):
+        with galpy.backend.use("torch", force=True):
+            return kingdf(W0=W0, M=2.3, rt=1.4).fE(torch.tensor([-3.0, -2.0])).sum()
+
+    W = torch.tensor(3.0, requires_grad=True)
+    v = f(W)
+    (g,) = torch.autograd.grad(v, W)
+    Wc = torch.tensor(3.0, requires_grad=True)
+    # torch's own script_method DeprecationWarning on first compile in a process
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*script_method.*", category=DeprecationWarning
+        )
+        vc = torch.compile(f, backend="eager")(Wc)  # dynamo only: no codegen
+    (gc,) = torch.autograd.grad(vc, Wc)
+    numpy.testing.assert_allclose(float(vc), float(v), rtol=1e-14)
+    numpy.testing.assert_allclose(float(gc), float(g), rtol=1e-13)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_king_density_gradient_finite_at_W0():
+    # dens(W=0) = 0 at the tidal radius, but sqrt's backward is infinite there;
+    # the traced solve ends at W=0, so a NaN here poisoned every d/dW0
+    from galpy.df.kingdf import _scalefreekingdf
+
+    k = _scalefreekingdf(3.0)
+    g = float(jax.grad(lambda W: k._dens_W(W))(jnp.asarray(0.0)))
+    assert g == 0.0
