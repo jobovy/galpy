@@ -33,7 +33,12 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import use as _use_backend
-from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend._namespaces import (
+    requires_backend_grad,
+    under_jax_trace,
+    under_trace,
+    untraceable_setup,
+)
 from ..potential import (
     _INF,
     CompositePotential,
@@ -498,6 +503,12 @@ class Orbit:
             # -- falls back to a placeholder and is restricted to the in-backend
             # methods.
             try:
+                # A grad-requiring tensor has no usable concrete value. Eagerly
+                # numpy.asarray raises on it anyway, but under torch.compile dynamo
+                # TRACES numpy.asarray without that check, so the IC was taken as
+                # concrete and integrated in numpy -- silently detached.
+                if requires_backend_grad(vxvv):
+                    raise ValueError("grad-requiring backend IC")
                 # .copy(): asarray on a jax array is a READ-ONLY view, and vxvv is
                 # writable bookkeeping (cf. the as_numpy(...).copy() sites below).
                 vxvv = numpy.asarray(vxvv).copy()
@@ -1877,7 +1888,9 @@ class Orbit:
                 # the same conclusion streamspraydf reached for its own dispatch.
                 if (
                     _check_c(_potl)
-                    and not under_trace(t)
+                    # jax only: under torch.compile the C-STM runs eagerly as an
+                    # opaque call (_integrate_cstm is @untraceable_setup)
+                    and not under_jax_trace(t)
                     and not _pot_has_traced_param(_potl)
                     and (
                         _check_c(_potl, dxdv3d=True)
@@ -2430,6 +2443,7 @@ class Orbit:
             )
         return None
 
+    @untraceable_setup  # torch.compile: the C integration runs eagerly (opaque)
     def _integrate_cstm(self, t, pot, method, rtol, atol):
         """Differentiable FAST-C orbit integration via the dxdv state-transition
         matrix.
