@@ -10297,11 +10297,15 @@ def spherical_inverse_interp():
 
 @pytest.fixture(scope="module")
 def spherical_inverse_explicit():
-    # two explicit tori in the logarithmic halo
+    # two explicit tori in the logarithmic halo, set up without the progress
+    # bar (the interpolated fixture keeps it)
     from galpy.actionAngle import actionAngleSphericalInverse
 
     return actionAngleSphericalInverse(
-        pot=_spherical_inverse_potential(), Es=[0.7, 1.1], Ls=[0.9, 0.7]
+        pot=_spherical_inverse_potential(),
+        Es=[0.7, 1.1],
+        Ls=[0.9, 0.7],
+        progressbar=False,
     )
 
 
@@ -10708,8 +10712,13 @@ def test_actionAngleSphericalInverse_errors(
 ):
     # every guarded misuse raises informatively
     from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import IsochronePotential
 
     pot = _spherical_inverse_potential()
+    with pytest.raises(ValueError, match="unbound"):
+        actionAngleSphericalInverse(
+            pot=IsochronePotential(normalize=1.0), Es=[0.5], Ls=[0.9]
+        )
     with pytest.raises(OSError, match="Must specify pot="):
         actionAngleSphericalInverse()
     with pytest.raises(ValueError, match="same length"):
