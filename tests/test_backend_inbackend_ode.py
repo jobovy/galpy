@@ -732,3 +732,18 @@ def test_inbackend_nsteps_is_rejected_on_torch():
     ts = torch.linspace(0.0, 1.0, 5, dtype=torch.float64)
     with pytest.raises(NotImplementedError, match="jax/diffrax option"):
         integrate_orbit(pot, vxvv, ts, nsteps=100)
+
+
+@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="needs jax and torch")
+def test_inbackend_engine_errors():
+    # engine selects the torch ODE package; jax has only diffrax, and an Orbit
+    # with a jax IC cannot take method='torchode'
+    from galpy.orbit import Orbit
+
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    with pytest.raises(ValueError, match="engine='torchode' is a torch option"):
+        integrate_orbit(pot, jnp.asarray(_IC), jnp.asarray(_TS), engine="torchode")
+    with pytest.raises(ValueError, match="engine must be 'torchdiffeq' or 'torchode'"):
+        integrate_orbit(pot, torch.as_tensor(_IC), torch.as_tensor(_TS), engine="rk")
+    with pytest.raises(ValueError, match="method='torchode' requires a torch"):
+        Orbit(jnp.asarray(_IC)).integrate(jnp.asarray(_TS), pot, method="torchode")
