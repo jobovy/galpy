@@ -2,7 +2,14 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, asarray_on_device, device_of, get_namespace
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    as_numpy_constant,
+    asarray_on_device,
+    device_of,
+    get_namespace,
+)
 from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend._namespaces import stop_gradient
@@ -10,12 +17,13 @@ from ..backend.interpolate import Spline1D
 from ..backend.optimize import bisect_root, newton_polish
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
-from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import _evaluatePotentials, _pot_grad_namespace
 from ..util import conversion
 from .eddingtondf import eddingtondf
 from .sphericaldf import (
     _QUAD_N_VMOM,
     _QUAD_N_VMOM2D,
+    _attached_energy_bounds,
     anisotropicsphericaldf,
     sphericaldf,
 )
@@ -533,13 +541,35 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                     sorted(1.0 - numpy.geomspace(1e-8, 0.5, 101)),
                 )
             )
+            xp = get_namespace()  # context/forced default only (grid is numpy)
+            gxp = None if xp is numpy else _pot_grad_namespace(self._pot)
+            if gxp is not None:
+                # differentiated potential: knots AND values on-backend
+                # (Spline1D mode 2), as for sphericaldf's f(E) table -- a frozen
+                # table dropped d/d(potential) from every velocity (2-26% off)
+                Emin, potInf = _attached_energy_bounds(
+                    gxp, self._pot, self._edf._rmin, self._edf._rmax, self._edf._potInf
+                )
+                Qs = -(
+                    as_backend_constant(gxp, Qs4interp, Emin) * (Emin - potInf) + potInf
+                )
+                # find the finite knots on a DETACHED pass and evaluate only
+                # those attached: indexing after the fact still pushes a zero
+                # cotangent through the dropped knots' 0*inf backward (NaN)
+                keep = numpy.flatnonzero(
+                    numpy.isfinite(
+                        as_numpy_constant(xp.log(self.fQ(stop_gradient(Qs))))
+                    )
+                )
+                Qs = Qs[keep]
+                self._logfQ_interp = Spline1D(Qs, xp.log(self.fQ(Qs)), k=3, ext=3)
+                return
             # the spline table is built on a numpy grid; under a forced backend
             # the potential bounds are backend scalars, so pull them numpy-side
             # (no-op on the numpy path)
             Emin = as_numpy(self._edf._Emin)
             potInf = as_numpy(self._edf._potInf)
             Qs4interp = -(Qs4interp * (Emin - potInf) + potInf)
-            xp = get_namespace()  # context/forced default only (grid is numpy)
             if xp is numpy:
                 fQ4interp = numpy.log(self.fQ(Qs4interp))
                 iindx = numpy.isfinite(fQ4interp)
