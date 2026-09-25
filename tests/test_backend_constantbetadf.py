@@ -602,3 +602,71 @@ def test_sample_eta_numpy_beta_keeps_the_frozen_grid():
     assert hasattr(df, "_coseta_icmf_interp"), "the numpy path stopped caching"
     numpy.random.seed(42)
     numpy.testing.assert_array_equal(eta, df._sample_eta(1.0, n=50))
+
+
+# --- constantbetadf under jax.jit, differentiated w.r.t. the potential ---------
+# Inside jit the potential has no concrete value, so construction keeps its tables
+# traced: the energy bounds, the r(Phi) root-find, the startt calibration (a fixed
+# ladder instead of a data-dependent loop), and the sampling grids. Reference: the
+# EAGER construction under a gradient (eager-traced), which also inverts Phi by
+# root-find -- plain eager uses a 10001-knot spline and differs at ~1e-7-2e-6.
+# Measured jit vs eager-traced: values <= 2.7e-8 (non-half-integer beta; the
+# calibration spline differs in mode, shifting the fE lower limit only) and
+# <= 7e-16 (half-integer beta, no calibration); gradients <= 7.1e-7.
+from galpy.backend import random as _grandom
+
+_JIT_Q = {
+    "fE": lambda d: d.fE(jnp.asarray(-0.8)),
+    "dMdE": lambda d: d.dMdE(jnp.asarray(-0.5)),
+    "sigmar": lambda d: d.sigmar(jnp.asarray(0.7)),
+    "sample_v2": lambda d: sum(
+        (x**2).sum()
+        for i, x in enumerate(
+            d.sample(n=3, key=_grandom.key(3, "jax"), return_orbit=False)
+        )
+        if i in (1, 2, 4)
+    ),
+}
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("beta,vtol,gtol", [(-0.2, 1e-7, 2e-6), (0.5, 1e-13, 1e-13)])
+@pytest.mark.parametrize("which", list(_JIT_Q))
+def test_constantbetadf_under_jit_matches_eager_traced(which, beta, vtol, gtol):
+    def f(a):
+        with use("jax", force=True):
+            d = constantbetadf(
+                pot=HernquistPotential(amp=2.0, a=a), beta=beta, rmin=0.0
+            )
+            return jnp.sum(jnp.asarray(_JIT_Q[which](d)))
+
+    v_jit = float(jax.jit(f)(1.2))
+    g_jit = float(jax.jit(jax.grad(f))(1.2))
+    v_eager, g_eager = (float(x) for x in jax.jvp(f, (1.2,), (1.0,)))
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=vtol)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=gtol)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_constantbetadf_traced_calibration_matches_the_eager_loop():
+    # the fixed ladder picks each energy's first nonzero rung, i.e. the same
+    # startt as the eager while-loop whenever that stops within the ladder
+    d = constantbetadf(pot=HernquistPotential(amp=2.0, a=1.2), beta=-0.2)
+    Es = numpy.linspace(d._Emin, d._potInf + 1e-3 * (d._Emin - d._potInf), 51)
+    eager_logstartt = d._logstartt(Es)
+    # under jit the energy bounds are jax arrays; give the traced routine those
+    d._Emin, d._potInf = jnp.asarray(d._Emin), jnp.asarray(d._potInf)
+    traced = d._calibrate_startt_traced(jnp)
+    numpy.testing.assert_allclose(
+        numpy.asarray(traced(jnp.asarray(Es))), eager_logstartt, rtol=0, atol=1e-12
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_constantbetadf_under_jit_needs_an_explicit_rmin():
+    def f(a):
+        with use("jax", force=True):
+            return constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)._Emin
+
+    with pytest.raises(ValueError, match="pass rmin explicitly"):
+        jax.jit(f)(1.2)
