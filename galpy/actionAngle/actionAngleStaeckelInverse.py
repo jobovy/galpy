@@ -30,6 +30,7 @@ from ..potential import (
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._hermite import HermiteFamily3D, slope_at_zero
+from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleSphericalInverse import (
     _BOUND_MARGIN,
@@ -252,6 +253,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._nptv = len(self._nforDmv)
         self._maxiter = maxiter
         self._angle_tol = angle_tol
+        self._progressbar = progressbar and _TQDM_LOADED
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
@@ -1098,12 +1100,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             numpy.zeros((nE, nI, nL, 1 + self._nptv)) for _ in range(4)
         )
         perr_u, perr_v = numpy.zeros((nE, nI, nL)), numpy.zeros((nE, nI, nL))
-        for iE, wE in enumerate(self._wEs):
-            for iI, wI in enumerate(self._wIs):
+        for ii in self._progress(range(nE * nI * nL), "node tables"):
+            iE, rest = divmod(ii, nI * nL)
+            iI, iL = divmod(rest, nL)
+            wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
+            if True:
                 y = self._ys[iI]
                 su, sv = numpy.cos(0.5 * numpy.pi * wI), numpy.sin(0.5 * numpy.pi * wI)
-                for iL, Lz in enumerate(self._Lzgrid):
-                    ii = (iE * nI + iI) * nL + iL
+                if True:
                     node = self._node_tables(ii)
                     perr_u[iE, iI, iL], perr_v[iE, iI, iL] = (
                         node["perr_u"],
