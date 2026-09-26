@@ -28,3 +28,21 @@ def autodiff_ops(xp):
     raise ValueError(
         "autodiff_ops requires a jax or torch namespace (numpy has no autodiff)"
     )
+
+
+def graft_derivative(x, value, deriv, higher):
+    """Backend array equal to ``value`` whose derivatives w.r.t. the scalar ``x``
+    are ``deriv`` (first order) and those of ``higher(x)`` (second order and up).
+
+    For a quantity computed in numpy (e.g. a scipy ODE solve) whose first
+    derivative is known in closed form (its forward sensitivities) but whose
+    backend twin ``higher`` -- the same computation in jax/torch, equal to
+    ``value`` up to its own accuracy -- is too slow to run for every gradient.
+    ``higher`` runs only when a derivative of the derivative is taken. ``x``
+    selects the backend (jax: ``jax.custom_jvp``; torch: an autograd.Function).
+    """
+    if "torch" in type(x).__module__:
+        from ._torch.graft import graft_derivative as _graft
+    else:
+        from ._jax.graft import graft_derivative as _graft
+    return _graft(x, value, deriv, higher)
