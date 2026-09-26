@@ -11066,6 +11066,24 @@ def _staeckel_inverse_forward():
 
 
 @pytest.fixture(scope="module")
+def staeckel_inverse_interp():
+    # a small (L_z, E, I_3) interpolation grid in a Kuzmin-Kutuzov potential
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    return actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=8,
+        nLz=8,
+        nI3=8,
+        mm_npt=48,
+    )
+
+
+@pytest.fixture(scope="module")
 def staeckel_inverse_explicit():
     # two explicit tori, a benign and an eccentric one
     from galpy.actionAngle import actionAngleStaeckelInverse
@@ -11204,6 +11222,53 @@ def test_actionAngleStaeckelInverse_orbit(staeckel_inverse_explicit):
     return None
 
 
+def test_actionAngleStaeckelInverse_interpolation(staeckel_inverse_interp):
+    # The interpolated family: exact at a node of its own grid, accurate to
+    # the family's interpolation error between nodes, its frequencies those
+    # of the returned orbits, and (J_R, J_z)(E, L_z, I_3) the forward
+    # transformation's
+    aAI = staeckel_inverse_interp
+    aAS = _staeckel_inverse_forward()
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    # a node of the grid (the fourth energy, third third-integral, and
+    # fifth angular momentum), where the actions, the angles, and the
+    # frequencies are all at the forward transformation's floor, because
+    # the family's first partials are exact there; and a torus between
+    # nodes, at the family's interpolation error
+    nI, nL = 8, 8
+    ii = (4 * nI + 3) * nL + 5
+    for (E, Lz, I3), tolJ, tolth, tolOm in (
+        ((aAI._Es[ii], aAI._Lzs[ii], aAI._I3s[ii]), 1e-9, 1e-7, 1e-8),
+        (_staeckel_inverse_labels([1.05, 0.25, 0.95, 0.2, 0.3, 0.0]), 1e-5, 1e-4, 1e-4),
+    ):
+        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        # the forward transformation's actions of a point on this torus:
+        # the inverse's own point, at the family's accuracy
+        R, vR, vT, z, vz, phi = (
+            numpy.atleast_1d(q)[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)
+        )
+        jrf, _, jzf = (
+            float(numpy.atleast_1d(x)[0]) for x in aAS(R, vR, vT, z, vz, phi)
+        )
+        assert numpy.fabs(jr - jrf) + numpy.fabs(jz - jzf) < tolJ * (jr + jz), (
+            "(J_R, J_z)(E, L_z, I_3) of the family is not the forward transformation's"
+        )
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aAI, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS
+        )
+        assert dJ < tolJ, "The map does not return the requested torus: %g" % dJ
+        assert dth < tolth, "The map does not return the requested angles: %g" % dth
+        assert dOm < tolOm, "The frequencies are not the torus's: %g" % dOm
+        assert dH < tolJ, "The reconstructed torus is not at one energy: %g" % dH
+        assert numpy.all(
+            numpy.array(aAI.Freqs(jr, Lz, jz))
+            == numpy.array(aAI.xvFreqs(jr, Lz, jz, 0.3, 1.0, 2.0)[6:])
+        ), "Freqs and xvFreqs disagree"
+    return None
+
+
 def test_actionAngleStaeckelInverse_turning_point_derivatives(
     staeckel_inverse_explicit,
 ):
@@ -11241,6 +11306,172 @@ def test_actionAngleStaeckelInverse_turning_point_derivatives(
                 assert numpy.fabs(dush[k // 2] - (up[3] - dn[3]) / (2.0 * h)) < 1e-6 * (
                     1.0 + numpy.fabs(dush[k // 2])
                 ), "The shell u's derivative is not the level-set rule's"
+    return None
+
+
+def test_actionAngleStaeckelInverse_symplectic(staeckel_inverse_interp):
+    # Manifest canonicity: the symplectic defect of the public map is at the
+    # finite-difference floor -- measured on the analytic isochrone inverse
+    # with the same harness -- between the nodes of the family, and just as
+    # much on a grid so coarse that its interpolation error is large
+    from galpy.actionAngle import (
+        actionAngleIsochroneInverse,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import IsochronePotential
+
+    floor = _spherical_inverse_symplectic_defect(
+        actionAngleIsochroneInverse(ip=IsochronePotential(amp=4.0, b=0.5)),
+        0.06,
+        0.9,
+        0.1,
+        0.7,
+        1.0,
+        2.0,
+    )
+    aAI = staeckel_inverse_interp
+    for jr, Lz, jz in ((0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.02, 0.8, 0.2)):
+        defect = _spherical_inverse_symplectic_defect(aAI, jr, Lz, jz, 0.7, 1.0, 2.0)
+        assert defect < 20.0 * floor + 1e-9, (
+            "The symplectic defect between the nodes is above the finite-difference "
+            "floor: %g vs %g" % (defect, floor)
+        )
+    coarse = actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=48,
+    )
+    angler = numpy.linspace(0.05, 6.2, 21)
+    dJ = _staeckel_inverse_roundtrip(
+        coarse, 0.06, 0.93, 0.10, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0
+    )[0]
+    assert dJ > 1e-5, "The coarse grid is too accurate for this check to mean anything"
+    defect = _spherical_inverse_symplectic_defect(
+        coarse, 0.06, 0.93, 0.10, 0.7, 1.0, 2.0
+    )
+    assert defect < 20.0 * floor + 1e-9, (
+        "The symplectic defect on the coarse grid is above the floor: %g vs %g, "
+        "so canonicity is contingent on the tables" % (defect, floor)
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_symplectic_perturbed(staeckel_inverse_interp):
+    # Manifest canonicity: the map is symplectic for whatever the tables
+    # contain, because every derivative it uses is the stored interpolant's
+    # own. Perturb the stored values and slopes of a copy of the family by
+    # amounts that spoil its accuracy, rebuild the interpolants, and check
+    # that the symplectic defect is still at the finite-difference floor
+    import copy
+
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    floor = _spherical_inverse_symplectic_defect(
+        actionAngleIsochroneInverse(ip=IsochronePotential(amp=4.0, b=0.5)),
+        0.06,
+        0.9,
+        0.1,
+        0.7,
+        1.0,
+        2.0,
+    )
+    aAP = copy.deepcopy(staeckel_inverse_interp)
+    rng = numpy.random.default_rng(3)
+    # every table and every slope, where they are not identically zero (the
+    # degenerate faces stay degenerate)
+    for name in (
+        "_A_tab",
+        "_A_dx",
+        "_A_dy",
+        "_A_dL",
+        "_U_tab",
+        "_U_dwE",
+        "_U_dsu",
+        "_U_dL",
+        "_V_tab",
+        "_V_dwE",
+        "_V_dsv",
+        "_V_dL",
+    ):
+        tab = getattr(aAP, name)
+        mask = tab != 0.0
+        tab[mask] *= 1.0 + 1e-3 * rng.uniform(-1.0, 1.0, tab.shape)[mask]
+    aAP._rebuild_interp()
+    jr, Lz, jz = 0.06, 0.93, 0.10
+    angler = numpy.linspace(0.05, 6.2, 21)
+    dJ = _staeckel_inverse_roundtrip(
+        aAP, jr, Lz, jz, angler, 0.0 * angler + 1.0, 0.0 * angler + 2.0
+    )[0]
+    assert dJ > 1e-5, "The perturbation of the tables is too small to mean anything"
+    defect = _spherical_inverse_symplectic_defect(aAP, jr, Lz, jz, 0.7, 1.0, 2.0)
+    assert defect < 20.0 * floor + 1e-9, (
+        "The symplectic defect with perturbed tables is above the floor: %g vs %g, "
+        "so canonicity is contingent on the tables" % (defect, floor)
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_small_action(staeckel_inverse_interp):
+    # Actions down to round-off above zero resolve to the edges' immediate
+    # neighbourhood, not to the edges themselves: the frequencies stay
+    # finite and tend to the epicycle, circular, and vertical frequencies,
+    # and the point tends to the circular orbit's within the librations'
+    # amplitudes; a vanishing action alone puts the torus on the shell or
+    # the planar face, where the other action round-trips through the
+    # forward transformation
+    from galpy.potential import epifreq, rl, verticalfreq
+
+    aAI = staeckel_inverse_interp
+    aAS = _staeckel_inverse_forward()
+    pot = _staeckel_inverse_potential()
+    # a row of the fixture's grid in angular momentum, where the edge's
+    # values and slopes are exact
+    Lz = float(aAI._Lzgrid[3])
+    Rc = rl(pot, Lz)
+    kappa, Omc, nu = epifreq(pot, Rc), Lz / Rc**2, verticalfreq(pot, Rc)
+    circ = numpy.array(aAI(0.0, Lz, 0.0, 0.3, 1.0, 2.0)).flatten()
+    for jr, jz in (
+        (1e-16, 1e-16),
+        (1e-12, 1e-12),
+        (1e-8, 0.0),
+        (0.0, 1e-8),
+        (1e-8, 1e-8),
+    ):
+        Om = numpy.array(aAI.Freqs(jr, Lz, jz))
+        out = numpy.array(aAI(jr, Lz, jz, 0.3, 1.0, 2.0)).flatten()
+        assert numpy.all(numpy.isfinite(Om)) and numpy.all(numpy.isfinite(out)), (
+            "Tiny actions (J_R, J_z) = ({:g}, {:g}) give non-finite output".format(
+                jr, jz
+            )
+        )
+        assert numpy.amax(numpy.fabs(Om / [kappa, Omc, nu] - 1.0)) < 1e-6, (
+            "The frequencies at (J_R, J_z) = (%g, %g) are not the epicycle limit's: %s"
+            % (jr, jz, Om)
+        )
+        # the librations' half-widths in the epicycle limit
+        amp = numpy.sqrt(2.0 * jr / kappa) + numpy.sqrt(2.0 * jz / nu)
+        assert numpy.amax(numpy.fabs(out - circ)) < 3.0 * amp + 1e-9, (
+            "The point at (J_R, J_z) = (%g, %g) is not continuous with the circular orbit's"
+            % (jr, jz)
+        )
+    angler = numpy.linspace(0.05, 6.2, 11)
+    for jr, jz in ((0.0, 0.05), (0.05, 0.0)):
+        R, vR, vT, z, vz, phi = aAI(jr, Lz, jz, angler, 1.0, 2.0)
+        f = aAS(R, vR, vT, z, vz, phi)
+        assert (
+            numpy.amax(numpy.fabs(f[0] - jr)) < 1e-5
+            and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-5
+        ), (
+            "The torus on the %s face does not round-trip through the forward transformation"
+            % ("shell" if jr == 0.0 else "planar")
+        )
     return None
 
 
@@ -11343,7 +11574,9 @@ def test_actionAngleStaeckelInverse_convergence_warnings():
     return None
 
 
-def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
+def test_actionAngleStaeckelInverse_errors(
+    staeckel_inverse_interp, staeckel_inverse_explicit
+):
     # every guarded misuse raises informatively
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import (
@@ -11384,6 +11617,8 @@ def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
         )
     with pytest.raises(ValueError, match="mm_npt must be at least 2"):
         actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=1)
+    with pytest.raises(ValueError, match=">= 4"):
+        actionAngleStaeckelInverse(pot=pot, setup_interp=True, nE=3)
     with pytest.raises(ValueError, match="below the circular orbit's"):
         actionAngleStaeckelInverse(pot=pot, Es=[-10.0], Lzs=[Lz], I3s=[I3])
     with pytest.raises(ValueError, match="unbound"):
@@ -11392,6 +11627,29 @@ def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
         actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3 + 10.0])
     with pytest.raises(ValueError, match="below the planar orbit's"):
         actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3 - 10.0])
+    with pytest.raises(ValueError, match="Rinf"):
+        actionAngleStaeckelInverse(
+            pot=pot, setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=1.0
+        )
+    aAI = staeckel_inverse_interp
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.Freqs(0.05, 5.0, 0.05)  # L_z outside the grid
+    with pytest.raises(ValueError, match="above the covered"):
+        aAI(50.0, 0.93, 0.1, 0.3, 1.0, 2.0)  # J_R outside the family
+    with pytest.raises(ValueError, match="above the covered"):
+        aAI(0.0, 0.93, 50.0, 0.3, 1.0, 2.0)  # J_z outside the family, on the shell face
+    with pytest.raises(ValueError, match="non-negative"):
+        aAI(-0.1, 0.93, 0.1, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="L_z = 0"):
+        aAI(0.1, 0.0, 0.1, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.JR(E, 5.0, I3)
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.JR(-10.0, 0.93, I3)  # below the circular orbit's energy
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.Jz(E, 0.93, I3 + 10.0)  # above the shell orbit's third integral
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.Freqs(0.0, 5.0, 0.0)  # a circular request outside the grid's L_z range
     aAD = staeckel_inverse_explicit
     with pytest.raises(ValueError, match="non-negative"):
         aAD(-0.1, 0.4, 0.2, 0.3, 1.0, 2.0)
@@ -11408,15 +11666,18 @@ def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
     return None
 
 
-def test_actionAngleStaeckelInverse_circular():
-    # The circular orbit is a torus in its own right: it evaluates in
-    # closed form at the circular radius in the plane, at the requested
-    # azimuthal angle, with the epicycle, circular, and vertical
-    # frequencies, among librating tori or alone
+def test_actionAngleStaeckelInverse_circular(staeckel_inverse_interp):
+    # The circular orbits are the bottom face of the family's grid, with
+    # the epicycle limit's exact partials, so both actions reach zero
+    # continuously; the circular orbit itself evaluates in closed form at
+    # the circular radius in the plane, at the requested azimuthal angle,
+    # with the epicycle, circular, and vertical frequencies, in a grid or
+    # as an explicit torus
     from galpy.actionAngle import actionAngleStaeckelInverse
-    from galpy.potential import epifreq, evaluatePotentials, rl
+    from galpy.potential import epifreq, evaluatePotentials, omegac, rl, verticalfreq
 
     pot = _staeckel_inverse_potential()
+    aAI = staeckel_inverse_interp
     angler = numpy.linspace(0.05, 6.2, 41)
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
@@ -11435,8 +11696,53 @@ def test_actionAngleStaeckelInverse_circular():
             ),
         )
 
+    for Lz in (0.93, -0.93, 1.3):
+        Rc = rl(pot, numpy.fabs(Lz), use_physical=False)
+        Ec = evaluatePotentials(pot, Rc, 0.0) + Lz**2 / (2.0 * Rc**2)
+        Ipl = Lz**2 / (2.0 * _STAECKEL_INVERSE_DELTA**2) - Ec
+        assert aAI.JR(Ec, Lz, Ipl) == 0.0 and aAI.Jz(Ec, Lz, Ipl) == 0.0, (
+            "The circular orbit's actions are not zero"
+        )
+        Om = aAI.Freqs(0.0, Lz, 0.0)
+        assert numpy.fabs(Om[0] / epifreq(pot, Rc, use_physical=False) - 1.0) < 1e-10, (
+            "The circular orbit's radial frequency is not the epicycle frequency"
+        )
+        assert (
+            numpy.fabs(
+                Om[1] / (numpy.sign(Lz) * omegac(pot, Rc, use_physical=False)) - 1.0
+            )
+            < 1e-10
+        ), "The circular orbit's azimuthal frequency is not the circular frequency"
+        assert (
+            numpy.fabs(Om[2] / verticalfreq(pot, Rc, use_physical=False) - 1.0) < 1e-10
+        ), "The circular orbit's vertical frequency is not the vertical frequency"
+        assert invariants(aAI, Lz) < 1e-11, (
+            "The circular orbit is not at the circular radius in the plane with no radial or vertical motion"
+        )
+    # continuity: the map at tiny actions approaches the circular orbit as
+    # the librations' amplitudes
     Lz = 0.93
     Rc = rl(pot, Lz, use_physical=False)
+    circ = numpy.array(aAI(0.0, Lz, 0.0, angler, anglephi, anglez))
+    for jr, jz in ((1e-6, 1e-6), (1e-8, 1e-8)):
+        near = numpy.array(aAI(jr, Lz, jz, angler, anglephi, anglez))
+        amp = numpy.sqrt(2.0 * jr / epifreq(pot, Rc, use_physical=False)) + numpy.sqrt(
+            2.0 * jz / verticalfreq(pot, Rc, use_physical=False)
+        )
+        assert numpy.amax(numpy.fabs(near - circ)) < 5.0 * amp, (
+            "The map does not approach the circular orbit as the librations' amplitudes"
+        )
+    # the first cell above the edge round-trips through the forward
+    # transformation at the family's accuracy
+    aAS = _staeckel_inverse_forward()
+    for jr, jz in ((0.002, 0.003), (0.008, 0.006)):
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aAI, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS
+        )
+        assert dJ < 1e-4 and dth < 1e-3 and dOm < 1e-4, (
+            "The family is inaccurate just above the circular edge: %g %g %g"
+            % (dJ, dth, dOm)
+        )
     # discrete families: a circular torus among librating ones, and alone
     Ec = evaluatePotentials(pot, Rc, 0.0) + Lz**2 / (2.0 * Rc**2)
     Ipl = Lz**2 / (2.0 * _STAECKEL_INVERSE_DELTA**2) - Ec
@@ -11566,7 +11872,8 @@ def test_actionAngleStaeckelInverse_potentials():
 
 def test_actionAngleStaeckelInverse_maxiter():
     # maxiter governs the angle solve: with none, the solve falls back on
-    # safeguarded root-finding and still returns the torus
+    # safeguarded root-finding and still returns the torus, for explicit
+    # tori and for an interpolated family alike
     from galpy.actionAngle import actionAngleStaeckelInverse
 
     pot = _staeckel_inverse_potential()
@@ -11579,6 +11886,25 @@ def test_actionAngleStaeckelInverse_maxiter():
     fb = numpy.array(aAF(jr, Lz, jz, angler, 1.0, 2.0))
     assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
         "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
+        % numpy.amax(numpy.fabs(fb - nt))
+    )
+    kw = dict(
+        pot=pot,
+        setup_interp=True,
+        Rmin=0.8,
+        Rmax=1.4,
+        Rinf=3.0,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=32,
+    )
+    aAN = actionAngleStaeckelInverse(**kw)
+    aAF = actionAngleStaeckelInverse(maxiter=0, **kw)
+    nt = numpy.array(aAN(0.05, 1.0, 0.04, angler, 1.0, 2.0))
+    fb = numpy.array(aAF(0.05, 1.0, 0.04, angler, 1.0, 2.0))
+    assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
+        "The safeguarded fallback of the angle solve does not agree with Newton: %g"
         % numpy.amax(numpy.fabs(fb - nt))
     )
     return None
@@ -11609,6 +11935,45 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid():
         assert dJ < 1e-10 and dth < 1e-9 and dOm < 1e-9 and dH < 1e-9, (
             "A torus in the perfect ellipsoid does not round-trip through the "
             f"forward transformation: {dJ}, {dth}, {dOm}, {dH}"
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_perfect_ellipsoid_family():
+    # A small family in the oblate perfect ellipsoid, whose escape energy
+    # compresses the grid's energies toward the top: tori between its nodes
+    # round-trip through the forward transformation
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import PerfectEllipsoidPotential
+
+    pot = PerfectEllipsoidPotential(amp=1.0, a=1.0, b=1.0, c=0.6, normalize=1.0)
+    delta = 0.8
+    aAS = actionAngleStaeckel(pot=pot, delta=delta, c=False, order=200)
+    aAF = actionAngleStaeckelInverse(
+        pot=pot,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=4.0,
+        nE=5,
+        nLz=5,
+        nI3=5,
+    )
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi, anglez = 0.3 + 1.7 * angler, 0.7 + 2.3 * angler
+    for ic in (
+        [1.0, 0.3, 1.1, 0.2, 0.25, 0.0],
+        [1.2, 0.5, 0.8, 0.3, 0.4, 0.0],
+        [0.9, 0.2, 1.0, 0.4, 0.1, 0.0],
+    ):
+        E, Lz, I3 = _staeckel_inverse_labels(ic, pot=pot, delta=delta)
+        jr, jz = aAF.JR(E, Lz, I3), aAF.Jz(E, Lz, I3)
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aAF, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS, pot=pot
+        )
+        assert dJ < 5e-5 and dth < 2e-3 and dOm < 2e-3 and dH < 5e-5, (
+            "A torus between the nodes of a family in the perfect ellipsoid does "
+            f"not round-trip through the forward transformation: {dJ}, {dth}, {dOm}, {dH}"
         )
     return None
 
