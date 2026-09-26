@@ -3775,7 +3775,9 @@ def rE(Pot, E, t=0.0):
         )
     except ValueError:  # Probably E small and starting rE to great
         rlower = _rEFindStart(10.0**-5.0, E, Pot, t=t, lower=True)
-        return optimize.brentq(_rEfunc, rlower, rstart, args=(E, Pot, t))
+        # a relative tolerance: brentq's default absolute xtol=2e-12 is only
+        # ~1e-4 of an rE below 1e-5 (the radii this bracket is for)
+        return optimize.brentq(_rEfunc, rlower, rstart, args=(E, Pot, t), xtol=1e-300)
 
 
 def _rEfunc(rE, E, pot, t=0.0):

@@ -14,6 +14,7 @@ from ..backend import (
 )
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
+from ..backend.special import gammainc as _gammainc
 from ..backend.special import gammaincc as _gammaincc
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
@@ -139,31 +140,65 @@ class EinastoPotential(SphericalPotential):
         ssafe = xp.where(r == 0, 1.0, s)
         gamma_3n = _gamma(3 * self.n)
         gamma_2n = _gamma(2 * self.n)
-        gamma_upper_3n = _gammaincc(3 * self.n, (ssafe ** (1 / self.n)))
+        # the regularized LOWER gamma directly: 1 - gammaincc loses everything
+        # once it is < eps (the force was exactly 0 below r/h ~ 1e-6)
+        gamma_lower_3n = _gammainc(3 * self.n, (ssafe ** (1 / self.n)))
         gamma_upper_2n = _gammaincc(2 * self.n, (ssafe ** (1 / self.n)))
         # written to handle s = numpy.inf
         out = -(4 * numpy.pi * (self.h**2) * self.n * gamma_3n) * (
-            (1 - gamma_upper_3n) / ssafe + gamma_upper_2n * (gamma_2n / gamma_3n)
+            gamma_lower_3n / ssafe + gamma_upper_2n * (gamma_2n / gamma_3n)
         )
         core = -(4 * numpy.pi * (self.h**2) * self.n) * _gamma(2 * self.n)
         return xp.where(r == 0, core, out)
 
     def _rforce(self, r, t=0.0):
+        xp = get_namespace(r)
         s = r / self.h
         gamma_3n = _gamma(3 * self.n)
-        gamma_upper_3n = _gammaincc(3 * self.n, (s ** (1 / self.n)))
-        return (
-            (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (gamma_upper_3n - 1)
+        gamma_lower_3n = _gammainc(3 * self.n, (s ** (1 / self.n)))
+        generic = (
+            -(4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * gamma_lower_3n
         )
+        # r < h: with P(a, y) = y^a e^-y 1F1(1; a+1; y) / Gamma(a+1) the force is
+        # -4 pi/3 r e^-y 1F1(1; 3n+1; y), y = (r/h)^(1/n). The generic form is
+        # independent of h to leading order, so its d/dh is a small difference
+        # of large terms; here h enters only through y. r masked before the
+        # division (a dead branch at r = inf would NaN the backward).
+        small = r < self.h
+        rs = xp.where(small, r, 0.5 * self.h * xp.ones_like(r * 1.0))
+        y = (rs / self.h) ** (1 / self.n)
+        # 1F1(1; b; y) = sum_k y^k / (b)_k: y < 1 and b = 3n+1 > 1, so 30 terms
+        # are well past double precision
+        b1 = 3 * self.n + 1.0
+        term = xp.ones_like(y * 1.0)
+        m11 = term
+        for k in range(30):
+            term = term * y / (b1 + k)
+            m11 = m11 + term
+        stable = -4.0 * numpy.pi / 3.0 * rs * xp.exp(-y) * m11
+        return xp.where(small, stable, generic)
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
         gamma_3n = _gamma(3 * self.n)
-        gamma_upper_3n = _gammaincc(3 * self.n, (s ** (1 / self.n)))
+        gamma_lower_3n = _gammainc(3 * self.n, (s ** (1 / self.n)))
         # (self.h**2)
         return -(4 * numpy.pi * self.n * gamma_3n) * (
-            (-2 * (s**-3)) * (gamma_upper_3n - 1)
+            (2 * (s**-3)) * gamma_lower_3n
             - ((1 / self.n) * (numpy.e ** -(s ** (1 / self.n))) / gamma_3n)
+        )
+
+    def _mass(self, R, z=None, t=0.0):
+        if z is not None:
+            raise AttributeError  # use general implementation
+        # 0 at the center, the total mass 4 pi h^3 n Gamma(3n) at infinity (both
+        # 0 * inf NaN before)
+        return radial_limits(
+            R,
+            lambda r: SphericalPotential._mass(self, r, t=t),
+            at0=0.0,
+            atinf=4 * numpy.pi * self.h**3.0 * self.n * _gamma(3 * self.n),
+            numpy_too=True,
         )
 
     def _rdens(self, r, t=0.0):

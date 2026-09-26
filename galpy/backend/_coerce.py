@@ -173,7 +173,7 @@ def zeros_like_backend(xp, R):
     return 0.0 if xp is numpy else xp.zeros_like(R)
 
 
-def radial_limits(r, fn, at0=None, atinf=None):
+def radial_limits(r, fn, at0=None, atinf=None, numpy_too=False):
     """``fn(r)``, with ``r == 0`` / ``r == inf`` given by their known limits.
 
     Closed forms written in ``a/r`` or ``r/a`` evaluate FINITE at the edge where
@@ -182,10 +182,28 @@ def radial_limits(r, fn, at0=None, atinf=None):
     select the limit (``xp.where``'s dead branch then stays finite). Anything
     else -- numpy, or a plain scalar under a forced backend -- gets ``fn(r)``
     untouched (byte-identical). ``at0`` / ``atinf``: the limit value, or None to
-    leave that edge alone.
+    leave that edge alone. ``numpy_too``: apply the limits to numpy input as
+    well, for a quantity whose numpy formula is itself NaN at the edge (only
+    edge entries change; without an edge present it is ``fn(r)`` untouched).
     """
     if not is_backend_array(r):
-        return fn(r)
+        if not numpy_too:
+            return fn(r)
+        ra = numpy.asarray(r, dtype=float)
+        edges = [
+            (m, v)
+            for m, v in ((ra == 0.0, at0), (numpy.isinf(ra), atinf))
+            if v is not None and numpy.any(m)
+        ]
+        if not edges:
+            return fn(r)
+        bad = numpy.zeros(ra.shape, dtype=bool)
+        for m, _ in edges:
+            bad |= m
+        out = numpy.asarray(fn(numpy.where(bad, 1.0, ra)), dtype=float)
+        for m, v in edges:
+            out = numpy.where(m, v, out)
+        return out[()]
     xp = namespace_from_arrays((r,))
     edges = [
         (m, v) for m, v in ((r == 0.0, at0), (xp.isinf(r), atinf)) if v is not None

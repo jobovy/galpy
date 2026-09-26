@@ -59,6 +59,9 @@ _POTS = {
     "Burkert": lambda p: P.BurkertPotential(amp=2.0, a=p),
     "Einasto": lambda p: P.EinastoPotential(amp=2.0, h=p, n=2.0),
     "PseudoIsothermal": lambda p: P.PseudoIsothermalPotential(amp=2.0, a=p),
+    "Isochrone": lambda p: P.IsochronePotential(amp=2.0, b=p),
+    "Logarithmic": lambda p: P.LogarithmicHaloPotential(amp=2.0, core=p),
+    "Kepler": lambda p: P.KeplerPotential(amp=p),
 }
 _Q = {
     "mass": lambda pot, r: mass(pot, r, use_physical=False),
@@ -94,6 +97,15 @@ _CASES = [
     ("Einasto", "dens", 0.0),
     ("Einasto", "dens", math.inf),
     ("PseudoIsothermal", "dens", math.inf),
+    # NaN on numpy too before (the numpy value now carries the limit as well)
+    ("TwoPower", "mass", math.inf),
+    ("Burkert", "mass", 0.0),
+    ("Burkert", "Phi", 0.0),
+    ("Einasto", "mass", 0.0),
+    ("Einasto", "mass", math.inf),
+    ("Isochrone", "dens", math.inf),
+    ("Logarithmic", "dens", math.inf),
+    ("Kepler", "dens", 0.0),
 ]
 _P0 = 1.2
 
@@ -137,3 +149,90 @@ def test_radial_limits_passes_non_backend_input_through(backend_name):
         arr([0.0, 2.0, math.inf]), lambda r: 1.0 / r, at0=5.0, atinf=7.0
     )
     numpy.testing.assert_array_equal(as_numpy(got), [5.0, 0.5, 7.0])
+
+
+def test_radial_limits_numpy_too():
+    # numpy input gets the limits too, but only at the edge entries; without an
+    # edge present it is fn(r) itself (byte-identical)
+    sentinel = object()
+    assert (
+        radial_limits(numpy.array([1.0, 2.0]), lambda r: sentinel, 1.0, 2.0, True)
+        is sentinel
+    )
+    got = radial_limits(
+        numpy.array([0.0, 2.0, math.inf]),
+        lambda r: 1.0 / r,
+        at0=5.0,
+        atinf=7.0,
+        numpy_too=True,
+    )
+    numpy.testing.assert_array_equal(got, [5.0, 0.5, 7.0])
+    assert radial_limits(0.0, lambda r: 1.0 / r, at0=5.0, numpy_too=True) == 5.0
+
+
+# --- small r: the backend matches numpy, and d/d(parameter) is not noise -------
+# The closed forms lost ~eps/x^k at x << 1; their parameter gradients inherited
+# that noise. (potential, quantity, x = r/scale)
+_SMALL_R = {
+    "NFW": (
+        lambda p: P.NFWPotential(amp=2.0, a=p),
+        ("Phi", "Rforce", "R2deriv", "mass"),
+    ),
+    "Burkert": (lambda p: P.BurkertPotential(amp=2.0, a=p), ("Phi", "Rforce")),
+    "Einasto": (lambda p: P.EinastoPotential(amp=2.0, h=p, n=2.0), ("Phi", "Rforce")),
+    "TwoPower": (
+        lambda p: P.TwoPowerSphericalPotential(amp=2.0, a=p, alpha=0.5, beta=4.0),
+        ("Phi",),
+    ),
+}
+_SQ = {
+    "Phi": lambda pot, r: evaluatePotentials(pot, r, 0.0, use_physical=False),
+    "Rforce": lambda pot, r: P.evaluateRforces(pot, r, 0.0, use_physical=False),
+    "R2deriv": lambda pot, r: P.evaluateR2derivs(pot, r, 0.0, use_physical=False),
+    "mass": lambda pot, r: mass(pot, r, use_physical=False),
+}
+# (potential, quantity, x, value, d/dp) at fixed r = x * 1.2, p = 1.2, amp = 2:
+# 50-digit mpmath references (a finite difference of the numpy value cannot
+# resolve a d/dp of ~6e-16 at x = 1e-8)
+_SMALL_CASES = [
+    ("NFW", "Phi", 1e-8, -1.6666666583333334, 1.3888888750000001),
+    ("NFW", "Phi", 1e-4, -1.6665833388884723, 1.3887500138875001),
+    ("NFW", "Rforce", 1e-8, -6.9444443518518529e-1, 1.1574073842592596),
+    ("NFW", "Rforce", 1e-4, -6.9435186226740752e-1, 1.1571759606435191),
+    ("NFW", "R2deriv", 1e-8, -7.716049209104941e-1, 1.9290122878086431),
+    ("NFW", "R2deriv", 1e-4, -7.7143135493441408e-1, 1.9284337576967622),
+    ("NFW", "mass", 1e-8, 9.9999998666666682e-17, -1.6666666333333338e-16),
+    ("NFW", "mass", 1e-4, 9.9986668166506683e-9, -1.6663333833266675e-8),
+    ("Burkert", "Phi", 1e-8, -2.8424460675137352e1, -4.7374101125228921e1),
+    ("Burkert", "Phi", 1e-4, -2.842446061482179e1, -4.7374101125226408e1),
+    ("Burkert", "Rforce", 1e-8, -1.0053096416089115e-7, -6.2831853071795865e-16),
+    ("Burkert", "Rforce", 1e-4, -1.0052342509250477e-3, -6.2831853071652265e-8),
+    ("Einasto", "Phi", 1e-8, -4.3429376843225302e2, -7.2382294738708836e2),
+    ("Einasto", "Phi", 1e-4, -4.3429376837234655e2, -7.2382294738691728e2),
+    ("Einasto", "Rforce", 1e-8, -1.0052234835200349e-7, -3.590077458799477e-12),
+    ("Einasto", "Rforce", 1e-4, -9.9673029696052965e-4, -3.5591148859781171e-6),
+    ("TwoPower", "Phi", 1e-8, -4.44444444444e-1, 3.7037037036944444e-1),
+    ("TwoPower", "Phi", 1e-4, -4.4444400006665833e-1, 3.7036944463885764e-1),
+]
+
+
+@pytest.mark.parametrize(
+    "name,q,x,ref,dref",
+    _SMALL_CASES,
+    ids=[f"{c[0]}-{c[1]}@{c[2]}" for c in _SMALL_CASES],
+)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_small_r_value_and_parameter_gradient(backend_name, name, q, x, ref, dref):
+    build = _SMALL_R[name][0]
+    r = x * _P0
+    with backend.use(backend_name, force=True):
+        if backend_name == "jax":
+            f = lambda p: _SQ[q](build(p), jnp.asarray(r))  # noqa: E731
+            val, ad = float(f(_P0)), float(jax.grad(f)(_P0))
+        else:
+            p = torch.tensor(_P0, requires_grad=True)
+            out = _SQ[q](build(p), torch.tensor(r))
+            (g,) = torch.autograd.grad(out, p)
+            val, ad = float(out), float(g)
+    numpy.testing.assert_allclose(val, ref, rtol=2e-14)
+    numpy.testing.assert_allclose(ad, dref, rtol=1e-12)

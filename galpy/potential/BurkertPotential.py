@@ -3,9 +3,17 @@
 ###############################################################################
 import math
 
+import numpy
+
 from ..backend import get_namespace, radial_limits
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
+
+# Below this x = r/a, Phi and the radial force use cancellation-free forms (the
+# closed forms lose eps/x and eps/x^3 there); 10 terms of the force series
+# reach ~1e-24 at x = 0.25. Above it the original formulas.
+_BURKERT_SMALL_X = 0.25
+_BURKERT_NTERMS = 10
 
 
 class BurkertPotential(SphericalPotential):
@@ -60,7 +68,14 @@ class BurkertPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
-        return radial_limits(r, self._revaluate_body, atinf=0.0)
+        # Phi(0) = -pi^2 a^2 (numpy's 0 * inf there was NaN)
+        return radial_limits(
+            r,
+            self._revaluate_body,
+            at0=-(math.pi**2) * self.a**2.0,
+            atinf=0.0,
+            numpy_too=True,
+        )
 
     def _revaluate_body(self, r):
         xp = get_namespace(r)
@@ -77,7 +92,7 @@ class BurkertPotential(SphericalPotential):
             xp.zeros_like(x * 1.0),
             pref * xp.log(1.0 + safe_x2),
         )
-        return (
+        generic = (
             -(self.a**2.0)
             * math.pi
             * (
@@ -87,6 +102,23 @@ class BurkertPotential(SphericalPotential):
                 + xlogy_term
             )
         )
+        # the -pi/x and 2 arctan(1/x)/x terms cancel (eps/x lost at x << 1);
+        # with arctan(1/x) = pi/2 - arctan(x) no term exceeds O(1)
+        # mask r before dividing by a: d(r/a)/da = -inf at r = inf would
+        # NaN the dead branch's backward
+        small = r < _BURKERT_SMALL_X * self.a
+        xs = xp.where(small, r, 0.05 * self.a * xp.ones_like(r * 1.0)) / self.a
+        stable = (
+            -(self.a**2.0)
+            * math.pi
+            * (
+                math.pi
+                - 2.0 * (1.0 / xs + 1.0) * xp.arctan(xs)
+                + (1.0 / xs + 1.0) * (2.0 * xp.log1p(xs) - xp.log1p(xs**2.0))
+                + 2.0 / xs * xp.log1p(xs**2.0)
+            )
+        )
+        return xp.where(small, stable, generic)
 
     # Previous way, not stable as r -> infty
     # return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
@@ -96,7 +128,7 @@ class BurkertPotential(SphericalPotential):
     def _rforce(self, r, t=0.0):
         xp = get_namespace(r)
         x = r / self.a
-        return (
+        generic = (
             self.a
             * math.pi
             / x**2.0
@@ -106,6 +138,34 @@ class BurkertPotential(SphericalPotential):
                 - 2.0 * xp.log(1.0 + x)
                 - xp.log(1.0 + x**2.0)
             )
+        )
+        # the bracket cancels to O(x^3) (eps/x^3 lost at x << 1): its series,
+        # 2 atan(x) - 2 log1p(x) - log1p(x^2) = sum_j [-4 x^(4j+3)/(4j+3)
+        # + x^(4j+4)/(j+1)], divided by x^2
+        # mask r before dividing by a: d(r/a)/da = -inf at r = inf would
+        # NaN the dead branch's backward
+        small = r < _BURKERT_SMALL_X * self.a
+        rs = xp.where(small, r, 0.05 * self.a * xp.ones_like(r * 1.0))
+        xs = rs / self.a
+        # = x^3 sum_j (x^4)^j [-4/(4j+3) + x/(j+1)]: Horner in y = x^4
+        y = xs**4.0
+        series = -4.0 / (4 * _BURKERT_NTERMS - 1) + xs / _BURKERT_NTERMS
+        for j in range(_BURKERT_NTERMS - 2, -1, -1):
+            series = series * y + (-4.0 / (4 * j + 3) + xs / (j + 1))
+        # pi r S(r/a), not a pi x S: that form's d/da cancels (a * x) in fp
+        stable = math.pi * rs * series
+        return xp.where(small, stable, generic)
+
+    def _mass(self, R, z=None, t=0.0):
+        if z is not None:
+            raise AttributeError  # use general implementation
+        # 0 at the center, log-divergent at infinity (both 0*inf NaN before)
+        return radial_limits(
+            R,
+            lambda r: SphericalPotential._mass(self, r, t=t),
+            at0=0.0,
+            atinf=numpy.inf,
+            numpy_too=True,
         )
 
     def _r2deriv(self, r, t=0.0):
