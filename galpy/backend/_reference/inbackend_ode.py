@@ -156,6 +156,7 @@ def integrate_orbit(
     solver=None,
     adjoint=None,
     nsteps=None,
+    engine=None,
 ):
     """Differentiably integrate an orbit with the backend's ODE solver.
 
@@ -187,6 +188,8 @@ def integrate_orbit(
     nsteps : constant-step count (jax only; None -> adaptive stepping). Needed when
         the solve is differentiated under ``jax.vmap`` -- see the jax integrator's
         docstring for why adaptive steps break the batched reverse pass.
+    engine : torch ODE package, 'torchdiffeq' (None, default) or 'torchode'
+        (torch.compile-able; ``solver`` 'dopri5' or 'tsit5'). jax: None only.
 
     Returns
     -------
@@ -211,6 +214,8 @@ def integrate_orbit(
     y0 = _to_eom(xp, vxvv)
     # backend-specific integrators live in galpy.backend._jax / ._torch
     if "jax" in name:
+        if engine is not None:
+            raise ValueError(f"engine='{engine}' is a torch option; jax uses diffrax")
         from .._jax.orbit_ode import integrate as _integrate_jax
 
         ys = _integrate_jax(
@@ -231,7 +236,17 @@ def integrate_orbit(
                 "nsteps (constant stepping) is a jax/diffrax option; torchdiffeq "
                 "selects its own steps"
             )
-        from .._torch.orbit_ode import integrate as _integrate_torch
+        from .._torch import orbit_ode
+
+        if engine not in (None, "torchdiffeq", "torchode"):
+            raise ValueError(
+                f"engine must be 'torchdiffeq' or 'torchode', not '{engine}'"
+            )
+        _integrate_torch = (
+            orbit_ode.integrate_torchode
+            if engine == "torchode"
+            else orbit_ode.integrate
+        )
 
         ys = _integrate_torch(
             pot,

@@ -1,9 +1,10 @@
 ###############################################################################
-#   galpy.backend._torch.orbit_ode: torch (torchdiffeq) in-backend orbit
-#   integration.
+#   galpy.backend._torch.orbit_ode: torch (torchdiffeq / torchode) in-backend
+#   orbit integration.
 #
 #   The torch-specific half of galpy.backend._reference.integrate_orbit. Integrates
-#   the shared backend-agnostic EOM (_eom_rhs) with torchdiffeq. The jax
+#   the shared backend-agnostic EOM (_eom_rhs) with torchdiffeq (default) or
+#   torchode (torch.compile-able). The jax
 #   counterpart is galpy.backend._jax.orbit_ode.
 ###############################################################################
 
@@ -57,3 +58,48 @@ def integrate(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=None):
             dim=1,
         )
     return odeint(field, y0, ts, method=method, rtol=rtol, atol=atol, options=options)
+
+
+# torchode step methods by name (solver=None -> dopri5)
+_TORCHODE_SOLVERS = ("dopri5", "tsit5")
+
+
+def integrate_torchode(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=None):
+    """Integrate the EOM with torchode: same contract as :func:`integrate`.
+
+    Unlike torchdiffeq, torchode is torch.compile-able (inductor) and steps every
+    orbit of a batch with its own controller, so a shared (nt,) grid and a
+    per-orbit (N, nt) grid are one batched solve alike. ``solver`` is 'dopri5'
+    (default) or 'tsit5'; ``max_steps`` caps the adaptive step count."""
+    import torch
+    import torchode as to
+
+    from .._reference.inbackend_ode import _eom_rhs
+
+    method = "dopri5" if solver is None else solver.lower()
+    if method not in _TORCHODE_SOLVERS:
+        raise ValueError(
+            f"torchode solver must be one of {_TORCHODE_SOLVERS}, not '{solver}'"
+        )
+    single = y0.ndim == 1
+    yb = y0[None] if single else y0
+    tb = ts.expand(yb.shape[0], ts.shape[-1]) if ts.ndim == 1 else ts
+    term = to.ODETerm(lambda t, y: torch.stack(_eom_rhs(y, pot, t, torch, dim), -1))
+    step = (to.Dopri5 if method == "dopri5" else to.Tsit5)(term=term)
+    controller = to.IntegralController(atol=atol, rtol=rtol, term=term)
+    # torchode uses its 0-d-tensor rtol as torch.add(..., alpha=rtol), whose value
+    # torch.compile bakes in UNGUARDED (and the FX graph cache serves across
+    # processes): a later compile at another rtol would silently reuse the old
+    # one. As a python float it is guarded and part of the cache key.
+    del controller._buffers["rtol"]
+    controller.rtol = float(rtol)
+    sol = to.AutoDiffAdjoint(step, controller, max_steps=max_steps).solve(
+        to.InitialValueProblem(y0=yb, t_eval=tb)
+    )
+    if bool((sol.status != to.Status.SUCCESS.value).any()):
+        raise RuntimeError(
+            "torchode integration failed (status "
+            f"{sol.status.tolist()}); raise max_steps or loosen rtol/atol"
+        )
+    ys = sol.ys.transpose(0, 1)  # (N, nt, dim) -> (nt, N, dim)
+    return ys[:, 0] if single else ys

@@ -347,7 +347,7 @@ jobs:
       if: ${{ matrix.REQUIRES_TORCH }}
       run: |
         pip install torch --index-url https://download.pytorch.org/whl/cpu
-        pip install torchdiffeq  # backend ODE integrator (torch); covers galpy.backend._torch
+        pip install torchdiffeq torchode  # backend ODE integrators (torch); cover galpy.backend._torch
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
