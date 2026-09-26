@@ -284,6 +284,7 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.15' }}
       run: |
          # No h5py cp315 wheels yet: build h5py from source against the system HDF5
+         sudo apt-get update
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel osfclient
