@@ -287,7 +287,7 @@ jobs:
       if: ${{ matrix.BACKEND == 'torch' }}
       run: |
         pip install torch --index-url https://download.pytorch.org/whl/cpu
-        pip install array-api-compat torchdiffeq
+        pip install array-api-compat torchdiffeq torchode
     # NOTE: the external C++ Torus library is intentionally NOT built here.
     # galpy imports and works fully without it; only actionAngleTorus needs it,
     # and that is out of scope for the backend goal (test_actionAngleTorus.py is
