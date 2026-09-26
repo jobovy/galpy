@@ -4035,14 +4035,11 @@ def test_eddington_sample_negative_df_regions_no_crash():
     rmax = 5.0
     dfe = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(1)
-    # numpy's scipy cubic spline overshoots the reconstructed DF slightly negative
-    # near the truncation (raising the negative-region galpyWarning); the backend
-    # Spline1D does not overshoot there, so no warning is raised on the backend path
-    if get_namespace() is numpy:
-        with pytest.warns(galpyWarning):
-            samp = dfe.sample(n=2000)
-    else:
-        samp = dfe.sample(n=2000)
+    # The numpy f(E) used to overshoot slightly negative near the truncation
+    # (raising the negative-region galpyWarning); with f(E) exact near Emin it
+    # no longer does, on either path. A genuinely negative DF still drives that
+    # branch in test_anisotropic_hernquist_negdf.
+    samp = dfe.sample(n=2000)
     r = as_numpy(samp.r(use_physical=False))
     assert numpy.all(numpy.isfinite(r)), "Sampled radii are not all finite"
     assert numpy.all(r <= rmax), "Sampled radii exceed rmax"
@@ -4076,3 +4073,30 @@ def test_sphericaldf_bad_radius_error():
     with pytest.raises(RuntimeError, match="not understood"):
         dfh.vmomentdensity("foo", 0, 0)
     return None
+
+
+# --- eddingtondf f(E) near Emin ------------------------------------------------
+# NFW (amp=2.3, a=1.3) against a 40-digit mpmath Eddington integral at the
+# exact double energies passed. The numpy f(E) was NaN or large and negative
+# within ~1e-3 of Emin: NFW's small-r potential/force cancellation made
+# Phi(r) - E negative next to the turning point, and r(Phi) below the spline's
+# first knot was off (negative at x=1e-8). Tolerance: scipy quad's own epsrel
+# 1.5e-8 per piece; measured 6.9e-8 at x = 1e-8, <= 4e-9 above.
+_EDD_NFW_GOLD = [  # (E, f(E))
+    (-1.769230751559042, 1.4983431954507396e17),  # x = 1e-08
+    (-1.769229002058064, 1498343239910.5228),  # x = 1e-06
+    (-1.7690540519602862, 14983432.383219456),  # x = 0.0001
+    (-1.7515590421824891, 149.81271594972208),  # x = 0.01
+    (-1.2390789577823735, 0.02035422714067017),  # x = 0.3
+]
+
+
+@pytest.mark.parametrize("E,fref", _EDD_NFW_GOLD)
+def test_eddington_nfw_fE_near_Emin(E, fref):
+    from galpy.df import eddingtondf
+    from galpy.potential import NFWPotential
+
+    dfh = eddingtondf(pot=NFWPotential(amp=2.3, a=1.3))
+    got = float(dfh.fE(numpy.array([E]))[0])
+    tol = 1e-7 if E < -1.7692 else 1e-8
+    assert abs(got / fref - 1.0) < tol, f"E={E}: {got} vs {fref}"
