@@ -214,3 +214,35 @@ def test_compilable_singledispatchmethod_under_torch_compile():
     torch._dynamo.reset()
     out = torch.compile(lambda x: a.f(x, 2.0) + 1.0, backend="eager")(torch.ones(2))
     assert out.tolist() == [3.0, 3.0]
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_get_namespace_all_torch_fast_path():
+    # all-torch inputs resolve to the array-api-compat torch namespace without
+    # array_api_compat.array_namespace (untraceable: it hashes modules into a
+    # set, a torch.compile graph break at every get_namespace call)
+    import array_api_compat
+    import array_api_compat.torch as txp
+
+    from galpy.backend import get_namespace
+
+    x = torch.ones(3)
+    p = torch.nn.Parameter(torch.ones(2))
+    assert get_namespace(x) is txp
+    assert get_namespace(x, p, 2.0) is txp
+    assert get_namespace(x) is array_api_compat.array_namespace(x)
+
+    from galpy.potential import HernquistPotential
+
+    hp = HernquistPotential(normalize=1.0)
+
+    # two+ arrays (a potential's R, z) used to break the graph: one array alone
+    # never did, so it cannot measure the fast path
+    def f(y):
+        return get_namespace(y, 2.0 * y).sin(y) + hp(y, 0.1 * y)
+
+    torch._dynamo.reset()
+    assert torch._dynamo.explain(f)(x).graph_break_count == 0
+    # a non-torch array in the mix still goes through array_namespace
+    with pytest.raises(TypeError):
+        get_namespace(x, [1.0, 2.0])
