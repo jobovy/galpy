@@ -32,6 +32,7 @@ from ..backend import (
 )
 from ..backend import quadrature as _bquad
 from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend.linalg import eigvals as _bk_eigvals
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -2214,7 +2215,7 @@ class Potential(Force):
             # numpy>=2.5 (and jax/torch) return complex from eigvals even for this
             # symmetric (real-eigenvalue) tidal tensor; take the real part (no-op on
             # the real arrays numpy<2.5 returns, so byte-identical there).
-            return xp.real(xp.linalg.eigvals(tij))
+            return xp.real(_bk_eigvals(xp, tij))
         else:
             return tij
 
@@ -4923,7 +4924,7 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
         # numpy>=2.5 (and jax/torch) return complex from eigvals even for this
         # symmetric (real-eigenvalue) tidal tensor; take the real part (no-op on
         # the real arrays numpy<2.5 returns, so byte-identical there).
-        return xp.real(xp.linalg.eigvals(tij))
+        return xp.real(_bk_eigvals(xp, tij))
     else:
         return tij
 

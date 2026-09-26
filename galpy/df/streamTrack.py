@@ -26,6 +26,7 @@ from ..backend.interpolate import (
     interp_linear,
 )
 from ..backend.linalg import psd_project
+from ..backend.linalg import solve as _bk_solve
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
@@ -634,8 +635,8 @@ def _fit_track_backend_jit(
 
     def _gcv(lam):
         a_l = BtB + lam * DtD
-        tr_h = xp.sum(xp.linalg.solve(a_l, BtB) * eye)  # tr(A^-1 B'B)
-        s_l = xp.linalg.solve(a_l, Btoff_sg)
+        tr_h = xp.sum(_bk_solve(xp, a_l, BtB) * eye)  # tr(A^-1 B'B)
+        s_l = _bk_solve(xp, a_l, Btoff_sg)
         resid = off_sg - xp.matmul(B, s_l)
         return n_part * xp.sum(resid**2) / xp.clip((n_part - tr_h) ** 2, 1e-9, None)
 
@@ -645,7 +646,7 @@ def _fit_track_backend_jit(
         * float(smoothing_factor)
     )
     A = stop_gradient(BtB + lam * DtD)
-    s = xp.linalg.solve(A, xp.matmul(BT, off))  # (ntp,6) flows
+    s = _bk_solve(xp, A, xp.matmul(BT, off))  # (ntp,6) flows
     # interp_linear takes the grid (x) + query (r) as numpy (structural); only the
     # VALUES y stay on the backend -> the result is differentiable in y.
     curve_at = xp.stack(

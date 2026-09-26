@@ -14,7 +14,69 @@ from ._namespaces import (
 )
 from ._resolver import get_namespace
 
-__all__ = ["cholesky_invert", "psd_project", "real_eig", "solve_tridiagonal"]
+__all__ = [
+    "cholesky",
+    "cholesky_invert",
+    "eigvals",
+    "inv",
+    "psd_project",
+    "real_eig",
+    "solve",
+    "solve_tridiagonal",
+]
+
+
+# torch 2.14 cannot torch.compile the linalg ops that RAISE on bad input
+# (solve/inv/cholesky/eig*): their error check is an effectful op dynamo cannot
+# handle. The *_ex variants compute the same values (solve = solve_ex + check) and
+# compile; eager they still check. eig/eigvals have no *_ex: run them eagerly.
+
+
+def _torch_check_errors():
+    import torch
+
+    return not torch.compiler.is_compiling()
+
+
+def solve(xp, a, b):
+    """``xp.linalg.solve(a, b)``, torch.compile-able on torch."""
+    if name_of_namespace(xp) != "torch":
+        return xp.linalg.solve(a, b)
+    import torch
+
+    return torch.linalg.solve_ex(a, b, check_errors=_torch_check_errors())[0]
+
+
+def inv(xp, a):
+    """``xp.linalg.inv(a)``, torch.compile-able on torch."""
+    if name_of_namespace(xp) != "torch":
+        return xp.linalg.inv(a)
+    import torch
+
+    return torch.linalg.inv_ex(a, check_errors=_torch_check_errors())[0]
+
+
+def cholesky(xp, a):
+    """``xp.linalg.cholesky(a)``, torch.compile-able on torch."""
+    if name_of_namespace(xp) != "torch":
+        return xp.linalg.cholesky(a)
+    import torch
+
+    return torch.linalg.cholesky_ex(a, check_errors=_torch_check_errors())[0]
+
+
+_EIGVALS_DISABLED = []
+
+
+def eigvals(xp, a):
+    """``xp.linalg.eigvals(a)``; on torch an opaque (eager) call under torch.compile."""
+    if name_of_namespace(xp) != "torch":
+        return xp.linalg.eigvals(a)
+    if not _EIGVALS_DISABLED:
+        import torch
+
+        _EIGVALS_DISABLED.append(torch.compiler.disable(torch.linalg.eigvals))
+    return _EIGVALS_DISABLED[0](a)
 
 
 def cholesky_invert(a, tiny, logdet=False):
@@ -37,8 +99,8 @@ def cholesky_invert(a, tiny, logdet=False):
     xp = get_namespace(a)
     n = a.shape[0]
     reg = xp.sum(xp.linalg.diagonal(a)) * tiny
-    chol = xp.linalg.cholesky(a + reg * xp.eye(n, dtype=a.dtype))
-    cholinv = xp.linalg.inv(chol)
+    chol = cholesky(xp, a + reg * xp.eye(n, dtype=a.dtype))
+    cholinv = inv(xp, chol)
     ainv = xp.matmul(xp.matrix_transpose(cholinv), cholinv)
     if logdet:
         return ainv, 2.0 * xp.sum(xp.log(xp.linalg.diagonal(chol)))

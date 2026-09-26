@@ -10,7 +10,15 @@ import numpy
 import pytest
 
 from galpy.backend import as_numpy, is_backend_array
-from galpy.backend.linalg import cholesky_invert, psd_project, real_eig
+from galpy.backend.linalg import (
+    cholesky,
+    cholesky_invert,
+    eigvals,
+    inv,
+    psd_project,
+    real_eig,
+    solve,
+)
 
 pytestmark = pytest.mark.backend_managed
 
@@ -381,3 +389,102 @@ def test_solve_tridiagonal_matches_banded_lu(backend, n):
         arr = jnp.asarray if backend == "jax" else torch.tensor
     got = numpy.asarray(solve_tridiagonal(xp, arr(a), arr(b), arr(c), arr(d)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-14)
+
+
+###############################################################################
+# solve / inv / cholesky / eigvals: xp.linalg on every backend, but on torch the
+# *_ex variants (torch 2.14 cannot torch.compile the raising ops) and an opaque
+# eigvals.
+###############################################################################
+def _spd_system(n=5, seed=3):
+    rng = numpy.random.RandomState(seed)
+    m = rng.randn(n, n)
+    return m @ m.T + n * numpy.eye(n), rng.randn(n, 2)
+
+
+def _ns(backend):
+    if backend == "numpy":
+        return numpy
+    if backend == "jax":
+        return jnp
+    import array_api_compat.torch as txp
+
+    return txp
+
+
+@pytest.mark.parametrize("backend", ["numpy"] + BACKENDS)
+def test_linalg_helpers_equal_xp_linalg(backend):
+    # bit-for-bit the plain xp.linalg result (numpy: the numpy.linalg object)
+    a_np, b_np = _spd_system()
+    xp = _ns(backend)
+    a = a_np if backend == "numpy" else _arr(backend, a_np)
+    b = b_np if backend == "numpy" else _arr(backend, b_np)
+    for got, ref in [
+        (solve(xp, a, b), xp.linalg.solve(a, b)),
+        (inv(xp, a), xp.linalg.inv(a)),
+        (cholesky(xp, a), xp.linalg.cholesky(a)),
+        (eigvals(xp, a), xp.linalg.eigvals(a)),
+    ]:
+        numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_linalg_helpers_torch_still_raise_eagerly():
+    import array_api_compat.torch as txp
+
+    s = torch.zeros(3, 3)
+    for f in (lambda: solve(txp, s, torch.ones(3)), lambda: inv(txp, s)):
+        with pytest.raises(torch.linalg.LinAlgError):
+            f()
+    with pytest.raises(torch.linalg.LinAlgError):
+        cholesky(txp, -torch.eye(3))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_linalg_helpers_torch_compile():
+    # value and gradient under torch.compile == eager; solve/inv/cholesky compile
+    # with no graph break (fullgraph), eigvals runs as an opaque call
+    import array_api_compat.torch as txp
+
+    a_np, b_np = _spd_system()
+    b = torch.tensor(b_np)
+    cases = {
+        "solve": (lambda a: solve(txp, a, b).sum(), True),
+        "inv": (lambda a: inv(txp, a).sum(), True),
+        "cholesky": (lambda a: cholesky(txp, a).sum(), True),
+        "eigvals": (lambda a: eigvals(txp, a).real.sum(), False),
+    }
+    for name, (f, fullgraph) in cases.items():
+        ae = torch.tensor(a_np, requires_grad=True)
+        (ge,) = torch.autograd.grad(f(ae), ae)
+        torch._dynamo.reset()
+        ac = torch.tensor(a_np, requires_grad=True)
+        vc = torch.compile(f, backend="eager", fullgraph=fullgraph)(ac)
+        (gc,) = torch.autograd.grad(vc, ac)
+        numpy.testing.assert_allclose(
+            float(vc.detach()), float(f(ae).detach()), rtol=1e-14, err_msg=name
+        )
+        numpy.testing.assert_allclose(
+            gc.numpy(), ge.numpy(), rtol=1e-12, atol=1e-14, err_msg=name
+        )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_ttensor_eigenval_under_torch_compile():
+    # the tidal-tensor eigenvalues compile (torch 2.14 could not compile eigvals)
+    from galpy.potential import MiyamotoNagaiPotential, ttensor
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
+
+    def f(R):
+        return ttensor(pot, R, 0.1, eigenval=True).sum()
+
+    Re = torch.tensor(1.0, requires_grad=True)
+    ve = f(Re)
+    (ge,) = torch.autograd.grad(ve, Re)
+    torch._dynamo.reset()
+    Rc = torch.tensor(1.0, requires_grad=True)
+    vc = torch.compile(f, backend="eager")(Rc)
+    (gc,) = torch.autograd.grad(vc, Rc)
+    assert float(vc.detach()) == float(ve.detach())
+    assert float(gc) == float(ge)

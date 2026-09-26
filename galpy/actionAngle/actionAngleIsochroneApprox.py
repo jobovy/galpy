@@ -27,6 +27,7 @@ from ..backend import (
     name_of_namespace,
     promote_scalars,
 )
+from ..backend.linalg import inv as _bk_inv
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1222,7 +1223,7 @@ class actionAngleIsochroneApprox(actionAngle):
         sinnR = xp.sin(narg)
         A = xp.concatenate([ones[:, :, None], tcol[:, :, None], sinnR], axis=2)
         ATt = xp.permute_dims(A, (0, 2, 1))  # (no, 2+nn, nt)
-        atainv = xp.linalg.inv(xp.matmul(ATt, A))  # (no, 2+nn, 2+nn)
+        atainv = _bk_inv(xp, xp.matmul(ATt, A))  # (no, 2+nn, 2+nn)
         # ATA{R,T,Z} = sum_t A^T * angle  -> (no, 2+nn)
         ATAR = xp.sum(ATt * angleRT[:, None, :], axis=2)
         ATAT = xp.sum(ATt * anglephiT[:, None, :], axis=2)

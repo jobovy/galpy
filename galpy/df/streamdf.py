@@ -30,6 +30,7 @@ from ..backend import special as _bspecial
 from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
+from ..backend.linalg import inv as _bk_inv
 from ..backend.linalg import real_eig as _bk_real_eig
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
@@ -506,7 +507,7 @@ class streamdf(df):
         _native = is_backend_array(self._dOdJp)
         _ixp = get_namespace(self._dOdJp)
         (_dodj,) = coerce_coords(_ixp, self._dOdJp)
-        _inv = _ixp.linalg.inv(_dodj)
+        _inv = _bk_inv(_ixp, _dodj)
         _eig = _real_eig(_dodj)
         if _native:
             self._dOdJp, self._dOdJpInv, self._dOdJpEig = _dodj, _inv, _eig
@@ -5256,11 +5257,11 @@ def _determine_stream_track_single_backend(
     # exact AD Jacobian d(J,Omega,theta)/d(x,v) (9x6)
     tjac = calcaAJac(xv0, aA, actionsFreqsAngles=True, _initacfs=tacfs)
     alljacsTrack = tjac[3:, :]  # freqs+angles rows (6x6)
-    tinvjac = xp.linalg.inv(alljacsTrack)
+    tinvjac = _bk_inv(xp, alljacsTrack)
     allinvjacsTrack = tinvjac
     # detdOdJ: actions+angles rows (static indices 0,1,2,6,7,8) instead of a bool mask
     aa_rows = xp.concat([tjac[0:3], tjac[6:9]], axis=0)
-    dOdJ = (alljacsTrack @ xp.linalg.inv(aa_rows))[0:3, 0:3]
+    dOdJ = (alljacsTrack @ _bk_inv(xp, aa_rows))[0:3, 0:3]
     detdOdJ = xp.linalg.det(dOdJ)
     # angle/freq offsets (constant w.r.t. the orbit), coerced into the backend namespace
     theseAngles = xp.remainder(
@@ -5478,7 +5479,7 @@ def _determine_stream_spread_single_backend(
         coerce_coords(xp, sigomatrixEig[1])[0],
     )
     eigvals, eigvecs = sigomatrixEig[0], sigomatrixEig[1]
-    inv_eigvecs = xp.linalg.inv(eigvecs)
+    inv_eigvecs = _bk_inv(xp, eigvecs)
     ar = xp.arange(eigvals.shape[0])  # (3,)
     sigObig2 = sigOmega(thetasTrack) ** 2.0
     # replace the largest frequency eigenvalue with the along-stream dispersion
@@ -5712,7 +5713,7 @@ def _calcaAJac_backend(
     jac = xp.concat([top, A[6:9]], axis=0)
     if dOdJ:
         jac2 = xp.concat([A[3:6], A[6:9]], axis=0)  # freqs over angles
-        jac = (jac2 @ xp.linalg.inv(jac))[0:3, 0:3]
+        jac = (jac2 @ _bk_inv(xp, jac))[0:3, 0:3]
     return jac
 
 
