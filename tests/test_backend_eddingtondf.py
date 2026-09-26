@@ -356,3 +356,56 @@ def test_osipkovmerrittdf_sample_under_jit_raises_clearly():
 
     with pytest.raises(NotImplementedError, match="under jax.jit"):
         jax.jit(f)(1.2)
+
+
+# --- f(E) near Emin -------------------------------------------------------------
+# NFW (amp=2.3, a=1.3) against a 40-digit mpmath Eddington integral at the exact
+# double energies passed. The backend was NaN at 1e-8/1e-7 of the way from Emin
+# and 7e-4 off at 1e-6: r(Phi) below the spline's first knot, and Phi(r) - E a
+# difference of O(1) numbers. Now: Newton-refined r(Phi), and the small-r piece
+# as 2/sqrt(mean dPhi/dr). Measured 5.9e-8 at 1e-8, <= 2.4e-10 above.
+_EDD_NFW_GOLD = [  # (E, f(E))
+    (-1.769230751559042, 1.4983431954507396e17),  # x = 1e-08
+    (-1.769229002058064, 1498343239910.5228),  # x = 1e-06
+    (-1.7690540519602862, 14983432.383219456),  # x = 0.0001
+    (-1.7515590421824891, 149.81271594972208),  # x = 0.01
+    (-1.2390789577823735, 0.02035422714067017),  # x = 0.3
+]
+
+
+@pytest.mark.parametrize("E,fref", _EDD_NFW_GOLD)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nfw_fE_near_Emin(backend, E, fref):
+    with galpy.backend.use(backend, force=True):
+        d = eddingtondf(pot=NFWPotential(amp=2.3, a=1.3))
+        got = float(as_numpy(d.fE(_arr(backend, [E])))[0])
+    tol = 1e-7 if E < -1.7692 else 1e-9
+    assert abs(got / fref - 1.0) < tol, f"E={E}: {got} vs {fref}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nfw_fE_near_Emin_grad_wrt_potential(backend):
+    # d f(E)/d a at fixed (E - Emin)/(Einf - Emin) = 1e-6, through the Newton
+    # refinement of r(Phi): AD vs a Richardson central difference of the same
+    # backend values
+    def f(a):
+        with galpy.backend.use(backend, force=True):
+            d = eddingtondf(pot=NFWPotential(amp=2.3, a=a))
+            E = d._Emin + 1e-6 * (d._potInf - d._Emin)
+            return d.fE(E * _arr(backend, [1.0]))[0]
+
+    if backend == "jax":
+        ad = float(jax.grad(f)(1.3))
+    else:
+        a = torch.tensor(1.3, requires_grad=True)
+        (g,) = torch.autograd.grad(f(a), a)
+        ad = float(g)
+
+    def cd(h):
+        return (float(as_numpy(f(1.3 + h))) - float(as_numpy(f(1.3 - h)))) / (2 * h)
+
+    # h^2 truncation dominates down to h ~ 1e-3; below, the values' ~1e-10
+    # quadrature noise does. Richardson on (2e-3, 1e-3): measured jax 1.4e-8,
+    # torch 2.1e-7 (the reference's noise floor, not the AD)
+    fd = (4.0 * cd(1e-3) - cd(2e-3)) / 3.0
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
