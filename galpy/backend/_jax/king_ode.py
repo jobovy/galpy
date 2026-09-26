@@ -13,10 +13,12 @@ import math
 _FOURPI = 4.0 * math.pi
 
 
-def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=100000):
+def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=4096):
     """(rho0, r0, r, W, dWdr) of the scale-free King model, as jax arrays.
 
-    ``dens_W`` is the King density as a function of W (backend-agnostic)."""
+    ``dens_W`` is the King density as a function of W (backend-agnostic).
+    DirectAdjoint (bounded ``max_steps``): diffrax's default adjoint is
+    reverse-mode first order only, and d2/dW0^2 is wanted too."""
     import diffrax
     import jax.numpy as jnp
 
@@ -25,6 +27,7 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=100000):
     rbreak = jnp.where(W0 < 2.0, r0 / 100.0, r0)
     n1 = npt // 2
     controller = diffrax.PIDController(rtol=rtol, atol=atol)
+    adjoint = diffrax.DirectAdjoint()
 
     def rhs1(t, y, args):
         # r^2 W'' = -4 pi rho r^2 - 2 r W': the 2 W'/r term is 0 at r=0 (W'(0)=0);
@@ -48,6 +51,7 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=100000):
         saveat=diffrax.SaveAt(ts=r1),
         stepsize_controller=controller,
         max_steps=max_steps,
+        adjoint=adjoint,
     ).ys  # (n1, 2)
 
     def rhs2(t, y, args):  # in Psi: y = (r, v = dW/dr)
@@ -67,6 +71,7 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=100000):
         saveat=diffrax.SaveAt(ts=W2),
         stepsize_controller=controller,
         max_steps=max_steps,
+        adjoint=adjoint,
     ).ys  # (npt - n1 + 1, 2)
     r = jnp.concatenate([r1[:-1], s2[:, 0]])
     W = jnp.concatenate([s1[:-1, 0], W2])

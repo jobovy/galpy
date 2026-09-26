@@ -13,12 +13,14 @@ from ..backend import (
 from ..backend import special as _bspecial
 from ..backend._namespaces import (
     has_concrete_truth_value,
+    name_of_namespace,
     namespace_from_arrays,
     requires_backend_grad,
     stop_gradient,
     under_trace,
     untraceable_setup,
 )
+from ..backend.autodiff import graft_derivative
 from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
 from .df import df
@@ -386,28 +388,50 @@ class _scalefreekingdf:
         drho = self._ddens_dW(self._W) * dW
         dcm = -(dv * self._r**2.0 + 2.0 * self._dWdr * self._r * dr)
 
-        xp = namespace_from_arrays((self.W0,))
-
-        def graft(val, d):
-            ref = self.W0 * 1.0
-            dW0 = ref - stop_gradient(ref)  # zero valued, carries d/dW0 = 1
-            return as_backend_constant(xp, val, ref) + dW0 * as_backend_constant(
-                xp, d, ref
-            )
-
         drt = dr[-1]
-        self.c = graft(self.c, (drt / self.rt - dr0 / self.r0) / numpy.log(10.0))
-        self.rho0 = graft(self.rho0, self._ddens_dW(W0))
-        self.r0 = graft(self.r0, dr0)
-        self.rt = graft(self.rt, drt)
-        self.mass = graft(self.mass, dcm[-1])
-        self._r = graft(self._r, dr)
-        self._W = graft(self._W, dW)
-        self._dWdr = graft(self._dWdr, dv)
-        self._rho = graft(self._rho, drho)
-        self._cumul_mass = graft(self._cumul_mass, dcm)
+        head = [self.c, self.rho0, self.r0, self.rt, self.mass]
+        dhead = [
+            (drt / self.rt - dr0 / self.r0) / numpy.log(10.0),
+            self._ddens_dW(W0),
+            dr0,
+            drt,
+            dcm[-1],
+        ]
+        tabs = [self._r, self._W, self._dWdr, self._rho, self._cumul_mass]
+        dtabs = [dr, dW, dv, drho, dcm]
+        # values and d/dW0 from the scipy solve; second order and up (rarely
+        # asked, ~1 s) from the in-backend solve of the same tables
+        out = graft_derivative(
+            self.W0 * 1.0,
+            numpy.concatenate([numpy.array(head, dtype=float), *tabs]),
+            numpy.concatenate([numpy.array(dhead, dtype=float), *dtabs]),
+            lambda W0: self._tables_backend(W0, npt),
+        )
+        self.c, self.rho0, self.r0, self.rt, self.mass = (out[i] for i in range(5))
+        self._r, self._W, self._dWdr, self._rho, self._cumul_mass = (
+            out[5 + k * npt : 5 + (k + 1) * npt] for k in range(5)
+        )
         # knots AND values differentiated: Spline1D mode 2
         self._W_from_r = Spline1D(self._r, self._W, k=3)
+
+    def _tables_backend(self, W0, npt):
+        """_graft_W0_derivative's stacked tables, solved in-backend (diffrax /
+        torchode): the donor of their second and higher W0-derivatives."""
+        xp = namespace_from_arrays((W0,))
+        if name_of_namespace(xp) == "torch":
+            from ..backend._torch.king_ode import solve as _king_solve
+
+            # Dopri5 (torchode has no 8th-order method): its second derivatives
+            # need the tighter tolerance (2e-7 vs 2e-5 at the solve's 1e-10)
+            kw = {"rtol": 1e-13, "atol": 1e-15}
+        else:
+            from ..backend._jax.king_ode import solve as _king_solve
+
+            kw = {}
+        rho0, r0, r, W, dWdr = _king_solve(self._dens_W, W0, npt, **kw)
+        cm = -dWdr * r**2.0  # d/dW0 of the repaired mass is the raw one's
+        head = xp.stack([xp.log10(r[-1] / r0), rho0, r0, r[-1], cm[-1]])
+        return xp.concat([head, r, W, dWdr, self._dens_W(W), cm])
 
     def _dens_W(self, W):
         """Density as a function of W"""
