@@ -14673,7 +14673,9 @@ def test_twopower_phi_accuracy(alpha, beta, x, phi):
         amp=1.0, a=_GOLD_A, alpha=alpha, beta=beta
     )
     got = potential.evaluatePotentials(pot, x * _GOLD_A, 0.0)
-    assert abs(got / phi - 1.0) < 2e-14, f"x={x}: {got} vs {phi}"
+    # 5e-14: the backend hyp2f1 near z = -2 under a forced backend (2.2e-14 on
+    # jax at x = 0.5001); numpy <= 4e-15
+    assert abs(got / phi - 1.0) < 5e-14, f"x={x}: {got} vs {phi}"
 
 
 def test_radial_edge_limits_numpy():
@@ -14721,3 +14723,17 @@ def test_radial_edge_limits_numpy():
         )
         < 1e-8
     )
+
+
+def test_burkert_einasto_mass_with_z_uses_general_implementation():
+    # mass(R, z) goes to the general integration over the slab R' < R,
+    # |z'| < z: bounded by the enclosed spherical masses at min(R, z) and at
+    # sqrt(R^2 + z^2)
+    R, z = 1.0, 0.5
+    for pot in (
+        potential.BurkertPotential(amp=2.0, a=1.5),
+        potential.EinastoPotential(amp=2.0, h=1.5, n=2.0),
+    ):
+        m = pot.mass(R, z=z, use_physical=False)
+        assert pot.mass(min(R, z), use_physical=False) < m
+        assert m < pot.mass(numpy.sqrt(R**2 + z**2), use_physical=False)
