@@ -2,7 +2,7 @@
 #   galpy.backend._namespaces: helpers mapping backend names to array
 #   namespaces and small namespace-agnostic utilities.
 ###############################################################################
-from functools import wraps
+from functools import singledispatchmethod, wraps
 
 import numpy
 
@@ -182,6 +182,48 @@ def requires_backend_grad(*xs):
     and jax arrays simply do not carry the attribute.
     """
     return any(getattr(x, "requires_grad", False) for x in xs)
+
+
+class compilable_singledispatchmethod(singledispatchmethod):
+    """``functools.singledispatchmethod`` that ``torch.compile`` can call into.
+
+    torch 2.14 mis-resumes singledispatch's dispatch after a graph break in the
+    dispatched method and recurses forever (every compiled ``Orbit.integrate``:
+    its body always graph-breaks). The dispatch frame runs eagerly instead
+    (``torch.compiler.disable(recursive=False)``, torch imported only if it is
+    already imported); the dispatched method is still compiled, as its own frame.
+    """
+
+    def __init__(self, func):
+        super().__init__(func)
+        dispatch = self.dispatcher.dispatch
+
+        def _call(obj, *args, **kwargs):
+            if not args:
+                raise TypeError(
+                    f"{func.__name__} requires at least 1 positional argument"
+                )
+            return dispatch(args[0].__class__).__get__(obj, type(obj))(*args, **kwargs)
+
+        disabled = []
+
+        @wraps(func)
+        def method(obj, *args, **kwargs):
+            import sys
+
+            if "torch" not in sys.modules:
+                return _call(obj, *args, **kwargs)
+            if not disabled:
+                import torch
+
+                disabled.append(torch.compiler.disable(_call, recursive=False))
+            return disabled[0](obj, *args, **kwargs)
+
+        method.register = self.register
+        self._method = method
+
+    def __get__(self, obj, cls=None):
+        return self._method if obj is None else self._method.__get__(obj, cls)
 
 
 def untraceable_setup(method):

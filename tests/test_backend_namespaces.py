@@ -166,3 +166,51 @@ def test_as_numpy_constant_reads_the_primal_but_not_under_jit():
         t = torch.tensor(1.5, requires_grad=True)
         c = as_numpy_constant(t * 2.0)
         assert isinstance(c, numpy.ndarray) and c == 3.0
+
+
+def test_compilable_singledispatchmethod():
+    # dispatches exactly like functools.singledispatchmethod (Orbit.integrate)
+    from galpy.backend._namespaces import compilable_singledispatchmethod
+
+    class Base:
+        pass
+
+    class Sub(Base):
+        pass
+
+    class A:
+        @compilable_singledispatchmethod
+        def f(self, t, k=1.0):
+            """default"""
+            return ("default", t, k)
+
+        @f.register(Base)
+        @f.register(list)
+        def _(self, t, k=1.0):
+            return ("registered", type(t).__name__, k)
+
+    a = A()
+    assert a.f(1.5, k=2.0) == ("default", 1.5, 2.0)
+    assert a.f([1.0], 3.0) == ("registered", "list", 3.0)
+    assert a.f(Sub()) == ("registered", "Sub", 1.0)  # resolved through the MRO
+    assert A.f.__doc__ == "default"
+    with pytest.raises(TypeError, match="requires at least 1 positional argument"):
+        a.f()
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_compilable_singledispatchmethod_under_torch_compile():
+    # a graph break inside the dispatched method: torch 2.14 recursed forever
+    # through functools.singledispatchmethod's own dispatch
+    from galpy.backend._namespaces import compilable_singledispatchmethod
+
+    class A:
+        @compilable_singledispatchmethod
+        def f(self, t, k=1.0):
+            torch._dynamo.graph_break()
+            return t * k
+
+    a = A()
+    torch._dynamo.reset()
+    out = torch.compile(lambda x: a.f(x, 2.0) + 1.0, backend="eager")(torch.ones(2))
+    assert out.tolist() == [3.0, 3.0]
