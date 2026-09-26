@@ -21,6 +21,58 @@ v1.12.1 (expected around 2026-11-01)
   point-transformed one. Nothing changes without a point transformation or
   with the exact one, which have no offset.
 
+- New ``actionAngleSphericalInverse``: the inverse action-angle transformation
+  for spherical potentials, through the same momentum-matched canonical map
+  as the one-dimensional case. Each torus is sampled exactly in its radial
+  anomaly and mapped onto the torus of equal (J_r, L) of a frozen isochrone
+  auxiliary by the radial point transformation that matches cumulative
+  radial actions (a sine series in the anomaly, ``mm_npt`` harmonics fitted
+  to ``mm_nta`` samples), lifted to the momenta cotangent-consistently; the
+  polar libration needs no map because it does not depend on the potential,
+  and the radial and polar angles carry the closed-form compensation for
+  the moving turning points. Evaluation goes through the analytic isochrone
+  inverse and undoes the lift; the map is exactly symplectic for any stored
+  tables because every derivative it needs is that of the stored
+  interpolant itself. Tori are given as explicit (E, L) pairs or as an
+  (E, L) grid with ``setup_interp=True`` (angular momenta of the circular
+  orbits between ``Rmin`` and ``Rmax``, energies up to the potential at
+  ``Rinf``, uniform in the logarithm of the radial orbit's apocentre --
+  which is the energy itself for a logarithmic halo, and in a potential
+  with an escape energy, where every apocentre diverges, compresses the
+  spacing toward the top so that the tables stay smooth up to it -- and
+  quadratically spaced at the circular edge), with ``Jr(E, L)``
+  giving a torus's radial action; ``Freqs`` returns the frequencies of the
+  returned orbits; the isochrone auxiliary is fitted to the potential's
+  rotation curve unless given (``auxiliary=``), and is the ``auxiliary``
+  attribute either way. The family's tables are Hermite interpolants (quintic
+  along the energy variable, cubic along L) whose first partials are exact
+  at every node: the energy is analytic in the grid's variables, the
+  radial action's partials follow from the node's own frequencies, the
+  turning points' from the level-set rule, and the anomaly map's from the
+  variation of the matching condition on each torus alone, so a grid
+  torus's angles and frequencies are exact and the family between its
+  nodes is accurate to ~1e-7 in angle on a 16 x 16 grid. The evaluation is
+  a single vectorized pass in the anomaly: the auxiliary anomaly and radial
+  angle, the target's radius and radial momentum, and the compensations
+  come from the tables in closed form, Newton runs on the anomaly, and the
+  three-dimensional reconstruction is one call of the analytic isochrone
+  inverse for all points (0.02 ms per point). The auxiliary's cumulative
+  action, which the matching inverts, is closed form (the two arctangents
+  of the isochrone's angle relation, with their linear parts gathered so
+  that the round-off is the action's own), as are its parameter partials
+  that the map's slopes need; the map's projection and evaluation on the
+  anomaly grid are FFTs, and the slopes are solved by a Galerkin projection
+  onto the sine basis formed by FFT, so a family's construction costs
+  nothing beyond its samples: 2 s for a 16 x 16 grid, and a minute at a
+  thousand harmonics; ``progressbar=`` (default True) shows tqdm bars over
+  the tori. The circular orbits are the
+  bottom row of the grid, with the epicycle limit's exact partials, so the
+  family reaches J_r -> 0 continuously, and the circular orbit itself
+  (J_r = 0) evaluates in closed form with the epicycle and circular
+  frequencies, in a grid or as an explicit torus. A warning is raised when the anomaly map does not
+  resolve a torus, and a torus that reaches beyond the depth of the fitted
+  auxiliary raises.
+
 - ``actionAngleSpherical`` now handles circular and near-circular orbits,
   where the general quadratures lost precision, returned NaN, or failed to
   bracket a turning point. An orbit close to circular (radial velocity and
