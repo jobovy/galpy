@@ -10707,6 +10707,78 @@ def test_actionAngleSphericalInverse_convergence_warnings():
     return None
 
 
+def test_actionAngleSphericalInverse_escape_grid():
+    # In a potential with an escape energy the apocentre of every torus
+    # diverges there, so the family's tables have a pole just beyond the
+    # top of a grid that reaches far out; the grid's energies are therefore
+    # uniform in the logarithm of the radial orbit's apocentre rather than
+    # in the energy, which keeps the tables smooth up to the top row. Checked
+    # on a Hernquist grid reaching to two hundred times its innermost circular
+    # radius: the round trip through the forward transformation at the
+    # midpoint of the top cell, which the linear spacing gets wrong by
+    # order unity, and the grid's coverage (the top row at the potential at
+    # Rinf, the circular orbits at the bottom)
+    from scipy.optimize import brentq
+
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.potential import HernquistPotential, evaluatePotentials, rl, vcirc
+
+    pot = HernquistPotential(normalize=1.0, a=0.5)
+    aAI = actionAngleSphericalInverse(
+        pot=pot,
+        setup_interp=True,
+        Rmin=0.1,
+        Rmax=3.0,
+        Rinf=20.0,
+        nE=16,
+        nL=8,
+        mm_npt=256,
+        progressbar=False,
+    )
+    aAS = actionAngleSpherical(pot=pot)
+    # a column of the grid, so that the interpolation is along the energy (the
+    # L derivatives between energy nodes still lean on the neighbouring
+    # columns, through the estimated cross derivatives)
+    L = numpy.linspace(0.1 * vcirc(pot, 0.1), 3.0 * vcirc(pot, 3.0), 8)[4]
+    Emax = evaluatePotentials(pot, 20.0, 0.0)
+    rc = rl(pot, L)
+    Ec = evaluatePotentials(pot, rc, 0.0) + L**2 / (2.0 * rc**2)
+    assert aAI.Jr(Ec, L) == 0.0, "The circular orbit is not the bottom of the grid"
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI.Jr(Emax + 1e-6, L)
+    # the top cell's midpoint in the grid's own variable: the apocentre of
+    # the radial orbit at the geometric mean of those at the top two rows
+    r0 = lambda E: brentq(lambda r: evaluatePotentials(pot, r, 0.0) - E, rc, 20.0)
+    r0c = r0(Ec)
+    x = 0.5 * ((14.0 / 15.0) ** 2 + 1.0)
+    E = evaluatePotentials(pot, r0c * (20.0 / r0c) ** x, 0.0)
+    jr = aAI.Jr(E, L)
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi, anglez = 0.3 + 1.7 * angler, 0.7 + 2.3 * angler
+    R, vR, vT, z, vz, phi = aAI(jr, 0.6 * L, 0.4 * L, angler, anglephi, anglez)
+    f = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    dth = max(
+        numpy.amax(
+            numpy.fabs((f[6] - angler + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        ),
+        numpy.amax(
+            numpy.fabs((f[7] - anglephi + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        ),
+        numpy.amax(
+            numpy.fabs((f[8] - anglez + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        ),
+    )
+    assert numpy.amax(numpy.fabs(f[0] - jr)) / jr < 1e-3, (
+        "The top cell of a grid reaching toward the escape energy does not "
+        "interpolate the action"
+    )
+    assert dth < 3e-3, (
+        "The top cell of a grid reaching toward the escape energy does not "
+        "interpolate the angles"
+    )
+    return None
+
+
 def test_actionAngleSphericalInverse_errors(
     spherical_inverse_interp, spherical_inverse_explicit
 ):

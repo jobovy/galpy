@@ -36,7 +36,11 @@ v1.12.1 (expected around 2026-11-01)
   interpolant itself. Tori are given as explicit (E, L) pairs or as an
   (E, L) grid with ``setup_interp=True`` (angular momenta of the circular
   orbits between ``Rmin`` and ``Rmax``, energies up to the potential at
-  ``Rinf``, quadratically spaced from the circular edge), with ``Jr(E, L)``
+  ``Rinf``, uniform in the logarithm of the radial orbit's apocentre --
+  which is the energy itself for a logarithmic halo, and in a potential
+  with an escape energy, where every apocentre diverges, compresses the
+  spacing toward the top so that the tables stay smooth up to it -- and
+  quadratically spaced at the circular edge), with ``Jr(E, L)``
   giving a torus's radial action; ``Freqs`` returns the frequencies of the
   returned orbits; the isochrone auxiliary is fitted to the potential's
   rotation curve unless given (``auxiliary=``), and is the ``auxiliary``
