@@ -677,6 +677,15 @@ def namespace_from_arrays(arrays):
             "galpy's non-numpy backends require array-api-compat "
             "(pip install array-api-compat, or galpy[jax]/galpy[torch])"
         )
+    if _TORCH_LOADED:
+        import torch
+
+        # all-torch fast path: same namespace as array_namespace's, which
+        # torch.compile cannot trace (it hashes modules into a set)
+        if all(isinstance(a, torch.Tensor) for a in arrs):
+            import array_api_compat.torch as txp
+
+            return txp
     import array_api_compat
 
     # Non-numpy arrays only reach here (numpy is handled by the fast path above),

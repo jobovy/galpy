@@ -408,9 +408,10 @@ setup(
         "test": ["pytest", "coverage", "pytest-cov", "pytest-rerunfailures"],
         # Array-backend support (galpy.backend). array-api-compat is the
         # dispatch engine and is pulled in by each backend extra; diffrax /
-        # torchdiffeq provide the in-backend differentiable ODE orbit integrator.
+        # torchdiffeq / torchode provide the in-backend differentiable ODE orbit
+        # integrators (torchode: the torch.compile-able one).
         "jax": ["jax", "jaxlib", "array-api-compat", "diffrax"],
-        "torch": ["torch", "array-api-compat", "torchdiffeq"],
+        "torch": ["torch", "array-api-compat", "torchdiffeq", "torchode"],
         "docs": [
             "sphinxext-opengraph",
             "sphinx-design",

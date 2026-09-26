@@ -1829,11 +1829,11 @@ class Orbit:
         else:
             self._integrate_t_asQuantity = False
         # In-backend differentiable ODE integrators (jax->diffrax, torch->
-        # torchdiffeq). Intercept BEFORE check_integrator (which would reject
+        # torchdiffeq / torchode). Intercept BEFORE check_integrator (which would reject
         # these names) and before any numpy coercion of t / the IC, so the
         # entire numpy/C/scipy path below is dead code for these methods and
         # byte-identical for every existing method.
-        if method.lower() in ("diffrax", "torchdiffeq"):
+        if method.lower() in ("diffrax", "torchdiffeq", "torchode"):
             # the same list -> CompositePotential conversion (and deprecation
             # warning) every other method gets below
             pot = _check_potential_list_and_deprecate(pot)
@@ -2320,11 +2320,15 @@ class Orbit:
                 "method='diffrax' requires a jax initial condition; use "
                 "method='torchdiffeq' for a torch initial condition"
             )
-        if method.lower() == "torchdiffeq" and "torch" not in name:
+        if method.lower() in ("torchdiffeq", "torchode") and "torch" not in name:
             raise ValueError(
-                "method='torchdiffeq' requires a torch initial condition; use "
-                "method='diffrax' for a jax initial condition"
+                f"method='{method.lower()}' requires a torch initial condition; "
+                "use method='diffrax' for a jax initial condition"
             )
+        if method.lower() == "torchode":
+            _engine = {"engine": "torchode"}
+        else:
+            _engine = {}
         # Output times onto the IC's backend. _integrate_impl has already parsed
         # any Quantity time to numpy floats (and set _integrate_t_asQuantity), so
         # here t is either a backend array -- kept on its backend, possibly traced
@@ -2363,7 +2367,9 @@ class Orbit:
         # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
         if self.shape == ():
             # single orbit: ic (phasedim,), ts (nt,) -> result (nt, phasedim)
-            result = integrate_orbit(pot, ic, ts, rtol=_rtol, atol=_atol, **_ibk)
+            result = integrate_orbit(
+                pot, ic, ts, rtol=_rtol, atol=_atol, **_engine, **_ibk
+            )
             self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
         else:
             # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
@@ -2373,7 +2379,9 @@ class Orbit:
             # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
             ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
             ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
-            result = integrate_orbit(pot, ic2d, ts_int, rtol=_rtol, atol=_atol, **_ibk)
+            result = integrate_orbit(
+                pot, ic2d, ts_int, rtol=_rtol, atol=_atol, **_engine, **_ibk
+            )
             assert result.shape[0] == ts.shape[-1]  # (nt, size, phasedim)
             self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
         # store a per-orbit t FLATTENED to (size, nt) (mirroring the numpy indiv_t
@@ -2575,7 +2583,7 @@ class Orbit:
         atol : float, optional
             Absolute tolerance. Default is None.
         inbackend_kwargs : dict, optional
-            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
@@ -2597,6 +2605,7 @@ class Orbit:
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
+          -  'diffrax' (jax), 'torchdiffeq' or 'torchode' (torch) for the in-backend differentiable ODE integrators; these require a jax/torch initial condition, and 'torchode' can be compiled with torch.compile
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
 
