@@ -5,6 +5,8 @@
 import math
 import warnings
 
+import numpy
+
 from ..backend import coerce_coords, get_namespace
 from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -130,6 +132,17 @@ class LogarithmicHaloPotential(Potential):
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
         R, z, phi = coerce_coords(xp, R, z, phi)
+        # inf/inf at R or z = inf, where the density is 0; numpy without an
+        # infinite coordinate runs the formula untouched
+        edge = xp.isinf(R) | xp.isinf(z)
+        if xp is numpy and not numpy.any(edge):
+            return self._dens_body(xp, R, z, phi)
+        one = xp.ones_like(edge * 1.0)
+        out = self._dens_body(xp, xp.where(edge, one, R), xp.where(edge, one, z), phi)
+        out = xp.where(edge, 0.0 * one, out)
+        return out[()] if xp is numpy else out
+
+    def _dens_body(self, xp, R, z, phi):
         if self.isNonAxi:
             R2 = R**2.0
             Rt2 = R2 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)

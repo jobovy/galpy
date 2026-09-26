@@ -6,7 +6,7 @@ import warnings
 PY3 = sys.version > "3"
 import numpy
 import pytest
-from scipy import optimize
+from scipy import optimize, special
 
 try:
     import pynbody
@@ -14502,3 +14502,238 @@ def test_pickling_potential_drops_units_wrapper():
             r, 0.0, use_physical=False
         ), "rebuilt density differs from the original"
     return None
+
+
+# --- small-r accuracy and radial edge limits -----------------------------------
+# 50-digit (mpmath) references, a = 1.3, amp = 1. The closed forms of NFW,
+# Burkert and Einasto lose ~eps/x^k at x = r/a << 1 (NFW's R2deriv was 3e2 off
+# at x = 1e-6; Einasto's force returned exactly 0 below r/h ~ 1e-6) and the
+# generic TwoPower Phi carried a +1e-11 shift in r; all now to ~1e-15.
+_GOLD_A = 1.3
+_GOLD_NFW = [  # x = r/a, Phi, dPhi/dr, d2Phi/dr2, mass
+    (
+        1e-12,
+        -7.6923076923038462e-1,
+        2.95857988165286e-1,
+        -3.034440904256562e-1,
+        4.9999999999933333e-25,
+    ),
+    (
+        1e-8,
+        -7.6923076538461541e-1,
+        2.9585798422090734e-1,
+        -3.0344408359884702e-1,
+        4.9999999333333341e-17,
+    ),
+    (
+        1e-4,
+        -7.6919231025621796e-1,
+        2.9581854487132155e-1,
+        -3.0337582642846325e-1,
+        4.9993334083253342e-9,
+    ),
+    (
+        0.1,
+        -7.3315522926403738e-1,
+        2.604194612564468e-1,
+        -2.447496497726657e-1,
+        4.401088895233951e-3,
+    ),
+    (
+        0.2499,
+        -6.8662402842379745e-1,
+        2.1913435629998048e-1,
+        -1.831806222800876e-1,
+        2.3127553234448712e-2,
+    ),
+]
+_GOLD_NFW_OFFPLANE = [  # (R/a, z/a), Rforce, zforce, R2deriv, z2deriv, Rzderiv
+    (
+        0.6e-6,
+        0.8e-6,
+        -1.7751455621328402e-1,
+        -2.3668607495104536e-1,
+        1.4565285996101654e5,
+        8.1929600971580943e4,
+        -1.0923987255331816e5,
+    ),
+    (
+        0.06,
+        0.08,
+        -1.5625167675386808e-1,
+        -2.0833556900515744e-1,
+        1.1939551661135785,
+        5.6452180916334664e-1,
+        -1.0790286119146831,
+    ),
+]
+_GOLD_BURKERT = [  # x, Phi, Rforce
+    (1e-12, -1.6679631437841016e1, -5.4454272662182139e-12),
+    (1e-8, -1.6679631437841016e1, -5.4454272253816038e-8),
+    (1e-4, -1.6679631402447509e1, -5.4450188591773418e-4),
+    (0.1, -1.6646005456731088e1, -5.037233189848449e-1),
+    (0.2499, -1.6486107070180246e1, -1.1075435518614308),
+]
+_GOLD_EINASTO = [  # n, s = r/h, Phi, Rforce
+    (0.5, 1e-12, -1.0618583169133501e1, -5.4454272662223083e-12),
+    (0.5, 1e-6, -1.0618583169129962e1, -5.445427266219041e-6),
+    (0.5, 0.01, -1.0618229226979527e1, -5.4451005522548051e-2),
+    (0.5, 0.5, -9.796301461871681, -2.3485239609871852),
+    (0.5, 2, -4.6832273048778609, -1.7264389115546235),
+    (2, 1e-12, -2.5484599605920403e2, -5.445422598715265e-12),
+    (2, 1e-6, -2.5484599605920049e2, -5.4407617985672883e-6),
+    (2, 0.01, -2.5484566551463484e2, -4.9985050322442739e-2),
+    (2, 0.5, -2.5429694557547066e2, -1.491095653548569),
+    (2, 2, -2.4930821758583672e2, -3.2945038281050218),
+    (4, 1e-12, -4.2814127337946277e5, -5.4404030510052204e-12),
+    (4, 1e-6, -4.2814127337946276e5, -5.2887848177365962e-6),
+    (4, 0.01, -4.2814127310622973e5, -4.0679138969292757e-2),
+    (4, 0.5, -4.2814082750923698e5, -1.2551669307440114),
+    (4, 2, -4.2813588783341619e5, -3.6471553013114419),
+]
+_GOLD_TWOPOWER = [  # alpha, beta, x, Phi
+    (0.5, 4, 0, -2.0512820512820513e-1),
+    (0.5, 4, 1e-12, -2.0512820512820513e-1),
+    (0.5, 4, 1e-6, -2.0512820492307723e-1),
+    (0.5, 4, 0.01, -2.0492611582834019e-1),
+    (0.5, 4, 0.4999, -1.6565915929662416e-1),
+    (0.5, 4, 0.5001, -1.6564336852004264e-1),
+    (0.5, 4, 2, -9.3470553035524645e-2),
+    (1.5, 3.5, 0, -1.2083048667653051),
+    (1.5, 3.5, 1e-12, -1.2083038411242795),
+    (1.5, 3.5, 1e-6, -1.2072792261499202),
+    (1.5, 3.5, 0.01, -1.106148402630721),
+    (1.5, 3.5, 0.4999, -5.9393854492963185e-1),
+    (1.5, 3.5, 0.5001, -5.9384988327469184e-1),
+    (1.5, 3.5, 2, -2.9694710503545727e-1),
+    (0, 5, 0, -6.4102564102564103e-2),
+    (0, 5, 1e-12, -6.4102564102564103e-2),
+    (0, 5, 1e-6, -6.4102564102435898e-2),
+    (0, 5, 0.01, -6.4090058421811958e-2),
+    (0, 5, 0.4999, -5.2234567964535892e-2),
+    (0, 5, 0.5001, -5.2228869958857583e-2),
+    (0, 5, 2, -2.6115859449192783e-2),
+    (1.9, 3.2, 0, -7.4868571757768359),
+    (1.9, 3.2, 1e-12, -7.0456282635529518),
+    (1.9, 3.2, 1e-6, -5.7302933463978764),
+    (1.9, 3.2, 0.01, -3.0772883870599602),
+    (1.9, 3.2, 0.4999, -1.1317987178294817),
+    (1.9, 3.2, 0.5001, -1.1316020533692173),
+    (1.9, 3.2, 2, -5.4513348768870408e-1),
+]
+
+
+@pytest.mark.parametrize("x,phi,dphidr,d2phidr2,m", _GOLD_NFW)
+def test_nfw_small_r_accuracy(x, phi, dphidr, d2phidr2, m):
+    pot = potential.NFWPotential(amp=1.0, a=_GOLD_A)
+    r = x * _GOLD_A
+    for got, ref in (
+        (potential.evaluatePotentials(pot, r, 0.0), phi),
+        (-potential.evaluateRforces(pot, r, 0.0), dphidr),
+        (potential.evaluateR2derivs(pot, r, 0.0), d2phidr2),
+        (potential.evaluatez2derivs(pot, 0.0, r), d2phidr2),
+        (pot.mass(r, use_physical=False), m),
+    ):
+        assert abs(got / ref - 1.0) < 2e-14, f"x={x}: {got} vs {ref}"
+
+
+@pytest.mark.parametrize("Rx,zx,Rf,zf,R2,z2,Rz", _GOLD_NFW_OFFPLANE)
+def test_nfw_small_r_accuracy_offplane(Rx, zx, Rf, zf, R2, z2, Rz):
+    pot = potential.NFWPotential(amp=1.0, a=_GOLD_A)
+    R, z = Rx * _GOLD_A, zx * _GOLD_A
+    for got, ref in (
+        (potential.evaluateRforces(pot, R, z), Rf),
+        (potential.evaluatezforces(pot, R, z), zf),
+        (potential.evaluateR2derivs(pot, R, z), R2),
+        (potential.evaluatez2derivs(pot, R, z), z2),
+        (potential.evaluateRzderivs(pot, R, z), Rz),
+    ):
+        assert abs(got / ref - 1.0) < 2e-14, f"(R,z)=({R},{z}): {got} vs {ref}"
+
+
+@pytest.mark.parametrize("x,phi,rforce", _GOLD_BURKERT)
+def test_burkert_small_r_accuracy(x, phi, rforce):
+    pot = potential.BurkertPotential(amp=1.0, a=_GOLD_A)
+    r = x * _GOLD_A
+    assert abs(potential.evaluatePotentials(pot, r, 0.0) / phi - 1.0) < 2e-14
+    assert abs(potential.evaluateRforces(pot, r, 0.0) / rforce - 1.0) < 2e-14
+
+
+@pytest.mark.parametrize("n,s,phi,rforce", _GOLD_EINASTO)
+def test_einasto_small_r_accuracy(n, s, phi, rforce):
+    pot = potential.EinastoPotential(amp=1.0, h=_GOLD_A, n=n)
+    r = s * _GOLD_A
+    assert abs(potential.evaluatePotentials(pot, r, 0.0) / phi - 1.0) < 2e-14
+    assert abs(potential.evaluateRforces(pot, r, 0.0) / rforce - 1.0) < 2e-14
+
+
+@pytest.mark.parametrize("alpha,beta,x,phi", _GOLD_TWOPOWER)
+def test_twopower_phi_accuracy(alpha, beta, x, phi):
+    pot = potential.TwoPowerSphericalPotential(
+        amp=1.0, a=_GOLD_A, alpha=alpha, beta=beta
+    )
+    got = potential.evaluatePotentials(pot, x * _GOLD_A, 0.0)
+    # 5e-14: the backend hyp2f1 near z = -2 under a forced backend (2.2e-14 on
+    # jax at x = 0.5001); numpy <= 4e-15
+    assert abs(got / phi - 1.0) < 5e-14, f"x={x}: {got} vs {phi}"
+
+
+def test_radial_edge_limits_numpy():
+    # finite (or genuinely infinite) limits where the numpy formula was NaN
+    inf = numpy.inf
+    a, amp = 1.5, 2.0
+    tp = potential.TwoPowerSphericalPotential(amp=amp, a=a, alpha=1.5, beta=3.5)
+    ein = potential.EinastoPotential(amp=amp, h=a, n=2.0)
+    bur = potential.BurkertPotential(amp=amp, a=a)
+    mtot_ein = 4.0 * numpy.pi * a**3.0 * 2.0 * special.gamma(6.0) * amp
+    cases = [
+        (potential.NFWPotential(amp=amp, a=a).mass(inf, use_physical=False), inf),
+        (tp.mass(inf, use_physical=False), amp * numpy.pi / 2.0),  # B(3/2, 1/2)
+        (bur.mass(0.0, use_physical=False), 0.0),
+        (bur.mass(inf, use_physical=False), inf),
+        (potential.evaluatePotentials(bur, 0.0, 0.0), -(numpy.pi**2) * a**2 * amp),
+        (ein.mass(0.0, use_physical=False), 0.0),
+        (ein.mass(inf, use_physical=False), mtot_ein),
+        (
+            potential.evaluateDensities(
+                potential.IsochronePotential(amp=amp, b=a), inf, 0.0
+            ),
+            0.0,
+        ),
+        (
+            potential.evaluateDensities(
+                potential.LogarithmicHaloPotential(amp=amp, core=0.3), inf, 0.0
+            ),
+            0.0,
+        ),
+        (
+            potential.evaluateDensities(potential.KeplerPotential(amp=amp), 0.0, 0.0),
+            0.0,
+        ),
+    ]
+    for got, ref in cases:
+        assert got == ref or abs(got / ref - 1.0) < 1e-14, f"{got} vs {ref}"
+    # the finite limits are the limits: approached from inside the domain
+    assert abs(tp.mass(1e10, use_physical=False) / (amp * numpy.pi / 2.0) - 1) < 1e-4
+    assert abs(ein.mass(1e5, use_physical=False) / mtot_ein - 1.0) < 1e-12
+    assert (
+        abs(
+            potential.evaluatePotentials(bur, 1e-9, 0.0) / (-(numpy.pi**2) * a**2 * amp)
+            - 1
+        )
+        < 1e-8
+    )
+
+
+def test_burkert_einasto_mass_with_z_uses_general_implementation():
+    # mass(R, z) goes to the general integration over the slab R' < R,
+    # |z'| < z: bounded by the enclosed spherical masses at min(R, z) and at
+    # sqrt(R^2 + z^2)
+    R, z = 1.0, 0.5
+    for pot in (
+        potential.BurkertPotential(amp=2.0, a=1.5),
+        potential.EinastoPotential(amp=2.0, h=1.5, n=2.0),
+    ):
+        m = pot.mass(R, z=z, use_physical=False)
+        assert pot.mass(min(R, z), use_physical=False) < m
+        assert m < pot.mass(numpy.sqrt(R**2 + z**2), use_physical=False)

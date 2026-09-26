@@ -18,6 +18,38 @@ from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
+# NFW's closed forms subtract terms of order 1/r^2 that cancel to leading
+# order, losing ~eps/x^2 (force, mass) and ~eps/x^3 (second derivatives) at
+# x = r/a << 1 (e.g. R2deriv 3e2 off at x=1e-6). Below _NFW_SMALL_X they use
+#   h(x) = log1p(x) - x/(1+x) = sum_{n>=2} (-1)^n (n-1)/n x^n   [dPhi/dr = h/r^2]
+#   k(x) = x^2/(1+x)^2 - 2h(x) = sum_{n>=3} (-1)^n (n-1)(n-2)/n x^n  [Phi'' = k/r^3]
+# (to 1e-19 relative at x = 0.25 with 40 terms); above it the original formulas.
+_NFW_SMALL_X = 0.25
+_NFW_NTERMS = 40
+_NFW_H = [(-1) ** n * (n - 1) / n for n in range(2, _NFW_NTERMS + 1)]
+_NFW_K = [(-1) ** n * (n - 1) * (n - 2) / n for n in range(3, _NFW_NTERMS + 1)]
+
+
+def _power_series(x, coeffs, first):
+    """sum_i coeffs[i] x^(first + i), by Horner."""
+    out = coeffs[-1]
+    for c in coeffs[-2::-1]:
+        out = out * x + c
+    return out * x**first
+
+
+def _nfw_small(xp, r, a):
+    """(small-x mask, r on it, x = r/a on it; 0.05 a elsewhere, keeping the
+    dead branches finite).
+
+    Masks r BEFORE dividing by a: masking x = r/a after would leave d(r/a)/da
+    = -inf (r = inf) in the dead branch's backward, 0 * inf = NaN. Use the
+    returned r, not x * a: the latter's d/da cancels only in exact arithmetic."""
+    small = r < _NFW_SMALL_X * a
+    rs = xp.where(small, r, 0.05 * a * xp.ones_like(r * 1.0))
+    return small, rs, rs / a
+
+
 if _APY_LOADED:
     from astropy import units
 
@@ -117,31 +149,79 @@ class TwoPowerSphericalPotential(Potential):
                 )
                 / (self.alpha - 2.0)
             )
+        elif self.alpha < 2.0:
+            # Phi = -M(<r)/r - int_r^inf 4 pi rho r' dr', the outer integral as
+            # the complete minus the inner incomplete beta: no term cancels at
+            # x = r/a << 1 (the generic form below loses ~eps a/r there, and
+            # its +1e-11 shift leaves ~1e-11 a/r everywhere). Generic for x >= 0.5.
+            xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
+            outer = (
+                _gamma(2.0 - self.alpha)
+                * _gamma(self.beta - 2.0)
+                / _gamma(self.beta - self.alpha)
+            )
+
+            def phi(r):
+                # mask r before dividing by a (see _nfw_small)
+                small = r < 0.5 * self.a
+                xs = xp.where(small, r, 0.25 * self.a * xp.ones_like(r * 1.0)) / self.a
+                stable = (
+                    -(
+                        xs ** (2.0 - self.alpha)
+                        / (3.0 - self.alpha)
+                        * _hyp2f1(
+                            3.0 - self.alpha,
+                            self.beta - self.alpha,
+                            4.0 - self.alpha,
+                            -xs,
+                        )
+                        + outer
+                        - xs ** (2.0 - self.alpha)
+                        / (2.0 - self.alpha)
+                        * _hyp2f1(
+                            2.0 - self.alpha,
+                            self.beta - self.alpha,
+                            3.0 - self.alpha,
+                            -xs,
+                        )
+                    )
+                    / self.a
+                )
+                rg = xp.where(small, 2.0 * self.a * xp.ones_like(r * 1.0), r)
+                return xp.where(small, stable, self._evaluate_generic(xp, rg))
+
+            # Phi(0) = -B(2-alpha, beta-2)/a; d/da of x^(2-alpha) is inf*0 there
+            return radial_limits(xp.sqrt(R**2.0 + z**2.0), phi, at0=-outer / self.a)
         else:
             xp = get_namespace(R, z)
             R, z = coerce_coords(xp, R, z)
             r = (
                 xp.sqrt(R**2.0 + z**2.0) + 1e-11
             )  # avoid division by zero and numerical instability of the hyp2f1 function
-            return radial_limits(
-                r,
-                lambda r: (
-                    _gamma(self.beta - 3.0)
-                    * (
-                        (r / self.a) ** (3.0 - self.beta)
-                        / _gamma(self.beta - 1.0)
-                        * _hyp2f1(
-                            self.beta - 3.0,
-                            self.beta - self.alpha,
-                            self.beta - 1.0,
-                            -self.a / r,
-                        )
-                        - _gamma(3.0 - self.alpha) / _gamma(self.beta - self.alpha)
+            return self._evaluate_generic(xp, r)
+
+    def _evaluate_generic(self, xp, r):
+        """The generic beta != 3 form (cancels at small r; see _evaluate)."""
+        return radial_limits(
+            r,
+            lambda r: (
+                _gamma(self.beta - 3.0)
+                * (
+                    (r / self.a) ** (3.0 - self.beta)
+                    / _gamma(self.beta - 1.0)
+                    * _hyp2f1(
+                        self.beta - 3.0,
+                        self.beta - self.alpha,
+                        self.beta - 1.0,
+                        -self.a / r,
                     )
-                    / r
-                ),
-                atinf=0.0 if self.beta > 3.0 else None,
-            )
+                    - _gamma(3.0 - self.alpha) / _gamma(self.beta - self.alpha)
+                )
+                / r
+            ),
+            atinf=0.0 if self.beta > 3.0 else None,
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
@@ -316,12 +396,29 @@ class TwoPowerSphericalPotential(Potential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            (R / self.a) ** (3.0 - self.alpha)
-            / (3.0 - self.alpha)
-            * _hyp2f1(
-                3.0 - self.alpha, -self.alpha + self.beta, 4.0 - self.alpha, -R / self.a
-            )
+        # finite total mass B(3-alpha, beta-3) for beta > 3, divergent otherwise
+        # (the formula is 0 * inf = NaN at R = inf)
+        mtot = (
+            _gamma(3.0 - self.alpha)
+            * _gamma(self.beta - 3.0)
+            / _gamma(self.beta - self.alpha)
+            if self.beta > 3.0
+            else numpy.inf
+        )
+        return radial_limits(
+            R,
+            lambda R: (
+                (R / self.a) ** (3.0 - self.alpha)
+                / (3.0 - self.alpha)
+                * _hyp2f1(
+                    3.0 - self.alpha,
+                    -self.alpha + self.beta,
+                    4.0 - self.alpha,
+                    -R / self.a,
+                )
+            ),
+            atinf=mtot,
+            numpy_too=True,
         )
 
 
@@ -1023,6 +1120,10 @@ class NFWPotential(TwoPowerSphericalPotential):
         # safe r so neither dead branch divides by 0 or takes log(inf)
         safe = xp.where(at0 | atinf, xp.ones_like(r * 1.0), r)
         bulk = -(1.0 / safe) * xp.log(1.0 + safe / self.a)
+        # log(1 + x) loses eps/x at x << 1
+        bulk = xp.where(
+            safe / self.a < _NFW_SMALL_X, -(1.0 / safe) * xp.log1p(safe / self.a), bulk
+        )
         out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
         return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
@@ -1031,8 +1132,15 @@ class NFWPotential(TwoPowerSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
-        return R * (
-            1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        small, rs, xs = _nfw_small(xp, sqrtRz, self.a)
+        return xp.where(
+            small,
+            -R * _power_series(xs, _NFW_H, 2) / rs**3.0,
+            R
+            * (
+                1.0 / Rz / (self.a + sqrtRz)
+                - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            ),
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
@@ -1040,8 +1148,15 @@ class NFWPotential(TwoPowerSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
-        return z * (
-            1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        small, rs, xs = _nfw_small(xp, sqrtRz, self.a)
+        return xp.where(
+            small,
+            -z * _power_series(xs, _NFW_H, 2) / rs**3.0,
+            z
+            * (
+                1.0 / Rz / (self.a + sqrtRz)
+                - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            ),
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -1049,7 +1164,15 @@ class NFWPotential(TwoPowerSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
-        return (
+        small, rs, xs = _nfw_small(xp, sqrtRz, self.a)
+        # d2Phi/dR2 = (k R^2 + h z^2) / r^5
+        stable = (
+            _power_series(xs, _NFW_K, 3) * R**2.0
+            + _power_series(xs, _NFW_H, 2) * z**2.0
+        ) / rs**5.0
+        return xp.where(
+            small,
+            stable,
             (
                 3.0 * R**4.0
                 + 2.0 * R**2.0 * (z**2.0 + self.a * sqrtRz)
@@ -1059,7 +1182,7 @@ class NFWPotential(TwoPowerSphericalPotential):
                 * xp.log(1.0 + sqrtRz / self.a)
             )
             / Rz**2.5
-            / (self.a + sqrtRz) ** 2.0
+            / (self.a + sqrtRz) ** 2.0,
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -1067,7 +1190,17 @@ class NFWPotential(TwoPowerSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
-        return (
+        small, rs, xs = _nfw_small(xp, sqrtRz, self.a)
+        # d2Phi/dRdz = (k - h) R z / r^5
+        stable = (
+            (_power_series(xs, _NFW_K, 3) - _power_series(xs, _NFW_H, 2))
+            * R
+            * z
+            / rs**5.0
+        )
+        return xp.where(
+            small,
+            stable,
             -R
             * z
             * (
@@ -1078,7 +1211,7 @@ class NFWPotential(TwoPowerSphericalPotential):
                 * xp.log(1.0 + sqrtRz / self.a)
             )
             * Rz**-2.5
-            * (self.a + sqrtRz) ** -2.0
+            * (self.a + sqrtRz) ** -2.0,
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
@@ -1124,7 +1257,17 @@ class NFWPotential(TwoPowerSphericalPotential):
             raise AttributeError  # use general implementation
         xp = get_namespace(R)
         (R,) = coerce_coords(xp, R)
-        return xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
+
+        def mass(R):
+            small, _, xs = _nfw_small(xp, R, self.a)
+            return xp.where(
+                small,
+                _power_series(xs, _NFW_H, 2),
+                xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a),
+            )
+
+        # log-divergent: numpy's inf - inf/inf was NaN
+        return radial_limits(R, mass, atinf=numpy.inf, numpy_too=True)
 
     @conversion.physical_conversion("position", pop=False)
     def rvir(
