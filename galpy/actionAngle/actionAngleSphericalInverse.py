@@ -175,7 +175,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             of the interpolation grid.
         Rinf : float or Quantity, optional
             Radius at which the potential equals the interpolation grid's
-            largest energy.
+            largest energy. The grid's energies are uniform in the
+            logarithm of the apocentre of the radial orbit between each
+            circular orbit's energy and this one (uniform in the energy for
+            a logarithmic halo, and compressed toward the top in a
+            potential with an escape energy, where the apocentre diverges),
+            spaced quadratically at the circular edge.
         nE : int, optional
             Number of energies of the interpolation grid.
         nL : int, optional
@@ -814,10 +819,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
     # ---------- the (E, L) interpolation grid
     def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL):
         """Rectangular grid in (u, L): L between the circular angular
-        momenta of Rmin and Rmax; E = Ec(L) + [E(Rinf) - Ec(L)] u^2 with u
-        uniform in [0, 1], the circular orbits themselves forming the
-        bottom row -- quadratic energy spacing at the circular edge, where
-        the tables behave as sqrt(E - E_c)"""
+        momenta of Rmin and Rmax; the energies uniform, in x = u^2 with u
+        uniform in [0, 1], in the logarithm of the apocentre of the radial
+        orbit, r_0(E) with Phi(r_0) = E, between the circular orbit's energy
+        and the potential at Rinf, the circular orbits themselves forming
+        the bottom row: E(x, L) = Phi(r_0(E_c(L)) [Rinf/r_0(E_c(L))]^x).
+        In the energy the spacing is quadratic at the circular edge, where
+        the tables behave as sqrt(E - E_c), and for the logarithmic halo it
+        is E = E_c + [E(Rinf) - E_c] x throughout; in a potential with an
+        escape energy, where the apocentre of every torus has a pole, the
+        spacing compresses toward the top so that the tables stay smooth in
+        x up to it (in the energy itself the pole sits just beyond the top
+        row, and no polynomial interpolant follows it from the last cell)"""
         if nE < 4 or nL < 4:
             raise ValueError("setup_interp=True requires nE >= 4 and nL >= 4")
         Lmin = Rmin * vcirc(self._pot, Rmin, use_physical=False)
@@ -831,8 +844,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "Rinf is too small: the grid's top energy lies below a "
                 "circular orbit's; increase Rinf"
             )
-        Etab = self._Ecs[None, :] + (self._Emax - self._Ecs[None, :]) * (
-            self._us[:, None] ** 2
+        self._Rinf = Rinf
+        self._r0c_cache = {}
+        Etab = numpy.array(
+            [[self._E_of_uL(u, L)[0] for L in self._Lgrid] for u in self._us]
         )
         self._E_tab = Etab
         self._Es = Etab.flatten()
@@ -864,14 +879,41 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         return E < Ec + tol
 
+    def _r0(self, E, rlo, rhi):
+        """The apocentre of the radial orbit of energy E, Phi(r_0) = E,
+        bracketed by [rlo, rhi]"""
+        return brentq(lambda r: self._Phi(r) - E, rlo, rhi, xtol=1e-14)
+
+    def _r0c(self, L):
+        """The apocentre of the radial orbit at the circular orbit's energy,
+        r_0(E_c(L)) (above r_c, since E_c exceeds Phi(r_c) by the centrifugal
+        term), and its derivative along L by the level-set rule, dr_0/dL =
+        (dE_c/dL)/Phi'(r_0); cached"""
+        if L not in self._r0c_cache:
+            Ec, dEc = self._Ec(L)
+            r0 = self._r0(Ec, self._rc(L), self._Rinf)
+            self._r0c_cache[L] = (r0, self._rdPhi(r0))
+        return self._r0c_cache[L]
+
+    def _rdPhi(self, r):
+        """r Phi'(r), the derivative of the potential with respect to ln r"""
+        return -r * evaluateRforces(self._pot, r, 0.0, use_physical=False)
+
     def _E_of_uL(self, u, L):
-        """The grid's energy variable, analytic: E = E_c(L) + [E_max -
-        E_c(L)] u^2, with its partials in u and in L at fixed u"""
-        Ec, dEc = self._Ec(L)
+        """The grid's energy variable, analytic: E = Phi(r) with r =
+        r_0(E_c(L)) [Rinf/r_0(E_c(L))]^x and x = u^2, uniform in the logarithm
+        of the radial orbit's apocentre; returns E, dE/dx at fixed L, and
+        dE/dL at fixed x (= at fixed u). The latter chains through r_0(E_c(L))
+        by the level-set rule, d ln r_0/dL = (dE_c/dL)/[r_0 Phi'(r_0)], and
+        is formed so that it is dE_c/dL exactly at the circular edge"""
+        r0c, g0c = self._r0c(L)
+        lnq = numpy.log(self._Rinf / r0c)
+        r = r0c * numpy.exp(lnq * u**2)
+        g = self._rdPhi(r)
         return (
-            Ec + (self._Emax - Ec) * u**2,
-            2.0 * u * (self._Emax - Ec),
-            dEc * (1.0 - u**2),
+            self._Phi(r),
+            g * lnq,
+            (1.0 - u**2) * self._Ec(L)[1] * (g / g0c),
         )
 
     def _turning_point_derivs(self, r, E, L):
@@ -912,20 +954,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._sup_tab[ii, jj] = [node["rp"], node["ra"]]
                 self._Dm_tab[ii, jj] = node["Dm"]
                 perr[ii, jj] = node["perr"]
-                E, dE_du, dE_dL = self._E_of_uL(self._us[ii], L)
-                # dE/dx at fixed L is E_max - E_c, and dE/dL at fixed x is
-                # dE/dL at fixed u
-                self._jr_dx[ii, jj] = (self._Emax - self._Ecs[jj]) / node["OmR"]
+                E, dE_dx, dE_dL = self._E_of_uL(self._us[ii], L)
+                dE_du = 2.0 * self._us[ii] * dE_dx
+                self._jr_dx[ii, jj] = dE_dx / node["OmR"]
                 self._jr_dL[ii, jj] = (dE_dL - node["Ompsi"]) / node["OmR"]
                 if node["jr"] == 0.0:
                     # the circular edge: the turning points leave the circular
                     # radius linearly in u, at the rate the epicycle sets
-                    # (E - E_c = kappa^2 w^2 / 2 with w the half-width), and
-                    # move with it along L (L^2 = r_c^3 Phi'(r_c) gives
-                    # dr_c/dL = 2 L / [r_c^3 kappa^2]); the map's slopes come
-                    # from the next two rows below
+                    # (E - E_c = kappa^2 w^2 / 2 with w the half-width, and
+                    # E - E_c = dE/dx u^2 at the edge), and move with it
+                    # along L (L^2 = r_c^3 Phi'(r_c) gives dr_c/dL = 2 L /
+                    # [r_c^3 kappa^2]); the map's slopes come from the next
+                    # two rows below
                     rc, kappa, _ = self._circular(L)
-                    w1 = numpy.sqrt(2.0 * (self._Emax - self._Ecs[jj])) / kappa
+                    w1 = numpy.sqrt(2.0 * dE_dx) / kappa
                     drc = 2.0 * L / (rc**3 * kappa**2)
                     self._sup_du[ii, jj] = [-w1, w1]
                     self._sup_dL[ii, jj] = [drc, drc]
@@ -1000,12 +1042,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         jr_dx = self._jr_ip(x, L, dx=1)[0, 0]
         djr_du = 2.0 * u * jr_dx
         djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
-        _, dE_du, dE_dL = self._E_of_uL(u, L)
+        _, dE_dx, dE_dL = self._E_of_uL(u, L)
         # chains at fixed L resp. fixed J_r, all from the stored
         # interpolants' own derivatives; the frequencies with the common
         # factor 2u of dE/du and dJ_r/du cancelled, so that they are finite
         # down to the circular edge
-        OmR = (self._Emax - self._Ec(L)[0]) / jr_dx
+        OmR = dE_dx / jr_dx
         OmL = dE_dL - OmR * djr_dL
         sup = self._sup_ip(u, L)[0, 0]
         dsup_du = self._sup_ip(u, L, dx=1)[0, 0]
@@ -1166,13 +1208,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
             return self._jrs[ii]
         self._check_L(L)
         Ec, _ = self._Ec(L)
-        u2 = (E - Ec) / (self._Emax - Ec)
-        if u2 < -1e-12 or u2 > 1.0:
+        if E < Ec - 1e-12 * (self._Emax - Ec) or E > self._Emax:
             raise ValueError(
                 f"E = {E} outside the interpolation grid at L = {L}: "
                 f"[{Ec}, {self._Emax}]"
             )
-        return self._jr_ip(max(u2, 0.0), L)[0, 0]
+        # the normalized energy from the radial orbit's apocentre at E; the
+        # circular orbit itself, to round-off, is the bottom of the grid
+        if E <= Ec + 1e-12 * (1.0 + numpy.fabs(Ec)):
+            return self._jr_ip(0.0, L)[0, 0]
+        r0c, _ = self._r0c(L)
+        r0 = self._r0(min(E, self._Emax), r0c, self._Rinf)
+        x = numpy.log(r0 / r0c) / numpy.log(self._Rinf / r0c)
+        return self._jr_ip(min(x, 1.0), L)[0, 0]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """(J, theta) -> (x, v): solve for the anomaly of each requested
