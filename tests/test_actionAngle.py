@@ -11082,12 +11082,14 @@ def staeckel_inverse_explicit():
     )
 
 
-def _staeckel_inverse_roundtrip(aAI, jr, jphi, jz, angler, anglephi, anglez, aAS=None):
+def _staeckel_inverse_roundtrip(
+    aAI, jr, jphi, jz, angler, anglephi, anglez, aAS=None, pot=None
+):
     # evaluate the public map and pass the result through the forward
     # transformation: (action, angle, frequency) errors and the energy spread
     from galpy.potential import evaluatePotentials
 
-    pot = _staeckel_inverse_potential()
+    pot = _staeckel_inverse_potential() if pot is None else pot
     aAS = _staeckel_inverse_forward() if aAS is None else aAS
     R, vR, vT, z, vz, phi = aAI(jr, jphi, jz, angler, anglephi, anglez)
     f = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
@@ -11579,6 +11581,35 @@ def test_actionAngleStaeckelInverse_maxiter():
         "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
         % numpy.amax(numpy.fabs(fb - nt))
     )
+    return None
+
+
+def test_actionAngleStaeckelInverse_perfect_ellipsoid():
+    # The oblate perfect ellipsoid is a Staeckel potential too, with focal
+    # length a sqrt(1 - c^2) for semi-axes a and c a, which it supplies
+    # itself, and galpy evaluates it by Gaussian quadrature of the
+    # ellipsoidal integrals: explicit tori in it round-trip through the
+    # forward transformation, judged in that potential, and keep their
+    # energy along the reconstructed torus
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import PerfectEllipsoidPotential
+
+    pot = PerfectEllipsoidPotential(amp=1.0, a=1.0, b=1.0, c=0.6, normalize=1.0)
+    delta = 0.8
+    aAS = actionAngleStaeckel(pot=pot, delta=delta, c=False, order=200)
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi, anglez = 0.3 + 1.7 * angler, 0.7 + 2.3 * angler
+    for ic in ([1.0, 0.3, 1.1, 0.2, 0.25, 0.0], [1.2, 0.5, 0.8, 0.3, 0.4, 0.0]):
+        E, Lz, I3 = _staeckel_inverse_labels(ic, pot=pot, delta=delta)
+        aA = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
+        jr, jz = aA.JR(E, Lz, I3), aA.Jz(E, Lz, I3)
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aA, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS, pot=pot
+        )
+        assert dJ < 1e-10 and dth < 1e-9 and dOm < 1e-9 and dH < 1e-9, (
+            "A torus in the perfect ellipsoid does not round-trip through the "
+            f"forward transformation: {dJ}, {dth}, {dOm}, {dH}"
+        )
     return None
 
 
