@@ -297,8 +297,11 @@ jobs:
          export HDF5_DIR=$(brew --prefix hdf5)
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel osfclient
+         # pynbody has to be compiled, with Homebrew's (versioned) gcc
+         brew install gcc
+         GCC_VERSION=$(ls $(brew --prefix gcc)/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -1 | cut -d- -f2)
          # pynbody pins scipy<1.18, which has no cp315 wheels
-         CC=gcc-12 CXX=g++-12 pip install --upgrade --no-deps pynbody
+         CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} pip install --upgrade --no-deps pynbody
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.15' }}
       run: |
