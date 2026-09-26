@@ -443,3 +443,79 @@ def test_king_density_gradient_finite_at_W0():
     k = _scalefreekingdf(3.0)
     g = float(jax.grad(lambda W: k._dens_W(W))(jnp.asarray(0.0)))
     assert g == 0.0
+
+
+# --- second (and higher) W0-derivatives ------------------------------------------
+# The first derivative is the scipy solve's forward sensitivities; they are
+# constants, so a derivative OF it used to be wrong (jax: 0.0 for the mass, fE with
+# the wrong sign) or raise (torch). Now graft_derivative takes the second order from
+# the in-backend solve (diffrax / torchode). Measured vs FD of the (exact) first
+# derivative (Richardson) at W0=3: jax <= 1.2e-7, torch <= 2e-7 (torchode is 5th
+# order only).
+_W0_HESSIAN = {"torch": ["mass", "c", "dens", "fE"], "jax": ["mass", "c", "dens"]}
+
+
+@pytest.mark.parametrize(
+    "backend,which", [(b, w) for b in BACKENDS for w in _W0_HESSIAN[b]]
+)
+def test_kingdf_W0_second_derivative_vs_finite_difference(backend, which):
+    def grad(W0, create_graph=False):
+        if backend == "jax":
+            return jax.grad(lambda W: _w0_quantity("jax", W, which))(W0)
+        W = W0 if torch.is_tensor(W0) else torch.tensor(W0, requires_grad=True)
+        return torch.autograd.grad(
+            _w0_quantity("torch", W, which), W, create_graph=create_graph
+        )[0]
+
+    if backend == "jax":
+        ad = float(jax.grad(grad)(_W0))
+    else:
+        W = torch.tensor(_W0, requires_grad=True)
+        ad = float(torch.autograd.grad(grad(W, create_graph=True), W)[0])
+
+    # Richardson-extrapolated central difference: the plain h=1e-3 one is itself
+    # 1.1e-6 off for c (its h^2 term), converging onto the AD value as h -> 0
+    def cd(h):
+        return (float(grad(_W0 + h)) - float(grad(_W0 - h))) / (2.0 * h)
+
+    fd = (4.0 * cd(5e-4) - cd(1e-3)) / 3.0
+    assert abs(fd) > 1e-4
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_W0_second_derivative_under_jit():
+    # the traced (diffrax) solve: its default adjoint was first order only
+    def mass(W0):
+        with galpy.backend.use("jax", force=True):
+            return kingdf(W0=W0, M=2.3, rt=1.4)._scalefree_kdf.mass
+
+    g = jax.grad(mass)
+
+    def cd(h):
+        return (float(g(_W0 + h)) - float(g(_W0 - h))) / (2.0 * h)
+
+    fd = (4.0 * cd(5e-4) - cd(1e-3)) / 3.0  # Richardson
+    numpy.testing.assert_allclose(float(jax.jit(jax.grad(g))(_W0)), fd, rtol=1e-6)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_kingdf_undifferentiated_torch_W0():
+    # a plain (no-grad) torch W0 under forced torch used to crash the potential's
+    # construction (backend knots, numpy Phi0)
+    with galpy.backend.use("torch", force=True):
+        dt = kingdf(W0=torch.tensor(_W0), M=2.3, rt=1.4)
+        dn = kingdf(W0=_W0, M=2.3, rt=1.4)
+        E = torch.tensor([-3.0, -2.0])
+        numpy.testing.assert_allclose(
+            as_numpy(dt.fE(E)), as_numpy(dn.fE(E)), rtol=1e-14
+        )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_king_ode_torch_failure_raises():
+    from galpy.backend._torch.king_ode import solve
+    from galpy.df.kingdf import _scalefreekingdf
+
+    with pytest.raises(RuntimeError, match="King ODE solve failed"):
+        solve(_scalefreekingdf(3.0)._dens_W, torch.tensor(3.0), 101, max_steps=3)
