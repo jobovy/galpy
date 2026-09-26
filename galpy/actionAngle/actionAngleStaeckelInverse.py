@@ -173,7 +173,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             of the interpolation grid.
         Rinf : float or Quantity, optional
             Apocentre, in the plane, of the orbit with the interpolation
-            grid's largest energy at each angular momentum.
+            grid's largest energy at each angular momentum. The grid's
+            energies are uniform in the logarithm of the apocentre of the
+            planar orbit without angular momentum between each circular
+            orbit's energy and this one (uniform in the energy for a
+            logarithmic potential, and compressed toward the top in a
+            potential with an escape energy, where the apocentre diverges),
+            spaced quadratically at the circular face.
         nE : int, optional
             Number of energies of the interpolation grid.
         nLz : int, optional
@@ -1021,10 +1027,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # ---------- the (L_z, E, I_3) interpolation grid
     def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3):
         """Rectangular grid in (w_E, w_I, L_z): L_z between the circular
-        angular momenta of Rmin and Rmax; E = E_c(L_z) + [E_max(L_z) -
-        E_c(L_z)] w_E^2 with w_E uniform in [0, 1], the circular orbits
-        forming the bottom face, and E_max the energy of the planar orbit
-        with apocentre Rinf; I_3 = I_pl + (I_sh - I_pl) sin^2(pi w_I / 2)
+        angular momenta of Rmin and Rmax; the energies uniform, in x =
+        w_E^2 with w_E uniform in [0, 1], in the logarithm of the apocentre
+        of the planar orbit without angular momentum, R_0(E) with
+        Phi(R_0, 0) = E, between the circular orbit's energy E_c(L_z) and
+        E_max(L_z), the energy of the planar orbit with apocentre Rinf
+        (_E_of_xL); the circular orbits form the bottom face, and in the
+        energy the spacing is quadratic there and compresses toward the
+        top in a potential with an escape energy, where every apocentre
+        diverges, so that the tables stay smooth in x up to the top row
+        (for a logarithmic potential it is E = E_c + [E_max - E_c] x);
+        I_3 = I_pl + (I_sh - I_pl) sin^2(pi w_I / 2)
         with w_I uniform in [0, 1] between the planar orbit (J_z = 0) and
         the shell orbit (J_R = 0), the two faces on which one libration
         degenerates -- quadratic spacing at every degenerate edge, where
@@ -1047,6 +1060,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
         self._Rinf = Rinf
         self._Phiinf = evaluatePotentials(wrap, Rinf, 0.0, use_physical=False)
+        self._R0_cache = {}
         self._E_tab = numpy.empty((nE, nLz))
         self._ush_tab = numpy.empty((nE, nLz))
         self._Ipl_tab = numpy.empty((nE, nLz))
@@ -1054,9 +1068,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         I3s = numpy.empty((nE, nI3, nLz))
         for iL, Lz in enumerate(self._Lzgrid):
             circ = self._circular(Lz)
-            Ec, Emax = circ["Ec"], self._Emax(Lz)
+            Ec = circ["Ec"]
             for iE, wE in enumerate(self._wEs):
-                E = Ec + wE**2 * (Emax - Ec)
+                E = self._E_of_xL(wE**2, Lz)[0]
                 if iE == 0:
                     ush = circ["uc"]
                     Ipl = Ish = self._I3_planar(Ec, Lz)
@@ -1077,6 +1091,55 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """The grid's top energy at |L_z|: that of the planar orbit with
         apocentre Rinf"""
         return self._Phiinf + Lz**2 / (2.0 * self._Rinf**2)
+
+    def _R0(self, E, Rlo, Rhi):
+        """The apocentre of the planar orbit without angular momentum at
+        energy E, Phi(R_0, 0) = E, bracketed by [Rlo, Rhi]"""
+        return brentq(
+            lambda R: (
+                evaluatePotentials(self._staeckelwrap, R, 0.0, use_physical=False) - E
+            ),
+            Rlo,
+            Rhi,
+            xtol=1e-14,
+        )
+
+    def _RdPhi(self, R):
+        """R dPhi/dR in the plane, the derivative of the potential with
+        respect to ln R"""
+        return -R * evaluateRforces(self._staeckelwrap, R, 0.0, use_physical=False)
+
+    def _R0_edges(self, Lz):
+        """The apocentres R_0 of the planar orbit without angular momentum
+        at the grid's bottom and top energies at |L_z|, with R dPhi/dR at
+        each (the level-set rule gives d ln R_0/dL_z = (dE/dL_z)/[R_0
+        Phi'(R_0)]); cached. The bottom one lies above R_c, since E_c
+        exceeds Phi(R_c, 0) by the centrifugal term, and the top one just
+        beyond Rinf, by L_z^2 / (2 Rinf^2) in energy"""
+        if Lz not in self._R0_cache:
+            circ = self._circular(Lz)
+            R0c = self._R0(circ["Ec"], circ["Rc"], self._Rinf)
+            R0m = self._R0(self._Emax(Lz), self._Rinf, 10.0 * self._Rinf)
+            self._R0_cache[Lz] = (R0c, self._RdPhi(R0c), R0m, self._RdPhi(R0m))
+        return self._R0_cache[Lz]
+
+    def _E_of_xL(self, x, Lz):
+        """The grid's energy variable, analytic: E = Phi(R, 0) with ln R =
+        (1 - x) ln R_0(E_c) + x ln R_0(E_max), uniform in the logarithm of
+        the apocentre of the planar orbit without angular momentum; returns
+        E, dE/dx at fixed L_z, and dE/dL_z at fixed x, the latter through
+        the two edges' apocentres by the level-set rule, formed so that it
+        is exactly dE_c/dL_z at the circular face and dE_max/dL_z at the
+        top"""
+        R0c, g0c, R0m, g0m = self._R0_edges(Lz)
+        R = R0c * (R0m / R0c) ** x
+        g = self._RdPhi(R)
+        Omc = self._circular(Lz)["Omc"]
+        return (
+            evaluatePotentials(self._staeckelwrap, R, 0.0, use_physical=False),
+            g * numpy.log(R0m / R0c),
+            (1.0 - x) * Omc * (g / g0c) + x * (Lz / self._Rinf**2) * (g / g0m),
+        )
 
     def _setup_tori_interp(self):
         """The family's tables and their exact first partials at every
@@ -1123,11 +1186,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         node["Dmv"],
                     )
                     circ = self._circular(Lz)
-                    Ec, Emax = circ["Ec"], self._Emax(Lz)
+                    Ec = circ["Ec"]
                     E, ush = self._E_tab[iE, iL], self._ush_tab[iE, iL]
                     Ipl, Ish = self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL]
-                    dE_dx = Emax - Ec
-                    dE_dL = circ["Omc"] * (1.0 - wE**2) + wE**2 * Lz / self._Rinf**2
+                    _, dE_dx, dE_dL = self._E_of_xL(wE**2, Lz)
                     if iE == 0:
                         # the circular face: both librations harmonic, with
                         # J = (E - E_c) times the fraction the third integral
@@ -1411,8 +1473,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         N[1, 2] = -(N[1, 0] * AL[0] + N[1, 1] * AL[1]) * sgn
         N[2, 2] = sgn
         circ = self._circular(ell)
-        dE_dx = self._Emax(ell) - circ["Ec"]
-        dE_dL = circ["Omc"] * (1.0 - x) + x * ell / self._Rinf**2
+        _, dE_dx, dE_dL = self._E_of_xL(x, ell)
         tab = {
             "Om": dE_dx * N[0] + dE_dL * N[2],
             "uc": A[2],
@@ -1717,15 +1778,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._check_Lz(ell)
         circ = self._circular(ell)
         Ec, Emax = circ["Ec"], self._Emax(ell)
-        x = (E - Ec) / (Emax - Ec)
-        if x < -1e-12 or x > 1.0 + 1e-12:
+        tol = 1e-12 * (Emax - Ec)
+        if E < Ec - tol or E > Emax + tol:
             raise ValueError(
                 f"E = {E} outside the interpolation grid at |L_z| = {ell}: [{Ec}, {Emax}]"
             )
-        if x < 1e-12:
+        if E < Ec + tol:
             # the circular orbit, to the tolerance of the torus construction
             return 0.0, 0.0
-        x = min(x, 1.0)
+        # the normalized energy from the apocentre of the planar orbit
+        # without angular momentum at E
+        R0c, _, R0m, _ = self._R0_edges(ell)
+        R0 = self._R0(min(E, Emax), R0c, R0m)
+        x = min(numpy.log(R0 / R0c) / numpy.log(R0m / R0c), 1.0)
         ush = self._ushell(E, ell)
         Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
         y = (I3 - Ipl) / (Ish - Ipl)

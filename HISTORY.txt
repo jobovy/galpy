@@ -130,9 +130,13 @@ v1.12.1 (expected around 2026-11-01)
   the separated momenta with the gauge V(pi/2) = 0) or as a grid with
   ``setup_interp=True`` (angular momenta of the circular orbits between
   ``Rmin`` and ``Rmax``, energies from the circular orbit's to that of the
-  planar orbit with apocentre ``Rinf``, third integrals from the planar
-  orbit's to the shell orbit's, quadratically spaced at every degenerate
-  edge), with ``JR(E, Lz, I3)`` and ``Jz(E, Lz, I3)`` giving a torus's
+  planar orbit with apocentre ``Rinf``, uniform in the logarithm of the
+  apocentre of the planar orbit without angular momentum -- the energy
+  itself for a logarithmic potential, and a spacing compressed toward the
+  top where an escape energy makes every apocentre diverge -- third
+  integrals from the planar orbit's to the shell orbit's, quadratically
+  spaced at every degenerate edge), with ``JR(E, Lz, I3)`` and ``Jz(E,
+  Lz, I3)`` giving a torus's
   actions; ``Freqs`` returns the frequencies of the returned orbits; the
   isochrone auxiliary is fitted to the potential's rotation curve unless
   given (``auxiliary=``), and is the ``auxiliary`` attribute either way.
