@@ -102,6 +102,11 @@ class interpSphericalPotential(SphericalPotential):
 
         else:
             self._rforce_grid = numpy.array(_fgrid)
+            # an undifferentiated backend grid (forced backend) goes to numpy
+            # with it: backend knots would make the spline return backend
+            # values that the numpy Phi0 below cannot be added to
+            if not (under_trace(rgrid) or requires_backend_grad(rgrid)):
+                self._rgrid = as_numpy(rgrid)
 
             def _q(v):
                 return v
