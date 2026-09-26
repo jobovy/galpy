@@ -30,7 +30,9 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import contextlib
 import platform
+import warnings
 
 import numpy
 
@@ -56,6 +58,22 @@ except ImportError:  # pragma: no cover
     _TQDM_LOADED = False
 
 __all__ = ("parallel_map",)
+
+
+@contextlib.contextmanager
+def _fork_warning_suppressed():
+    # parallel_map forks on purpose (spawn fails with pickling issues, #457),
+    # but the process is typically multi-threaded because of other libraries'
+    # thread pools (e.g., numexpr's). Python >= 3.12 warns about that on every
+    # fork and from Python 3.15 on, the warning propagates, such that
+    # "-W error::DeprecationWarning" makes the fork itself raise
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*is multi-threaded, use of fork\(\) may lead to deadlocks",
+            category=DeprecationWarning,
+        )
+        yield
 
 
 def worker(
@@ -136,8 +154,9 @@ def run_tasks(procs, err_q, out_q, num):
     die = lambda vals: [val.terminate() for val in vals if val.exitcode is None]
 
     try:
-        for proc in procs:
-            proc.start()
+        with _fork_warning_suppressed():
+            for proc in procs:
+                proc.start()
 
         for proc in procs:
             proc.join()
@@ -211,7 +230,8 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
     # objects between processes. The returned manager object corresponds
     # to a spawned child process and has methods which will create shared
     # objects and return corresponding proxies.
-    manager = ctx.Manager()
+    with _fork_warning_suppressed():
+        manager = ctx.Manager()
 
     # Create FIFO queue and lock shared objects and return proxies to them.
     # The managers handles a server process that manages shared objects that
