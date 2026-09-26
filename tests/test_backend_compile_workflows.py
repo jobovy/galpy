@@ -165,6 +165,20 @@ _CASES = [
 ]
 
 
+def _compiled(bk, workflow, x0):
+    if bk == "jax":
+        return jax.jit(jax.value_and_grad(lambda x: workflow("jax", x)))(x0)
+    torch._dynamo.reset()
+    with warnings.catch_warnings():
+        # torch-internal deprecations under CI's -W error
+        for msg in (".*script_method.*", ".*should not be instantiated.*"):
+            warnings.filterwarnings("ignore", message=msg, category=DeprecationWarning)
+        fc = torch.compile(lambda x: workflow("torch", x), backend="eager")
+        xc = torch.tensor(x0, requires_grad=True)
+        vc = fc(xc)
+        return vc, torch.autograd.grad(vc, xc)[0]
+
+
 @pytest.mark.parametrize(
     "bk,workflow,x0",
     [pytest.param(b, w, x, marks=m) for b, w, x, m in _CASES],
@@ -173,22 +187,17 @@ _CASES = [
 def test_workflow_compiled_matches_eager(bk, workflow, x0):
     if bk == "jax":
         ve, ge = jax.value_and_grad(lambda x: workflow("jax", x))(x0)
-        vc, gc = jax.jit(jax.value_and_grad(lambda x: workflow("jax", x)))(x0)
     else:
         xe = torch.tensor(x0, requires_grad=True)
         ve = workflow("torch", xe)
         (ge,) = torch.autograd.grad(ve, xe)
-        torch._dynamo.reset()
-        with warnings.catch_warnings():
-            # torch-internal deprecations under CI's -W error
-            for msg in (".*script_method.*", ".*should not be instantiated.*"):
-                warnings.filterwarnings(
-                    "ignore", message=msg, category=DeprecationWarning
-                )
-            fc = torch.compile(lambda x: workflow("torch", x), backend="eager")
-            xc = torch.tensor(x0, requires_grad=True)
-            vc = fc(xc)
-            (gc,) = torch.autograd.grad(vc, xc)
+    try:
+        vc, gc = _compiled(bk, workflow, x0)
+    except Exception as e:
+        # re-raised from here: under coverage (py3.14 sys.monitoring) a dynamo
+        # frame can carry tb_lineno=None, which crashes pytest's failure report
+        # (INTERNALERROR) and with it the whole session
+        raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
     numpy.testing.assert_allclose(float(vc), float(ve), rtol=1e-12)
