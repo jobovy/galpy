@@ -36,6 +36,7 @@ except ImportError:  # pragma: no cover
 
 from galpy.potential import (
     DehnenBarPotential,
+    HernquistPotential,
     MiyamotoNagaiPotential,
     MWPotential2014,
 )
@@ -1401,3 +1402,43 @@ def test_traced_param_found_through_every_nesting():
     assert seen["list_attr"], "a traced array in a list-valued attribute must be found"
     assert not seen["list_clean"], "an untraced list must keep the C-STM"
     assert not seen["wrapped_clean"], "an untraced wrapper must keep the C-STM"
+
+
+# --- under torch.compile -------------------------------------------------------
+# Two routing defects made compiled torch orbit integration unusable:
+#   * the C-STM route required `not under_trace(t)` -- a guard for jax's
+#     pure_callback that also fires for EVERY tensor under torch.compile -- so RK
+#     C methods fell back to torchdiffeq (which inductor cannot lower);
+#   * dynamo traces numpy.asarray without its grad-requiring check, so a
+#     grad-tracking IC was taken as concrete and a symplectic C method
+#     integrated it in numpy: the result came back DETACHED.
+# The C-STM now runs eagerly as an opaque call under torch.compile. Dynamo with
+# the eager backend is enough to see both (inductor adds only codegen time).
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_torch_compile_orbit_integration_matches_eager(method):
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=0.6, a=0.5, b=0.05) + HernquistPotential(
+        normalize=0.4, a=2.0
+    )
+    ts = torch.tensor(_TS)
+
+    def f(x0):
+        o = Orbit(x0)
+        o.integrate(ts, pot, method=method)
+        return o.x(ts[-1]) + o.vz(ts[-1])
+
+    x = torch.tensor(_IC, requires_grad=True)
+    v = f(x)
+    (g,) = torch.autograd.grad(v, x)
+    xc = torch.tensor(_IC, requires_grad=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*script_method.*", category=DeprecationWarning
+        )
+        vc = torch.compile(f, backend="eager")(xc)
+    assert vc.grad_fn is not None, "compiled integration came back detached"
+    (gc,) = torch.autograd.grad(vc, xc)
+    numpy.testing.assert_allclose(float(vc), float(v), rtol=1e-14)
+    numpy.testing.assert_allclose(gc.numpy(), g.numpy(), rtol=1e-12, atol=1e-14)
