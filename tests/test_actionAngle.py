@@ -11939,6 +11939,45 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid():
     return None
 
 
+def test_actionAngleStaeckelInverse_perfect_ellipsoid_family():
+    # A small family in the oblate perfect ellipsoid, whose escape energy
+    # compresses the grid's energies toward the top: tori between its nodes
+    # round-trip through the forward transformation
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import PerfectEllipsoidPotential
+
+    pot = PerfectEllipsoidPotential(amp=1.0, a=1.0, b=1.0, c=0.6, normalize=1.0)
+    delta = 0.8
+    aAS = actionAngleStaeckel(pot=pot, delta=delta, c=False, order=200)
+    aAF = actionAngleStaeckelInverse(
+        pot=pot,
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=4.0,
+        nE=5,
+        nLz=5,
+        nI3=5,
+    )
+    angler = numpy.linspace(0.05, 6.2, 41)
+    anglephi, anglez = 0.3 + 1.7 * angler, 0.7 + 2.3 * angler
+    for ic in (
+        [1.0, 0.3, 1.1, 0.2, 0.25, 0.0],
+        [1.2, 0.5, 0.8, 0.3, 0.4, 0.0],
+        [0.9, 0.2, 1.0, 0.4, 0.1, 0.0],
+    ):
+        E, Lz, I3 = _staeckel_inverse_labels(ic, pot=pot, delta=delta)
+        jr, jz = aAF.JR(E, Lz, I3), aAF.Jz(E, Lz, I3)
+        dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
+            aAF, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS, pot=pot
+        )
+        assert dJ < 5e-5 and dth < 2e-3 and dOm < 2e-3 and dH < 5e-5, (
+            "A torus between the nodes of a family in the perfect ellipsoid does "
+            f"not round-trip through the forward transformation: {dJ}, {dth}, {dOm}, {dH}"
+        )
+    return None
+
+
 def test_actionAngleStaeckelInverse_degenerate_tori():
     # A planar orbit (J_z = 0) and a shell orbit (J_R = 0) are tori with one
     # degenerate libration: they are set up from their labels (the planar

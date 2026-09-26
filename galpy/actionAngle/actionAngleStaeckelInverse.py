@@ -23,6 +23,7 @@ from ..potential import (
     OblateStaeckelWrapperPotential,
     epifreq,
     evaluatePotentials,
+    evaluateRforces,
     rl,
     vcirc,
     verticalfreq,
