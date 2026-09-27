@@ -1,7 +1,7 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
 import numpy
-from scipy import integrate, interpolate
+from scipy import integrate, interpolate, optimize
 
 from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
@@ -111,6 +111,17 @@ class eddingtondf(isotropicsphericaldf):
                 Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
 
+    def _rphi_root(self, E):
+        """r(Phi = E) to machine precision, for Emin <= E < potInf, whose root
+        [rmin, rmax] always brackets."""
+        return optimize.brentq(
+            lambda r: _evaluatePotentials(self._pot, r, 0) - E,
+            self._rmin,
+            self._rmax,
+            xtol=1e-300,
+            maxiter=500,
+        )
+
     def fE(self, E):
         """
         Calculate the energy portion of a DF computed using the Eddington inversion
@@ -133,18 +144,21 @@ class eddingtondf(isotropicsphericaldf):
         out = numpy.zeros_like(Eint)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
         # Split integral at twice the lower limit to deal with divergence at
-        # the lower end and infinity at the upper end
+        # the lower end and infinity at the upper end. rphi(E) as the exact
+        # root (the spline is off by 8e-5 below its first knot, r = 1e-6 scale,
+        # i.e. within ~1e-6 of Emin)
+        rphis = numpy.array([self._rphi_root(tE) for tE in Eint[indx]])
         out[indx] = numpy.array(
             [
                 integrate.quad(
                     lambda t: _fEintegrand_smallr(
-                        t, self._pot, tE, self._dnudr, self._d2nudr2, self._rphi(tE)
+                        t, self._pot, tE, self._dnudr, self._d2nudr2, trphi
                     ),
                     0.0,
-                    numpy.sqrt(self._rphi(tE)),
+                    numpy.sqrt(trphi),
                     points=[0.0],
                 )[0]
-                for tE in Eint[indx]
+                for tE, trphi in zip(Eint[indx], rphis)
             ]
         )
         out[indx] += numpy.array(
@@ -154,9 +168,9 @@ class eddingtondf(isotropicsphericaldf):
                         t, self._pot, tE, self._dnudr, self._d2nudr2
                     ),
                     0.0,
-                    0.5 / self._rphi(tE),
+                    0.5 / trphi,
                 )[0]
-                for tE in Eint[indx]
+                for tE, trphi in zip(Eint[indx], rphis)
             ]
         )
         # Add boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0
@@ -184,9 +198,29 @@ def _fEintegrand_raw(r, pot, E, dnudr, d2nudr2):
     )
 
 
+# Gauss-Legendre nodes/weights on [0, 1] for Phi(rphi + u) - Phi(rphi) as the
+# integral of dPhi/dr (see _fEintegrand_smallr)
+_GL_X, _GL_W = numpy.polynomial.legendre.leggauss(12)
+_GL_X, _GL_W = 0.5 * (_GL_X + 1.0), 0.5 * _GL_W
+
+
 def _fEintegrand_smallr(t, pot, E, dnudr, d2nudr2, rmin):
-    # The integrand at small r, using transformation to deal with sqrt diverge
-    return 2.0 * t * _fEintegrand_raw(t**2.0 + rmin, pot, E, dnudr, d2nudr2)
+    # The integrand at small r, r = rmin + t^2 (rmin = rphi(E), the exact root),
+    # which cancels the sqrt divergence at the turning point. Phi(r) - E is a
+    # small difference of O(1) numbers for E near Emin -- and pure rounding once
+    # t^2 is below rmin's ulp -- so where the direct difference has lost more
+    # than ~6 digits it is the integral of dPhi/dr = -Rforce over [rmin, r]
+    # instead, with u = t^2 exact (E -> Phi(rmin), within an ulp of E).
+    u = t**2.0
+    r = rmin + u
+    diff = _evaluatePotentials(pot, r, 0) - E
+    if abs(diff) < 1e-6 * abs(E):
+        diff = -u * numpy.sum(
+            _GL_W * numpy.array([_evaluateRforces(pot, rmin + u * x, 0) for x in _GL_X])
+        )
+    Fr = _evaluateRforces(pot, r, 0)
+    num = Fr * d2nudr2(r) + dnudr(r) * evaluateR2derivs(pot, r, 0, use_physical=False)
+    return 2.0 * t * num / Fr**2.0 / numpy.sqrt(diff)
 
 
 def _fEintegrand_larger(t, pot, E, dnudr, d2nudr2):
