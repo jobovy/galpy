@@ -8,6 +8,7 @@
 import numpy
 
 from ..util import conversion
+from ._smallr import radial_limits
 from .Potential import Potential
 
 
@@ -105,15 +106,18 @@ class IsochronePotential(Potential):
         return -R * z * (self.b + 3.0 * rb) / rb**3.0 / (self.b + rb) ** 3.0
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
-        return (
-            (3.0 * (self.b + rb) * rb**2.0 - r2 * (self.b + 3.0 * rb))
-            / rb**3.0
-            / (self.b + rb) ** 3.0
-            / 4.0
-            / numpy.pi
-        )
+        def dens(r2):
+            rb = numpy.sqrt(r2 + self.b2)
+            return (
+                (3.0 * (self.b + rb) * rb**2.0 - r2 * (self.b + 3.0 * rb))
+                / rb**3.0
+                / (self.b + rb) ** 3.0
+                / 4.0
+                / numpy.pi
+            )
+
+        # inf - inf at r = inf, where the density is 0
+        return radial_limits(R**2.0 + z**2.0, dens, atinf=0.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0

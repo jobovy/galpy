@@ -2,6 +2,26 @@
 #include <galpy_potentials.h>
 //NFWPotential
 //2 arguments: amp, a
+// Below r/a = NFW_SMALL_X the closed forms below cancel terms of order 1/r^2
+// (R2deriv 3e2 off at r/a = 1e-6); there, the exact series of
+//   h(x) = log1p(x) - x/(1+x)          [Phi'/amp = h/r^2]
+//   k(x) = x^2/(1+x)^2 - 2 h(x)        [Phi''/amp = k/r^3]
+// (40 terms: 1e-19 relative at x = 0.25), matching the python implementation.
+#define NFW_SMALL_X 0.25
+static double nfw_h(double x){
+  double out= 0.;
+  int n;
+  for (n=40; n >= 2; n--)
+    out= out * x + ( ( n % 2 == 0 ) ? 1. : -1. ) * ( n - 1. ) / n;
+  return out * x * x;
+}
+static double nfw_k(double x){
+  double out= 0.;
+  int n;
+  for (n=40; n >= 3; n--)
+    out= out * x + ( ( n % 2 == 0 ) ? 1. : -1. ) * ( n - 1. ) * ( n - 2. ) / n;
+  return out * x * x * x;
+}
 double NFWPotentialEval(double R,double Z, double phi,
 			  double t,
 			struct potentialArg * potentialArgs){
@@ -11,6 +31,8 @@ double NFWPotentialEval(double R,double Z, double phi,
   double a= *args;
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
+  if ( sqrtRz < NFW_SMALL_X * a )
+    return - amp * log1p ( sqrtRz / a ) / sqrtRz;
   return - amp * log ( 1. + sqrtRz / a ) / sqrtRz;
 }
 double NFWPotentialRforce(double R,double Z, double phi,
@@ -23,6 +45,8 @@ double NFWPotentialRforce(double R,double Z, double phi,
   //Calculate Rforce
   double Rz= R*R+Z*Z;
   double sqrtRz= pow(Rz,0.5);
+  if ( sqrtRz < NFW_SMALL_X * a )
+    return - amp * R * nfw_h(sqrtRz / a) / sqrtRz / sqrtRz / sqrtRz;
   return amp * R * (1. / Rz / (a + sqrtRz)-log(1.+sqrtRz / a)/sqrtRz/Rz);
 }
 double NFWPotentialPlanarRforce(double R,double phi,
@@ -33,6 +57,8 @@ double NFWPotentialPlanarRforce(double R,double phi,
   double amp= *args++;
   double a= *args;
   //Calculate Rforce
+  if ( R < NFW_SMALL_X * a )
+    return - amp * nfw_h(R / a) / R / R;
   return amp / R * (1. / (a + R)-log(1.+ R / a)/ R);
 }
 double NFWPotentialzforce(double R,double Z,double phi,
@@ -45,6 +71,8 @@ double NFWPotentialzforce(double R,double Z,double phi,
   //Calculate Rforce
   double Rz= R*R+Z*Z;
   double sqrtRz= pow(Rz,0.5);
+  if ( sqrtRz < NFW_SMALL_X * a )
+    return - amp * Z * nfw_h(sqrtRz / a) / sqrtRz / sqrtRz / sqrtRz;
   return amp * Z * (1. / Rz / (a + sqrtRz)-log(1.+sqrtRz / a)/sqrtRz/Rz);
 }
 double NFWPotentialPlanarR2deriv(double R,double phi,
@@ -57,6 +85,8 @@ double NFWPotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   double aR= a+R;
   double aR2= aR*aR;
+  if ( R < NFW_SMALL_X * a )
+    return amp * nfw_k(R / a) / R / R / R;
   return amp * (((R*(2.*a+3.*R))-2.*aR2*log(1.+R/a))/R/R/R/aR2);
 }
 double NFWPotentialR2deriv(double R,double Z, double phi,
@@ -68,9 +98,16 @@ double NFWPotentialR2deriv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
-  double ar= a+r;
-  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  double dphi, d2phi, ar;
+  if ( r < NFW_SMALL_X * a ) {
+    dphi= nfw_h(r / a) / r / r; // Phi'/amp
+    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+  }
+  else {
+    dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
+    ar= a+r;
+    d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  }
   //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
   return amp * ( d2phi * R * R / r / r + dphi * Z * Z / r / r / r );
 }
@@ -83,9 +120,16 @@ double NFWPotentialz2deriv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
-  double ar= a+r;
-  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  double dphi, d2phi, ar;
+  if ( r < NFW_SMALL_X * a ) {
+    dphi= nfw_h(r / a) / r / r; // Phi'/amp
+    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+  }
+  else {
+    dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
+    ar= a+r;
+    d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  }
   //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
   return amp * ( d2phi * Z * Z / r / r + dphi * R * R / r / r / r );
 }
@@ -98,9 +142,16 @@ double NFWPotentialRzderiv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
-  double ar= a+r;
-  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  double dphi, d2phi, ar;
+  if ( r < NFW_SMALL_X * a ) {
+    dphi= nfw_h(r / a) / r / r; // Phi'/amp
+    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+  }
+  else {
+    dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
+    ar= a+r;
+    d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
+  }
   //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
   return amp * R * Z * ( d2phi / r / r - dphi / r / r / r );
 }

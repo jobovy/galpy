@@ -24,8 +24,20 @@ double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
     return amp / a * (1. - pow(r/a, 2.-alpha) / (3.-alpha)
                            * hyp2f1(3.-alpha, 2.-alpha, 4.-alpha, -r/a))
                          / (alpha - 2.);
+  } else if (alpha < 2.0 && r < 0.5 * a) {
+    // -M(<r)/r minus the outer integral (complete minus incomplete beta): no
+    // term cancels at r/a << 1, unlike the generic form below
+    double x= r / a;
+    double outer= gsl_sf_gamma(2.-alpha) * gsl_sf_gamma(beta-2.)
+                  / gsl_sf_gamma(beta-alpha);
+    return -amp * ( pow(x, 2.-alpha) / (3.-alpha)
+                    * hyp2f1(3.-alpha, beta-alpha, 4.-alpha, -x)
+                    + outer
+                    - pow(x, 2.-alpha) / (2.-alpha)
+                    * hyp2f1(2.-alpha, beta-alpha, 3.-alpha, -x) ) / a;
   } else {
-    r += 1e-11; // avoid division by zero and numerical instability
+    // the shift was only ever needed at r = 0, which alpha < 2 handles above
+    if (alpha >= 2.0) r += 1e-11;
     return amp * gsl_sf_gamma(beta - 3.)
                * (pow(r/a, 3.-beta) / gsl_sf_gamma(beta - 1.)
                   * hyp2f1(beta - 3., beta - alpha, beta - 1., -a/r)

@@ -117,6 +117,15 @@ class LogarithmicHaloPotential(Potential):
             return 0
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        # inf/inf at R or z = inf, where the density is 0; without an infinite
+        # coordinate the formula runs untouched
+        edge = numpy.isinf(R) | numpy.isinf(z)
+        if not numpy.any(edge):
+            return self._dens_body(R, z, phi)
+        out = self._dens_body(numpy.where(edge, 1.0, R), numpy.where(edge, 1.0, z), phi)
+        return numpy.where(edge, 0.0, out)[()]
+
+    def _dens_body(self, R, z, phi):
         if self.isNonAxi:
             R2 = R**2.0
             Rt2 = R2 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)

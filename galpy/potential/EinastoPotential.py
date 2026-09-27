@@ -6,6 +6,7 @@ from scipy import special
 from scipy.optimize import fsolve
 
 from ..util import conversion
+from ._smallr import radial_limits
 from .SphericalPotential import SphericalPotential
 
 
@@ -129,6 +130,18 @@ class EinastoPotential(SphericalPotential):
         return -(4 * numpy.pi * self.n * gamma_3n) * (
             (-2 * (s**-3)) * (-gamma_lower_3n)
             - ((1 / self.n) * (numpy.e ** -(s ** (1 / self.n))) / gamma_3n)
+        )
+
+    def _mass(self, R, z=None, t=0.0):
+        if z is not None:
+            raise AttributeError  # use general implementation
+        # 0 at the center, the total mass 4 pi h^3 n Gamma(3n) at infinity (both
+        # 0 * inf NaN before)
+        return radial_limits(
+            R,
+            lambda r: SphericalPotential._mass(self, r, t=t),
+            at0=0.0,
+            atinf=4 * numpy.pi * self.h**3.0 * self.n * special.gamma(3 * self.n),
         )
 
     def _rdens(self, r, t=0.0):

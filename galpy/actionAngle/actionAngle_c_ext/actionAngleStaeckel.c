@@ -1952,7 +1952,17 @@ void calcVmin(int ndata,
     (JzRoot+tid)->function = &JzStaeckelIntegrandSquared;
     (JzRoot+tid)->params = params+tid;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) {//we are at vmin
+    if ( *(vx+ii) == 0.5 * M_PI
+	 && fabs(*(pvx+ii)) <= 1e-12 * *(delta+ii*delta_stride) ) {
+      //In the midplane (z == 0 makes v exactly pi/2) with no vertical
+      //momentum: W is symmetric about pi/2 with W(pi/2) = pv^2/2delta^2, so
+      //the true vmin is within ~|pv|/delta (< 1e-12) of pi/2. The root solve
+      //below instead lands on a ~1e-8 root of W's rounding noise (W(pi/2)
+      //is a difference of O(1) terms), which put zmax ~ 1e-8 on circular
+      //orbits depending on the last bits of the potential.
+      *(vmin+ii)= 0.5 * M_PI;
+    }
+    else if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) {//we are at vmin
       //The point lies within 1e-6 of vmin. Adopting the point itself as
       //the turning point is fine for the actions (an O(eps) endpoint
       //error only enters them at O(eps^1.5)), but the frequency and
