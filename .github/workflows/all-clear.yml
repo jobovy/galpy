@@ -58,15 +58,20 @@ jobs:
           deadline=$(( $(date +%s) + MAX_WAIT_SECONDS ))
 
           while :; do
-            # Check runs (GitHub Actions + apps that use the Checks API, e.g. pre-commit.ci).
+            # GitHub retains cancelled/failed attempts after a rerun succeeds.
+            # Judge only the newest run of each check (per app and name).
             checks=$(gh api --paginate \
-              "repos/$REPO/commits/$SHA/check-runs" \
+              "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
               -q '.check_runs[] | select(.name != env.SELF)
-                  | {name, status, conclusion}' 2>/dev/null || echo "")
-            # Legacy commit statuses (apps that use the Statuses API, e.g. Codecov, ReadTheDocs).
-            statuses=$(gh api \
-              "repos/$REPO/commits/$SHA/status" \
-              -q '.statuses[] | {context, state}' 2>/dev/null || echo "")
+                  | {app: .app.slug, name, id, status, conclusion}' 2>/dev/null \
+              | jq -sc 'group_by([.app, .name])[] | max_by(.id)
+                  | {name, status, conclusion}' || echo "")
+            # Legacy statuses also retain superseded entries for each context.
+            statuses=$(gh api --paginate \
+              "repos/$REPO/commits/$SHA/status?per_page=100" \
+              -q '.statuses[] | {context, id, state}' 2>/dev/null \
+              | jq -sc 'group_by(.context)[] | max_by(.id)
+                  | {context, state}' || echo "")
 
             # gh --jq emits compact JSON (no space after the colon), so allow optional spaces.
             pending=$(printf '%s\n' "$checks" | grep -c '"status": *"\(queued\|in_progress\)"' || true)
