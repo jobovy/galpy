@@ -113,13 +113,52 @@ class eddingtondf(isotropicsphericaldf):
 
     def _rphi_root(self, E):
         """r(Phi = E) to machine precision, for Emin <= E < potInf, whose root
-        [rmin, rmax] always brackets."""
+        [rmin, rmax] always brackets (an expanding finite one for rmax = inf)."""
+        rmax = self._rmax
+        if numpy.isinf(rmax):
+            rmax = max(2.0 * self._rmin, self._scale)
+            while _evaluatePotentials(self._pot, rmax, 0) < E and rmax < 1e300:
+                rmax *= 2.0
         return optimize.brentq(
             lambda r: _evaluatePotentials(self._pot, r, 0) - E,
             self._rmin,
-            self._rmax,
+            rmax,
             xtol=1e-300,
             maxiter=500,
+        )
+
+    def _fE_integral(self, E, rphi):
+        """The Eddington integral over r in [rphi, inf): r = rphi + t^2 up to
+        rsplit = 2 rphi, log(r) on to the scale radius (the integrand's bulk,
+        which a single t = 1/r quad over [0, 1/(2 rphi)] misses for rphi <<
+        scale), t = 1/r beyond"""
+        args = (self._pot, E, self._dnudr, self._d2nudr2)
+        if rphi == 0.0:  # E = Emin = Phi(0): the endpoint limit
+            if numpy.fabs(self._dnudr(1e-8 * self._scale)) > numpy.fabs(
+                self._dnudr(1e-6 * self._scale)
+            ):
+                return -numpy.inf  # a cusp: f(E) -> inf at the bottom
+            rsplit = self._scale
+        else:
+            rsplit = 2.0 * rphi
+        out = integrate.quad(
+            lambda t: _fEintegrand_smallr(t, *args, rphi),
+            0.0,
+            numpy.sqrt(rsplit - rphi),
+            points=[0.0],
+        )[0]
+        if rsplit < self._scale:
+            out += integrate.quad(
+                lambda u: numpy.exp(u) * _fEintegrand_raw(numpy.exp(u), *args),
+                numpy.log(rsplit),
+                numpy.log(self._scale),
+            )[0]
+            rsplit = self._scale
+        return (
+            out
+            + integrate.quad(
+                lambda t: _fEintegrand_larger(t, *args), 0.0, 1.0 / rsplit
+            )[0]
         )
 
     def fE(self, E):
@@ -143,35 +182,10 @@ class eddingtondf(isotropicsphericaldf):
         Eint = conversion.parse_energy(E, vo=self._vo)
         out = numpy.zeros_like(Eint)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
-        # Split integral at twice the lower limit to deal with divergence at
-        # the lower end and infinity at the upper end. rphi(E) as the exact
-        # root (the spline is off by 8e-5 below its first knot, r = 1e-6 scale,
-        # i.e. within ~1e-6 of Emin)
-        rphis = numpy.array([self._rphi_root(tE) for tE in Eint[indx]])
+        # rphi(E) as the exact root (the spline is off by 8e-5 below its first
+        # knot, r = 1e-6 scale, i.e. within ~1e-6 of Emin)
         out[indx] = numpy.array(
-            [
-                integrate.quad(
-                    lambda t: _fEintegrand_smallr(
-                        t, self._pot, tE, self._dnudr, self._d2nudr2, trphi
-                    ),
-                    0.0,
-                    numpy.sqrt(trphi),
-                    points=[0.0],
-                )[0]
-                for tE, trphi in zip(Eint[indx], rphis)
-            ]
-        )
-        out[indx] += numpy.array(
-            [
-                integrate.quad(
-                    lambda t: _fEintegrand_larger(
-                        t, self._pot, tE, self._dnudr, self._d2nudr2
-                    ),
-                    0.0,
-                    0.5 / trphi,
-                )[0]
-                for tE, trphi in zip(Eint[indx], rphis)
-            ]
+            [self._fE_integral(tE, self._rphi_root(tE)) for tE in Eint[indx]]
         )
         # Add boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0
         boundary_term = numpy.zeros_like(Eint)

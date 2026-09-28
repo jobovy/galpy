@@ -4036,3 +4036,35 @@ def test_eddington_nfw_fE_near_Emin(E, fref):
     got = float(dfh.fE(numpy.array([E]))[0])
     tol = 1e-7 if E < -1.7692 else 1e-8
     assert abs(got / fref - 1.0) < tol, f"E={E}: {got} vs {fref}"
+
+
+def test_eddington_rmax_inf():
+    # rmax = inf: r(Phi = E) through an expanding finite bracket (brentq was
+    # handed inf and failed); against the analytic Hernquist DF
+    from galpy.df import eddingtondf, isotropicHernquistdf
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    pot = HernquistPotential(amp=2.3, a=1.3)
+    E = numpy.array([-0.8, -0.3, -0.05])
+    got = eddingtondf(pot=pot, rmax=numpy.inf).fE(E)
+    ref = isotropicHernquistdf(pot=pot).fE(E)
+    assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
+    got = eddingtondf(pot=NFWPotential(), rmax=numpy.inf).fE(numpy.array([-0.5]))
+    assert abs(got[0] / 0.005951286 - 1.0) < 1e-6, got
+
+
+def test_eddington_fE_at_and_near_Emin():
+    # E = Emin = Phi(0) is an explicit endpoint limit: f -> inf for a cusp,
+    # finite for a core; just above Emin the integrand's bulk (r ~ scale) is
+    # integrated in log r, not in 1/r out to 1/rphi (Plummer was ~0 at 1e-12)
+    from galpy.df import eddingtondf, isotropicPlummerdf
+    from galpy.potential import HernquistPotential, PlummerPotential
+
+    dfh = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
+    assert dfh.fE(numpy.array([dfh._Emin]))[0] == numpy.inf
+    pot = PlummerPotential(amp=2.3, b=1.3)
+    dfp = eddingtondf(pot=pot)
+    E = dfp._Emin + numpy.array([0.0, 1e-12, 1e-10, 1e-6]) * (dfp._potInf - dfp._Emin)
+    got = dfp.fE(E)
+    ref = isotropicPlummerdf(pot=pot).fE(E)
+    assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
