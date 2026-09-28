@@ -14243,7 +14243,8 @@ _GOLD_TWOPOWER = [  # alpha, beta, x, Phi
 # TwoPower Phi where the old closed forms failed: beta -> 3 (Gamma(beta-3)
 # poles; 2e-4 off and discontinuous across the old small/generic switch),
 # alpha -> 2 and alpha >= 2 (up to 170% off), alpha = beta and beta = 180 (the
-# C implementation aborted the process in GSL's gamma)
+# C implementation aborted the process in GSL's gamma), and alpha > beta
+# (signed hypergeometric terms in C).
 _GOLD_TWOPOWER_EDGES = [  # alpha, beta, x, Phi
     (1.5, 3.000000000001, 0.4999, -8.9990698995174121e-1),
     (1.5, 3.000000000001, 0.5, -8.998570605467053e-1),
@@ -14261,6 +14262,8 @@ _GOLD_TWOPOWER_EDGES = [  # alpha, beta, x, Phi
     (1.5, 180.0, 0.5, -5.7776775211212935e-4),
     (1.5, 180.0, 5.0, -5.7776775211212935e-5),
     (1.96, 3.02, 1e-12, -1.3083549975270426e1),  # |q log(s2/s1)| > 1
+    (2.9, 2.1, 0.1, -7.6929690042510023e1),  # alpha > beta: signed 2F1 terms
+    (2.9, 2.1, 10.0, -7.6929690042510023),
 ]
 _GOLD_BURKERT_RZ = [  # x, Rzderiv at (R, z) = (0.6, 0.8) x a
     (1e-12, -1.5079644737231007e-12),

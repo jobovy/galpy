@@ -16,15 +16,16 @@
 // with no cancellation as beta -> 3 or alpha -> 2 and no Gamma overflow at large
 // beta (the python implementation, TwoPowerSphericalPotential.py, is the same).
 #define TP_QSMALL 0.05
-// 2F1(1, b; c; z) = sum_k (b)_k/(c)_k z^k for b, c > 0, 0 <= z < 1: positive
-// terms (galpy's general hyp2f1 loses up to ~1e-3 here at large b)
+// 2F1(1, b; c; z) = sum_k (b)_k/(c)_k z^k for b > -1, c > 0, 0 <= z < 1.
+// Terms are negative when -1 < b < 0 (alpha > beta); galpy's general hyp2f1
+// loses up to ~1e-3 here at large positive b.
 static double tp_2f1_1(double b, double c, double z){
   double t= 1., out= 1.;
   int k;
   for (k=0; k < 10000000; k++){
     t*= (b + k) / (c + k) * z;
     out+= t;
-    if ( k > 5 && t <= 1e-17 * out ) break;
+    if ( k > 5 && fabs(t) <= 1e-17 * fabs(out) ) break;
   }
   return out;
 }
