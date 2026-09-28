@@ -4068,3 +4068,30 @@ def test_eddington_fE_at_and_near_Emin():
     got = dfp.fE(E)
     ref = isotropicPlummerdf(pot=pot).fE(E)
     assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
+
+
+def test_eddington_fE_at_Emin_with_different_tracer():
+    # For a Hernquist potential, Phi = -1/[2(1+r)] and the Dehnen-core
+    # tracer has nu = (1+r)^-4/(4 pi) = 4 Phi^4/pi. Its Eddington inversion
+    # therefore has the finite analytic endpoint f(Phi(0)) = 16/(5 pi^3).
+    from galpy.df import eddingtondf
+    from galpy.potential import (
+        DehnenCoreSphericalPotential,
+        HernquistPotential,
+        NFWPotential,
+    )
+
+    tracer = DehnenCoreSphericalPotential()
+    dfh = eddingtondf(pot=HernquistPotential(), denspot=tracer)
+    got = dfh.fE(numpy.array([dfh._Emin]))[0]
+    assert abs(got / (16.0 / (5.0 * numpy.pi**3.0)) - 1.0) < 1e-9
+    dfn = eddingtondf(pot=NFWPotential(), denspot=tracer)
+    at_min = dfn.fE(numpy.array([dfn._Emin]))[0]
+    near_min = dfn.fE(numpy.array([dfn._Emin + 1e-8 * (dfn._potInf - dfn._Emin)]))[0]
+    assert numpy.isfinite(at_min)
+    assert abs(at_min / near_min - 1.0) < 1e-6
+
+    # A finite central density can still yield a divergent DF if the
+    # potential has a harmonic center and dnu/dr does not vanish there.
+    dfc = eddingtondf(pot=tracer)
+    assert dfc.fE(numpy.array([dfc._Emin]))[0] == numpy.inf

@@ -134,10 +134,19 @@ class eddingtondf(isotropicsphericaldf):
         scale), t = 1/r beyond"""
         args = (self._pot, E, self._dnudr, self._d2nudr2)
         if rphi == 0.0:  # E = Emin = Phi(0): the endpoint limit
-            if numpy.fabs(self._dnudr(1e-8 * self._scale)) > numpy.fabs(
-                self._dnudr(1e-6 * self._scale)
+            # A tracer's density slope alone does not determine convergence:
+            # the central force can cancel its leading contribution. With
+            # r = t^2, the actual integrand is nonintegrable if it grows at
+            # least as 1/t. Check its scaling over two small-r decades.
+            ts = numpy.sqrt(self._scale) * numpy.array([1e-2, 1e-3, 1e-4])
+            fs = [_fEintegrand_smallr(t, *args, 0.0) for t in ts]
+            if (
+                numpy.all(numpy.isfinite(fs))
+                and numpy.fabs(fs[0]) > 0.0
+                and numpy.fabs(fs[2]) >= 10.0 * numpy.fabs(fs[1])
+                and numpy.fabs(fs[1]) >= 10.0 * numpy.fabs(fs[0])
             ):
-                return -numpy.inf  # a cusp: f(E) -> inf at the bottom
+                return numpy.copysign(numpy.inf, fs[2])
             rsplit = self._scale
         else:
             rsplit = 2.0 * rphi
