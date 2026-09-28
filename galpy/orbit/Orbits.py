@@ -7927,33 +7927,41 @@ class Orbit:
             setup_trace3 = ""
         return HTML(
             """
-<style>
-.galpybutton {{
-    background-color:#ffffff;
-    -moz-border-radius:16px;
-    -webkit-border-radius:16px;
-    border-radius:16px;
-    border:1px solid #1f77b4;
-    display:inline-block;
-    cursor:pointer;
-    color:#1f77b4;
-    font-family:Courier;
-    font-size:17px;
-    padding:8px 10px;
-    text-decoration:none;
-    text-shadow:0px 1px 0px #2f6627;
-}}
-.galpybutton:hover {{
-    background-color:#ffffff;
-}}
-.galpybutton:active {{
-    position:relative;
-    top:1px;
-}}
-.galpybutton:focus{{
-    outline:0;
-}}
-</style>
+<script>
+if (!document.getElementById("galpy-orbit-animations-style")) {
+    const style = document.createElement("style");
+    style.id = "galpy-orbit-animations-style";
+    style.textContent = `
+        .galpybutton {
+            background-color:#ffffff;
+            -moz-border-radius:16px;
+            -webkit-border-radius:16px;
+            border-radius:16px;
+            border:1px solid #1f77b4;
+            display:inline-block;
+            cursor:pointer;
+            color:#1f77b4;
+            font-family:Courier;
+            font-size:17px;
+            padding:8px 10px;
+            text-decoration:none;
+            text-shadow:0px 1px 0px #2f6627;
+        }
+        .galpybutton:hover {
+            background-color:#ffffff;
+        }
+    }
+        .galpybutton:active {
+            position:relative;
+            top:1px;
+        }
+        .galpybutton:focus{
+            outline:0;
+        };
+    `;
+    document.head.appendChild(style);
+}
+</script>
 
 <div id='galpy-{divid}' style='width:{width}px;height:{height}px;'></div>
 <div class="controlbutton" id="galpy-{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
