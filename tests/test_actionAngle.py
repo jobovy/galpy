@@ -10265,3 +10265,20 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
             x, v = aAVI(aAVI.J(1.0), angles)
             assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI.J(1.0))) < 1e-10
     return None
+
+
+# Midplane orbits with no vertical momentum stay in the plane: zmax = 0 and
+# jz = 0 exactly. The C vmin solve used to land on a ~1e-8 root of W's
+# rounding noise at the double root v = pi/2 (zmax 1.9e-8 at R = 1 + 1e-15),
+# so whether a circular orbit got zmax = 0 depended on the last bits.
+@pytest.mark.parametrize("R", [0.9, 0.99, 1.0, 1.0 + 1e-15, 1.0 + 1e-12, 1.01, 1.1])
+def test_actionAngleStaeckel_c_midplane_zmax_zero(R):
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, vcirc
+
+    aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True, useu0=True)
+    o = Orbit([R, 0.0, vcirc(MWPotential, R), 0.0, 0.0])
+    _, tzmax, _, _ = aAS.EccZmaxRperiRap(o)
+    assert numpy.fabs(tzmax) < 1e-16, f"zmax = {tzmax} for a midplane orbit"
+    assert numpy.fabs(aAS(o)[2]) < 1e-16, "jz != 0 for a midplane orbit"

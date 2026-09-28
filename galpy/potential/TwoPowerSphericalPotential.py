@@ -11,7 +11,131 @@ from scipy import optimize, special
 
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
+from ._smallr import power_series, radial_limits, small_r_select
 from .Potential import Potential, kms_to_kpcGyrDecorator
+
+# NFW's closed forms subtract terms of order 1/r^2 that cancel to leading
+# order, losing ~eps/x^2 (force, mass) and ~eps/x^3 (second derivatives) at
+# x = r/a << 1 (e.g. R2deriv 3e2 off at x=1e-6). Below _NFW_SMALL_X they use,
+# with t = x/(2+x) and S = sum_{m>=1} t^(2m+1)/(2m+1) (log1p(x) = 2 atanh(t),
+# all terms positive; truncation < 1e-17 at x = 0.25)
+#   h(x) = log1p(x) - x/(1+x) = 2 t^2/(1+t) + 2 S        [dPhi/dr = h/r^2]
+#   k(x) = x^2/(1+x)^2 - 2h(x) = -4 t^3/(1+t)^2 - 4 S    [Phi'' = k/r^3]
+# above it the original formulas. The C implementation (NFWPotential.c) does
+# the same.
+_NFW_SMALL_X = 0.25
+_NFW_S = [1.0 / (2 * m + 3) for m in range(8)]
+
+
+def _nfw_S(t):
+    t2 = t * t
+    return power_series(t2, _NFW_S, 0) * t2 * t
+
+
+def _nfw_h(x):
+    """h(x) for x < _NFW_SMALL_X (see above)"""
+    t = x / (2.0 + x)
+    return 2.0 * (t * t / (1.0 + t) + _nfw_S(t))
+
+
+def _nfw_hk(x):
+    """(h(x), k(x)) for x < _NFW_SMALL_X (see above)"""
+    t = x / (2.0 + x)
+    S = _nfw_S(t)
+    u = t / (1.0 + t)
+    return 2.0 * (t * u + S), -4.0 * (t * u * u + S)
+
+
+# TwoPowerSphericalPotential's potential through two incomplete beta integrals
+# (w = x/(1+x), x = r/a):
+#   Phi = -(1/a) [M(x)/x + O(x)],  M = B_w(3-alpha, beta-3),
+#   O = int_x^inf t^(1-alpha) (1+t)^(alpha-beta) dt = B_{1-w}(beta-2, 2-alpha),
+# with B_z(p, q) = int_0^z u^(p-1) (1-u)^(q-1) du for p > 0, q > -1 (the physical
+# alpha < 3, beta > 2). Unlike the closed forms in Gamma(beta-3) and
+# hyp2f1(..., -a/r), this has no cancellation as beta -> 3 or alpha -> 2 and no
+# Gamma overflow at large beta.
+_TP_QSMALL = 0.05
+
+
+def _tp_k_series(p, q, s):
+    """K(s) = ((1-s)^p 2F1(1, p+q; q+1; s) - 1)/q, or its q = 0 limit.
+
+    Summed as (1-s)^p sum_k (p)_k/k! s^k (exp(L_k) - 1)/q with
+    L_k = sum_{j<k} [log1p(q/(p+j)) - log1p(q/(1+j))], so the O(q) difference
+    from 1 is never formed by subtraction."""
+    s = numpy.asarray(s, dtype=float)
+    t = numpy.ones_like(s)
+    L = 0.0
+    out = numpy.zeros_like(s)
+    k = 0
+    while True:
+        k += 1
+        t = t * (p + k - 1.0) / k * s
+        if q != 0.0:
+            L = L + numpy.log1p(q / (p + k - 1.0)) - numpy.log1p(q / k)
+            term = t * numpy.expm1(L) / q
+        else:
+            L = L + 1.0 / (p + k - 1.0) - 1.0 / k
+            term = t * L
+        out = out + term
+        if (
+            k > 5
+            and (p + k) / (k + 1.0) * numpy.amax(s) < 1.0
+            and numpy.all(numpy.fabs(term) <= 1e-17 * numpy.fabs(out))
+        ):
+            return (1.0 - s) ** p * out
+
+
+def _tp_ibeta(p, q, z, s):
+    """B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact).
+
+    Split at the integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9):
+    below it z^p s^q / p 2F1(1, p+q; p+1; z) (positive terms); above it
+    B_c(p, q) plus the reflected int_{1-z}^{1-c} v^(q-1) (1-v)^(p-1) dv, which
+    holds the integrand's mass. That reflected piece is B_{1-c}(q, p) -
+    B_{1-z}(q, p); both are ~1/q, so for |q| < _TP_QSMALL it is summed through
+    _tp_k_series instead."""
+    c = min((p + 1.0) / (p + q + 2.0), 0.9)
+    if numpy.ndim(z) == 0:
+        return _tp_ibeta_lo(p, q, z, s) if z <= c else _tp_ibeta_hi(p, q, s, c)
+    z = numpy.asarray(z, dtype=float)
+    s = numpy.asarray(s, dtype=float)
+    lo = z <= c
+    out = numpy.empty(z.shape)
+    if numpy.any(lo):
+        out[lo] = _tp_ibeta_lo(p, q, z[lo], s[lo])
+    if not numpy.all(lo):
+        out[~lo] = _tp_ibeta_hi(p, q, s[~lo], c)
+    return out
+
+
+def _tp_ibeta_lo(p, q, z, s):
+    return z**p * s**q / p * special.hyp2f1(1.0, p + q, p + 1.0, z)
+
+
+def _tp_ibeta_hi(p, q, s1, c):
+    s2 = 1.0 - c
+    ibc = _tp_ibeta_lo(p, q, c, s2)
+    if abs(q) >= _TP_QSMALL:
+
+        def B(v):
+            return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
+
+        return ibc + B(s2) - B(s1)
+    K2 = _tp_k_series(p, q, s2)
+    lg = numpy.log(s2 / s1)
+    if q == 0.0:
+        first = lg
+    else:
+        # (s2^q - s1^q)/q; the expm1 form only where it cannot overflow
+        qlg = q * lg
+        first = numpy.where(
+            numpy.fabs(qlg) < 1.0,
+            s1**q * numpy.expm1(numpy.where(numpy.fabs(qlg) < 1.0, qlg, 0.0)) / q,
+            (s2**q - s1**q) / q,
+        )
+    return ibc + first * (1.0 + q * K2) + s1**q * (K2 - _tp_k_series(p, q, s1))
+
 
 if _APY_LOADED:
     from astropy import units
@@ -94,43 +218,22 @@ class TwoPowerSphericalPotential(Potential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
-        elif self.beta == 3.0:
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            return (
-                (1.0 / self.a)
-                * (
-                    1
-                    - (r / self.a) ** (2.0 - self.alpha)
-                    / (3.0 - self.alpha)
-                    * special.hyp2f1(
-                        3.0 - self.alpha,
-                        2.0 - self.alpha,
-                        4.0 - self.alpha,
-                        -r / self.a,
-                    )
-                )
-                / (self.alpha - 2.0)
-            )
-        else:
-            r = (
-                numpy.sqrt(R**2.0 + z**2.0) + 1e-11
-            )  # avoid division by zero and numerical instability of the hyp2f1 function
-            return (
-                special.gamma(self.beta - 3.0)
-                * (
-                    (r / self.a) ** (3.0 - self.beta)
-                    / special.gamma(self.beta - 1.0)
-                    * special.hyp2f1(
-                        self.beta - 3.0,
-                        self.beta - self.alpha,
-                        self.beta - 1.0,
-                        -self.a / r,
-                    )
-                    - special.gamma(3.0 - self.alpha)
-                    / special.gamma(self.beta - self.alpha)
-                )
-                / r
-            )
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        # Phi(0) = -B(2-alpha, beta-2)/a is finite for alpha < 2 only
+        phi0 = (
+            -special.beta(2.0 - self.alpha, self.beta - 2.0) / self.a
+            if self.alpha < 2.0
+            else -numpy.inf
+        )
+        return radial_limits(r, self._evaluate_ibeta, at0=phi0, atinf=0.0)
+
+    def _evaluate_ibeta(self, r):
+        """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see _tp_ibeta)"""
+        x = r / self.a
+        w, s = x / (1.0 + x), 1.0 / (1.0 + x)
+        M = _tp_ibeta(3.0 - self.alpha, self.beta - 3.0, w, s)
+        O = _tp_ibeta(self.beta - 2.0, 2.0 - self.alpha, s, w)
+        return -(M / x + O) / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
@@ -289,12 +392,27 @@ class TwoPowerSphericalPotential(Potential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            (R / self.a) ** (3.0 - self.alpha)
-            / (3.0 - self.alpha)
-            * special.hyp2f1(
-                3.0 - self.alpha, -self.alpha + self.beta, 4.0 - self.alpha, -R / self.a
-            )
+        # finite total mass B(3-alpha, beta-3) for beta > 3, divergent otherwise
+        # (the formula is 0 * inf = NaN at R = inf)
+        # special.beta, not a ratio of gammas: those overflow for beta > ~170
+        mtot = (
+            special.beta(3.0 - self.alpha, self.beta - 3.0)
+            if self.beta > 3.0
+            else numpy.inf
+        )
+        return radial_limits(
+            R,
+            lambda R: (
+                (R / self.a) ** (3.0 - self.alpha)
+                / (3.0 - self.alpha)
+                * special.hyp2f1(
+                    3.0 - self.alpha,
+                    -self.alpha + self.beta,
+                    4.0 - self.alpha,
+                    -R / self.a,
+                )
+            ),
+            atinf=mtot,
         )
 
 
@@ -887,26 +1005,51 @@ class NFWPotential(TwoPowerSphericalPotential):
         if isinstance(r, (float, int)) and r == 0:
             return -1.0 / self.a
         elif isinstance(r, (float, int)):
-            return -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
+            return small_r_select(
+                r, _NFW_SMALL_X * self.a, self._phi_small, self._phi, 0.05 * self.a
+            )
         else:
-            out = -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
+            out = numpy.asarray(
+                small_r_select(
+                    r, _NFW_SMALL_X * self.a, self._phi_small, self._phi, 0.05 * self.a
+                )
+            ).copy()
             out[r == 0] = -1.0 / self.a
             return out
+
+    def _phi(self, r):
+        return -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
+
+    def _phi_small(self, r):
+        # log(1 + x) loses eps/x at x << 1
+        return -numpy.log1p(r / self.a) / r
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         Rz = R**2.0 + z**2.0
         sqrtRz = numpy.sqrt(Rz)
-        return R * (
-            1.0 / Rz / (self.a + sqrtRz)
-            - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        return R * small_r_select(
+            sqrtRz,
+            _NFW_SMALL_X * self.a,
+            lambda r: -_nfw_h(r / self.a) / (r * r * r),
+            lambda _: (
+                1.0 / Rz / (self.a + sqrtRz)
+                - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            ),
+            0.05 * self.a,
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         Rz = R**2.0 + z**2.0
         sqrtRz = numpy.sqrt(Rz)
-        return z * (
-            1.0 / Rz / (self.a + sqrtRz)
-            - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        return z * small_r_select(
+            sqrtRz,
+            _NFW_SMALL_X * self.a,
+            lambda r: -_nfw_h(r / self.a) / (r * r * r),
+            lambda _: (
+                1.0 / Rz / (self.a + sqrtRz)
+                - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            ),
+            0.05 * self.a,
         )
 
     def _rforce_jax(self, r):
@@ -917,6 +1060,21 @@ class NFWPotential(TwoPowerSphericalPotential):
         return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+
+        def small(r):  # d2Phi/dR2 = (k R^2 + h z^2) / r^5
+            h, k = _nfw_hk(r / self.a)
+            return (k * R * R + h * z * z) / (r * r * r * r * r)
+
+        return small_r_select(
+            r,
+            _NFW_SMALL_X * self.a,
+            small,
+            lambda _: self._R2deriv_generic(R, z),
+            0.05 * self.a,
+        )
+
+    def _R2deriv_generic(self, R, z):
         Rz = R**2.0 + z**2.0
         sqrtRz = numpy.sqrt(Rz)
         return (
@@ -933,6 +1091,21 @@ class NFWPotential(TwoPowerSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+
+        def small(r):  # d2Phi/dRdz = (k - h) R z / r^5
+            h, k = _nfw_hk(r / self.a)
+            return (k - h) * R * z / (r * r * r * r * r)
+
+        return small_r_select(
+            r,
+            _NFW_SMALL_X * self.a,
+            small,
+            lambda _: self._Rzderiv_generic(R, z),
+            0.05 * self.a,
+        )
+
+    def _Rzderiv_generic(self, R, z):
         Rz = R**2.0 + z**2.0
         sqrtRz = numpy.sqrt(Rz)
         return (
@@ -976,7 +1149,18 @@ class NFWPotential(TwoPowerSphericalPotential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
+        # log-divergent: inf - inf/inf was NaN
+        return radial_limits(
+            R,
+            lambda R: small_r_select(
+                R,
+                _NFW_SMALL_X * self.a,
+                lambda r: _nfw_h(r / self.a),
+                lambda r: numpy.log(1 + r / self.a) - r / self.a / (1.0 + r / self.a),
+                0.05 * self.a,
+            ),
+            atinf=numpy.inf,
+        )
 
     @conversion.physical_conversion("position", pop=False)
     def rvir(

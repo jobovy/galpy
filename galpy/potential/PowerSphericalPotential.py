@@ -10,6 +10,7 @@ import numpy
 from scipy import special
 
 from ..util import conversion
+from ._smallr import radial_limits
 from .Potential import Potential
 
 
@@ -273,7 +274,13 @@ class PowerSphericalPotential(Potential):
         - 2013-01-09 - Written - Bovy (IAS)
         """
         r = numpy.sqrt(R**2.0 + z**2.0)
-        return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
+        if self.alpha != 3.0:
+            return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
+        # alpha = 3 (Kepler) is 0/0 at r = 0, where the density is 0 like
+        # everywhere else (alpha < 3's divergence there is real)
+        return radial_limits(
+            r, lambda r: (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha, at0=0.0
+        )
 
     def _ddensdr(self, r, t=0.0):
         """
