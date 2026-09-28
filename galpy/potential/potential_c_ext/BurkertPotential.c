@@ -122,6 +122,19 @@ double BurkertPotentialRzderiv(double R,double Z, double phi,
 			       struct potentialArg * potentialArgs){
   double r2= R * R + Z * Z;
   double r= sqrt( r2 );
+  double a= *(potentialArgs->args+1);
+  if ( r < BURKERT_SMALL_X * a ) {
+    // Phi'' - Phi'/r = 4 pi rho - 3 M/r^3 cancels to O(x) at x << 1; with
+    // rho = (1-x)/(1-x^4) = sum_n d_n x^n it is 4 pi sum_n d_n n/(n+3) x^n
+    double amp= *potentialArgs->args;
+    double x= r / a, y= x * x * x * x;
+    double out= 4. * (BURKERT_NTERMS - 1) / (4. * BURKERT_NTERMS - 1.)
+      - x * (4. * BURKERT_NTERMS - 3.) / (4. * BURKERT_NTERMS);
+    int j;
+    for (j=BURKERT_NTERMS-2; j >= 0; j--)
+      out= out * y + ( 4. * j / (4. * j + 3.) - x * (4. * j + 1.) / (4. * j + 4.) );
+    return amp * R * Z / r2 * 4. * M_PI * out;
+  }
   double Phipp= BurkertPotentialPlanarR2deriv(r,phi,t,potentialArgs);
   double Phip= -BurkertPotentialPlanarRforce(r,phi,t,potentialArgs);
   double ir2= 1. / r2;

@@ -10,6 +10,67 @@
 
 //TwoPowerSphericalPotential
 //4 arguments: amp, a, alpha, beta
+// The potential through two incomplete beta integrals (w = x/(1+x), x = r/a):
+//   Phi = -(amp/a) [M(x)/x + O(x)],  M = B_w(3-alpha, beta-3),
+//   O = B_{1-w}(beta-2, 2-alpha),  B_z(p,q) = int_0^z u^(p-1) (1-u)^(q-1) du,
+// with no cancellation as beta -> 3 or alpha -> 2 and no Gamma overflow at large
+// beta (the python implementation, TwoPowerSphericalPotential.py, is the same).
+#define TP_QSMALL 0.05
+// 2F1(1, b; c; z) = sum_k (b)_k/(c)_k z^k for b, c > 0, 0 <= z < 1: positive
+// terms (galpy's general hyp2f1 loses up to ~1e-3 here at large b)
+static double tp_2f1_1(double b, double c, double z){
+  double t= 1., out= 1.;
+  int k;
+  for (k=0; k < 10000000; k++){
+    t*= (b + k) / (c + k) * z;
+    out+= t;
+    if ( k > 5 && t <= 1e-17 * out ) break;
+  }
+  return out;
+}
+// K(s) = ((1-s)^p 2F1(1, p+q; q+1; s) - 1)/q (or its q = 0 limit), summed so that
+// the O(q) difference from 1 is never formed by subtraction
+static double tp_k_series(double p, double q, double s){
+  double t= 1., L= 0., out= 0., term;
+  int k;
+  for (k=1; k < 10000000; k++){
+    t*= (p + k - 1.) / k * s;
+    if ( q != 0. ) {
+      L+= log1p(q / (p + k - 1.)) - log1p(q / k);
+      term= t * expm1(L) / q;
+    }
+    else {
+      L+= 1. / (p + k - 1.) - 1. / k;
+      term= t * L;
+    }
+    out+= term;
+    if ( k > 5 && (p + k) / (k + 1.) * s < 1. && fabs(term) <= 1e-17 * fabs(out) )
+      break;
+  }
+  return pow(1. - s, p) * out;
+}
+// B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact); split at the
+// integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9): below it the direct
+// positive series, above it B_c plus the reflected int_{1-z}^{1-c} v^(q-1)
+// (1-v)^(p-1) dv, which holds the mass (through K(s) when |q| is small)
+static double tp_ibeta(double p, double q, double z, double s){
+  double c= (p + 1.) / (p + q + 2.);
+  if ( c > 0.9 ) c= 0.9;
+  if ( z <= c )
+    return pow(z, p) * pow(s, q) / p * tp_2f1_1(p + q, p + 1., z);
+  double s2= 1. - c;
+  double ibc= pow(c, p) * pow(s2, q) / p * tp_2f1_1(p + q, p + 1., c);
+  if ( fabs(q) >= TP_QSMALL )
+    return ibc + pow(s2, q) * pow(1. - s2, p) / q * tp_2f1_1(p + q, q + 1., s2)
+      - pow(s, q) * pow(1. - s, p) / q * tp_2f1_1(p + q, q + 1., s);
+  double K2= tp_k_series(p, q, s2);
+  double lg= log(s2 / s);
+  double first;
+  if ( q == 0. ) first= lg;
+  else if ( fabs(q * lg) < 1. ) first= pow(s, q) * expm1(q * lg) / q;
+  else first= (pow(s2, q) - pow(s, q)) / q;
+  return ibc + first * (1. + q * K2) + pow(s, q) * (K2 - tp_k_series(p, q, s));
+}
 double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
                                        double t,
                                        struct potentialArg * potentialArgs){
@@ -20,30 +81,13 @@ double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
   double beta= *args;
   //Calculate potential
   double r= sqrt(R*R+Z*Z);
-  if (beta == 3.0) {
-    return amp / a * (1. - pow(r/a, 2.-alpha) / (3.-alpha)
-                           * hyp2f1(3.-alpha, 2.-alpha, 4.-alpha, -r/a))
-                         / (alpha - 2.);
-  } else if (alpha < 2.0 && r < 0.5 * a) {
-    // -M(<r)/r minus the outer integral (complete minus incomplete beta): no
-    // term cancels at r/a << 1, unlike the generic form below
-    double x= r / a;
-    double outer= gsl_sf_gamma(2.-alpha) * gsl_sf_gamma(beta-2.)
-                  / gsl_sf_gamma(beta-alpha);
-    return -amp * ( pow(x, 2.-alpha) / (3.-alpha)
-                    * hyp2f1(3.-alpha, beta-alpha, 4.-alpha, -x)
-                    + outer
-                    - pow(x, 2.-alpha) / (2.-alpha)
-                    * hyp2f1(2.-alpha, beta-alpha, 3.-alpha, -x) ) / a;
-  } else {
-    // the shift was only ever needed at r = 0, which alpha < 2 handles above
-    if (alpha >= 2.0) r += 1e-11;
-    return amp * gsl_sf_gamma(beta - 3.)
-               * (pow(r/a, 3.-beta) / gsl_sf_gamma(beta - 1.)
-                  * hyp2f1(beta - 3., beta - alpha, beta - 1., -a/r)
-                  - gsl_sf_gamma(3.-alpha) / gsl_sf_gamma(beta - alpha))
-               / r;
-  }
+  if ( r == 0. ) // Phi(0) = -B(2-alpha, beta-2)/a, finite for alpha < 2 only
+    return alpha < 2. ? -amp * exp(gsl_sf_lnbeta(2.-alpha, beta-2.)) / a : -INFINITY;
+  if ( isinf(r) ) return 0.;
+  double x= r / a;
+  double w= x / (1. + x), s= 1. / (1. + x);
+  return -amp * ( tp_ibeta(3.-alpha, beta-3., w, s) / x
+                  + tp_ibeta(beta-2., 2.-alpha, s, w) ) / a;
 }
 
 double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,

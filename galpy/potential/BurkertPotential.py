@@ -154,6 +154,30 @@ class BurkertPotential(SphericalPotential):
             + 2.0 * self._rforce(r) / x / self.a
         )
 
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return small_r_select(
+            r,
+            _BURKERT_SMALL_X * self.a,
+            lambda rr: R * z / rr**2.0 * self._r2deriv_minus_rforce_small(rr),
+            lambda _: SphericalPotential._Rzderiv(self, R, z, phi=phi, t=t),
+            0.05 * self.a,
+        )
+
+    def _r2deriv_minus_rforce_small(self, r):
+        # Phi'' - Phi'/r = 4 pi rho - 3 M/r^3 cancels to O(x) at x << 1; with
+        # rho = (1-x)/(1-x^4) = sum_n d_n x^n it is 4 pi sum_n d_n n/(n+3) x^n
+        x = r / self.a
+        y = x**4.0
+        out = 4.0 * (_BURKERT_NTERMS - 1) / (4.0 * _BURKERT_NTERMS - 1.0) - x * (
+            4.0 * _BURKERT_NTERMS - 3.0
+        ) / (4.0 * _BURKERT_NTERMS)
+        for j in range(_BURKERT_NTERMS - 2, -1, -1):
+            out = out * y + (
+                4.0 * j / (4.0 * j + 3.0) - x * (4.0 * j + 1.0) / (4.0 * j + 4.0)
+            )
+        return 4.0 * numpy.pi * out
+
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation

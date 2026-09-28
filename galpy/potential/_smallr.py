@@ -13,6 +13,12 @@ def radial_limits(r, fn, at0=None, atinf=None):
     the edge entries change; with no edge present this is ``fn(r)`` itself.
     ``at0`` / ``atinf``: the limit, or None to leave that edge alone.
     """
+    if isinstance(r, (float, int)):  # scalar fast path
+        if at0 is not None and r == 0.0:
+            return at0
+        if atinf is not None and r == numpy.inf:
+            return atinf
+        return fn(r)
     ra = numpy.asarray(r, dtype=float)
     edges = [
         (m, v)
@@ -37,6 +43,8 @@ def small_r_select(r, rmax, small_fn, generic_fn, rsafe):
     radii is exactly the generic formula. ``small_fn`` is evaluated at
     ``rsafe`` (< rmax) on the other entries, keeping it finite there.
     """
+    if isinstance(r, (float, int)):  # scalar fast path
+        return small_fn(r) if r < rmax else generic_fn(r)
     ra = numpy.asarray(r, dtype=float)
     small = ra < rmax
     if not numpy.any(small):
@@ -52,4 +60,4 @@ def power_series(x, coeffs, first):
     out = coeffs[-1]
     for c in coeffs[-2::-1]:
         out = out * x + c
-    return out * x**first
+    return out * x**first if first else out

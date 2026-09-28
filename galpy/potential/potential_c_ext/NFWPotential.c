@@ -3,24 +3,30 @@
 //NFWPotential
 //2 arguments: amp, a
 // Below r/a = NFW_SMALL_X the closed forms below cancel terms of order 1/r^2
-// (R2deriv 3e2 off at r/a = 1e-6); there, the exact series of
-//   h(x) = log1p(x) - x/(1+x)          [Phi'/amp = h/r^2]
-//   k(x) = x^2/(1+x)^2 - 2 h(x)        [Phi''/amp = k/r^3]
-// (40 terms: 1e-19 relative at x = 0.25), matching the python implementation.
+// (R2deriv 3e2 off at r/a = 1e-6); there, with t = x/(2+x) and
+// S = sum_{m>=1} t^(2m+1)/(2m+1) (log1p(x) = 2 atanh(t), all terms positive)
+//   h(x) = log1p(x) - x/(1+x) = 2 t^2/(1+t) + 2 S             [Phi'/amp = h/r^2]
+//   k(x) = x^2/(1+x)^2 - 2 h(x) = -4 t^3/(1+t)^2 - 4 S        [Phi''/amp = k/r^3]
+// (8 terms: < 1e-17 truncation at x = 0.25), matching the python implementation.
 #define NFW_SMALL_X 0.25
-static double nfw_h(double x){
-  double out= 0.;
-  int n;
-  for (n=40; n >= 2; n--)
-    out= out * x + ( ( n % 2 == 0 ) ? 1. : -1. ) * ( n - 1. ) / n;
-  return out * x * x;
+static double nfw_S(double t){
+  double t2= t * t;
+  double out= 1. / 17.;
+  int m;
+  for (m=7; m >= 1; m--)
+    out= out * t2 + 1. / ( 2. * m + 1. );
+  return out * t2 * t;
 }
-static double nfw_k(double x){
-  double out= 0.;
-  int n;
-  for (n=40; n >= 3; n--)
-    out= out * x + ( ( n % 2 == 0 ) ? 1. : -1. ) * ( n - 1. ) * ( n - 2. ) / n;
-  return out * x * x * x;
+static double nfw_h(double x){
+  double t= x / ( 2. + x );
+  return 2. * ( t * t / ( 1. + t ) + nfw_S(t) );
+}
+static void nfw_hk(double x, double * h, double * k){
+  double t= x / ( 2. + x );
+  double S= nfw_S(t);
+  double u= t / ( 1. + t );
+  *h= 2. * ( t * u + S );
+  *k= -4. * ( t * u * u + S );
 }
 double NFWPotentialEval(double R,double Z, double phi,
 			  double t,
@@ -86,7 +92,11 @@ double NFWPotentialPlanarR2deriv(double R,double phi,
   double aR= a+R;
   double aR2= aR*aR;
   if ( R < NFW_SMALL_X * a )
-    return amp * nfw_k(R / a) / R / R / R;
+  {
+    double h, k;
+    nfw_hk(R / a, &h, &k);
+    return amp * k / R / R / R;
+  }
   return amp * (((R*(2.*a+3.*R))-2.*aR2*log(1.+R/a))/R/R/R/aR2);
 }
 double NFWPotentialR2deriv(double R,double Z, double phi,
@@ -100,8 +110,9 @@ double NFWPotentialR2deriv(double R,double Z, double phi,
   double r= sqrt( R * R + Z * Z );
   double dphi, d2phi, ar;
   if ( r < NFW_SMALL_X * a ) {
-    dphi= nfw_h(r / a) / r / r; // Phi'/amp
-    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+    nfw_hk(r / a, &dphi, &d2phi);
+    dphi/= r * r; // Phi'/amp
+    d2phi/= r * r * r; // Phi''/amp
   }
   else {
     dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
@@ -122,8 +133,9 @@ double NFWPotentialz2deriv(double R,double Z, double phi,
   double r= sqrt( R * R + Z * Z );
   double dphi, d2phi, ar;
   if ( r < NFW_SMALL_X * a ) {
-    dphi= nfw_h(r / a) / r / r; // Phi'/amp
-    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+    nfw_hk(r / a, &dphi, &d2phi);
+    dphi/= r * r; // Phi'/amp
+    d2phi/= r * r * r; // Phi''/amp
   }
   else {
     dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
@@ -144,8 +156,9 @@ double NFWPotentialRzderiv(double R,double Z, double phi,
   double r= sqrt( R * R + Z * Z );
   double dphi, d2phi, ar;
   if ( r < NFW_SMALL_X * a ) {
-    dphi= nfw_h(r / a) / r / r; // Phi'/amp
-    d2phi= nfw_k(r / a) / r / r / r; // Phi''/amp
+    nfw_hk(r / a, &dphi, &d2phi);
+    dphi/= r * r; // Phi'/amp
+    d2phi/= r * r * r; // Phi''/amp
   }
   else {
     dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
