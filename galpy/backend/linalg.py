@@ -152,6 +152,12 @@ def _stop_gradient(a, name):
     return a.detach()  # torch
 
 
+def _shift(xp, v, s, fill):
+    """Row i of the result is ``v[i - s]`` (``fill`` where out of range)."""
+    pad = v[: abs(s)] * 0.0 + fill
+    return xp.concat([pad, v[:-s]]) if s > 0 else xp.concat([v[-s:], pad])
+
+
 def solve_tridiagonal(xp, a, b, c, d):
     """Solve a tridiagonal system by parallel cyclic reduction.
 
@@ -177,6 +183,7 @@ def solve_tridiagonal(xp, a, b, c, d):
         return asarray_on_device(xp, m, dev) * (b[:1] * 0.0 + 1.0)
 
     one = b * 0.0 + 1.0
+    torch_ns = name_of_namespace(xp) == "torch"
     a = a * mask(idx > 0)
     c = c * mask(idx < n - 1)
     s = 1
@@ -185,12 +192,30 @@ def solve_tridiagonal(xp, a, b, c, d):
         # the identity row 0, 1, 0 | 0). Every pass then has the same shapes,
         # so eager jax compiles its primitives once rather than per stride
         # (slicing at a new offset each pass was ~6 s of XLA compiles).
-        im, ip = numpy.clip(idx - s, 0, n - 1), numpy.clip(idx + s, 0, n - 1)
-        vm, vp = mask(idx - s >= 0), mask(idx + s < n)
-        am, cm, dm = a[im] * vm, c[im] * vm, d[im] * col(vm)
-        ap, cp, dp = a[ip] * vp, c[ip] * vp, d[ip] * col(vp)
-        bm = b[im] * vm + one * (1.0 - vm)
-        bp = b[ip] * vp + one * (1.0 - vp)
+        if torch_ns:
+            # torch: shift by padding + slicing instead. The gather's backward is
+            # an accumulating index_put (clamped edge rows repeat), which inductor
+            # miscompiled inside a larger graph (spray sampling's gradient 4e-6
+            # off; every earlier compile stage exact). Same values; torch has no
+            # per-shape compile cost to avoid.
+            am, cm, dm = (
+                _shift(xp, a, s, 0.0),
+                _shift(xp, c, s, 0.0),
+                _shift(xp, d, s, 0.0),
+            )
+            ap, cp, dp = (
+                _shift(xp, a, -s, 0.0),
+                _shift(xp, c, -s, 0.0),
+                _shift(xp, d, -s, 0.0),
+            )
+            bm, bp = _shift(xp, b, s, 1.0), _shift(xp, b, -s, 1.0)
+        else:
+            im, ip = numpy.clip(idx - s, 0, n - 1), numpy.clip(idx + s, 0, n - 1)
+            vm, vp = mask(idx - s >= 0), mask(idx + s < n)
+            am, cm, dm = a[im] * vm, c[im] * vm, d[im] * col(vm)
+            ap, cp, dp = a[ip] * vp, c[ip] * vp, d[ip] * col(vp)
+            bm = b[im] * vm + one * (1.0 - vm)
+            bp = b[ip] * vp + one * (1.0 - vp)
         alpha, gamma = -a / bm, -c / bp
         a, c = alpha * am, gamma * cp
         b = b + alpha * cm + gamma * ap
