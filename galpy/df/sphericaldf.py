@@ -1552,6 +1552,9 @@ class sphericaldf(df):
         v1 = vg[i1]
         dc = c1 - c0
         t = xp.where(dc > 0.0, (u[:, None] - c0) / xp.where(dc > 0.0, dc, 1.0), 0.0)
+        # XLA divides by tot as a reciprocal multiply, so the last cumulative
+        # entry can land 1 ulp below u=1 and t > 1; clamp at the ends, as numpy
+        t = xp.clip(t, 0.0, 1.0)
         v = xp.where(good[None, :], v0 + t * (v1 - v0), xp.zeros_like(v0))
         return _PVRInterpolator(
             numpy.log10(r_a_grid[0, :]),
