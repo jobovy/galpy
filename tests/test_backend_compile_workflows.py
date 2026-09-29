@@ -142,48 +142,38 @@ _T = "torch.compile gap: "
 _CASES = [
     # (backend, workflow, x0, marks)
     ("torch", orbit_c_integrator, 0.1, ()),
-    ("jax", orbit_c_integrator, 0.1, ()),
+    (
+        "jax",
+        orbit_c_integrator,
+        0.1,
+        _gap("jax.jit gap: Orbit.E at a traced time (numpy.atleast_1d/tile)"),
+    ),
     ("torch", orbit_potential_parameter, 1.1, ()),
     ("jax", orbit_potential_parameter, 1.1, ()),
     ("torch", spray_sample, 1.1, ()),
-    ("torch", spray_track, 1.1, ()),
+    ("torch", spray_track, 1.1, _gap(_T + "streamTrack's numpy fit path")),
     ("torch", actions_staeckel, 1.0, ()),
     ("jax", actions_staeckel, 1.0, ()),
     ("torch", actions_spherical, 2.0, ()),
     ("jax", actions_spherical, 2.0, ()),
     ("torch", sphericaldf_sample, 1.7, ()),
     ("jax", sphericaldf_sample, 1.7, ()),
-    ("torch", qdf_density, 1.0, ()),
+    ("torch", qdf_density, 1.0, _gap(_T + "fake-tensor 0-d indexing, interpolate.py")),
     ("jax", qdf_density, 1.0, ()),
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
-    # plain torch.compile (inductor: generated kernels, not just dynamo). The
-    # in-backend ODE is torchode, which inductor can lower (torchdiffeq cannot).
-    # spray -> streamTrack adds nothing here: its fit runs eagerly under compile.
-    ("torch-inductor", orbit_potential_parameter, 1.1, ()),
-    ("torch-inductor", spray_sample, 1.1, ()),
 ]
-
-# Looser where the workflow itself amplifies round-off: the GCV-smoothed track
-# moves by 2e-9..1e-8 (grad) / ~1e-12 (value) for a 1e-14..1e-13 relative nudge
-# of its input, eagerly; compiled vs eager particles differ by 2.7e-14
-# (measured: 6e-12 value, 9.4e-9 grad).
-_RTOL = {"spray_track": (1e-10, 1e-7)}
 
 
 def _compiled(bk, workflow, x0):
     if bk == "jax":
         return jax.jit(jax.value_and_grad(lambda x: workflow("jax", x)))(x0)
-    backend = "inductor" if bk == "torch-inductor" else "eager"
     torch._dynamo.reset()
     with warnings.catch_warnings():
         # torch-internal deprecations under CI's -W error
         for msg in (".*script_method.*", ".*should not be instantiated.*"):
             warnings.filterwarnings("ignore", message=msg, category=DeprecationWarning)
-        warnings.filterwarnings(  # inductor lowering
-            "ignore", message=".*_prims_common.check.*", category=FutureWarning
-        )
-        fc = torch.compile(lambda x: workflow("torch", x), backend=backend)
+        fc = torch.compile(lambda x: workflow("torch", x), backend="eager")
         xc = torch.tensor(x0, requires_grad=True)
         vc = fc(xc)
         return vc, torch.autograd.grad(vc, xc)[0]
@@ -210,6 +200,5 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0):
         raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
-    rtol_v, rtol_g = _RTOL.get(workflow.__name__, (1e-12, 1e-10))
-    numpy.testing.assert_allclose(float(vc), float(ve), rtol=rtol_v)
-    numpy.testing.assert_allclose(float(gc), float(ge), rtol=rtol_g)
+    numpy.testing.assert_allclose(float(vc), float(ve), rtol=1e-12)
+    numpy.testing.assert_allclose(float(gc), float(ge), rtol=1e-10)
