@@ -46,6 +46,7 @@ from galpy.potential import (
 from galpy.potential.linearPotential import (
     evaluatelinearForces,
     evaluatelinearPotentials,
+    evaluatelinearx2derivs,
 )
 from galpy.potential.verticalPotential import toVerticalPotential, verticalPotential
 
@@ -124,6 +125,12 @@ def _methods():
         (
             "evaluatelinearForces",
             lambda p, x: evaluatelinearForces(p, x, use_physical=False),
+            pts,
+        ),
+        ("x2deriv", lambda p, x: p.x2deriv(x, use_physical=False), pts),
+        (
+            "evaluatelinearx2derivs",
+            lambda p, x: evaluatelinearx2derivs(p, x, use_physical=False),
             pts,
         ),
     ]
@@ -252,7 +259,7 @@ def test_torch_amp_grad_matches_fd():
 
 # ============ raw compute methods under a FORCED backend ================== #
 # Regression (scalar-under-forced-backend): the python orbit integrator calls
-# IsothermalDiskPotential._evaluate/_force/_force2deriv DIRECTLY with a
+# IsothermalDiskPotential._evaluate/_force/_x2deriv DIRECTLY with a
 # numpy-scalar x (the integrator RHS bypasses the @physical_input coercion gate,
 # unlike the p(x)/p.force(x)/evaluatelinear* public entries which coerce). Under
 # a forced backend get_namespace(x) then resolves to jax/torch while x stays a
@@ -265,7 +272,7 @@ def test_isodisk_raw_methods_numpy_scalar_forced_backend(backend_name):
     if backend_name == "torch" and not _HAS_TORCH:  # pragma: no cover
         pytest.skip("torch not installed")
     p = IsothermalDiskPotential(amp=1.0, sigma=1.0)
-    methods = ("_evaluate", "_force", "_force2deriv")
+    methods = ("_evaluate", "_force", "_x2deriv")
     for x0 in (0.5, -0.3, 1.7):
         x = numpy.float64(x0)
         ref = {m: float(getattr(p, m)(x)) for m in methods}
@@ -304,11 +311,11 @@ def _assert_vertical_adapters_do_not_recross(backend, mk):
             f"{name} re-crossed the @backend_input boundary; it should forward "
             "to the undecorated inner evaluator"
         )
-    # Negative control: _force2deriv is deliberately NOT migrated (there is no
+    # Negative control: _x2deriv is deliberately NOT migrated (there is no
     # _evaluatez2derivs), so it must still cross. Without this, a spy that
     # stopped working would make the assertions above pass vacuously.
-    assert count_boundary_crossings(lambda: vp._force2deriv(z, t=0.0), backend) > 0, (
-        "control failed: _force2deriv should still cross, so a zero here means "
+    assert count_boundary_crossings(lambda: vp._x2deriv(z, t=0.0), backend) > 0, (
+        "control failed: _x2deriv should still cross, so a zero here means "
         "the counter is broken, not that the code improved"
     )
 
