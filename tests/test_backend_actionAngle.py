@@ -685,9 +685,10 @@ def test_spherical_edge_case_parity(backend, potname, case, prograde):
     for idx, (r, g) in enumerate(zip(ref_afa, got_afa)):
         assert _is_backend_array(backend, g)
         if idx >= 6:
-            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
-                2.0 * numpy.pi
-            ) - numpy.pi
+            # a circular orbit's radial phase is 0 or pi by the ulp sign of
+            # r_c - r on numpy (the backend takes 0), so compare it modulo pi
+            per = numpy.pi if (case == "circular" and idx == 6) else 2.0 * numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + per / 2.0) % per - per / 2.0
             numpy.testing.assert_allclose(
                 d, 0.0, atol=2e-6, err_msg=f"{case}/{potname}/angle{idx}"
             )
@@ -2890,3 +2891,34 @@ def test_adiabaticgrid_bypassed_jz_delegates():
         got = g.Jz(*_BYPASS_IC)
         ref = _bypass_aa(a, "adiabatic", exact=True)(*_BYPASS_IC)[2]
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-14, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spherical_epicycle_force_only_backend(backend):
+    # the backend epicycle branch in a potential with forces but no second
+    # derivative: kappa from the effective force's finite difference
+    from galpy.backend import get_namespace
+    from galpy.potential import Potential, epifreq, vcirc
+
+    class ForceOnlyHernquist(Potential):
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return -0.5 / (1.0 + get_namespace(R, z).sqrt(R**2.0 + z**2.0))
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
+            return -0.5 * R / r / (1.0 + r) ** 2
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
+            return -0.5 * z / r / (1.0 + r) ** 2
+
+    hp = HernquistPotential(amp=1.0, a=1.0)
+    vc = vcirc(hp, 1.0, use_physical=False)
+    ic = [_arr(backend, numpy.array([v])) for v in (1.0, 1e-6 * vc, vc, 0.0, 0.0)]
+    ff = actionAngleSpherical(pot=ForceOnlyHernquist()).actionsFreqs(*ic)
+    fh = actionAngleSpherical(pot=hp).actionsFreqs(*ic)
+    assert _is_backend_array(backend, ff[3])
+    numpy.testing.assert_allclose(
+        as_numpy(ff[3]), epifreq(hp, 1.0, use_physical=False), rtol=1e-7
+    )
+    numpy.testing.assert_allclose(as_numpy(ff[0]), as_numpy(fh[0]), rtol=1e-6)
