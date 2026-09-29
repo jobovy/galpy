@@ -1686,15 +1686,6 @@ class actionAngleSpherical(actionAngle):
         return wz
 
 
-def _radicand(xp, r, E, L, pot):
-    """Radial-velocity^2 radicand 2*(E - Phi(r)) - L^2/r^2, namespace-agnostic.
-
-    Shared by the numpy integrands (xp=numpy, scalar r) and the backend panels
-    (xp=jax/torch, array r); byte-identical on numpy. Equals 2*_rapRperiAxiEq.
-    """
-    return 2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0
-
-
 def _JrSphericalIntegrand(r, E, L, pot):
     """The J_r integrand, sqrt(2 [E - Phi_eff(r)]); with a relative effective
     potential, E is the energy above the circular orbit's"""
