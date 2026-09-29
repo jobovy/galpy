@@ -3,9 +3,33 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace, radial_limits
+import numpy
+
+from ..backend import branch_where, coerce_coords, get_namespace, radial_limits
+from ..backend._coerce import mask_where, power_series
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
+
+# Below this x = r/a, Phi and the radial force use cancellation-free forms (the
+# closed forms lose eps/x and eps/x^3 there); 10 terms of the force series
+# reach ~1e-24 at x = 0.25. Above it the original formulas.
+_BURKERT_SMALL_X = 0.25
+_BURKERT_NTERMS = 10
+# the force series S(x) = sum_j [-4/(4j+3) x^(4j) + x^(4j+1)/(j+1)] as
+# -4/3 + sum_{q>=1} _BURKERT_S[q-1] x^q
+_BURKERT_S = [0.0] * (4 * (_BURKERT_NTERMS - 1) + 1)
+for _j in range(_BURKERT_NTERMS):
+    if _j:
+        _BURKERT_S[4 * _j - 1] = -4.0 / (4 * _j + 3)
+    _BURKERT_S[4 * _j] = 1.0 / (_j + 1)
+# Phi'' - Phi'/r = 4 pi rho - 3 M/r^3 cancels to O(x) at x << 1; with
+# rho = (1-x)/(1-x^4) = sum_n d_n x^n it is 4 pi sum_n d_n n/(n+3) x^n
+# (n >= 1: d_{4j} = 1, d_{4j+1} = -1), _BURKERT_RZ[n-1] = d_n n/(n+3)
+_BURKERT_RZ = [0.0] * (4 * _BURKERT_NTERMS - 3)
+for _j in range(_BURKERT_NTERMS):
+    if _j:
+        _BURKERT_RZ[4 * _j - 1] = 4.0 * _j / (4 * _j + 3)
+    _BURKERT_RZ[4 * _j] = -(4.0 * _j + 1) / (4 * _j + 4)
 
 
 class BurkertPotential(SphericalPotential):
@@ -60,10 +84,23 @@ class BurkertPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
-        return radial_limits(r, self._revaluate_body, atinf=0.0)
+        # Phi(0) = -pi^2 a^2 (numpy's 0 * inf there was NaN)
+        return radial_limits(
+            r,
+            self._revaluate_body,
+            at0=-(math.pi**2) * self.a**2.0,
+            atinf=0.0,
+            numpy_too=True,
+        )
 
     def _revaluate_body(self, r):
         xp = get_namespace(r)
+        small = r < _BURKERT_SMALL_X * self.a
+        return branch_where(
+            xp, small, lambda: self._phi_small(xp, r, small), lambda: self._phi(xp, r)
+        )
+
+    def _phi(self, xp, r):
         x = r / self.a
         # special.xlogy(2/x, 1+x**2) == (2/x)*log(1+x**2), but with the convention
         # that it is 0 where the prefactor is 0 (i.e. as x -> infty, where the bare
@@ -88,6 +125,23 @@ class BurkertPotential(SphericalPotential):
             )
         )
 
+    def _phi_small(self, xp, r, small):
+        # the -pi/x and 2 arctan(1/x)/x terms above cancel (eps/x lost at
+        # x << 1); with arctan(1/x) = pi/2 - arctan(x) no term exceeds O(1).
+        # r masked before dividing by a: d(r/a)/da = -inf at r = inf would NaN
+        # the dead branch's backward
+        xs = mask_where(xp, small, r, 0.05 * self.a) / self.a
+        return (
+            -(self.a**2.0)
+            * math.pi
+            * (
+                math.pi
+                - 2.0 * (1.0 / xs + 1.0) * xp.arctan(xs)
+                + (1.0 / xs + 1.0) * (2.0 * xp.log1p(xs) - xp.log1p(xs**2.0))
+                + 2.0 / xs * xp.log1p(xs**2.0)
+            )
+        )
+
     # Previous way, not stable as r -> infty
     # return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
     #                                +2.*(1.+x)*numpy.log(1.+x)
@@ -95,6 +149,15 @@ class BurkertPotential(SphericalPotential):
 
     def _rforce(self, r, t=0.0):
         xp = get_namespace(r)
+        small = r < _BURKERT_SMALL_X * self.a
+        return branch_where(
+            xp,
+            small,
+            lambda: self._rforce_small(xp, r, small),
+            lambda: self._rforce_generic(xp, r),
+        )
+
+    def _rforce_generic(self, xp, r):
         x = r / self.a
         return (
             self.a
@@ -106,6 +169,51 @@ class BurkertPotential(SphericalPotential):
                 - 2.0 * xp.log(1.0 + x)
                 - xp.log(1.0 + x**2.0)
             )
+        )
+
+    def _rforce_small(self, xp, r, small):
+        # the generic bracket cancels to O(x^3) (eps/x^3 lost at x << 1): its
+        # series 2 atan(x) - 2 log1p(x) - log1p(x^2) = x^3 S(x) (_BURKERT_S),
+        # divided by x^2. r masked before dividing by a (see _phi_small)
+        rs = mask_where(xp, small, r, 0.05 * self.a)
+        series = -4.0 / 3.0 + power_series(xp, rs / self.a, _BURKERT_S, 1)
+        # pi r S(r/a), not a pi x S: that form's d/da cancels (a * x) in fp
+        return math.pi * rs * series
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        small = r < _BURKERT_SMALL_X * self.a
+
+        def series():  # R z (Phi'' - Phi'/r) / r^2, summed directly
+            rs = mask_where(xp, small, r, 0.05 * self.a)
+            return (
+                R
+                * z
+                / (rs * rs)
+                * 4.0
+                * math.pi
+                * power_series(xp, rs / self.a, _BURKERT_RZ, 1)
+            )
+
+        return branch_where(
+            xp,
+            small,
+            series,
+            lambda: SphericalPotential._Rzderiv(self, R, z, phi=phi, t=t),
+        )
+
+    def _mass(self, R, z=None, t=0.0):
+        if z is not None:
+            raise AttributeError  # use general implementation
+        # 0 at the center, log-divergent at infinity (both 0*inf NaN before)
+        return radial_limits(
+            R,
+            lambda r: SphericalPotential._mass(self, r, t=t),
+            at0=0.0,
+            atinf=numpy.inf,
+            numpy_too=True,
         )
 
     def _r2deriv(self, r, t=0.0):
