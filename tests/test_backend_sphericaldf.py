@@ -1230,3 +1230,21 @@ def test_constantbetadf_numpy_key_sample_with_differentiated_potential_raises():
         d = constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
         with pytest.raises(NotImplementedError, match="BACKEND key"):
             d.sample(n=2)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_interpolator_grid_matches_scipy(backend):
+    # grid=True (scipy's default, which the numpy tests rely on) evaluates the
+    # outer product X x Y on the backend too, matching the scipy spline
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    dfh = isotropicHernquistdf(pot=HernquistPotential(amp=2.0))
+    dfh.sample(R=1.0, z=0.0, n=1)
+    interp = dfh._v_vesc_pvr_interpolator
+    X = numpy.log10(numpy.array([0.2, 1.0, 5.0]) / dfh._scale)
+    Y = numpy.linspace(0.0, 1.0, 11)
+    ref = interp(X, Y)
+    got = interp(_arr(backend, X), Y)
+    assert tuple(got.shape) == ref.shape == (3, 11)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
