@@ -3546,16 +3546,18 @@ class Orbit:
         # Get orbit
         thiso = self._call_internal(*args, **kwargs)
         onet = len(thiso.shape) == 2
+        # a backend time (possibly traced) is shaped on its own namespace
+        _txp = get_namespace(t) if is_backend_array(t) else numpy
         if onet:
             thiso = thiso[:, numpy.newaxis, :]
-            t = numpy.atleast_1d(t)
+            t = numpy.atleast_1d(t) if _txp is numpy else _txp.reshape(t, (-1,))
         if self.phasedim() == 2:
             try:
                 out = (
                     evaluatelinearPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3581,7 +3583,7 @@ class Orbit:
                     evaluateplanarPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3609,7 +3611,7 @@ class Orbit:
                         pot,
                         thiso[0],
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3643,7 +3645,7 @@ class Orbit:
                         pot,
                         thiso[0],
                         z,
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3679,7 +3681,7 @@ class Orbit:
                         thiso[0],
                         z,
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
