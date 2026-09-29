@@ -2952,3 +2952,60 @@ def test_staeckel_backend_circular_orbits_ulp_robust(backend):
     assert numpy.all(as_numpy(e) == 0.0), f"max e {numpy.amax(as_numpy(e))}"
     numpy.testing.assert_allclose(as_numpy(rperi), Rs, rtol=1e-14)
     numpy.testing.assert_allclose(as_numpy(rap), Rs, rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "case",
+    ["near_circular", "small", "eccentric"],
+)
+def test_spherical_relative_problem_param_grad(backend, case):
+    # d/d(amp, a) of J_r, the frequencies and the angles through the relative
+    # radial problem (near-circular: relative to the circular orbit; small:
+    # to the point) and the plain one, against numpy central differences
+    from galpy.potential import vcirc
+
+    R, z = {"near_circular": (0.9, 0.2), "small": (1e-5, 0.0), "eccentric": (0.9, 0.2)}[
+        case
+    ]
+    vc = vcirc(HernquistPotential(amp=2.0, a=1.3), numpy.hypot(R, z))
+    vR, vT, vz = {
+        "near_circular": (1e-3 * vc, 0.8 * vc, 0.6 * vc * 0.3),
+        "small": (1e-3 * vc, 0.5 * vc, 0.0),
+        "eccentric": (0.3 * vc, 0.6 * vc, 0.2 * vc),
+    }[case]
+    ic = (R, vR, vT, z, vz, 0.4)
+
+    def f_np(amp, a):
+        out = actionAngleSpherical(pot=HernquistPotential(amp=amp, a=a))
+        return numpy.array([o[0] for o in out.actionsFreqsAngles(*ic)])[[0, 3, 4, 6, 8]]
+
+    # numpy's adaptive quadratures carry ~1e-10 noise: h-converged differences
+    hs = (1e-3, 3e-4, 1e-4)
+    fd = [
+        [(f_np(2.0 + h, 1.3) - f_np(2.0 - h, 1.3)) / (2.0 * h) for h in hs],
+        [(f_np(2.0, 1.3 + h) - f_np(2.0, 1.3 - h)) / (2.0 * h) for h in hs],
+    ]
+    icb = [_arr(backend, numpy.array([v])) for v in ic]
+    if backend == "jax":
+
+        def fb(p):
+            aA = actionAngleSpherical(pot=HernquistPotential(amp=p[0], a=p[1]))
+            out = aA.actionsFreqsAngles(*icb)
+            return jnp.stack([out[i][0] for i in (0, 3, 4, 6, 8)])
+
+        J = numpy.asarray(jax.jacfwd(fb)(jnp.asarray([2.0, 1.3])))
+    else:
+        rows = []
+        for i in (0, 3, 4, 6, 8):
+            p = torch.tensor([2.0, 1.3], requires_grad=True)
+            aA = actionAngleSpherical(pot=HernquistPotential(amp=p[0], a=p[1]))
+            (g,) = torch.autograd.grad(aA.actionsFreqsAngles(*icb)[i][0], p)
+            rows.append(g.numpy())
+        J = numpy.array(rows)
+    for k in range(2):
+        err = numpy.amin(
+            [numpy.fabs(J[:, k] - d) / (numpy.fabs(J[:, k]) + 1e-8) for d in fd[k]],
+            axis=0,
+        )
+        assert numpy.all(err < 2e-6), (k, err)
