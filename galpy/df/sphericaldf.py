@@ -1428,7 +1428,11 @@ class sphericaldf(df):
         # what makes the sampled velocity differentiable in those parameters
         # rather than merely differentiable in r.
         pvr_grid = as_numpy(self._p_v_at_r(vr_grid, r_grid))
-        pvr_grid_cml = numpy.cumsum(pvr_grid, axis=0)
+        # Integrate between velocity grid points: a plain cumulative sum
+        # shifts the inverse CDF down by roughly half a velocity bin.
+        pvr_grid_cml = integrate.cumulative_trapezoid(
+            pvr_grid, v_vesc_values, axis=0, initial=0.0
+        )
         pvr_grid_cml_norm = (
             pvr_grid_cml
             / numpy.repeat(
@@ -1437,7 +1441,8 @@ class sphericaldf(df):
         )
 
         # Construct the inverse cumulative distribution on a regular grid
-        n_new_pvr = 100  # Must be multiple of r_a_grid.shape[0]
+        # Resolve the curved inverse-CDF tails to avoid biasing velocity moments.
+        n_new_pvr = 1000
         icdf_pvr_grid_reg = numpy.zeros((n_new_pvr, len(r_a_values)))
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr, len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):
@@ -1510,7 +1515,11 @@ class sphericaldf(df):
                 galpyWarning,
             )
         p = xp.clip(pvr_grid, 0.0, None)
-        c = xp.cumulative_sum(p, axis=0)
+        # trapezoidal cumulative, as on numpy (a plain cumulative sum shifts the
+        # inverse CDF down by about half a velocity bin)
+        dv = as_backend_constant(xp, numpy.diff(v_vesc_values), p)
+        seg = 0.5 * (p[1:] + p[:-1]) * dv[:, None]
+        c = xp.concat([xp.zeros_like(p[:1]), xp.cumulative_sum(seg, axis=0)], axis=0)
         tot = c[-1, :]
         # A radius with no velocity probability at all (e.g. near rmax where
         # vesc ~ 0) would normalise 0/0; give it a zero-velocity inverse CDF, as
