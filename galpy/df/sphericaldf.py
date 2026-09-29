@@ -1499,7 +1499,7 @@ class sphericaldf(df):
         )
 
     def _make_pvr_interpolator_backend(
-        self, pvr_grid, r_a_grid, v_vesc_values, n_new_pvr=100
+        self, pvr_grid, r_a_grid, v_vesc_values, n_new_pvr=1000
     ):
         """Backend build of the p(v|r) inverse-CDF table (see _make_pvr_interpolator).
 
