@@ -571,12 +571,13 @@ def test_surfdens_grad_z_finite_off_edge(backend_name, pot):
 #   2. jax/torch grads of _evaluate and _Rforce wrt R vs central finite
 #      differences of the numpy path (the detach/raise regression pin),
 #   3. jax.jit survival (and jit == numpy values).
-# beta=3.5/4.5 hit the generic gamma+hyp2f1(-a/r) _evaluate branch, beta=3.0
-# the separate hyp2f1(-r/a) branch; alpha=1.5 keeps _specialSelf unset (a true
-# generic case). Cross-backend VALUE parity on all methods is covered by the
-# CASES entry above. The hyp2f1 fallback (used by jax -- whose native hyp2f1 is
-# unreliable for z < -1 -- and torch -- which has none) matches scipy to
-# better than 1e-12 over this argument range.
+# _evaluate is the incomplete-beta form for every beta (3.0 included), its
+# backend series static in (alpha, beta); _Rforce the hyp2f1(-r/a) form.
+# alpha=1.5 keeps _specialSelf unset (a true generic case). Cross-backend VALUE
+# parity on all methods is covered by the CASES entry above. The hyp2f1
+# fallback (used by jax -- whose native hyp2f1 is unreliable for z < -1 -- and
+# torch -- which has none) matches scipy to better than 1e-12 over this
+# argument range.
 ###############################################################################
 _TWOPOWER_GENERIC = [
     TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.5),
@@ -601,28 +602,17 @@ def _twopower_scipy_reference(pot, method, R, z):
             / (3.0 - alpha)
             * special.hyp2f1(3.0 - alpha, beta - alpha, 4.0 - alpha, -r / a)
         )
-    if beta == 3.0:
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return (
-            (1.0 / a)
-            * (
-                1
-                - (r / a) ** (2.0 - alpha)
-                / (3.0 - alpha)
-                * special.hyp2f1(3.0 - alpha, 2.0 - alpha, 4.0 - alpha, -r / a)
-            )
-            / (alpha - 2.0)
-        )
-    r = numpy.sqrt(R**2.0 + z**2.0) + 1e-11
+    # Phi = -(M(x)/x + O(x))/a, the two incomplete betas through scipy
+    from galpy.potential.TwoPowerSphericalPotential import _tp_ibeta
+
+    x = numpy.sqrt(R**2.0 + z**2.0) / a
+    w, s = x / (1.0 + x), 1.0 / (1.0 + x)
     return (
-        special.gamma(beta - 3.0)
-        * (
-            (r / a) ** (3.0 - beta)
-            / special.gamma(beta - 1.0)
-            * special.hyp2f1(beta - 3.0, beta - alpha, beta - 1.0, -a / r)
-            - special.gamma(3.0 - alpha) / special.gamma(beta - alpha)
+        -(
+            _tp_ibeta(3.0 - alpha, beta - 3.0, w, s) / x
+            + _tp_ibeta(beta - 2.0, 2.0 - alpha, s, w)
         )
-        / r
+        / a
     )
 
 
@@ -667,6 +657,40 @@ def test_twopower_generic_grad_vs_finite_difference(backend_name, pot, method):
     numpy.testing.assert_allclose(
         ad, fd, rtol=1e-6, err_msg=f"{backend_name} grad of {method}"
     )
+
+
+# d Phi/dr = M(x)/(x a)^2 (50-digit references, a = 1.3): the backend gradient
+# of the incomplete-beta Phi where the old closed forms failed -- beta -> 3
+# (Gamma(beta-3) poles), alpha -> 2 / alpha >= 2, alpha = beta, beta = 180, and
+# the |q log(s2/s1)| > 1 branch; hyp2f1 _Rforce is 1e-4 off at beta = 3 +- 1e-12
+_TWOPOWER_EDGE_DPHIDR = [  # alpha, beta, x, dPhi/dr
+    (1.5, 3.000000000001, 0.4999, 3.8410361076102557e-1),
+    (1.5, 3.000000000001, 5.0, 2.9898888674384627e-2),
+    (1.5, 2.999999999999, 0.5001, 3.8397857915822237e-1),
+    (1.999999999999, 100.0, 0.499999, 2.4400756420590309e-2),
+    (2.0, 3.5, 0.3, 1.6165940919522785),
+    (2.5, 2.5, 1.0, 1.1834319526627218),
+    (1.5, 180.0, 0.5, 8.8887346478789128e-4),
+    (1.96, 3.02, 1e-06, 3.2740078878820132e5),
+]
+
+
+@pytest.mark.parametrize("alpha,beta,x,dphidr", _TWOPOWER_EDGE_DPHIDR)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_phi_grad_edges(backend_name, alpha, beta, x, dphidr):
+    pot = TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=alpha, beta=beta)
+    R0 = x * 1.3
+    if backend_name == "jax":
+        f = lambda R: pot._evaluate(R, jnp.zeros_like(R))  # noqa: E731
+        ad = float(jax.grad(f)(jnp.asarray(R0)))
+        # and under jit: a static-length series
+        ad_jit = float(jax.jit(jax.grad(f))(jnp.asarray(R0)))
+        assert abs(ad_jit / dphidr - 1.0) < 1e-12, ad_jit
+    else:
+        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        (ad,) = torch.autograd.grad(pot._evaluate(R, torch.zeros_like(R)), R)
+        ad = float(ad)
+    assert abs(ad / dphidr - 1.0) < 1e-12, f"{backend_name}: {ad} vs {dphidr}"
 
 
 @pytest.mark.parametrize("method", ["_evaluate", "_Rforce"])
@@ -818,11 +842,8 @@ def test_einasto_dn_solves_on_the_backend_inside_a_forced_context(backend_name):
     assert abs(got - _EIN_DN) < tol * _EIN_DN, f"{backend_name} forced: {got!r}"
 
 
-# Small r: the generic _evaluate is gamma * [(r/a)^(3-beta) 2F1(..., -a/r) - C] / r,
-# so 2F1 is needed at z = -a/r ~ -1e5 and the bracket cancels ~a/r-fold. A single
-# fixed quadrature grid lost the 2F1 there (3e-3 .. 6e-2 on Phi at r/a = 1e-5,
-# both backends); split at t ~ 1/|z| it is ~1e-15, leaving only the formula's
-# own cancellation floor (~a/r * 1e-16): measured <= 1.2e-10 at r/a = 1e-5.
+# Small r: the backend incomplete-beta series against numpy's scipy hyp2f1 (the
+# old closed form needed 2F1 at -a/r ~ -1e5 and cancelled ~a/r-fold there).
 @pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
 @pytest.mark.parametrize("alpha,beta", [(1.5, 3.5), (1.5, 4.5), (0.5, 4.0), (1.0, 5.0)])
 def test_twopower_generic_potential_at_small_r(backend_name, alpha, beta):
@@ -831,4 +852,4 @@ def test_twopower_generic_potential_at_small_r(backend_name, alpha, beta):
     R = 1.1 * numpy.array([1e-5, 3e-5, 1e-4, 1e-3])
     z = numpy.zeros_like(R)
     got = as_numpy(pot._evaluate(_asarray(backend_name, R), _asarray(backend_name, z)))
-    numpy.testing.assert_allclose(got, pot._evaluate(R, z), rtol=5e-10, atol=0.0)
+    numpy.testing.assert_allclose(got, pot._evaluate(R, z), rtol=1e-13, atol=0.0)

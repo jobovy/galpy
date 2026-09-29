@@ -266,9 +266,16 @@ class PowerSphericalPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
-        # d/dalpha r**-alpha = -log(r) r**-alpha is inf*0 at r=inf
+        # d/dalpha r**-alpha = -log(r) r**-alpha is inf*0 at r=inf. alpha = 3
+        # (Kepler) is 0/0 at r=0, where the density is 0 like everywhere else
+        # (alpha < 3's divergence there is real)
+        kepler = self.alpha == 3.0
         return radial_limits(
-            r, lambda r: (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha, atinf=0.0
+            r,
+            lambda r: (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha,
+            at0=0.0 if kepler else None,
+            atinf=0.0,
+            numpy_too=kepler,
         )
 
     def _ddensdr(self, r, t=0.0):

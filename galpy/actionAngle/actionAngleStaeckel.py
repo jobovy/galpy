@@ -78,6 +78,8 @@ def _focal_length_of(pot):
             return None
         return deltas[0]
     return getattr(pot, "_delta", None)
+
+
 def _coerce_delta_arraylike(delta):
     """Coerce a plain Python sequence delta (allowed by the public API for
     individual-delta inputs) to an ndarray: the backend-agnostic coords
@@ -225,6 +227,17 @@ def _staeckel_uminumax(xp, s, pot, delta):
     umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
+    # A circular orbit is a DOUBLE root of f at ux, so f(ux +- eps) ~ -k eps^2 is
+    # the size of f's rounding noise and the at_umin/at_umax/circular split above
+    # is decided by the last bits (CPU-dependent vector kernels): a circular orbit
+    # classified as at a turning point gets its partner root bisected out of the
+    # noise, ~sqrt(noise/k) ~ 1e-8 away (e ~ 1e-8 on some machines, 1e-10 on
+    # others). A turning-point pair closer than the frequencies' own circular
+    # threshold (below) cannot be resolved from that noise: snap it to circular.
+    unresolved = at_turn & ((umax - umin) < 1e-6 * umax)
+    umin = xp.where(unresolved, ux, umin)
+    umax = xp.where(unresolved, ux, umax)
+    circular = circular | unresolved
     umin = xp.where(reaches_axis, xp.zeros_like(umin), umin)  # axis-reaching -> 0
     # differentiable turning points (value byte-identical; injects du/dtheta)
     umin = _refine_tp(xp, f, umin, skip=reaches_axis | circular)

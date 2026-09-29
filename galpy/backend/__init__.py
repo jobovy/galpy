@@ -13,6 +13,7 @@
 ###############################################################################
 from ._coerce import (
     as_backend_constant,
+    branch_where,
     coerce_coords,
     promote_scalars,
     radial_limits,
@@ -84,4 +85,5 @@ __all__ = [
     "promote_scalars",
     "zeros_like_backend",
     "radial_limits",
+    "branch_where",
 ]
