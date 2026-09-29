@@ -324,6 +324,7 @@ class linearPotential:
 
     @potential_physical_input
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("x", "t")
     def x2deriv(self, x, t=0.0):
         """
         Evaluate the second derivative of the potential, d^2 Phi / dx^2.
@@ -493,6 +494,7 @@ def _evaluatelinearForces(Pot, x, t=0.0):
 @potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("forcederivative", pop=True)
+@backend_input("x", "t")
 def evaluatelinearx2derivs(Pot, x, t=0.0):
     """
     Evaluate the second derivative of a combination of potentials, d^2 Phi / dx^2.
