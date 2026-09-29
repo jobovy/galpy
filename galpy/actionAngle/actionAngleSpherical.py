@@ -16,8 +16,14 @@ from collections import namedtuple
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace, promote_scalars
-from ..potential import _dim, epifreq, omegac, rl, vcirc
+from ..backend import (
+    as_numpy,
+    branch_where,
+    device_of,
+    get_namespace,
+    promote_scalars,
+)
+from ..potential import _dim, epifreq, rl, vcirc
 from ..potential.planarPotential import (
     _evaluateplanarPotentials,
     _evaluateplanarRforces,
@@ -60,6 +66,15 @@ _EPICYCLE = 10.0**-5.0
 # innermost node of a high order lands in that zone); the integrands, with
 # the turning points' square roots substituted away, converge well before
 _RELATIVE_MAXITER = 20
+
+
+def _relative_xtol(lo):
+    """An absolute bisection xtol of _XTOL times the smallest bracket end; under
+    a trace (no concrete value) a tiny one, i.e. the full bisection schedule"""
+    try:
+        return _XTOL * float(numpy.min(as_numpy(lo)))
+    except Exception:  # traced
+        return 10.0**-300.0
 
 
 class _RelativeEffectivePotential:
@@ -251,10 +266,9 @@ class actionAngleSpherical(actionAngle):
             # them here -- rather than falling through to the numpy/scipy core.
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-            rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
-            Jr = self._calc_jr_backend(rperi, rap, E, L)
-            epi, _, kappa, _, dE, _ = self._epicycle_backend(r, vr, L)
-            Jr = xp.where(epi, dE / kappa, Jr)
+            rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+            _, isepi, _, kappa, _, dE, _ = epi
+            Jr = xp.where(isepi, dE / kappa, self._calc_jr_backend(rperi, rap, rad))
             return (Jr, Lz, L - xp.abs(Lz))
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
@@ -640,12 +654,12 @@ class actionAngleSpherical(actionAngle):
             # numpy inputs (promote first), exercising the backend for real.
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-            rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
-            epi, rc, _, _, _, w = self._epicycle_backend(r, vr, L)
+            rperi, rap, _, epi = self._problem_backend(r, vr, E, L)
+            _, isepi, rc, _, _, _, w = epi
             # a circular orbit to round-off has its radius as both turning points
             circ = w <= _EPS * rc
-            rperi = xp.where(epi, xp.where(circ, r, rc - w), rperi)
-            rap = xp.where(epi, xp.where(circ, r, rc + w), rap)
+            rperi = xp.where(isepi, xp.where(circ, r, rc - w), rperi)
+            rap = xp.where(isepi, xp.where(circ, r, rc + w), rap)
             return (
                 (rap - rperi) / (rap + rperi),
                 rap * xp.sqrt(1.0 - Lz**2.0 / L2),
@@ -734,13 +748,13 @@ class actionAngleSpherical(actionAngle):
         return (r, vr, vt, E, L, Lz, L2)
 
     def _epicycle_backend(self, r, vr, L):
-        """Vectorised _epicycle: (is_epicycle, rc, kappa, Omega_c, dE, w).
+        """Vectorised _epicycle: (screen, is_epicycle, rc, kappa, Omega_c, dE, w).
 
-        The same screen, circular radius (Newton on the effective force from r,
+        main's screen, circular radius (Newton on the effective force from r,
         which the screen puts within a few per cent of r_c), relative effective
-        potential and half-width as the numpy path; elements that fail the
-        screen get a stand-in L (the circular one at r) so every branch stays
-        finite, and are masked out by is_epicycle."""
+        potential and half-width. Elements that fail the screen get a stand-in L
+        (the circular one at r) so every branch stays finite; ``screen`` masks
+        them out."""
         xp = get_namespace(r)
         force = self._radial_force()
         vc = vcirc(self._2dpot, r, use_physical=False)
@@ -765,91 +779,166 @@ class actionAngleSpherical(actionAngle):
         for _ in range(6):  # quadratic from within the screen's few per cent
             rc = rc - _feff(rc) / _kappa2(rc)
         kappa = xp.sqrt(_kappa2(rc))
-        # Phi_eff(r) - Phi_eff(r_c): the potential's part a GL quadrature of the
-        # force from r_c (|r - r_c| <= w << r_c here), the centrifugal part closed
-        d = r - rc
-        gx = xp.asarray(_RelativeEffectivePotential._x)
-        gw = xp.asarray(_RelativeEffectivePotential._w)
-        sn = rc[..., None] + d[..., None] * (gx + 1.0) / 2.0
-        dPhi = -0.5 * d * xp.sum(force(sn) * gw, axis=-1)
-        dPhi = dPhi - Lc**2.0 * d * (r + rc) / (2.0 * r**2.0 * rc**2.0)
-        dE = 0.5 * vr**2.0 + dPhi
+        dE = 0.5 * vr**2.0 + self._rel_phieff_backend(r, rc, 0.1 * rc, Lc, force)
         dE = xp.where(dE > 0.0, dE, xp.zeros_like(dE))
-        w2 = d**2.0 + (vr / kappa) ** 2.0
+        w2 = (r - rc) ** 2.0 + (vr / kappa) ** 2.0
         w = xp.where(w2 > 0.0, xp.sqrt(xp.where(w2 > 0.0, w2, 1.0)), 0.0)
-        return (screen & (w < _EPICYCLE * rc), rc, kappa, Lc / rc**2.0, dE, w)
+        epi = screen & (w < _EPICYCLE * rc)
+        return (screen, epi, rc, kappa, Lc / rc**2.0, dE, w)
 
-    def _calc_rperi_rap_backend(self, r, vr, vt, E, L):
-        """Vectorised rperi/rap via the shared backend bracketed root-finder.
+    def _rel_phieff_backend(self, x, r0, window, L, force, Phi0=None):
+        """Phi_eff(x) - Phi_eff(r0), as _RelativeEffectivePotential: a GL
+        quadrature of the force from r0 within ``window`` of it, the direct
+        difference outside, the centrifugal part closed. The per-orbit
+        (N,) parameters broadcast against x's trailing (node) axes."""
+        xp = get_namespace(x)
 
-        Brackets are found by a fixed-schedule expanding search (no scipy
-        while-loop) so the whole batch runs in lockstep; the special cases
-        (circular / exact peri- or apocenter / plunge through r=0) are handled
-        by dead-branch-guarded xp.where overrides. gamma==0 (=> startsign=+1).
-        """
+        def _b(p):
+            return xp.reshape(p, tuple(p.shape) + (1,) * (x.ndim - p.ndim))
+
+        r0b, wb, Lb = _b(r0), _b(window), _b(L)
+        if Phi0 is None:
+            Phi0 = _evaluateplanarPotentials(self._2dpot, r0)
+        d = x - r0b
+        near = xp.abs(d) < wb
+
+        def _gl():
+            dn = xp.where(near, d, xp.zeros_like(d))
+            gx = xp.asarray(_RelativeEffectivePotential._x)
+            gw = xp.asarray(_RelativeEffectivePotential._w)
+            sn = r0b[..., None] + dn[..., None] * (gx + 1.0) / 2.0
+            return -0.5 * dn * xp.sum(force(sn) * gw, axis=-1)
+
+        # only the branch in use when uniform (eccentric batches: no quadrature)
+        dPhi = branch_where(
+            xp,
+            near,
+            _gl,
+            lambda: _evaluateplanarPotentials(self._2dpot, x) - _b(Phi0),
+        )
+        return dPhi - Lb**2.0 * d * (x + r0b) / (2.0 * x**2.0 * r0b**2.0)
+
+    def _problem_backend(self, r, vr, E, L):
+        """Vectorised _problem + _calc_rperi_rap + the anchor: the radial problem
+        of every orbit relative to a reference radius r0 (main's #1527/#1553).
+
+        Near-circular orbits (the epicycle screen) are relative to the circular
+        orbit, with the energy above it; every other orbit to the point itself,
+        with the energy above Phi_eff(r), exactly v_r^2 / 2, and the force
+        integrated across a window of r for a small orbit. Returns (rperi, rap,
+        rad, epi) with rad(x) = 2 [E_rel - Phi_eff,rel(x)] anchored to vanish at
+        the turning points, and epi = _epicycle_backend's tuple."""
         from ..backend.optimize import brentq as _backend_brentq
         from ..backend.optimize import iterate_bracket
 
         xp = get_namespace(r)
+        force = self._radial_force()
+        epi = self._epicycle_backend(r, vr, L)
+        screen, _, rc, _, _, dE, w = epi
+        # a small orbit: harmonic estimate at the point (main's _small_orbit)
+        L2 = L**2.0
 
-        def f(R_, E_, L_):  # == _rapRperiAxiEq == _radicand/2 (vr=0 root eqn)
-            return _radicand(xp, R_, E_, L_, self._2dpot) / 2.0
+        def _feff(x):
+            return -force(x) - L2 / x**3.0
 
-        # Fixed-schedule bracketing (mirrors _rapRperiAxiFindStart, vectorised):
-        # halve from r/2 until f<=0 (or below the floor) for rperi's lower end,
-        # double from 2r until f<=0 for rap's upper end. 80 steps >> any needed.
+        h = 10.0**-4.0 * r
+        k2 = (_feff(r + h) - _feff(r - h)) / (2.0 * h)
+        k2s = xp.where(k2 > 0.0, k2, xp.ones_like(k2))
+        dEs = 0.5 * vr**2.0 + _feff(r) ** 2.0 / (2.0 * k2s)
+        Phir = _evaluateplanarPotentials(self._2dpot, r)
+        small = (
+            ~screen & (k2 > 0.0) & (dEs < _SMALL * xp.abs(Phir + L2 / (2.0 * r**2.0)))
+        )
+        r0 = xp.where(screen, rc, r)
+        window = xp.where(screen, 0.1 * rc, xp.where(small, r, xp.zeros_like(r)))
+        Erel = xp.where(screen, dE, 0.5 * vr**2.0)
+        width = xp.where(
+            screen,
+            w,
+            xp.where(small, xp.sqrt(2.0 * dEs / k2s), xp.full_like(r, xp.inf)),
+        )
+        Phi0 = xp.where(screen, _evaluateplanarPotentials(self._2dpot, r0), Phir)
+
+        def f(x):  # the vr=0 equation, relative (== _rapRperiAxiEq)
+            return Erel - self._rel_phieff_backend(x, r0, window, L, force, Phi0)
+
+        # at a turning point when the radial kinetic energy is at round-off; it
+        # is the pericentre when L / r (the adiabatic gamma's L) exceeds v_c
+        scale = xp.where(screen, Erel, 0.5 * L2 / r**2.0 + xp.abs(E))
+        at_turn = 0.5 * vr**2.0 <= _EPS * scale
+        outward = L / r >= vcirc(self._2dpot, r, use_physical=False)
+        at_peri = at_turn & outward
+        at_apo = at_turn & ~outward
+        # the pericentre is the centre below main's floor, a fraction of r
+        floor = 10.0**-12.0 * r
         rstart = iterate_bracket(
-            lambda rs: xp.where((f(rs, E, L) > 0.0) & (rs > 1e-9), rs / 2.0, rs),
+            lambda rs: xp.where((f(rs) > 0.0) & (rs > floor), rs / 2.0, rs),
             r / 2.0,
             80,
         )
         rend = iterate_bracket(
-            lambda re: xp.where(f(re, E, L) > 0.0, re * 2.0, re), 2.0 * r, 80
+            lambda re: xp.where(f(re) > 0.0, re * 2.0, re), 2.0 * r, 80
         )
-        # Special cases (all are vr==0, measure-zero among generic test orbits).
-        vcirc_r = vcirc(self._2dpot, r, use_physical=False)
-        is_circ = (vr == 0.0) & (xp.abs(vt - vcirc_r) < _EPS)
-        at_peri = (vr == 0.0) & (vt > vcirc_r)
-        at_apo = (vr == 0.0) & (vt < vcirc_r)
-        plunge = rstart <= 1e-9
-        # Widen degenerate brackets to a safe [r/2, r] BEFORE brentq (dead-branch
-        # guard: the where below overrides these elements, no NaN-poison). For
-        # exact peri/apo, f(r)==0 at the shared endpoint, so nudge it off the
-        # root (mirrors scipy's rperi+1e-5 / rap-1e-6 nudges).
+        plunge = rstart <= floor
+        # bracket offsets inside the libration: a fraction of its half-width
+        dperi = xp.minimum(10.0**-6.0 * r, 0.1 * width)
+        dap = xp.minimum(10.0**-5.0 * r, 0.1 * width)
         rstart_safe = xp.where(plunge, r / 2.0, rstart)
-        rperi_hi = xp.where(at_apo, r - 1e-6, r)
-        rap_lo = xp.where(at_peri, r + 1e-5, r)
-        rperi = _backend_brentq(f, rstart_safe, rperi_hi, args=(E, L))
-        rap = _backend_brentq(f, rap_lo, rend, args=(E, L))
-        rperi = xp.where(is_circ | at_peri, r, xp.where(plunge, 0.0, rperi))
-        rap = xp.where(is_circ | at_apo, r, rap)
-        return (rperi, rap)
+        # main's relative tolerance (_XTOL r): the pericentre of a tiny L can
+        # sit far below an absolute xtol
+        xtol = _relative_xtol(rstart_safe)
+        rperi = _backend_brentq(
+            f, rstart_safe, xp.where(at_apo, r - dperi, r), xtol=xtol
+        )
+        rap = _backend_brentq(f, xp.where(at_peri, r + dap, r), rend, xtol=xtol)
+        rperi = xp.where(at_peri, r, xp.where(plunge, xp.zeros_like(r), rperi))
+        rap = xp.where(at_apo, r, rap)
+        # unbound (no apocentre within 2^80 r): NaN, where numpy raises
+        rap = xp.where(f(rend) > 0.0, xp.full_like(rap, xp.nan), rap)
+        # anchor: the radicand vanishes exactly at the turning points
+        pos = rperi > 0.0
+        dp = xp.where(pos, f(xp.where(pos, rperi, r)), xp.zeros_like(r))
+        da = f(rap)
+        span = rap - rperi
+        span = xp.where(span > 0.0, span, xp.ones_like(span))
 
-    def _calc_jr_backend(self, rperi, rap, E, L):
-        """Vectorised, differentiable Jr = (1/pi) int_rperi^rap sqrt(...) dr.
+        def rad(x):
+            def _b(p):
+                return xp.reshape(p, tuple(p.shape) + (1,) * (x.ndim - p.ndim))
 
-        Substitute r = rperi + (rap-rperi) sin^2(theta), theta in [0, pi/2], so
-        the sqrt's endpoint zeros are absorbed by the 2 sin cos Jacobian and the
-        integrand is smooth. Fixed-order Gauss-Legendre via the shared
-        backend.quadrature.fixed_quad (_BACKEND_GL_ORDER). The radicand is
-        clipped >=0 before the sqrt (sqrt'(0)=inf would NaN-poison reverse AD).
-        """
+            anchor = (_b(dp) * (_b(rap) - x) + _b(da) * (x - _b(rperi))) / _b(span)
+            rel = self._rel_phieff_backend(x, r0, window, L, force, Phi0)
+            return 2.0 * (_b(Erel) - rel - anchor)
+
+        return rperi, rap, rad, epi
+
+    @staticmethod
+    def _rmean_backend(xp, rperi, rap):
+        """Geometric mean of the turning points (rap / 2 for a radial orbit)."""
+        rperi_safe = xp.where(rperi > 0.0, rperi, xp.ones_like(rperi))
+        return xp.where(
+            rperi > 0.0,
+            xp.exp((xp.log(rperi_safe) + xp.log(rap)) / 2.0),
+            rap / 2.0,
+        )
+
+    def _calc_jr_backend(self, rperi, rap, rad):
+        """Jr = (1/pi) int_rperi^rap sqrt(rad) dr in r = rperi + (rap - rperi)
+        sin^2(theta): the turning points' square roots absorbed by the Jacobian;
+        fixed-order GL, radicand clipped >= 0 before the sqrt (AD guard)."""
         from ..backend.quadrature import fixed_quad
 
         xp = get_namespace(rperi)
         span = rap - rperi
 
         def integrand(theta):
-            # theta: (n,) node array; build r(theta): (N, n).
             sin = xp.sin(theta)[None, :]
             cos = xp.cos(theta)[None, :]
             rr = rperi[:, None] + span[:, None] * sin**2.0
-            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
-            rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
-            return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
+            rd = rad(rr)
+            rd = xp.where(rd > 0.0, rd, xp.zeros_like(rd))
+            return xp.sqrt(rd) * span[:, None] * 2.0 * sin * cos
 
-        # device=: scalar limits, so anchor the GL nodes on the input device
-        # (rperi) -- else torch raises on CUDA input. No-op on numpy.
         Jr = fixed_quad(
             xp,
             integrand,
@@ -860,69 +949,159 @@ class actionAngleSpherical(actionAngle):
         )
         return Jr / numpy.pi
 
-    # -------------------------------------------------- backend freqs + angles
-    # Vectorised, differentiable (jax/torch) Or/Op (radial+azimuthal frequency)
-    # and ar/ap/az (angles), mirroring the per-object numpy _calc_or/_calc_op/
-    # _calc_angler/_calc_anglez/_calc_long_asc. The two t^2-substituted panels
-    # of each period/angle integral are evaluated with backend.quadrature.
-    # fixed_quad on a fixed [0, 1] panel: the per-object upper limit `lim`
-    # (sqrt(Rmean-rperi) etc.) is folded INTO the integrand via t = lim*s
-    # (dt = lim ds), so fixed_quad's scalar a, b stay 0, 1 while `lim` is a
-    # shape-(N,) array. The 2t Jacobian of the substitution cancels the
-    # 1/sqrt endpoint zero; the radicand is clipped >=0 before the sqrt
-    # (sqrt'(0)=inf would NaN-poison reverse-mode AD), with the unused panel
-    # (lim==0) contributing exactly 0. The numpy path is untouched.
-
-    def _panel_backend_both(self, xp, base, sign, lim, E, L):
-        """Non-azimuthal AND azimuthal panel integrals from ONE radicand pass.
-
-        A t^2-substituted Gauss-Legendre panel of a period/angle integral over
-        ``t in [0, lim]`` with ``r = base + sign * t**2`` (sign=+1 small panel
-        base=rperi, sign=-1 large panel base=rap); the fixed [0, 1] GL panel uses
-        ``t = lim * s`` so ``lim`` (shape (N,)) folds into the integrand (dt = lim
-        ds; ``lim==0`` -> 0 contribution) and fixed_quad's limits stay scalar. The
-        radial-period/angle integral (2t/sqrt(radicand)) and the azimuthal one
-        (weighted by 1/r**2) share the SAME radicand at the same nodes, so the
-        potential is evaluated once here instead of twice. Returns
-        ``(non_azimuthal, azimuthal)``.
+    def _panel_backend(self, xp, rofs, lim, rad):
+        """int_0^lim 2 s / sqrt(rad(r(s))) ds on a fixed [0, 1] GL panel (s =
+        lim * sigma folds the per-orbit limit into the integrand; lim == 0 gives
+        0). ``rofs`` maps s to r: r = rperi + s^2 / rap - s^2 for the radial
+        period, u = 1 / r = 1 / rperi - s^2 / 1 / rap + s^2 for the azimuthal
+        integral (main's inverse-radius form, regular for nearly radial orbits).
         """
         from ..backend.quadrature import fixed_quad
 
-        def integrand(s):  # -> (2, N, n): [non-azimuthal, azimuthal]
-            t = lim[:, None] * s[None, :]
-            rr = base[:, None] + sign * t**2.0
-            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
-            # clip before sqrt (AD guard); the masked-out (rad<=0) endpoint sits
-            # where 2t->0 anyway, so a 0 there is harmless.
-            rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
-            val = 2.0 * t / xp.sqrt(rad)
-            return xp.stack([val * lim[:, None], val / rr**2.0 * lim[:, None]])
+        def integrand(sig):
+            s = lim[:, None] * sig[None, :]
+            rd = rad(rofs(s))
+            rd = xp.where(rd > 0.0, rd, xp.ones_like(rd))
+            return 2.0 * s / xp.sqrt(rd) * lim[:, None]
 
-        both = fixed_quad(
-            xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(base)
+        return fixed_quad(
+            xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(lim)
         )
-        return both[0], both[1]
 
-    def _calc_or_op_backend(self, Rmean, rperi, rap, E, L):
-        """Vectorised Or (radial freq) and Op (azimuthal freq magnitude).
+    def _sqrt_pos(self, xp, x):  # sqrt(max(x, 0)); NaN (unbound) stays NaN
+        return xp.sqrt(xp.where(x <= 0.0, xp.zeros_like(x), x))
 
-        Tr = 2*(small panel [0, sqrt(Rmean-rperi)] + large panel
-        [0, sqrt(rap-Rmean)]) of 2t/_Jr; Or = 2pi/Tr. The same panels weighted
-        by 1/r**2 give I; Op = 2*L*I * Or / (2 pi). Returns (Or, Op) with Op the
-        positive magnitude (the vT<0 sign flip is applied by the caller).
-        """
+    def _calc_or_op_backend(self, Rmean, rperi, rap, L, rad):
+        """Or from the radial period's two r-panels, Op (magnitude) from the
+        azimuthal integral's two inverse-radius panels (none inside a radial
+        orbit's pericentre at the centre)."""
         xp = get_namespace(rperi)
-        limS = xp.sqrt(xp.where(Rmean > rperi, Rmean - rperi, xp.zeros_like(Rmean)))
-        limL = xp.sqrt(xp.where(rap > Rmean, rap - Rmean, xp.zeros_like(Rmean)))
-        # Small/large panels each yield the Tr (non-azimuthal) and I (azimuthal)
-        # contributions from one shared radicand pass.
-        s_tr, s_i = self._panel_backend_both(xp, rperi, 1.0, limS, E, L)
-        l_tr, l_i = self._panel_backend_both(xp, rap, -1.0, limL, E, L)
-        Tr = 2.0 * (s_tr + l_tr)
+        pos = rperi > 0.0
+        rp_s = xp.where(pos, rperi, Rmean)
+        Tr = 2.0 * (
+            self._panel_backend(
+                xp,
+                lambda s: rperi[:, None] + s**2.0,
+                self._sqrt_pos(xp, Rmean - rperi),
+                rad,
+            )
+            + self._panel_backend(
+                xp,
+                lambda s: rap[:, None] - s**2.0,
+                self._sqrt_pos(xp, rap - Rmean),
+                rad,
+            )
+        )
         Or = 2.0 * numpy.pi / Tr
-        I = 2.0 * L * (s_i + l_i)
-        Op = I * Or / 2.0 / numpy.pi
+        I = self._panel_backend(
+            xp,
+            lambda s: 1.0 / (1.0 / rp_s[:, None] - s**2.0),
+            xp.where(pos, self._sqrt_pos(xp, 1.0 / rp_s - 1.0 / Rmean), 0.0 * Rmean),
+            rad,
+        ) + self._panel_backend(
+            xp,
+            lambda s: 1.0 / (1.0 / rap[:, None] + s**2.0),
+            self._sqrt_pos(xp, 1.0 / Rmean - 1.0 / rap),
+            rad,
+        )
+        Op = 2.0 * L * I * Or / 2.0 / numpy.pi
         return (Or, Op)
+
+    def _calc_angles_backend(
+        self, Or, Op, z, r, Rmean, rperi, rap, L, Lz, vr, vtheta, phi, rad
+    ):
+        """Vectorised ar, az (un-modded): the radial angle from the r-panel up to
+        r, the azimuthal sweep from the inverse-radius panel up to r (nothing
+        from a pericentre at the centre, or from the point itself)."""
+        xp = get_namespace(r)
+        inner = r < Rmean
+        pos = rperi > 0.0
+        rp_s = xp.where(pos, rperi, r)
+        wr_small_raw = Or * self._panel_backend(
+            xp,
+            lambda s: rperi[:, None] + s**2.0,
+            xp.where(inner, self._sqrt_pos(xp, r - rperi), 0.0 * r),
+            rad,
+        )
+        wr_large_raw = Or * self._panel_backend(
+            xp,
+            lambda s: rap[:, None] - s**2.0,
+            xp.where(inner, 0.0 * r, self._sqrt_pos(xp, rap - r)),
+            rad,
+        )
+        ar = self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
+        psi = self._calc_psi_backend(z, r, L, Lz, vtheta, phi)
+        dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
+        wz_small = L * self._panel_backend(
+            xp,
+            lambda s: 1.0 / (1.0 / rp_s[:, None] - s**2.0),
+            xp.where(inner & pos, self._sqrt_pos(xp, 1.0 / rp_s - 1.0 / r), 0.0 * r),
+            rad,
+        )
+        wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
+        wz_large = L * self._panel_backend(
+            xp,
+            lambda s: 1.0 / (1.0 / rap[:, None] + s**2.0),
+            xp.where(inner, 0.0 * r, self._sqrt_pos(xp, 1.0 / r - 1.0 / rap)),
+            rad,
+        )
+        wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
+        wz = xp.where(inner, wz_small, wz_large)
+        az = -wz + psi + Op / Or * ar
+        return ar, az
+
+    def _actionsFreqs_backend(self, R, vR, vT, z, vz, extra_Jz):
+        """Vectorised (Jr,Lz,Jz,Or,Op,Oz) for backend (jax/torch) inputs."""
+        xp = get_namespace(R)
+        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+        rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+        _, isepi, _, kappa, Omc, dE, _ = epi
+        Jr = self._calc_jr_backend(rperi, rap, rad)
+        Or, Op = self._calc_or_op_backend(
+            self._rmean_backend(xp, rperi, rap), rperi, rap, L, rad
+        )
+        Jr = xp.where(isepi, dE / kappa, Jr)
+        Or = xp.where(isepi, kappa, Or)
+        Op = xp.where(isepi, Omc, Op)
+        Oz = Op  # copy (magnitude)
+        Op = xp.where(vT < 0.0, -Op, Op)
+        return (Jr, Lz, L - xp.abs(Lz), Or, Op, Oz)
+
+    def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi, extra_Jz):
+        """Vectorised (Jr,Lz,Jz,Or,Op,Oz,ar,ap,az) for backend inputs."""
+        xp = get_namespace(R)
+        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+        vtheta = (z * vR - R * vz) / r
+        rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+        _, isepi, rc, kappa, Omc, dE, w = epi
+        Jr = self._calc_jr_backend(rperi, rap, rad)
+        Rmean = self._rmean_backend(xp, rperi, rap)
+        Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, L, rad)
+        asc = self._calc_long_asc_backend(z, R, vtheta, phi, Lz, L)
+        ar, az = self._calc_angles_backend(
+            Or, Op, z, r, Rmean, rperi, rap, L, Lz, vr, vtheta, phi, rad
+        )
+        # an epicycle: r = r_c - w cos(ar), v_r = w kappa sin(ar), and the
+        # azimuth runs ahead of its angle by (2 Omega_c / kappa)(w / r_c) sin(ar)
+        # circular to r_c's round-off (the force's, amplified by Newton): the
+        # phase of r_c - r is noise, take ar = 0
+        dr = xp.where(w <= 10.0**-12.0 * rc, xp.zeros_like(r), rc - r)
+        ar_e = xp.arctan2(vr / kappa, dr)
+        az_e = self._calc_psi_backend(
+            z, r, L, Lz, vtheta, phi
+        ) - 2.0 * Omc / kappa * w / rc * xp.sin(ar_e)
+        Jr = xp.where(isepi, dE / kappa, Jr)
+        Or = xp.where(isepi, kappa, Or)
+        Op = xp.where(isepi, Omc, Op)
+        ar = xp.where(isepi, ar_e, ar)
+        az = xp.where(isepi, az_e, az)
+        Oz = Op  # copy (magnitude)
+        Op = xp.where(vT < 0.0, -Op, Op)
+        ap = xp.where(vT < 0.0, asc - az, asc + az)
+        ar = ar % (2.0 * numpy.pi)
+        ap = ap % (2.0 * numpy.pi)
+        az = az % (2.0 * numpy.pi)
+        return (Jr, Lz, L - xp.abs(Lz), Or, Op, Oz, ar, ap, az)
 
     @staticmethod
     def _assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw):
@@ -936,39 +1115,6 @@ class actionAngleSpherical(actionAngle):
         wr_small = xp.where(vr < 0.0, 2.0 * numpy.pi - wr_small_raw, wr_small_raw)
         wr_large = xp.where(vr < 0.0, numpy.pi + wr_large_raw, numpy.pi - wr_large_raw)
         return xp.where(r < Rmean, wr_small, wr_large)
-
-    def _calc_angles_backend(
-        self, Or, Op, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
-    ):
-        """Vectorised radial + vertical angles (ar, az; un-modded, caller takes
-        % 2pi) from ONE shared radicand pass.
-
-        The angler (non-azimuthal) and anglez (azimuthal) panels use the same
-        r-based limits and radicand, so the potential is evaluated once via
-        _panel_backend_both. ar: if r<Rmean integrate the small panel to
-        sqrt(r-rperi) and (vr<0) wr=2pi-wr, else the large panel with pi+/-wr.
-        az: psi from sinpsi=z/r/sin(inclination) (clipped, vtheta>0 -> pi-psi,
-        non-inclined -> phi), then wz=L*I-integral (vr quadrant via dpsi), and
-        az = -wz + psi + Op/Or*ar. Op is the magnitude here (as in numpy).
-        """
-        xp = get_namespace(r)
-        limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
-        limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
-        s_nonazi, s_azi = self._panel_backend_both(xp, rperi, 1.0, limS, E, L)
-        l_nonazi, l_azi = self._panel_backend_both(xp, rap, -1.0, limL, E, L)
-        # ar (radial angle)
-        wr_small_raw = Or * s_nonazi
-        wr_large_raw = Or * l_nonazi
-        ar = self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
-        psi = self._calc_psi_backend(z, r, L, Lz, vtheta, phi)
-        dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
-        wz_small = L * s_azi
-        wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
-        wz_large = L * l_azi
-        wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
-        wz = xp.where(r < Rmean, wz_small, wz_large)
-        az = -wz + psi + Op / Or * ar
-        return ar, az
 
     def _calc_psi_backend(self, z, r, L, Lz, vtheta, phi):
         """Vectorised _calc_psi: the angle in the orbital plane from the node."""
@@ -1014,82 +1160,6 @@ class actionAngleSpherical(actionAngle):
         u = xp.where(vtheta > 0.0, numpy.pi - u, u)
         u = xp.where(finite, u, phi)  # non-inclined: Omega=0 (u=phi)
         return phi - u
-
-    def _actionsFreqs_backend(self, R, vR, vT, z, vz, extra_Jz):
-        """Vectorised (Jr,Lz,Jz,Or,Op,Oz) for backend (jax/torch) inputs."""
-        xp = get_namespace(R)
-        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-        rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
-        Jr = self._calc_jr_backend(rperi, rap, E, L)
-        Jphi = Lz
-        Jz = L - xp.abs(Lz)
-        # Rmean = exp((log rperi + log rap)/2) if rperi>0 else rap/2 (guard log)
-        rperi_safe = xp.where(rperi > 0.0, rperi, xp.ones_like(rperi))
-        Rmean = xp.where(
-            rperi > 0.0,
-            xp.exp((xp.log(rperi_safe) + xp.log(rap)) / 2.0),
-            rap / 2.0,
-        )
-        Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
-        # Circular branch (Jr<1e-9) and epicycles: the circular orbit's kappa
-        # and Omega_c (kappa from the force's difference without R2deriv)
-        epi, _, kappa, Omc, dE, _ = self._epicycle_backend(r, vr, L)
-        is_circ = Jr < 10.0**-9.0
-        Or = xp.where(is_circ, kappa, Or)
-        Op = xp.where(is_circ, Omc, Op)
-        Jr = xp.where(epi, dE / kappa, Jr)
-        Or = xp.where(epi, kappa, Or)
-        Op = xp.where(epi, Omc, Op)
-        Oz = Op  # copy (magnitude)
-        Op = xp.where(vT < 0.0, -Op, Op)
-        return (Jr, Jphi, Jz, Or, Op, Oz)
-
-    def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi, extra_Jz):
-        """Vectorised (Jr,Lz,Jz,Or,Op,Oz,ar,ap,az) for backend inputs."""
-        xp = get_namespace(R)
-        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-        vtheta = (z * vR - R * vz) / r
-        rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
-        Jr = self._calc_jr_backend(rperi, rap, E, L)
-        Jphi = Lz
-        Jz = L - xp.abs(Lz)
-        rperi_safe = xp.where(rperi > 0.0, rperi, xp.ones_like(rperi))
-        Rmean = xp.where(
-            rperi > 0.0,
-            xp.exp((xp.log(rperi_safe) + xp.log(rap)) / 2.0),
-            rap / 2.0,
-        )
-        Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
-        epi, rc, kappa, Omc, dE, w = self._epicycle_backend(r, vr, L)
-        is_circ = Jr < 10.0**-9.0
-        Or = xp.where(is_circ, kappa, Or)
-        Op = xp.where(is_circ, Omc, Op)
-        # Angles (ar, az un-modded; Op is the magnitude here, as in numpy).
-        asc = self._calc_long_asc_backend(z, R, vtheta, phi, Lz, L)
-        ar, az = self._calc_angles_backend(
-            Or, Op, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
-        )
-        # an epicycle: r = r_c - w cos(ar), v_r = w kappa sin(ar), and the
-        # azimuth runs ahead of its angle by (2 Omega_c / kappa)(w / r_c) sin(ar)
-        # circular to r_c's round-off (the force's, amplified by Newton): the
-        # phase of r_c - r is noise, take ar = 0
-        dr = xp.where(w <= 10.0**-12.0 * rc, xp.zeros_like(r), rc - r)
-        ar_e = xp.arctan2(vr / kappa, dr)
-        az_e = self._calc_psi_backend(
-            z, r, L, Lz, vtheta, phi
-        ) - 2.0 * Omc / kappa * w / rc * xp.sin(ar_e)
-        Jr = xp.where(epi, dE / kappa, Jr)
-        Or = xp.where(epi, kappa, Or)
-        Op = xp.where(epi, Omc, Op)
-        ar = xp.where(epi, ar_e, ar)
-        az = xp.where(epi, az_e, az)
-        Oz = Op  # copy (magnitude)
-        Op = xp.where(vT < 0.0, -Op, Op)
-        ap = xp.where(vT < 0.0, asc - az, asc + az)
-        ar = ar % (2.0 * numpy.pi)
-        ap = ap % (2.0 * numpy.pi)
-        az = az % (2.0 * numpy.pi)
-        return (Jr, Jphi, Jz, Or, Op, Oz, ar, ap, az)
 
     def _epicycle(self, r, vr, E, L):
         """The circular orbit an orbit close to circular is an epicycle
