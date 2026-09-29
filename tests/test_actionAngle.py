@@ -1579,16 +1579,18 @@ def test_actionAngleSpherical_screen():
         "A nearly radial NFW orbit's turning points are not finite"
     )
 
-    class ForceOnlyHernquist(Potential):
+    from galpy.backend import get_namespace
+
+    class ForceOnlyHernquist(Potential):  # namespace ops: runs on the backends
         def _evaluate(self, R, z, phi=0.0, t=0.0):
-            return -0.5 / (1.0 + numpy.hypot(R, z))
+            return -0.5 / (1.0 + get_namespace(R, z).sqrt(R**2.0 + z**2.0))
 
         def _Rforce(self, R, z, phi=0.0, t=0.0):
-            r = numpy.hypot(R, z)
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
             return -0.5 * R / r / (1.0 + r) ** 2
 
         def _zforce(self, R, z, phi=0.0, t=0.0):
-            r = numpy.hypot(R, z)
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
             return -0.5 * z / r / (1.0 + r) ** 2
 
     fpot = ForceOnlyHernquist()
@@ -1879,15 +1881,20 @@ def test_actionAngleSpherical_near_circular_integrated_orbit():
     aAS = actionAngleSpherical(pot=hp)
     rc = 0.7
     ts = numpy.linspace(
-        0.0, 3.0 * 2.0 * numpy.pi / epifreq(hp, rc, use_physical=False), 61
+        0.0,
+        3.0 * 2.0 * numpy.pi / float(as_numpy(epifreq(hp, rc, use_physical=False))),
+        61,
     )
     for wrc, tolJ, tolO, tolA in ((1e-3, 1e-6, 1e-7, 1e-6), (3e-6, 1e-3, 1e-7, 3e-5)):
         r, vr, vt = _near_circular_point(hp, rc, wrc, 0.3)
         o = Orbit([r, vr, vt, 0.0, 0.0, 0.7])
         o.integrate(ts, hp, method="dop853_c", rtol=1e-14, atol=1e-14)
-        f = aAS.actionsFreqsAngles(
-            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
-        )
+        f = [
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+            )
+        ]
         assert numpy.all(numpy.isfinite(numpy.array(f))), (
             "Angles along an integrated near-circular orbit are not finite at w/rc={}".format(
                 wrc
@@ -1989,10 +1996,14 @@ def test_actionAngleSpherical_far_apocentre():
     def check(pot):
         aAS = actionAngleSpherical(pot=pot)
         o = Orbit([1.0, 1.265, 0.9, 0.9, 0.1, 0.0])
-        E, L = o.E(pot=pot), numpy.sqrt(numpy.sum(o.L() ** 2.0))
+        E = float(as_numpy(o.E(pot=pot)))
+        L = float(numpy.sqrt(numpy.sum(as_numpy(o.L()) ** 2.0)))
         assert E < 0.0, "The test orbit is not bound"
-        jr, jphi, jz, Or, Op, Oz, ar, ap, az = aAS.actionsFreqsAngles(
-            o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+        jr, jphi, jz, Or, Op, Oz, ar, ap, az = (
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+            )
         )
 
         # the turning points and the radial action by direct quadrature
@@ -2019,9 +2030,12 @@ def test_actionAngleSpherical_far_apocentre():
         # conserved along the orbit integrated over one full radial period
         ts = numpy.linspace(0.0, 2.0 * numpy.pi / Or[0], 101)
         o.integrate(ts, pot)
-        j = aAS.actionsFreqsAngles(
-            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
-        )
+        j = [
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+            )
+        ]
         assert numpy.ptp(j[0]) / numpy.mean(j[0]) < 1e-9, (
             "The radial action is not conserved along a bound orbit with a far apocentre"
         )
@@ -2031,11 +2045,28 @@ def test_actionAngleSpherical_far_apocentre():
         # an unbound orbit is still recognized as such
         ou = Orbit([1.0, 0.3, 3.0, 0.5, 0.1, 0.0])
         assert ou.E(pot=pot) > 0.0
-        with pytest.raises(UnboundError):
-            aAS.actionsFreqsAngles(ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi())
+        from galpy.backend import get_namespace
+
+        if get_namespace(numpy.zeros(1)) is numpy:
+            with pytest.raises(UnboundError):
+                aAS.actionsFreqsAngles(
+                    ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi()
+                )
+        else:  # the backends return NaN instead (traceable)
+            fu = aAS.actionsFreqsAngles(
+                ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi()
+            )
+            assert all(numpy.all(numpy.isnan(as_numpy(x))) for x in fu[3:])
+            assert numpy.isnan(as_numpy(fu[0])[0])
         return None
 
     check(HernquistPotential(normalize=1.0, a=0.5))
+    from galpy.backend import get_namespace
+
+    if get_namespace(numpy.zeros(1)) is not numpy:
+        # numpy's apocentre search asks the potential at infinity; the backend
+        # bracket never does (and these Python branches on R do not trace)
+        return None
 
     # the same for a potential that cannot be evaluated at infinity
     class _NaNAtInfinityPotential(HernquistPotential):
@@ -2101,7 +2132,7 @@ def test_actionAngleSpherical_near_circular():
     wrap = lambda d: numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
     R, z, phi = 0.9, 0.3, 0.7
     r = numpy.sqrt(R**2 + z**2)
-    vc = vcirc(ip, r, use_physical=False)
+    vc = float(as_numpy(vcirc(ip, r, use_physical=False)))
     rhat, that = numpy.array([R, z]) / r, numpy.array([-z, R]) / r
     # an inclined orbit at its guiding radius with a radial kick v_r, from
     # an amplitude of ~1e-2 of the radius down to the circular orbit
