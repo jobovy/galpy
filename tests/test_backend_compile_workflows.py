@@ -134,6 +134,17 @@ def qdf_density(bk, x):
     return q(_one(bk, x), *c).sum()
 
 
+def qdf_constructor_parameters(bk, x):
+    # d/d(hr, sr): the constructor itself is traced (a traced hr skips the
+    # constant rg table)
+    aA = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.5)
+    q = quasiisothermaldf(
+        x / 4.0, 0.2 * x, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=aA, cutcounter=True
+    )
+    c = [_arr(bk, [v]) for v in (0.9, 0.1, 0.9, 0.05, 0.02)]
+    return q(*c).sum()
+
+
 def potential_evaluations(bk, x):
     p = NFWPotential(amp=x, a=2.0)
     return evaluatePotentials(p, _arr(bk, 1.1), _arr(bk, 0.2)) + vcirc(p, _arr(bk, 1.3))
@@ -160,6 +171,8 @@ _CASES = [
     ("jax", sphericaldf_sample, 1.7, ()),
     ("torch", qdf_density, 1.0, ()),
     ("jax", qdf_density, 1.0, ()),
+    ("torch", qdf_constructor_parameters, 1.0, ()),
+    ("jax", qdf_constructor_parameters, 1.0, ()),
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
     # plain torch.compile (inductor: generated kernels, not just dynamo). The
@@ -167,6 +180,7 @@ _CASES = [
     ("torch-inductor", orbit_potential_parameter, 1.1, ()),
     ("torch-inductor", spray_sample, 1.1, ()),
     ("torch-inductor", spray_track, 1.1, ()),
+    ("torch-inductor", qdf_constructor_parameters, 1.0, ()),
 ]
 
 
