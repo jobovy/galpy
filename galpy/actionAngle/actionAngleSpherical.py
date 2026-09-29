@@ -253,6 +253,8 @@ class actionAngleSpherical(actionAngle):
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
             rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
             Jr = self._calc_jr_backend(rperi, rap, E, L)
+            epi, _, kappa, _, dE, _ = self._epicycle_backend(r, vr, L)
+            Jr = xp.where(epi, dE / kappa, Jr)
             return (Jr, Lz, L - xp.abs(Lz))
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
@@ -639,6 +641,11 @@ class actionAngleSpherical(actionAngle):
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
             rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
+            epi, rc, _, _, _, w = self._epicycle_backend(r, vr, L)
+            # a circular orbit to round-off has its radius as both turning points
+            circ = w <= _EPS * rc
+            rperi = xp.where(epi, xp.where(circ, r, rc - w), rperi)
+            rap = xp.where(epi, xp.where(circ, r, rc + w), rap)
             return (
                 (rap - rperi) / (rap + rperi),
                 rap * xp.sqrt(1.0 - Lz**2.0 / L2),
@@ -725,6 +732,52 @@ class actionAngleSpherical(actionAngle):
             L = L + self._gamma * extra_Jz
             E = E + L**2.0 / 2.0 / r**2.0 - vt**2.0 / 2.0
         return (r, vr, vt, E, L, Lz, L2)
+
+    def _epicycle_backend(self, r, vr, L):
+        """Vectorised _epicycle: (is_epicycle, rc, kappa, Omega_c, dE, w).
+
+        The same screen, circular radius (Newton on the effective force from r,
+        which the screen puts within a few per cent of r_c), relative effective
+        potential and half-width as the numpy path; elements that fail the
+        screen get a stand-in L (the circular one at r) so every branch stays
+        finite, and are masked out by is_epicycle."""
+        xp = get_namespace(r)
+        force = self._radial_force()
+        vc = vcirc(self._2dpot, r, use_physical=False)
+        screen = (
+            (L != 0.0)
+            & (xp.abs(vr) <= _NEARCIRC * vc)
+            & (xp.abs(L / r - vc) <= _NEARCIRC * vc)
+        )
+        Lc = xp.where(screen, L, r * vc)
+
+        def _feff(x):  # d Phi_eff / dr
+            return -force(x) - Lc**2.0 / x**3.0
+
+        def _kappa2(x):  # kappa^2 is the slope of the effective force
+            try:
+                return epifreq(self._2dpot, x, use_physical=False) ** 2.0
+            except PotentialError:  # no second derivative: difference the force
+                h = 10.0**-4.0 * x
+                return (_feff(x + h) - _feff(x - h)) / (2.0 * h)
+
+        rc = r
+        for _ in range(6):  # quadratic from within the screen's few per cent
+            rc = rc - _feff(rc) / _kappa2(rc)
+        kappa = xp.sqrt(_kappa2(rc))
+        # Phi_eff(r) - Phi_eff(r_c): the potential's part a GL quadrature of the
+        # force from r_c (|r - r_c| <= w << r_c here), the centrifugal part closed
+        d = r - rc
+        gx = xp.asarray(_RelativeEffectivePotential._x)
+        gw = xp.asarray(_RelativeEffectivePotential._w)
+        sn = rc[..., None] + d[..., None] * (gx + 1.0) / 2.0
+        dPhi = -0.5 * d * xp.sum(force(sn) * gw, axis=-1)
+        dPhi = dPhi - Lc**2.0 * d * (r + rc) / (2.0 * r**2.0 * rc**2.0)
+        dE = 0.5 * vr**2.0 + dPhi
+        dE = xp.where(dE > 0.0, dE, xp.zeros_like(dE))
+        w2 = d**2.0 + (vr / kappa) ** 2.0
+        w = xp.where(w2 > 0.0, xp.sqrt(xp.where(w2 > 0.0, w2, 1.0)), 0.0)
+        return (screen & (w < _EPICYCLE * rc), rc, kappa, Lc / rc**2.0, dE, w)
 
     def _calc_rperi_rap_backend(self, r, vr, vt, E, L):
         """Vectorised rperi/rap via the shared backend bracketed root-finder.
@@ -907,7 +960,19 @@ class actionAngleSpherical(actionAngle):
         wr_small_raw = Or * s_nonazi
         wr_large_raw = Or * l_nonazi
         ar = self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
-        # az: psi (inclination phase)
+        psi = self._calc_psi_backend(z, r, L, Lz, vtheta, phi)
+        dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
+        wz_small = L * s_azi
+        wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
+        wz_large = L * l_azi
+        wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
+        wz = xp.where(r < Rmean, wz_small, wz_large)
+        az = -wz + psi + Op / Or * ar
+        return ar, az
+
+    def _calc_psi_backend(self, z, r, L, Lz, vtheta, phi):
+        """Vectorised _calc_psi: the angle in the orbital plane from the node."""
+        xp = get_namespace(r)
         i_incl = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
         sini = xp.sin(i_incl)
         # Non-inclined (sin i == 0): numpy's z/r/sin(i) is non-finite -> psi=phi.
@@ -924,15 +989,7 @@ class actionAngleSpherical(actionAngle):
         psi = xp.arcsin(sinpsi_c)
         psi = xp.where(vtheta > 0.0, numpy.pi - psi, psi)
         psi = xp.where(finite, psi, phi)  # non-inclined: psi=phi
-        psi = psi % (2.0 * numpy.pi)
-        dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
-        wz_small = L * s_azi
-        wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
-        wz_large = L * l_azi
-        wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
-        wz = xp.where(r < Rmean, wz_small, wz_large)
-        az = -wz + psi + Op / Or * ar
-        return ar, az
+        return psi % (2.0 * numpy.pi)
 
     def _calc_long_asc_backend(self, z, R, vtheta, phi, Lz, L):
         """Vectorised longitude of the ascending node (mirror _calc_long_asc)."""
@@ -974,10 +1031,15 @@ class actionAngleSpherical(actionAngle):
             rap / 2.0,
         )
         Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
-        # Circular branch (Jr<1e-9): epifreq/omegac (backend-ready forces).
+        # Circular branch (Jr<1e-9) and epicycles: the circular orbit's kappa
+        # and Omega_c (kappa from the force's difference without R2deriv)
+        epi, _, kappa, Omc, dE, _ = self._epicycle_backend(r, vr, L)
         is_circ = Jr < 10.0**-9.0
-        Or = xp.where(is_circ, epifreq(self._2dpot, r, use_physical=False), Or)
-        Op = xp.where(is_circ, omegac(self._2dpot, r, use_physical=False), Op)
+        Or = xp.where(is_circ, kappa, Or)
+        Op = xp.where(is_circ, Omc, Op)
+        Jr = xp.where(epi, dE / kappa, Jr)
+        Or = xp.where(epi, kappa, Or)
+        Op = xp.where(epi, Omc, Op)
         Oz = Op  # copy (magnitude)
         Op = xp.where(vT < 0.0, -Op, Op)
         return (Jr, Jphi, Jz, Or, Op, Oz)
@@ -998,14 +1060,29 @@ class actionAngleSpherical(actionAngle):
             rap / 2.0,
         )
         Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
+        epi, rc, kappa, Omc, dE, w = self._epicycle_backend(r, vr, L)
         is_circ = Jr < 10.0**-9.0
-        Or = xp.where(is_circ, epifreq(self._2dpot, r, use_physical=False), Or)
-        Op = xp.where(is_circ, omegac(self._2dpot, r, use_physical=False), Op)
+        Or = xp.where(is_circ, kappa, Or)
+        Op = xp.where(is_circ, Omc, Op)
         # Angles (ar, az un-modded; Op is the magnitude here, as in numpy).
         asc = self._calc_long_asc_backend(z, R, vtheta, phi, Lz, L)
         ar, az = self._calc_angles_backend(
             Or, Op, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
         )
+        # an epicycle: r = r_c - w cos(ar), v_r = w kappa sin(ar), and the
+        # azimuth runs ahead of its angle by (2 Omega_c / kappa)(w / r_c) sin(ar)
+        # circular to r_c's round-off (the force's, amplified by Newton): the
+        # phase of r_c - r is noise, take ar = 0
+        dr = xp.where(w <= 10.0**-12.0 * rc, xp.zeros_like(r), rc - r)
+        ar_e = xp.arctan2(vr / kappa, dr)
+        az_e = self._calc_psi_backend(
+            z, r, L, Lz, vtheta, phi
+        ) - 2.0 * Omc / kappa * w / rc * xp.sin(ar_e)
+        Jr = xp.where(epi, dE / kappa, Jr)
+        Or = xp.where(epi, kappa, Or)
+        Op = xp.where(epi, Omc, Op)
+        ar = xp.where(epi, ar_e, ar)
+        az = xp.where(epi, az_e, az)
         Oz = Op  # copy (magnitude)
         Op = xp.where(vT < 0.0, -Op, Op)
         ap = xp.where(vT < 0.0, asc - az, asc + az)
