@@ -16,7 +16,11 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, use
-from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend._namespaces import (
+    requires_backend_grad,
+    under_trace,
+    untraceable_setup,
+)
 from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -59,6 +63,10 @@ _SAMPLEV_MAXROUNDS = 200
 class quasiisothermaldf(df):
     """Class that represents a 'Binney' quasi-isothermal DF"""
 
+    # torch.compile: the numpy/scipy setup runs eagerly (opaque); traced it
+    # turned the scalars into dynamo's emulated ndarrays, which a tensor
+    # cannot meet in __call__
+    @untraceable_setup
     def __init__(
         self,
         hr,

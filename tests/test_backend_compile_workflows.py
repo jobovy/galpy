@@ -142,12 +142,7 @@ _T = "torch.compile gap: "
 _CASES = [
     # (backend, workflow, x0, marks)
     ("torch", orbit_c_integrator, 0.1, ()),
-    (
-        "jax",
-        orbit_c_integrator,
-        0.1,
-        _gap("jax.jit gap: Orbit.E at a traced time (numpy.atleast_1d/tile)"),
-    ),
+    ("jax", orbit_c_integrator, 0.1, ()),
     ("torch", orbit_potential_parameter, 1.1, ()),
     ("jax", orbit_potential_parameter, 1.1, ()),
     ("torch", spray_sample, 1.1, ()),
@@ -158,7 +153,7 @@ _CASES = [
     ("jax", actions_spherical, 2.0, ()),
     ("torch", sphericaldf_sample, 1.7, ()),
     ("jax", sphericaldf_sample, 1.7, ()),
-    ("torch", qdf_density, 1.0, _gap(_T + "fake-tensor 0-d indexing, interpolate.py")),
+    ("torch", qdf_density, 1.0, ()),
     ("jax", qdf_density, 1.0, ()),
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
