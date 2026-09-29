@@ -13,6 +13,7 @@ from ..backend import (
     name_of_namespace,
     use,
 )
+from ..backend._namespaces import inbackend_ode_method
 from ..df.df import df
 from ..orbit import Orbit
 from ..orbit.Orbits import _backend_T
@@ -804,7 +805,7 @@ class basestreamspraydf(df):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
-        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+        inbackend = inbackend_ode_method(xp)
         if ic_backend:
             ic = prog_ic
         else:
@@ -906,7 +907,7 @@ class basestreamspraydf(df):
             xp, _, prog_method = bsamp
         else:
             xp = get_namespace(cic_backend) if ic_backend else get_namespace(_cf)
-        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+        inbackend = inbackend_ode_method(xp)
         if bsamp is None:
             self._promote_progenitor_backend(xp, inbackend)
             _, _, prog_method = self._bsamp
@@ -963,7 +964,11 @@ class basestreamspraydf(df):
         The C and numpy integrators take no solver options, so the extra kwargs are
         handed only to the jax/torch paths.
         """
-        if not self._integrate_kwargs or method not in ("diffrax", "torchdiffeq"):
+        if not self._integrate_kwargs or method not in (
+            "diffrax",
+            "torchdiffeq",
+            "torchode",
+        ):
             return {}
         return {"inbackend_kwargs": dict(self._integrate_kwargs)}
 
