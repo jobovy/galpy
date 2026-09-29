@@ -146,7 +146,7 @@ _CASES = [
     ("torch", orbit_potential_parameter, 1.1, ()),
     ("jax", orbit_potential_parameter, 1.1, ()),
     ("torch", spray_sample, 1.1, ()),
-    ("torch", spray_track, 1.1, _gap(_T + "streamTrack's numpy fit path")),
+    ("torch", spray_track, 1.1, ()),
     ("torch", actions_staeckel, 1.0, ()),
     ("jax", actions_staeckel, 1.0, ()),
     ("torch", actions_spherical, 2.0, ()),
@@ -158,6 +158,12 @@ _CASES = [
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
 ]
+
+# Looser where the workflow itself amplifies round-off: the GCV-smoothed track
+# moves by 2e-9..1e-8 (grad) / ~1e-12 (value) for a 1e-14..1e-13 relative nudge
+# of its input, eagerly; compiled vs eager particles differ by 2.7e-14
+# (measured: 6e-12 value, 9.4e-9 grad).
+_RTOL = {"spray_track": (1e-10, 1e-7)}
 
 
 def _compiled(bk, workflow, x0):
@@ -195,5 +201,6 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0):
         raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
-    numpy.testing.assert_allclose(float(vc), float(ve), rtol=1e-12)
-    numpy.testing.assert_allclose(float(gc), float(ge), rtol=1e-10)
+    rtol_v, rtol_g = _RTOL.get(workflow.__name__, (1e-12, 1e-10))
+    numpy.testing.assert_allclose(float(vc), float(ve), rtol=rtol_v)
+    numpy.testing.assert_allclose(float(gc), float(ge), rtol=rtol_g)

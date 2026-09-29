@@ -13,7 +13,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
 )
-from ..backend._namespaces import stop_gradient
+from ..backend._namespaces import stop_gradient, untraceable_setup
 from ..backend.interpolate import (
     Spline1D,
     _apply_frozen_smoother,
@@ -686,6 +686,11 @@ def _fit_track_backend_jit(
     }
 
 
+# torch.compile: the fit runs eagerly (opaque) -- its structure (cKDTree
+# assignment, percentile trim, frozen smoothing operators) is numpy/scipy on the
+# detached values; autograd still records the value flow. jax.jit has its own
+# traced path (_fit_track_backend_jit).
+@untraceable_setup
 def _fit_track_from_particles(
     xv_particles,
     track_prog_cart,
