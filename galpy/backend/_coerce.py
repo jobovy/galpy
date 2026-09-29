@@ -56,6 +56,8 @@ the whole computation on one device and at one precision, which is required for
 torch (cross-device / mixed-dtype ops raise) and correct for jax.
 """
 
+import math
+
 import numpy
 
 from ._namespaces import (
@@ -63,6 +65,7 @@ from ._namespaces import (
     asarray_on_device,
     device_of,
     effective_device,
+    has_concrete_truth_value,
     is_backend_array,
     namespace_from_arrays,
     under_trace,
@@ -173,7 +176,7 @@ def zeros_like_backend(xp, R):
     return 0.0 if xp is numpy else xp.zeros_like(R)
 
 
-def radial_limits(r, fn, at0=None, atinf=None):
+def radial_limits(r, fn, at0=None, atinf=None, numpy_too=False):
     """``fn(r)``, with ``r == 0`` / ``r == inf`` given by their known limits.
 
     Closed forms written in ``a/r`` or ``r/a`` evaluate FINITE at the edge where
@@ -182,10 +185,34 @@ def radial_limits(r, fn, at0=None, atinf=None):
     select the limit (``xp.where``'s dead branch then stays finite). Anything
     else -- numpy, or a plain scalar under a forced backend -- gets ``fn(r)``
     untouched (byte-identical). ``at0`` / ``atinf``: the limit value, or None to
-    leave that edge alone.
+    leave that edge alone. ``numpy_too``: apply the limits to numpy input as
+    well, for a quantity whose numpy formula is itself NaN at the edge (only
+    edge entries change; without an edge present it is ``fn(r)`` untouched).
     """
     if not is_backend_array(r):
-        return fn(r)
+        if not numpy_too:
+            return fn(r)
+        if numpy.ndim(r) == 0:  # numpy scalar fast path
+            if at0 is not None and r == 0.0:
+                return at0
+            if atinf is not None and r == numpy.inf:
+                return atinf
+            return fn(r)
+        ra = numpy.asarray(r, dtype=float)
+        edges = [
+            (m, v)
+            for m, v in ((ra == 0.0, at0), (numpy.isinf(ra), atinf))
+            if v is not None and numpy.any(m)
+        ]
+        if not edges:
+            return fn(r)
+        bad = numpy.zeros(ra.shape, dtype=bool)
+        for m, _ in edges:
+            bad |= m
+        out = numpy.asarray(fn(numpy.where(bad, 1.0, ra)), dtype=float)
+        for m, v in edges:
+            out = numpy.where(m, v, out)
+        return out[()]
     xp = namespace_from_arrays((r,))
     edges = [
         (m, v) for m, v in ((r == 0.0, at0), (xp.isinf(r), atinf)) if v is not None
@@ -195,3 +222,53 @@ def radial_limits(r, fn, at0=None, atinf=None):
     for mask, val in edges:
         out = xp.where(mask, val * xp.ones_like(out), out)
     return out
+
+
+def mask_where(xp, cond, r, fill):
+    """``xp.where(cond, r, fill)``: ``r`` where ``cond``, a benign ``fill``
+    elsewhere, to keep a dead branch finite. A numpy scalar is returned as is:
+    ``branch_where`` only runs the branch that uses it where ``cond`` holds."""
+    if xp is numpy and numpy.ndim(r) == 0:
+        return r
+    return xp.where(cond, r, fill * xp.ones_like(r * 1.0))
+
+
+def branch_where(xp, cond, if_true, if_false):
+    """``xp.where(cond, if_true(), if_false())``, evaluating only what is used.
+
+    Eager ``xp.where`` computes both branches; for a closed form with a
+    cancellation-free branch near an edge that doubles (or worse) the dispatch
+    cost of every call, which is the whole cost on an eager backend. When
+    ``cond`` is concrete (numpy, eager jax/torch -- also under eager autodiff)
+    and uniform, only the needed branch runs; under a trace, or when mixed,
+    both do. The branch functions must be safe on every element (mask their
+    inputs as for any ``xp.where``).
+    """
+    if xp is numpy and numpy.ndim(cond) == 0:  # numpy scalar fast path
+        return if_true() if cond else if_false()
+    # one host sync: the count of True entries
+    nc = xp.sum(cond)
+    if has_concrete_truth_value(nc):
+        nc = int(nc)
+        if nc == 0:
+            return if_false()
+        if nc == math.prod(getattr(cond, "shape", ())):  # a Python bool: ()
+            return if_true()
+    return xp.where(cond, if_true(), if_false())
+
+
+def power_series(xp, x, coeffs, first):
+    """``sum_i coeffs[i] x^(first + i)``; ``first >= 1`` keeps the derivative
+    finite at x = 0. numpy: Horner (a broadcast float power is ~12x slower).
+    Backends: the powers x^1..x^k as one cumulative product (a few dispatches,
+    rather than Horner's two per term, and no float power: ~3x faster eager)."""
+    if xp is numpy:
+        out = coeffs[-1]
+        for c in coeffs[-2::-1]:
+            out = out * x + c
+        return out * x**first
+    k = first + len(coeffs) - 1
+    c = numpy.array([0.0] * (first - 1) + list(coeffs), dtype=float)
+    c = asarray_on_device(xp, c, device_of(x), dtype=x.dtype)
+    powers = xp.cumprod(xp.stack([x] * k, axis=-1), axis=-1)
+    return xp.sum(c * powers, axis=-1)

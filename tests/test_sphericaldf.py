@@ -4078,14 +4078,11 @@ def test_eddington_sample_negative_df_regions_no_crash():
     rmax = 5.0
     dfe = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(1)
-    # numpy's scipy cubic spline overshoots the reconstructed DF slightly negative
-    # near the truncation (raising the negative-region galpyWarning); the backend
-    # Spline1D does not overshoot there, so no warning is raised on the backend path
-    if get_namespace() is numpy:
-        with pytest.warns(galpyWarning):
-            samp = dfe.sample(n=2000)
-    else:
-        samp = dfe.sample(n=2000)
+    # The numpy f(E) used to overshoot slightly negative near the truncation
+    # (raising the negative-region galpyWarning); with f(E) exact near Emin it
+    # no longer does, on either path. A genuinely negative DF still drives that
+    # branch in test_anisotropic_hernquist_negdf.
+    samp = dfe.sample(n=2000)
     r = as_numpy(samp.r(use_physical=False))
     assert numpy.all(numpy.isfinite(r)), "Sampled radii are not all finite"
     assert numpy.all(r <= rmax), "Sampled radii exceed rmax"
@@ -4156,10 +4153,12 @@ def test_eddington_rmax_inf():
 
     pot = HernquistPotential(amp=2.3, a=1.3)
     E = numpy.array([-0.8, -0.3, -0.05])
-    got = eddingtondf(pot=pot, rmax=numpy.inf).fE(E)
-    ref = isotropicHernquistdf(pot=pot).fE(E)
+    got = as_numpy(eddingtondf(pot=pot, rmax=numpy.inf).fE(E))
+    ref = as_numpy(isotropicHernquistdf(pot=pot).fE(E))
     assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
-    got = eddingtondf(pot=NFWPotential(), rmax=numpy.inf).fE(numpy.array([-0.5]))
+    got = as_numpy(
+        eddingtondf(pot=NFWPotential(), rmax=numpy.inf).fE(numpy.array([-0.5]))
+    )
     assert abs(got[0] / 0.005951286 - 1.0) < 1e-6, got
 
 
@@ -4171,13 +4170,18 @@ def test_eddington_fE_at_and_near_Emin():
     from galpy.potential import HernquistPotential, PlummerPotential
 
     dfh = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
-    assert dfh.fE(numpy.array([dfh._Emin]))[0] == numpy.inf
+    Emin = float(as_numpy(dfh._Emin))
+    assert as_numpy(dfh.fE(numpy.array([Emin])))[0] == numpy.inf
     pot = PlummerPotential(amp=2.3, b=1.3)
     dfp = eddingtondf(pot=pot)
-    E = dfp._Emin + numpy.array([0.0, 1e-12, 1e-10, 1e-6]) * (dfp._potInf - dfp._Emin)
-    got = dfp.fE(E)
-    ref = isotropicPlummerdf(pot=pot).fE(E)
-    assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
+    Emin, Einf = float(as_numpy(dfp._Emin)), float(as_numpy(dfp._potInf))
+    E = Emin + numpy.array([0.0, 1e-12, 1e-10, 1e-6]) * (Einf - Emin)
+    got = as_numpy(dfp.fE(E))
+    ref = as_numpy(isotropicPlummerdf(pot=pot).fE(E))
+    # at Emin itself: numpy's adaptive quad 4e-11, the backends' fixed GL 8e-9
+    tol0 = 1e-10 if get_namespace(numpy.zeros(1)) is numpy else 2e-8
+    tol = numpy.array([tol0, 1e-10, 1e-10, 1e-10])
+    assert numpy.all(numpy.fabs(got / ref - 1.0) < tol), (got, ref)
 
 
 def test_eddington_fE_at_Emin_with_different_tracer():
