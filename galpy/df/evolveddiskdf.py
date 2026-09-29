@@ -29,7 +29,6 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend._namespaces import inbackend_ode_method
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import (
@@ -3197,7 +3196,7 @@ class evolveddiskdf(df):
         # backend orbits integrate with the backend's own solver; a C-method NAME
         # would route there anyway, but pick it explicitly so a non-C
         # integrate_method (odeint/leapfrog) works too.
-        bmethod = inbackend_ode_method(xp)
+        bmethod = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if isinstance(t, (list, numpy.ndarray)):
             t = numpy.atleast_1d(numpy.asarray(t))
             nt = len(t)

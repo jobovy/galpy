@@ -747,26 +747,3 @@ def test_inbackend_engine_errors():
         integrate_orbit(pot, torch.as_tensor(_IC), torch.as_tensor(_TS), engine="rk")
     with pytest.raises(ValueError, match="method='torchode' requires a torch"):
         Orbit(jnp.asarray(_IC)).integrate(jnp.asarray(_TS), pot, method="torchode")
-
-
-@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="needs jax and torch")
-def test_inbackend_ode_method_default(monkeypatch):
-    # the in-backend integrator galpy picks by itself: diffrax on jax; on torch
-    # torchode (inductor can compile it), falling back to torchdiffeq
-    import importlib.util
-
-    import array_api_compat.torch as txp
-
-    from galpy.backend._namespaces import inbackend_ode_method
-
-    assert inbackend_ode_method(jnp) == "diffrax"
-    real = importlib.util.find_spec
-    assert inbackend_ode_method(txp) == (
-        "torchode" if real("torchode") else "torchdiffeq"
-    )
-    monkeypatch.setattr(
-        importlib.util,
-        "find_spec",
-        lambda name, *a, **k: None if name == "torchode" else real(name, *a, **k),
-    )
-    assert inbackend_ode_method(txp) == "torchdiffeq"

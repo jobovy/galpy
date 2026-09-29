@@ -659,17 +659,6 @@ def name_of_namespace(xp):
     return "numpy"
 
 
-def inbackend_ode_method(xp):
-    """The in-backend ODE ``method`` for namespace ``xp``: ``'diffrax'`` (jax), or
-    for torch ``'torchode'`` when installed (inductor can compile it), else
-    ``'torchdiffeq'``."""
-    if name_of_namespace(xp) == "jax":
-        return "diffrax"
-    import importlib.util
-
-    return "torchode" if importlib.util.find_spec("torchode") else "torchdiffeq"
-
-
 def namespace_from_arrays(arrays):
     """Infer the array namespace from the (non-scalar) array arguments.
 

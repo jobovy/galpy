@@ -2890,3 +2890,33 @@ def test_adiabaticgrid_bypassed_jz_delegates():
         got = g.Jz(*_BYPASS_IC)
         ref = _bypass_aa(a, "adiabatic", exact=True)(*_BYPASS_IC)[2]
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-14, atol=0.0)
+
+
+# A circular orbit is a double root of the J_R integrand^2 at ux, so whether the
+# backend turning-point solve saw it as circular or as sitting at a turning point
+# (bisecting the partner root out of rounding noise, ~1e-8 away) was decided by
+# the last bits: ulp-perturbed circular orbits got e up to 2.8e-8 (32/112 on jax).
+# Unresolvable pairs now snap to circular: e = 0 exactly, like numpy.
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_backend_circular_orbits_ulp_robust(backend):
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.backend import use
+    from galpy.potential import MWPotential, vcirc
+
+    Rs, vTs = [], []
+    for R in numpy.linspace(0.5, 2.0, 16):
+        vc = vcirc(MWPotential, R)
+        for k in range(-3, 4):
+            Rs.append(R)
+            vTs.append(vc * (1 + k * 2.2e-16))
+    Rs, vTs = numpy.array(Rs), numpy.array(vTs)
+    z0 = numpy.zeros_like(Rs)
+    aA = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=False)
+    arr = (lambda v: jnp.asarray(v)) if backend == "jax" else torch.tensor
+    with use(backend, force=True):
+        e, zmax, rperi, rap = aA.EccZmaxRperiRap(
+            arr(Rs), arr(z0), arr(vTs), arr(z0), arr(z0)
+        )
+    assert numpy.all(as_numpy(e) == 0.0), f"max e {numpy.amax(as_numpy(e))}"
+    numpy.testing.assert_allclose(as_numpy(rperi), Rs, rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(rap), Rs, rtol=1e-14)
