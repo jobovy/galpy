@@ -19,7 +19,11 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend import use
-from ..backend._namespaces import namespace_from_arrays, under_trace
+from ..backend._namespaces import (
+    inbackend_ode_method,
+    namespace_from_arrays,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
@@ -1518,7 +1522,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             ]
         )
         xp = get_namespace(xv0_prog)
-        method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+        method = inbackend_ode_method(xp)
         ikw = getattr(self._aA, "_integrate_kwargs", None)
         dt = (
             self._deltaAngleTrackImpact
@@ -1895,12 +1899,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         # of the graph: this spans tdisrupt, far longer than the track segments,
         # and mixing adjoints corrupts nested gradients.
         if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
-            _m = (
-                "diffrax"
-                if name_of_namespace(get_namespace(self._gap_progenitor._ic_backend))
-                == "jax"
-                else "torchdiffeq"
-            )
+            _m = inbackend_ode_method(get_namespace(self._gap_progenitor._ic_backend))
             self._gap_progenitor.integrate(
                 ts,
                 self._pot,
@@ -2445,7 +2444,7 @@ def _impulse_deltav_general_orbitintegration_backend(
     # galpot's forces to return backend arrays (a real Potential does; a test
     # double whose force returns a bare Python scalar does not -> numpy path).
     xp = get_namespace(v, x, w)
-    method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+    method = inbackend_ode_method(xp)
     v, x, w, x0, v0 = coerce_coords(xp, v, x, w, x0, v0)
     if v.ndim == 1:
         v = xp.reshape(v, (1, 3))

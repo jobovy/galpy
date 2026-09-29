@@ -157,6 +157,11 @@ _CASES = [
     ("jax", qdf_density, 1.0, ()),
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
+    # plain torch.compile (inductor: generated kernels, not just dynamo). The
+    # in-backend ODE is torchode, which inductor can lower (torchdiffeq cannot).
+    # spray -> streamTrack adds nothing here: its fit runs eagerly under compile.
+    ("torch-inductor", orbit_potential_parameter, 1.1, ()),
+    ("torch-inductor", spray_sample, 1.1, ()),
 ]
 
 # Looser where the workflow itself amplifies round-off: the GCV-smoothed track
@@ -169,12 +174,16 @@ _RTOL = {"spray_track": (1e-10, 1e-7)}
 def _compiled(bk, workflow, x0):
     if bk == "jax":
         return jax.jit(jax.value_and_grad(lambda x: workflow("jax", x)))(x0)
+    backend = "inductor" if bk == "torch-inductor" else "eager"
     torch._dynamo.reset()
     with warnings.catch_warnings():
         # torch-internal deprecations under CI's -W error
         for msg in (".*script_method.*", ".*should not be instantiated.*"):
             warnings.filterwarnings("ignore", message=msg, category=DeprecationWarning)
-        fc = torch.compile(lambda x: workflow("torch", x), backend="eager")
+        warnings.filterwarnings(  # inductor lowering
+            "ignore", message=".*_prims_common.check.*", category=FutureWarning
+        )
+        fc = torch.compile(lambda x: workflow("torch", x), backend=backend)
         xc = torch.tensor(x0, requires_grad=True)
         vc = fc(xc)
         return vc, torch.autograd.grad(vc, xc)[0]
