@@ -27,7 +27,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import special as _bspecial
-from ..backend._namespaces import under_trace
+from ..backend._namespaces import inbackend_ode_method, under_trace
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
 from ..backend.linalg import real_eig as _bk_real_eig
@@ -1691,7 +1691,7 @@ class streamdf(df):
         _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         xp = get_namespace(xv0_prog)
-        method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
+        method = inbackend_ode_method(xp)
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs

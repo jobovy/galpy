@@ -35,6 +35,7 @@ from ..backend import (
 from ..backend import use as _use_backend
 from ..backend._namespaces import (
     compilable_singledispatchmethod,
+    inbackend_ode_method,
     requires_backend_grad,
     under_jax_trace,
     under_trace,
@@ -1871,11 +1872,7 @@ class Orbit:
             _concrete = getattr(self, "_ic_backend_concrete", True)
             if _ml in _C_RK_METHODS or (_ml in _C_SYMPLEC_METHODS and not _concrete):
                 _potl = _check_potential_list_and_deprecate(pot)
-                _inbk = (
-                    "diffrax"
-                    if name_of_namespace(get_namespace(ic_backend)) == "jax"
-                    else "torchdiffeq"
-                )
+                _inbk = inbackend_ode_method(get_namespace(ic_backend))
                 # C-STM eligibility by phase-space dim: 6D needs the full C 3D
                 # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
                 # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
@@ -3549,16 +3546,18 @@ class Orbit:
         # Get orbit
         thiso = self._call_internal(*args, **kwargs)
         onet = len(thiso.shape) == 2
+        # a backend time (possibly traced) is shaped on its own namespace
+        _txp = get_namespace(t) if is_backend_array(t) else numpy
         if onet:
             thiso = thiso[:, numpy.newaxis, :]
-            t = numpy.atleast_1d(t)
+            t = numpy.atleast_1d(t) if _txp is numpy else _txp.reshape(t, (-1,))
         if self.phasedim() == 2:
             try:
                 out = (
                     evaluatelinearPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3584,7 +3583,7 @@ class Orbit:
                     evaluateplanarPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3612,7 +3611,7 @@ class Orbit:
                         pot,
                         thiso[0],
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3646,7 +3645,7 @@ class Orbit:
                         pot,
                         thiso[0],
                         z,
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
@@ -3682,7 +3681,7 @@ class Orbit:
                         thiso[0],
                         z,
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
