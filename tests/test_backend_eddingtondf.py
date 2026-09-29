@@ -356,3 +356,115 @@ def test_osipkovmerrittdf_sample_under_jit_raises_clearly():
 
     with pytest.raises(NotImplementedError, match="under jax.jit"):
         jax.jit(f)(1.2)
+
+
+# --- f(E) near Emin -------------------------------------------------------------
+# NFW (amp=2.3, a=1.3) against a 40-digit mpmath Eddington integral at the exact
+# double energies passed. The backend was NaN at 1e-8/1e-7 of the way from Emin
+# and 7e-4 off at 1e-6: r(Phi) below the spline's first knot, and Phi(r) - E a
+# difference of O(1) numbers. Now: Newton-refined r(Phi), and the small-r piece
+# as 2/sqrt(mean dPhi/dr). Measured 5.9e-8 at 1e-8, <= 2.4e-10 above.
+_EDD_NFW_GOLD = [  # (E, f(E))
+    (-1.769230751559042, 1.4983431954507396e17),  # x = 1e-08
+    (-1.769229002058064, 1498343239910.5228),  # x = 1e-06
+    (-1.7690540519602862, 14983432.383219456),  # x = 0.0001
+    (-1.7515590421824891, 149.81271594972208),  # x = 0.01
+    (-1.2390789577823735, 0.02035422714067017),  # x = 0.3
+]
+
+
+@pytest.mark.parametrize("E,fref", _EDD_NFW_GOLD)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nfw_fE_near_Emin(backend, E, fref):
+    with galpy.backend.use(backend, force=True):
+        d = eddingtondf(pot=NFWPotential(amp=2.3, a=1.3))
+        got = float(as_numpy(d.fE(_arr(backend, [E])))[0])
+    tol = 1e-7 if E < -1.7692 else 1e-9
+    assert abs(got / fref - 1.0) < tol, f"E={E}: {got} vs {fref}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nfw_fE_near_Emin_grad_wrt_potential(backend):
+    # d f(E)/d a at fixed (E - Emin)/(Einf - Emin) = 1e-6, through the Newton
+    # refinement of r(Phi): AD vs a Richardson central difference of the same
+    # backend values
+    def f(a):
+        with galpy.backend.use(backend, force=True):
+            d = eddingtondf(pot=NFWPotential(amp=2.3, a=a))
+            E = d._Emin + 1e-6 * (d._potInf - d._Emin)
+            return d.fE(E * _arr(backend, [1.0]))[0]
+
+    if backend == "jax":
+        ad = float(jax.grad(f)(1.3))
+    else:
+        a = torch.tensor(1.3, requires_grad=True)
+        (g,) = torch.autograd.grad(f(a), a)
+        ad = float(g)
+
+    def cd(h):
+        return (float(as_numpy(f(1.3 + h))) - float(as_numpy(f(1.3 - h)))) / (2 * h)
+
+    # h^2 truncation dominates down to h ~ 1e-3; below, the values' ~1e-10
+    # quadrature noise does. Richardson on (2e-3, 1e-3): measured jax 1.4e-8,
+    # torch 2.1e-7 (the reference's noise floor, not the AD)
+    fd = (4.0 * cd(1e-3) - cd(2e-3)) / 3.0
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_at_near_Emin_and_rmax_inf(backend):
+    # the endpoint E = Emin (inf for a cusp, finite for a core), the integrand's
+    # bulk at r ~ scale when rphi << scale (log r, not 1/r out to 1/(2 rphi):
+    # Plummer was 91% off at 1e-12 of the energy range, 8% at 1e-8), and
+    # rmax = inf; against the analytic DFs
+    from galpy.df import isotropicHernquistdf, isotropicPlummerdf
+    from galpy.potential import HernquistPotential, PlummerPotential
+
+    with galpy.backend.use(backend, force=True):
+        dfh = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
+        Emin = float(as_numpy(dfh._Emin))
+        assert as_numpy(dfh.fE(_arr(backend, [Emin])))[0] == numpy.inf
+        E = numpy.array([-0.8, -0.3, -0.05])
+        got = dfh.fE(_arr(backend, E))
+        assert _is_backend_array(backend, got)
+        got = as_numpy(
+            eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3), rmax=numpy.inf).fE(
+                _arr(backend, E)
+            )
+        )
+    ref = isotropicHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3)).fE(E)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13)
+    pot = PlummerPotential(amp=2.3, b=1.3)
+    with galpy.backend.use(backend, force=True):
+        dfp = eddingtondf(pot=pot)
+        Emin, Einf = float(as_numpy(dfp._Emin)), float(as_numpy(dfp._potInf))
+        E = Emin + numpy.array([0.0, 1e-12, 1e-8, 1e-4]) * (Einf - Emin)
+        got = as_numpy(dfp.fE(_arr(backend, E)))
+    ref = isotropicPlummerdf(pot=pot).fE(E)
+    numpy.testing.assert_allclose(got[0], ref[0], rtol=2e-8)  # fixed GL at Emin
+    numpy.testing.assert_allclose(got[1:], ref[1:], rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_plummer_fE_near_Emin_grad_wrt_b(backend):
+    # f(E) = 24 sqrt(2)/(7 pi^3) b^2 (-E)^(7/2) / (G M)^5 for Plummer, so at
+    # fixed E d f/d b = 2 f/b exactly; E 1e-6 of the range above Emin (44x
+    # off before; 5e-9 now, 3e-5 at 1e-8)
+    from galpy.potential import PlummerPotential
+
+    E0 = -2.3 / 1.3 * (1.0 - 1e-6)
+
+    def f(b):
+        with galpy.backend.use(backend, force=True):
+            return eddingtondf(pot=PlummerPotential(amp=2.3, b=b)).fE(
+                E0 * _arr(backend, [1.0])
+            )[0]
+
+    if backend == "jax":
+        ad = float(jax.grad(f)(1.3))
+    else:
+        b = torch.tensor(1.3, requires_grad=True)
+        (g,) = torch.autograd.grad(f(b), b)
+        ad = float(g)
+    val = float(as_numpy(f(1.3)))
+    numpy.testing.assert_allclose(ad, 2.0 * val / 1.3, rtol=2e-8)
