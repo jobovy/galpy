@@ -14601,6 +14601,7 @@ def test_linear_x2deriv():
             - evaluatelinearForces(pot, xs - dx, use_physical=False)
         ) / (2.0 * dx)
         d2 = evaluatelinearx2derivs(pot, xs, use_physical=False)
+        d2, fd = as_numpy(d2), as_numpy(fd)
         assert numpy.all(numpy.fabs(d2 - fd) < 1e-7 * (1.0 + numpy.fabs(fd))), (
             "The second derivative of a 1D potential is not the derivative of its force"
         )
@@ -14881,7 +14882,7 @@ def test_twopower_phi_continuous_in_beta_and_r():
         for b in (3.0 - 1e-12, 3.0, 3.0 + 1e-12)
     ]
     for phi in phis[1:]:  # dPhi/dbeta x 2e-12 apart (2e-4 before)
-        assert numpy.all(numpy.fabs(phi / phis[0] - 1.0) < 5e-12)
+        assert numpy.all(numpy.fabs(as_numpy(phi / phis[0]) - 1.0) < 5e-12)
     phi = potential.evaluatePotentials(
         potential.TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=1.5, beta=3.5),
         0.5 + numpy.array([-1e-9, 0.0, 1e-9]),
@@ -15068,7 +15069,11 @@ def test_small_r_c_matches_python_all_derivatives():
                 potential.evaluateRzderivs(pot, R, z),
             ),
         ):
-            assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-12), (pot, got, ref)
+            assert numpy.all(numpy.fabs(as_numpy(got / ref) - 1.0) < 1e-12), (
+                pot,
+                got,
+                ref,
+            )
     # planar C force and R2deriv: an orbit (and its dxdv) confined to r < a/4
     for pot in (
         potential.NFWPotential(amp=1.0, a=10.0),
@@ -15078,9 +15083,12 @@ def test_small_r_c_matches_python_all_derivatives():
         oc, op = Orbit([0.5, 0.05, 0.3, 0.2]), Orbit([0.5, 0.05, 0.3, 0.2])
         oc.integrate(ts, pot, method="dop853_c")
         op.integrate(ts, pot, method="dop853")
-        assert numpy.amax(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-8
-        assert numpy.amax(oc.r(ts)) < 2.5  # inside the small-r branch
+        assert numpy.amax(numpy.fabs(as_numpy(oc.R(ts) - op.R(ts)))) < 1e-8
+        assert numpy.amax(as_numpy(oc.r(ts))) < 2.5  # inside the small-r branch
         dc, dp = Orbit([0.5, 0.05, 0.3, 0.2]), Orbit([0.5, 0.05, 0.3, 0.2])
         dc.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, pot, method="dopr54_c")
         dp.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, pot, method="odeint")
-        assert numpy.amax(numpy.fabs(dc.getOrbit_dxdv() - dp.getOrbit_dxdv())) < 1e-6
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(dc.getOrbit_dxdv() - dp.getOrbit_dxdv())))
+            < 1e-6
+        )
