@@ -35,6 +35,7 @@ from ..backend import (
 from ..backend import use as _use_backend
 from ..backend._namespaces import (
     compilable_singledispatchmethod,
+    inbackend_ode_method,
     requires_backend_grad,
     under_jax_trace,
     under_trace,
@@ -1868,11 +1869,7 @@ class Orbit:
             _concrete = getattr(self, "_ic_backend_concrete", True)
             if _ml in _C_RK_METHODS or (_ml in _C_SYMPLEC_METHODS and not _concrete):
                 _potl = _check_potential_list_and_deprecate(pot)
-                _inbk = (
-                    "diffrax"
-                    if name_of_namespace(get_namespace(ic_backend)) == "jax"
-                    else "torchdiffeq"
-                )
+                _inbk = inbackend_ode_method(get_namespace(ic_backend))
                 # C-STM eligibility by phase-space dim: 6D needs the full C 3D
                 # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
                 # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
