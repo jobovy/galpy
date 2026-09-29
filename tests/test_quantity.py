@@ -13276,9 +13276,9 @@ def test_actionAngleSphericalInverse_units():
 
 def test_actionAngleStaeckelInverse_units():
     # Unit support of actionAngleStaeckelInverse: Quantity energies,
-    # angular momenta, and third integrals for the instance, Quantity
-    # integrals and actions and angles for its evaluation, and physical
-    # outputs
+    # angular momenta, third integrals, and radial grid anchors for the
+    # instance, Quantity integrals and actions and angles for its
+    # evaluation, and physical outputs
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import KuzminKutuzovStaeckelPotential
     from galpy.util import conversion
@@ -13360,6 +13360,26 @@ def test_actionAngleStaeckelInverse_units():
         ), (
             "actionAngleStaeckelInverse method Freqs does not return the physical version of the internal-unit frequency"
         )
+    # Quantity radial anchors for the interpolation grid
+    gkw = dict(setup_interp=True, nE=4, nLz=4, nI3=4, mm_nta=64, mm_npt=12)
+    aASCg = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(ro=ro, vo=vo, **kw),
+        Rmin=0.8 * ro * units.kpc,
+        Rmax=1.4 * ro * units.kpc,
+        Rinf=3.0 * ro * units.kpc,
+        ro=ro,
+        vo=vo,
+        **gkw,
+    )
+    aASCg_int = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(**kw), Rmin=0.8, Rmax=1.4, Rinf=3.0, **gkw
+    )
+    assert numpy.all(numpy.fabs(aASCg._Lzgrid - aASCg_int._Lzgrid) < 1e-10), (
+        "actionAngleStaeckelInverse does not parse Rmin and Rmax given as Quantities"
+    )
+    assert numpy.all(numpy.fabs(aASCg._E_tab - aASCg_int._E_tab) < 1e-10), (
+        "actionAngleStaeckelInverse does not parse Rinf given as a Quantity"
+    )
     return None
 
 

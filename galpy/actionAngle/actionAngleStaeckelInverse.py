@@ -23,12 +23,14 @@ from ..potential import (
     OblateStaeckelWrapperPotential,
     epifreq,
     evaluatePotentials,
+    evaluateRforces,
     rl,
     vcirc,
     verticalfreq,
 )
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
+from ..util._hermite import HermiteFamily3D, slope_at_zero
 from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleSphericalInverse import (
@@ -121,6 +123,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Es=[-0.5],
         Lzs=[0.5],
         I3s=[0.1],
+        setup_interp=False,
+        Rmin=0.5,
+        Rmax=2.0,
+        Rinf=10.0,
+        nE=9,
+        nLz=9,
+        nI3=9,
         mm_npt=32,
         mm_nta=None,
         auxiliary=None,
@@ -143,13 +152,41 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             general axisymmetric potential is accepted together with
             delta=, which wraps it in an OblateStaeckelWrapperPotential.
         Es : array-like or Quantity
-            Energies of the tori to set up (paired with Lzs and I3s).
+            Energies of the tori to set up when setup_interp is False
+            (paired with Lzs and I3s).
         Lzs : array-like or Quantity
             z-components of the angular momentum of the tori (non-zero).
         I3s : array-like or Quantity
             Third integrals of the tori, in the convention p_u^2 =
             2 delta^2 [E sinh^2 u - U(u) - I_3] - L_z^2 / sinh^2 u with the
             gauge V(pi/2) = 0 (an energy).
+        setup_interp : bool, optional
+            If True, set up a grid of tori in (L_z, E, I_3) spanning the
+            circular angular momenta of [Rmin, Rmax], energies from the
+            circular orbit's up to that of the planar orbit with apocentre
+            Rinf, and third integrals from the planar orbit's to the shell
+            orbit's, and interpolate canonically between them.
+        Rmin : float or Quantity, optional
+            Radius of the circular orbit with the smallest angular momentum
+            of the interpolation grid.
+        Rmax : float or Quantity, optional
+            Radius of the circular orbit with the largest angular momentum
+            of the interpolation grid.
+        Rinf : float or Quantity, optional
+            Apocentre, in the plane, of the orbit with the interpolation
+            grid's largest energy at each angular momentum. The grid's
+            energies are uniform in the logarithm of the apocentre of the
+            planar orbit without angular momentum between each circular
+            orbit's energy and this one (uniform in the energy for a
+            logarithmic potential, and compressed toward the top in a
+            potential with an escape energy, where the apocentre diverges),
+            spaced quadratically at the circular face.
+        nE : int, optional
+            Number of energies of the interpolation grid.
+        nLz : int, optional
+            Number of angular momenta of the interpolation grid.
+        nI3 : int, optional
+            Number of third integrals of the interpolation grid.
         mm_npt : int, optional
             Highest harmonic of the two momentum-matched anomaly maps (the
             v map's odd harmonics vanish by the symmetry of its libration
@@ -158,8 +195,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             is raised when it does not suffice for a torus. The u-map needs
             a number of harmonics that grows with a torus's ratio of outer
             to inner radius in the plane, and the v-map one that grows with
-            L / |L_z| as the torus approaches a polar orbit; the set-up
-            raises when the harmonics cannot hold a torus at all.
+            L / |L_z| as the torus approaches a polar orbit; on a grid the
+            most demanding tori are the ones at the smallest angular
+            momentum (set by Rmin) and the highest energy (set by Rinf),
+            and the set-up raises when the harmonics cannot hold them.
         mm_nta : int, optional
             Number of anomaly samples per libration (even), used to sample
             the torus, to fit the maps, and for the quadratures of its
@@ -222,22 +261,33 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._progressbar = progressbar and _TQDM_LOADED
+        self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
-        self._Es = conversion._parse_grid_quantity(
-            Es, conversion.parse_energy, vo=self._vo
-        ).astype("float")
-        self._Lzs = conversion._parse_grid_quantity(
-            Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
-        ).astype("float")
-        self._I3s = conversion._parse_grid_quantity(
-            I3s, conversion.parse_energy, vo=self._vo
-        ).astype("float")
-        if not len(self._Es) == len(self._Lzs) == len(self._I3s):
-            raise ValueError("Es, Lzs, and I3s have to have the same length")
-        if numpy.any(self._Lzs == 0.0):
-            raise ValueError(
-                "L_z = 0 is not supported: the v libration of a polar orbit reaches the axis"
+        if not setup_interp:
+            self._Es = conversion._parse_grid_quantity(
+                Es, conversion.parse_energy, vo=self._vo
+            ).astype("float")
+            self._Lzs = conversion._parse_grid_quantity(
+                Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
+            ).astype("float")
+            self._I3s = conversion._parse_grid_quantity(
+                I3s, conversion.parse_energy, vo=self._vo
+            ).astype("float")
+            if not len(self._Es) == len(self._Lzs) == len(self._I3s):
+                raise ValueError("Es, Lzs, and I3s have to have the same length")
+            if numpy.any(self._Lzs == 0.0):
+                raise ValueError(
+                    "L_z = 0 is not supported: the v libration of a polar orbit reaches the axis"
+                )
+        else:
+            self._setup_grid(
+                conversion.parse_length(Rmin, ro=self._ro),
+                conversion.parse_length(Rmax, ro=self._ro),
+                conversion.parse_length(Rinf, ro=self._ro),
+                nE,
+                nLz,
+                nI3,
             )
         # sample every torus once (exact placement), then fix the frozen
         # auxiliary and lift every torus onto it, libration by libration
@@ -614,8 +664,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         f"radii {Rinner:g} to {Router:g} in the plane, a ratio of "
                         f"{Router / Rinner:.0f}, and the map needs a number of "
                         "harmonics of the order of that ratio, against the "
-                        f"mm_npt = {self._npt} given. Raise mm_npt (and, with "
-                        "it, mm_nta)"
+                        f"mm_npt = {self._npt} given; the most eccentric torus "
+                        "of a grid is the one at its smallest angular momentum "
+                        "(Rmin) and highest energy (Rinf). Raise mm_npt (and, "
+                        "with it, mm_nta), or raise Rmin or lower Rinf"
                     )
             if smp["v"] is not None:
                 lift_v = self._lift_v(smp, L, 1.0 - smp["Lz"] ** 2 / L**2)
@@ -936,6 +988,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return None
 
     def _setup_tori(self):
+        if self._interp:
+            return self._setup_tori_interp()
         ntori = len(self._Es)
         self._jrs = numpy.empty(ntori)
         self._jzs = numpy.empty(ntori)
@@ -971,7 +1025,490 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._warn_unresolved(perr_v, self._Es, self._Lzs, self._I3s, "v")
         return None
 
+    # ---------- the (L_z, E, I_3) interpolation grid
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3):
+        """Rectangular grid in (w_E, w_I, L_z): L_z between the circular
+        angular momenta of Rmin and Rmax; the energies uniform, in x =
+        w_E^2 with w_E uniform in [0, 1], in the logarithm of the apocentre
+        of the planar orbit without angular momentum, R_0(E) with
+        Phi(R_0, 0) = E, between the circular orbit's energy E_c(L_z) and
+        E_max(L_z), the energy of the planar orbit with apocentre Rinf
+        (_E_of_xL); the circular orbits form the bottom face, and in the
+        energy the spacing is quadratic there and compresses toward the
+        top in a potential with an escape energy, where every apocentre
+        diverges, so that the tables stay smooth in x up to the top row
+        (for a logarithmic potential it is E = E_c + [E_max - E_c] x);
+        I_3 = I_pl + (I_sh - I_pl) sin^2(pi w_I / 2)
+        with w_I uniform in [0, 1] between the planar orbit (J_z = 0) and
+        the shell orbit (J_R = 0), the two faces on which one libration
+        degenerates -- quadratic spacing at every degenerate edge, where
+        the actions behave as the square of the distance to it and the
+        half-widths as the distance itself"""
+        if nE < 4 or nLz < 4 or nI3 < 4:
+            raise ValueError("setup_interp=True requires nE, nLz, and nI3 >= 4")
+        if Rinf <= Rmax:
+            raise ValueError(
+                "Rinf has to exceed Rmax: it is the apocentre in the plane of "
+                "the grid's most energetic orbits, beyond every circular orbit "
+                "of the grid"
+            )
+        wrap = self._staeckelwrap
+        Lmin = Rmin * vcirc(wrap, Rmin, use_physical=False)
+        Lmax = Rmax * vcirc(wrap, Rmax, use_physical=False)
+        self._Lzgrid = numpy.linspace(Lmin, Lmax, nLz)
+        self._wEs = numpy.linspace(0.0, 1.0, nE)
+        self._wIs = numpy.linspace(0.0, 1.0, nI3)
+        self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
+        self._Rinf = Rinf
+        self._Phiinf = evaluatePotentials(wrap, Rinf, 0.0, use_physical=False)
+        self._R0_cache = {}
+        self._E_tab = numpy.empty((nE, nLz))
+        self._ush_tab = numpy.empty((nE, nLz))
+        self._Ipl_tab = numpy.empty((nE, nLz))
+        self._Ish_tab = numpy.empty((nE, nLz))
+        I3s = numpy.empty((nE, nI3, nLz))
+        for iL, Lz in enumerate(self._Lzgrid):
+            circ = self._circular(Lz)
+            Ec = circ["Ec"]
+            for iE, wE in enumerate(self._wEs):
+                E = self._E_of_xL(wE**2, Lz)[0]
+                if iE == 0:
+                    ush = circ["uc"]
+                    Ipl = Ish = self._I3_planar(Ec, Lz)
+                else:
+                    ush = self._ushell(E, Lz)
+                    Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+                self._E_tab[iE, iL] = E
+                self._ush_tab[iE, iL] = ush
+                self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL] = Ipl, Ish
+                I3s[iE, :, iL] = Ipl + self._ys * (Ish - Ipl)
+        # the tori in (iE, iI, iL) order
+        self._Es = numpy.repeat(self._E_tab[:, None, :], nI3, axis=1).flatten()
+        self._Lzs = numpy.tile(self._Lzgrid, nE * nI3)
+        self._I3s = I3s.flatten()
+        return None
+
+    def _Emax(self, Lz):
+        """The grid's top energy at |L_z|: that of the planar orbit with
+        apocentre Rinf"""
+        return self._Phiinf + Lz**2 / (2.0 * self._Rinf**2)
+
+    def _R0(self, E, Rlo, Rhi):
+        """The apocentre of the planar orbit without angular momentum at
+        energy E, Phi(R_0, 0) = E, bracketed by [Rlo, Rhi]"""
+        return brentq(
+            lambda R: (
+                evaluatePotentials(self._staeckelwrap, R, 0.0, use_physical=False) - E
+            ),
+            Rlo,
+            Rhi,
+            xtol=1e-14,
+        )
+
+    def _RdPhi(self, R):
+        """R dPhi/dR in the plane, the derivative of the potential with
+        respect to ln R"""
+        return -R * evaluateRforces(self._staeckelwrap, R, 0.0, use_physical=False)
+
+    def _R0_edges(self, Lz):
+        """The apocentres R_0 of the planar orbit without angular momentum
+        at the grid's bottom and top energies at |L_z|, with R dPhi/dR at
+        each (the level-set rule gives d ln R_0/dL_z = (dE/dL_z)/[R_0
+        Phi'(R_0)]); cached. The bottom one lies above R_c, since E_c
+        exceeds Phi(R_c, 0) by the centrifugal term, and the top one just
+        beyond Rinf, by L_z^2 / (2 Rinf^2) in energy"""
+        if Lz not in self._R0_cache:
+            circ = self._circular(Lz)
+            R0c = self._R0(circ["Ec"], circ["Rc"], self._Rinf)
+            R0m = self._R0(self._Emax(Lz), self._Rinf, 10.0 * self._Rinf)
+            self._R0_cache[Lz] = (R0c, self._RdPhi(R0c), R0m, self._RdPhi(R0m))
+        return self._R0_cache[Lz]
+
+    def _E_of_xL(self, x, Lz):
+        """The grid's energy variable, analytic: E = Phi(R, 0) with ln R =
+        (1 - x) ln R_0(E_c) + x ln R_0(E_max), uniform in the logarithm of
+        the apocentre of the planar orbit without angular momentum; returns
+        E, dE/dx at fixed L_z, and dE/dL_z at fixed x, the latter through
+        the two edges' apocentres by the level-set rule, formed so that it
+        is exactly dE_c/dL_z at the circular face and dE_max/dL_z at the
+        top"""
+        R0c, g0c, R0m, g0m = self._R0_edges(Lz)
+        R = R0c * (R0m / R0c) ** x
+        g = self._RdPhi(R)
+        Omc = self._circular(Lz)["Omc"]
+        return (
+            evaluatePotentials(self._staeckelwrap, R, 0.0, use_physical=False),
+            g * numpy.log(R0m / R0c),
+            (1.0 - x) * Omc * (g / g0c) + x * (Lz / self._Rinf**2) * (g / g0m),
+        )
+
+    def _setup_tori_interp(self):
+        """The family's tables and their exact first partials at every
+        node, in the variables in which each quantity is smooth up to the
+        degenerate edges: the actions and the u midpoint in (x = w_E^2,
+        y = sin^2(pi w_I/2), L_z), in which they are smooth (the actions
+        vanish linearly at the edges); the u half-width and the u map in
+        (w_E, s_u = cos(pi w_I/2), L_z), the v half-width and the v map in
+        (w_E, s_v = sin(pi w_I/2), L_z), in which they vanish linearly at
+        their edges. The partials come from the node's period matrix, the
+        level-set rule, and the map slopes, chained through the grid's
+        analytic (E, I_3)(w_E, w_I, L_z) relation; on the degenerate faces
+        they are the harmonic limits."""
+        nE, nI, nL = len(self._wEs), len(self._wIs), len(self._Lzgrid)
+        npt, d2 = self._npt, self._delta**2
+        A_tab, A_dx, A_dy, A_dL = (numpy.zeros((nE, nI, nL, 3)) for _ in range(4))
+        U_tab, U_dwE, U_dsu, U_dL = (
+            numpy.zeros((nE, nI, nL, 1 + npt)) for _ in range(4)
+        )
+        V_tab, V_dwE, V_dsv, V_dL = (
+            numpy.zeros((nE, nI, nL, 1 + self._nptv)) for _ in range(4)
+        )
+        perr_u, perr_v = numpy.zeros((nE, nI, nL)), numpy.zeros((nE, nI, nL))
+        for ii in self._progress(range(nE * nI * nL), "node tables"):
+            iE, rest = divmod(ii, nI * nL)
+            iI, iL = divmod(rest, nL)
+            wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
+            if True:
+                y = self._ys[iI]
+                su, sv = numpy.cos(0.5 * numpy.pi * wI), numpy.sin(0.5 * numpy.pi * wI)
+                if True:
+                    node = self._node_tables(ii)
+                    perr_u[iE, iI, iL], perr_v[iE, iI, iL] = (
+                        node["perr_u"],
+                        node["perr_v"],
+                    )
+                    A_tab[iE, iI, iL] = [node["jr"], node["jz"], node["uc"]]
+                    U_tab[iE, iI, iL, 0], U_tab[iE, iI, iL, 1:] = (
+                        node["wu"],
+                        node["Dmu"],
+                    )
+                    V_tab[iE, iI, iL, 0], V_tab[iE, iI, iL, 1:] = (
+                        node["wv"],
+                        node["Dmv"],
+                    )
+                    circ = self._circular(Lz)
+                    Ec = circ["Ec"]
+                    E, ush = self._E_tab[iE, iL], self._ush_tab[iE, iL]
+                    Ipl, Ish = self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL]
+                    _, dE_dx, dE_dL = self._E_of_xL(wE**2, Lz)
+                    if iE == 0:
+                        # the circular face: both librations harmonic, with
+                        # J = (E - E_c) times the fraction the third integral
+                        # assigns to each, over its frequency; the
+                        # half-widths grow linearly in w_E out of the edge
+                        # and the maps vanish (their slopes come from the
+                        # next two rows, below)
+                        uc = circ["uc"]
+                        sqbu = numpy.sqrt(-0.5 * float(self._d2Wu(uc, Ec, Lz)))
+                        sqbv = numpy.sqrt(
+                            -0.5 * float(self._d2Wv(0.5 * numpy.pi, Ec, Lz))
+                        )
+                        ch2 = numpy.cosh(uc) ** 2
+                        A_dx[iE, iI, iL] = [
+                            dE_dx * (1.0 - y) * d2 * ch2 / sqbu,
+                            dE_dx * y * d2 * ch2 / sqbv,
+                            0.0,
+                        ]
+                        # the circular radius moves with L_z at the rate the
+                        # epicycle sets (L_z^2 = R_c^3 Phi'(R_c) gives dR_c/dL_z
+                        # = 2 L_z / [R_c^3 kappa^2])
+                        A_dL[iE, iI, iL, 2] = (
+                            2.0
+                            * Lz
+                            / (circ["Rc"] ** 3 * circ["kappa"] ** 2)
+                            / (self._delta * numpy.cosh(uc))
+                        )
+                        U_dwE[iE, iI, iL, 0] = (
+                            numpy.sqrt(2.0 * d2 * ch2 * dE_dx) / sqbu * su
+                        )
+                        V_dwE[iE, iI, iL, 0] = (
+                            numpy.sqrt(2.0 * d2 * ch2 * dE_dx) / sqbv * sv
+                        )
+                        continue
+                    sh2 = numpy.sinh(ush) ** 2
+                    dI_dE = y * (1.0 + sh2) - 1.0
+                    dI_dy = Ish - Ipl
+                    dI_dL = Lz / d2 * (1.0 - y * (1.0 + 1.0 / sh2))
+
+                    def chain(q):
+                        # (dq/dE, dq/dI_3, dq/dL_z) -> (dq/dx, dq/dy, dq/dL_z)
+                        # at fixed grid coordinates
+                        qE, qI, qL = q[..., 0], q[..., 1], q[..., 2]
+                        qx = (qE + qI * dI_dE) * dE_dx
+                        return qx, qI * dI_dy, qL + qI * dI_dL + qx / dE_dx * dE_dL
+
+                    M, dsup = node["M"], node["dsup"]
+                    udeg, vdeg = node["dDmu"] is None, node["dDmv"] is None
+                    if udeg:
+                        # the shell face: the u libration harmonic at the
+                        # shell u, its action and half-width vanishing
+                        # linearly in (1 - y) and in s_u
+                        sqbu = numpy.sqrt(-0.5 * float(self._d2Wu(ush, E, Lz)))
+                        A_dy[iE, iI, iL, 0] = -d2 * dI_dy / sqbu
+                        U_dsu[iE, iI, iL, 0] = numpy.sqrt(2.0 * d2 * dI_dy) / sqbu
+                    else:
+                        (
+                            A_dx[iE, iI, iL, 0],
+                            A_dy[iE, iI, iL, 0],
+                            A_dL[iE, iI, iL, 0],
+                        ) = chain(M[0])
+                        qx, qy, qL = chain(
+                            numpy.vstack((dsup[1][None, :], node["dDmu"]))
+                        )
+                        U_dwE[iE, iI, iL] = 2.0 * wE * qx
+                        U_dsu[iE, iI, iL] = -2.0 * su * qy
+                        U_dL[iE, iI, iL] = qL
+                    if vdeg:
+                        # the planar face: the v libration harmonic about
+                        # the midplane
+                        sqbv = numpy.sqrt(
+                            -0.5 * float(self._d2Wv(0.5 * numpy.pi, E, Lz))
+                        )
+                        A_dy[iE, iI, iL, 1] = d2 * dI_dy / sqbv
+                        V_dsv[iE, iI, iL, 0] = numpy.sqrt(2.0 * d2 * dI_dy) / sqbv
+                    else:
+                        (
+                            A_dx[iE, iI, iL, 1],
+                            A_dy[iE, iI, iL, 1],
+                            A_dL[iE, iI, iL, 1],
+                        ) = chain(M[1])
+                        qx, qy, qL = chain(
+                            numpy.vstack((dsup[2][None, :], node["dDmv"]))
+                        )
+                        V_dwE[iE, iI, iL] = 2.0 * wE * qx
+                        V_dsv[iE, iI, iL] = 2.0 * sv * qy
+                        V_dL[iE, iI, iL] = qL
+                    A_dx[iE, iI, iL, 2], A_dy[iE, iI, iL, 2], A_dL[iE, iI, iL, 2] = (
+                        chain(dsup[0])
+                    )
+        # the maps' coefficients vanish at the circular edge and grow
+        # linearly in w_E out of it (the first anharmonic correction of a
+        # libration is linear in its amplitude); their slope there is that
+        # of the quartic through zero and the next two rows, as the 1D
+        # family does at its harmonic bottom; likewise the u map at the
+        # shell face in s_u and the v map at the planar face in s_v. The u
+        # libration's midpoint leaves the shell u quadratically in the
+        # half-width (the cubic term of the momentum function skews the
+        # libration), i.e. linearly in x at the circular face and in y at
+        # the shell face, at rates the same quartics through the next two
+        # rows give
+        xs = self._wEs**2
+        A_dx[0, :, :, 2] = slope_at_zero(
+            xs[1:3], A_tab[1:3, :, :, 2] - A_tab[0, :, :, 2], A_dx[1:3, :, :, 2]
+        )
+        A_dy[:, -1, :, 2] = slope_at_zero(
+            self._ys[[-2, -3]] - 1.0,
+            numpy.moveaxis(A_tab[:, [-2, -3], :, 2:3], 1, 0)[..., 0]
+            - A_tab[:, -1, :, 2][None],
+            numpy.moveaxis(A_dy[:, [-2, -3], :, 2:3], 1, 0)[..., 0],
+        )
+        U_dwE[0, :, :, 1:] = slope_at_zero(
+            self._wEs[1:3], U_tab[1:3, :, :, 1:], U_dwE[1:3, :, :, 1:]
+        )
+        V_dwE[0, :, :, 1:] = slope_at_zero(
+            self._wEs[1:3], V_tab[1:3, :, :, 1:], V_dwE[1:3, :, :, 1:]
+        )
+        sus = numpy.cos(0.5 * numpy.pi * self._wIs)
+        svs = numpy.sin(0.5 * numpy.pi * self._wIs)
+        U_dsu[:, -1, :, 1:] = slope_at_zero(
+            sus[[-2, -3]],
+            numpy.moveaxis(U_tab[:, [-2, -3], :, 1:], 1, 0),
+            numpy.moveaxis(U_dsu[:, [-2, -3], :, 1:], 1, 0),
+        )
+        V_dsv[:, 0, :, 1:] = slope_at_zero(
+            svs[[1, 2]],
+            numpy.moveaxis(V_tab[:, [1, 2], :, 1:], 1, 0),
+            numpy.moveaxis(V_dsv[:, [1, 2], :, 1:], 1, 0),
+        )
+        self._perr_u_tab, self._perr_v_tab = perr_u, perr_v
+        self._A_tab, self._A_dx, self._A_dy, self._A_dL = A_tab, A_dx, A_dy, A_dL
+        self._U_tab, self._U_dwE, self._U_dsu, self._U_dL = U_tab, U_dwE, U_dsu, U_dL
+        self._V_tab, self._V_dwE, self._V_dsv, self._V_dL = V_tab, V_dwE, V_dsv, V_dL
+        self._warn_unresolved(perr_u.flatten(), self._Es, self._Lzs, self._I3s, "u")
+        self._warn_unresolved(perr_v.flatten(), self._Es, self._Lzs, self._I3s, "v")
+        self._rebuild_interp()
+        return None
+
+    def _rebuild_interp(self):
+        """(Re)build the interpolants from the stored tables: Hermite
+        interpolants, quintic along the energy variable and cubic along the
+        other two, all with their first partials exact at the nodes"""
+        wE, Lz = self._wEs, self._Lzgrid
+        self._A_ip = HermiteFamily3D(
+            wE**2, self._ys, Lz, self._A_tab, self._A_dx, self._A_dy, self._A_dL
+        )
+        # s_u = cos(pi w_I/2) decreases along the grid: the u tables are
+        # reversed along w_I so that their second variable increases
+        su = numpy.cos(0.5 * numpy.pi * self._wIs)[::-1]
+        self._U_ip = HermiteFamily3D(
+            wE,
+            su,
+            Lz,
+            self._U_tab[:, ::-1],
+            self._U_dwE[:, ::-1],
+            self._U_dsu[:, ::-1],
+            self._U_dL[:, ::-1],
+        )
+        sv = numpy.sin(0.5 * numpy.pi * self._wIs)
+        self._V_ip = HermiteFamily3D(
+            wE, sv, Lz, self._V_tab, self._V_dwE, self._V_dsv, self._V_dL
+        )
+        return None
+
     # ---------- evaluation: the manifest chain
+    def _check_Lz(self, ell):
+        """Raise for an angular momentum outside the family's grid"""
+        if ell < self._Lzgrid[0] or ell > self._Lzgrid[-1]:
+            raise ValueError(
+                f"|L_z| = {ell} outside the interpolation grid "
+                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]"
+            )
+        return None
+
+    def _interp_coords(self, jr, jz, ell):
+        """Solve the implicit inverse labels: the grid coordinates (x, y)
+        of the torus with actions (J_R, J_z) at |L_z|, by root-finding on
+        the stored action interpolants themselves -- exact-in-the-family,
+        so canonicity is untouched. A vanishing action puts the torus on
+        the corresponding face exactly."""
+
+        def A(x, y, **kw):
+            return self._A_ip(x, y, ell, **kw)[0, 0]
+
+        # the residual is relative to the actions, so that actions down to
+        # round-off above zero resolve to the edges' neighbourhood rather
+        # than to the edges themselves
+        tol = 1e-12 * (jr + jz)
+        for face, jother, k in ((1.0, jz, 1), (0.0, jr, 0)):
+            if (jr if k == 1 else jz) == 0.0:
+                top = A(1.0, face)[k]
+                if jother > top + tol:
+                    raise ValueError(
+                        f"(J_R, J_z) = ({jr}, {jz}) lies outside the interpolated "
+                        f"family at |L_z| = {ell}: above the covered actions "
+                        "(increase Rinf)"
+                    )
+                jother = min(jother, top)
+                # on a face, the root is found in w_E = sqrt(x), in which a
+                # tiny action resolves to a small w_E rather than to zero
+                wE = brentq(
+                    lambda ww: A(ww * ww, face)[k] - jother, 0.0, 1.0, xtol=1e-15
+                )
+                return wE * wE, face
+        # Newton on the total action and on the vertical fraction of it,
+        # both of which the grid coordinates control at every scale: near
+        # the circular edge both actions vanish with x and their fraction
+        # alone fixes y, so a Newton on the actions themselves would have a
+        # degenerate direction there
+        jtot, frac = jr + jz, jz / (jr + jz)
+        x, y = 0.5, min(max(frac, 0.02), 0.98)
+        for attempt in range(2):
+            for _ in range(60):
+                v = A(x, y)
+                tot = v[0] + v[1]
+                G = numpy.array([tot / jtot - 1.0, v[1] / tot - frac])
+                if numpy.max(numpy.fabs(G)) < 1e-12:
+                    return x, y
+                vx, vy = A(x, y, dx=1), A(x, y, dy=1)
+                Gx = numpy.array(
+                    [
+                        (vx[0] + vx[1]) / jtot,
+                        (vx[1] * tot - v[1] * (vx[0] + vx[1])) / tot**2,
+                    ]
+                )
+                Gy = numpy.array(
+                    [
+                        (vy[0] + vy[1]) / jtot,
+                        (vy[1] * tot - v[1] * (vy[0] + vy[1])) / tot**2,
+                    ]
+                )
+                det = Gx[0] * Gy[1] - Gy[0] * Gx[1]
+                dx = -(Gy[1] * G[0] - Gy[0] * G[1]) / det
+                dy = -(-Gx[1] * G[0] + Gx[0] * G[1]) / det
+                lim = min(1.0, 0.3 / max(numpy.fabs(dx), numpy.fabs(dy), 1e-300))
+                x = min(max(x + lim * dx, 0.0), 1.0)
+                y = min(max(y + lim * dy, 0.0), 1.0)
+            if attempt == 0:
+                # restart from the best point of a coarse scan
+                xs, ys = numpy.meshgrid(
+                    numpy.linspace(0.05, 1.0, 12), numpy.linspace(0.0, 1.0, 12)
+                )
+                res = [
+                    numpy.sum(numpy.fabs(A(xx, yy)[:2] - [jr, jz]))
+                    for xx, yy in zip(xs.flatten(), ys.flatten())
+                ]
+                k = int(numpy.argmin(res))
+                x, y = xs.flatten()[k], ys.flatten()[k]
+        top = max(numpy.sum(A(1.0, yy)[:2]) for yy in numpy.linspace(0.0, 1.0, 33))
+        raise ValueError(
+            f"(J_R, J_z) = ({jr}, {jz}) could not be matched inside the "
+            f"interpolated family at |L_z| = {ell}"
+            + (
+                f": its total action lies above the covered {top:g} (increase Rinf)"
+                if jr + jz > top
+                else ""
+            )
+        )
+
+    def _interp_tables(self, jr, jz, Lz):
+        """The family's tables of the (J_R, J_z, L_z) torus with their
+        derivatives along the three action chains, all the interpolants'
+        own: the implicit inverse labels, the frequencies from the action
+        interpolants' partials, and the turning points and the maps chained
+        from their own variables. A vanishing action leaves its libration
+        degenerate, with no chain."""
+        ell, sgn = numpy.fabs(Lz), numpy.sign(Lz)
+        self._check_Lz(ell)
+        x, y = self._interp_coords(jr, jz, ell)
+        A = self._A_ip(x, y, ell)[0, 0]
+        Ax = self._A_ip(x, y, ell, dx=1)[0, 0]
+        Ay = self._A_ip(x, y, ell, dy=1)[0, 0]
+        AL = self._A_ip(x, y, ell, dz=1)[0, 0]
+        # d(x, y, |L_z|)/d(J_R, J_z, J_phi), from the action interpolants'
+        # partials (J_phi = L_z moves |L_z| with the sign of L_z)
+        det = Ax[0] * Ay[1] - Ay[0] * Ax[1]
+        N = numpy.zeros((3, 3))
+        N[0, 0], N[0, 1] = Ay[1] / det, -Ay[0] / det
+        N[1, 0], N[1, 1] = -Ax[1] / det, Ax[0] / det
+        N[0, 2] = -(N[0, 0] * AL[0] + N[0, 1] * AL[1]) * sgn
+        N[1, 2] = -(N[1, 0] * AL[0] + N[1, 1] * AL[1]) * sgn
+        N[2, 2] = sgn
+        circ = self._circular(ell)
+        _, dE_dx, dE_dL = self._E_of_xL(x, ell)
+        tab = {
+            "Om": dE_dx * N[0] + dE_dL * N[2],
+            "uc": A[2],
+            "duc": Ax[2] * N[0] + Ay[2] * N[1] + AL[2] * N[2],
+            "udeg": jr == 0.0,
+            "vdeg": jz == 0.0,
+        }
+        wE = numpy.sqrt(x)
+        for deg, ip, s, fs, key in (
+            ("udeg", self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u"),
+            ("vdeg", self._V_ip, numpy.sqrt(y), 1.0, "v"),
+        ):
+            if tab[deg]:
+                npt = self._npt if key == "u" else self._nptv
+                tab["w" + key], tab["dw" + key] = 0.0, numpy.zeros(3)
+                tab["Dm" + key] = numpy.zeros(npt)
+                tab["dDm" + key] = numpy.zeros((npt, 3))
+                continue
+            T = ip(wE, s, ell)[0, 0]
+            TwE = ip(wE, s, ell, dx=1)[0, 0]
+            Ts = ip(wE, s, ell, dy=1)[0, 0]
+            TL = ip(wE, s, ell, dz=1)[0, 0]
+            # chains through the tables' own variables, w_E = sqrt(x) and
+            # s = sqrt(1 - y) or sqrt(y), whose derivatives diverge only at
+            # the faces on which this libration is degenerate
+            dT = (
+                TwE[:, None] * N[0][None, :] / (2.0 * wE)
+                + Ts[:, None] * N[1][None, :] * fs / (2.0 * s)
+                + TL[:, None] * N[2][None, :]
+            )
+            tab["w" + key], tab["dw" + key] = T[0], dT[0]
+            tab["Dm" + key], tab["dDm" + key] = T[1:], dT[1:]
+        return tab
+
     def _explicit_tables(self, ii):
         """An explicit torus is a one-node family: its own values and exact
         slopes stand in for the interpolants', the slopes in (E, I_3, L_z)
@@ -1223,17 +1760,48 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         E = conversion.parse_energy(E, vo=self._vo)
         Lz = conversion.parse_angmom(Lz, ro=self._ro, vo=self._vo)
         I3 = conversion.parse_energy(I3, vo=self._vo)
-        dev = (
-            numpy.fabs(self._Es - E)
-            + numpy.fabs(self._Lzs - Lz)
-            + numpy.fabs(self._I3s - I3)
-        )
-        ii = numpy.argmin(dev)
-        if dev[ii] > 1e-10 * (1.0 + numpy.fabs(E) + numpy.fabs(Lz) + numpy.fabs(I3)):
-            raise ValueError(
-                f"(E, L_z, I_3) = ({E}, {Lz}, {I3}) is not one of the set-up tori"
+        if not self._interp:
+            dev = (
+                numpy.fabs(self._Es - E)
+                + numpy.fabs(self._Lzs - Lz)
+                + numpy.fabs(self._I3s - I3)
             )
-        return self._jrs[ii], self._jzs[ii]
+            ii = numpy.argmin(dev)
+            if dev[ii] > 1e-10 * (
+                1.0 + numpy.fabs(E) + numpy.fabs(Lz) + numpy.fabs(I3)
+            ):
+                raise ValueError(
+                    f"(E, L_z, I_3) = ({E}, {Lz}, {I3}) is not one of the set-up "
+                    "tori; to use interpolation, initialize with setup_interp=True"
+                )
+            return self._jrs[ii], self._jzs[ii]
+        ell = numpy.fabs(Lz)
+        self._check_Lz(ell)
+        circ = self._circular(ell)
+        Ec, Emax = circ["Ec"], self._Emax(ell)
+        tol = 1e-12 * (Emax - Ec)
+        if E < Ec - tol or E > Emax + tol:
+            raise ValueError(
+                f"E = {E} outside the interpolation grid at |L_z| = {ell}: [{Ec}, {Emax}]"
+            )
+        if E < Ec + tol:
+            # the circular orbit, to the tolerance of the torus construction
+            return 0.0, 0.0
+        # the normalized energy from the apocentre of the planar orbit
+        # without angular momentum at E
+        R0c, _, R0m, _ = self._R0_edges(ell)
+        R0 = self._R0(min(E, Emax), R0c, R0m)
+        x = min(numpy.log(R0 / R0c) / numpy.log(R0m / R0c), 1.0)
+        ush = self._ushell(E, ell)
+        Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
+        y = (I3 - Ipl) / (Ish - Ipl)
+        if y < -1e-10 or y > 1.0 + 1e-10:
+            raise ValueError(
+                f"I_3 = {I3} outside the interpolation grid at (E, |L_z|) = "
+                f"({E}, {ell}): [{Ipl}, {Ish}]"
+            )
+        A = self._A_ip(x, min(max(y, 0.0), 1.0), ell)[0, 0]
+        return A[0], A[1]
 
     @conversion.physical_conversion("action", pop=True)
     def JR(self, E, Lz, I3, **kwargs):
@@ -1257,7 +1825,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
         Notes
         -----
-        - (E, L_z, I_3) must be one of the set-up tori.
+        - For an interpolating instance (setup_interp=True), any (E, L_z,
+          I_3) within the grid, read from the family's own action
+          interpolant (exact at the nodes); for an instance set up with
+          explicit tori, (E, L_z, I_3) must be one of them.
         - 2026-09-24 - Written - Bovy (UofT)
         """
         return self._actions_from_integrals(E, Lz, I3)[0]
@@ -1290,7 +1861,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._actions_from_integrals(E, Lz, I3)[1]
 
     def _tables(self, jr, jz, Lz):
-        """The tables of the requested torus"""
+        """The tables of the requested torus, from the family or from the
+        explicit tori"""
+        if self._interp:
+            return self._interp_tables(jr, jz, Lz)
         return self._explicit_tables(self._match_node(jr, jz, Lz))
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
@@ -1319,7 +1893,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # azimuthal angle (the auxiliary's angle relations give phi =
             # theta_phi there), with the epicycle, circular, and vertical
             # frequencies
-            self._match_node(jr, jz, Lz)
+            if self._interp:
+                self._check_Lz(numpy.fabs(Lz))
+            else:
+                self._match_node(jr, jz, Lz)
             circ = self._circular(Lz)
             Rc = circ["Rc"]
             return (
@@ -1400,12 +1977,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
-        """Frequencies of the (J_R, J_z, L_z) torus: the torus's own period
-        matrix"""
+        """Frequencies of the (J_R, J_z, L_z) torus: in interpolation mode
+        the stored action interpolants' own partials through the label
+        chain (the integrator contract); for explicit tori the torus's own
+        period matrix"""
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         Lz = jphi
         if jr == 0.0 and jz == 0.0:
-            self._match_node(jr, jz, Lz)
+            if self._interp:
+                self._check_Lz(numpy.fabs(Lz))
+            else:
+                self._match_node(jr, jz, Lz)
             circ = self._circular(Lz)
             return (circ["kappa"], numpy.sign(Lz) * circ["Omc"], circ["nu"])
         Om = self._tables(jr, jz, Lz)["Om"]

@@ -127,21 +127,41 @@ v1.12.1 (expected around 2026-11-01)
   ``KuzminKutuzovStaeckelPotential``), or ``delta=`` wraps a general
   axisymmetric potential in the Staeckel approximation. Tori are given as
   explicit (E, L_z, I_3) triples (the third integral in the convention of
-  the separated momenta with the gauge V(pi/2) = 0), each a one-node
-  family with its own exact slopes; ``JR(E, Lz, I3)`` and ``Jz(E, Lz, I3)``
-  give a torus's actions; ``Freqs`` returns its frequencies, from its
-  period matrix; the isochrone auxiliary is fitted to the potential's
-  rotation curve unless given (``auxiliary=``), and is the ``auxiliary``
-  attribute either way. The circular orbit evaluates in closed form with
-  the epicycle, circular, and vertical frequencies. Evaluation solves the
-  two angle relations for the anomaly pair by a triangular Newton iteration
-  on the auxiliary's angles, reconstructs the point from the two
-  librations, and takes the azimuth from the auxiliary's angle relations.
-  A warning is raised when a map does not resolve a torus (the u map needs
-  harmonics of the order of a torus's ratio of outer to inner radius in
-  the plane, the v map of the order of L / |L_z| as the torus approaches a
-  polar orbit), and a torus that reaches beyond the depth of the fitted
-  auxiliary raises with the same advice.
+  the separated momenta with the gauge V(pi/2) = 0) or as a grid with
+  ``setup_interp=True`` (angular momenta of the circular orbits between
+  ``Rmin`` and ``Rmax``, energies from the circular orbit's to that of the
+  planar orbit with apocentre ``Rinf``, uniform in the logarithm of the
+  apocentre of the planar orbit without angular momentum -- the energy
+  itself for a logarithmic potential, and a spacing compressed toward the
+  top where an escape energy makes every apocentre diverge -- third
+  integrals from the planar orbit's to the shell orbit's, quadratically
+  spaced at every degenerate edge), with ``JR(E, Lz, I3)`` and ``Jz(E,
+  Lz, I3)`` giving a torus's
+  actions; ``Freqs`` returns the frequencies of the returned orbits; the
+  isochrone auxiliary is fitted to the potential's rotation curve unless
+  given (``auxiliary=``), and is the ``auxiliary`` attribute either way.
+  The family's tables are Hermite interpolants in three variables (quintic
+  along the energy variable, cubic along the other two) whose first
+  partials are exact at every node: the actions' from the node's period
+  matrix, the turning points' from the level-set rule, and the anomaly
+  maps' from the variation of the matching condition on each torus alone,
+  chained through the grid's analytic (E, I_3)(w_E, w_I, L_z) relation;
+  the degenerate faces (circular, shell, and planar orbits) carry their
+  harmonic limits, so the family reaches vanishing actions continuously,
+  and the circular orbit itself evaluates in closed form with the epicycle,
+  circular, and vertical frequencies. Evaluation solves the two angle
+  relations for the anomaly pair by a triangular Newton iteration on the
+  auxiliary's angles, reconstructs the point from the two librations, and
+  takes the azimuth from the auxiliary's angle relations. A warning is
+  raised when a map does not resolve a torus (the u map needs harmonics of
+  the order of a torus's ratio of outer to inner radius in the plane, the
+  v map of the order of L / |L_z| as the torus approaches a polar orbit),
+  and a torus that reaches beyond the depth of the fitted auxiliary raises
+  with the same advice. As for the spherical inverse, the auxiliary's
+  cumulative actions are closed forms with their linear parts gathered, the
+  maps' projections and evaluations on the anomaly grid are FFTs, and the
+  slopes are solved by a Galerkin projection; ``progressbar=`` (default
+  True) shows tqdm bars over the tori.
 
 - ``actionAngleStaeckel`` takes the focal length from a potential that
   supplies its own when ``delta=`` is not given: an exact Staeckel potential
