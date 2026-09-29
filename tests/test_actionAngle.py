@@ -5402,7 +5402,6 @@ def test_actionAngleStaeckel_smallu():
 # Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved and ecc etc., bc takes a lot of time)
 def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     from galpy.actionAngle import actionAngleStaeckelGrid
-    from galpy.backend import name_of_namespace, resolve_namespace
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
 
@@ -5418,19 +5417,10 @@ def test_actionAngleStaeckelGrid_basicAndConserved_actions():
         "Circular orbit in the MWPotential does not have Jz=0"
     )
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    # `e` here is the one absolute bar in this file that a backend cannot meet:
-    # it asks a COMPUTED eccentricity to vanish to 1e-16 -- machine epsilon on
-    # an O(1) quantity -- which holds only if the arithmetic associates exactly
-    # as numpy's does. torch measures 1.5305e-10, i.e. accumulated rounding in
-    # the interpolated-grid eccentricity, not a wrong answer. numpy keeps 1e-16.
-    #
-    # Only this one moves. JR/Jz/zmax around it, and the seven sibling
-    # "does not have e=0" assertions elsewhere in this file, are all measured to
-    # clear 1e-16 on every backend, so they stay as they are -- the ledger lists
-    # exactly this nodeid and no other.
-    ecc_tol = (
-        10.0**-16.0 if name_of_namespace(resolve_namespace()) == "numpy" else 10.0**-9.0
-    )
+    # e = 0 exactly on every backend: the backend turning-point solve snaps a
+    # pair it cannot resolve from f's rounding noise to circular (it used to
+    # leave e ~ 1e-10 .. 3e-8 in the grid's circular row, CPU-dependent)
+    ecc_tol = 10.0**-16.0
     assert numpy.fabs(te) < ecc_tol, (
         "Circular orbit in the MWPotential does not have e=0"
     )
