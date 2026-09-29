@@ -271,14 +271,26 @@ class _PVRInterpolator:
             raise AttributeError(name)
         return getattr(self._numpy_spline(), name)
 
-    def __call__(self, X, Y, grid=False):
-        """Evaluate ``v/vesc`` at query points ``(X, Y)`` (paired elementwise).
+    def __call__(self, X, Y, grid=True):
+        """Evaluate ``v/vesc`` at ``(X, Y)``: on the grid ``X x Y`` (``grid=True``,
+        scipy's default) or paired elementwise (``grid=False``).
 
         A numpy ``X`` delegates to the scipy spline (byte-identical); a backend
         ``X`` runs the native bilinear interpolation."""
         if not is_backend_array(X):
             return self._numpy_spline()(X, Y, grid=grid)
         xp = get_namespace(X)
+        if grid:
+            X = xp.reshape(X, (-1,))
+            Y = xp.reshape(
+                Y if is_backend_array(Y) else as_backend_constant(xp, Y, X), (-1,)
+            )
+            shape = (X.shape[0], Y.shape[0])
+            return self(
+                xp.broadcast_to(X[:, None], shape),
+                xp.broadcast_to(Y[None, :], shape),
+                grid=False,
+            )
         if self._xmap is not None:
             lo, hi, lo_b, hi_b = self._xmap
             X = lo + (X - lo_b) * ((hi - lo) / (hi_b - lo_b))
