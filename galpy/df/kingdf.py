@@ -12,6 +12,7 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend._namespaces import (
+    cummax,
     has_concrete_truth_value,
     name_of_namespace,
     namespace_from_arrays,
@@ -20,6 +21,7 @@ from ..backend._namespaces import (
     under_trace,
     untraceable_setup,
 )
+from ..backend._tracectx import is_compiling
 from ..backend.autodiff import graft_derivative
 from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
@@ -195,27 +197,38 @@ class kingdf(isotropicsphericaldf):
         return xp.where(live, fE, xp.zeros_like(fE)).reshape(Eb.shape)
 
 
+def _solve(kdf, W0, npt):
+    """_scalefreekingdf.solve's dispatch, in a frame that holds the tensor W0:
+    dynamo skips solve's own (tensor-free) frame and runs it eagerly, where
+    is_compiling() is False and scipy would always be picked."""
+    # jax.jit / torch.compile: no value to hand scipy, so solve in-backend
+    # (is_compiling first: bool() on a compiled tensor is a graph break)
+    if is_backend_array(W0) and (
+        is_compiling() or not has_concrete_truth_value(W0 == W0)
+    ):
+        return kdf._solve_traced(npt)
+    return kdf._solve_scipy(npt)
+
+
 class _scalefreekingdf:
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
 
     def __init__(self, W0):
         self.W0 = W0
 
-    @untraceable_setup  # torch.compile: run the scipy solve eagerly (opaque)
     def solve(self, npt=1001):
         """Solve the model W(r) at npt points (note: not equally spaced in
         either r or W, because combination of two ODEs for different r ranges)"""
+        return _solve(self, self.W0, npt)
+
+    @untraceable_setup  # torch.compile, constant (non-tensor) W0: opaque solve
+    def _solve_scipy(self, npt):
         # Set up arrays for outputs
         r = numpy.zeros(npt)
         W = numpy.zeros(npt)
         dWdr = numpy.zeros(npt)
         # A differentiated W0 is solved on its value; d/dW0 is grafted on
         # afterwards from the forward sensitivities (_graft_W0_derivative)
-        if is_backend_array(self.W0) and not has_concrete_truth_value(
-            self.W0 == self.W0
-        ):
-            # jax.jit: no value to hand scipy, so solve with diffrax (traced W0)
-            return self._solve_traced(npt)
         W0 = (
             float(as_numpy(stop_gradient(self.W0)))
             if is_backend_array(self.W0)
@@ -294,22 +307,24 @@ class _scalefreekingdf:
         return None
 
     def _solve_traced(self, npt):
-        """solve() under jax.jit: the same two ODE segments with diffrax, so W0
-        (and with it rbreak, the second segment's start and both output grids)
-        can be traced; d/dW0 is AD through the discretized solve."""
-        import jax
-
-        from ..backend._jax.king_ode import solve as _king_solve
-
+        """solve() under jax.jit / torch.compile: the same two ODE segments with
+        diffrax / torchode, so W0 (and with it rbreak, the second segment's start
+        and both output grids) can be traced; d/dW0 is AD through the
+        discretized solve."""
+        xp = namespace_from_arrays((self.W0,))
+        if name_of_namespace(xp) == "torch":
+            from ..backend._torch.king_ode import solve as _king_solve
+        else:
+            from ..backend._jax.king_ode import solve as _king_solve
         self.rho0, self.r0, r, W, dWdr = _king_solve(self._dens_W, self.W0, npt)
         self._r, self._W, self._dWdr = r, W, dWdr
         self._rho = self._dens_W(W)
         self.rt = r[-1]
-        self.c = jax.numpy.log10(self.rt / self.r0)
+        self.c = xp.log10(self.rt / self.r0)
         self._W_from_r = Spline1D(r, W, k=3)
         # the eager repair of small decreases (cm[i] = cm[i-1] + 2 eps) as a
         # running maximum: equal up to ~npt eps where it bites at all
-        self._cumul_mass = jax.lax.cummax(-dWdr * r**2.0)
+        self._cumul_mass = cummax(xp, -dWdr * r**2.0)
         self.mass = self._cumul_mass[-1]
         return None
 

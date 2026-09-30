@@ -12,8 +12,8 @@
 # (XPASS), so the entry is removed in the fixing PR. Workflows already compiled
 # elsewhere are not repeated: jax.jit of spray sample/track
 # (test_backend_streamspraydf), torch.compile of the C integrators
-# (test_backend_orbit_stm) and of torchode (test_backend_torchode), kingdf W0
-# (test_backend_kingdf).
+# (test_backend_orbit_stm) and of torchode (test_backend_torchode), jax.jit of
+# kingdf W0 (test_backend_kingdf).
 ###############################################################################
 import importlib
 import warnings
@@ -24,7 +24,7 @@ import pytest
 import galpy.backend
 from galpy.actionAngle import actionAngleSpherical, actionAngleStaeckel
 from galpy.backend import random as grandom
-from galpy.df import fardal15spraydf, isotropicHernquistdf, quasiisothermaldf
+from galpy.df import fardal15spraydf, isotropicHernquistdf, kingdf, quasiisothermaldf
 from galpy.orbit import Orbit
 from galpy.potential import (
     HernquistPotential,
@@ -125,6 +125,13 @@ def sphericaldf_sample(bk, x):
     return (R + vR**2).sum()
 
 
+def kingdf_W0(bk, x):
+    # W0 changes the King ODE solution: compiled, it is solved in-backend
+    with galpy.backend.use(bk, force=True):
+        d = kingdf(W0=x, M=2.3, rt=1.4)
+        return d.fE(_arr(bk, [-3.0, -2.0])).sum() + d.dens(_arr(bk, 0.4))
+
+
 def qdf_density(bk, x):
     aA = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.5)
     q = quasiisothermaldf(
@@ -169,6 +176,7 @@ _CASES = [
     ("jax", actions_spherical, 2.0, ()),
     ("torch", sphericaldf_sample, 1.7, ()),
     ("jax", sphericaldf_sample, 1.7, ()),
+    ("torch", kingdf_W0, 3.0, ()),
     ("torch", qdf_density, 1.0, ()),
     ("jax", qdf_density, 1.0, ()),
     ("torch", qdf_constructor_parameters, 1.0, ()),
@@ -181,7 +189,14 @@ _CASES = [
     ("torch-inductor", spray_sample, 1.1, ()),
     ("torch-inductor", spray_track, 1.1, ()),
     ("torch-inductor", qdf_constructor_parameters, 1.0, ()),
+    ("torch-inductor", kingdf_W0, 3.0, ()),
 ]
+
+# kingdf W0: eager solves the King ODE with scipy (+ a forward-sensitivity graft),
+# compiled with torchode, both at rtol=1e-10; they agree to that floor (measured
+# 8.0e-12 value, 8.5e-9 grad, dynamo-only and inductor alike; compiled vs the
+# same torchode recipe run eagerly is round-off, test_backend_kingdf).
+_RTOL = {"kingdf_W0": (1e-10, 3e-8)}
 
 
 def _compiled(bk, workflow, x0):
@@ -232,6 +247,9 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0, monkeypatch):
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
     # inductor's generated kernels vectorize per CPU: spray_track measured
     # 1.3e-13 here, 2.0e-12 on a CI runner (same torch)
-    rtol_v, rtol_g = (1e-11, 1e-9) if bk == "torch-inductor" else (1e-12, 1e-10)
+    rtol_v, rtol_g = _RTOL.get(
+        workflow.__name__,
+        (1e-11, 1e-9) if bk == "torch-inductor" else (1e-12, 1e-10),
+    )
     numpy.testing.assert_allclose(float(vc), float(ve), rtol=rtol_v)
     numpy.testing.assert_allclose(float(gc), float(ge), rtol=rtol_g)
