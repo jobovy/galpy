@@ -53,6 +53,7 @@ from .streamTrack import StreamTrack
 if _APY_LOADED:
     from astropy import units
 _INTERPDURINGSETUP = True
+_TRACK_STEPS_PER_PERIOD = 100  # backend track AA solves; see _shared_step_aA
 _USEINTERP = True
 _USESIMPLE = True
 # Fixed Gauss-Legendre order for the backend (jax/torch) path of the stripping-
@@ -493,6 +494,15 @@ class streamdf(df):
                 dOdJ=True,
                 _initacfs=acfs,
             )
+        # shortest progenitor period (python float; None when traced): sets the
+        # constant step count of the backend track's vmapped action-angle solves
+        self._progenitor_Tmin = (
+            None
+            if under_trace(self._progenitor_Omega)
+            else 2.0
+            * numpy.pi
+            / float(numpy.max(numpy.fabs(as_numpy(self._progenitor_Omega))))
+        )
         # get_namespace resolves the AMBIENT namespace, so under a forced backend
         # it is the backend even for a numpy dO/dJ -- COERCE onto it rather than
         # data-guarding back to numpy, so the forced suite exercises the backend
@@ -1661,8 +1671,8 @@ class streamdf(df):
         return None
 
     def _determine_stream_track_backend(self):
-        """Backend (jax/torch) stream track: pure, ``jax.lax.map``-mapped
-        (fork-free -- no ``parallel_map``), differentiable end-to-end.
+        """Backend (jax/torch) stream track: pure, ``jax.vmap``-batched over the
+        chunks (fork-free -- no ``parallel_map``), differentiable end-to-end.
 
         Mirrors the numpy body: a per-chunk phase-space point ``xv0`` (from the
         backend-integrated auxiliary orbit, then from the previous ``ObsTrack``
@@ -1692,6 +1702,9 @@ class streamdf(df):
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         xp = get_namespace(xv0_prog)
         method = inbackend_ode_method(xp)
+        # every action-angle evaluation below uses shared constant steps (jax), so
+        # the vmapped chunk loop differentiates exactly (see _vmap_track_chunks)
+        aA = _shared_step_aA(self._aA, xp, getattr(self, "_progenitor_Tmin", None))
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs
@@ -1700,7 +1713,7 @@ class streamdf(df):
         # / _dsigomeanProgDirection, the frequency-covariance eigendecomposition) stay
         # constant here (a later differentiable-__init__ phase); their param-dependence
         # is subdominant. Values match the stored constants (value parity preserved).
-        pacfs = self._aA.actionsFreqsAngles(*[xv0_prog[i] for i in range(6)])
+        pacfs = aA.actionsFreqsAngles(*[xv0_prog[i] for i in range(6)])
         progenitor_Omega = xp.stack([xp.reshape(pacfs[i], ()) for i in (3, 4, 5)])
         progenitor_angle = xp.stack([xp.reshape(pacfs[i], ()) for i in (6, 7, 8)])
         self._progenitor_Omega = progenitor_Omega  # meanOmega reads this
@@ -1711,7 +1724,7 @@ class streamdf(df):
         # prog_stream_offset at zero angle: an un-integrated backend orbit's
         # accessors are numpy/grad-dead, so use its _ic_backend directly (== o(0)).
         prog_offset = _determine_stream_track_single_backend(
-            self._aA,
+            aA,
             xv0_prog,
             progenitor_angle,
             self._sigMeanSign,
@@ -1750,7 +1763,7 @@ class streamdf(df):
                 auxiliaryTrack.phi(0.0),
             ]
         )
-        aux_acfs = self._aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
+        aux_acfs = aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
         auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
         dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
         # |progenitor / auxiliary| frequency along dOmega (the abs cancels the numpy
@@ -1759,7 +1772,7 @@ class streamdf(df):
             xp.sum(progenitor_Omega * dsig) / xp.sum(auxiliary_Omega * dsig)
         )
         # per-chunk points from the integrated aux orbit (array-time accessor is
-        # grad-connected); mapped (lax.map) -- NO parallel_map/fork, NO item-assign.
+        # grad-connected); vmapped -- NO parallel_map/fork, NO item-assign.
         times = xp.asarray(self._trackts[: self._nTrackChunks]) * factor
         xv0_all = xp.stack(
             [
@@ -1778,7 +1791,7 @@ class streamdf(df):
 
         def single(xv0, th):
             return _determine_stream_track_single_backend(
-                self._aA,
+                aA,
                 xv0,
                 progenitor_angle,
                 self._sigMeanSign,
@@ -5116,29 +5129,42 @@ class streamdf(df):
         return u * as_backend_constant(xp, self._tdisrupt, u)
 
 
+def _shared_step_aA(aA, xp, Tmin):
+    """jax: a shallow copy of ``aA`` whose in-backend orbit solves take SHARED
+    constant steps, which ``_vmap_track_chunks`` needs for an exact gradient.
+
+    An explicit ``integrate_kwargs['nsteps']`` wins; else
+    ``_TRACK_STEPS_PER_PERIOD`` steps per shortest progenitor period ``Tmin``
+    over ``tintJ`` (track values within ~1e-12 of the adaptive solve), or one
+    step per ``tsJ`` sample when ``Tmin`` is unknown (a traced setup). A C-STM
+    (dxdv C method) aA ignores these in-backend options; torch is unchanged
+    (torchdiffeq takes no ``nsteps``).
+    """
+    if name_of_namespace(xp) != "jax" or not hasattr(aA, "_integrate_kwargs"):
+        return aA
+    kw = dict(aA._integrate_kwargs or {})
+    if "nsteps" not in kw:
+        kw["nsteps"] = (
+            len(aA._tsJ) - 1
+            if Tmin is None
+            else int(numpy.ceil(_TRACK_STEPS_PER_PERIOD * aA._tintJ / Tmin))
+        )
+    out = copy.copy(aA)
+    out._integrate_kwargs = kw
+    return out
+
+
 def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     """Map the per-chunk backend track assembly over ``(xv0_all, thetasTrack)``.
 
-    jax: ``jax.lax.map`` -- fork-free (no ``parallel_map``), jit-compatible, no
-    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``, but the
-    reason is NOT that jacrev cannot be batched -- it can (root-caused
-    2026-08-19; the earlier note here blamed jacrev batching and was wrong).
-
-    ``single`` calls ``calcaAJac`` = ``jax.jacrev`` of the AA map over a diffrax
-    integration, and the track's outer d/d(parameter) then differentiates THAT,
-    so the solve runs under diffrax's ``DirectAdjoint``, which differentiates the
-    solver's own operations. The default step-size controller is ADAPTIVE, so
-    under ``jax.vmap`` the batch elements choose different step sequences and the
-    batched reverse pass is wrong by 2-13% (growing with integration time) while
-    the forward value stays right to 1e-10 -- which is exactly why this looked
-    like a silent gradient drop. ``lax.map`` runs the chunks sequentially, so the
-    steps are never batched and the gradient is exact (matches a finite
-    difference of the same track to ~1e-4; measured 0.09% end-to-end).
-
-    Passing ``nsteps`` (constant stepping) to the in-backend ODE removes the
-    step-size dependence and makes the batched Jacobian exact to ~1e-11, so a
-    vmap'd chunk loop becomes viable; see
-    ``test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax``.
+    jax: ``jax.vmap`` -- fork-free, jit-compatible, batched. ``single`` calls
+    ``calcaAJac`` (``jax.jacrev`` of the AA map over a diffrax solve) and the
+    track's outer d/d(parameter) differentiates THAT, through diffrax's
+    ``DirectAdjoint``. With ADAPTIVE steps the batch elements take different step
+    sequences and that batched reverse pass is wrong (d/dq of the track ~7% off)
+    while the values stay right; the caller therefore hands ``single`` a
+    ``_shared_step_aA`` (identical constant steps across the batch -> exact). A
+    C-STM aA batches through a sequential host callback (first-order only).
 
     torch: a Python stack of per-chunk calls (torch.func.vmap cannot trace the
     torchdiffeq custom-autograd orbit). Returns a 6-tuple of stacked arrays.
@@ -5146,7 +5172,7 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     if name_of_namespace(xp) == "jax":
         import jax
 
-        return jax.lax.map(lambda a: single(a[0], a[1]), (xv0_all, thetasTrack))
+        return jax.vmap(single)(xv0_all, thetasTrack)
     outs = [single(xv0_all[ii], thetasTrack[ii]) for ii in range(xv0_all.shape[0])]
     return tuple(xp.stack([o[k] for o in outs], axis=0) for k in range(6))
 
@@ -5245,7 +5271,7 @@ def _determine_stream_track_single_backend(
     ``xv0`` is the (R,vR,vT,z,vz,phi) backend point at this chunk. Pure function
     of its inputs (no numpy item-assignment/empty): every array is built with
     ``xp.stack``/``xp.concat`` so it is differentiable and map-ready (Phase B.3 --
-    ``_determine_stream_track_backend`` ``jax.lax.map``s this over the chunk grid).
+    ``_determine_stream_track_backend`` ``jax.vmap``s this over the chunk grid).
     Returns a plain tuple of backend arrays (the numpy path keeps its
     ``dtype=object`` array); the caller unpacks ``multiOut[0..5]`` for both.
     """

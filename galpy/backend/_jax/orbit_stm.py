@@ -42,7 +42,9 @@ def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
             _host,
             (jax.ShapeDtypeStruct(nx, v.dtype), jax.ShapeDtypeStruct(nxx, v.dtype)),
             v,
-            vmap_method="expand_dims",
+            # one host call per batch element: "expand_dims" hands a vmapped
+            # (N, 6) batch to the host as (B, N, 6), which c_stm_forward cannot take
+            vmap_method="sequential",
         )
 
     @jax.custom_vjp

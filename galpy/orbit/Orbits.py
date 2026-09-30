@@ -7302,6 +7302,7 @@ class Orbit:
         elif (
             isinstance(t, (int, float, numpy.number))
             and hasattr(self, "t")
+            and not under_trace(_self_t)  # traced grid: interpolate below
             and t in list(_self_t)
         ):
             sl = self.orbit[:, list(_self_t).index(t), :]
