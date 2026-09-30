@@ -230,5 +230,8 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0, monkeypatch):
         raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
-    numpy.testing.assert_allclose(float(vc), float(ve), rtol=1e-12)
-    numpy.testing.assert_allclose(float(gc), float(ge), rtol=1e-10)
+    # inductor's generated kernels vectorize per CPU: spray_track measured
+    # 1.3e-13 here, 2.0e-12 on a CI runner (same torch)
+    rtol_v, rtol_g = (1e-11, 1e-9) if bk == "torch-inductor" else (1e-12, 1e-10)
+    numpy.testing.assert_allclose(float(vc), float(ve), rtol=rtol_v)
+    numpy.testing.assert_allclose(float(gc), float(ge), rtol=rtol_g)
