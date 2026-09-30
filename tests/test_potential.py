@@ -14735,6 +14735,8 @@ def test_twopower_nan_and_infinite_radius():
         got = numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))
         assert numpy.isnan(got[0]) and numpy.all(numpy.isfinite(got[1:]))
         numpy.testing.assert_array_equal(got[1:], pot.Rforce(R[1:], 0.0 * R[1:], **kw))
+        R = numpy.full(2, numpy.nan)  # all-NaN arrays
+        assert numpy.all(numpy.isnan(numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))))
         for fn in (pot.Rforce, pot.zforce, pot.R2deriv, pot.z2deriv, pot.Rzderiv):
             assert fn(0.0, numpy.inf, **kw) == 0.0, (beta, fn)
             assert fn(numpy.inf, 0.0, **kw) == 0.0, (beta, fn)
