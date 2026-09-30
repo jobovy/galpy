@@ -801,6 +801,26 @@ def test_twopower_mass_at_zero_and_forces_at_infinity(backend_name):
         if backend_name == "jax":
             jgot = as_numpy(jax.jit(lambda R, z: getattr(pot, m)(R, z))(R, z))
             numpy.testing.assert_array_equal(jgot[:2], 0.0)
+    # beta = 1: M ~ x^2 / 2, so the force along an infinite axis -> -1/(2 a^2)
+    # (d/da = 1/a^3, through a traced scale); the transverse force -> 0
+    R = xp.asarray([numpy.inf, 0.0])
+    z = xp.asarray([0.0, -numpy.inf])
+
+    def forces(a):
+        p1 = TwoPowerSphericalPotential(amp=1.0, a=a, alpha=0.5, beta=1.0)
+        return xp.stack([p1._Rforce(R, z), p1._zforce(R, z)])
+
+    a0 = 1.3
+    numpy.testing.assert_allclose(
+        as_numpy(forces(a0)), [[-0.5 / a0**2, 0.0], [0.0, 0.5 / a0**2]], rtol=1e-15
+    )
+    if backend_name == "jax":
+        g = as_numpy(jax.jacfwd(forces)(jnp.asarray(a0)))
+    else:
+        g = as_numpy(torch.autograd.functional.jacobian(forces, torch.tensor(a0)))
+    numpy.testing.assert_allclose(
+        g, [[1.0 / a0**3, 0.0], [0.0, -1.0 / a0**3]], rtol=1e-15
+    )
 
 
 @pytest.mark.parametrize("method", _TWOPOWER_METHODS)
