@@ -488,8 +488,8 @@ def test_normalize_jax_backend(norm):
         amp = p._amp
         rf = p.Rforce(1.0, 0.0, use_physical=False)
     assert "jax" in type(amp).__module__
-    numpy.testing.assert_allclose(float(numpy.asarray(amp)), float(ref_amp), rtol=1e-12)
-    numpy.testing.assert_allclose(float(numpy.asarray(rf)), -norm, rtol=1e-10)
+    numpy.testing.assert_allclose(float(amp), float(ref_amp), rtol=1e-12)
+    numpy.testing.assert_allclose(float(rf), -norm, rtol=1e-10)
 
 
 # --- surfdens under a trace ------------------------------------------------

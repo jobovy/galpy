@@ -2232,7 +2232,7 @@ def test_call_backend_value_and_grad(sdf, backend_name):
         sdf._interpolatedObsTrack[500]
     )  # (R,vR,vT,z,vz,phi) on the track
     R, vR, vT, z, vz, phi = (numpy.array([v]) for v in tp)
-    ref = float(numpy.asarray(sdf(R, vR, vT, z, vz, phi, log=True))[0])
+    ref = float(sdf(R, vR, vT, z, vz, phi, log=True)[0])
     assert numpy.isfinite(ref)
     rest = [_arr(backend_name, a) for a in (vR, vT, z, vz, phi)]
     if backend_name == "jax":
@@ -2242,7 +2242,7 @@ def test_call_backend_value_and_grad(sdf, backend_name):
 
         got = float(jax.jit(kernel)(_arr(backend_name, R)))
         # grad matches the (1,) input shape -> index the single element
-        ad = float(numpy.asarray(jax.jit(jax.grad(kernel))(_arr(backend_name, R)))[0])
+        ad = float(jax.jit(jax.grad(kernel))(_arr(backend_name, R))[0])
     else:
         Rt = torch.tensor(R, dtype=torch.float64, requires_grad=True)
         out = sdf(Rt, *rest, log=True)[0]
@@ -2252,8 +2252,8 @@ def test_call_backend_value_and_grad(sdf, backend_name):
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=0.0)
     h = 1e-6
     fd = (
-        float(numpy.asarray(sdf(R + h, vR, vT, z, vz, phi, log=True))[0])
-        - float(numpy.asarray(sdf(R - h, vR, vT, z, vz, phi, log=True))[0])
+        float(sdf(R + h, vR, vT, z, vz, phi, log=True)[0])
+        - float(sdf(R - h, vR, vT, z, vz, phi, log=True)[0])
     ) / (2 * h)
     assert numpy.isfinite(ad) and abs(ad - fd) < 1e-5 * abs(fd) + 1e-6, (
         f"{backend_name} __call__ grad {ad} vs FD {fd}"

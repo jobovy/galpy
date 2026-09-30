@@ -81,7 +81,7 @@ def test_fixed_quad_parity(backend):
     xp = _xp(backend)
     # int_0.5^3 exp(-s) ds = exp(-0.5) - exp(-3)
     ref = numpy.exp(-0.5) - numpy.exp(-3.0)
-    got = float(numpy.asarray(fixed_quad(xp, lambda s: xp.exp(-s), 0.5, 3.0, n=40)))
+    got = float(fixed_quad(xp, lambda s: xp.exp(-s), 0.5, 3.0, n=40))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
 
 
@@ -403,7 +403,7 @@ def test_quad_known_function(backend):
     a = xp.asarray(0.0) if backend != "numpy" else 0.0
     b = xp.asarray(B0) if backend != "numpy" else B0
     p = xp.asarray(P0) if backend != "numpy" else P0
-    got = float(numpy.asarray(quad(f, a, b, args=(p,), n=100)))
+    got = float(quad(f, a, b, args=(p,), n=100))
     numpy.testing.assert_allclose(got, _exact_val(B0, P0), rtol=1e-9)
 
 
@@ -472,9 +472,7 @@ def test_quad_dispatches_on_args_only(backend):
     f = _integrand(backend)
     out = quad(f, 0.0, B0, args=(xp.asarray(P0),), n=60)
     assert backend in type(out).__module__
-    numpy.testing.assert_allclose(
-        float(numpy.asarray(out)), _exact_val(B0, P0), rtol=1e-9
-    )
+    numpy.testing.assert_allclose(float(out), _exact_val(B0, P0), rtol=1e-9)
 
 
 def test_quad_numpy_no_args():

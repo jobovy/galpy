@@ -182,8 +182,8 @@ def test_scalar_torch_autograd_matches_fd(name, fn, pt):
         out.backward()
         grad = float(x.grad)
         eps = 1e-6 * max(1.0, abs(pt[0]))
-        fp = float(numpy.asarray(fn(p, pt[0] + eps)))
-        fm = float(numpy.asarray(fn(p, pt[0] - eps)))
+        fp = float(fn(p, pt[0] + eps))
+        fm = float(fn(p, pt[0] - eps))
         fd = (fp - fm) / (2.0 * eps)
         assert numpy.isclose(grad, fd, rtol=1e-4, atol=1e-5), (
             name,

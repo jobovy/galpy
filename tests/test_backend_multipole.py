@@ -151,7 +151,7 @@ def test_value_parity(backend_name, pot):
 def test_value_parity_scalar(backend_name, pot):
     # Scalar (0-d) inputs must work and agree with the numpy scalar path.
     for method in _FIRST_ORDER + _SECOND_ORDER:
-        ref = float(numpy.asarray(getattr(pot, method)(1.3, 0.4, 0.7)))
+        ref = float(getattr(pot, method)(1.3, 0.4, 0.7))
         got = float(
             as_numpy(
                 getattr(pot, method)(
@@ -267,7 +267,7 @@ def test_force_hessian_identities(backend_name, pot):
             phi0,
             argnum=argnum,
         )
-        ref = -float(numpy.asarray(getattr(pot, higher)(R0, z0, phi0)))
+        ref = -float(getattr(pot, higher)(R0, z0, phi0))
         numpy.testing.assert_allclose(
             ad,
             ref,
@@ -300,7 +300,7 @@ def test_extrapolation_region_identities(backend_name, pot, point):
             phi0,
             argnum=argnum,
         )
-        ref = -float(numpy.asarray(getattr(pot, higher)(R0, z0, phi0)))
+        ref = -float(getattr(pot, higher)(R0, z0, phi0))
         numpy.testing.assert_allclose(
             ad,
             ref,
@@ -436,7 +436,7 @@ def test_tdep_center(backend_name, pot):
     # R_00(rmin, t) * P_00 (the time-dependent R00 branch of
     # _backend_evaluate); forces and second derivatives are zero.
     t0 = 1.21
-    ref = float(numpy.asarray(pot._evaluate(0.0, 0.0, 0.3, t0)))
+    ref = float(pot._evaluate(0.0, 0.0, 0.3, t0))
     got = float(
         as_numpy(
             pot._evaluate(
@@ -525,7 +525,7 @@ def test_tdep_force_hessian_identities(backend_name, pot):
             phi0,
             argnum=argnum,
         )
-        ref = -float(numpy.asarray(getattr(pot, higher)(R0, z0, phi0, t0)))
+        ref = -float(getattr(pot, higher)(R0, z0, phi0, t0))
         numpy.testing.assert_allclose(
             ad,
             ref,
@@ -649,8 +649,8 @@ def test_torch_compile_cold_lazy_table_build():
     z0 = torch.tensor(0.2, dtype=torch.float64)
     ref = float(build().Rforce(R0, z0))  # warm/eager reference
     cold = build()  # never evaluated outside the trace
-    torch._dynamo.reset()
     with no_torch_compile_deprecations():
+        torch._dynamo.reset()
         got = float(
             torch.compile(
                 lambda R, z: cold.Rforce(R, z), fullgraph=False, dynamic=False

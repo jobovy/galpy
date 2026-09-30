@@ -2451,7 +2451,7 @@ def test_staeckel_unbound_sentinel_survives_the_azimuth_wrap(backend):
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
 
     def _flat(out):
-        return [float(numpy.asarray(as_numpy(x)).ravel()[0]) for x in out]
+        return [float(as_numpy(x).ravel()[0]) for x in out]
 
     ref = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
     with gb.use(backend, force=True):
