@@ -2529,9 +2529,9 @@ def scf_compute_coeffs(
         # instead of one eager dispatch each. Nodes stay NUMPY, exactly as the
         # scalar twin passes numpy scalars -- batching must not change what user
         # density code receives (see scf_compute_coeffs_axi).
-        xi = numpy.asarray(xi)
-        costheta = numpy.asarray(costheta)
-        phi = numpy.asarray(phi)
+        xi = numpy.asarray(to_host(xi))
+        costheta = numpy.asarray(to_host(costheta))
+        phi = numpy.asarray(to_host(phi))
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :, numpy.newaxis]
         m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, numpy.newaxis, :]
         r = _xiToR(xi, a)
@@ -2874,8 +2874,8 @@ def _scf_compute_coeffs_axi_timedep(
     def integrand_batched_reduce(xi, costheta, weights):
         # Separable exactly as in the general routine above: time factor times a
         # time-independent basis, so the weighted node sum is one contraction.
-        xi = numpy.asarray(xi)
-        costheta = numpy.asarray(costheta)
+        xi = numpy.asarray(to_host(xi))
+        costheta = numpy.asarray(to_host(costheta))
         l = numpy.arange(0, L)[numpy.newaxis, :]
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
@@ -2958,9 +2958,9 @@ def _scf_compute_coeffs_timedep(
         # the (K, Nt, 2, N, L, L) array never has to exist -- which is the point,
         # since it would be K times the working set `_TIMEDEP_BATCH_BYTES` sizes.
         # The basis is also built ONCE here instead of once per time step.
-        xi = numpy.asarray(xi)
-        costheta = numpy.asarray(costheta)
-        phi = numpy.asarray(phi)
+        xi = numpy.asarray(to_host(xi))
+        costheta = numpy.asarray(to_host(costheta))
+        phi = numpy.asarray(to_host(phi))
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :, numpy.newaxis]
         m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, numpy.newaxis, :]
         r = _xiToR(xi, a)
