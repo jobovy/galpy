@@ -23,7 +23,7 @@ _DERIV = numpy.array([2.0, 4.0])
 
 def _higher(x):
     return (
-        x**3 * torch.tensor([1.0, 2.0])
+        x**3 * torch.tensor([1.0, 2.0], device=x.device)  # backward: device thread
         if torch.is_tensor(x)
         else x**3 * jax.numpy.array([1.0, 2.0])
     )
