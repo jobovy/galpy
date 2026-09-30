@@ -3553,15 +3553,16 @@ class Orbit:
         else:
             t = 0.0
         # Get orbit
-        # on the potential's namespace: a forced backend returns backend
-        # potentials, which a numpy thiso cannot be added to on CUDA
-        _, thiso = _resolve_accessor_namespace(self._call_internal(*args, **kwargs))
+        thiso = self._call_internal(*args, **kwargs)
         onet = len(thiso.shape) == 2
         # a backend time (possibly traced) is shaped on its own namespace
         _txp = get_namespace(t) if is_backend_array(t) else numpy
         if onet:
             thiso = thiso[:, numpy.newaxis, :]
             t = numpy.atleast_1d(t) if _txp is numpy else _txp.reshape(t, (-1,))
+        # kinetic terms on the potential's (forced) namespace: a CUDA potential
+        # cannot be added to a numpy thiso
+        _, _tk = _resolve_accessor_namespace(thiso)
         if self.phasedim() == 2:
             try:
                 out = (
@@ -3571,7 +3572,7 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3597,8 +3598,8 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3625,8 +3626,8 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3659,9 +3660,9 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
-                    + vz**2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
+                    + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3695,9 +3696,9 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
-                    + vz**2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
+                    + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
