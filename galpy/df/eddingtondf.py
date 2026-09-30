@@ -10,7 +10,13 @@ from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
-from .sphericaldf import _handle_rmin, isotropicsphericaldf, sphericaldf
+from .sphericaldf import (
+    _GL_W,
+    _GL_X,
+    _handle_rmin,
+    isotropicsphericaldf,
+    sphericaldf,
+)
 
 # Backend Gauss-Legendre order for the two fE half-integrals; N=100 agrees with
 # scipy adaptive quad to ~6e-8 -- higher N drifts as small-r nodes cluster into
@@ -352,12 +358,6 @@ def _fEintegrand_raw(r, pot, E, dnudr, d2nudr2):
         / Fr**2.0
         / numpy.sqrt(_evaluatePotentials(pot, r, 0) - E)
     )
-
-
-# Gauss-Legendre nodes/weights on [0, 1] for Phi(rphi + u) - Phi(rphi) as the
-# integral of dPhi/dr (see _fEintegrand_smallr)
-_GL_X, _GL_W = numpy.polynomial.legendre.leggauss(12)
-_GL_X, _GL_W = 0.5 * (_GL_X + 1.0), 0.5 * _GL_W
 
 
 def _fEintegrand_smallr(t, pot, E, dnudr, d2nudr2, rmin):
