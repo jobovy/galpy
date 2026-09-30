@@ -8,6 +8,7 @@ import numpy
 import pytest
 import scipy.special
 
+from galpy.backend import to_host
 from galpy.backend.quadrature import (
     finite_part_quad,
     fixed_quad,
@@ -105,7 +106,9 @@ def test_fixed_quad_vectorized_false(backend):
     with pytest.raises(TypeError):
         fixed_quad(xp, scalar_only, 0.5, 3.0, n=40)
     got = float(
-        numpy.asarray(fixed_quad(xp, scalar_only, 0.5, 3.0, n=40, vectorized=False))
+        numpy.asarray(
+            to_host(fixed_quad(xp, scalar_only, 0.5, 3.0, n=40, vectorized=False))
+        )
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
 
@@ -116,14 +119,20 @@ def test_semiinfinite_parity(backend):
     # int_1^inf exp(-s) ds = exp(-1); int_0^inf 1/(1+s^2) ds = pi/2
     g1 = float(
         numpy.asarray(
-            fixed_quad_semiinfinite(xp, lambda s: xp.exp(-s), 1.0, n=100, kind="recip")
+            to_host(
+                fixed_quad_semiinfinite(
+                    xp, lambda s: xp.exp(-s), 1.0, n=100, kind="recip"
+                )
+            )
         )
     )
     numpy.testing.assert_allclose(g1, numpy.exp(-1.0), rtol=1e-7)
     g2 = float(
         numpy.asarray(
-            fixed_quad_semiinfinite(
-                xp, lambda s: 1.0 / (1.0 + s**2), 0.0, n=100, kind="tan"
+            to_host(
+                fixed_quad_semiinfinite(
+                    xp, lambda s: 1.0 / (1.0 + s**2), 0.0, n=100, kind="tan"
+                )
             )
         )
     )
@@ -136,7 +145,11 @@ def test_nested_quad_parity(backend):
     # int_[0,1]^2 exp(x+y) dx dy = (e-1)^2
     got = float(
         numpy.asarray(
-            nested_quad(xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 1.0)], n=20)
+            to_host(
+                nested_quad(
+                    xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 1.0)], n=20
+                )
+            )
         )
     )
     numpy.testing.assert_allclose(got, (numpy.e - 1.0) ** 2, rtol=1e-10)
@@ -201,8 +214,15 @@ def test_transformed_quad_interior_split(backend):
     # int_0^2 |s-1|^0.5 ds = 4/3, with a sqrt-kink at the interior point s=1
     got = float(
         numpy.asarray(
-            transformed_quad(
-                xp, lambda s: xp.abs(s - 1.0) ** 0.5, 0.0, 2.0, n=60, interior_point=1.0
+            to_host(
+                transformed_quad(
+                    xp,
+                    lambda s: xp.abs(s - 1.0) ** 0.5,
+                    0.0,
+                    2.0,
+                    n=60,
+                    interior_point=1.0,
+                )
             )
         )
     )
@@ -214,7 +234,9 @@ def test_transformed_quad_no_interior(backend):
     xp = _xp(backend)
     # interior_point=None falls through to plain fixed_quad: int_0^2 exp(s) = e^2-1
     got = float(
-        numpy.asarray(transformed_quad(xp, lambda s: xp.exp(s), 0.0, 2.0, n=40))
+        numpy.asarray(
+            to_host(transformed_quad(xp, lambda s: xp.exp(s), 0.0, 2.0, n=40))
+        )
     )
     numpy.testing.assert_allclose(got, numpy.exp(2.0) - 1.0, rtol=1e-10)
 
@@ -234,8 +256,10 @@ def test_nested_quad_per_dim_n(backend):
     # per-dimension n list: int_[0,1]x[0,2] exp(x+y) dx dy = (e-1)(e^2-1)
     got = float(
         numpy.asarray(
-            nested_quad(
-                xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 2.0)], n=[20, 30]
+            to_host(
+                nested_quad(
+                    xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 2.0)], n=[20, 30]
+                )
             )
         )
     )
@@ -275,8 +299,10 @@ def test_semiinfinite_scale_makes_the_map_resolve_small_structure(backend, eps):
     xp = _xp(backend)
     got = float(
         numpy.asarray(
-            fixed_quad_semiinfinite(
-                xp, lambda s: 1.0 / (1.0 + (s / eps) ** 2), eps, n=50, scale=eps
+            to_host(
+                fixed_quad_semiinfinite(
+                    xp, lambda s: 1.0 / (1.0 + (s / eps) ** 2), eps, n=50, scale=eps
+                )
             )
         )
     )
@@ -284,13 +310,15 @@ def test_semiinfinite_scale_makes_the_map_resolve_small_structure(backend, eps):
     #   int_0^inf ds / (eps**2 + s**2) = pi / (2 eps), via the 'tan' map
     got = float(
         numpy.asarray(
-            fixed_quad_semiinfinite(
-                xp,
-                lambda s: 1.0 / (eps**2 + s**2),
-                0.0,
-                n=50,
-                kind="tan",
-                scale=eps,
+            to_host(
+                fixed_quad_semiinfinite(
+                    xp,
+                    lambda s: 1.0 / (eps**2 + s**2),
+                    0.0,
+                    n=50,
+                    kind="tan",
+                    scale=eps,
+                )
             )
         )
     )
@@ -305,12 +333,14 @@ def test_semiinfinite_scale_broadcasts_against_the_limit(backend):
     xp = _xp(backend)
     eps = xp.asarray([1.0, 1e-3, 1e-6])
     got = numpy.asarray(
-        fixed_quad_semiinfinite(
-            xp,
-            lambda s: 1.0 / (1.0 + (s / eps[..., None]) ** 2),
-            eps,
-            n=50,
-            scale=eps,
+        to_host(
+            fixed_quad_semiinfinite(
+                xp,
+                lambda s: 1.0 / (1.0 + (s / eps[..., None]) ** 2),
+                eps,
+                n=50,
+                scale=eps,
+            )
         )
     )
     ref = numpy.asarray([1.0, 1e-3, 1e-6]) * numpy.pi / 4.0
@@ -449,11 +479,13 @@ def test_quad_grad_param_and_limit(backend):
     def npval(b, p):
         return float(
             numpy.asarray(
-                quad(
-                    _integrand("numpy"),
-                    0.0,
-                    b,
-                    args=(p,),
+                to_host(
+                    quad(
+                        _integrand("numpy"),
+                        0.0,
+                        b,
+                        args=(p,),
+                    )
                 )
             )
         )
@@ -555,8 +587,9 @@ def test_device_hint_cuda():
         return scale * torch.exp(-s)
 
     e5 = 2.0 * (1.0 - numpy.exp(-5.0))
-    with pytest.raises(RuntimeError):  # no hint -> mixed-device error
-        fixed_quad(txp, integ, 0.0, 5.0, n=60)
+    if torch.get_default_device().type == "cpu":  # else the tables land on CUDA
+        with pytest.raises(RuntimeError):  # no hint -> mixed-device error
+            fixed_quad(txp, integ, 0.0, 5.0, n=60)
     for out, ref in [
         (fixed_quad(txp, integ, 0.0, 5.0, n=60, device=cuda), e5),
         (fixed_quad_semiinfinite(txp, integ, 0.0, n=60, device=cuda), 2.0),
@@ -739,10 +772,13 @@ def test_finite_part_quad_batches_over_its_limits(backend):
         return cs[..., None] / (u * u) + xp.exp(-u)
 
     got = finite_part_quad(xp, f, bs, c=cs, peak_width=xp.zeros_like(bs), n=200)
-    bs_n, cs_n = numpy.asarray(bs, dtype=float), numpy.asarray(cs, dtype=float)
+    bs_n, cs_n = (
+        numpy.asarray(to_host(bs), dtype=float),
+        numpy.asarray(to_host(cs), dtype=float),
+    )
     expected = 2.0 * numpy.sinh(bs_n) - 2.0 * cs_n / bs_n
     numpy.testing.assert_allclose(
-        numpy.asarray(got, dtype=float), expected, rtol=1e-10, atol=1e-12
+        numpy.asarray(to_host(got), dtype=float), expected, rtol=1e-10, atol=1e-12
     )
 
     # ...and a batch must agree with the same elements done one at a time, or
@@ -771,7 +807,7 @@ def test_finite_part_quad_batches_over_its_limits(backend):
     # a reduction-order difference, not a different rule, so it gets a tight
     # rtol rather than an exemption.
     numpy.testing.assert_allclose(
-        numpy.asarray(got, dtype=float),
+        numpy.asarray(to_host(got), dtype=float),
         per_element,
         rtol=1e-12 if backend == "torch" else 0.0,
         atol=0,
@@ -793,7 +829,7 @@ def test_finite_part_quad_batches_a_mix_of_both_branches(backend):
         return c / (u * u) + xp.exp(-u)
 
     got = numpy.asarray(
-        finite_part_quad(xp, f, bs, c=c, peak_width=ws, n=200), dtype=float
+        to_host(finite_part_quad(xp, f, bs, c=c, peak_width=ws, n=200)), dtype=float
     )
     assert numpy.all(numpy.isfinite(got)), f"nan leaked from the untaken arm: {got}"
     b = 1.3
@@ -809,7 +845,7 @@ def test_finite_part_quad_batches_a_mix_of_both_branches(backend):
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_symmetric_quad_accepts_a_finite_eager_torch_limit_with_grad():
     # The finite/infinite branch asked numpy whether b was finite:
-    #     not under_trace(b) and not numpy.all(numpy.isfinite(numpy.asarray(b)))
+    #     not under_trace(b) and not numpy.all(numpy.isfinite(numpy.asarray(to_host(b))))
     # An EAGER torch tensor is not under_trace, so an ordinary finite limit that
     # merely requires grad went to numpy.asarray, which RAISES rather than
     # answering ("Can't call numpy() on Tensor that requires grad"). jax never
@@ -852,10 +888,12 @@ def test_symmetric_quad_mixed_finite_and_infinite_limits(backend):
         numpy.sqrt(numpy.pi),
         numpy.sqrt(numpy.pi) * scipy.special.erf(2.0),
     ]
-    assert numpy.shape(numpy.asarray(got)) == (3,), (
-        f"mixed limits collapsed the shape: {numpy.shape(numpy.asarray(got))}"
+    assert numpy.shape(numpy.asarray(to_host(got))) == (3,), (
+        f"mixed limits collapsed the shape: {numpy.shape(numpy.asarray(to_host(got)))}"
     )
-    numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), want, rtol=1e-12)
+    numpy.testing.assert_allclose(
+        numpy.asarray(to_host(got), dtype=float), want, rtol=1e-12
+    )
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
@@ -868,7 +906,7 @@ def test_symmetric_quad_mixed_limits_keep_a_gradient_at_the_finite_entries(backe
     if backend == "jax":
         b = jnp.asarray([1.0, jnp.inf, 2.0])
         got = jax.jacfwd(lambda bb: symmetric_quad(xp, lambda s: s * s, bb))(b)
-        grad = numpy.diag(numpy.asarray(got))
+        grad = numpy.diag(numpy.asarray(to_host(got)))
     else:
         b = torch.tensor([1.0, float("inf"), 2.0], requires_grad=True)
         symmetric_quad(xp, lambda s: s * s, b).sum().backward()
@@ -887,7 +925,7 @@ def test_symmetric_quad_all_finite_and_all_infinite_are_unchanged(backend):
     f = lambda s: xp.exp(-s * s)  # noqa: E731
     allfin = symmetric_quad(xp, f, xp.asarray([1.0, 2.0]), n=80)
     numpy.testing.assert_allclose(
-        numpy.asarray(allfin, dtype=float),
+        numpy.asarray(to_host(allfin), dtype=float),
         numpy.sqrt(numpy.pi) * scipy.special.erf([1.0, 2.0]),
         rtol=1e-12,
     )
@@ -935,7 +973,9 @@ def test_symmetric_quad_mixed_limits_accept_a_raw_numpy_limit(backend):
         xp, lambda s: xp.exp(-s * s), numpy.array([1.0, numpy.inf]), n=80
     )
     want = [numpy.sqrt(numpy.pi) * scipy.special.erf(1.0), numpy.sqrt(numpy.pi)]
-    numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), want, rtol=1e-12)
+    numpy.testing.assert_allclose(
+        numpy.asarray(to_host(got), dtype=float), want, rtol=1e-12
+    )
 
 
 # ---------------------------------------------------------------------------

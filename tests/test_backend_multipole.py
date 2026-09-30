@@ -39,7 +39,7 @@ import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager, no_torch_compile_deprecations
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, to_host
 from galpy.potential import MiyamotoNagaiPotential, MultipoleExpansionPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -116,7 +116,7 @@ _PHIS = [0.3, 1.1, 2.0, 4.0, 5.5]
 
 def _asarray(backend_name, x):
     if backend_name == "numpy":
-        return numpy.asarray(x, dtype=float)
+        return numpy.asarray(to_host(x), dtype=float)
     if backend_name == "jax":
         return jnp.asarray(x, dtype=jnp.float64)
     if backend_name == "torch":
@@ -131,8 +131,10 @@ def test_value_parity(backend_name, pot):
     phi = _asarray(backend_name, _PHIS)
     for method in _FIRST_ORDER + _SECOND_ORDER:
         ref = numpy.asarray(
-            getattr(pot, method)(
-                numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS)
+            to_host(
+                getattr(pot, method)(
+                    numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS)
+                )
             )
         )
         got = as_numpy(getattr(pot, method)(R, z, phi))
@@ -174,7 +176,9 @@ def test_public_value_parity(backend_name, pot):
     z = _asarray(backend_name, _ZS)
     phi = _asarray(backend_name, _PHIS)
     ref = numpy.asarray(
-        pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS), phi=numpy.asarray(_PHIS))
+        to_host(
+            pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS), phi=numpy.asarray(_PHIS))
+        )
     )
     got = as_numpy(pot.Rforce(R, z, phi=phi))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -190,7 +194,9 @@ def test_grad_evaluate_vs_finite_difference(backend_name, pot):
     eps = 1e-6
 
     def phi_np(R):
-        return float(pot._evaluate(numpy.asarray(R), numpy.asarray(z0), phi0))
+        return float(
+            pot._evaluate(numpy.asarray(to_host(R)), numpy.asarray(to_host(z0)), phi0)
+        )
 
     fd = (phi_np(R0 + eps) - phi_np(R0 - eps)) / (2 * eps)
     if backend_name == "jax":
@@ -334,8 +340,8 @@ def test_axi_phi_none_default(backend_name):
     R = _asarray(backend_name, [0.5, 1.0, 2.0])
     z = _asarray(backend_name, [0.1, 0.2, 0.3])
     for meth in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
-        nophi = numpy.asarray(getattr(_AXI, meth)(R, z, phi=None))
-        withphi = numpy.asarray(getattr(_AXI, meth)(R, z, phi=0.0))
+        nophi = numpy.asarray(to_host(getattr(_AXI, meth)(R, z, phi=None)))
+        withphi = numpy.asarray(to_host(getattr(_AXI, meth)(R, z, phi=0.0)))
         assert numpy.amax(numpy.fabs(nophi - withphi)) == 0.0, (
             f"backend {backend_name} {meth} with phi=None differs from phi=0"
         )
@@ -395,8 +401,10 @@ def test_tdep_value_parity(backend_name, pot):
     for t in _TD_TS:
         for method in _FIRST_ORDER + _SECOND_ORDER:
             ref = numpy.asarray(
-                getattr(pot, method)(
-                    numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), t
+                to_host(
+                    getattr(pot, method)(
+                        numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), t
+                    )
                 )
             )
             got = as_numpy(getattr(pot, method)(R, z, phi, t))
@@ -414,9 +422,13 @@ def test_tdep_value_parity(backend_name, pot):
 def test_tdep_array_t_broadcast(backend_name, pot):
     # An array of times must broadcast against the coordinates exactly like
     # the numpy path does (one time-interval lookup per point).
-    ts = numpy.asarray(_TD_TS[: len(_RS)])
+    ts = numpy.asarray(to_host(_TD_TS[: len(_RS)]))
     ref = numpy.asarray(
-        pot._evaluate(numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), ts)
+        to_host(
+            pot._evaluate(
+                numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), ts
+            )
+        )
     )
     got = as_numpy(
         pot._evaluate(
@@ -470,8 +482,8 @@ def test_tdep_axi_phi_none_default(backend_name):
     R = _asarray(backend_name, [0.5, 1.0, 2.0])
     z = _asarray(backend_name, [0.1, 0.2, 0.3])
     for meth in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
-        nophi = numpy.asarray(getattr(_TD_AXI, meth)(R, z, phi=None, t=0.83))
-        withphi = numpy.asarray(getattr(_TD_AXI, meth)(R, z, phi=0.0, t=0.83))
+        nophi = numpy.asarray(to_host(getattr(_TD_AXI, meth)(R, z, phi=None, t=0.83)))
+        withphi = numpy.asarray(to_host(getattr(_TD_AXI, meth)(R, z, phi=0.0, t=0.83)))
         assert numpy.amax(numpy.fabs(nophi - withphi)) == 0.0, (
             f"backend {backend_name} {meth} with phi=None differs from phi=0"
         )
@@ -494,7 +506,9 @@ def test_tdep_grad_evaluate_vs_finite_difference(backend_name, pot):
             q = list(base)
             q[argnum] = x
             return float(
-                pot._evaluate(numpy.asarray(q[0]), numpy.asarray(q[1]), q[2], t0)
+                pot._evaluate(
+                    numpy.asarray(to_host(q[0])), numpy.asarray(to_host(q[1])), q[2], t0
+                )
             )
 
         fd = (f_np(base[argnum] + eps) - f_np(base[argnum] - eps)) / (2 * eps)
@@ -583,9 +597,9 @@ def test_tdep_diskmep_composite_jax():
     R = numpy.array([0.5, 1.0, 2.0])
     z = numpy.array([0.1, 0.2, 0.3])
     for meth in ["_evaluate", "_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_dens"]:
-        ref = numpy.asarray(getattr(dmep, meth)(R, z, 0.0, 0.9))
+        ref = numpy.asarray(to_host(getattr(dmep, meth)(R, z, 0.0, 0.9)))
         got = numpy.asarray(
-            getattr(dmep, meth)(jnp.asarray(R), jnp.asarray(z), 0.0, 0.9)
+            to_host(getattr(dmep, meth)(jnp.asarray(R), jnp.asarray(z), 0.0, 0.9))
         )
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-12, atol=1e-12, err_msg=f"composite TD DiskMEP {meth}"
