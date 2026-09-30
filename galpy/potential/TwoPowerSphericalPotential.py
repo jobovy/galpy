@@ -206,7 +206,9 @@ def _limit_at_infinite_radius(component):
     second derivative -> 0; with both coordinates infinite the direction is
     undefined: 0 if dPhi/dr -> 0, else NaN. At beta = 0 (M ~ x^3/3) dPhi/dr / r
     and Phi'' both -> 1/(3 a^3): the forces are -(R, z)/(3 a^3), R2deriv and
-    z2deriv 1/(3 a^3), Rzderiv 0. amp = 0 is 0 (no 0 * inf). Finite inputs are
+    z2deriv 1/(3 a^3), Rzderiv 0. At beta < 0 the density increases outward and
+    the limits depend on the direction and on beta: NaN (finite radii are
+    unaffected). amp = 0 is 0 (no 0 * inf). Finite inputs are
     untouched; under a trace the infinite entries are masked (finite
     stand-ins, so the unused branch cannot NaN the gradient)."""
 
@@ -229,7 +231,9 @@ def _limit_at_infinite_radius(component):
                     return xp.where(inf, 0.0, out)
                 amp0 = None
             X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
-            if component == "Rz":
+            if self.beta < 0.0:
+                lim = numpy.nan
+            elif component == "Rz":
                 lim = 0.0
             elif component == "RR":
                 lim = 1.0 / (3.0 * self.a**3.0) if self.beta == 0.0 else 0.0
@@ -277,7 +281,7 @@ class TwoPowerSphericalPotential(Potential):
         alpha : float, optional
             Inner power.
         beta : float, optional
-            Outer power (>= 0: the density may not increase outward).
+            Outer power.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -313,10 +317,6 @@ class TwoPowerSphericalPotential(Potential):
         # setting properties
         self.a = a
         self._scale = self.a
-        if beta < 0.0:
-            raise ValueError(
-                "TwoPowerSphericalPotential requires beta >= 0 (the density may not increase outward)"
-            )
         self.alpha = alpha
         self.beta = beta
         self.hasC = True

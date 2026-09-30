@@ -15282,7 +15282,7 @@ def test_twopower_nan_and_infinite_radius():
     # x^2 / 2) or -inf (beta < 1); the transverse force and every second
     # derivative -> 0; both coordinates infinite has no direction (0 when
     # dPhi/dr -> 0, else NaN). amp = 0 is 0 everywhere (no 0 * inf). beta = 0
-    # below. Python and C alike.
+    # and beta < 0 below. Python and C alike.
     from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
 
     inf, nan = numpy.inf, numpy.nan
@@ -15355,9 +15355,33 @@ def test_twopower_nan_and_infinite_radius():
     numpy.testing.assert_allclose(
         [pot.Rforce(1.0, 1e8, **kw), pot.R2deriv(1.0, 1e8, **kw)], [-g, g], rtol=1e-7
     )
-    # beta < 0 (a density increasing outward) is rejected
-    with pytest.raises(ValueError, match="beta >= 0"):
-        potential.TwoPowerSphericalPotential(beta=-0.5)
+    # beta < 0 (a density increasing outward): finite radii as usual (mpmath
+    # references), r = inf undefined (direction- and beta-dependent) -> NaN
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=0.5, beta=-0.5)
+    for R, fR, d2 in (
+        (1.0, -0.32164687098586672, 0.27488260960139673),
+        (10.0, -4.2633177185657113, 0.57385266414873492),
+    ):
+        got = [
+            pot.Rforce(R, 0.0, **kw),
+            c(eval_force_c, R, 0.0),
+            pot.R2deriv(R, 0.0, **kw),
+            c(eval_2ndderiv_c, R, 0.0, deriv="R2deriv"),
+        ]
+        numpy.testing.assert_allclose(got, [fR, fR, d2, d2], rtol=1e-14)
+    for R, z in ((inf, 0.0), (0.0, inf), (inf, inf)):
+        got = [
+            pot.Rforce(R, z, **kw),
+            pot.zforce(R, z, **kw),
+            c(eval_force_c, R, z),
+            c(eval_force_c, R, z, zforce=True),
+            *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+            *(
+                c(eval_2ndderiv_c, R, z, deriv=d)
+                for d in ("R2deriv", "z2deriv", "Rzderiv")
+            ),
+        ]
+        assert numpy.all(numpy.isnan(got)), (R, z, got)
 
 
 def test_twopower_forces_near_alpha_3():

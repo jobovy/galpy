@@ -90,8 +90,10 @@ static void tp_radial(double r, double a, double alpha, double beta, int hess,
 // (beta < 1); the transverse force -> 0; both infinite has no direction: 0
 // if dPhi/dr -> 0, else NaN. beta = 0 (M ~ x^3/3): dPhi/dr / r and Phi''
 // both -> 1/(3 a^3), so the force is -X/(3 a^3) (tp_2nd_at_inf for the
-// second derivatives). amp = 0 gives 0 (tp_at_inf; no 0 * inf).
+// second derivatives). beta < 0 (density increasing outward; direction- and
+// beta-dependent limits): NaN. amp = 0 gives 0 (tp_at_inf; no 0 * inf).
 static double tp_force_at_inf(double X, double Y, double a, double beta){
+  if ( beta < 0. ) return NAN;
   if ( beta == 0. ) return -X / (3. * a * a * a);
   double F= beta > 1. ? 0. : beta == 1. ? 0.5 / a / a : INFINITY;
   if ( isinf(X) && isinf(Y) ) return F == 0. ? 0. : NAN;
@@ -100,6 +102,7 @@ static double tp_force_at_inf(double X, double Y, double a, double beta){
 }
 // R2deriv, z2deriv (Rz = 0) and Rzderiv (Rz = 1) at r = inf
 static double tp_2nd_at_inf(double a, double beta, int Rz){
+  if ( beta < 0. ) return NAN;
   return ( beta == 0. && ! Rz ) ? 1. / (3. * a * a * a) : 0.;
 }
 // amp times a limit at r = inf (0 for amp = 0)
