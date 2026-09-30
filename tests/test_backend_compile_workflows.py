@@ -194,9 +194,9 @@ _CASES = [
 
 # kingdf W0: eager solves the King ODE with scipy (+ a forward-sensitivity graft),
 # compiled with torchode, both at rtol=1e-10; they agree to that floor (measured
-# 1.6e-10 value, 5.7e-9 grad; compiled vs the same torchode recipe run eagerly is
-# round-off, test_backend_kingdf).
-_RTOL = {"kingdf_W0": (1e-9, 3e-8)}
+# 8.0e-12 value, 8.5e-9 grad, dynamo-only and inductor alike; compiled vs the
+# same torchode recipe run eagerly is round-off, test_backend_kingdf).
+_RTOL = {"kingdf_W0": (1e-10, 3e-8)}
 
 
 def _compiled(bk, workflow, x0):
