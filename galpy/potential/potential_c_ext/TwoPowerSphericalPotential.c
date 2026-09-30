@@ -75,13 +75,20 @@ static void tp_radial(double r, double a, double alpha, double beta, int hess,
 // The force along coordinate X (Y transverse) at r = inf, where R f(r) is
 // inf * 0: along an infinite X, -dPhi/dr(inf) with dPhi/dr = M(x)/(x a)^2 -> 0
 // (beta > 1), 1/(2 a^2) (beta = 1; M ~ x^2/2), inf (beta < 1); the transverse
-// force -> 0 (beta > 0); both infinite has no direction: 0 if dPhi/dr -> 0,
-// else NaN. Second derivatives -> 0 (beta > 0).
+// force -> 0; both infinite has no direction: 0 if dPhi/dr -> 0, else NaN.
+// Second derivatives -> 0. Only for beta > 0: at beta <= 0 the density does
+// not fall off and these limits are finite or divergent: NaN. amp = 0 gives 0
+// (tp_at_inf; no 0 * inf).
 static double tp_force_at_inf(double X, double Y, double a, double beta){
+  if ( beta <= 0. ) return NAN;
   double F= beta > 1. ? 0. : beta == 1. ? 0.5 / a / a : INFINITY;
   if ( isinf(X) && isinf(Y) ) return F == 0. ? 0. : NAN;
   if ( isinf(X) ) return X > 0. ? -F : F;
   return 0.;
+}
+// amp times a limit at r = inf (0 for amp = 0)
+static double tp_at_inf(double amp, double limit){
+  return amp == 0. ? 0. : amp * limit;
 }
 double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,
                                         double t,
@@ -92,7 +99,7 @@ double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,
   double alpha= *args++;
   double beta= *args;
   double f[1];
-  if ( isinf(R) || isinf(Z) ) return amp * tp_force_at_inf(R, Z, a, beta);
+  if ( isinf(R) || isinf(Z) ) return tp_at_inf(amp, tp_force_at_inf(R, Z, a, beta));
   tp_radial(sqrt(R*R+Z*Z), a, alpha, beta, 0, f);
   return -amp * R * f[0];
 }
@@ -106,7 +113,7 @@ double TwoPowerSphericalPotentialPlanarRforce(double R,double phi,
   double alpha= *args++;
   double beta= *args;
   double f[1];
-  if ( isinf(R) ) return amp * tp_force_at_inf(R, 0., a, beta);
+  if ( isinf(R) ) return tp_at_inf(amp, tp_force_at_inf(R, 0., a, beta));
   tp_radial(R, a, alpha, beta, 0, f);
   return -amp * R * f[0];
 }
@@ -120,7 +127,7 @@ double TwoPowerSphericalPotentialzforce(double R,double Z,double phi,
   double alpha= *args++;
   double beta= *args;
   double f[1];
-  if ( isinf(R) || isinf(Z) ) return amp * tp_force_at_inf(Z, R, a, beta);
+  if ( isinf(R) || isinf(Z) ) return tp_at_inf(amp, tp_force_at_inf(Z, R, a, beta));
   tp_radial(sqrt(R*R+Z*Z), a, alpha, beta, 0, f);
   return -amp * Z * f[0];
 }
@@ -134,7 +141,7 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
   double alpha= *args++;
   double beta= *args;
   double f[3];
-  if ( isinf(R) ) return 0.;
+  if ( isinf(R) ) return tp_at_inf(amp, beta > 0. ? 0. : NAN);
   tp_radial(R, a, alpha, beta, 1, f);
   return amp * f[1];
 }
@@ -151,7 +158,7 @@ double TwoPowerSphericalPotentialR2deriv(double R,double Z, double phi,
   double beta= *args;
   double r2= R * R + Z * Z;
   double f[3];
-  if ( isinf(r2) ) return 0.;
+  if ( isinf(r2) ) return tp_at_inf(amp, beta > 0. ? 0. : NAN);
   tp_radial(sqrt(r2), a, alpha, beta, 1, f);
   return amp * (R * R * f[1] + Z * Z * f[0]) / r2;
 }
@@ -165,7 +172,7 @@ double TwoPowerSphericalPotentialz2deriv(double R,double Z, double phi,
   double beta= *args;
   double r2= R * R + Z * Z;
   double f[3];
-  if ( isinf(r2) ) return 0.;
+  if ( isinf(r2) ) return tp_at_inf(amp, beta > 0. ? 0. : NAN);
   tp_radial(sqrt(r2), a, alpha, beta, 1, f);
   return amp * (Z * Z * f[1] + R * R * f[0]) / r2;
 }
@@ -179,7 +186,7 @@ double TwoPowerSphericalPotentialRzderiv(double R,double Z, double phi,
   double beta= *args;
   double r2= R * R + Z * Z;
   double f[3];
-  if ( isinf(r2) ) return 0.;
+  if ( isinf(r2) ) return tp_at_inf(amp, beta > 0. ? 0. : NAN);
   tp_radial(sqrt(r2), a, alpha, beta, 1, f);
   return amp * R * Z * f[2] / r2;
 }

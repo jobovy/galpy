@@ -121,9 +121,11 @@ def _limit_at_infinite_radius(component=None):
     """The value at r = inf, where the expressions are inf * 0 (R f(r),
     z^2 f(r) / r^2, ...). The force along an infinite coordinate is
     -dPhi/dr(inf) (_force_at_infinity); the transverse force and every second
-    derivative -> 0 (beta > 0). With both coordinates infinite the direction is
-    undefined: 0 if dPhi/dr -> 0, else NaN. ``component``: "R" or "z" for the
-    forces, None for the second derivatives."""
+    derivative -> 0. With both coordinates infinite the direction is
+    undefined: 0 if dPhi/dr -> 0, else NaN. Only for beta > 0: at beta <= 0
+    the density does not fall off and these limits are finite or divergent, so
+    r = inf is NaN there. amp = 0 is 0 (no 0 * inf). ``component``: "R" or "z"
+    for the forces, None for the second derivatives."""
 
     def decorator(method):
         @functools.wraps(method)
@@ -135,8 +137,10 @@ def _limit_at_infinite_radius(component=None):
             out = method(
                 self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
             )
-            if component is None:
+            if self._amp == 0.0 or (component is None and self.beta > 0.0):
                 return numpy.where(inf, 0.0, out)
+            if self.beta <= 0.0:
+                return numpy.where(inf, numpy.nan, out)
             F = _force_at_infinity(self.beta, self.a)
             X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
             with numpy.errstate(invalid="ignore"):
