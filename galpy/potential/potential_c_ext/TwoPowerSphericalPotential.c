@@ -1,7 +1,6 @@
 #include <math.h>
 #include <gsl/gsl_sf_gamma.h>
 #include "galpy_potentials.h"
-#include "wrap_xsf.h"
 
 // Define M_PI if not already defined (needed for Windows)
 #ifndef M_PI
@@ -50,10 +49,22 @@ static double tp_k_series(double p, double q, double s){
   }
   return pow(1. - s, p) * out;
 }
+// base + int_{s1}^{s2} v^(q-1) (1-v)^(p-1) dv for |q| < TP_QSMALL (through K)
+static double tp_reflected_smallq(double p, double q, double s1, double s2,
+                                  double base){
+  double K2= tp_k_series(p, q, s2);
+  double lg= log(s2 / s1);
+  double first;
+  if ( q == 0. ) first= lg;
+  else if ( fabs(q * lg) < 1. ) first= pow(s1, q) * expm1(q * lg) / q;
+  else first= (pow(s2, q) - pow(s1, q)) / q;
+  return base + first * (1. + q * K2) + pow(s1, q) * (K2 - tp_k_series(p, q, s1));
+}
 // B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact); split at the
 // integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9): below it the direct
 // positive series, above it B_c plus the reflected int_{1-z}^{1-c} v^(q-1)
-// (1-v)^(p-1) dv, which holds the mass (through K(s) when |q| is small)
+// (1-v)^(p-1) dv, which holds the mass (through K(s) when |q| is small; as
+// q -> -1 (beta -> 2) integrated by parts to q + 1 first)
 static double tp_ibeta(double p, double q, double z, double s){
   double c= (p + 1.) / (p + q + 2.);
   if ( c > 0.9 ) c= 0.9;
@@ -61,16 +72,13 @@ static double tp_ibeta(double p, double q, double z, double s){
     return pow(z, p) * pow(s, q) / p * tp_2f1_1(p + q, p + 1., z);
   double s2= 1. - c;
   double ibc= pow(c, p) * pow(s2, q) / p * tp_2f1_1(p + q, p + 1., c);
-  if ( fabs(q) >= TP_QSMALL )
-    return ibc + pow(s2, q) * pow(1. - s2, p) / q * tp_2f1_1(p + q, q + 1., s2)
-      - pow(s, q) * pow(1. - s, p) / q * tp_2f1_1(p + q, q + 1., s);
-  double K2= tp_k_series(p, q, s2);
-  double lg= log(s2 / s);
-  double first;
-  if ( q == 0. ) first= lg;
-  else if ( fabs(q * lg) < 1. ) first= pow(s, q) * expm1(q * lg) / q;
-  else first= (pow(s2, q) - pow(s, q)) / q;
-  return ibc + first * (1. + q * K2) + pow(s, q) * (K2 - tp_k_series(p, q, s));
+  if ( fabs(q) < TP_QSMALL )
+    return tp_reflected_smallq(p, q, s, s2, ibc);
+  if ( fabs(q + 1.) < TP_QSMALL )
+    return ibc + pow(s2, q) * pow(1. - s2, p) / q - pow(s, q) * pow(1. - s, p) / q
+      + (p + q) / q * tp_reflected_smallq(p, q + 1., s, s2, 0.);
+  return ibc + pow(s2, q) * pow(1. - s2, p) / q * tp_2f1_1(p + q, q + 1., s2)
+    - pow(s, q) * pow(1. - s, p) / q * tp_2f1_1(p + q, q + 1., s);
 }
 double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
                                        double t,
@@ -91,6 +99,43 @@ double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
                   + tp_ibeta(beta-2., 2.-alpha, s, w) ) / a;
 }
 
+// Forces and second derivatives from the same M (amp = 1; 4 pi rho a^3 = D =
+// w^-alpha s^beta): dPhi/dr / r = M/(x a)^3 and, by Poisson,
+//   Phi'' = 4 pi rho - 2 dPhi/dr / r,  Phi'' - dPhi/dr / r = 4 pi rho - 3 dPhi/dr / r.
+// Below the split c of tp_ibeta, M = w^p s^q / p (1 + G) with
+// G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w), so with
+// E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
+// x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
+// alpha = 0 (k = 3) are subtracted in closed form. Above c (where G >~ 1/2)
+// D - k M/x^3 directly. No hyp2f1(..., -r/a): that was 3e-3 off at
+// beta = 3 +- 1e-12 and NaN at large beta and r.
+// f[0] = dPhi/dr / r; if hess, also f[1] = Phi'', f[2] = Phi'' - dPhi/dr / r
+static void tp_radial(double r, double a, double alpha, double beta, int hess,
+                      double * f){
+  double x= r / a;
+  double w= x / (1. + x), s= 1. / (1. + x);
+  double p= 3. - alpha, q= beta - 3.;
+  double c= (p + 1.) / (p + q + 2.);
+  double a3= a * a * a;
+  if ( c > 0.9 ) c= 0.9;
+  if ( w <= c ) {
+    double E= pow(w, -alpha) * pow(s, beta) / p / a3;
+    double G= (p + q) / (p + 1.) * w * tp_2f1_1(p + q + 1., p + 2., w);
+    f[0]= E * (1. + G);
+    if ( hess ) {
+      f[1]= E * (1. - alpha - 2. * G);
+      f[2]= -E * (alpha + 3. * G);
+    }
+    return;
+  }
+  double m= tp_ibeta(p, q, w, s) * pow(s / w, 3.) / a3;
+  f[0]= m;
+  if ( hess ) {
+    double D= pow(w, -alpha) * pow(s, beta) / a3;
+    f[1]= D - 2. * m;
+    f[2]= D - 3. * m;
+  }
+}
 double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,
                                         double t,
                                         struct potentialArg * potentialArgs){
@@ -99,10 +144,9 @@ double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,
   double a= *args++;
   double alpha= *args++;
   double beta= *args;
-  //Calculate Rforce
-  double r= sqrt(R*R+Z*Z);
-  return -amp * R * pow(r, -alpha) * pow(a, alpha - 3.) / (3. - alpha)
-              * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -r/a);
+  double f[1];
+  tp_radial(sqrt(R*R+Z*Z), a, alpha, beta, 0, f);
+  return -amp * R * f[0];
 }
 
 double TwoPowerSphericalPotentialPlanarRforce(double R,double phi,
@@ -113,9 +157,9 @@ double TwoPowerSphericalPotentialPlanarRforce(double R,double phi,
   double a= *args++;
   double alpha= *args++;
   double beta= *args;
-  //Calculate Rforce
-  return -amp * pow(R, 1.0 - alpha) * pow(a, alpha - 3.) / (3. - alpha)
-              * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -R/a);
+  double f[1];
+  tp_radial(R, a, alpha, beta, 0, f);
+  return -amp * R * f[0];
 }
 
 double TwoPowerSphericalPotentialzforce(double R,double Z,double phi,
@@ -126,10 +170,9 @@ double TwoPowerSphericalPotentialzforce(double R,double Z,double phi,
   double a= *args++;
   double alpha= *args++;
   double beta= *args;
-  //Calculate zforce
-  double r= sqrt(R*R+Z*Z);
-  return -amp * Z * pow(r, -alpha) * pow(a, alpha - 3.) / (3. - alpha)
-              * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -r/a);
+  double f[1];
+  tp_radial(sqrt(R*R+Z*Z), a, alpha, beta, 0, f);
+  return -amp * Z * f[0];
 }
 
 double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
@@ -140,54 +183,51 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
   double a= *args++;
   double alpha= *args++;
   double beta= *args;
-  //Calculate R2deriv using analytical derivative
-  double A = pow(a, alpha - 3.) / (3. - alpha);
-  double hyper = hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -R/a);
-  double hyper_deriv = (3. - alpha) * (beta - alpha) / (4. - alpha)
-                       * hyp2f1(4. - alpha, 1. + beta - alpha, 5. - alpha, -R/a);
-
-  double term1 = A * pow(R, -alpha) * hyper;
-  double term2 = -alpha * A * pow(R, -alpha) * hyper;
-  double term3 = -A * pow(R, 1. - alpha) * pow(a, -1.) * hyper_deriv;
-  return amp * (term1 + term2 + term3);
+  double f[3];
+  tp_radial(R, a, alpha, beta, 1, f);
+  return amp * f[1];
 }
 
+// Spherical: R2deriv = (R^2 Phi'' + z^2 Phi'/r)/r^2, z2deriv the same with
+// R <-> z, Rzderiv = R z (Phi'' - Phi'/r)/r^2
 double TwoPowerSphericalPotentialR2deriv(double R,double Z, double phi,
                                          double t,
                                          struct potentialArg * potentialArgs){
-  //Spherical: Phi''(r)=PlanarR2deriv(r), Phi'(r)=-PlanarRforce(r) (incl. amp)
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args++;
+  double alpha= *args++;
+  double beta= *args;
   double r2= R * R + Z * Z;
-  double r= sqrt( r2 );
-  double Phipp= TwoPowerSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
-  double Phip= -TwoPowerSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
-  double ir2= 1. / r2;
-  double ir3= ir2 / r;
-  //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
-  return Phipp * R * R * ir2 + Phip * Z * Z * ir3;
+  double f[3];
+  tp_radial(sqrt(r2), a, alpha, beta, 1, f);
+  return amp * (R * R * f[1] + Z * Z * f[0]) / r2;
 }
 double TwoPowerSphericalPotentialz2deriv(double R,double Z, double phi,
                                          double t,
                                          struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args++;
+  double alpha= *args++;
+  double beta= *args;
   double r2= R * R + Z * Z;
-  double r= sqrt( r2 );
-  double Phipp= TwoPowerSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
-  double Phip= -TwoPowerSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
-  double ir2= 1. / r2;
-  double ir3= ir2 / r;
-  //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
-  return Phipp * Z * Z * ir2 + Phip * R * R * ir3;
+  double f[3];
+  tp_radial(sqrt(r2), a, alpha, beta, 1, f);
+  return amp * (Z * Z * f[1] + R * R * f[0]) / r2;
 }
 double TwoPowerSphericalPotentialRzderiv(double R,double Z, double phi,
                                          double t,
                                          struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args++;
+  double alpha= *args++;
+  double beta= *args;
   double r2= R * R + Z * Z;
-  double r= sqrt( r2 );
-  double Phipp= TwoPowerSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
-  double Phip= -TwoPowerSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
-  double ir2= 1. / r2;
-  double ir3= ir2 / r;
-  //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
-  return R * Z * ( Phipp * ir2 - Phip * ir3 );
+  double f[3];
+  tp_radial(sqrt(r2), a, alpha, beta, 1, f);
+  return amp * R * Z * f[2] / r2;
 }
 double TwoPowerSphericalPotentialDens(double R,double Z, double phi,
                                       double t,
