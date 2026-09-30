@@ -15,6 +15,8 @@
 # byte-identical -- the else-branch is the verbatim original), and (b) grad-vs-FD
 # h-converges (stringent, not finite-and-nonzero). Backends not installed self-skip.
 ###############################################################################
+import importlib
+
 import numpy
 import pytest
 
@@ -40,13 +42,14 @@ except ImportError:  # pragma: no cover
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
-from galpy.actionAngle import actionAngleIsochroneApprox
+from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend.jacobian import jacobian
 from galpy.df.streamdf import (
     _determine_stream_spread_single,
     _determine_stream_track_single,
     _real_eig,
+    _shared_step_aA,
     _sig_mean_sign,
     _vmap_track_chunks,
     calcaAJac,
@@ -563,7 +566,7 @@ def test_calcaAJac_numpy_stays_fd(aA_iso):
 # the numpy branch is the verbatim original (byte-identical); a backend orbit
 # routes to _determine_stream_track_single_backend -- a PURE function (no numpy
 # item-assignment: xp.stack/concat build every array) so it is differentiable and
-# map-ready (Phase B.3, jax.lax.map). Returns a plain tuple of backend arrays (numpy keeps its
+# map-ready (Phase B.3, jax.vmap). Returns a plain tuple of backend arrays (numpy keeps its
 # dtype=object array); the boolean-mask angle wrap becomes xp.where, numpy.mod
 # becomes xp.remainder, the actions+angles row select uses static indices.
 ###############################################################################
@@ -724,12 +727,12 @@ def test_determine_stream_track_single_grad_vs_fd(backend_name):
 # _allAcfsTrack/_detdOdJps/_ObsTrackXY/_interpolatedObsTrackXY all bit-unchanged).
 #
 # The backend path (streamdf._determine_stream_track_backend) mirrors the numpy
-# body but is PURE and jax.lax.map-mapped over the chunk grid -- FORK-FREE (no
-# parallel_map), no numpy.empty/item-assignment. (NOT jax.vmap: vmap batches the
-# per-chunk calcaAJac jax.jacrev -- no vmap batching rule over the diffrax/C-STM
-# integration -- and silently leaks the outer d/d(param) gradient ~20%; lax.map
-# runs the chunks sequentially so the analytic AD equals a finite-difference of
-# the same track to ~1e-4.) The auxiliary orbit integrates on the backend
+# body but is PURE and jax.vmap-batched over the chunk grid -- FORK-FREE (no
+# parallel_map), no numpy.empty/item-assignment. The per-chunk action-angle solves
+# take SHARED constant steps (_shared_step_aA): with diffrax's adaptive steps the
+# batched DirectAdjoint reverse pass is wrong (d/dq ~7% off) while the values are
+# right -- test_vmap_track_chunks_needs_shared_steps guards it. The auxiliary
+# orbit integrates on the backend
 # (diffrax/torchdiffeq) and the per-chunk AA Jacobian is the exact AD calcaAJac,
 # so the track is differentiable to the potential parameters (via the auxiliary
 # integration + the AA) and the progenitor IC (via _ic_backend); the progenitor's
@@ -743,7 +746,7 @@ def test_determine_stream_track_single_grad_vs_fd(backend_name):
 # These tests build a NUMPY streamdf, then re-run the track on the backend with a
 # diffrax AA and check value parity + the differentiable pipeline. Slow (a backend
 # track integrates many orbits under AD); jax only (torch: torchdiffeq + a
-# list-comp fallback for the chunk loop -- lax.map is the jax priority).
+# list-comp fallback for the chunk loop -- vmap is the jax priority).
 ###############################################################################
 _STREAM_IC = [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
 
@@ -797,7 +800,7 @@ def _run_backend_track(sdf, integrate_kwargs):
 @pytest.mark.slow
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_determine_stream_track_value_parity():
-    # The backend track (diffrax AA, exact AD Jacobian, jax.lax.map) reproduces the numpy
+    # The backend track (diffrax AA, exact AD Jacobian, jax.vmap) reproduces the numpy
     # track (C-STM AA, finite-difference Jacobian). The physical track (_ObsTrack/_ObsTrackXY),
     # actions/angles and detdOdJ match far below the 1e-5 integrator floor; only the stored
     # freq/angle Jacobian _alljacsTrack (~5e-5) and its inverse _allinvjacsTrack (~9e-3, matrix
@@ -831,27 +834,31 @@ def test_determine_stream_track_value_parity():
 @pytest.mark.slow
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_determine_stream_track_map_no_fork(monkeypatch):
-    # The backend chunk loop is jax.lax.map (fork-free): parallel_map must NOT be
-    # used. NOT jax.vmap -- vmap batches the per-chunk calcaAJac jax.jacrev (no vmap
-    # batching rule over the diffrax/C-STM integration) and silently leaks the outer
-    # d/d(param) gradient; lax.map runs the chunks sequentially so the AD is exact.
+    # The backend chunk loop is ONE jax.vmap over the chunks (fork-free):
+    # parallel_map must NOT be used, and no sequential lax.map remains.
     sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15)
     from galpy.util import multi as _multi
 
-    calls = {"laxmap": 0}
-    orig = jax.lax.map
+    mod = importlib.import_module("galpy.df.streamdf")
+    batched = []
+    orig = mod._vmap_track_chunks
 
-    def spy(*a, **k):
-        calls["laxmap"] += 1
-        return orig(*a, **k)
+    def spy(xp, single, xv0_all, thetas):
+        out = orig(xp, single, xv0_all, thetas)
+        batched.append((tuple(xv0_all.shape), tuple(out[3].shape)))
+        return out
 
     def no_fork(*a, **k):
         raise AssertionError("backend stream track must not fork (parallel_map)")
 
-    monkeypatch.setattr(jax.lax, "map", spy)
+    def no_laxmap(*a, **k):
+        raise AssertionError("backend stream track must vmap, not lax.map")
+
+    monkeypatch.setattr(mod, "_vmap_track_chunks", spy)
     monkeypatch.setattr(_multi, "parallel_map", no_fork)
+    monkeypatch.setattr(jax.lax, "map", no_laxmap)
     _run_backend_track(sdf, {"max_steps": 1000000})
-    assert calls["laxmap"] > 0
+    assert batched == [((4, 6), (4, 6))]
 
 
 def _track_loss_fn(sdf, prog_vxvv, tintJ, W):
@@ -894,9 +901,9 @@ def _track_loss_fn(sdf, prog_vxvv, tintJ, W):
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_determine_stream_track_differentiable_potential():
     # d(sum(W*ObsTrack))/d(LogHalo q) flows end-to-end through the backend track
-    # (auxiliary diffrax integration + AD calcaAJac + lax.map assembly). The analytic
+    # (auxiliary diffrax integration + AD calcaAJac + vmap assembly). The analytic
     # AD MUST equal a central FD of the SAME backend track -- here to ~1e-3 (the
-    # stringent grad-vs-FD bar; a vmap chunk loop instead leaks ~20%). [The separate
+    # stringent grad-vs-FD bar; vmap with ADAPTIVE steps instead is ~7% off). [The separate
     # ~10% gap to a full numpy-rebuild FD is the frozen frequency-covariance
     # eigendecomposition (_meandO/_dsigomeanProgDirection), a differentiable-__init__
     # (Phase C) follow-up -- not tested here.]
@@ -937,7 +944,7 @@ def test_determine_stream_track_differentiable_potential():
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_determine_stream_track_differentiable_progenitor():
     # d(sum(W*ObsTrack))/d(progenitor R) flows through the backend track (the IC
-    # enters via _ic_backend -> the auxiliary integration + AD calcaAJac + lax.map
+    # enters via _ic_backend -> the auxiliary integration + AD calcaAJac + vmap
     # assembly); the analytic AD MUST equal a central FD of the SAME backend track,
     # here to ~1e-3 (same stringent grad-vs-FD bar as the potential gradient).
     nch, tintJ, delta = 3, 30, 0.5
@@ -983,10 +990,92 @@ def test_jacobian_rejects_numpy_namespace():
         jacobian(lambda v: v, numpy.zeros(3), xp=numpy)
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_shared_step_aA_step_count(sdf):
+    # The vmapped track's AA solves take constant steps: 100 per shortest
+    # progenitor period over tintJ (snapshotted at setup), one per tsJ sample if
+    # that period is unknown, or the user's own nsteps. The user's aA is copied,
+    # never mutated; torch and non-integrating aAs pass through untouched.
+    import math
+
+    Tmin = 2.0 * numpy.pi / numpy.max(numpy.fabs(sdf._progenitor_Omega))
+    assert sdf._progenitor_Tmin == Tmin
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+
+    def mk(ikw):
+        return actionAngleIsochroneApprox(
+            pot=lp, b=0.8, tintJ=30.0, ntintJ=1001, integrate_kwargs=ikw
+        )
+
+    aA = mk({"max_steps": 5000})
+    shared = _shared_step_aA(aA, jnp, Tmin)
+    assert shared is not aA and aA._integrate_kwargs == {"max_steps": 5000}
+    assert shared._integrate_kwargs == {
+        "max_steps": 5000,
+        "nsteps": math.ceil(100 * 30.0 / Tmin),
+    }
+    assert _shared_step_aA(mk(None), jnp, None)._integrate_kwargs == {"nsteps": 1000}
+    assert _shared_step_aA(mk({"nsteps": 77}), jnp, Tmin)._integrate_kwargs == {
+        "nsteps": 77
+    }
+    aAI = actionAngleIsochrone(b=0.8)
+    assert _shared_step_aA(aAI, jnp, Tmin) is aAI
+    if "torch" in BACKENDS:
+        import torch
+
+        assert _shared_step_aA(aA, get_namespace(torch.zeros(1)), Tmin) is aA
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_vmap_track_chunks_needs_shared_steps():
+    # ROOT-CAUSE guard for the vmapped chunk loop. The track's d/d(parameter)
+    # differentiates the per-chunk calcaAJac (a jacrev over diffrax solves) through
+    # DirectAdjoint. With ADAPTIVE steps the vmapped batch elements take different
+    # step sequences and that batched reverse pass is wrong: d/dq below is 4.6e-2
+    # off the sequential loop (7% on the full track) while the values agree. The
+    # _shared_step_aA the track hands its chunks makes them agree to ~3e-7.
+    lp0 = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    X = jnp.asarray(
+        numpy.array(_STREAM_IC) + numpy.random.default_rng(3).normal(0.0, 0.03, (3, 6))
+    )
+    thetas = jnp.asarray([0.0, 0.1, 0.2])
+    W = jnp.asarray(numpy.random.default_rng(4).standard_normal((3, 9, 6)))
+    # shortest progenitor period, as the streamdf setup snapshots it
+    O = actionAngleIsochroneApprox(pot=lp0, b=0.8, tintJ=10.0, ntintJ=400)
+    Om = numpy.array(O.actionsFreqsAngles(Orbit(_STREAM_IC))[3:6]).flatten()
+    Tmin = 2.0 * numpy.pi / numpy.max(numpy.fabs(Om))
+
+    def loss(q, mapper):
+        lp = LogarithmicHaloPotential(normalize=1.0, q=q)
+        aA = actionAngleIsochroneApprox(
+            pot=lp,
+            b=0.8,
+            tintJ=10.0,
+            ntintJ=400,
+            integrate_method="diffrax",
+            integrate_kwargs={"adjoint": "direct", "max_steps": 20000},
+        )
+        aA = _shared_step_aA(aA, jnp, Tmin)
+
+        def single(xv, th):
+            return (calcaAJac(xv, aA, actionsFreqsAngles=True),) * 6
+
+        return jnp.sum(W * mapper(jnp, single, X, thetas)[0])
+
+    def sequential(xp, single, xv0_all, th):
+        return (jnp.stack([single(xv0_all[i], th[i])[0] for i in range(th.shape[0])]),)
+
+    # jit: ~30% faster than eager here (and exercises the vmap under jit)
+    vm = float(jax.jit(jax.grad(lambda q: loss(q, _vmap_track_chunks)))(0.9))
+    sq = float(jax.jit(jax.grad(lambda q: loss(q, sequential)))(0.9))
+    assert abs(vm - sq) < 1e-5 * abs(sq), f"vmap {vm:.10e} vs sequential {sq:.10e}"
+
+
 @pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
 def test_vmap_track_chunks_torch_stack():
     # The non-jax path of _vmap_track_chunks stacks a Python list of per-chunk
-    # 6-tuples (jax uses lax.map; torch cannot trace torch.func.vmap over the
+    # 6-tuples (jax uses vmap; torch cannot trace torch.func.vmap over the
     # torchdiffeq custom-autograd orbit). Exercised with a trivial `single`.
     import torch
 
