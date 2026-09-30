@@ -19,6 +19,7 @@ double galpy_hyp2f1_1(double b, double c, double z){
     t*= (b + k) / (c + k) * z;
     out+= t;
     if ( k > 5 && fabs(t) <= 1e-17 * fabs(out) ) break;
+    if ( ! isfinite(out) ) break; // a NaN argument never converges
   }
   return out;
 }
@@ -36,6 +37,7 @@ static double ibeta_k_series(double p, double q, double s){
     out+= term;
     if ( k > 5 && (p + k) / (k + 1.) * s < 1. && fabs(term) <= 1e-17 * fabs(out) )
       break;
+    if ( ! isfinite(out) ) break; // a NaN argument never converges
   }
   return pow(1. - s, p) * out;
 }
@@ -50,22 +52,28 @@ static double ibeta_reflected_smallq(double p, double q, double s1, double s2,
   else first= (pow(s2, q) - pow(s1, q)) / q;
   return base + first * (1. + q * K2) + pow(s1, q) * (K2 - ibeta_k_series(p, q, s1));
 }
+// int_{s1}^{s2} v^(q-1) (1-v)^(p-1) dv: through K(s) when |q| is small; near a
+// negative integer q (beta -> 2, 1, ...), where the antiderivative's
+// 2F1(1, p+q; q+1; v) has a pole, integrated by parts to q + 1 first
+static double ibeta_reflected(double p, double q, double s1, double s2){
+  if ( fabs(q) < IBETA_QSMALL )
+    return ibeta_reflected_smallq(p, q, s1, s2, 0.);
+  double n= round(q);
+  if ( n <= -1. && fabs(q - n) < IBETA_QSMALL )
+    return pow(s2, q) * pow(1. - s2, p) / q - pow(s1, q) * pow(1. - s1, p) / q
+      + (p + q) / q * ibeta_reflected(p, q + 1., s1, s2);
+  return pow(s2, q) * pow(1. - s2, p) / q * galpy_hyp2f1_1(p + q, q + 1., s2)
+    - pow(s1, q) * pow(1. - s1, p) / q * galpy_hyp2f1_1(p + q, q + 1., s1);
+}
 // B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact); split at the
 // integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9): below it the direct
 // positive series, above it B_c plus the reflected int_{1-z}^{1-c} v^(q-1)
-// (1-v)^(p-1) dv, which holds the mass (through K(s) when |q| is small; as
-// q -> -1 (beta -> 2) integrated by parts to q + 1 first)
+// (1-v)^(p-1) dv, which holds the mass
 double galpy_incomplete_beta(double p, double q, double z, double s){
   double c= galpy_incomplete_beta_split(p, q);
   if ( z <= c )
     return pow(z, p) * pow(s, q) / p * galpy_hyp2f1_1(p + q, p + 1., z);
   double s2= 1. - c;
   double ibc= pow(c, p) * pow(s2, q) / p * galpy_hyp2f1_1(p + q, p + 1., c);
-  if ( fabs(q) < IBETA_QSMALL )
-    return ibeta_reflected_smallq(p, q, s, s2, ibc);
-  if ( fabs(q + 1.) < IBETA_QSMALL )
-    return ibc + pow(s2, q) * pow(1. - s2, p) / q - pow(s, q) * pow(1. - s, p) / q
-      + (p + q) / q * ibeta_reflected_smallq(p, q + 1., s, s2, 0.);
-  return ibc + pow(s2, q) * pow(1. - s2, p) / q * galpy_hyp2f1_1(p + q, q + 1., s2)
-    - pow(s, q) * pow(1. - s, p) / q * galpy_hyp2f1_1(p + q, q + 1., s);
+  return ibc + ibeta_reflected(p, q, s, s2);
 }

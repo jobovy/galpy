@@ -3,6 +3,7 @@
 #               harmonics, incomplete beta)
 ###############################################################################
 import functools
+import math
 
 import numpy
 import scipy
@@ -170,6 +171,7 @@ def incomplete_beta_split(p, q):
 
 
 _IBETA_QSMALL = 0.05
+_IBETA_MAXITER = 1000000  # a NaN argument never converges: stop, return NaN
 
 
 def incomplete_beta_k_series(p, q, s):
@@ -180,25 +182,40 @@ def incomplete_beta_k_series(p, q, s):
     D_k = D_{k-1} f_k + (1-p)/((p+k-1)(k+q)), f_k = R_k/R_{k-1}: the O(q)
     difference from 1 is never formed by subtraction, and a negative p + q
     (alpha > beta) needs no logarithm."""
-    s = numpy.asarray(s, dtype=float)
-    t = numpy.ones_like(s)
+    scalar = numpy.ndim(s) == 0  # summed in plain floats: ~20x faster
+    if scalar:
+        s = float(s)
+        if not s == s:  # NaN never converges
+            return numpy.nan
+        smax, t, out = s, 1.0, 0.0
+    else:
+        s = numpy.asarray(s, dtype=float)
+        fin = numpy.isfinite(s)
+        if not numpy.any(fin):
+            return numpy.full_like(s, numpy.nan)
+        smax, t, out = numpy.amax(s[fin]), numpy.ones_like(s), numpy.zeros_like(s)
     D = 0.0
-    out = numpy.zeros_like(s)
-    k = 0
-    while True:
-        k += 1
+    for k in range(1, _IBETA_MAXITER):
         t = t * (p + k - 1.0) / k * s
         D = D * (1.0 + q / (p + k - 1.0)) / (1.0 + q / k) + (1.0 - p) / (
             (p + k - 1.0) * (k + q)
         )
         term = t * D
         out = out + term
-        if (
-            k > 5
-            and (p + k) / (k + 1.0) * numpy.amax(s) < 1.0
-            and numpy.all(numpy.fabs(term) <= 1e-17 * numpy.fabs(out))
-        ):
-            return (1.0 - s) ** p * out
+        if k > 5 and (p + k) / (k + 1.0) * smax < 1.0:
+            if scalar:
+                if abs(term) <= 1e-17 * abs(out):
+                    break
+            elif numpy.all(
+                (numpy.fabs(term) <= 1e-17 * numpy.fabs(out)) | ~numpy.isfinite(out)
+            ):
+                break
+    return (1.0 - s) ** p * out
+
+
+@functools.lru_cache(maxsize=256)  # fixed per (alpha, beta): once, not per call
+def _incomplete_beta_k_at(p, q, s):
+    return float(incomplete_beta_k_series(p, q, s))
 
 
 def incomplete_beta(p, q, z, s):
@@ -236,17 +253,19 @@ def hyp2f1_1(b, c, z):
         return special.hyp2f1(1.0, b, c, z)
     scalar = numpy.ndim(z) == 0  # summed in plain floats: ~20x faster
     z = float(z) if scalar else numpy.asarray(z, dtype=float)
-    t, out, k = 1.0, 1.0, 0
-    while True:
+    t, out = 1.0, 1.0
+    for k in range(_IBETA_MAXITER):
         t = t * (b + k) / (c + k) * z
         out = out + t
         if k > 5 and (
-            abs(t) <= 1e-17 * abs(out)
+            (abs(t) <= 1e-17 * abs(out) or out != out)
             if scalar
-            else numpy.all(numpy.fabs(t) <= 1e-17 * numpy.fabs(out))
+            else numpy.all(
+                (numpy.fabs(t) <= 1e-17 * numpy.fabs(out)) | ~numpy.isfinite(out)
+            )
         ):
-            return out
-        k += 1
+            break
+    return out
 
 
 def incomplete_beta_lo(p, q, z, s):
@@ -260,32 +279,53 @@ def incomplete_beta_at_split(p, q, c):
 
 
 def incomplete_beta_hi(p, q, s1, c):
-    s2 = 1.0 - c
-    ibc = incomplete_beta_at_split(p, q, c)
+    """B_z(p, q) above the split c, given s1 = 1 - z: B_c(p, q) plus the
+    reflected integral from s1 to 1 - c"""
+    return incomplete_beta_at_split(p, q, c) + _incomplete_beta_reflected(
+        p, q, s1, 1.0 - c
+    )
+
+
+def _incomplete_beta_reflected(p, q, s1, s2):
+    """int_{s1}^{s2} v^(q-1) (1-v)^(p-1) dv.
+
+    Its antiderivative v^q (1-v)^p/q 2F1(1, p+q; q+1; v) has a pole when q + 1
+    is a non-positive integer and ~1/q terms as q -> 0; near a negative integer
+    q (beta -> 2, 1, ...) integrate by parts to q + 1, near 0 sum through K."""
     if abs(q) < _IBETA_QSMALL:
-        return _incomplete_beta_reflected_smallq(p, q, s1, s2, ibc)
-    if abs(q + 1.0) < _IBETA_QSMALL:
-        # beta -> 2: B(v) below has a 1/(q+1) that cancels in B(s2) - B(s1);
-        # integrate by parts to the reflected integral with q -> q + 1 instead
+        return _incomplete_beta_reflected_smallq(p, q, s1, s2, 0.0)
+    n = round(q)
+    if n <= -1 and abs(q - n) < _IBETA_QSMALL:
+
         def B0(v):
             return v**q * (1.0 - v) ** p / q
 
         return (
-            ibc
-            + B0(s2)
+            B0(s2)
             - B0(s1)
-            + (p + q) / q * _incomplete_beta_reflected_smallq(p, q + 1.0, s1, s2, 0.0)
+            + (p + q) / q * _incomplete_beta_reflected(p, q + 1.0, s1, s2)
         )
 
     def B(v):
         return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
 
-    return ibc + B(s2) - B(s1)
+    return B(s2) - B(s1)
 
 
 def _incomplete_beta_reflected_smallq(p, q, s1, s2, base):
     """base + int_{s1}^{s2} v^(q-1) (1-v)^(p-1) dv for |q| < _IBETA_QSMALL"""
-    K2 = incomplete_beta_k_series(p, q, s2)
+    K2 = _incomplete_beta_k_at(p, q, s2)
+    K1 = incomplete_beta_k_series(p, q, s1)
+    if numpy.ndim(s1) == 0:  # plain floats: numpy's scalar ufuncs dominate
+        s1 = float(s1)
+        lg = math.log(s2 / s1) if s1 > 0.0 else math.inf
+        if q == 0.0:
+            first = lg
+        elif abs(q * lg) < 1.0:
+            first = s1**q * math.expm1(q * lg) / q
+        else:
+            first = (s2**q - s1**q) / q
+        return base + first * (1.0 + q * K2) + s1**q * (K2 - K1)
     lg = numpy.log(s2 / s1)
     if q == 0.0:
         first = lg
@@ -297,8 +337,4 @@ def _incomplete_beta_reflected_smallq(p, q, s1, s2, base):
             s1**q * numpy.expm1(numpy.where(numpy.fabs(qlg) < 1.0, qlg, 0.0)) / q,
             (s2**q - s1**q) / q,
         )
-    return (
-        base
-        + first * (1.0 + q * K2)
-        + s1**q * (K2 - incomplete_beta_k_series(p, q, s1))
-    )
+    return base + first * (1.0 + q * K2) + s1**q * (K2 - K1)

@@ -7,6 +7,8 @@
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
 
+import functools
+
 import numpy
 from scipy import optimize, special
 
@@ -104,6 +106,23 @@ def _tp_radial_hi(alpha, beta, w, s, c, hess):
         return (m,)
     D = w**-alpha * s**beta
     return m, D - 2.0 * m, D - 3.0 * m
+
+
+def _zero_at_infinite_radius(method):
+    """Forces and second derivatives -> 0 as r -> inf, where their expressions
+    are inf * 0 (R f(r), z^2 f(r) / r^2, ...)"""
+
+    @functools.wraps(method)
+    def wrapper(self, R, z, phi=0.0, t=0.0):
+        inf = numpy.isinf(R) | numpy.isinf(z)
+        if not numpy.any(inf):
+            return method(self, R, z, phi=phi, t=t)
+        out = method(
+            self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
+        )
+        return numpy.where(inf, 0.0, out)
+
+    return wrapper
 
 
 if _APY_LOADED:
@@ -212,11 +231,13 @@ class TwoPowerSphericalPotential(Potential):
         a3 = self.a**3.0
         return [f / a3 for f in out]
 
+    @_zero_at_infinite_radius
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         return -R * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
 
+    @_zero_at_infinite_radius
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
@@ -292,11 +313,13 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
+    @_zero_at_infinite_radius
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         f1, f0, _ = self._radial(numpy.sqrt(r2), True)
         return (R**2.0 * f0 + z**2.0 * f1) / r2
 
+    @_zero_at_infinite_radius
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         return R * z * self._radial(numpy.sqrt(r2), True)[2] / r2
