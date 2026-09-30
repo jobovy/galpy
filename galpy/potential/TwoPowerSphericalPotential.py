@@ -69,10 +69,15 @@ def _nfw_hk(x):
 # G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w), so with
 # E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 # x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
-# alpha = 0 (k = 3) are subtracted in closed form. Above c, D - k M/x^3
-# directly: those cancellations are small-x ones (and for alpha < beta,
-# G >~ 1/2 there). No hyp2f1(..., -r/a): that was 3e-3 off at
-# beta = 3 +- 1e-12 and NaN at large beta and r.
+# alpha = 0 (k = 3) are subtracted in closed form. Only for alpha < 1.5
+# (_TP_GFORM_ALPHA): near alpha = 3 it is 1 + G that cancels (G -> -1), while
+# D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3 there, so alpha >= 1.5
+# sums M = E 2F1(1, p+q; p+1; w) directly. Above c, D - k M/x^3 directly:
+# those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
+# off at beta = 3 +- 1e-12 and NaN at large beta and r.
+_TP_GFORM_ALPHA = 1.5
+
+
 def _tp_radial(alpha, beta, w, s, hess):
     """(M/x^3,) or, if hess, (M/x^3, Phi'' a^3, (Phi'' - Phi'/r) a^3)"""
     p, q = 3.0 - alpha, beta - 3.0
@@ -95,6 +100,12 @@ def _tp_radial(alpha, beta, w, s, hess):
 def _tp_radial_lo(alpha, beta, w, s, hess):
     p, q = 3.0 - alpha, beta - 3.0
     E = w**-alpha * s**beta / p
+    if alpha >= _TP_GFORM_ALPHA:
+        m = E * hyp2f1_1(p + q, p + 1.0, w)
+        if not hess:
+            return (m,)
+        D = p * E
+        return m, D - 2.0 * m, D - 3.0 * m
     G = (p + q) / (p + 1.0) * w * hyp2f1_1(p + q + 1.0, p + 2.0, w)
     if not hess:
         return (E * (1.0 + G),)
@@ -117,15 +128,15 @@ def _force_at_infinity(beta, a):
     return 0.5 / a**2.0 if beta == 1.0 else numpy.inf
 
 
-def _limit_at_infinite_radius(component=None):
+def _limit_at_infinite_radius(component):
     """The value at r = inf, where the expressions are inf * 0 (R f(r),
-    z^2 f(r) / r^2, ...). The force along an infinite coordinate is
-    -dPhi/dr(inf) (_force_at_infinity); the transverse force and every second
-    derivative -> 0. With both coordinates infinite the direction is
-    undefined: 0 if dPhi/dr -> 0, else NaN. Only for beta > 0: at beta <= 0
-    the density does not fall off and these limits are finite or divergent, so
-    r = inf is NaN there. amp = 0 is 0 (no 0 * inf). ``component``: "R" or "z"
-    for the forces, None for the second derivatives."""
+    z^2 f(r) / r^2, ...); ``component`` is "R" or "z" (forces), "RR" (R2deriv)
+    or "Rz" (Rzderiv). For beta > 0 the force along an infinite coordinate is
+    -dPhi/dr(inf) (_force_at_infinity) and the transverse force and every
+    second derivative -> 0; with both coordinates infinite the direction is
+    undefined: 0 if dPhi/dr -> 0, else NaN. At beta = 0 (M ~ x^3/3) dPhi/dr / r
+    and Phi'' both -> 1/(3 a^3): the forces are -(R, z)/(3 a^3), R2deriv and
+    z2deriv 1/(3 a^3), Rzderiv 0. amp = 0 is 0 (no 0 * inf)."""
 
     def decorator(method):
         @functools.wraps(method)
@@ -137,12 +148,16 @@ def _limit_at_infinite_radius(component=None):
             out = method(
                 self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
             )
-            if self._amp == 0.0 or (component is None and self.beta > 0.0):
+            if self._amp == 0.0 or component == "Rz":
                 return numpy.where(inf, 0.0, out)
-            if self.beta <= 0.0:
-                return numpy.where(inf, numpy.nan, out)
-            F = _force_at_infinity(self.beta, self.a)
+            if component == "RR":
+                return numpy.where(
+                    inf, 1.0 / (3.0 * self.a**3.0) if self.beta == 0.0 else 0.0, out
+                )
             X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
+            if self.beta == 0.0:
+                return numpy.where(inf, -X / (3.0 * self.a**3.0), out)
+            F = _force_at_infinity(self.beta, self.a)
             with numpy.errstate(invalid="ignore"):
                 along = -F * numpy.sign(X)
             lim = numpy.where(
@@ -187,7 +202,7 @@ class TwoPowerSphericalPotential(Potential):
         alpha : float, optional
             Inner power.
         beta : float, optional
-            Outer power.
+            Outer power (>= 0: the density may not increase outward).
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -223,6 +238,10 @@ class TwoPowerSphericalPotential(Potential):
         # setting properties
         self.a = a
         self._scale = self.a
+        if beta < 0.0:
+            raise ValueError(
+                "TwoPowerSphericalPotential requires beta >= 0 (the density may not increase outward)"
+            )
         self.alpha = alpha
         self.beta = beta
         self.hasC = True
@@ -345,13 +364,13 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
-    @_limit_at_infinite_radius()
+    @_limit_at_infinite_radius("RR")
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         f1, f0, _ = self._radial(numpy.sqrt(r2), True)
         return (R**2.0 * f0 + z**2.0 * f1) / r2
 
-    @_limit_at_infinite_radius()
+    @_limit_at_infinite_radius("Rz")
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         return R * z * self._radial(numpy.sqrt(r2), True)[2] / r2

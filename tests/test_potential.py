@@ -14784,9 +14784,8 @@ def test_twopower_nan_and_infinite_radius():
     # coordinate is -dPhi/dr(inf) = 0 (beta > 1), -1/(2 a^2) (beta = 1; M ~
     # x^2 / 2) or -inf (beta < 1); the transverse force and every second
     # derivative -> 0; both coordinates infinite has no direction (0 when
-    # dPhi/dr -> 0, else NaN). Only for beta > 0: at beta <= 0 the density does
-    # not fall off and the limits are finite or divergent, so r = inf is NaN.
-    # amp = 0 is 0 everywhere (no 0 * inf). Python and C alike.
+    # dPhi/dr -> 0, else NaN). amp = 0 is 0 everywhere (no 0 * inf). beta = 0
+    # below. Python and C alike.
     from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
 
     inf, nan = numpy.inf, numpy.nan
@@ -14802,14 +14801,12 @@ def test_twopower_nan_and_infinite_radius():
         (1.0, 0.5, 1.0, 0.5 / 1.3**2.0),
         (1.0, 0.5, 0.8, inf),
         (0.0, 0.5, 0.8, 0.0),  # amp = 0: 0, not 0 * inf
-        (1.0, 0.5, 0.0, nan),  # beta <= 0: undefined here
-        (1.0, 0.5, -0.5, nan),
     ):
         pot = potential.TwoPowerSphericalPotential(
             amp=amp, a=1.3, alpha=alpha, beta=beta
         )
         both = 0.0 if F == 0.0 else nan
-        tr = nan if numpy.isnan(F) else 0.0  # transverse / second derivatives
+        tr = 0.0  # transverse force / second derivatives
         for R, z, fR, fz in (
             (inf, 0.0, -F, tr),
             (0.0, inf, tr, -F),
@@ -14835,6 +14832,64 @@ def test_twopower_nan_and_infinite_radius():
             numpy.testing.assert_allclose(
                 got, tr, rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
             )
+
+    # beta = 0 (M ~ x^3 / 3): dPhi/dr / r and Phi'' both -> 1/(3 a^3), so the
+    # forces are -(R, z)/(3 a^3), R2deriv = z2deriv = 1/(3 a^3), Rzderiv 0 --
+    # the limits of the finite-radius values
+    g = 1.0 / (3.0 * 1.3**3.0)
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=0.5, beta=0.0)
+    for R, z in ((1.0, inf), (inf, 1.0), (0.0, -inf), (inf, inf)):
+        with numpy.errstate(invalid="ignore"):
+            want = [-R * g, -z * g, -R * g, -z * g, g, g, 0.0, g, g, 0.0]
+        got = [
+            pot.Rforce(R, z, **kw),
+            pot.zforce(R, z, **kw),
+            c(eval_force_c, R, z),
+            c(eval_force_c, R, z, zforce=True),
+            *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+            *(
+                c(eval_2ndderiv_c, R, z, deriv=d)
+                for d in ("R2deriv", "z2deriv", "Rzderiv")
+            ),
+        ]
+        numpy.testing.assert_allclose(
+            got, want, rtol=1e-15, atol=0.0, err_msg=f"{R} {z}"
+        )
+    numpy.testing.assert_allclose(
+        [pot.Rforce(1.0, 1e8, **kw), pot.R2deriv(1.0, 1e8, **kw)], [-g, g], rtol=1e-7
+    )
+    # beta < 0 (a density increasing outward) is rejected
+    with pytest.raises(ValueError, match="beta >= 0"):
+        potential.TwoPowerSphericalPotential(beta=-0.5)
+
+
+def test_twopower_forces_near_alpha_3():
+    # near alpha = 3 the closed-form 1 + G of the alpha ~ 0, 1 cancellation
+    # form itself cancels (G -> -1): 9.5e-13 (python) / 6.3e-13 (C) off at
+    # alpha = 2.9999, beta = 0.001, r/a = 9 before; alpha >= 1.5 now sums the
+    # mass directly, down to its own ~8e-14 floor here. mpmath references at
+    # the exact binary alpha (at 3 - alpha = 1e-4 a 1-ulp change moves them ~1e-12)
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=2.9999, beta=0.001)
+    for x, dphidr, d2 in (
+        (9.0, 75.921732913576178, -12.355146021554692),
+        (0.5, 23671.531974043701, -72823.199842859376),
+    ):
+        r = numpy.array([x * 1.3])
+        g = dphidr / r[0]
+        for got, want, sc in (
+            (pot.Rforce(r[0], 0.0, use_physical=False), -dphidr, dphidr),
+            (eval_force_c(pot, r, 0.0 * r)[0][0], -dphidr, dphidr),
+            (pot.R2deriv(r[0], 0.0, use_physical=False), d2, abs(d2) + 4.0 * g),
+            (
+                eval_2ndderiv_c(pot, r, 0.0 * r, deriv="R2deriv")[0][0],
+                d2,
+                abs(d2) + 4.0 * g,
+            ),
+        ):
+            assert abs(got - want) < 1.5e-13 * sc, (x, got, want)
 
 
 def test_twopower_c_matches_python_all_derivatives():
