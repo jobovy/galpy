@@ -257,7 +257,7 @@ jobs:
       run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
-      run: pip install --pre numba==0.68.0rc1
+      run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib

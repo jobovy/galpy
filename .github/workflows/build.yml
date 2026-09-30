@@ -321,7 +321,7 @@ jobs:
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
       run: |
-        pip install --pre numba==0.68.0rc1
+        pip install numba
         # numba may force install an older version of setuptools,
         # but it isn't actually a *runtime* requirement numba/numba#8366
         pip install --upgrade --force-reinstall setuptools
