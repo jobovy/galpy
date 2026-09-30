@@ -8932,8 +8932,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
         for ii in range(nrand):
             assert numpy.all(
                 numpy.fabs(
-                    os.e(pot=MWPotential2014, analytic=True, type=type)[ii]
-                    - list_os[ii].e(pot=MWPotential2014, analytic=True, type=type)
+                    _to_numpy(os.e(pot=MWPotential2014, analytic=True, type=type)[ii])
+                    - _to_numpy(
+                        list_os[ii].e(pot=MWPotential2014, analytic=True, type=type)
+                    )
                 )
                 < 1e-10
             ), (
@@ -8941,8 +8943,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
             )
         assert numpy.all(
             numpy.fabs(
-                os.zmax(pot=MWPotential2014, analytic=True, type=type)[ii]
-                - list_os[ii].zmax(pot=MWPotential2014, analytic=True, type=type)
+                _to_numpy(os.zmax(pot=MWPotential2014, analytic=True, type=type)[ii])
+                - _to_numpy(
+                    list_os[ii].zmax(pot=MWPotential2014, analytic=True, type=type)
+                )
             )
             < 1e-10
         ), (
@@ -8950,8 +8954,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
         )
         assert numpy.all(
             numpy.fabs(
-                os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii]
-                - list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
+                _to_numpy(os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii])
+                - _to_numpy(
+                    list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
+                )
             )
             < 1e-10
         ), (
@@ -8959,8 +8965,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
         )
         assert numpy.all(
             numpy.fabs(
-                os.rap(pot=MWPotential2014, analytic=True, type=type)[ii]
-                - list_os[ii].rap(pot=MWPotential2014, analytic=True, type=type)
+                _to_numpy(os.rap(pot=MWPotential2014, analytic=True, type=type)[ii])
+                - _to_numpy(
+                    list_os[ii].rap(pot=MWPotential2014, analytic=True, type=type)
+                )
             )
             < 1e-10
         ), (
@@ -8987,8 +8995,8 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
         for ii in range(nrand):
             assert numpy.all(
                 numpy.fabs(
-                    os.e(pot=MWPotential2014, analytic=True, type=type)[ii]
-                    - list_os[ii].e(pot=MWPotential2014, analytic=True)
+                    _to_numpy(os.e(pot=MWPotential2014, analytic=True, type=type)[ii])
+                    - _to_numpy(list_os[ii].e(pot=MWPotential2014, analytic=True))
                 )
                 < 1e-10
             ), (
@@ -8996,8 +9004,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
             )
         assert numpy.all(
             numpy.fabs(
-                os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii]
-                - list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
+                _to_numpy(os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii])
+                - _to_numpy(
+                    list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
+                )
             )
             < 1e-10
         ), (
@@ -9005,8 +9015,8 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
         )
         assert numpy.all(
             numpy.fabs(
-                os.rap(pot=MWPotential2014, analytic=True, type=type)[ii]
-                - list_os[ii].rap(pot=MWPotential2014, analytic=True)
+                _to_numpy(os.rap(pot=MWPotential2014, analytic=True, type=type)[ii])
+                - _to_numpy(list_os[ii].rap(pot=MWPotential2014, analytic=True))
             )
             < 1e-10
         ), (
