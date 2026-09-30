@@ -2327,7 +2327,13 @@ def test_c3_progenitor_acfs_match_numpy_to_roundoff(_c3_pair):
         numpy.testing.assert_allclose(
             as_numpy(getattr(bk, attr)), getattr(ref, attr), rtol=1e-11, atol=1e-13
         )
-    assert float(as_numpy(bk._sigMeanSign)) == ref._sigMeanSign
+    # an eigenvector's sign is arbitrary (GPU and CPU eigh differ) and
+    # _sigMeanSign compensates: the signed projection must agree
+    numpy.testing.assert_allclose(
+        float(as_numpy(bk._progenitor_Omega_along_dOmega)),
+        ref._progenitor_Omega_along_dOmega,
+        rtol=1e-6,
+    )
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
@@ -2354,6 +2360,9 @@ def test_c3_setup_matches_numpy_within_the_fd_gap(_c3_pair, attr, rtol):
         numpy.asarray(as_numpy(getattr(bk, attr))),
         numpy.asarray(getattr(ref, attr)),
     )
+    if attr == "_dsigomeanProgDirection":  # an eigenvector: sign is arbitrary
+        got = got * float(as_numpy(bk._sigMeanSign))
+        want = want * ref._sigMeanSign
     assert got.shape == want.shape
     scale = numpy.max(numpy.abs(want))
     assert numpy.max(numpy.abs(got - want)) < rtol * scale, (
