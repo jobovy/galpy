@@ -13,16 +13,26 @@ import numpy
 from scipy import optimize, special
 
 from ..backend import (
-    asarray_on_device,
     branch_where,
     coerce_coords,
-    device_of,
     get_namespace,
     radial_limits,
 )
 from ..backend._coerce import mask_where, power_series
+from ..backend.special.incomplete_beta import (
+    incomplete_beta_hi_xp,
+    incomplete_beta_series_coeffs,
+    incomplete_beta_series_xp,
+    incomplete_beta_xp,
+)
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
+from ..util.special import (
+    hyp2f1_1,
+    incomplete_beta,
+    incomplete_beta_hi,
+    incomplete_beta_split,
+)
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
 # NFW's closed forms subtract terms of order 1/r^2 that cancel to leading
@@ -81,143 +91,13 @@ def _nfw_hk5(xp, small, r, a):
 # (w = x/(1+x), x = r/a):
 #   Phi = -(1/a) [M(x)/x + O(x)],  M = B_w(3-alpha, beta-3),
 #   O = int_x^inf t^(1-alpha) (1+t)^(alpha-beta) dt = B_{1-w}(beta-2, 2-alpha),
-# with B_z(p, q) = int_0^z u^(p-1) (1-u)^(q-1) du for p > 0, q > -1 (the physical
-# alpha < 3, beta > 2). Unlike the closed forms in Gamma(beta-3) and
-# hyp2f1(..., -a/r), this has no cancellation as beta -> 3 or alpha -> 2 and no
-# Gamma overflow at large beta.
-_TP_QSMALL = 0.05
-
-
-def _tp_k_series(p, q, s):
-    """K(s) = ((1-s)^p 2F1(1, p+q; q+1; s) - 1)/q, or its q = 0 limit.
-
-    Summed as (1-s)^p sum_k (p)_k/k! s^k (exp(L_k) - 1)/q with
-    L_k = sum_{j<k} [log1p(q/(p+j)) - log1p(q/(1+j))], so the O(q) difference
-    from 1 is never formed by subtraction."""
-    s = numpy.asarray(s, dtype=float)
-    t = numpy.ones_like(s)
-    L = 0.0
-    out = numpy.zeros_like(s)
-    k = 0
-    while True:
-        k += 1
-        t = t * (p + k - 1.0) / k * s
-        if q != 0.0:
-            L = L + numpy.log1p(q / (p + k - 1.0)) - numpy.log1p(q / k)
-            term = t * numpy.expm1(L) / q
-        else:
-            L = L + 1.0 / (p + k - 1.0) - 1.0 / k
-            term = t * L
-        out = out + term
-        if (
-            k > 5
-            and (p + k) / (k + 1.0) * numpy.amax(s) < 1.0
-            and numpy.all(numpy.fabs(term) <= 1e-17 * numpy.fabs(out))
-        ):
-            return (1.0 - s) ** p * out
-
-
-def _tp_ibeta(p, q, z, s):
-    """B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact).
-
-    Split at the integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9):
-    below it z^p s^q / p 2F1(1, p+q; p+1; z) (positive terms); above it
-    B_c(p, q) plus the reflected int_{1-z}^{1-c} v^(q-1) (1-v)^(p-1) dv, which
-    holds the integrand's mass. That reflected piece is B_{1-c}(q, p) -
-    B_{1-z}(q, p); both are ~1/q, so for |q| < _TP_QSMALL it is summed through
-    _tp_k_series instead."""
-    c = min((p + 1.0) / (p + q + 2.0), 0.9)
-    if numpy.ndim(z) == 0:
-        return _tp_ibeta_lo(p, q, z, s) if z <= c else _tp_ibeta_hi(p, q, s, c)
-    z = numpy.asarray(z, dtype=float)
-    s = numpy.asarray(s, dtype=float)
-    lo = z <= c
-    out = numpy.empty(z.shape)
-    if numpy.any(lo):
-        out[lo] = _tp_ibeta_lo(p, q, z[lo], s[lo])
-    if not numpy.all(lo):
-        out[~lo] = _tp_ibeta_hi(p, q, s[~lo], c)
-    return out
-
-
-def _tp_2f1_1(b, c, z):
-    """2F1(1, b; c; z) for b > -1, c > 0, 0 <= z < 1.
-
-    scipy's hyp2f1 loses ~(b - c) 1e-15 for b - c > 4 (6e-13 at beta = 180);
-    there (the below-c series, with z < c ~ 4/beta) it is summed directly, as
-    in the C implementation."""
-    if b - c <= 4.0:
-        return special.hyp2f1(1.0, b, c, z)
-    scalar = numpy.ndim(z) == 0  # summed in plain floats: ~20x faster
-    z = float(z) if scalar else numpy.asarray(z, dtype=float)
-    t, out, k = 1.0, 1.0, 0
-    while True:
-        t = t * (b + k) / (c + k) * z
-        out = out + t
-        if k > 5 and (
-            abs(t) <= 1e-17 * abs(out)
-            if scalar
-            else numpy.all(numpy.fabs(t) <= 1e-17 * numpy.fabs(out))
-        ):
-            return out
-        k += 1
-
-
-def _tp_ibeta_lo(p, q, z, s):
-    return z**p * s**q / p * _tp_2f1_1(p + q, p + 1.0, z)
-
-
-@functools.lru_cache(maxsize=None)
-def _tp_ibc(p, q, c):
-    """B_c(p, q) at the split c"""
-    return float(_tp_ibeta_lo(p, q, c, 1.0 - c))
-
-
-def _tp_ibeta_hi(p, q, s1, c):
-    s2 = 1.0 - c
-    ibc = _tp_ibc(p, q, c)
-    if abs(q) < _TP_QSMALL:
-        return _tp_reflected_smallq(p, q, s1, s2, ibc)
-    if abs(q + 1.0) < _TP_QSMALL:
-        # beta -> 2: B(v) below has a 1/(q+1) that cancels in B(s2) - B(s1);
-        # integrate by parts to the reflected integral with q -> q + 1 instead
-        def B0(v):
-            return v**q * (1.0 - v) ** p / q
-
-        return (
-            ibc
-            + B0(s2)
-            - B0(s1)
-            + (p + q) / q * _tp_reflected_smallq(p, q + 1.0, s1, s2, 0.0)
-        )
-
-    def B(v):
-        return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
-
-    return ibc + B(s2) - B(s1)
-
-
-def _tp_reflected_smallq(p, q, s1, s2, base):
-    """base + int_{s1}^{s2} v^(q-1) (1-v)^(p-1) dv for |q| < _TP_QSMALL"""
-    K2 = _tp_k_series(p, q, s2)
-    lg = numpy.log(s2 / s1)
-    if q == 0.0:
-        first = lg
-    else:
-        # (s2^q - s1^q)/q; the expm1 form only where it cannot overflow
-        qlg = q * lg
-        first = numpy.where(
-            numpy.fabs(qlg) < 1.0,
-            s1**q * numpy.expm1(numpy.where(numpy.fabs(qlg) < 1.0, qlg, 0.0)) / q,
-            (s2**q - s1**q) / q,
-        )
-    return base + first * (1.0 + q * K2) + s1**q * (K2 - _tp_k_series(p, q, s1))
-
-
+# (galpy.util.special.incomplete_beta). Unlike the closed forms in Gamma(beta-3)
+# and hyp2f1(..., -a/r), this has no cancellation as beta -> 3 or alpha -> 2
+# and no Gamma overflow at large beta.
 # Forces and second derivatives from the same M (amp = 1; 4 pi rho a^3 = D =
 # w^-alpha s^beta): dPhi/dr / r = M/(x a)^3 and, by Poisson,
 #   Phi'' = 4 pi rho - 2 dPhi/dr / r,  Phi'' - dPhi/dr / r = 4 pi rho - 3 dPhi/dr / r.
-# Below the split c of _tp_ibeta, M = w^p s^q / p (1 + G) with
+# Below the split c of incomplete_beta, M = w^p s^q / p (1 + G) with
 # G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w), so with
 # E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 # x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
@@ -227,7 +107,7 @@ def _tp_reflected_smallq(p, q, s1, s2, base):
 def _tp_radial(alpha, beta, w, s, hess):
     """(M/x^3,) or, if hess, (M/x^3, Phi'' a^3, (Phi'' - Phi'/r) a^3)"""
     p, q = 3.0 - alpha, beta - 3.0
-    c = min((p + 1.0) / (p + q + 2.0), 0.9)
+    c = incomplete_beta_split(p, q)
     if numpy.ndim(w) == 0:
         if w <= c:
             return _tp_radial_lo(alpha, beta, w, s, hess)
@@ -246,147 +126,24 @@ def _tp_radial(alpha, beta, w, s, hess):
 def _tp_radial_lo(alpha, beta, w, s, hess):
     p, q = 3.0 - alpha, beta - 3.0
     E = w**-alpha * s**beta / p
-    G = (p + q) / (p + 1.0) * w * _tp_2f1_1(p + q + 1.0, p + 2.0, w)
+    G = (p + q) / (p + 1.0) * w * hyp2f1_1(p + q + 1.0, p + 2.0, w)
     if not hess:
         return (E * (1.0 + G),)
     return E * (1.0 + G), E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
 
 
 def _tp_radial_hi(alpha, beta, w, s, c, hess):
-    m = _tp_ibeta_hi(3.0 - alpha, beta - 3.0, s, c) * (s / w) ** 3
+    m = incomplete_beta_hi(3.0 - alpha, beta - 3.0, s, c) * (s / w) ** 3
     if not hess:
         return (m,)
     D = w**-alpha * s**beta
     return m, D - 2.0 * m, D - 3.0 * m
 
 
-# Backend (jax/torch) versions of the series above: alpha and beta are fixed at
-# construction, so every series has static coefficients, summed as
-# sum_n sign_n exp(log|c_n| + n log v) (no overflow of the Pochhammer ratios at
-# large beta) up to a static length set by the largest argument it sees.
-_TP_SERIES_TOL = 1e-17
-_TP_SERIES_NMAX = 20000
-
-
-@functools.lru_cache(maxsize=None)
-def _tp_series_coeffs(kind, p, q, vmax):
-    """(sign, log|c_n|, n) of sum_n c_n v^n, truncated where its tail at
-    v = vmax is below _TP_SERIES_TOL of the sum: kind 'lo' is 2F1(1, p+q; p+1;
-    v), 'hi' 2F1(1, p+q; q+1; v), 'k' the _tp_k_series sum (without its
-    (1-v)^p)."""
-    b, c = p + q, (p + 1.0 if kind == "lo" else q + 1.0)
-    sgn, loga, ns = [], [], []
-    sg, la, L, tot = 1.0, 0.0, 0.0, 0.0
-    lv = math.log(vmax)
-    for n in range(_TP_SERIES_NMAX):
-        if kind == "k":
-            if n > 0:  # (p)_n/n! expm1(L_n)/q (L_n'  at q = 0)
-                la += math.log((p + n - 1.0) / n)
-                if q != 0.0:
-                    L += math.log1p(q / (p + n - 1.0)) - math.log1p(q / n)
-                    e = math.expm1(L) / q
-                else:
-                    L += 1.0 / (p + n - 1.0) - 1.0 / n
-                    e = L
-                cn_sgn, cn_la = (
-                    (math.copysign(1.0, e), la + math.log(abs(e))) if e else (0.0, 0.0)
-                )
-            else:
-                cn_sgn, cn_la = 0.0, 0.0
-        else:
-            if n > 0:  # (b)_n/(c)_n
-                if b + n - 1.0 == 0.0:
-                    break  # the series terminates
-                sg *= math.copysign(1.0, b + n - 1.0)
-                la += math.log(abs(b + n - 1.0) / (c + n - 1.0))
-            cn_sgn, cn_la = sg, la
-        if cn_sgn:
-            sgn.append(cn_sgn)
-            loga.append(cn_la)
-            ns.append(float(n))
-            term = math.exp(cn_la + n * lv)
-            tot += cn_sgn * term
-            if n > 5 and ns[-2] == n - 1.0:
-                rat = max(term / math.exp(loga[-2] + (n - 1) * lv), vmax)
-                if rat < 1.0 and term * rat / (1.0 - rat) < _TP_SERIES_TOL * abs(tot):
-                    break
-    return numpy.array(sgn), numpy.array(loga), numpy.array(ns)
-
-
-def _tp_series_xp(xp, coeffs, v):
-    dev = device_of(v)
-    sgn, loga, ns = (asarray_on_device(xp, c, dev, dtype=v.dtype) for c in coeffs)
-    return xp.sum(sgn * xp.exp(loga + ns * xp.log(v)[..., None]), axis=-1)
-
-
-def _tp_ibeta_xp(xp, p, q, z, s):
-    """_tp_ibeta for backend z, s (the same split and pieces; masked so that
-    either branch is finite everywhere)."""
-    c = min((p + 1.0) / (p + q + 2.0), 0.9)
-    s2 = 1.0 - c
-    lo = z <= c
-    one = xp.ones_like(z * 1.0)
-
-    def below():
-        zl = xp.where(lo, z, 0.5 * c * one)
-        sl = xp.where(lo, s, (1.0 - 0.5 * c) * one)
-        return (
-            zl**p * sl**q / p * _tp_series_xp(xp, _tp_series_coeffs("lo", p, q, c), zl)
-        )
-
-    def above():
-        s1 = xp.where(lo, 0.5 * s2 * one, s)
-        z1 = xp.where(lo, (1.0 - 0.5 * s2) * one, z)  # 1 - s1, exactly
-        return _tp_ibeta_hi_xp(xp, p, q, s1, z1, c)
-
-    return branch_where(xp, lo, below, above)
-
-
-def _tp_ibeta_hi_xp(xp, p, q, s1, z1, c):
-    """_tp_ibeta_hi for backend s1 > 1 - c (z1 = 1 - s1)"""
-    s2 = 1.0 - c
-    ibc = _tp_ibc(p, q, c)
-    if abs(q) < _TP_QSMALL:
-        return _tp_reflected_smallq_xp(xp, p, q, s1, z1, s2, ibc)
-    if abs(q + 1.0) < _TP_QSMALL:  # as in _tp_ibeta_hi
-        B2 = float(s2**q * (1.0 - s2) ** p / q)
-        return (
-            ibc
-            + B2
-            - s1**q * z1**p / q
-            + (p + q) / q * _tp_reflected_smallq_xp(xp, p, q + 1.0, s1, z1, s2, 0.0)
-        )
-    B2 = float(s2**q * (1.0 - s2) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, s2))
-    return (
-        ibc
-        + B2
-        - s1**q * z1**p / q * _tp_series_xp(xp, _tp_series_coeffs("hi", p, q, s2), s1)
-    )
-
-
-def _tp_reflected_smallq_xp(xp, p, q, s1, z1, s2, base):
-    """_tp_reflected_smallq for backend s1 (z1 = 1 - s1)"""
-    K2 = float(_tp_k_series(p, q, s2))
-    K1 = z1**p * _tp_series_xp(xp, _tp_series_coeffs("k", p, q, s2), s1)
-    lg = xp.log(s2 / s1)
-    if q == 0.0:
-        first = lg
-    else:
-        # (s2^q - s1^q)/q; the expm1 form only where it cannot overflow
-        qlg = q * lg
-        ok = xp.abs(qlg) < 1.0
-        first = xp.where(
-            ok,
-            s1**q * xp.expm1(xp.where(ok, qlg, 0.0 * qlg)) / q,
-            (s2**q - s1**q) / q,
-        )
-    return base + first * (1.0 + q * K2) + s1**q * (K2 - K1)
-
-
 def _tp_radial_xp(xp, alpha, beta, w, s, hess):
     """_tp_radial for backend w, s (as xp.stack of its outputs)"""
     p, q = 3.0 - alpha, beta - 3.0
-    c = min((p + 1.0) / (p + q + 2.0), 0.9)
+    c = incomplete_beta_split(p, q)
     lo = w <= c
     one = xp.ones_like(w * 1.0)
 
@@ -395,8 +152,8 @@ def _tp_radial_xp(xp, alpha, beta, w, s, hess):
         sl = xp.where(lo, s, (1.0 - 0.5 * c) * one)
         E = wl**-alpha * sl**beta / p
         # G = 2F1(1, p+q; p+1; w) - 1: the M series without its n = 0 term
-        sgn, loga, ns = _tp_series_coeffs("lo", p, q, c)
-        G = _tp_series_xp(xp, (sgn[1:], loga[1:], ns[1:]), wl)
+        sgn, loga, ns = incomplete_beta_series_coeffs("lo", p, q, c)
+        G = incomplete_beta_series_xp(xp, (sgn[1:], loga[1:], ns[1:]), wl)
         if not hess:
             return xp.stack([E * (1.0 + G)])
         return xp.stack(
@@ -406,7 +163,7 @@ def _tp_radial_xp(xp, alpha, beta, w, s, hess):
     def above():
         sh = xp.where(lo, 0.5 * (1.0 - c) * one, s)
         wh = xp.where(lo, (1.0 - 0.5 * (1.0 - c)) * one, w)  # 1 - sh, exactly
-        m = _tp_ibeta_hi_xp(xp, p, q, sh, wh, c) * (sh / wh) ** 3
+        m = incomplete_beta_hi_xp(xp, p, q, sh, wh, c) * (sh / wh) ** 3
         if not hess:
             return xp.stack([m])
         D = wh**-alpha * sh**beta
@@ -512,8 +269,12 @@ class TwoPowerSphericalPotential(Potential):
         )
 
     def _evaluate_ibeta(self, xp, r):
-        """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see _tp_ibeta)"""
-        ibeta = _tp_ibeta if xp is numpy else functools.partial(_tp_ibeta_xp, xp)
+        """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see incomplete_beta)"""
+        ibeta = (
+            incomplete_beta
+            if xp is numpy
+            else functools.partial(incomplete_beta_xp, xp)
+        )
         x = r / self.a
         w, s = x / (1.0 + x), 1.0 / (1.0 + x)
         M = ibeta(3.0 - self.alpha, self.beta - 3.0, w, s)
@@ -650,7 +411,11 @@ class TwoPowerSphericalPotential(Potential):
         )
         xp = get_namespace(R)
         (R,) = coerce_coords(xp, R)
-        ibeta = _tp_ibeta if xp is numpy else functools.partial(_tp_ibeta_xp, xp)
+        ibeta = (
+            incomplete_beta
+            if xp is numpy
+            else functools.partial(incomplete_beta_xp, xp)
+        )
 
         def M(R):
             x = R / self.a

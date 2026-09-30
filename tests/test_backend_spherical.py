@@ -605,14 +605,14 @@ def _twopower_scipy_reference(pot, method, R, z):
         f1 = _tp_radial(alpha, beta, x / (1.0 + x), 1.0 / (1.0 + x), False)[0]
         return -R * (f1 / a**3.0)
     # Phi = -(M(x)/x + O(x))/a, the two incomplete betas through scipy
-    from galpy.potential.TwoPowerSphericalPotential import _tp_ibeta
+    from galpy.util.special import incomplete_beta
 
     x = numpy.sqrt(R**2.0 + z**2.0) / a
     w, s = x / (1.0 + x), 1.0 / (1.0 + x)
     return (
         -(
-            _tp_ibeta(3.0 - alpha, beta - 3.0, w, s) / x
-            + _tp_ibeta(beta - 2.0, 2.0 - alpha, s, w)
+            incomplete_beta(3.0 - alpha, beta - 3.0, w, s) / x
+            + incomplete_beta(beta - 2.0, 2.0 - alpha, s, w)
         )
         / a
     )
@@ -719,6 +719,12 @@ _TWOPOWER_DERIV_CASES = [  # alpha, beta, quantity, x, value, d/da
     (1.999999999999, 4.0, "Rzderiv", 0.1, -105.60146923742811, 83.479422322162556),
     (2.5, 2.5, "R2deriv", 1.0, -3.4722222222222226, 1.4467592592592595),
     (2.9, 2.1, "Rforce", 10.0, -0.27779204975531618, 0.099220270259507471),
+    # alpha > beta (p + q < 0) above the split with |beta - 3| < 0.05: the
+    # reflected series' coefficients once took log1p(-2)
+    (2.99, 2.98, "Rforce", 2.0, -34.968714956363698, 0.29458306649690608),
+    (2.99, 2.98, "mass", 2.0, 201.41979814865490, -1.6967984630221790),
+    (2.999, 2.97, "R2deriv", 50.0, -0.018585857782860795, 1.7108229514431519e-5),
+    (2.97, 2.96, "Rzderiv", 10000.0, -7.3340176868906600e-11, 1.9807904837937884e-12),
 ]
 
 
