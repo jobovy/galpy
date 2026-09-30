@@ -379,8 +379,9 @@ def test_kingdf_W0_grad_vs_finite_difference(backend, which):
 # <= 2.7e-15. W0 changes the ODE solution itself: under jax.jit it is solved with
 # diffrax (galpy.backend._jax.king_ode), d/dW0 by AD through the discretized
 # solve -- vs the eager scipy solve + forward-sensitivity graft: tables <= 7.9e-10,
-# d/dW0 <= 1e-8. Under torch.compile the scipy solve runs eagerly (opaque;
-# tested with the eager backend: dynamo is what failed, inductor adds ~7 min).
+# d/dW0 <= 1e-8. Under torch.compile the same recipe runs with torchode
+# (galpy.backend._torch.king_ode); the whole-kingdf workflow, eager-backend and
+# inductor, is in test_backend_compile_workflows.
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_kingdf_rt_under_jit_matches_eager_traced():
     def f(rt):
@@ -413,25 +414,69 @@ def test_kingdf_W0_under_jit_diffrax_matches_eager_graft():
     )
 
 
-@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
-def test_kingdf_W0_under_torch_compile_matches_eager():
-    def f(W0):
-        with galpy.backend.use("torch", force=True):
-            return kingdf(W0=W0, M=2.3, rt=1.4).fE(torch.tensor([-3.0, -2.0])).sum()
+def _torch_compile_eager(f):
+    # dynamo only (no codegen); torch's own script_method DeprecationWarning on
+    # the first compile in a process
+    torch._dynamo.reset()
+    cf = torch.compile(f, backend="eager")
 
-    W = torch.tensor(3.0, requires_grad=True)
-    v = f(W)
-    (g,) = torch.autograd.grad(v, W)
-    Wc = torch.tensor(3.0, requires_grad=True)
-    # torch's own script_method DeprecationWarning on first compile in a process
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=".*script_method.*", category=DeprecationWarning
+    def wrapped(*args):
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*script_method.*", category=DeprecationWarning
+            )
+            return cf(*args)
+
+    return wrapped
+
+
+def _torch_tables(W0):
+    from galpy.df.kingdf import _scalefreekingdf
+
+    k = _scalefreekingdf(W0)
+    k.solve(1001)
+    return torch.stack(
+        [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
+    )
+
+
+def _torch_jacobian(tables, W0):
+    W = torch.tensor(W0, requires_grad=True)
+    out = tables(W)
+    return out, torch.stack(
+        [torch.autograd.grad(out[i], W, retain_graph=True)[0] for i in range(8)]
+    )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_kingdf_W0_under_torch_compile_torchode():
+    # compiled: the torchode solve (no opaque scipy region), d/dW0 by AD through
+    # it. vs the SAME recipe run eagerly: round-off (measured 0 / 0 with dynamo
+    # only); vs the eager scipy solve + graft: the solvers' 1e-10 tolerance
+    # floor, as under jax.jit (measured 6.8e-11 / 4.4e-9); vs a central
+    # difference of the compiled values: 1.9e-7 at h=1e-3 (its h^2 term), then
+    # converged, 4.3e-8 at h=3e-4 and 4.7e-8 at h=1e-4
+    from galpy.df.kingdf import _scalefreekingdf
+
+    def traced_eagerly(W0):
+        k = _scalefreekingdf(W0)
+        k._solve_traced(1001)
+        return torch.stack(
+            [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
         )
-        vc = torch.compile(f, backend="eager")(Wc)  # dynamo only: no codegen
-    (gc,) = torch.autograd.grad(vc, Wc)
-    numpy.testing.assert_allclose(float(vc), float(v), rtol=1e-14)
-    numpy.testing.assert_allclose(float(gc), float(g), rtol=1e-13)
+
+    f = _torch_compile_eager(_torch_tables)
+    vc, jc = _torch_jacobian(f, _W0)
+    vt, jt = _torch_jacobian(traced_eagerly, _W0)
+    ve, je = _torch_jacobian(_torch_tables, _W0)  # eager: scipy + graft
+    numpy.testing.assert_allclose(vc.detach().numpy(), vt.detach().numpy(), rtol=1e-13)
+    numpy.testing.assert_allclose(jc.numpy(), jt.numpy(), rtol=1e-12)
+    numpy.testing.assert_allclose(vc.detach().numpy(), ve.detach().numpy(), rtol=2e-9)
+    numpy.testing.assert_allclose(jc.numpy(), je.numpy(), rtol=3e-8)
+    for h in (3e-4, 1e-4):
+        with torch.no_grad():
+            fd = (f(torch.tensor(_W0 + h)) - f(torch.tensor(_W0 - h))) / (2.0 * h)
+        numpy.testing.assert_allclose(jc.numpy(), fd.numpy(), rtol=1e-7)
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
