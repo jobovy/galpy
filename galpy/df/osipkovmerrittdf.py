@@ -557,16 +557,11 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                 # those attached: indexing after the fact still pushes a zero
                 # cotangent through the dropped knots' 0*inf backward (NaN)
                 probe = xp.log(self.fQ(stop_gradient(Qs)))
-                if not has_concrete_truth_value(xp.all(probe == probe)):
-                    # f(Q) is non-finite at knots near Emin (numpy's too; eager
-                    # drops them), so a fixed-shape jit table would differ there
-                    raise NotImplementedError(
-                        "osipkovmerrittdf.sample under jax.jit: the f(Q) table "
-                        "drops non-finite knots near Emin, which needs concrete "
-                        "values; sample outside jit (fQ and moments are jit-safe)"
-                    )
-                keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
-                Qs = Qs[keep]
+                # under jax.jit every knot is kept: the traced r(Phi) root-find
+                # reaches E -> Emin, so f(Q) is finite at all of them
+                if has_concrete_truth_value(xp.all(probe == probe)):
+                    keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
+                    Qs = Qs[keep]
                 self._logfQ_interp = Spline1D(Qs, xp.log(self.fQ(Qs)), k=3, ext=3)
                 return
             # the spline table is built on a numpy grid; under a forced backend
