@@ -1,6 +1,18 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``TwoPowerSphericalPotential``'s forces, second derivatives and enclosed
+  mass (python and C) for general (alpha, beta) are now computed from the same
+  incomplete beta function as its potential: dPhi/dr = M(r)/r^2 and, by
+  Poisson's equation, Phi'' = 4 pi rho - 2 M/r^3, with the cancellations
+  near alpha = 1 (Phi'') and alpha = 0 (Rzderiv) at small r removed in closed
+  form. The previous hypergeometric closed forms were up to 3e-3 off near
+  beta = 3, 1e-7 near beta = 2, NaN at large r for large beta (e.g.,
+  r/a >~ 2e3 at beta = 100) and for some (alpha, beta) at r/a > 4 (e.g.,
+  alpha = 1.9, beta = 6), and so inconsistent with the potential. They are
+  now accurate to ~3e-14 for 0 <= alpha < 3, 2 < beta <= 180, and
+  1e-12 <= r/a <= 1e8.
+
 - Added ``x2deriv`` to 1D (``linearPotential``) potentials and the
   corresponding ``evaluatelinearx2derivs`` function: the second derivative
   of the potential, d^2 Phi / dx^2, in the units of the other second
