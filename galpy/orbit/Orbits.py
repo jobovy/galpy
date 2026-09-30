@@ -294,6 +294,25 @@ except:
     pass
 
 
+def _forced_device_type(xp):
+    """Device type ("cpu", "cuda", ...) new ``xp`` arrays land on, or None."""
+    return getattr(getattr(xp.asarray(0.0), "device", None), "type", None)
+
+
+def _refuse_numpy_integrator_on_cuda(method):
+    """The numpy (python) integrators read every force on the host, which
+    cannot read the CUDA arrays a forced torch backend on a GPU returns; the
+    in-backend integrators run on the GPU instead."""
+    xp = get_namespace()
+    if name_of_namespace(xp) != "torch" or _forced_device_type(xp) != "cuda":
+        return None
+    raise ValueError(
+        f"method='{method}' integrates with numpy on the host, which cannot read "
+        "the CUDA forces of a forced torch backend on a GPU; use the in-backend "
+        "method='torchode' or method='torchdiffeq' instead"
+    )
+
+
 def _resolve_accessor_namespace(thiso):
     """Resolve the array namespace for a derived time-evaluation accessor.
 
@@ -2033,6 +2052,7 @@ class Orbit:
         method = self._check_method_dissipative_compatible(method, self._pot)
         # Implementation with parallel_map in Python
         if not "_c" in method or not ext_loaded or force_map:
+            _refuse_numpy_integrator_on_cuda(method)
             if self.dim() == 1:
                 out, msg = integrateLinearOrbit(
                     self._pot,

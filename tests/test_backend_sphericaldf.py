@@ -997,7 +997,11 @@ def test_sample_runs_and_is_unchanged_under_a_gradient_carrying_potential(
             as_numpy(_sample_df(_grad_scale(backend, _SAMPLE_A), which).sample(n=4).r())
         )
     # bit-identical: the same global-numpy draws through the same numpy sampler
-    numpy.testing.assert_array_equal(got, ref)
+    # (to 1 ulp with jax on a GPU, whose transcendentals differ in the last bit)
+    if backend == "jax" and jax.default_backend() == "gpu":
+        numpy.testing.assert_allclose(got, ref, rtol=4.5e-16, atol=0.0)
+    else:
+        numpy.testing.assert_array_equal(got, ref)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
