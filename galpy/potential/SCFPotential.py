@@ -1775,8 +1775,8 @@ def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
     # gegenbauer calls costing 350 s of a 396 s build -- the dominant cost, and
     # independent of whether the integrand itself batches.
     Ls = [L] if singleL else list(range(L))
-    _al = xp.asarray([alpha(ll) for ll in Ls])  # (nL,)
     _x = xp.asarray(xi)
+    _al = asarray_on_device(xp, [alpha(ll) for ll in Ls], device_of(_x))  # (nL,)
     _scalar = _x.ndim == 0  # shape-only test: static under tracing
     _xb = _x[None] if _scalar else _x
     CC = gegenbauer(N, _al, _xb[..., None])  # xb.shape + (nL, N)
