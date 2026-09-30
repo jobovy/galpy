@@ -19,6 +19,7 @@ from ..backend import (
     radial_limits,
 )
 from ..backend._coerce import mask_where, power_series
+from ..backend._namespaces import has_concrete_truth_value
 from ..backend.special.incomplete_beta import (
     incomplete_beta_hi_xp,
     incomplete_beta_series_coeffs,
@@ -172,6 +173,26 @@ def _tp_radial_xp(xp, alpha, beta, w, s, hess):
     return branch_where(xp, lo, below, above)
 
 
+def _zero_at_infinite_radius(method):
+    """Forces and second derivatives -> 0 as r -> inf, where their expressions
+    are inf * 0 (R f(r), z^2 f(r) / r^2, ...). Finite inputs are untouched;
+    under a trace the infinite entries are masked (finite stand-ins, so the
+    unused branch cannot NaN the gradient)."""
+
+    @functools.wraps(method)
+    def wrapper(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        inf = xp.isinf(R) | xp.isinf(z)
+        anyinf = xp.any(inf)
+        if has_concrete_truth_value(anyinf) and not bool(anyinf):
+            return method(self, R, z, phi=phi, t=t)
+        out = method(self, xp.where(inf, 1.0, R), xp.where(inf, 0.0, z), phi=phi, t=t)
+        return xp.where(inf, 0.0, out)
+
+    return wrapper
+
+
 if _APY_LOADED:
     from astropy import units
 
@@ -290,6 +311,7 @@ class TwoPowerSphericalPotential(Potential):
         a3 = self.a**3.0
         return [f / a3 for f in out]
 
+    @_zero_at_infinite_radius
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
@@ -297,6 +319,7 @@ class TwoPowerSphericalPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         return -R * self._radial(xp, xp.sqrt(R**2.0 + z**2.0), False)[0]
 
+    @_zero_at_infinite_radius
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
@@ -380,6 +403,7 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
+    @_zero_at_infinite_radius
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
@@ -387,6 +411,7 @@ class TwoPowerSphericalPotential(Potential):
         f1, f0, _ = self._radial(xp, xp.sqrt(r2), True)
         return (R**2.0 * f0 + z**2.0 * f1) / r2
 
+    @_zero_at_infinite_radius
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
@@ -423,7 +448,7 @@ class TwoPowerSphericalPotential(Potential):
                 3.0 - self.alpha, self.beta - 3.0, x / (1.0 + x), 1.0 / (1.0 + x)
             )
 
-        return radial_limits(R, M, atinf=mtot, numpy_too=True)
+        return radial_limits(R, M, at0=0.0, atinf=mtot, numpy_too=True)
 
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):

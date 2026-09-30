@@ -725,6 +725,10 @@ _TWOPOWER_DERIV_CASES = [  # alpha, beta, quantity, x, value, d/da
     (2.99, 2.98, "mass", 2.0, 201.41979814865490, -1.6967984630221790),
     (2.999, 2.97, "R2deriv", 50.0, -0.018585857782860795, 1.7108229514431519e-5),
     (2.97, 2.96, "Rzderiv", 10000.0, -7.3340176868906600e-11, 1.9807904837937884e-12),
+    # beta = 1 exactly: the reflected 2F1 has a pole at q + 1 = -1
+    (0.5, 1.0, "Rforce", 10.0, -0.63855263038966718, 1.1035446634786948),
+    (0.5, 1.0, "R2deriv", 10.0, 0.0039290279495916170, -0.0041800934222677834),
+    (1.5, 1.0, "mass", 50.0, 2548.7979361391499, -4208.1270576508658),
 ]
 
 
@@ -773,6 +777,30 @@ def test_twopower_derivs_value_and_parameter_gradient(
     assert abs(val / ref - 1.0) < 5e-14, f"{backend_name}: {val} vs {ref}"
     assert abs(damp / (ref / amp0) - 1.0) < 5e-14, f"d/damp {damp}"
     assert abs(da - dref) <= 1e-12 * abs(dref) + datol, f"d/da {da} vs {dref}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_mass_at_zero_and_forces_at_infinity(backend_name):
+    # mass(0) = 0 (the static series' n = 0 term is 0 * log 0 there), and every
+    # force and second derivative -> 0 at r = inf; also under jax.jit
+    pot = TwoPowerSphericalPotential(amp=2.0, a=1.3, alpha=1.5, beta=3.02)
+    xp = jnp if backend_name == "jax" else torch
+    r = xp.asarray([0.0, 1.0, numpy.inf])
+    ref = pot._mass(numpy.array([0.0, 1.0]))
+    got = as_numpy(pot._mass(r))
+    assert got[0] == 0.0 and numpy.isfinite(got[2]), got
+    numpy.testing.assert_allclose(got[1], ref[1], rtol=1e-14)
+    for m in ("_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_Rzderiv"):
+        R = xp.asarray([numpy.inf, 0.0, 1.0])
+        z = xp.asarray([0.0, numpy.inf, 0.5])
+        got = as_numpy(getattr(pot, m)(R, z))
+        assert got[0] == 0.0 and got[1] == 0.0, (m, got)
+        numpy.testing.assert_allclose(
+            got[2], getattr(pot, m)(1.0, 0.5), rtol=1e-13, err_msg=m
+        )
+        if backend_name == "jax":
+            jgot = as_numpy(jax.jit(lambda R, z: getattr(pot, m)(R, z))(R, z))
+            numpy.testing.assert_array_equal(jgot[:2], 0.0)
 
 
 @pytest.mark.parametrize("method", _TWOPOWER_METHODS)

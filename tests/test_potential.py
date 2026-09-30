@@ -15131,6 +15131,28 @@ _GOLD_TWOPOWER_DERIVS = [  # alpha, beta, x, dPhi/dr, Phi'', R2deriv, z2deriv, R
         -17.344531944701957,
         -33.491546659001057,
     ),
+    # beta = 1 exactly (q + 1 = -1): the reflected antiderivative's 2F1 has a
+    # pole there; integrated by parts past each negative integer q instead
+    (
+        0.5,
+        1.0,
+        10.0,
+        0.27204609105358602,
+        0.0015451434449008453,
+        0.013949289968956231,
+        0.0085224758646820000,
+        -0.0093031098930415396,
+    ),
+    (
+        1.5,
+        1.0,
+        50.0,
+        0.30163289185078697,
+        -8.7106787614494108e-5,
+        0.0029385654146819154,
+        0.0016148338261772362,
+        -0.0022692541517223071,
+    ),
 ]
 
 
@@ -15187,10 +15209,33 @@ def test_twopower_forces_2nd_derivs_accuracy(alpha, beta, x, dphidr, d2, R2, z2,
     ]
     for label, got in (("python", py), ("C", cc)):
         err = [abs(float(as_numpy(g)) / ref - 1.0) for g, ref in zip(got, refs)]
-        assert max(err) < 5e-14, f"{label}: rel errs {err}"
+        # numpy.max propagates NaN (the builtin max skips it unless it is first)
+        assert numpy.max(err) < 5e-14, f"{label}: rel errs {err}"
     # the enclosed mass is dPhi/dr r^2
     got = float(as_numpy(pot.mass(r, use_physical=False)))
     assert abs(got / (dphidr * r**2) - 1.0) < 5e-14, got
+
+
+def test_twopower_nan_and_infinite_radius():
+    # a NaN radius gives NaN (the series never converges on NaN: it used to loop
+    # forever near beta = 3 and beta = 2), only where it is NaN; and every
+    # force and second derivative -> 0 at r = inf (inf * 0 expressions)
+    from galpy import potential
+
+    for beta in (3.02, 2.02, 3.5):
+        pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=1.5, beta=beta)
+        kw = dict(use_physical=False)
+        for fn in (pot.Rforce, pot.zforce, pot.R2deriv, pot.z2deriv, pot.Rzderiv):
+            assert numpy.isnan(fn(numpy.nan, 0.3, **kw)), (beta, fn)
+        assert numpy.isnan(pot.mass(numpy.nan, **kw))
+        R = numpy.array([numpy.nan, 5.0, 20.0])
+        got = numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))
+        assert numpy.isnan(got[0]) and numpy.all(numpy.isfinite(got[1:]))
+        numpy.testing.assert_array_equal(got[1:], pot.Rforce(R[1:], 0.0 * R[1:], **kw))
+        for fn in (pot.Rforce, pot.zforce, pot.R2deriv, pot.z2deriv, pot.Rzderiv):
+            assert fn(0.0, numpy.inf, **kw) == 0.0, (beta, fn)
+            assert fn(numpy.inf, 0.0, **kw) == 0.0, (beta, fn)
+            assert fn(numpy.inf, numpy.inf, **kw) == 0.0, (beta, fn)
 
 
 def test_twopower_c_matches_python_all_derivatives():

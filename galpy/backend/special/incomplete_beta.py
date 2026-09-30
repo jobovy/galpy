@@ -11,8 +11,8 @@ from scipy import special
 
 from ...util.special import (
     _IBETA_QSMALL,
+    _incomplete_beta_k_at,
     incomplete_beta_at_split,
-    incomplete_beta_k_series,
     incomplete_beta_split,
 )
 from .. import asarray_on_device, branch_where, device_of
@@ -104,36 +104,33 @@ def incomplete_beta_xp(xp, p, q, z, s):
 
 def incomplete_beta_hi_xp(xp, p, q, s1, z1, c):
     """incomplete_beta_hi for backend s1 > 1 - c (z1 = 1 - s1)"""
-    s2 = 1.0 - c
-    ibc = incomplete_beta_at_split(p, q, c)
+    return incomplete_beta_at_split(p, q, c) + _incomplete_beta_reflected_xp(
+        xp, p, q, s1, z1, 1.0 - c
+    )
+
+
+def _incomplete_beta_reflected_xp(xp, p, q, s1, z1, s2):
+    """_incomplete_beta_reflected for backend s1 (z1 = 1 - s1): through K near
+    q = 0, integrated by parts to q + 1 near a negative integer q"""
     if abs(q) < _IBETA_QSMALL:
-        return _incomplete_beta_reflected_smallq_xp(xp, p, q, s1, z1, s2, ibc)
-    if abs(q + 1.0) < _IBETA_QSMALL:  # as in incomplete_beta_hi
+        return _incomplete_beta_reflected_smallq_xp(xp, p, q, s1, z1, s2, 0.0)
+    n = round(q)
+    if n <= -1 and abs(q - n) < _IBETA_QSMALL:
         B2 = float(s2**q * (1.0 - s2) ** p / q)
         return (
-            ibc
-            + B2
+            B2
             - s1**q * z1**p / q
-            + (p + q)
-            / q
-            * _incomplete_beta_reflected_smallq_xp(xp, p, q + 1.0, s1, z1, s2, 0.0)
+            + (p + q) / q * _incomplete_beta_reflected_xp(xp, p, q + 1.0, s1, z1, s2)
         )
     B2 = float(s2**q * (1.0 - s2) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, s2))
-    return (
-        ibc
-        + B2
-        - s1**q
-        * z1**p
-        / q
-        * incomplete_beta_series_xp(
-            xp, incomplete_beta_series_coeffs("hi", p, q, s2), s1
-        )
+    return B2 - s1**q * z1**p / q * incomplete_beta_series_xp(
+        xp, incomplete_beta_series_coeffs("hi", p, q, s2), s1
     )
 
 
 def _incomplete_beta_reflected_smallq_xp(xp, p, q, s1, z1, s2, base):
     """_incomplete_beta_reflected_smallq for backend s1 (z1 = 1 - s1)"""
-    K2 = float(incomplete_beta_k_series(p, q, s2))
+    K2 = _incomplete_beta_k_at(p, q, s2)
     K1 = z1**p * incomplete_beta_series_xp(
         xp, incomplete_beta_series_coeffs("k", p, q, s2), s1
     )
