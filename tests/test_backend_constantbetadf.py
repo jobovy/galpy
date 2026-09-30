@@ -606,13 +606,10 @@ def test_sample_eta_numpy_beta_keeps_the_frozen_grid():
 
 # --- constantbetadf under jax.jit, differentiated w.r.t. the potential ---------
 # Inside jit the potential has no concrete value, so construction keeps its tables
-# traced: the energy bounds, the r(Phi) root-find, the startt calibration (a fixed
-# ladder instead of a data-dependent loop), and the sampling grids. Reference: the
-# EAGER construction under a gradient (eager-traced), which also inverts Phi by
-# root-find -- plain eager uses a 10001-knot spline and differs at ~1e-7-2e-6.
-# Measured jit vs eager-traced: values <= 2.7e-8 (non-half-integer beta; the
-# calibration spline differs in mode, shifting the fE lower limit only) and
-# <= 7e-16 (half-integer beta, no calibration); gradients <= 7.1e-7.
+# traced: the energy bounds, the r(Phi) root-find and the sampling grids. The
+# backend fE needs no calibrated lower limit (its small-r integrand is regular to
+# t = 0), so nothing discrete differs from the eager construction under a gradient
+# (eager-traced), the reference. Measured: values <= 3.3e-16, gradients <= 8e-15.
 from galpy.backend import random as _grandom
 
 _JIT_Q = {
@@ -630,9 +627,9 @@ _JIT_Q = {
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-@pytest.mark.parametrize("beta,vtol,gtol", [(-0.2, 1e-7, 2e-6), (0.5, 1e-13, 1e-13)])
+@pytest.mark.parametrize("beta", [-0.2, 0.5])
 @pytest.mark.parametrize("which", list(_JIT_Q))
-def test_constantbetadf_under_jit_matches_eager_traced(which, beta, vtol, gtol):
+def test_constantbetadf_under_jit_matches_eager_traced(which, beta):
     def f(a):
         with use("jax", force=True):
             d = constantbetadf(
@@ -643,23 +640,8 @@ def test_constantbetadf_under_jit_matches_eager_traced(which, beta, vtol, gtol):
     v_jit = float(jax.jit(f)(1.2))
     g_jit = float(jax.jit(jax.grad(f))(1.2))
     v_eager, g_eager = (float(x) for x in jax.jvp(f, (1.2,), (1.0,)))
-    numpy.testing.assert_allclose(v_jit, v_eager, rtol=vtol)
-    numpy.testing.assert_allclose(g_jit, g_eager, rtol=gtol)
-
-
-@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-def test_constantbetadf_traced_calibration_matches_the_eager_loop():
-    # the fixed ladder picks each energy's first nonzero rung, i.e. the same
-    # startt as the eager while-loop whenever that stops within the ladder
-    d = constantbetadf(pot=HernquistPotential(amp=2.0, a=1.2), beta=-0.2)
-    Es = numpy.linspace(d._Emin, d._potInf + 1e-3 * (d._Emin - d._potInf), 51)
-    eager_logstartt = d._logstartt(Es)
-    # under jit the energy bounds are jax arrays; give the traced routine those
-    d._Emin, d._potInf = jnp.asarray(d._Emin), jnp.asarray(d._potInf)
-    traced = d._calibrate_startt_traced(jnp)
-    numpy.testing.assert_allclose(
-        numpy.asarray(traced(jnp.asarray(Es))), eager_logstartt, rtol=0, atol=1e-12
-    )
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=1e-13)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-13)
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
@@ -670,3 +652,31 @@ def test_constantbetadf_under_jit_needs_an_explicit_rmin():
 
     with pytest.raises(ValueError, match="pass rmin explicitly"):
         jax.jit(f)(1.2)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("beta", [-0.45, -0.2, 0.3])
+def test_constantbetadf_backend_fE_vs_analytic_hernquist(beta):
+    # the backend fE's small-r integrand (Phi - E as the mean force times the
+    # offset) is regular to t = 0, so no calibrated lower limit truncates it:
+    # against Hernquist's closed form, eager and under jax.jit. Measured
+    # <= 7.7e-12; beta = 0.3 (alpha = 0.2) 4.8e-10, the fixed GL order's limit
+    # on the substitution's t^0.25 at t = 0 (6.5e-12 at n = 400, and as before).
+    # The numpy path is 1e-8 .. 7e-5 off here.
+    from galpy.df import constantbetaHernquistdf
+
+    Es = numpy.array([-0.8, -0.5, -0.2, -0.05, -0.01])
+    ref = constantbetaHernquistdf(pot=HernquistPotential(amp=2.0, a=1.2), beta=beta).fE(
+        Es
+    )
+
+    def f(a):
+        with use("jax", force=True):
+            d = constantbetadf(
+                pot=HernquistPotential(amp=2.0, a=a), beta=beta, rmin=0.0
+            )
+            return d.fE(jnp.asarray(Es))
+
+    rtol = 1e-9 if beta == 0.3 else 5e-11
+    numpy.testing.assert_allclose(numpy.asarray(f(jnp.asarray(1.2))), ref, rtol=rtol)
+    numpy.testing.assert_allclose(numpy.asarray(jax.jit(f)(1.2)), ref, rtol=rtol)
