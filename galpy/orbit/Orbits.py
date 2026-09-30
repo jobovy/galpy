@@ -6,7 +6,7 @@ import copy
 import json
 import string
 import warnings
-from functools import singledispatchmethod, wraps
+from functools import wraps
 from random import choice
 from string import ascii_lowercase
 
@@ -23,6 +23,26 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
+from ..backend import use as _use_backend
+from ..backend._namespaces import (
+    compilable_singledispatchmethod,
+    concretely_true,
+    inbackend_ode_method,
+    requires_backend_grad,
+    set_at,
+    under_jax_trace,
+    under_trace,
+    untraceable_setup,
+)
 from ..potential import (
     _INF,
     CompositePotential,
@@ -273,6 +293,108 @@ except:
     pass
 
 
+def _resolve_accessor_namespace(thiso):
+    """Resolve the array namespace for a derived time-evaluation accessor.
+
+    Returns ``(xp, thiso)`` where ``xp`` is the namespace resolved from
+    ``thiso`` (``get_namespace``) and ``thiso`` is coerced onto ``xp`` via
+    ``xp.asarray``. This keeps the numpy production path byte-identical
+    (``get_namespace(numpy)`` -> numpy and ``numpy.asarray`` on a numpy array is
+    a no-op), while ensuring that under a *forced* backend the unary backend
+    ufuncs (cos/sin/sqrt/abs/arctan2) receive a backend tensor instead of a raw
+    numpy array (which torch rejects). For an in-backend orbit ``thiso`` is
+    already a jax/torch array, so ``xp.asarray`` is a no-op there too.
+    """
+    xp = get_namespace(thiso)
+    return xp, xp.asarray(thiso)
+
+
+def _backend_safe_copy(x):
+    """Defensive copy of a backend (jax/torch) array that does not alias the
+    Orbit's internal storage, so a caller cannot mutate ``self.orbit`` through a
+    value returned by ``getOrbit``/``_call_internal`` (the numpy paths already
+    return ``.copy()``). jax arrays are immutable, so the returned array can never
+    be mutated in place -> return as-is; a torch tensor is mutable and the backend
+    returns are views (``permute_dims``/``self.orbit``), so ``.clone()`` -- which,
+    unlike numpy's ``.copy()``, stays in the autograd graph -- gives an independent
+    copy. ``x`` is always a backend array here (guarded by ``is_backend_array``).
+    """
+    return x.clone() if hasattr(x, "clone") else x  # torch has .clone(); jax does not
+
+
+def _copy_for_continuation(x):
+    """Independent copy of a stored trajectory for the continuation merge,
+    whatever namespace it is on. numpy and jax arrays have ``.copy()``; a torch
+    tensor has ``.clone()`` instead, which (unlike a detached copy) stays in the
+    autograd graph."""
+    return x.clone() if hasattr(x, "clone") else x.copy()
+
+
+def _pot_has_traced_param(pot, _depth=0):
+    """True if ``pot`` -- or anything it wraps -- STORES a traced parameter.
+
+    Structural inspection, deliberately NOT a force probe. Evaluating a force to
+    detect this perturbs potentials that cache their last evaluation: it changed
+    streamgapdf's sampled values (test_streamgapdf_sample) even though nothing
+    was traced and the routing was unaffected. A detector must not have side
+    effects on the thing it inspects.
+
+    TRACED, not merely backend: only a tracer breaks the C-STM's callback (its
+    parser calls as_numpy on the potential arguments). A potential that merely
+    HOLDS backend data with concrete values -- e.g. a MovingObjectPotential built
+    on a backend progenitor orbit -- converts fine and must keep the fast C-STM.
+    """
+    if _depth > 5:  # pragma: no cover - guards against a cyclic wrapper chain
+        return False
+    if isinstance(pot, (list, tuple)):
+        return any(_pot_has_traced_param(p, _depth + 1) for p in pot)
+    if under_trace(pot):
+        return True
+    for v in getattr(pot, "__dict__", {}).values():
+        if under_trace(v):
+            return True
+        if isinstance(v, (list, tuple)):
+            if any(_pot_has_traced_param(x, _depth + 1) for x in v):
+                return True
+        elif hasattr(v, "_amp"):  # a wrapped / composite potential
+            if _pot_has_traced_param(v, _depth + 1):
+                return True
+    return False
+
+
+def _flip_velocity_columns(a, phasedim):
+    """Negate the velocity columns of a phase-space block (vR, vT and vz).
+
+    numpy is flipped IN PLACE and returned, so the numpy path is byte-identical
+    to the item assignment this replaces. A backend array is immutable, so it is
+    rebuilt by multiplying with a sign vector -- which also keeps it connected to
+    a gradient, where an in-place write could not exist at all.
+    """
+    cols = [1]
+    if phasedim > 2:
+        cols.append(2)
+    if phasedim > 4:
+        cols.append(4)
+    if not is_backend_array(a):
+        for c in cols:
+            a[..., c] = -a[..., c]
+        return a
+    sgn = numpy.ones(a.shape[-1])
+    sgn[cols] = -1.0
+    xp = get_namespace(a)
+    return a * xp.asarray(sgn, dtype=a.dtype)
+
+
+def _backend_T(x):
+    """Backend-safe ``x.T`` (reverse all axes). numpy/jax keep ``.T`` (numpy path
+    byte-identical); a torch tensor of ndim != 2 emits a deprecation warning for
+    ``.T``, so reverse its axes explicitly via the namespace's ``permute_dims``."""
+    if hasattr(x, "clone") and getattr(x, "ndim", 2) != 2:  # torch tensor, ndim != 2
+        xp = get_namespace(x)
+        return xp.permute_dims(x, tuple(range(x.ndim))[::-1])
+    return x.T
+
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
 
@@ -285,6 +407,12 @@ def shapeDecorator(func):
         elif args[0].shape == ():
             return result[0]
         else:
+            newshape = args[0].shape + tuple(result.shape[1:])
+            if is_backend_array(result):
+                # numpy.reshape forwards order='C', which torch's .reshape rejects
+                # (and triggers a numpy-2 __array_wrap__ deprecation); use the
+                # array's own reshape (jax/torch), preserving the autodiff graph.
+                return result.reshape(newshape)
             return numpy.reshape(result, args[0].shape + result.shape[1:])
 
     return shape_wrapper
@@ -356,6 +484,41 @@ class Orbit:
         - 2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
         - 2023-07-20 - Allowed ro/zo/vo/solarmotion input to be arrays with the same shape as the Orbit itself - Bovy (UofT)
         """
+        # Capture a backend-array (jax/torch) initial condition before the numpy
+        # coercion below, so the differentiable in-backend integrator
+        # (method='diffrax'/'torchdiffeq') can use the original (possibly traced)
+        # array. is_backend_array is False for numpy/Quantity/list/tuple/SkyCoord/
+        # scalar/None, so every existing input is left untouched and the numpy
+        # path stays byte-identical. self.vxvv (numpy) is kept only for shape/
+        # phasedim bookkeeping; the real differentiable IC lives in _ic_backend.
+        self._ic_backend = None
+        # Whether self.vxvv holds the IC's real (concrete) values. True unless the
+        # backend IC is traced/grad-tracking (jax tracer / grad-requiring tensor),
+        # in which case numpy.asarray fails and self.vxvv is a shape-only zeros
+        # placeholder -- then only method='diffrax'/'torchdiffeq' can integrate it.
+        self._ic_backend_concrete = True
+        if is_backend_array(vxvv):
+            self._ic_backend = vxvv
+            # self.vxvv (numpy) is bookkeeping only; the differentiable IC lives
+            # in _ic_backend. A CONCRETE (eager) backend IC keeps its real values
+            # in self.vxvv, so the numpy/C integrators still run on it (this is how
+            # the existing suite is driven under a forced jax/torch backend). Only
+            # a traced / grad-requiring IC -- where the values are genuinely absent
+            # -- falls back to a placeholder and is restricted to the in-backend
+            # methods.
+            try:
+                # A grad-requiring tensor has no usable concrete value. Eagerly
+                # numpy.asarray raises on it anyway, but under torch.compile dynamo
+                # TRACES numpy.asarray without that check, so the IC was taken as
+                # concrete and integrated in numpy -- silently detached.
+                if requires_backend_grad(vxvv):
+                    raise ValueError("grad-requiring backend IC")
+                # .copy(): asarray on a jax array is a READ-ONLY view, and vxvv is
+                # writable bookkeeping (cf. the as_numpy(...).copy() sites below).
+                vxvv = numpy.asarray(vxvv).copy()
+            except Exception:  # traced (jax.grad/jit/vmap) or grad-requiring tensor
+                self._ic_backend_concrete = False
+                vxvv = numpy.zeros(tuple(vxvv.shape))
         # First deal with None = Sun
         if vxvv is None:  # Assume one wants the Sun
             vxvv = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -1536,18 +1699,34 @@ class Orbit:
             tdyn = numpy.sqrt(1.0 / tdyn) if tdyn > 0.0 else 0.0
         if tdyn > 0.0:
             return tdyn
-        # If all fail, fallback to vcirc
+        # If all fail, fallback to vcirc -- but only where a circular velocity is
+        # DEFINED. vcirc exists on a non-axisymmetric potential and raises from
+        # inside (TypeError on a None force), which the except below used to
+        # absorb. Under a traced backend that TypeError surfaces as the
+        # framework's own error (torch._dynamo TorchRuntimeError), which no
+        # except clause here catches, so the ValueError below never got raised.
+        # Feature-detect instead of probing: ask whether the potential is
+        # axisymmetric rather than calling and catching.
         vc = 0.0
-        try:
-            vc = pot.vcirc(r_init, use_physical=False)
-        except (NotImplementedError, AttributeError, TypeError):
-            # Try with subset of potentials that support vcirc
-            for p in pot:
+        if not _isNonAxi(pot):
+            try:
+                vc = pot.vcirc(r_init, use_physical=False)
+            except (NotImplementedError, AttributeError, TypeError):
+                vc = 0.0
+        if not vc > 0.0:
+            # A non-axisymmetric COMBINATION can still contain axisymmetric
+            # components that do define a circular velocity, so fall back to
+            # summing those -- skipping the non-axisymmetric ones by predicate
+            # rather than by calling them and catching.
+            vc2 = 0.0
+            for p in pot if hasattr(pot, "__iter__") else [pot]:
+                if _isNonAxi(p):
+                    continue
                 try:
-                    vc += p.vcirc(r_init, use_physical=False) ** 2.0
+                    vc2 += p.vcirc(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError, TypeError):
                     pass
-            vc = numpy.sqrt(vc)
+            vc = numpy.sqrt(vc2)
         if vc > 0.0:
             return 2.0 * numpy.pi * r_init / vc
 
@@ -1632,6 +1811,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """
         Core implementation of orbit integration.
@@ -1641,16 +1821,135 @@ class Orbit:
 
         Parameters are the same as integrate().
         """
-        self.check_integrator(method)
-        pot = _check_potential_list_and_deprecate(pot)
-        _check_potential_dim(self, pot)
-        _check_consistent_units(self, pot)
-        # Parse t
+        # Parse Quantity output times up-front. A Quantity is always concrete
+        # (never a traced backend array), so handling it before the in-backend
+        # dispatch is safe for jax/torch too and keeps Quantity parsing in ONE
+        # place -- _integrate_inbackend then only ever sees numpy/backend times (a
+        # traced backend-array t is not a Quantity, so it is left untouched here).
         if _APY_LOADED and isinstance(t, units.Quantity):
             self._integrate_t_asQuantity = True
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
+        # In-backend differentiable ODE integrators (jax->diffrax, torch->
+        # torchdiffeq / torchode). Intercept BEFORE check_integrator (which would reject
+        # these names) and before any numpy coercion of t / the IC, so the
+        # entire numpy/C/scipy path below is dead code for these methods and
+        # byte-identical for every existing method.
+        if method.lower() in ("diffrax", "torchdiffeq", "torchode"):
+            # the same list -> CompositePotential conversion (and deprecation
+            # warning) every other method gets below
+            pot = _check_potential_list_and_deprecate(pot)
+            return self._integrate_backend_continued(
+                lambda: self._integrate_inbackend(
+                    t, pot, method, rtol, atol, inbackend_kwargs
+                ),
+                t,
+                pot,
+            )
+        # Differentiable FAST-C path: a jax/torch IC + a dxdv-capable C integrator
+        # routes through the variational state-transition matrix (jax.custom_vjp /
+        # torch.autograd.Function), so getOrbit()/accessors are backend arrays
+        # differentiable w.r.t. the IC. A 6D orbit whose potential has the full C
+        # 3D Hessian uses the C-STM; otherwise (or non-6D) it falls back to the
+        # in-backend ODE solver (still differentiable). numpy/list ICs have
+        # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
+        ic_backend = getattr(self, "_ic_backend", None)
+        if ic_backend is not None:
+            from ..backend._reference.inbackend_stm import (
+                _C_RK_METHODS,
+                _C_SYMPLEC_METHODS,
+            )
+
+            # Runge-Kutta dxdv methods auto-route for ANY backend IC. Symplectic
+            # dxdv methods (incl. galpy's DEFAULT symplec4_c) route ONLY for a
+            # grad-tracking IC: a CONCRETE backend IC has real values in self.vxvv
+            # and keeps the numpy/C path below, so a forced-backend internal
+            # default-method integration is never silently rerouted to the C-STM
+            # (bit #1094). A grad-tracking IC has no concrete values to integrate on
+            # numpy, so it needs the differentiable C-STM -- which supports the
+            # symplectic dxdv integrators via the per-column drift/kick tangent maps
+            # (the alternative for these was to raise below).
+            _ml = method.lower()
+            _concrete = getattr(self, "_ic_backend_concrete", True)
+            if _ml in _C_RK_METHODS or (_ml in _C_SYMPLEC_METHODS and not _concrete):
+                _potl = _check_potential_list_and_deprecate(pot)
+                _inbk = inbackend_ode_method(get_namespace(ic_backend))
+                # C-STM eligibility by phase-space dim: 6D needs the full C 3D
+                # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
+                # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
+                _pdim = self.phasedim()
+                # A TRACED t cannot take the C-STM: it pure_callbacks into the C
+                # integrator, which closes over a CONCRETE ts (orbit_stm.integrate).
+                # Neither can a BACKEND POTENTIAL PARAMETER: the same callback
+                # parses concrete pot args, so a traced theta dies in _parse_pot
+                # (as_numpy on the tracer). The C-STM carries d/d(IC) but never
+                # d/d(theta), so such a potential must reach the in-backend ODE --
+                # the same conclusion streamspraydf reached for its own dispatch.
+                if (
+                    _check_c(_potl)
+                    # jax only: under torch.compile the C-STM runs eagerly as an
+                    # opaque call (_integrate_cstm is @untraceable_setup)
+                    and not under_jax_trace(t)
+                    and not _pot_has_traced_param(_potl)
+                    and (
+                        _check_c(_potl, dxdv3d=True)
+                        if _pdim == 6
+                        else _check_c(_potl, dxdv=True)
+                        if _pdim in (2, 4)
+                        else False
+                    )
+                ):
+                    return self._integrate_backend_continued(
+                        lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
+                        t,
+                        _potl,
+                    )
+                # Pass the deprecation-checked/composed potential (_potl), matching
+                # the C-STM and numpy paths, so a legacy list reaches the in-backend
+                # integrator as a composite rather than a raw list.
+                return self._integrate_backend_continued(
+                    lambda: self._integrate_inbackend(
+                        t, _potl, _inbk, rtol, atol, inbackend_kwargs
+                    ),
+                    t,
+                    _potl,
+                )
+        if getattr(self, "_ic_backend", None) is not None and not getattr(
+            self, "_ic_backend_concrete", True
+        ):
+            # A TRACED / grad-tracking backend IC has no concrete values (self.vxvv
+            # is a placeholder), so a numpy/C integrator would silently integrate
+            # degenerate values -- refuse and point at the differentiable methods.
+            # A concrete backend IC keeps its real values and falls through to the
+            # normal (byte-identical) numpy/C path below.
+            raise ValueError(
+                "this Orbit was built from a traced / grad-tracking jax/torch "
+                "initial condition (no concrete values), so it requires a "
+                "differentiable integrator; use method='diffrax' (jax) or "
+                f"method='torchdiffeq' (torch), not method='{method}'"
+            )
+        if ic_backend is not None:
+            # Reaching here means every differentiable route above declined this
+            # method (in-backend solver, C-STM), so the trajectory is COMPUTED in
+            # numpy/C. It is handed back on the IC's backend (the exit cast at the
+            # end of this method), so nothing is demoted -- but the arithmetic that
+            # produced it was numpy's, so it carries no gradient and this method
+            # would refuse a grad-tracking IC outright. That distinction is
+            # invisible in the returned type, so say it.
+            warnings.warn(
+                f"this Orbit has a jax/torch initial condition, but method="
+                f"'{method}' integrates in numpy: the trajectory is returned on "
+                "the backend but is not differentiable. Use method='diffrax' (jax) "
+                "or method='torchdiffeq' (torch) to integrate in the backend, or "
+                "one of the Runge-Kutta C methods (dop853_c, rk4_c, rk6_c, "
+                "dopr54_c) to keep the differentiable C state-transition path",
+                galpyWarning,
+            )
+        self.check_integrator(method)
+        pot = _check_potential_list_and_deprecate(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         t = numpy.asarray(t)
         # Per-orbit time arrays: t has shape self.shape + (nt,) instead of (nt,)
         indiv_t = t.ndim > 1
@@ -1710,15 +2009,17 @@ class Orbit:
         # Store old orbit data and vxvv if continuing
         if should_continue:
             old_t = self.t.copy()
-            old_orbit = self.orbit.copy()
+            old_orbit = _copy_for_continuation(self.orbit)
             old_vxvv = self.vxvv.copy()
-            # Update initial conditions to be the final state of previous integration
+            # Update initial conditions to be the final state of previous integration.
+            # self.vxvv is the numpy bookkeeping the C/scipy integrators restart
+            # from, so it stays numpy even when the stored orbit is a backend array.
             if is_forward:
                 # For forward continuation, start from the last state
-                self.vxvv = self.orbit[:, -1, :].copy()
+                self.vxvv = as_numpy(self.orbit[:, -1, :]).copy()
             else:
                 # For backward continuation, start from the first state
-                self.vxvv = self.orbit[:, 0, :].copy()
+                self.vxvv = as_numpy(self.orbit[:, 0, :]).copy()
 
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
@@ -1821,20 +2122,37 @@ class Orbit:
 
         # Merge with old orbit if continuing integration
         if should_continue:
+            # The stored orbit is a backend array whenever the IC was one, so the
+            # merge runs on its namespace (numpy's own for a numpy orbit, so that
+            # path is byte-identical).
+            _xp = get_namespace(self.orbit) if is_backend_array(self.orbit) else numpy
             if is_forward:
                 # Forward continuation: merge old and new, skip duplicate time point
                 self.t = numpy.concatenate([old_t, self.t[1:]], axis=-1)
-                self.orbit = numpy.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
+                self.orbit = _xp.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
             else:
                 # Backward continuation: prepend new orbit to old (reversed), skip duplicate time point
                 # New times go from t[0] to t[-1] in decreasing order (e.g., 0 to -10)
                 # We want the result to be monotonic, so reverse the new times/orbit
                 self.t = numpy.concatenate([self.t[:0:-1], old_t], axis=-1)
-                self.orbit = numpy.concatenate(
-                    [self.orbit[:, :0:-1], old_orbit], axis=1
+                # self.orbit[:, :0:-1] in namespace-agnostic form: torch has no
+                # negative-step slicing, and flip is exact on every namespace.
+                self.orbit = _xp.concatenate(
+                    [_xp.flip(self.orbit[:, 1:], axis=1), old_orbit], axis=1
                 )
             # Restore original initial conditions
             self.vxvv = old_vxvv
+
+        # A backend IC that reaches here is CONCRETE (a traced / grad-tracking one
+        # was refused above), so there is no gradient to carry -- but it is still a
+        # backend orbit, and handing back numpy would make every accessor below it
+        # a silent numpy island. Cast the finished trajectory onto the IC's
+        # namespace. The integration itself ran on numpy/C and is untouched, so the
+        # VALUES are exactly the numpy ones.
+        if ic_backend is not None:
+            self.orbit = asarray_on_device(
+                get_namespace(ic_backend), self.orbit, device_of(ic_backend)
+            )
 
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
@@ -1857,7 +2175,8 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
+            _cdf_r = self.r(self.t, use_physical=False)
+            if get_namespace(_cdf_r).any(_cdf_r < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """ChandrasekharDynamicalFrictionForce """
@@ -1884,7 +2203,8 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
+            _cdf_r = self.r(self.t, use_physical=False)
+            if get_namespace(_cdf_r).any(_cdf_r < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """FDMDynamicalFrictionForce """
@@ -1955,12 +2275,246 @@ class Orbit:
             )
         return None
 
+    def _integrate_inbackend(self, t, pot, method, rtol, atol, inbackend_kwargs=None):
+        """Integrate one orbit OR a batch of orbits with the in-backend
+        differentiable ODE integrator (diffrax for jax, torchdiffeq for torch).
+
+        ``inbackend_kwargs`` is an optional dict of extra options forwarded to the
+        in-backend solver (``max_steps``, ``solver``, ``adjoint`` -- see
+        ``galpy.backend._reference.integrate_orbit``); e.g.
+        ``{"adjoint": "direct", "max_steps": 4096}`` enables jax second derivatives.
+
+        Autodiff-friendly counterpart of the C/scipy integrators, selected by
+        method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
+        a jax/torch initial condition (captured in self._ic_backend) and stores
+        the trajectory as a backend array in self.orbit, so gradients w.r.t. the
+        initial conditions (and backend-array potential parameters) flow through
+        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), o(t), ...) work --
+        on the integrated grid and off-grid via the in-backend differentiable
+        spline, single orbit and batch; in-place mutators (flip(inplace=True), SOS)
+        on such an orbit are a follow-up and raise NotImplementedError for now. Any
+        Orbit shape: a multi-orbit Orbit integrates all orbits in ONE batched solve
+        (on a single shared time grid). Any of the usual phase-space dimensions
+        (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz];
+        6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a linearPotential; 2D/3D need
+        a (3D) Potential -- the in-backend path runs planar orbits through the 3D
+        rectangular EOM with z=vz=0 (dropping the z,vz outputs). The values match
+        galpy's *separate* 2-D planar C integrator (which has its own 4-state EOM,
+        not a z=vz=0 3-D one) because z stays 0 in the plane of a symmetric
+        potential.
+        """
+        ic = getattr(self, "_ic_backend", None)
+        if ic is None:
+            raise ValueError(
+                f"method='{method}' requires a jax/torch initial condition; "
+                "construct the Orbit from a jax or torch array, e.g. "
+                "Orbit(jax.numpy.array([R,vR,vT,z,vz,phi]))"
+            )
+        # Enforce the routing rule (no mixing): integrate_orbit picks the solver
+        # from the IC namespace, so cross-check it against the requested method.
+        xp = get_namespace(ic)
+        name = xp.__name__
+        if method.lower() == "diffrax" and "jax" not in name:
+            raise ValueError(
+                "method='diffrax' requires a jax initial condition; use "
+                "method='torchdiffeq' for a torch initial condition"
+            )
+        if method.lower() in ("torchdiffeq", "torchode") and "torch" not in name:
+            raise ValueError(
+                f"method='{method.lower()}' requires a torch initial condition; "
+                "use method='diffrax' for a jax initial condition"
+            )
+        if method.lower() == "torchode":
+            _engine = {"engine": "torchode"}
+        else:
+            _engine = {}
+        # Output times onto the IC's backend. _integrate_impl has already parsed
+        # any Quantity time to numpy floats (and set _integrate_t_asQuantity), so
+        # here t is either a backend array -- kept on its backend, possibly traced
+        # when differentiating w.r.t. the integration times or under jax.jit, so
+        # the solver call stays inside the trace -- or a list/numpy array moved
+        # onto the IC's backend.
+        if is_backend_array(t):
+            ts = t
+        else:
+            t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+            ts = xp.asarray(t)
+        from ..backend._reference import integrate_orbit
+
+        _rtol = 1e-12 if rtol is None else rtol
+        _atol = 1e-12 if atol is None else atol
+        # rtol/atol are in-backend solver options like max_steps/solver/adjoint, so
+        # accept them through inbackend_kwargs too (they are the only route callers
+        # that expose just that dict -- e.g. actionAngleIsochroneApprox's
+        # integrate_kwargs -- have to the tolerance). Pop rather than splat: they
+        # are also passed explicitly below, and duplicating a keyword raises.
+        _ibk = dict(inbackend_kwargs or {})
+        _rtol = _ibk.pop("rtol", _rtol)
+        _atol = _ibk.pop("atol", _atol)
+        # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
+        # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
+        # its own times (same length nt), as the C integrators' indiv_t (used by
+        # streamspraydf). Per-orbit grids give each orbit its own saveat/span.
+        per_orbit_t = ts.ndim > 1
+        if per_orbit_t and ts.shape[:-1] != self.shape:
+            raise ValueError(
+                f"Input time array shape {tuple(ts.shape)} does not match Orbit "
+                f"shape {self.shape} + (nt,); per-orbit time arrays must have "
+                "leading dimensions matching the Orbit instance shape"
+            )
+        # Default rtol/atol = 1e-12, matching galpy's C integrators (_parse_tol),
+        # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
+        if self.shape == ():
+            # single orbit: ic (phasedim,), ts (nt,) -> result (nt, phasedim)
+            result = integrate_orbit(
+                pot, ic, ts, rtol=_rtol, atol=_atol, **_engine, **_ibk
+            )
+            self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
+        else:
+            # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
+            # the numpy self.vxvv flatten and the C-STM path. A shared (nt,) grid
+            # integrates all orbits in ONE solve; a per-orbit (size, nt) grid gives
+            # each orbit its own saveat (vmap on jax, loop on torch). Either way the
+            # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
+            ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
+            ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
+            result = integrate_orbit(
+                pot, ic2d, ts_int, rtol=_rtol, atol=_atol, **_engine, **_ibk
+            )
+            assert result.shape[0] == ts.shape[-1]  # (nt, size, phasedim)
+            self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
+        # store a per-orbit t FLATTENED to (size, nt) (mirroring the numpy indiv_t
+        # path) so it aligns with the flattened self.orbit for the accessors.
+        self.t = t.reshape(self.size, t.shape[-1]) if per_orbit_t else t
+        self._pot = pot
+        self._orig_pot = pot
+        return None
+
+    def _integrate_backend_continued(self, route, t, pot):
+        """Run one of the backend integration routes (C-STM or in-backend ODE),
+        honouring a continuation.
+
+        The numpy/C path merges a second ``integrate`` onto the first when the new
+        times pick up where the old ones left off (``_should_continue_integration``),
+        but the backend routes return from ``_integrate_impl`` long before that
+        bookkeeping, so they used to REPLACE the stored orbit -- silently, with no
+        error and a trajectory one leg short. This wraps them in the same
+        prologue/epilogue: restart from the edge of the previous leg, integrate,
+        merge. The restart state is taken from the stored orbit ON THE BACKEND, so
+        a grad-tracking IC keeps both legs in one autograd graph and gradients
+        w.r.t. the original IC still flow through the merged trajectory.
+        """
+        try:
+            t_np = numpy.asarray(as_numpy(t))
+        except Exception:  # traced (jax.grad/jit/vmap) integration times
+            # No concrete times to compare against the stored grid, so there is no
+            # continuation to detect -- and forcing them through numpy would break
+            # the trace this route exists to stay inside.
+            return route()
+        should_continue, is_forward, pot_changed = self._should_continue_integration(
+            t_np, pot
+        )
+        if not should_continue:
+            return route()
+        if pot_changed:
+            warnings.warn(
+                "Continuing orbit integration with a different potential than the previous integration; this may lead to unphysical results",
+                galpyWarning,
+            )
+        xp = get_namespace(self.orbit)
+        old_t = numpy.asarray(as_numpy(self.t)).copy()
+        old_orbit = _copy_for_continuation(self.orbit)
+        old_ic_backend = self._ic_backend
+        old_vxvv = self.vxvv.copy()
+        # Restart from the last state (forward) or the first (backward).
+        edge = self.orbit[:, -1, :] if is_forward else self.orbit[:, 0, :]
+        self._ic_backend = xp.reshape(edge, old_ic_backend.shape)
+        # self.vxvv is the numpy shape/phasedim bookkeeping; keep it in step. A
+        # grad-tracking IC has no concrete values, so it keeps its placeholder.
+        if getattr(self, "_ic_backend_concrete", True):
+            self.vxvv = as_numpy(edge).copy()
+        try:
+            route()
+        finally:
+            self._ic_backend = old_ic_backend
+            self.vxvv = old_vxvv
+        new_t = numpy.asarray(as_numpy(self.t))
+        if is_forward:
+            self.t = numpy.concatenate([old_t, new_t[1:]], axis=-1)
+            self.orbit = xp.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
+        else:
+            # new times run t[0] -> t[-1] decreasing, so reverse them onto the
+            # front; flip is the namespace-agnostic form of [:, :0:-1].
+            self.t = numpy.concatenate([new_t[:0:-1], old_t], axis=-1)
+            self.orbit = xp.concatenate(
+                [xp.flip(self.orbit[:, 1:], axis=1), old_orbit], axis=1
+            )
+        return None
+
+    @untraceable_setup  # torch.compile: the C integration runs eagerly (opaque)
+    def _integrate_cstm(self, t, pot, method, rtol, atol):
+        """Differentiable FAST-C orbit integration via the dxdv state-transition
+        matrix.
+
+        The forward solve is galpy's compiled C variational integrator wrapped in
+        a jax.custom_vjp / torch.autograd.Function (galpy.backend._jax|_torch.
+        orbit_stm): it returns the trajectory plus the STM M(t)=dx(t)/dx(0), and
+        the IC gradient is M(t)^T applied to the output cotangent (no backward C
+        call). Routed here from integrate() for a 6D orbit built from a jax/torch
+        IC with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
+        potential has the full C 3D Hessian. The trajectory is stored as a backend
+        array in self.orbit, so getOrbit()/the accessors are backend arrays
+        differentiable w.r.t. the initial conditions (gradients w.r.t. potential
+        PARAMETERS need the in-backend ODE path -- the C integrator carries no
+        d x / d theta sensitivity). Single OR multiple orbits: a multi-orbit
+        backend IC is integrated in ONE stacked C-STM call (the wrapper and
+        c_stm_forward batch ``(N,6) -> (N,nt,6)``), so ``Orbit(N-backend-ICs).
+        integrate(<dxdv-C-method>)`` is differentiable w.r.t. all N ICs at once.
+        """
+        ic = self._ic_backend
+        xp = get_namespace(ic)
+        if is_backend_array(t):
+            ts = t
+        else:
+            t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+            # Keep a numpy t NUMPY (both orbit_stm backends accept it): xp.asarray
+            # inside a trace lifts the constant to a tracer, which the C-STM's
+            # static ts cannot take.
+            ts = t
+        if name_of_namespace(xp) == "jax":
+            from ..backend._jax import orbit_stm
+        else:
+            from ..backend._torch import orbit_stm
+        # Default rtol/atol = 1e-12 matches galpy's C integrators (_parse_tol).
+        _rtol = 1e-12 if rtol is None else rtol
+        _atol = 1e-12 if atol is None else atol
+        if self.shape == ():
+            # Single orbit: (nt, 6) -> stored as (1, nt, 6), matching the C layout.
+            result = orbit_stm.integrate(
+                pot, ic, ts, method=method, rtol=_rtol, atol=_atol
+            )
+            self.orbit = result[None, ...]
+        else:
+            # Multiple orbits: flatten to (size, 6), one stacked differentiable
+            # C-STM solve -> (size, nt, 6); getOrbit/accessors reshape on access.
+            ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
+            result = orbit_stm.integrate(
+                pot, ic2d, ts, method=method, rtol=_rtol, atol=_atol
+            )
+            self.orbit = result
+        self.t = t
+        self._pot = pot
+        self._orig_pot = pot
+        return None
+
     def _warn_radii_outside_interpolation_range(self, rmin, rmax, potname):
         """Warn if the integrated orbit(s) visited radii outside of the
         interpolation range [rmin, rmax] of the potential potname"""
         rs = self.r(self.t, use_physical=False)
-        outside = numpy.any((rs < rmin) | (rs > rmax), axis=-1)
-        if not numpy.any(outside):
+        xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
+        outside = xp.any((rs < rmin) | (rs > rmax), axis=-1)
+        if not xp.any(outside):
             return
         if self.shape == ():
             warnings.warn(
@@ -1975,16 +2529,16 @@ class Orbit:
             warnings.warn(
                 f"Orbit integration with {potname} visited radii "
                 f"outside of the interpolation range for "
-                f"{numpy.sum(outside)} out of {self.size} orbits; "
+                f"{int(xp.sum(outside))} out of {self.size} orbits; "
                 f"initialize {potname} with a wider radial range to "
                 f"avoid this if you wish (min/max r = "
-                f"{numpy.amin(self.rperi()):.3f},"
-                f"{numpy.amax(self.rap()):.3f}, which is the full "
+                f"{float(xp.min(self.rperi())):.3f},"
+                f"{float(xp.max(self.rap())):.3f}, which is the full "
                 f"range over all orbits)",
                 galpyWarning,
             )
 
-    @singledispatchmethod
+    @compilable_singledispatchmethod
     def integrate(
         self,
         t,
@@ -1996,6 +2550,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """
         Integrate the orbit instance.
@@ -2026,6 +2581,8 @@ class Orbit:
             Relative tolerance. Default is None.
         atol : float, optional
             Absolute tolerance. Default is None.
+        inbackend_kwargs : dict, optional
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
@@ -2047,6 +2604,7 @@ class Orbit:
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
+          -  'diffrax' (jax), 'torchdiffeq' or 'torchode' (torch) for the in-backend differentiable ODE integrators; these require a jax/torch initial condition, and 'torchode' can be compiled with torch.compile
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
 
@@ -2057,7 +2615,16 @@ class Orbit:
         """
         # Default implementation for array-like t (numpy arrays, Quantities, etc.)
         return self._integrate_impl(
-            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     @integrate.register(Potential)
@@ -2072,11 +2639,21 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """Integrate for 10 dynamical times (default auto-time)."""
         t = self._generate_auto_time_array(pot, N_tdyn=10)
         return self._integrate_impl(
-            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     @integrate.register(list)
@@ -2090,6 +2667,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """Handle deprecated list of potentials (auto-time with default 10 tdyn)."""
         # Lists can only contain potentials (deprecated syntax)
@@ -2097,7 +2675,16 @@ class Orbit:
         # _check_potential_list_and_deprecate
         t_array = self._generate_auto_time_array(pot, N_tdyn=10)
         return self._integrate_impl(
-            t_array, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t_array,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     def integrate_SOS(
@@ -2786,17 +3373,15 @@ class Orbit:
 
         """
         if inplace:
-            self.vxvv[..., 1] = -self.vxvv[..., 1]
-            if self.phasedim() > 2:
-                self.vxvv[..., 2] = -self.vxvv[..., 2]
-            if self.phasedim() > 4:
-                self.vxvv[..., 4] = -self.vxvv[..., 4]
+            _pd = self.phasedim()
+            self.vxvv = _flip_velocity_columns(self.vxvv, _pd)
+            # vxvv is only phasedim bookkeeping for a backend Orbit -- the IC the
+            # integrator actually uses is _ic_backend, so flipping vxvv alone
+            # leaves the orbit integrating UNFLIPPED (silently, with no error).
+            if getattr(self, "_ic_backend", None) is not None:
+                self._ic_backend = _flip_velocity_columns(self._ic_backend, _pd)
             if hasattr(self, "orbit"):
-                self.orbit[..., 1] = -self.orbit[..., 1]
-                if self.phasedim() > 2:
-                    self.orbit[..., 2] = -self.orbit[..., 2]
-                if self.phasedim() > 4:
-                    self.orbit[..., 4] = -self.orbit[..., 4]
+                self.orbit = _flip_velocity_columns(self.orbit, _pd)
                 if hasattr(self, "_orbInterp"):
                     delattr(self, "_orbInterp")
             return None
@@ -2806,6 +3391,18 @@ class Orbit:
             "zo": self._zo,
             "solarmotion": self._solarmotion,
         }
+        if getattr(self, "_ic_backend", None) is not None:
+            # build from the BACKEND IC: going through self.vxvv would rebuild
+            # from the numpy bookkeeping and silently drop both the backend
+            # values and the gradient attached to them
+            out = Orbit(
+                _flip_velocity_columns(self._ic_backend, self.phasedim()),
+                **orbSetupKwargs,
+            )
+            out._roSet = self._roSet
+            out._voSet = self._voSet
+            out.reshape(self.shape)
+            return out
         if self.phasedim() == 2:
             orbSetupKwargs.pop("zo", None)
             orbSetupKwargs.pop("solarmotion", None)
@@ -2878,6 +3475,10 @@ class Orbit:
         -----
         - 2019-03-02 - Written - Bovy (UofT)
         """
+        # A backend (jax/torch) orbit from an in-backend integrator is returned
+        # as-is (preserving the autodiff graph; torch tensors also lack .copy()).
+        if is_backend_array(self.orbit):
+            return _backend_safe_copy(self.orbit)
         return self.orbit.copy()
 
     @shapeDecorator
@@ -2947,21 +3548,23 @@ class Orbit:
         # Get orbit
         thiso = self._call_internal(*args, **kwargs)
         onet = len(thiso.shape) == 2
+        # a backend time (possibly traced) is shaped on its own namespace
+        _txp = get_namespace(t) if is_backend_array(t) else numpy
         if onet:
             thiso = thiso[:, numpy.newaxis, :]
-            t = numpy.atleast_1d(t)
+            t = numpy.atleast_1d(t) if _txp is numpy else _txp.reshape(t, (-1,))
         if self.phasedim() == 2:
             try:
                 out = (
                     evaluatelinearPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -2982,13 +3585,13 @@ class Orbit:
                     evaluateplanarPotentials(
                         pot,
                         thiso[0],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3010,13 +3613,13 @@ class Orbit:
                         pot,
                         thiso[0],
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3044,14 +3647,14 @@ class Orbit:
                         pot,
                         thiso[0],
                         z,
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                     + vz**2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3080,14 +3683,14 @@ class Orbit:
                         thiso[0],
                         z,
                         phi=thiso[-1],
-                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                     + vz**2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3161,10 +3764,22 @@ class Orbit:
             x = self.x(*args, **kwargs)
             y = self.y(*args, **kwargs)
             z = self.z(*args, **kwargs)
-            out = numpy.zeros(x.shape + (3,))
-            out[..., 0] = y * vz - z * vy
-            out[..., 1] = z * vx - x * vz
-            out[..., 2] = x * vy - y * vx
+            # Resolve a single namespace from all six components: under a forced
+            # backend some accessors return a backend Tensor while others stay
+            # numpy, so coerce them onto xp before the cross-product (no-op when
+            # xp is numpy -> numpy path stays byte-identical).
+            xp = get_namespace(x, y, z, vx, vy, vz)
+            if xp is not numpy:
+                x, y, z = xp.asarray(x), xp.asarray(y), xp.asarray(z)
+                vx, vy, vz = xp.asarray(vx), xp.asarray(vy), xp.asarray(vz)
+            out = xp.stack([y * vz - z * vy, z * vx - x * vz, x * vy - y * vx], axis=-1)
+            if xp is numpy:
+                # stack(axis=-1) of the F-contiguous accessor outputs is not
+                # C-contiguous for ensemble shapes; restore the historical
+                # numpy.zeros()+assign C-contiguous layout so the numpy result is
+                # byte-identical in BOTH data and flags. No-op (no copy) when the
+                # result is already C-contiguous (the common single-orbit case).
+                out = numpy.ascontiguousarray(out)
             if not old_physical is None:
                 kwargs["use_physical"] = old_physical
             else:
@@ -3462,12 +4077,12 @@ class Orbit:
             self._aA = actionAngle.actionAngleAdiabatic(pot=self._aAPot, **kwargs)
         elif self._aAType.lower() == "staeckel":
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             self._aA_delta_automagic = False
             if delta is None:
                 self._aA_delta_automagic = True
@@ -3490,11 +4105,33 @@ class Orbit:
                         )
                     else:  # pragma: no cover
                         raise
-            if numpy.all(delta == 1e-6):
+            # estimateDeltaStaeckel reads the potential's second derivatives, so
+            # an automagic delta CARRIES the gradient w.r.t. the potential
+            # parameters. Cutting it to numpy (below) would not merely detach it,
+            # it raises on a tracer -- which is what made rperi/rap/zmax/e
+            # undifferentiable while an explicitly passed delta worked fine.
+            # So keep a differentiated delta on the backend and clip it
+            # functionally; everything else still goes back to a writable numpy
+            # array, because as_numpy's jax view is read-only and the clip below
+            # is in place. No-op for numpy -> that path stays byte-identical.
+            delta_grad = under_trace(delta) or requires_backend_grad(delta)
+            if is_backend_array(delta) and not delta_grad:
+                delta = numpy.array(as_numpy(delta))
+            # a jit-traced delta cannot pick the spherical fallback; Staeckel at
+            # the clipped delta agrees with it to ~1e-10
+            if (
+                concretely_true((delta == 1e-6).all())
+                if delta_grad
+                else numpy.all(delta == 1e-6)
+            ):
                 self._setupaA(pot=pot, type="spherical")
             else:
                 if hasattr(delta, "__len__"):
-                    delta[delta < 1e-6] = 1e-6
+                    if delta_grad:
+                        xp = get_namespace(delta)
+                        delta = xp.where(delta < 1e-6, 1e-6, delta)
+                    else:
+                        delta[delta < 1e-6] = 1e-6
                 self._aA = actionAngle.actionAngleStaeckel(
                     pot=self._aAPot, delta=delta, **kwargs
                 )
@@ -3514,9 +4151,22 @@ class Orbit:
             )
         elif self.dim() == 3:
             Einf = evaluatePotentials(self._aAPot, _INF, 0.0, use_physical=False)
+        E = self.E(pot=self._aAPot, use_physical=False, dontreshape=True)
+        # The unbound mask is a discrete selection that carries no gradient and
+        # cannot be concretized from a differentiated energy (w.r.t. the
+        # potential parameters or the phase-space point): indx=None then tells
+        # the callers to evaluate every orbit (an unbound one raises there,
+        # loudly, rather than being silently dropped).
+        if under_trace(Einf, E) or requires_backend_grad(Einf, E):
+            return None, (
+                {"delta": self._aA._delta} if hasattr(self._aA, "_delta") else {}
+            )
+        # Otherwise a concrete numpy mask (no-op for numpy -> byte-identical).
+        if is_backend_array(Einf):
+            Einf = as_numpy(Einf)
         if numpy.isnan(Einf):
             Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
-        indx = self.E(pot=self._aAPot, use_physical=False, dontreshape=True) < Einf
+        indx = as_numpy(E) < Einf
         if hasattr(self._aA, "_delta"):
             if hasattr(self._aA._delta, "__len__"):
                 aAkwargs = {"delta": self._aA._delta[indx]}
@@ -3531,47 +4181,54 @@ class Orbit:
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_ecc"):
             return None
+        R = self.R(use_physical=False, dontreshape=True)
+        vR = self.vR(use_physical=False, dontreshape=True)
+        vT = self.vT(use_physical=False, dontreshape=True)
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
+        # A backend orbit (or a forced backend) runs on the backend, where the
+        # aA classes' backend EccZmaxRperiRap paths carry the gradient; numpy
+        # is a strict pass-through.
+        xp = get_namespace(R, vR, vT, tz, tvz)
+        R, vR, vT, tz, tvz = coerce_coords(xp, R, vR, vT, tz, tvz)
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        (
-            self._aA_ecc,
-            self._aA_zmax,
-            self._aA_rperi,
-            self._aA_rap,
-        ) = (
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-        )
-        if numpy.sum(indx) > 0:
+        if indx is None or (xp is not numpy and indx.all()):
+            # differentiated (no mask) or all bound on a backend: every orbit
             (
-                self._aA_ecc[indx],
-                self._aA_zmax[indx],
-                self._aA_rperi[indx],
-                self._aA_rap[indx],
+                self._aA_ecc,
+                self._aA_zmax,
+                self._aA_rperi,
+                self._aA_rap,
             ) = self._aA.EccZmaxRperiRap(
-                self.R(use_physical=False, dontreshape=True)[indx],
-                self.vR(use_physical=False, dontreshape=True)[indx],
-                self.vT(use_physical=False, dontreshape=True)[indx],
+                R, vR, vT, tz, tvz, use_physical=False, **aAkwargs
+            )
+            return None
+        # masked path: nan for the unbound orbits
+        out = [xp.zeros_like(R) + numpy.nan for _ in range(4)]
+        if numpy.sum(indx) > 0:
+            res = self._aA.EccZmaxRperiRap(
+                R[indx],
+                vR[indx],
+                vT[indx],
                 tz[indx],
                 tvz[indx],
                 use_physical=False,
                 **aAkwargs,
             )
+            out = [set_at(xp, o, indx, r) for o, r in zip(out, res)]
+        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap = out
         return None
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
@@ -3581,12 +4238,12 @@ class Orbit:
             return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
+            _z = self.z(use_physical=False, dontreshape=True)
+            # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
+            # which raises on the numpy/torch combination CI pins; the numpy call
+            # is kept for numpy input so that path stays byte-identical.
+            _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
+            tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
             tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
@@ -3594,28 +4251,44 @@ class Orbit:
         # self.dim() == 1 error caught by _setupaA
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        (
-            self._aA_jr,
-            self._aA_jp,
-            self._aA_jz,
-            self._aA_Or,
-            self._aA_Op,
-            self._aA_Oz,
-            self._aA_wr,
-            self._aA_wp,
-            self._aA_wz,
-        ) = (
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-        )
-        if numpy.sum(indx) > 0:
+        if indx is not None:  # masked path: preallocate the nan-filled outputs
+            (
+                self._aA_jr,
+                self._aA_jp,
+                self._aA_jz,
+                self._aA_Or,
+                self._aA_Op,
+                self._aA_Oz,
+                self._aA_wr,
+                self._aA_wp,
+                self._aA_wz,
+            ) = tuple(
+                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
+                + numpy.nan
+                for _ in range(9)
+            )
+        if indx is None:  # differentiated: no mask, evaluate every orbit
+            (
+                self._aA_jr,
+                self._aA_jp,
+                self._aA_jz,
+                self._aA_Or,
+                self._aA_Op,
+                self._aA_Oz,
+                self._aA_wr,
+                self._aA_wp,
+                self._aA_wz,
+            ) = self._aA.actionsFreqsAngles(
+                self.R(use_physical=False, dontreshape=True),
+                self.vR(use_physical=False, dontreshape=True),
+                self.vT(use_physical=False, dontreshape=True),
+                tz,
+                tvz,
+                self.phi(use_physical=False, dontreshape=True),
+                use_physical=False,
+                **aAkwargs,
+            )
+        elif numpy.sum(indx) > 0:
             (
                 self._aA_jr[indx],
                 self._aA_jp[indx],
@@ -3677,8 +4350,10 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return (numpy.amax(rs, axis=-1) - numpy.amin(rs, axis=-1)) / (
-            numpy.amax(rs, axis=-1) + numpy.amin(rs, axis=-1)
+        xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
+        return (xp.max(rs, axis=-1) - xp.min(rs, axis=-1)) / (
+            xp.max(rs, axis=-1) + xp.min(rs, axis=-1)
         )
 
     @physical_conversion("position")
@@ -3726,7 +4401,9 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return numpy.amax(rs, axis=-1)
+        xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
+        return xp.max(rs, axis=-1)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -3773,7 +4450,9 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return numpy.amin(rs, axis=-1)
+        xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
+        return xp.min(rs, axis=-1)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -3833,9 +4512,15 @@ class Orbit:
                 precomputergLzgrid, rls, k=3
             )(Lz).reshape(Lz_shape)
         else:
-            return numpy.array([rl(pot, lz, use_physical=False) for lz in Lz]).reshape(
-                Lz_shape
-            )
+            rls = [rl(pot, lz, use_physical=False) for lz in Lz]
+            # rl follows the gradient, so against a traced potential these are
+            # backend scalars that numpy.array() cannot collect; stack them in
+            # their own namespace instead. A merely forced backend (no gradient)
+            # keeps the numpy collection, and with it the numpy return type.
+            if any(under_trace(v) or requires_backend_grad(v) for v in rls):
+                xp = get_namespace(*rls)
+                return xp.reshape(xp.stack(rls), Lz_shape)
+            return numpy.array(rls).reshape(Lz_shape)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -3879,11 +4564,16 @@ class Orbit:
                 "Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        E = numpy.atleast_1d(
-            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        )
+        _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
+        E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten()
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -3895,9 +4585,14 @@ class Orbit:
                 precomputerEEgrid, rEs, k=3
             )(E).reshape(E_shape)
         else:
-            return numpy.array([rE(pot, tE, use_physical=False) for tE in E]).reshape(
-                E_shape
-            )
+            vals = [rE(pot, tE, use_physical=False) for tE in E]
+            # as in rguiding: against a traced potential these are backend
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
+                xp = get_namespace(*vals)
+                return xp.reshape(xp.stack(vals), E_shape)
+            return numpy.array(vals).reshape(E_shape)
 
     @physical_conversion("action")
     @shapeDecorator
@@ -3941,11 +4636,16 @@ class Orbit:
                 "Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        E = numpy.atleast_1d(
-            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        )
+        _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
+        # refuses a tracer. Under a merely forced backend E is a backend array
+        # but carries no gradient, and taking the backend path there would
+        # change the return type callers see, so keep numpy for it.
+        _E_grad = under_trace(_E) or requires_backend_grad(_E)
+        _xpE = get_namespace(_E) if _E_grad else numpy
+        E = _xpE.atleast_1d(_E)
         E_shape = E.shape
-        E = E.flatten()
+        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -3957,9 +4657,14 @@ class Orbit:
                 precomputeLcEEgrid, LcEs, k=3
             )(E).reshape(E_shape)
         else:
-            return numpy.array([LcE(pot, tE, use_physical=False) for tE in E]).reshape(
-                E_shape
-            )
+            vals = [LcE(pot, tE, use_physical=False) for tE in E]
+            # as in rguiding: against a traced potential these are backend
+            # scalars, which numpy.array() cannot collect. A merely forced
+            # backend keeps the numpy collection (and the numpy return type).
+            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
+                xp = get_namespace(*vals)
+                return xp.reshape(xp.stack(vals), E_shape)
+            return numpy.array(vals).reshape(E_shape)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4005,9 +4710,10 @@ class Orbit:
             raise AttributeError(
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
-        return numpy.amax(
-            numpy.fabs(self.z(self.t, use_physical=False, dontreshape=True)), axis=-1
-        )
+        zs = self.z(self.t, use_physical=False, dontreshape=True)
+        xp = get_namespace(zs)
+        (zs,) = coerce_coords(xp, zs)
+        return xp.max(xp.abs(zs), axis=-1)
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4601,7 +5307,7 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[0].T
+        return _backend_T(self._call_internal(*args, **kwargs)[0])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4631,10 +5337,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
-            return numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
+            return _backend_T(xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0))
         else:
-            return numpy.fabs(thiso[0]).T
+            return _backend_T(xp.abs(thiso[0]))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4665,7 +5372,7 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[1].T
+        return _backend_T(self._call_internal(*args, **kwargs)[1])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4694,7 +5401,7 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        return self._call_internal(*args, **kwargs)[2].T
+        return _backend_T(self._call_internal(*args, **kwargs)[2])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4725,7 +5432,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return self._call_internal(*args, **kwargs)[3].T
+        return _backend_T(self._call_internal(*args, **kwargs)[3])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4756,7 +5463,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return self._call_internal(*args, **kwargs)[4].T
+        return _backend_T(self._call_internal(*args, **kwargs)[4])
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -4811,12 +5518,13 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
-            return thiso[0].T
+            return _backend_T(thiso[0])
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use x()")
         else:
-            return (thiso[0] * numpy.cos(thiso[-1, :])).T
+            return _backend_T(thiso[0] * xp.cos(thiso[-1, :]))
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4846,10 +5554,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use y()")
         else:
-            return (thiso[0] * numpy.sin(thiso[-1, :])).T
+            return _backend_T(thiso[0] * xp.sin(thiso[-1, :]))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4879,12 +5588,15 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
-            return thiso[1].T
+            return _backend_T(thiso[1])
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vx()")
         else:
-            return (thiso[1] * numpy.cos(thiso[-1]) - thiso[2] * numpy.sin(thiso[-1])).T
+            return _backend_T(
+                thiso[1] * xp.cos(thiso[-1]) - thiso[2] * xp.sin(thiso[-1])
+            )
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4914,10 +5626,13 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vy()")
         else:
-            return (thiso[2] * numpy.cos(thiso[-1]) + thiso[1] * numpy.sin(thiso[-1])).T
+            return _backend_T(
+                thiso[2] * xp.cos(thiso[-1]) + thiso[1] * xp.sin(thiso[-1])
+            )
 
     @physical_conversion("frequency-kmskpc")
     @shapeDecorator
@@ -4977,11 +5692,12 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
-            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
-            return ((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r).T
+            r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            return _backend_T((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r)
         else:
-            return thiso[1].T
+            return _backend_T(thiso[1])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5011,11 +5727,12 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if not self.dim() == 3:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
-            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
-            return ((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r).T
+            r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            return _backend_T((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r)
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5039,10 +5756,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
-            return numpy.arctan2(thiso[0], thiso[3]).T
+            return _backend_T(xp.arctan2(thiso[0], thiso[3]))
 
     def align_to_orbit(self, center_phi1=180.0):
         r"""
@@ -6198,50 +6916,44 @@ class Orbit:
 
         """
         if self.dim() == 3:
-            init_psis = numpy.arctan2(
-                self.z(use_physical=False), self.vz(use_physical=False)
-            )
+            _sos_q, _sos_v = self.z(use_physical=False), self.vz(use_physical=False)
         elif self.phasedim() == 4:
             if not surface is None and surface.lower() == "y":
-                init_psis = numpy.arctan2(
-                    self.y(use_physical=False), self.vy(use_physical=False)
-                )
+                _sos_q, _sos_v = self.y(use_physical=False), self.vy(use_physical=False)
             else:
-                init_psis = numpy.arctan2(
-                    self.x(use_physical=False), self.vx(use_physical=False)
-                )
+                _sos_q, _sos_v = self.x(use_physical=False), self.vx(use_physical=False)
         else:
             raise NotImplementedError(
                 "SOS not implemented for 1D orbits or 2D orbits without phi"
             )
+        # build init_psis in the orbit's own namespace; coerce the IC accessor
+        # values onto it (under a forced backend the no-time accessors can return
+        # numpy). numpy.atan2 == arctan2 byte-for-byte; xp.asarray is a no-op on numpy.
+        xp = get_namespace(_sos_q, _sos_v)
+        _sos_q, _sos_v = xp.asarray(_sos_q), xp.asarray(_sos_v)
+        init_psis = xp.atan2(_sos_q, _sos_v)
         # Let's check that v(x/y/z) != 0 for orbits that are already on the SOS
         if (
             (
                 self.dim() == 3
-                and not numpy.all(
-                    (self.vz() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
             or (
                 self.dim() == 2
                 and not surface is None
                 and surface.lower() == "y"
-                and not numpy.all(
-                    (self.vy() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
             or (
                 self.dim() == 2
                 and (surface is None or surface.lower() == "x")
-                and not numpy.all(
-                    (self.vx() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
         ):
             raise RuntimeError(
                 "An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"
             )
-        if numpy.any(numpy.fabs(init_psis) > 1e-10):
+        if xp.any(xp.abs(init_psis) > 1e-10):
             # Integrate to the next crossing
             init_psis = numpy.atleast_1d(
                 (init_psis + 2.0 * numpy.pi) % (2.0 * numpy.pi)
@@ -6394,6 +7106,8 @@ class Orbit:
                 cross = self.y(self.t, use_physical=False, dontreshape=True)
             else:
                 cross = self.x(self.t, use_physical=False, dontreshape=True)
+        # numpy-based crossing detection below; forced-backend cross -> numpy
+        cross = as_numpy(cross)
         shifts = numpy.roll(cross, -1, axis=1)
         crossindx = (cross[:, :-1] < 0.0) * (shifts[:, :-1] > 0.0)
         anycrossindx = numpy.sum(crossindx, axis=0).astype("bool")
@@ -6449,8 +7163,12 @@ class Orbit:
             "solarmotion": self._solarmotion,
         }
         thiso = self._call_internal(*args, **kwargs)
+        # Reshape on whatever namespace the state came back on, so a backend
+        # orbit stays one; numpy keeps numpy.reshape / .T exactly.
+        thisoT = _backend_T(thiso)
+        _xp = get_namespace(thiso) if is_backend_array(thiso) else numpy
         out = Orbit(
-            vxvv=numpy.reshape(thiso.T, self.shape + thiso.T.shape[1:]),
+            vxvv=_xp.reshape(thisoT, self.shape + tuple(thisoT.shape[1:])),
             **orbSetupKwargs,
         )
         out._roSet = self._roSet
@@ -6479,35 +7197,82 @@ class Orbit:
         """
         if len(args) == 0 and "t" in kwargs:
             args = [kwargs.pop("t")]
+        # In-backend (diffrax/torchdiffeq) orbits store self.orbit as a jax/torch
+        # array. The phase-space accessors keep it on its backend (so o.R(t)/...
+        # stay differentiable); exact-grid times index it directly and off-grid
+        # times go through the in-backend differentiable cubic spline
+        # (_call_internal_backend_interp), never scipy.
+        _orbit_is_backend = is_backend_array(getattr(self, "orbit", None))
         if len(args) == 0 or (not hasattr(self, "t") and args[0] == 0.0):
-            return numpy.array(self.vxvv).T
+            ic_backend = getattr(self, "_ic_backend", None)
+            if ic_backend is None:
+                return numpy.array(self.vxvv).T
+            # self.vxvv is the numpy shape/phasedim BOOKKEEPING; the IC's real
+            # values live on the backend. Returning the numpy copy here made the
+            # no-time accessors disagree with the timed ones for the same orbit
+            # -- o.R() came back numpy while o.R(t), o.R(0.0) and o.E() all came
+            # back on the backend -- and it is what made o() launder a backend
+            # orbit into a numpy one, which streamdf._progenitor_setup then
+            # inherits for its whole setup (progenitor() is its first line).
+            _xp = get_namespace(ic_backend)
+            return _backend_T(_xp.reshape(ic_backend, tuple(numpy.shape(self.vxvv))))
         elif not hasattr(self, "t"):
             raise ValueError(
                 "Integrate instance before evaluating it at a specific time"
             )
         else:
             t = args[0]
+        # The integration-time grid is structural (it selects which stored times
+        # to return) and not differentiated, so compare/select against a numpy
+        # view of it -- self.t may itself be a (concrete) jax/torch array for an
+        # in-backend orbit. The returned orbit values stay on their backend.
+        # self.t is TRACED when the orbit was integrated on traced times (e.g.
+        # streamdf's track grid, which depends on theta). Only its ndim/len are
+        # used structurally below; the value comparison is already guarded by a
+        # try/except that falls through to the in-backend interpolator.
+        _self_t = self.t if under_trace(self.t) else numpy.asarray(self.t)
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
-        if numpy.asarray(self.t).ndim > 1:
+        if _self_t.ndim > 1:
             return self._call_internal_indiv_t(t)
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
-        # for scalars
+        # for scalars. A 0-d jax/torch query time ALSO has __len__ but its len()
+        # raises, so for a backend array use numpy.ndim (reads .ndim, no len()
+        # call): a 0-d/scalar backend time then falls through to the backend
+        # interpolator instead of crashing. numpy/Quantity inputs keep the exact
+        # original hasattr check, so the numpy path stays byte-identical.
         # Remove NaN times from consideration, these are used in internally in  bruteSOS
+        _t_has_len = numpy.ndim(t) > 0 if is_backend_array(t) else hasattr(t, "__len__")
         t_exact_integration_times = (
             not (_APY_LOADED and isinstance(t, units.Quantity))
-            and hasattr(t, "__len__")
-            and (len(t) == len(self.t))
-            and numpy.all((t == self.t)[~numpy.isnan(self.t)])
+            and _t_has_len
+            and (len(t) == len(_self_t))
         )
+        if t_exact_integration_times and t is self.t:
+            # Queried at the very grid we integrated on (streamdf asks its track
+            # orbit for exactly its _trackts). Identical object => identical
+            # values, so skip the comparison -- which is the only step that needs
+            # a concrete t, and so the only thing standing between a traced grid
+            # and the stored trajectory.
+            pass
+        elif t_exact_integration_times:
+            # The value match needs a concrete t; a traced (jit) backend evaluation
+            # time cannot be compared to the grid -> fall through to the in-backend
+            # differentiable interpolator (mirrors _call_internal_backend_interp).
+            try:
+                t_exact_integration_times = bool(
+                    numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
+                )
+            except Exception:  # noqa: BLE001 -- traced backend evaluation time
+                t_exact_integration_times = False
         if _APY_LOADED and isinstance(t, units.Quantity):
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
             # Need to re-evaluate now that t has changed...
             t_exact_integration_times = (
                 hasattr(t, "__len__")
-                and (len(t) == len(self.t))
-                and numpy.all((t == self.t)[~numpy.isnan(self.t)])
+                and (len(t) == len(_self_t))
+                and numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
             )
         elif (
             "_integrate_t_asQuantity" in self.__dict__
@@ -6522,15 +7287,35 @@ class Orbit:
         if (
             t_exact_integration_times
         ):  # Common case where one wants all integrated times
+            if (
+                _orbit_is_backend
+            ):  # keep on the backend; defensive clone, not numpy .copy()
+                xp = get_namespace(self.orbit)
+                return _backend_safe_copy(
+                    xp.permute_dims(self.orbit, tuple(range(self.orbit.ndim))[::-1])
+                )
             return self.orbit.T.copy()
         elif (
             isinstance(t, (int, float, numpy.number))
             and hasattr(self, "t")
-            and t in list(self.t)
+            and not under_trace(_self_t)  # traced grid: interpolate below
+            and t in list(_self_t)
         ):
-            return numpy.array(self.orbit[:, list(self.t).index(t), :]).T
+            sl = self.orbit[:, list(_self_t).index(t), :]
+            if _orbit_is_backend:
+                xp = get_namespace(sl)
+                return _backend_safe_copy(
+                    xp.permute_dims(sl, tuple(range(sl.ndim))[::-1])
+                )
+            return numpy.array(sl).T
         else:
-            if isinstance(t, (int, float, numpy.number)):
+            if _orbit_is_backend:
+                # Off-grid times: interpolate the backend trajectory with the
+                # in-backend differentiable cubic spline (no scipy).
+                return self._call_internal_backend_interp(t)
+            if isinstance(t, (int, float, numpy.number)) or getattr(t, "ndim", 1) == 0:
+                # A 0-d backend (jax/torch) query time has __len__ but its len()
+                # raises (like a numpy 0-d array); treat it as a scalar.
                 nt = 1
                 t = numpy.atleast_1d(t)
             else:
@@ -6638,6 +7423,11 @@ class Orbit:
             and self_t.shape == t_arr.shape
             and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
         ):
+            if is_backend_array(self.orbit):
+                # (size,nt,phasedim) -> (phasedim,nt,size), namespace-agnostic
+                # (torch has no 3-arg transpose / .copy()); stays a backend array.
+                xp = get_namespace(self.orbit)
+                return _backend_safe_copy(xp.permute_dims(self.orbit, (2, 1, 0)))
             return self.orbit.transpose(2, 1, 0).copy()
         # Some orbits may have stored grids that are too short to interpolate
         # (bruteSOS leaves an all-NaN row for any orbit that never crossed the
@@ -6658,23 +7448,94 @@ class Orbit:
             t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
         ):
             raise ValueError("Found time value not in the integration time domain")
+        # Backend (jax/torch) per-orbit orbit: interpolate IN-BACKEND (one
+        # differentiable cubic per orbit on its own grid) so the result stays on
+        # the backend and differentiable w.r.t. the orbit, instead of the scipy
+        # path (which would coerce to numpy / crash on a traced orbit).
+        if is_backend_array(self.orbit):
+            return self._indiv_t_backend_interp(t_arr, has_time_axis)
         # Build per-orbit interpolators and evaluate
         self._setupOrbitInterp()
         out = numpy.empty((self.phasedim(), nt_q, self.size))
         for kk in range(self.size):
             tk = t_arr[kk]
+            vals = self._orbInterp[kk](tk)  # (nt_q, phasedim), one call
             if self.phasedim() == 4 or self.phasedim() == 6:
-                x_vals = self._orbInterp[0][kk](tk)
-                y_vals = self._orbInterp[-1][kk](tk)
+                x_vals, y_vals = vals[:, 0], vals[:, -1]
                 out[0, :, kk] = numpy.sqrt(x_vals * x_vals + y_vals * y_vals)
                 out[-1, :, kk] = numpy.arctan2(y_vals, x_vals)
                 for ii in range(1, self.phasedim() - 1):
-                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+                    out[ii, :, kk] = vals[:, ii]
             else:
                 for ii in range(self.phasedim()):
-                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+                    out[ii, :, kk] = vals[:, ii]
         if not has_time_axis:
             return out[:, 0]
+        return out
+
+    def _backend_spline_orbit(self, orb, grid, tq):
+        """Spline ONE orbit's ``(nt_grid, phasedim)`` backend trajectory ``orb`` on
+        the ascending host grid ``grid`` with the in-backend differentiable cubic
+        and evaluate at backend times ``tq`` -> ``(phasedim, nt_q)``. For phasedim
+        4/6 the Cartesian x,y (not R,phi) are interpolated to dodge the 2pi wrap.
+        Differentiable w.r.t. ``orb``; shared by the shared-grid
+        (``_call_internal_backend_interp``) and per-orbit-grid
+        (``_indiv_t_backend_interp``) backend off-grid evaluators."""
+        from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
+
+        xp = get_namespace(orb)
+        pd = self.phasedim()
+        k = 3 if grid.shape[0] > 3 else 1
+        bc = "not-a-knot" if k == 3 else "natural"
+
+        # The columns to spline (x,y instead of R,phi for pd 4/6 to dodge the 2pi
+        # wrap), all on the SAME grid.
+        if pd == 4 or pd == 6:
+            ycols = [orb[:, 0] * xp.cos(orb[:, -1]), orb[:, 0] * xp.sin(orb[:, -1])]
+            ycols += [orb[:, ii] for ii in range(1, pd - 1)]
+        else:
+            ycols = [orb[:, ii] for ii in range(pd)]
+
+        if k == 3:
+            # One multi-RHS cubic solve for ALL columns at once (the tridiagonal
+            # matrix is grid-geometry only, shared across columns) -> pd-fold fewer
+            # dense factorizations than one Spline1D per column. ext=0 is the
+            # eval_ppoly default (extrapolate=True).
+            coeffs = cubic_spline_coeffs(xp, grid, xp.stack(ycols, axis=-1), bc=bc)
+            vals = eval_ppoly(xp, grid, coeffs, tq)  # (nt_q, len(ycols))
+            splined = [vals[..., j] for j in range(len(ycols))]
+        else:
+            splined = [Spline1D(grid, y, k=k, ext=0, bc=bc)(tq) for y in ycols]
+
+        if pd == 4 or pd == 6:
+            xv, yv = splined[0], splined[1]
+            cols = [xp.sqrt(xv * xv + yv * yv), *splined[2:], xp.arctan2(yv, xv)]
+        else:
+            cols = splined
+        return xp.stack(cols)  # (phasedim, nt_q)
+
+    def _indiv_t_backend_interp(self, t_arr, has_time_axis):
+        """In-backend per-orbit off-grid interpolation: the per-orbit-grid analogue
+        of ``_call_internal_backend_interp`` for a multi-orbit in-backend Orbit
+        integrated on PER-ORBIT time grids (2-D ``self.t``). Each orbit is splined
+        on its OWN grid and evaluated at its own query times ``t_arr[kk]``,
+        differentiable w.r.t. the orbit. Returns ``(phasedim, nt_q, size)`` (or
+        ``(phasedim, size)`` when the query has no trailing time axis)."""
+        xp = get_namespace(self.orbit)
+        self_t = numpy.asarray(self.t)  # per-orbit grids (geometry; host)
+        per_orbit = []
+        for kk in range(self.size):
+            gridi = self_t[kk]
+            orb = self.orbit[kk]
+            # ascending grid for the spline (flip a backward integration + orb)
+            if gridi.shape[0] > 1 and gridi[1] < gridi[0]:
+                gridi = numpy.array(gridi[::-1])
+                orb = xp.flip(orb, axis=0)
+            tq = xp.asarray(numpy.asarray(t_arr[kk], dtype=float))
+            per_orbit.append(self._backend_spline_orbit(orb, gridi, tq))
+        out = xp.stack(per_orbit, axis=-1)  # (phasedim, nt_q, size)
+        if not has_time_axis:
+            return out[:, 0]  # (phasedim, size)
         return out
 
     def toPlanar(self):
@@ -6736,7 +7597,127 @@ class Orbit:
         out._voSet = self._voSet
         return out
 
+    def _call_internal_backend_interp(self, t):
+        """Off-grid time evaluation for an in-backend (diffrax/torchdiffeq) single
+        orbit: interpolate each phase-space coordinate vs the integration grid
+        with the in-backend differentiable cubic spline
+        (galpy.backend.interpolate.Spline1D, mode 2 -- the same xp-native cubic
+        used for parameter-dependent potential tables) and evaluate it at ``t``.
+        The result is differentiable w.r.t. the orbit (its initial conditions /
+        potential parameters) AND w.r.t. the evaluation times ``t``.
+
+        Mirrors the numpy ``_setupOrbitInterp`` semantics: for phasedim 4/6 the
+        Cartesian x=R cos(phi), y=R sin(phi) are interpolated (not R, phi) to avoid
+        the 2pi wrap, with R, phi recovered at the query points; the other
+        coordinates are interpolated directly. Works for a single orbit and for a
+        multi-orbit (in-backend ODE batch or C-STM batch) Orbit: every orbit shares
+        ONE integration grid (the batch is one solve), so each orbit is splined on
+        that grid and the results are stacked on the orbit axis.
+        Returns the same layout as ``_call_internal``'s off-grid branch:
+        ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
+        scalar) -- ``size`` 1 for a single orbit.
+        """
+        xp = get_namespace(self.orbit)
+        # A TRACED grid (the orbit was integrated at traced times -- streamdf's
+        # track grid depends on theta) cannot be compared or reversed concretely,
+        # so order it with argsort instead. The concrete path keeps the exact
+        # numpy reversal and stays byte-identical.
+        grid_traced = under_trace(self.t)
+        self_t = self.t if grid_traced else numpy.asarray(self.t)
+        scalar = isinstance(t, (int, float, numpy.number)) or (
+            is_backend_array(t) and getattr(t, "ndim", 1) == 0
+        )
+        # Structural bounds check against the integration window, matching the
+        # numpy path's ValueError. A traced evaluation time (differentiating
+        # w.r.t. t under jax) cannot be coerced to numpy -> skip the check and
+        # rely on the spline's finite extrapolation.
+        try:
+            t_np = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+        except Exception:  # noqa: BLE001 -- traced backend evaluation time
+            t_np = None
+        if (
+            t_np is not None
+            and not grid_traced
+            and (
+                numpy.any(t_np > numpy.nanmax(self_t))
+                or numpy.any(t_np < numpy.nanmin(self_t))
+            )
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Evaluation times onto the orbit's backend (a backend-array t is kept as
+        # is, so the trace survives when differentiating w.r.t. t); reshape to 1D
+        # so the per-coordinate splines return a flat (nt,) each.
+        tq = t if is_backend_array(t) else xp.asarray(t_np)
+        tq = xp.reshape(tq, (-1,))
+        # The spline needs a strictly increasing grid; a backward integration
+        # (decreasing self.t) is flipped to ascending (shared across the batch),
+        # and each orbit with it (a differentiable reversal) inside _interp_one.
+        if grid_traced:
+            order = xp.argsort(self_t)
+            grid = xp.take(self_t, order, axis=0)
+
+            def _ascending(a, axis):
+                return xp.take(a, order, axis=axis)
+
+        else:
+            descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
+            grid = numpy.array(self_t[::-1]) if descending else self_t
+
+            def _ascending(a, axis):
+                return xp.flip(a, axis=axis) if descending else a
+
+        size = self.orbit.shape[0]
+        pd = self.phasedim()
+        if grid.shape[0] > 3 and size > 1:
+            # Cross-orbit batching: all orbits share ONE grid, so every one of the
+            # size*pd spline columns shares the SAME tridiagonal matrix -> a single
+            # multi-RHS cubic solve for the whole batch (vs one per-orbit
+            # _backend_spline_orbit -- itself one solve -- looped size times). Falls
+            # back below for a <=3-point (k=1) grid or a single orbit.
+            from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
+
+            orb = _ascending(self.orbit, 1)
+            if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
+                rr = orb[:, :, 0]
+                ph = orb[:, :, -1]
+                cols = [rr * xp.cos(ph), rr * xp.sin(ph)]
+                cols += [orb[:, :, ii] for ii in range(1, pd - 1)]
+            else:
+                cols = [orb[:, :, ii] for ii in range(pd)]
+            # (size, nt_grid, pd) -> (nt_grid, size*pd): one RHS matrix.
+            Ycols = xp.reshape(
+                xp.permute_dims(xp.stack(cols, axis=-1), (1, 0, 2)),
+                (grid.shape[0], size * pd),
+            )
+            coeffs = cubic_spline_coeffs(xp, grid, Ycols, bc="not-a-knot")
+            vals = xp.reshape(
+                eval_ppoly(xp, grid, coeffs, tq), (tq.shape[0], size, pd)
+            )  # (nt_query, size, pd)
+            if pd == 4 or pd == 6:  # recover R, phi from the splined x, y
+                xv, yv = vals[..., 0], vals[..., 1]
+                rec = [xp.sqrt(xv * xv + yv * yv)]
+                rec += [vals[..., j] for j in range(2, pd)]
+                rec.append(xp.arctan2(yv, xv))
+                out = xp.stack(rec, axis=0)  # (phasedim, nt_query, size)
+            else:
+                out = xp.permute_dims(vals, (2, 0, 1))  # (phasedim, nt_query, size)
+        else:
+
+            def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
+                # backward integration -> flip orb to match the ascending grid
+                o = _ascending(orb, 0)
+                return self._backend_spline_orbit(o, grid, tq)
+
+            # spline each orbit on the shared grid and stack on the trailing
+            # (orbit) axis; size == 1 reproduces the prior (phasedim, nt, 1) layout.
+            out = xp.stack([_interp_one(self.orbit[ii]) for ii in range(size)], axis=-1)
+        if scalar:
+            return out[:, 0]  # (phasedim, size)
+        return out  # (phasedim, nt_query, size)
+
     def _setupOrbitInterp(self):
+        from ..backend.interpolate import Spline1D
+
         if hasattr(self, "_orbInterp"):
             return None
         # Per-orbit integration grids: build a list of phasedim entries, each a
@@ -6744,7 +7725,7 @@ class Orbit:
         # NaN padding (bruteSOS uses this when orbits have unequal numbers of
         # crossings) — drop those entries before fitting the spline.
         if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
-            orbInterp = [[None] * self.size for _ in range(self.phasedim())]
+            orbInterp = [None] * self.size
             for kk in range(self.size):
                 tk = numpy.asarray(self.t[kk])
                 ok = self.orbit[kk]
@@ -6758,18 +7739,26 @@ class Orbit:
                     sindx = numpy.argsort(tk)
                     tk = tk[sindx]
                     ok = ok[sindx]
+                # every phasedim of THIS orbit shares tk, so fit them as one
+                # vector-valued spline rather than phasedim separate ones: one
+                # object per orbit instead of size*phasedim, and one evaluation
+                # per orbit below instead of phasedim of them. The columns keep
+                # the same order and the same per-column scipy fit.
+                cols = []
                 for ii in range(self.phasedim()):
                     if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
-                        ys = ok[:, 0] * numpy.cos(ok[:, -1])
+                        cols.append(ok[:, 0] * numpy.cos(ok[:, -1]))
                     elif (
                         self.phasedim() == 4 or self.phasedim() == 6
                     ) and ii == self.phasedim() - 1:
-                        ys = ok[:, 0] * numpy.sin(ok[:, -1])
+                        cols.append(ok[:, 0] * numpy.sin(ok[:, -1]))
                     else:
-                        ys = ok[:, ii]
-                    orbInterp[ii][kk] = interpolate.InterpolatedUnivariateSpline(
-                        tk, ys, k=3 if tk.size > 3 else max(1, tk.size - 1)
-                    )
+                        cols.append(ok[:, ii])
+                orbInterp[kk] = Spline1D(
+                    tk,
+                    numpy.column_stack(cols),
+                    k=3 if tk.size > 3 else max(1, tk.size - 1),
+                )
             self._orbInterp = orbInterp
             self._orb_indx_4orbInterp = numpy.arange(self.size)
             return None
@@ -8776,6 +9765,23 @@ class _1DInterp:
         return self._ip(t)[:, None]
 
 
+def _obs_asnumpy(obs):
+    """Land a user-supplied ``obs=`` sequence on numpy.
+
+    ``obs`` is a reference position, and under a forced backend a user builds it
+    the natural way -- ``obs=[o.x(t), o.y(t), 0.]`` -- which yields backend
+    arrays while the integrated orbit state stays numpy. The branches that
+    consume it are written in numpy (``numpy.arctan2``/``numpy.sqrt``/
+    ``numpy.zeros_like``), so a backend element there raises ndarray-vs-Tensor.
+
+    This makes ``obs=`` ACCEPT backend arrays; it does not migrate those
+    accessors, which stay numpy by construction. A no-op for numpy input, so the
+    numpy path is byte-identical, and a read-only cast is fine because obs is
+    only ever read here.
+    """
+    return [as_numpy(o) if is_backend_array(o) else o for o in obs]
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
@@ -9025,9 +10031,11 @@ def _fit_orbit_mlogl(
             Xsun=obs[0] / ro,
             Zsun=obs[2] / ro,
         ).T
+        # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+        # backend-native, and the old masked in-place add sat behind a
+        # data-dependent Python branch. numpy values unchanged.
         bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-        if True in bad_indx:  # pragma: no cover
-            X[bad_indx] += ro / 10000.0
+        X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
         lbdvrpmllpmbb = coords.rectgal_to_sphergal(
             X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
         )
@@ -9136,6 +10144,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0],
                 thiso[3] - numpy.arctan2(obs[1], obs[0]),
@@ -9167,6 +10176,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
                 thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
@@ -9200,9 +10210,14 @@ def _lbd(orb, thiso, *args, **kwargs):
     """Calculate l,b, and d"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z = _helioXYZ(orb, thiso, *args, **kwargs)
+    # nudge the exact origin off itself so the l/b arctan2 is well defined.
+    # Was `if True in bad_indx: X[bad_indx] += 1e-15` -- an in-place masked add
+    # behind a data-dependent Python branch, and X is a backend array now that
+    # galcenrect_to_XYZ is backend-native. xp.where is both out-of-place and
+    # traceable; the numpy values are unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += 1e-15
+    xp = get_namespace(X)
+    X = xp.where(bad_indx, X + 1e-15, X)
     return coords.XYZ_to_lbd(X, Y, Z, degree=True)
 
 
@@ -9219,6 +10234,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
@@ -9305,6 +10321,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
@@ -9386,9 +10403,11 @@ def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     """Calculate l,b,d,vr,pmll,pmbb"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z, vX, vY, vZ = _XYZvxvyvz(orb, thiso, *args, **kwargs)
+    # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+    # backend-native, and the old masked in-place add sat behind a
+    # data-dependent Python branch. numpy values unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += ro / 10000.0
+    X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
     return coords.rectgal_to_sphergal(X, Y, Z, vX, vY, vZ, degree=True)
 
 

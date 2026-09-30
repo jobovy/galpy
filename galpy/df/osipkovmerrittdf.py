@@ -2,11 +2,35 @@
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    as_numpy_constant,
+    asarray_on_device,
+    device_of,
+    get_namespace,
+)
+from ..backend import random as grandom
+from ..backend import resolve_namespace
+from ..backend._namespaces import has_concrete_truth_value, stop_gradient
+from ..backend.interpolate import Spline1D
+from ..backend.optimize import bisect_root, newton_polish
+from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
-from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import _evaluatePotentials, _pot_grad_namespace
 from ..util import conversion
 from .eddingtondf import eddingtondf
-from .sphericaldf import anisotropicsphericaldf, sphericaldf
+from .sphericaldf import (
+    _QUAD_N_VMOM,
+    _QUAD_N_VMOM2D,
+    _attached_energy_bounds,
+    anisotropicsphericaldf,
+    sphericaldf,
+)
+
+# Interior fractions of [0, rphi] scanned to bracket the two panel edges in
+# _dMdE; only needs to land inside the region where the fQ-support ceiling bites
+_RSCAN = numpy.linspace(0.0, 1.0, 34)[1:-1]
 
 
 # This is the general Osipkov-Merritt superclass, implementation of general
@@ -47,6 +71,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         )
         self._ra = conversion.parse_length(ra, ro=self._ro)
         self._ra2 = self._ra**2.0
+        # Smallest Q with fQ(Q) != 0. Subclasses whose fQ is truncated (e.g. the
+        # NFW one, cut off at Phi(rmax)) override this; _dMdE integrates L only
+        # over the support, so fQ's jump to zero never lands inside the range.
+        self._Qsupportmin = 0.0
 
     def _call_internal(self, *args):
         """
@@ -75,123 +103,308 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
+        xp = resolve_namespace(E)
+        if xp is numpy:
 
-        def Lintegrand(t, L2lim, E):
-            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+            def Lintegrand(t, L2lim, E):
+                return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
 
-        # Integrate where Q > 0
+            # Integrate where Q > 0
 
-        out = (
+            out = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r
+                                * integrate.quad(
+                                    Lintegrand,
+                                    numpy.sqrt(
+                                        numpy.amax(
+                                            [
+                                                (0.0),
+                                                (
+                                                    2.0
+                                                    * r**2.0
+                                                    * (
+                                                        tE
+                                                        - _evaluatePotentials(
+                                                            self._pot, r, 0.0
+                                                        )
+                                                    )
+                                                    + 2.0 * tE * self._ra2
+                                                ),
+                                            ]
+                                        )
+                                    ),
+                                    numpy.sqrt(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                    ),
+                                    args=(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                        tE,
+                                    ),
+                                )[0]
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                    ]
+                )
+            )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out.reshape(E.shape)
+        # jax/torch: nested GL after r = rphi - s^2 (outer turning point) and
+        # t = Lmax sin(phi), phi clustered as phi_low+span*w^2 (cancels the fQ
+        # sqrt(Q) endpoint where fQ tapers). Q = -E - L^2/(2 ra^2), so fQ's
+        # support Q > _Qsupportmin caps L at Lsupp and the inner ceiling is
+        # min(Lmax(r), Lsupp). Integrating past Lsupp would put fQ's jump to zero
+        # INSIDE the range (O(1/n)), and the min corners the outer integrand at
+        # the two radii where Lmax(r) = Lsupp -- so integrate only the support
+        # AND split the outer integral there. Each alone leaves the result too
+        # rough in the potential parameters to differentiate.
+        Eb = xp.asarray(E) * 1.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        rpos = rphiE > 0.0
+        smax = xp.where(rpos, xp.sqrt(xp.where(rpos, rphiE, xp.ones_like(rphiE))), 0.0)
+        rphi_safe = xp.where(rpos, rphiE, xp.ones_like(rphiE))
+        Lsupp2 = -2.0 * self._ra2 * (Eb + self._Qsupportmin)
+
+        def _gap_ax(r, Ev, Lv):
+            # Lmax(r)^2 - Lsupp^2: negative at both ends of [0, rphi], positive
+            # where the ceiling bites, so its two roots are the panel edges.
+            # Ev/Lv carry E's trailing axis so this serves both the (..., nscan)
+            # scan grid and the plain (...,) brackets the bisection walks.
+            return 2.0 * r**2.0 * (Ev - _evaluatePotentials(self._pot, r, 0.0)) - Lv
+
+        def _gap(r):
+            return _gap_ax(r, Eb, Lsupp2)
+
+        # Coarse scan for a radius inside the positive region; any such radius
+        # separates the two roots, so the argmax needs no accuracy of its own
+        rscan = rphi_safe[..., None] * asarray_on_device(xp, _RSCAN, device_of(rphiE))
+        gscan = _gap_ax(rscan, Eb[..., None], Lsupp2[..., None])
+        gtop = xp.max(gscan, axis=-1)
+        sel = gscan >= gtop[..., None]
+        rdiv = stop_gradient(
+            xp.sum(xp.where(sel, rscan, 0.0), axis=-1)
+            / xp.sum(xp.where(sel, xp.ones_like(rscan), 0.0), axis=-1)
+        )
+        binds = gtop > 0.0
+        # Dead-branch guard: with no positive region the brackets hold no sign
+        # change, so bisect a dummy and collapse both panels to zero width
+        rmid = xp.where(binds, rdiv, rphi_safe)
+        r_inner = self._panel_root(xp, _gap, xp.zeros_like(rdiv), rmid)
+        r_outer = self._panel_root(xp, _gap, rmid, rphi_safe)
+        # s = sqrt(rphi - r) reverses the ordering, so r_outer gives the SMALLER s
+        zero = xp.zeros_like(smax)
+        s_out = xp.where(binds, xp.sqrt(xp.abs(rphi_safe - r_outer)), zero)
+        s_in = xp.where(binds, xp.sqrt(xp.abs(rphi_safe - r_inner)), zero)
+        lo_s = xp.stack([zero, s_out, s_in], axis=-1)
+        hi_s = xp.stack([s_out, s_in, smax], axis=-1)
+
+        E_bb = Eb[..., None, None, None]
+        rphi_bb = rphi_safe[..., None, None, None]
+        Lsupp2_bb = Lsupp2[..., None, None, None]
+        lo_bb = lo_s[..., None, None]
+        hi_bb = hi_s[..., None, None]
+
+        def _integrand(x, w):
+            # Cosine map onto each panel. In u = L^2 the inner integral reads
+            # int_0^Lsupp^2 g(u)/(2 sqrt(Lmax(r)^2 - u)) du, whose endpoint
+            # singularity collides with the support edge exactly AT the panel
+            # edges, so the outer integrand has a sqrt branch point at both ends
+            # of every panel. The map clusters nodes quadratically there (the
+            # same cure as r = rphi - s^2 for the turning point) and buys ~8
+            # digits at the same node count.
+            half = 0.5 * (hi_bb - lo_bb)
+            s = lo_bb + half * (1.0 - xp.cos(numpy.pi * x))
+            dsdx = half * numpy.pi * xp.sin(numpy.pi * x)
+            r = rphi_bb - s**2.0
+            twoRsq = 2.0 * r**2.0 * (E_bb - _evaluatePotentials(self._pot, r, 0.0))
+            live = twoRsq > 0.0
+            Lmax = xp.where(
+                live, xp.sqrt(xp.where(live, twoRsq, xp.ones_like(twoRsq))), 0.0
+            )
+            Llow2 = twoRsq - Lsupp2_bb  # edge of fQ's support, in t^2
+            Llow2 = xp.where(Llow2 > 0.0, Llow2, xp.zeros_like(Llow2))
+            ratio = xp.sqrt(Llow2) / xp.where(live, Lmax, xp.ones_like(Lmax))
+            ratio = xp.where(ratio < 1.0, ratio, xp.ones_like(ratio))
+            phi_low = xp.arcsin(ratio)
+            span = numpy.pi / 2.0 - phi_low
+            phi = phi_low + span * w**2.0
+            L = Lmax * xp.cos(phi)
+            return (
+                r
+                * self._call_internal(E_bb, L, None)
+                * L
+                * span
+                * (2.0 * w)
+                * (2.0 * s)
+                * dsdx
+            )
+
+        return (
             16.0
             * numpy.pi**2.0
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r
-                            * integrate.quad(
-                                Lintegrand,
-                                numpy.sqrt(
-                                    numpy.amax(
-                                        [
-                                            (0.0),
-                                            (
-                                                2.0
-                                                * r**2.0
-                                                * (
-                                                    tE
-                                                    - _evaluatePotentials(
-                                                        self._pot, r, 0.0
-                                                    )
-                                                )
-                                                + 2.0 * tE * self._ra2
-                                            ),
-                                        ]
-                                    )
-                                ),
-                                numpy.sqrt(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                                ),
-                                args=(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                    tE,
-                                ),
-                            )[0]
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                ]
+            * xp.sum(
+                nested_quad(
+                    xp,
+                    _integrand,
+                    [[0.0, 1.0], [0.0, 1.0]],
+                    n=_QUAD_N_VMOM2D,
+                    device=device_of(rphiE),
+                ),
+                axis=-1,
             )
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out.reshape(E.shape)
 
-    def _sample_eta(self, r, n=1):
-        """Sample the angle eta which defines radial vs tangential velocities"""
+    @staticmethod
+    def _panel_root(xp, f, lo, hi):
+        """Root of ``f`` on ``[lo, hi]``, Newton-polished so it carries the
+        implicit-function gradient (the bisection alone is piecewise constant)."""
+        r = bisect_root(f, lo, hi, xp, xtol=1e-12, maxiter=100)
+        h = 1e-7 * (1.0 + xp.abs(r))
+        # stop_gradient on the slope: the root's gradient is -df/da / df/dr, so
+        # holding df/dr constant IS the implicit-function derivative, and it
+        # keeps a finite difference out of the backward pass
+        dfdr = stop_gradient((f(r + h) - f(r - h)) / (2.0 * h))
+        return newton_polish(r, f(r), dfdr, xp)
+
+    def _sample_eta(self, r, n=1, key=None):
+        """Sample the angle eta which defines radial vs tangential velocities
+
+        The cos(eta) inverse-CDF is CLOSED-FORM (r-dependent through
+        A = (r/ra)^2), so no grid is needed: ``key=None`` draws from the global
+        ``numpy.random`` (byte-identical); a backend key draws backend uniforms
+        (magnitude + symmetric sign) and evaluates the SAME analytic inversion
+        in-namespace -- so eta is a backend array differentiable in r."""
         # cumulative distribution of x = cos eta satisfies
         # x/(sqrt(A+1 -A* x^2)) = 2 b - 1 = c
         # where b \in [0,1] and A = (r/ra)^2
         # Solved by
         # x = c sqrt(1+[r/ra]^2) / sqrt( [r/ra]^2 c^2 + 1 ) for c > 0 [b > 0.5]
         # and symmetric wrt c
-        c = numpy.random.uniform(size=n)
-        x = (
-            c
-            * numpy.sqrt(1 + r**2.0 / self._ra2)
-            / numpy.sqrt(r**2.0 / self._ra2 * c**2.0 + 1)
-        )
-        x *= numpy.random.choice([1.0, -1.0], size=n)
-        return numpy.arccos(x)
+        if key is None:
+            # numpy path (byte-identical)
+            c = numpy.random.uniform(size=n)
+            x = (
+                c
+                * numpy.sqrt(1 + r**2.0 / self._ra2)
+                / numpy.sqrt(r**2.0 / self._ra2 * c**2.0 + 1)
+            )
+            x *= numpy.random.choice([1.0, -1.0], size=n)
+            return numpy.arccos(x)
+        # backend key: same analytic inversion, in-namespace and differentiable
+        # in r; independent sub-keys for the magnitude uniform and the sign
+        kc, ks = grandom.split(key, 2)
+        c = grandom.uniform(kc, n)
+        xp = get_namespace(c)
+        A = xp.asarray(r) ** 2.0 / self._ra2  # coerce: r is the backend sample r
+        x = c * xp.sqrt(1.0 + A) / xp.sqrt(A * c**2.0 + 1.0)
+        sign = grandom.choice(ks, xp.asarray([1.0, -1.0]), shape=n)
+        return xp.arccos(x * sign)
 
     def _p_v_at_r(self, v, r):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling"""
+        xp = resolve_namespace(v, r)
         if hasattr(self, "_logfQ_interp"):
+            # The f(Q) table is a Spline1D under a backend (scipy on numpy), so
+            # the query stays in the active namespace -- no as_numpy here, which
+            # is what makes the sampled velocity differentiable in the DF and
+            # potential parameters (see sphericaldf._make_pvr_interpolator).
             return (
-                numpy.exp(
+                xp.exp(
                     self._logfQ_interp(
                         -_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0
                     )
                 )
                 * v**2.0
             )
-        else:
+        if xp is numpy:
             return (
                 self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
             )
+        # coerce: a forced backend sees numpy sampling grids; torch potentials
+        # reject numpy coords
+        v, r = xp.asarray(v) * 1.0, xp.asarray(r) * 1.0
+        return self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
 
-    def _sample_v(self, r, eta, n=1):
-        """Generate velocity samples"""
+    def _sample_v(self, r, eta, n=1, key=None):
+        """Generate velocity samples
+
+        ``key=None`` is the byte-identical numpy path; a backend key returns a
+        backend velocity (the base pvr sampler is native, so the r/eta transform
+        below runs in-namespace, differentiable in r and eta)."""
         # Use super-class method to obtain v*[1+r^2/ra^2*sin^2eta]
-        out = super()._sample_v(r, eta, n=n)
+        out = super()._sample_v(r, eta, n=n, key=key)
         # Transform to v
-        return out / numpy.sqrt(1.0 + r**2.0 / self._ra2 * numpy.sin(eta) ** 2.0)
+        if key is None:
+            return out / numpy.sqrt(1.0 + r**2.0 / self._ra2 * numpy.sin(eta) ** 2.0)
+        xp = get_namespace(out, eta)
+        rb = xp.asarray(r) ** 2.0
+        return out / xp.sqrt(1.0 + rb / self._ra2 * xp.sin(eta) ** 2.0)
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
             return 0.0
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.quad(
+                    lambda v: (
+                        v ** (2.0 + m + n)
+                        * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                )[0]
+                * special.gamma(m / 2.0 + 1.0)
+                * special.gamma((n + 1) / 2.0)
+                / special.gamma(0.5 * (m + n + 3.0))
+                / (1 + r**2.0 / self._ra2) ** (m / 2 + 1)
+            )
+        # jax/torch: GL after v = vmax sin(theta), which cancels the fQ endpoint
+        # singularity (power-law fQ ~ Q^{-1/2} as Q -> 0 at v = vmax); node axis trails
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
+        vmax = (xp.asarray(self._vmax_at_r(self._pot, rb)) * 1.0)[..., None]
+
+        def _integrand(theta):
+            v = vmax * xp.sin(theta)
+            return (
+                v ** (2.0 + m + n)
+                * self.fQ(-Phir_b - 0.5 * v**2.0)
+                * vmax
+                * xp.cos(theta)
+            )
+
         return (
             2.0
             * numpy.pi
-            * integrate.quad(
-                lambda v: (
-                    v ** (2.0 + m + n)
-                    * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
-                ),
+            * fixed_quad(
+                xp,
+                _integrand,
                 0.0,
-                self._vmax_at_r(self._pot, r),
-            )[0]
+                numpy.pi / 2.0,
+                n=_QUAD_N_VMOM,
+                device=device_of(rb),
+            )
             * special.gamma(m / 2.0 + 1.0)
             * special.gamma((n + 1) / 2.0)
             / special.gamma(0.5 * (m + n + 3.0))
-            / (1 + r**2.0 / self._ra2) ** (m / 2 + 1)
+            / (1 + rb**2.0 / self._ra2) ** (m / 2 + 1)
         )
 
 
@@ -304,14 +517,19 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             )
         )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
+    ):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
         if rmin is None:
             rmin = self._rmin
         self._ensure_fQ_interp()
+        # key=None keeps the whole assembly numpy (byte-identical); a backend key
+        # makes the radial, angle (native analytic eta inverse-CDF), and velocity
+        # sampling backend-native (differentiable, GPU/jit-able).
         return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
     def _ensure_fQ_interp(self):
@@ -323,14 +541,51 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                     sorted(1.0 - numpy.geomspace(1e-8, 0.5, 101)),
                 )
             )
-            Qs4interp = -(
-                Qs4interp * (self._edf._Emin - self._edf._potInf) + self._edf._potInf
-            )
-            fQ4interp = numpy.log(self.fQ(Qs4interp))
-            iindx = numpy.isfinite(fQ4interp)
-            self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
-                Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
-            )
+            xp = get_namespace()  # context/forced default only (grid is numpy)
+            gxp = None if xp is numpy else _pot_grad_namespace(self._pot)
+            if gxp is not None:
+                # differentiated potential: knots AND values on-backend
+                # (Spline1D mode 2), as for sphericaldf's f(E) table -- a frozen
+                # table dropped d/d(potential) from every velocity (2-26% off)
+                Emin, potInf = _attached_energy_bounds(
+                    gxp, self._pot, self._edf._rmin, self._edf._rmax, self._edf._potInf
+                )
+                Qs = -(
+                    as_backend_constant(gxp, Qs4interp, Emin) * (Emin - potInf) + potInf
+                )
+                # find the finite knots on a DETACHED pass and evaluate only
+                # those attached: indexing after the fact still pushes a zero
+                # cotangent through the dropped knots' 0*inf backward (NaN)
+                probe = xp.log(self.fQ(stop_gradient(Qs)))
+                # under jax.jit every knot is kept: the traced r(Phi) root-find
+                # reaches E -> Emin, so f(Q) is finite at all of them
+                if has_concrete_truth_value(xp.all(probe == probe)):
+                    keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
+                    Qs = Qs[keep]
+                self._logfQ_interp = Spline1D(Qs, xp.log(self.fQ(Qs)), k=3, ext=3)
+                return
+            # the spline table is built on a numpy grid; under a forced backend
+            # the potential bounds are backend scalars, so pull them numpy-side
+            # (no-op on the numpy path)
+            Emin = as_numpy(self._edf._Emin)
+            potInf = as_numpy(self._edf._potInf)
+            Qs4interp = -(Qs4interp * (Emin - potInf) + potInf)
+            if xp is numpy:
+                fQ4interp = numpy.log(self.fQ(Qs4interp))
+                iindx = numpy.isfinite(fQ4interp)
+                self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
+                    Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
+                )
+            else:
+                # forced backend: the frozen table gets a Spline1D, which queries
+                # numpy through scipy and a backend natively -- so p(v|r) below
+                # stays on the backend instead of being pulled numpy-side, which
+                # is what let the velocity-sampling table go native too.
+                fQ4interp = numpy.log(as_numpy(self.fQ(Qs4interp)))
+                iindx = numpy.isfinite(fQ4interp)
+                self._logfQ_interp = Spline1D(
+                    Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
+                )
 
     def fQ(self, Q):
         """

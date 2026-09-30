@@ -2,6 +2,28 @@
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    resolve_namespace,
+)
+from ..backend import special as _bspecial
+from ..backend._namespaces import (
+    cummax,
+    has_concrete_truth_value,
+    name_of_namespace,
+    namespace_from_arrays,
+    requires_backend_grad,
+    stop_gradient,
+    under_trace,
+    untraceable_setup,
+)
+from ..backend._tracectx import is_compiling
+from ..backend.autodiff import graft_derivative
+from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
 from .df import df
 from .sphericaldf import isotropicsphericaldf
@@ -56,7 +78,10 @@ class kingdf(isotropicsphericaldf):
         # Set up scaling factors
         self._radius_scale = self.rt / self._scalefree_kdf.rt
         self._mass_scale = self.M / self._scalefree_kdf.mass
-        self._velocity_scale = numpy.sqrt(self._mass_scale / self._radius_scale)
+        # coerce first: under a forced backend torch.sqrt rejects a plain float
+        _vxp = resolve_namespace(self._mass_scale, self._radius_scale)
+        (_vs,) = coerce_coords(_vxp, self._mass_scale / self._radius_scale)
+        self._velocity_scale = _vxp.sqrt(_vs)
         self._density_scale = self._mass_scale / self._radius_scale**3.0
         # Store central density, r0...
         self.rho0 = self._scalefree_kdf.rho0 * self._density_scale
@@ -77,31 +102,112 @@ class kingdf(isotropicsphericaldf):
             self, pot=pot, scale=self.r0, rmax=self.rt, ro=ro, vo=vo
         )
         self._potInf = self._pot(self.rt, 0.0, use_physical=False)
-        # Setup inverse cumulative mass function for radius sampling
-        self._icmf = interpolate.InterpolatedUnivariateSpline(
-            self._mass_scale * self._scalefree_kdf._cumul_mass / self.M,
-            self._radius_scale * self._scalefree_kdf._r,
-            k=1,
+        # Setup inverse cumulative mass function for radius sampling: store the
+        # (normalized cumulative-mass, radius) grids so a backend key can sample
+        # r via a differentiable interp_linear, plus the scipy k=1 spline for the
+        # byte-identical numpy path (see _icmf below).
+        # coerce onto one namespace first (see KingPotential._rg)
+        _xpk = resolve_namespace(self._scalefree_kdf._cumul_mass, self._mass_scale)
+        _cm, _msc = coerce_coords(
+            _xpk, self._scalefree_kdf._cumul_mass, self._mass_scale
+        )
+        self._icmf_cmf_grid = _cm * _msc / self.M
+        _rr, _rsc = coerce_coords(
+            resolve_namespace(self._scalefree_kdf._r, self._radius_scale),
+            self._scalefree_kdf._r,
+            self._radius_scale,
+        )
+        self._icmf_r_grid = _rr * _rsc
+        # A TRACED grid (M/rt being differentiated) has no scipy spline: the
+        # numpy path it exists for cannot be reached anyway, and fitting one
+        # would raise on the tracers.
+        self._icmf_spline = (
+            None
+            if is_backend_array(self._icmf_cmf_grid)
+            or is_backend_array(self._icmf_r_grid)
+            else interpolate.InterpolatedUnivariateSpline(
+                self._icmf_cmf_grid, self._icmf_r_grid, k=1
+            )
         )
         # Setup velocity DF interpolator for velocity sampling here
         self._rmin_sampling = 0.0
+        _rae_xp = resolve_namespace(self.rt, self._scale)
+        (_rae,) = coerce_coords(_rae_xp, self.rt / self._scale)
         self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(
-            r_a_end=numpy.log10(self.rt / self._scale)
+            r_a_end=_rae_xp.log10(_rae)
         )
 
+    def _icmf(self, ms):
+        """Inverse cumulative mass function for radius sampling.
+
+        ``ms`` is the normalized mass fraction in [0, 1]. numpy queries hit the
+        byte-identical scipy k=1 spline; a backend ``ms`` (from a backend
+        ``sample(key=...)``) is sampled by a differentiable linear interp on the
+        stored (cumulative-mass, radius) grids."""
+        if not is_backend_array(ms) and self._icmf_spline is not None:
+            return self._icmf_spline(ms)
+        # No scipy spline means the grids are differentiated (M/rt), so the
+        # namespace comes from them; otherwise ms is the backend side.
+        # as_backend_constant passes a differentiated grid through unchanged, so
+        # d(r)/d(M, rt) survives.
+        xp = (
+            get_namespace(ms)
+            if is_backend_array(ms)
+            else resolve_namespace(self._icmf_cmf_grid)
+        )
+        # ms may still be numpy here (differentiated grids, plain query); it has
+        # to come onto the namespace before it can serve as the dtype/device
+        # reference for the grids.
+        (msv,) = coerce_coords(xp, ms)
+        x = as_backend_constant(xp, self._icmf_cmf_grid, msv)
+        y = as_backend_constant(xp, self._icmf_r_grid, msv)
+        return interp_linear(xp, x, y, msv, extrapolate="clip")
+
     def dens(self, r):
-        return self._scalefree_kdf.dens(r / self._radius_scale) * self._density_scale
+        _d = self._scalefree_kdf.dens(r / self._radius_scale)
+        _dv, _dsc = coerce_coords(
+            resolve_namespace(_d, self._density_scale), _d, self._density_scale
+        )
+        return _dv * _dsc
 
     def fE(self, E):
-        out = numpy.zeros(numpy.atleast_1d(E).shape)
-        varE = self._potInf - E
-        if numpy.sum(varE > 0.0) > 0:
-            out[varE > 0.0] = (
-                (numpy.exp(varE[varE > 0.0] / self._sigma2) - 1.0)
-                * (2.0 * numpy.pi * self._sigma2) ** -1.5
-                * self.rho1
-            )
-        return out.reshape(E.shape)  # mass density, not /self.M as for number density
+        xp = resolve_namespace(E)
+        if xp is numpy:
+            out = numpy.zeros(numpy.atleast_1d(E).shape)
+            varE = self._potInf - E
+            if numpy.sum(varE > 0.0) > 0:
+                out[varE > 0.0] = (
+                    (numpy.exp(varE[varE > 0.0] / self._sigma2) - 1.0)
+                    * (2.0 * numpy.pi * self._sigma2) ** -1.5
+                    * self.rho1
+                )
+            return out.reshape(
+                E.shape
+            )  # mass density, not /self.M as for number density
+        # jax/torch: dead-mask varE<=0 -> 0 (dummy keeps the dead branch finite)
+        Eb = xp.asarray(E) * 1.0
+        varE = self._potInf - Eb
+        live = varE > 0.0
+        varE_safe = xp.where(live, varE, xp.ones_like(varE))
+        fE = (
+            (xp.exp(varE_safe / self._sigma2) - 1.0)
+            * (2.0 * numpy.pi * self._sigma2) ** -1.5
+            * self.rho1
+        )
+        return xp.where(live, fE, xp.zeros_like(fE)).reshape(Eb.shape)
+
+
+def _solve(kdf, W0, npt):
+    """_scalefreekingdf.solve's dispatch, in a frame that holds the tensor W0:
+    dynamo skips solve's own (tensor-free) frame and runs it eagerly, where
+    is_compiling() is False and scipy would always be picked."""
+    # jax.jit / torch.compile: no value to hand scipy, so solve in-backend
+    # (is_compiling first: bool() on a compiled tensor is a graph break)
+    if is_backend_array(W0) and (
+        is_compiling() or not has_concrete_truth_value(W0 == W0)
+    ):
+        return kdf._solve_traced(npt)
+    return kdf._solve_scipy(npt)
 
 
 class _scalefreekingdf:
@@ -113,18 +219,29 @@ class _scalefreekingdf:
     def solve(self, npt=1001):
         """Solve the model W(r) at npt points (note: not equally spaced in
         either r or W, because combination of two ODEs for different r ranges)"""
+        return _solve(self, self.W0, npt)
+
+    @untraceable_setup  # torch.compile, constant (non-tensor) W0: opaque solve
+    def _solve_scipy(self, npt):
         # Set up arrays for outputs
         r = numpy.zeros(npt)
         W = numpy.zeros(npt)
         dWdr = numpy.zeros(npt)
+        # A differentiated W0 is solved on its value; d/dW0 is grafted on
+        # afterwards from the forward sensitivities (_graft_W0_derivative)
+        W0 = (
+            float(as_numpy(stop_gradient(self.W0)))
+            if is_backend_array(self.W0)
+            else self.W0
+        )
         # Initialize (r[0]=0 already)
-        W[0] = self.W0
+        W[0] = W0
         # Determine central density and r0
-        self.rho0 = self._dens_W(self.W0)
+        self.rho0 = self._dens_W(W0)
         self.r0 = numpy.sqrt(9.0 / 4.0 / numpy.pi / self.rho0)
         # First solve Poisson equation ODE from r=0 to r0 using form
         # d^2 Psi / dr^2 =  ... (d psi / dr = v, r^2 dv / dr = RHS-2*r*v)
-        if self.W0 < 2.0:
+        if W0 < 2.0:
             rbreak = self.r0 / 100.0
         else:
             rbreak = self.r0
@@ -137,9 +254,13 @@ class _scalefreekingdf:
                 -_FOURPI * self._dens_W(y[0]) - (2.0 * y[1] / t if t > 0.0 else 0.0),
             ],
             [0.0, rbreak],
-            [self.W0, 0.0],
+            [W0, 0.0],
             method="DOP853",
             t_eval=r[: npt // 2],
+            # scipy's default rtol=1e-3 left ~1e-4 errors in the tables (and
+            # ~1e-3 in their W0-dependence); this is ~1e-10 for ~10 ms more
+            rtol=1e-10,
+            atol=1e-12,
         )
         W[: npt // 2] = sol.y[0]
         dWdr[: npt // 2] = sol.y[1]
@@ -157,6 +278,8 @@ class _scalefreekingdf:
             [rbreak, sol.y[1, -1]],
             method="DOP853",
             t_eval=W[npt // 2 - 1 :],
+            rtol=1e-10,
+            atol=1e-12,
         )
         r[npt // 2 - 1 :] = sol.y[0]
         dWdr[npt // 2 - 1 :] = sol.y[1]
@@ -168,8 +291,9 @@ class _scalefreekingdf:
         self._rho = self._dens_W(self._W)
         self.rt = r[-1]
         self.c = numpy.log10(self.rt / self.r0)
-        # Interpolate solution
-        self._W_from_r = interpolate.InterpolatedUnivariateSpline(self._r, self._W, k=3)
+        # Interpolate solution (backend-agnostic: numpy queries hit the scipy
+        # spline byte-identically, backend queries evaluate the frozen table)
+        self._W_from_r = Spline1D(self._r, self._W, k=3)
         # Compute the cumulative mass and store the total mass, adjust small decreases to zero
         self._cumul_mass = -self._dWdr * self._r**2.0
         for ii in range(1, npt):
@@ -178,14 +302,172 @@ class _scalefreekingdf:
                     self._cumul_mass[ii - 1] + 2.0 * numpy.finfo(float).eps
                 )
         self.mass = self._cumul_mass[-1]
+        if under_trace(self.W0) or requires_backend_grad(self.W0):
+            self._graft_W0_derivative(W0, rbreak, npt)
         return None
+
+    def _solve_traced(self, npt):
+        """solve() under jax.jit / torch.compile: the same two ODE segments with
+        diffrax / torchode, so W0 (and with it rbreak, the second segment's start
+        and both output grids) can be traced; d/dW0 is AD through the
+        discretized solve."""
+        xp = namespace_from_arrays((self.W0,))
+        if name_of_namespace(xp) == "torch":
+            from ..backend._torch.king_ode import solve as _king_solve
+        else:
+            from ..backend._jax.king_ode import solve as _king_solve
+        self.rho0, self.r0, r, W, dWdr = _king_solve(self._dens_W, self.W0, npt)
+        self._r, self._W, self._dWdr = r, W, dWdr
+        self._rho = self._dens_W(W)
+        self.rt = r[-1]
+        self.c = xp.log10(self.rt / self.r0)
+        self._W_from_r = Spline1D(r, W, k=3)
+        # the eager repair of small decreases (cm[i] = cm[i-1] + 2 eps) as a
+        # running maximum: equal up to ~npt eps where it bites at all
+        self._cumul_mass = cummax(xp, -dWdr * r**2.0)
+        self.mass = self._cumul_mass[-1]
+        return None
+
+    @staticmethod
+    def _ddens_dW(W):
+        """d(dens)/dW; the two 1/sqrt(W) terms cancel, so it is finite at W=0"""
+        return numpy.exp(W) * special.erf(numpy.sqrt(W)) - _TWOOVERSQRTPI * numpy.sqrt(
+            W
+        )
+
+    def _graft_W0_derivative(self, W0, rbreak, npt):
+        """Graft d/dW0 onto the (numpy) solution from its forward sensitivities.
+
+        Both ODE segments are re-integrated with their variational equations,
+        at the same tolerances as the solve itself. The
+        pieces that MOVE with W0 are carried explicitly: rbreak = r0(W0), the
+        second segment's start Psi = W(rbreak), and both output grids. Values are
+        unchanged; first order only (graft_gradient)."""
+        dr0 = -0.5 * self.r0 * self._ddens_dW(W0) / self.rho0
+        drb = rbreak / self.r0 * dr0
+        n1 = npt // 2
+        # Segment 1, in r: y = (W, v=dW/dr), s = dy/dW0 at fixed r
+        sol = integrate.solve_ivp(
+            lambda t, y: [
+                y[1],
+                -_FOURPI * self._dens_W(y[0]) - (2.0 * y[1] / t if t > 0.0 else 0.0),
+                y[3],
+                -_FOURPI * self._ddens_dW(y[0]) * y[2]
+                - (2.0 * y[3] / t if t > 0.0 else 0.0),
+            ],
+            [0.0, rbreak],
+            [W0, 0.0, 1.0, 0.0],
+            method="DOP853",
+            t_eval=self._r[:n1],
+            rtol=1e-10,
+            atol=1e-12,
+        )
+        r1, W1, v1 = self._r[:n1], self._W[:n1], self._dWdr[:n1]
+        frac = numpy.linspace(0.0, 1.0, n1)  # r1 = frac * rbreak
+        fv1 = -_FOURPI * self._dens_W(W1) - 2.0 * v1 / numpy.where(r1 > 0.0, r1, 1.0)
+        fv1[0] = 0.0
+        dW1 = sol.y[2] + v1 * frac * drb
+        dv1 = sol.y[3] + fv1 * frac * drb
+        dr1 = frac * drb
+
+        # Segment 2, in Psi from Wb = W(rbreak) to 0: z = (r, v)
+        def f2(t, r, v):
+            return 1.0 / v, -(_FOURPI * self._dens_W(t) + 2.0 * v / r) / v
+
+        Wb, vb = W1[-1], v1[-1]
+        fr0, fv0 = f2(Wb, rbreak, vb)
+        # sensitivity at fixed Psi, from the moving start (dt0 = dWb)
+        sig0 = [drb - fr0 * dW1[-1], dv1[-1] - fv0 * dW1[-1]]
+        sol = integrate.solve_ivp(
+            lambda t, y: [
+                *f2(t, y[0], y[1]),
+                -y[3] / y[1] ** 2.0,
+                2.0 * y[2] / y[0] ** 2.0
+                + _FOURPI * self._dens_W(t) / y[1] ** 2.0 * y[3],
+            ],
+            [Wb, 0.0],
+            [rbreak, vb, *sig0],
+            method="DOP853",
+            t_eval=self._W[n1 - 1 :],
+            rtol=1e-10,
+            atol=1e-12,
+        )
+        r2, W2, v2 = self._r[n1 - 1 :], self._W[n1 - 1 :], self._dWdr[n1 - 1 :]
+        dt2 = numpy.linspace(1.0, 0.0, len(W2)) * dW1[-1]  # the grid moves too
+        fr2, fv2 = f2(W2, r2, v2)
+        dr2 = sol.y[2] + fr2 * dt2
+        dv2 = sol.y[3] + fv2 * dt2
+        dr = numpy.concatenate((dr1[:-1], dr2))
+        dW = numpy.concatenate((dW1[:-1], dt2))
+        dv = numpy.concatenate((dv1[:-1], dv2))
+        drho = self._ddens_dW(self._W) * dW
+        dcm = -(dv * self._r**2.0 + 2.0 * self._dWdr * self._r * dr)
+
+        drt = dr[-1]
+        head = [self.c, self.rho0, self.r0, self.rt, self.mass]
+        dhead = [
+            (drt / self.rt - dr0 / self.r0) / numpy.log(10.0),
+            self._ddens_dW(W0),
+            dr0,
+            drt,
+            dcm[-1],
+        ]
+        tabs = [self._r, self._W, self._dWdr, self._rho, self._cumul_mass]
+        dtabs = [dr, dW, dv, drho, dcm]
+        # values and d/dW0 from the scipy solve; second order and up (rarely
+        # asked, ~1 s) from the in-backend solve of the same tables
+        out = graft_derivative(
+            self.W0 * 1.0,
+            numpy.concatenate([numpy.array(head, dtype=float), *tabs]),
+            numpy.concatenate([numpy.array(dhead, dtype=float), *dtabs]),
+            lambda W0: self._tables_backend(W0, npt),
+        )
+        self.c, self.rho0, self.r0, self.rt, self.mass = (out[i] for i in range(5))
+        self._r, self._W, self._dWdr, self._rho, self._cumul_mass = (
+            out[5 + k * npt : 5 + (k + 1) * npt] for k in range(5)
+        )
+        # knots AND values differentiated: Spline1D mode 2
+        self._W_from_r = Spline1D(self._r, self._W, k=3)
+
+    def _tables_backend(self, W0, npt):
+        """_graft_W0_derivative's stacked tables, solved in-backend (diffrax /
+        torchode): the donor of their second and higher W0-derivatives."""
+        xp = namespace_from_arrays((W0,))
+        if name_of_namespace(xp) == "torch":
+            from ..backend._torch.king_ode import solve as _king_solve
+
+            # Dopri5 (torchode has no 8th-order method): its second derivatives
+            # need the tighter tolerance (2e-7 vs 2e-5 at the solve's 1e-10)
+            kw = {"rtol": 1e-13, "atol": 1e-15}
+        else:
+            from ..backend._jax.king_ode import solve as _king_solve
+
+            kw = {}
+        rho0, r0, r, W, dWdr = _king_solve(self._dens_W, W0, npt, **kw)
+        cm = -dWdr * r**2.0  # d/dW0 of the repaired mass is the raw one's
+        head = xp.stack([xp.log10(r[-1] / r0), rho0, r0, r[-1], cm[-1]])
+        return xp.concat([head, r, W, dWdr, self._dens_W(W), cm])
 
     def _dens_W(self, W):
         """Density as a function of W"""
-        sqW = numpy.sqrt(W)
-        return numpy.exp(W) * special.erf(sqW) - _TWOOVERSQRTPI * sqW * (
-            1.0 + 2.0 / 3.0 * W
+        # data-guard: leaf consumed by numpy construction (solve_ivp, rho0/r0);
+        # only a backend-array W (dens(backend r) via _W_from_r) goes backend
+        if not is_backend_array(W):
+            sqW = numpy.sqrt(W)
+            return numpy.exp(W) * special.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+                1.0 + 2.0 / 3.0 * W
+            )
+        xp = get_namespace(W)
+        Wb = xp.asarray(W) * 1.0
+        # dens(0) = 0 but sqrt's backward is infinite at W=0 (the tidal radius,
+        # where the traced solve ends): evaluate a benign W there and select 0
+        live = Wb > 0.0
+        Ws = xp.where(live, Wb, xp.ones_like(Wb))
+        sqW = xp.sqrt(Ws)
+        out = xp.exp(Ws) * _bspecial.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+            1.0 + 2.0 / 3.0 * Ws
         )
+        return xp.where(live, out, xp.zeros_like(out))
 
     def dens(self, r):
         return self._dens_W(self._W_from_r(r))

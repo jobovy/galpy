@@ -3,18 +3,45 @@ import copy
 import multiprocessing
 import warnings
 from functools import wraps
+from types import SimpleNamespace
 
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
+from ..backend import special as _bspecial
+from ..backend import use
+from ..backend._namespaces import (
+    inbackend_ode_method,
+    namespace_from_arrays,
+    under_trace,
+)
+from ..backend.interpolate import Spline1D
+from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
+from ..orbit.Orbits import _flip_velocity_columns
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
+from ..util._pickle import SplinePickleMixin
 from ..util.conversion import physical_conversion
 from . import streamdf
 from .df import df
-from .streamdf import _determine_stream_track_single
+from .streamdf import (
+    _determine_stream_track_single,
+    _determine_stream_track_single_backend,
+    _ns_sqrt,
+    _span_grid,
+    _vmap_track_chunks,
+)
 
 
 def impact_check_range(func):
@@ -22,6 +49,14 @@ def impact_check_range(func):
 
     @wraps(func)
     def impact_wrapper(*args, **kwargs):
+        if is_backend_array(args[1]):
+            # backend da: evaluate the (extrapolating, finite) raw spline on the
+            # full array and zero out-of-range entries with xp.where (item-assign
+            # would break autodiff/vmap); mirrors the numpy mask below.
+            da = args[1]
+            xp = get_namespace(da)
+            good = (da < args[0]._deltaAngleTrackImpact) & (da > 0.0)
+            return xp.where(good, func(args[0], da), 0.0)
         if isinstance(args[1], numpy.ndarray):
             out = numpy.zeros(len(args[1]))
             goodIndx = (args[1] < args[0]._deltaAngleTrackImpact) * (args[1] > 0.0)
@@ -35,8 +70,27 @@ def impact_check_range(func):
     return impact_wrapper
 
 
-class streamgapdf(streamdf.streamdf):
+def _replace_at(xp, arr, idx, value):
+    """``arr`` with ``arr[idx]`` replaced by ``value``, shape-preserving.
+
+    A CONCRETE idx keeps the concat that mirrors the numpy body's in-place
+    write. A TRACED idx cannot size a slice (``arr[:idx]`` has a data-dependent
+    length), so select with a mask instead -- same result, static shape.
+    """
+    if isinstance(idx, (int, numpy.integer)):
+        v = value[None] if getattr(value, "ndim", 0) == 0 else value
+        return xp.concat([arr[:idx], v, arr[idx + 1 :]])
+    return xp.where(xp.arange(arr.shape[0]) == idx, value, arr)
+
+
+class streamgapdf(streamdf.streamdf, SplinePickleMixin):
     """The DF of a gap in a tidal stream"""
+
+    # Measured under scipy 1.18: this is the ONLY unpicklable attribute on a
+    # built streamgapdf. The numpy/scipy kick path stores a real PPoly here;
+    # the backend path stores a plain SimpleNamespace, which packs through
+    # untouched, so one declaration covers both.
+    _PICKLE_SPLINE_ATTRS = ("_kick_interpdOpar_poly",)
 
     def __init__(self, *args, **kwargs):
         """
@@ -241,6 +295,8 @@ class streamgapdf(streamdf.streamdf):
         """
         Opar = conversion.parse_frequency(Opar, ro=self._ro, vo=self._vo)
         apar = conversion.parse_angle(apar)
+        if is_backend_array(Opar) or is_backend_array(self._kick_dOap):
+            return self._pOparapar_backend(Opar, apar)
         Opar = numpy.array(Opar)
         out = numpy.zeros_like(Opar)
         # Compute ts and where they were at impact for all
@@ -258,6 +314,25 @@ class streamgapdf(streamdf.streamdf):
             tdisrupt=self._tdisrupt - self._timpact,
         )
         return out
+
+    def _pOparapar_backend(self, Opar, apar):
+        # Backend twin of pOparapar: evaluate the smooth model in BOTH
+        # stripped-before/after-impact regimes on the full array and select with
+        # xp.where (the numpy masked writes out[afterIndx]= are not AD/vmap-safe).
+        # The unselected regime's inputs are finite (impact_check_range zeros the
+        # out-of-range kick), so neither branch NaN-poisons the gradient.
+        xp = get_namespace(Opar, self._kick_dOap)
+        Opar = xp.asarray(Opar)
+        ts = apar / Opar
+        apar_impact = apar - Opar * self._timpact
+        dOpar_impact = self._kick_interpdOpar(apar_impact)
+        Opar_b4impact = Opar - dOpar_impact
+        afterIndx = (ts < self._timpact) & (ts >= 0.0)
+        p_after = super().pOparapar(Opar, apar)
+        p_before = super().pOparapar(
+            Opar_b4impact, apar_impact, tdisrupt=self._tdisrupt - self._timpact
+        )
+        return xp.where(afterIndx, p_after, p_before)
 
     def _density_par(self, dangle, tdisrupt=None, approx=True, higherorder=None):
         """The raw density as a function of parallel angle,
@@ -290,6 +365,10 @@ class streamgapdf(streamdf.streamdf):
     ):
         """Compute the density as a function of parallel angle using the
         spline representation + approximations"""
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._density_par_approx_backend(
+                dangle, tdisrupt, _return_array=_return_array, higherorder=higherorder
+            )
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -335,11 +414,71 @@ class streamgapdf(streamdf.streamdf):
         )
         return out
 
+    def _density_par_approx_backend(
+        self, dangle, tdisrupt, _return_array=False, higherorder=False
+    ):
+        # Backend twin of _density_par_approx (higherorder=False path -- the
+        # default): the per-interval Gaussian integral via the backend erf over
+        # the differentiable pw-cubic-kick breakpoints, plus the tail term.
+        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
+            raise NotImplementedError(
+                "streamgapdf higherorderTrack=True is not yet supported on the "
+                "jax/torch backend"
+            )
+        poly = self._kick_interpdOpar_poly
+        # namespace from the backend operand (poly.c or dangle); coerce the other
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
+        # these come from _offset_setup, which runs on the backend -- they may
+        # already BE backend (and traced), so numpy.asarray would throw
+        meandO = (
+            self._meandO
+            if is_backend_array(self._meandO)
+            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        )
+        _s2 = self._sortedSigOEig[2]
+        sig = (
+            _s2
+            if is_backend_array(_s2)
+            else as_backend_constant(xp, numpy.asarray(_s2), ref)
+        )
+        c1 = c[-1]  # dOpar value at the left knot of each interval
+        c2 = c[-2]  # dOpar slope
+        Oparb = (dangle - px) / self._timpact
+        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
+        # numpy does Oparb[lowbindx+1] = Oparb[lowbindx] - lowx (in place); rebuild
+        # functionally (lowbindx is a concrete stop-gradient int, lowx is backend).
+        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
+        sqrt2sig = xp.sqrt(2.0 * sig)
+        Oparb_roll = xp.roll(Oparb, -1)
+        a = Oparb[:-1] - c1 - meandO
+        b = (
+            Oparb_roll[:-1]
+            - c1
+            - meandO
+            - c2 * self._timpact * (Oparb - Oparb_roll)[:-1]
+        )
+        out = (
+            0.5
+            / (1.0 + c2 * self._timpact)
+            * (_bspecial.erf(a / sqrt2sig) - _bspecial.erf(b / sqrt2sig))
+        )
+        if _return_array:
+            return out
+        # numpy.sum(out[:lowbindx+1]) -> mask-sum (avoid a data-dependent slice)
+        mask = xp.arange(out.shape[0]) <= lowbindx
+        out = xp.sum(xp.where(mask, out, 0.0))
+        # integration to infinity
+        out = out + 0.5 * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+        return out
+
     def _density_par_approx_higherorder(
         self, Oparb, lowbindx, _return_array=False, gaussxpolyInt=None
     ):
         """Contribution from non-linear spline terms"""
-        spline_order = self._kick_interpdOpar_raw._eval_args[2]
+        spline_order = self._kick_spline_order
         if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
@@ -429,6 +568,8 @@ class streamgapdf(streamdf.streamdf):
         """
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._minOpar_backend(dangle, tdisrupt, _return_raw=_return_raw)
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x[:-1]) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -443,6 +584,34 @@ class streamgapdf(streamdf.streamdf):
         )
         lowx[lowx < 0.0] = numpy.inf
         lowbindx = numpy.argmin(lowx)
+        if _return_raw:
+            return (lowbindx, lowx[lowbindx])
+        else:
+            return Oparb[lowbindx] - lowx[lowbindx]
+
+    def _minOpar_backend(self, dangle, tdisrupt, _return_raw=False):
+        # Backend twin of minOpar. The pw-linear lower Opar limit; the argmin
+        # over intervals is a concrete stop-gradient integer that gathers the
+        # continuous (differentiable) lowx/Oparb values it points at.
+        poly = self._kick_interpdOpar_poly
+        # dispatch triggers on backend poly.c OR backend dangle; resolve the
+        # namespace from whichever is backend and coerce the other (a numpy-built
+        # DF queried with a backend dangle, e.g. d/d(angle), stays on the backend)
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
+        Oparb = (dangle - px[:-1]) / self._timpact
+        lowx = (
+            (Oparb - c[-1]) * (tdisrupt - self._timpact)
+            + Oparb * self._timpact
+            - dangle
+        ) / ((tdisrupt - self._timpact) * (1.0 + c[-2] * self._timpact) + self._timpact)
+        lowx = xp.where(lowx < 0.0, float("inf"), lowx)
+        _am = xp.argmin(lowx)
+        # a traced lowx has no concrete argmin; keep the index on the backend and
+        # let the consumers gather/mask with it
+        lowbindx = _am if under_trace(_am) else int(as_numpy(_am))
         if _return_raw:
             return (lowbindx, lowx[lowbindx])
         else:
@@ -509,14 +678,27 @@ class streamgapdf(streamdf.streamdf):
         dO1D = num / denom
         if oned:
             return dO1D
-        else:
+        if is_backend_array(dO1D):
+            # coerce the (possibly numpy) frozen progenitor constants into the
+            # result namespace before the 3D combine
+            xp = get_namespace(dO1D)
             return (
-                self._progenitor_Omega
-                + dO1D * self._dsigomeanProgDirection * self._sigMeanSign
+                as_backend_constant(xp, self._progenitor_Omega, dO1D)
+                + dO1D
+                * as_backend_constant(xp, self._dsigomeanProgDirection, dO1D)
+                * self._sigMeanSign
             )
+        return (
+            self._progenitor_Omega
+            + dO1D * self._dsigomeanProgDirection * self._sigMeanSign
+        )
 
     def _meanOmega_num_approx(self, dangle, tdisrupt, higherorder=False):
         """Compute the numerator going into meanOmega using the direct integration of the spline representation"""
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._meanOmega_num_approx_backend(
+                dangle, tdisrupt, higherorder=higherorder
+            )
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -580,9 +762,70 @@ class streamgapdf(streamdf.streamdf):
         )
         return out
 
+    def _meanOmega_num_approx_backend(self, dangle, tdisrupt, higherorder=False):
+        # Backend twin of _meanOmega_num_approx (higherorder=False -- default):
+        # the per-interval mean-frequency numerator (Gaussian moment integrals
+        # via backend exp/erf over the differentiable pw-cubic-kick breakpoints).
+        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
+            raise NotImplementedError(
+                "streamgapdf higherorderTrack=True is not yet supported on the "
+                "jax/torch backend"
+            )
+        poly = self._kick_interpdOpar_poly
+        # namespace from the backend operand (poly.c or dangle); coerce the other
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
+        # these come from _offset_setup, which runs on the backend -- they may
+        # already BE backend (and traced), so numpy.asarray would throw
+        meandO = (
+            self._meandO
+            if is_backend_array(self._meandO)
+            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        )
+        _s2 = self._sortedSigOEig[2]
+        sig = (
+            _s2
+            if is_backend_array(_s2)
+            else as_backend_constant(xp, numpy.asarray(_s2), ref)
+        )
+        c1 = c[-1]
+        c2 = c[-2]
+        Oparb = (dangle - px) / self._timpact
+        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
+        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
+        Oparb_roll = xp.roll(Oparb, -1)
+        onepc2t = 1.0 + c2 * self._timpact
+        dens_arr = self._density_par_approx(dangle, tdisrupt, _return_array=True)
+        term1 = (Oparb[:-1] + (meandO + c1 - Oparb[:-1]) / onepc2t) * dens_arr
+        term2 = (
+            xp.sqrt(sig / 2.0 / numpy.pi)
+            / onepc2t**2.0
+            * (
+                xp.exp(
+                    -0.5
+                    * (Oparb[:-1] - c1 - onepc2t * (Oparb - Oparb_roll)[:-1] - meandO)
+                    ** 2.0
+                    / sig
+                )
+                - xp.exp(-0.5 * (Oparb[:-1] - c1 - meandO) ** 2.0 / sig)
+            )
+        )
+        mask = xp.arange(term1.shape[0]) <= lowbindx
+        out = xp.sum(xp.where(mask, term1 + term2, 0.0))
+        sqrt2sig = xp.sqrt(2.0 * sig)
+        out = out + 0.5 * (
+            numpy.sqrt(2.0 / numpy.pi)
+            * xp.sqrt(sig)
+            * xp.exp(-0.5 * (meandO - Oparb[0]) ** 2.0 / sig)
+            + meandO * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+        )
+        return out
+
     def _meanOmega_num_approx_higherorder(self, Oparb, lowbindx):
         """Contribution from non-linear spline terms"""
-        spline_order = self._kick_interpdOpar_raw._eval_args[2]
+        spline_order = self._kick_spline_order
         if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
@@ -665,8 +908,8 @@ class streamgapdf(streamdf.streamdf):
             self._kick_deltav = impulse_deltav_general_curvedstream(
                 self._kick_interpolatedObsTrackXY[:, 3:],
                 self._kick_interpolatedObsTrackXY[:, :3],
-                self._impactb,
-                self._subhalovel,
+                self._kick_coerce(self._impactb),
+                self._kick_coerce(self._subhalovel),
                 self._kick_ObsTrackXY_closest[:3],
                 self._kick_ObsTrackXY_closest[3:],
                 subhalopot,
@@ -679,8 +922,8 @@ class streamgapdf(streamdf.streamdf):
             self._kick_deltav = deltav_func(
                 self._kick_interpolatedObsTrackXY[:, 3:],
                 self._kick_interpolatedObsTrackXY[:, :3],
-                self._impactb,
-                self._subhalovel,
+                self._kick_coerce(self._impactb),
+                self._kick_coerce(self._subhalovel),
                 self._kick_ObsTrackXY_closest[:3],
                 self._kick_ObsTrackXY_closest[3:],
                 GM,
@@ -690,6 +933,11 @@ class streamgapdf(streamdf.streamdf):
 
     def _determine_deltaOmegaTheta_kick(self, spline_order):
         # Propagate deltav(angle) -> delta (Omega,theta) [angle]
+        if is_backend_array(self._kick_deltav):
+            return self._determine_deltaOmegaTheta_kick_backend(spline_order)
+        # Stored for the DF-eval layer (mode-2 Spline1D has no _eval_args); on
+        # the numpy path this equals _kick_interpdOpar_raw._eval_args[2].
+        self._kick_spline_order = spline_order
         # Cylindrical coordinates of the perturbed points
         vXp = self._kick_interpolatedObsTrackXY[:, 3] + self._kick_deltav[:, 0]
         vYp = self._kick_interpolatedObsTrackXY[:, 4] + self._kick_deltav[:, 1]
@@ -794,6 +1042,126 @@ class streamgapdf(streamdf.streamdf):
         )
         return None
 
+    def _determine_deltaOmegaTheta_kick_backend(self, spline_order):
+        # Backend (jax/torch) twin of _determine_deltaOmegaTheta_kick: propagate
+        # the differentiable velocity kick deltav(angle) -> delta(Omega,theta)
+        # along the near-impact track. The frozen numpy track/AA tables are
+        # coerced into the kick's namespace via as_backend_constant; the six
+        # dO/da(angle) interpolants become differentiable-in-y Spline1D's. The
+        # per-angle closest-point/Jacobian selection inside _approxaA is a
+        # stop-gradient integer gather (see _approxaA_backend) -- the gradient
+        # flows through deltav and the gathered continuous rows.
+        kv = self._kick_deltav
+        xp = get_namespace(kv)
+        self._kick_spline_order = spline_order
+        trkXY = as_backend_constant(xp, self._kick_interpolatedObsTrackXY, kv)
+        trk = as_backend_constant(xp, self._kick_interpolatedObsTrack, kv)
+        vXp = trkXY[:, 3] + kv[:, 0]
+        vYp = trkXY[:, 4] + kv[:, 1]
+        vZp = trkXY[:, 5] + kv[:, 2]
+        vRp, vTp, vZp = coords.rect_to_cyl_vec(
+            vXp, vYp, vZp, trk[:, 0], trk[:, 5], trk[:, 3], cyl=True
+        )
+        # Abuse streamdf functions for the (O,a) -> (R,vR) transform (as numpy);
+        # pass a backend R so _approxaA dispatches to its backend twin (its guard
+        # tests R/_track, not vR).
+        self._interpolatedObsTrack = self._kick_interpolatedObsTrack
+        self._ObsTrack = self._gap_ObsTrack
+        self._interpolatedObsTrackXY = self._kick_interpolatedObsTrackXY
+        self._ObsTrackXY = self._gap_ObsTrackXY
+        self._alljacsTrack = self._gap_alljacsTrack
+        self._interpolatedObsTrackAA = self._kick_interpolatedObsTrackAA
+        self._ObsTrackAA = self._gap_ObsTrackAA
+        self._nTrackChunks = self._nTrackChunksImpact
+        Oap = self._approxaA(
+            trk[:, 0],
+            vRp,
+            vTp,
+            trk[:, 3],
+            vZp,
+            trk[:, 5],
+            interp=True,
+            cindx=range(len(self._kick_interpolatedObsTrackAA)),
+        )
+        delattr(self, "_interpolatedObsTrack")
+        delattr(self, "_ObsTrack")
+        delattr(self, "_interpolatedObsTrackXY")
+        delattr(self, "_ObsTrackXY")
+        delattr(self, "_alljacsTrack")
+        delattr(self, "_interpolatedObsTrackAA")
+        delattr(self, "_ObsTrackAA")
+        delattr(self, "_nTrackChunks")
+        aa = as_backend_constant(xp, self._kick_interpolatedObsTrackAA, Oap)
+        self._kick_dOap = Oap.T - aa
+        thetas = self._kick_interpolatedThetasTrack
+        self._kick_interpdOr_raw = Spline1D(
+            thetas, self._kick_dOap[:, 0], k=spline_order
+        )
+        self._kick_interpdOp_raw = Spline1D(
+            thetas, self._kick_dOap[:, 1], k=spline_order
+        )
+        self._kick_interpdOz_raw = Spline1D(
+            thetas, self._kick_dOap[:, 2], k=spline_order
+        )
+        self._kick_interpdar_raw = Spline1D(
+            thetas, self._kick_dOap[:, 3], k=spline_order
+        )
+        self._kick_interpdap_raw = Spline1D(
+            thetas, self._kick_dOap[:, 4], k=spline_order
+        )
+        self._kick_interpdaz_raw = Spline1D(
+            thetas, self._kick_dOap[:, 5], k=spline_order
+        )
+        # Parallel/perpendicular frequencies
+        eigvecs = as_backend_constant(
+            xp, self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx], Oap
+        )
+        dOaparperp = self._kick_dOap[:, :3] @ eigvecs
+        # numpy does an in-place _kick_dOaparperp[:,2] *= sign; rebuild
+        # functionally (backend arrays are immutable/AD-unfriendly in place)
+        self._kick_dOaparperp = xp.stack(
+            [
+                dOaparperp[:, 0],
+                dOaparperp[:, 1],
+                dOaparperp[:, 2] * self._sigMeanSign,
+            ],
+            axis=-1,
+        )
+        progdir = as_backend_constant(xp, self._dsigomeanProgDirection, Oap)
+        self._kick_interpdOpar_raw = Spline1D(
+            thetas,
+            (self._kick_dOap[:, :3] @ progdir) * self._sigMeanSign,
+            k=spline_order,
+        )
+        self._kick_interpdOperp0_raw = Spline1D(
+            thetas, self._kick_dOaparperp[:, 0], k=spline_order
+        )
+        self._kick_interpdOperp1_raw = Spline1D(
+            thetas, self._kick_dOaparperp[:, 1], k=spline_order
+        )
+        # Derivative of dOpar (Spline1D.derivative supports the mode-2 backend
+        # spline and stays differentiable in the y values)
+        self._kick_interpdOpar_dapar = self._kick_interpdOpar_raw.derivative(1)
+        # Piecewise-polynomial representation of dOpar, backend-native and
+        # differentiable (replaces the numpy-island PPoly): the mode-2 Spline1D's
+        # own power-basis cubic coeffs ARE the scipy-PPoly layout on each
+        # [x[i], x[i+1]) -- c[-1]=value at the left knot, c[-2]=slope -- so
+        # _coeffs is a drop-in for poly.c that carries the deltav gradient, while
+        # poly.x is the (numpy) angle grid (geometry, no gradient). The DF-eval
+        # layer reads only .x/.c. No zero-range-interval pruning is needed: the
+        # angle grid is a uniform linspace (unlike FITPACK's reduced knots).
+        if self._kick_spline_order == 3:
+            poly_c = self._kick_interpdOpar_raw._coeffs
+        else:  # k == 1: piecewise-linear -> [slope, y_left]
+            xk = self._kick_interpdOpar_raw._x
+            yk = self._kick_interpdOpar_raw._y
+            slope = (yk[1:] - yk[:-1]) / as_backend_constant(xp, xk[1:] - xk[:-1], yk)
+            poly_c = xp.stack([slope, yk[:-1]], axis=0)
+        self._kick_interpdOpar_poly = SimpleNamespace(
+            x=self._kick_interpdOpar_raw._x, c=poly_c
+        )
+        return None
+
     # Functions that evaluate the interpolated kicks, but also check the range
     @impact_check_range
     def _kick_interpdOpar(self, da):
@@ -831,8 +1199,59 @@ class streamgapdf(streamdf.streamdf):
     def _kick_interpdaz(self, da):
         return self._kick_interpdaz_raw(da)
 
+    def _interpolate_stream_track_kick_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track_kick`.
+
+        Same splines and the same interpolated grid, but built with ``Spline1D``
+        and ``stack`` instead of six ``scipy`` ``InterpolatedUnivariateSpline``
+        objects and ``numpy.empty`` + column assignment -- neither of which can
+        hold a traced value. ``Spline1D(..., k=3, ext=0)`` reproduces
+        ``InterpolatedUnivariateSpline(k=3)``, and the knots are the (possibly
+        traced) ``_gap_thetasTrack``.
+        """
+        xp = get_namespace(self._gap_ObsTrack)
+        thetas = self._gap_thetasTrack
+        self._kick_interpolatedThetasTrack = _span_grid(
+            thetas[-1] - thetas[0], self._nKickPoints
+        ) + (thetas[0] if under_trace(thetas) else float(as_numpy(thetas[0])))
+        phi = self._gap_ObsTrack[:, 5]
+        TrackX = self._gap_ObsTrack[:, 0] * xp.cos(phi)
+        TrackY = self._gap_ObsTrack[:, 0] * xp.sin(phi)
+        TrackZ = self._gap_ObsTrack[:, 3]
+        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
+            self._gap_ObsTrack[:, 1],
+            self._gap_ObsTrack[:, 2],
+            self._gap_ObsTrack[:, 4],
+            phi,
+        )
+        names = ("X", "Y", "Z", "vX", "vY", "vZ")
+        vals = (TrackX, TrackY, TrackZ, TrackvX, TrackvY, TrackvZ)
+        spls = []
+        for nm, v in zip(names, vals):
+            spl = Spline1D(thetas, v, k=3, ext=0, bc="not-a-knot")
+            setattr(self, f"_kick_interpTrack{nm}", spl)
+            spls.append(spl)
+        itp = self._kick_interpolatedThetasTrack
+        if not is_backend_array(itp):
+            itp = as_backend_constant(xp, itp, self._gap_ObsTrack)
+        cols = [spl(itp) for spl in spls]
+        self._kick_interpolatedObsTrackXY = xp.stack(cols, axis=1)
+        tR, tphi, tZ = coords.rect_to_cyl(cols[0], cols[1], cols[2])
+        tvR, tvT, tvZ = coords.rect_to_cyl_vec(
+            cols[3], cols[4], cols[5], tR, tphi, tZ, cyl=True
+        )
+        self._kick_interpolatedObsTrack = xp.stack(
+            [tR, tvR, tvT, tZ, tvZ, tphi], axis=1
+        )
+        self._store_closest()
+        return None
+
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
+        if is_backend_array(self._gap_ObsTrack) and not hasattr(
+            self, "_kick_interpolatedThetasTrack"
+        ):
+            return self._interpolate_stream_track_kick_backend()
         if hasattr(self, "_kick_interpolatedThetasTrack"):  # pragma: no cover
             self._store_closest()
             return None  # Already did this
@@ -918,17 +1337,89 @@ class streamgapdf(streamdf.streamdf):
         self._store_closest()
         return None
 
+    def _kick_coerce(self, x):
+        """Lift a stored numpy input onto the kick track's namespace.
+
+        The interpolated kick track is a backend array once the gap track is, and
+        the impulse kernels reject a MIX of namespaces."""
+        trk = self._kick_interpolatedObsTrackXY
+        if not is_backend_array(trk) or is_backend_array(x):
+            return x
+        return as_backend_constant(namespace_from_arrays((trk,)), numpy.asarray(x), trk)
+
     def _store_closest(self):
         # Also store (x,v) for the point of closest approach
-        self._kick_ObsTrackXY_closest = numpy.array(
+        # Coerce the QUERY too: Spline1D with a numpy query evaluates its
+        # backend coefficients through numpy, which drops both the namespace and
+        # the gradient.
+        _ang = self._kick_coerce(self._impact_angle)
+        _vals = [
+            self._kick_interpTrackX(_ang),
+            self._kick_interpTrackY(_ang),
+            self._kick_interpTrackZ(_ang),
+            self._kick_interpTrackvX(_ang),
+            self._kick_interpTrackvY(_ang),
+            self._kick_interpTrackvZ(_ang),
+        ]
+        # follow the track: with a backend _kick_interpTrack* these are backend
+        # values, and numpy.array would both convert them and then MIX
+        # namespaces at the kick call site
+        if any(is_backend_array(v) for v in _vals):
+            _xp = get_namespace(*[v for v in _vals if is_backend_array(v)])
+            self._kick_ObsTrackXY_closest = _xp.stack(
+                [_xp.reshape(_xp.asarray(v), ()) for v in _vals]
+            )
+        else:
+            self._kick_ObsTrackXY_closest = numpy.array(_vals)
+        return None
+
+    def _interpolate_stream_track_kick_aA_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track_kick_aA`.
+
+        Mirrors ``streamdf._interpolate_stream_track_aA_backend`` with the gap's
+        arguments: ``_gap_sigMeanSign``, the progenitor angle wound back by
+        ``timpact``, and a disruption time shortened to ``tdisrupt - timpact``.
+        The frequency/angle blocks are assembled functionally -- the numpy body's
+        ``numpy.empty`` plus per-row assignment cannot hold a traced value.
+        """
+        xp = get_namespace(self._gap_ObsTrack)
+        thetas = self._kick_interpolatedThetasTrack
+        if not is_backend_array(thetas):
+            thetas = as_backend_constant(xp, thetas, self._gap_ObsTrack)
+        dmOs = xp.stack(
             [
-                self._kick_interpTrackX(self._impact_angle),
-                self._kick_interpTrackY(self._impact_angle),
-                self._kick_interpTrackZ(self._impact_angle),
-                self._kick_interpTrackvX(self._impact_angle),
-                self._kick_interpTrackvY(self._impact_angle),
-                self._kick_interpTrackvZ(self._impact_angle),
+                super(streamgapdf, self).meanOmega(
+                    thetas[ii],
+                    oned=True,
+                    tdisrupt=self._tdisrupt - self._timpact,
+                    use_physical=False,
+                )
+                for ii in range(thetas.shape[0])
             ]
+        )
+        # Vestigial spline, rebuilt for API parity (not read downstream).
+        self._kick_interpTrackAAdmeanOmegaOneD = Spline1D(
+            self._kick_interpolatedThetasTrack, dmOs, k=3, ext=0, bc="not-a-knot"
+        )
+        progOmega = self._progenitor_Omega
+        progAngle = self._progenitor_angle
+        dsig = self._dsigomeanProgDirection
+        if not is_backend_array(progOmega):
+            progOmega = as_backend_constant(xp, progOmega, self._gap_ObsTrack)
+        if not is_backend_array(progAngle):
+            progAngle = as_backend_constant(xp, progAngle, self._gap_ObsTrack)
+        if not is_backend_array(dsig):
+            dsig = as_backend_constant(xp, dsig, self._gap_ObsTrack)
+        sign = self._gap_sigMeanSign
+        Omega_block = progOmega[None, :] + dmOs[:, None] * dsig[None, :] * sign
+        angle_block = xp.remainder(
+            progAngle[None, :]
+            + thetas[:, None] * dsig[None, :] * sign
+            - self._timpact * progOmega[None, :],
+            2.0 * numpy.pi,
+        )
+        self._kick_interpolatedObsTrackAA = xp.concat(
+            [Omega_block, angle_block], axis=1
         )
         return None
 
@@ -936,6 +1427,8 @@ class streamgapdf(streamdf.streamdf):
         """Build interpolations of the stream track near the impact in action-angle coordinates"""
         if hasattr(self, "_kick_interpolatedObsTrackAA"):  # pragma: no cover
             return None  # Already did this
+        if is_backend_array(self._gap_ObsTrack):
+            return self._interpolate_stream_track_kick_aA_backend()
         # Calculate 1D meanOmega on a fine grid in angle and interpolate
         dmOs = numpy.array(
             [
@@ -978,7 +1471,11 @@ class streamgapdf(streamdf.streamdf):
         self._timpact = timpact
         deltaAngleTrackLim = (
             (self._sigMeanOffset + 4.0)
-            * numpy.sqrt(self._sortedSigOEig[2])
+            # numpy.sqrt of a TRACED moment raises (it works eagerly, which is why
+            # this only shows up under jax.grad of the constructor); _ns_sqrt takes
+            # the namespace route ONLY when traced, so the concrete path is
+            # byte-identical -- the same fix streamdf needed.
+            * _ns_sqrt(self._sortedSigOEig[2])
             * (self._tdisrupt - self._timpact)
         )
         if deltaAngleTrackImpact is None:
@@ -990,6 +1487,156 @@ class streamgapdf(streamdf.streamdf):
                     galpyWarning,
                 )
         self._deltaAngleTrackImpact = deltaAngleTrackImpact
+        return None
+
+    def _determine_impact_coordtransform_backend(self):
+        """Backend (jax/torch) twin of the (x,v) <-> (O,theta) setup at the impact.
+
+        Mirrors ``streamdf._determine_stream_track_backend`` with the impact-time
+        arguments the numpy body uses: the progenitor angle wound back by
+        ``timpact``, ``_gap_sigMeanSign``, and a ``meanOmega`` whose disruption
+        time is shortened to ``tdisrupt - timpact``. Arrays are built with
+        stack/concat -- the numpy body's ``numpy.empty`` buffers and item
+        assignment cannot hold a traced value.
+
+        The leading/trailing bookkeeping (``_gap_leading``, ``_gap_sigMeanSign``,
+        ``_nTrackChunksImpact``) is set by the caller and is structural.
+        """
+        from ..orbit import Orbit
+
+        # The numpy body passes (gap_progenitor, timpact) to the per-chunk helper;
+        # the backend helper takes a phase-space POINT and no time, so evaluate
+        # the gap progenitor AT the impact time. Using its _ic_backend (the t=0
+        # state) gave an offset point at R~44 with |v|~35 vc -- an orbit so wild
+        # the adaptive solver exhausted max_steps.
+        _gp = self._gap_progenitor
+        _ti = self._timpact
+        xv0_prog = get_namespace(_gp._ic_backend).stack(
+            [
+                _gp.R(_ti),
+                _gp.vR(_ti),
+                _gp.vT(_ti),
+                _gp.z(_ti),
+                _gp.vz(_ti),
+                _gp.phi(_ti),
+            ]
+        )
+        xp = get_namespace(xv0_prog)
+        method = inbackend_ode_method(xp)
+        ikw = getattr(self._aA, "_integrate_kwargs", None)
+        dt = (
+            self._deltaAngleTrackImpact
+            / self._progenitor_Omega_along_dOmega
+            / self._sigMeanSign
+            * self._gap_sigMeanSign
+        )
+        _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
+        self._gap_trackts = _span_grid(
+            (-2.0 if _dt_neg else 2.0) * dt, 2 * self._nTrackChunksImpact - 1
+        )
+        prog_angle_imp = self._progenitor_angle - self._timpact * self._progenitor_Omega
+
+        def meanOmega(x):
+            return super(streamgapdf, self).meanOmega(
+                x,
+                offset_sign=self._gap_sigMeanSign,
+                tdisrupt=self._tdisrupt - self._timpact,
+                use_physical=False,
+            )
+
+        prog_offset = _determine_stream_track_single_backend(
+            self._aA,
+            xv0_prog,
+            prog_angle_imp,
+            self._gap_sigMeanSign,
+            self._dsigomeanProgDirection,
+            meanOmega,
+            0.0,
+        )
+        auxiliaryTrack = Orbit(prog_offset[3])
+        if _dt_neg:
+            auxiliaryTrack = auxiliaryTrack.flip()
+        auxiliaryTrack.integrate(
+            xp.asarray(self._gap_trackts),
+            self._pot,
+            method=method,
+            inbackend_kwargs=ikw,
+        )
+        if _dt_neg:
+            auxiliaryTrack.orbit = _flip_velocity_columns(
+                auxiliaryTrack.orbit, auxiliaryTrack.phasedim()
+            )
+        aux0 = xp.stack(
+            [
+                auxiliaryTrack.R(0.0),
+                auxiliaryTrack.vR(0.0),
+                auxiliaryTrack.vT(0.0),
+                auxiliaryTrack.z(0.0),
+                auxiliaryTrack.vz(0.0),
+                auxiliaryTrack.phi(0.0),
+            ]
+        )
+        aux_acfs = self._aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
+        auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
+        dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
+        factor = xp.abs(
+            xp.sum(xp.asarray(self._progenitor_Omega) * dsig)
+            / xp.sum(auxiliary_Omega * dsig)
+        )
+        times = xp.asarray(self._gap_trackts[: self._nTrackChunksImpact]) * factor
+        xv0_all = xp.stack(
+            [
+                auxiliaryTrack.R(times),
+                auxiliaryTrack.vR(times),
+                auxiliaryTrack.vT(times),
+                auxiliaryTrack.z(times),
+                auxiliaryTrack.vz(times),
+                auxiliaryTrack.phi(times),
+            ],
+            axis=-1,
+        )
+        thetasTrack = _span_grid(self._deltaAngleTrackImpact, self._nTrackChunksImpact)
+
+        def single(xv0, th):
+            return _determine_stream_track_single_backend(
+                self._aA,
+                xv0,
+                prog_angle_imp,
+                self._gap_sigMeanSign,
+                self._dsigomeanProgDirection,
+                meanOmega,
+                th,
+            )
+
+        outs = _vmap_track_chunks(xp, single, xv0_all, thetasTrack)
+        ObsTrack = outs[3]
+        for _ in range(self.nTrackIterations):
+            outs = _vmap_track_chunks(xp, single, ObsTrack, thetasTrack)
+            ObsTrack = outs[3]
+        (
+            self._gap_allAcfsTrack,
+            self._gap_alljacsTrack,
+            self._gap_allinvjacsTrack,
+            self._gap_ObsTrack,
+            self._gap_ObsTrackAA,
+            self._gap_detdOdJps,
+        ) = outs
+        self._gap_thetasTrack = thetasTrack
+        self._gap_meandetdOdJp = xp.mean(self._gap_detdOdJps)
+        self._gap_logmeandetdOdJp = xp.log(self._gap_meandetdOdJp)
+        phi = self._gap_ObsTrack[:, 5]
+        TrackX = self._gap_ObsTrack[:, 0] * xp.cos(phi)
+        TrackY = self._gap_ObsTrack[:, 0] * xp.sin(phi)
+        TrackZ = self._gap_ObsTrack[:, 3]
+        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
+            self._gap_ObsTrack[:, 1],
+            self._gap_ObsTrack[:, 2],
+            self._gap_ObsTrack[:, 4],
+            phi,
+        )
+        self._gap_ObsTrackXY = xp.stack(
+            [TrackX, TrackY, TrackZ, TrackvX, TrackvY, TrackvZ], axis=1
+        )
         return None
 
     def _determine_impact_coordtransform(
@@ -1030,6 +1677,11 @@ class streamgapdf(streamdf.streamdf):
             )
         else:
             self._nTrackChunksImpact = nTrackChunksImpact
+        # _ic_backend is the PRECONDITION for the backend twin (it dereferences
+        # it), as in streamdf._determine_stream_track. Everything above is
+        # structural bookkeeping and concrete either way.
+        if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
+            return self._determine_impact_coordtransform_backend()
         dt = (
             self._deltaAngleTrackImpact
             / self._progenitor_Omega_along_dOmega
@@ -1243,19 +1895,34 @@ class streamgapdf(streamdf.streamdf):
         self._gap_progenitor.turn_physical_off()
         # Now integrate backward in time until tdisrupt
         ts = numpy.linspace(0.0, self._tdisrupt, 1001)
-        self._gap_progenitor.integrate(ts, self._pot)
-        # Flip its velocities, should really write a function for this
-        self._gap_progenitor.orbit[..., 1] = -self._gap_progenitor.orbit[..., 1]
-        self._gap_progenitor.orbit[..., 2] = -self._gap_progenitor.orbit[..., 2]
-        self._gap_progenitor.orbit[..., 4] = -self._gap_progenitor.orbit[..., 4]
+        # A backend progenitor must use the SAME solver (and options) as the rest
+        # of the graph: this spans tdisrupt, far longer than the track segments,
+        # and mixing adjoints corrupts nested gradients.
+        if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
+            _m = inbackend_ode_method(get_namespace(self._gap_progenitor._ic_backend))
+            self._gap_progenitor.integrate(
+                ts,
+                self._pot,
+                method=_m,
+                inbackend_kwargs=getattr(self._aA, "_integrate_kwargs", None),
+            )
+        else:
+            self._gap_progenitor.integrate(ts, self._pot)
+        # Flip the stored trajectory's velocities -- only the trajectory, NOT
+        # vxvv, which keeps the backward IC (so Orbit.flip is not a drop-in
+        # here). A backend trajectory cannot be item-assigned, hence the helper.
+        self._gap_progenitor.orbit = _flip_velocity_columns(
+            self._gap_progenitor.orbit, self._gap_progenitor.phasedim()
+        )
         return None
 
     ################################SAMPLE THE DF##################################
-    def _sample_aAt(self, n):
+    def _sample_aAt(self, n, key=None):
         """Sampling frequencies, angles, and times part of sampling, for stream with gap"""
         # Use streamdf's _sample_aAt to generate unperturbed frequencies,
-        # angles
-        Om, angle, dt = super()._sample_aAt(n)
+        # angles (the gap kicks below are numpy-only, so a backend key is not
+        # supported for the gap DF; key is threaded for the numpy path/signature).
+        Om, angle, dt = super()._sample_aAt(n, key=key)
         # Now rewind angles by timpact, apply the kicks, and run forward again
         dangle_at_impact = (
             angle
@@ -1307,45 +1974,54 @@ def impulse_deltav_plummer(v, y, b, w, GM, rs):
     -----
     - 2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
     """
+    xp = (
+        namespace_from_arrays(
+            tuple(a for a in (v, y, w, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, y, w, b, GM, rs = coerce_coords(xp, v, y, w, b, GM, rs)
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
-        y = numpy.reshape(y, (1, 1))
+        v = xp.reshape(v, (1, 3))
+        y = xp.reshape(y, (1, 1))
     nv = v.shape[0]
     # Build the rotation matrices and their inverse
     rot = _rotation_vy(v)
     rotinv = _rotation_vy(v, inv=True)
     # Rotate the Plummer sphere's velocity to the stream frames
-    tilew = numpy.sum(rot * numpy.tile(w, (nv, 3, 1)), axis=-1)
+    tilew = xp.sum(rot * w, axis=-1)
     # Use Denis' expressions
-    wperp = numpy.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
-    wpar = numpy.sqrt(numpy.sum(v**2.0, axis=1)) - tilew[:, 1]
+    wperp = xp.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
+    wpar = xp.sqrt(xp.sum(v**2.0, axis=1)) - tilew[:, 1]
     wmag2 = wpar**2.0 + wperp**2.0
-    wmag = numpy.sqrt(wmag2)
-    out = numpy.empty_like(v)
+    wmag = xp.sqrt(wmag2)
     denom = wmag * ((b**2.0 + rs**2.0) * wmag2 + wperp**2.0 * y**2.0)
-    out[:, 0] = (b * wmag2 * tilew[:, 2] / wperp - y * wpar * tilew[:, 0]) / denom
-    out[:, 1] = -(wperp**2.0) * y / denom
-    out[:, 2] = -(b * wmag2 * tilew[:, 0] / wperp + y * wpar * tilew[:, 2]) / denom
-    # deal w/ perpendicular impacts
-    wperp0Indx = numpy.fabs(wperp) < 10.0**-10.0
-    out[wperp0Indx, 0] = (
-        b * wmag2[wperp0Indx] - y[wperp0Indx] * wpar[wperp0Indx] * tilew[wperp0Indx, 0]
-    ) / denom[wperp0Indx]
-    out[wperp0Indx, 2] = (
-        -(
-            b * wmag2[wperp0Indx]
-            + y[wperp0Indx] * wpar[wperp0Indx] * tilew[wperp0Indx, 2]
-        )
-        / denom[wperp0Indx]
+    # perpendicular impacts: guard the dead 1/wperp branch so it does not NaN AD
+    wperp0Indx = xp.abs(wperp) < 10.0**-10.0
+    wperp_safe = xp.where(wperp0Indx, xp.ones_like(wperp), wperp)
+    col0 = xp.where(
+        wperp0Indx,
+        (b * wmag2 - y * wpar * tilew[:, 0]) / denom,
+        (b * wmag2 * tilew[:, 2] / wperp_safe - y * wpar * tilew[:, 0]) / denom,
+    )
+    col1 = -(wperp**2.0) * y / denom
+    col2 = xp.where(
+        wperp0Indx,
+        -(b * wmag2 + y * wpar * tilew[:, 2]) / denom,
+        -(b * wmag2 * tilew[:, 0] / wperp_safe + y * wpar * tilew[:, 2]) / denom,
+    )
+    out = xp.stack(
+        [xp.reshape(col0, (nv,)), xp.reshape(col1, (nv,)), xp.reshape(col2, (nv,))],
+        axis=-1,
     )
     # Rotate back to the original frame
-    return (
-        2.0
-        * GM
-        * numpy.sum(
-            rotinv * numpy.swapaxes(numpy.tile(out.T, (3, 1, 1)).T, 1, 2), axis=-1
-        )
-    )
+    return 2.0 * GM * xp.sum(rotinv * out[:, None, :], axis=-1)
 
 
 def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
@@ -1380,33 +2056,59 @@ def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
     -----
     - 2015-05-04 - Written based on above - Sanders (Cambridge)
     """
+    xp = (
+        namespace_from_arrays(
+            tuple(a for a in (v, x, w, x0, v0, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, x, w, x0, v0, b, GM, rs = coerce_coords(xp, v, x, w, x0, v0, b, GM, rs)
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.stack(
+        [
+            w[1] * v0[2] - w[2] * v0[1],
+            w[2] * v0[0] - w[0] * v0[2],
+            w[0] * v0[1] - w[1] * v0[0],
+        ]
+    )
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
     b_ = b0 + x - x0
     w = w - v
-    wmag = numpy.sqrt(numpy.sum(w**2, axis=1))
-    bdotw = numpy.sum(b_ * w, axis=1) / wmag
-    denom = wmag * (numpy.sum(b_**2, axis=1) + rs**2 - bdotw**2)
+    wmag = xp.sqrt(xp.sum(w**2, axis=1))
+    bdotw = xp.sum(b_ * w, axis=1) / wmag
+    denom = wmag * (xp.sum(b_**2, axis=1) + rs**2 - bdotw**2)
     denom = 1.0 / denom
-    return -2.0 * GM * ((b_.T - bdotw * w.T / wmag) * denom).T
+    return -2.0 * GM * ((b_ - bdotw[:, None] * w / wmag[:, None]) * denom[:, None])
 
 
 def HernquistX(s):
     """
     Computes X function from equations (33) & (34) of Hernquist (1990)
     """
-    if s < 0.0:
+    if not is_backend_array(s) and numpy.ndim(s) == 0 and s < 0.0:
         raise ValueError("s must be positive in Hernquist X function")
-    elif s < 1.0:
-        return numpy.log((1 + numpy.sqrt(1 - s * s)) / s) / numpy.sqrt(1 - s * s)
-    elif s == 1.0:
-        return 1.0
-    else:
-        return numpy.arccos(1.0 / s) / numpy.sqrt(s * s - 1)
+    xp = (
+        namespace_from_arrays((s,)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
+    s2 = s * s
+    lt = s < 1.0
+    eq = s == 1.0
+    # branchless: guard each regime's argument so dead branches carry no NaN/inf
+    one_m_s2 = xp.where(lt, 1.0 - s2, xp.ones_like(s2))  # >0 only where used (s<1)
+    r_lt = xp.sqrt(one_m_s2)
+    val_lt = xp.log((1.0 + r_lt) / s) / r_lt
+    s_gt = xp.where(s > 1.0, s, 2.0 * xp.ones_like(s2))  # >1 only where used (s>1)
+    val_gt = xp.arccos(1.0 / s_gt) / xp.sqrt(s_gt * s_gt - 1)
+    return xp.where(lt, val_lt, xp.where(eq, xp.ones_like(s2), val_gt))
 
 
 def impulse_deltav_hernquist(v, y, b, w, GM, rs):
@@ -1438,64 +2140,56 @@ def impulse_deltav_hernquist(v, y, b, w, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
+    xp = (
+        namespace_from_arrays(
+            tuple(a for a in (v, y, w, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, y, w, b, GM, rs = coerce_coords(xp, v, y, w, b, GM, rs)
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     nv = v.shape[0]
     # Build the rotation matrices and their inverse
     rot = _rotation_vy(v)
     rotinv = _rotation_vy(v, inv=True)
     # Rotate the Plummer sphere's velocity to the stream frames
-    tilew = numpy.sum(rot * numpy.tile(w, (nv, 3, 1)), axis=-1)
-    wperp = numpy.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
-    wpar = numpy.sqrt(numpy.sum(v**2.0, axis=1)) - tilew[:, 1]
+    tilew = xp.sum(rot * w, axis=-1)
+    wperp = xp.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
+    wpar = xp.sqrt(xp.sum(v**2.0, axis=1)) - tilew[:, 1]
     wmag2 = wpar**2.0 + wperp**2.0
-    wmag = numpy.sqrt(wmag2)
-    B = numpy.sqrt(b**2.0 + wperp**2.0 * y**2.0 / wmag2)
+    wmag = xp.sqrt(wmag2)
+    B = xp.sqrt(b**2.0 + wperp**2.0 * y**2.0 / wmag2)
     denom = wmag * (B**2 - rs**2)
     denom = 1.0 / denom
-    s = numpy.sqrt(2.0 * B / (rs + B))
-    HernquistXv = numpy.vectorize(HernquistX)
-    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistXv(s)
-    out = numpy.empty_like(v)
-    out[:, 0] = (
-        (b * tilew[:, 2] / wperp - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac
+    s = xp.sqrt(2.0 * B / (rs + B))
+    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistX(s)
+    # perpendicular impacts: guard the dead 1/wperp branch so it does not NaN AD
+    wperp0Indx = xp.abs(wperp) < 10.0**-10.0
+    wperp_safe = xp.where(wperp0Indx, xp.ones_like(wperp), wperp)
+    col0 = xp.where(
+        wperp0Indx,
+        (b - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac,
+        (b * tilew[:, 2] / wperp_safe - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac,
     )
-    out[:, 1] = -(wperp**2.0) * y * denom * Xfac / wmag2
-    out[:, 2] = (
-        -(b * tilew[:, 0] / wperp + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac
+    col1 = -(wperp**2.0) * y * denom * Xfac / wmag2
+    col2 = xp.where(
+        wperp0Indx,
+        -(b + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac,
+        -(b * tilew[:, 0] / wperp_safe + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac,
     )
-    # deal w/ perpendicular impacts
-    wperp0Indx = numpy.fabs(wperp) < 10.0**-10.0
-    out[wperp0Indx, 0] = (
-        (
-            b
-            - y[wperp0Indx]
-            * wpar[wperp0Indx]
-            * tilew[wperp0Indx, 0]
-            / wmag2[wperp0Indx]
-        )
-        * denom[wperp0Indx]
-        * Xfac[wperp0Indx]
-    )
-    out[wperp0Indx, 2] = (
-        -(
-            b
-            + y[wperp0Indx]
-            * wpar[wperp0Indx]
-            * tilew[wperp0Indx, 2]
-            / wmag2[wperp0Indx]
-        )
-        * denom[wperp0Indx]
-        * Xfac[wperp0Indx]
+    out = xp.stack(
+        [xp.reshape(col0, (nv,)), xp.reshape(col1, (nv,)), xp.reshape(col2, (nv,))],
+        axis=-1,
     )
     # Rotate back to the original frame
-    return (
-        2.0
-        * GM
-        * numpy.sum(
-            rotinv * numpy.swapaxes(numpy.tile(out.T, (3, 1, 1)).T, 1, 2), axis=-1
-        )
-    )
+    return 2.0 * GM * xp.sum(rotinv * out[:, None, :], axis=-1)
 
 
 def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
@@ -1531,23 +2225,45 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
+    xp = (
+        namespace_from_arrays(
+            tuple(a for a in (v, x, w, x0, v0, b, GM, rs) if is_backend_array(a))
+        )
+        or numpy
+    )  # data-first: leaf consumed by numpy
+    # streamgapdf setup. b/GM/rs are in the probe because a DIFFERENTIATED
+    # perturber parameter with numpy coordinates would otherwise resolve to
+    # numpy and then mix (a grad-tracking torch tensor times an ndarray
+    # raises; jax silently tolerates it, which is why only torch failed).
+    # Only the BACKEND-valued arguments are probed: namespace_from_arrays
+    # rejects a mixed numpy/backend tuple, which is that very situation.
+    v, x, w, x0, v0, b, GM, rs = coerce_coords(xp, v, x, w, x0, v0, b, GM, rs)
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.stack(
+        [
+            w[1] * v0[2] - w[2] * v0[1],
+            w[2] * v0[0] - w[0] * v0[2],
+            w[0] * v0[1] - w[1] * v0[0],
+        ]
+    )
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
     b_ = b0 + x - x0
     w = w - v
-    wmag = numpy.sqrt(numpy.sum(w**2, axis=1))
-    bdotw = numpy.sum(b_ * w, axis=1) / wmag
-    B = numpy.sqrt(numpy.sum(b_**2, axis=1) - bdotw**2)
+    wmag = xp.sqrt(xp.sum(w**2, axis=1))
+    bdotw = xp.sum(b_ * w, axis=1) / wmag
+    B = xp.sqrt(xp.sum(b_**2, axis=1) - bdotw**2)
     denom = wmag * (B**2 - rs**2)
     denom = 1.0 / denom
-    s = numpy.sqrt(2.0 * B / (rs + B))
-    HernquistXv = numpy.vectorize(HernquistX)
-    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistXv(s)
-    return -2.0 * GM * ((b_.T - bdotw * w.T / wmag) * Xfac * denom).T
+    s = xp.sqrt(2.0 * B / (rs + B))
+    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistX(s)
+    return (
+        -2.0
+        * GM
+        * ((b_ - bdotw[:, None] * w / wmag[:, None]) * Xfac[:, None] * denom[:, None])
+    )
 
 
 def _a_integrand(T, y, b, w, pot, compt):
@@ -1564,6 +2280,56 @@ def _deltav_integrate(y, b, w, pot):
             for i in range(3)
         ]
     )
+
+
+# Number of Gauss-Legendre nodes for the backend (jax/torch) twin of the
+# scipy.integrate.quad acceleration integral. High enough that the fixed-order
+# rule reproduces the adaptive scipy result to the suite's tolerances on the
+# smooth impulse integrand after the t=T/(1-T^2) tail substitution.
+_GENERAL_QUAD_N = 100
+
+
+def _impulse_deltav_general_backend(v, y, b, w, pot):
+    # Backend (jax/torch) twin of impulse_deltav_general: the per-component
+    # scipy.integrate.quad over [-1, 1] becomes a single vectorised fixed-order
+    # Gauss-Legendre pass (all stars x 3 components x nodes at once), so the kick
+    # is differentiable w.r.t. v, y, b, w and the perturber's potential params.
+    xp = get_namespace(v, y, w)
+    v, y, w = coerce_coords(xp, v, y, w)
+    if v.ndim == 1:
+        v = xp.reshape(v, (1, 3))
+    nv = v.shape[0]
+    y = xp.reshape(y, (nv,))
+    rot = _rotation_vy(v)
+    rotinv = _rotation_vy(v, inv=True)
+    # Rotate the subhalo's velocity to the per-star stream frames, then subtract
+    # |v| from the y-component (the numpy path's in-place tilew[:, 1] -= |v|).
+    tilew = xp.sum(rot * w, axis=-1)
+    vmag = xp.sqrt(xp.sum(v**2.0, axis=1))
+    zeros = xp.zeros_like(vmag)
+    tilew = tilew - xp.stack([zeros, vmag, zeros], axis=-1)
+    wmag = xp.sqrt(tilew[:, 0] ** 2 + tilew[:, 2] ** 2)
+    b0 = b * xp.stack([-tilew[:, 2] / wmag, zeros, tilew[:, 0] / wmag], axis=-1)
+    ehat = xp.asarray([0.0, 1.0, 0.0], dtype=v.dtype)
+
+    def integrand(T):  # T: (n,) GL nodes on [-1, 1] -> (nv, 3, n)
+        t = T / (1 - T * T)
+        # X[i, c, k] = b0[i, c] + tilew[i, c] * t[k] + y[i] * ehat[c]
+        X = (
+            b0[:, :, None]
+            + tilew[:, :, None] * t[None, None, :]
+            + (y[:, None] * ehat[None, :])[:, :, None]
+        )
+        r = xp.sqrt(xp.sum(X**2, axis=1))  # (nv, n)
+        Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
+        jac = (1 + T * T) / (1 - T * T) ** 2
+        return jac[None, None, :] * Rf[:, None, :] * X / r[:, None, :]
+
+    deltav = fixed_quad(
+        xp, integrand, -1.0, 1.0, n=_GENERAL_QUAD_N, device=device_of(v)
+    )  # (nv, 3)
+    # Rotate back to the original frame
+    return xp.sum(rotinv * deltav[:, None, :], axis=-1)
 
 
 def impulse_deltav_general(v, y, b, w, pot):
@@ -1594,6 +2360,11 @@ def impulse_deltav_general(v, y, b, w, pot):
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     pot = _check_potential_list_and_deprecate(pot)
+    # data-first: a jax/torch input routes to the vectorised, differentiable
+    # backend twin; numpy/list inputs keep the byte-identical scipy.quad path
+    # below (also when consumed by numpy streamgapdf setup under a forced backend)
+    if is_backend_array(v) or is_backend_array(y) or is_backend_array(w):
+        return _impulse_deltav_general_backend(v, y, b, w, pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -1661,6 +2432,55 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     )
 
 
+def _impulse_deltav_general_orbitintegration_backend(
+    v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+):
+    # Backend (jax/torch) twin of impulse_deltav_general_orbitintegration: the
+    # per-star Orbit.integrate loop becomes ONE batched in-backend differentiable
+    # ODE solve (diffrax for jax, torchdiffeq for torch), and the negative-step
+    # trajectory reversal / scipy.simpson become xp.flip / quadrature.simpson, so
+    # the kick is differentiable w.r.t. the orbit ICs (v, x), b, w and the
+    # perturber's potential params (galpot's params flow through the ODE). Needs
+    # galpot's forces to return backend arrays (a real Potential does; a test
+    # double whose force returns a bare Python scalar does not -> numpy path).
+    xp = get_namespace(v, x, w)
+    method = inbackend_ode_method(xp)
+    v, x, w, x0, v0 = coerce_coords(xp, v, x, w, x0, v0)
+    if v.ndim == 1:
+        v = xp.reshape(v, (1, 3))
+    if x.ndim == 1:
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.linalg.cross(w, v0)
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
+    times = xp.linspace(0.0, tmax, nsamp)
+    R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
+    vR, vp, vz = coords.rect_to_cyl_vec(v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True)
+    ic = xp.stack([R, vR, vp, z, vz, phi], axis=-1)  # (nstar, 6)
+
+    def _cart(o):
+        # Read the integrated states (o.orbit at the grid) directly; convert
+        # cylindrical [R, vR, vT, z, vz, phi] -> cartesian (galpy's convention).
+        orb = o.orbit  # (nstar, nt, 6)
+        _R, _vR, _vT, _z, _vz, _phi = (orb[:, :, k] for k in range(6))
+        _xc, _yc, _zc = coords.cyl_to_rect(_R, _phi, _z)
+        return xp.stack([_xc, _yc, _zc], axis=-1)  # (nstar, nt, 3)
+
+    ofwd = Orbit(ic)
+    ofwd.turn_physical_off()
+    ofwd.integrate(times, galpot, method=method)
+    oback = Orbit(ic)
+    oback.turn_physical_off()
+    oback.integrate(-times, galpot, method=method)
+    # Stitch the reversed backward leg (t: -tmax..0) to the forward leg (t: 0..tmax)
+    xres = xp.concat([xp.flip(_cart(oback), axis=1), _cart(ofwd)[:, 1:, :]], axis=1)
+    alltimes = xp.concat([-xp.flip(times, axis=0), times[1:]], axis=0)
+    X = b0 + xres - x0 - alltimes[:, None] * w[None, :]  # (nstar, nt, 3)
+    r = xp.sqrt(xp.sum(X**2, axis=-1))  # (nstar, nt)
+    Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
+    acc = (Rf / r)[:, :, None] * X  # (nstar, nt, 3)
+    return simpson(xp, acc, alltimes)
+
+
 def impulse_deltav_general_orbitintegration(
     v,
     x,
@@ -1715,36 +2535,47 @@ def impulse_deltav_general_orbitintegration(
     - 2015-08-17 - Written - Sanders (Cambridge)
     """
     galpot = _check_potential_list_and_deprecate(galpot)
-    if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
-    if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    nstar, ndim = numpy.shape(v)
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
-    times = numpy.linspace(0.0, tmax, nsamp)
-    xres = numpy.zeros(shape=(len(x), nsamp * 2 - 1, 3))
-    R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
-    vR, vp, vz = coords.rect_to_cyl_vec(v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True)
-    for i in range(nstar):
-        o = Orbit([R[i], vR[i], vp[i], z[i], vz[i], phi[i]])
-        o.integrate(times, galpot, method=integrate_method)
-        xres[i, nsamp:, 0] = o.x(times)[1:]
-        xres[i, nsamp:, 1] = o.y(times)[1:]
-        xres[i, nsamp:, 2] = o.z(times)[1:]
-        oreverse = o.flip()
-        oreverse.integrate(times, galpot, method=integrate_method)
-        xres[i, :nsamp, 0] = oreverse.x(times)[::-1]
-        xres[i, :nsamp, 1] = oreverse.y(times)[::-1]
-        xres[i, :nsamp, 2] = oreverse.z(times)[::-1]
-    times = numpy.concatenate((-times[::-1], times[1:]))
-    nsamp = len(times)
-    X = b0 + xres - x0 - numpy.outer(times, w)
-    r = numpy.sqrt(numpy.sum(X**2, axis=-1))
-    acc = (numpy.reshape(evaluateRforces(pot, r.flatten(), 0.0), (nstar, nsamp)) / r)[
-        :, :, numpy.newaxis
-    ] * X
-    return integrate.simpson(acc, x=times, axis=1)
+    # data-first: jax/torch inputs route to the batched, differentiable in-backend
+    # ODE twin; numpy/list inputs keep the byte-identical per-orbit C-integration
+    # path below, forced onto numpy so a forced backend does not leak into the
+    # (unmigrated) numpy Orbit accessors / negative-step slices.
+    if is_backend_array(v) or is_backend_array(x) or is_backend_array(w):
+        return _impulse_deltav_general_orbitintegration_backend(
+            v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+        )
+    with use("numpy", force=True):
+        if len(v.shape) == 1:
+            v = numpy.reshape(v, (1, 3))
+        if len(x.shape) == 1:
+            x = numpy.reshape(x, (1, 3))
+        nstar, ndim = numpy.shape(v)
+        b0 = numpy.cross(w, v0)
+        b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        times = numpy.linspace(0.0, tmax, nsamp)
+        xres = numpy.zeros(shape=(len(x), nsamp * 2 - 1, 3))
+        R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
+        vR, vp, vz = coords.rect_to_cyl_vec(
+            v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True
+        )
+        for i in range(nstar):
+            o = Orbit([R[i], vR[i], vp[i], z[i], vz[i], phi[i]])
+            o.integrate(times, galpot, method=integrate_method)
+            xres[i, nsamp:, 0] = o.x(times)[1:]
+            xres[i, nsamp:, 1] = o.y(times)[1:]
+            xres[i, nsamp:, 2] = o.z(times)[1:]
+            oreverse = o.flip()
+            oreverse.integrate(times, galpot, method=integrate_method)
+            xres[i, :nsamp, 0] = oreverse.x(times)[::-1]
+            xres[i, :nsamp, 1] = oreverse.y(times)[::-1]
+            xres[i, :nsamp, 2] = oreverse.z(times)[::-1]
+        times = numpy.concatenate((-times[::-1], times[1:]))
+        nsamp = len(times)
+        X = b0 + xres - x0 - numpy.outer(times, w)
+        r = numpy.sqrt(numpy.sum(X**2, axis=-1))
+        acc = (
+            numpy.reshape(evaluateRforces(pot, r.flatten(), 0.0), (nstar, nsamp)) / r
+        )[:, :, numpy.newaxis] * X
+        return integrate.simpson(acc, x=times, axis=1)
 
 
 def impulse_deltav_general_fullplummerintegration(
@@ -2083,4 +2914,7 @@ def impulse_deltav_plummerstream_curvedstream(
 
 
 def _rotation_vy(v, inv=False):
-    return _rotate_to_arbitrary_vector(v, [0, 1, 0], inv)
+    a = [0, 1, 0]  # numpy path: list kept verbatim (byte-identical)
+    if is_backend_array(v):  # backend: anchor the target axis on v's namespace
+        a = get_namespace(v).asarray(a, dtype=v.dtype)
+    return _rotate_to_arbitrary_vector(v, a, inv)

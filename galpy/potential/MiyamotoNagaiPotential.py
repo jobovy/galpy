@@ -5,8 +5,10 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
-import numpy
+import math
 
+from ..backend import coerce_coords, get_namespace
+from ..backend._namespaces import under_trace
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -55,6 +57,7 @@ class MiyamotoNagaiPotential(Potential):
         self._scale = self._a
         self._b = b
         self._b2 = self._b**2.0
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -66,20 +69,41 @@ class MiyamotoNagaiPotential(Potential):
         self._nemo_accname = "MiyamotoNagai"
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -1.0 / numpy.sqrt(
-            R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0
-        )
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -1.0 / xp.sqrt(R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        return -R / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -R / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
             3.0 / 2.0
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if isinstance(R, float) and sqrtbz == asqrtbz:
-            return -z / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                -z
+                * asqrtbz
+                / _sq
+                / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0)
+                ** (3.0 / 2.0)
+            )
+        if self._a == 0.0:
+            # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
+            return -z / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
                 3.0 / 2.0
             )
         else:
@@ -87,37 +111,80 @@ class MiyamotoNagaiPotential(Potential):
                 -z
                 * asqrtbz
                 / sqrtbz
-                / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0)
+                / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0)
                 ** (3.0 / 2.0)
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if isinstance(R, float) and sqrtbz == asqrtbz:
-            return 3.0 / (R**2.0 + sqrtbz**2.0) ** 2.5 / 4.0 / numpy.pi * self._b2
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                (self._a * R**2.0 + (self._a + 3.0 * sqrtbz) * asqrtbz**2.0)
+                / (R**2.0 + asqrtbz**2.0) ** 2.5
+                / _sq**3.0
+                / 4.0
+                / math.pi
+                * self._b2
+            )
+        if self._a == 0.0:
+            # a == 0 simplification (avoids sqrtbz**3 in the denominator)
+            return 3.0 / (R**2.0 + sqrtbz**2.0) ** 2.5 / 4.0 / math.pi * self._b2
         else:
             return (
                 (self._a * R**2.0 + (self._a + 3.0 * sqrtbz) * asqrtbz**2.0)
                 / (R**2.0 + asqrtbz**2.0) ** 2.5
                 / sqrtbz**3.0
                 / 4.0
-                / numpy.pi
+                / math.pi
                 * self._b2
             )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return (
-            1.0 / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** 1.5
+            1.0 / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** 1.5
             - 3.0
             * R**2.0
-            / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** 2.5
+            / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** 2.5
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if isinstance(R, float) and sqrtbz == asqrtbz:
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return (
+                self._a**3.0 * self._b2
+                + self._a**2.0
+                * (3.0 * self._b2 - 2.0 * z**2.0)
+                * xp.sqrt(self._b2 + z**2.0)
+                + (self._b2 + R**2.0 - 2.0 * z**2.0) * (self._b2 + z**2.0) ** 1.5
+                + self._a
+                * (3.0 * self._b2**2.0 - 4.0 * z**4.0 + self._b2 * (R**2.0 - z**2.0))
+            ) / (_sq**3.0 * (R**2.0 + asqrtbz**2.0) ** 2.5)
+        if self._a == 0.0:
+            # a == 0 simplification (avoids (b2+z2)**1.5 in the denominator)
             return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
                 self._b2 + R**2.0 + z**2.0
             ) ** -2.5
@@ -126,16 +193,29 @@ class MiyamotoNagaiPotential(Potential):
                 self._a**3.0 * self._b2
                 + self._a**2.0
                 * (3.0 * self._b2 - 2.0 * z**2.0)
-                * numpy.sqrt(self._b2 + z**2.0)
+                * xp.sqrt(self._b2 + z**2.0)
                 + (self._b2 + R**2.0 - 2.0 * z**2.0) * (self._b2 + z**2.0) ** 1.5
                 + self._a
                 * (3.0 * self._b2**2.0 - 4.0 * z**4.0 + self._b2 * (R**2.0 - z**2.0))
             ) / ((self._b2 + z**2.0) ** 1.5 * (R**2.0 + asqrtbz**2.0) ** 2.5)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if isinstance(R, float) and sqrtbz == asqrtbz:
+        if under_trace(self._a):
+            # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
+            # value. The a==0 arm below is not a different model -- it is the
+            # SAME formula with the 0/0 removed, and the general one already
+            # equals it wherever sqrtbz > 0 (a=0 makes asqrtbz/sqrtbz == 1). The
+            # degeneracy is only b==0 AND z==0, so guard that denominator and
+            # take the general form; an unguarded 0/0 would NaN-poison d/da
+            # everywhere, not just at the singular point.
+            _sq = xp.where(sqrtbz == 0.0, 1.0, sqrtbz)
+            return -(3.0 * R * z * asqrtbz / _sq / (R**2.0 + asqrtbz**2.0) ** 2.5)
+        if self._a == 0.0:
+            # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
             return -(3.0 * R * z / (R**2.0 + asqrtbz**2.0) ** 2.5)
         else:
             return -(3.0 * R * z * asqrtbz / sqrtbz / (R**2.0 + asqrtbz**2.0) ** 2.5)

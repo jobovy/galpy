@@ -16,6 +16,7 @@ from matplotlib.ticker import NullFormatter
 from numpy.polynomial import chebyshev, polynomial
 from scipy import integrate, interpolate, ndimage, optimize
 
+from ..backend import backend, is_backend_array
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.linearPotential import _evaluatelinearx2derivs
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -34,6 +35,22 @@ from .actionAngleVertical import actionAngleVertical
 # interval of the chi mesh in the exact-point-transformation construction;
 # the error per panel is O((pi/nchi)^20), i.e., machine precision)
 _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
+
+
+def _reject_backend(*xs):
+    # actionAngleVerticalInverse is NOT yet backend-migrated (under active
+    # development): it builds scipy interpolation / ndimage.map_coordinates grids
+    # and runs under numpy only. Fail loudly rather than silently mis-behaving,
+    # so the not-migrated status is explicit. Two ways a backend sneaks in:
+    #   (1) a forced/active backend context (backend() != "numpy") -- this is what
+    #       the all-backend test harness sets via `use(..., force=True)`, which
+    #       coerces even numpy inputs to the backend, so the GRID SETUP would break;
+    #   (2) jax/torch array inputs passed directly to an evaluation method.
+    if backend() != "numpy" or any(is_backend_array(x) for x in xs):
+        raise NotImplementedError(
+            "actionAngleVerticalInverse is not yet migrated to the jax/torch "
+            "backends (it is still under development); use it under numpy only."
+        )
 
 
 def _slope_at_zero(js, ys, dys):
@@ -72,7 +89,12 @@ class _linearHermite:
 
 
 class actionAngleVerticalInverse(actionAngleInverse):
-    """Inverse action-angle formalism for one dimensional systems"""
+    """Inverse action-angle formalism for one dimensional systems.
+
+    .. warning::
+       NOT yet backend-migrated (under active development) -- numpy/scipy only.
+       Calling with jax/torch array inputs raises ``NotImplementedError``.
+    """
 
     def __init__(
         self,
@@ -134,6 +156,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-11 - Started - Bovy (UofT)
         - 2026-08-30 - Added the momentum-matched canonical map - Bovy (UofT)
         """
+        _reject_backend()  # not yet backend-migrated; block construction under a backend
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVerticalInverse")
@@ -2366,6 +2389,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2022-11-24 - Written - Bovy (UofT)
 
         """
+        _reject_backend(E)
         indx = numpy.nanargmin(numpy.fabs(E - self._Es))
         if numpy.fabs(E - self._Es[indx]) > 1e-10:
             raise ValueError(
@@ -2445,6 +2469,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
+        _reject_backend(j, angle)
         if self._momentum_matched:
             # the canonical map replaces the evaluation entirely; there is
             # no fallback path through the old correspondence
@@ -2642,6 +2667,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
+        _reject_backend(j)
         # Find torus
         if self._momentum_matched:
             # The map's own frequency: dE/dJ of the Hermite energy

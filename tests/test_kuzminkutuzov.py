@@ -4,6 +4,7 @@ import numpy
 import scipy
 
 from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+from galpy.backend import as_numpy
 from galpy.orbit import Orbit
 from galpy.potential import (
     KuzminKutuzovStaeckelPotential,
@@ -44,7 +45,7 @@ def test_vcirc():
         )
         pot = V_D + V_H
         # normalization according to Batsleer & Dejonghe 1994:
-        V00 = evaluatePotentials(pot, 0.0, 0.0)
+        V00 = as_numpy(evaluatePotentials(pot, 0.0, 0.0))
         # second try, normalized:
         V_D = KuzminKutuzovStaeckelPotential(
             amp=k / (-V00), ac=ac_D, Delta=Delta, normalize=False
@@ -57,7 +58,7 @@ def test_vcirc():
         # _____calculate rotation curve_____
         Rs = numpy.linspace(0.0, 20.0, 100)
         z = 0.0
-        vcirc_calc = numpy.sqrt(-Rs * evaluateRforces(pot, Rs, z))
+        vcirc_calc = numpy.sqrt(-Rs * as_numpy(evaluateRforces(pot, Rs, z)))
 
         # _____vcirc by Batsleer & Dejonghe eq. (10) (with proper Jacobian)_____
         def vc2w(R):
@@ -514,8 +515,8 @@ def test_density():
             pot = V_D + V_H
 
             # _____local density_____
-            rho_calc = (
-                evaluateDensities(pot, Rsun, zsun) * 100.0
+            rho_calc = numpy.float64(
+                as_numpy(evaluateDensities(pot, Rsun, zsun) * 100.0)
             )  # units: [solar mass / pc^3]
             rho_calc = round(rho_calc, 2)
 
@@ -533,7 +534,7 @@ def test_density():
 
             # _____surface density_____
             Sig_calc, err = scipy.integrate.quad(
-                lambda z: (
+                lambda z: as_numpy(
                     evaluateDensities(pot, Rsun, z / 1000.0) * 100.0
                 ),  # units: [solar mass / pc^3]
                 0.0,
@@ -667,6 +668,7 @@ def test_actionConservation():
     # _____Setup ActionAngle object and calculate actions (Staeckel approximation)_____
     aAS = actionAngleStaeckel(pot=pot, delta=Delta, c=True)
     jrs, lzs, jzs = aAS(o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts))
+    jrs, lzs, jzs = as_numpy(jrs), as_numpy(lzs), as_numpy(jzs)
 
     assert numpy.all(numpy.fabs(jrs - jrs[0]) < 10.0**-8.0), (
         "Radial action is not conserved along orbit."
@@ -697,7 +699,7 @@ def test_lambdanu_to_Rz():
     # _____test float input (z=0)_____
     # coordinate transformation:
     l, n = 2.0, -4.0
-    R, z = coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta)
+    R, z = tuple(as_numpy(v) for v in coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta))
     # true values:
     R_true = numpy.sqrt((l + a) * (n + a) / (a - g))
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
@@ -713,7 +715,7 @@ def test_lambdanu_to_Rz():
     # coordinate transformation:
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-4.0, -3.0, -3.5, -3.5])
-    R, z = coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta)
+    R, z = tuple(as_numpy(v) for v in coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta))
     # true values:
     R_true = numpy.sqrt((l + a) * (n + a) / (a - g))
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
@@ -743,8 +745,11 @@ def test_Rz_to_lambdanu():
     # true values:
     l, n = 2.0, -3.0
     # coordinate transformation:
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     # test:
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
@@ -757,8 +762,11 @@ def test_Rz_to_lambdanu():
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-7.0, -3.0, -5.0, -5.0])
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     assert numpy.all(numpy.fabs(lt - l) < 10.0**-10.0), (
         "Rz_to_lambdanu conversion did not work as expected (l array)"
@@ -781,8 +789,11 @@ def test_Rz_to_lambdanu_r2lt0():
     # true values:
     l, n = 2.0, -3.0 + 10.0**-10.0
     # coordinate transformation:
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     # test:
     assert numpy.fabs(lt - l) < 10.0**-8.0, (
@@ -795,8 +806,11 @@ def test_Rz_to_lambdanu_r2lt0():
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
     n = numpy.array([-7.0, -3.0 + 10.0**-10.0, -5.0, -5.0])
-    lt, nt = coords.Rz_to_lambdanu(
-        *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+    lt, nt = tuple(
+        as_numpy(v)
+        for v in coords.Rz_to_lambdanu(
+            *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
+        )
     )
     assert numpy.all(numpy.fabs(lt - l) < 10.0**-8.0), (
         "Rz_to_lambdanu conversion did not work as expected (l array)"

@@ -4,15 +4,13 @@
 import warnings
 
 import numpy
-from scipy.special import exp1
+from scipy.special import exp1 as _scipy_exp1
 
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
+from ..backend._namespaces import namespace_from_arrays
+from ..backend.special import exp1
 from ..util import conversion, galpyWarning
-from ..util._optional_deps import _JAX_LOADED
 from .SphericalPotential import SphericalPotential
-
-if _JAX_LOADED:
-    import jax.numpy as jnp
-    import jax.scipy.special as jspecial
 
 
 class ExpTruncNFWPotential(SphericalPotential):
@@ -69,14 +67,41 @@ class ExpTruncNFWPotential(SphericalPotential):
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
         rc = conversion.parse_length(rc, ro=self._ro)
+        # Under a forced backend these arrive as plain floats, so alpha below
+        # would be a float and construction would run on scipy -- the potential
+        # would never be built ON the forced backend. coerce_coords is a strict
+        # pass-through when xp is numpy, so the numpy path stays byte-identical.
+        a, rc = coerce_coords(get_namespace(a, rc), a, rc)
         self.a = a
         self.rc = rc
-        self._scale = self.a
+        # _scale is grid-construction bookkeeping, not physics: sphericaldf
+        # consumes it as a plain scalar length (numpy.log10(rmax/_scale),
+        # r_a_values * _scale, ...), so a coerced backend value there raises
+        # "unsupported operand type(s) for *: 'numpy.ndarray' and 'Tensor'".
+        # Take a concrete value when there is one; under a jax trace there is
+        # not (concretizing a tracer raises), and the grid consumers cannot run
+        # there anyway, so the traced value is kept. The physical scale stays on
+        # the backend either way.
+        try:
+            self._scale = (
+                float(as_numpy(self.a)) if is_backend_array(self.a) else self.a
+            )
+        except Exception:  # a jax tracer has no concrete value to take
+            self._scale = self.a
         # Precompute quantities involving the truncation that are reused by the
         # closed-form mass and potential integrals.
         self._alpha = a / rc
-        self._exp_alpha = numpy.exp(self._alpha)
-        self._E1_alpha = exp1(self._alpha)
+        # data-first: a backend a/rc keeps the potential differentiable w.r.t.
+        # the truncation parameters. Under a forced backend a/rc were coerced
+        # above, so this takes the backend branch there too; an unforced plain
+        # float still stays on scipy and byte-identical.
+        if is_backend_array(self._alpha):
+            xp = get_namespace(self._alpha)
+            self._exp_alpha = xp.exp(self._alpha)
+            self._E1_alpha = exp1(self._alpha)
+        else:
+            self._exp_alpha = numpy.exp(self._alpha)
+            self._E1_alpha = _scipy_exp1(self._alpha)
         # Dimensionless total mass M_tot/amp = F(infinity): as r->inf the two E1
         # terms of the closed-form F(r) leave exp(alpha)(1+alpha)E1(alpha) - 1.
         self._Ftot = self._exp_alpha * (1.0 + self._alpha) * self._E1_alpha - 1.0
@@ -88,12 +113,16 @@ class ExpTruncNFWPotential(SphericalPotential):
         # Threshold below which the closed-form M(<r) suffers cancellation; use
         # the series expansion instead. r/min(a, rc) < eps gives roughly eps^2
         # relative truncation error in F(r).
-        self._small_r_thresh = 1e-3 * min(a, rc)
+        # xp.minimum, not min(): min() needs a truth value, which a TRACED a or
+        # rc does not have (jax.jit(jax.grad(...)) w.r.t. a scale radius raises
+        # TracerBoolConversionError here). Same value on numpy.
+        self._small_r_thresh = 1e-3 * get_namespace(a, rc).minimum(a, rc)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True
         self.hasC_dens = True
@@ -173,10 +202,33 @@ class ExpTruncNFWPotential(SphericalPotential):
             # Keep amp = nfw.amp and solve amp * F(a/rc) = mass for rc, where
             # F(alpha) = exp(alpha)(1+alpha)E_1(alpha) - 1 decreases monotonically
             # from +inf (alpha->0) to 0 (alpha->inf), so the root is unique.
-            from scipy.optimize import brentq
+            from ..backend.optimize import brentq
 
             target_F = conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
-            Froot = lambda al: numpy.exp(al) * (1.0 + al) * exp1(al) - 1.0 - target_F
+            # Namespace-agnostic residual, with target_F passed through ``args``
+            # rather than closed over: galpy's brentq follows the DATA, and only
+            # an argument it can see selects the differentiable backend path.
+            # xp must follow the DATA, not the ambient (possibly FORCED) default:
+            # under `use("torch", force=True)` with a plain-float mass,
+            # get_namespace would say torch while brentq -- which dispatches on
+            # the data -- correctly goes to scipy and hands the residual Python
+            # floats, giving `torch.exp(float)`. Deriving both from the same
+            # predicate makes xp and the brentq dispatch agree by construction.
+            numpy_path = not is_backend_array(target_F)
+            xp = numpy if numpy_path else get_namespace(target_F)
+            # exp1 ALSO follows the ambient namespace, so on the numpy path take
+            # scipy's directly: the router would return a torch Tensor for a
+            # Python-float argument under `use("torch", force=True)`, and scipy's
+            # brentq would then be handed a Tensor residual.
+            _e1 = _scipy_exp1 if numpy_path else exp1
+            Froot = lambda al, tF: xp.exp(al) * (1.0 + al) * _e1(al) - 1.0 - tF
+            # numpy stays byte-identical: xp is numpy, exp1 routes to
+            # scipy.special.exp1, and brentq routes to scipy.optimize.brentq.
+            # On a backend target_F the value is a TRACER under jax.grad, so the
+            # bracket pre-check and the advisory warnings below -- both ordinary
+            # Python control flow on the solved value -- are numpy-only. The
+            # trade is deliberate: gradients in exchange for the domain check
+            # and the warnings, which are user guidance rather than correctness.
             # F(alpha) decreases monotonically from +inf (alpha->0, rc->inf, the
             # un-truncated infinite-mass NFW) to 0 (alpha->inf). Any finite mass
             # is therefore reachable, with a larger mass simply giving a larger
@@ -184,16 +236,16 @@ class ExpTruncNFWPotential(SphericalPotential):
             # end: F(690) ~ 2e-6 is the smallest mass we can evaluate before
             # exp(alpha) overflows (rc < a/690).
             a_low, a_high = 1e-150, 690.0  # F(1e-150) ~ 344; exp(690) still finite
-            if Froot(a_high) > 0.0:
+            if numpy_path and Froot(a_high, target_F) > 0.0:
                 raise ValueError(
                     "ExpTruncNFWPotential.from_nfw: the requested mass is too "
                     "small to evaluate -- it implies a truncation sharper than "
                     "rc = a/690, where the closed-form total mass overflows in "
                     "floating point"
                 )
-            alpha = brentq(Froot, a_low, a_high)
+            alpha = brentq(Froot, a_low, a_high, args=(target_F,))
             rc = a / alpha
-            if rc < a:
+            if numpy_path and rc < a:
                 warnings.warn(
                     "ExpTruncNFWPotential.from_nfw: the requested total mass "
                     f"implies a truncation radius rc={rc:g} smaller than the NFW "
@@ -208,7 +260,7 @@ class ExpTruncNFWPotential(SphericalPotential):
                 # divergent) NFW outskirts. rvir needs the overdensity definition
                 # and can fail (e.g. odd unit setups), so guard it.
                 try:
-                    rvir = nfw.rvir(use_physical=False)
+                    rvir = nfw.rvir(use_physical=False) if numpy_path else None
                 except Exception:  # pragma: no cover
                     rvir = None
                 if rvir is not None and rc > 2.0 * rvir:
@@ -234,31 +286,26 @@ class ExpTruncNFWPotential(SphericalPotential):
         # F(r) = M(<r) / amp = int_0^r s e^{-s/rc} / (a+s)^2 ds, the
         # dimensionless enclosed-mass scale (so that _rforce = -F(r)/r^2 in
         # amp-units). For r << a, rc the two E1 terms cancel; use a Taylor
-        # series in r there instead.
-        r = numpy.asarray(r, dtype=float)
-        if r.ndim == 0:
-            return self._F_scalar(float(r))
+        # series in r there instead. Both branches are finite and smooth on the
+        # whole domain (the split is for precision only), so the masked-out side
+        # cannot NaN-poison AD -- a plain xp.where suffices.
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0
         small = r < self._small_r_thresh
-        out = numpy.empty_like(r)
-        out[~small] = self._F_closed(r[~small])
-        out[small] = self._F_series(r[small])
-        return out
-
-    def _F_scalar(self, r):
-        if r < self._small_r_thresh:
-            return self._F_series(r)
-        return self._F_closed(r)
+        return xp.where(small, self._F_series(r), self._F_closed(r))
 
     def _F_closed(self, r):
         # F(r) = exp(alpha)(1+alpha)[E1(alpha) - E1(beta)] - 1
         #        + a exp(-r/rc)/(a+r),
         # with alpha = a/rc and beta = (a+r)/rc.
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
         beta = (a + r) / rc
         return (
             self._exp_alpha * (1.0 + self._alpha) * (self._E1_alpha - exp1(beta))
             - 1.0
-            + a * numpy.exp(-r / rc) / (a + r)
+            + a * xp.exp(-r / rc) / (a + r)
         )
 
     def _F_series(self, r):
@@ -267,6 +314,8 @@ class ExpTruncNFWPotential(SphericalPotential):
         #                + (r^4/4)(1/(2 rc^2) + 2/(rc a) + 3/a^2)
         #                - (r^5/5)(1/(6 rc^3) + 1/(rc^2 a)
         #                         + 3/(rc a^2) + 4/a^3) + ... ]
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0  # match _F_closed's namespace (direct-call parity)
         a, rc = self.a, self.rc
         c2 = 0.5
         c3 = -(1.0 / rc + 2.0 / a) / 3.0
@@ -286,45 +335,46 @@ class ExpTruncNFWPotential(SphericalPotential):
         # G(r) := 4 pi int_r^inf rho(s) s ds / amp
         #       = exp(-r/rc)/(a+r) - exp(alpha) E1(beta) / rc,
         # the outer-shell contribution to the potential.
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
         beta = (a + r) / rc
-        return numpy.exp(-r / rc) / (a + r) - self._exp_alpha * exp1(beta) / rc
+        return xp.exp(-r / rc) / (a + r) - self._exp_alpha * exp1(beta) / rc
 
     def _rdens(self, r, t=0.0):
         # rho(r) / amp; the 1/(4 pi a^3) factor is carried here so that the
         # public dens(r) = rho_s exp(-r/rc) / [(r/a)(1+r/a)^2], matching the
-        # NFW amplitude convention.
+        # NFW amplitude convention. data-first (dispatch on r's own namespace):
+        # _ddensdr feeds the spherical DF machinery, which may pass a tracer
+        # under a forced other backend.
+        xp = namespace_from_arrays((r,)) or numpy
+        r = xp.asarray(r) * 1.0  # so xp.exp gets a backend array (scalar inputs)
         a = self.a
-        return numpy.exp(-r / self.rc) / (
-            4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2
-        )
+        return xp.exp(-r / self.rc) / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
 
     def _revaluate(self, r, t=0.0):
         # Phi(r)/amp = -[F(r)/r + G(r)]. F(r) ~ r^2/(2 a^2) near the origin, so
         # F/r has a finite (zero) limit there that we substitute by hand to
         # avoid a 0/0 NaN (e.g. eddingtondf seeds its rphi spline at r=0).
-        r = numpy.asarray(r, dtype=float)
-        if r.ndim == 0:
-            if r == 0.0:
-                return -self._G(0.0)
-            return -(self._F(r) / r + self._G(r))
-        out = -self._G(r)
-        nz = r != 0.0
-        out[nz] -= self._F(r[nz]) / r[nz]
-        return out
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0
+        at0 = r == 0.0
+        safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
+        FoverR = xp.where(at0, xp.zeros_like(r), self._F(safe) / safe)
+        return -(FoverR + self._G(r))
 
     def _rforce(self, r, t=0.0):
         # -F(r)/r^2, with the finite r->0 limit -1/(2 a^2) substituted by hand.
-        r = numpy.asarray(r, dtype=float)
+        xp = get_namespace(r)
+        r = xp.asarray(r) * 1.0
         zero_limit = -0.5 / (self.a * self.a)
-        if r.ndim == 0:
-            if r == 0.0:
-                return zero_limit
-            return -self._F(r) / (r * r)
-        out = numpy.full_like(r, zero_limit)
-        nz = r != 0.0
-        out[nz] = -self._F(r[nz]) / (r[nz] * r[nz])
-        return out
+        at0 = r == 0.0
+        safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
+        force = -self._F(safe) / (safe * safe)
+        # zero_limit * ones_like (not full_like): keeps it an array-broadcast of a
+        # possibly-Tensor limit when a is a differentiable backend parameter
+        # (torch.full_like rejects a Tensor fill); byte-identical for numpy.
+        return xp.where(at0, zero_limit * xp.ones_like(r), force)
 
     def _r2deriv(self, r, t=0.0):
         return 4.0 * numpy.pi * self._rdens(r) - 2.0 * self._F(r) / r**3
@@ -336,7 +386,8 @@ class ExpTruncNFWPotential(SphericalPotential):
         # infinity: exp1(inf)=0 and exp(-inf)=0).
         if z is not None:
             raise AttributeError  # use general (spheroidal) implementation
-        return self._F(numpy.asarray(R, dtype=float))
+        xp = get_namespace(R)
+        return self._F(xp.asarray(R) * 1.0)
 
     def _ddensdr(self, r, t=0.0):
         # galpy calls _ddensdr/_d2densdr2 with amp already applied, so bake in
@@ -372,18 +423,16 @@ class ExpTruncNFWPotential(SphericalPotential):
         - 2026-06-25 - Written - Pfaffman + Claude Code
 
         """
-        # Used (via JAX grad) by the constantbetadf machinery, so the density's
-        # exponential must go through jax.numpy. d/dr[rho r^(2beta)] =
-        # rho r^(2beta) [(2beta-1)/r - 2/(a+r) - 1/rc]; reduces to _ddensdr at
-        # beta=0.
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _ddenstwobetadr requires the google/jax library"
-            )
+        # Consumed (via JAX grad) by the constantbetadf machinery, which passes
+        # jax tracers even under a forced-torch run, so dispatch on r's OWN
+        # namespace (data-first) rather than the forced default.
+        # d/dr[rho r^(2beta)] = rho r^(2beta) [(2beta-1)/r - 2/(a+r) - 1/rc];
+        # reduces to _ddensdr at beta=0.
+        xp = namespace_from_arrays((r,)) or numpy
         a, rc = self.a, self.rc
         rho = (
             self._amp
-            * jnp.exp(-r / rc)
+            * xp.exp(-r / rc)
             / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
         )
         return (
@@ -391,25 +440,3 @@ class ExpTruncNFWPotential(SphericalPotential):
             * r ** (2.0 * beta)
             * ((2.0 * beta - 1.0) / r - 2.0 / (a + r) - 1.0 / rc)
         )
-
-    def _rforce_jax(self, r):
-        # JAX (differentiable) radial force amp*(-F(r)/r^2), needed by the
-        # constantbetadf machinery. Uses the closed form for F(r); this is the
-        # same expression as _F_closed (the DFs evaluate it at r >= rmin >> the
-        # small-r series threshold, so the series branch is not needed here).
-        # jax.scipy.special.exp1 is not differentiable in jax (it routes through
-        # expn), so use E_1(x) = -Ei(-x) via the differentiable expi instead.
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
-        a, rc = self.a, self.rc
-        alpha = a / rc
-        beta = (a + r) / rc
-        e1 = lambda x: -jspecial.expi(-x)
-        F = (
-            jnp.exp(alpha) * (1.0 + alpha) * (e1(alpha) - e1(beta))
-            - 1.0
-            + a * jnp.exp(-r / rc) / (a + r)
-        )
-        return -self._amp * F / r**2

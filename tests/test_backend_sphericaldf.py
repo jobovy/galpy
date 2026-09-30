@@ -1,0 +1,1250 @@
+###############################################################################
+# test_backend_sphericaldf.py: Track F Pdf.2 (BASE + PILOT) -- backend
+# (jax/torch) coverage for the spherical-DF foundation: sphericaldf base
+# classes + the closed-form isotropicHernquistdf pilot. The numpy path is
+# byte-identical (test_sphericaldf unchanged); this exercises the
+# resolved-namespace dispatch: parity numpy<->jax<->torch of fE / __call__ /
+# moments / dM/dE, grad-vs-FD, and the numpy-side sampling contract (numpy RNG
+# draws unchanged under a forced backend; outputs are numpy arrays).
+###############################################################################
+import numpy
+import pytest
+
+from galpy.backend import as_numpy, use
+
+pytestmark = pytest.mark.backend_managed
+
+BACKENDS = []
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    BACKENDS.append("jax")
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+
+    BACKENDS.append("torch")
+except ImportError:  # pragma: no cover
+    torch = None
+
+import galpy.backend
+from galpy.backend import random as grandom
+from galpy.backend.interpolate import interp_linear
+from galpy.df import eddingtondf, isotropicHernquistdf
+from galpy.df.sphericaldf import (
+    anisotropicsphericaldf,
+    isotropicsphericaldf,
+    sphericaldf,
+)
+from galpy.potential import HernquistPotential
+
+if torch is not None:
+    import array_api_compat.torch as _TXP
+
+
+def _arr(backend, x):
+    return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
+
+
+def _is_backend_array(backend, x):
+    if backend == "jax":
+        return isinstance(x, jax.Array)
+    return torch.is_tensor(x)
+
+
+_HP = HernquistPotential(amp=2.3, a=1.3)
+_DF = isotropicHernquistdf(pot=_HP)
+_PSI0 = float(_DF._psi0)
+# in-bounds E grid + out-of-bounds points (E > 0 and E < -psi0)
+_EGRID = numpy.concatenate(
+    [numpy.linspace(-0.999 * _PSI0, -1e-4, 21), [0.5, -1.5 * _PSI0]]
+)
+_ENEG = numpy.linspace(-0.95 * _PSI0, -0.05 * _PSI0, 11)
+_RS = numpy.array([0.13, 0.5, 1.3, 5.2, 13.0])
+
+
+class _IsoAsAniso(anisotropicsphericaldf):
+    """Isotropic Hernquist dressed as an anisotropic DF: exercises the
+    anisotropic base-class (E, L)-machinery with a known isotropic answer."""
+
+    def __init__(self, pot=None):
+        anisotropicsphericaldf.__init__(self, pot=pot)
+        self._iso = isotropicHernquistdf(pot=pot)
+
+    def _call_internal(self, E, L, Lz):
+        fE = self._iso.fE(E)
+        return fE if L is None else fE * (1.0 + 0.0 * L)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_parity(backend):
+    # closed-form pilot: numpy<->backend parity of fE on an E grid including
+    # the out-of-bounds (functional dummy-then-zero) branches
+    ref = _DF.fE(_EGRID)
+    got = _DF.fE(_arr(backend, _EGRID))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_zero_edge(backend):
+    # E == 0 exactly is 0/0 in the numpy arcsin term (masked there by a
+    # historical row-quirk for 2-D grids); the backend branch implements the
+    # correct fE -> 0 limit, NaN-free (special-fn edge testing)
+    got = as_numpy(_DF.fE(_arr(backend, numpy.array([0.0, -0.0, -1e-300]))))
+    assert numpy.all(got == 0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_parity(backend):
+    # __call__ tuple forms ((E,), (E, L)) and the 6-coordinate form
+    ref = _DF((_EGRID,))
+    got = _DF((_arr(backend, _EGRID),))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    # with (ignored) L: exercises the backend L-parse branch
+    got = _DF((_arr(backend, _EGRID), _arr(backend, numpy.ones_like(_EGRID))))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    R = numpy.array([0.5, 1.1, 1.7, 2.9])
+    vR = numpy.array([0.1, -0.2, 0.3, 0.0])
+    vT = numpy.array([0.3, 0.5, 0.2, 0.4])
+    z = numpy.array([0.2, -0.3, 0.5, 0.0])
+    vz = numpy.array([-0.1, 0.2, 0.0, 0.1])
+    ref = _DF(R, vR, vT, z, vz, numpy.zeros_like(R))
+    got = _DF(*(_arr(backend, c) for c in (R, vR, vT, z, vz)))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moments_parity(backend):
+    # sigmar/sigmat (GL-vs-adaptive quadrature parity, measured 1.4e-9) and the
+    # exactly-isotropic beta; scalar and vector r (vectorized GL)
+    for name in ("sigmar", "sigmat"):
+        f = getattr(_DF, name)
+        ref = numpy.array([f(r) for r in _RS])
+        got = numpy.array([float(f(_arr(backend, r))) for r in _RS])
+        gotv = f(_arr(backend, _RS))
+        assert _is_backend_array(backend, gotv)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-8)
+        numpy.testing.assert_allclose(as_numpy(gotv), ref, rtol=1e-8)
+    b = _DF.beta(_arr(backend, 1.3))
+    assert float(as_numpy(b)) == pytest.approx(0.0, abs=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dMdE_parity(backend):
+    # Hernquist closed-form dM/dE (functional masking branch)
+    ref = _DF.dMdE(_ENEG)
+    got = _DF.dMdE(_arr(backend, _ENEG))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
+    # out-of-bounds E -> exactly zero on the dead branch
+    assert numpy.all(as_numpy(_DF.dMdE(_arr(backend, numpy.array([0.5])))) == 0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_base_isotropic_dMdE_parity(backend):
+    # the base-class quadrature dM/dE (GL after the r = rphi - s^2 turning-point
+    # substitution + backend Spline1D rphi eval). rtol 1e-6 is numpy's own
+    # adaptive-quad floor at the sqrt endpoint: against a tight gold reference
+    # the numpy path errs by 4.9e-7 at the deepest E while the backend GL is
+    # accurate to 1.3e-14 (match-numpy-quadrature-floor)
+    dfh = isotropicHernquistdf(pot=_HP)
+    ref = isotropicsphericaldf._dMdE(dfh, _ENEG)
+    got = isotropicsphericaldf._dMdE(dfh, _arr(backend, _ENEG))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_base_anisotropic_vmomentdensity_parity(backend):
+    # the anisotropic base-class (v, eta) tensor-product GL vs numpy dblquad
+    adf = _IsoAsAniso(pot=_HP)
+    for n, m in ((0, 0), (2, 0), (0, 2)):
+        ref = sphericaldf._vmomentdensity(adf, 1.3, n, m)
+        got = sphericaldf._vmomentdensity(adf, _arr(backend, 1.3), n, m)
+        assert _is_backend_array(backend, got)
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_base_anisotropic_dMdE_parity(backend):
+    # the anisotropic base-class dM/dE (nested GL after the r = rphi - s^2 and
+    # t = Lmax sin(phi) substitutions) vs the numpy nested adaptive quad
+    adf = _IsoAsAniso(pot=_HP)
+    ref = anisotropicsphericaldf._dMdE(adf, _ENEG[::3])
+    got = anisotropicsphericaldf._dMdE(adf, _arr(backend, _ENEG[::3]))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7)
+    # and it agrees with the isotropic base-class machinery
+    iso = isotropicsphericaldf._dMdE(isotropicHernquistdf(pot=_HP), _ENEG[::3])
+    numpy.testing.assert_allclose(as_numpy(got), iso, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_grad_vs_fd(backend):
+    E0, eps = -0.5 * _PSI0, 1e-6
+    fd = (
+        _DF.fE(numpy.atleast_1d(E0 + eps))[0] - _DF.fE(numpy.atleast_1d(E0 - eps))[0]
+    ) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda E: _DF.fE(E))(jnp.asarray(E0)))
+    else:
+        t = torch.tensor(E0, requires_grad=True)
+        _DF.fE(t).backward()
+        g = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6)
+    # out-of-bounds grad is finite 0, not NaN (dead-branch guards)
+    if backend == "jax":
+        goob = float(jax.grad(lambda E: _DF.fE(E))(jnp.asarray(0.5)))
+    else:
+        t = torch.tensor(0.5, requires_grad=True)
+        _DF.fE(t).backward()
+        goob = float(t.grad)
+    assert goob == 0.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sigmar_grad_vs_fd(backend):
+    # d(sigma_r)/dr through the GL moment integrals (limits + Phi(r))
+    r0, eps = 1.3, 1e-5
+    fd = (_DF.sigmar(r0 + eps) - _DF.sigmar(r0 - eps)) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda r: _DF.sigmar(r))(jnp.asarray(r0)))
+    else:
+        t = torch.tensor(r0, requires_grad=True)
+        _DF.sigmar(t).backward()
+        g = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dMdE_grad_vs_fd(backend):
+    # closed-form and base-quadrature dM/dE gradients w.r.t. E; the
+    # out-of-bounds grad is finite 0 (dead-branch guards)
+    dfh = isotropicHernquistdf(pot=_HP)
+    E0, eps = -0.4 * _PSI0, 1e-6
+    fd = (
+        dfh.dMdE(numpy.atleast_1d(E0 + eps))[0]
+        - dfh.dMdE(numpy.atleast_1d(E0 - eps))[0]
+    ) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda E: dfh.dMdE(E))(jnp.asarray(E0)))
+        gbase = float(
+            jax.grad(lambda E: isotropicsphericaldf._dMdE(dfh, E[None])[0])(
+                jnp.asarray(E0)
+            )
+        )
+        goob = float(jax.grad(lambda E: dfh.dMdE(E))(jnp.asarray(0.5)))
+    else:
+        t = torch.tensor(E0, requires_grad=True)
+        dfh.dMdE(t).backward()
+        g = float(t.grad)
+        t = torch.tensor([E0], requires_grad=True)
+        isotropicsphericaldf._dMdE(dfh, t)[0].backward()
+        gbase = float(t.grad[0])
+        t = torch.tensor(0.5, requires_grad=True)
+        dfh.dMdE(t).backward()
+        goob = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6)
+    numpy.testing.assert_allclose(gbase, fd, rtol=1e-6)
+    assert goob == 0.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_numpy_side_forced(backend):
+    # sampling is numpy-side by design: under a forced backend the numpy RNG
+    # draw sequence is unchanged and the outputs are numpy arrays; only the
+    # deterministic sub-steps (fE/vesc grids, closed-form icmf) run on the
+    # backend, so draws match the pure-numpy ones to fp noise
+    ref_df = isotropicHernquistdf(pot=_HP)
+    numpy.random.seed(10)
+    ref = ref_df.sample(n=100, return_orbit=False)
+    dfb = isotropicHernquistdf(pot=_HP)
+    numpy.random.seed(10)
+    with galpy.backend.use(backend, force=True):
+        got = dfb.sample(n=100, return_orbit=False)
+    for g, r in zip(got, ref):
+        assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(g, r, rtol=1e-10, atol=1e-12)
+    # position-conditioned branch with backend-array R, z, phi inputs
+    numpy.random.seed(11)
+    refRz = ref_df.sample(R=1.1, z=0.3, phi=0.7, n=20, return_orbit=False)
+    numpy.random.seed(11)
+    gotRz = ref_df.sample(
+        R=_arr(backend, 1.1),
+        z=_arr(backend, 0.3),
+        phi=_arr(backend, 0.7),
+        n=20,
+        return_orbit=False,
+    )
+    for g, r in zip(gotRz, refRz):
+        assert isinstance(g, numpy.ndarray)
+        numpy.testing.assert_allclose(g, r, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_cmf_interpolator_forced(backend):
+    # the interpolated inverse-CMF route (no closed-form _icmf): the mass grid
+    # is evaluated on the forced backend, pulled numpy-side into the Spline1D
+    # icdf; draws match pure numpy to the grid's fp noise
+    class NoICMF(isotropicHernquistdf):
+        _icmf = property()
+
+    ref_df = NoICMF(pot=_HP)
+    numpy.random.seed(12)
+    ref = ref_df.sample(n=50, return_orbit=False)
+    dfb = NoICMF(pot=_HP)
+    numpy.random.seed(12)
+    with galpy.backend.use(backend, force=True):
+        got = dfb.sample(n=50, return_orbit=False)
+    for g, r in zip(got, ref):
+        assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(g, r, rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_handle_rmin_forced(backend):
+    # the divergence probe Phi(0) coerces its scalar coordinate under a forced
+    # backend (undecorated potential evals reject scalars under torch)
+    from galpy.df.sphericaldf import _handle_rmin
+
+    ref = _handle_rmin(None, _HP, _HP, _HP._scale, 8.0, "testdf")
+    with galpy.backend.use(backend, force=True):
+        got = _handle_rmin(None, _HP, _HP, _HP._scale, 8.0, "testdf")
+    assert got == ref == 0.0  # Hernquist Phi(0) is finite -> rmin = 0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_setup_rphi_interpolator_forced(backend):
+    # forced backend vectorizes the r(Phi) grid construction (one call instead
+    # of nra scalar dispatches); the resulting spline matches pure numpy
+    ref = isotropicHernquistdf(pot=_HP)._setup_rphi_interpolator()
+    dfb = isotropicHernquistdf(pot=_HP)
+    with galpy.backend.use(backend, force=True):
+        got = dfb._setup_rphi_interpolator()
+    Es = numpy.linspace(-0.9 * _PSI0, -0.1 * _PSI0, 7)
+    numpy.testing.assert_allclose(got(Es), ref(Es), rtol=1e-12)
+    # and the frozen table evaluates natively on backend queries
+    gb = got(_arr(backend, Es))
+    assert _is_backend_array(backend, gb)
+    numpy.testing.assert_allclose(as_numpy(gb), ref(Es), rtol=1e-10)
+
+
+# Orbit.E()/L() accessors trip a pre-existing numpy __array_wrap__ deprecation on
+# torch tensors (Orbits.py, outside the df scope); ignore just that one here.
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_orbit_forced(backend):
+    # __call__'s Orbit branch builds |L| = sqrt(sum L^2); under a forced backend
+    # Orbit.L() is a backend array, so the reduction runs in the active namespace
+    # (numpy.sum(tensor) would raise TypeError). numpy path stays byte-identical.
+    from galpy.orbit import Orbit
+
+    ic = [0.6, 0.05, 0.2, 0.02, 0.03, 1.0]  # bound -> nonzero f
+    ref = as_numpy(_DF(Orbit(ic)))
+    assert numpy.all(ref > 0.0)
+    with galpy.backend.use(backend, force=True):
+        got = _DF(Orbit(ic))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    # the anisotropic base actually consumes |L| in _call_internal
+    ani = _IsoAsAniso(pot=_HP)
+    ref_a = as_numpy(ani(Orbit(ic)))
+    with galpy.backend.use(backend, force=True):
+        got_a = ani(Orbit(ic))
+    numpy.testing.assert_allclose(as_numpy(got_a), ref_a, rtol=1e-12)
+
+
+###############################################################################
+# Backend-native, differentiable radial + analytic-angle sampling via a backend
+# ``key`` (interp_linear inverse-CDF). The numpy path (key=None) is byte-
+# identical and covered by test_sphericaldf; here we exercise the backend key.
+###############################################################################
+def _key(backend, seed=7):
+    return grandom.key(seed, backend)
+
+
+def _ns(backend):
+    return jnp if backend == "jax" else _TXP
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_interp_linear_same_u_parity(backend):
+    # feed the SAME uniforms to interp_linear on the DF's (cdf, xi) grid under
+    # numpy vs the backend -> identical inverse-CDF samples (the whole radial
+    # sampler is a deterministic function of the uniforms)
+    xp = _ns(backend)
+    df = eddingtondf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the (cdf, xi) grids
+    ms, xis = df._get_cmf_grids()
+    u = numpy.random.uniform(size=400)
+    ref = interp_linear(numpy, ms, xis, u, extrapolate="clip")
+    got = interp_linear(
+        xp, _arr(backend, ms), _arr(backend, xis), _arr(backend, u), extrapolate="clip"
+    )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_backend_key_coords_and_distribution(backend):
+    # a full sample() under a backend key returns backend-array coordinates and
+    # reproduces the analytic Hernquist mass profile + azimuthal symmetry
+    import tests.test_sphericaldf as T
+    from galpy.orbit import Orbit
+
+    df = isotropicHernquistdf(pot=_HP)
+    R, vR, vT, z, vz, phi = df.sample(n=4000, return_orbit=False, key=_key(backend))
+    for c in (R, z, phi, vR, vz, vT):
+        assert _is_backend_array(backend, c)
+    a = _HP.a
+    samp = Orbit(
+        vxvv=numpy.array(
+            [
+                as_numpy(R),
+                as_numpy(vR),
+                as_numpy(vT),
+                as_numpy(z),
+                as_numpy(vz),
+                as_numpy(phi),
+            ]
+        ).T
+    )
+    T.check_spherical_massprofile(
+        samp, lambda r: r**2.0 / (r + a) ** 2.0, 0.05, skip=1000
+    )
+    T.check_azimuthal_symmetry(samp, 1, 0.05)
+    # king also samples r backend-native via its grid _icmf
+    from galpy.df import kingdf
+
+    Rk, _, _, zk, _, _ = kingdf(W0=3.0, M=2.0, rt=1.5).sample(
+        n=1000, return_orbit=False, key=_key(backend)
+    )
+    assert _is_backend_array(backend, Rk) and _is_backend_array(backend, zk)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_grad_vs_fd_cdf_grid(backend):
+    # d(sample_r)/d(cdf_grid): the interp_linear inverse-CDF is differentiable in
+    # the CDF knots (the parameter-dependent quantity). Random directional AD
+    # must h-converge to a central FD of the numpy path.
+    df = eddingtondf(pot=_HP)
+    df.sample(n=1, return_orbit=False)
+    ms, xis = df._get_cmf_grids()
+    scale = _HP._scale
+    u = numpy.random.uniform(size=200)
+    rng = numpy.random.default_rng(0)
+    d = rng.standard_normal(ms.shape)
+    d /= numpy.linalg.norm(d)
+
+    def sumr_np(cdf):
+        xi = interp_linear(numpy, cdf, xis, u, extrapolate="clip")
+        return numpy.sum(scale * (1.0 + xi) / (1.0 - xi))
+
+    if backend == "jax":
+
+        def sumr(cdf):
+            xi = interp_linear(
+                jnp, cdf, jnp.asarray(xis), jnp.asarray(u), extrapolate="clip"
+            )
+            return jnp.sum(scale * (1.0 + xi) / (1.0 - xi))
+
+        g = numpy.asarray(jax.grad(sumr)(jnp.asarray(ms)))
+    else:
+        c = torch.tensor(ms, requires_grad=True)
+        xi = interp_linear(
+            _TXP, c, torch.tensor(xis), torch.tensor(u), extrapolate="clip"
+        )
+        (scale * (1.0 + xi) / (1.0 - xi)).sum().backward()
+        g = c.grad.numpy()
+    ad = float(numpy.dot(g, d))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (sumr_np(ms + h * d) - sumr_np(ms - h * d)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-4 * abs(ad) + 1e-7, f"cdf-grad {backend} best={best:.2e}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_grad_vs_fd_scale(backend):
+    # d(sum sample_r)/d(a): Hernquist scale radius via the analytic (backend-
+    # native) _icmf, differentiated through _sample_r with a fixed backend key
+    # (CRN -> same uniforms). AD must h-converge to a central FD.
+    key = _key(backend, 3)
+
+    def make(aval):
+        d = isotropicHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3))
+        d._pot.a = aval  # differentiable leaf on a fresh pot (no shared-obj leak)
+        return d
+
+    if backend == "jax":
+        g = float(
+            jax.grad(lambda a: jnp.sum(make(a)._sample_r(n=150, key=key)))(
+                jnp.asarray(1.3)
+            )
+        )
+        out = make(jnp.asarray(1.3))._sample_r(n=150, key=key)
+        u = numpy.asarray(grandom.uniform(key, 150))
+    else:
+        at = torch.tensor(1.3, requires_grad=True)
+        out = make(at)._sample_r(n=150, key=key)
+        out.sum().backward()
+        g = float(at.grad)
+        u = grandom.uniform(key, 150).numpy()
+    assert _is_backend_array(backend, out)
+    assert numpy.isfinite(g) and abs(g) > 0
+    sq = numpy.sqrt(u)
+
+    def sumr(a):
+        return numpy.sum(a * sq / (1.0 - sq))
+
+    best = min(
+        abs(g - (sumr(1.3 + h) - sumr(1.3 - h)) / (2 * h)) for h in (1e-3, 1e-4, 1e-5)
+    )
+    assert best < 1e-5 * abs(g) + 1e-7, f"scale-grad {backend} best={best:.2e}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_backend_key_angles_independent(backend):
+    # regression: sample() must hand each angle sampler an INDEPENDENT sub-key.
+    # A prior bug passed the SAME parent key to the position- and velocity-angle
+    # samplers, which each re-split it identically -> the velocity polar angle
+    # became a deterministic function of the azimuthal position angle -> a biased
+    # joint (position, velocity) distribution. Isotropic -> E[vz] = 0, so the
+    # correlation showed up as a systematic mean(vz) offset (was ~ +0.033).
+    df = isotropicHernquistdf(pot=_HP)
+    vz = numpy.concatenate(
+        [
+            as_numpy(df.sample(n=6000, return_orbit=False, key=_key(backend, s))[4])
+            for s in (1, 2, 3)
+        ]
+    )
+    assert abs(numpy.mean(vz)) < 0.012, (
+        f"mean(vz)={numpy.mean(vz):.4f} -- correlated angle sub-keys?"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_eddington_general_backend_reachable(backend):
+    # the general (no closed-form _icmf) interp_linear inverse-CDF branch is
+    # reachable via the public eddingtondf.sample(key=...) and returns backend
+    # coordinates -- isotropic velocity sampling is backend-native
+    coords = eddingtondf(pot=_HP).sample(n=300, return_orbit=False, key=_key(backend))
+    for c in coords:
+        assert _is_backend_array(backend, c)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_native_pvr_parity(backend):
+    # the native bilinear inverse-CDF pvr must reproduce the scipy
+    # RectBivariateSpline(kx=1, ky=1) it dual-paths, at the SAME (log10 r/a, u)
+    # query points, to ~1e-13 -- so a backend-key velocity equals the numpy one
+    # given the same uniforms.
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the pvr interpolator
+    pvr = df._v_vesc_pvr_interpolator
+    rng = numpy.random.default_rng(5)
+    X = rng.uniform(-2.0, 2.0, 300)  # log10(r/a)
+    Y = rng.uniform(0.0, 1.0, 300)  # velocity uniform
+    ref = pvr(X, Y, grid=False)  # scipy path
+    got = as_numpy(pvr(_arr(backend, X), _arr(backend, Y), grid=False))  # native
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_grad_vs_fd_r(backend):
+    # d(sampled velocity)/d(r): the backend-key velocity magnitude is a
+    # differentiable function of the backend r (through both the pvr query
+    # log10(r/a) and vmax(r)). Random directional AD must h-converge to a central
+    # FD of the numpy path (fixed velocity uniforms = common random numbers).
+    xp = _ns(backend)
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the pvr interpolator
+    pvr = df._v_vesc_pvr_interpolator
+    scale = df._scale
+    rng = numpy.random.default_rng(6)
+    r0 = rng.uniform(0.3, 4.0, 20)
+    u_v = rng.uniform(0.05, 0.95, 20)  # fixed velocity uniforms (CRN)
+    d = rng.standard_normal(r0.shape)
+    d /= numpy.linalg.norm(d)
+
+    def sumv_np(r):
+        v = pvr(numpy.log10(r / scale), u_v, grid=False) * as_numpy(
+            df._vmax_at_r(df._pot, r)
+        )
+        return numpy.sum(v)
+
+    def loss_b(r_b):
+        v = pvr(xp.log10(r_b / scale), _arr(backend, u_v), grid=False) * df._vmax_at_r(
+            df._pot, r_b
+        )
+        return xp.sum(v)
+
+    with galpy.backend.use(backend, force=True):
+        if backend == "jax":
+            g = numpy.asarray(jax.grad(loss_b)(jnp.asarray(r0)))
+        else:
+            rt = torch.tensor(r0, requires_grad=True)
+            loss_b(rt).backward()
+            g = rt.grad.numpy()
+    ad = float(numpy.dot(g, d))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (sumv_np(r0 + h * d) - sumv_np(r0 - h * d)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-4 * abs(ad) + 1e-7, f"v-grad {backend} best={best:.2e}"
+
+
+def _ellipsoid_beta(coords):
+    """Velocity-anisotropy beta (and the two tangential/radial dispersion ratios)
+    from a spherical-DF sample's cylindrical (R, vR, vT, z, vz)."""
+    R, vR, vT, z, vz = (as_numpy(c) for c in coords[:5])
+    r = numpy.sqrt(R**2.0 + z**2.0)
+    vr = (R * vR + z * vz) / r  # spherical radial
+    vtot2 = vR**2.0 + vT**2.0 + vz**2.0
+    vphi2 = vT**2.0  # azimuthal (spherical phi = cyl T)
+    vth2 = vtot2 - vr**2.0 - vphi2  # spherical polar
+    sr2, sth2, sph2 = numpy.mean(vr**2.0), numpy.mean(vth2), numpy.mean(vphi2)
+    return 1.0 - (sth2 + sph2) / (2.0 * sr2), sth2 / sr2, sph2 / sr2
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_anisotropic_backend_key_distribution(backend):
+    # constantbeta/osipkovmerritt sample() under a backend key now returns
+    # backend-array coordinates whose velocity ellipsoid reproduces the analytic
+    # anisotropy (the eta inverse-CDF is backend-native: constantbeta inverts a
+    # fixed 1-D cos-eta CDF via interp_linear, OM the closed-form r-dependent
+    # inversion). key=None stays byte-identical (test_sphericaldf).
+    from galpy.df import constantbetadf, osipkovmerrittdf
+
+    n = 40000
+    # constant-beta: beta is r-independent -> the ellipsoid beta equals the true
+    # beta and each tangential/radial dispersion ratio equals 1 - beta.
+    cbeta = -0.2
+    cb = constantbetadf(pot=_HP, beta=cbeta)
+    cb_coords = cb.sample(n=n, return_orbit=False, key=_key(backend))
+    for c in cb_coords:
+        assert _is_backend_array(backend, c)
+    b_est, rth, rph = _ellipsoid_beta(cb_coords)
+    assert numpy.isfinite(b_est), f"constantbeta beta_est not finite ({b_est})"
+    assert abs(b_est - cbeta) < 0.04, f"constantbeta beta_est={b_est:.3f} vs {cbeta}"
+    assert abs(rth - (1.0 - cbeta)) < 0.06 and abs(rph - (1.0 - cbeta)) < 0.06, (
+        f"constantbeta ratios vth2/vr2={rth:.3f} vph2/vr2={rph:.3f} vs {1.0 - cbeta}"
+    )
+    cb.sample(n=5, return_orbit=False)  # numpy (key=None) path still works
+
+    # Osipkov-Merritt: beta(r) varies with r, so the mixed-radius ellipsoid beta
+    # must match an independent numpy sample of the same size (both float64).
+    om = osipkovmerrittdf(pot=_HP, ra=1.5)
+    om_coords = om.sample(n=n, return_orbit=False, key=_key(backend))
+    for c in om_coords:
+        assert _is_backend_array(backend, c)
+    b_be = _ellipsoid_beta(om_coords)[0]
+    numpy.random.seed(4)
+    b_np = _ellipsoid_beta(om.sample(n=n, return_orbit=False))[0]
+    assert numpy.isfinite(b_be), f"OM beta_est not finite ({b_be})"
+    assert abs(b_be - b_np) < 0.03, f"OM beta backend={b_be:.3f} numpy={b_np:.3f}"
+
+
+def test_pvr_interpolator_getattr_delegation():
+    # _PVRInterpolator delegates unknown attributes (e.g. get_knots) to the
+    # wrapped scipy spline so it is a drop-in for the RectBivariateSpline it
+    # replaces, and guards `_spl` to raise AttributeError (not recurse) before
+    # `_spl` is assigned.
+    from galpy.df.sphericaldf import _PVRInterpolator
+
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # builds the numpy pvr (has ._spl)
+    pvr = df._v_vesc_pvr_interpolator
+    assert pvr.get_knots() is not None  # delegated to the scipy spline
+    # a wrapper with no `_spl` raises AttributeError via the guard, not RecursionError
+    bare = _PVRInterpolator.__new__(_PVRInterpolator)
+    with pytest.raises(AttributeError):
+        bare.some_missing_attr  # noqa: B018  (triggers __getattr__ -> _spl guard)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_coercion_boundary_fires_for_sphericaldf(backend_name):
+    # sphericaldf opts into the @backend_input boundary (_backend_compatible), so
+    # its radius entry points COERCE: under a forced backend they must return a
+    # backend array rather than silently computing on numpy, and must agree with
+    # the numpy path. Before the opt-in the guard reported False for every df
+    # (a df is not a Force), so the decoration could never fire.
+    df = isotropicHernquistdf(pot=_HP)
+    ref = {
+        "sigmar": float(df.sigmar(1.3, use_physical=False)),
+        "sigmat": float(df.sigmat(1.3, use_physical=False)),
+        "beta": float(df.beta(1.3)),
+        "vmomentdensity": float(df.vmomentdensity(1.3, 0, 0)),
+    }
+    with galpy.backend.use(backend_name, force=True):
+        got = {
+            "sigmar": df.sigmar(1.3, use_physical=False),
+            "sigmat": df.sigmat(1.3, use_physical=False),
+            "beta": df.beta(1.3),
+            "vmomentdensity": df.vmomentdensity(1.3, 0, 0),
+        }
+    for name, val in got.items():
+        assert galpy.backend.is_backend_array(val), (
+            f"{name} did not stay on the {backend_name} backend"
+        )
+        # ~1e-9: the backend quadrature sums in a different order than numpy's,
+        # so this checks agreement, not bit-parity.
+        numpy.testing.assert_allclose(
+            float(as_numpy(val)), ref[name], rtol=1e-7, err_msg=name
+        )
+
+
+# The Quantity-radius regression (a Quantity handed to the @backend_input
+# boundary must pass through, not be coerced into NaN) lives in
+# tests/test_quantity.py: it needs a REAL Quantity, and this shard is
+# deliberately astropy-free, so an astropy import here is a hard error rather
+# than a skip. The boundary branch itself is covered without astropy by
+# test_backend_input.py::test_quantity_coordinate_passes_through.
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_grad_wrt_potential(backend):
+    # d(sampled velocity)/d(potential parameter). This flows through the p(v|r)
+    # inverse-CDF table, which used to be built numpy-side: that did not merely
+    # drop the gradient, it RAISED (TracerArrayConversionError) under a jax
+    # trace, because the frozen table was handed to scipy.
+    #
+    # Run under a FORCED backend: the potential parameter is not a coordinate, so
+    # data-dispatch alone does not reach _vmax_at_r, which still materialises its
+    # escape-velocity grid numpy-side and would cut d/d(amp) before the DF is
+    # evaluated. Forcing routes that grid through the backend too.
+    #
+    # The reference is analytic, not just a finite difference: a Hernquist DF's
+    # velocities scale as sqrt(amp) at fixed sampled radius (amp rescales the
+    # mass uniformly, so the radial distribution is amp-independent), hence
+    # d(sum v)/d(amp) = sum(v) / (2 amp).
+    from galpy.backend import random as grandom
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    amp0 = 2.0
+
+    def total_vR(amp):
+        df = isotropicHernquistdf(pot=HernquistPotential(amp=amp, a=1.3))
+        _, vR, _, _, _, _ = df.sample(n=8, key=grandom.key(0), return_orbit=False)
+        return vR.sum()
+
+    with use(backend, force=True):
+        if backend == "jax":
+            val = float(total_vR(jnp.asarray(amp0)))
+            g = float(jax.grad(total_vR)(jnp.asarray(amp0)))
+        else:
+            t = torch.tensor(amp0, requires_grad=True)
+            out = total_vR(t)
+            val = float(out)
+            out.backward()
+            g = float(t.grad)
+        # analytic: v ~ sqrt(amp) at fixed r
+        numpy.testing.assert_allclose(g, val / (2.0 * amp0), rtol=1e-6)
+        # and against a finite difference of the same seeded draw
+        eps = 1e-4
+        if backend == "jax":
+            fd = (
+                float(total_vR(jnp.asarray(amp0 + eps)))
+                - float(total_vR(jnp.asarray(amp0 - eps)))
+            ) / (2.0 * eps)
+        else:
+            fd = (
+                float(total_vR(torch.tensor(amp0 + eps)))
+                - float(total_vR(torch.tensor(amp0 - eps)))
+            ) / (2.0 * eps)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_interpolator_numpy_query_after_backend_build(backend):
+    # A backend build keeps the grids as backend arrays and does NOT construct
+    # the scipy spline (handing it a traced array raises). A later numpy query
+    # has to materialise that spline on demand, and attribute delegation has to
+    # go through the same lazy path.
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    df = isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=1.3))
+    df._rmin_sampling = 0.0
+    with use(backend, force=True):
+        ip = df._make_pvr_interpolator(r_a_end=1)
+    assert ip._spl is None, "backend build should not have built a scipy spline"
+    # a numpy query materialises it and returns numpy
+    got = ip(numpy.array([0.0, 0.1]), numpy.array([0.3, 0.6]), grid=False)
+    assert ip._spl is not None, "numpy query did not materialise the scipy spline"
+    assert isinstance(got, numpy.ndarray) and numpy.all(numpy.isfinite(got))
+    # unknown attributes delegate to that same spline
+    assert ip.get_knots() is not None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_table_falls_back_when_df_is_numpy_side(backend):
+    # A df whose p(v|r) is numpy-side whatever the namespace has no backend table
+    # to build; the builder must fall back to the numpy construction instead of
+    # applying namespace ops to a numpy array. Nothing in-tree is numpy-side any
+    # more (the general Osipkov-Merritt df was migrated), so use a synthetic.
+    from galpy.backend import use
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    class _NumpySideDF(isotropicHernquistdf):
+        def _p_v_at_r(self, v, r):
+            return as_numpy(super()._p_v_at_r(v, r))
+
+    df = _NumpySideDF(pot=HernquistPotential(amp=2.0, a=1.3))
+    df._rmin_sampling = 0.0
+    ref = df._make_pvr_interpolator(r_a_end=1)  # pure-numpy build
+    with use(backend, force=True):
+        ip = df._make_pvr_interpolator(r_a_end=1)
+    # The fallback recomputes numpy-side, so the table must match the pure-numpy
+    # build EXACTLY -- that is the contract that makes falling back safe. (The
+    # grids are still materialised onto the forced namespace afterwards, which is
+    # the pre-existing behaviour of a numpy build under a forced backend.)
+    numpy.testing.assert_allclose(
+        as_numpy(ip._z), as_numpy(ref._z), rtol=1e-10, atol=1e-14
+    )
+    got = ip(numpy.array([0.0]), numpy.array([0.5]), grid=False)
+    assert numpy.all(numpy.isfinite(got))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_backend_warns_on_negative_df(backend):
+    # beta > 0.5 gives the DF negative parts; the backend table build clamps them
+    # away and must say so, exactly as the numpy path does
+    from galpy.backend import use
+    from galpy.df import constantbetaHernquistdf
+    from galpy.potential import HernquistPotential
+    from galpy.util import galpyWarning
+
+    df = constantbetaHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3), beta=0.7)
+    df._rmin_sampling = 0.0
+    with use(backend, force=True):
+        with pytest.warns(galpyWarning, match="negative regions"):
+            ip = df._make_pvr_interpolator(r_a_end=1)
+    assert ip is not None
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_rphi_rootfind_reproduces_the_spline():
+    # r(Phi) is normally a 10001-knot spline over a numpy grid. That cannot be
+    # built for a TRACED potential: the r=0 test branches on a traced value, the
+    # monotonicity cleanup DELETES entries (a data-dependent array size), and the
+    # knots would be the traced potential values -- a dense (n, n) solve at that
+    # size. The traced path inverts by root-find instead, which must agree.
+    from galpy.df.sphericaldf import _RphiRootFind
+
+    df0 = isotropicHernquistdf(pot=_HP)
+    spl = df0._setup_rphi_interpolator()
+    rf = _RphiRootFind(_HP, df0._scale, 1e-6 * df0._scale, 1e6 * df0._scale)
+    Es = numpy.array([0.3, 0.5, 0.7]) * (-abs(_HP(0.0, 0.0)))
+    ref = numpy.asarray(spl(Es), dtype=float)
+    with use("jax", force=True):
+        got = as_numpy(rf(jnp.asarray(Es)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-8)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize(
+    "dfcls",
+    ["isotropicHernquistdf", "constantbetaHernquistdf", "osipkovmerrittHernquistdf"],
+)
+def test_spherical_df_dMdE_differentiates_in_the_potential(dfcls):
+    # the fit parameter enters the CONSTRUCTOR, so dM/dE has to be
+    # differentiable through it, not just evaluable
+    import galpy.df as _df
+
+    cls = getattr(_df, dfcls)
+    E0 = float(-0.5 * abs(_HP(0.0, 0.0)))
+
+    def f(a):
+        pot = HernquistPotential(amp=2.3, a=a)
+        return jnp.sum(jnp.asarray(cls(pot=pot).dMdE(jnp.asarray([E0]))))
+
+    with use("jax", force=True):
+        ad = float(jax.grad(f)(1.3))
+        h = 1e-6
+        fd = (float(f(1.3 + h)) - float(f(1.3 - h))) / (2.0 * h)
+    assert abs(ad - fd) / abs(fd) < 1e-6, f"{dfcls} d/d(a) wrong (AD {ad}, FD {fd})"
+
+
+# --------------------------------------------------------------------------
+# d/d(potential parameter) of the velocity moments.
+#
+# _vmax_at_r builds the escape velocity from Phi(self._rmax + 1e-10). For a DF
+# whose _rmax is INFINITE, Phi(inf) has a fine value (-0) but its derivative
+# w.r.t. a potential parameter evaluates to nan -- an inf-inf limit -- which
+# poisoned the whole backward pass and made vmomentdensity, sigmar, sigmat and
+# beta return nan on both backends. dPhi(inf)/dparam is EXACTLY 0 for a
+# potential that vanishes at infinity, so stop_gradient there restores the
+# correct derivative rather than masking a wrong one.
+#
+# Both sides of that gate are tested: a finite _rmax (kingdf's tidal radius) has
+# a genuinely non-zero dPhi(rmax)/dparam and must keep its gradient, so the
+# isfinite gate cannot be simplified away.
+# --------------------------------------------------------------------------
+_VM_A0 = 1.3
+
+
+def _vm_quantity(a, what, backend, xp):
+    with use(backend, force=True):
+        df = isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=a))
+        if what == "sigmar":
+            return df.sigmar(1.1)
+        if what == "sigmat":
+            return df.sigmat(1.1)
+        return xp.asarray(df.vmomentdensity(1.1, 0, 0)).reshape(-1)[0]
+
+
+def _ad_of(fn, backend, th0):
+    if backend == "jax":
+        return float(jax.grad(lambda t: fn(t, jnp))(jnp.asarray(th0)))
+    t = torch.tensor(th0, dtype=torch.float64, requires_grad=True)
+    fn(t, torch).backward()
+    return float(t.grad)
+
+
+@pytest.mark.parametrize("what", ["vmomentdensity", "sigmar", "sigmat"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vmoments_grad_wrt_potential_parameter_infinite_rmax(backend, what):
+    h = 1e-5 * _VM_A0
+    fd = (
+        float(_vm_quantity(_VM_A0 + h, what, "numpy", numpy))
+        - float(_vm_quantity(_VM_A0 - h, what, "numpy", numpy))
+    ) / (2.0 * h)
+    ad = _ad_of(lambda t, xp: _vm_quantity(t, what, backend, xp), backend, _VM_A0)
+    assert numpy.isfinite(ad), f"{what}: nan gradient (Phi(inf) poisoning)"
+    assert abs(ad) > 0.0, f"{what}: gradient is identically zero (over-stopped?)"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vmoments_grad_keeps_finite_rmax_gradient(backend):
+    # kingdf's _rmax is the tidal radius: FINITE, so dPhi(rmax)/dM is not zero
+    # and must still flow. This is the other side of the isfinite gate.
+    from galpy.df import kingdf
+
+    def sig(M, _xp):
+        with use(backend if not isinstance(M, float) else "numpy", force=True):
+            return kingdf(W0=3.0, M=M, rt=1.4, npt=201).sigmar(0.7)
+
+    m0 = 1.3
+    h = 1e-5 * m0
+    fd = (float(sig(m0 + h, None)) - float(sig(m0 - h, None))) / (2.0 * h)
+    ad = _ad_of(sig, backend, m0)
+    assert abs(ad) > 0.0, "a finite rmax must keep its dPhi(rmax)/dparam"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+# --- sample() with the gradient in the POTENTIAL --------------------------
+# sphericaldf takes self._scale from pot._scale, so a differentiated potential
+# parameter (Hernquist/NFW `a`) IS the sampling grid's scale. Every numpy op on
+# it then raised, and sample() was unreachable for such a potential -- even for
+# a caller who only wants the samples and no gradient through them. The sampled
+# values must be UNCHANGED: the grid extent is frozen numpy-side (a
+# discretisation choice in r/a units) while the physical radii still carry the
+# scale, so this is a reachability fix, not a numerical one.
+#
+# torch specifically matters here: `Tensor * ndarray` returns NotImplemented so
+# numpy's __rmul__ calls .numpy() on a grad tensor, while jax accepts the same
+# mix -- several of these sites were invisible on jax.
+_SAMPLE_A = 1.2
+
+
+def _grad_scale(backend, a):
+    """A scale parameter that CARRIES a gradient (not merely a backend array)."""
+    if backend == "jax":
+        return jnp.asarray(a)
+    return torch.tensor(a, requires_grad=True)
+
+
+def _sample_df(a, which):
+    from galpy.df import isotropicNFWdf, osipkovmerrittHernquistdf
+    from galpy.potential import NFWPotential
+
+    if which == "isotropicHernquist":
+        return isotropicHernquistdf(pot=HernquistPotential(amp=2.0, a=a))
+    if which == "osipkovmerrittHernquist":
+        return osipkovmerrittHernquistdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.4)
+    return isotropicNFWdf(pot=NFWPotential(amp=2.0, a=a))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "which", ["isotropicHernquist", "osipkovmerrittHernquist", "isotropicNFW"]
+)
+def test_sample_runs_and_is_unchanged_under_a_gradient_carrying_potential(
+    backend, which
+):
+    numpy.random.seed(7)
+    ref = numpy.asarray(as_numpy(_sample_df(_SAMPLE_A, which).sample(n=4).r()))
+    numpy.random.seed(7)
+    with use(backend, force=True):
+        got = numpy.asarray(
+            as_numpy(_sample_df(_grad_scale(backend, _SAMPLE_A), which).sample(n=4).r())
+        )
+    # bit-identical: the same global-numpy draws through the same numpy sampler
+    numpy.testing.assert_array_equal(got, ref)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_xitor_rtoxi_accept_a_gradient_carrying_scale(backend):
+    # The leaf helpers behind the radial CMF grid data-guard on xi/r but used
+    # not to consider `a`, which is where the gradient lives when a potential
+    # scale is differentiated. Their own comments warn that a bare numpy op
+    # there silently drops the gradient; this pins the other operand.
+    from galpy.potential.SCFPotential import _RToxi, _xiToR
+
+    xis = numpy.arange(-0.5, 0.75, 0.25)
+    rs = numpy.array([0.5, 1.0, 2.0, 4.0])
+    with use(backend, force=True):
+        a = _grad_scale(backend, _SAMPLE_A)
+        r_out = _xiToR(xis, a=a)
+        xi_out = _RToxi(rs, a=a)
+    assert _is_backend_array(backend, r_out), "_xiToR dropped the backend scale"
+    assert _is_backend_array(backend, xi_out), "_RToxi dropped the backend scale"
+    numpy.testing.assert_allclose(
+        as_numpy(r_out), _SAMPLE_A * (1.0 + xis) / (1.0 - xis), rtol=1e-12
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(xi_out),
+        (rs / _SAMPLE_A - 1.0) / (rs / _SAMPLE_A + 1.0),
+        rtol=1e-12,
+    )
+
+
+# --- constantbetadf differentiable w.r.t. the POTENTIAL parameter ----------
+# The DF bakes the potential in at construction, so d/d(potential parameter)
+# requires CONSTRUCTING under the gradient. Three things blocked that:
+#   * _autodiff_xp() picked the grad engine by AVAILABILITY (preferring jax for
+#     the byte-identical numpy fE path), so a torch-differentiated potential got
+#     a JAX gradfunc and a jax tracer met a torch tensor;
+#   * _evalpot_asnumpy looked only at the ambient namespace, so inside the
+#     construction block's forced-numpy it reached _evaluate UNDECORATED and did
+#     numpy ops on a backend parameter;
+#   * _RphiRootFind / the r(Phi) spline knots hit the Tensor/ndarray asymmetry.
+#
+# Both backends, EAGER autodiff only. The construction-time calibration (the
+# startt search, a data-dependent `while` loop) is numpy and only sets the fE
+# integration LIMIT, so it runs on the potential's primal via
+# as_numpy_constant: concrete under torch autograd and under eager jax.grad,
+# but not under jit, where no value exists -- that needs a traceable
+# calibration and is out of scope here.
+_CB_A, _CB_E = 1.2, -0.8
+
+
+def _constantbeta(a):
+    from galpy.df import constantbetadf
+
+    return constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
+
+
+def _cb_fE(backend, a, Es):
+    with use(backend, force=True):
+        return _constantbeta(a).fE(_arr(backend, numpy.asarray(Es, dtype=float)))
+
+
+def _cb_grad(backend, Es):
+    """d(sum fE)/d(a), eager autodiff on ``backend``."""
+    if backend == "jax":
+        return float(jax.grad(lambda a: jnp.sum(_cb_fE("jax", a, Es)))(_CB_A))
+    a = torch.tensor(_CB_A, requires_grad=True)
+    out = _cb_fE("torch", a, Es)
+    assert out.grad_fn is not None, "fE came back detached from the potential"
+    out.sum().backward()
+    return float(a.grad)
+
+
+def _cb_val(backend, a, Es):
+    # FD on the SAME quadrature: a numpy E would run scipy-adaptive _fE_numpy
+    # while AD runs the GL _fE_backend, and that rule difference alone is ~5e-4.
+    return float(as_numpy(_cb_fE(backend, _arr(backend, a), Es)).sum())
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_constantbetadf_fE_grad_wrt_potential_parameter(backend):
+    ad = _cb_grad(backend, [_CB_E])
+    # fE carries ~1e-9 relative noise (brentq xtol + GL), so a smaller step is
+    # WORSE: measured rel 2.5e-05 at h=1e-4, 6.6e-05 at 1e-5 -- FD roundoff.
+    h = 1e-4
+    fd = (
+        _cb_val(backend, _CB_A + h, [_CB_E]) - _cb_val(backend, _CB_A - h, [_CB_E])
+    ) / (2.0 * h)
+    assert abs(ad) > 1.0, "zero gradient: the potential parameter is disconnected"
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-4)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_constantbetadf_fE_grad_over_a_batch_spanning_Emin(backend):
+    # The case a single-energy test cannot see. Out-of-bounds energies are
+    # clamped to Emin, whose RADIUS is r_min where rforce -> 0, so
+    # `grad(dens)(r) / rforce(r)` is infinite there; xp.where's backward
+    # multiplies that unselected branch by zero and 0 * inf = NaN poisons the
+    # gradient for EVERY element. The forward stays correct throughout.
+    Es = numpy.linspace(-1.0, -0.6, 5)  # straddles Emin (-0.8333 for this pot)
+    with use(backend, force=True):
+        emin = float(as_numpy(_constantbeta(_arr(backend, _CB_A))._Emin))
+    assert Es[0] < emin < Es[-1], "fixture no longer straddles Emin"
+    assert not numpy.isnan(as_numpy(_cb_fE(backend, _arr(backend, _CB_A), Es))).any()
+    g = _cb_grad(backend, Es)
+    assert not numpy.isnan(g), "NaN gradient: a masked branch poisoned the batch"
+    assert abs(g) > 1.0
+    # all below Emin: all masked, fE is 0, and so is the gradient -- not NaN
+    assert _cb_grad(backend, numpy.linspace(-1.6, -1.2, 4)) == 0.0
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_grad_engine_follows_the_potential():
+    # Pins the root cause directly: the autodiff engine must match the
+    # potential's FRAMEWORK. Picking jax here put a jax tracer and a torch
+    # tensor in one multiply, which neither framework can lift.
+    with use("torch", force=True):
+        d = _constantbeta(torch.tensor(_CB_A, requires_grad=True))
+        assert d._backend == "torch", d._backend
+        dplain = _constantbeta(1.2)  # numpy potential keeps the jax preference
+    assert dplain._backend in ("jax", "torch")
+
+
+def test_pot_grad_namespace_any_backend_keyword():
+    # The widened test is opt-in. The DEFAULT must stay gradient-only: that is
+    # what keeps a merely-forced backend on the scipy path with its numbers
+    # unchanged, so a regression here would be silent.
+    from galpy.potential.Potential import _pot_grad_namespace
+
+    for backend in BACKENDS:
+        plain = HernquistPotential(amp=2.0, a=_arr(backend, _CB_A))
+        assert _pot_grad_namespace(plain) is None, (
+            "default must ignore a non-gradient backend parameter"
+        )
+        assert _pot_grad_namespace(plain, any_backend=True) is not None
+    numpypot = HernquistPotential(amp=2.0, a=1.2)
+    assert _pot_grad_namespace(numpypot) is None
+    assert _pot_grad_namespace(numpypot, any_backend=True) is None
+
+
+# --- d(sample)/d(potential parameter) with a backend key ---------------------
+# The DF is constructed under the gradient and sampled with a FIXED key (common
+# random numbers), so FD differences come from the parameter alone. FD runs on
+# the same gradient-carrying path: constantbetadf's plain path integrates fE by
+# scipy-adaptive quadrature, whose tolerance jitters the samples at ~5e-6 --
+# amplified to several % by an h=1e-4 difference.
+def _sample_rv2(backend, dfname, a, rmax, rmin):
+    from galpy.df import constantbetadf, osipkovmerrittdf
+
+    with use(backend, force=True):
+        pot = HernquistPotential(amp=2.0, a=a)
+        kw = {} if rmax is None else {"rmax": rmax}
+        if dfname == "constantbeta":
+            d = constantbetadf(pot=pot, beta=-0.2, **kw)
+        elif dfname == "osipkovmerritt":
+            d = osipkovmerrittdf(pot=pot, ra=1.5, **kw)
+        else:
+            d = eddingtondf(pot=pot, **kw)
+        o = d.sample(n=4, rmin=rmin, key=_key(backend, 7))
+        return o.r(), o.vR() ** 2.0 + o.vT() ** 2.0 + o.vz() ** 2.0
+
+
+def _sample_rv2_jvp(backend, dfname, a, rmax, rmin):
+    """Per-sample (value, d/da) of (r, v^2) on the gradient-carrying path."""
+    if backend == "jax":
+        (r, v2), (dr, dv2) = jax.jvp(
+            lambda a: _sample_rv2("jax", dfname, a, rmax, rmin),
+            (jnp.asarray(a),),
+            (jnp.asarray(1.0),),
+        )
+        return [numpy.asarray(x) for x in (r, v2, dr, dv2)]
+    at = torch.tensor(a, requires_grad=True)
+    r, v2 = _sample_rv2("torch", dfname, at, rmax, rmin)
+    grads = [
+        numpy.array(
+            [
+                float(torch.autograd.grad(q[i], at, retain_graph=True)[0])
+                for i in range(len(q))
+            ]
+        )
+        for q in (r, v2)
+    ]
+    return [r.detach().numpy(), v2.detach().numpy(), *grads]
+
+
+# jax x constantbeta x rmax=inf is left out: eager jax constructs the DF in
+# ~45 s, so that case alone costs ~130 s. Measured by hand instead (radii exact
+# to 2.6e-13, v^2 within 2.0e-5); the rmax=8 case covers the jax path.
+_SAMPLE_GRAD_CASES = [
+    (backend, dfname, rmax, rmin)
+    for backend in BACKENDS
+    for dfname in ("constantbeta", "eddington", "osipkovmerritt")
+    for rmax, rmin in ((None, None), (8.0, 0.1))
+    if not (backend == "jax" and dfname == "constantbeta" and rmax is None)
+]
+
+
+@pytest.mark.parametrize("backend,dfname,rmax,rmin", _SAMPLE_GRAD_CASES)
+def test_sample_grad_wrt_potential_parameter(backend, dfname, rmax, rmin):
+    # Four defects, each visible here: the r=0 CMF knot NaN'd every gradient
+    # (Hernquist's mass has a 0*inf backward there); the CMF radii were
+    # detached while xi -> r stayed attached, counting d/da twice; the frozen
+    # f(E) table dropped d/da from every velocity (~11%; Osipkov-Merritt's f(Q)
+    # table likewise, 2-26%, and crashed on jax); and a frozen p(v|r) extent
+    # missed rmax's motion in r/a units (~0.7%).
+    # h=3e-3: the gradient path carries ~3e-9 quadrature noise, which at
+    # h=1e-3 is already 7.5e-4 of a velocity derivative; measured max errors
+    # at 3e-3 are 4.3e-6 (r) and 7.7e-5 (v^2).
+    a0, h = 1.2, 3e-3
+    r, v2, dr, dv2 = _sample_rv2_jvp(backend, dfname, a0, rmax, rmin)
+    rp, v2p = _sample_rv2_jvp(backend, dfname, a0 + h, rmax, rmin)[:2]
+    rm, v2m = _sample_rv2_jvp(backend, dfname, a0 - h, rmax, rmin)[:2]
+    # d(v^2)/da scales like v^2/a, so a disconnected gradient is one far below it
+    assert numpy.all(numpy.abs(dv2) > 0.1 * v2), "velocity gradient disconnected"
+    numpy.testing.assert_allclose(dr, (rp - rm) / (2.0 * h), rtol=2e-5)
+    numpy.testing.assert_allclose(dv2, (v2p - v2m) / (2.0 * h), rtol=3e-4)
+    if dfname == "constantbeta" and rmax is None:
+        # Hernquist's CMF is self-similar in r/a, so with no truncation r_i is
+        # EXACTLY a * const (eddingtondf defaults to rmax=1e4, which breaks it)
+        numpy.testing.assert_allclose(dr, r / a0, rtol=1e-10)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_constantbetadf_numpy_key_sample_with_differentiated_potential_raises():
+    # key=None forces the numpy sampling path, which cannot consume backend
+    # potential parameters: say which key to pass instead of failing deep down.
+    # torch only: the check is framework-agnostic, and eager jax construction
+    # alone costs ~60 s.
+    from galpy.df import constantbetadf
+
+    a = torch.tensor(1.2, requires_grad=True)
+    with use("torch", force=True):
+        d = constantbetadf(pot=HernquistPotential(amp=2.0, a=a), beta=-0.2)
+        with pytest.raises(NotImplementedError, match="BACKEND key"):
+            d.sample(n=2)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvr_interpolator_grid_matches_scipy(backend):
+    # grid=True (scipy's default, which the numpy tests rely on) evaluates the
+    # outer product X x Y on the backend too, matching the scipy spline
+    from galpy.df import isotropicHernquistdf
+    from galpy.potential import HernquistPotential
+
+    dfh = isotropicHernquistdf(pot=HernquistPotential(amp=2.0))
+    dfh.sample(R=1.0, z=0.0, n=1)
+    interp = dfh._v_vesc_pvr_interpolator
+    X = numpy.log10(numpy.array([0.2, 1.0, 5.0]) / dfh._scale)
+    Y = numpy.linspace(0.0, 1.0, 11)
+    ref = interp(X, Y)
+    got = interp(_arr(backend, X), Y)
+    assert tuple(got.shape) == ref.shape == (3, 11)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)

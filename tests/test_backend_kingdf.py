@@ -1,0 +1,566 @@
+###############################################################################
+# test_backend_kingdf.py: Track F Pdf.2 -- backend (jax/torch) coverage for the
+# King spherical-DF family (kingdf). The numpy path is byte-identical
+# (test_sphericaldf unchanged); this exercises the resolved-namespace dispatch
+# in kingdf's own fE / dens paths and the inherited moment/dM/dE machinery:
+# parity numpy<->jax<->torch of fE / dens / __call__ / moments / dM/dE,
+# grad-vs-FD, is-backend-array assertions, and the numpy-side sampling contract
+# (seeded draws unchanged under a forced backend).
+###############################################################################
+import warnings
+
+import numpy
+import pytest
+
+pytestmark = pytest.mark.backend_managed
+
+BACKENDS = []
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    BACKENDS.append("jax")
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+
+    BACKENDS.append("torch")
+except ImportError:  # pragma: no cover
+    torch = None
+
+import galpy.backend
+from galpy.backend import as_numpy
+from galpy.df import kingdf
+from galpy.df.sphericaldf import isotropicsphericaldf
+
+
+def _arr(backend, x):
+    return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
+
+
+def _is_backend_array(backend, x):
+    if backend == "jax":
+        return isinstance(x, jax.Array)
+    return torch.is_tensor(x)
+
+
+_DF = kingdf(W0=3.0, M=2.3, rt=1.76)
+_PI = float(_DF._potInf)  # cutoff energy; bound stars have E < _potInf
+# in-bounds E grid (E < _potInf) + out-of-bounds points (E >= _potInf) + the
+# exact boundary E == _potInf (varE == 0 -> fE == 0)
+_EGRID = numpy.concatenate(
+    [
+        numpy.linspace(_PI - abs(_PI) - 1.0, _PI - 1e-3, 21),
+        numpy.array([_PI, _PI - 1e-12, _PI + 1e-12, _PI + 0.5]),
+    ]
+)
+# radii within [0, rt] for dens/moments
+_RS = numpy.array([_DF._scale / 5.0, _DF._scale, _DF.rt * 0.3, _DF.rt * 0.7])
+_DENSRS = numpy.linspace(0.01, _DF.rt * 0.999, 12)
+# dM/dE energies strictly inside (_potInf - |_potInf|, _potInf)
+_EDM = numpy.linspace(_PI - abs(_PI) * 0.9, _PI - abs(_PI) * 0.05, 7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_parity(backend):
+    # king fE is a smooth exp(varE/sigma^2)-1 form: numpy<->backend parity on an
+    # E grid including the out-of-bounds (functional dead-mask -> 0) branch
+    ref = _DF.fE(_EGRID)
+    got = _DF.fE(_arr(backend, _EGRID))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_dead_edge(backend):
+    # E == _potInf exactly (varE == 0) and E > _potInf are the dead branch;
+    # fE -> 0 there, NaN-free under the dummy-then-zero guard
+    got = as_numpy(_DF.fE(_arr(backend, numpy.array([_PI, _PI + 1e-9, _PI + 1.0]))))
+    assert numpy.all(got == 0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dens_parity(backend):
+    # dens goes through the Spline1D W(r) table + the erf-based _dens_W; measured
+    # ~3e-13 (frozen-table eval + backend erf vs scipy). Near rt, W -> 0 and
+    # _dens_W is a catastrophic cancellation of O(W^1/2) terms, so the backend
+    # erf's last-bit difference is relative noise on a vanishing density
+    # (3e-9 at 0.999 rt: 4e-18 absolute) -- hence the round-off-scale atol.
+    ref = _DF.dens(_DENSRS)
+    got = _DF.dens(_arr(backend, _DENSRS))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10, atol=1e-16)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_parity(backend):
+    # __call__ tuple form (E,) and the 6-coordinate form
+    ref = _DF((_EGRID,))
+    got = _DF((_arr(backend, _EGRID),))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    R = numpy.array([0.3, 0.6, 0.9, 1.2])
+    vR = numpy.array([0.1, -0.2, 0.3, 0.0])
+    vT = numpy.array([0.2, 0.4, 0.1, 0.3])
+    z = numpy.array([0.1, -0.2, 0.3, 0.0])
+    vz = numpy.array([-0.1, 0.1, 0.0, 0.2])
+    ref = _DF(R, vR, vT, z, vz, numpy.zeros_like(R))
+    got = _DF(*(_arr(backend, c) for c in (R, vR, vT, z, vz)))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moments_parity(backend):
+    # sigmar/sigmat (fixed-order GL vs numpy adaptive quad): the King DF is a
+    # smooth exponential so GL matches to ~1.5e-15 (no quadrature floor here);
+    # the exactly-isotropic beta is 0. Scalar and vector r.
+    for name in ("sigmar", "sigmat"):
+        f = getattr(_DF, name)
+        ref = numpy.array([f(r) for r in _RS])
+        got = numpy.array([float(f(_arr(backend, r))) for r in _RS])
+        gotv = f(_arr(backend, _RS))
+        assert _is_backend_array(backend, gotv)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-9)
+        numpy.testing.assert_allclose(as_numpy(gotv), ref, rtol=1e-9)
+    b = _DF.beta(_arr(backend, _DF.rt * 0.3))
+    assert float(as_numpy(b)) == pytest.approx(0.0, abs=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_base_dMdE_parity(backend):
+    # the inherited isotropic base-class dM/dE (GL after the r = rphi - s^2
+    # turning-point substitution + backend Spline1D rphi eval); measured ~4e-10
+    # vs the numpy adaptive quad (rtol 1e-6 leaves margin for numpy's own floor)
+    ref = isotropicsphericaldf._dMdE(_DF, _EDM)
+    got = isotropicsphericaldf._dMdE(_DF, _arr(backend, _EDM))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fE_grad_vs_fd(backend):
+    E0, eps = _PI - 0.5 * abs(_PI), 1e-6
+    fd = (
+        _DF.fE(numpy.atleast_1d(E0 + eps))[0] - _DF.fE(numpy.atleast_1d(E0 - eps))[0]
+    ) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda E: _DF.fE(E))(jnp.asarray(E0)))
+        goob = float(jax.grad(lambda E: _DF.fE(E))(jnp.asarray(_PI + 0.5)))
+    else:
+        t = torch.tensor(E0, requires_grad=True)
+        _DF.fE(t).backward()
+        g = float(t.grad)
+        t = torch.tensor(_PI + 0.5, requires_grad=True)
+        _DF.fE(t).backward()
+        goob = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6)
+    # out-of-bounds grad is a finite 0, not NaN (dead-branch guard)
+    assert goob == 0.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dens_grad_vs_fd(backend):
+    r0, eps = _DF.rt * 0.4, 1e-6
+    fd = (
+        float(_DF.dens(numpy.atleast_1d(r0 + eps))[0])
+        - float(_DF.dens(numpy.atleast_1d(r0 - eps))[0])
+    ) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda r: _DF.dens(r))(jnp.asarray(r0)))
+    else:
+        t = torch.tensor(r0, requires_grad=True)
+        _DF.dens(t).backward()
+        g = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sigmar_grad_vs_fd(backend):
+    # d(sigma_r)/dr through the GL moment integrals (limits + Phi(r))
+    r0, eps = _DF.rt * 0.4, 1e-5
+    fd = (_DF.sigmar(r0 + eps) - _DF.sigmar(r0 - eps)) / (2.0 * eps)
+    if backend == "jax":
+        g = float(jax.grad(lambda r: _DF.sigmar(r))(jnp.asarray(r0)))
+    else:
+        t = torch.tensor(r0, requires_grad=True)
+        _DF.sigmar(t).backward()
+        g = float(t.grad)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_numpy_side_forced(backend):
+    # sampling is numpy-side by design: under a forced backend the numpy RNG
+    # draw sequence is unchanged and the outputs are numpy arrays; only the
+    # deterministic sub-steps (icmf/pvr grids built at __init__) matter, so
+    # draws match the pure-numpy ones to fp noise
+    ref_df = kingdf(W0=3.0, M=2.3, rt=1.76)
+    numpy.random.seed(10)
+    ref = ref_df.sample(n=100, return_orbit=False)
+    dfb = kingdf(W0=3.0, M=2.3, rt=1.76)
+    numpy.random.seed(10)
+    with galpy.backend.use(backend, force=True):
+        got = dfb.sample(n=100, return_orbit=False)
+    for g, r in zip(got, ref):
+        assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(g, r, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_construct_under_forced_backend(backend):
+    # _dens_W is a leaf consumed by numpy construction (solve_ivp, rho0/r0);
+    # its is_backend_array data-guard must keep scalar/numpy W on numpy even
+    # under a forced backend, so construction stays byte-identical to numpy
+    # (a backend-resolving _dens_W would make _scale a tensor and break the
+    # base class's numpy grid arithmetic)
+    ref = kingdf(W0=3.0, M=2.3, rt=1.76)
+    with galpy.backend.use(backend, force=True):
+        dfb = kingdf(W0=3.0, M=2.3, rt=1.76)
+    assert not _is_backend_array(backend, dfb._scale)
+    assert numpy.array_equal(dfb._scalefree_kdf._W, ref._scalefree_kdf._W)
+    assert numpy.array_equal(
+        dfb._scalefree_kdf._cumul_mass, ref._scalefree_kdf._cumul_mass
+    )
+
+
+# --- d/d(DF parameter): the CONSTRUCTOR is differentiable ------------------
+# The tests above differentiate DF outputs w.r.t. their arguments. These
+# differentiate w.r.t. a constructor parameter, which additionally requires
+# (a) the derived scale factors to be computed on the namespace (velocity_scale
+# is a sqrt of them), and (b) the interpolated King potential underneath to fit
+# its force spline in-backend rather than in scipy.
+_KDF_FIXED = {"W0": 3.0, "npt": 201}
+_KDF_M, _KDF_RT = 1.3, 1.4
+
+
+def _kdf_quantity(M, which, backend="numpy"):
+    # The backend is forced for the build: kingdf evaluates its own potential at
+    # a plain-float radius during __init__ (_potInf), which resolves the ambient
+    # namespace, so a differentiated M alone would land in the numpy branch.
+    with galpy.backend.use(backend, force=True):
+        df = kingdf(M=M, rt=_KDF_RT, **_KDF_FIXED)
+        return {
+            "velocity_scale": lambda: df._velocity_scale,
+            "rho0": lambda: df.rho0,
+            "dens": lambda: df.dens(0.7),
+        }[which]()
+
+
+def _kdf_ad(backend, M0, which):
+    if backend == "jax":
+        return float(
+            jax.grad(lambda M: _kdf_quantity(M, which, backend))(jnp.asarray(M0))
+        )
+    M = torch.tensor(M0, dtype=torch.float64, requires_grad=True)
+    _kdf_quantity(M, which, backend).backward()
+    return float(M.grad)
+
+
+@pytest.mark.parametrize("which", ["velocity_scale", "rho0", "dens"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_constructor_grad_vs_finite_difference(backend, which):
+    eps = 1e-5
+
+    def f(M):
+        return float(_kdf_quantity(M, which))
+
+    d1 = (f(_KDF_M + eps) - f(_KDF_M - eps)) / (2 * eps)
+    d2 = (f(_KDF_M + eps / 2) - f(_KDF_M - eps / 2)) / eps
+    fd = (4 * d2 - d1) / 3  # Richardson, O(eps^4)
+    numpy.testing.assert_allclose(_kdf_ad(backend, _KDF_M, which), fd, rtol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_velocity_scale_gradient_is_analytic(backend):
+    # velocity_scale = sqrt(mass_scale/radius_scale) with mass_scale linear in M,
+    # so d/dM = velocity_scale/(2M) exactly. This pins the ns_unary("sqrt") path:
+    # a numpy.sqrt there raises on jax and DETACHES on eager torch, and a
+    # detached value would still return the right NUMBER with a zero gradient.
+    ref = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)._velocity_scale
+    numpy.testing.assert_allclose(
+        _kdf_ad(backend, _KDF_M, "velocity_scale"),
+        float(ref) / (2.0 * _KDF_M),
+        rtol=1e-12,
+    )
+
+
+def test_kingdf_numpy_construction_keeps_scipy_icmf_spline():
+    # the backend branch must not leak into the numpy path: the scipy icmf
+    # spline is fitted, and the potential's force spline is a mode-1 Spline1D
+    # (scipy-backed) rather than an in-backend fit
+    df = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)
+    assert df._icmf_spline is not None
+    assert df._pot._force_spline._spl is not None
+    assert not df._pot._force_spline._mode2
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+@pytest.mark.parametrize("ms_on_backend", [False, True])
+def test_kingdf_icmf_with_differentiated_grids(ms_on_backend):
+    # With M differentiated the (cumulative-mass, radius) grids are backend
+    # arrays and no scipy spline is fitted, so _icmf must take the interp_linear
+    # path for BOTH a numpy and a backend ms. The sampled radii are unchanged:
+    # the normalized cumulative mass is mass_scale*cumul_mass/M, in which M
+    # cancels, so this is a pure dispatch change.
+    #
+    # torch rather than jax because eager autograd differentiates through REAL
+    # tensors: the same assertions under jax.grad would only see tracers, whose
+    # values cannot be compared against the reference. The code path is shared.
+    ms = numpy.array([0.05, 0.4, 0.75, 0.99])
+    ref = kingdf(M=_KDF_M, rt=_KDF_RT, **_KDF_FIXED)._icmf(ms)
+    M = torch.tensor(_KDF_M, dtype=torch.float64, requires_grad=True)
+    with galpy.backend.use("torch", force=True):
+        df = kingdf(M=M, rt=_KDF_RT, **_KDF_FIXED)
+        assert df._icmf_spline is None
+        got = df._icmf(_arr("torch", ms) if ms_on_backend else ms)
+    assert torch.is_tensor(got)
+    numpy.testing.assert_allclose(as_numpy(got.detach()), ref, rtol=1e-12)
+
+
+# --- d/dW0: the scale-free King model is itself an ODE solution ---------------
+# W0 sets the SHAPE, so every table of the scale-free solve depends on it; d/dW0
+# comes from the forward sensitivities grafted onto the scipy solution.
+_W0 = 3.0
+
+
+_W0_QUANTITIES = {
+    "rt": lambda d: d._scalefree_kdf.rt,
+    "c": lambda d: d.c,
+    "mass": lambda d: d._scalefree_kdf.mass,
+    "cumul_mass[700]": lambda d: d._scalefree_kdf._cumul_mass[700],
+    "r[800]": lambda d: d._scalefree_kdf._r[800],
+    "dens": lambda d: d.dens(0.4),
+    "fE": lambda d: d.fE(-3.0),
+    "sigmar": lambda d: d.sigmar(0.3),
+    "pot": lambda d: d._pot(0.5, 0.0, use_physical=False),
+    "sample": lambda d: sum(
+        (x**2.0).sum()
+        for x in d.sample(
+            n=3, key=galpy.backend.random.key(5, d._backend), return_orbit=False
+        )
+    ),
+}
+
+
+def _w0_quantity(backend, W0, which):
+    with galpy.backend.use(backend, force=True):
+        d = kingdf(W0=W0, M=2.3, rt=1.4)
+        d._backend = backend
+        return _W0_QUANTITIES[which](d)
+
+
+@pytest.mark.parametrize("which", list(_W0_QUANTITIES))
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_W0_grad_vs_finite_difference(backend, which):
+    if backend == "jax":
+        ad = float(jax.grad(lambda W: _w0_quantity("jax", W, which))(_W0))
+    else:
+        W = torch.tensor(_W0, requires_grad=True)
+        ad = float(torch.autograd.grad(_w0_quantity("torch", W, which), W)[0])
+    # h=1e-4: the sampled draws sit on a piecewise-linear inverse CDF whose
+    # kinks a wider step straddles (6.8e-4 at h=1e-2); measured max 7.2e-8
+    h = 1e-4
+    fd = (
+        float(as_numpy(_w0_quantity(backend, _W0 + h, which)))
+        - float(as_numpy(_w0_quantity(backend, _W0 - h, which)))
+    ) / (2.0 * h)
+    assert abs(ad) > 1e-4, "W0 gradient disconnected"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
+
+
+# --- under jax.jit / torch.compile -----------------------------------------------
+# M and rt only rescale the (numpy) scale-free solution: jit vs eager-traced to
+# <= 2.7e-15. W0 changes the ODE solution itself: under jax.jit it is solved with
+# diffrax (galpy.backend._jax.king_ode), d/dW0 by AD through the discretized
+# solve -- vs the eager scipy solve + forward-sensitivity graft: tables <= 7.9e-10,
+# d/dW0 <= 1e-8. Under torch.compile the same recipe runs with torchode
+# (galpy.backend._torch.king_ode); the whole-kingdf workflow, eager-backend and
+# inductor, is in test_backend_compile_workflows.
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_rt_under_jit_matches_eager_traced():
+    def f(rt):
+        with galpy.backend.use("jax", force=True):
+            return jnp.sum(kingdf(W0=3.0, M=2.3, rt=rt).fE(jnp.asarray([-3.0, -2.0])))
+
+    v_jit, g_jit = float(jax.jit(f)(1.4)), float(jax.jit(jax.grad(f))(1.4))
+    v_eager, g_eager = (float(x) for x in jax.jvp(f, (1.4,), (1.0,)))
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=1e-13)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-13)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_W0_under_jit_diffrax_matches_eager_graft():
+    from galpy.df.kingdf import _scalefreekingdf
+
+    def tables(W0):
+        k = _scalefreekingdf(W0)
+        k.solve(1001)
+        return jnp.stack(
+            [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
+        )
+
+    ref = numpy.asarray(tables(3.0))  # numpy/scipy solve
+    numpy.testing.assert_allclose(numpy.asarray(jax.jit(tables)(3.0)), ref, rtol=2e-9)
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.jacrev(tables))(3.0)),
+        numpy.asarray(jax.jacfwd(tables)(3.0)),  # eager: scipy + graft
+        rtol=3e-8,
+    )
+
+
+def _torch_compile_eager(f):
+    # dynamo only (no codegen); torch's own script_method DeprecationWarning on
+    # the first compile in a process
+    torch._dynamo.reset()
+    cf = torch.compile(f, backend="eager")
+
+    def wrapped(*args):
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*script_method.*", category=DeprecationWarning
+            )
+            return cf(*args)
+
+    return wrapped
+
+
+def _torch_tables(W0):
+    from galpy.df.kingdf import _scalefreekingdf
+
+    k = _scalefreekingdf(W0)
+    k.solve(1001)
+    return torch.stack(
+        [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
+    )
+
+
+def _torch_jacobian(tables, W0):
+    W = torch.tensor(W0, requires_grad=True)
+    out = tables(W)
+    return out, torch.stack(
+        [torch.autograd.grad(out[i], W, retain_graph=True)[0] for i in range(8)]
+    )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_kingdf_W0_under_torch_compile_torchode():
+    # compiled: the torchode solve (no opaque scipy region), d/dW0 by AD through
+    # it. vs the SAME recipe run eagerly: round-off (measured 0 / 0 with dynamo
+    # only); vs the eager scipy solve + graft: the solvers' 1e-10 tolerance
+    # floor, as under jax.jit (measured 6.8e-11 / 4.4e-9); vs a central
+    # difference of the compiled values: 1.9e-7 at h=1e-3 (its h^2 term), then
+    # converged, 4.3e-8 at h=3e-4 and 4.7e-8 at h=1e-4
+    from galpy.df.kingdf import _scalefreekingdf
+
+    def traced_eagerly(W0):
+        k = _scalefreekingdf(W0)
+        k._solve_traced(1001)
+        return torch.stack(
+            [k.rho0, k.r0, k.rt, k.c, k.mass, k._r[800], k._W[300], k._cumul_mass[700]]
+        )
+
+    f = _torch_compile_eager(_torch_tables)
+    vc, jc = _torch_jacobian(f, _W0)
+    vt, jt = _torch_jacobian(traced_eagerly, _W0)
+    ve, je = _torch_jacobian(_torch_tables, _W0)  # eager: scipy + graft
+    numpy.testing.assert_allclose(vc.detach().numpy(), vt.detach().numpy(), rtol=1e-13)
+    numpy.testing.assert_allclose(jc.numpy(), jt.numpy(), rtol=1e-12)
+    numpy.testing.assert_allclose(vc.detach().numpy(), ve.detach().numpy(), rtol=2e-9)
+    numpy.testing.assert_allclose(jc.numpy(), je.numpy(), rtol=3e-8)
+    for h in (3e-4, 1e-4):
+        with torch.no_grad():
+            fd = (f(torch.tensor(_W0 + h)) - f(torch.tensor(_W0 - h))) / (2.0 * h)
+        numpy.testing.assert_allclose(jc.numpy(), fd.numpy(), rtol=1e-7)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_king_density_gradient_finite_at_W0():
+    # dens(W=0) = 0 at the tidal radius, but sqrt's backward is infinite there;
+    # the traced solve ends at W=0, so a NaN here poisoned every d/dW0
+    from galpy.df.kingdf import _scalefreekingdf
+
+    k = _scalefreekingdf(3.0)
+    g = float(jax.grad(lambda W: k._dens_W(W))(jnp.asarray(0.0)))
+    assert g == 0.0
+
+
+# --- second (and higher) W0-derivatives ------------------------------------------
+# The first derivative is the scipy solve's forward sensitivities; they are
+# constants, so a derivative OF it used to be wrong (jax: 0.0 for the mass, fE with
+# the wrong sign) or raise (torch). Now graft_derivative takes the second order from
+# the in-backend solve (diffrax / torchode). Measured vs FD of the (exact) first
+# derivative (Richardson) at W0=3: jax <= 1.2e-7, torch <= 2e-7 (torchode is 5th
+# order only).
+_W0_HESSIAN = {"torch": ["mass", "c", "dens", "fE"], "jax": ["mass", "c", "dens"]}
+
+
+@pytest.mark.parametrize(
+    "backend,which", [(b, w) for b in BACKENDS for w in _W0_HESSIAN[b]]
+)
+def test_kingdf_W0_second_derivative_vs_finite_difference(backend, which):
+    def grad(W0, create_graph=False):
+        if backend == "jax":
+            return jax.grad(lambda W: _w0_quantity("jax", W, which))(W0)
+        W = W0 if torch.is_tensor(W0) else torch.tensor(W0, requires_grad=True)
+        return torch.autograd.grad(
+            _w0_quantity("torch", W, which), W, create_graph=create_graph
+        )[0]
+
+    if backend == "jax":
+        ad = float(jax.grad(grad)(_W0))
+    else:
+        W = torch.tensor(_W0, requires_grad=True)
+        ad = float(torch.autograd.grad(grad(W, create_graph=True), W)[0])
+
+    # Richardson-extrapolated central difference: the plain h=1e-3 one is itself
+    # 1.1e-6 off for c (its h^2 term), converging onto the AD value as h -> 0
+    def cd(h):
+        return (float(grad(_W0 + h)) - float(grad(_W0 - h))) / (2.0 * h)
+
+    fd = (4.0 * cd(5e-4) - cd(1e-3)) / 3.0
+    assert abs(fd) > 1e-4
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_kingdf_W0_second_derivative_under_jit():
+    # the traced (diffrax) solve: its default adjoint was first order only
+    def mass(W0):
+        with galpy.backend.use("jax", force=True):
+            return kingdf(W0=W0, M=2.3, rt=1.4)._scalefree_kdf.mass
+
+    g = jax.grad(mass)
+
+    def cd(h):
+        return (float(g(_W0 + h)) - float(g(_W0 - h))) / (2.0 * h)
+
+    fd = (4.0 * cd(5e-4) - cd(1e-3)) / 3.0  # Richardson
+    numpy.testing.assert_allclose(float(jax.jit(jax.grad(g))(_W0)), fd, rtol=1e-6)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_kingdf_undifferentiated_torch_W0():
+    # a plain (no-grad) torch W0 under forced torch used to crash the potential's
+    # construction (backend knots, numpy Phi0)
+    with galpy.backend.use("torch", force=True):
+        dt = kingdf(W0=torch.tensor(_W0), M=2.3, rt=1.4)
+        dn = kingdf(W0=_W0, M=2.3, rt=1.4)
+        E = torch.tensor([-3.0, -2.0])
+        numpy.testing.assert_allclose(
+            as_numpy(dt.fE(E)), as_numpy(dn.fE(E)), rtol=1e-14
+        )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_king_ode_torch_failure_raises():
+    from galpy.backend._torch.king_ode import solve
+    from galpy.df.kingdf import _scalefreekingdf
+
+    with pytest.raises(RuntimeError, match="King ODE solve failed"):
+        solve(_scalefreekingdf(3.0)._dens_W, torch.tensor(3.0), 101, max_steps=3)
