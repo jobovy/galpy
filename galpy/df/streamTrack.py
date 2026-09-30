@@ -734,28 +734,15 @@ def _fit_track_from_particles(
     ninterp = int(ninterp)
     order = int(order)
 
-    # jit / traced-backend path: the numpy/scipy structural reconstruction below
-    # (cKDTree, make_smoothing_spline, boolean-mask filtering, percentile) cannot run
-    # on tracers -> the fully jittable jax/torch-native reconstruction. Eager backend
-    # arrays coerce to numpy fine, so they keep the (byte-identical-structured) path.
-    # EITHER the progenitor curve OR the particles being traced forces the native
-    # path: a potential-parameter gradient traces the curve, while a progenitor-mass
-    # gradient traces only the particles (via the tidal radius) and not the curve.
-    def _traced(a):
-        if not is_backend_array(a):
-            return False
-        try:
-            as_numpy(a)
-            return False
-        except Exception:  # noqa: BLE001 -- traced (jit) backend array
-            return True
-
-    # under_trace: torch.compile does not raise from as_numpy, it traces it
-    if (
-        under_trace(prog_cart, xv_particles)
-        or _traced(prog_cart)
-        or _traced(xv_particles)
-    ):
+    # jit / traced-backend path (jax.jit, jax.grad, torch.compile): the numpy/scipy
+    # structural reconstruction below (cKDTree, make_smoothing_spline, boolean-mask
+    # filtering, percentile) cannot run on tracers -> the fully traceable
+    # jax/torch-native reconstruction. Eager backend arrays coerce to numpy fine, so
+    # they keep the (byte-identical-structured) path. EITHER the progenitor curve OR
+    # the particles being traced forces the native path: a potential-parameter
+    # gradient traces the curve, while a progenitor-mass gradient traces only the
+    # particles (via the tidal radius) and not the curve.
+    if under_trace(prog_cart, xv_particles):
         return _fit_track_backend_jit(
             xv_particles,
             prog_cart,
