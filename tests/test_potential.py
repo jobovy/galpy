@@ -14721,8 +14721,8 @@ def test_twopower_forces_2nd_derivs_accuracy(alpha, beta, x, dphidr, d2, R2, z2,
 
 def test_twopower_nan_and_infinite_radius():
     # a NaN radius gives NaN (the series never converges on NaN: it used to loop
-    # forever near beta = 3 and beta = 2), only where it is NaN; and every
-    # force and second derivative -> 0 at r = inf (inf * 0 expressions)
+    # forever near beta = 3 and beta = 2), only where it is NaN; and the limits
+    # at r = inf (below)
     from galpy import potential
 
     for beta in (3.02, 2.02, 3.5):
@@ -14737,10 +14737,55 @@ def test_twopower_nan_and_infinite_radius():
         numpy.testing.assert_array_equal(got[1:], pot.Rforce(R[1:], 0.0 * R[1:], **kw))
         R = numpy.full(2, numpy.nan)  # all-NaN arrays
         assert numpy.all(numpy.isnan(numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))))
-        for fn in (pot.Rforce, pot.zforce, pot.R2deriv, pot.z2deriv, pot.Rzderiv):
-            assert fn(0.0, numpy.inf, **kw) == 0.0, (beta, fn)
-            assert fn(numpy.inf, 0.0, **kw) == 0.0, (beta, fn)
-            assert fn(numpy.inf, numpy.inf, **kw) == 0.0, (beta, fn)
+    # r = inf, where the expressions are inf * 0: the force along an infinite
+    # coordinate is -dPhi/dr(inf) = 0 (beta > 1), -1/(2 a^2) (beta = 1; M ~
+    # x^2 / 2) or -inf (beta < 1); the transverse force and every second
+    # derivative -> 0; both coordinates infinite has no direction (0 when
+    # dPhi/dr -> 0, else NaN). Python and C alike.
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    inf, nan = numpy.inf, numpy.nan
+    kw = dict(use_physical=False)
+
+    def c(fn, R, z, **kw):
+        return fn(pot, numpy.array([R]), numpy.array([z]), **kw)[0][0]
+
+    for alpha, beta, F in (
+        (1.5, 3.02, 0.0),
+        (1.5, 2.02, 0.0),
+        (1.5, 3.5, 0.0),
+        (0.5, 1.0, 0.5 / 1.3**2.0),
+        (0.5, 0.8, inf),
+    ):
+        pot = potential.TwoPowerSphericalPotential(
+            amp=1.0, a=1.3, alpha=alpha, beta=beta
+        )
+        both = 0.0 if F == 0.0 else nan
+        for R, z, fR, fz in (
+            (inf, 0.0, -F, 0.0),
+            (0.0, inf, 0.0, -F),
+            (0.0, -inf, 0.0, F),
+            (inf, inf, both, both),
+        ):
+            got = [
+                pot.Rforce(R, z, **kw),
+                pot.zforce(R, z, **kw),
+                c(eval_force_c, R, z),
+                c(eval_force_c, R, z, zforce=True),
+            ]
+            numpy.testing.assert_allclose(
+                got, [fR, fz, fR, fz], rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
+            )
+            got = [
+                *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+                *(
+                    c(eval_2ndderiv_c, R, z, deriv=d)
+                    for d in ("R2deriv", "z2deriv", "Rzderiv")
+                ),
+            ]
+            numpy.testing.assert_allclose(
+                got, 0.0, rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
+            )
 
 
 def test_twopower_c_matches_python_all_derivatives():

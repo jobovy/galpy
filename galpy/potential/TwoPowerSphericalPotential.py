@@ -69,8 +69,9 @@ def _nfw_hk(x):
 # G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w), so with
 # E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 # x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
-# alpha = 0 (k = 3) are subtracted in closed form. Above c (where G >~ 1/2)
-# D - k M/x^3 directly. No hyp2f1(..., -r/a): that was 3e-3 off at
+# alpha = 0 (k = 3) are subtracted in closed form. Above c, D - k M/x^3
+# directly: those cancellations are small-x ones (and for alpha < beta,
+# G >~ 1/2 there). No hyp2f1(..., -r/a): that was 3e-3 off at
 # beta = 3 +- 1e-12 and NaN at large beta and r.
 def _tp_radial(alpha, beta, w, s, hess):
     """(M/x^3,) or, if hess, (M/x^3, Phi'' a^3, (Phi'' - Phi'/r) a^3)"""
@@ -108,21 +109,48 @@ def _tp_radial_hi(alpha, beta, w, s, c, hess):
     return m, D - 2.0 * m, D - 3.0 * m
 
 
-def _zero_at_infinite_radius(method):
-    """Forces and second derivatives -> 0 as r -> inf, where their expressions
-    are inf * 0 (R f(r), z^2 f(r) / r^2, ...)"""
+def _force_at_infinity(beta, a):
+    """dPhi/dr (amp = 1) as r -> inf: M(x) / (x a)^2 -> 0 for beta > 1,
+    1 / (2 a^2) at beta = 1 (M ~ x^2 / 2), inf for beta < 1"""
+    if beta > 1.0:
+        return 0.0
+    return 0.5 / a**2.0 if beta == 1.0 else numpy.inf
 
-    @functools.wraps(method)
-    def wrapper(self, R, z, phi=0.0, t=0.0):
-        inf = numpy.isinf(R) | numpy.isinf(z)
-        if not numpy.any(inf):
-            return method(self, R, z, phi=phi, t=t)
-        out = method(
-            self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
-        )
-        return numpy.where(inf, 0.0, out)
 
-    return wrapper
+def _limit_at_infinite_radius(component=None):
+    """The value at r = inf, where the expressions are inf * 0 (R f(r),
+    z^2 f(r) / r^2, ...). The force along an infinite coordinate is
+    -dPhi/dr(inf) (_force_at_infinity); the transverse force and every second
+    derivative -> 0 (beta > 0). With both coordinates infinite the direction is
+    undefined: 0 if dPhi/dr -> 0, else NaN. ``component``: "R" or "z" for the
+    forces, None for the second derivatives."""
+
+    def decorator(method):
+        @functools.wraps(method)
+        def wrapper(self, R, z, phi=0.0, t=0.0):
+            Rinf, zinf = numpy.isinf(R), numpy.isinf(z)
+            inf = Rinf | zinf
+            if not numpy.any(inf):
+                return method(self, R, z, phi=phi, t=t)
+            out = method(
+                self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
+            )
+            if component is None:
+                return numpy.where(inf, 0.0, out)
+            F = _force_at_infinity(self.beta, self.a)
+            X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
+            with numpy.errstate(invalid="ignore"):
+                along = -F * numpy.sign(X)
+            lim = numpy.where(
+                Xinf & Yinf,
+                0.0 if F == 0.0 else numpy.nan,
+                numpy.where(Xinf, along, 0.0),
+            )
+            return numpy.where(inf, lim, out)
+
+        return wrapper
+
+    return decorator
 
 
 if _APY_LOADED:
@@ -231,13 +259,13 @@ class TwoPowerSphericalPotential(Potential):
         a3 = self.a**3.0
         return [f / a3 for f in out]
 
-    @_zero_at_infinite_radius
+    @_limit_at_infinite_radius("R")
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         return -R * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
 
-    @_zero_at_infinite_radius
+    @_limit_at_infinite_radius("z")
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
@@ -313,13 +341,13 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
-    @_zero_at_infinite_radius
+    @_limit_at_infinite_radius()
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         f1, f0, _ = self._radial(numpy.sqrt(r2), True)
         return (R**2.0 * f0 + z**2.0 * f1) / r2
 
-    @_zero_at_infinite_radius
+    @_limit_at_infinite_radius()
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
         return R * z * self._radial(numpy.sqrt(r2), True)[2] / r2
