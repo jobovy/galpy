@@ -343,19 +343,71 @@ def test_eddingtondf_under_jit_matches_eager_traced(which):
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-def test_osipkovmerrittdf_sample_under_jit_raises_clearly():
-    # f(Q) is non-finite at knots near Emin (numpy's too; eager drops them), so
-    # a fixed-shape jit table would differ there -- refuse rather than differ
+def test_osipkovmerrittdf_sample_under_jit_matches_eager_traced():
+    # the traced r(Phi) root-find reaches E -> Emin, so the f(Q) table is finite
+    # at every knot under jit and sampling works there, value and gradient.
+    # Measured: values and d/da <= 2.5e-8 (f(Q) ~ 1e13 at the end knots: an ulp
+    # of E - Phi there, compiled vs eager, is ~1e-8 of f)
     from galpy.df import osipkovmerrittdf
     from galpy.potential import HernquistPotential
 
     def f(a):
         with galpy.backend.use("jax", force=True):
             d = osipkovmerrittdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.5, rmin=0.0)
-            return d.sample(n=2, key=_grandom.key(3, "jax"), return_orbit=False)[0]
+            out = d.sample(n=50, key=_grandom.key(3, "jax"), return_orbit=False)
+            return jnp.stack([jnp.sum(x**2) for x in out[:5]])
 
-    with pytest.raises(NotImplementedError, match="under jax.jit"):
-        jax.jit(f)(1.2)
+    v_jit = numpy.asarray(jax.jit(f)(1.2))
+    g_jit = numpy.asarray(jax.jit(jax.jacfwd(f))(1.2))
+    v_eager, g_eager = (numpy.asarray(x) for x in jax.jvp(f, (1.2,), (1.0,)))
+    assert numpy.all(g_eager != 0.0), "gradient disconnected"
+    numpy.testing.assert_allclose(v_jit, v_eager, rtol=1e-7)
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-7)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("profile", ["hernquist", "plummer"])
+def test_traced_rphi_near_Emin(profile):
+    # the traced r(Phi) (a root-find) reaches E -> Emin: its bracket starts
+    # below the grid's first radius and it bisects in log r, so the root is
+    # relative-exact down to r ~ 1e-8 a (it returned -1.2e12 there)
+    from galpy.potential import (
+        HernquistPotential,
+        PlummerPotential,
+        evaluatePotentials,
+    )
+
+    mk = {
+        "hernquist": lambda a: HernquistPotential(amp=2.0, a=a),
+        "plummer": lambda a: PlummerPotential(amp=2.0, b=a),
+    }[profile]
+    x = numpy.array([1e-12, 1e-10, 1e-8, 1e-6, 1e-3])
+
+    def rphi(a):
+        with galpy.backend.use("jax", force=True):
+            d = eddingtondf(pot=mk(a), rmin=0.0)
+            E = d._Emin + jnp.asarray(x) * (d._potInf - d._Emin)
+            return d._rphi(E), E, d._Emin * jnp.ones_like(E)
+
+    from scipy import optimize
+
+    got, Es, Emins = (numpy.asarray(v) for v in jax.jit(rphi)(1.2))
+    pot = mk(1.2)
+    for r, E, Emin, xx in zip(got, Es, Emins, x):
+        # the residual is well-conditioned everywhere: Phi(r) = E to a few ulp
+        assert r > 0.0 and numpy.isfinite(r), (xx, r)
+        assert abs(evaluatePotentials(pot, r, 0.0) - E) <= 4e-16 * abs(E), (xx, r)
+        # the radius to its conditioning: an ulp of E moves r by
+        # ~eps |E| / |E - Emin| (x (1/2 for a core, whose Phi - Phi(0) ~ r^2))
+        ref = optimize.brentq(
+            lambda rr: evaluatePotentials(pot, rr, 0.0) - E,
+            1e-20,
+            1e7,
+            xtol=1e-300,
+            rtol=1e-15,
+        )
+        cond = 2.2e-16 * abs(E) / abs(E - Emin)
+        assert abs(r / ref - 1.0) < 10.0 * cond + 1e-14, (xx, r, ref, cond)
 
 
 # --- f(E) near Emin -------------------------------------------------------------
