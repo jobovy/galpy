@@ -488,14 +488,12 @@ def test_orbit_characteristic_numpy_path_unchanged():
 
 
 # --------------------- forced-backend fixes on a NON-integrated orbit ----------
-# Under `use(<backend>, force=True)` two fixes land:
+# Under `use(<backend>, force=True)`:
 #   1. derived accessors whose 1-D result is reversed with a raw `.T`
 #      (x/y/vx/vy/r/vr/vtheta/theta) -> `_backend_T` (removes a torch
 #      warn-once UserWarning; no value or return-type change), and
-#   2. o.rperi/rap/zmax(analytic=True), whose numpy/C Staeckel machinery crashed
-#      on a backend delta/Einf/energy mask (numpy.all/isnan/sum-on-a-tensor) ->
-#      `as_numpy` at those boundaries, so the analytic path stays numpy and
-#      returns a numpy scalar.
+#   2. o.rperi/rap/zmax(analytic=True) on a numpy orbit coerce the phase-space
+#      point onto the forced backend and run there, returning a backend array.
 # The full E/ER/Ez/Jacobi energy-accessor backend migration is a separate
 # follow-up PR; those accessors are UNCHANGED here (they behave as on the base).
 from galpy import backend as _galpy_backend  # noqa: E402
@@ -526,14 +524,14 @@ def _analytic_np_ref(name):
 @pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
 @pytest.mark.parametrize("name", _ANALYTIC)
 def test_analytic_char_forced_jax_matches_numpy(name):
-    # the analytic Staeckel path is a numpy/C computation -> returns a numpy scalar
+    # a numpy orbit under a forced backend runs the analytic path on that backend
     with _galpy_backend.use("jax", force=True):
         val = getattr(Orbit(list(_IC_E)), name)(
             analytic=True, pot=_LP, use_physical=False
         )
-    assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+    assert isinstance(val, jax.Array), f"{name} left the jax backend"
     numpy.testing.assert_allclose(
-        float(numpy.asarray(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
+        float(as_numpy(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
     )
 
 
@@ -545,9 +543,9 @@ def test_analytic_char_forced_torch_matches_numpy(name):
         val = getattr(Orbit(list(_IC_E)), name)(
             analytic=True, pot=_LP, use_physical=False
         )
-    assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+    assert isinstance(val, torch.Tensor), f"{name} left the torch backend"
     numpy.testing.assert_allclose(
-        float(numpy.asarray(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
+        float(as_numpy(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
     )
 
 
@@ -786,3 +784,173 @@ def test_accessor_grad_wrt_potential_parameter(name, potkind):
             ad_t = float(t.grad)
         assert numpy.isfinite(ad_t), (name, ad_t)
         numpy.testing.assert_allclose(ad_t, fd, rtol=2e-4, atol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# d(e,zmax,rperi,rap)/d(phase-space point) through the analytic (un-integrated)
+# rperi/rap/zmax/e of a BACKEND orbit, against a central finite difference of
+# the numpy orbit (best of several steps). The unbound-orbit energy mask is a
+# discrete selection that cannot be read off a differentiated energy, so it is
+# skipped; each actionAngle type then runs its backend EccZmaxRperiRap: the
+# C-native Jacobian (c=True) or the backend python path (c=False). The
+# automagic Staeckel delta is estimated AT the phase-space point, so it carries
+# a gradient too -- the C path adds a d/d(delta) Jacobian column for it.
+# ---------------------------------------------------------------------------
+from galpy.potential import MWPotential2014  # noqa: E402
+
+_TP_IC = [1.0, 0.12, 1.08, 0.06, 0.09, 0.3]
+_TP_NAMES = ["e", "zmax", "rperi", "rap"]
+_TP_CASES = {
+    "staeckel-c": ("staeckel", {"c": True}),
+    "staeckel-noc": ("staeckel", {"c": False}),
+    "staeckel-c-delta": ("staeckel", {"c": True, "delta": 0.4}),
+    "staeckel-noc-delta": ("staeckel", {"c": False, "delta": 0.4}),
+    "adiabatic-c": ("adiabatic", {"c": True}),
+    "adiabatic-noc": ("adiabatic", {"c": False}),
+    "spherical": ("spherical", {}),
+}
+
+
+def _tp(ic, case, pot=MWPotential2014):
+    typ, kw = _TP_CASES[case]
+    o = Orbit(ic)
+    return [
+        getattr(o, n)(analytic=True, pot=pot, type=typ, use_physical=False, **kw)
+        for n in _TP_NAMES
+    ]
+
+
+_TP_FD = {}
+
+
+def _tp_fd(case):
+    # (4,5) central-difference Jacobians of the numpy orbit, one per step
+    if case not in _TP_FD:
+        out = {}
+        for h in (1e-4, 1e-5, 1e-6):
+            J = numpy.empty((4, 5))
+            for k in range(5):
+                icp, icm = numpy.array(_TP_IC), numpy.array(_TP_IC)
+                icp[k] += h
+                icm[k] -= h
+                J[:, k] = (
+                    numpy.array(_tp(icp, case), dtype=float)
+                    - numpy.array(_tp(icm, case), dtype=float)
+                ) / (2.0 * h)
+            out[h] = J
+        _TP_FD[case] = out
+    return _TP_FD[case]
+
+
+def _tp_stack(xp):
+    return lambda ic, case, **kw: xp.stack([v.reshape(()) for v in _tp(ic, case, **kw)])
+
+
+def _tp_jac(case, backend_name):
+    if backend_name == "jax":
+        return numpy.asarray(
+            jax.jacrev(lambda x: _tp_stack(jnp)(x, case))(jnp.asarray(_TP_IC))
+        )[:, :5]
+    return torch.autograd.functional.jacobian(
+        lambda x: _tp_stack(torch)(x, case), torch.tensor(_TP_IC)
+    ).numpy()[:, :5]
+
+
+@pytest.mark.parametrize("case", list(_TP_CASES))
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_turning_points_grad_wrt_ic(case, backend_name):
+    fds = _tp_fd(case)
+    ad = _tp_jac(case, backend_name)
+    fd = min(fds.values(), key=lambda J: numpy.max(numpy.abs(ad - J)))
+    numpy.testing.assert_allclose(ad, fd, rtol=2e-7, atol=5e-9, err_msg=case)
+
+
+def test_analytic_turning_points_delta_column_is_measured():
+    # The automagic-delta c=True case above would pass at FIXED delta only if
+    # the delta term were negligible: check that it is not.
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.actionAngle.actionAngleStaeckel_c import (
+        actionAngleStaeckel_EccZmaxRperiRapJac_c,
+    )
+
+    R, vR, vT, z, vz = (numpy.array([c]) for c in _TP_IC[:5])
+    delta = estimateDeltaStaeckel(MWPotential2014, R, z, no_median=True)
+    fixed = actionAngleStaeckel_EccZmaxRperiRapJac_c(
+        MWPotential2014, delta, R, vR, vT, z, vz
+    )[4][0]
+    assert numpy.max(numpy.abs(_tp_fd("staeckel-c")[1e-5] - fixed)) > 1e-3
+
+
+@pytest.mark.parametrize("case", list(_TP_CASES))
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_turning_points_backend_orbit_values(case, backend_name):
+    # eager, no gradient: a backend orbit stays on its backend (the concrete
+    # unbound mask path) and matches the numpy orbit
+    cast = jnp.asarray if backend_name == "jax" else torch.tensor
+    vals = _tp(cast(_TP_IC), case)
+    ref = _tp(numpy.array(_TP_IC), case)
+    for n, v, r in zip(_TP_NAMES, vals, ref):
+        assert is_backend_array(v), f"{case} {n} left the {backend_name} backend"
+        numpy.testing.assert_allclose(as_numpy(v), r, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+@pytest.mark.parametrize("c", [True, False])
+def test_analytic_turning_points_unbound_backend_orbits(backend_name, c):
+    # a batch with an unbound orbit: nan there, the others as for numpy
+    ics = [_TP_IC, [1.0, 0.1, 5.0, 0.1, 0.1, 0.0], [0.8, 0.3, 0.7, -0.1, 0.2, 1.0]]
+    cast = jnp.asarray if backend_name == "jax" else torch.tensor
+    for n in _TP_NAMES:
+        got = getattr(Orbit(cast(ics)), n)(
+            analytic=True, pot=MWPotential2014, use_physical=False, c=c
+        )
+        ref = getattr(Orbit(ics), n)(
+            analytic=True, pot=MWPotential2014, use_physical=False, c=c
+        )
+        assert is_backend_array(got)
+        assert numpy.isnan(ref[1])
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+@pytest.mark.parametrize("potkind", ["axi", "sph"])
+def test_analytic_turning_points_under_jit(potkind):
+    # jit: value and IC-Jacobian as eager. For a spherical potential the
+    # automagic delta is degenerate and eager falls back to type="spherical";
+    # a traced delta cannot choose that, and Staeckel at the clipped delta
+    # agrees with it.
+    pot = MWPotential2014 if potkind == "axi" else _POT
+    f = lambda x: _tp_stack(jnp)(x, "staeckel-c", pot=pot)
+    x = jnp.asarray(_TP_IC)
+    # 7e-11: the Staeckel-at-1e-6 vs spherical zmax (sph)
+    atol = 1e-12 if potkind == "axi" else 2e-10
+    numpy.testing.assert_allclose(jax.jit(f)(x), f(x), rtol=1e-12, atol=atol)
+    numpy.testing.assert_allclose(
+        jax.jit(jax.jacrev(f))(x), jax.jacrev(f)(x), rtol=1e-8, atol=1e-10
+    )
+
+
+@pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_c_rejects_potential_parameter_gradient(backend_name):
+    # The C path cannot carry d/d(potential parameter); with the automagic
+    # delta (which reads the potential) it would otherwise return the
+    # delta-mediated part of it alone.
+    from galpy.potential import MiyamotoNagaiPotential
+
+    cast = jnp.asarray if backend_name == "jax" else torch.tensor
+
+    def f(a):
+        return Orbit(cast(_TP_IC)).rap(
+            analytic=True,
+            pot=MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3),
+            use_physical=False,
+            c=True,
+        )
+
+    with pytest.raises(NotImplementedError, match="use c=False"):
+        with use(backend_name, force=True):
+            if backend_name == "jax":
+                jax.grad(lambda a: f(a).reshape(()))(jnp.asarray(0.6))
+            else:
+                f(torch.tensor(0.6, requires_grad=True))

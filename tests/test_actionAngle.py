@@ -6692,10 +6692,16 @@ def test_orbit_interface_unbound_simple_adiabatic_noc():
         obs.jr(pot=MWPotential2014, type="adiabatic", c=False),
         obs.jp(pot=MWPotential2014, type="adiabatic", c=False),
         obs.jz(pot=MWPotential2014, type="adiabatic", c=False),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
+        as_numpy(
+            obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
     )
     assert numpy.fabs(jr[0] - aAAnoc(obs[0])[0]) < 10.0**-10.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
@@ -6756,10 +6762,14 @@ def test_orbit_interface_unbound_simple_adiabatic_c():
         obs.jr(pot=MWPotential2014, type="adiabatic", c=True),
         obs.jp(pot=MWPotential2014, type="adiabatic", c=True),
         obs.jz(pot=MWPotential2014, type="adiabatic", c=True),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)
+        ),
+        as_numpy(obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)),
     )
     # Action tolerances currently 1e-5, because they use C implementations for the
     # direct evaluation, but Python for the Orbit interface
@@ -6822,15 +6832,25 @@ def test_orbit_interface_unbound_simple_staeckel_noc():
         obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
         obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
         obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False),
-        obs.zmax(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.e(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
-        obs.rperi(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.zmax(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
-        obs.rap(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.rperi(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
+        ),
+        as_numpy(
+            obs.rap(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
     )
     # The Orbit jr/jp/jz interface computes actions through the (now-available)
@@ -6901,15 +6921,25 @@ def test_orbit_interface_unbound_simple_staeckel_c():
         obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
         obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
         obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True),
-        obs.zmax(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.e(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
-        obs.rperi(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.zmax(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
-        obs.rap(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.rperi(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
+        ),
+        as_numpy(
+            obs.rap(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
     )
     assert numpy.fabs(jr[0] - aASc(obs[0])[0]) < 10.0**-10.0, (
@@ -7080,10 +7110,10 @@ def test_orbit_interface_unbound_complexshape_adiabatic():
         obs.jr(pot=MWPotential2014, type="adiabatic"),
         obs.jp(pot=MWPotential2014, type="adiabatic"),
         obs.jz(pot=MWPotential2014, type="adiabatic"),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True),
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True)),
     )
     assert numpy.all(
         numpy.fabs(jr[:, 0] - as_numpy(aAA(obs[:, 0])[0])) < 10.0**-10.0
@@ -7182,10 +7212,18 @@ def test_orbit_interface_unbound_complexshape_staeckel():
         obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71),
         obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71),
         obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.zmax(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
+        as_numpy(
+            obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
     )
     assert numpy.all(
         numpy.fabs(jr[:, 0] - as_numpy(aAS(obs[:, 0])[0])) < 10.0**-10.0
@@ -7306,10 +7344,10 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
         obs.wr(pot=MWPotential2014, type="staeckel"),
         obs.wp(pot=MWPotential2014, type="staeckel"),
         obs.wz(pot=MWPotential2014, type="staeckel"),
-        obs.e(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.zmax(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.rperi(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.rap(pot=MWPotential2014, type="staeckel", analytic=True),
+        as_numpy(obs.e(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.zmax(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.rperi(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.rap(pot=MWPotential2014, type="staeckel", analytic=True)),
     )
     # Now do the same with the actionAngle interface
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71)  # just a dummy delta
