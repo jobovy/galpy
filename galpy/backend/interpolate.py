@@ -617,8 +617,8 @@ def native_rect_cubic_coeffs(xp, x, y, z):
     intervals): fixing the x-cell, each x-power coefficient is itself the unique
     not-a-knot Y-interpolant of its grid values, so the tensor product is exact.
     """
-    x = numpy.asarray(x, dtype=float)
-    y = numpy.asarray(y, dtype=float)
+    x = numpy.asarray(to_host(x), dtype=float)
+    y = numpy.asarray(to_host(y), dtype=float)
     dev = device_of(z)
     # step 1: not-a-knot cubic in X for all ny columns -> (4, nx-1, ny)
     cx = cubic_spline_coeffs(xp, x, z, bc="not-a-knot")
@@ -1359,28 +1359,30 @@ class Spline1D:
         """Return a callable for the ``n``-th derivative.
 
         Mirrors ``scipy.interpolate.InterpolatedUnivariateSpline.derivative()``:
-        ``self.derivative(n)(r) == self(r, nu=n)``. On the numpy (mode-1) path
-        this delegates to the fitted scipy spline's own ``.derivative()``
-        (BYTE-IDENTICAL to using scipy directly); on a backend spline it returns
-        a lightweight callable that evaluates the SAME power-basis polynomial
-        with ``nu=n`` (the analytic derivative, agreeing with scipy to ~1 ulp),
-        so the derivative stays differentiable in both the evaluation point and
-        -- for a mode-2 in-backend spline -- the ``y`` values.
+        ``self.derivative(n)(r) == self(r, nu=n)``. A numpy query of a
+        numpy-fitted (mode-1) spline goes through the fitted scipy spline's own
+        ``.derivative()`` (BYTE-IDENTICAL to using scipy directly); a backend
+        query, or any query of a mode-2 spline, evaluates the SAME power-basis
+        polynomial with ``nu=n`` (the analytic derivative, agreeing with scipy to
+        ~1 ulp), so the derivative stays differentiable in both the evaluation
+        point and -- for a mode-2 in-backend spline -- the ``y`` values.
         """
-        if self._spl is not None:
-            return self._spl.derivative(n=n)
-        return _Spline1DDerivative(self, n)
+        scipy_der = self._spl.derivative(n=n) if self._spl is not None else None
+        return _Spline1DDerivative(self, n, scipy_der)
 
 
 class _Spline1DDerivative:
     """The ``n``-th derivative of a backend :class:`Spline1D`, callable at ``r``
     (``== spl(r, nu=n)``); returned by :meth:`Spline1D.derivative`."""
 
-    def __init__(self, spl, n):
+    def __init__(self, spl, n, scipy_der=None):
         self._spl = spl
         self._n = n
+        self._scipy_der = scipy_der  # mode 1: numpy queries stay on scipy
 
     def __call__(self, r):
+        if self._scipy_der is not None and not is_backend_array(r):
+            return self._scipy_der(r)
         return self._spl(r, nu=self._n)
 
 
@@ -1477,9 +1479,9 @@ class Spline2D:
             Xa = numpy.asarray(X, dtype=float)
             Ya = numpy.asarray(Y, dtype=float)
             xbr, ybr, c = (
-                numpy.asarray(self._xbr),
-                numpy.asarray(self._ybr),
-                numpy.asarray(self._c),
+                numpy.asarray(to_host(self._xbr)),
+                numpy.asarray(to_host(self._ybr)),
+                numpy.asarray(to_host(self._c)),
             )
             if grid:
                 Xa = Xa[:, None]

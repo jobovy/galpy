@@ -1795,11 +1795,9 @@ def test_vector_valued_column_independence(backend):
     # for bit -- see test_vector_valued_matches_per_column_scipy.
     xp = jnp if backend == "jax" else txp
     sp_v = Spline1D(_XV, xp.asarray(_YV), k=3)
-    got = numpy.asarray(sp_v(xp.asarray(_QV)))
+    got = as_numpy(sp_v(xp.asarray(_QV)))
     for j in range(_YV.shape[1]):
-        alone = numpy.asarray(
-            Spline1D(_XV, xp.asarray(_YV[:, j]), k=3)(xp.asarray(_QV))
-        )
+        alone = as_numpy(Spline1D(_XV, xp.asarray(_YV[:, j]), k=3)(xp.asarray(_QV)))
         numpy.testing.assert_allclose(got[..., j], alone, rtol=1e-14, atol=1e-15)
 
 
@@ -1810,12 +1808,10 @@ def test_default_bc_matches_the_numpy_path(backend):
     # numpy path it exists to match, at every call site that took the default.
     xp = jnp if backend == "jax" else txp
     m1 = Spline1D(_XV, _YV, k=3)(_QV)
-    m2 = numpy.asarray(Spline1D(_XV, xp.asarray(_YV), k=3)(xp.asarray(_QV)))
+    m2 = as_numpy(Spline1D(_XV, xp.asarray(_YV), k=3)(xp.asarray(_QV)))
     numpy.testing.assert_allclose(m2, m1, rtol=1e-13, atol=1e-13)
     # and an explicit natural is still honoured (and is the WORSE one here)
-    nat = numpy.asarray(
-        Spline1D(_XV, xp.asarray(_YV), k=3, bc="natural")(xp.asarray(_QV))
-    )
+    nat = as_numpy(Spline1D(_XV, xp.asarray(_YV), k=3, bc="natural")(xp.asarray(_QV)))
     assert numpy.max(numpy.abs(nat - m1)) > 1e-6
 
 
@@ -1828,8 +1824,8 @@ def test_default_bc_falls_back_below_four_knots(backend):
     x3 = numpy.array([0.0, 1.0, 2.5])
     y3 = numpy.array([0.0, 1.0, 0.25])
     q3 = numpy.array([0.4, 1.7])
-    got = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3)(xp.asarray(q3)))
-    exp = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
+    got = as_numpy(Spline1D(x3, xp.asarray(y3), k=3)(xp.asarray(q3)))
+    exp = as_numpy(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
     assert numpy.all(numpy.isfinite(got))
     numpy.testing.assert_allclose(got, exp, rtol=0, atol=0)
 
