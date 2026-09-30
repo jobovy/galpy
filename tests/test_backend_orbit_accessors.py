@@ -710,6 +710,24 @@ def test_accessor_on_a_traced_integration_grid(direction):
     assert rel < 1e-8, f"d/d(scale) through a traced grid is wrong (rel {rel:.2e})"
 
 
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_scalar_time_on_a_traced_integration_grid_under_jit():
+    # A python-float time on a TRACED grid (streamdf's auxiliaryTrack.R(0.0) under
+    # jax.jit) used to raise TracerBoolConversionError from `t in list(self.t)`; it
+    # now interpolates on the backend. t=0 is a node, so it returns the IC.
+    ic = [1.0, 0.1, 1.1, 0.05, -0.02, 0.3]
+
+    def f(scale):
+        o = Orbit(jnp.asarray(ic))
+        ts = scale * jnp.linspace(0.0, 1.0, 21)
+        o.integrate(ts, _POT, method="diffrax")
+        return jnp.stack([o.R(0.0), o.vz(0.0), o.phi(0.0), o.R(0.35)])
+
+    got = numpy.asarray(jax.jit(f)(2.0))
+    numpy.testing.assert_allclose(got[:3], [ic[0], ic[4], ic[5]], rtol=1e-12)
+    numpy.testing.assert_allclose(got[3], float(f(2.0)[3]), rtol=1e-12)
+
+
 # ---------------------------------------------------------------------------
 # d/d(POTENTIAL PARAMETER) through the analytic (un-integrated) accessors
 #
