@@ -45,6 +45,7 @@ from ._namespaces import (
     name_of_namespace,
     prefer_backend_namespace,
     requires_backend_grad,
+    to_host,
     under_trace,
 )
 from ._resolver import get_namespace
@@ -1133,7 +1134,7 @@ class Spline1D:
             self._x = (
                 x
                 if (under_trace(x) or requires_backend_grad(x))
-                else numpy.asarray(x, dtype=float)
+                else numpy.asarray(to_host(x), dtype=float)
             )
             if self._k == 3:
                 # Default to the boundary condition mode 1 ALREADY USES: mode 1 is
@@ -1239,7 +1240,7 @@ class Spline1D:
                 return interp_linear(
                     numpy,
                     self._x,
-                    numpy.asarray(self._y),
+                    numpy.asarray(to_host(self._y)),
                     r,
                     nu=nu,
                     extrapolate=self._extrapolate,
@@ -1247,7 +1248,7 @@ class Spline1D:
             return eval_ppoly(
                 numpy,
                 self._x,
-                numpy.asarray(self._coeffs),
+                numpy.asarray(to_host(self._coeffs)),
                 r,
                 nu=nu,
                 extrapolate=self._extrapolate,

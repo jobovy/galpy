@@ -874,7 +874,7 @@ def test_symmetric_quad_mixed_limits_keep_a_gradient_at_the_finite_entries(backe
     else:
         b = torch.tensor([1.0, float("inf"), 2.0], requires_grad=True)
         symmetric_quad(xp, lambda s: s * s, b).sum().backward()
-        grad = b.grad.numpy()
+        grad = b.grad.cpu().numpy()
     assert numpy.isfinite(grad[0]) and numpy.isfinite(grad[2]), (
         f"the infinite entry poisoned its neighbours: {grad}"
     )
@@ -916,7 +916,7 @@ def test_surfdens_with_mixed_finite_and_infinite_z_is_elementwise():
         R = torch.tensor(1.0, requires_grad=True)
         got = mp.surfdens(R, torch.tensor([1.0, float("inf")]), use_physical=False)
         assert got.shape == (2,), f"shape collapsed to {tuple(got.shape)}"
-        numpy.testing.assert_allclose(got.detach().numpy(), want, rtol=1e-12)
+        numpy.testing.assert_allclose(got.detach().cpu().numpy(), want, rtol=1e-12)
         got.sum().backward()
     assert numpy.isfinite(float(R.grad)) and float(R.grad) != 0.0
 

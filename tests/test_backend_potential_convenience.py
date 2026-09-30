@@ -222,7 +222,9 @@ def test_torch_eager_tensor_and_value(name, fn, pt):
         # (c) eager torch returns a torch tensor
         assert torch.is_tensor(out), (name, type(out))
         rtol = _VALUE_RTOL.get(name, _DEFAULT_VALUE_RTOL)
-        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=rtol, atol=1e-12)
+        numpy.testing.assert_allclose(
+            out.detach().cpu().numpy(), ref, rtol=rtol, atol=1e-12
+        )
 
 
 @pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
@@ -290,7 +292,7 @@ def test_ttensor_eigenval_torch():
         assert torch.is_tensor(out), type(out)
         # xp.real(...) must strip the imaginary part eigvals introduces
         assert not torch.is_complex(out), out.dtype
-        got = numpy.sort(numpy.real(out.detach().numpy()))
+        got = numpy.sort(numpy.real(out.detach().cpu().numpy()))
         numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-11)
 
 
@@ -363,7 +365,7 @@ def test_module_functional_interface_torch():
     eig = _P.ttensor(p, R64, z64, eigenval=True, use_physical=False)
     assert torch.is_tensor(eig) and not torch.is_complex(eig), type(eig)
     numpy.testing.assert_allclose(
-        numpy.sort(eig.detach().numpy()),
+        numpy.sort(eig.detach().cpu().numpy()),
         numpy.sort(
             numpy.real(_P.ttensor(p, 1.1, 0.1, eigenval=True, use_physical=False))
         ),

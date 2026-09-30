@@ -187,7 +187,7 @@ def test_grad_in_table_values(backend, bc):
     else:
         yt = torch.tensor(_YG, requires_grad=True)
         Spline1D(txp.asarray(_XG), yt, k=3, bc=bc)(txp.asarray(r0)).backward()
-        g = yt.grad.numpy()
+        g = yt.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
 
 
@@ -364,7 +364,7 @@ def test_interp_bilinear_grad_vs_fd(backend):
         interp_bilinear(
             _xp("torch"), _BX, _BY, zt, xt, yt, extrapolate="clip"
         ).sum().backward()
-        gx, gy, gz = xt.grad.numpy(), yt.grad.numpy(), zt.grad.numpy()
+        gx, gy, gz = xt.grad.cpu().numpy(), yt.grad.cpu().numpy(), zt.grad.cpu().numpy()
     adX, adY, adZ = (
         float(numpy.dot(gx, dX)),
         float(numpy.dot(gy, dY)),
@@ -673,7 +673,7 @@ def test_grad_map_coordinates_vs_fd(backend):
     else:
         ct = torch.tensor(c0, requires_grad=True)
         mc(ct.reshape(3, 1))[0].backward()
-        g = ct.grad.numpy()
+        g = ct.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
@@ -856,7 +856,7 @@ def test_smoothing_spline_grad(backend, kind):
     else:
         yt = torch.tensor(_SMY, requires_grad=True)
         torch.sum(maker(yt)(_SMG)).backward()
-        g = yt.grad.numpy()
+        g = yt.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, expected, rtol=1e-8, atol=1e-10)
 
 

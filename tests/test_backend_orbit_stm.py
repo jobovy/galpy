@@ -1466,4 +1466,6 @@ def test_torch_compile_orbit_integration_matches_eager(method):
     assert vc.grad_fn is not None, "compiled integration came back detached"
     (gc,) = torch.autograd.grad(vc, xc)
     numpy.testing.assert_allclose(float(vc), float(v), rtol=1e-14)
-    numpy.testing.assert_allclose(gc.numpy(), g.numpy(), rtol=1e-12, atol=1e-14)
+    numpy.testing.assert_allclose(
+        gc.cpu().numpy(), g.cpu().numpy(), rtol=1e-12, atol=1e-14
+    )

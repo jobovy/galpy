@@ -24,6 +24,7 @@ from ..backend import (
     is_backend_array,
     like,
     match_input_dtype,
+    to_host,
 )
 from ..backend import use as _use_backend
 from ..backend._namespaces import namespace_from_arrays
@@ -2124,8 +2125,8 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         # broken on a future numpy. Differentiability does not need backend R/z:
         # it flows from the density's CLOSED-OVER parameter tensors, which is
         # exactly how the scalar path already works.
-        xi = numpy.asarray(xi)
-        costheta = numpy.asarray(costheta)
+        xi = numpy.asarray(to_host(xi))
+        costheta = numpy.asarray(to_host(costheta))
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)

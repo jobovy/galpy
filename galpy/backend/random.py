@@ -142,7 +142,7 @@ def _tuple_shape(shape):
 def _torch_generator(key):
     import torch
 
-    g = torch.Generator()
+    g = torch.Generator(device=torch.get_default_device())  # torch.rand's device
     g.manual_seed(key.seed)
     return g
 

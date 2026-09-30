@@ -1833,7 +1833,7 @@ def test_approxaAInv_grad_vs_fd_query(sdf, backend_name):
         qt = torch.tensor(Q, requires_grad=True)
         out = sdf._approxaAInv(*(qt[i] for i in range(6)), interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        g = qt.grad.numpy()
+        g = qt.grad.cpu().numpy()
     ad = float(numpy.sum(g * Dir))
     best = min(
         abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
@@ -1889,7 +1889,7 @@ def test_approxaAInv_grad_vs_fd_table(sdf, backend_name, attr, idx):
         setattr(s, attr, T)
         out = s._approxaAInv_backend(*Qb, interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        ad = float(T.grad.numpy()[entry])
+        ad = float(T.grad.cpu().numpy()[entry])
     best = min(
         abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
     )
@@ -2107,7 +2107,7 @@ def test_approxaA_grad_vs_fd_query(sdf, backend_name):
         qt = torch.tensor(Q, requires_grad=True)
         out = sdf._approxaA(*(qt[i] for i in range(6)), interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        g = qt.grad.numpy()
+        g = qt.grad.cpu().numpy()
     ad = float(numpy.sum(g * Dir))
     best = min(
         abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
@@ -2174,7 +2174,7 @@ def test_approxaA_grad_vs_fd_table(sdf, backend_name, attr, idx):
         setattr(s, attr, T)
         out = s._approxaA_backend(*Qb, interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        ad = float(T.grad.numpy()[entry])
+        ad = float(T.grad.cpu().numpy()[entry])
     best = min(
         abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
     )

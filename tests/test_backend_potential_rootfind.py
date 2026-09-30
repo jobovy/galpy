@@ -167,7 +167,9 @@ def test_scalar_torch_eager_tensor_and_value(name, fn, pt):
         out = fn(p, *[torch.as_tensor(x, dtype=torch.float64) for x in pt])
         # (c) eager torch returns a torch tensor
         assert torch.is_tensor(out), (name, type(out))
-        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-9, atol=1e-11)
+        numpy.testing.assert_allclose(
+            out.detach().cpu().numpy(), ref, rtol=1e-9, atol=1e-11
+        )
 
 
 @pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
@@ -240,7 +242,9 @@ def test_zvc_torch(R, E, Lz):
         targs = [torch.as_tensor(v, dtype=torch.float64) for v in base]
         out = zvc_fn(p, *targs, use_physical=False)
         assert torch.is_tensor(out)
-        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-9, atol=1e-11)
+        numpy.testing.assert_allclose(
+            out.detach().cpu().numpy(), ref, rtol=1e-9, atol=1e-11
+        )
         for i in range(3):
             t = [torch.as_tensor(v, dtype=torch.float64) for v in base]
             t[i].requires_grad_(True)
@@ -312,7 +316,9 @@ def test_zvc_range_torch(E, Lz):
             use_physical=False,
         )
         assert torch.is_tensor(out)
-        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-8, atol=1e-10)
+        numpy.testing.assert_allclose(
+            out.detach().cpu().numpy(), ref, rtol=1e-8, atol=1e-10
+        )
         base = [E, Lz]
         for out_idx in range(2):
             for i in range(2):
@@ -397,7 +403,7 @@ def test_mass_torch(name, fn, pot, R):
     x.requires_grad_(True)
     out = fn(pot, x)
     assert torch.is_tensor(out), (name, type(out))
-    numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-6, atol=1e-8)
+    numpy.testing.assert_allclose(out.detach().cpu().numpy(), ref, rtol=1e-6, atol=1e-8)
     out.backward()
     grad = float(x.grad)
     eps = 1e-6 * max(1.0, abs(R))
@@ -446,7 +452,7 @@ def test_mass_slab_torch(R, z):
     t = [torch.as_tensor(v, dtype=torch.float64) for v in base]
     out = mass_fn(_MN, t[0], z=t[1], use_physical=False)
     assert torch.is_tensor(out)
-    numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-6, atol=1e-8)
+    numpy.testing.assert_allclose(out.detach().cpu().numpy(), ref, rtol=1e-6, atol=1e-8)
     for i in range(2):
         tt = [torch.as_tensor(v, dtype=torch.float64) for v in base]
         tt[i].requires_grad_(True)

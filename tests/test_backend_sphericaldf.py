@@ -464,7 +464,7 @@ def test_sample_r_grad_vs_fd_cdf_grid(backend):
             _TXP, c, torch.tensor(xis), torch.tensor(u), extrapolate="clip"
         )
         (scale * (1.0 + xi) / (1.0 - xi)).sum().backward()
-        g = c.grad.numpy()
+        g = c.grad.cpu().numpy()
     ad = float(numpy.dot(g, d))
     assert numpy.isfinite(ad) and abs(ad) > 0
     best = min(
@@ -499,7 +499,7 @@ def test_sample_r_grad_vs_fd_scale(backend):
         out = make(at)._sample_r(n=150, key=key)
         out.sum().backward()
         g = float(at.grad)
-        u = grandom.uniform(key, 150).numpy()
+        u = grandom.uniform(key, 150).cpu().numpy()
     assert _is_backend_array(backend, out)
     assert numpy.isfinite(g) and abs(g) > 0
     sq = numpy.sqrt(u)
@@ -595,7 +595,7 @@ def test_sample_v_grad_vs_fd_r(backend):
         else:
             rt = torch.tensor(r0, requires_grad=True)
             loss_b(rt).backward()
-            g = rt.grad.numpy()
+            g = rt.grad.cpu().numpy()
     ad = float(numpy.dot(g, d))
     assert numpy.isfinite(ad) and abs(ad) > 0
     best = min(
@@ -1177,7 +1177,7 @@ def _sample_rv2_jvp(backend, dfname, a, rmax, rmin):
         )
         for q in (r, v2)
     ]
-    return [r.detach().numpy(), v2.detach().numpy(), *grads]
+    return [r.detach().cpu().numpy(), v2.detach().cpu().numpy(), *grads]
 
 
 # jax x constantbeta x rmax=inf is left out: eager jax constructs the DF in
