@@ -439,6 +439,8 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
         if xp is not numpy and not is_backend_array(y)
         else y * 1.0
     )
+    if xp is not numpy and not is_backend_array(r):  # torch searchsorted: no ndarray
+        r = asarray_on_device(xp, numpy.asarray(r), dev)
     if extrapolate is not True:
         if extrapolate not in ("clip", "const", 3):
             raise ValueError(
