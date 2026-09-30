@@ -164,6 +164,18 @@ def set_at(xp, arr, mask, values):
     return out
 
 
+def cummax(xp, x):
+    """Running maximum of the 1D ``x`` (``numpy.maximum.accumulate``), traceable."""
+    name = name_of_namespace(xp)
+    if name == "jax":
+        import jax
+
+        return jax.lax.cummax(x)
+    if name == "torch":
+        return xp.cummax(x, 0).values
+    return numpy.maximum.accumulate(x)
+
+
 def requires_backend_grad(*xs):
     """True iff one of ``xs`` is a torch tensor carrying an autograd graph.
 
