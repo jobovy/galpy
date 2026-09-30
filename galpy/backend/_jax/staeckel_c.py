@@ -167,16 +167,16 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
 
 
 def ecczmax_with_jac(host_jac, coords):
-    """Differentiable (e,zmax,rperi,rap) with the native-C (4,5) Jacobian
-    d(e,zmax,rperi,rap)/d(R,vR,vT,z,vz) as the vjp residual (#131). first-order;
-    the Jacobian is the partial at fixed delta.
+    """Differentiable (e,zmax,rperi,rap) with the native-C (4,n) Jacobian
+    d(e,zmax,rperi,rap)/d(coords) as the vjp residual (#131). first-order.
 
-    host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (e,zmax,rperi,rap,jac) with the 4 values (N,) and jac (N,4,5).
+    host_jac : callable taking the n numpy (N,) coord arrays (R,vR,vT,z,vz and
+        optionally a per-object delta), returning (e,zmax,rperi,rap,jac) with the
+        4 values (N,) and jac (N,4,n).
     """
     import jax
 
-    shape, dtype = coords[0].shape, coords[0].dtype
+    shape, dtype, n = coords[0].shape, coords[0].dtype, len(coords)
 
     def _host(*cs):
         out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
@@ -187,7 +187,7 @@ def ecczmax_with_jac(host_jac, coords):
         return jax.pure_callback(
             _host,
             tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(4))
-            + (jax.ShapeDtypeStruct(shape + (4, 5), dtype),),
+            + (jax.ShapeDtypeStruct(shape + (4, n), dtype),),
             *cs,
             vmap_method="sequential",
         )
@@ -198,12 +198,12 @@ def ecczmax_with_jac(host_jac, coords):
 
     def _fwd(cs):
         out = _call(cs)
-        return out[:4], out[4]  # residual = the (4,5) Jacobian
+        return out[:4], out[4]  # residual = the (4,n) Jacobian
 
     def _bwd(jac, ct):
         # grad_k = sum_o ct_o * jac[:,o,k]  (o over e,zmax,rperi,rap)
-        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(4))  # (N,5)
-        return (tuple(g[:, k] for k in range(5)),)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(4))  # (N,n)
+        return (tuple(g[:, k] for k in range(n)),)
 
     _ez.defvjp(_fwd, _bwd)
-    return _ez(coords)
+    return _ez(tuple(coords))
