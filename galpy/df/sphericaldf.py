@@ -76,6 +76,11 @@ if _optional_deps._APY_LOADED:
 _QUAD_N_VMOM = 100  # velocity-moment integral over v
 _QUAD_N_VMOM2D = 60  # (v, eta) tensor product in the anisotropic base
 _QUAD_N_DMDE = 100  # dM/dE radius integral
+# Gauss-Legendre nodes/weights on [0, 1] for Phi(r0 + u) - Phi(r0) as u times
+# the mean of dPhi/dr over [r0, r0 + u]: no difference of O(1) potentials next
+# to a turning point (eddingtondf's and constantbetadf's small-r integrands)
+_GL_X, _GL_W = numpy.polynomial.legendre.leggauss(12)
+_GL_X, _GL_W = 0.5 * (_GL_X + 1.0), 0.5 * _GL_W
 
 
 def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
@@ -358,18 +363,23 @@ class _RphiRootFind:
                     break
         E = xp.asarray(E)
 
-        def f(r, Ev):
-            return _evaluatePotentials(self._pot, r, 0) - Ev
+        # in u = log r: relative accuracy at every radius (an absolute xtol is
+        # no accuracy at all for the r ~ 1e-8 a of E near Emin), and the bracket
+        # reaches 1e-12 below the grid's first radius, which a finite Phi(0)
+        # puts roots under (the numpy spline has an r = 0 knot)
+        def f(u, Ev):
+            return _evaluatePotentials(self._pot, xp.exp(u), 0) - Ev
 
         # broadcast rather than xp.full: the bracket is r_a_min/max * scale, so
         # a DIFFERENTIATED scale makes it a backend array, and full() wants a
         # scalar fill (torch raises). Adding zeros also keeps the gradient that
         # flows through the bracket itself.
-        lo, hi = xp.asarray(self._r_lo), xp.asarray(self._r_hi)
+        lo = xp.log(xp.asarray(self._r_lo) * 1e-12)
+        hi = xp.log(xp.asarray(self._r_hi))
         if E.ndim:
             _z = xp.zeros(E.shape, dtype=lo.dtype)
             lo, hi = lo + _z, hi + _z
-        return brentq(f, lo, hi, args=(E,))
+        return xp.exp(brentq(f, lo, hi, args=(E,)))
 
 
 class sphericaldf(df):
