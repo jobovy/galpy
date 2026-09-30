@@ -169,7 +169,7 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
 def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     r"""Return a rotation matrix that rotates v to align with unit vector a
     i.e. R . v = |v|\hat{a}"""
-    from ..backend import as_backend_constant, get_namespace, is_backend_array
+    from ..backend import as_backend_constant, get_namespace, is_backend_array, to_host
 
     # Dispatch DATA-first (not via the forced-context get_namespace): this leaf is
     # called from numpy-context code (streamspraydf/streamgapdf/rotated potentials)
@@ -206,7 +206,7 @@ def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     # array_namespace(backend_array, list) raises outside a forced context; a is
     # re-created as a backend constant on the next line regardless.
     xp = get_namespace(v)
-    a = as_backend_constant(xp, numpy.asarray(a, dtype=float), v)
+    a = as_backend_constant(xp, numpy.asarray(to_host(a), dtype=float), v)
     normv = v / xp.sqrt(xp.sum(v**2.0, axis=1))[:, None]
     nx, ny, nz = normv[:, 0], normv[:, 1], normv[:, 2]
     rotaxis = xp.stack(

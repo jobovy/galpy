@@ -139,10 +139,18 @@ def _tuple_shape(shape):
     return tuple(shape)
 
 
+def _torch_draw(draw, *args, **kwargs):
+    """A torch draw on the (CPU) key generator, moved to the default device: a
+    key gives the same numbers on every device."""
+    import torch
+
+    return draw(*args, device="cpu", **kwargs).to(torch.get_default_device())
+
+
 def _torch_generator(key):
     import torch
 
-    g = torch.Generator(device=torch.get_default_device())  # torch.rand's device
+    g = torch.Generator()
     g.manual_seed(key.seed)
     return g
 
@@ -220,7 +228,9 @@ def split(key, num=2):
     import torch
 
     g = _torch_generator(key)
-    child = torch.randint(0, 2**62, (num,), generator=g, dtype=torch.int64)
+    child = torch.randint(
+        0, 2**62, (num,), generator=g, dtype=torch.int64, device="cpu"
+    )
     return tuple(_TorchKey(int(c)) for c in child)
 
 
@@ -244,7 +254,9 @@ def uniform(key, shape, low=0.0, high=1.0):
     import torch
 
     g = _torch_generator(key)
-    out = torch.rand(_tuple_shape(shape), generator=g, dtype=torch.get_default_dtype())
+    out = _torch_draw(
+        torch.rand, _tuple_shape(shape), generator=g, dtype=torch.get_default_dtype()
+    )
     return low + (high - low) * out
 
 
@@ -267,7 +279,9 @@ def normal(key, shape, loc=0.0, scale=1.0):
     import torch
 
     g = _torch_generator(key)
-    z = torch.randn(_tuple_shape(shape), generator=g, dtype=torch.get_default_dtype())
+    z = _torch_draw(
+        torch.randn, _tuple_shape(shape), generator=g, dtype=torch.get_default_dtype()
+    )
     return loc + scale * z
 
 
@@ -290,7 +304,9 @@ def random(key, shape=None):
     import torch
 
     g = _torch_generator(key)
-    return torch.rand(_tuple_shape(shape), generator=g, dtype=torch.get_default_dtype())
+    return _torch_draw(
+        torch.rand, _tuple_shape(shape), generator=g, dtype=torch.get_default_dtype()
+    )
 
 
 def randint(key, shape, low, high):
@@ -311,8 +327,13 @@ def randint(key, shape, low, high):
     import torch
 
     g = _torch_generator(key)
-    return torch.randint(
-        int(low), int(high), _tuple_shape(shape), generator=g, dtype=torch.int64
+    return _torch_draw(
+        torch.randint,
+        int(low),
+        int(high),
+        _tuple_shape(shape),
+        generator=g,
+        dtype=torch.int64,
     )
 
 
@@ -347,10 +368,12 @@ def choice(key, a, shape=None, p=None):
     for s in tshape:
         count *= s
     if p is None:
-        idx = torch.randint(0, n, (count,), generator=g, dtype=torch.int64)
+        idx = _torch_draw(torch.randint, 0, n, (count,), generator=g, dtype=torch.int64)
     else:
         p_t = torch.as_tensor(p, dtype=torch.get_default_dtype())
-        idx = torch.multinomial(p_t, count, replacement=True, generator=g)
+        idx = torch.multinomial(p_t.cpu(), count, replacement=True, generator=g).to(
+            torch.get_default_device()
+        )
     return a_t[idx].reshape(tshape)
 
 
@@ -384,5 +407,7 @@ def multivariate_normal(key, mean, cov, shape=None):
     w, V = torch.linalg.eigh(cov_t)
     L = V * torch.sqrt(torch.clamp(w, min=0.0))
     tshape = _tuple_shape(shape)
-    z = torch.randn(tshape + (d,), generator=g, dtype=torch.get_default_dtype())
+    z = _torch_draw(
+        torch.randn, tshape + (d,), generator=g, dtype=torch.get_default_dtype()
+    )
     return mean_t + z @ L.T

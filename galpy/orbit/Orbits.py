@@ -2127,6 +2127,8 @@ class Orbit:
             # merge runs on its namespace (numpy's own for a numpy orbit, so that
             # path is byte-identical).
             _xp = get_namespace(self.orbit) if is_backend_array(self.orbit) else numpy
+            if _xp is numpy:  # a backend first leg (CUDA) merges on the host
+                old_orbit = to_host(old_orbit)
             if is_forward:
                 # Forward continuation: merge old and new, skip duplicate time point
                 self.t = numpy.concatenate(

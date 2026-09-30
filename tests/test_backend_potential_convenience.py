@@ -472,9 +472,9 @@ def test_normalize_torch_backend(norm):
         rf = p.Rforce(1.0, 0.0, use_physical=False)
     # amp stays on-backend (differentiable) and equals the numpy amp byte-for-byte
     assert torch.is_tensor(amp)
-    numpy.testing.assert_allclose(float(numpy.asarray(amp)), float(ref_amp), rtol=1e-12)
+    numpy.testing.assert_allclose(float(amp), float(ref_amp), rtol=1e-12)
     # and the normalization actually holds: |Rforce(1,0)| == norm
-    numpy.testing.assert_allclose(float(numpy.asarray(rf)), -norm, rtol=1e-10)
+    numpy.testing.assert_allclose(float(rf), -norm, rtol=1e-10)
 
 
 @pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
