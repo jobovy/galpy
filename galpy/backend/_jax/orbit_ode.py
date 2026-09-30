@@ -79,6 +79,10 @@ def integrate(
     # 4096 is too low for galpy's long ~10-Tdyn integrations).
     if max_steps is None:
         max_steps = 100000
+    if nsteps is not None:
+        # constant steps take exactly nsteps; a larger cap only lengthens the
+        # (DirectAdjoint) bounded loop (~30% of a vmapped second-order solve)
+        max_steps = min(max_steps, nsteps + 1)
     _solver = _resolve_solver(diffrax, solver)
     _adjoint = _resolve_adjoint(diffrax, adjoint)
     # only pass adjoint when explicitly chosen, so the default call is byte-for-byte

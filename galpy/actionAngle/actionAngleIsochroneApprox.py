@@ -71,7 +71,9 @@ class actionAngleIsochroneApprox(actionAngle):
             'solver', and (jax) 'adjoint'); 'rtol'/'atol' (default 1e-12 each) are
             the only way to set the solver tolerance here; e.g. {'adjoint': 'direct', 'max_steps': 4096} enables
             jax SECOND derivatives (jax.hessian / nested jacrev) of the actions w.r.t.
-            the input phase-space coordinates. Ignored for the C/numpy path.
+            the input phase-space coordinates. (jax) 'nsteps' switches to that many
+            constant steps; a backend streamdf track defaults it to 100 per shortest
+            progenitor period. Ignored for the C/numpy path.
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         maxn : int, optional

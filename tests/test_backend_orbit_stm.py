@@ -196,6 +196,31 @@ def test_batch_and_vmap():
     numpy.testing.assert_allclose(as_numpy(batch), as_numpy(vm), rtol=1e-10, atol=1e-12)
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_vmap_over_multiorbit_batches_and_jacrev():
+    # vmap over MULTI-orbit (N, 6) ICs -- what actionAngleIsochroneApprox hands the
+    # C-STM inside streamdf's vmapped chunk loop. With vmap_method="expand_dims" the
+    # host got a (B, N, 6) batch and crashed ("expected 6, got 1"). Must equal the
+    # per-element loop exactly, also nested and under jacrev.
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    base = numpy.stack([_IC, _IC * 1.01])  # (N=2, 6)
+    ics = jnp.asarray(numpy.stack([base, base * 0.99, base * 1.02]))  # (B=3, 2, 6)
+
+    def f(v):
+        return _integ("jax", pot, v, _TS, "dop853_c")
+
+    loop = numpy.stack([as_numpy(f(ics[i])) for i in range(3)])
+    numpy.testing.assert_array_equal(as_numpy(jax.vmap(f)(ics)), loop)
+    nested = jax.vmap(jax.vmap(f))(ics[:, :, None, :])  # (B, N, 1, 6) ICs
+    numpy.testing.assert_array_equal(as_numpy(nested)[:, :, 0], loop)
+
+    def final(v):
+        return f(v)[:, -1, :]
+
+    jloop = numpy.stack([as_numpy(jax.jacrev(final)(ics[i])) for i in range(3)])
+    numpy.testing.assert_array_equal(as_numpy(jax.vmap(jax.jacrev(final))(ics)), jloop)
+
+
 # ---------------------------------------------------------------- numpy IC raises
 def test_numpy_ic_raises():
     from galpy.backend._reference.inbackend_stm import integrate_stm
