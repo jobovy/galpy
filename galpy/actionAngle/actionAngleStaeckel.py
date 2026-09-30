@@ -18,6 +18,7 @@ from scipy import integrate, optimize
 
 from ..backend import (
     asarray_on_device,
+    coerce_coords,
     concretely_true,
     device_of,
     get_namespace,
@@ -27,9 +28,11 @@ from ..backend import (
 )
 from ..backend._namespaces import (
     graft_gradient,
+    requires_backend_grad,
     stop_gradient,
     under_jax_trace,
     under_torch_grad,
+    under_trace,
 )
 from ..backend.optimize import bisect_root, iterate_bracket
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
@@ -53,6 +56,7 @@ from ..potential.Potential import (
     _evaluateRforces,
     _evaluatezforces,
     _isNonAxi,
+    _pot_grad_namespace,
 )
 from ..util import coords  # for prolate confocal transforms
 from ..util import (
@@ -810,38 +814,59 @@ def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
     For jax/torch inputs, wraps the compiled 4x5 d(e,zmax,rperi,rap)/d(R,vR,vT,z,vz)
     C entry (actionAngleStaeckel_EccZmaxRperiRapJac_c) in the backend custom_vjp /
     autograd.Function: the forward is the round-trip C value, the backward a matvec
-    of the C-computed Jacobian. numpy inputs never reach here. delta is a fixed
-    reference (no gradient), so the Jacobian is the partial at fixed delta.
-    First-order only."""
+    of the C-computed Jacobian. numpy inputs never reach here. A fixed delta is a
+    reference (no gradient); a delta that carries one (Orbit's automagic delta,
+    estimated at the phase-space point) adds a d/d(delta) column, a central
+    difference of the C values. First-order only."""
     from ..orbit.integrateFullOrbit import _parse_pot
 
+    delta_grad = under_trace(delta) or requires_backend_grad(delta)
+    if delta_grad and _pot_grad_namespace(pot) is not None:
+        raise NotImplementedError(
+            "The C implementation cannot carry derivatives with respect to "
+            "the potential's parameters; use c=False"
+        )
     _parse_pot(
         pot, potforactions=True
     )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
-    delta_np = numpy.atleast_1d(
-        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    delta_np = (
+        None
+        if delta_grad
+        else numpy.atleast_1d(numpy.asarray(stop_gradient(delta), dtype=numpy.float64))
     )
     u0_np = (
         None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
     )
 
-    def host_jac(Rn, vRn, vTn, zn, vzn):
-        e, zm, rp, ra, jac, err = (
-            actionAngleStaeckel_c.actionAngleStaeckel_EccZmaxRperiRapJac_c(
-                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, useu0=useu0
-            )
+    def _c(d, *cs):
+        return actionAngleStaeckel_c.actionAngleStaeckel_EccZmaxRperiRapJac_c(
+            pot, d, *cs, u0=u0_np, useu0=useu0
         )
-        return e, zm, rp, ra, jac
 
-    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    def host_jac(Rn, vRn, vTn, zn, vzn, *dn):
+        cs = (Rn, vRn, vTn, zn, vzn)
+        e, zm, rp, ra, jac, err = _c(dn[0] if dn else delta_np, *cs)
+        if not dn:
+            return e, zm, rp, ra, jac
+        h = 1e-4 * dn[0]
+        col = (
+            numpy.array(_c(dn[0] + h, *cs)[:4]) - numpy.array(_c(dn[0] - h, *cs)[:4])
+        ) / (2.0 * h)
+        col[:, e == 9999.99] = 0.0  # failed rows: C zeroes their Jacobian too
+        return e, zm, rp, ra, numpy.concatenate([jac, col.T[:, :, None]], axis=2)
+
+    coords = (R, vR, vT, z, vz)
+    if delta_grad:  # delta as a sixth, per-object coordinate
+        coords += (delta * get_namespace(R).ones_like(R),)
+    name = name_of_namespace(get_namespace(*coords))
     if name == "jax":
         from ..backend._jax.staeckel_c import ecczmax_with_jac
 
-        return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
+        return ecczmax_with_jac(host_jac, coords)
     if name == "torch":
         from ..backend._torch.staeckel_c import ecczmax_with_jac
 
-        return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
+        return ecczmax_with_jac(host_jac, *coords)
     raise NotImplementedError(  # pragma: no cover
         "C-native Staeckel EccZmax gradients require a jax or torch input array."
     )
@@ -1647,6 +1672,8 @@ class actionAngleStaeckel(actionAngle):
             )
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
         xp = get_namespace(umin) if is_backend_array(umin) else numpy
+        if isinstance(delta, numpy.ndarray):  # uv_to_Rz resolves one namespace
+            (delta,) = coerce_coords(xp, delta, device=device_of(umin))
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
         rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
         rap = xp.sqrt(rap_tmp**2.0 + zmax**2.0)

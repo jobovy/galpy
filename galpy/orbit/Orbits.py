@@ -35,8 +35,10 @@ from ..backend import (
 from ..backend import use as _use_backend
 from ..backend._namespaces import (
     compilable_singledispatchmethod,
+    concretely_true,
     inbackend_ode_method,
     requires_backend_grad,
+    set_at,
     under_jax_trace,
     under_trace,
     untraceable_setup,
@@ -4116,7 +4118,13 @@ class Orbit:
             delta_grad = under_trace(delta) or requires_backend_grad(delta)
             if is_backend_array(delta) and not delta_grad:
                 delta = numpy.array(as_numpy(delta))
-            if bool((delta == 1e-6).all() if delta_grad else numpy.all(delta == 1e-6)):
+            # a jit-traced delta cannot pick the spherical fallback; Staeckel at
+            # the clipped delta agrees with it to ~1e-10
+            if (
+                concretely_true((delta == 1e-6).all())
+                if delta_grad
+                else numpy.all(delta == 1e-6)
+            ):
                 self._setupaA(pot=pot, type="spherical")
                 # stands in for the requested type: a repeat request reuses it
                 # (else every e/rperi/rap call rebuilt it and its cached results)
@@ -4147,28 +4155,22 @@ class Orbit:
             )
         elif self.dim() == 3:
             Einf = evaluatePotentials(self._aAPot, _INF, 0.0, use_physical=False)
-        # The analytic path is a numpy/C computation, but under a forced backend
-        # evaluatePotentials and E return backend arrays; bring both Einf and the
-        # energy back to numpy so the unbound mask stays a plain numpy index into
-        # the numpy/C EccZmaxRperiRap arrays (no-op for numpy -> byte-identical).
-        #
-        # A DIFFERENTIATED energy cannot be concretized at all, and the mask is a
-        # discrete selection that carries no gradient anyway. Signal that with
-        # indx=None: the callers then evaluate every orbit instead of masking,
-        # which is what a differentiable run wants (and an unbound orbit raises
-        # there, loudly, rather than being silently dropped).
-        if under_trace(Einf) or requires_backend_grad(Einf):
+        E = self.E(pot=self._aAPot, use_physical=False, dontreshape=True)
+        # The unbound mask is a discrete selection that carries no gradient and
+        # cannot be concretized from a differentiated energy (w.r.t. the
+        # potential parameters or the phase-space point): indx=None then tells
+        # the callers to evaluate every orbit (an unbound one raises there,
+        # loudly, rather than being silently dropped).
+        if under_trace(Einf, E) or requires_backend_grad(Einf, E):
             return None, (
                 {"delta": self._aA._delta} if hasattr(self._aA, "_delta") else {}
             )
+        # Otherwise a concrete numpy mask (no-op for numpy -> byte-identical).
         if is_backend_array(Einf):
             Einf = as_numpy(Einf)
         if numpy.isnan(Einf):
             Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
-        indx = (
-            as_numpy(self.E(pot=self._aAPot, use_physical=False, dontreshape=True))
-            < Einf
-        )
+        indx = as_numpy(E) < Einf
         if hasattr(self._aA, "_delta"):
             if hasattr(self._aA._delta, "__len__"):
                 aAkwargs = {"delta": self._aA._delta[indx]}
@@ -4183,6 +4185,9 @@ class Orbit:
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_ecc"):
             return None
+        R = self.R(use_physical=False, dontreshape=True)
+        vR = self.vR(use_physical=False, dontreshape=True)
+        vT = self.vT(use_physical=False, dontreshape=True)
         if self.dim() == 3:
             # try to make sure this is not 0
             _z = self.z(use_physical=False, dontreshape=True)
@@ -4196,49 +4201,38 @@ class Orbit:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
+        # A backend orbit (or a forced backend) runs on the backend, where the
+        # aA classes' backend EccZmaxRperiRap paths carry the gradient; numpy
+        # is a strict pass-through.
+        xp = get_namespace(R, vR, vT, tz, tvz)
+        R, vR, vT, tz, tvz = coerce_coords(xp, R, vR, vT, tz, tvz)
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        if indx is not None:  # masked path: preallocate the nan-filled outputs
-            (
-                self._aA_ecc,
-                self._aA_zmax,
-                self._aA_rperi,
-                self._aA_rap,
-            ) = tuple(
-                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
-                + numpy.nan
-                for _ in range(4)
-            )
-        if indx is None:  # differentiated: no mask, evaluate every orbit
+        if indx is None or (xp is not numpy and indx.all()):
+            # differentiated (no mask) or all bound on a backend: every orbit
             (
                 self._aA_ecc,
                 self._aA_zmax,
                 self._aA_rperi,
                 self._aA_rap,
             ) = self._aA.EccZmaxRperiRap(
-                self.R(use_physical=False, dontreshape=True),
-                self.vR(use_physical=False, dontreshape=True),
-                self.vT(use_physical=False, dontreshape=True),
-                tz,
-                tvz,
-                use_physical=False,
-                **aAkwargs,
+                R, vR, vT, tz, tvz, use_physical=False, **aAkwargs
             )
-        elif numpy.sum(indx) > 0:
-            (
-                self._aA_ecc[indx],
-                self._aA_zmax[indx],
-                self._aA_rperi[indx],
-                self._aA_rap[indx],
-            ) = self._aA.EccZmaxRperiRap(
-                self.R(use_physical=False, dontreshape=True)[indx],
-                self.vR(use_physical=False, dontreshape=True)[indx],
-                self.vT(use_physical=False, dontreshape=True)[indx],
+            return None
+        # masked path: nan for the unbound orbits
+        out = [xp.zeros_like(R) + numpy.nan for _ in range(4)]
+        if numpy.sum(indx) > 0:
+            res = self._aA.EccZmaxRperiRap(
+                R[indx],
+                vR[indx],
+                vT[indx],
                 tz[indx],
                 tvz[indx],
                 use_physical=False,
                 **aAkwargs,
             )
+            out = [set_at(xp, o, indx, r) for o, r in zip(out, res)]
+        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap = out
         return None
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
