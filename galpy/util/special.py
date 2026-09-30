@@ -166,7 +166,10 @@ def sph_harm_normalization(L, M):
 ###############################################################################
 def incomplete_beta_split(p, q):
     """The split point c of incomplete_beta: the integrand's mass centre
-    (p+1)/(p+q+2), at most 0.9"""
+    (p+1)/(p+q+2), at most 0.9 (and 0.9 for p+q+2 <= 0, where the mass piles
+    up at 1; TwoPower's alpha >= beta + 2)"""
+    if p + q + 2.0 <= 0.0:
+        return 0.9
     return min((p + 1.0) / (p + q + 2.0), 0.9)
 
 

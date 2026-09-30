@@ -4,7 +4,10 @@
 // TwoPowerSphericalPotential.
 #include <math.h>
 #include "incomplete_beta.h"
+// the integrand's mass centre (p+1)/(p+q+2), at most 0.9 (and 0.9 for
+// p+q+2 <= 0, where the mass piles up at 1; TwoPower's alpha >= beta + 2)
 double galpy_incomplete_beta_split(double p, double q){
+  if ( p + q + 2. <= 0. ) return 0.9;
   double c= (p + 1.) / (p + q + 2.);
   return c > 0.9 ? 0.9 : c;
 }

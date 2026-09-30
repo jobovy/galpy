@@ -15153,6 +15153,49 @@ _GOLD_TWOPOWER_DERIVS = [  # alpha, beta, x, dPhi/dr, Phi'', R2deriv, z2deriv, R
         0.0016148338261772362,
         -0.0022692541517223071,
     ),
+    # alpha >= beta + 2 (p + q + 2 <= 0): the split's mass-centre formula is
+    # negative there; and beta < 2 above the split (q + 1 < 0 in the reflected
+    # series' Pochhammer denominators)
+    (
+        2.5,
+        0.3,
+        50.0,
+        3.6325289775191193,
+        0.035257630486208565,
+        0.048459186138300258,
+        0.042683505540510142,
+        -0.0099011667390687688,
+    ),
+    (
+        2.5,
+        0.3,
+        0.05,
+        109.80054099058211,
+        -2471.9915809728054,
+        191.19604983398318,
+        -973.94853864398691,
+        -1997.3907231050913,
+    ),
+    (
+        0.5,
+        0.8,
+        50.0,
+        0.58195032238188827,
+        0.0018823823844640434,
+        0.0064076300633979556,
+        0.0044278342038643688,
+        -0.0033939357592004339,
+    ),
+    (
+        1.5,
+        1.7,
+        500.0,
+        0.005864753321504844,
+        -6.3032511233654564e-6,
+        3.5053559429162823e-6,
+        -7.8590964858197871e-7,
+        -7.3564552997113036e-6,
+    ),
 ]
 
 
@@ -15238,7 +15281,9 @@ def test_twopower_nan_and_infinite_radius():
     # coordinate is -dPhi/dr(inf) = 0 (beta > 1), -1/(2 a^2) (beta = 1; M ~
     # x^2 / 2) or -inf (beta < 1); the transverse force and every second
     # derivative -> 0; both coordinates infinite has no direction (0 when
-    # dPhi/dr -> 0, else NaN). Python and C alike.
+    # dPhi/dr -> 0, else NaN). Only for beta > 0: at beta <= 0 the density does
+    # not fall off and the limits are finite or divergent, so r = inf is NaN.
+    # amp = 0 is 0 everywhere (no 0 * inf). Python and C alike.
     from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
 
     inf, nan = numpy.inf, numpy.nan
@@ -15247,21 +15292,25 @@ def test_twopower_nan_and_infinite_radius():
     def c(fn, R, z, **kw):
         return fn(pot, numpy.array([R]), numpy.array([z]), **kw)[0][0]
 
-    for alpha, beta, F in (
-        (1.5, 3.02, 0.0),
-        (1.5, 2.02, 0.0),
-        (1.5, 3.5, 0.0),
-        (0.5, 1.0, 0.5 / 1.3**2.0),
-        (0.5, 0.8, inf),
+    for amp, alpha, beta, F in (
+        (1.0, 1.5, 3.02, 0.0),
+        (1.0, 1.5, 2.02, 0.0),
+        (1.0, 1.5, 3.5, 0.0),
+        (1.0, 0.5, 1.0, 0.5 / 1.3**2.0),
+        (1.0, 0.5, 0.8, inf),
+        (0.0, 0.5, 0.8, 0.0),  # amp = 0: 0, not 0 * inf
+        (1.0, 0.5, 0.0, nan),  # beta <= 0: undefined here
+        (1.0, 0.5, -0.5, nan),
     ):
         pot = potential.TwoPowerSphericalPotential(
-            amp=1.0, a=1.3, alpha=alpha, beta=beta
+            amp=amp, a=1.3, alpha=alpha, beta=beta
         )
         both = 0.0 if F == 0.0 else nan
+        tr = nan if numpy.isnan(F) else 0.0  # transverse / second derivatives
         for R, z, fR, fz in (
-            (inf, 0.0, -F, 0.0),
-            (0.0, inf, 0.0, -F),
-            (0.0, -inf, 0.0, F),
+            (inf, 0.0, -F, tr),
+            (0.0, inf, tr, -F),
+            (0.0, -inf, tr, F),
             (inf, inf, both, both),
         ):
             got = [
@@ -15281,7 +15330,7 @@ def test_twopower_nan_and_infinite_radius():
                 ),
             ]
             numpy.testing.assert_allclose(
-                got, 0.0, rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
+                got, tr, rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
             )
 
 

@@ -186,9 +186,11 @@ def _limit_at_infinite_radius(component=None):
     """The value at r = inf, where the expressions are inf * 0 (R f(r),
     z^2 f(r) / r^2, ...). The force along an infinite coordinate is
     -dPhi/dr(inf) (_force_at_infinity); the transverse force and every second
-    derivative -> 0 (beta > 0). With both coordinates infinite the direction is
-    undefined: 0 if dPhi/dr -> 0, else NaN. ``component``: "R" or "z" for the
-    forces, None for the second derivatives. Finite inputs are untouched;
+    derivative -> 0. With both coordinates infinite the direction is
+    undefined: 0 if dPhi/dr -> 0, else NaN. Only for beta > 0: at beta <= 0
+    the density does not fall off and these limits are finite or divergent, so
+    r = inf is NaN there. amp = 0 is 0 (no 0 * inf). ``component``: "R" or "z"
+    for the forces, None for the second derivatives. Finite inputs are untouched;
     under a trace the infinite entries are masked (finite stand-ins, so the
     unused branch cannot NaN the gradient)."""
 
@@ -205,13 +207,23 @@ def _limit_at_infinite_radius(component=None):
             out = method(
                 self, xp.where(inf, 1.0, R), xp.where(inf, 0.0, z), phi=phi, t=t
             )
-            if component is None:
-                return xp.where(inf, 0.0, out)
-            F = _force_at_infinity(self.beta, self.a)
-            X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
-            along = -F * xp.sign(xp.where(Xinf, X, 1.0))
-            both = 0.0 if self.beta > 1.0 else numpy.nan
-            lim = xp.where(Xinf & Yinf, both, xp.where(Xinf, along, 0.0))
+            amp0 = self._amp == 0.0  # traced for a differentiated amp
+            if has_concrete_truth_value(amp0):
+                if bool(amp0):
+                    return xp.where(inf, 0.0, out)
+                amp0 = None
+            if self.beta <= 0.0:
+                lim = numpy.nan
+            elif component is None:
+                lim = 0.0
+            else:
+                F = _force_at_infinity(self.beta, self.a)
+                X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
+                along = -F * xp.sign(xp.where(Xinf, X, 1.0))
+                both = 0.0 if self.beta > 1.0 else numpy.nan
+                lim = xp.where(Xinf & Yinf, both, xp.where(Xinf, along, 0.0))
+            if amp0 is not None:
+                lim = xp.where(amp0, 0.0, lim)
             return xp.where(inf, lim, out)
 
         return wrapper

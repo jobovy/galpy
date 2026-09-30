@@ -49,11 +49,11 @@ def incomplete_beta_series_coeffs(kind, p, q, vmax):
             else:
                 cn_sgn, cn_la = 0.0, 0.0
         else:
-            if n > 0:  # (b)_n/(c)_n
+            if n > 0:  # (b)_n/(c)_n; c = q + 1 < 0 for beta < 2
                 if b + n - 1.0 == 0.0:
                     break  # the series terminates
-                sg *= math.copysign(1.0, b + n - 1.0)
-                la += math.log(abs(b + n - 1.0) / (c + n - 1.0))
+                sg *= math.copysign(1.0, (b + n - 1.0) * (c + n - 1.0))
+                la += math.log(abs((b + n - 1.0) / (c + n - 1.0)))
             cn_sgn, cn_la = sg, la
         if cn_sgn:
             sgn.append(cn_sgn)

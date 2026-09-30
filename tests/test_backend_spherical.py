@@ -729,6 +729,14 @@ _TWOPOWER_DERIV_CASES = [  # alpha, beta, quantity, x, value, d/da
     (0.5, 1.0, "Rforce", 10.0, -0.63855263038966718, 1.1035446634786948),
     (0.5, 1.0, "R2deriv", 10.0, 0.0039290279495916170, -0.0041800934222677834),
     (1.5, 1.0, "mass", 50.0, 2548.7979361391499, -4208.1270576508658),
+    # alpha >= beta + 2 (the split's mass-centre formula is negative there), and
+    # beta < 2 above the split (q + 1 < 0: the reflected series' Pochhammer
+    # denominators change sign; its static coefficients once took log(< 0))
+    (2.5, 0.3, "Rforce", 50.0, -8.5263527388990438, 18.69328547792203),
+    (2.5, 0.3, "R2deriv", 0.05, -6285.8397030060804, 2680.0616493830212),
+    (0.5, 0.8, "Rforce", 50.0, -1.3659667289241544, 2.5159395770649971),
+    (1.5, 1.7, "Rforce", 500.0, -0.013765879324087759, 0.014929102856098864),
+    (0.5, 1.5, "Rforce", 1000.0, -0.029196783170493646, 0.036563872009568896),
 ]
 
 
@@ -766,7 +774,8 @@ def test_twopower_derivs_value_and_parameter_gradient(
         # and under jit: static-length series
         jval = float(jax.jit(f)(*args))
         jda = float(jax.jit(jax.grad(f))(*args))
-        assert abs(jval - val) <= 1e-15 * abs(val), (jval, val)
+        # XLA fuses the long beta < 2 series differently: ~1e-15, a few ulp
+        assert abs(jval - val) <= 3e-15 * abs(val), (jval, val)
         assert abs(jda - da) <= 1e-13 * abs(dref) + datol, (jda, da)
     else:
         a = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
@@ -821,6 +830,15 @@ def test_twopower_mass_at_zero_and_forces_at_infinity(backend_name):
     numpy.testing.assert_allclose(
         g, [[1.0 / a0**3, 0.0], [0.0, -1.0 / a0**3]], rtol=1e-15
     )
+    if backend_name == "jax":
+        # a traced amp: beta < 1's infinite limit, and 0 (not 0 * inf) at amp = 0
+        f = jax.jit(
+            lambda amp: TwoPowerSphericalPotential(
+                amp=amp, a=1.3, alpha=0.5, beta=0.8
+            )._Rforce(jnp.asarray([numpy.inf]), jnp.asarray([0.0]))
+        )
+        assert as_numpy(f(0.0))[0] == 0.0
+        assert as_numpy(f(1.0))[0] == -numpy.inf
 
 
 @pytest.mark.parametrize("method", _TWOPOWER_METHODS)
