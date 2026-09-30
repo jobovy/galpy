@@ -70,9 +70,9 @@ def _nfw_hk(x):
 # E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 # x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
 # alpha = 0 (k = 3) are subtracted in closed form. Only for alpha < 1.5
-# (_TP_GFORM_ALPHA): near alpha = 3 it is 1 + G that cancels (G -> -1), while
-# D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3 there, so alpha >= 1.5
-# sums M = E 2F1(1, p+q; p+1; w) directly. Above c, D - k M/x^3 directly:
+# (_TP_GFORM_ALPHA): D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3
+# above it. M/x^3 itself is always E 2F1(1, p+q; p+1; w), never E (1 + G):
+# 1 + G cancels where G -> -1 (alpha -> 3, beta << 0). Above c, D - k M/x^3 directly:
 # those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
 # off at beta = 3 +- 1e-12 and NaN at large beta and r.
 _TP_GFORM_ALPHA = 1.5
@@ -100,16 +100,14 @@ def _tp_radial(alpha, beta, w, s, hess):
 def _tp_radial_lo(alpha, beta, w, s, hess):
     p, q = 3.0 - alpha, beta - 3.0
     E = w**-alpha * s**beta / p
+    m = E * hyp2f1_1(p + q, p + 1.0, w)  # not E (1 + G): G -> -1 cancels
+    if not hess:
+        return (m,)
     if alpha >= _TP_GFORM_ALPHA:
-        m = E * hyp2f1_1(p + q, p + 1.0, w)
-        if not hess:
-            return (m,)
         D = p * E
         return m, D - 2.0 * m, D - 3.0 * m
     G = (p + q) / (p + 1.0) * w * hyp2f1_1(p + q + 1.0, p + 2.0, w)
-    if not hess:
-        return (E * (1.0 + G),)
-    return E * (1.0 + G), E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
+    return m, E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
 
 
 def _tp_radial_hi(alpha, beta, w, s, c, hess):
