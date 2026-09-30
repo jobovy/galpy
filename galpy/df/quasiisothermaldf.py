@@ -60,13 +60,14 @@ _MAXVT_X0 = 1.0  # same local-search start as scipy's fmin_powell on the numpy p
 _SAMPLEV_MAXROUNDS = 200
 
 
+# dynamo traces numpy on constants into emulated 0-d ndarrays, which a tensor
+# cannot be added to afterwards
+_numpy_log = untraceable_setup(numpy.log)
+
+
 class quasiisothermaldf(df):
     """Class that represents a 'Binney' quasi-isothermal DF"""
 
-    # torch.compile: the numpy/scipy setup runs eagerly (opaque); traced it
-    # turned the scalars into dynamo's emulated ndarrays, which a tensor
-    # cannot meet in __call__
-    @untraceable_setup
     def __init__(
         self,
         hr,
@@ -135,9 +136,12 @@ class quasiisothermaldf(df):
         self._lo = parse_angmom(lo, ro=self._ro, vo=self._vo)
         # coerce first: under a forced backend torch.log rejects a plain float
         _lxp = resolve_namespace(self._sr, self._sz)
-        _srv, _szv = coerce_coords(_lxp, self._sr, self._sz)
-        self._lnsr = _lxp.log(_srv)
-        self._lnsz = _lxp.log(_szv)
+        if _lxp is numpy:  # constants: eager under torch.compile (numpy float64)
+            self._lnsr, self._lnsz = _numpy_log(self._sr), _numpy_log(self._sz)
+        else:
+            _srv, _szv = coerce_coords(_lxp, self._sr, self._sz)
+            self._lnsr = _lxp.log(_srv)
+            self._lnsz = _lxp.log(_szv)
         self._maxVT_hash = None
         self._maxVT_ip = None
         if pot is None:
@@ -188,26 +192,7 @@ class quasiisothermaldf(df):
             self._precomputergrmax = _precomputergrmax
             self._precomputergnLz = _precomputergnLz
             self._precomputergLzmin = 0.01
-            # float(): under a forced backend vcirc returns a backend scalar, which
-            # would make this grid bound a Tensor and break the numpy _rg branch's
-            # `lz > self._precomputergLzmax` (ndarray > Tensor raises). Keep it a
-            # Python scalar; the numpy path is byte-identical (linspace stop value).
-            self._precomputergLzmax = float(
-                self._precomputergrmax
-                * potential.vcirc(self._pot, self._precomputergrmax)
-            )
-            self._precomputergLzgrid = numpy.linspace(
-                self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
-            )
-            self._rls = numpy.array(
-                [potential.rl(self._pot, l) for l in self._precomputergLzgrid]
-            )
-            # Spline interpolate
-            self._rgInterp = interpolate.InterpolatedUnivariateSpline(
-                self._precomputergLzgrid, self._rls, k=3
-            )
-            # backend-array eval of the same spline (numpy path stays byte-identical)
-            self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
+            self._setup_rg_table()
         else:
             self._precomputergrmax = 0.0
             self._rgInterp = None
@@ -224,6 +209,30 @@ class quasiisothermaldf(df):
             _DEFAULTNGL // 2
         )
         return None
+
+    # torch.compile: a constant table (built only when neither hr nor the
+    # potential is traced), so it runs eagerly as an opaque call
+    @untraceable_setup
+    def _setup_rg_table(self):
+        # float(): under a forced backend vcirc returns a backend scalar, which
+        # would make this grid bound a Tensor and break the numpy _rg branch's
+        # `lz > self._precomputergLzmax` (ndarray > Tensor raises). Keep it a
+        # Python scalar; the numpy path is byte-identical (linspace stop value).
+        self._precomputergLzmax = float(
+            self._precomputergrmax * potential.vcirc(self._pot, self._precomputergrmax)
+        )
+        self._precomputergLzgrid = numpy.linspace(
+            self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
+        )
+        self._rls = numpy.array(
+            [potential.rl(self._pot, l) for l in self._precomputergLzgrid]
+        )
+        # Spline interpolate
+        self._rgInterp = interpolate.InterpolatedUnivariateSpline(
+            self._precomputergLzgrid, self._rls, k=3
+        )
+        # backend-array eval of the same spline (numpy path stays byte-identical)
+        self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
 
     @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):

@@ -15,6 +15,7 @@
 # (test_backend_orbit_stm) and of torchode (test_backend_torchode), kingdf W0
 # (test_backend_kingdf).
 ###############################################################################
+import importlib
 import warnings
 
 import numpy
@@ -99,6 +100,10 @@ def spray_track(bk, x):
     return tr._track_xyz.sum() + tr._cov_xyz.sum()
 
 
+# compiled, the fit takes its traced recipe; eagerly that recipe is forced
+spray_track.eager_traced_fit = True
+
+
 def actions_staeckel(bk, x):
     aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
     c = [_arr(bk, [v]) for v in (0.1, 1.1, 0.05, 0.05)]
@@ -129,6 +134,17 @@ def qdf_density(bk, x):
     return q(_one(bk, x), *c).sum()
 
 
+def qdf_constructor_parameters(bk, x):
+    # d/d(hr, sr): the constructor itself is traced (a traced hr skips the
+    # constant rg table)
+    aA = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.5)
+    q = quasiisothermaldf(
+        x / 4.0, 0.2 * x, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=aA, cutcounter=True
+    )
+    c = [_arr(bk, [v]) for v in (0.9, 0.1, 0.9, 0.05, 0.02)]
+    return q(*c).sum()
+
+
 def potential_evaluations(bk, x):
     p = NFWPotential(amp=x, a=2.0)
     return evaluatePotentials(p, _arr(bk, 1.1), _arr(bk, 0.2)) + vcirc(p, _arr(bk, 1.3))
@@ -155,20 +171,17 @@ _CASES = [
     ("jax", sphericaldf_sample, 1.7, ()),
     ("torch", qdf_density, 1.0, ()),
     ("jax", qdf_density, 1.0, ()),
+    ("torch", qdf_constructor_parameters, 1.0, ()),
+    ("jax", qdf_constructor_parameters, 1.0, ()),
     ("torch", potential_evaluations, 2.0, ()),
     ("jax", potential_evaluations, 2.0, ()),
     # plain torch.compile (inductor: generated kernels, not just dynamo). The
     # in-backend ODE is torchode, which inductor can lower (torchdiffeq cannot).
-    # spray -> streamTrack adds nothing here: its fit runs eagerly under compile.
     ("torch-inductor", orbit_potential_parameter, 1.1, ()),
     ("torch-inductor", spray_sample, 1.1, ()),
+    ("torch-inductor", spray_track, 1.1, ()),
+    ("torch-inductor", qdf_constructor_parameters, 1.0, ()),
 ]
-
-# Looser where the workflow itself amplifies round-off: the GCV-smoothed track
-# moves by 2e-9..1e-8 (grad) / ~1e-12 (value) for a 1e-14..1e-13 relative nudge
-# of its input, eagerly; compiled vs eager particles differ by 2.7e-14
-# (measured: 6e-12 value, 9.4e-9 grad).
-_RTOL = {"spray_track": (1e-10, 1e-7)}
 
 
 def _compiled(bk, workflow, x0):
@@ -194,8 +207,15 @@ def _compiled(bk, workflow, x0):
     [pytest.param(b, w, x, marks=m) for b, w, x, m in _CASES],
     ids=[f"{b}-{w.__name__}" for b, w, _, _ in _CASES],
 )
-def test_workflow_compiled_matches_eager(bk, workflow, x0):
-    if bk == "jax":
+def test_workflow_compiled_matches_eager(bk, workflow, x0, monkeypatch):
+    if getattr(workflow, "eager_traced_fit", False) and bk != "jax":
+        st = importlib.import_module("galpy.df.streamTrack")
+        with monkeypatch.context() as m:
+            m.setattr(st, "under_trace", lambda *a: True)
+            xe = torch.tensor(x0, requires_grad=True)
+            ve = workflow("torch", xe)
+            (ge,) = torch.autograd.grad(ve, xe)
+    elif bk == "jax":
         ve, ge = jax.value_and_grad(lambda x: workflow("jax", x))(x0)
     else:
         xe = torch.tensor(x0, requires_grad=True)
@@ -210,6 +230,8 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0):
         raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
-    rtol_v, rtol_g = _RTOL.get(workflow.__name__, (1e-12, 1e-10))
+    # inductor's generated kernels vectorize per CPU: spray_track measured
+    # 1.3e-13 here, 2.0e-12 on a CI runner (same torch)
+    rtol_v, rtol_g = (1e-11, 1e-9) if bk == "torch-inductor" else (1e-12, 1e-10)
     numpy.testing.assert_allclose(float(vc), float(ve), rtol=rtol_v)
     numpy.testing.assert_allclose(float(gc), float(ge), rtol=rtol_g)
