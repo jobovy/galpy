@@ -10,7 +10,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy, set_at
+from galpy.backend import as_numpy, cummax, set_at
 
 pytestmark = pytest.mark.backend_managed
 
@@ -246,3 +246,12 @@ def test_get_namespace_all_torch_fast_path():
     # a non-torch array in the mix still goes through array_namespace
     with pytest.raises(TypeError):
         get_namespace(x, [1.0, 2.0])
+
+
+# cummax: numpy.maximum.accumulate on every namespace (kingdf's traced solve)
+@pytest.mark.parametrize("backend", ["numpy", *BACKENDS])
+def test_cummax_matches_numpy(backend):
+    src = numpy.asarray([1.0, 3.0, 2.0, 2.5, 5.0, 4.0])
+    xp = {"numpy": numpy, "jax": jnp, "torch": torch}[backend]
+    out = cummax(xp, xp.asarray(src))
+    numpy.testing.assert_array_equal(as_numpy(out), numpy.maximum.accumulate(src))
