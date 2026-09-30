@@ -29,6 +29,8 @@ from ..potential.Potential import _evaluatePotentials, _pot_grad_namespace
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED, _TORCH_LOADED
 from .sphericaldf import (
+    _GL_W,
+    _GL_X,
     _QUAD_N_DMDE,
     _QUAD_N_VMOM,
     _handle_rmin,
@@ -590,9 +592,9 @@ class constantbetadf(_constantbetadf):
         # Build interpolator for the lower limit of the integration (near the
         # 1/(Phi-E)^alpha divergence; at the end, we slightly adjust it up
         # to be sure to be above the point where things go haywire...
-        if not self._halfint and self._jit:
-            self._logstartt = self._calibrate_startt_traced(_xp_pot)
-        elif not self._halfint:
+        # (the backend fE needs none: its small-r integrand is regular to t = 0;
+        # under jax.jit there is no numpy path to calibrate for)
+        if not self._halfint and not self._jit:
             # numpy-side calibration of the integration lower limit; run it
             # data-first (non-forced) so the jax/torch gradfunc autodiff traces
             # on its own tracer regardless of any forced backend (evaluateRforces
@@ -633,34 +635,6 @@ class constantbetadf(_constantbetadf):
                 self._logstartt = Spline1D(
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
-
-    def _calibrate_startt_traced(self, xp, nladder=40):
-        """The startt calibration below, with no concrete values (jax.jit).
-
-        The eager loop raises t through 10**(p (1-alpha)), p = -16, -15, ...,
-        until the integrand is nonzero at every energy. Traced, evaluate that
-        same ladder at once and take each energy's FIRST nonzero rung -- the
-        eager loop's answer whenever it stops within the ladder (``nladder``
-        rungs; it has no upper bound, a trace cannot). Only the zero/nonzero
-        decisions matter, so the values carry no gradient.
-        """
-        top = self._potInf + 1e-3 * (self._Emin - self._potInf)
-        Es = self._Emin + as_backend_constant(
-            xp, numpy.linspace(0.0, 1.0, 51), self._Emin
-        ) * (top - self._Emin)
-        ts = 10.0 ** (numpy.arange(-16, -16 + nladder) * (1.0 - self._alpha))
-        T = as_backend_constant(xp, numpy.repeat(ts, 51), self._Emin)
-        E = xp.tile(Es, (nladder,))
-        rmins = xp.tile(self._rphi(Es), (nladder,))
-        r = T ** (1.0 / (1.0 - self._alpha)) + rmins
-        val = (
-            self._gradfunc(r)
-            / (_evaluatePotentials(self._pot, r, 0) - E) ** self._alpha
-        )
-        live = xp.reshape(stop_gradient(xp.isfinite(val) & (val != 0.0)), (nladder, 51))
-        first = xp.argmax(live, axis=0)  # the first nonzero rung per energy
-        startt = as_backend_constant(xp, ts, self._Emin)[first]
-        return Spline1D(Es, xp.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3)
 
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
@@ -844,7 +818,6 @@ class constantbetadf(_constantbetadf):
             )
             return xp.where(indx, val, xp.zeros_like(val)).reshape(E.shape)
         alpha = self._alpha
-        lo = 10.0 ** self._logstartt(Ecl) * 1.0
         hi = rphiE ** (1.0 - alpha)
         Eb2 = Eb[..., None]
 
@@ -857,18 +830,32 @@ class constantbetadf(_constantbetadf):
                 xp.zeros_like(diff),
             )
 
-        def _smallr(t):  # substitution r = rphiE + t^(1/(1-alpha)) regularizes
-            r = t ** (1.0 / (1.0 - alpha)) + rphiE[..., None]
-            return 1.0 / (1.0 - alpha) * t ** (alpha / (1.0 - alpha)) * _raw(r)
+        def _smallr(t):
+            # r = rphiE + d, d = t^(1/(1-alpha)), and Phi(r) - E = d D with D the
+            # mean of dPhi/dr over [rphiE, r] (GL): t^(alpha/(1-alpha)) cancels
+            # d^alpha exactly, leaving a regular integrand down to t = 0 with no
+            # difference of O(1) potentials (the numpy path instead starts at a
+            # calibrated t where that difference stops being rounding)
+            d = t ** (1.0 / (1.0 - alpha))
+            rb = rphiE[..., None]
+            D = -xp.sum(
+                xp.asarray(_GL_W)
+                * evaluateRforces(
+                    self._pot,
+                    rb[..., None] + d[..., None] * xp.asarray(_GL_X),
+                    0.0,
+                    use_physical=False,
+                ),
+                axis=-1,
+            )
+            return 1.0 / (1.0 - alpha) * self._deriv(xp, rb + d) / D**alpha
 
         def _larger(t):  # substitution r = 1/t handles the r -> inf tail
             return _raw(1.0 / t) / t**2.0
 
-        i1 = fixed_quad(xp, _smallr, lo, hi, n=_QUAD_N_FE)
-        # constant [0, lo] piece (integrand ~ const there): rectangle lo*smallr(lo)
-        csmall = lo * _smallr(lo[..., None])[..., 0]
+        i1 = fixed_quad(xp, _smallr, xp.zeros_like(rphiE), hi, n=_QUAD_N_FE)
         i2 = fixed_quad(xp, _larger, xp.zeros_like(rphiE), 0.5 / rphiE, n=_QUAD_N_FE)
-        out = -(i1 + csmall + i2) * self._fE_prefactor
+        out = -(i1 + i2) * self._fE_prefactor
         return xp.where(indx, out, xp.zeros_like(out)).reshape(E.shape)
 
 
