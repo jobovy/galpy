@@ -68,6 +68,48 @@ def incomplete_beta_series_coeffs(kind, p, q, vmax):
     return numpy.array(sgn), numpy.array(loga), numpy.array(ns)
 
 
+@functools.lru_cache(maxsize=256)
+def _lo_series_euler_coeffs(b, c, vmax):
+    """(log c_n, n) of 2F1(c-1, c-b; c; v), all positive for b < 0 < c - 1,
+    truncated where its tail at v = vmax is below _SERIES_TOL of the sum
+    (tracked in logs: the sum grows like (1-v)^(b+1-c))"""
+    loga, ns = [0.0], [0.0]
+    la, ltot = 0.0, 0.0
+    lv = math.log(vmax)
+    for n in range(1, _SERIES_NMAX):
+        la += math.log((c - 2.0 + n) * (c - b - 1.0 + n) / ((c - 1.0 + n) * n))
+        loga.append(la)
+        ns.append(float(n))
+        lt = la + n * lv
+        ltot = numpy.logaddexp(ltot, lt)
+        rat = math.exp(lt - loga[-2] - (n - 1) * lv)
+        if (
+            n > 5
+            and rat < 1.0
+            and lt + math.log(rat / (1.0 - rat)) < ltot + math.log(_SERIES_TOL)
+        ):
+            break
+    return numpy.array(loga), numpy.array(ns)
+
+
+def incomplete_beta_lo_series_xp(xp, p, q, vmax, v):
+    """2F1(1, p+q; p+1; v) for backend 0 <= v <= vmax < 1 (static p, q). For
+    p + q < 0 its terms alternate and cancel (TwoPower's beta << 0), so there
+    Euler's (1-v)^(-q) 2F1(p, 1-q; p+1; v), whose terms are positive, with the
+    prefactor folded into their exponents so neither can overflow."""
+    if p + q >= 0.0:
+        return incomplete_beta_series_xp(
+            xp, incomplete_beta_series_coeffs("lo", p, q, vmax), v
+        )
+    loga, ns = _lo_series_euler_coeffs(p + q, p + 1.0, vmax)
+    dev = device_of(v)
+    loga, ns = (asarray_on_device(xp, a, dev, dtype=v.dtype) for a in (loga, ns))
+    return xp.sum(
+        xp.exp(loga + ns * xp.log(v)[..., None] - q * xp.log1p(-v)[..., None]),
+        axis=-1,
+    )
+
+
 def incomplete_beta_series_xp(xp, coeffs, v):
     dev = device_of(v)
     sgn, loga, ns = (asarray_on_device(xp, c, dev, dtype=v.dtype) for c in coeffs)
@@ -85,14 +127,7 @@ def incomplete_beta_xp(xp, p, q, z, s):
     def below():
         zl = xp.where(lo, z, 0.5 * c * one)
         sl = xp.where(lo, s, (1.0 - 0.5 * c) * one)
-        return (
-            zl**p
-            * sl**q
-            / p
-            * incomplete_beta_series_xp(
-                xp, incomplete_beta_series_coeffs("lo", p, q, c), zl
-            )
-        )
+        return zl**p * sl**q / p * incomplete_beta_lo_series_xp(xp, p, q, c, zl)
 
     def above():
         s1 = xp.where(lo, 0.5 * s2 * one, s)

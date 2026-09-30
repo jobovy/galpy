@@ -43,9 +43,9 @@ double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
 // E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 // x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
 // alpha = 0 (k = 3) are subtracted in closed form. Only for alpha < 1.5
-// (TP_GFORM_ALPHA): near alpha = 3 it is 1 + G that cancels (G -> -1), while
-// D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3 there, so alpha >= 1.5
-// sums M = E 2F1(1, p+q; p+1; w) directly. Above c, D - k M/x^3 directly:
+// (TP_GFORM_ALPHA): D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3
+// above it. M/x^3 itself is always E 2F1(1, p+q; p+1; w), never E (1 + G):
+// 1 + G cancels where G -> -1 (alpha -> 3, beta << 0). Above c, D - k M/x^3 directly:
 // those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
 // off at beta = 3 +- 1e-12 and NaN at large beta and r.
 #define TP_GFORM_ALPHA 1.5
@@ -59,21 +59,17 @@ static void tp_radial(double r, double a, double alpha, double beta, int hess,
   double a3= a * a * a;
   if ( w <= c ) {
     double E= pow(w, -alpha) * pow(s, beta) / p / a3;
+    double m= E * galpy_hyp2f1_1(p + q, p + 1., w);
+    f[0]= m;
+    if ( ! hess ) return;
     if ( alpha >= TP_GFORM_ALPHA ) {
-      double m= E * galpy_hyp2f1_1(p + q, p + 1., w);
-      f[0]= m;
-      if ( hess ) {
-        f[1]= p * E - 2. * m;
-        f[2]= p * E - 3. * m;
-      }
+      f[1]= p * E - 2. * m;
+      f[2]= p * E - 3. * m;
       return;
     }
     double G= (p + q) / (p + 1.) * w * galpy_hyp2f1_1(p + q + 1., p + 2., w);
-    f[0]= E * (1. + G);
-    if ( hess ) {
-      f[1]= E * (1. - alpha - 2. * G);
-      f[2]= -E * (alpha + 3. * G);
-    }
+    f[1]= E * (1. - alpha - 2. * G);
+    f[2]= -E * (alpha + 3. * G);
     return;
   }
   double m= galpy_incomplete_beta(p, q, w, s) * pow(s / w, 3.) / a3;

@@ -246,12 +246,37 @@ def incomplete_beta(p, q, z, s):
     return out
 
 
-def hyp2f1_1(b, c, z):
-    """2F1(1, b; c; z) for b > -1, c > 0, 0 <= z < 1.
+def _hyp2f1_1_euler(b, c, z):
+    """b < 0 < c - 1: Euler's (1-z)^(c-1-b) 2F1(c-1, c-b; c; z), whose terms
+    are all positive (the direct ones alternate and cancel for b << 0), the
+    sum rescaled so it cannot overflow; as in the C implementation"""
+    scalar = numpy.ndim(z) == 0
+    z = float(z) if scalar else numpy.asarray(z, dtype=float)
+    t, out, lsc = 1.0, 1.0, 0.0
+    for k in range(_IBETA_MAXITER):
+        t = t * ((c - 1.0 + k) * (c - b + k) / ((c + k) * (k + 1.0))) * z
+        out = out + t
+        big = numpy.amax(out) > 1e200 if not scalar else out > 1e200
+        if big:
+            out, t, lsc = out * 1e-200, t * 1e-200, lsc + 460.51701859880914
+        if k > 5 and (
+            (t <= 1e-17 * out or out != out)
+            if scalar
+            else numpy.all((t <= 1e-17 * out) | ~numpy.isfinite(out))
+        ):
+            break
+    return numpy.exp(lsc + (c - 1.0 - b) * numpy.log1p(-z)) * out
 
-    scipy's hyp2f1 loses ~(b - c) 1e-15 for b - c > 4 (6e-13 at beta = 180);
-    there (the below-c series, with z < c ~ 4/beta) it is summed directly, as
-    in the C implementation."""
+
+def hyp2f1_1(b, c, z):
+    """2F1(1, b; c; z) for c > 0, 0 <= z < 1.
+
+    For b < 0 < c - 1 through Euler's transformation (_hyp2f1_1_euler). scipy's
+    hyp2f1 loses ~(b - c) 1e-15 for b - c > 4 (6e-13 at beta = 180); there
+    (the below-c series, with z < c ~ 4/beta) it is summed directly, as in the
+    C implementation."""
+    if b < 0.0 and c > 1.0:
+        return _hyp2f1_1_euler(b, c, z)
     if b - c <= 4.0:
         return special.hyp2f1(1.0, b, c, z)
     scalar = numpy.ndim(z) == 0  # summed in plain floats: ~20x faster

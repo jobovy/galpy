@@ -22,8 +22,7 @@ from ..backend._coerce import mask_where, power_series
 from ..backend._namespaces import has_concrete_truth_value
 from ..backend.special.incomplete_beta import (
     incomplete_beta_hi_xp,
-    incomplete_beta_series_coeffs,
-    incomplete_beta_series_xp,
+    incomplete_beta_lo_series_xp,
     incomplete_beta_xp,
 )
 from ..util import conversion
@@ -103,9 +102,9 @@ def _nfw_hk5(xp, small, r, a):
 # E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
 # x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
 # alpha = 0 (k = 3) are subtracted in closed form. Only for alpha < 1.5
-# (_TP_GFORM_ALPHA): near alpha = 3 it is 1 + G that cancels (G -> -1), while
-# D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3 there, so alpha >= 1.5
-# sums M = E 2F1(1, p+q; p+1; w) directly. Above c, D - k M/x^3 directly:
+# (_TP_GFORM_ALPHA): D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3
+# above it. M/x^3 itself is always E 2F1(1, p+q; p+1; w), never E (1 + G):
+# 1 + G cancels where G -> -1 (alpha -> 3, beta << 0). Above c, D - k M/x^3 directly:
 # those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
 # off at beta = 3 +- 1e-12 and NaN at large beta and r.
 _TP_GFORM_ALPHA = 1.5
@@ -133,16 +132,14 @@ def _tp_radial(alpha, beta, w, s, hess):
 def _tp_radial_lo(alpha, beta, w, s, hess):
     p, q = 3.0 - alpha, beta - 3.0
     E = w**-alpha * s**beta / p
+    m = E * hyp2f1_1(p + q, p + 1.0, w)  # not E (1 + G): G -> -1 cancels
+    if not hess:
+        return (m,)
     if alpha >= _TP_GFORM_ALPHA:
-        m = E * hyp2f1_1(p + q, p + 1.0, w)
-        if not hess:
-            return (m,)
         D = p * E
         return m, D - 2.0 * m, D - 3.0 * m
     G = (p + q) / (p + 1.0) * w * hyp2f1_1(p + q + 1.0, p + 2.0, w)
-    if not hess:
-        return (E * (1.0 + G),)
-    return E * (1.0 + G), E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
+    return m, E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
 
 
 def _tp_radial_hi(alpha, beta, w, s, c, hess):
@@ -164,19 +161,16 @@ def _tp_radial_xp(xp, alpha, beta, w, s, hess):
         wl = xp.where(lo, w, 0.5 * c * one)
         sl = xp.where(lo, s, (1.0 - 0.5 * c) * one)
         E = wl**-alpha * sl**beta / p
-        sgn, loga, ns = incomplete_beta_series_coeffs("lo", p, q, c)
-        if alpha >= _TP_GFORM_ALPHA:  # M = E 2F1(1, p+q; p+1; w) directly
-            m = E * incomplete_beta_series_xp(xp, (sgn, loga, ns), wl)
-            if not hess:
-                return xp.stack([m])
-            return xp.stack([m, p * E - 2.0 * m, p * E - 3.0 * m])
-        # G = 2F1(1, p+q; p+1; w) - 1: the M series without its n = 0 term
-        G = incomplete_beta_series_xp(xp, (sgn[1:], loga[1:], ns[1:]), wl)
+        # M = E 2F1(1, p+q; p+1; w), not E (1 + G): G -> -1 cancels
+        m = E * incomplete_beta_lo_series_xp(xp, p, q, c, wl)
         if not hess:
-            return xp.stack([E * (1.0 + G)])
-        return xp.stack(
-            [E * (1.0 + G), E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)]
-        )
+            return xp.stack([m])
+        if alpha >= _TP_GFORM_ALPHA:
+            return xp.stack([m, p * E - 2.0 * m, p * E - 3.0 * m])
+        # G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w)
+        G = (p + q) / (p + 1.0) * wl
+        G = G * incomplete_beta_lo_series_xp(xp, p + 1.0, q, c, wl)
+        return xp.stack([m, E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)])
 
     def above():
         sh = xp.where(lo, 0.5 * (1.0 - c) * one, s)

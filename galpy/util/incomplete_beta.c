@@ -12,10 +12,30 @@ double galpy_incomplete_beta_split(double p, double q){
   return c > 0.9 ? 0.9 : c;
 }
 #define IBETA_QSMALL 0.05
-// 2F1(1, b; c; z) = sum_k (b)_k/(c)_k z^k for b > -1, c > 0, 0 <= z < 1.
-// Terms are negative when -1 < b < 0 (alpha > beta); galpy's general hyp2f1
-// loses up to ~1e-3 here at large positive b.
+// b < 0 < c - 1: Euler's 2F1(1, b; c; z) = (1-z)^(c-1-b) 2F1(c-1, c-b; c; z),
+// whose terms are all positive (the direct ones alternate and cancel for
+// b << 0: TwoPower's beta << 0); the sum is rescaled so it cannot overflow
+static double hyp2f1_1_euler(double b, double c, double z){
+  double t= 1., out= 1., lsc= 0.;
+  int k;
+  for (k=0; k < 10000000; k++){
+    t*= (c - 1. + k) * (c - b + k) / ((c + k) * (k + 1.)) * z;
+    out+= t;
+    if ( out > 1e200 ) {
+      out*= 1e-200;
+      t*= 1e-200;
+      lsc+= 460.51701859880914; // log(1e200)
+    }
+    if ( k > 5 && t <= 1e-17 * out ) break;
+    if ( ! isfinite(out) ) break; // a NaN argument never converges
+  }
+  return exp(lsc + (c - 1. - b) * log1p(-z)) * out;
+}
+// 2F1(1, b; c; z) = sum_k (b)_k/(c)_k z^k for c > 0, 0 <= z < 1 (Euler's
+// transformation above for b < 0 < c - 1). galpy's general hyp2f1 loses up to
+// ~1e-3 here at large positive b.
 double galpy_hyp2f1_1(double b, double c, double z){
+  if ( b < 0. && c > 1. ) return hyp2f1_1_euler(b, c, z);
   double t= 1., out= 1.;
   int k;
   for (k=0; k < 10000000; k++){

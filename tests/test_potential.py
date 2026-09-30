@@ -15387,11 +15387,11 @@ def test_twopower_nan_and_infinite_radius():
 def test_twopower_forces_near_alpha_3():
     # near alpha = 3 the closed-form 1 + G of the alpha ~ 0, 1 cancellation
     # form itself cancels (G -> -1): 9.5e-13 (python) / 6.3e-13 (C) off at
-    # alpha = 2.9999, beta = 0.001, r/a = 9 before; alpha >= 1.5 now sums the
-    # mass directly, down to its own ~8e-14 floor here. mpmath references at
+    # alpha = 2.9999, beta = 0.001, r/a = 9 before; the mass is now always
+    # E 2F1(1, beta - alpha; 4 - alpha; w), summed through Euler's
+    # transformation (positive terms) for beta < alpha. mpmath references at
     # the exact binary alpha (at 3 - alpha = 1e-4 a 1-ulp change moves them ~1e-12)
     from galpy import potential
-    from galpy.backend import is_backend_array
     from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
 
     pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=2.9999, beta=0.001)
@@ -15411,10 +15411,38 @@ def test_twopower_forces_near_alpha_3():
                 abs(d2) + 4.0 * g,
             ),
         ):
-            # a forced backend sums its static-coefficient series as
-            # exp(log|c_n| + n log w) through the same ~1e3 cancellation: ~6e-13
-            tol = 1e-12 if is_backend_array(got) else 1.5e-13
-            assert abs(got - want) < tol * sc, (x, got, want)
+            assert abs(got - want) < 5e-15 * sc, (x, got, want)
+
+
+def test_twopower_negative_beta_accuracy():
+    # beta << 0: 2F1(1, beta - alpha; c; w)'s direct series alternates and
+    # cancels (C was 12.9% off at alpha = 2.9, beta = -50, R = 5 and had the
+    # wrong sign at beta = -100); now summed through Euler's transformation.
+    # Includes the reflected branch (R = 20, 100 > the split's r/a = 9). The
+    # floor is s^beta's |beta| eps rounding. mpmath references (a = 1).
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    for alpha, beta, R, fR, d2 in (
+        (2.9, -50.0, 5.0, -1.5580290059151626e38, 1.3091545890351332e39),
+        (2.9, -100.0, 2.0, -4.8865703096835084e46, 1.6214175365234034e48),
+        (0.5, -100.0, 1.0, -3.430089689576445e28, 1.7241268774016276e30),
+        (1.0, -50.0, 20.0, -5.366358336591114e65, 1.3020065734373438e66),
+        (0.0, -10.0, 100.0, -8.5677737679035401e20, 9.3326665005313371e19),
+        (1.5, -3.0, 0.01, -6.8489312947821514, -323.99217182246637),
+    ):
+        pot = potential.TwoPowerSphericalPotential(
+            amp=1.0, a=1.0, alpha=alpha, beta=beta
+        )
+        Ra = numpy.array([R])
+        tol = 5e-16 * (20.0 + abs(beta))
+        for got, want in (
+            (pot.Rforce(R, 0.0, use_physical=False), fR),
+            (eval_force_c(pot, Ra, 0.0 * Ra)[0][0], fR),
+            (pot.R2deriv(R, 0.0, use_physical=False), d2),
+            (eval_2ndderiv_c(pot, Ra, 0.0 * Ra, deriv="R2deriv")[0][0], d2),
+        ):
+            assert abs(got / want - 1.0) < tol, (alpha, beta, R, got, want)
 
 
 def test_twopower_c_matches_python_all_derivatives():
