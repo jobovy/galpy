@@ -357,6 +357,7 @@ def degreeDecorator(inDegrees, outDegrees):
 
 @scalarDecorator
 @degreeDecorator([0, 1], [0, 1])
+@backendNative
 def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
     """
     Transform from equatorial coordinates to Galactic coordinates
@@ -383,7 +384,10 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     - 2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
     """
-    if _APY_COORDS:
+    xp = get_namespace(ra, dec)
+    # astropy's SkyCoord is numpy-only and not differentiable: a backend array
+    # takes the rotation matrix (as lb_to_radec does; they agree to roundoff)
+    if _APY_COORDS and xp is numpy:
         epoch, frame = _parse_epoch_frame_apy(epoch)
         c = apycoords.SkyCoord(
             ra * units.rad, dec * units.rad, equinox=epoch, frame=frame
@@ -417,6 +421,18 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
             ),
         ),
     )
+    if xp is not numpy:
+        ra, dec = promote_scalars(xp, ra, dec)
+        T = asarray_on_device(xp, T, device_of(ra))
+        XYZ = xp.stack(
+            [xp.cos(dec) * xp.cos(ra), xp.cos(dec) * xp.sin(ra), xp.sin(dec)]
+        )
+        galXYZ = T @ XYZ
+        sinb = xp.clip(galXYZ[2], -1.0, 1.0)
+        b = xp.asin(sinb)
+        l = xp.atan2(galXYZ[1] / xp.cos(b), galXYZ[0] / xp.cos(b))
+        l = xp.where(l < 0.0, l + 2.0 * numpy.pi, l)
+        return xp.stack([l, b], axis=-1)
     # Whether to use degrees and scalar input is handled by decorators
     XYZ = numpy.array(
         [numpy.cos(dec) * numpy.cos(ra), numpy.cos(dec) * numpy.sin(ra), numpy.sin(dec)]
@@ -865,6 +881,7 @@ def XYZ_to_lbd(X, Y, Z, degree=False):
 
 @scalarDecorator
 @degreeDecorator([2, 3], [])
+@backendNative
 def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
     """
     Rotate proper motions in (ra,dec) into proper motions in (l,b)
@@ -896,25 +913,45 @@ def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
     """
     theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
     # Whether to use degrees and scalar input is handled by decorators
-    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
-    sindec_ngp = numpy.sin(dec_ngp)
+    xp = get_namespace(ra, dec)
+    if xp is numpy:  # unchanged: the numpy path stays byte-identical
+        dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+        sindec_ngp = numpy.sin(dec_ngp)
+        cosdec_ngp = numpy.cos(dec_ngp)
+        sindec = numpy.sin(dec)
+        cosdec = numpy.cos(dec)
+        sinrarangp = numpy.sin(ra - ra_ngp)
+        cosrarangp = numpy.cos(ra - ra_ngp)
+        # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+        # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+        # sinphi= sinrarangp*cosdec_ngp/cosb
+        cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
+        sinphi = sinrarangp * cosdec_ngp
+        norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
+        cosphi /= norm
+        sinphi /= norm
+        return (
+            numpy.array([[cosphi, -sinphi], [sinphi, cosphi]]).T
+            * numpy.array([[pmra, pmra], [pmdec, pmdec]]).T
+        ).sum(-1)
+    # backend: out-of-place (jax has no in-place masked assignment)
+    dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)
+    sindec_ngp = numpy.sin(dec_ngp)  # epoch angles: config, never traced
     cosdec_ngp = numpy.cos(dec_ngp)
-    sindec = numpy.sin(dec)
-    cosdec = numpy.cos(dec)
-    sinrarangp = numpy.sin(ra - ra_ngp)
-    cosrarangp = numpy.cos(ra - ra_ngp)
-    # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
-    # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    # sinphi= sinrarangp*cosdec_ngp/cosb
+    sindec = xp.sin(dec)
+    cosdec = xp.cos(dec)
+    sinrarangp = xp.sin(ra - ra_ngp)
+    cosrarangp = xp.cos(ra - ra_ngp)
     cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
     sinphi = sinrarangp * cosdec_ngp
-    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
-    cosphi /= norm
-    sinphi /= norm
-    return (
-        numpy.array([[cosphi, -sinphi], [sinphi, cosphi]]).T
-        * numpy.array([[pmra, pmra], [pmdec, pmdec]]).T
-    ).sum(-1)
+    norm = xp.sqrt(cosphi**2.0 + sinphi**2.0)
+    cosphi = cosphi / norm
+    sinphi = sinphi / norm
+    # the numpy contraction is a per-point rotation of (pmra, pmdec) by -phi
+    pmra, pmdec = promote_scalars(xp, pmra, pmdec)
+    return xp.stack(
+        [cosphi * pmra + sinphi * pmdec, -sinphi * pmra + cosphi * pmdec], axis=-1
+    )
 
 
 @scalarDecorator
