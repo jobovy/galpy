@@ -650,19 +650,17 @@ class Orbit:
             with _use_backend("numpy", force=True):
                 self._setup_parse_vxvv(vxvv, radec, lb, uvw)
             if self._ic_backend is not None:
-                # the backend IC is (ra, dec, ...): replace it by the converted
-                # galactocentric values; a differentiated one has no values
-                if not self._ic_backend_concrete:
-                    raise NotImplementedError(
-                        "An Orbit built with radec=True or lb=True from a traced or "
-                        "gradient-tracking array is not differentiable w.r.t. its "
-                        "sky coordinates; convert them with galpy.util.coords first"
-                    )
-                self._ic_backend = asarray_on_device(
-                    get_namespace(self._ic_backend),
-                    numpy.reshape(self.vxvv, self._ic_backend.shape),
-                    device_of(self._ic_backend),
-                    dtype=self._ic_backend.dtype,
+                # the backend IC is (ra, dec, ...): convert it on its namespace,
+                # so gradients reach the sky coordinates
+                ic = self._ic_backend
+                xp = get_namespace(ic)
+                flat = xp.reshape(ic, (-1, ic.shape[-1]))
+                conv = self._sky_to_galcen(
+                    xp.permute_dims(flat, (1, 0)), radec, lb, uvw
+                )
+                self._ic_backend = xp.reshape(
+                    xp.permute_dims(conv, (1, 0)),
+                    tuple(ic.shape[:-1]) + (conv.shape[0],),
                 )
         else:
             self._setup_parse_vxvv(vxvv, radec, lb, uvw)
@@ -896,6 +894,105 @@ class Orbit:
         # shape of o.vxvv is (1,phasedim) due to internal storage
         return [list(o.vxvv[0]) for o in vxvv]
 
+    def _sky_to_galcen(self, vxvv, radec, lb, uvw):
+        """(phasedim, norb) sky coordinates (radec, or lb) -> galactocentric
+        [R, vR, vT, z, vz, phi] (or [R, vR, vT, phi] for planar lb), on vxvv's
+        namespace: a backend IC converts differentiably."""
+        xp = get_namespace(vxvv) if is_backend_array(vxvv) else numpy
+        dev = device_of(vxvv)
+
+        def _c(v):  # per-orbit ro/vo/zo/solarmotion arrays onto vxvv's device
+            if xp is numpy or not isinstance(v, numpy.ndarray):
+                return v
+            return asarray_on_device(xp, v, dev, dtype=vxvv.dtype)
+
+        if radec:
+            if _APY_LOADED and isinstance(vxvv[0], units.Quantity):
+                ra, dec = vxvv[0].to(units.deg).value, vxvv[1].to(units.deg).value
+            else:
+                ra, dec = vxvv[0], vxvv[1]
+            l, b = coords.radec_to_lb(ra, dec, degree=True, epoch=None).T
+            _extra_rot = True
+        elif len(vxvv) == 4:
+            l, b = vxvv[0], xp.zeros_like(vxvv[0])
+            _extra_rot = False
+        else:
+            l, b = vxvv[0], vxvv[1]
+            _extra_rot = True
+        if _APY_LOADED and isinstance(l, units.Quantity):
+            l = l.to(units.deg).value
+        if _APY_LOADED and isinstance(b, units.Quantity):
+            b = b.to(units.deg).value
+        if uvw:
+            if _APY_LOADED and isinstance(vxvv[2], units.Quantity):
+                X, Y, Z = coords.lbd_to_XYZ(
+                    l, b, vxvv[2].to(units.kpc).value, degree=True
+                ).T
+            else:
+                X, Y, Z = coords.lbd_to_XYZ(l, b, vxvv[2], degree=True).T
+            vx = conversion.parse_velocity_kms(vxvv[3])
+            vy = conversion.parse_velocity_kms(vxvv[4])
+            vz = conversion.parse_velocity_kms(vxvv[5])
+        else:
+            if radec:
+                if _APY_LOADED and isinstance(vxvv[3], units.Quantity):
+                    pmra, pmdec = (
+                        vxvv[3].to(units.mas / units.yr).value,
+                        vxvv[4].to(units.mas / units.yr).value,
+                    )
+                else:
+                    pmra, pmdec = vxvv[3], vxvv[4]
+                pmll, pmbb = coords.pmrapmdec_to_pmllpmbb(
+                    pmra, pmdec, ra, dec, degree=True, epoch=None
+                ).T
+                d, vlos = vxvv[2], vxvv[5]
+            elif len(vxvv) == 4:
+                pmll, pmbb = vxvv[2], xp.zeros_like(vxvv[2])
+                d, vlos = vxvv[1], vxvv[3]
+            else:
+                pmll, pmbb = vxvv[3], vxvv[4]
+                d, vlos = vxvv[2], vxvv[5]
+            d = conversion.parse_length_kpc(d)
+            vlos = conversion.parse_velocity_kms(vlos)
+            if _APY_LOADED and isinstance(pmll, units.Quantity):
+                pmll = pmll.to(units.mas / units.yr).value
+            if _APY_LOADED and isinstance(pmbb, units.Quantity):
+                pmbb = pmbb.to(units.mas / units.yr).value
+            X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
+                l, b, d, vlos, pmll, pmbb, degree=True
+            ).T
+        ro, vo, zo = (_c(v) for v in (self._ro, self._vo, self._zo))
+        X, Y, Z = X / ro, Y / ro, Z / ro
+        vx, vy, vz = vx / vo, vy / vo, vz / vo
+        vsun = numpy.array(
+            [
+                self._solarmotion[0] / self._vo,
+                1.0 + self._solarmotion[1] / self._vo,
+                self._solarmotion[2] / self._vo,
+            ]
+        )
+        vsun = _c(vsun)
+        R, phi, z = coords.XYZ_to_galcencyl(
+            X, Y, Z, Zsun=zo / ro, _extra_rot=_extra_rot
+        ).T
+        vR, vT, vz = coords.vxvyvz_to_galcencyl(
+            vx,
+            vy,
+            vz,
+            R,
+            phi,
+            z,
+            vsun=vsun,
+            Xsun=1.0,
+            Zsun=zo / ro,
+            galcen=True,
+            _extra_rot=_extra_rot,
+        ).T
+        pack = numpy.array if xp is numpy else xp.stack
+        if lb and len(vxvv) == 4:
+            return pack([R, vR, vT, phi])
+        return pack([R, vR, vT, z, vz, phi])
+
     def _setup_parse_vxvv(self, vxvv, radec, lb, uvw):
         if _APY_COORD_LOADED and isinstance(vxvv, SkyCoord):
             galcen_v_sun = coordinates.CartesianDifferential(
@@ -942,94 +1039,7 @@ class Orbit:
         elif not isinstance(vxvv, (list, tuple)):
             vxvv = vxvv.T  # (norb,phasedim) --> (phasedim,norb) easier later
         if not (_APY_COORD_LOADED and isinstance(vxvv, SkyCoord)) and (radec or lb):
-            if radec:
-                if _APY_LOADED and isinstance(vxvv[0], units.Quantity):
-                    ra, dec = vxvv[0].to(units.deg).value, vxvv[1].to(units.deg).value
-                else:
-                    ra, dec = vxvv[0], vxvv[1]
-                l, b = coords.radec_to_lb(ra, dec, degree=True, epoch=None).T
-                _extra_rot = True
-            elif len(vxvv) == 4:
-                l, b = vxvv[0], numpy.zeros_like(vxvv[0])
-                _extra_rot = False
-            else:
-                l, b = vxvv[0], vxvv[1]
-                _extra_rot = True
-            if _APY_LOADED and isinstance(l, units.Quantity):
-                l = l.to(units.deg).value
-            if _APY_LOADED and isinstance(b, units.Quantity):
-                b = b.to(units.deg).value
-            if uvw:
-                if _APY_LOADED and isinstance(vxvv[2], units.Quantity):
-                    X, Y, Z = coords.lbd_to_XYZ(
-                        l, b, vxvv[2].to(units.kpc).value, degree=True
-                    ).T
-                else:
-                    X, Y, Z = coords.lbd_to_XYZ(l, b, vxvv[2], degree=True).T
-                vx = conversion.parse_velocity_kms(vxvv[3])
-                vy = conversion.parse_velocity_kms(vxvv[4])
-                vz = conversion.parse_velocity_kms(vxvv[5])
-            else:
-                if radec:
-                    if _APY_LOADED and isinstance(vxvv[3], units.Quantity):
-                        pmra, pmdec = (
-                            vxvv[3].to(units.mas / units.yr).value,
-                            vxvv[4].to(units.mas / units.yr).value,
-                        )
-                    else:
-                        pmra, pmdec = vxvv[3], vxvv[4]
-                    pmll, pmbb = coords.pmrapmdec_to_pmllpmbb(
-                        pmra, pmdec, ra, dec, degree=True, epoch=None
-                    ).T
-                    d, vlos = vxvv[2], vxvv[5]
-                elif len(vxvv) == 4:
-                    pmll, pmbb = vxvv[2], numpy.zeros_like(vxvv[2])
-                    d, vlos = vxvv[1], vxvv[3]
-                else:
-                    pmll, pmbb = vxvv[3], vxvv[4]
-                    d, vlos = vxvv[2], vxvv[5]
-                d = conversion.parse_length_kpc(d)
-                vlos = conversion.parse_velocity_kms(vlos)
-                if _APY_LOADED and isinstance(pmll, units.Quantity):
-                    pmll = pmll.to(units.mas / units.yr).value
-                if _APY_LOADED and isinstance(pmbb, units.Quantity):
-                    pmbb = pmbb.to(units.mas / units.yr).value
-                X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
-                    l, b, d, vlos, pmll, pmbb, degree=True
-                ).T
-            X /= self._ro
-            Y /= self._ro
-            Z /= self._ro
-            vx /= self._vo
-            vy /= self._vo
-            vz /= self._vo
-            vsun = numpy.array(
-                [
-                    self._solarmotion[0] / self._vo,
-                    1.0 + self._solarmotion[1] / self._vo,
-                    self._solarmotion[2] / self._vo,
-                ]
-            )
-            R, phi, z = coords.XYZ_to_galcencyl(
-                X, Y, Z, Zsun=self._zo / self._ro, _extra_rot=_extra_rot
-            ).T
-            vR, vT, vz = coords.vxvyvz_to_galcencyl(
-                vx,
-                vy,
-                vz,
-                R,
-                phi,
-                z,
-                vsun=vsun,
-                Xsun=1.0,
-                Zsun=self._zo / self._ro,
-                galcen=True,
-                _extra_rot=_extra_rot,
-            ).T
-            if lb and len(vxvv) == 4:
-                vxvv = numpy.array([R, vR, vT, phi])
-            else:
-                vxvv = numpy.array([R, vR, vT, z, vz, phi])
+            vxvv = self._sky_to_galcen(vxvv, radec, lb, uvw)
         # Parse vxvv if it consists of Quantities
         if _APY_LOADED and isinstance(vxvv[0], units.Quantity):
             # Need to set ro and vo, default if not specified, so need to
