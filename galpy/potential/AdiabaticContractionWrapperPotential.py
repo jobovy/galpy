@@ -9,6 +9,7 @@ from scipy import integrate
 from scipy.interpolate import interp1d
 from scipy.optimize import fixed_point
 
+from ..backend import to_host
 from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
@@ -91,10 +92,13 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         from ..potential import mass
 
         rgrid = numpy.geomspace(rmin, rmax, 301)
+        # numpy/scipy construction: host the (forced-backend) masses
         baryon_mass = numpy.array(
-            [mass(baryonpot, r, use_physical=False) for r in rgrid]
+            to_host([mass(baryonpot, r, use_physical=False) for r in rgrid])
         )
-        dm_mass = numpy.array([mass(pot, r, use_physical=False) for r in rgrid])
+        dm_mass = numpy.array(
+            to_host([mass(pot, r, use_physical=False) for r in rgrid])
+        )
         # Adiabatic contraction
         if f_bar is None:
             f_bar = baryon_mass[-1] / (baryon_mass[-1] + dm_mass[-1])
