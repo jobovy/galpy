@@ -257,8 +257,8 @@ def test_torch_compile_takes_the_backend_gl_path():
     R0 = torch.tensor(1.1, dtype=torch.float64)
     z0 = torch.tensor(0.2, dtype=torch.float64)
     ref = float(evaluatePotentials(_POT, R0, z0))  # eager (scipy) value
-    torch._dynamo.reset()
     with no_torch_compile_deprecations():
+        torch._dynamo.reset()
         got = float(
             torch.compile(
                 lambda R, z: evaluatePotentials(_POT, R, z),

@@ -186,7 +186,7 @@ def test_call_grad_vs_fd(backend, log):
             vt = torch.tensor(ic, requires_grad=True)
             a = [vt[i].reshape(1) for i in range(5)]
             _qdf(*a, log=log).reshape(()).backward()
-            g = vt.grad.numpy()
+            g = vt.grad.cpu().numpy()
         numpy.testing.assert_allclose(g, gfd, rtol=8e-3, atol=1e-3)
 
 

@@ -307,6 +307,28 @@ def _ic_on_backend(o):
     return xp.asarray(ic, dtype=float)
 
 
+def _configure_cuda(backend_name):
+    """--device cuda: fail loudly if there is no GPU, then make it the default."""
+    if backend_name == "torch":
+        import torch
+
+        if not torch.cuda.is_available():
+            raise pytest.UsageError("--device cuda: torch sees no CUDA device")
+        torch.set_default_device("cuda")
+        # dynamo mis-traces numpy under set_default_device's TorchFunctionMode
+        # ("'ndarray' object has no attribute 'gt'"; torch 2.12-2.14), and galpy
+        # keeps numpy constants in compiled regions: run numpy eagerly instead
+        torch._dynamo.config.trace_numpy = False
+    elif backend_name == "jax":
+        import jax
+
+        if jax.default_backend() != "gpu":
+            raise pytest.UsageError(
+                "--device cuda: jax's default backend is not the GPU "
+                "(unset JAX_PLATFORMS=cpu / CUDA_VISIBLE_DEVICES)"
+            )
+
+
 def _run_backend(config):
     """Name the burndown lists are keyed by: "jax", or "jax-jit" when traced."""
     name = config.getoption("--backend")
@@ -323,6 +345,16 @@ def pytest_addoption(parser):
         action="store",
         default="numpy",
         help="Array backend to force for the test run: numpy|jax|torch",
+    )
+    # Place backend arrays on a device: "cuda" makes torch's default device the
+    # GPU (every asarray without an explicit device lands there) and leaves jax
+    # on its default platform (the GPU when JAX_PLATFORMS does not force cpu).
+    # Validates the device-anchoring / host-transfer paths; "cpu" is a no-op.
+    parser.addoption(
+        "--device",
+        action="store",
+        default="cpu",
+        help="Device for backend arrays: cpu|cuda",
     )
     # Run the WHOLE suite traced: every galpy entry point is wrapped in jax.jit
     # or torch.compile at the @backend_input boundary. The burndown lists are
@@ -368,6 +400,8 @@ def _install_jit_counter():
 
 
 def pytest_configure(config):
+    if config.getoption("--device") == "cuda":
+        _configure_cuda(config.getoption("--backend"))
     config.addinivalue_line(
         "markers",
         "backend_managed: test manages its own array backend; exempt from --backend",

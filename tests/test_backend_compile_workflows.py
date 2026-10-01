@@ -242,7 +242,10 @@ def test_workflow_compiled_matches_eager(bk, workflow, x0, monkeypatch):
         # re-raised from here: under coverage (py3.14 sys.monitoring) a dynamo
         # frame can carry tb_lineno=None, which crashes pytest's failure report
         # (INTERNALERROR) and with it the whole session
-        raise RuntimeError(f"{type(e).__name__}: {str(e)[:2000]}") from None
+        # (keep the tail: a compiler error's actual message ends a long command)
+        msg = str(e)
+        msg = msg if len(msg) <= 6000 else msg[:2000] + "\n[...]\n" + msg[-4000:]
+        raise RuntimeError(f"{type(e).__name__}: {msg}") from None
     assert float(ge) != 0.0, "gradient disconnected"
     # compiled == eager up to op reordering; measured <= 5e-14 value, 1e-12 grad
     # inductor's generated kernels vectorize per CPU: spray_track measured

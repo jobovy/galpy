@@ -308,12 +308,12 @@ def test_staeckel_action_hessian(backend):
             return _staeckel_actions(torch, *a, _MP, _DELTA, _ORDER)[0].sum()
 
         Rz0 = torch.tensor([coords[0], coords[3]], requires_grad=True)
-        H_ad = torch.autograd.functional.hessian(jr_of_Rz, Rz0).detach().numpy()
+        H_ad = torch.autograd.functional.hessian(jr_of_Rz, Rz0).detach().cpu().numpy()
 
         def gradf(v):
             x = torch.tensor(v, requires_grad=True)
             (g,) = torch.autograd.grad(jr_of_Rz(x), x)
-            return g.detach().numpy()
+            return g.detach().cpu().numpy()
 
     # FD-INDEPENDENT correctness check: the true Hessian is symmetric, and AD
     # reproduces it to ~machine eps (~3e-16) -- the FD reference only gets ~1e-10.

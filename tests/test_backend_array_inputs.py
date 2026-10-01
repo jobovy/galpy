@@ -22,7 +22,7 @@
 import numpy
 import pytest
 
-from galpy.backend import get_namespace
+from galpy.backend import as_numpy, get_namespace
 from galpy.potential import (
     AnyAxisymmetricRazorThinDiskPotential,
     DoubleExponentialDiskPotential,
@@ -83,7 +83,8 @@ def _array_matches_scalars(pot, asarray):
             ]
         )
         arrayed = numpy.asarray(
-            meth(asarray(_RS), asarray(_ZS), use_physical=False), dtype=float
+            as_numpy(meth(asarray(_RS), asarray(_ZS), use_physical=False)),
+            dtype=float,
         )
         assert arrayed.shape == scalars.shape, (
             f"{name}: array call returned shape {arrayed.shape}, "

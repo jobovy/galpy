@@ -1198,7 +1198,7 @@ def test_router_promotes_numpy_scalar_params_torch():
     for a in (0.5, numpy.float64(0.5)):
         got = gsp.gammainc(a, x)
         assert torch.is_tensor(got)
-        numpy.testing.assert_allclose(got.detach().numpy(), ref, rtol=1e-12)
+        numpy.testing.assert_allclose(got.detach().cpu().numpy(), ref, rtol=1e-12)
     from galpy.potential import PowerSphericalPotentialwCutoff as PSPC
 
     r = torch.tensor([1.0, 2.0], dtype=torch.float64)

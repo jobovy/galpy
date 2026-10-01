@@ -64,7 +64,7 @@ _DEGEN_ORBIT = (1.0, 3.0, 0.05, 0.0, 3.0)
 
 def _np_ecczmax(aA, orbit):
     out = aA.EccZmaxRperiRap(*[numpy.array([c]) for c in orbit])
-    return [float(numpy.asarray(out[o][0])) for o in range(4)]
+    return [float(out[o][0]) for o in range(4)]
 
 
 _FD_CACHE = {}
@@ -119,7 +119,7 @@ def test_adiabatic_ecczmax_value_parity(backend):
     for orbit in list(_ORBITS.values()) + list(_EDGE_ORBITS.values()):
         ref = _np_ecczmax(_AA, orbit)
         out = _AA.EccZmaxRperiRap(*[arr([x]) for x in orbit])
-        got = [float(numpy.asarray(out[o][0])) for o in range(4)]
+        got = [float(out[o][0]) for o in range(4)]
         numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
 
 
@@ -173,7 +173,7 @@ def test_adiabatic_ecczmax_grad_degenerate(backend):
     arr = jnp.asarray if backend == "jax" else (lambda x: torch.tensor(x))
     ref = _np_ecczmax(_AA, _DEGEN_ORBIT)
     out = _AA.EccZmaxRperiRap(*[arr([x]) for x in _DEGEN_ORBIT])
-    got = [float(numpy.asarray(out[o][0])) for o in range(4)]
+    got = [float(out[o][0]) for o in range(4)]
     numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)  # value parity
     g = _backend_grads(_AA, backend, _DEGEN_ORBIT)
     for o in range(4):

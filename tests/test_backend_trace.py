@@ -72,8 +72,8 @@ def test_under_trace_torch():
         seen.append(under_trace(x))
         return x * 2.0
 
-    torch._dynamo.reset()
     with no_torch_compile_deprecations():
+        torch._dynamo.reset()
         torch.compile(probe, fullgraph=False, dynamic=False, backend="eager")(
             torch.tensor(1.1, dtype=torch.float64)
         )
@@ -106,8 +106,8 @@ def test_untraceable_setup_runs_scipy_setup_under_compile():
     def use_builder(x):
         return x * _decorated_builder()
 
-    torch._dynamo.reset()
     with no_torch_compile_deprecations():
+        torch._dynamo.reset()
         got = torch.compile(use_builder, fullgraph=False, dynamic=False)(
             torch.tensor(2.0, dtype=torch.float64)
         )

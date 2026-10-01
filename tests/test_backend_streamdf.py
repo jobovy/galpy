@@ -138,7 +138,7 @@ def test_pOparapar_where_and_grad(sdf, backend_name):
     ref = float(numpy.atleast_1d(sdf.pOparapar(Op0, ap0))[0])
     got = float(
         numpy.atleast_1d(
-            sdf.pOparapar(_arr(backend_name, Op0), _arr(backend_name, ap0))
+            as_numpy(sdf.pOparapar(_arr(backend_name, Op0), _arr(backend_name, ap0)))
         )[0]
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
@@ -168,9 +168,7 @@ def test_ptdAngle_where_and_grad(sdf, backend_name):
     # region) + d/d(t) h-converges, with the dO=dangle/t dead branch guarded.
     ts = numpy.array([0.5, 1.5, 2.5]) * sdf._tdisrupt / 3.0
     ref = numpy.asarray(sdf.ptdAngle(ts, _DANGLE))
-    got = numpy.asarray(
-        sdf.ptdAngle(_arr(backend_name, ts), _arr(backend_name, _DANGLE))
-    )
+    got = as_numpy(sdf.ptdAngle(_arr(backend_name, ts), _arr(backend_name, _DANGLE)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
     t0 = float(ts[1])
     if backend_name == "jax":
@@ -196,7 +194,7 @@ def test_meanOmega_3d_value_parity_and_grad(sdf, backend_name):
     # (progenitor_Omega + dO1D * dsigomeanProgDirection * sign); meanOmega1D only
     # exercises the oned=True return, so cover the 3-vector backend path here.
     ref = numpy.asarray(sdf.meanOmega(_DANGLE, use_physical=False))
-    got = numpy.asarray(sdf.meanOmega(_arr(backend_name, _DANGLE), use_physical=False))
+    got = as_numpy(sdf.meanOmega(_arr(backend_name, _DANGLE), use_physical=False))
     assert ref.shape == (3,)
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
 
@@ -369,9 +367,7 @@ def test_pangledAngle_array_parity_and_grad(sdf, backend_name):
     # parity + d(sum)/d(dangle) h-converges.
     ap = numpy.array([0.0, 0.01, -0.01, 0.02])
     ref = numpy.asarray(sdf.pangledAngle(ap, 0.6))
-    got = numpy.asarray(
-        sdf.pangledAngle(_arr(backend_name, ap), _arr(backend_name, 0.6))
-    )
+    got = as_numpy(sdf.pangledAngle(_arr(backend_name, ap), _arr(backend_name, 0.6)))
     assert got.shape == ref.shape
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
     if backend_name == "jax":
@@ -1833,7 +1829,7 @@ def test_approxaAInv_grad_vs_fd_query(sdf, backend_name):
         qt = torch.tensor(Q, requires_grad=True)
         out = sdf._approxaAInv(*(qt[i] for i in range(6)), interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        g = qt.grad.numpy()
+        g = qt.grad.cpu().numpy()
     ad = float(numpy.sum(g * Dir))
     best = min(
         abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
@@ -1889,7 +1885,7 @@ def test_approxaAInv_grad_vs_fd_table(sdf, backend_name, attr, idx):
         setattr(s, attr, T)
         out = s._approxaAInv_backend(*Qb, interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        ad = float(T.grad.numpy()[entry])
+        ad = float(T.grad.cpu().numpy()[entry])
     best = min(
         abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
     )
@@ -2107,7 +2103,7 @@ def test_approxaA_grad_vs_fd_query(sdf, backend_name):
         qt = torch.tensor(Q, requires_grad=True)
         out = sdf._approxaA(*(qt[i] for i in range(6)), interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        g = qt.grad.numpy()
+        g = qt.grad.cpu().numpy()
     ad = float(numpy.sum(g * Dir))
     best = min(
         abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
@@ -2174,7 +2170,7 @@ def test_approxaA_grad_vs_fd_table(sdf, backend_name, attr, idx):
         setattr(s, attr, T)
         out = s._approxaA_backend(*Qb, interp=interp)
         (torch.as_tensor(W) * out).sum().backward()
-        ad = float(T.grad.numpy()[entry])
+        ad = float(T.grad.cpu().numpy()[entry])
     best = min(
         abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
     )
@@ -2236,7 +2232,7 @@ def test_call_backend_value_and_grad(sdf, backend_name):
         sdf._interpolatedObsTrack[500]
     )  # (R,vR,vT,z,vz,phi) on the track
     R, vR, vT, z, vz, phi = (numpy.array([v]) for v in tp)
-    ref = float(numpy.asarray(sdf(R, vR, vT, z, vz, phi, log=True))[0])
+    ref = float(sdf(R, vR, vT, z, vz, phi, log=True)[0])
     assert numpy.isfinite(ref)
     rest = [_arr(backend_name, a) for a in (vR, vT, z, vz, phi)]
     if backend_name == "jax":
@@ -2246,7 +2242,7 @@ def test_call_backend_value_and_grad(sdf, backend_name):
 
         got = float(jax.jit(kernel)(_arr(backend_name, R)))
         # grad matches the (1,) input shape -> index the single element
-        ad = float(numpy.asarray(jax.jit(jax.grad(kernel))(_arr(backend_name, R)))[0])
+        ad = float(jax.jit(jax.grad(kernel))(_arr(backend_name, R))[0])
     else:
         Rt = torch.tensor(R, dtype=torch.float64, requires_grad=True)
         out = sdf(Rt, *rest, log=True)[0]
@@ -2256,8 +2252,8 @@ def test_call_backend_value_and_grad(sdf, backend_name):
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=0.0)
     h = 1e-6
     fd = (
-        float(numpy.asarray(sdf(R + h, vR, vT, z, vz, phi, log=True))[0])
-        - float(numpy.asarray(sdf(R - h, vR, vT, z, vz, phi, log=True))[0])
+        float(sdf(R + h, vR, vT, z, vz, phi, log=True)[0])
+        - float(sdf(R - h, vR, vT, z, vz, phi, log=True)[0])
     ) / (2 * h)
     assert numpy.isfinite(ad) and abs(ad - fd) < 1e-5 * abs(fd) + 1e-6, (
         f"{backend_name} __call__ grad {ad} vs FD {fd}"
@@ -2331,7 +2327,13 @@ def test_c3_progenitor_acfs_match_numpy_to_roundoff(_c3_pair):
         numpy.testing.assert_allclose(
             as_numpy(getattr(bk, attr)), getattr(ref, attr), rtol=1e-11, atol=1e-13
         )
-    assert float(as_numpy(bk._sigMeanSign)) == ref._sigMeanSign
+    # an eigenvector's sign is arbitrary (GPU and CPU eigh differ) and
+    # _sigMeanSign compensates: the signed projection must agree
+    numpy.testing.assert_allclose(
+        float(as_numpy(bk._progenitor_Omega_along_dOmega)),
+        ref._progenitor_Omega_along_dOmega,
+        rtol=1e-6,
+    )
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
@@ -2358,6 +2360,9 @@ def test_c3_setup_matches_numpy_within_the_fd_gap(_c3_pair, attr, rtol):
         numpy.asarray(as_numpy(getattr(bk, attr))),
         numpy.asarray(getattr(ref, attr)),
     )
+    if attr == "_dsigomeanProgDirection":  # an eigenvector: sign is arbitrary
+        got = got * float(as_numpy(bk._sigMeanSign))
+        want = want * ref._sigMeanSign
     assert got.shape == want.shape
     scale = numpy.max(numpy.abs(want))
     assert numpy.max(numpy.abs(got - want)) < rtol * scale, (

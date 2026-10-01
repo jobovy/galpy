@@ -2451,7 +2451,7 @@ def test_staeckel_unbound_sentinel_survives_the_azimuth_wrap(backend):
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
 
     def _flat(out):
-        return [float(numpy.asarray(as_numpy(x)).ravel()[0]) for x in out]
+        return [float(as_numpy(x).ravel()[0]) for x in out]
 
     ref = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
     with gb.use(backend, force=True):
@@ -3001,7 +3001,7 @@ def test_spherical_relative_problem_param_grad(backend, case):
             p = torch.tensor([2.0, 1.3], requires_grad=True)
             aA = actionAngleSpherical(pot=HernquistPotential(amp=p[0], a=p[1]))
             (g,) = torch.autograd.grad(aA.actionsFreqsAngles(*icb)[i][0], p)
-            rows.append(g.numpy())
+            rows.append(g.cpu().numpy())
         J = numpy.array(rows)
     for k in range(2):
         err = numpy.amin(

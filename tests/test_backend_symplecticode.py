@@ -20,6 +20,7 @@
 import numpy
 import pytest
 
+from galpy.backend import to_host
 from galpy.util import symplecticode
 
 pytestmark = pytest.mark.backend_managed
@@ -91,7 +92,7 @@ def test_leapfrog_jax_value_parity():
 def test_leapfrog_torch_value_parity():
     ref = symplecticode.leapfrog(lambda q, t=0.0: -q, _YO, _TS, rtol=_RTOL, atol=_ATOL)
     got = symplecticode.leapfrog(
-        lambda q, t=0.0: -torch.as_tensor(numpy.asarray(q)),
+        lambda q, t=0.0: -torch.as_tensor(numpy.asarray(to_host(q))),
         _YO,
         _TS,
         rtol=_RTOL,
