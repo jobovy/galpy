@@ -1254,3 +1254,27 @@ def test_sample_torch_generative_grad_fd():
                 )
                 best = min(best, abs(g - fd) / max(abs(g), 1e-9))
     assert best < 1e-5, f"torch generative sample grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_sampled_both_tails_stay_on_backend(backend_name):
+    # tail='both' without particles= samples each arm and joins them in the
+    # samples' own namespace (numpy.column_stack pulled them to the host, which
+    # a CUDA tensor cannot do), matching tail='leading'/'trailing'.
+    df = _build(fardal15spraydf, tail="both")
+    numpy.random.seed(_SEED)
+    ref = df.streamTrack(n=200, ntp=21, tail="both")
+    numpy.random.seed(_SEED)
+    with use(backend_name, force=True):
+        got = df.streamTrack(n=200, ntp=21, tail="both")
+    for arm in ("leading", "trailing"):
+        tr_np, tr_b = getattr(ref, arm), getattr(got, arm)
+        assert tr_b._backend and not tr_np._backend
+        g = numpy.asarray(tr_np.tp_grid())
+        q = numpy.linspace(g[0], g[-1], 7)[1:-1]
+        for m in ("x", "y", "z", "vx", "vy", "vz"):
+            vb = getattr(tr_b, m)(q)
+            assert is_backend_array(vb)
+            numpy.testing.assert_allclose(
+                as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-5, atol=1e-7
+            )

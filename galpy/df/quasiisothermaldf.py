@@ -15,7 +15,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, use
+from ..backend import resolve_namespace, to_host, use
 from ..backend._namespaces import (
     requires_backend_grad,
     under_trace,
@@ -433,11 +433,13 @@ class quasiisothermaldf(df):
         Rs = [R - dR / 2.0, R + dR / 2.0]
         if z is None:
             sf = numpy.array(
-                [self.surfacemass_z(r, use_physical=False, **kwargs) for r in Rs]
+                to_host(
+                    [self.surfacemass_z(r, use_physical=False, **kwargs) for r in Rs]
+                )
             )
         else:
             sf = numpy.array(
-                [self.density(r, z, use_physical=False, **kwargs) for r in Rs]
+                to_host([self.density(r, z, use_physical=False, **kwargs) for r in Rs])
             )
         lsf = numpy.log(sf)
         return -dR / (lsf[1] - lsf[0])
@@ -474,7 +476,7 @@ class quasiisothermaldf(df):
         else:
             zs = [z - dz / 2.0, z + dz / 2.0]
         sf = numpy.array(
-            [self.density(R, zz, use_physical=False, **kwargs) for zz in zs]
+            to_host([self.density(R, zz, use_physical=False, **kwargs) for zz in zs])
         )
         lsf = numpy.log(sf)
         return -dz / (lsf[1] - lsf[0])
@@ -507,7 +509,9 @@ class quasiisothermaldf(df):
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
-        sf = numpy.array([self.sigmaR2(r, z, use_physical=False, **kwargs) for r in Rs])
+        sf = numpy.array(
+            to_host([self.sigmaR2(r, z, use_physical=False, **kwargs) for r in Rs])
+        )
         lsf = numpy.log(sf) / 2.0
         return -dR / (lsf[1] - lsf[0])
 
@@ -539,7 +543,9 @@ class quasiisothermaldf(df):
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
-        sf = numpy.array([self.sigmaz2(r, z, use_physical=False, **kwargs) for r in Rs])
+        sf = numpy.array(
+            to_host([self.sigmaz2(r, z, use_physical=False, **kwargs) for r in Rs])
+        )
         lsf = numpy.log(sf) / 2.0
         return -dR / (lsf[1] - lsf[0])
 
@@ -601,7 +607,9 @@ class quasiisothermaldf(df):
                 )[0]
             )
         zs = numpy.linspace(0.0, zmax, nz)
-        sf = numpy.array([self.density(R, z, use_physical=False, **kwargs) for z in zs])
+        sf = numpy.array(
+            to_host([self.density(R, z, use_physical=False, **kwargs) for z in zs])
+        )
         lsf = numpy.log(sf)
         # Interpolate
         lsfInterp = interpolate.UnivariateSpline(zs, lsf, k=3)
@@ -670,7 +678,7 @@ class quasiisothermaldf(df):
                 )
             out = self._vmomentdensity(*args, **kwargs)
             if _APY_UNITS:
-                return units.Quantity(out * fac, unit=u)
+                return units.Quantity(to_host(out * fac), unit=u)
             else:
                 return out * fac
         else:
@@ -1080,7 +1088,7 @@ class quasiisothermaldf(df):
                 )
             out = self._jmomentdensity(*args, **kwargs)
             if _APY_UNITS:
-                return units.Quantity(out * fac, unit=u)
+                return units.Quantity(to_host(out * fac), unit=u)
             else:
                 return out * fac
         else:
