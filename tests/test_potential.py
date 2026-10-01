@@ -14933,6 +14933,8 @@ def test_twopower_negative_beta_accuracy():
         (1.0, -50.0, 20.0, -5.366358336591114e65, 1.3020065734373438e66),
         (0.0, -10.0, 100.0, -8.5677737679035401e20, 9.3326665005313371e19),
         (1.5, -3.0, 0.01, -6.8489312947821514, -323.99217182246637),
+        # the Euler series' sum (~1e241) passes its 1e200 rescaling
+        (2.9, -250.0, 8.0, -1.8208982772777936e237, 5.0709386236931776e238),
     ):
         pot = potential.TwoPowerSphericalPotential(
             amp=1.0, a=1.0, alpha=alpha, beta=beta
