@@ -1022,7 +1022,9 @@ def physical_conversion(quantity, pop=False):
                 if out is None:
                     return out
                 if _apy_units:
-                    return units.Quantity(out * fac, unit=u)
+                    from ..backend import to_host
+
+                    return units.Quantity(to_host(out * fac), unit=u)
                 else:
                     # complicated logic for dealing with ro and vo arrays
                     return out * (
@@ -1221,16 +1223,18 @@ def physical_conversion_actionAngle(quantity, pop=False):
                 # a 1D __call__, `fac` is 3 long and scaling element-by-element
                 # silently returned a tuple of scalars below length 4 and raised
                 # IndexError at or above it.
+                if _APY_UNITS:
+                    from ..backend import to_host
                 if isinstance(out, (tuple, list)):
                     if _APY_UNITS:
                         newOut = tuple(
-                            units.Quantity(out[ii] * fac[ii], unit=u[ii])
+                            units.Quantity(to_host(out[ii] * fac[ii]), unit=u[ii])
                             for ii in range(len(out))
                         )
                     else:
                         newOut = tuple(out[ii] * fac[ii] for ii in range(len(out)))
                 elif _APY_UNITS:
-                    newOut = units.Quantity(out * fac[0], unit=u[0])
+                    newOut = units.Quantity(to_host(out * fac[0]), unit=u[0])
                 else:
                     newOut = out * fac[0]
                 return newOut
@@ -1345,14 +1349,16 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                             Freqsu = units.Gyr**-1.0
                             u.extend([Freqsu, Freqsu, Freqsu])
                 if _APY_UNITS:
+                    from ..backend import to_host
+
                     newOut = ()
                     try:
                         for ii in range(len(out)):
                             newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
+                                units.Quantity(to_host(out[ii] * fac[ii]), unit=u[ii]),
                             )
                     except TypeError:  # Happens when out == scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                        newOut = units.Quantity(to_host(out * fac[0]), unit=u[0])
                 else:
                     newOut = ()
                     try:
