@@ -1276,5 +1276,5 @@ def test_streamtrack_sampled_both_tails_stay_on_backend(backend_name):
             vb = getattr(tr_b, m)(q)
             assert is_backend_array(vb)
             numpy.testing.assert_allclose(
-                as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-5, atol=1e-7
+                as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-6, atol=1e-9
             )
