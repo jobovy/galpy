@@ -11,9 +11,10 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    to_host,
     use,
 )
-from ..backend._namespaces import inbackend_ode_method
+from ..backend._namespaces import inbackend_ode_method, namespace_from_arrays
 from ..df.df import df
 from ..orbit import Orbit
 from ..orbit.Orbits import _backend_T
@@ -406,7 +407,12 @@ class basestreamspraydf(df):
                 key_l, key_t = grandom.split(key)
                 xv_lead, _ = self._sample_tail(n_lead, True, leading=True, key=key_l)
                 xv_trail, _ = self._sample_tail(n_trail, True, leading=False, key=key_t)
-                xv_all = numpy.column_stack([xv_lead, xv_trail])
+                _xp = namespace_from_arrays((xv_lead, xv_trail))
+                xv_all = (
+                    numpy.column_stack([xv_lead, xv_trail])
+                    if _xp is numpy
+                    else _xp.concat([xv_lead, xv_trail], axis=1)
+                )
         else:
             if particles is not None:
                 xv_single = (
@@ -529,14 +535,16 @@ class basestreamspraydf(df):
             prog.integrate(t_fwd, _track_pot)
             prog.integrate(t_back, _track_pot)
             track_prog_cart = numpy.column_stack(
-                [
-                    prog.x(track_t_grid),
-                    prog.y(track_t_grid),
-                    prog.z(track_t_grid),
-                    prog.vx(track_t_grid),
-                    prog.vy(track_t_grid),
-                    prog.vz(track_t_grid),
-                ]
+                to_host(
+                    [
+                        prog.x(track_t_grid),
+                        prog.y(track_t_grid),
+                        prog.z(track_t_grid),
+                        prog.vx(track_t_grid),
+                        prog.vy(track_t_grid),
+                        prog.vz(track_t_grid),
+                    ]
+                )
             )
 
         # Inherit unit metadata from the original progenitor Orbit. Pass
@@ -1218,18 +1226,20 @@ class basestreamspraydf(df):
             # coerce the island result back to the active backend.
             with use("numpy", force=True):
                 rtides = numpy.array(
-                    [
-                        rtide(
-                            self._rtpot,
-                            float(Rpt[ii]),
-                            float(Zpt[ii]),
-                            phi=float(phipt[ii]),
-                            t=-dt[ii],
-                            M=float(Ms[ii]),
-                            use_physical=False,
-                        )
-                        for ii in range(len(Rpt))
-                    ]
+                    to_host(
+                        [
+                            rtide(
+                                self._rtpot,
+                                float(Rpt[ii]),
+                                float(Zpt[ii]),
+                                phi=float(phipt[ii]),
+                                t=-dt[ii],
+                                M=float(Ms[ii]),
+                                use_physical=False,
+                            )
+                            for ii in range(len(Rpt))
+                        ]
+                    )
                 )
             rtides = as_backend_constant(xp, rtides, Rpt)
         return rtides
