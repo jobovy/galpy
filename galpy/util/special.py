@@ -174,6 +174,20 @@ def incomplete_beta_split(p, q):
 
 
 _IBETA_QSMALL = 0.05
+_LOG_FLOAT_MAX = math.log(numpy.finfo(float).max)
+
+
+def pow_or_inf(x, y):
+    """x**y for a float x > 0, inf where it overflows (Python's ** raises);
+    array/backend x: x**y. Python floats keep traced setups constant-folded."""
+    if isinstance(x, float) and y * math.log(x) > _LOG_FLOAT_MAX - 1e-6:
+        try:
+            return x**y
+        except OverflowError:
+            return math.inf
+    return x**y
+
+
 _IBETA_MAXITER = 1000000  # a NaN argument never converges: stop, return NaN
 
 
@@ -309,18 +323,17 @@ def incomplete_beta_lo(p, q, z, s):
 
 @functools.lru_cache(maxsize=256)  # alpha, beta vary freely (fits): bounded
 def incomplete_beta_at_split(p, q, c):
-    """B_c(p, q) at the split c (inf where it overflows: q << 0)"""
-    with numpy.errstate(over="ignore"):  # numpy floats: inf, not OverflowError
-        return float(incomplete_beta_lo(p, q, numpy.float64(c), numpy.float64(1.0 - c)))
+    """B_c(p, q) at the split c (inf where it exceeds float64: q << 0)"""
+    return float(c**p * pow_or_inf(1.0 - c, q) / p * hyp2f1_1(p + q, p + 1.0, c))
 
 
 def incomplete_beta_hi(p, q, s1, c):
     """B_z(p, q) above the split c, given s1 = 1 - z: B_c(p, q) plus the
     reflected integral from s1 to 1 - c"""
-    # numpy floats: a value that overflows (q << 0) is inf/NaN, not OverflowError
+    # beyond float64 (q << 0) the end-point terms are inf: non-finite, silently
     with numpy.errstate(over="ignore", invalid="ignore"):
         return incomplete_beta_at_split(p, q, c) + _incomplete_beta_reflected(
-            p, q, s1, numpy.float64(1.0 - c)
+            p, q, s1, 1.0 - c
         )
 
 
@@ -336,8 +349,7 @@ def _incomplete_beta_reflected(p, q, s1, s2):
     if n <= -1 and abs(q - n) < _IBETA_QSMALL:
 
         def B0(v):
-            v = numpy.float64(v) if numpy.ndim(v) == 0 else v
-            return v**q * (1.0 - v) ** p / q
+            return pow_or_inf(v, q) * (1.0 - v) ** p / q
 
         return (
             B0(s2)
@@ -346,8 +358,12 @@ def _incomplete_beta_reflected(p, q, s1, s2):
         )
 
     def B(v):
-        v = numpy.float64(v) if numpy.ndim(v) == 0 else v
-        return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
+        return (
+            pow_or_inf(v, q)
+            * (1.0 - v) ** p
+            / q
+            * special.hyp2f1(1.0, p + q, q + 1.0, v)
+        )
 
     return B(s2) - B(s1)
 

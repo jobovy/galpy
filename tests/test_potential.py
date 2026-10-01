@@ -15736,3 +15736,17 @@ def test_small_r_c_matches_python_all_derivatives():
             numpy.amax(numpy.fabs(as_numpy(dc.getOrbit_dxdv() - dp.getOrbit_dxdv())))
             < 1e-6
         )
+
+
+# special.pow_or_inf: x**y for a Python float, inf (not OverflowError) beyond
+# float64; exact x**y just below the overflow threshold and for arrays
+def test_special_pow_or_inf():
+    from galpy.util import special
+
+    assert special.pow_or_inf(0.1, -500.0) == numpy.inf
+    # 2**1024 overflows; 2**(1024 - 1e-8) is within 1e-6 of log(max) yet finite
+    assert special.pow_or_inf(2.0, 1024.0) == numpy.inf
+    assert special.pow_or_inf(2.0, 1024.0 - 1e-8) == 2.0 ** (1024.0 - 1e-8)
+    assert special.pow_or_inf(3.0, 2.5) == 3.0**2.5
+    x = numpy.array([0.5, 2.0])
+    numpy.testing.assert_array_equal(special.pow_or_inf(x, 3.0), x**3.0)
