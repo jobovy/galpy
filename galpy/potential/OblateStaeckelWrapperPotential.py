@@ -13,6 +13,7 @@ from scipy.interpolate import CubicSpline
 from galpy.util import conversion, coords
 
 from ..backend import coerce_coords, get_namespace, promote_scalars
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.interpolate import Spline1D
 from .Potential import (
     _APY_LOADED,
@@ -103,9 +104,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             self._u0 = u0
         self._v0 = numpy.pi / 2.0  # so we know when we're using this
         R0, z0 = coords.uv_to_Rz(self._u0, self._v0, delta=self._delta)
-        self._refpot = (
-            _evaluatePotentials(self._pot, R0, z0) * numpy.cosh(self._u0) ** 2.0
-        )
+        xp = namespace_from_arrays((self._u0,)) or numpy
+        self._refpot = _evaluatePotentials(self._pot, R0, z0) * xp.cosh(self._u0) ** 2.0
         self._ntab = 0 if ntab is None else int(ntab)
         # mode discriminator, mirroring spline1d != NULL in C: None = exact
         # (also while the tables below are being built from the exact

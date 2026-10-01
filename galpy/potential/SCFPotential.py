@@ -252,9 +252,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         - 2026-07-02 - Written - Bovy (UofT)
         """
         if callable(coeffs):
-            arr = numpy.array([numpy.asarray(coeffs(t), dtype=float) for t in tgrid])
+            arr = numpy.array(
+                [numpy.asarray(to_host(coeffs(t)), dtype=float) for t in tgrid]
+            )
         else:
-            arr = numpy.asarray(coeffs, dtype=float)
+            arr = numpy.asarray(to_host(coeffs), dtype=float)
         return arr
 
     def _init_timedep(self, Acos, Asin, tgrid):
@@ -625,8 +627,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             if As is not None:
                 any_sin = True
             Asin_list.append(As)
-        Acos_all = numpy.array(Acos_list)
-        Asin_all = numpy.array(Asin_list) if any_sin else None
+        Acos_all = numpy.array(to_host(Acos_list))
+        Asin_all = numpy.array(to_host(Asin_list)) if any_sin else None
         return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=out_ro, vo=out_vo)
 
     @classmethod
@@ -706,8 +708,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             if As is not None:
                 any_sin = True
             Asin_list.append(As)
-        Acos_all = numpy.array(Acos_list)
-        Asin_all = numpy.array(Asin_list) if any_sin else None
+        Acos_all = numpy.array(to_host(Acos_list))
+        Asin_all = numpy.array(to_host(Asin_list)) if any_sin else None
         return cls(
             amp=amp, Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo
         )
@@ -867,8 +869,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
                 if As is not None:
                     any_sin = True
                 Asin_list.append(As)
-            Acos_all = numpy.array(Acos_list)
-            Asin_all = numpy.array(Asin_list) if any_sin else None
+            Acos_all = numpy.array(to_host(Acos_list))
+            Asin_all = numpy.array(to_host(Asin_list)) if any_sin else None
         return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
 
     def _rhoTilde(self, r, N, L):
@@ -1872,6 +1874,7 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     # returns e.g. torch even for numpy positions; carry them across or the very
     # first _xp call raises. No-op on numpy.
     pos = _xp.asarray(pos)
+    (mass,) = coerce_coords(_xp, mass, device=device_of(pos))  # numpy masses too
     Asin = None
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     RhoSum = _xp.einsum("j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0])
@@ -2004,6 +2007,7 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     # returns e.g. torch even for numpy positions; carry them across or the very
     # first _xp call raises. No-op on numpy.
     pos = _xp.asarray(pos)
+    (mass,) = coerce_coords(_xp, mass, device=device_of(pos))  # numpy masses too
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     costheta = pos[2] / r
     mass = _xp.asarray(mass)
@@ -2255,6 +2259,7 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     # returns e.g. torch even for numpy positions; carry them across or the very
     # first _xp call raises. No-op on numpy.
     pos = _xp.asarray(pos)
+    (mass,) = coerce_coords(_xp, mass, device=device_of(pos))  # numpy masses too
     r = _xp.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     phi = _xp.atan2(pos[1], pos[0])
     costheta = pos[2] / r
@@ -2552,7 +2557,9 @@ def scf_compute_coeffs(
         _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
         _dens = dens(R, z, phi, **dens_kw)
-        _dens = like(phi_nl, numpy.asarray(_dens)[:, None, None, None, None])
+        if not is_backend_array(_dens):
+            _dens = numpy.asarray(_dens)
+        _dens = like(phi_nl, _dens)[:, None, None, None, None]
         _mp = m * phi[:, None, None, None]
         _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
         return _dens * phi_nl[:, numpy.newaxis] * _cs * like(phi_nl, dV)

@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import as_backend_constant, get_namespace
+from ..backend import as_backend_constant, get_namespace, to_host
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import (
     _evaluatephitorques,
@@ -265,7 +265,10 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
         xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
         yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
-        Fxyzp = xp.stack([xforcep, yforcep, zforcep])
+        Fxyzp = [xforcep, yforcep, zforcep]
+        if xp is numpy:  # a backend-parameter potential under a forced numpy
+            Fxyzp = to_host(Fxyzp)
+        Fxyzp = xp.stack(Fxyzp)
         return as_backend_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
 
     @check_potential_inputs_not_arrays

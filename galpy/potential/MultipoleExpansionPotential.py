@@ -23,6 +23,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     match_input_dtype,
+    to_host,
 )
 from ..backend import use as _use_backend
 from ..backend._namespaces import untraceable_setup
@@ -1901,7 +1902,7 @@ class MultipoleExpansionPotential(
             )
         L = self._L
         M = self._M
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        r, theta, phi = to_host(coords.cyl_to_spher(R, z, phi))
         if r == 0.0 or not numpy.isfinite(r):
             self._force_cache_key = cache_key
             self._cached_dPhi_dr = 0.0
@@ -2022,7 +2023,7 @@ class MultipoleExpansionPotential(
             return self._cached_2nd_derivs
         L = self._L
         M = self._M
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        r, theta, phi = to_host(coords.cyl_to_spher(R, z, phi))
         if r == 0.0 or not numpy.isfinite(r):
             self._2nd_deriv_cache_key = cache_key
             self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -2879,7 +2880,7 @@ class MultipoleExpansionPotential(
             chunks = [
                 numpy.array([Nr, L, M, int(self.isNonAxi)], dtype=numpy.float64),
                 numpy.asarray(rgrid, dtype=numpy.float64),
-                numpy.array([self._amp, Nt], dtype=numpy.float64),
+                numpy.array([to_host(self._amp), Nt], dtype=numpy.float64),
                 numpy.asarray(self._tgrid, dtype=numpy.float64),
             ]
             for l in range(L):
@@ -2970,8 +2971,8 @@ def _scf_density_multipoles(scf, r_arr, Acos, Asin):
     # (byte-identical no-op on the numpy backend).
     with _use_backend("numpy", force=True):
         rhoT = numpy.array([scf._rhoTilde(r, N, L) for r in r_arr])  # (Nr, N, L)
-    Dcos = numpy.einsum("nlm,rnl->rlm", Acos, rhoT)
-    Dsin = numpy.einsum("nlm,rnl->rlm", Asin, rhoT)
+    Dcos = numpy.einsum("nlm,rnl->rlm", to_host(Acos), rhoT)
+    Dsin = numpy.einsum("nlm,rnl->rlm", to_host(Asin), rhoT)
     return Dcos, Dsin
 
 

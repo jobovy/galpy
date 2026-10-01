@@ -311,3 +311,41 @@ def test_from_nfw_under_forced_backend_with_plain_float_mass(backend_name):
     assert abs(float(as_numpy(rc)) - ref) < 1e-10 * ref, (
         f"{backend_name} forced: rc={rc!r} vs unforced numpy {ref!r}"
     )
+
+
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_scalar_r_with_backend_parameters_is_float64(backend):
+    # a plain-float r with backend parameters follows the parameters' namespace
+    # at THEIR dtype: xp.asarray(1.3) alone is torch float32 (2e-7 off), and
+    # _ddenstwobetadr handed a float to torch.exp
+    a0, rc0, amp0, r = 1.5, 8.0, 2.0, 1.3
+    ref = ExpTruncNFWPotential(amp=amp0, a=a0, rc=rc0)
+    if backend == "jax":
+        p = ExpTruncNFWPotential(amp=jnp.asarray(amp0), a=a0, rc=rc0)
+    else:
+        p = ExpTruncNFWPotential(amp=torch.tensor(amp0), a=a0, rc=rc0)
+    for name, args in (
+        ("_rdens", (r,)),
+        ("_ddensdr", (r,)),
+        ("_d2densdr2", (r,)),
+        ("_ddenstwobetadr", (r, 0.3)),
+    ):
+        got = getattr(p, name)(*args)
+        assert str(got.dtype).endswith("float64"), (name, got.dtype)
+        numpy.testing.assert_allclose(
+            as_numpy(got), getattr(ref, name)(*args), rtol=1e-15, err_msg=name
+        )
+    # d(_ddensdr)/d(amp) = _ddensdr / amp
+    if backend == "jax":
+        g = float(
+            jax.grad(
+                lambda amp: ExpTruncNFWPotential(amp=amp, a=a0, rc=rc0)._ddensdr(r)
+            )(jnp.asarray(amp0))
+        )
+    else:
+        amp = torch.tensor(amp0, requires_grad=True)
+        (g,) = torch.autograd.grad(
+            ExpTruncNFWPotential(amp=amp, a=a0, rc=rc0)._ddensdr(r), amp
+        )
+        g = float(g)
+    numpy.testing.assert_allclose(g, ref._ddensdr(r) / amp0, rtol=1e-15)
