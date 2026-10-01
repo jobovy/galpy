@@ -30,7 +30,9 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    like,
     name_of_namespace,
+    on_host,
     to_host,
 )
 from ..backend import use as _use_backend
@@ -596,17 +598,17 @@ class Orbit:
                     )
                 vxvv = stack
                 # Keep as list, is fine later...
-            elif numpy.ndim(vxvv[0]) == 0:  # Scalar, so assume single object
+            elif numpy.ndim(to_host(vxvv[0])) == 0:  # Scalar, so assume single object
                 vxvv = [vxvv]
                 input_shape = ()
-                vxvv = numpy.array(vxvv)
+                vxvv = numpy.array(to_host(vxvv))
             elif isinstance(vxvv[0], numpy.ndarray):
                 input_shape = vxvv[0].shape
                 vxvv = numpy.array(vxvv).T
             else:
                 input_shape = (len(vxvv),)
                 try:
-                    vxvv = numpy.array(vxvv)
+                    vxvv = numpy.array(to_host(vxvv))
                 except ValueError:
                     raise_diffphasedim_error = True
             if (
@@ -642,7 +644,28 @@ class Orbit:
                         numpy.prod(self._solarmotion.shape[1:]),
                     )
                 )
-        self._setup_parse_vxvv(vxvv, radec, lb, uvw)
+        if radec or lb:
+            # vxvv is numpy bookkeeping: keep the sky->galactocentric chain on
+            # numpy rather than the forced backend (which CUDA cannot read back)
+            with _use_backend("numpy", force=True):
+                self._setup_parse_vxvv(vxvv, radec, lb, uvw)
+            if self._ic_backend is not None:
+                # the backend IC is (ra, dec, ...): replace it by the converted
+                # galactocentric values; a differentiated one has no values
+                if not self._ic_backend_concrete:
+                    raise NotImplementedError(
+                        "An Orbit built with radec=True or lb=True from a traced or "
+                        "gradient-tracking array is not differentiable w.r.t. its "
+                        "sky coordinates; convert them with galpy.util.coords first"
+                    )
+                self._ic_backend = asarray_on_device(
+                    get_namespace(self._ic_backend),
+                    numpy.reshape(self.vxvv, self._ic_backend.shape),
+                    device_of(self._ic_backend),
+                    dtype=self._ic_backend.dtype,
+                )
+        else:
+            self._setup_parse_vxvv(vxvv, radec, lb, uvw)
         # Check that we have a valid phase-space dim (often messed up by not
         # transposing the input array to the correct shape)
         if self.phasedim() < 2 or self.phasedim() > 6:
@@ -1716,7 +1739,7 @@ class Orbit:
                     tdyn += 1.0 / p.tdyn(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError, TypeError):
                     pass
-            tdyn = numpy.sqrt(1.0 / tdyn) if tdyn > 0.0 else 0.0
+            tdyn = numpy.sqrt(1.0 / to_host(tdyn)) if tdyn > 0.0 else 0.0
         if tdyn > 0.0:
             return tdyn
         # If all fail, fallback to vcirc -- but only where a circular velocity is
@@ -1746,7 +1769,7 @@ class Orbit:
                     vc2 += p.vcirc(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError, TypeError):
                     pass
-            vc = numpy.sqrt(vc2)
+            vc = numpy.sqrt(to_host(vc2))
         if vc > 0.0:
             return 2.0 * numpy.pi * r_init / vc
 
@@ -1802,7 +1825,7 @@ class Orbit:
             r_init = self.r(use_physical=False)
 
         # For multiple orbits, use max radius for conservative time period
-        r_init = float(numpy.amax(numpy.atleast_1d(r_init)))
+        r_init = float(numpy.amax(numpy.atleast_1d(to_host(r_init))))
 
         # Handle edge case: r ≈ 0
         if r_init < 1e-10:
@@ -1818,7 +1841,7 @@ class Orbit:
         # negative N is okay to integrate backwards
         n_points = 101 * abs(N_tdyn) + 1
 
-        return numpy.linspace(0, N_tdyn * tdyn_val, n_points)
+        return numpy.linspace(0, N_tdyn * to_host(tdyn_val), n_points)
 
     def _integrate_impl(
         self,
@@ -3599,15 +3622,20 @@ class Orbit:
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
-                        [
+                        to_host(
                             [
-                                evaluatelinearPotentials(
-                                    pot, thiso[0][ii][jj], t=t[ii], use_physical=False
-                                )
-                                for ii in range(len(thiso[0]))
+                                [
+                                    evaluatelinearPotentials(
+                                        pot,
+                                        thiso[0][ii][jj],
+                                        t=t[ii],
+                                        use_physical=False,
+                                    )
+                                    for ii in range(len(thiso[0]))
+                                ]
+                                for jj in range(self.size)
                             ]
-                            for jj in range(self.size)
-                        ]
+                        )
                     )
                     + (thiso[1] ** 2.0 / 2.0).T
                 )
@@ -3626,15 +3654,20 @@ class Orbit:
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
-                        [
+                        to_host(
                             [
-                                evaluateplanarPotentials(
-                                    pot, thiso[0][ii][jj], t=t[ii], use_physical=False
-                                )
-                                for ii in range(len(thiso[0]))
+                                [
+                                    evaluateplanarPotentials(
+                                        pot,
+                                        thiso[0][ii][jj],
+                                        t=t[ii],
+                                        use_physical=False,
+                                    )
+                                    for ii in range(len(thiso[0]))
+                                ]
+                                for jj in range(self.size)
                             ]
-                            for jj in range(self.size)
-                        ]
+                        )
                     )
                     + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
                 )
@@ -3654,19 +3687,21 @@ class Orbit:
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
-                        [
+                        to_host(
                             [
-                                evaluateplanarPotentials(
-                                    pot,
-                                    thiso[0][ii][jj],
-                                    t=t[ii],
-                                    phi=thiso[-1][ii][jj],
-                                    use_physical=False,
-                                )
-                                for ii in range(len(thiso[0]))
+                                [
+                                    evaluateplanarPotentials(
+                                        pot,
+                                        thiso[0][ii][jj],
+                                        t=t[ii],
+                                        phi=thiso[-1][ii][jj],
+                                        use_physical=False,
+                                    )
+                                    for ii in range(len(thiso[0]))
+                                ]
+                                for jj in range(self.size)
                             ]
-                            for jj in range(self.size)
-                        ]
+                        )
                     )
                     + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
                 )
@@ -3689,19 +3724,21 @@ class Orbit:
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
-                        [
+                        to_host(
                             [
-                                evaluatePotentials(
-                                    pot,
-                                    thiso[0][ii][jj],
-                                    z[ii][jj],
-                                    t=t[ii],
-                                    use_physical=False,
-                                )
-                                for ii in range(len(thiso[0]))
+                                [
+                                    evaluatePotentials(
+                                        pot,
+                                        thiso[0][ii][jj],
+                                        z[ii][jj],
+                                        t=t[ii],
+                                        use_physical=False,
+                                    )
+                                    for ii in range(len(thiso[0]))
+                                ]
+                                for jj in range(self.size)
                             ]
-                            for jj in range(self.size)
-                        ]
+                        )
                     )
                     + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
                 )
@@ -3725,20 +3762,22 @@ class Orbit:
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
-                        [
+                        to_host(
                             [
-                                evaluatePotentials(
-                                    pot,
-                                    thiso[0][ii][jj],
-                                    z[ii][jj],
-                                    t=t[ii],
-                                    phi=thiso[-1][ii][jj],
-                                    use_physical=False,
-                                )
-                                for ii in range(len(thiso[0]))
+                                [
+                                    evaluatePotentials(
+                                        pot,
+                                        thiso[0][ii][jj],
+                                        z[ii][jj],
+                                        t=t[ii],
+                                        phi=thiso[-1][ii][jj],
+                                        use_physical=False,
+                                    )
+                                    for ii in range(len(thiso[0]))
+                                ]
+                                for jj in range(self.size)
                             ]
-                            for jj in range(self.size)
-                        ]
+                        )
                     )
                     + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
                 )
@@ -4005,15 +4044,18 @@ class Orbit:
         kwargs["dontreshape"] = True
         if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
             thisOmegaP = OmegaP
-            tL = self.L(*args, **kwargs)
+            # numpy.einsum below reads tL: E and tL on the host
+            tL = to_host(self.L(*args, **kwargs))
+            E = to_host(self.E(*args, **kwargs))
             if len(tL.shape) == 2:  # 1 time
-                out = self.E(*args, **kwargs) - numpy.einsum("i,ji->j", thisOmegaP, tL)
+                out = E - numpy.einsum("i,ji->j", thisOmegaP, tL)
             else:
-                out = self.E(*args, **kwargs) - numpy.einsum(
-                    "i,jki->jk", thisOmegaP, tL
-                )
+                out = E - numpy.einsum("i,jki->jk", thisOmegaP, tL)
         else:
-            out = self.E(*args, **kwargs) - OmegaP * self.Lz(*args, **kwargs)
+            E, Lz = self.E(*args, **kwargs), self.Lz(*args, **kwargs)
+            if not is_backend_array(Lz):  # a numpy orbit: read E, OmegaP on the host
+                E, OmegaP = to_host(E), to_host(OmegaP)
+            out = E - OmegaP * Lz
         if not old_physical is None:
             kwargs["use_physical"] = old_physical
         else:
@@ -4331,7 +4373,7 @@ class Orbit:
                 self._aA_wr[indx],
                 self._aA_wp[indx],
                 self._aA_wz[indx],
-            ) = self._aA.actionsFreqsAngles(
+            ) = on_host(self._aA.actionsFreqsAngles)(
                 self.R(use_physical=False, dontreshape=True)[indx],
                 self.vR(use_physical=False, dontreshape=True)[indx],
                 self.vT(use_physical=False, dontreshape=True)[indx],
@@ -4605,14 +4647,14 @@ class Orbit:
         # change the return type callers see, so keep numpy for it.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
-        E = _xpE.atleast_1d(_E)
+        E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
         E_shape = E.shape
         E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
             rEs = numpy.array(
-                [rE(pot, tE, use_physical=False) for tE in precomputerEEgrid]
+                to_host([rE(pot, tE, use_physical=False) for tE in precomputerEEgrid])
             )
             # Spline interpolate
             return interpolate.InterpolatedUnivariateSpline(
@@ -4626,7 +4668,7 @@ class Orbit:
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(vals).reshape(E_shape)
+            return numpy.array(to_host(vals)).reshape(E_shape)
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4677,14 +4719,14 @@ class Orbit:
         # change the return type callers see, so keep numpy for it.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
-        E = _xpE.atleast_1d(_E)
+        E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
         E_shape = E.shape
         E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
             LcEs = numpy.array(
-                [LcE(pot, tE, use_physical=False) for tE in precomputeLcEEgrid]
+                to_host([LcE(pot, tE, use_physical=False) for tE in precomputeLcEEgrid])
             )
             # Spline interpolate
             return interpolate.InterpolatedUnivariateSpline(
@@ -4698,7 +4740,7 @@ class Orbit:
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(vals).reshape(E_shape)
+            return numpy.array(to_host(vals)).reshape(E_shape)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -6841,8 +6883,11 @@ class Orbit:
         thiso = self._call_internal(*args, **kwargs)
         thiso_shape = thiso.shape
         thiso = thiso.reshape((thiso_shape[0], -1))
-        radec = _radec(self, thiso, *args, **kwargs).T.reshape((2,) + thiso_shape[1:])
-        tdist = self.dist(quantity=False, *args, **kwargs).T
+        # astropy consumes these: read them on the host
+        radec = to_host(_radec(self, thiso, *args, **kwargs)).T.reshape(
+            (2,) + thiso_shape[1:]
+        )
+        tdist = to_host(self.dist(quantity=False, *args, **kwargs)).T
         if not _APY3:  # pragma: no cover
             kwargs.pop("dontreshape")
             return coordinates.SkyCoord(
@@ -6852,10 +6897,10 @@ class Orbit:
                 frame="icrs",
             ).T
         _check_voSet(self, kwargs, "SkyCoord")
-        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs).T.reshape(
+        pmrapmdec = to_host(_pmrapmdec(self, thiso, *args, **kwargs)).T.reshape(
             (2,) + thiso_shape[1:]
         )
-        tvlos = self.vlos(quantity=False, *args, **kwargs).T
+        tvlos = to_host(self.vlos(quantity=False, *args, **kwargs)).T
         kwargs.pop("dontreshape")
         # Also return the Galactocentric frame used
         v_sun = coordinates.CartesianDifferential(
@@ -6990,7 +7035,7 @@ class Orbit:
         if xp.any(xp.abs(init_psis) > 1e-10):
             # Integrate to the next crossing
             init_psis = numpy.atleast_1d(
-                (init_psis + 2.0 * numpy.pi) % (2.0 * numpy.pi)
+                to_host((init_psis + 2.0 * numpy.pi) % (2.0 * numpy.pi))
             )
             psis = numpy.array(
                 [
@@ -7914,7 +7959,7 @@ class Orbit:
         # Construct dictionary of necessary parameters
         vars_dict = {}
         for var in vars:
-            vars_dict[var] = _eval(var)
+            vars_dict[var] = to_host(_eval(var))  # numexpr reads numpy
         return numexpr.evaluate(quant, local_dict=vars_dict)
 
     def plot(self, *args, **kwargs):
@@ -7985,8 +8030,8 @@ class Orbit:
             d1 = kwargs.pop("d1")
             d2 = kwargs.pop("d2")
         kwargs["dontreshape"] = True
-        x = numpy.atleast_2d(self._parse_plot_quantity(d1, **kwargs))
-        y = numpy.atleast_2d(self._parse_plot_quantity(d2, **kwargs))
+        x = numpy.atleast_2d(to_host(self._parse_plot_quantity(d1, **kwargs)))
+        y = numpy.atleast_2d(to_host(self._parse_plot_quantity(d2, **kwargs)))
         kwargs.pop("dontreshape")
         kwargs.pop("ro", None)
         kwargs.pop("vo", None)
@@ -8092,9 +8137,9 @@ class Orbit:
             d2 = kwargs.pop("d2")
             d3 = kwargs.pop("d3")
         kwargs["dontreshape"] = True
-        x = numpy.atleast_2d(self._parse_plot_quantity(d1, **kwargs))
-        y = numpy.atleast_2d(self._parse_plot_quantity(d2, **kwargs))
-        z = numpy.atleast_2d(self._parse_plot_quantity(d3, **kwargs))
+        x = numpy.atleast_2d(to_host(self._parse_plot_quantity(d1, **kwargs)))
+        y = numpy.atleast_2d(to_host(self._parse_plot_quantity(d2, **kwargs)))
+        z = numpy.atleast_2d(to_host(self._parse_plot_quantity(d3, **kwargs)))
         kwargs.pop("dontreshape")
         kwargs.pop("ro", None)
         kwargs.pop("vo", None)
@@ -8198,8 +8243,8 @@ class Orbit:
             atol=atol,
             **kwargs,
         )
-        x = numpy.atleast_2d(x)
-        y = numpy.atleast_2d(y)
+        x = numpy.atleast_2d(to_host(x))
+        y = numpy.atleast_2d(to_host(y))
         kwargs.pop("ro", None)
         kwargs.pop("vo", None)
         kwargs.pop("use_physical", None)
@@ -8324,8 +8369,8 @@ class Orbit:
             d1 = "y"
             d2 = "vy"
         kwargs["quantity"] = False
-        x = numpy.atleast_2d(x)
-        y = numpy.atleast_2d(y)
+        x = numpy.atleast_2d(to_host(x))
+        y = numpy.atleast_2d(to_host(y))
         kwargs.pop("ro", None)
         kwargs.pop("vo", None)
         kwargs.pop("use_physical", None)
@@ -10075,14 +10120,16 @@ def _fit_orbit_mlogl(
         )
         if lb:
             orb_vxvv = numpy.array(
-                [
-                    lbdvrpmllpmbb[:, 0],
-                    lbdvrpmllpmbb[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    lbdvrpmllpmbb[:, 4],
-                    lbdvrpmllpmbb[:, 5],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        lbdvrpmllpmbb[:, 0],
+                        lbdvrpmllpmbb[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        lbdvrpmllpmbb[:, 4],
+                        lbdvrpmllpmbb[:, 5],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
         elif radec:
             # Further transform to ra,dec,pmra,pmdec
@@ -10098,14 +10145,16 @@ def _fit_orbit_mlogl(
                 epoch=None,
             )
             orb_vxvv = numpy.array(
-                [
-                    radec[:, 0],
-                    radec[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    pmrapmdec[:, 0],
-                    pmrapmdec[:, 1],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        radec[:, 0],
+                        radec[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        pmrapmdec[:, 0],
+                        pmrapmdec[:, 1],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
         elif customsky:
             # Further transform to ra,dec,pmra,pmdec
@@ -10120,14 +10169,16 @@ def _fit_orbit_mlogl(
                 degree=True,
             )
             orb_vxvv = numpy.array(
-                [
-                    customradec[:, 0],
-                    customradec[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    custompmrapmdec[:, 0],
-                    custompmrapmdec[:, 1],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        customradec[:, 0],
+                        customradec[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        custompmrapmdec[:, 0],
+                        custompmrapmdec[:, 1],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
     else:
         # shape=(2tintJ-1,6)
@@ -10237,6 +10288,8 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
                     Zsun=obs.z(*args, **kwargs),
                 ).T
             obs.turn_physical_on()
+    if isinstance(ro, numpy.ndarray):  # per-orbit ro follows the coordinates
+        ro = like(X, ro)
     return (X * ro, Y * ro, Z * ro)
 
 
@@ -10430,6 +10483,10 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                     Zsun=obs.z(*args, **kwargs),
                 ).T
             obs.turn_physical_on()
+    if isinstance(ro, numpy.ndarray):  # per-orbit ro/vo follow the coordinates
+        ro = like(X, ro)
+    if isinstance(vo, numpy.ndarray):
+        vo = like(vX, vo)
     return (X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo)
 
 
@@ -10441,6 +10498,8 @@ def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     # backend-native, and the old masked in-place add sat behind a
     # data-dependent Python branch. numpy values unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
+    if isinstance(ro, numpy.ndarray):  # per-orbit ro follows the coordinates
+        ro = like(X, ro)
     X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
     return coords.rectgal_to_sphergal(X, Y, Z, vX, vY, vZ, degree=True)
 
