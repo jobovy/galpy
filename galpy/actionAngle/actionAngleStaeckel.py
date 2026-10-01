@@ -25,6 +25,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
     promote_scalars,
+    to_host,
 )
 from ..backend._namespaces import (
     graft_gradient,
@@ -968,11 +969,13 @@ def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
     explicit u0-kwarg is a fixed reference (du0/dx=0); if neither, returns
     (None, False) and the C uses ux (du0/dx=dux/dx)."""
     if u0_kwarg is not None:
-        return numpy.asarray(stop_gradient(u0_kwarg), dtype=numpy.float64), False
+        return numpy.asarray(
+            to_host(stop_gradient(u0_kwarg)), dtype=numpy.float64
+        ), False
     if not useu0:
         return None, False
     Rn, vRn, vTn, zn, vzn = (
-        numpy.atleast_1d(numpy.asarray(stop_gradient(c), dtype=numpy.float64))
+        numpy.atleast_1d(numpy.asarray(to_host(stop_gradient(c)), dtype=numpy.float64))
         for c in (R, vR, vT, z, vz)
     )
     E = numpy.array(
