@@ -413,7 +413,7 @@ def test_surfdens_edge_finite(backend_name, pot):
     # The R == a removable singularity must give the same finite value across
     # backends (this is the branch the safe-`where` guards protect).
     a = pot.a
-    ref = float(numpy.asarray(pot._surfdens(numpy.asarray(a), numpy.asarray(0.3))))
+    ref = float(pot._surfdens(numpy.asarray(a), numpy.asarray(0.3)))
     got = float(
         as_numpy(pot._surfdens(_asarray(backend_name, a), _asarray(backend_name, 0.3)))
     )
@@ -554,7 +554,7 @@ def test_surfdens_grad_z_finite_off_edge(backend_name, pot):
     assert numpy.isfinite(ad), f"{type(pot).__name__} dSurf/dz NaN at z=0 (R!=a)"
     # surfdens integrates rho over [-z, z], so d(surfdens)/dz|_{z=0} = 2*rho(R,0);
     # cross-check the gradient against the analytic density (the true slope).
-    rho = float(numpy.asarray(pot._dens(numpy.asarray(R0), numpy.asarray(0.0))))
+    rho = float(pot._dens(numpy.asarray(R0), numpy.asarray(0.0)))
     numpy.testing.assert_allclose(ad, 2.0 * rho, rtol=1e-7, atol=1e-10)
 
 

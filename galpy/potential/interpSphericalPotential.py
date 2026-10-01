@@ -11,6 +11,7 @@ from ..backend import (
     is_backend_array,
     match_input_dtype,
     resolve_namespace,
+    to_host,
 )
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.interpolate import Spline1D
@@ -101,7 +102,7 @@ class interpSphericalPotential(SphericalPotential):
                 return coerce_coords(xp, v)[0]
 
         else:
-            self._rforce_grid = numpy.array(_fgrid)
+            self._rforce_grid = numpy.array([to_host(f) for f in _fgrid])
             # an undifferentiated backend grid (forced backend) goes to numpy
             # with it: backend knots would make the spline return backend
             # values that the numpy Phi0 below cannot be added to

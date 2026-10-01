@@ -7,6 +7,7 @@ import copy
 import numpy
 
 from ..backend import coerce_coords, get_namespace
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import logsumexp
 from .Potential import Potential
 
@@ -15,7 +16,8 @@ def _default_dens(R, z):
     # Shared default for this class and its subclasses. A module-level function
     # rather than a lambda so the default potentials are picklable (a lambda is
     # looked up by qualname, which <lambda> has not).
-    return 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+    xp = namespace_from_arrays([R, z]) or numpy
+    return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z))
 
 
 class KuijkenDubinskiDiskExpansionPotential(Potential):

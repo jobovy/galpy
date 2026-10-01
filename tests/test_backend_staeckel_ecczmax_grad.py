@@ -58,7 +58,7 @@ _DEGEN_ORBIT = (1.0, 3.0, 0.05, 0.0, 3.0)
 
 def _np_ecczmax(orbit):
     out = _AAS.EccZmaxRperiRap(*[numpy.array([c]) for c in orbit])
-    return [float(numpy.asarray(out[o][0])) for o in range(4)]
+    return [float(out[o][0]) for o in range(4)]
 
 
 _FD_CACHE = {}
@@ -113,7 +113,7 @@ def test_staeckel_ecczmax_value_parity(backend):
     for orbit in list(_ORBITS.values()) + list(_EDGE_ORBITS.values()):
         ref = _np_ecczmax(orbit)
         out = _AAS.EccZmaxRperiRap(*[arr([x]) for x in orbit])
-        got = [float(numpy.asarray(out[o][0])) for o in range(4)]
+        got = [float(out[o][0]) for o in range(4)]
         numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
 
 

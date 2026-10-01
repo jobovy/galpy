@@ -31,6 +31,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    to_host,
 )
 from ..backend import use as _use_backend
 from ..backend._namespaces import (
@@ -293,6 +294,25 @@ except:
     pass
 
 
+def _forced_device_type(xp):
+    """Device type ("cpu", "cuda", ...) new ``xp`` arrays land on, or None."""
+    return getattr(getattr(xp.asarray(0.0), "device", None), "type", None)
+
+
+def _refuse_numpy_integrator_on_cuda(method):
+    """The numpy (python) integrators read every force on the host, which
+    cannot read the CUDA arrays a forced torch backend on a GPU returns; the
+    in-backend integrators run on the GPU instead."""
+    xp = get_namespace()
+    if name_of_namespace(xp) != "torch" or _forced_device_type(xp) != "cuda":
+        return None
+    raise ValueError(
+        f"method='{method}' integrates with numpy on the host, which cannot read "
+        "the CUDA forces of a forced torch backend on a GPU; use the in-backend "
+        "method='torchode' or method='torchdiffeq' instead"
+    )
+
+
 def _resolve_accessor_namespace(thiso):
     """Resolve the array namespace for a derived time-evaluation accessor.
 
@@ -515,7 +535,7 @@ class Orbit:
                     raise ValueError("grad-requiring backend IC")
                 # .copy(): asarray on a jax array is a READ-ONLY view, and vxvv is
                 # writable bookkeeping (cf. the as_numpy(...).copy() sites below).
-                vxvv = numpy.asarray(vxvv).copy()
+                vxvv = numpy.asarray(to_host(vxvv)).copy()
             except Exception:  # traced (jax.grad/jit/vmap) or grad-requiring tensor
                 self._ic_backend_concrete = False
                 vxvv = numpy.zeros(tuple(vxvv.shape))
@@ -1607,7 +1627,7 @@ class Orbit:
         # Continuation is not supported for per-orbit time arrays (either the
         # new t is per-orbit, or the stored self.t is from a previous per-orbit
         # integration — the time-comparison logic below assumes a shared 1D t).
-        if numpy.asarray(t).ndim > 1 or numpy.asarray(self.t).ndim > 1:
+        if numpy.ndim(t) > 1 or numpy.ndim(self.t) > 1:
             return False, True, False
 
         # Check if potentials are the same
@@ -1947,7 +1967,7 @@ class Orbit:
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
-        t = numpy.asarray(t)
+        t = numpy.asarray(to_host(t))
         # Per-orbit time arrays: t has shape self.shape + (nt,) instead of (nt,)
         indiv_t = t.ndim > 1
         if indiv_t:
@@ -2029,6 +2049,7 @@ class Orbit:
         method = self._check_method_dissipative_compatible(method, self._pot)
         # Implementation with parallel_map in Python
         if not "_c" in method or not ext_loaded or force_map:
+            _refuse_numpy_integrator_on_cuda(method)
             if self.dim() == 1:
                 out, msg = integrateLinearOrbit(
                     self._pot,
@@ -2123,15 +2144,21 @@ class Orbit:
             # merge runs on its namespace (numpy's own for a numpy orbit, so that
             # path is byte-identical).
             _xp = get_namespace(self.orbit) if is_backend_array(self.orbit) else numpy
+            if _xp is numpy:  # a backend first leg (CUDA) merges on the host
+                old_orbit = to_host(old_orbit)
             if is_forward:
                 # Forward continuation: merge old and new, skip duplicate time point
-                self.t = numpy.concatenate([old_t, self.t[1:]], axis=-1)
+                self.t = numpy.concatenate(
+                    [to_host(old_t), to_host(self.t[1:])], axis=-1
+                )
                 self.orbit = _xp.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
             else:
                 # Backward continuation: prepend new orbit to old (reversed), skip duplicate time point
                 # New times go from t[0] to t[-1] in decreasing order (e.g., 0 to -10)
                 # We want the result to be monotonic, so reverse the new times/orbit
-                self.t = numpy.concatenate([self.t[:0:-1], old_t], axis=-1)
+                self.t = numpy.concatenate(
+                    [to_host(self.t[:0:-1]), to_host(old_t)], axis=-1
+                )
                 # self.orbit[:, :0:-1] in namespace-agnostic form: torch has no
                 # negative-step slicing, and flip is exact on every namespace.
                 self.orbit = _xp.concatenate(
@@ -3027,6 +3054,8 @@ class Orbit:
                     )
         # Implementation with parallel_map in Python
         if True or not "_c" in method or not ext_loaded or force_map:
+            if "_c" not in method:  # the python dxdv integrators read on the host
+                _refuse_numpy_integrator_on_cuda(method)
             if self.dim() == 1:
                 # 1D (linear) orbit: the deviation is a raw [dx,dv] 2-vector,
                 # so rectIn/rectOut (cyl<->rect) are moot and not passed.
@@ -3550,6 +3579,9 @@ class Orbit:
         if onet:
             thiso = thiso[:, numpy.newaxis, :]
             t = numpy.atleast_1d(t) if _txp is numpy else _txp.reshape(t, (-1,))
+        # kinetic terms on the potential's (forced) namespace: a CUDA potential
+        # cannot be added to a numpy thiso
+        _, _tk = _resolve_accessor_namespace(thiso)
         if self.phasedim() == 2:
             try:
                 out = (
@@ -3559,7 +3591,7 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3585,8 +3617,8 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3613,8 +3645,8 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3647,9 +3679,9 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
-                    + vz**2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
+                    + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -3683,9 +3715,9 @@ class Orbit:
                         t=_txp.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
                         use_physical=False,
                     )
-                    + thiso[1] ** 2.0 / 2.0
-                    + thiso[2] ** 2.0 / 2.0
-                    + vz**2.0 / 2.0
+                    + _tk[1] ** 2.0 / 2.0
+                    + _tk[2] ** 2.0 / 2.0
+                    + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
@@ -4502,7 +4534,9 @@ class Orbit:
                 "Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        Lz = numpy.atleast_1d(self.Lz(*args, use_physical=False, dontreshape=True))
+        Lz = numpy.atleast_1d(
+            to_host(self.Lz(*args, use_physical=False, dontreshape=True))
+        )
         Lz_shape = Lz.shape
         Lz = Lz.flatten()
         if len(Lz) > 500:
@@ -4524,7 +4558,7 @@ class Orbit:
             if any(under_trace(v) or requires_backend_grad(v) for v in rls):
                 xp = get_namespace(*rls)
                 return xp.reshape(xp.stack(rls), Lz_shape)
-            return numpy.array(rls).reshape(Lz_shape)
+            return numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5273,7 +5307,7 @@ class Orbit:
         """
         if len(args) == 0:
             try:
-                t_out = numpy.asarray(self.t)
+                t_out = numpy.asarray(to_host(self.t))
                 if t_out.ndim > 1:
                     # Per-orbit storage is (size, nt); reshape to (*self.shape, nt)
                     return t_out.reshape(self.shape + (t_out.shape[-1],)).copy()
@@ -7234,7 +7268,7 @@ class Orbit:
         # streamdf's track grid, which depends on theta). Only its ndim/len are
         # used structurally below; the value comparison is already guarded by a
         # try/except that falls through to the in-backend interpolator.
-        _self_t = self.t if under_trace(self.t) else numpy.asarray(self.t)
+        _self_t = self.t if under_trace(self.t) else numpy.asarray(to_host(self.t))
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
         if _self_t.ndim > 1:
             return self._call_internal_indiv_t(t)
@@ -7385,7 +7419,7 @@ class Orbit:
                 "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",
                 galpyWarning,
             )
-        self_t = numpy.asarray(self.t)
+        self_t = numpy.asarray(to_host(self.t))
         # Parse user-supplied t into a (size, nt_q) array; remember whether
         # the caller passed a trailing time axis (and so expects one back).
         # Accepted forms (reshaped Orbit shape OR internal flat-leading shape):
@@ -7398,7 +7432,7 @@ class Orbit:
             t_arr = numpy.full((self.size, 1), float(t))
             has_time_axis = False
         else:
-            t_in = numpy.asarray(t, dtype=float)
+            t_in = numpy.asarray(to_host(t), dtype=float)
             if t_in.shape == self.shape:
                 t_arr = t_in.reshape(self.size, 1)
                 has_time_axis = False
@@ -7526,7 +7560,7 @@ class Orbit:
         differentiable w.r.t. the orbit. Returns ``(phasedim, nt_q, size)`` (or
         ``(phasedim, size)`` when the query has no trailing time axis)."""
         xp = get_namespace(self.orbit)
-        self_t = numpy.asarray(self.t)  # per-orbit grids (geometry; host)
+        self_t = numpy.asarray(to_host(self.t))  # per-orbit grids (geometry; host)
         per_orbit = []
         for kk in range(self.size):
             gridi = self_t[kk]
@@ -7627,7 +7661,7 @@ class Orbit:
         # so order it with argsort instead. The concrete path keeps the exact
         # numpy reversal and stays byte-identical.
         grid_traced = under_trace(self.t)
-        self_t = self.t if grid_traced else numpy.asarray(self.t)
+        self_t = self.t if grid_traced else numpy.asarray(to_host(self.t))
         scalar = isinstance(t, (int, float, numpy.number)) or (
             is_backend_array(t) and getattr(t, "ndim", 1) == 0
         )
@@ -7728,7 +7762,7 @@ class Orbit:
         # list of size 1D interpolators (one per orbit). Each row may contain
         # NaN padding (bruteSOS uses this when orbits have unequal numbers of
         # crossings) — drop those entries before fitting the spline.
-        if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
+        if hasattr(self, "t") and numpy.ndim(self.t) > 1:
             orbInterp = [None] * self.size
             for kk in range(self.size):
                 tk = numpy.asarray(self.t[kk])

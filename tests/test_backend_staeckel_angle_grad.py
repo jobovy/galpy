@@ -150,7 +150,7 @@ def test_staeckel_angle_value_c_true_matches_numpy(backend):
     for orbit in list(_ORBITS.values()) + list(_EDGE_ORBITS.values()):
         ref = _np_angles(orbit)
         out = _AAS.actionsFreqsAngles(*[arr([x]) for x in orbit])
-        got = [float(numpy.asarray(out[6 + k][0])) for k in range(3)]
+        got = [float(out[6 + k][0]) for k in range(3)]
         numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-12)
 
 

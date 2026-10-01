@@ -342,6 +342,18 @@ def as_numpy(x):
     return numpy.asarray(x)
 
 
+def to_host(x):
+    """A torch tensor moved to the CPU, for an implicit numpy conversion: numpy
+    cannot read a CUDA tensor. Unlike ``as_numpy`` this keeps autograd, so numpy
+    still refuses a tensor that requires grad, exactly as on the CPU."""
+    if _TORCH_LOADED:
+        import torch
+
+        if isinstance(x, torch.Tensor):
+            return x.cpu()
+    return x
+
+
 def exit_cast(value, *inputs):
     """Cast a public physical/consumption output back to numpy unless a caller
     input is a backend array (autodiff keeps backend arrays). Under a forced

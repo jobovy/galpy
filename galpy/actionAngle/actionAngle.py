@@ -3,6 +3,7 @@ import types
 
 import numpy
 
+from ..backend._namespaces import namespace_from_arrays
 from ..util import config, conversion
 from ..util.conversion import (
     actionAngle_physical_input,
@@ -181,10 +182,12 @@ class actionAngle(metaclass=MetaActionAngle):
             else:
                 if args[0].phasedim() > 3:
                     self._eval_phi = orb.phi(use_physical=False)
-                self._eval_z = numpy.zeros_like(self._eval_R)
-                self._eval_vz = numpy.zeros_like(self._eval_R)
+                xp = namespace_from_arrays([self._eval_R]) or numpy
+                self._eval_z = xp.zeros_like(self._eval_R)
+                self._eval_vz = xp.zeros_like(self._eval_R)
         if hasattr(self, "_eval_z"):  # calculate the polar angle
-            self._eval_theta = numpy.arctan2(self._eval_R, self._eval_z)
+            xp = namespace_from_arrays([self._eval_R, self._eval_z]) or numpy
+            self._eval_theta = xp.arctan2(self._eval_R, self._eval_z)
         return None
 
     @actionAngle_physical_input

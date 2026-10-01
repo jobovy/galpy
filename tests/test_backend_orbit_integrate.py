@@ -966,12 +966,47 @@ def test_integrate_numpy_ic_under_forced_backend_does_not_warn():
     # array -- not for every test run under --backend torch, which would bury it.
     from galpy.backend import use
 
+    if torch.get_default_device().type == "cuda":
+        pytest.skip("numpy integrators are refused on CUDA (next test)")
     with use("torch", force=True):
         o = Orbit(list(_IC))
         with warnings.catch_warnings(record=True) as rec:
             warnings.simplefilter("always")
             o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853")
     assert not _demotion_warnings(rec)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", ["dop853", "odeint", "leapfrog"])
+def test_numpy_integrator_on_cuda_points_to_torchode(method, monkeypatch):
+    # A numpy (python) integrator reads each force on the host, which cannot
+    # read a forced torch backend's CUDA arrays: refuse it with a pointer to the
+    # in-backend integrators. The device probe is patched so this runs on CPU CI.
+    import galpy.orbit.Orbits as orbits_module
+    from galpy.backend import use
+
+    monkeypatch.setattr(orbits_module, "_forced_device_type", lambda xp: "cuda")
+    with use("torch", force=True):
+        o = Orbit(list(_IC))
+        with pytest.raises(ValueError, match="torchode"):
+            o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
+    # nor the python variational (dxdv) integrators
+    with use("torch", force=True):
+        with pytest.raises(ValueError, match="torchode"):
+            Orbit([1.0, 0.1, 1.1, 0.0]).integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0],
+                _TS,
+                PlummerPotential(amp=1.0, b=0.6).toPlanar(),
+                method="odeint",
+            )
+    # not refused without a forced torch backend, nor off the GPU
+    Orbit(list(_IC)).integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
+    monkeypatch.undo()
+    if torch.get_default_device().type == "cpu":
+        with use("torch", force=True):
+            Orbit(list(_IC)).integrate(
+                _TS, PlummerPotential(amp=1.0, b=0.6), method=method
+            )
 
 
 # ---------------- continuing an integration keeps the backend orbit intact

@@ -9,7 +9,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy, is_backend_array
+from galpy.backend import as_numpy, is_backend_array, to_host
 from galpy.backend.linalg import cholesky_invert, psd_project, real_eig
 
 pytestmark = pytest.mark.backend_managed
@@ -87,11 +87,13 @@ def test_psd_project_backend_grad_finite(backend, degenerate):
     # jax and torch agree (frozen-eigenvector projection).
     cov = _cov_batch(seed=1, degenerate=degenerate)
     if backend == "jax":
-        g = numpy.asarray(jax.grad(lambda c: jnp.sum(psd_project(c)))(jnp.asarray(cov)))
+        g = numpy.asarray(
+            to_host(jax.grad(lambda c: jnp.sum(psd_project(c)))(jnp.asarray(cov)))
+        )
     else:
         ct = torch.tensor(cov, requires_grad=True)
         psd_project(ct).sum().backward()
-        g = numpy.asarray(ct.grad.detach())
+        g = numpy.asarray(to_host(ct.grad.detach()))
     assert numpy.isfinite(g).all()
     assert numpy.max(numpy.abs(g)) > 0
 
@@ -101,10 +103,12 @@ def test_psd_project_jax_torch_grad_agree():
     if "jax" not in BACKENDS or "torch" not in BACKENDS:
         pytest.skip("need both backends")
     cov = _cov_batch(seed=2)
-    gj = numpy.asarray(jax.grad(lambda c: jnp.sum(psd_project(c)))(jnp.asarray(cov)))
+    gj = numpy.asarray(
+        to_host(jax.grad(lambda c: jnp.sum(psd_project(c)))(jnp.asarray(cov)))
+    )
     ct = torch.tensor(cov, requires_grad=True)
     psd_project(ct).sum().backward()
-    gt = numpy.asarray(ct.grad.detach())
+    gt = numpy.asarray(to_host(ct.grad.detach()))
     numpy.testing.assert_allclose(gj, gt, rtol=1e-9, atol=1e-11)
 
 
@@ -166,7 +170,7 @@ def test_cholesky_invert_logdet_grad_is_ainv_T():
     a = _spd()
     g = jax.grad(lambda x: cholesky_invert(x, 1e-15, logdet=True)[1])(jnp.asarray(a))
     ref = numpy.linalg.inv(a).T
-    numpy.testing.assert_allclose(numpy.asarray(g), ref, rtol=1e-9, atol=1e-12)
+    numpy.testing.assert_allclose(numpy.asarray(to_host(g)), ref, rtol=1e-9, atol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -178,7 +182,7 @@ def test_real_eig_backend_matches_numpy(backend):
     w, v = as_numpy(w), as_numpy(v)
     # eigh is ascending, eig is not -- compare the SETS
     numpy.testing.assert_allclose(
-        numpy.sort(w), numpy.sort(numpy.asarray(wn)), rtol=1e-12
+        numpy.sort(w), numpy.sort(numpy.asarray(to_host(wn))), rtol=1e-12
     )
     # and they must really be eigenpairs of a
     numpy.testing.assert_allclose(a @ v, v * w, rtol=1e-10, atol=1e-12)
@@ -202,8 +206,10 @@ def test_real_eig_eigenvalue_grad_survives_degeneracy(gap):
     q, _ = numpy.linalg.qr(rng.randn(3, 3))
     a = q @ numpy.diag([1.0, 1.0 + gap, 5.0]) @ q.T
     g = jax.grad(lambda x: jnp.sum(real_eig(x)[0]))(jnp.asarray(a))
-    assert numpy.all(numpy.isfinite(numpy.asarray(g)))
-    numpy.testing.assert_allclose(numpy.asarray(g), numpy.eye(3), rtol=0, atol=1e-12)
+    assert numpy.all(numpy.isfinite(numpy.asarray(to_host(g))))
+    numpy.testing.assert_allclose(
+        numpy.asarray(to_host(g)), numpy.eye(3), rtol=0, atol=1e-12
+    )
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
@@ -332,12 +338,15 @@ def test_psd_project_backend_grad_vs_fd_on_clipped_slices(backend):
     fd = (f(h) - f(-h)) / (2.0 * h)
     if backend == "jax":
         ad = numpy.asarray(
-            jax.jacfwd(
-                lambda t: jnp.sum(
-                    jnp.asarray(w) * psd_project(jnp.asarray(a) + t * jnp.asarray(d)),
-                    axis=(-1, -2),
-                )
-            )(0.0)
+            to_host(
+                jax.jacfwd(
+                    lambda t: jnp.sum(
+                        jnp.asarray(w)
+                        * psd_project(jnp.asarray(a) + t * jnp.asarray(d)),
+                        axis=(-1, -2),
+                    )
+                )(0.0)
+            )
         )
     else:
         ad = numpy.array(
@@ -379,5 +388,5 @@ def test_solve_tridiagonal_matches_banded_lu(backend, n):
     else:
         xp = jnp if backend == "jax" else torch
         arr = jnp.asarray if backend == "jax" else torch.tensor
-    got = numpy.asarray(solve_tridiagonal(xp, arr(a), arr(b), arr(c), arr(d)))
+    got = numpy.asarray(to_host(solve_tridiagonal(xp, arr(a), arr(b), arr(c), arr(d))))
     numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-14)
