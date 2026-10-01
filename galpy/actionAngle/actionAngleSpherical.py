@@ -22,6 +22,7 @@ from ..backend import (
     device_of,
     get_namespace,
     promote_scalars,
+    to_host,
 )
 from ..potential import _dim, epifreq, rl, vcirc
 from ..potential.planarPotential import (
@@ -252,10 +253,10 @@ class actionAngleSpherical(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass
@@ -347,10 +348,10 @@ class actionAngleSpherical(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass
@@ -468,11 +469,11 @@ class actionAngleSpherical(actionAngle):
             phi = self._eval_phi
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
-            phi = numpy.array([phi])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+            phi = numpy.array([to_host(phi)])
         xp = get_namespace(R, vR, vT, z, vz, phi)
         if self._c:  # pragma: no cover
             pass
@@ -642,10 +643,10 @@ class actionAngleSpherical(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass

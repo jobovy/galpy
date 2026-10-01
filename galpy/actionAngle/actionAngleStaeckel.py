@@ -979,13 +979,15 @@ def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
         for c in (R, vR, vT, z, vz)
     )
     E = numpy.array(
-        [
-            _evaluatePotentials(pot, Rn[ii], zn[ii])
-            + vRn[ii] ** 2.0 / 2.0
-            + vzn[ii] ** 2.0 / 2.0
-            + vTn[ii] ** 2.0 / 2.0
-            for ii in range(len(Rn))
-        ]
+        to_host(
+            [
+                _evaluatePotentials(pot, Rn[ii], zn[ii])
+                + vRn[ii] ** 2.0 / 2.0
+                + vzn[ii] ** 2.0 / 2.0
+                + vTn[ii] ** 2.0 / 2.0
+                for ii in range(len(Rn))
+            ]
+        )
     )
     return (
         actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0],
@@ -998,9 +1000,9 @@ def _staeckel_c_freq_circ_fix(pot, Rn, jrn, jzn, Or, Op, Oz):
     C-wrapper adjustment): NaN freqs at small jr/jz -> epifreq/omegac/verticalfreq."""
     indx = numpy.isnan(Or) * (jrn < 1e-3) + numpy.isnan(Oz) * (jzn < 1e-3)
     if numpy.sum(indx) > 0:
-        Or[indx] = [epifreq(pot, r, use_physical=False) for r in Rn[indx]]
-        Op[indx] = [omegac(pot, r, use_physical=False) for r in Rn[indx]]
-        Oz[indx] = [verticalfreq(pot, r, use_physical=False) for r in Rn[indx]]
+        Or[indx] = to_host([epifreq(pot, r, use_physical=False) for r in Rn[indx]])
+        Op[indx] = to_host([omegac(pot, r, use_physical=False) for r in Rn[indx]])
+        Oz[indx] = to_host([verticalfreq(pot, r, use_physical=False) for r in Rn[indx]])
     return Or, Op, Oz
 
 
@@ -1123,10 +1125,10 @@ class actionAngleStaeckel(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         if (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
@@ -1262,10 +1264,10 @@ class actionAngleStaeckel(actionAngle):
                 vz = self._eval_vz
             if isinstance(R, float):
                 R = numpy.array([R])
-                vR = numpy.array([vR])
-                vT = numpy.array([vT])
-                z = numpy.array([z])
-                vz = numpy.array([vz])
+                vR = numpy.array([to_host(vR)])
+                vT = numpy.array([to_host(vT)])
+                z = numpy.array([to_host(z)])
+                vz = numpy.array([to_host(vz)])
             Lz = R * vT
             # Resolve namespace first so a forced backend (numpy inputs) also routes
             # to the C-native path; numpy stays on the plain C path below.
@@ -1360,10 +1362,10 @@ class actionAngleStaeckel(actionAngle):
                 vz = self._eval_vz
             if isinstance(R, float):
                 R = numpy.array([R])
-                vR = numpy.array([vR])
-                vT = numpy.array([vT])
-                z = numpy.array([z])
-                vz = numpy.array([vz])
+                vR = numpy.array([to_host(vR)])
+                vT = numpy.array([to_host(vT)])
+                z = numpy.array([to_host(z)])
+                vz = numpy.array([to_host(vz)])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
@@ -1440,11 +1442,11 @@ class actionAngleStaeckel(actionAngle):
                 phi = self._eval_phi
             if isinstance(R, float):
                 R = numpy.array([R])
-                vR = numpy.array([vR])
-                vT = numpy.array([vT])
-                z = numpy.array([z])
-                vz = numpy.array([vz])
-                phi = numpy.array([phi])
+                vR = numpy.array([to_host(vR)])
+                vT = numpy.array([to_host(vT)])
+                z = numpy.array([to_host(z)])
+                vz = numpy.array([to_host(vz)])
+                phi = numpy.array([to_host(phi)])
             Lz = R * vT
             # Resolve namespace first so a forced backend (numpy inputs) also routes
             # to the C-native path; numpy stays on the plain C path below.
@@ -1555,11 +1557,11 @@ class actionAngleStaeckel(actionAngle):
                 phi = self._eval_phi
             if isinstance(R, float):
                 R = numpy.array([R])
-                vR = numpy.array([vR])
-                vT = numpy.array([vT])
-                z = numpy.array([z])
-                vz = numpy.array([vz])
-                phi = numpy.array([phi])
+                vR = numpy.array([to_host(vR)])
+                vT = numpy.array([to_host(vT)])
+                z = numpy.array([to_host(z)])
+                vz = numpy.array([to_host(vz)])
+                phi = numpy.array([to_host(phi)])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
@@ -1648,10 +1650,10 @@ class actionAngleStaeckel(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         # Resolve namespace first so a forced backend (numpy inputs) also routes to
         # the C-native path; numpy stays on the turning-point path below.
         xp = get_namespace(R, vR, vT, z, vz)
@@ -1733,10 +1735,10 @@ class actionAngleStaeckel(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         if (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
