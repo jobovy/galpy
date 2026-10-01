@@ -944,3 +944,87 @@ def test_pmrapmdec_to_custom_is_backend_native(backend_name):
         numpy.max(numpy.abs(numpy.hypot(*as_numpy(got).T) - numpy.hypot(pmra, pmdec)))
         < 1e-13
     )
+
+
+def _stack_scalar(xp, outs):
+    # a scalar of every output, weighted so each enters with its own weight
+    flat = [xp.reshape(xp.asarray(o), (-1,)) for o in outs]
+    v = xp.concat(flat) if xp is not numpy else numpy.concatenate(flat)
+    w = numpy.arange(1.0, v.shape[0] + 1.0) / v.shape[0]
+    return xp.sum(v * (xp.asarray(w) if xp is not numpy else w))
+
+
+_T_CUSTOM = coords.align_to_orbit(1.56, 0.35, -1.15, 0.89, -0.48, 0.12)
+_GRAD_CASES = {
+    "sphergal_to_rectgal": (
+        lambda xp, x: coords.sphergal_to_rectgal(
+            x[0:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12], degree=True
+        ),
+        [30.0, 200.0, 20.0, -45.0, 2.5, 3.0, 10.0, -20.0, 0.5, 1.0, -0.3, 0.2],
+    ),
+    "rectgal_to_sphergal": (
+        lambda xp, x: coords.rectgal_to_sphergal(
+            x[0:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12], degree=True
+        ),
+        [0.9, 1.3, 0.3, -0.2, 0.1, 0.4, 9.0, 13.0, -3.0, 2.0, 1.0, 4.0],
+    ),
+    "vxvyvz_to_galcencyl": (
+        lambda xp, x: coords.vxvyvz_to_galcencyl(
+            x[0:2],
+            x[2:4],
+            x[4:6],
+            x[6:8],
+            x[8:10],
+            x[10:12],
+            vsun=[0.1, 1.1, 0.0],
+            Xsun=1.1,
+            Zsun=0.02,
+        ),
+        [0.1, -0.2, 1.1, 0.9, 0.0, 0.05, 1.1, 0.8, 0.3, -0.2, 0.1, 0.3],
+    ),
+    "vRvz_to_pupv": (
+        lambda xp, x: coords.vRvz_to_pupv(x[0:2], x[2:4], x[4:6], x[6:8], delta=0.7),
+        [0.1, -0.3, 0.2, 0.05, 1.1, 0.8, 0.3, -0.2],
+    ),
+    "pupv_to_vRvz": (
+        lambda xp, x: coords.pupv_to_vRvz(
+            x[0:2], x[2:4], x[4:6], x[6:8], delta=0.7, oblate=True
+        ),
+        [0.1, -0.3, 0.2, 0.05, 1.1, 0.8, 0.3, 1.2],
+    ),
+    "pmrapmdec_to_custom": (
+        lambda xp, x: coords.pmrapmdec_to_custom(
+            x[0:2], x[2:4], x[4:6], x[6:8], T=_T_CUSTOM, degree=True
+        ),
+        [1.0, -2.0, 0.5, 0.3, 30.0, 200.0, 20.0, -45.0],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(_GRAD_CASES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_migrated_transforms_grad_vs_fd(backend_name, name):
+    # the migrated (formerly numpy-only) transforms differentiate: AD vs a
+    # central difference (h = 1e-6: truncation ~1e-12, roundoff ~1e-10)
+    f, x0 = _GRAD_CASES[name]
+    x0 = numpy.array(x0)
+
+    def scalar(xp, x):
+        return _stack_scalar(xp, f(xp, x))
+
+    h = 1e-6
+    fd = numpy.array(
+        [
+            (scalar(numpy, x0 + h * e) - scalar(numpy, x0 - h * e)) / (2.0 * h)
+            for e in numpy.eye(len(x0))
+        ]
+    )
+    if backend_name == "jax":
+        ad = numpy.asarray(jax.grad(lambda x: scalar(jnp, x))(jnp.asarray(x0)))
+    else:
+        xt = torch.tensor(x0, requires_grad=True)
+        (ad,) = torch.autograd.grad(scalar(torch, xt), xt)
+        ad = ad.cpu().numpy()
+    numpy.testing.assert_allclose(
+        ad, fd, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(fd))
+    )
