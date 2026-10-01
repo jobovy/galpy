@@ -646,7 +646,7 @@ class actionAngleIsochroneApprox(actionAngle):
         else:
             if deperiod:
                 if "ar" in type:
-                    angleRT = dePeriod(numpy.reshape(acfs[6], R.shape))
+                    angleRT = as_numpy(dePeriod(numpy.reshape(acfs[6], R.shape)))
                 else:
                     angleRT = numpy.reshape(acfs[6], R.shape)
                 if "aphi" in type:
@@ -655,16 +655,18 @@ class actionAngleIsochroneApprox(actionAngle):
                         numpy.median(acfs7 - numpy.roll(acfs7, 1, axis=1), axis=1) < 0.0
                     )  # anglephi is decreasing
                     anglephiT = numpy.empty(acfs7.shape)
-                    anglephiT[negFreqIndx, :] = dePeriod(_TWOPI - acfs7[negFreqIndx, :])
+                    anglephiT[negFreqIndx, :] = as_numpy(
+                        dePeriod(_TWOPI - acfs7[negFreqIndx, :])
+                    )
                     negFreqPhi = numpy.zeros(R.shape[0], dtype="bool")
                     negFreqPhi[negFreqIndx] = True
-                    anglephiT[True ^ negFreqIndx, :] = dePeriod(
-                        acfs7[True ^ negFreqIndx, :]
+                    anglephiT[True ^ negFreqIndx, :] = as_numpy(
+                        dePeriod(acfs7[True ^ negFreqIndx, :])
                     )
                 else:
                     anglephiT = numpy.reshape(acfs[7], R.shape)
                 if "az" in type:
-                    angleZT = dePeriod(numpy.reshape(acfs[8], R.shape))
+                    angleZT = as_numpy(dePeriod(numpy.reshape(acfs[8], R.shape)))
                 else:
                     angleZT = numpy.reshape(acfs[8], R.shape)
                 xrange = None

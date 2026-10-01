@@ -227,7 +227,7 @@ def test_miyamotonagai_differentiates_in_a_under_grad_and_jit(method):
     )
     # the a==0 SPECIAL case is still taken when a is concrete
     p0 = MiyamotoNagaiPotential(amp=1.0, a=0.0, b=0.1)
-    assert numpy.isfinite(float(numpy.asarray(getattr(p0, method)(1.1, 0.2))))
+    assert numpy.isfinite(float(getattr(p0, method)(1.1, 0.2)))
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")

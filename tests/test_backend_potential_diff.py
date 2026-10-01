@@ -175,8 +175,8 @@ def _construct(name):
     if _kind(pot) is None:
         pytest.skip(f"{name}: not a force-bearing potential")
     try:
-        f0 = float(numpy.asarray(_force_of_x(pot, _x0(pot))))
-        f1 = float(numpy.asarray(_force_of_x(pot, _x0(pot) + 0.7)))
+        f0 = float(_force_of_x(pot, _x0(pot)))
+        f1 = float(_force_of_x(pot, _x0(pot) + 0.7))
     except Exception as e:  # noqa: BLE001 -- abstract base w/o _Rforce, etc.
         pytest.skip(f"{name}: force not evaluable on numpy ({type(e).__name__})")
     if f0 == 0.0 and f1 == 0.0:
@@ -269,7 +269,7 @@ def test_amp_gradient(name, backend_name):
     x0 = _x0(pot)
 
     def g_numpy(a):
-        return float(numpy.asarray(_force_of_x(cls(amp=a), x0)))
+        return float(_force_of_x(cls(amp=a), x0))
 
     # central finite-difference reference, h-converged
     def fd(h):

@@ -780,7 +780,7 @@ def test_spiralarms_torch_float64_dens_parity(case):
     label, pot = case
     ref = numpy.asarray(pot._dens(_RS, _ZS, _PHIS, _T))
     args = [torch.tensor(v, dtype=torch.float64) for v in (_RS, _ZS, _PHIS)]
-    got = pot._dens(*args, _T).numpy()
+    got = pot._dens(*args, _T).cpu().numpy()
     numpy.testing.assert_allclose(
         got,
         ref,
