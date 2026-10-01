@@ -6,6 +6,7 @@ import scipy.special
 
 from ..backend import concretely_true, is_backend_array, resolve_namespace
 from ..backend import special as bspecial
+from ..backend import to_host
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
 from .constantbetadf import _constantbetadf
@@ -82,7 +83,11 @@ class constantbetaHernquistdf(_constantbetadf):
         # resolve on _psi0 too so backend-built potential params keep gradients
         xp = resolve_namespace(Ei, self._psi0)
         if xp is numpy:
-            Etilde = -numpy.atleast_1d(Ei / self._psi0)
+            # backend-built parameters under a forced numpy: read on the host
+            psi0, a, GMa, fEnorm = to_host(
+                [self._psi0, self._pot.a, self._GMa, self._fEnorm]
+            )
+            Etilde = -numpy.atleast_1d(Ei / psi0)
             # Handle potential E outside of bounds
             Etilde_out = numpy.where(numpy.logical_or(Etilde < 0, Etilde > 1))[0]
             if len(Etilde_out) > 0:
@@ -92,11 +97,11 @@ class constantbetaHernquistdf(_constantbetadf):
             if self._beta == 0.0:  # isotropic case
                 sqrtEtilde = numpy.sqrt(Etilde)
                 fE = (
-                    self._psi0
-                    * self._pot.a
+                    psi0
+                    * a
                     / numpy.sqrt(2.0)
                     / (2 * numpy.pi) ** 3
-                    / self._GMa**1.5
+                    / GMa**1.5
                     * sqrtEtilde
                     / (1 - Etilde) ** 2.0
                     * (
@@ -108,15 +113,15 @@ class constantbetaHernquistdf(_constantbetadf):
                     )
                 )
             elif self._beta == 0.5:
-                fE = (3.0 * Etilde**2.0) / (4.0 * numpy.pi**3.0 * self._pot.a)
+                fE = (3.0 * Etilde**2.0) / (4.0 * numpy.pi**3.0 * a)
             elif self._beta == -0.5:
                 fE = (
                     (20.0 * Etilde**3.0 - 20.0 * Etilde**4.0 + 6.0 * Etilde**5.0)
                     / (1.0 - Etilde) ** 4
-                ) / (4.0 * numpy.pi**3.0 * self._GMa * self._pot.a)
+                ) / (4.0 * numpy.pi**3.0 * GMa * a)
             else:
                 fE = (
-                    self._fEnorm
+                    fEnorm
                     * numpy.power(Etilde, 2.5 - self._beta)
                     * scipy.special.hyp2f1(
                         5.0 - 2.0 * self._beta,

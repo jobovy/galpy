@@ -24,9 +24,11 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    on_host,
     promote_scalars,
 )
 from ..backend import special as _bspecial
+from ..backend import to_host
 from ..backend._namespaces import inbackend_ode_method, under_trace
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
@@ -1161,7 +1163,7 @@ class streamdf(df):
             "pmbb": track.pmbb,
             "vlos": track.vlos,
         }[key]
-        tx = numpy.asarray(accessor(tps, use_physical=False), dtype=float)
+        tx = numpy.asarray(to_host(accessor(tps, use_physical=False)), dtype=float)
         # Legacy phys=True semantics: positions scaled by ro, velocities
         # by vo, for galcen Cartesian / cylindrical keys only (LB axes
         # were never scaled in the old path).
@@ -1222,7 +1224,7 @@ class streamdf(df):
         ):
             tx = copy.copy(tx)
             tx *= self._vo
-        return tx
+        return to_host(tx)  # for plotting
 
     def _parse_track_spread(self, d1, d2, interp=True, phys=False, simple=_USESIMPLE):
         """Determine the spread around the track"""
@@ -1392,9 +1394,11 @@ class streamdf(df):
             aatrack = numpy.empty((self._nTrackChunks, 6))
             for ii in range(self._nTrackChunks):
                 aatrack[ii] = numpy.array(
-                    self._aA.actionsFreqsAngles(
-                        Orbit(self._ObsTrack[ii, :]), use_physical=False
-                    )[3:]
+                    to_host(
+                        self._aA.actionsFreqsAngles(
+                            Orbit(self._ObsTrack[ii, :]), use_physical=False
+                        )[3:]
+                    )
                 ).flatten()
         else:
             aatrack = numpy.reshape(
@@ -1516,7 +1520,7 @@ class streamdf(df):
             auxiliaryTrack.orbit[..., 4] = -auxiliaryTrack.orbit[..., 4]
         # Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs = self._aA.actionsFreqs(auxiliaryTrack(0.0), use_physical=False)
-        auxiliary_Omega = numpy.array([acfs[3], acfs[4], acfs[5]]).reshape(3)
+        auxiliary_Omega = numpy.array(to_host([acfs[3], acfs[4], acfs[5]])).reshape(3)
         auxiliary_Omega_along_dOmega = numpy.dot(
             auxiliary_Omega, self._dsigomeanProgDirection
         )
@@ -1544,6 +1548,7 @@ class streamdf(df):
                     lambda x: self.meanOmega(x, use_physical=False),
                     thetasTrack[ii],
                 )
+                multiOut = to_host(multiOut)  # into the numpy track tables
                 allAcfsTrack[ii, :] = multiOut[0]
                 alljacsTrack[ii, :, :] = multiOut[1]
                 allinvjacsTrack[ii, :, :] = multiOut[2]
@@ -1594,6 +1599,7 @@ class streamdf(df):
                         lambda x: self.meanOmega(x, use_physical=False),
                         thetasTrack[ii],
                     )
+                    multiOut = to_host(multiOut)  # into the numpy track tables
                     allAcfsTrack[ii, :] = multiOut[0]
                     alljacsTrack[ii, :, :] = multiOut[1]
                     allinvjacsTrack[ii, :, :] = multiOut[2]
@@ -1656,11 +1662,13 @@ class streamdf(df):
         TrackX = self._ObsTrack[:, 0] * numpy.cos(self._ObsTrack[:, 5])
         TrackY = self._ObsTrack[:, 0] * numpy.sin(self._ObsTrack[:, 5])
         TrackZ = self._ObsTrack[:, 3]
-        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
-            self._ObsTrack[:, 1],
-            self._ObsTrack[:, 2],
-            self._ObsTrack[:, 4],
-            self._ObsTrack[:, 5],
+        TrackvX, TrackvY, TrackvZ = to_host(  # into numpy tables / scipy splines
+            coords.cyl_to_rect_vec(
+                self._ObsTrack[:, 1],
+                self._ObsTrack[:, 2],
+                self._ObsTrack[:, 4],
+                self._ObsTrack[:, 5],
+            )
         )
         self._ObsTrackXY[:, 0] = TrackX
         self._ObsTrackXY[:, 1] = TrackY
@@ -2272,8 +2280,9 @@ class streamdf(df):
             [numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) for ii in range(6)]
         )
         for ii in range(self._nTrackChunks):
-            tjacXY = coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
-            tjacLB = coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True)
+            # numpy covariance algebra below: read the Jacobians on the host
+            tjacXY = to_host(coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii]))
+            tjacLB = to_host(coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True))
             # Out-of-place: lbd_to_XYZ_jac returns a backend array under a forced
             # backend, and jax arrays reject in-place item assignment. Per element
             # (i,j) this is still (a_ij / r_i) * s_j -- the same two operations in
@@ -2351,12 +2360,12 @@ class streamdf(df):
         trackLogDetJacLB = numpy.empty_like(self._thetasTrack)
         interpolatedTrackLogDetJacLB = numpy.empty_like(self._interpolatedThetasTrack)
         for ii in range(self._nTrackChunks):
-            tjacLB = coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True)
+            tjacLB = to_host(coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True))
             trackLogDetJacLB[ii] = numpy.log(numpy.linalg.det(tjacLB))
         self._trackLogDetJacLB = trackLogDetJacLB
         for ii in range(len(self._interpolatedThetasTrack)):
-            tjacLB = coords.lbd_to_XYZ_jac(
-                *self._interpolatedObsTrackLB[ii], degree=True
+            tjacLB = to_host(
+                coords.lbd_to_XYZ_jac(*self._interpolatedObsTrackLB[ii], degree=True)
             )
             interpolatedTrackLogDetJacLB[ii] = numpy.log(numpy.linalg.det(tjacLB))
         self._interpolatedTrackLogDetJacLB = interpolatedTrackLogDetJacLB
@@ -2371,11 +2380,13 @@ class streamdf(df):
         TrackX = self._ObsTrack[:, 0] * numpy.cos(self._ObsTrack[:, 5])
         TrackY = self._ObsTrack[:, 0] * numpy.sin(self._ObsTrack[:, 5])
         TrackZ = self._ObsTrack[:, 3]
-        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
-            self._ObsTrack[:, 1],
-            self._ObsTrack[:, 2],
-            self._ObsTrack[:, 4],
-            self._ObsTrack[:, 5],
+        TrackvX, TrackvY, TrackvZ = to_host(  # into numpy tables / scipy splines
+            coords.cyl_to_rect_vec(
+                self._ObsTrack[:, 1],
+                self._ObsTrack[:, 2],
+                self._ObsTrack[:, 4],
+                self._ObsTrack[:, 5],
+            )
         )
         # Interpolate
         self._interpTrackX = interpolate.InterpolatedUnivariateSpline(
@@ -2439,6 +2450,8 @@ class streamdf(df):
             tZ,
             cyl=True,
         )
+        # into the numpy track table
+        tR, tphi, tZ, tvR, tvT, tvZ = to_host((tR, tphi, tZ, tvR, tvT, tvZ))
         self._interpolatedObsTrack[:, 0] = tR
         self._interpolatedObsTrack[:, 1] = tvR
         self._interpolatedObsTrack[:, 2] = tvT
@@ -2789,7 +2802,7 @@ class streamdf(df):
                     + present[4] * (vY - self._ObsTrackXY[:, 4]) ** 2.0
                     + present[5] * (vZ - self._ObsTrackXY[:, 5]) ** 2.0
                 )
-        return numpy.argmin(dist2)
+        return numpy.argmin(to_host(dist2))
 
     def _find_closest_trackpointLB(
         self, l, b, D, vlos, pmll, pmbb, interp=True, usev=False
@@ -2908,7 +2921,7 @@ class streamdf(df):
                 + (vxvyvz[1] - trackvxvyvz[:, 1]) ** 2.0
                 + (vxvyvz[2] - trackvxvyvz[:, 2]) ** 2.0
             )
-        return numpy.argmin(dist2)
+        return numpy.argmin(to_host(dist2))
 
     def _find_closest_trackpointaA(self, Or, Op, Oz, ar, ap, az, interp=True):
         """
@@ -3062,7 +3075,7 @@ class streamdf(df):
                     self._interpTrackY(dangle),
                     self._interpTrackZ(dangle),
                 )
-                jac = numpy.fabs(phi_h[1] - phi[1]) / ddangle
+                jac = numpy.fabs(to_host(phi_h[1] - phi[1])) / ddangle
             elif (
                 coord.lower() == "ll"
                 or coord.lower() == "ra"
@@ -3076,7 +3089,9 @@ class streamdf(df):
                     Xsun=self._R0,
                     Zsun=self._Zsun,
                 )
-                lbd_h = coords.XYZ_to_lbd(XYZ_h[0], XYZ_h[1], XYZ_h[2], degree=True)
+                lbd_h = to_host(
+                    coords.XYZ_to_lbd(XYZ_h[0], XYZ_h[1], XYZ_h[2], degree=True)
+                )
                 XYZ = coords.galcenrect_to_XYZ(
                     self._interpTrackX(dangle) * self._ro,
                     self._interpTrackY(dangle) * self._ro,
@@ -3084,7 +3099,7 @@ class streamdf(df):
                     Xsun=self._R0,
                     Zsun=self._Zsun,
                 )
-                lbd = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
+                lbd = to_host(coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True))
                 if coord.lower() == "ll":
                     jac = numpy.fabs(lbd_h[0] - lbd[0]) / ddangle
                 else:
@@ -4907,7 +4922,9 @@ class streamdf(df):
             sX = RvR[0] * numpy.cos(RvR[5])
             sY = RvR[0] * numpy.sin(RvR[5])
             sZ = RvR[3]
-            svX, svY, svZ = coords.cyl_to_rect_vec(RvR[1], RvR[2], RvR[4], RvR[5])
+            svX, svY, svZ = to_host(
+                coords.cyl_to_rect_vec(RvR[1], RvR[2], RvR[4], RvR[5])
+            )
             out = numpy.empty((6, n))
             out[0] = sX
             out[1] = sY
@@ -4969,6 +4986,7 @@ class streamdf(df):
                 slbd[:, 2],
                 degree=True,
             )
+            slbd, svlbd = to_host((slbd, svlbd))  # into the numpy sample table
             out = numpy.empty((6, n))
             out[0] = slbd[:, 0]
             out[1] = slbd[:, 1]
@@ -5611,7 +5629,7 @@ def calcaAJac(
     if _is_backend and (lb or coordFunc is not None):
         # numpy.array (not as_numpy alone): jax's cast is read-only and the
         # finite-difference path below writes into xv in place.
-        xv = numpy.array(as_numpy(xv))
+        xv = numpy.array(as_numpy(to_host(xv)))
         _is_backend = False
     if _is_backend:
         return _calcaAJac_backend(
@@ -5646,11 +5664,11 @@ def calcaAJac(
     if dOdJ:
         jac2 = numpy.zeros((6, 6))
     if _initacfs is None:
-        jr, lz, jz, Or, Ophi, Oz, ar, aphi, az = aA.actionsFreqsAngles(
+        jr, lz, jz, Or, Ophi, Oz, ar, aphi, az = on_host(aA.actionsFreqsAngles)(
             R, vR, vT, z, vz, phi
         )
     else:
-        jr, lz, jz, Or, Ophi, Oz, ar, aphi, az = _initacfs
+        jr, lz, jz, Or, Ophi, Oz, ar, aphi, az = to_host(_initacfs)
     for ii in range(6):
         temp = xv[ii] + dxv[ii]  # Trick to make sure dxv is representable
         dxv[ii] = temp - xv[ii]
@@ -5659,9 +5677,9 @@ def calcaAJac(
             tR, tvR, tvT, tz, tvz, tphi = coordFunc(xv)
         else:
             tR, tvR, tvT, tz, tvz, tphi = xv[0], xv[1], xv[2], xv[3], xv[4], xv[5]
-        tjr, tlz, tjz, tOr, tOphi, tOz, tar, taphi, taz = aA.actionsFreqsAngles(
-            tR, tvR, tvT, tz, tvz, tphi
-        )
+        tjr, tlz, tjz, tOr, tOphi, tOz, tar, taphi, taz = on_host(
+            aA.actionsFreqsAngles
+        )(tR, tvR, tvT, tz, tvz, tphi)
         xv[ii] -= dxv[ii]
         angleIndx = 3
         if actionsFreqsAngles:

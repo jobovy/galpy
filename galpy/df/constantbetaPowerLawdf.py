@@ -11,6 +11,7 @@ from ..backend import (
     concretely_true,
     get_namespace,
     resolve_namespace,
+    to_host,
 )
 from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
@@ -163,7 +164,8 @@ class constantbetaPowerLawdf(_constantbetadf):
             eps = -Eint
             out = numpy.zeros_like(eps)
             valid = eps > 0.0
-            out[valid] = self._fEnorm * eps[valid] ** self._n
+            # to_host: backend-built parameters under a forced numpy
+            out[valid] = to_host(self._fEnorm) * eps[valid] ** self._n
             if hasattr(E, "shape"):
                 return out.reshape(E.shape)
             return out[0]
