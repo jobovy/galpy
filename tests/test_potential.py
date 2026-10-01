@@ -14952,7 +14952,8 @@ def test_twopower_negative_beta_accuracy():
     # beta = -500: ~9^501) keeps the finite one: the Euler series rescales
     # each entry on its own (a shared rescaling NaN'ed it)
     pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=2.9, beta=-500.0)
-    Ra = numpy.array([0.01, 8.0])
+    # R = 8 below the split, R = 20 above it (whose constants overflow too)
+    Ra = numpy.array([0.01, 8.0, 20.0])
     with numpy.errstate(over="ignore"):
         for got in (
             pot.Rforce(Ra, 0.0 * Ra, use_physical=False),
@@ -14960,7 +14961,8 @@ def test_twopower_negative_beta_accuracy():
         ):
             got = numpy.asarray(got)
             assert abs(got[0] / -295893.15211491261 - 1.0) < 5e-16 * 520.0, got
-            assert got[1] == -numpy.inf, got
+            # beyond float64 (~9^501, ~20^501): non-finite, without raising
+            assert not numpy.any(numpy.isfinite(got[1:])), got
 
 
 def test_twopower_c_matches_python_all_derivatives():
