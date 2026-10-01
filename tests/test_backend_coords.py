@@ -839,3 +839,192 @@ def test_galcencyl_to_XYZ_differentiates_through_R():
         ]
     )
     assert numpy.max(numpy.abs(ad - fd)) / numpy.max(numpy.abs(fd)) < 1e-8
+
+
+_SPH = (
+    numpy.array([30.0, 200.0, 350.0]),
+    numpy.array([20.0, -45.0, 5.0]),
+    numpy.array([2.0, 0.5, 7.0]),
+    numpy.array([10.0, -80.0, 30.0]),
+    numpy.array([-3.0, 1.5, 0.2]),
+    numpy.array([4.0, -0.5, 2.0]),
+)
+
+
+@pytest.mark.parametrize("scalar", [True, False])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sphergal_rectgal_are_backend_native(backend_name, scalar):
+    # numpy.array / numpy.zeros packing demoted a backend result to numpy (and
+    # raised for a CUDA tensor); the backend now stacks in-namespace.
+    sph = tuple(a[0] for a in _SPH) if scalar else _SPH
+    ref_rect = coords.sphergal_to_rectgal(*sph, degree=True)
+    ref_sph = coords.rectgal_to_sphergal(*ref_rect.T, degree=True)
+    cast = (lambda a: a) if scalar else (lambda a: _asarray(backend_name, a))  # noqa: E731
+    with use(backend_name, force=True):
+        rect = coords.sphergal_to_rectgal(*(cast(a) for a in sph), degree=True)
+        back = coords.rectgal_to_sphergal(
+            *(rect[..., i] for i in range(6)), degree=True
+        )
+    assert rect.shape == ref_rect.shape and back.shape == ref_sph.shape
+    assert numpy.max(numpy.abs(as_numpy(rect) - ref_rect)) < 1e-12
+    assert numpy.max(numpy.abs(as_numpy(back) - ref_sph)) < 1e-12
+    assert numpy.max(numpy.abs(as_numpy(back) - numpy.array(sph).T)) < 1e-10
+    if backend_name != "numpy":
+        assert is_backend_array(rect) and is_backend_array(back)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_vxvyvz_to_galcencyl_is_backend_native(backend_name):
+    vsun = numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5], [1.0, 2.0, 3.0]]).T
+    args = (_VX[:3], _VY[:3], _VZ[:3], _X[:3], _Y[:3], _Z[:3])
+    ref = coords.vxvyvz_to_galcencyl(*args, vsun=vsun, Xsun=1.1, Zsun=0.02)
+    ref_back = coords.galcenrect_to_vxvyvz(*args[:3], vsun=vsun, Xsun=1.1, Zsun=0.02)
+    with use(backend_name, force=True):
+        got = coords.vxvyvz_to_galcencyl(
+            *(_asarray(backend_name, a) for a in args), vsun=vsun, Xsun=1.1, Zsun=0.02
+        )
+        # a numpy (3, N) vsun must follow the backend coordinates
+        back = coords.galcenrect_to_vxvyvz(
+            *(_asarray(backend_name, a) for a in args[:3]),
+            vsun=vsun,
+            Xsun=1.1,
+            Zsun=0.02,
+        )
+    assert got.shape == ref.shape and back.shape == ref_back.shape
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13
+    assert numpy.max(numpy.abs(as_numpy(back) - ref_back)) < 1e-13
+    if backend_name != "numpy":
+        assert is_backend_array(got) and is_backend_array(back)
+
+
+@pytest.mark.parametrize("oblate", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pupv_transforms_are_backend_native(backend_name, oblate):
+    vR, vz, R, z, delta = 0.2, -0.5, numpy.array([0.4, 1.3]), 0.3, 0.7
+    ref = coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=oblate)
+    u, v = coords.Rz_to_uv(R, z, delta=delta, oblate=oblate)
+    ref_inv = coords.pupv_to_vRvz(*ref, u, v, delta=delta, oblate=oblate)
+    with use(backend_name, force=True):
+        got = coords.vRvz_to_pupv(
+            vR, vz, _asarray(backend_name, R), z, delta=delta, oblate=oblate
+        )
+        inv = coords.pupv_to_vRvz(*got, u, v, delta=delta, oblate=oblate)
+    for g, r in zip(got + inv, ref + ref_inv):
+        assert is_backend_array(g)
+        assert numpy.max(numpy.abs(as_numpy(g) - r)) < 1e-14
+    # round trip recovers the input velocities
+    assert numpy.max(numpy.abs(as_numpy(inv[0]) - vR)) < 1e-13
+    assert numpy.max(numpy.abs(as_numpy(inv[1]) - vz)) < 1e-13
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_align_to_orbit_under_forced_backend(backend_name):
+    # a host-side numpy matrix builder; its internal coords calls return backend
+    # arrays under a forced backend and are read back on the host
+    xv = (1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596)
+    ref = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    with use(backend_name, force=True):
+        got = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    assert isinstance(got, numpy.ndarray)
+    assert numpy.max(numpy.abs(got - ref)) < 1e-13
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pmrapmdec_to_custom_is_backend_native(backend_name):
+    T = coords.align_to_orbit(1.56, 0.35, -1.15, 0.89, -0.48, 0.12)
+    ra, dec = numpy.array([10.0, 200.0, 300.0]), numpy.array([-20.0, 45.0, 80.0])
+    pmra, pmdec = numpy.array([1.0, -2.0, 0.5]), numpy.array([0.3, 0.7, -1.2])
+    ref = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T, degree=True)
+    A = lambda a: _asarray(backend_name, a)  # noqa: E731
+    got = coords.pmrapmdec_to_custom(A(pmra), A(pmdec), A(ra), A(dec), T=T, degree=True)
+    assert is_backend_array(got) and got.shape == ref.shape
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13
+    # the rotation preserves the proper-motion magnitude
+    assert (
+        numpy.max(numpy.abs(numpy.hypot(*as_numpy(got).T) - numpy.hypot(pmra, pmdec)))
+        < 1e-13
+    )
+
+
+def _stack_scalar(xp, outs):
+    # a scalar of every output, weighted so each enters with its own weight
+    flat = [xp.reshape(xp.asarray(o), (-1,)) for o in outs]
+    v = xp.concat(flat) if xp is not numpy else numpy.concatenate(flat)
+    w = numpy.arange(1.0, v.shape[0] + 1.0) / v.shape[0]
+    return xp.sum(v * (xp.asarray(w) if xp is not numpy else w))
+
+
+_T_CUSTOM = coords.align_to_orbit(1.56, 0.35, -1.15, 0.89, -0.48, 0.12)
+_GRAD_CASES = {
+    "sphergal_to_rectgal": (
+        lambda xp, x: coords.sphergal_to_rectgal(
+            x[0:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12], degree=True
+        ),
+        [30.0, 200.0, 20.0, -45.0, 2.5, 3.0, 10.0, -20.0, 0.5, 1.0, -0.3, 0.2],
+    ),
+    "rectgal_to_sphergal": (
+        lambda xp, x: coords.rectgal_to_sphergal(
+            x[0:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12], degree=True
+        ),
+        [0.9, 1.3, 0.3, -0.2, 0.1, 0.4, 9.0, 13.0, -3.0, 2.0, 1.0, 4.0],
+    ),
+    "vxvyvz_to_galcencyl": (
+        lambda xp, x: coords.vxvyvz_to_galcencyl(
+            x[0:2],
+            x[2:4],
+            x[4:6],
+            x[6:8],
+            x[8:10],
+            x[10:12],
+            vsun=[0.1, 1.1, 0.0],
+            Xsun=1.1,
+            Zsun=0.02,
+        ),
+        [0.1, -0.2, 1.1, 0.9, 0.0, 0.05, 1.1, 0.8, 0.3, -0.2, 0.1, 0.3],
+    ),
+    "vRvz_to_pupv": (
+        lambda xp, x: coords.vRvz_to_pupv(x[0:2], x[2:4], x[4:6], x[6:8], delta=0.7),
+        [0.1, -0.3, 0.2, 0.05, 1.1, 0.8, 0.3, -0.2],
+    ),
+    "pupv_to_vRvz": (
+        lambda xp, x: coords.pupv_to_vRvz(
+            x[0:2], x[2:4], x[4:6], x[6:8], delta=0.7, oblate=True
+        ),
+        [0.1, -0.3, 0.2, 0.05, 1.1, 0.8, 0.3, 1.2],
+    ),
+    "pmrapmdec_to_custom": (
+        lambda xp, x: coords.pmrapmdec_to_custom(
+            x[0:2], x[2:4], x[4:6], x[6:8], T=_T_CUSTOM, degree=True
+        ),
+        [1.0, -2.0, 0.5, 0.3, 30.0, 200.0, 20.0, -45.0],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(_GRAD_CASES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_migrated_transforms_grad_vs_fd(backend_name, name):
+    # the migrated (formerly numpy-only) transforms differentiate: AD vs a
+    # central difference (h = 1e-6: truncation ~1e-12, roundoff ~1e-10)
+    f, x0 = _GRAD_CASES[name]
+    x0 = numpy.array(x0)
+
+    def scalar(xp, x):
+        return _stack_scalar(xp, f(xp, x))
+
+    h = 1e-6
+    fd = numpy.array(
+        [
+            (scalar(numpy, x0 + h * e) - scalar(numpy, x0 - h * e)) / (2.0 * h)
+            for e in numpy.eye(len(x0))
+        ]
+    )
+    if backend_name == "jax":
+        ad = numpy.asarray(jax.grad(lambda x: scalar(jnp, x))(jnp.asarray(x0)))
+    else:
+        xt = torch.tensor(x0, requires_grad=True)
+        (ad,) = torch.autograd.grad(scalar(torch, xt), xt)
+        ad = ad.cpu().numpy()
+    numpy.testing.assert_allclose(
+        ad, fd, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(fd))
+    )

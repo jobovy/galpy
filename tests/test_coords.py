@@ -1794,8 +1794,10 @@ def test_sphergal_to_rectgal():
     )
     # Also test for arrays
     os = numpy.ones(2)
-    XYZvxvyvz = coords.sphergal_to_rectgal(
-        os * l, os * b, os * d, os * vr, os * pmll, os * pmbb, degree=True
+    XYZvxvyvz = as_numpy(
+        coords.sphergal_to_rectgal(
+            os * l, os * b, os * d, os * vr, os * pmll, os * pmbb, degree=True
+        )
     )
     X = XYZvxvyvz[:, 0]
     Y = XYZvxvyvz[:, 1]
@@ -1828,8 +1830,8 @@ def test_rectgal_to_sphergal():
     # Test that this is the inverse of sphergal_to_rectgal
     l, b, d = 90.0, 30.0, 1.0
     vr, pmll, pmbb = 10.0, -20.0, 30.0
-    X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
-        l, b, d, vr, pmll, pmbb, degree=True
+    X, Y, Z, vx, vy, vz = as_numpy(
+        coords.sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=True)
     )
     lt, bt, dt, vrt, pmllt, pmbbt = coords.rectgal_to_sphergal(
         X, Y, Z, vx, vy, vz, degree=True
@@ -1876,8 +1878,10 @@ def test_rectgal_to_sphergal():
     )
     # Also test for arrays
     os = numpy.ones(2)
-    lbdvrpmllpmbbt = coords.rectgal_to_sphergal(
-        os * X, os * Y, os * Z, os * vx, os * vy, os * vz, degree=True
+    lbdvrpmllpmbbt = as_numpy(
+        coords.rectgal_to_sphergal(
+            os * X, os * Y, os * Z, os * vx, os * vy, os * vz, degree=True
+        )
     )
     lt = lbdvrpmllpmbbt[:, 0]
     bt = lbdvrpmllpmbbt[:, 1]
@@ -3519,8 +3523,10 @@ def test_pmrapmdec_to_custom_againstlb():
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
         pmra * s, pmdec * s, ra * s, dec * s, degree=True
     )
-    pmlb_custom = coords.pmrapmdec_to_custom(
-        pmra * s, pmdec * s, ra * s, dec * s, T=T.T, degree=True
+    pmlb_custom = as_numpy(
+        coords.pmrapmdec_to_custom(
+            pmra * s, pmdec * s, ra * s, dec * s, T=T.T, degree=True
+        )
     )
     assert numpy.all(numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0), (
         "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
@@ -3682,8 +3688,10 @@ def test_custom_to_pmrapmdec_againstlb():
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
         pmra * s, pmdec * s, ra * s, dec * s, degree=True
     )
-    pmlb_custom = coords.custom_to_pmrapmdec(
-        pmra * s, pmdec * s, ra * s, dec * s, T=T, degree=True
+    pmlb_custom = as_numpy(
+        coords.custom_to_pmrapmdec(
+            pmra * s, pmdec * s, ra * s, dec * s, T=T, degree=True
+        )
     )
     assert numpy.all(numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0), (
         "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
