@@ -20,6 +20,8 @@
 # derivative recurrence (like the numpy chain rule it feeds) is singular at
 # the poles, exactly as in the numpy implementation's nudged-pole handling.
 ###############################################################################
+import math
+
 import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager
@@ -1068,3 +1070,150 @@ def test_scf_batched_reduce_wrong_rank_raises(backend_name):
         integrand.batched_reduce = good_reduce
         out = S._gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=[4])
         assert tuple(out.shape) == (3, 2)
+
+
+###############################################################################
+# SCFPotential.from_density end to end: the potential built from a density is
+# differentiable w.r.t. the density's parameters, statically (a traced jax build
+# skips the value-based coefficient checks) and time-dependently (the coefficient
+# time splines are fit in the backend: scipy CubicSpline's not-a-knot spline).
+###############################################################################
+
+
+def _fd_dens(b, symmetry, tdep, xp=numpy):
+    def f(t):  # t-dependence; scalar-t only for "scalar" (per-timestep fallback)
+        if tdep == "scalar":
+            if numpy.ndim(t) != 0:
+                raise TypeError("scalar t only")
+            return 1.0 + 0.2 * math.exp(-0.4 * float(t))
+        return 1.0 + 0.2 * numpy.exp(-0.4 * t)
+
+    def rho(r2):
+        return 3.0 / (4.0 * numpy.pi) * b**3 * (b**2 + r2) ** -2.5
+
+    if tdep == "none":
+        if symmetry == "spherical":
+            return lambda r: rho(r**2)
+        if symmetry == "axisymmetry":
+            return lambda R, z: rho(R**2 + (z / 0.9) ** 2)
+        return lambda R, z, phi: rho(R**2 + z**2) * (1.0 + 0.1 * numpy.cos(2 * phi))
+    if symmetry == "spherical":
+        return lambda r, t=0.0: rho(r**2) * f(t)
+    if symmetry == "axisymmetry":
+        return lambda R, z, t=0.0: rho(R**2 + (z / 0.9) ** 2) * f(t)
+    return lambda R, z, phi, t=0.0: (
+        rho(R**2 + z**2) * (1.0 + 0.1 * numpy.cos(2 * phi)) * f(t)
+    )
+
+
+_FD_TGRIDS = {
+    "static": (None, "none"),
+    "const": (numpy.array([0.0, 1.0]), "none"),  # a two-point time spline
+    "tdep": (numpy.linspace(0.0, 1.0, 4), "vec"),
+    "scalar": (numpy.linspace(0.0, 1.0, 4), "scalar"),
+}
+
+
+def _fd_scf(b, symmetry, case):
+    tgrid, tdep = _FD_TGRIDS[case]
+    return SCFPotential.from_density(
+        _fd_dens(b, symmetry, tdep),
+        4,
+        None if symmetry == "spherical" else 3,
+        a=1.0,
+        symmetry=symmetry,
+        tgrid=tgrid,
+    )
+
+
+def _fd_eval(p, case):
+    kw = {} if case == "static" else {"t": 0.3}
+    return p.Rforce(1.1, 0.3, phi=0.2, **kw) + 0.5 * p(1.1, 0.3, phi=0.2, **kw)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("symmetry", ["spherical", "axisymmetry", None])
+@pytest.mark.parametrize("case", ["static", "const", "tdep", "scalar"])
+def test_from_density_grad_wrt_density_parameter(backend_name, symmetry, case):
+    # d(force + potential)/db through from_density -> SCFPotential -> evaluation
+    # vs a 5-point difference of the same backend path: O(h^4), so the bar is
+    # far from the FD floor (a central difference at h=1e-5 is ~1e-9 off)
+    from galpy import backend as _b
+
+    if case == "scalar" and symmetry != "spherical":
+        pytest.skip("per-timestep fallback: one symmetry suffices")
+
+    def F(b):
+        return _fd_eval(_fd_scf(b, symmetry, case), case)
+
+    b0, h = 1.3, 1e-3
+    with _b.use(backend_name, force=True):
+        grad = _scalar_grad(backend_name, F, b0)
+        Fs = [float(as_numpy(F(b0 + k * h))) for k in (-2, -1, 1, 2)]
+    fd = (Fs[0] - 8.0 * Fs[1] + 8.0 * Fs[2] - Fs[3]) / (12.0 * h)
+    assert numpy.fabs(grad - fd) < 1e-9 * numpy.fabs(fd), (grad, fd)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("case", ["const", "tdep"])
+def test_from_density_timedep_backend_matches_numpy(backend_name, case):
+    # The backend-fit time splines reproduce scipy's CubicSpline: the backend
+    # potential equals the numpy one (and its scipy interpolators, used by the
+    # numpy/C paths, are built from the concrete coefficients)
+    from galpy import backend as _b
+    from galpy.backend import is_backend_array
+
+    ref = _fd_scf(1.3, None, case)
+    with _b.use(backend_name, force=True):
+        p = _fd_scf(_asarray(backend_name, 1.3), None, case)
+        assert is_backend_array(p._Acos_c)
+        got = as_numpy(_fd_eval(p, case))
+    numpy.testing.assert_allclose(got, _fd_eval(ref, case), rtol=1e-13)
+    ref_t = ref._Acos_interp(0.3)
+    numpy.testing.assert_allclose(
+        p._Acos_interp(0.3),
+        ref_t,
+        rtol=1e-11,
+        atol=1e-13 * numpy.max(numpy.fabs(ref_t)),
+    )
+    # ... which the C integrator reads: the same orbit from either build
+    from galpy.orbit import Orbit
+
+    ts = numpy.linspace(0.0, 1.0, 11)
+    orbs = [Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3]) for _ in range(2)]
+    for o, pp in zip(orbs, (p, ref)):
+        o.integrate(ts, pp, method="dop853_c")
+    numpy.testing.assert_allclose(
+        orbs[0].getOrbit(), orbs[1].getOrbit(), rtol=1e-10, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_timedep_callable_backend_coeffs(backend_name):
+    # Acos given as a callable f(t) returning backend arrays: stacked in the
+    # backend (not cast to numpy), equal to the numpy build, and d/d(scale)
+    # flows through the time splines (exactly linear in the scale: d/ds = value)
+    from galpy import backend as _b
+
+    base = numpy.zeros((3, 2, 2))
+    base[:, 0, 0] = [1.0, 0.3, -0.1]
+    base[:, 1, 0] = [0.2, -0.05, 0.01]
+    tgrid = numpy.linspace(0.0, 2.0, 5)
+
+    def pot(s, xp_like):
+        f = lambda t: s * (1.0 + 0.1 * t) * xp_like(base)  # noqa: E731
+        return SCFPotential(Acos=f, a=1.2, tgrid=tgrid)
+
+    ref = pot(1.0, lambda x: x)
+    with _b.use(backend_name, force=True):
+        p = pot(_asarray(backend_name, 1.0), lambda x: _asarray(backend_name, x))
+        got = as_numpy(p.Rforce(1.1, 0.2, t=0.7))
+        grad = _scalar_grad(
+            backend_name,
+            lambda s: pot(s, lambda x: _asarray(backend_name, x)).Rforce(
+                1.1, 0.2, t=0.7
+            ),
+            1.0,
+        )
+    numpy.testing.assert_allclose(got, ref.Rforce(1.1, 0.2, t=0.7), rtol=1e-13)
+    numpy.testing.assert_allclose(grad, ref.Rforce(1.1, 0.2, t=0.7), rtol=1e-13)
