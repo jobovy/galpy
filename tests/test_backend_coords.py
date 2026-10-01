@@ -839,3 +839,108 @@ def test_galcencyl_to_XYZ_differentiates_through_R():
         ]
     )
     assert numpy.max(numpy.abs(ad - fd)) / numpy.max(numpy.abs(fd)) < 1e-8
+
+
+_SPH = (
+    numpy.array([30.0, 200.0, 350.0]),
+    numpy.array([20.0, -45.0, 5.0]),
+    numpy.array([2.0, 0.5, 7.0]),
+    numpy.array([10.0, -80.0, 30.0]),
+    numpy.array([-3.0, 1.5, 0.2]),
+    numpy.array([4.0, -0.5, 2.0]),
+)
+
+
+@pytest.mark.parametrize("scalar", [True, False])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sphergal_rectgal_are_backend_native(backend_name, scalar):
+    # numpy.array / numpy.zeros packing demoted a backend result to numpy (and
+    # raised for a CUDA tensor); the backend now stacks in-namespace.
+    sph = tuple(a[0] for a in _SPH) if scalar else _SPH
+    ref_rect = coords.sphergal_to_rectgal(*sph, degree=True)
+    ref_sph = coords.rectgal_to_sphergal(*ref_rect.T, degree=True)
+    cast = (lambda a: a) if scalar else (lambda a: _asarray(backend_name, a))  # noqa: E731
+    with use(backend_name, force=True):
+        rect = coords.sphergal_to_rectgal(*(cast(a) for a in sph), degree=True)
+        back = coords.rectgal_to_sphergal(
+            *(rect[..., i] for i in range(6)), degree=True
+        )
+    assert rect.shape == ref_rect.shape and back.shape == ref_sph.shape
+    assert numpy.max(numpy.abs(as_numpy(rect) - ref_rect)) < 1e-12
+    assert numpy.max(numpy.abs(as_numpy(back) - ref_sph)) < 1e-12
+    assert numpy.max(numpy.abs(as_numpy(back) - numpy.array(sph).T)) < 1e-10
+    if backend_name != "numpy":
+        assert is_backend_array(rect) and is_backend_array(back)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_vxvyvz_to_galcencyl_is_backend_native(backend_name):
+    vsun = numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5], [1.0, 2.0, 3.0]]).T
+    args = (_VX[:3], _VY[:3], _VZ[:3], _X[:3], _Y[:3], _Z[:3])
+    ref = coords.vxvyvz_to_galcencyl(*args, vsun=vsun, Xsun=1.1, Zsun=0.02)
+    ref_back = coords.galcenrect_to_vxvyvz(*args[:3], vsun=vsun, Xsun=1.1, Zsun=0.02)
+    with use(backend_name, force=True):
+        got = coords.vxvyvz_to_galcencyl(
+            *(_asarray(backend_name, a) for a in args), vsun=vsun, Xsun=1.1, Zsun=0.02
+        )
+        # a numpy (3, N) vsun must follow the backend coordinates
+        back = coords.galcenrect_to_vxvyvz(
+            *(_asarray(backend_name, a) for a in args[:3]),
+            vsun=vsun,
+            Xsun=1.1,
+            Zsun=0.02,
+        )
+    assert got.shape == ref.shape and back.shape == ref_back.shape
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13
+    assert numpy.max(numpy.abs(as_numpy(back) - ref_back)) < 1e-13
+    if backend_name != "numpy":
+        assert is_backend_array(got) and is_backend_array(back)
+
+
+@pytest.mark.parametrize("oblate", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pupv_transforms_are_backend_native(backend_name, oblate):
+    vR, vz, R, z, delta = 0.2, -0.5, numpy.array([0.4, 1.3]), 0.3, 0.7
+    ref = coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=oblate)
+    u, v = coords.Rz_to_uv(R, z, delta=delta, oblate=oblate)
+    ref_inv = coords.pupv_to_vRvz(*ref, u, v, delta=delta, oblate=oblate)
+    with use(backend_name, force=True):
+        got = coords.vRvz_to_pupv(
+            vR, vz, _asarray(backend_name, R), z, delta=delta, oblate=oblate
+        )
+        inv = coords.pupv_to_vRvz(*got, u, v, delta=delta, oblate=oblate)
+    for g, r in zip(got + inv, ref + ref_inv):
+        assert is_backend_array(g)
+        assert numpy.max(numpy.abs(as_numpy(g) - r)) < 1e-14
+    # round trip recovers the input velocities
+    assert numpy.max(numpy.abs(as_numpy(inv[0]) - vR)) < 1e-13
+    assert numpy.max(numpy.abs(as_numpy(inv[1]) - vz)) < 1e-13
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_align_to_orbit_under_forced_backend(backend_name):
+    # a host-side numpy matrix builder; its internal coords calls return backend
+    # arrays under a forced backend and are read back on the host
+    xv = (1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596)
+    ref = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    with use(backend_name, force=True):
+        got = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    assert isinstance(got, numpy.ndarray)
+    assert numpy.max(numpy.abs(got - ref)) < 1e-13
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pmrapmdec_to_custom_is_backend_native(backend_name):
+    T = coords.align_to_orbit(1.56, 0.35, -1.15, 0.89, -0.48, 0.12)
+    ra, dec = numpy.array([10.0, 200.0, 300.0]), numpy.array([-20.0, 45.0, 80.0])
+    pmra, pmdec = numpy.array([1.0, -2.0, 0.5]), numpy.array([0.3, 0.7, -1.2])
+    ref = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T, degree=True)
+    A = lambda a: _asarray(backend_name, a)  # noqa: E731
+    got = coords.pmrapmdec_to_custom(A(pmra), A(pmdec), A(ra), A(dec), T=T, degree=True)
+    assert is_backend_array(got) and got.shape == ref.shape
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13
+    # the rotation preserves the proper-motion magnitude
+    assert (
+        numpy.max(numpy.abs(numpy.hypot(*as_numpy(got).T) - numpy.hypot(pmra, pmdec)))
+        < 1e-13
+    )
