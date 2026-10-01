@@ -45,7 +45,7 @@ def _c_orbit(ic, ts, pot):
 def _torchode_orbit(ic, ts, pot, **kw):
     o = Orbit(torch.tensor(ic))
     o.integrate(torch.tensor(ts), pot, method="torchode", **kw)
-    return o.getOrbit().numpy()
+    return o.getOrbit().cpu().numpy()
 
 
 @pytest.mark.parametrize(
@@ -87,7 +87,7 @@ def test_torchode_grad_ic_matches_fd():
         a, b = _c_orbit(p, _TS, _POT)[-1], _c_orbit(m, _TS, _POT)[-1]
         fd.append(((a[0] + a[4]) - (b[0] + b[4])) / (2.0 * h))
     fd = numpy.array(fd)
-    assert numpy.fabs(g.numpy() - fd).max() < 1e-8 * numpy.fabs(fd).max()
+    assert numpy.fabs(g.cpu().numpy() - fd).max() < 1e-8 * numpy.fabs(fd).max()
 
 
 def _final_x(ic, amp, ts):
@@ -177,5 +177,5 @@ def test_torch_compile_torchode_orbit_matches_eager():
                 float(vc.detach()), float(ve.detach()), rtol=1e-12
             )
             numpy.testing.assert_allclose(
-                gc.numpy(), ge.numpy(), rtol=1e-10, atol=1e-12
+                gc.cpu().numpy(), ge.cpu().numpy(), rtol=1e-10, atol=1e-12
             )

@@ -157,6 +157,7 @@ def test_inbackend_matches_c_torch(name, pot):
     got = (
         integrate_orbit(pot, torch.as_tensor(_IC), torch.as_tensor(_TS))
         .detach()
+        .cpu()
         .numpy()
     )
     numpy.testing.assert_allclose(_wrap_phi(got), _wrap_phi(ref), rtol=1e-5, atol=1e-6)
@@ -302,6 +303,7 @@ def test_inbackend_planar_matches_c_torch(name, pot):
     got = (
         integrate_orbit(pot, torch.as_tensor(_IC_PLANAR), torch.as_tensor(_TS))
         .detach()
+        .cpu()
         .numpy()
     )
     numpy.testing.assert_allclose(
@@ -468,9 +470,12 @@ def test_inbackend_solver_maxsteps_torch():
     pot = PlummerPotential(amp=1.0, b=0.6)
     ic = torch.tensor(_IC, dtype=torch.float64)
     ts = torch.as_tensor(_TS)
-    base = integrate_orbit(pot, ic, ts).detach().numpy()
+    base = integrate_orbit(pot, ic, ts).detach().cpu().numpy()
     same = (
-        integrate_orbit(pot, ic, ts, solver="dopri5", max_steps=100000).detach().numpy()
+        integrate_orbit(pot, ic, ts, solver="dopri5", max_steps=100000)
+        .detach()
+        .cpu()
+        .numpy()
     )
     numpy.testing.assert_allclose(same, base, rtol=1e-10, atol=1e-10)
 
@@ -543,6 +548,7 @@ def test_inbackend_1d_matches_c_torch(name, pot):
     got = (
         integrate_orbit(pot, torch.as_tensor(_IC_1D), torch.as_tensor(_TS))
         .detach()
+        .cpu()
         .numpy()
     )
     assert got.shape == (len(_TS), 2)

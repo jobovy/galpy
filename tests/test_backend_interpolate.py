@@ -187,7 +187,7 @@ def test_grad_in_table_values(backend, bc):
     else:
         yt = torch.tensor(_YG, requires_grad=True)
         Spline1D(txp.asarray(_XG), yt, k=3, bc=bc)(txp.asarray(r0)).backward()
-        g = yt.grad.numpy()
+        g = yt.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
 
 
@@ -364,7 +364,7 @@ def test_interp_bilinear_grad_vs_fd(backend):
         interp_bilinear(
             _xp("torch"), _BX, _BY, zt, xt, yt, extrapolate="clip"
         ).sum().backward()
-        gx, gy, gz = xt.grad.numpy(), yt.grad.numpy(), zt.grad.numpy()
+        gx, gy, gz = xt.grad.cpu().numpy(), yt.grad.cpu().numpy(), zt.grad.cpu().numpy()
     adX, adY, adZ = (
         float(numpy.dot(gx, dX)),
         float(numpy.dot(gy, dY)),
@@ -673,7 +673,7 @@ def test_grad_map_coordinates_vs_fd(backend):
     else:
         ct = torch.tensor(c0, requires_grad=True)
         mc(ct.reshape(3, 1))[0].backward()
-        g = ct.grad.numpy()
+        g = ct.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
@@ -856,7 +856,7 @@ def test_smoothing_spline_grad(backend, kind):
     else:
         yt = torch.tensor(_SMY, requires_grad=True)
         torch.sum(maker(yt)(_SMG)).backward()
-        g = yt.grad.numpy()
+        g = yt.grad.cpu().numpy()
     numpy.testing.assert_allclose(g, expected, rtol=1e-8, atol=1e-10)
 
 
@@ -1795,11 +1795,9 @@ def test_vector_valued_column_independence(backend):
     # for bit -- see test_vector_valued_matches_per_column_scipy.
     xp = jnp if backend == "jax" else txp
     sp_v = Spline1D(_XV, xp.asarray(_YV), k=3)
-    got = numpy.asarray(sp_v(xp.asarray(_QV)))
+    got = as_numpy(sp_v(xp.asarray(_QV)))
     for j in range(_YV.shape[1]):
-        alone = numpy.asarray(
-            Spline1D(_XV, xp.asarray(_YV[:, j]), k=3)(xp.asarray(_QV))
-        )
+        alone = as_numpy(Spline1D(_XV, xp.asarray(_YV[:, j]), k=3)(xp.asarray(_QV)))
         numpy.testing.assert_allclose(got[..., j], alone, rtol=1e-14, atol=1e-15)
 
 
@@ -1810,12 +1808,10 @@ def test_default_bc_matches_the_numpy_path(backend):
     # numpy path it exists to match, at every call site that took the default.
     xp = jnp if backend == "jax" else txp
     m1 = Spline1D(_XV, _YV, k=3)(_QV)
-    m2 = numpy.asarray(Spline1D(_XV, xp.asarray(_YV), k=3)(xp.asarray(_QV)))
+    m2 = as_numpy(Spline1D(_XV, xp.asarray(_YV), k=3)(xp.asarray(_QV)))
     numpy.testing.assert_allclose(m2, m1, rtol=1e-13, atol=1e-13)
     # and an explicit natural is still honoured (and is the WORSE one here)
-    nat = numpy.asarray(
-        Spline1D(_XV, xp.asarray(_YV), k=3, bc="natural")(xp.asarray(_QV))
-    )
+    nat = as_numpy(Spline1D(_XV, xp.asarray(_YV), k=3, bc="natural")(xp.asarray(_QV)))
     assert numpy.max(numpy.abs(nat - m1)) > 1e-6
 
 
@@ -1828,8 +1824,8 @@ def test_default_bc_falls_back_below_four_knots(backend):
     x3 = numpy.array([0.0, 1.0, 2.5])
     y3 = numpy.array([0.0, 1.0, 0.25])
     q3 = numpy.array([0.4, 1.7])
-    got = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3)(xp.asarray(q3)))
-    exp = numpy.asarray(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
+    got = as_numpy(Spline1D(x3, xp.asarray(y3), k=3)(xp.asarray(q3)))
+    exp = as_numpy(Spline1D(x3, xp.asarray(y3), k=3, bc="natural")(xp.asarray(q3)))
     assert numpy.all(numpy.isfinite(got))
     numpy.testing.assert_allclose(got, exp, rtol=0, atol=0)
 

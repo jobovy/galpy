@@ -266,7 +266,7 @@ def test_force_grad_vs_finite_difference(backend_name, name):
         )
         loss = _W[0] * fr + _W[1] * fp + _W[2] * fz
         (gt,) = torch.autograd.grad(loss, xt)
-        ad = float(numpy.dot(gt.numpy(), u))
+        ad = float(numpy.dot(gt.cpu().numpy(), u))
 
     assert numpy.isfinite(ad), f"{backend_name} {name}: grad not finite"
     numpy.testing.assert_allclose(

@@ -469,14 +469,18 @@ def test_kingdf_W0_under_torch_compile_torchode():
     vc, jc = _torch_jacobian(f, _W0)
     vt, jt = _torch_jacobian(traced_eagerly, _W0)
     ve, je = _torch_jacobian(_torch_tables, _W0)  # eager: scipy + graft
-    numpy.testing.assert_allclose(vc.detach().numpy(), vt.detach().numpy(), rtol=1e-13)
-    numpy.testing.assert_allclose(jc.numpy(), jt.numpy(), rtol=1e-12)
-    numpy.testing.assert_allclose(vc.detach().numpy(), ve.detach().numpy(), rtol=2e-9)
-    numpy.testing.assert_allclose(jc.numpy(), je.numpy(), rtol=3e-8)
+    numpy.testing.assert_allclose(
+        vc.detach().cpu().numpy(), vt.detach().cpu().numpy(), rtol=1e-13
+    )
+    numpy.testing.assert_allclose(jc.cpu().numpy(), jt.cpu().numpy(), rtol=1e-12)
+    numpy.testing.assert_allclose(
+        vc.detach().cpu().numpy(), ve.detach().cpu().numpy(), rtol=2e-9
+    )
+    numpy.testing.assert_allclose(jc.cpu().numpy(), je.cpu().numpy(), rtol=3e-8)
     for h in (3e-4, 1e-4):
         with torch.no_grad():
             fd = (f(torch.tensor(_W0 + h)) - f(torch.tensor(_W0 - h))) / (2.0 * h)
-        numpy.testing.assert_allclose(jc.numpy(), fd.numpy(), rtol=1e-7)
+        numpy.testing.assert_allclose(jc.cpu().numpy(), fd.cpu().numpy(), rtol=1e-7)
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")

@@ -23,7 +23,7 @@ _DERIV = numpy.array([2.0, 4.0])
 
 def _higher(x):
     return (
-        x**3 * torch.tensor([1.0, 2.0])
+        x**3 * torch.tensor([1.0, 2.0], device=x.device)  # backward: device thread
         if torch.is_tensor(x)
         else x**3 * jax.numpy.array([1.0, 2.0])
     )
@@ -50,7 +50,7 @@ def test_graft_derivative_jax():
 def test_graft_derivative_torch():
     x = torch.tensor(_X, requires_grad=True)
     y = graft_derivative(x, _VALUE, _DERIV, _higher)
-    numpy.testing.assert_array_equal(y.detach().numpy(), _VALUE)
+    numpy.testing.assert_array_equal(y.detach().cpu().numpy(), _VALUE)
     w = torch.tensor([1.0, 0.5])
     (g,) = torch.autograd.grad((y * w).sum(), x)
     assert float(g) == 2.0 * 1.0 + 4.0 * 0.5

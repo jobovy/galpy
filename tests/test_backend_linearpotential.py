@@ -212,7 +212,9 @@ def test_torch_eager_and_value(name, fn, pt, p):
     ref = numpy.asarray(fn(p, *pt))
     out = fn(p, *[torch.as_tensor(x, dtype=torch.float64) for x in pt])
     assert torch.is_tensor(out), (name, type(out))
-    numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-10, atol=1e-12)
+    numpy.testing.assert_allclose(
+        out.detach().cpu().numpy(), ref, rtol=1e-10, atol=1e-12
+    )
 
 
 @pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
