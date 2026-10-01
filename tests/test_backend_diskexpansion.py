@@ -263,3 +263,65 @@ def test_phiME_dens_value_parity(backend_name, pot):
         pot._phiME_dens_func(_asarray(backend_name, _RS), _asarray(backend_name, _ZS))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+# --- mwpot_helpers: the built-in Milky-Way disk densities ----------------------
+# phi_ME hands these backend arrays under a forced backend (McMillan17,
+# Cautun20, DehnenBinney98), so they follow their data instead of numpy.*.
+def _mwpot_cases():
+    from galpy.potential import mwpot_helpers as mh
+
+    return [
+        ("expexp", lambda R, z: mh.expexp_dens(R, z, 0.35, 0.03, 2.0)),
+        (
+            "expexp_hole",
+            lambda R, z: mh.expexp_dens_with_hole(R, z, 0.6, 0.5, 0.01, 1.5),
+        ),
+        (
+            "expsech2_hole",
+            lambda R, z: mh.expsech2_dens_with_hole(R, z, 0.9, 0.5, 0.01, 1.2),
+        ),
+        (
+            "core_pow",
+            lambda R, z: mh.core_pow_dens_with_cut(R, z, 1.8, 0.01, 0.25, 98.0, 0.5),
+        ),
+        ("pow", lambda R, z: mh.pow_dens_with_cut(R, z, 1.8, 0.1, 0.25, 98.0, 0.5)),
+    ]
+
+
+_MW_R = [0.4, 1.0, 2.1]
+_MW_Z = [-0.03, 0.005, 0.02]
+
+
+@pytest.mark.parametrize("case", range(5))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mwpot_helpers_follow_backend_data(backend_name, case):
+    name, f = _mwpot_cases()[case]
+    ref = numpy.array([f(R, z) for R, z in zip(_MW_R, _MW_Z)])
+    got = f(_asarray(backend_name, _MW_R), _asarray(backend_name, _MW_Z))
+    assert get_namespace(got) is not numpy, name
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=0.0)
+    # a plain-float z alongside a backend R is promoted
+    got_z = f(_asarray(backend_name, _MW_R), 0.01)
+    ref_z = numpy.array([f(R, 0.01) for R in _MW_R])
+    numpy.testing.assert_allclose(as_numpy(got_z), ref_z, rtol=1e-13, atol=0.0)
+
+
+@pytest.mark.parametrize("case", [1, 2])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mwpot_helpers_hole_at_R0(backend_name, case):
+    # the numpy path returns 0 at R == 0; the backend path must too, with a
+    # finite (zero) R-gradient rather than the NaN of exp(-Rm/R) at R=0
+    name, f = _mwpot_cases()[case]
+    assert f(0.0, 0.01) == 0.0
+    if backend_name == "jax":
+        val = f(jnp.asarray([0.0, 1.0]), jnp.asarray([0.01, 0.01]))
+        g = jax.grad(lambda R: f(R, jnp.asarray(0.01)))(jnp.asarray(0.0))
+    else:
+        R = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        val = f(torch.tensor([0.0, 1.0], dtype=torch.float64), 0.01)
+        f(R, 0.01).backward()
+        g = R.grad
+    assert float(as_numpy(val)[0]) == 0.0
+    assert float(as_numpy(val)[1]) == pytest.approx(f(1.0, 0.01), rel=1e-14)
+    assert float(as_numpy(g)) == 0.0, name

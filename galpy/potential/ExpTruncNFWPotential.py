@@ -6,7 +6,14 @@ import warnings
 import numpy
 from scipy.special import exp1 as _scipy_exp1
 
-from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+)
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -341,13 +348,25 @@ class ExpTruncNFWPotential(SphericalPotential):
         beta = (a + r) / rc
         return xp.exp(-r / rc) / (a + r) - self._exp_alpha * exp1(beta) / rc
 
+    def _rcoerce(self, r):
+        """(xp, r): r's own namespace, or for a plain-scalar r the parameters'
+        (r then moved onto their dtype and device)"""
+        xp = namespace_from_arrays((r,))
+        if xp is not None:
+            return xp, r
+        pars = [p for p in (self.a, self.rc, self._amp) if is_backend_array(p)]
+        if not pars:
+            return numpy, r
+        xp = namespace_from_arrays(pars)
+        return xp, asarray_on_device(xp, r, device_of(pars[0]), dtype=pars[0].dtype)
+
     def _rdens(self, r, t=0.0):
         # rho(r) / amp; the 1/(4 pi a^3) factor is carried here so that the
         # public dens(r) = rho_s exp(-r/rc) / [(r/a)(1+r/a)^2], matching the
         # NFW amplitude convention. data-first (dispatch on r's own namespace):
         # _ddensdr feeds the spherical DF machinery, which may pass a tracer
         # under a forced other backend.
-        xp = namespace_from_arrays((r,)) or numpy
+        xp, r = self._rcoerce(r)
         r = xp.asarray(r) * 1.0  # so xp.exp gets a backend array (scalar inputs)
         a = self.a
         return xp.exp(-r / self.rc) / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
@@ -428,7 +447,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         # namespace (data-first) rather than the forced default.
         # d/dr[rho r^(2beta)] = rho r^(2beta) [(2beta-1)/r - 2/(a+r) - 1/rc];
         # reduces to _ddensdr at beta=0.
-        xp = namespace_from_arrays((r,)) or numpy
+        xp, r = self._rcoerce(r)
         a, rc = self.a, self.rc
         rho = (
             self._amp

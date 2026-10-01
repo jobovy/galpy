@@ -4,7 +4,7 @@ import pickle
 import numpy
 from scipy import integrate
 
-from ..backend import backend_input, get_namespace, is_backend_compatible
+from ..backend import backend_input, get_namespace, is_backend_compatible, to_host
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -1280,9 +1280,11 @@ def LinShuReductionFactor(
         OmegaP = nonaxiPot.OmegaP()
         k = nonaxiPot.wavenumber(R)
         m = nonaxiPot.m()
-    tepif = epifreq(axiPot, R)
+    # a scipy quadrature below: host the (forced-backend) inputs and frequencies
+    OmegaP, k, m, sigmar = to_host([OmegaP, k, m, sigmar])
+    tepif = to_host(epifreq(axiPot, R))
     # We define omega = m x OmegaP in the usual Lin-Shu formula
-    s = m * (OmegaP - omegac(axiPot, R)) / tepif
+    s = m * (OmegaP - to_host(omegac(axiPot, R))) / tepif
     chi = sigmar**2.0 * k**2.0 / tepif**2.0
     return (
         (1.0 - s**2.0)
