@@ -3057,6 +3057,8 @@ class Orbit:
                     )
         # Implementation with parallel_map in Python
         if True or not "_c" in method or not ext_loaded or force_map:
+            if "_c" not in method:  # the python dxdv integrators read on the host
+                _refuse_numpy_integrator_on_cuda(method)
             if self.dim() == 1:
                 # 1D (linear) orbit: the deviation is a raw [dx,dv] 2-vector,
                 # so rectIn/rectOut (cyl<->rect) are moot and not passed.

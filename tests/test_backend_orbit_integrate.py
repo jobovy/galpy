@@ -990,6 +990,15 @@ def test_numpy_integrator_on_cuda_points_to_torchode(method, monkeypatch):
         o = Orbit(list(_IC))
         with pytest.raises(ValueError, match="torchode"):
             o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
+    # nor the python variational (dxdv) integrators
+    with use("torch", force=True):
+        with pytest.raises(ValueError, match="torchode"):
+            Orbit([1.0, 0.1, 1.1, 0.0]).integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0],
+                _TS,
+                PlummerPotential(amp=1.0, b=0.6).toPlanar(),
+                method="odeint",
+            )
     # not refused without a forced torch backend, nor off the GPU
     Orbit(list(_IC)).integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method=method)
     monkeypatch.undo()
