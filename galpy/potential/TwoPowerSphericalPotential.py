@@ -6,11 +6,20 @@
 #                             rho(r)= ------------------------------------
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
+
+import functools
+
 import numpy
 from scipy import optimize, special
 
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
+from ..util.special import (
+    hyp2f1_1,
+    incomplete_beta,
+    incomplete_beta_hi,
+    incomplete_beta_split,
+)
 from ._smallr import power_series, radial_limits, small_r_select
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -50,91 +59,121 @@ def _nfw_hk(x):
 # (w = x/(1+x), x = r/a):
 #   Phi = -(1/a) [M(x)/x + O(x)],  M = B_w(3-alpha, beta-3),
 #   O = int_x^inf t^(1-alpha) (1+t)^(alpha-beta) dt = B_{1-w}(beta-2, 2-alpha),
-# with B_z(p, q) = int_0^z u^(p-1) (1-u)^(q-1) du for p > 0, q > -1 (the physical
-# alpha < 3, beta > 2). Unlike the closed forms in Gamma(beta-3) and
-# hyp2f1(..., -a/r), this has no cancellation as beta -> 3 or alpha -> 2 and no
-# Gamma overflow at large beta.
-_TP_QSMALL = 0.05
+# (galpy.util.special.incomplete_beta). Unlike the closed forms in Gamma(beta-3)
+# and hyp2f1(..., -a/r), this has no cancellation as beta -> 3 or alpha -> 2
+# and no Gamma overflow at large beta.
+# Forces and second derivatives from the same M (amp = 1; 4 pi rho a^3 = D =
+# w^-alpha s^beta): dPhi/dr / r = M/(x a)^3 and, by Poisson,
+#   Phi'' = 4 pi rho - 2 dPhi/dr / r,  Phi'' - dPhi/dr / r = 4 pi rho - 3 dPhi/dr / r.
+# Below the split c of incomplete_beta, M = w^p s^q / p (1 + G) with
+# G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w), so with
+# E = D/p these are E (1 + G), E (1 - alpha - 2 G) and -E (alpha + 3 G): the
+# x^-alpha terms of 4 pi rho and k M/x^3 that cancel at alpha = 1 (k = 2) and
+# alpha = 0 (k = 3) are subtracted in closed form. Only for alpha < 1.5
+# (_TP_GFORM_ALPHA): D - k M/x^3 loses at most (3-alpha)/|3-k-alpha| <~ 3
+# above it. M/x^3 itself is always E 2F1(1, p+q; p+1; w), never E (1 + G):
+# 1 + G cancels where G -> -1 (alpha -> 3, beta << 0). Above c, D - k M/x^3 directly:
+# those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
+# off at beta = 3 +- 1e-12 and NaN at large beta and r.
+_TP_GFORM_ALPHA = 1.5
 
 
-def _tp_k_series(p, q, s):
-    """K(s) = ((1-s)^p 2F1(1, p+q; q+1; s) - 1)/q, or its q = 0 limit.
-
-    Summed as (1-s)^p sum_k (p)_k/k! s^k (exp(L_k) - 1)/q with
-    L_k = sum_{j<k} [log1p(q/(p+j)) - log1p(q/(1+j))], so the O(q) difference
-    from 1 is never formed by subtraction."""
+def _tp_radial(alpha, beta, w, s, hess):
+    """(M/x^3,) or, if hess, (M/x^3, Phi'' a^3, (Phi'' - Phi'/r) a^3)"""
+    p, q = 3.0 - alpha, beta - 3.0
+    c = incomplete_beta_split(p, q)
+    if numpy.ndim(w) == 0:
+        if w <= c:
+            return _tp_radial_lo(alpha, beta, w, s, hess)
+        return _tp_radial_hi(alpha, beta, w, s, c, hess)
+    w = numpy.asarray(w, dtype=float)
     s = numpy.asarray(s, dtype=float)
-    t = numpy.ones_like(s)
-    L = 0.0
-    out = numpy.zeros_like(s)
-    k = 0
-    while True:
-        k += 1
-        t = t * (p + k - 1.0) / k * s
-        if q != 0.0:
-            L = L + numpy.log1p(q / (p + k - 1.0)) - numpy.log1p(q / k)
-            term = t * numpy.expm1(L) / q
-        else:
-            L = L + 1.0 / (p + k - 1.0) - 1.0 / k
-            term = t * L
-        out = out + term
-        if (
-            k > 5
-            and (p + k) / (k + 1.0) * numpy.amax(s) < 1.0
-            and numpy.all(numpy.fabs(term) <= 1e-17 * numpy.fabs(out))
-        ):
-            return (1.0 - s) ** p * out
-
-
-def _tp_ibeta(p, q, z, s):
-    """B_z(p, q) for p > 0, q > -1, 0 <= z < 1, given s = 1 - z (exact).
-
-    Split at the integrand's mass centre c = (p+1)/(p+q+2) (at most 0.9):
-    below it z^p s^q / p 2F1(1, p+q; p+1; z) (positive terms); above it
-    B_c(p, q) plus the reflected int_{1-z}^{1-c} v^(q-1) (1-v)^(p-1) dv, which
-    holds the integrand's mass. That reflected piece is B_{1-c}(q, p) -
-    B_{1-z}(q, p); both are ~1/q, so for |q| < _TP_QSMALL it is summed through
-    _tp_k_series instead."""
-    c = min((p + 1.0) / (p + q + 2.0), 0.9)
-    if numpy.ndim(z) == 0:
-        return _tp_ibeta_lo(p, q, z, s) if z <= c else _tp_ibeta_hi(p, q, s, c)
-    z = numpy.asarray(z, dtype=float)
-    s = numpy.asarray(s, dtype=float)
-    lo = z <= c
-    out = numpy.empty(z.shape)
+    lo = w <= c
+    out = numpy.empty((3 if hess else 1,) + w.shape)
     if numpy.any(lo):
-        out[lo] = _tp_ibeta_lo(p, q, z[lo], s[lo])
+        out[:, lo] = _tp_radial_lo(alpha, beta, w[lo], s[lo], hess)
     if not numpy.all(lo):
-        out[~lo] = _tp_ibeta_hi(p, q, s[~lo], c)
-    return out
+        out[:, ~lo] = _tp_radial_hi(alpha, beta, w[~lo], s[~lo], c, hess)
+    return tuple(out)
 
 
-def _tp_ibeta_lo(p, q, z, s):
-    return z**p * s**q / p * special.hyp2f1(1.0, p + q, p + 1.0, z)
+def _tp_radial_lo(alpha, beta, w, s, hess):
+    p, q = 3.0 - alpha, beta - 3.0
+    E = w**-alpha * s**beta / p
+    m = E * hyp2f1_1(p + q, p + 1.0, w)  # not E (1 + G): G -> -1 cancels
+    if not hess:
+        return (m,)
+    if alpha >= _TP_GFORM_ALPHA:
+        D = p * E
+        return m, D - 2.0 * m, D - 3.0 * m
+    G = (p + q) / (p + 1.0) * w * hyp2f1_1(p + q + 1.0, p + 2.0, w)
+    return m, E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)
 
 
-def _tp_ibeta_hi(p, q, s1, c):
-    s2 = 1.0 - c
-    ibc = _tp_ibeta_lo(p, q, c, s2)
-    if abs(q) >= _TP_QSMALL:
+def _tp_radial_hi(alpha, beta, w, s, c, hess):
+    m = incomplete_beta_hi(3.0 - alpha, beta - 3.0, s, c) * (s / w) ** 3
+    if not hess:
+        return (m,)
+    D = w**-alpha * s**beta
+    return m, D - 2.0 * m, D - 3.0 * m
 
-        def B(v):
-            return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
 
-        return ibc + B(s2) - B(s1)
-    K2 = _tp_k_series(p, q, s2)
-    lg = numpy.log(s2 / s1)
-    if q == 0.0:
-        first = lg
-    else:
-        # (s2^q - s1^q)/q; the expm1 form only where it cannot overflow
-        qlg = q * lg
-        first = numpy.where(
-            numpy.fabs(qlg) < 1.0,
-            s1**q * numpy.expm1(numpy.where(numpy.fabs(qlg) < 1.0, qlg, 0.0)) / q,
-            (s2**q - s1**q) / q,
-        )
-    return ibc + first * (1.0 + q * K2) + s1**q * (K2 - _tp_k_series(p, q, s1))
+def _force_at_infinity(beta, a):
+    """dPhi/dr (amp = 1) as r -> inf: M(x) / (x a)^2 -> 0 for beta > 1,
+    1 / (2 a^2) at beta = 1 (M ~ x^2 / 2), inf for beta < 1"""
+    if beta > 1.0:
+        return 0.0
+    return 0.5 / a**2.0 if beta == 1.0 else numpy.inf
+
+
+def _limit_at_infinite_radius(component):
+    """The value at r = inf, where the expressions are inf * 0 (R f(r),
+    z^2 f(r) / r^2, ...); ``component`` is "R" or "z" (forces), "RR" (R2deriv)
+    or "Rz" (Rzderiv). For beta > 0 the force along an infinite coordinate is
+    -dPhi/dr(inf) (_force_at_infinity) and the transverse force and every
+    second derivative -> 0; with both coordinates infinite the direction is
+    undefined: 0 if dPhi/dr -> 0, else NaN. At beta = 0 (M ~ x^3/3) dPhi/dr / r
+    and Phi'' both -> 1/(3 a^3): the forces are -(R, z)/(3 a^3), R2deriv and
+    z2deriv 1/(3 a^3), Rzderiv 0. At beta < 0 the density increases outward and
+    the limits depend on the direction and on beta: NaN (finite radii are
+    unaffected). amp = 0 is 0 (no 0 * inf)."""
+
+    def decorator(method):
+        @functools.wraps(method)
+        def wrapper(self, R, z, phi=0.0, t=0.0):
+            Rinf, zinf = numpy.isinf(R), numpy.isinf(z)
+            inf = Rinf | zinf
+            if not numpy.any(inf):
+                return method(self, R, z, phi=phi, t=t)
+            out = method(
+                self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
+            )
+            if self._amp == 0.0:
+                return numpy.where(inf, 0.0, out)
+            if self.beta < 0.0:
+                return numpy.where(inf, numpy.nan, out)
+            if component == "Rz":
+                return numpy.where(inf, 0.0, out)
+            if component == "RR":
+                return numpy.where(
+                    inf, 1.0 / (3.0 * self.a**3.0) if self.beta == 0.0 else 0.0, out
+                )
+            X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
+            if self.beta == 0.0:
+                return numpy.where(inf, -X / (3.0 * self.a**3.0), out)
+            F = _force_at_infinity(self.beta, self.a)
+            with numpy.errstate(invalid="ignore"):
+                along = -F * numpy.sign(X)
+            lim = numpy.where(
+                Xinf & Yinf,
+                0.0 if F == 0.0 else numpy.nan,
+                numpy.where(Xinf, along, 0.0),
+            )
+            return numpy.where(inf, lim, out)
+
+        return wrapper
+
+    return decorator
 
 
 if _APY_LOADED:
@@ -228,48 +267,32 @@ class TwoPowerSphericalPotential(Potential):
         return radial_limits(r, self._evaluate_ibeta, at0=phi0, atinf=0.0)
 
     def _evaluate_ibeta(self, r):
-        """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see _tp_ibeta)"""
+        """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see incomplete_beta)"""
         x = r / self.a
         w, s = x / (1.0 + x), 1.0 / (1.0 + x)
-        M = _tp_ibeta(3.0 - self.alpha, self.beta - 3.0, w, s)
-        O = _tp_ibeta(self.beta - 2.0, 2.0 - self.alpha, s, w)
+        M = incomplete_beta(3.0 - self.alpha, self.beta - 3.0, w, s)
+        O = incomplete_beta(self.beta - 2.0, 2.0 - self.alpha, s, w)
         return -(M / x + O) / self.a
 
+    def _radial(self, r, hess):
+        """(dPhi/dr / r,) or (dPhi/dr / r, Phi'', Phi'' - dPhi/dr / r) at r
+        (amp = 1; see _tp_radial)"""
+        x = r / self.a
+        out = _tp_radial(self.alpha, self.beta, x / (1.0 + x), 1.0 / (1.0 + x), hess)
+        a3 = self.a**3.0
+        return [f / a3 for f in out]
+
+    @_limit_at_infinite_radius("R")
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
-        else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            return (
-                -R
-                / r**self.alpha
-                * self.a ** (self.alpha - 3.0)
-                / (3.0 - self.alpha)
-                * special.hyp2f1(
-                    3.0 - self.alpha,
-                    self.beta - self.alpha,
-                    4.0 - self.alpha,
-                    -r / self.a,
-                )
-            )
+        return -R * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
 
+    @_limit_at_infinite_radius("z")
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
-        else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            return (
-                -z
-                / r**self.alpha
-                * self.a ** (self.alpha - 3.0)
-                / (3.0 - self.alpha)
-                * special.hyp2f1(
-                    3.0 - self.alpha,
-                    self.beta - self.alpha,
-                    4.0 - self.alpha,
-                    -r / self.a,
-                )
-            )
+        return -z * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -341,50 +364,16 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
+    @_limit_at_infinite_radius("RR")
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
-        hyper = special.hyp2f1(
-            3.0 - self.alpha, self.beta - self.alpha, 4.0 - self.alpha, -r / self.a
-        )
-        hyper_deriv = (
-            (3.0 - self.alpha)
-            * (self.beta - self.alpha)
-            / (4.0 - self.alpha)
-            * special.hyp2f1(
-                4.0 - self.alpha,
-                1.0 + self.beta - self.alpha,
-                5.0 - self.alpha,
-                -r / self.a,
-            )
-        )
+        r2 = R**2.0 + z**2.0
+        f1, f0, _ = self._radial(numpy.sqrt(r2), True)
+        return (R**2.0 * f0 + z**2.0 * f1) / r2
 
-        term1 = A * r ** (-self.alpha) * hyper
-        term2 = -self.alpha * A * R**2.0 * r ** (-self.alpha - 2.0) * hyper
-        term3 = -A * R**2 * r ** (-self.alpha - 1.0) / self.a * hyper_deriv
-        return term1 + term2 + term3
-
+    @_limit_at_infinite_radius("Rz")
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
-        hyper = special.hyp2f1(
-            3.0 - self.alpha, self.beta - self.alpha, 4.0 - self.alpha, -r / self.a
-        )
-        hyper_deriv = (
-            (3.0 - self.alpha)
-            * (self.beta - self.alpha)
-            / (4.0 - self.alpha)
-            * special.hyp2f1(
-                4.0 - self.alpha,
-                1.0 + self.beta - self.alpha,
-                5.0 - self.alpha,
-                -r / self.a,
-            )
-        )
-
-        term1 = -self.alpha * A * R * r ** (-self.alpha - 2.0) * z * hyper
-        term2 = -A * R * r ** (-self.alpha - 1.0) * z / self.a * hyper_deriv
-        return term1 + term2
+        r2 = R**2.0 + z**2.0
+        return R * z * self._radial(numpy.sqrt(r2), True)[2] / r2
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         return self._R2deriv(numpy.fabs(z), R)  # Spherical potential
@@ -400,20 +389,14 @@ class TwoPowerSphericalPotential(Potential):
             if self.beta > 3.0
             else numpy.inf
         )
-        return radial_limits(
-            R,
-            lambda R: (
-                (R / self.a) ** (3.0 - self.alpha)
-                / (3.0 - self.alpha)
-                * special.hyp2f1(
-                    3.0 - self.alpha,
-                    -self.alpha + self.beta,
-                    4.0 - self.alpha,
-                    -R / self.a,
-                )
-            ),
-            atinf=mtot,
-        )
+
+        def M(R):
+            x = R / self.a
+            return incomplete_beta(
+                3.0 - self.alpha, self.beta - 3.0, x / (1.0 + x), 1.0 / (1.0 + x)
+            )
+
+        return radial_limits(R, M, atinf=mtot)
 
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):

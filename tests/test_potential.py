@@ -14395,6 +14395,650 @@ def test_twopower_phi_continuous_in_beta_and_r():
     assert abs(phi[0] - 2.0 * phi[1] + phi[2]) < 1e-15
 
 
+# TwoPower forces and second derivatives, 50-digit references (a = 1.3,
+# amp = 1): dPhi/dr and Phi'' at (r, 0); R2deriv, z2deriv, Rzderiv at
+# (R, z) = (0.6, 0.8) r. The hyp2f1(-r/a) closed forms were 4e-3 off at
+# beta = 3 -+ 1e-12, 1e-7 at beta -> 2 (C and python), NaN at r/a = 1e4 for
+# beta = 100 and 180, 8e-5 off in Phi'' at alpha = 1, r/a = 1e-12 (python) and
+# 5e-9 in Rzderiv at alpha = 0, r/a = 1e-8 (C).
+_GOLD_TWOPOWER_DERIVS = [  # alpha, beta, x, dPhi/dr, Phi'', R2deriv, z2deriv, Rzderiv
+    (
+        1.5,
+        3.000000000001,
+        0.4999,
+        0.38410361076102557,
+        -0.4810391843658321,
+        0.20509587206561302,
+        -0.095088215123144173,
+        -0.51460129232358389,
+    ),
+    (
+        1.5,
+        2.999999999999,
+        5.0,
+        0.029898888674446108,
+        -6.4296051658683742e-3,
+        6.2923271746361773e-4,
+        -2.4590088564941291e-3,
+        -5.2941284124989935e-3,
+    ),
+    (
+        0.5,
+        2.999999999999,
+        3.16,
+        0.029306933448929009,
+        -7.0139653580890549e-3,
+        2.0408043618655846e-3,
+        -1.9206573906145702e-3,
+        -6.7910772899659796e-3,
+    ),
+    (
+        1.999999999999,
+        4.0,
+        0.1,
+        5.3792361484486376,
+        -45.140443203727169,
+        10.231833792866899,
+        -13.993537393143011,
+        -41.529207747445546,
+    ),
+    (
+        2.0,
+        3.5,
+        1e-06,
+        5.9171553254474848e5,
+        -4.5516613563922389e11,
+        1.2744629949960169e11,
+        -1.2744664087363446e11,
+        -4.3695932635411923e11,
+    ),
+    (
+        2.5,
+        2.5,
+        1.0,
+        1.1834319526627218,
+        -1.3654984069185251,
+        0.091033227127901675,
+        -0.54619936276741005,
+        -1.0923987255348201,
+    ),
+    (
+        1.5,
+        180.0,
+        10000.0,
+        2.2221836619697284e-12,
+        -3.4187440953380436e-16,
+        -1.3674976381352175e-17,
+        -1.5726222838555001e-16,
+        -2.4614957486433914e-16,
+    ),
+    (
+        1.5,
+        100.0,
+        10000.0,
+        5.4679861844378321e-12,
+        -8.4122864375966648e-16,
+        -3.3649145750386659e-17,
+        -3.8696517612944658e-16,
+        -6.0568462350695987e-16,
+    ),
+    (
+        0.0,
+        180.0,
+        0.03,
+        2.0884226368155323e-4,
+        -8.484144965787037e-3,
+        3.7286290862933524e-4,
+        -3.5020780364278276e-3,
+        -6.6427559058122783e-3,
+    ),
+    (
+        1.0,
+        3.5,
+        1e-12,
+        0.29585798816518736,
+        -0.37930511303192797,
+        1.4565316340426338e11,
+        8.1929904414732174e10,
+        -1.0923987255348199e11,
+    ),
+    (
+        1.0,
+        3.5,
+        1e-06,
+        0.2958574950696807,
+        -0.37930411735879415,
+        1.456527841002067e5,
+        8.1929525110814936e4,
+        -1.0923987255324305e5,
+    ),
+    (
+        0.0,
+        5.5,
+        1e-08,
+        1.9723865064102584e-9,
+        0.15172203269610122,
+        0.151722036701563,
+        0.15172203494917347,
+        -3.0040963390077424e-9,
+    ),
+    (
+        0.3,
+        2.0001,
+        10.0,
+        0.038484275769437878,
+        -2.0507712102564733e-3,
+        1.1563328637261499e-3,
+        -2.4677516864124797e-4,
+        -2.4053280554869672e-3,
+    ),
+    (
+        2.9,
+        2.1,
+        10.0,
+        0.11834927563540097,
+        -0.014305609382951336,
+        6.7640649957264462e-4,
+        -5.8782254490315975e-3,
+        -0.011236511911892984,
+    ),
+    (
+        2.9999,
+        3.5,
+        100000000.0,
+        5.9179798970076275e-13,
+        -9.1045844114181982e-21,
+        -3.6418336189141166e-22,
+        -4.1881088210593808e-21,
+        -6.5553007871450899e-21,
+    ),
+    (
+        0.5,
+        4.5,
+        1e-12,
+        2.3668639053186812e-7,
+        9.1033227127121388e4,
+        1.4929449248914492e5,
+        1.2380518889325961e5,
+        -4.3695949021517645e4,
+    ),
+    (
+        0.5,
+        2.000000001,
+        30.0,
+        0.016605817242454971,
+        -3.7011309672850514e-4,
+        1.392650040282813e-4,
+        -8.3587915052812844e-5,
+        -3.8203357556758976e-4,
+    ),
+    # alpha > beta (p + q < 0): above the split with |beta - 3| < 0.05 the
+    # reflected series once took log1p(q/p) = log1p(-2) (NaN; python looped)
+    (
+        2.99,
+        2.98,
+        2.0,
+        14.897914064249623,
+        -11.402009505623668,
+        -0.43754457543999803,
+        -5.2344979823953538,
+        -8.2233486976377527,
+    ),
+    (
+        2.999,
+        2.97,
+        50.0,
+        0.23768021437680308,
+        -0.0073091402477886787,
+        -0.00029105453226309403,
+        -0.0033614670328055373,
+        -0.0052635642866441885,
+    ),
+    (
+        2.97,
+        2.96,
+        10000.0,
+        2.6323029502987384e-7,
+        -3.9839052573501685e-11,
+        -1.3830290172975870e-12,
+        -1.8207539323136880e-11,
+        -2.8842017667153074e-11,
+    ),
+    (
+        2.95,
+        2.9,
+        5.0,
+        0.51644002194542849,
+        -0.15458827869942430,
+        -0.0048023012479351747,
+        -0.070333666382961669,
+        -0.11233948308861685,
+    ),
+    (
+        2.5,
+        2.2,
+        0.7,
+        2.1456856366179633,
+        -3.4139468884445380,
+        0.28003275470446808,
+        -1.3360833391732221,
+        -2.7704847323617545,
+    ),
+    (
+        2.6,
+        2.01,
+        0.3,
+        10.651236804246786,
+        -42.463191938952749,
+        2.1922036063819935,
+        -17.344531944701957,
+        -33.491546659001057,
+    ),
+    # beta = 1 exactly (q + 1 = -1): the reflected antiderivative's 2F1 has a
+    # pole there; integrated by parts past each negative integer q instead
+    (
+        0.5,
+        1.0,
+        10.0,
+        0.27204609105358602,
+        0.0015451434449008453,
+        0.013949289968956231,
+        0.0085224758646820000,
+        -0.0093031098930415396,
+    ),
+    (
+        1.5,
+        1.0,
+        50.0,
+        0.30163289185078697,
+        -8.7106787614494108e-5,
+        0.0029385654146819154,
+        0.0016148338261772362,
+        -0.0022692541517223071,
+    ),
+    # alpha >= beta + 2 (p + q + 2 <= 0): the split's mass-centre formula is
+    # negative there; and beta < 2 above the split (q + 1 < 0 in the reflected
+    # series' Pochhammer denominators)
+    (
+        2.5,
+        0.3,
+        50.0,
+        3.6325289775191193,
+        0.035257630486208565,
+        0.048459186138300258,
+        0.042683505540510142,
+        -0.0099011667390687688,
+    ),
+    (
+        2.5,
+        0.3,
+        0.05,
+        109.80054099058211,
+        -2471.9915809728054,
+        191.19604983398318,
+        -973.94853864398691,
+        -1997.3907231050913,
+    ),
+    (
+        0.5,
+        0.8,
+        50.0,
+        0.58195032238188827,
+        0.0018823823844640434,
+        0.0064076300633979556,
+        0.0044278342038643688,
+        -0.0033939357592004339,
+    ),
+    (
+        1.5,
+        1.7,
+        500.0,
+        0.005864753321504844,
+        -6.3032511233654564e-6,
+        3.5053559429162823e-6,
+        -7.8590964858197871e-7,
+        -7.3564552997113036e-6,
+    ),
+]
+
+
+@pytest.mark.parametrize("alpha,beta,x,dphidr,d2,R2,z2,Rz", _GOLD_TWOPOWER_DERIVS)
+def test_twopower_forces_2nd_derivs_accuracy(alpha, beta, x, dphidr, d2, R2, z2, Rz):
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    pot = potential.TwoPowerSphericalPotential(
+        amp=1.0, a=_GOLD_A, alpha=alpha, beta=beta
+    )
+    r = x * _GOLD_A
+    Ro, zo = 0.6 * r, 0.8 * r
+    refs = [
+        -dphidr,
+        -dphidr,
+        d2,
+        d2,
+        dphidr / r,
+        -0.6 * dphidr,
+        -0.8 * dphidr,
+        R2,
+        z2,
+        Rz,
+    ]
+    kw = dict(use_physical=False)
+    py = [
+        pot.Rforce(r, 0.0, **kw),
+        pot.zforce(0.0, r, **kw),
+        pot.R2deriv(r, 0.0, **kw),
+        pot.z2deriv(0.0, r, **kw),
+        pot.z2deriv(r, 0.0, **kw),
+        pot.Rforce(Ro, zo, **kw),
+        pot.zforce(Ro, zo, **kw),
+        pot.R2deriv(Ro, zo, **kw),
+        pot.z2deriv(Ro, zo, **kw),
+        pot.Rzderiv(Ro, zo, **kw),
+    ]
+
+    def c(fn, R, z, **kw):
+        return fn(pot, numpy.array([R]), numpy.array([z]), **kw)[0][0]
+
+    cc = [
+        c(eval_force_c, r, 0.0),
+        c(eval_force_c, 0.0, r, zforce=True),
+        c(eval_2ndderiv_c, r, 0.0, deriv="R2deriv"),
+        c(eval_2ndderiv_c, 0.0, r, deriv="z2deriv"),
+        c(eval_2ndderiv_c, r, 0.0, deriv="z2deriv"),
+        c(eval_force_c, Ro, zo),
+        c(eval_force_c, Ro, zo, zforce=True),
+        c(eval_2ndderiv_c, Ro, zo, deriv="R2deriv"),
+        c(eval_2ndderiv_c, Ro, zo, deriv="z2deriv"),
+        c(eval_2ndderiv_c, Ro, zo, deriv="Rzderiv"),
+    ]
+    for label, got in (("python", py), ("C", cc)):
+        err = [abs(g / ref - 1.0) for g, ref in zip(got, refs)]
+        # numpy.max propagates NaN (the builtin max skips it unless it is first)
+        assert numpy.max(err) < 5e-14, f"{label}: rel errs {err}"
+    # the enclosed mass is dPhi/dr r^2
+    got = pot.mass(r, use_physical=False)
+    assert abs(got / (dphidr * r**2) - 1.0) < 5e-14, got
+
+
+def test_twopower_nan_and_infinite_radius():
+    # a NaN radius gives NaN (the series never converges on NaN: it used to loop
+    # forever near beta = 3 and beta = 2), only where it is NaN; and the limits
+    # at r = inf (below)
+    from galpy import potential
+
+    for beta in (3.02, 2.02, 3.5):
+        pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=1.5, beta=beta)
+        kw = dict(use_physical=False)
+        for fn in (pot.Rforce, pot.zforce, pot.R2deriv, pot.z2deriv, pot.Rzderiv):
+            assert numpy.isnan(fn(numpy.nan, 0.3, **kw)), (beta, fn)
+        assert numpy.isnan(pot.mass(numpy.nan, **kw))
+        R = numpy.array([numpy.nan, 5.0, 20.0])
+        got = numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))
+        assert numpy.isnan(got[0]) and numpy.all(numpy.isfinite(got[1:]))
+        numpy.testing.assert_array_equal(got[1:], pot.Rforce(R[1:], 0.0 * R[1:], **kw))
+        R = numpy.full(2, numpy.nan)  # all-NaN arrays
+        assert numpy.all(numpy.isnan(numpy.asarray(pot.Rforce(R, 0.0 * R, **kw))))
+    # r = inf, where the expressions are inf * 0: the force along an infinite
+    # coordinate is -dPhi/dr(inf) = 0 (beta > 1), -1/(2 a^2) (beta = 1; M ~
+    # x^2 / 2) or -inf (beta < 1); the transverse force and every second
+    # derivative -> 0; both coordinates infinite has no direction (0 when
+    # dPhi/dr -> 0, else NaN). amp = 0 is 0 everywhere (no 0 * inf). beta = 0
+    # and beta < 0 below. Python and C alike.
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    inf, nan = numpy.inf, numpy.nan
+    kw = dict(use_physical=False)
+
+    def c(fn, R, z, **kw):
+        return fn(pot, numpy.array([R]), numpy.array([z]), **kw)[0][0]
+
+    for amp, alpha, beta, F in (
+        (1.0, 1.5, 3.02, 0.0),
+        (1.0, 1.5, 2.02, 0.0),
+        (1.0, 1.5, 3.5, 0.0),
+        (1.0, 0.5, 1.0, 0.5 / 1.3**2.0),
+        (1.0, 0.5, 0.8, inf),
+        (0.0, 0.5, 0.8, 0.0),  # amp = 0: 0, not 0 * inf
+    ):
+        pot = potential.TwoPowerSphericalPotential(
+            amp=amp, a=1.3, alpha=alpha, beta=beta
+        )
+        both = 0.0 if F == 0.0 else nan
+        tr = 0.0  # transverse force / second derivatives
+        for R, z, fR, fz in (
+            (inf, 0.0, -F, tr),
+            (0.0, inf, tr, -F),
+            (0.0, -inf, tr, F),
+            (inf, inf, both, both),
+        ):
+            got = [
+                pot.Rforce(R, z, **kw),
+                pot.zforce(R, z, **kw),
+                c(eval_force_c, R, z),
+                c(eval_force_c, R, z, zforce=True),
+            ]
+            numpy.testing.assert_allclose(
+                got, [fR, fz, fR, fz], rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
+            )
+            got = [
+                *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+                *(
+                    c(eval_2ndderiv_c, R, z, deriv=d)
+                    for d in ("R2deriv", "z2deriv", "Rzderiv")
+                ),
+            ]
+            numpy.testing.assert_allclose(
+                got, tr, rtol=0.0, atol=0.0, err_msg=f"{beta} {R} {z}"
+            )
+
+    # beta = 0 (M ~ x^3 / 3): dPhi/dr / r and Phi'' both -> 1/(3 a^3), so the
+    # forces are -(R, z)/(3 a^3), R2deriv = z2deriv = 1/(3 a^3), Rzderiv 0 --
+    # the limits of the finite-radius values
+    g = 1.0 / (3.0 * 1.3**3.0)
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=0.5, beta=0.0)
+    for R, z in ((1.0, inf), (inf, 1.0), (0.0, -inf), (inf, inf)):
+        with numpy.errstate(invalid="ignore"):
+            want = [-R * g, -z * g, -R * g, -z * g, g, g, 0.0, g, g, 0.0]
+        got = [
+            pot.Rforce(R, z, **kw),
+            pot.zforce(R, z, **kw),
+            c(eval_force_c, R, z),
+            c(eval_force_c, R, z, zforce=True),
+            *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+            *(
+                c(eval_2ndderiv_c, R, z, deriv=d)
+                for d in ("R2deriv", "z2deriv", "Rzderiv")
+            ),
+        ]
+        numpy.testing.assert_allclose(
+            got, want, rtol=1e-15, atol=0.0, err_msg=f"{R} {z}"
+        )
+    numpy.testing.assert_allclose(
+        [pot.Rforce(1.0, 1e8, **kw), pot.R2deriv(1.0, 1e8, **kw)], [-g, g], rtol=1e-7
+    )
+    # beta < 0 (a density increasing outward): finite radii as usual (mpmath
+    # references), r = inf undefined (direction- and beta-dependent) -> NaN
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=0.5, beta=-0.5)
+    for R, fR, d2 in (
+        (1.0, -0.32164687098586672, 0.27488260960139673),
+        (10.0, -4.2633177185657113, 0.57385266414873492),
+    ):
+        got = [
+            pot.Rforce(R, 0.0, **kw),
+            c(eval_force_c, R, 0.0),
+            pot.R2deriv(R, 0.0, **kw),
+            c(eval_2ndderiv_c, R, 0.0, deriv="R2deriv"),
+        ]
+        numpy.testing.assert_allclose(got, [fR, fR, d2, d2], rtol=1e-14)
+    for R, z in ((inf, 0.0), (0.0, inf), (inf, inf)):
+        got = [
+            pot.Rforce(R, z, **kw),
+            pot.zforce(R, z, **kw),
+            c(eval_force_c, R, z),
+            c(eval_force_c, R, z, zforce=True),
+            *(fn(R, z, **kw) for fn in (pot.R2deriv, pot.z2deriv, pot.Rzderiv)),
+            *(
+                c(eval_2ndderiv_c, R, z, deriv=d)
+                for d in ("R2deriv", "z2deriv", "Rzderiv")
+            ),
+        ]
+        assert numpy.all(numpy.isnan(got)), (R, z, got)
+
+
+def test_twopower_forces_near_alpha_3():
+    # near alpha = 3 the closed-form 1 + G of the alpha ~ 0, 1 cancellation
+    # form itself cancels (G -> -1): 9.5e-13 (python) / 6.3e-13 (C) off at
+    # alpha = 2.9999, beta = 0.001, r/a = 9 before; the mass is now always
+    # E 2F1(1, beta - alpha; 4 - alpha; w), summed through Euler's
+    # transformation (positive terms) for beta < alpha. mpmath references at
+    # the exact binary alpha (at 3 - alpha = 1e-4 a 1-ulp change moves them ~1e-12)
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=2.9999, beta=0.001)
+    for x, dphidr, d2 in (
+        (9.0, 75.921732913576178, -12.355146021554692),
+        (0.5, 23671.531974043701, -72823.199842859376),
+    ):
+        r = numpy.array([x * 1.3])
+        g = dphidr / r[0]
+        for got, want, sc in (
+            (pot.Rforce(r[0], 0.0, use_physical=False), -dphidr, dphidr),
+            (eval_force_c(pot, r, 0.0 * r)[0][0], -dphidr, dphidr),
+            (pot.R2deriv(r[0], 0.0, use_physical=False), d2, abs(d2) + 4.0 * g),
+            (
+                eval_2ndderiv_c(pot, r, 0.0 * r, deriv="R2deriv")[0][0],
+                d2,
+                abs(d2) + 4.0 * g,
+            ),
+        ):
+            assert abs(got - want) < 5e-15 * sc, (x, got, want)
+
+
+def test_twopower_negative_beta_accuracy():
+    # beta << 0: 2F1(1, beta - alpha; c; w)'s direct series alternates and
+    # cancels (C was 12.9% off at alpha = 2.9, beta = -50, R = 5 and had the
+    # wrong sign at beta = -100); now summed through Euler's transformation.
+    # Includes the reflected branch (R = 20, 100 > the split's r/a = 9). The
+    # floor is s^beta's |beta| eps rounding. mpmath references (a = 1).
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    for alpha, beta, R, fR, d2 in (
+        (2.9, -50.0, 5.0, -1.5580290059151626e38, 1.3091545890351332e39),
+        (2.9, -100.0, 2.0, -4.8865703096835084e46, 1.6214175365234034e48),
+        (0.5, -100.0, 1.0, -3.430089689576445e28, 1.7241268774016276e30),
+        (1.0, -50.0, 20.0, -5.366358336591114e65, 1.3020065734373438e66),
+        (0.0, -10.0, 100.0, -8.5677737679035401e20, 9.3326665005313371e19),
+        (1.5, -3.0, 0.01, -6.8489312947821514, -323.99217182246637),
+        # the Euler series' sum (~1e241) passes its 1e200 rescaling
+        (2.9, -250.0, 8.0, -1.8208982772777936e237, 5.0709386236931776e238),
+    ):
+        pot = potential.TwoPowerSphericalPotential(
+            amp=1.0, a=1.0, alpha=alpha, beta=beta
+        )
+        Ra = numpy.array([R])
+        tol = 5e-16 * (20.0 + abs(beta))
+        for got, want in (
+            (pot.Rforce(R, 0.0, use_physical=False), fR),
+            (eval_force_c(pot, Ra, 0.0 * Ra)[0][0], fR),
+            (pot.R2deriv(R, 0.0, use_physical=False), d2),
+            (eval_2ndderiv_c(pot, Ra, 0.0 * Ra, deriv="R2deriv")[0][0], d2),
+        ):
+            assert abs(got / want - 1.0) < tol, (alpha, beta, R, got, want)
+    # an array mixing a finite force with one that overflows (R = 8 at
+    # beta = -500: ~9^501) keeps the finite one: the Euler series rescales
+    # each entry on its own (a shared rescaling NaN'ed it)
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=2.9, beta=-500.0)
+    # R = 8 below the split, R = 20 above it (whose constants overflow too)
+    Ra = numpy.array([0.01, 8.0, 20.0])
+    with numpy.errstate(over="ignore"):
+        for got in (
+            pot.Rforce(Ra, 0.0 * Ra, use_physical=False),
+            eval_force_c(pot, Ra, 0.0 * Ra)[0],
+        ):
+            got = numpy.asarray(got)
+            assert abs(got[0] / -295893.15211491261 - 1.0) < 5e-16 * 520.0, got
+            # beyond float64 (~9^501, ~20^501): non-finite, without raising
+            assert not numpy.any(numpy.isfinite(got[1:])), got
+
+
+def test_twopower_c_matches_python_all_derivatives():
+    # C and python forces and second derivatives agree to 1e-14 over alpha,
+    # beta (below beta ~ 8, where (1+x)^-beta costs beta eps) and r/a
+    # = 1e-10..1e6, on and off the plane; Phi'' (which crosses zero for
+    # alpha < 1) against its conditioning scale 4 pi rho + 2 Phi'/r
+    from galpy import potential
+    from galpy.potential.interpRZPotential import eval_2ndderiv_c, eval_force_c
+
+    r = 10.0 ** numpy.linspace(-10.0, 6.0, 33) * _GOLD_A
+    for alpha in (0.0, 0.5, 1.0, 1.5, 1.999999999999, 2.5, 2.9):
+        for beta in (2.0001, 2.5, 2.999999999999, 3.000000000001, 3.5, 4.5, 7.0):
+            pot = potential.TwoPowerSphericalPotential(
+                amp=1.0, a=_GOLD_A, alpha=alpha, beta=beta
+            )
+            for R, z in ((r, 0.0 * r), (0.6 * r, 0.8 * r)):
+                f1 = potential.evaluatez2derivs(pot, r, 0.0 * r)  # Phi'/r
+                d2 = potential.evaluateR2derivs(pot, r, 0.0 * r)  # Phi''
+                scale = numpy.fabs(d2) + 4.0 * f1
+                for cfn, pyfn, kw, sc in (
+                    (eval_force_c, potential.evaluateRforces, {}, None),
+                    (eval_force_c, potential.evaluatezforces, {"zforce": True}, None),
+                    (
+                        eval_2ndderiv_c,
+                        potential.evaluateR2derivs,
+                        {"deriv": "R2deriv"},
+                        scale,
+                    ),
+                    (
+                        eval_2ndderiv_c,
+                        potential.evaluatez2derivs,
+                        {"deriv": "z2deriv"},
+                        scale,
+                    ),
+                    (
+                        eval_2ndderiv_c,
+                        potential.evaluateRzderivs,
+                        {"deriv": "Rzderiv"},
+                        None,
+                    ),
+                ):
+                    got = cfn(pot, R, z, **kw)[0]
+                    ref = pyfn(pot, R, z)
+                    nz = ref != 0.0  # z = 0: zforce and Rzderiv vanish
+                    assert numpy.all(got[~nz] == 0.0)
+                    den = numpy.fabs(ref) if sc is None else sc
+                    err = numpy.fabs(got - ref)[nz] / den[nz]
+                    assert numpy.all(err < 1e-14), (alpha, beta, pyfn, err)
+
+
+def test_twopower_orbit_energy_beta3():
+    # an orbit integrated in C (forces, and the planar dxdv's R2deriv) at
+    # beta = 3 - 1e-12, where the old hyp2f1 forces were 1e-3 off and so
+    # inconsistent with Phi: E is conserved, and C matches python
+    from galpy.orbit import Orbit
+
+    pot = potential.TwoPowerSphericalPotential(
+        amp=1.0, a=1.3, alpha=0.5, beta=2.999999999999, normalize=1.0
+    )
+    ts = numpy.linspace(0.0, 30.0, 301)
+    oc = Orbit([3.0, 0.1, 0.4, 0.5, 0.05, 0.0])
+    op = Orbit([3.0, 0.1, 0.4, 0.5, 0.05, 0.0])
+    oc.integrate(ts, pot, method="dop853_c")
+    op.integrate(ts, pot, method="dop853")
+    E = oc.E(ts, pot=pot, use_physical=False)
+    assert numpy.amax(numpy.fabs(E / E[0] - 1.0)) < 1e-10
+    assert numpy.amax(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-8
+    assert numpy.amax(numpy.fabs(oc.z(ts) - op.z(ts))) < 1e-8
+    dc, dp = Orbit([3.0, 0.1, 0.4, 0.0]), Orbit([3.0, 0.1, 0.4, 0.0])
+    dc.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts[:101], pot, method="dop853_c")
+    dp.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts[:101], pot, method="dop853")
+    dxc, dxp = dc.getOrbit_dxdv(), dp.getOrbit_dxdv()
+    assert numpy.amax(numpy.fabs(dxc - dxp)) < 1e-8 * numpy.amax(numpy.fabs(dxp))
+
+
 def test_twopower_mass_inf_large_beta():
     # B(3-alpha, beta-3), not a ratio of Gammas that overflows to inf/inf
     from galpy import potential
@@ -14588,3 +15232,17 @@ def test_small_r_c_matches_python_all_derivatives():
         dc.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, pot, method="dopr54_c")
         dp.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, pot, method="odeint")
         assert numpy.amax(numpy.fabs(dc.getOrbit_dxdv() - dp.getOrbit_dxdv())) < 1e-6
+
+
+# special.pow_or_inf: x**y for a Python float, inf (not OverflowError) beyond
+# float64; exact x**y just below the overflow threshold and for arrays
+def test_special_pow_or_inf():
+    from galpy.util import special
+
+    assert special.pow_or_inf(0.1, -500.0) == numpy.inf
+    # 2**1024 overflows; 2**(1024 - 1e-8) is within 1e-6 of log(max) yet finite
+    assert special.pow_or_inf(2.0, 1024.0) == numpy.inf
+    assert special.pow_or_inf(2.0, 1024.0 - 1e-8) == 2.0 ** (1024.0 - 1e-8)
+    assert special.pow_or_inf(3.0, 2.5) == 3.0**2.5
+    x = numpy.array([0.5, 2.0])
+    numpy.testing.assert_array_equal(special.pow_or_inf(x, 3.0), x**3.0)

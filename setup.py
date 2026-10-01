@@ -161,6 +161,7 @@ galpy_c_src = [
     "galpy/util/leung_dop853.c",
     "galpy/util/bovy_coords.c",
     "galpy/util/wez_ias15.c",
+    "galpy/util/incomplete_beta.c",
     "galpy/util/wrap_xsf.cpp",
 ]
 galpy_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
