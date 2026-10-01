@@ -649,6 +649,21 @@ class Orbit:
             # numpy rather than the forced backend (which CUDA cannot read back)
             with _use_backend("numpy", force=True):
                 self._setup_parse_vxvv(vxvv, radec, lb, uvw)
+            if self._ic_backend is not None:
+                # the backend IC is (ra, dec, ...): replace it by the converted
+                # galactocentric values; a differentiated one has no values
+                if not self._ic_backend_concrete:
+                    raise NotImplementedError(
+                        "An Orbit built with radec=True or lb=True from a traced or "
+                        "gradient-tracking array is not differentiable w.r.t. its "
+                        "sky coordinates; convert them with galpy.util.coords first"
+                    )
+                self._ic_backend = asarray_on_device(
+                    get_namespace(self._ic_backend),
+                    numpy.reshape(self.vxvv, self._ic_backend.shape),
+                    device_of(self._ic_backend),
+                    dtype=self._ic_backend.dtype,
+                )
         else:
             self._setup_parse_vxvv(vxvv, radec, lb, uvw)
         # Check that we have a valid phase-space dim (often messed up by not
@@ -10105,14 +10120,16 @@ def _fit_orbit_mlogl(
         )
         if lb:
             orb_vxvv = numpy.array(
-                [
-                    lbdvrpmllpmbb[:, 0],
-                    lbdvrpmllpmbb[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    lbdvrpmllpmbb[:, 4],
-                    lbdvrpmllpmbb[:, 5],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        lbdvrpmllpmbb[:, 0],
+                        lbdvrpmllpmbb[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        lbdvrpmllpmbb[:, 4],
+                        lbdvrpmllpmbb[:, 5],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
         elif radec:
             # Further transform to ra,dec,pmra,pmdec
@@ -10128,14 +10145,16 @@ def _fit_orbit_mlogl(
                 epoch=None,
             )
             orb_vxvv = numpy.array(
-                [
-                    radec[:, 0],
-                    radec[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    pmrapmdec[:, 0],
-                    pmrapmdec[:, 1],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        radec[:, 0],
+                        radec[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        pmrapmdec[:, 0],
+                        pmrapmdec[:, 1],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
         elif customsky:
             # Further transform to ra,dec,pmra,pmdec
@@ -10150,14 +10169,16 @@ def _fit_orbit_mlogl(
                 degree=True,
             )
             orb_vxvv = numpy.array(
-                [
-                    customradec[:, 0],
-                    customradec[:, 1],
-                    lbdvrpmllpmbb[:, 2],
-                    custompmrapmdec[:, 0],
-                    custompmrapmdec[:, 1],
-                    lbdvrpmllpmbb[:, 3],
-                ]
+                to_host(
+                    [
+                        customradec[:, 0],
+                        customradec[:, 1],
+                        lbdvrpmllpmbb[:, 2],
+                        custompmrapmdec[:, 0],
+                        custompmrapmdec[:, 1],
+                        lbdvrpmllpmbb[:, 3],
+                    ]
+                )
             ).T
     else:
         # shape=(2tintJ-1,6)
