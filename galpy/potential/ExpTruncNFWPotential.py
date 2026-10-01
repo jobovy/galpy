@@ -341,13 +341,21 @@ class ExpTruncNFWPotential(SphericalPotential):
         beta = (a + r) / rc
         return xp.exp(-r / rc) / (a + r) - self._exp_alpha * exp1(beta) / rc
 
+    def _rnamespace(self, r):
+        # r's own namespace; a plain-scalar r follows the parameters instead
+        return (
+            namespace_from_arrays((r,))
+            or namespace_from_arrays((self.a, self.rc, self._amp))
+            or numpy
+        )
+
     def _rdens(self, r, t=0.0):
         # rho(r) / amp; the 1/(4 pi a^3) factor is carried here so that the
         # public dens(r) = rho_s exp(-r/rc) / [(r/a)(1+r/a)^2], matching the
         # NFW amplitude convention. data-first (dispatch on r's own namespace):
         # _ddensdr feeds the spherical DF machinery, which may pass a tracer
         # under a forced other backend.
-        xp = namespace_from_arrays((r,)) or numpy
+        xp = self._rnamespace(r)
         r = xp.asarray(r) * 1.0  # so xp.exp gets a backend array (scalar inputs)
         a = self.a
         return xp.exp(-r / self.rc) / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
@@ -428,7 +436,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         # namespace (data-first) rather than the forced default.
         # d/dr[rho r^(2beta)] = rho r^(2beta) [(2beta-1)/r - 2/(a+r) - 1/rc];
         # reduces to _ddensdr at beta=0.
-        xp = namespace_from_arrays((r,)) or numpy
+        xp = self._rnamespace(r)
         a, rc = self.a, self.rc
         rho = (
             self._amp
