@@ -26,6 +26,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
     promote_scalars,
+    to_host,
 )
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
@@ -1364,6 +1365,8 @@ def estimateBIsochrone(pot, R, z, phi=None):
             / vcirc(pot, r, phi=phi, use_physical=False)
             * r
         )
+        if xp is numpy:  # scipy's brentq below reads the objective
+            dlvcdlr = to_host(dlvcdlr)
         lo = xp.asarray(0.01) if is_backend_array(R) else 0.01
         hi = xp.asarray(100.0) if is_backend_array(R) else 100.0
         try:
