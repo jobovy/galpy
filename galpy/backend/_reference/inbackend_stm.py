@@ -116,7 +116,7 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
         # cyl -> rect base, and the six cyl basis deviations folded to rect =
         # the columns of the cyl->rect Jacobian (basis=I), packed as the 36-block.
         X, Y, Z = coords.cyl_to_rect(R, phi, z, xp=numpy)
-        vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+        vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi, xp=numpy)
         yo_rect = numpy.array([X, Y, Z, vX, vY, vZ])
         jac0 = coords.cyl_to_rect_jac(R, vR, vT, z, vz, phi)  # (6,6)
         dyo_block = jac0.T.reshape(-1)  # column k at offset 6k

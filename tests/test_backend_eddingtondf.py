@@ -519,4 +519,10 @@ def test_plummer_fE_near_Emin_grad_wrt_b(backend):
         (g,) = torch.autograd.grad(f(b), b)
         ad = float(g)
     val = float(as_numpy(f(1.3)))
-    numpy.testing.assert_allclose(ad, 2.0 * val / 1.3, rtol=2e-8)
+    # 1e-6 above Emin amplifies last-digit differences: CUDA lands at 2.9e-8
+    on_gpu = (
+        jax.default_backend() == "gpu"
+        if backend == "jax"
+        else torch.get_default_device().type == "cuda"
+    )
+    numpy.testing.assert_allclose(ad, 2.0 * val / 1.3, rtol=5e-8 if on_gpu else 2e-8)

@@ -869,9 +869,13 @@ def _tp_jac(case, backend_name):
         return numpy.asarray(
             jax.jacrev(lambda x: _tp_stack(jnp)(x, case))(jnp.asarray(_TP_IC))
         )[:, :5]
-    return torch.autograd.functional.jacobian(
-        lambda x: _tp_stack(torch)(x, case), torch.tensor(_TP_IC)
-    ).numpy()[:, :5]
+    return (
+        torch.autograd.functional.jacobian(
+            lambda x: _tp_stack(torch)(x, case), torch.tensor(_TP_IC)
+        )
+        .cpu()
+        .numpy()[:, :5]
+    )
 
 
 @pytest.mark.parametrize("case", list(_TP_CASES))
