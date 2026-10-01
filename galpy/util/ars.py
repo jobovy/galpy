@@ -29,6 +29,8 @@
 import numpy
 import scipy.stats as stats
 
+from ..backend import on_host
+
 # TO DO:
 # Throw errors in the sample_hull routine
 
@@ -65,6 +67,8 @@ def ars(domain, isDomainFinite, abcissae, hx, hpx, nsamples=1, hxparams=(), maxn
     -----
     - 2009-05-21 - Written - Bovy (NYU)
     """
+    # a numpy sampler: read h(x), h'(x) on the host
+    hx, hpx = on_host(hx), on_host(hpx)
     # First set-up the upper and lower hulls
     hull = setup_hull(domain, isDomainFinite, abcissae, hx, hpx, hxparams)
     # Then start  sampling: call sampleone repeatedly

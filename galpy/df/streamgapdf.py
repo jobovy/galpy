@@ -18,7 +18,7 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import special as _bspecial
-from ..backend import use
+from ..backend import to_host, use
 from ..backend._namespaces import (
     inbackend_ode_method,
     namespace_from_arrays,
@@ -1263,11 +1263,13 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         TrackX = self._gap_ObsTrack[:, 0] * numpy.cos(self._gap_ObsTrack[:, 5])
         TrackY = self._gap_ObsTrack[:, 0] * numpy.sin(self._gap_ObsTrack[:, 5])
         TrackZ = self._gap_ObsTrack[:, 3]
-        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
-            self._gap_ObsTrack[:, 1],
-            self._gap_ObsTrack[:, 2],
-            self._gap_ObsTrack[:, 4],
-            self._gap_ObsTrack[:, 5],
+        TrackvX, TrackvY, TrackvZ = to_host(  # into numpy tables / scipy splines
+            coords.cyl_to_rect_vec(
+                self._gap_ObsTrack[:, 1],
+                self._gap_ObsTrack[:, 2],
+                self._gap_ObsTrack[:, 4],
+                self._gap_ObsTrack[:, 5],
+            )
         )
         # Interpolate
         self._kick_interpTrackX = interpolate.InterpolatedUnivariateSpline(
@@ -1328,6 +1330,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             tZ,
             cyl=True,
         )
+        # into the numpy track table
+        tR, tphi, tZ, tvR, tvT, tvZ = to_host((tR, tphi, tZ, tvR, tvT, tvZ))
         self._kick_interpolatedObsTrack[:, 0] = tR
         self._kick_interpolatedObsTrack[:, 1] = tvR
         self._kick_interpolatedObsTrack[:, 2] = tvT
@@ -1722,7 +1726,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             auxiliaryTrack.orbit[..., 4] = -auxiliaryTrack.orbit[..., 4]
         # Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs = self._aA.actionsFreqs(auxiliaryTrack(0.0), maxn=3, use_physical=False)
-        auxiliary_Omega = numpy.array([acfs[3], acfs[4], acfs[5]]).reshape(3)
+        auxiliary_Omega = numpy.array(to_host([acfs[3], acfs[4], acfs[5]])).reshape(3)
         auxiliary_Omega_along_dOmega = numpy.dot(
             auxiliary_Omega, self._dsigomeanProgDirection
         )
@@ -1757,6 +1761,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
                     ),
                     thetasTrack[ii],
                 )
+                multiOut = to_host(multiOut)  # into the numpy track tables
                 allAcfsTrack[ii, :] = multiOut[0]
                 alljacsTrack[ii, :, :] = multiOut[1]
                 allinvjacsTrack[ii, :, :] = multiOut[2]
@@ -1817,6 +1822,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
                         ),
                         thetasTrack[ii],
                     )
+                    multiOut = to_host(multiOut)  # into the numpy track tables
                     allAcfsTrack[ii, :] = multiOut[0]
                     alljacsTrack[ii, :, :] = multiOut[1]
                     allinvjacsTrack[ii, :, :] = multiOut[2]
@@ -1874,11 +1880,13 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         TrackX = self._gap_ObsTrack[:, 0] * numpy.cos(self._gap_ObsTrack[:, 5])
         TrackY = self._gap_ObsTrack[:, 0] * numpy.sin(self._gap_ObsTrack[:, 5])
         TrackZ = self._gap_ObsTrack[:, 3]
-        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
-            self._gap_ObsTrack[:, 1],
-            self._gap_ObsTrack[:, 2],
-            self._gap_ObsTrack[:, 4],
-            self._gap_ObsTrack[:, 5],
+        TrackvX, TrackvY, TrackvZ = to_host(  # into numpy tables / scipy splines
+            coords.cyl_to_rect_vec(
+                self._gap_ObsTrack[:, 1],
+                self._gap_ObsTrack[:, 2],
+                self._gap_ObsTrack[:, 4],
+                self._gap_ObsTrack[:, 5],
+            )
         )
         self._gap_ObsTrackXY[:, 0] = TrackX
         self._gap_ObsTrackXY[:, 1] = TrackY
@@ -2810,8 +2818,9 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
 
 def _astream_integrand(t, b_, orb, tx, w, GSigma, rs2, tmin, compt):
     teval = tx - tmin - t
-    b__ = b_ + numpy.array([orb.x(teval), orb.y(teval), orb.z(teval)])
-    w = w - numpy.array([orb.vx(teval), orb.vy(teval), orb.vz(teval)])
+    # a scipy quad integrand: read the orbit on the host
+    b__ = b_ + numpy.array(to_host([orb.x(teval), orb.y(teval), orb.z(teval)]))
+    w = w - numpy.array(to_host([orb.vx(teval), orb.vy(teval), orb.vz(teval)]))
     wmag = numpy.sqrt(numpy.sum(w**2))
     bdotw = numpy.sum(b__ * w) / wmag
     denom = wmag * (numpy.sum(b__**2) + rs2 - bdotw**2)

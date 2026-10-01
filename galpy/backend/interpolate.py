@@ -1229,6 +1229,7 @@ class Spline1D:
         # numpy / scalar input: byte-identical scipy path (mode 1) or numpy-eval
         # of the in-backend coefficients (mode 2 has no scipy spline).
         if not is_backend_array(r):
+            r = to_host(r)  # e.g. a list of CUDA scalars; scipy reads it
             if self._spl is not None:
                 return self._spl(r, nu=nu)
             if self._spl_cols is not None:  # vector-valued mode 1
