@@ -173,24 +173,28 @@ def test_radec_to_lb_sgp():
 def test_radec_to_lb_ncp():
     _turn_off_apy()
     ra, dec = 180.0, 90.0
-    lb = coords.radec_to_lb(ra, dec, degree=True, epoch=1950.0)
+    lb = as_numpy(coords.radec_to_lb(ra, dec, degree=True, epoch=1950.0))
     assert numpy.fabs(lb[0] - 123.0) < 10.0**-8.0, (
         "Galactic longitude of the NCP given in ra,dec is not 123"
     )
     # Also test this for degree=False
-    lb = coords.radec_to_lb(
-        ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
+    lb = as_numpy(
+        coords.radec_to_lb(
+            ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
+        )
     )
     assert numpy.fabs(lb[0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0, (
         "Galactic longitude of the NCP given in ra,dec is not 123"
     )
     # Also test the latter for vector inputs
     os = numpy.ones(2)
-    lb = coords.radec_to_lb(
-        os * ra / 180.0 * numpy.pi,
-        os * dec / 180.0 * numpy.pi,
-        degree=False,
-        epoch=1950.0,
+    lb = as_numpy(
+        coords.radec_to_lb(
+            os * ra / 180.0 * numpy.pi,
+            os * dec / 180.0 * numpy.pi,
+            degree=False,
+            epoch=1950.0,
+        )
     )
     assert numpy.all(numpy.fabs(lb[:, 0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0), (
         "Galactic longitude of the NCP given in ra,dec is not 123"
@@ -214,24 +218,28 @@ def test_radec_to_lb_ncp_apyangles():
 def test_radec_to_lb_ncp_j2000():
     _turn_off_apy()
     ra, dec = 180.0, 90.0
-    lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
+    lb = as_numpy(coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0))
     assert numpy.fabs(lb[0] - 122.9319185680026) < 10.0**-8.0, (
         "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
     )
     # Also test this for degree=False
-    lb = coords.radec_to_lb(
-        ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
+    lb = as_numpy(
+        coords.radec_to_lb(
+            ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
+        )
     )
     assert numpy.fabs(lb[0] - 122.9319185680026 / 180.0 * numpy.pi) < 10.0**-8.0, (
         "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
     )
     # Also test the latter for vector inputs
     os = numpy.ones(2)
-    lb = coords.radec_to_lb(
-        os * ra / 180.0 * numpy.pi,
-        os * dec / 180.0 * numpy.pi,
-        degree=False,
-        epoch=2000.0,
+    lb = as_numpy(
+        coords.radec_to_lb(
+            os * ra / 180.0 * numpy.pi,
+            os * dec / 180.0 * numpy.pi,
+            degree=False,
+            epoch=2000.0,
+        )
     )
     assert numpy.all(
         numpy.fabs(lb[:, 0] - 122.9319185680026 / 180.0 * numpy.pi) < 10.0**-8.0
@@ -1914,8 +1922,8 @@ def test_pmrapmdec_to_pmllpmbb():
     # This is a random ra,dec
     ra, dec = 132.0, -20.4
     pmra, pmdec = 10.0, 20.0
-    pmll, pmbb = coords.pmrapmdec_to_pmllpmbb(
-        pmra, pmdec, ra, dec, degree=True, epoch=1950.0
+    pmll, pmbb = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True, epoch=1950.0)
     )
     assert (
         numpy.fabs(
@@ -1927,8 +1935,10 @@ def test_pmrapmdec_to_pmllpmbb():
     ra, dec = 192.24, 27.39
     pmra, pmdec = 10.0, 20.0
     os = numpy.ones(2)
-    pmllpmbb = coords.pmrapmdec_to_pmllpmbb(
-        os * pmra, os * pmdec, os * ra, os * dec, degree=True, epoch=1950.0
+    pmllpmbb = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(
+            os * pmra, os * pmdec, os * ra, os * dec, degree=True, epoch=1950.0
+        )
     )
 
     pmll = pmllpmbb[:, 0]
@@ -1943,8 +1953,10 @@ def test_pmrapmdec_to_pmllpmbb():
     ra, dec = 192.25, 27.4
     pmra, pmdec = 10.0, 20.0
     os = numpy.ones(2)
-    pmllpmbb = coords.pmrapmdec_to_pmllpmbb(
-        os * pmra, os * pmdec, os * ra, os * dec, degree=True, epoch=1950.0
+    pmllpmbb = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(
+            os * pmra, os * pmdec, os * ra, os * dec, degree=True, epoch=1950.0
+        )
     )
 
     pmll = pmllpmbb[:, 0]
@@ -1958,8 +1970,8 @@ def test_pmrapmdec_to_pmllpmbb():
     # This is the NCP
     ra, dec = numpy.pi, numpy.pi / 2.0
     pmra, pmdec = 10.0, 20.0
-    pmll, pmbb = coords.pmrapmdec_to_pmllpmbb(
-        pmra, pmdec, ra, dec, degree=False, epoch=1950.0
+    pmll, pmbb = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=1950.0)
     )
     assert (
         numpy.fabs(
@@ -3409,7 +3421,7 @@ def test_radec_to_custom_againstlb():
             ),
         ),
     )
-    lb_direct = coords.radec_to_lb(ra, dec, degree=True)
+    lb_direct = as_numpy(coords.radec_to_lb(ra, dec, degree=True))
     lb_custom = as_numpy(coords.radec_to_custom(ra, dec, T=T.T, degree=True))
     assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
         "radec_to_custom for transformation to l,b does not work properly"
@@ -3419,7 +3431,7 @@ def test_radec_to_custom_againstlb():
     )
     # Array
     s = numpy.arange(2)
-    lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
+    lb_direct = as_numpy(coords.radec_to_lb(ra * s, dec * s, degree=True))
     lb_custom = as_numpy(coords.radec_to_custom(ra * s, dec * s, T=T.T, degree=True))
     assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
         "radec_to_custom for transformation to l,b does not work properly"
@@ -3508,7 +3520,9 @@ def test_pmrapmdec_to_custom_againstlb():
             ),
         ),
     )
-    pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
+    pmlb_direct = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
+    )
     pmlb_custom = as_numpy(
         coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T.T, degree=True)
     )
@@ -3520,8 +3534,8 @@ def test_pmrapmdec_to_custom_againstlb():
     )
     # Array
     s = numpy.arange(2)
-    pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
-        pmra * s, pmdec * s, ra * s, dec * s, degree=True
+    pmlb_direct = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra * s, pmdec * s, ra * s, dec * s, degree=True)
     )
     pmlb_custom = as_numpy(
         coords.pmrapmdec_to_custom(
@@ -3571,7 +3585,7 @@ def test_custom_to_radec_againstlb():  # FIXME COMPARE TO DOCUMENT
             ),
         ),
     )
-    lb_direct = coords.radec_to_lb(ra, dec, degree=True)
+    lb_direct = as_numpy(coords.radec_to_lb(ra, dec, degree=True))
     lb_custom = as_numpy(coords.custom_to_radec(ra, dec, T=T, degree=True))
     assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
         "custom_to_radec for transformation to l,b does not work properly"
@@ -3581,7 +3595,7 @@ def test_custom_to_radec_againstlb():  # FIXME COMPARE TO DOCUMENT
     )
     # Array
     s = numpy.arange(2)
-    lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
+    lb_direct = as_numpy(coords.radec_to_lb(ra * s, dec * s, degree=True))
     lb_custom = as_numpy(coords.custom_to_radec(ra * s, dec * s, T=T, degree=True))
     assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
         "radec_to_custom for transformation to l,b does not work properly"
@@ -3672,7 +3686,9 @@ def test_custom_to_pmrapmdec_againstlb():
             ),
         ),
     )
-    pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
+    pmlb_direct = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
+    )
     pmlb_custom = as_numpy(
         coords.custom_to_pmrapmdec(pmra, pmdec, ra, dec, T=T, degree=True)
     )
@@ -3685,8 +3701,8 @@ def test_custom_to_pmrapmdec_againstlb():
     )
     # Array
     s = numpy.arange(2)
-    pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
-        pmra * s, pmdec * s, ra * s, dec * s, degree=True
+    pmlb_direct = as_numpy(
+        coords.pmrapmdec_to_pmllpmbb(pmra * s, pmdec * s, ra * s, dec * s, degree=True)
     )
     pmlb_custom = as_numpy(
         coords.custom_to_pmrapmdec(
