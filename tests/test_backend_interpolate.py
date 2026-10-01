@@ -258,9 +258,24 @@ def test_cubic_not_a_knot(backend):
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
 
 
+@pytest.mark.parametrize("bc", ["natural", "not-a-knot"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cubic_two_points_is_a_line(backend, bc):
+    # n = 2: the straight line scipy CubicSpline builds for either bc, also for
+    # several splines on the same grid (a 2-D y)
+    xp = _xp(backend)
+    x2, y2 = _XG[[0, -1]], numpy.stack([_YG[[0, -1]], 2.0 * _YG[[0, -1]] + 1.0], 1)
+    for y in (y2[:, 0], y2):
+        c = cubic_spline_coeffs(xp, _asarray(backend, x2), _asarray(backend, y), bc=bc)
+        ref = si.CubicSpline(x2, y, bc_type=bc)
+        numpy.testing.assert_allclose(
+            as_numpy(c).reshape(ref.c.shape), ref.c, rtol=1e-15, atol=1e-15
+        )
+
+
 def test_cubic_spline_coeffs_errors():
     with pytest.raises(ValueError):
-        cubic_spline_coeffs(numpy, _XG[:2], _YG[:2])  # n < 3
+        cubic_spline_coeffs(numpy, _XG[:1], _YG[:1])  # n < 2
     with pytest.raises(ValueError):
         cubic_spline_coeffs(numpy, _XG, _YG, bc="bogus")
 
