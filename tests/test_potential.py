@@ -14948,6 +14948,19 @@ def test_twopower_negative_beta_accuracy():
             (eval_2ndderiv_c(pot, Ra, 0.0 * Ra, deriv="R2deriv")[0][0], d2),
         ):
             assert abs(got / want - 1.0) < tol, (alpha, beta, R, got, want)
+    # an array mixing a finite force with one that overflows (R = 8 at
+    # beta = -500: ~9^501) keeps the finite one: the Euler series rescales
+    # each entry on its own (a shared rescaling NaN'ed it)
+    pot = potential.TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=2.9, beta=-500.0)
+    Ra = numpy.array([0.01, 8.0])
+    with numpy.errstate(over="ignore"):
+        for got in (
+            pot.Rforce(Ra, 0.0 * Ra, use_physical=False),
+            eval_force_c(pot, Ra, 0.0 * Ra)[0],
+        ):
+            got = numpy.asarray(got)
+            assert abs(got[0] / -295893.15211491261 - 1.0) < 5e-16 * 520.0, got
+            assert got[1] == -numpy.inf, got
 
 
 def test_twopower_c_matches_python_all_derivatives():
