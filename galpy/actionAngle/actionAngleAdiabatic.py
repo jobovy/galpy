@@ -13,7 +13,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, promote_scalars, to_host
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
@@ -191,10 +191,10 @@ class actionAngleAdiabatic(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
@@ -326,10 +326,10 @@ class actionAngleAdiabatic(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         if xp is not numpy:
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
@@ -412,11 +412,11 @@ class actionAngleAdiabatic(actionAngle):
             phi = self._eval_phi
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
-            phi = numpy.array([phi])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+            phi = numpy.array([to_host(phi)])
         xp = get_namespace(R, vR, vT, z, vz, phi)
         if xp is not numpy:
             R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
@@ -508,10 +508,10 @@ class actionAngleAdiabatic(actionAngle):
             vz = self._eval_vz
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
