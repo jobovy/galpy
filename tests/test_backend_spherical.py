@@ -16,8 +16,8 @@
 # xlogy-based NFW._evaluate and Burkert._revaluate, and the complex-arithmetic
 # _surfdens of Burkert/Hernquist/Jaffe/NFW -- are now migrated and ARE covered
 # below (incl. their R == a removable singularity), as is the generic-
-# (alpha, beta) TwoPower base, whose hyp2f1/gamma now go through the
-# galpy.backend.special router (see the dedicated block at the end).
+# (alpha, beta) TwoPower base, whose incomplete-beta series are static in
+# (alpha, beta) (see the dedicated block at the end).
 ###############################################################################
 import numpy
 import pytest
@@ -559,25 +559,23 @@ def test_surfdens_grad_z_finite_off_edge(backend_name, pot):
 
 
 ###############################################################################
-# Generic-(alpha, beta) TwoPowerSphericalPotential: regression pins for routing
-# the hyp2f1/gamma-backed methods through galpy.backend.special. Before the
-# routing, these methods called scipy.special on the backend arrays directly:
+# Generic-(alpha, beta) TwoPowerSphericalPotential: regression pins for its
+# backend paths. Before they existed, these methods called scipy.special on
+# the backend arrays directly:
 # torch tensors with requires_grad RAISED (RuntimeError in Tensor.__array__),
 # no-grad torch outputs silently round-tripped through numpy (graph never
 # built), eager jax outputs degraded to plain numpy.ndarray, and jax.grad /
 # jax.jit died with TracerArrayConversionError. These tests pin:
-#   1. numpy BYTE-parity of _evaluate/_Rforce with the direct scipy.special
-#      formulas (the router dispatches numpy inputs straight to scipy.special),
-#   2. jax/torch grads of _evaluate and _Rforce wrt R vs central finite
-#      differences of the numpy path (the detach/raise regression pin),
+#   1. numpy BYTE-parity of _evaluate/_Rforce with the module-level numpy
+#      formulas (numpy inputs never reach a backend path),
+#   2. jax/torch grads of Phi, the forces and second derivatives wrt R vs
+#      central finite differences of the numpy path (the detach/raise pin),
 #   3. jax.jit survival (and jit == numpy values).
 # _evaluate is the incomplete-beta form for every beta (3.0 included), its
-# backend series static in (alpha, beta); _Rforce the hyp2f1(-r/a) form.
+# backend series static in (alpha, beta); _Rforce is M/r^2 from the same
+# incomplete beta (_tp_radial), no longer hyp2f1(-r/a).
 # alpha=1.5 keeps _specialSelf unset (a true generic case). Cross-backend VALUE
-# parity on all methods is covered by the CASES entry above. The hyp2f1
-# fallback (used by jax -- whose native hyp2f1 is unreliable for z < -1 -- and
-# torch -- which has none) matches scipy to better than 1e-12 over this
-# argument range.
+# parity on all methods is covered by the CASES entry above.
 ###############################################################################
 _TWOPOWER_GENERIC = [
     TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.5),
@@ -585,32 +583,36 @@ _TWOPOWER_GENERIC = [
     TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.0),
 ]
 _TWOPOWER_GENERIC_IDS = ["beta3.5", "beta4.5", "beta3.0"]
+_TWOPOWER_METHODS = [
+    "_evaluate",
+    "_Rforce",
+    "_zforce",
+    "_R2deriv",
+    "_z2deriv",
+    "_Rzderiv",
+]
 
 
 def _twopower_scipy_reference(pot, method, R, z):
-    """The pre-routing direct-scipy formulas for _evaluate/_Rforce, reproduced
-    verbatim (numpy + scipy.special) as the byte-parity reference."""
-    from scipy import special
-
+    """The numpy formulas for _evaluate/_Rforce, reproduced verbatim (numpy +
+    scipy.special) as the byte-parity reference."""
     a, alpha, beta = pot.a, pot.alpha, pot.beta
     if method == "_Rforce":
+        from galpy.potential.TwoPowerSphericalPotential import _tp_radial
+
         r = numpy.sqrt(R**2.0 + z**2.0)
-        return (
-            -R
-            / r**alpha
-            * a ** (alpha - 3.0)
-            / (3.0 - alpha)
-            * special.hyp2f1(3.0 - alpha, beta - alpha, 4.0 - alpha, -r / a)
-        )
+        x = r / a
+        f1 = _tp_radial(alpha, beta, x / (1.0 + x), 1.0 / (1.0 + x), False)[0]
+        return -R * (f1 / a**3.0)
     # Phi = -(M(x)/x + O(x))/a, the two incomplete betas through scipy
-    from galpy.potential.TwoPowerSphericalPotential import _tp_ibeta
+    from galpy.util.special import incomplete_beta
 
     x = numpy.sqrt(R**2.0 + z**2.0) / a
     w, s = x / (1.0 + x), 1.0 / (1.0 + x)
     return (
         -(
-            _tp_ibeta(3.0 - alpha, beta - 3.0, w, s) / x
-            + _tp_ibeta(beta - 2.0, 2.0 - alpha, s, w)
+            incomplete_beta(3.0 - alpha, beta - 3.0, w, s) / x
+            + incomplete_beta(beta - 2.0, 2.0 - alpha, s, w)
         )
         / a
     )
@@ -634,7 +636,7 @@ def test_twopower_generic_numpy_byte_parity(pot):
         )
 
 
-@pytest.mark.parametrize("method", ["_evaluate", "_Rforce"])
+@pytest.mark.parametrize("method", _TWOPOWER_METHODS)
 @pytest.mark.parametrize("pot", _TWOPOWER_GENERIC, ids=_TWOPOWER_GENERIC_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_twopower_generic_grad_vs_finite_difference(backend_name, pot, method):
@@ -693,7 +695,153 @@ def test_twopower_phi_grad_edges(backend_name, alpha, beta, x, dphidr):
     assert abs(ad / dphidr - 1.0) < 1e-12, f"{backend_name}: {ad} vs {dphidr}"
 
 
-@pytest.mark.parametrize("method", ["_evaluate", "_Rforce"])
+# Forces, second derivatives and mass from the same incomplete beta M:
+# dPhi/dr = M/r^2, Phi'' = 4 pi rho - 2 M/r^3, Phi'' - Phi'/r = 4 pi rho - 3 M/r^3
+# (the alpha ~ 1 / alpha ~ 0 cancellations of the last two taken out in closed
+# form). 50-digit values and d/da at fixed r = x a (a = 1.2, amp = 2);
+# Rzderiv at (R, z) = (0.6, 0.8) r, the others at (r, 0). The hyp2f1(-r/a)
+# forms were up to 4e-3 off at beta = 3 -+ 1e-12, NaN at r/a = 1e4 for
+# beta = 180, and lost Phi'' at alpha = 1 and small r.
+_TWOPOWER_DERIV_CASES = [  # alpha, beta, quantity, x, value, d/da
+    (1.5, 3.000000000001, "Rforce", 0.4999, -0.90157653081407408, 0.89115086186945043),
+    (1.5, 3.000000000001, "R2deriv", 5.0, -0.016349354802538274, 0.010272145872264871),
+    (1.5, 2.999999999999, "Rzderiv", 0.4999, -1.3085405546703867, 1.4260790635900432),
+    (1.5, 2.999999999999, "mass", 5.0, 2.5264560929906962, -1.2678762905234898),
+    (1.0, 3.5, "R2deriv", 1e-08, -0.9645061475212197, 2.4112653477044776),
+    (1.0, 3.5, "Rforce", 1e-08, -0.69444443287037057, 1.1574073784722229),
+    (0.0, 5.5, "Rzderiv", 1e-08, -7.6388884916666802e-9, 2.5462961307870437e-8),
+    (1.5, 180.0, "Rforce", 10000.0, -5.2159588732345013e-12, 0.0),
+    (1.5, 180.0, "R2deriv", 10000.0, -8.6932647887241688e-16, 0.0),
+    (0.0, 180.0, "Rforce", 0.03, -4.9019920225253475e-4, 1.6978802841276199e-4),
+    (0.0, 180.0, "Rzderiv", 0.03, -0.016891359635497198, 0.011868677714290157),
+    (0.5, 2.0001, "Rforce", 10.0, -0.094279530319555269, 0.10029818879539434),
+    (0.5, 2.0001, "R2deriv", 10.0, -5.6834361737197777e-3, 7.2191900889775899e-3),
+    (1.999999999999, 4.0, "Rzderiv", 0.1, -105.60146923742811, 83.479422322162556),
+    (2.5, 2.5, "R2deriv", 1.0, -3.4722222222222226, 1.4467592592592595),
+    (2.9, 2.1, "Rforce", 10.0, -0.27779204975531618, 0.099220270259507471),
+    # alpha > beta (p + q < 0) above the split with |beta - 3| < 0.05: the
+    # reflected series' coefficients once took log1p(-2)
+    (2.99, 2.98, "Rforce", 2.0, -34.968714956363698, 0.29458306649690608),
+    (2.99, 2.98, "mass", 2.0, 201.41979814865490, -1.6967984630221790),
+    (2.999, 2.97, "R2deriv", 50.0, -0.018585857782860795, 1.7108229514431519e-5),
+    (2.97, 2.96, "Rzderiv", 10000.0, -7.3340176868906600e-11, 1.9807904837937884e-12),
+    # beta = 1 exactly: the reflected 2F1 has a pole at q + 1 = -1
+    (0.5, 1.0, "Rforce", 10.0, -0.63855263038966718, 1.1035446634786948),
+    (0.5, 1.0, "R2deriv", 10.0, 0.0039290279495916170, -0.0041800934222677834),
+    (1.5, 1.0, "mass", 50.0, 2548.7979361391499, -4208.1270576508658),
+    # alpha >= beta + 2 (the split's mass-centre formula is negative there), and
+    # beta < 2 above the split (q + 1 < 0: the reflected series' Pochhammer
+    # denominators change sign; its static coefficients once took log(< 0))
+    (2.5, 0.3, "Rforce", 50.0, -8.5263527388990438, 18.69328547792203),
+    (2.5, 0.3, "R2deriv", 0.05, -6285.8397030060804, 2680.0616493830212),
+    (0.5, 0.8, "Rforce", 50.0, -1.3659667289241544, 2.5159395770649971),
+    (1.5, 1.7, "Rforce", 500.0, -0.013765879324087759, 0.014929102856098864),
+    (0.5, 1.5, "Rforce", 1000.0, -0.029196783170493646, 0.036563872009568896),
+]
+
+
+def _twopower_deriv_quantity(pot, q, r):
+    if q == "mass":
+        return pot._amp * pot._mass(r)
+    if q == "Rzderiv":
+        return pot._amp * pot._Rzderiv(0.6 * r, 0.8 * r)
+    return pot._amp * getattr(pot, "_" + q)(r, 0.0 * r)
+
+
+@pytest.mark.parametrize(
+    "alpha,beta,q,x,ref,dref",
+    _TWOPOWER_DERIV_CASES,
+    ids=[f"{c[2]}-a{c[0]}-b{c[1]}-x{c[3]}" for c in _TWOPOWER_DERIV_CASES],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_derivs_value_and_parameter_gradient(
+    backend_name, alpha, beta, q, x, ref, dref
+):
+    a0, amp0 = 1.2, 2.0
+    r = x * a0
+    # d/da is ~1e-700 at r/a = 1e4, beta = 180: its terms are ~value/a, which
+    # AD cancels to rounding
+    datol = 1e-15 * abs(ref) / a0
+
+    def f(a, amp):
+        pot = TwoPowerSphericalPotential(amp=amp, a=a, alpha=alpha, beta=beta)
+        return _twopower_deriv_quantity(pot, q, r * (a * 0.0 + 1.0))
+
+    if backend_name == "jax":
+        args = (jnp.asarray(a0), jnp.asarray(amp0))
+        val = float(f(*args))
+        da, damp = (float(g) for g in jax.grad(f, argnums=(0, 1))(*args))
+        # and under jit: static-length series
+        jval = float(jax.jit(f)(*args))
+        jda = float(jax.jit(jax.grad(f))(*args))
+        # XLA fuses the long beta < 2 series differently: ~1e-15, a few ulp
+        assert abs(jval - val) <= 3e-15 * abs(val), (jval, val)
+        assert abs(jda - da) <= 1e-13 * abs(dref) + datol, (jda, da)
+    else:
+        a = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
+        amp = torch.tensor(amp0, dtype=torch.float64, requires_grad=True)
+        out = f(a, amp)
+        da, damp = (float(g) for g in torch.autograd.grad(out, (a, amp)))
+        val = float(out.detach())
+    assert abs(val / ref - 1.0) < 5e-14, f"{backend_name}: {val} vs {ref}"
+    assert abs(damp / (ref / amp0) - 1.0) < 5e-14, f"d/damp {damp}"
+    assert abs(da - dref) <= 1e-12 * abs(dref) + datol, f"d/da {da} vs {dref}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_mass_at_zero_and_forces_at_infinity(backend_name):
+    # mass(0) = 0 (the static series' n = 0 term is 0 * log 0 there), and every
+    # force and second derivative -> 0 at r = inf; also under jax.jit
+    pot = TwoPowerSphericalPotential(amp=2.0, a=1.3, alpha=1.5, beta=3.02)
+    xp = jnp if backend_name == "jax" else torch
+    r = xp.asarray([0.0, 1.0, numpy.inf])
+    ref = pot._mass(numpy.array([0.0, 1.0]))
+    got = as_numpy(pot._mass(r))
+    assert got[0] == 0.0 and numpy.isfinite(got[2]), got
+    numpy.testing.assert_allclose(got[1], ref[1], rtol=1e-14)
+    for m in ("_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_Rzderiv"):
+        R = xp.asarray([numpy.inf, 0.0, 1.0])
+        z = xp.asarray([0.0, numpy.inf, 0.5])
+        got = as_numpy(getattr(pot, m)(R, z))
+        assert got[0] == 0.0 and got[1] == 0.0, (m, got)
+        numpy.testing.assert_allclose(
+            got[2], getattr(pot, m)(1.0, 0.5), rtol=1e-13, err_msg=m
+        )
+        if backend_name == "jax":
+            jgot = as_numpy(jax.jit(lambda R, z: getattr(pot, m)(R, z))(R, z))
+            numpy.testing.assert_array_equal(jgot[:2], 0.0)
+    # beta = 1: M ~ x^2 / 2, so the force along an infinite axis -> -1/(2 a^2)
+    # (d/da = 1/a^3, through a traced scale); the transverse force -> 0
+    R = xp.asarray([numpy.inf, 0.0])
+    z = xp.asarray([0.0, -numpy.inf])
+
+    def forces(a):
+        p1 = TwoPowerSphericalPotential(amp=1.0, a=a, alpha=0.5, beta=1.0)
+        return xp.stack([p1._Rforce(R, z), p1._zforce(R, z)])
+
+    a0 = 1.3
+    numpy.testing.assert_allclose(
+        as_numpy(forces(a0)), [[-0.5 / a0**2, 0.0], [0.0, 0.5 / a0**2]], rtol=1e-15
+    )
+    if backend_name == "jax":
+        g = as_numpy(jax.jacfwd(forces)(jnp.asarray(a0)))
+    else:
+        g = as_numpy(torch.autograd.functional.jacobian(forces, torch.tensor(a0)))
+    numpy.testing.assert_allclose(
+        g, [[1.0 / a0**3, 0.0], [0.0, -1.0 / a0**3]], rtol=1e-15
+    )
+    if backend_name == "jax":
+        # a traced amp: beta < 1's infinite limit, and 0 (not 0 * inf) at amp = 0
+        f = jax.jit(
+            lambda amp: TwoPowerSphericalPotential(
+                amp=amp, a=1.3, alpha=0.5, beta=0.8
+            )._Rforce(jnp.asarray([numpy.inf]), jnp.asarray([0.0]))
+        )
+        assert as_numpy(f(0.0))[0] == 0.0
+        assert as_numpy(f(1.0))[0] == -numpy.inf
+
+
+@pytest.mark.parametrize("method", _TWOPOWER_METHODS)
 @pytest.mark.parametrize("pot", _TWOPOWER_GENERIC, ids=_TWOPOWER_GENERIC_IDS)
 def test_twopower_generic_jax_jit(pot, method):
     # The routed methods must survive jax.jit (pre-routing: scipy.special on a
