@@ -13,6 +13,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    to_host,
 )
 from ..backend._namespaces import stop_gradient, under_trace
 from ..backend.interpolate import (
@@ -774,14 +775,16 @@ def _fit_track_from_particles(
         def _prog_at(tp):
             tp = numpy.atleast_1d(tp)
             return numpy.column_stack(
-                [
-                    prog_orbit.x(tp),
-                    prog_orbit.y(tp),
-                    prog_orbit.z(tp),
-                    prog_orbit.vx(tp),
-                    prog_orbit.vy(tp),
-                    prog_orbit.vz(tp),
-                ]
+                to_host(
+                    [
+                        prog_orbit.x(tp),
+                        prog_orbit.y(tp),
+                        prog_orbit.z(tp),
+                        prog_orbit.vx(tp),
+                        prog_orbit.vy(tp),
+                        prog_orbit.vz(tp),
+                    ]
+                )
             )
     else:
         prog_spline = Spline1D(track_t_grid, prog_cart_np, k=3)
@@ -1118,10 +1121,15 @@ class StreamTrack:
             self._track_vxvyvz = track_vxvyvz
             self._cov_xyz = cov_xyz
         else:
-            self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
-            self._track_vxvyvz = numpy.asarray(track_vxvyvz, dtype=float).copy()
+            # a numpy track: read any (forced-backend) inputs on the host
+            self._track_xyz = numpy.asarray(to_host(track_xyz), dtype=float).copy()
+            self._track_vxvyvz = numpy.asarray(
+                to_host(track_vxvyvz), dtype=float
+            ).copy()
             self._cov_xyz = (
-                None if cov_xyz is None else numpy.asarray(cov_xyz, dtype=float).copy()
+                None
+                if cov_xyz is None
+                else numpy.asarray(to_host(cov_xyz), dtype=float).copy()
             )
         self._ninterp = len(self._tp_grid)
         self._custom_sky_transform = (
@@ -1693,7 +1701,7 @@ class StreamTrack:
             override on ``__call__``)."""
         tp = self._parse_tp(tp)
         R, vR, vT, zcyl, vzc, phi = self._cyl_at(tp)
-        out = numpy.array([R, vR, vT, zcyl, vzc, phi])
+        out = numpy.array(to_host([R, vR, vT, zcyl, vzc, phi]))
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[:, 0]
         return out
@@ -2598,8 +2606,8 @@ class StreamTrack:
             access_kw["vo"] = vo
 
         tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], self._ninterp)
-        v1 = numpy.asarray(getattr(self, d1)(tp, **access_kw))
-        v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
+        v1 = numpy.asarray(to_host(getattr(self, d1)(tp, **access_kw)))
+        v2 = numpy.asarray(to_host(getattr(self, d2)(tp, **access_kw)))
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
             basis, idx = self._COORD_BASIS[d2]
