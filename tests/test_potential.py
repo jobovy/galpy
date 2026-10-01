@@ -15251,11 +15251,11 @@ def test_twopower_forces_2nd_derivs_accuracy(alpha, beta, x, dphidr, d2, R2, z2,
         c(eval_2ndderiv_c, Ro, zo, deriv="Rzderiv"),
     ]
     for label, got in (("python", py), ("C", cc)):
-        err = [abs(g / ref - 1.0) for g, ref in zip(got, refs)]
+        err = [abs(float(as_numpy(g)) / ref - 1.0) for g, ref in zip(got, refs)]
         # numpy.max propagates NaN (the builtin max skips it unless it is first)
         assert numpy.max(err) < 5e-14, f"{label}: rel errs {err}"
     # the enclosed mass is dPhi/dr r^2
-    got = pot.mass(r, use_physical=False)
+    got = float(as_numpy(pot.mass(r, use_physical=False)))
     assert abs(got / (dphidr * r**2) - 1.0) < 5e-14, got
 
 
@@ -15477,8 +15477,8 @@ def test_twopower_c_matches_python_all_derivatives():
                 amp=1.0, a=_GOLD_A, alpha=alpha, beta=beta
             )
             for R, z in ((r, 0.0 * r), (0.6 * r, 0.8 * r)):
-                f1 = potential.evaluatez2derivs(pot, r, 0.0 * r)  # Phi'/r
-                d2 = potential.evaluateR2derivs(pot, r, 0.0 * r)  # Phi''
+                f1 = as_numpy(potential.evaluatez2derivs(pot, r, 0.0 * r))  # Phi'/r
+                d2 = as_numpy(potential.evaluateR2derivs(pot, r, 0.0 * r))  # Phi''
                 scale = numpy.fabs(d2) + 4.0 * f1
                 for cfn, pyfn, kw, sc in (
                     (eval_force_c, potential.evaluateRforces, {}, None),
@@ -15503,7 +15503,7 @@ def test_twopower_c_matches_python_all_derivatives():
                     ),
                 ):
                     got = cfn(pot, R, z, **kw)[0]
-                    ref = pyfn(pot, R, z)
+                    ref = as_numpy(pyfn(pot, R, z))
                     nz = ref != 0.0  # z = 0: zforce and Rzderiv vanish
                     assert numpy.all(got[~nz] == 0.0)
                     den = numpy.fabs(ref) if sc is None else sc
@@ -15525,14 +15525,14 @@ def test_twopower_orbit_energy_beta3():
     op = Orbit([3.0, 0.1, 0.4, 0.5, 0.05, 0.0])
     oc.integrate(ts, pot, method="dop853_c")
     op.integrate(ts, pot, method="dop853")
-    E = oc.E(ts, pot=pot, use_physical=False)
+    E = as_numpy(oc.E(ts, pot=pot, use_physical=False))
     assert numpy.amax(numpy.fabs(E / E[0] - 1.0)) < 1e-10
-    assert numpy.amax(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-8
-    assert numpy.amax(numpy.fabs(oc.z(ts) - op.z(ts))) < 1e-8
+    assert numpy.amax(numpy.fabs(as_numpy(oc.R(ts) - op.R(ts)))) < 1e-8
+    assert numpy.amax(numpy.fabs(as_numpy(oc.z(ts) - op.z(ts)))) < 1e-8
     dc, dp = Orbit([3.0, 0.1, 0.4, 0.0]), Orbit([3.0, 0.1, 0.4, 0.0])
     dc.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts[:101], pot, method="dop853_c")
     dp.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts[:101], pot, method="dop853")
-    dxc, dxp = dc.getOrbit_dxdv(), dp.getOrbit_dxdv()
+    dxc, dxp = as_numpy(dc.getOrbit_dxdv()), as_numpy(dp.getOrbit_dxdv())
     assert numpy.amax(numpy.fabs(dxc - dxp)) < 1e-8 * numpy.amax(numpy.fabs(dxp))
 
 
@@ -15736,3 +15736,17 @@ def test_small_r_c_matches_python_all_derivatives():
             numpy.amax(numpy.fabs(as_numpy(dc.getOrbit_dxdv() - dp.getOrbit_dxdv())))
             < 1e-6
         )
+
+
+# special.pow_or_inf: x**y for a Python float, inf (not OverflowError) beyond
+# float64; exact x**y just below the overflow threshold and for arrays
+def test_special_pow_or_inf():
+    from galpy.util import special
+
+    assert special.pow_or_inf(0.1, -500.0) == numpy.inf
+    # 2**1024 overflows; 2**(1024 - 1e-8) is within 1e-6 of log(max) yet finite
+    assert special.pow_or_inf(2.0, 1024.0) == numpy.inf
+    assert special.pow_or_inf(2.0, 1024.0 - 1e-8) == 2.0 ** (1024.0 - 1e-8)
+    assert special.pow_or_inf(3.0, 2.5) == 3.0**2.5
+    x = numpy.array([0.5, 2.0])
+    numpy.testing.assert_array_equal(special.pow_or_inf(x, 3.0), x**3.0)
