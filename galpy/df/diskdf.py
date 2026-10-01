@@ -29,7 +29,7 @@ numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), w
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
-from ..backend import as_numpy, get_namespace, is_backend_array, use
+from ..backend import as_numpy, get_namespace, is_backend_array, to_host, use
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
@@ -242,10 +242,11 @@ class diskdf(df):
     def _call_marginalizevperp(self, o, **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
         # Get l, vlos
-        l = o.ll(obs=[1.0, 0.0, 0.0], ro=1.0) * _DEGTORAD
-        vlos = o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        R = o.R(use_physical=False)
-        phi = o.phi(use_physical=False)
+        # a scipy marginalization below: read the orbit on the host
+        l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
+        vlos = to_host(o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        R = to_host(o.R(use_physical=False))
+        phi = to_host(o.phi(use_physical=False))
         # Get local circular velocity, projected onto the los
         vcirc = R**self._beta
         vcirclos = vcirc * numpy.sin(phi + l)
@@ -321,10 +322,11 @@ class diskdf(df):
     def _call_marginalizevlos(self, o, **kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         # Get d, l, vperp
-        l = o.ll(obs=[1.0, 0.0, 0.0], ro=1.0) * _DEGTORAD
-        vperp = o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        R = o.R(use_physical=False)
-        phi = o.phi(use_physical=False)
+        # a scipy marginalization below: read the orbit on the host
+        l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
+        vperp = to_host(o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        R = to_host(o.R(use_physical=False))
+        phi = to_host(o.phi(use_physical=False))
         # Get local circular velocity, projected onto the perpendicular
         # direction
         vcirc = R**self._beta
@@ -1080,7 +1082,7 @@ class diskdf(df):
                 )
             out = self._vmomentsurfacemass(*args, **kwargs)
             if _APY_UNITS:
-                return units.Quantity(out * fac, unit=u)
+                return units.Quantity(to_host(out * fac), unit=u)
             else:
                 return out * fac
         else:
@@ -1773,15 +1775,17 @@ class diskdf(df):
             xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
         _, _, rperi, rap = self._aA.EccZmaxRperiRap(
             xE,
-            numpy.sqrt(2.0 * (E - self._psp(xE)) - L**2.0 / xE**2.0),
+            numpy.sqrt(2.0 * (E - to_host(self._psp(xE))) - L**2.0 / xE**2.0),
             L / xE,
             0.0,
             0.0,
         )
-        return (
-            self._aA._aAS.actionsFreqs(xE, 0.0, L / xE, 0.0, 0.0)[3][0],
-            rap[0],
-            rperi[0],
+        return to_host(  # read by the numpy sampler
+            (
+                self._aA._aAS.actionsFreqs(xE, 0.0, L / xE, 0.0, 0.0)[3][0],
+                rap[0],
+                rperi[0],
+            )
         )
 
     def sample(
