@@ -1129,3 +1129,37 @@ def test_integrate_inbackend_accepts_deprecated_potential_list(method):
     numpy.testing.assert_array_equal(
         as_numpy(o_list.getOrbit()), as_numpy(o_sum.getOrbit())
     )
+
+
+@pytest.mark.parametrize("flag", ["radec", "lb"])
+@pytest.mark.parametrize(
+    "backend_name", [b for b, h in (("jax", HAVE_JAX), ("torch", HAVE_TORCH)) if h]
+)
+def test_backend_sky_ic_is_converted(backend_name, flag):
+    # A backend IC given in sky coordinates used to keep its raw (ra, dec, ...)
+    # values as the integrated IC (R off by ~950); it is now the converted
+    # galactocentric IC, on the backend. A differentiated one is refused (not
+    # yet differentiable w.r.t. sky coordinates) instead of silently wrong.
+    from galpy.potential import MWPotential2014
+
+    sky = numpy.array(
+        [[20.0, 30.0, 2.0, -1.0, 3.0, 40.0], [120.0, -30.0, 0.5, 1.0, 0.3, -40.0]]
+    )
+    ts = numpy.linspace(0.0, 1.0, 5)
+    ref = Orbit(sky, **{flag: True})
+    ref.integrate(ts, MWPotential2014, method="dop853_c")
+    xp = jnp if backend_name == "jax" else torch
+    o = Orbit(xp.asarray(sky), **{flag: True})
+    assert is_backend_array(o._ic_backend)
+    numpy.testing.assert_allclose(as_numpy(o._ic_backend), ref.vxvv, rtol=1e-15)
+    o.integrate(ts, MWPotential2014, method="dop853_c")
+    numpy.testing.assert_allclose(as_numpy(o.R(ts)), ref.R(ts), rtol=1e-10)
+    if backend_name == "torch":
+        sky_t = torch.tensor(sky, requires_grad=True)
+    else:
+        sky_t = None
+    with pytest.raises(NotImplementedError, match="sky coordinates"):
+        if sky_t is not None:
+            Orbit(sky_t, **{flag: True})
+        else:
+            jax.grad(lambda s: Orbit(s, **{flag: True}).R().sum())(jnp.asarray(sky))
