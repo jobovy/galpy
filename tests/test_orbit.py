@@ -16276,3 +16276,24 @@ def test_orbit_phi1phi2_multi_shape_and_time():
         assert numpy.allclose(multi.phi2(ts)[i], single.phi2(ts))
         assert numpy.allclose(multi.pmphi1(ts)[i], single.pmphi1(ts))
         assert numpy.allclose(multi.pmphi2(ts)[i], single.pmphi2(ts))
+
+
+# Setting up an Orbit in sky coordinates must not modify the input array: with
+# uvw=True the velocities were divided by vo in place (views of the input)
+def test_orbit_setup_sky_does_not_modify_input():
+    from galpy.orbit import Orbit
+
+    for kw in (
+        {"lb": True, "uvw": True},
+        {"radec": True, "uvw": True},
+        {"radec": True},
+        {"lb": True},
+    ):
+        sky = numpy.array(
+            [[20.0, 30.0, 2.0, -10.0, 5.0, 40.0], [120.0, -30.0, 0.5, 3.0, -2.0, -40.0]]
+        )
+        before = sky.copy()
+        o = Orbit(sky, **kw)
+        numpy.testing.assert_array_equal(sky, before, err_msg=str(kw))
+        # and the orbit is the one set up from a private copy
+        numpy.testing.assert_array_equal(o.vxvv, Orbit(before.copy(), **kw).vxvv)

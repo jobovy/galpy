@@ -791,12 +791,9 @@ class Orbit:
                 X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
                     l, b, d, vlos, pmll, pmbb, degree=True
                 ).T
-            X /= self._ro
-            Y /= self._ro
-            Z /= self._ro
-            vx /= self._vo
-            vy /= self._vo
-            vz /= self._vo
+            # out-of-place: with uvw=True, vx, vy, vz are views of the input
+            X, Y, Z = X / self._ro, Y / self._ro, Z / self._ro
+            vx, vy, vz = vx / self._vo, vy / self._vo, vz / self._vo
             vsun = numpy.array(
                 [
                     self._solarmotion[0] / self._vo,
