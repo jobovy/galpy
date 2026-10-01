@@ -992,6 +992,16 @@ _GRAD_CASES = {
         ),
         [0.1, -0.3, 0.2, 0.05, 1.1, 0.8, 0.3, 1.2],
     ),
+    "radec_to_lb": (
+        lambda xp, x: coords.radec_to_lb(x[0:3], x[3:6], degree=True, epoch=None),
+        [20.0, 120.0, 300.0, 30.0, -30.0, 70.0],
+    ),
+    "pmrapmdec_to_pmllpmbb": (
+        lambda xp, x: coords.pmrapmdec_to_pmllpmbb(
+            x[0:2], x[2:4], x[4:6], x[6:8], degree=True, epoch=None
+        ),
+        [1.0, -2.0, 0.5, 0.3, 20.0, 120.0, 30.0, -30.0],
+    ),
     "pmrapmdec_to_custom": (
         lambda xp, x: coords.pmrapmdec_to_custom(
             x[0:2], x[2:4], x[4:6], x[6:8], T=_T_CUSTOM, degree=True
@@ -1005,18 +1015,25 @@ _GRAD_CASES = {
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_migrated_transforms_grad_vs_fd(backend_name, name):
     # the migrated (formerly numpy-only) transforms differentiate: AD vs a
-    # central difference (h = 1e-6: truncation ~1e-12, roundoff ~1e-10)
+    # central difference of the backend function (relative h = 1e-6)
     f, x0 = _GRAD_CASES[name]
     x0 = numpy.array(x0)
 
     def scalar(xp, x):
         return _stack_scalar(xp, f(xp, x))
 
-    h = 1e-6
+    # a central difference of the SAME backend function (numpy's may be a
+    # different implementation, e.g. astropy's radec_to_lb)
+    xp = jnp if backend_name == "jax" else torch
+    hs = 1e-6 * numpy.maximum(1.0, numpy.fabs(x0))  # degree inputs are ~100
     fd = numpy.array(
         [
-            (scalar(numpy, x0 + h * e) - scalar(numpy, x0 - h * e)) / (2.0 * h)
-            for e in numpy.eye(len(x0))
+            float(
+                as_numpy(scalar(xp, xp.asarray(x0 + h * e)))
+                - as_numpy(scalar(xp, xp.asarray(x0 - h * e)))
+            )
+            / (2.0 * h)
+            for h, e in zip(hs, numpy.eye(len(x0)))
         ]
     )
     if backend_name == "jax":
