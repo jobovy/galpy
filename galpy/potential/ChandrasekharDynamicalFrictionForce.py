@@ -10,6 +10,7 @@ from scipy import interpolate, special
 
 from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..backend import special as _backend_special
+from ..backend import to_host
 from ..backend._namespaces import under_trace
 from ..backend.interpolate import Spline1D
 from ..util import conversion
@@ -161,7 +162,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             self._sigmars_4interp = (
                 fast_sigmars
                 if fast_sigmars is not None
-                else numpy.array([sigmar(x) for x in self._sigmar_rs_4interp])
+                else numpy.array(to_host([sigmar(x) for x in self._sigmar_rs_4interp]))
             )
         if grad_xp is None and numpy.any(numpy.isnan(self._sigmars_4interp)):
             # Check for case where density is zero, in that case, just
@@ -170,10 +171,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             nanrs_indx = numpy.isnan(self._sigmars_4interp)
             if numpy.all(
                 numpy.array(
-                    [
-                        self._dens_host(r * _INVSQRTTWO, r * _INVSQRTTWO)
-                        for r in self._sigmar_rs_4interp[nanrs_indx]
-                    ]
+                    to_host(
+                        [
+                            self._dens_host(r * _INVSQRTTWO, r * _INVSQRTTWO)
+                            for r in self._sigmar_rs_4interp[nanrs_indx]
+                        ]
+                    )
                 )
                 == 0.0
             ):

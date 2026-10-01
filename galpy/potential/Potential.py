@@ -29,6 +29,8 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     is_backend_compatible,
+    like,
+    on_host,
 )
 from ..backend import quadrature as _bquad
 from ..backend import to_host
@@ -3096,11 +3098,13 @@ def plotPotentials(
         for ii in range(nrs):
             for jj in range(nzs):
                 if xy:
-                    R, phi, z = coords.rect_to_cyl(Rs[ii], zs[jj], 0.0)
+                    R, phi, z = coords.rect_to_cyl(Rs[ii], zs[jj], 0.0, xp=numpy)
                 else:
                     R, z = Rs[ii], zs[jj]
-                potRz[ii, jj] = evaluatePotentials(
-                    Pot, numpy.fabs(R), z, phi=phi, t=t, use_physical=False
+                potRz[ii, jj] = to_host(
+                    evaluatePotentials(
+                        Pot, numpy.fabs(R), z, phi=phi, t=t, use_physical=False
+                    )
                 )
             if effective:
                 potRz[ii, :] += 0.5 * Lz**2 / Rs[ii] ** 2.0
@@ -3250,11 +3254,13 @@ def plotDensities(
         for ii in range(nrs):
             for jj in range(nzs):
                 if xy:
-                    R, phi, z = coords.rect_to_cyl(Rs[ii], zs[jj], 0.0)
+                    R, phi, z = coords.rect_to_cyl(Rs[ii], zs[jj], 0.0, xp=numpy)
                 else:
                     R, z = Rs[ii], zs[jj]
-                potRz[ii, jj] = evaluateDensities(
-                    Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
+                potRz[ii, jj] = to_host(
+                    evaluateDensities(
+                        Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
+                    )
                 )
         if not savefilename == None:
             print("Writing savefile " + savefilename + " ...")
@@ -3386,9 +3392,11 @@ def plotSurfaceDensities(
         surfxy = numpy.zeros((nxs, nys))
         for ii in range(nxs):
             for jj in range(nys):
-                R, phi, _ = coords.rect_to_cyl(xs[ii], ys[jj], 0.0)
-                surfxy[ii, jj] = evaluateSurfaceDensities(
-                    Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
+                R, phi, _ = coords.rect_to_cyl(xs[ii], ys[jj], 0.0, xp=numpy)
+                surfxy[ii, jj] = to_host(
+                    evaluateSurfaceDensities(
+                        Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
+                    )
                 )
         if not savefilename == None:
             print("Writing savefile " + savefilename + " ...")
@@ -3780,13 +3788,20 @@ def rE(Pot, E, t=0.0):
     rstart = _rEFindStart(1.0, E, Pot, t=t)
     try:
         return optimize.brentq(
-            _rEfunc, 10.0**-5.0, rstart, args=(E, Pot, t), maxiter=200, disp=False
+            on_host(_rEfunc),
+            10.0**-5.0,
+            rstart,
+            args=(E, Pot, t),
+            maxiter=200,
+            disp=False,
         )
     except ValueError:  # Probably E small and starting rE to great
         rlower = _rEFindStart(10.0**-5.0, E, Pot, t=t, lower=True)
         # a relative tolerance: brentq's default absolute xtol=2e-12 is only
         # ~1e-4 of an rE below 1e-5 (the radii this bracket is for)
-        return optimize.brentq(_rEfunc, rlower, rstart, args=(E, Pot, t), xtol=1e-300)
+        return optimize.brentq(
+            on_host(_rEfunc), rlower, rstart, args=(E, Pot, t), xtol=1e-300
+        )
 
 
 def _rEfunc(rE, E, pot, t=0.0):
@@ -3885,13 +3900,21 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
     if corotation:
         try:
             out = optimize.brentq(
-                _corotationR_eq, 0.0000001, 1000.0, args=(Pot, OmegaP, t), **kwargs
+                on_host(_corotationR_eq),
+                0.0000001,
+                1000.0,
+                args=(Pot, OmegaP, t),
+                **kwargs,
             )
         except ValueError:
             try:
                 # Sometimes 0.0000001 is numerically too small to start...
                 out = optimize.brentq(
-                    _corotationR_eq, 0.01, 1000.0, args=(Pot, OmegaP, t), **kwargs
+                    on_host(_corotationR_eq),
+                    0.01,
+                    1000.0,
+                    args=(Pot, OmegaP, t),
+                    **kwargs,
                 )
             except ValueError:
                 return None
@@ -3901,7 +3924,11 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
     else:
         try:
             out = optimize.brentq(
-                _lindbladR_eq, 0.0000001, 1000.0, args=(Pot, OmegaP, m, t), **kwargs
+                on_host(_lindbladR_eq),
+                0.0000001,
+                1000.0,
+                args=(Pot, OmegaP, m, t),
+                **kwargs,
             )
         except ValueError:
             return None
@@ -3994,16 +4021,18 @@ def vcirc(Pot, R, phi=None, t=0.0):
 
     # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt.
     xp = get_namespace(R)
+    # forced numpy with backend potential parameters: read the force on the host
+    rd = to_host if xp is numpy else (lambda v: v)
     try:
         return xp.sqrt(
-            -R * evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False)
+            -R * rd(evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False))
         )
     except PotentialError:
         from ..potential import toPlanarPotential
 
         Pot = toPlanarPotential(Pot)
         return xp.sqrt(
-            -R * evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False)
+            -R * rd(evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False))
         )
 
 
@@ -4834,6 +4863,8 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
     r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
     omegac2 = -evaluaterforces(Pot, R, z, phi=phi, t=t, use_physical=False) / r
     d2phidr2 = evaluater2derivs(Pot, R, z, phi=phi, t=t, use_physical=False)
+    if isinstance(M, numpy.ndarray):  # a numpy mass array follows the forces
+        M = like(omegac2, M)
     return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
 
 
@@ -4990,7 +5021,9 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
         return _bk_brentq(f, zlo, zhi)
     # Check z=0 and whether a solution exists
     if (
-        numpy.fabs(_evaluatePotentials(Pot, R, 0.0, phi=phi, t=t) + Lz2over2R2 - E)
+        numpy.fabs(
+            to_host(_evaluatePotentials(Pot, R, 0.0, phi=phi, t=t) + Lz2over2R2 - E)
+        )
         < 1e-8
     ):
         return 0.0
@@ -5006,7 +5039,9 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
         zstart *= 2.0
     try:
         out = optimize.brentq(
-            lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E,
+            on_host(
+                lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
+            ),
             0.0,
             zstart,
         )
@@ -5096,7 +5131,11 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     ):
         Rstart /= 2.0
     Rmin = optimize.brentq(
-        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E,
+        on_host(
+            lambda R: (
+                _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E
+            )
+        ),
         Rstart,
         RLz,
     )
@@ -5109,7 +5148,11 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     ):
         Rstart *= 2.0
     Rmax = optimize.brentq(
-        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E,
+        on_host(
+            lambda R: (
+                _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E
+            )
+        ),
         RLz,
         Rstart,
     )
@@ -5147,7 +5190,7 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
     rhi = _rhalfFindStart(1.0, Pot, tot_mass, t=t)
     rlo = _rhalfFindStart(1.0, Pot, tot_mass, t=t, lower=True)
     return optimize.brentq(
-        _rhalffunc, rlo, rhi, args=(Pot, tot_mass, t), maxiter=200, disp=False
+        on_host(_rhalffunc), rlo, rhi, args=(Pot, tot_mass, t), maxiter=200, disp=False
     )
 
 
