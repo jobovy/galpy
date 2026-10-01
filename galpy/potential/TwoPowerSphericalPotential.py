@@ -19,6 +19,7 @@ from ..backend import (
     device_of,
     get_namespace,
     radial_limits,
+    to_host,
 )
 from ..backend._coerce import mask_where, power_series
 from ..backend.special import hyp2f1 as _hyp2f1
@@ -1503,7 +1504,7 @@ class NFWPotential(TwoPowerSphericalPotential):
             od = overdens / conversion.dens_in_criticaldens(vo, ro, H=H)
         else:
             od = overdens / conversion.dens_in_meanmatterdens(vo, ro, H=H, Om=Om)
-        dc = 12.0 * self.dens(self.a, 0.0, t=t, use_physical=False) / od
+        dc = to_host(12.0 * self.dens(self.a, 0.0, t=t, use_physical=False) / od)
         x = optimize.brentq(
             lambda y: (numpy.log(1.0 + y) - y / (1.0 + y)) / y**3.0 - 1.0 / dc,
             0.01,

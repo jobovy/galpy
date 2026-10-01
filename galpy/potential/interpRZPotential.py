@@ -526,7 +526,12 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._vcircGrid = numpy.array(
-                    [vcirc(self._origPot, r, use_physical=False) for r in self._rgrid]
+                    to_host(
+                        [
+                            vcirc(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
                 self._vcircInterp = Spline1D(self._logrgrid, self._vcircGrid, k=3)
@@ -547,10 +552,12 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._dvcircdrGrid = numpy.array(
-                    [
-                        dvcircdR(self._origPot, r, use_physical=False)
-                        for r in self._rgrid
-                    ]
+                    to_host(
+                        [
+                            dvcircdR(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
                 self._dvcircdrInterp = Spline1D(self._logrgrid, self._dvcircdrGrid, k=3)
@@ -573,7 +580,12 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._epifreqGrid = numpy.array(
-                    [epifreq(self._origPot, r, use_physical=False) for r in self._rgrid]
+                    to_host(
+                        [
+                            epifreq(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             indx = True ^ numpy.isnan(self._epifreqGrid)
             if numpy.sum(indx) < 4:
@@ -609,10 +621,12 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._verticalfreqGrid = numpy.array(
-                    [
-                        verticalfreq(self._origPot, r, use_physical=False)
-                        for r in self._rgrid
-                    ]
+                    to_host(
+                        [
+                            verticalfreq(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
                 self._verticalfreqInterp = Spline1D(
