@@ -610,6 +610,16 @@ def like(ref, *arrays):
     return out[0] if len(out) == 1 else out
 
 
+def co_like(*arrays):
+    """``like`` toward whichever argument is a backend array: the numpy ones
+    join its namespace and device (a numpy LEFT operand would otherwise own the
+    product). A no-op returning the inputs unchanged when all are numpy."""
+    for a in arrays:
+        if is_backend_array(a):
+            return like(a, *arrays)
+    return arrays
+
+
 def asarray_on_device(xp, a, device, dtype=None):
     """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
 

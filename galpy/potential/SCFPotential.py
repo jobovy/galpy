@@ -18,6 +18,7 @@ else:
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    co_like,
     coerce_coords,
     device_of,
     get_namespace,
@@ -27,8 +28,8 @@ from ..backend import (
     to_host,
 )
 from ..backend import use as _use_backend
-from ..backend._namespaces import namespace_from_arrays
-from ..backend.interpolate import eval_ppoly
+from ..backend._namespaces import namespace_from_arrays, under_trace
+from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -175,8 +176,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # array. Read them off numpy views; the coefficients STORED below stay
         # in whatever namespace they arrived in, so a backend build keeps its
         # gradient. No-op on numpy.
-        _Ac = as_numpy(Acos)
-        _As = None if Asin is None else as_numpy(Asin)
+        # A TRACED build (jax.grad of from_density) has no values to read: the
+        # value checks are skipped and isNonAxi follows the structure.
+        traced = under_trace(Acos, Asin)
+        _Ac = None if traced else as_numpy(Acos)
+        _As = None if (traced or Asin is None) else as_numpy(Asin)
         errorMessage = None
         if len(shape) != 3:
             errorMessage = "Acos must be a 3 dimensional numpy array"
@@ -184,7 +188,12 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif Asin is None and shape[1] > 1 and numpy.any(_Ac[:, :, 1:] != 0):
+        elif (
+            Asin is None
+            and shape[1] > 1
+            and not traced
+            and numpy.any(_Ac[:, :, 1:] != 0)
+        ):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -197,8 +206,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
-            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
+        if not traced and (
+            numpy.any(numpy.triu(_Ac, 1) != 0)
+            or (_As is not None and numpy.any(numpy.triu(_As, 1) != 0))
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -213,7 +223,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin is None
             or shape[1] == 1
-            or (numpy.all(_Ac[:, :, 1:] == 0) and numpy.all(_As[:, :, :] == 0))
+            or (
+                not traced
+                and numpy.all(_Ac[:, :, 1:] == 0)
+                and numpy.all(_As[:, :, :] == 0)
+            )
         ):
             self.isNonAxi = False
 
@@ -252,9 +266,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         - 2026-07-02 - Written - Bovy (UofT)
         """
         if callable(coeffs):
-            arr = numpy.array(
-                [numpy.asarray(to_host(coeffs(t)), dtype=float) for t in tgrid]
-            )
+            vals = [coeffs(t) for t in tgrid]
+            if any(is_backend_array(v) for v in vals):  # keep the gradient
+                xp = namespace_from_arrays(vals)
+                return xp.stack([xp.asarray(v) * 1.0 for v in vals])
+            arr = numpy.array([numpy.asarray(to_host(v), dtype=float) for v in vals])
+        elif is_backend_array(coeffs):
+            return coeffs * 1.0
         else:
             arr = numpy.asarray(to_host(coeffs), dtype=float)
         return arr
@@ -283,8 +301,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         ##Errors (each time slice must satisfy the static coefficient constraints)
         shape = Acos_all.shape
         # Same discrete validation/symmetry gate as _init_static.
-        _Ac = as_numpy(Acos_all)
-        _As = None if Asin_all is None else as_numpy(Asin_all)
+        traced = under_trace(Acos_all, Asin_all)
+        _Ac = None if traced else as_numpy(Acos_all)
+        _As = None if (traced or Asin_all is None) else as_numpy(Asin_all)
         errorMessage = None
         if Acos_all.ndim != 4 or shape[0] != Nt:
             errorMessage = (
@@ -296,7 +315,12 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
         elif Asin_all is None and not (shape[3] == 1 or shape[2] == shape[3]):
             errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
-        elif Asin_all is None and shape[2] > 1 and numpy.any(_Ac[:, :, :, 1:] != 0):
+        elif (
+            Asin_all is None
+            and shape[2] > 1
+            and not traced
+            and numpy.any(_Ac[:, :, :, 1:] != 0)
+        ):
             errorMessage = (
                 "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
                 + "Asin=None which implies an axi symmetric potential.\n"
@@ -309,8 +333,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
 
         ##Warnings
         warningMessage = None
-        if numpy.any(numpy.triu(_Ac, 1) != 0) or (
-            _As is not None and numpy.any(numpy.triu(_As, 1) != 0)
+        if not traced and (
+            numpy.any(numpy.triu(_Ac, 1) != 0)
+            or (_As is not None and numpy.any(numpy.triu(_As, 1) != 0))
         ):
             warningMessage = (
                 "Found non-zero values at expansion coefficients where m > l\n"
@@ -325,28 +350,59 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         if (
             Asin_all is None
             or shape[2] == 1
-            or (numpy.all(_Ac[:, :, :, 1:] == 0) and numpy.all(_As == 0))
+            or (not traced and numpy.all(_Ac[:, :, :, 1:] == 0) and numpy.all(_As == 0))
         ):
             self.isNonAxi = False
 
         N, L, M = shape[1], shape[2], shape[3]
         NN = sph_harm_normalization(L, M)
-        self._Acos_all = Acos_all * NN[numpy.newaxis, numpy.newaxis, :, :]
-        if Asin_all is not None:
-            self._Asin_all = Asin_all * NN[numpy.newaxis, numpy.newaxis, :, :]
-        else:
-            self._Asin_all = numpy.zeros_like(self._Acos_all)
         self._coeff_shape = (N, L, M)
-        # Cubic-spline time interpolators over the flattened coefficient arrays;
-        # CubicSpline is a PPoly subclass whose coefficients are passed to C for
-        # exact Python/C parity (see _parse_scf_pot).
-        self._Acos_interp = CubicSpline(self._tgrid, self._Acos_all.reshape(Nt, -1))
-        self._Asin_interp = CubicSpline(self._tgrid, self._Asin_all.reshape(Nt, -1))
+        if is_backend_array(Acos_all):
+            self._init_timedep_backend(Acos_all, Asin_all, NN, traced)
+        else:
+            self._Acos_all = Acos_all * NN[numpy.newaxis, numpy.newaxis, :, :]
+            if Asin_all is not None:
+                self._Asin_all = Asin_all * NN[numpy.newaxis, numpy.newaxis, :, :]
+            else:
+                self._Asin_all = numpy.zeros_like(self._Acos_all)
+            # Cubic-spline time interpolators over the flattened coefficient
+            # arrays; CubicSpline is a PPoly subclass whose coefficients are
+            # passed to C for exact Python/C parity (see _parse_scf_pot).
+            self._Acos_interp = CubicSpline(self._tgrid, self._Acos_all.reshape(Nt, -1))
+            self._Asin_interp = CubicSpline(self._tgrid, self._Asin_all.reshape(Nt, -1))
         self._cached_coeff_t = None
         # Placeholder current-time coefficients; refreshed by
         # _ensure_coeffs_for_time before each evaluation.
         self._Acos = self._Acos_all[0]
         self._Asin = self._Asin_all[0]
+
+    def _init_timedep_backend(self, Acos_all, Asin_all, NN, traced):
+        """Backend coefficient time series: the time splines are fit in the
+        backend (scipy CubicSpline's not-a-knot spline), so the potential stays
+        differentiable w.r.t. the coefficients; the scipy interpolators (numpy
+        and C evaluation) are built from their values when those are concrete."""
+        xp = get_namespace(Acos_all)
+        Nt = len(self._tgrid)
+        _NN = like(Acos_all, NN[numpy.newaxis, numpy.newaxis, :, :])
+        self._Acos_all = Acos_all * _NN
+        self._Asin_all = (
+            xp.zeros_like(self._Acos_all) if Asin_all is None else Asin_all * _NN
+        )
+        self._Acos_c = cubic_spline_coeffs(
+            xp, self._tgrid, xp.reshape(self._Acos_all, (Nt, -1)), bc="not-a-knot"
+        )
+        self._Asin_c = cubic_spline_coeffs(
+            xp, self._tgrid, xp.reshape(self._Asin_all, (Nt, -1)), bc="not-a-knot"
+        )
+        if traced:
+            self._Acos_interp = self._Asin_interp = None
+        else:
+            self._Acos_interp = CubicSpline(
+                self._tgrid, as_numpy(self._Acos_all).reshape(Nt, -1)
+            )
+            self._Asin_interp = CubicSpline(
+                self._tgrid, as_numpy(self._Asin_all).reshape(Nt, -1)
+            )
 
     def _ensure_coeffs_for_time(self, t):
         """
@@ -406,8 +462,12 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # the shared eval_ppoly already broadcasts a trailing coefficient axis
         # (cb.ndim == 3), which is all the removed local clone added; it also
         # does the one-gather+unstack the clone did not.
-        acos_flat = eval_ppoly(xp, self._Acos_interp.x, self._Acos_interp.c, tb)
-        asin_flat = eval_ppoly(xp, self._Asin_interp.x, self._Asin_interp.c, tb)
+        if getattr(self, "_Acos_c", None) is not None:  # backend-fit splines
+            acos_flat = eval_ppoly(xp, self._tgrid, self._Acos_c, tb)
+            asin_flat = eval_ppoly(xp, self._tgrid, self._Asin_c, tb)
+        else:
+            acos_flat = eval_ppoly(xp, self._Acos_interp.x, self._Acos_interp.c, tb)
+            asin_flat = eval_ppoly(xp, self._Asin_interp.x, self._Asin_interp.c, tb)
         shape = (N, L, M) if getattr(tb, "ndim", 0) == 0 else (tb.shape[0], N, L, M)
         return xp.reshape(acos_flat, shape), xp.reshape(asin_flat, shape)
 
@@ -869,8 +929,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
                 if As is not None:
                     any_sin = True
                 Asin_list.append(As)
-            Acos_all = numpy.array(to_host(Acos_list))
-            Asin_all = numpy.array(to_host(Asin_list)) if any_sin else None
+            if is_backend_array(Acos_list[0]):  # keep the gradient
+                _xp = get_namespace(Acos_list[0])
+                Acos_all = _xp.stack(Acos_list)
+                Asin_all = _xp.stack(Asin_list) if any_sin else None
+            else:
+                Acos_all = numpy.array(to_host(Acos_list))
+                Asin_all = numpy.array(to_host(Asin_list)) if any_sin else None
         return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
 
     def _rhoTilde(self, r, N, L):
@@ -2630,12 +2695,13 @@ def _dens_accepts_arrays(dens, numOfParam, dens_kw):
     """
     probe = numpy.array([0.5, 0.75, 1.0])
     try:
-        out = numpy.asarray(dens(*([probe] * numOfParam), **dens_kw))
+        out = dens(*([probe] * numOfParam), **dens_kw)
     except Exception:
         return False
     # shape check, not merely "it did not raise": a density that broadcasts to a
-    # scalar, or returns the wrong length, must NOT be batched.
-    return out.shape == probe.shape
+    # scalar, or returns the wrong length, must NOT be batched. Read without
+    # converting (a differentiated parameter makes `out` a backend array).
+    return numpy.shape(out) == probe.shape
 
 
 class _TimeDepDensityNotVectorized(Exception):
@@ -2685,10 +2751,6 @@ def _batched_timedep(tgrid, per_time_elems, compute):
     -----
     - 2026-07-03 - Written - Bovy (UofT)
     """
-    # Construction-time numerical setup: pin to numpy so the time-vectorized
-    # quadrature (density evaluations + the namespace-dispatched _C/_xiToR basis)
-    # runs on numpy regardless of any forced backend default (byte-identical no-op
-    # on the numpy backend).
     # Pure orchestration -- batching and concatenation only. It must NOT pin to
     # numpy: `compute` IS the coefficient quadrature, so pinning here would undo
     # the migration for every time-dependent build.
@@ -2718,7 +2780,8 @@ def _tdep_node_contract(base, ft, weights):
     -----
     - 2026-09-07 - Written - Bovy (UofT)
     """
-    _ftw = like(base, ft * weights[:, numpy.newaxis])
+    base, ft = co_like(base, ft)  # ft is a backend array for backend parameters
+    _ftw = like(base, ft * like(ft, weights[:, numpy.newaxis]))
     return get_namespace(base).tensordot(_ftw, base, axes=([0], [0]))
 
 
@@ -2741,17 +2804,20 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
         dens_kw = {}
     else:
         dens_kw = {"use_physical": False}
+    # shapes read without converting: a density over a differentiated
+    # (traced / grad-tracking) parameter returns a backend array
     try:
-        out = numpy.atleast_1d(dens(*param, t=tgrid, **dens_kw))
+        out = dens(*param, t=tgrid, **dens_kw)
     except Exception:
         raise _TimeDepDensityNotVectorized()
-    if out.shape != numpy.shape(tgrid):
+    if (numpy.shape(out) or (1,)) != numpy.shape(tgrid):
         raise _TimeDepDensityNotVectorized()
 
+    def _keep(v):
+        return v * 1.0 if is_backend_array(v) else numpy.asarray(v, dtype=float)
+
     def f(R, z, phi):
-        return numpy.asarray(
-            dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw), dtype=float
-        )
+        return _keep(dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw))
 
     # Spatial-batching companion: evaluate every (node, time) pair in one call by
     # giving the spatial arguments a trailing axis for `t` to broadcast against.
@@ -2766,14 +2832,11 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
         # Pinned to numpy like `_dens_accepts_arrays`: this PROBES user code with
         # try/except, so it must not run under a forced backend.
         with _use_backend("numpy", force=True):
-            sout = numpy.asarray(
-                dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw),
-                dtype=float,
-            )
+            sout = dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw)
     except Exception:
         pass
     else:
-        if sout.shape == (sprobe.size,) + numpy.shape(tgrid):
+        if numpy.shape(sout) == (sprobe.size,) + numpy.shape(tgrid):
 
             def f_batched(R, z, phi):
                 # Slice to numOfParam and broadcast BEFORE adding the axis: the
@@ -2787,7 +2850,7 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
                     *[numpy.asarray(v) for v in (R, z, phi)[:numOfParam]]
                 )
                 cols = [numpy.ascontiguousarray(v)[:, numpy.newaxis] for v in vals]
-                return numpy.asarray(dens(*cols, t=tgrid, **dens_kw), dtype=float)
+                return _keep(dens(*cols, t=tgrid, **dens_kw))
 
             f.batched = f_batched
 
@@ -2824,7 +2887,7 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
         base = a**3.0 * (1 + xi) ** 2.0 * (1 - xi) ** -3.0 * _C(xi, N, 1)[:, 0]
         # `f` evaluates the density over tgrid and returns NUMPY; anchor it
         # before it meets the (now backend) base, as in the axi/general twins.
-        _ft = like(base, f(r, 0.0, 0.0))
+        base, _ft = co_like(base, f(r, 0.0, 0.0))
         return _ft[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
 
     Ksample = [max(N + 1, 20)]
@@ -2875,7 +2938,7 @@ def _scf_compute_coeffs_axi_timedep(
         base = phi_nl * dV  # (N, L)
         # `f` evaluates the density over tgrid and returns NUMPY, so it would own
         # `f(...) * base` once base is a backend array; anchor it first.
-        _ft = like(base, f(R, z, 0.0))
+        base, _ft = co_like(base, f(R, z, 0.0))
         return _ft[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
 
     def integrand_batched_reduce(xi, costheta, weights):
@@ -2956,7 +3019,7 @@ def _scf_compute_coeffs_timedep(
         _cs = like(phi_nl, numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)]))
         base = phi_nl[numpy.newaxis, :, :, :] * _cs * dV  # (2, N, L, L)
         # `f` returns NUMPY over tgrid; anchor before it meets the backend base.
-        _ft = like(base, f(R, z, phi))
+        base, _ft = co_like(base, f(R, z, phi))
         return _ft[:, None, None, None, None] * base[numpy.newaxis]
 
     def integrand_batched_reduce(xi, costheta, phi, weights):

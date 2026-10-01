@@ -280,8 +280,8 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     )
     yb = xp.astype(y, xb.dtype) if hasattr(xp, "astype") else y * 1.0
     n = xb.shape[0]
-    if n < 3:
-        raise ValueError("cubic_spline_coeffs requires at least 3 points")
+    if n < 2:
+        raise ValueError("cubic_spline_coeffs requires at least 2 points")
     h = xb[1:] - xb[:-1]  # (n-1,)
     # A 2-D y of shape (n, m) means m independent splines on the SAME grid -> one
     # multi-RHS solve (one reduction for the (n, m) rhs). Broadcast the (n-1,)
@@ -299,6 +299,9 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         raise ValueError(
             f"cubic_spline_coeffs bc must be 'natural' or 'not-a-knot'; got {bc!r}"
         )
+    if n == 2:
+        # a straight line (scipy CubicSpline's two-point spline, either bc)
+        return _cubic_coeffs_from_M(xp, yb * 0.0, h, hh, dslope, yb)
     if bc == "not-a-knot" and n == 3:
         # a single interior knot: not-a-knot makes the three points one
         # parabola (scipy CubicSpline's convention), whose second derivative
