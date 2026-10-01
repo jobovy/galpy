@@ -252,13 +252,20 @@ def _hyp2f1_1_euler(b, c, z):
     sum rescaled so it cannot overflow; as in the C implementation"""
     scalar = numpy.ndim(z) == 0
     z = float(z) if scalar else numpy.asarray(z, dtype=float)
-    t, out, lsc = 1.0, 1.0, 0.0
+    t, out = 1.0, 1.0
+    lsc = 0.0 if scalar else numpy.zeros_like(z)  # per-entry rescaling
     for k in range(_IBETA_MAXITER):
         t = t * ((c - 1.0 + k) * (c - b + k) / ((c + k) * (k + 1.0))) * z
         out = out + t
-        big = numpy.amax(out) > 1e200 if not scalar else out > 1e200
-        if big:
-            out, t, lsc = out * 1e-200, t * 1e-200, lsc + 460.51701859880914
+        if scalar:
+            if out > 1e200:
+                out, t, lsc = out * 1e-200, t * 1e-200, lsc + 460.51701859880914
+        else:
+            big = out > 1e200
+            if numpy.any(big):
+                out = numpy.where(big, out * 1e-200, out)
+                t = numpy.where(big, t * 1e-200, t)
+                lsc = numpy.where(big, lsc + 460.51701859880914, lsc)
         if k > 5 and (
             (t <= 1e-17 * out or out != out)
             if scalar
