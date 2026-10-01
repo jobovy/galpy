@@ -7,7 +7,7 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 
-from ..backend import get_namespace, is_backend_array, match_input_dtype
+from ..backend import get_namespace, is_backend_array, match_input_dtype, to_host
 from ..backend.interpolate import Spline1D, Spline2D
 from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
@@ -676,8 +676,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._potInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluatePotentials(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluatePotentials(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -707,8 +712,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._rforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluateRforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluateRforces(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -740,8 +750,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._zforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluatezforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluatezforces(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -781,8 +796,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._r2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluateR2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluateR2derivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -820,8 +837,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._z2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluatez2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluatez2derivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -859,8 +878,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._rzderivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluateRzderivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluateRzderivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -890,8 +911,13 @@ class interpRZPotential(Potential):
                         numpy.exp(self._densInterp.ev(R[indx], z[indx])) - 10.0**-10.0
                     )
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluateDensities(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluateDensities(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -913,8 +939,8 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._vcircInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = vcirc(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    vcirc(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
@@ -936,8 +962,8 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._dvcircdrInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = dvcircdR(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    dvcircdR(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
@@ -959,8 +985,8 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._epifreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = epifreq(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    epifreq(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
@@ -982,8 +1008,8 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._verticalfreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = verticalfreq(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    verticalfreq(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:

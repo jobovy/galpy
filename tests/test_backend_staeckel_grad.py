@@ -254,7 +254,7 @@ def test_staeckel_actionsfreqs_c_true_backend(backend):
     det = (
         (lambda x: numpy.asarray(x))
         if backend == "jax"
-        else (lambda x: numpy.asarray(x.detach()))
+        else (lambda x: numpy.asarray(x.detach().cpu()))
     )
     # freq/angle VALUES byte-identical to numpy c=True over all orbits (incl. the
     # near-circular one, which drives the NaN->epifreq/omegac substitution).

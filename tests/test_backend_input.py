@@ -21,7 +21,7 @@ import numpy
 import pytest
 
 from galpy import backend
-from galpy.backend import backend_input, is_backend_array
+from galpy.backend import as_numpy, backend_input, is_backend_array
 
 # This module manages backends explicitly, so it is exempt from the global force.
 pytestmark = pytest.mark.backend_managed
@@ -192,7 +192,9 @@ def test_mixed_backend_and_numpy_coordinates(backend_name):
         f"{backend_name}: mixed coords did not stay on backend"
     )
     ref = [float(mp.Rforce(1.1, 0.2)), float(mp.Rforce(1.2, 0.1))]
-    numpy.testing.assert_allclose(numpy.asarray(got, dtype=float), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(
+        numpy.asarray(as_numpy(got), dtype=float), ref, rtol=1e-12
+    )
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)

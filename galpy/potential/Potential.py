@@ -31,6 +31,7 @@ from ..backend import (
     is_backend_compatible,
 )
 from ..backend import quadrature as _bquad
+from ..backend import to_host
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
@@ -3614,7 +3615,7 @@ def rl(Pot, lz, t=0.0):
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
     try:
         return optimize.brentq(
-            _rlfunc,
+            _rlfunc_host,
             10.0**-5.0,
             rstart,
             args=(numpy.fabs(lz), Pot, t),
@@ -3623,7 +3624,15 @@ def rl(Pot, lz, t=0.0):
         )
     except ValueError:  # Probably lz small and starting lz to great
         rlower = _rlFindStart(10.0**-5.0, numpy.fabs(lz), Pot, t=t, lower=True)
-        return optimize.brentq(_rlfunc, rlower, rstart, args=(numpy.fabs(lz), Pot, t))
+        return optimize.brentq(
+            _rlfunc_host, rlower, rstart, args=(numpy.fabs(lz), Pot, t)
+        )
+
+
+def _rlfunc_host(rl, lz, pot, t=0.0):
+    # scipy's brentq numpy-reads f(x): a forced backend's CUDA value must reach it
+    # on the host
+    return to_host(_rlfunc(rl, lz, pot, t=t))
 
 
 def _rlfunc(rl, lz, pot, t=0.0):

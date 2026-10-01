@@ -41,6 +41,7 @@ from ._namespaces import (
     resolve_namespace,
     restrict_to_single_thread,
     set_at,
+    to_host,
 )
 from ._resolver import (
     _seed_from_config,
@@ -76,6 +77,7 @@ __all__ = [
     "asarray_on_device",
     "like",
     "as_numpy",
+    "to_host",
     "as_numpy_constant",
     "exit_cast",
     "prefer_backend_namespace",

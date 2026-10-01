@@ -119,7 +119,7 @@ def test_staeckel_freq_value_c_true_matches_numpy(backend):
     for orbit in _ORBITS.values():
         ref = _np_freqs(*orbit)
         out = _AAS.actionsFreqs(*[arr([x]) for x in orbit])
-        got = [float(numpy.asarray(out[3 + k][0])) for k in range(3)]
+        got = [float(out[3 + k][0]) for k in range(3)]
         numpy.testing.assert_allclose(got, ref, rtol=1e-12)
 
 

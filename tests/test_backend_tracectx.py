@@ -119,8 +119,8 @@ def test_forced_backend_survives_a_fullgraph_compile():
     z = torch.tensor([0.1, 0.05, 0.2], dtype=torch.float64)
     with use("torch", force=True):
         eager = mp.Rforce(R, z)
-        torch._dynamo.reset()
         with no_torch_compile_deprecations():
+            torch._dynamo.reset()
             compiled = torch.compile(
                 lambda a, b: mp.Rforce(a, b), fullgraph=True, dynamic=False
             )(R, z)
@@ -142,8 +142,8 @@ def test_jit_mode_contextvars_are_readable_inside_a_trace():
 
     token = _JIT_CTX.set("torch")
     try:
-        torch._dynamo.reset()
         with no_torch_compile_deprecations():
+            torch._dynamo.reset()
             torch.compile(probe, fullgraph=True, dynamic=False)(
                 torch.tensor(1.5, dtype=torch.float64)
             )
@@ -184,8 +184,8 @@ def test_set_and_reset_survive_a_fullgraph_compile():
         finally:
             var.reset(token)
 
-    torch._dynamo.reset()
     with no_torch_compile_deprecations():
+        torch._dynamo.reset()
         got = torch.compile(f, fullgraph=True, dynamic=False)(
             torch.tensor(1.5, dtype=torch.float64)
         )
@@ -206,8 +206,8 @@ def test_backend_predicates_compile_when_jax_is_merely_installed():
     t = torch.tensor([1.0, 2.0], dtype=torch.float64)
 
     def compiled(f):
-        torch._dynamo.reset()
         with no_torch_compile_deprecations():
+            torch._dynamo.reset()
             return torch.compile(f, fullgraph=True, dynamic=False)(t)
 
     from galpy.backend._namespaces import (

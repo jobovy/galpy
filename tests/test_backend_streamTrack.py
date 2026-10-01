@@ -1004,7 +1004,7 @@ def test_streamtrack_class_backend_eval_exact(backend):
     xs = tr_b.x(float(q[3]))
     assert is_backend_array(xs)
     numpy.testing.assert_allclose(
-        as_numpy(xs), float(numpy.asarray(tr_np.x(float(q[3])))), rtol=1e-9, atol=1e-10
+        as_numpy(xs), float(tr_np.x(float(q[3]))), rtol=1e-9, atol=1e-10
     )
     # scalar tp -> single (6, 6) covariance (the out[0] backend scalar branch)
     cs = tr_b.cov(float(q[3]))

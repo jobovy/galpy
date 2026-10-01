@@ -119,7 +119,7 @@ def test_adiabatic_actions_value_parity(backend):
     for orbit in list(_ORBITS.values()) + list(_EDGE_ORBITS.values()):
         ref = _np_actions(_AA, orbit)
         out = _AA(*[arr([x]) for x in orbit])
-        got = (float(numpy.asarray(out[0][0])), float(numpy.asarray(out[2][0])))
+        got = (float(out[0][0]), float(out[2][0]))
         numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
 
 
