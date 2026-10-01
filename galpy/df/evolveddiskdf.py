@@ -29,6 +29,7 @@ from ..backend import (
     name_of_namespace,
 )
 from ..backend import quadrature as _bquad
+from ..backend import to_host
 from ..backend._namespaces import inbackend_ode_method
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
@@ -3254,15 +3255,18 @@ class evolveddiskdf(df):
     def _call_marginalizevperp(self, o, integrate_method="dopr54_c", **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
         # Get d, l, vlos
-        l = o.ll(obs=[1.0, 0.0, 0.0], ro=1.0) * _DEGTORAD
-        vlos = o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        R = o.R(use_physical=False)
-        phi = o.phi(use_physical=False)
+        # a scipy marginalization below: read the orbit on the host
+        l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
+        vlos = to_host(o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        R = to_host(o.R(use_physical=False))
+        phi = to_host(o.phi(use_physical=False))
         # Get local circular velocity, projected onto the los
-        vcirc = calcRotcurve(
-            planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
-            R,
-        )[0]
+        vcirc = to_host(
+            calcRotcurve(
+                planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
+                R,
+            )[0]
+        )
         vcirclos = vcirc * numpy.sin(phi + l)
         # Marginalize
         alphalos = phi + l
@@ -3326,16 +3330,19 @@ class evolveddiskdf(df):
     def _call_marginalizevlos(self, o, integrate_method="dopr54_c", **kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         # Get d, l, vperp
-        l = o.ll(obs=[1.0, 0.0, 0.0], ro=1.0) * _DEGTORAD
-        vperp = o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        R = o.R(use_physical=False)
-        phi = o.phi(use_physical=False)
+        # a scipy marginalization below: read the orbit on the host
+        l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
+        vperp = to_host(o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        R = to_host(o.R(use_physical=False))
+        phi = to_host(o.phi(use_physical=False))
         # Get local circular velocity, projected onto the perpendicular
         # direction
-        vcirc = calcRotcurve(
-            planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
-            R,
-        )[0]
+        vcirc = to_host(
+            calcRotcurve(
+                planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
+                R,
+            )[0]
+        )
         vcircperp = vcirc * numpy.cos(phi + l)
         # Marginalize
         alphaperp = numpy.pi / 2.0 + phi + l
