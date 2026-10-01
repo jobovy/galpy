@@ -90,6 +90,7 @@ from ..backend import (
     promote_common_dtype,
     promote_scalars,
     resolve_namespace,
+    to_host,
 )
 from ..backend._namespaces import namespace_from_arrays
 from ..util import _rotate_to_arbitrary_vector
@@ -557,6 +558,13 @@ def lbd_to_XYZ(l, b, d, degree=False):
     )
 
 
+def _stack_phasespace(xp, pos, vel):
+    """Backend (6,) / (N, 6) from scalarDecorator outputs (tuple / (N, 3))."""
+    if isinstance(pos, tuple):
+        return xp.stack(promote_scalars(xp, *pos, *vel))
+    return xp.concat(promote_common_dtype(xp, pos, vel), axis=1)
+
+
 def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):
     """
     Transform phase-space coordinates in rectangular Galactic coordinates to spherical Galactic coordinates (can take vector inputs)
@@ -589,6 +597,9 @@ def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):
     """
     lbd = XYZ_to_lbd(X, Y, Z, degree=degree)
     vrpmllpmbb = vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True)
+    xp = namespace_from_arrays((lbd[0], vrpmllpmbb[0]))
+    if xp is not None and xp is not numpy:
+        return _stack_phasespace(xp, lbd, vrpmllpmbb)
     if numpy.array(X).shape == ():
         return numpy.array(
             [lbd[0], lbd[1], lbd[2], vrpmllpmbb[0], vrpmllpmbb[1], vrpmllpmbb[2]]
@@ -632,6 +643,9 @@ def sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=False):
     """
     XYZ = lbd_to_XYZ(l, b, d, degree=degree)
     vxvyvz = vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=degree)
+    xp = namespace_from_arrays((XYZ[0], vxvyvz[0]))
+    if xp is not None and xp is not numpy:
+        return _stack_phasespace(xp, XYZ, vxvyvz)
     if numpy.array(l).shape == ():
         return numpy.array([XYZ[0], XYZ[1], XYZ[2], vxvyvz[0], vxvyvz[1], vxvyvz[2]])
     else:
@@ -1641,6 +1655,7 @@ def vxvyvz_to_galcenrect(
 
 
 @scalarDecorator
+@backendNative
 def vxvyvz_to_galcencyl(
     vx,
     vy,
@@ -1695,9 +1710,11 @@ def vxvyvz_to_galcencyl(
     vxyz = vxvyvz_to_galcenrect(
         vx, vy, vz, vsun=vsun, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot
     )
-    return numpy.array(
-        rect_to_cyl_vec(vxyz[:, 0], vxyz[:, 1], vxyz[:, 2], X, Y, Z, cyl=galcen)
-    ).T
+    vcyl = rect_to_cyl_vec(vxyz[:, 0], vxyz[:, 1], vxyz[:, 2], X, Y, Z, cyl=galcen)
+    xp = namespace_from_arrays(vcyl)
+    if xp is numpy:
+        return numpy.array(vcyl).T
+    return xp.stack(promote_scalars(xp, *vcyl), axis=-1)
 
 
 @scalarDecorator
@@ -1750,6 +1767,8 @@ def galcenrect_to_vxvyvz(
         return out
     vXg, vYg, vZg = promote_scalars(xp, vXg, vYg, vZg)
     dev = device_of(vXg)
+    if not isinstance(vsun, (list, tuple)):
+        vsun = asarray_on_device(xp, vsun, dev)
     data = xp.stack([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]])
     out = _apply_galcen_rot(xp, rot, data, batched, dev).T
     if _extra_rot:
@@ -2952,20 +2971,14 @@ def vRvz_to_pupv(vR, vz, R, z, delta=1.0, oblate=False, uv=False):
         u, v = Rz_to_uv(R, z, delta, oblate=oblate)
     else:
         u, v = R, z
+    xp = prefer_backend_namespace(vR, vz, u, v, delta)
+    vR, vz, u, v, delta = promote_scalars(xp, vR, vz, u, v, delta)
     if oblate:
-        pu = delta * (
-            vR * numpy.sinh(u) * numpy.sin(v) + vz * numpy.cosh(u) * numpy.cos(v)
-        )
-        pv = delta * (
-            vR * numpy.cosh(u) * numpy.cos(v) - vz * numpy.sinh(u) * numpy.sin(v)
-        )
+        pu = delta * (vR * xp.sinh(u) * xp.sin(v) + vz * xp.cosh(u) * xp.cos(v))
+        pv = delta * (vR * xp.cosh(u) * xp.cos(v) - vz * xp.sinh(u) * xp.sin(v))
     else:
-        pu = delta * (
-            vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(v)
-        )
-        pv = delta * (
-            vR * numpy.sinh(u) * numpy.cos(v) - vz * numpy.cosh(u) * numpy.sin(v)
-        )
+        pu = delta * (vR * xp.cosh(u) * xp.sin(v) + vz * xp.sinh(u) * xp.cos(v))
+        pv = delta * (vR * xp.sinh(u) * xp.cos(v) - vz * xp.cosh(u) * xp.sin(v))
     return (pu, pv)
 
 
@@ -2997,22 +3010,16 @@ def pupv_to_vRvz(pu, pv, u, v, delta=1.0, oblate=False):
     -----
     - 2017-12-04 - Written - Bovy (UofT)
     """
+    xp = prefer_backend_namespace(pu, pv, u, v, delta)
+    pu, pv, u, v, delta = promote_scalars(xp, pu, pv, u, v, delta)
     if oblate:
-        denom = delta * (numpy.sinh(u) ** 2.0 + numpy.cos(v) ** 2.0)
-        vR = (
-            pu * numpy.sinh(u) * numpy.sin(v) + pv * numpy.cosh(u) * numpy.cos(v)
-        ) / denom
-        vz = (
-            pu * numpy.cosh(u) * numpy.cos(v) - pv * numpy.sinh(u) * numpy.sin(v)
-        ) / denom
+        denom = delta * (xp.sinh(u) ** 2.0 + xp.cos(v) ** 2.0)
+        vR = (pu * xp.sinh(u) * xp.sin(v) + pv * xp.cosh(u) * xp.cos(v)) / denom
+        vz = (pu * xp.cosh(u) * xp.cos(v) - pv * xp.sinh(u) * xp.sin(v)) / denom
     else:
-        denom = delta * (numpy.sinh(u) ** 2.0 + numpy.sin(v) ** 2.0)
-        vR = (
-            pu * numpy.cosh(u) * numpy.sin(v) + pv * numpy.sinh(u) * numpy.cos(v)
-        ) / denom
-        vz = (
-            pu * numpy.sinh(u) * numpy.cos(v) - pv * numpy.cosh(u) * numpy.sin(v)
-        ) / denom
+        denom = delta * (xp.sinh(u) ** 2.0 + xp.sin(v) ** 2.0)
+        vR = (pu * xp.cosh(u) * xp.sin(v) + pv * xp.sinh(u) * xp.cos(v)) / denom
+        vz = (pu * xp.sinh(u) * xp.cos(v) - pv * xp.cosh(u) * xp.sin(v)) / denom
     return (vR, vz)
 
 
@@ -3280,6 +3287,7 @@ def radec_to_custom(ra, dec, T=None, degree=False):
 
 @scalarDecorator
 @degreeDecorator([2, 3], [])
+@backendNative
 def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
     """
     Rotate proper motions in (ra,dec) to proper motions in a custom set of sky coordinates (phi1,phi2)
@@ -3319,11 +3327,21 @@ def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
     ra_ngp = float(ra_ngp)
     dec_ngp = float(dec_ngp)
     # Whether to use degrees and scalar input is handled by decorators
-    # was `dec[dec == dec_ngp] += 1e-16`; in-place masked assignment. Dispatch on
-    # what dec IS: this function is not backend-native, so under a forced backend
-    # its dec is still a plain ndarray and the forced namespace would reject it.
-    _xp = get_namespace(dec) if is_backend_array(dec) else numpy
-    dec = _xp.where(dec == dec_ngp, dec + 10.0**-16, dec)  # deal w/ pole.
+    xp = prefer_backend_namespace(pmra, pmdec, ra, dec)
+    if xp is not numpy:
+        pmra, pmdec, ra, dec = promote_scalars(xp, pmra, pmdec, ra, dec)
+        dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)  # deal w/ pole.
+        cosphi = numpy.sin(dec_ngp) * xp.cos(dec) - numpy.cos(dec_ngp) * xp.sin(
+            dec
+        ) * xp.cos(ra - ra_ngp)
+        sinphi = xp.sin(ra - ra_ngp) * numpy.cos(dec_ngp)
+        norm = xp.sqrt(cosphi**2.0 + sinphi**2.0)
+        cosphi, sinphi = cosphi / norm, sinphi / norm
+        # the numpy contraction below, as a per-point rotation of (pmra, pmdec)
+        return xp.stack(
+            [cosphi * pmra + sinphi * pmdec, -sinphi * pmra + cosphi * pmdec], axis=-1
+        )
+    dec = numpy.where(dec == dec_ngp, dec + 10.0**-16, dec)  # deal w/ pole.
     sindec_ngp = numpy.sin(dec_ngp)
     cosdec_ngp = numpy.cos(dec_ngp)
     sindec = numpy.sin(dec)
@@ -3480,11 +3498,13 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     # with ``vsun=0`` it accounts for the Zsun tilt and the astropy-
     # alignment ``galcen_extra_rot``.
     Lh = numpy.atleast_2d(
-        galcenrect_to_vxvyvz(Lx, Ly, Lz, vsun=[0.0, 0.0, 0.0], Xsun=Xsun, Zsun=Zsun)
+        to_host(
+            galcenrect_to_vxvyvz(Lx, Ly, Lz, vsun=[0.0, 0.0, 0.0], Xsun=Xsun, Zsun=Zsun)
+        )
     )[0]
     l_pole = numpy.degrees(numpy.arctan2(Lh[1], Lh[0]))
     b_pole = numpy.degrees(numpy.arctan2(Lh[2], numpy.sqrt(Lh[0] ** 2 + Lh[1] ** 2)))
-    radec = numpy.atleast_2d(lb_to_radec(l_pole, b_pole, degree=True))
+    radec = numpy.atleast_2d(to_host(lb_to_radec(l_pole, b_pole, degree=True)))
     ra_pole = float(radec[0, 0])
     dec_pole = float(radec[0, 1])
     L_eq = numpy.array(
@@ -3499,7 +3519,9 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     # Progenitor heliocentric Galactic (X, Y, Z) → (l, b) → (ra, dec).
     XYZ_h = galcenrect_to_XYZ(x, y, z, Xsun=Xsun, Zsun=Zsun)
     lbd = XYZ_to_lbd(float(XYZ_h[0]), float(XYZ_h[1]), float(XYZ_h[2]), degree=True)
-    radec_p = numpy.atleast_2d(lb_to_radec(float(lbd[0]), float(lbd[1]), degree=True))
+    radec_p = numpy.atleast_2d(
+        to_host(lb_to_radec(float(lbd[0]), float(lbd[1]), degree=True))
+    )
     ra_p = float(radec_p[0, 0])
     dec_p = float(radec_p[0, 1])
     phi12 = radec_to_custom(

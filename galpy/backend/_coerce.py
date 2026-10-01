@@ -61,6 +61,7 @@ import math
 import numpy
 
 from ._namespaces import (
+    _backend_dtype,
     _is_floating_dtype,
     asarray_on_device,
     device_of,
@@ -159,8 +160,9 @@ def as_backend_constant(xp, value, ref):
     untouched (byte-identical)."""
     if xp is numpy:
         return value
-    dtype = getattr(ref, "dtype", None)
-    device = effective_device(xp, getattr(ref, "device", None))
+    # a numpy ref: backend dtype, default device (numpy's .device is 'cpu')
+    dtype = _backend_dtype(xp, getattr(ref, "dtype", None))
+    device = effective_device(xp, device_of(ref))
     try:
         return xp.asarray(value, dtype=dtype, device=device)
     except TypeError:  # pragma: no cover - namespace without device= kwarg

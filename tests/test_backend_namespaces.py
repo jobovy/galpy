@@ -10,7 +10,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy, cummax, set_at
+from galpy.backend import as_numpy, cummax, get_namespace, on_host, set_at, to_host
 
 pytestmark = pytest.mark.backend_managed
 
@@ -255,3 +255,45 @@ def test_cummax_matches_numpy(backend):
     xp = {"numpy": numpy, "jax": jnp, "torch": torch}[backend]
     out = cummax(xp, xp.asarray(src))
     numpy.testing.assert_array_equal(as_numpy(out), numpy.maximum.accumulate(src))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_to_host_maps_nested_sequences_and_keeps_autograd():
+    t = torch.tensor([1.0, 2.0])
+    out = to_host([t, (3.0, t), numpy.ones(2)])
+    assert type(out) is list and type(out[1]) is tuple
+    assert out[0].device.type == "cpu" and out[1][0] == 3.0
+    assert isinstance(out[2], numpy.ndarray)
+    numpy.testing.assert_array_equal(
+        numpy.array(out[:1] + [out[1][1]]), [[1.0, 2.0], [1.0, 2.0]]
+    )
+    # a grad-tracking tensor stays grad-tracking, so numpy still refuses it
+    g = torch.tensor(1.0, requires_grad=True)
+    assert to_host([g])[0].requires_grad
+    with pytest.raises(RuntimeError):
+        numpy.array(to_host([g]))
+    # non-sequence, non-tensor inputs pass through as the same object
+    arr = numpy.ones(3)
+    assert to_host(arr) is arr
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_on_host_hosts_the_result():
+    f = on_host(lambda x, k=1.0: (torch.tensor([x, k]), x))
+    t, x = f(2.0, k=3.0)
+    assert t.device.type == "cpu" and x == 2.0
+    numpy.testing.assert_array_equal(numpy.asarray(t), [2.0, 3.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_as_backend_constant_with_a_numpy_ref(backend):
+    # a numpy ref's dtype is translated to the backend's (torch.asarray rejects
+    # a numpy dtype)
+    from galpy.backend import as_backend_constant
+    from galpy.backend._namespaces import namespace_for_name
+
+    xp = namespace_for_name(backend)
+    out = as_backend_constant(xp, numpy.array([1.5, 2.0]), numpy.ones(2))
+    assert get_namespace(out) is xp
+    numpy.testing.assert_array_equal(as_numpy(out), [1.5, 2.0])
+    assert str(out.dtype).endswith("float64")

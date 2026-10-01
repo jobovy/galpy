@@ -345,13 +345,22 @@ def as_numpy(x):
 def to_host(x):
     """A torch tensor moved to the CPU, for an implicit numpy conversion: numpy
     cannot read a CUDA tensor. Unlike ``as_numpy`` this keeps autograd, so numpy
-    still refuses a tensor that requires grad, exactly as on the CPU."""
+    still refuses a tensor that requires grad, exactly as on the CPU. A (nested)
+    list/tuple is mapped element-wise, for ``numpy.array([...])`` packing."""
     if _TORCH_LOADED:
         import torch
 
         if isinstance(x, torch.Tensor):
             return x.cpu()
+        if type(x) in (list, tuple):
+            return type(x)(to_host(e) for e in x)
     return x
+
+
+def on_host(f):
+    """``f`` with its result passed through ``to_host``: for a callable handed
+    to scipy/numpy, which reads what it returns."""
+    return lambda *args, **kwargs: to_host(f(*args, **kwargs))
 
 
 def exit_cast(value, *inputs):
