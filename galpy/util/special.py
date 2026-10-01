@@ -309,16 +309,19 @@ def incomplete_beta_lo(p, q, z, s):
 
 @functools.lru_cache(maxsize=256)  # alpha, beta vary freely (fits): bounded
 def incomplete_beta_at_split(p, q, c):
-    """B_c(p, q) at the split c"""
-    return float(incomplete_beta_lo(p, q, c, 1.0 - c))
+    """B_c(p, q) at the split c (inf where it overflows: q << 0)"""
+    with numpy.errstate(over="ignore"):  # numpy floats: inf, not OverflowError
+        return float(incomplete_beta_lo(p, q, numpy.float64(c), numpy.float64(1.0 - c)))
 
 
 def incomplete_beta_hi(p, q, s1, c):
     """B_z(p, q) above the split c, given s1 = 1 - z: B_c(p, q) plus the
     reflected integral from s1 to 1 - c"""
-    return incomplete_beta_at_split(p, q, c) + _incomplete_beta_reflected(
-        p, q, s1, 1.0 - c
-    )
+    # numpy floats: a value that overflows (q << 0) is inf/NaN, not OverflowError
+    with numpy.errstate(over="ignore", invalid="ignore"):
+        return incomplete_beta_at_split(p, q, c) + _incomplete_beta_reflected(
+            p, q, s1, numpy.float64(1.0 - c)
+        )
 
 
 def _incomplete_beta_reflected(p, q, s1, s2):
@@ -333,6 +336,7 @@ def _incomplete_beta_reflected(p, q, s1, s2):
     if n <= -1 and abs(q - n) < _IBETA_QSMALL:
 
         def B0(v):
+            v = numpy.float64(v) if numpy.ndim(v) == 0 else v
             return v**q * (1.0 - v) ** p / q
 
         return (
@@ -342,6 +346,7 @@ def _incomplete_beta_reflected(p, q, s1, s2):
         )
 
     def B(v):
+        v = numpy.float64(v) if numpy.ndim(v) == 0 else v
         return v**q * (1.0 - v) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, v)
 
     return B(s2) - B(s1)

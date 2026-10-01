@@ -153,13 +153,20 @@ def _incomplete_beta_reflected_xp(xp, p, q, s1, z1, s2):
         return _incomplete_beta_reflected_smallq_xp(xp, p, q, s1, z1, s2, 0.0)
     n = round(q)
     if n <= -1 and abs(q - n) < _IBETA_QSMALL:
-        B2 = float(s2**q * (1.0 - s2) ** p / q)
+        with numpy.errstate(over="ignore"):  # inf, not OverflowError (q << 0)
+            B2 = float(numpy.float64(s2) ** q * (1.0 - s2) ** p / q)
         return (
             B2
             - s1**q * z1**p / q
             + (p + q) / q * _incomplete_beta_reflected_xp(xp, p, q + 1.0, s1, z1, s2)
         )
-    B2 = float(s2**q * (1.0 - s2) ** p / q * special.hyp2f1(1.0, p + q, q + 1.0, s2))
+    with numpy.errstate(over="ignore", invalid="ignore"):  # inf, not OverflowError
+        B2 = float(
+            numpy.float64(s2) ** q
+            * (1.0 - s2) ** p
+            / q
+            * special.hyp2f1(1.0, p + q, q + 1.0, s2)
+        )
     return B2 - s1**q * z1**p / q * incomplete_beta_series_xp(
         xp, incomplete_beta_series_coeffs("hi", p, q, s2), s1
     )
