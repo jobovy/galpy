@@ -1906,3 +1906,44 @@ def test_cubic_spline_coeffs_grad_wrt_y_vs_fd(backend):
     # the spline is LINEAR in y, so the central difference is exact up to roundoff
     fd = (f(numpy, y0 + 1e-3 * w) - f(numpy, y0 - 1e-3 * w)) / 2e-3
     numpy.testing.assert_allclose(ad, fd, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_quintic_hermite_and_cubic_ppoly_helpers(backend):
+    # quintic_hermite_coeffs == PPoly.from_bernstein_basis(BPoly.from_derivatives)
+    # (values; the dr^5 coefficient carries 1/h^5 rounding, so compare the
+    # polynomial, not its coefficients); the cubic-PPoly cumulative integral and
+    # knot derivative equal scipy CubicSpline's
+    from galpy.backend.interpolate import (
+        cubic_ppoly_cumulative_integral,
+        cubic_ppoly_knot_derivative,
+        quintic_hermite_coeffs,
+    )
+
+    xp = _xp(backend)
+    r = numpy.geomspace(1e-2, 20.0, 61)
+    h = numpy.diff(r)
+    v, d, a = numpy.sin(r), numpy.cos(r), -numpy.sin(r)
+    q = as_numpy(
+        quintic_hermite_coeffs(xp, *(_asarray(backend, x) for x in (v, d, a, h)))
+    )
+    ref = si.PPoly.from_bernstein_basis(
+        si.BPoly.from_derivatives(r, numpy.column_stack([v, d, a]))
+    )
+    x = numpy.linspace(0.011, 19.9, 777)
+    numpy.testing.assert_allclose(si.PPoly(q, r)(x), ref(x), rtol=0, atol=1e-14)
+    numpy.testing.assert_allclose(si.PPoly(q, r)(x, 1), ref(x, 1), rtol=0, atol=1e-12)
+    cs = si.CubicSpline(r, numpy.exp(-r))
+    c, hb = _asarray(backend, cs.c), _asarray(backend, h)
+    numpy.testing.assert_allclose(
+        as_numpy(cubic_ppoly_cumulative_integral(xp, c, hb)),
+        [cs.integrate(r[0], t) for t in r],
+        rtol=1e-15,
+        atol=1e-17,
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(cubic_ppoly_knot_derivative(xp, c, hb)),
+        cs(r, 1),
+        rtol=1e-15,
+        atol=1e-16,
+    )
