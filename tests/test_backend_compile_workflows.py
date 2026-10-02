@@ -15,6 +15,7 @@
 # (test_backend_orbit_stm) and of torchode (test_backend_torchode), jax.jit of
 # kingdf W0 (test_backend_kingdf).
 ###############################################################################
+import contextlib
 import importlib
 import warnings
 
@@ -199,12 +200,23 @@ _CASES = [
 _RTOL = {"kingdf_W0": (1e-10, 3e-8)}
 
 
+# GCC 13 crashes (ICE in gimple_duplicate_bb) compiling one of this workflow's
+# inductor kernels with AVX-512, i.e. only on AVX-512 CI runners: cap the SIMD
+# width at 256 bits (AVX2 codegen) for it
+_SIMDLEN_256 = {"kingdf_W0"}
+
+
 def _compiled(bk, workflow, x0):
     if bk == "jax":
         return jax.jit(jax.value_and_grad(lambda x: workflow("jax", x)))(x0)
     backend = "inductor" if bk == "torch-inductor" else "eager"
     torch._dynamo.reset()
-    with warnings.catch_warnings():
+    simd = (
+        torch._inductor.config.patch({"cpp.simdlen": 256})
+        if backend == "inductor" and workflow.__name__ in _SIMDLEN_256
+        else contextlib.nullcontext()
+    )
+    with warnings.catch_warnings(), simd:
         # torch-internal deprecations under CI's -W error
         for msg in (".*script_method.*", ".*should not be instantiated.*"):
             warnings.filterwarnings("ignore", message=msg, category=DeprecationWarning)
