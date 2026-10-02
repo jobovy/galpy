@@ -1387,13 +1387,21 @@ _GAMMAINC_LARGE_A_SMALL_X = [
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_gammainc_series_cf_hard_points_vs_mpmath():
-    # jax evaluates through the series/CF (torch keeps its native forward)
-    for a, x, want in _GAMMAINCC_SMALL_A:
-        got = float(gsp.gammaincc(jnp.asarray(a), jnp.asarray(x)))
-        numpy.testing.assert_allclose(got, want, rtol=5e-15, err_msg=f"Q({a},{x})")
-    for a, x, want in _GAMMAINC_LARGE_A_SMALL_X:
-        got = float(gsp.gammainc(jnp.asarray(a), jnp.asarray(x)))
-        numpy.testing.assert_allclose(got, want, rtol=1e-13, err_msg=f"P({a},{x})")
+    # jax evaluates a large STAGED array through the series/CF (smaller or eager
+    # inputs take the native kernel; torch keeps its native forward), so tile the
+    # points past that size under jit
+    from galpy.backend.special._fallback.gammainc import _JAX_MIN_SIZE
+
+    for fn, pts, rtol in (
+        (gsp.gammaincc, _GAMMAINCC_SMALL_A, 5e-15),
+        (gsp.gammainc, _GAMMAINC_LARGE_A_SMALL_X, 1e-13),
+    ):
+        a, x, want = (numpy.array(c) for c in zip(*pts))
+        reps = -(-_JAX_MIN_SIZE // len(a))
+        got = jax.jit(fn)(jnp.tile(a, reps), jnp.tile(x, reps))
+        numpy.testing.assert_allclose(
+            numpy.asarray(got)[: len(a)], want, rtol=rtol, err_msg=fn.__name__
+        )
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

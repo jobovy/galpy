@@ -270,23 +270,40 @@ def _dx_closed_form(xp, a, x, sign):
 
 
 _JAX_FNS = {}
+# Below this many elements jax uses its native kernel even when staged: the
+# series/CF unrolls ~270 iterations into the graph (~1 s more per compile),
+# which only pays off for large arrays (native ~2 us/element on CPU, the
+# series/CF ~20 ns).
+_JAX_MIN_SIZE = 4096
 
 
 def _jax_incgamma(upper):
-    """jax P or Q: the vectorized series/CF forward (jax's native gammainc
-    iterates per element in a while_loop: ~100x slower on CPU, measured), a
-    closed-form d/dx and forward-mode d/da through the same series/CF -- paid
-    only when the order is differentiated (symbolic-zero tangent otherwise)."""
+    """jax P or Q. Large STAGED arrays (jit / vmap, >= _JAX_MIN_SIZE): the
+    vectorized series/CF -- jax's native gammainc iterates per element in a
+    while_loop, ~100x slower on CPU (measured). Otherwise (eager values, incl.
+    eager grad, or small arrays) the native kernel: one dispatch, small graph.
+    Either way a closed-form d/dx (with the x = 0 / inf limits native lacks)
+    and d/da by forward mode, paid only when the order is differentiated."""
     import jax
     import jax.numpy as jnp
+    import jax.scipy.special as jss
     from jax.custom_derivatives import SymbolicZero
 
     idx = 1 if upper else 0
     sign = -1.0 if upper else 1.0
+    native = jss.gammaincc if upper else jss.gammainc
+    _is_concrete = getattr(
+        jax.core, "is_concrete", lambda v: not isinstance(v, jax.core.Tracer)
+    )
+
+    def value(a, x):
+        if x.size < _JAX_MIN_SIZE or (_is_concrete(a) and _is_concrete(x)):
+            return native(a, x)
+        return _both(jnp, a, x)[idx]
 
     @jax.custom_jvp
     def f(a, x):
-        return _both(jnp, a, x)[idx]
+        return value(a, x)
 
     def f_jvp(primals, tangents):
         a, x = primals
@@ -296,7 +313,7 @@ def _jax_incgamma(upper):
         if not isinstance(tx, SymbolicZero):
             tout = tout + _dx_closed_form(jnp, a, x, sign) * tx
         if not isinstance(ta, SymbolicZero):
-            tout = tout + jax.jvp(lambda aa: _both(jnp, aa, x)[idx], (a,), (ta,))[1]
+            tout = tout + jax.jvp(lambda aa: value(aa, x), (a,), (ta,))[1]
         return out, tout
 
     f.defjvp(f_jvp, symbolic_zeros=True)
