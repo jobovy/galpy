@@ -20,6 +20,7 @@ from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    at_least_float64,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -4222,6 +4223,9 @@ class streamdf(df):
         the continuous track/Jacobian values it points at (reparameterised
         nearest-neighbour): the gradient flows through dOa, the gathered tables
         and the smoothing weight, NOT through the index. Returns a (6,N) array."""
+        # float32 query points (torch's default) meet float64 tables: promote,
+        # as numpy does (the constants below then anchor on float64 too)
+        Or, Op, Oz, ar, ap, az = at_least_float64(Or, Op, Oz, ar, ap, az)
         # backend query points OR a backend-built track routes here; resolve the
         # namespace off whichever reference is a backend array (never mix).
         ref = next(
@@ -5551,9 +5555,11 @@ def _determine_stream_spread_single_backend(
         )
         return allinvjacsTrack @ (fullMatrix @ allinvjacsTrack.T)
 
-    full_diag = xp.where(ar == parallel_idx, xp.ones_like(ar * 1.0), sigangle2)
+    # ones_like(eigvals), not of `ar * 1.0`: an int arange * 1.0 is float32
+    # under torch's default dtype, which the float64 tables would not match
+    full_diag = xp.where(ar == parallel_idx, xp.ones_like(eigvals), sigangle2)
     full_cov = _assemble(full_diag, parallel_corr_zero=True)
-    local_diag = sigangle2 * xp.ones_like(ar * 1.0)
+    local_diag = sigangle2 * xp.ones_like(eigvals)
     local_cov = _assemble(local_diag, parallel_corr_zero=False)
     return full_cov, local_cov
 
