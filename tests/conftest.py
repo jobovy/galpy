@@ -223,12 +223,10 @@ def _load_slow_skip(backend_name):
 
 
 # Tests skipped under a backend for a PERMANENT reason -- one no amount of porting
-# work will change. Two kinds qualify: (a) the test exercises NO backend-relevant
-# code and depends on a flaky external service (e.g. Orbit.from_name's SIMBAD
-# network lookup), so running it under a forced backend only risks flaking the
-# deterministic all-backend gate for ~zero coverage; (b) the test belongs to a
-# family that is out of scope for the backend goal and stays _reject_backend-
-# guarded (actionAngleVerticalInverse), so it fails by design and always will.
+# work will change. Two kinds qualify (see the file's header): (a) the test belongs
+# to a family that is out of scope for the backend goal and stays _reject_backend-
+# guarded (actionAngleVerticalInverse), so it fails by design and always will; (b)
+# one potential of a per-potential walk whose eager-jax cost no port removes.
 # Distinct from backend_slow_skip.txt
 # (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
 # PERMANENT exclusion, not pending work, so they are NOT part of any burndown.
