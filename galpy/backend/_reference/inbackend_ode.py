@@ -21,7 +21,7 @@
 #   axis, and is naturally well-behaved for autodiff. The public input/output are
 #   transformed to/from ``Orbit`` order so they match ``Orbit``.
 ###############################################################################
-from .. import get_namespace
+from .. import at_least_float64, get_namespace, is_backend_array
 
 
 def _eom_rhs(y, pot, t, xp, dim=6):
@@ -207,6 +207,11 @@ def integrate_orbit(
     """
     xp = get_namespace(vxvv)
     name = xp.__name__
+    # numpy's Orbit integrates in float64; a float32 IC or time grid (torch's
+    # default dtype) would mix with float64 or ask float32 for the tolerances
+    vxvv = at_least_float64(vxvv)
+    if is_backend_array(ts):
+        ts = at_least_float64(ts)
     # phase-space dim on the trailing axis (vxvv is (phasedim,) for one orbit or
     # (N, phasedim) for a batch); dim is the rectangular EOM state size (2 or 6).
     phasedim = vxvv.shape[-1]

@@ -2618,3 +2618,30 @@ def test_backend_track_handles_dt_negative_trailing():
         numpy.abs(ref)
     )
     assert rel < 1e-5, f"trailing backend track vs numpy {rel:.3e}"
+
+
+def test_determine_stream_spread_backend_pipeline_float32_default(
+    torch_default_float32,
+):
+    # The same parity under torch's default float32: an `arange * 1.0` diagonal
+    # was float32 there and the float64 eigenvector matmul raised
+    if "torch" not in BACKENDS:
+        pytest.skip("torch not installed")
+    test_determine_stream_spread_backend_pipeline("torch")
+
+
+def test_approxaAInv_float32_query_points(sdf, torch_default_float32):
+    # float32 query points (torch's default) meet float64 track tables: they are
+    # promoted like numpy's, so the result equals that of the float64 points with
+    # the same (float32-rounded) values -- previously a dtype error
+    if "torch" not in BACKENDS:
+        pytest.skip("torch not installed")
+    from galpy import backend as _bk
+
+    pts = numpy.asarray(sdf._ObsTrackAA)[1:4] * (1.0 + 1e-3)  # (3, 6) near track
+    pts32 = pts.astype(numpy.float32)
+    with _bk.use("torch", force=True):
+        got = sdf._approxaAInv(*(torch.tensor(c) for c in pts32.T))
+        ref = sdf._approxaAInv(*(torch.tensor(c, dtype=torch.float64) for c in pts32.T))
+    assert got.dtype == torch.float64
+    numpy.testing.assert_array_equal(got.numpy(), ref.numpy())

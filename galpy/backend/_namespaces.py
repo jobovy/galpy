@@ -160,6 +160,8 @@ def set_at(xp, arr, mask, values):
     if name_of_namespace(xp) == "jax":
         return arr.at[mask].set(values)
     out = arr.clone() if hasattr(arr, "clone") else arr.copy()
+    if is_backend_array(values) and values.dtype != out.dtype:
+        values = values.to(out.dtype)  # numpy casts to the destination (torch)
     out[mask] = values
     return out
 
@@ -618,6 +620,24 @@ def co_like(*arrays):
         if is_backend_array(a):
             return like(a, *arrays)
     return arrays
+
+
+def at_least_float64(*arrays):
+    """Promote real-floating backend arrays below float64 (torch's DEFAULT dtype
+    is float32) to float64, as numpy promotes them against galpy's float64
+    tables and integrates in float64. numpy arrays, scalars, integer and
+    float64 arrays pass through unchanged (as does jax without x64, where
+    float64 is not available). One value in, one out; else a tuple."""
+    out = []
+    for a in arrays:
+        if is_backend_array(a):
+            xp = namespace_from_arrays([a])
+            if xp.isdtype(a.dtype, "real floating"):
+                dt = xp.result_type(a.dtype, xp.float64)
+                if dt != a.dtype:
+                    a = xp.astype(a, dt)
+        out.append(a)
+    return out[0] if len(out) == 1 else tuple(out)
 
 
 def asarray_on_device(xp, a, device, dtype=None):

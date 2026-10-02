@@ -9,6 +9,7 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import (
     as_numpy,
+    at_least_float64,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -2670,12 +2671,14 @@ class quasiisothermaldf(df):
         # every round costs one full DF evaluation per round and is what made the
         # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
         # are scattered in with .at[].set() rather than a boolean assignment.
-        Rb = xp.asarray(R) * 1.0
-        zb = xp.asarray(z) * 1.0
-        mvT = xp.asarray(maxVT) * 1.0
+        # float64 like numpy (a python-float R is float32 under torch's default,
+        # while the numpy-drawn proposals are float64)
+        Rb, zb, mvT = at_least_float64(
+            xp.asarray(R) * 1.0, xp.asarray(z) * 1.0, xp.asarray(maxVT) * 1.0
+        )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
-        out = xp.zeros((length, 3))
+        out = xp.zeros((length, 3), dtype=Rb.dtype)
         remain = xp.arange(length)
         for _ in range(_SAMPLEV_MAXROUNDS):
             nmore = int(remain.shape[0])
