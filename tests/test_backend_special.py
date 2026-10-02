@@ -1329,12 +1329,10 @@ def test_gammainc_grad_wrt_argument_at_endpoints(backend):
     # dP/dx = x^(a-1) e^-x / Gamma(a) is computed as prefix(a,x)/x -- which is
     # 0/0 there and returned NaN before this was guarded. The limit depends on a:
     #     a < 1 -> +inf,   a = 1 -> 1,   a > 1 -> 0.
-    # NB jax's own native gammainc returns NaN for d/dx at a=1, x=0, so the
-    # reference here is the analytic limit, not another library.
+    # (jax's native gammainc returned NaN at a=1, x=0; galpy's path, now used on
+    # jax too, takes the analytic limit). At x = inf the derivative is 0.
     for a0, want in ((0.5, numpy.inf), (1.0, 1.0), (2.0, 0.0), (3.0, 0.0)):
         if backend == "jax":
-            if a0 == 1.0:
-                continue  # jax's native path is NaN here; nothing of ours to pin
             ad = float(
                 jax.grad(lambda x: gsp.gammainc(jnp.asarray(a0), x))(jnp.asarray(0.0))
             )
@@ -1347,6 +1345,75 @@ def test_gammainc_grad_wrt_argument_at_endpoints(backend):
             assert numpy.isinf(ad) and ad > 0, f"a={a0}: want +inf, got {ad}"
         else:
             numpy.testing.assert_allclose(ad, want, rtol=0, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammainc_grad_wrt_argument_at_infinity(backend):
+    # x = inf (the potential at r = inf, the total mass): dP/dx = dQ/dx = 0 there,
+    # not exp(-inf + inf) = NaN
+    for fn in (gsp.gammainc, gsp.gammaincc):
+        for a0 in (0.3, 2.5, 30.0):
+            if backend == "jax":
+                ad = float(
+                    jax.grad(lambda x: fn(jnp.asarray(a0), x))(jnp.asarray(numpy.inf))
+                )
+            else:
+                xt = torch.tensor(numpy.inf, dtype=torch.float64, requires_grad=True)
+                fn(torch.tensor(a0, dtype=torch.float64), xt).backward()
+                ad = float(xt.grad)
+            assert ad == 0.0, (fn.__name__, a0, ad)
+
+
+# mpmath (40 digits) at the points the series/CF used to get wrong: small order
+# with x ~ 1 (Q as 1 - P cancels; the CF is unconverged near x = a+1), and large
+# order with x << a (the Stirling prefix formed 1 + (lam-1) and lost lam).
+# Measured on jax: Q <= 1.4e-15, P <= 3e-14 (scipy: 2.6e-15 / 3.1e-14 here).
+_GAMMAINCC_SMALL_A = [
+    (0.005, 1.01, 0.0010842607779831451),
+    (0.05, 1.05, 0.010623178227749557),
+    (0.2, 1.3, 0.033634059835775924),
+    (0.005, 0.3, 0.0045323619489170734),
+    (0.1, 1.51, 0.01118248089956539),
+    (0.02, 2.2, 0.00076837347497111522),
+    (0.3, 0.05, 0.55156313789340724),
+]
+_GAMMAINC_LARGE_A_SMALL_X = [
+    (15.0, 1e-12, 7.647163731812645e-193),
+    (20.0, 1e-06, 4.1103137087258168e-139),
+    (40.0, 0.02, 1.3215413881602634e-116),
+    (150.0, 90.24, 5.645602671105385e-9),
+]
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_gammainc_series_cf_hard_points_vs_mpmath():
+    # jax evaluates through the series/CF (torch keeps its native forward)
+    for a, x, want in _GAMMAINCC_SMALL_A:
+        got = float(gsp.gammaincc(jnp.asarray(a), jnp.asarray(x)))
+        numpy.testing.assert_allclose(got, want, rtol=5e-15, err_msg=f"Q({a},{x})")
+    for a, x, want in _GAMMAINC_LARGE_A_SMALL_X:
+        got = float(gsp.gammainc(jnp.asarray(a), jnp.asarray(x)))
+        numpy.testing.assert_allclose(got, want, rtol=1e-13, err_msg=f"P({a},{x})")
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gammaincc_grad_wrt_small_order_vs_mpmath(backend):
+    # d/da runs the series/CF on both backends; small orders take the direct-Q
+    # series. mpmath: -d/da P(a, x) at 40 digits; measured <= 9.4e-15.
+    for a0, x0, want in (
+        (0.05, 1.05, 0.22294298276369302),
+        (0.005, 0.3, 0.90725384978107187),
+        (0.2, 2.2, 0.063810530673164742),
+    ):
+        if backend == "jax":
+            ad = float(
+                jax.grad(lambda a: gsp.gammaincc(a, jnp.asarray(x0)))(jnp.asarray(a0))
+            )
+        else:
+            at = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
+            gsp.gammaincc(at, torch.tensor(x0, dtype=torch.float64)).backward()
+            ad = float(at.grad)
+        numpy.testing.assert_allclose(ad, want, rtol=3e-14, err_msg=f"a={a0}")
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")

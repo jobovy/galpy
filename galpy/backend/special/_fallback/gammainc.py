@@ -6,8 +6,9 @@
 #   algorithm switch at a ~ 20 that costs ~6 digits above it (|dQ| ~ 5e-10 for
 #   a >= 21 vs ~1e-16 below). Both are cured at once by evaluating in backend
 #   ops: autodiff then supplies d/da and d/dx alike. jax's native versions are
-#   accurate and differentiable in both arguments, so the router does not reach
-#   this fallback for jax; numpy uses scipy.
+#   accurate but iterate per element (~100x slower on CPU), so jax uses this
+#   vectorized form too (forward and d/da; d/dx in closed form); numpy uses
+#   scipy.
 #
 #   Standard split, each branch converging where it is used:
 #     - x <  a+1: the ascending series  P = prefix * sum_n x^n / (a...(a+n))
@@ -40,8 +41,9 @@
 #   slightly worse from accumulation).
 ###############################################################################
 import numpy
+from scipy.special import zeta as _zeta
 
-from ..._namespaces import _backend_dtype
+from ..._namespaces import _backend_dtype, name_of_namespace
 from .._router import gammaln
 
 _A_STIRLING = 14.0  # Stirling prefix at/above this order, naive exponent below
@@ -49,22 +51,32 @@ _N_SERIES = 120  # ascending-series terms (x < a+1)
 _N_CF = 50  # modified-Lentz iterations (x >= a+1)
 _FPMIN = 1e-300  # Lentz zero-denominator floor
 _TINY_U = 1e-4  # |lam-1| below which u - log1p(u) cancels; use its series
+# Small order AND argument (a < _A_SMALL, 0 < x < _X_SMALL): Q directly from its
+# own series (cephes igamc_series), not as 1 - P (cancels when P ~ 1) nor from
+# the CF (unconverged near x ~ a+1 ~ 1): those cost up to 8e-12 at a=0.005,
+# x=1.01, vs scipy's 3e-15.
+_A_SMALL = 0.5
+_X_SMALL = 1.8  # measured crossover: series and CF both ~3e-15..8e-15 there
+_N_QSERIES = 40  # sum (-x)^n / (n! (a+n)): x^n/n! < 1e-37 at n=40, x=1.8
+# lgamma(1+a) = -gamma*a + sum_{k>=2} (-1)^k zeta(k)/k a^k, |a| <= 1/2
+_LGAM1P_COEFS = tuple((-1.0) ** k * float(_zeta(k, 1.0)) / k for k in range(2, 62))
 
 
-def _u_minus_log1p(xp, u):
-    """``u - log1p(u)`` = lam - 1 - ln(lam), accurately for all u > -1.
+def _lam_minus_1_minus_log(xp, lam):
+    """``lam - 1 - ln(lam)`` for all lam > 0, with the absolute error (what the
+    Stirling exponent multiplies by a) at its eps*|ln lam| floor.
 
-    The direct form loses only ~log10(2/|u|) digits (about 1 at |u| = 0.1), so
-    it is used everywhere except |u| tiny, where the cancellation is total and
-    the Maclaurin series u^2/2 - u^3/3 + ... takes over. Getting this threshold
-    backwards (series for |u| < 0.25) costs 3.4e-07 at a=40, x=35: the first
-    omitted series term is u^8/8.
+    Not ``u - log1p(u)`` with u = lam - 1: forming 1 + u far below lam = 1/2
+    discards lam's digits (P(15, 1e-12) came out 1e-2 off), and XLA's CPU
+    log1p is itself ~9e-15 off near u = -0.4 (7e-13 in P(150, 90)). Near
+    lam = 1 the difference cancels totally, so |u| < _TINY_U takes the
+    Maclaurin series u^2/2 - u^3/3 + ... (its first omitted term is u^6/6).
     """
+    u = lam - 1.0
     tiny = xp.abs(u) < _TINY_U
     ut = xp.where(tiny, u, 0.0)  # dead branch -> 0, series is then exact
     series = ut * ut * (1.0 / 2 - ut * (1.0 / 3 - ut * (1.0 / 4 - ut / 5)))
-    ud = xp.where(tiny, 1.0, u)  # dead branch -> 1, keeps log1p off its pole
-    return xp.where(tiny, series, ud - xp.log1p(ud))
+    return xp.where(tiny, series, u - xp.log(lam))
 
 
 def _stirling_remainder(xp, a):
@@ -83,7 +95,7 @@ def _prefix(xp, a, x):
     ab = xp.where(big, a, _A_STIRLING)  # dead branch -> a valid Stirling order
     lam = x / ab
     stirling = (
-        xp.exp(-ab * _u_minus_log1p(xp, lam - 1.0))
+        xp.exp(-ab * _lam_minus_1_minus_log(xp, lam))
         * xp.sqrt(ab / (2.0 * numpy.pi))
         * xp.exp(-_stirling_remainder(xp, ab))
     )
@@ -121,6 +133,27 @@ def _cf_Q(xp, a, x, pref):
     return pref * h
 
 
+def _lgam1p_small(xp, a):
+    """lgamma(1+a) to full RELATIVE accuracy for |a| <= 1/2 (gammaln(1+a)
+    loses it as a -> 0, where the value ~ -0.577 a)."""
+    s = 0.0
+    for c in reversed(_LGAM1P_COEFS):
+        s = s * a + c
+    return a * (numpy.euler_gamma * -1.0 + a * s)
+
+
+def _small_Q(xp, a, x):
+    """Q(a,x) for small a and x (cephes igamc_series): no 1 - P cancellation."""
+    fac = 1.0
+    total = 0.0
+    for n in range(1, _N_QSERIES + 1):
+        fac = fac * (-x / n)
+        total = total + fac / (a + n)
+    e = a * xp.log(x) - _lgam1p_small(xp, a)
+    # x^a / Gamma(a) = a exp(e), as Gamma(a) = Gamma(1+a) / a
+    return -xp.expm1(e) - a * xp.exp(e) * total
+
+
 def _both(xp, a, x):
     """Return (P, Q), each computed by whichever branch is valid there."""
     f64 = _backend_dtype(xp, numpy.float64)
@@ -145,6 +178,11 @@ def _both(xp, a, x):
     q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf))
     p_out = xp.where(use_series, p, 1.0 - q)
     q_out = xp.where(use_series, 1.0 - p, q)
+    small = (a < _A_SMALL) & (x > 0.0) & (x < _X_SMALL)
+    # dead branch -> a point inside the region (log(0) / the lgamma series' radius)
+    qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0))
+    q_out = xp.where(small, qs, q_out)
+    p_out = xp.where(small & ~use_series, 1.0 - qs, p_out)
     return (
         xp.where(at_inf, xp.ones_like(p_out), p_out),  # P(a, inf) = 1
         xp.where(at_inf, xp.zeros_like(q_out), q_out),  # Q(a, inf) = 0
@@ -194,30 +232,11 @@ def _torch_autograd(upper):
             need_a, need_x = ctx.needs_input_grad[:2]
             grad_a = grad_x = None
             if need_x:
-                # dP/dx = x^(a-1) e^-x / Gamma(a) = prefix(a,x)/x in closed form
-                # -- no series, no continued fraction. But prefix(a,0) = 0, so
-                # prefix/x is 0/0 at the x=0 endpoint and returns NaN there. x=0
-                # is reachable (it is a real evaluation point, and the value path
-                # already pins P(a,0)=0), so take the limit explicitly:
-                #     a < 1 -> +inf,   a = 1 -> 1,   a > 1 -> 0.
+                # closed form, no series/CF (x = 0 limit taken explicitly)
                 import galpy.backend as _gb
 
                 xp = _gb.get_namespace(x)
-                pos = x > 0
-                x_safe = xp.where(pos, x, xp.ones_like(x))  # keep 0 out of the divide
-                dens = _prefix(xp, a, x_safe) / x_safe
-                # Build the limit in the RESULT dtype (dens), never *_like(a):
-                # callers legitimately pass an INTEGER order -- EinastoPotential
-                # does -- and torch.full_like(<int tensor>, inf) raises
-                # "value cannot be converted to type int64_t without overflow".
-                # dens is float by construction, and broadcasts against a.
-                one = xp.ones_like(dens)
-                at_zero = xp.where(
-                    a < 1.0,
-                    xp.full_like(dens, float("inf")),
-                    xp.where(a == 1.0, one, xp.zeros_like(dens)),
-                )
-                grad_x = grad_out * sign * xp.where(pos, dens, at_zero)
+                grad_x = grad_out * _dx_closed_form(xp, a, x, sign)
             if need_a:
                 # only here does the loop run
                 import galpy.backend as _gb
@@ -232,14 +251,71 @@ def _torch_autograd(upper):
     return _IncGamma
 
 
+def _dx_closed_form(xp, a, x, sign):
+    """sign * dP/dx = sign * x^(a-1) e^-x / Gamma(a) = prefix(a,x)/x, with the
+    x = 0 limit taken explicitly (prefix/x is 0/0 there):
+    a < 1 -> +inf, a = 1 -> 1, a > 1 -> 0; and 0 at x = inf (exp(-inf + inf)).
+    The limits are built in the result dtype: an INTEGER order (Einasto) would
+    make torch.full_like(a, inf) raise."""
+    pos = x > 0
+    fin = xp.isfinite(x)
+    x_safe = xp.where(pos & fin, x, xp.ones_like(x))  # keep 0, inf out
+    dens = _prefix(xp, a, x_safe) / x_safe
+    at_zero = xp.where(
+        a < 1.0,
+        xp.full_like(dens, float("inf")),
+        xp.where(a == 1.0, xp.ones_like(dens), xp.zeros_like(dens)),
+    )
+    return sign * xp.where(pos, xp.where(fin, dens, xp.zeros_like(dens)), at_zero)
+
+
+_JAX_FNS = {}
+
+
+def _jax_incgamma(upper):
+    """jax P or Q: the vectorized series/CF forward (jax's native gammainc
+    iterates per element in a while_loop: ~100x slower on CPU, measured), a
+    closed-form d/dx and forward-mode d/da through the same series/CF -- paid
+    only when the order is differentiated (symbolic-zero tangent otherwise)."""
+    import jax
+    import jax.numpy as jnp
+    from jax.custom_derivatives import SymbolicZero
+
+    idx = 1 if upper else 0
+    sign = -1.0 if upper else 1.0
+
+    @jax.custom_jvp
+    def f(a, x):
+        return _both(jnp, a, x)[idx]
+
+    def f_jvp(primals, tangents):
+        a, x = primals
+        ta, tx = tangents
+        out = f(a, x)
+        tout = jnp.zeros_like(out)
+        if not isinstance(tx, SymbolicZero):
+            tout = tout + _dx_closed_form(jnp, a, x, sign) * tx
+        if not isinstance(ta, SymbolicZero):
+            tout = tout + jax.jvp(lambda aa: _both(jnp, aa, x)[idx], (a,), (ta,))[1]
+        return out, tout
+
+    f.defjvp(f_jvp, symbolic_zeros=True)
+    return f
+
+
 _TORCH_FNS = {}
 
 
 def _dispatch_one(xp, a, x, upper):
-    # torch is the ONLY backend routed here: jax's natives are accurate and
-    # differentiable in both arguments, and numpy uses scipy, so neither is in
-    # _NEEDS_FALLBACK for these two names. No other-backend branch exists
-    # because none is reachable.
+    # numpy uses scipy and never comes here
+    if name_of_namespace(xp) == "jax":
+        import jax.numpy as jnp
+
+        if upper not in _JAX_FNS:
+            _JAX_FNS[upper] = _jax_incgamma(upper)
+        f64 = _backend_dtype(xp, numpy.float64)
+        a, x = jnp.broadcast_arrays(jnp.asarray(a, f64), jnp.asarray(x, f64))
+        return _JAX_FNS[upper](a, x)
     import torch
 
     a = torch.as_tensor(a)
