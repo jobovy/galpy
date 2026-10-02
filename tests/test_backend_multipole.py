@@ -688,6 +688,15 @@ _FD_PTS = (
 )
 
 
+def _cos(x):
+    # the data's own namespace: numpy ufuncs on a torch tensor go through the
+    # __array_wrap__ path numpy 2.5 deprecates (an error under CI's -W error)
+    from galpy.backend._namespaces import namespace_from_arrays
+
+    xp = None if isinstance(x, (int, float)) else namespace_from_arrays([x])
+    return (numpy if xp is None else xp).cos(x)
+
+
 def _fd_mp_dens(b, tdep):
     def d(R, z, phi=0.0):
         return (
@@ -695,7 +704,7 @@ def _fd_mp_dens(b, tdep):
             / (4.0 * numpy.pi)
             * b**3
             * (b**2 + R**2 + (z / 0.9) ** 2) ** -2.5
-            * (1.0 + 0.1 * numpy.cos(2 * phi))
+            * (1.0 + 0.1 * _cos(2 * phi))
         )
 
     if not tdep:
