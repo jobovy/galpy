@@ -1,14 +1,10 @@
 # backend skip list -- tests SKIPPED under a backend for a PERMANENT reason, i.e.
 # one that no amount of porting work will change. Two kinds qualify:
 #
-#   (a) the test exercises NO backend-relevant code and depends on a flaky external
-#       service (e.g. Orbit.from_name's SIMBAD lookup), so running it under a forced
-#       backend only risks flaking the deterministic all-backend gate for ~zero
-#       coverage; or
-#   (b) the test belongs to a family that is out of scope for the backend goal and
+#   (a) the test belongs to a family that is out of scope for the backend goal and
 #       stays _reject_backend-guarded (actionAngleVerticalInverse), so it fails by
 #       design and always will; or
-#   (c) ONE potential in a per-potential walk whose cost under eager jax is a
+#   (b) ONE potential in a per-potential walk whose cost under eager jax is a
 #       floor no port removes -- the work is a Python-stepped loop of correct,
 #       already-migrated backend calls, so the only thing that would fix it is
 #       jit, which galpy deliberately does not do internally. This category only
@@ -26,24 +22,6 @@
 #
 # format: <backend> <nodeid>   (same as the other ledger files)
 #
-# --- jax/torch Orbit.from_name(): SIMBAD network dependency (not backend code) ---
-# from_name() looks up objects over the network (SIMBAD sim-tap) and raises pyvo
-# DALServiceError when the service is unreachable. Its backend-relevant part (the
-# coordinate transforms) is covered by the coords/from_vxvv tests. solarsystem uses
-# a local ephemeris (not SIMBAD), so it is not skipped.
-jax tests/test_orbit.py::test_from_name_collections
-jax tests/test_orbit.py::test_from_name_errors
-jax tests/test_orbit.py::test_from_name_named
-jax tests/test_orbit.py::test_from_name_values
-jax tests/test_orbits.py::test_from_name_name
-jax tests/test_orbits.py::test_from_name_values
-torch tests/test_orbit.py::test_from_name_collections
-torch tests/test_orbit.py::test_from_name_errors
-torch tests/test_orbit.py::test_from_name_named
-torch tests/test_orbit.py::test_from_name_values
-torch tests/test_orbits.py::test_from_name_name
-torch tests/test_orbits.py::test_from_name_values
-
 # --- Permanently out of scope: actionAngleVerticalInverse -------------------
 # actionAngleVerticalInverse is NOT being ported to the array backends (maintainer
 # decision, same call as actionAngleTorus, which is excluded from the all-backend
@@ -188,7 +166,7 @@ torch tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
 torch tests/test_streamdf.py::test_bovy14_useTM_poterror
 torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
 
-# --- (c) eager-cost floors: ONE potential each, measured 2026-09-10 per potential
+# --- (b) eager-cost floors: ONE potential each, measured 2026-09-10 per potential
 # under forced jax (193 cases; these are the only ones at or over the 300 s cap).
 # FerrersPotential has no C dxdv, so test_liouville_planar integrates its
 # variational equations with a PYTHON-stepped odeint -- thousands of eager
@@ -203,7 +181,7 @@ jax tests/test_orbit.py::test_analytic_zmax[RazorThinExponentialDiskPotential]  
 # and its zmax sibling above is already over -- deferring it too keeps the shard
 # off a coin-flip rather than waiting for the flake.
 jax tests/test_orbit.py::test_analytic_ecc_rperi_rap[RazorThinExponentialDiskPotential]  # 280.0s
-# Same category (c), measured 2026-09-11. This one compares the C STM against the
+# Same category (b), measured 2026-09-11. This one compares the C STM against the
 # PYTHON STM reference (method='dop853'), so the C-STM path that would make it
 # fast is precisely the thing under test -- and galpy's in-backend STM
 # (integrate_stm) only supports the dxdv-capable C integrators anyway. Profiling
