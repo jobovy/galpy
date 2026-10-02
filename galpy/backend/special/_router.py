@@ -43,7 +43,10 @@ _NATIVE_MISSING = {
 # NaN gradients), which is exactly galpy's regime (z = -r/a, -(R/rc)**2, ...).
 # A tripwire test documents the breakage so these move to native if jax fixes it.
 _NATIVE_UNRELIABLE = {
-    "jax": frozenset(("hyp2f1", "hyp1f1")),
+    # jax.scipy.special.gammainc/gammaincc are accurate but iterate per element
+    # in a while_loop: ~100x slower on CPU than the vectorized fallback (2.1 s vs
+    # 0.014 s for 1e6 points at a = 0.1), which is as accurate as scipy.
+    "jax": frozenset(("hyp2f1", "hyp1f1", "gammainc", "gammaincc")),
     # torch.special.gammainc/gammaincc exist but are unusable on two counts:
     # no derivative w.r.t. the ORDER ("the derivative for 'igamma: input' is
     # not implemented"), and a discrete algorithm switch at a ~ 20 costing ~6
