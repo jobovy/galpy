@@ -671,3 +671,176 @@ def test_torch_compile_cold_lazy_table_build():
             )(R0, z0)
         )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12)
+
+
+###############################################################################
+# MultipoleExpansionPotential.from_density with a density depending on backend
+# parameters: multipoles and tables are built in that backend, so the potential
+# is differentiable w.r.t. the density's parameters (static and time-dependent,
+# every symmetry, eager and traced).
+###############################################################################
+_FD_RGRID = numpy.geomspace(1e-2, 20.0, 41)
+_FD_TGRID = numpy.linspace(0.0, 1.0, 4)
+_FD_PTS = (
+    numpy.array([0.3, 1.1, 4.0]),
+    numpy.array([0.1, -0.3, 0.5]),
+    numpy.array([0.2, 1.0, 2.5]),
+)
+
+
+def _cos(x):
+    # the data's own namespace: numpy ufuncs on a torch tensor go through the
+    # __array_wrap__ path numpy 2.5 deprecates (an error under CI's -W error)
+    from galpy.backend._namespaces import namespace_from_arrays
+
+    xp = None if isinstance(x, (int, float)) else namespace_from_arrays([x])
+    return (numpy if xp is None else xp).cos(x)
+
+
+def _fd_mp_dens(b, tdep):
+    def d(R, z, phi=0.0):
+        return (
+            3.0
+            / (4.0 * numpy.pi)
+            * b**3
+            * (b**2 + R**2 + (z / 0.9) ** 2) ** -2.5
+            * (1.0 + 0.1 * _cos(2 * phi))
+        )
+
+    if not tdep:
+        return d
+    return lambda R, z, phi=0.0, t=0.0: d(R, z, phi) * (1.0 + 0.2 * numpy.exp(-0.4 * t))
+
+
+def _fd_mp(b, symmetry, tdep):
+    return MultipoleExpansionPotential.from_density(
+        _fd_mp_dens(b, tdep),
+        L=4,
+        rgrid=_FD_RGRID,
+        symmetry=symmetry,
+        tgrid=_FD_TGRID if tdep else None,
+    )
+
+
+def _fd_mp_eval(p, tdep, bk, names=("__call__", "Rforce")):
+    kw = {"t": 0.37} if tdep else {}
+    R, z, phi = (_asarray(bk, v) for v in _FD_PTS)
+    return sum(getattr(p, n)(R, z, phi=phi, **kw).sum() for n in names)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("symmetry", ["spherical", "axisymmetry", None])
+@pytest.mark.parametrize("tdep", [False, True])
+def test_from_density_grad_wrt_density_parameter(backend_name, symmetry, tdep):
+    # d(potential + R-force)/db vs a 5-point difference (O(h^4)) taken through
+    # the same backend-table path (a concrete backend b)
+    from galpy import backend as _b
+
+    def F(b):
+        return _fd_mp_eval(_fd_mp(b, symmetry, tdep), tdep, backend_name)
+
+    b0, h = 1.3, 1e-3
+    with _b.use(backend_name, force=True):
+        if backend_name == "jax":
+            grad = float(jax.grad(F)(jnp.asarray(b0)))
+        else:
+            bt = torch.tensor(b0, dtype=torch.float64, requires_grad=True)
+            F(bt).backward()
+            grad = float(bt.grad)
+        Fs = [
+            float(as_numpy(F(_asarray(backend_name, b0 + k * h))))
+            for k in (-2, -1, 1, 2)
+        ]
+    fd = (Fs[0] - 8.0 * Fs[1] + 8.0 * Fs[2] - Fs[3]) / (12.0 * h)
+    assert numpy.fabs(grad - fd) < 1e-9 * numpy.fabs(fd), (grad, fd)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("symmetry", ["spherical", "axisymmetry", None])
+@pytest.mark.parametrize("tdep", [False, True])
+def test_from_density_backend_tables_match_numpy(backend_name, symmetry, tdep):
+    # the backend-built tables (not-a-knot splines, exact piecewise integrals,
+    # quintic Hermite pieces) reproduce the numpy (FITPACK / BPoly) ones; the
+    # first/second derivative bars carry FITPACK's knot-derivative rounding
+    from galpy import backend as _b
+
+    pn = _fd_mp(1.3, symmetry, tdep)
+    pb = _fd_mp(_asarray(backend_name, 1.3), symmetry, tdep)
+    kw = {"t": 0.37} if tdep else {}
+    with _b.use(backend_name, force=True):
+        R, z, phi = (_asarray(backend_name, v) for v in _FD_PTS)
+        for name, rtol in (
+            ("__call__", 1e-13),
+            ("dens", 1e-14),
+            ("Rforce", 1e-12),
+            ("zforce", 1e-12),
+            ("R2deriv", 3e-11),
+            ("z2deriv", 3e-11),
+        ):
+            got = as_numpy(getattr(pb, name)(R, z, phi=phi, **kw))
+            ref = as_numpy(getattr(pn, name)(R, z, phi=phi, **kw))
+            numpy.testing.assert_allclose(
+                got, ref, rtol=0, atol=rtol * numpy.max(numpy.fabs(ref)), err_msg=name
+            )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("tdep", [False, True])
+def test_from_density_traced_build(tdep):
+    # under jax.jit the multipoles have no values to fit numpy splines to: the
+    # instance carries only the backend tables, its numpy/C paths are disabled,
+    # and the jitted value equals the eager one
+    from galpy import backend as _b
+
+    def F(b):
+        p = _fd_mp(b, "axisymmetry", tdep)
+        assert not p.hasC
+        for name in ("_rho_cos_splines", "_rho_cos_funcs", "_rho_cos_interp"):
+            assert getattr(p, name, None) is None
+        return _fd_mp_eval(p, tdep, "jax")
+
+    with _b.use("jax", force=True):
+        eager = float(
+            _fd_mp_eval(_fd_mp(jnp.asarray(1.3), "axisymmetry", tdep), tdep, "jax")
+        )
+        jitted = float(jax.jit(F)(jnp.asarray(1.3)))
+    numpy.testing.assert_allclose(jitted, eager, rtol=1e-13)
+    with pytest.raises(NotImplementedError), _b.use("jax", force=True):
+        jax.jit(
+            lambda b: (
+                MultipoleExpansionPotential.from_density(
+                    _fd_mp_dens(b, False), L=2, rgrid=_FD_RGRID, normalize=True
+                )._amp
+            )
+        )(jnp.asarray(1.3))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_from_density_scalar_only_density(backend_name):
+    # a density that cannot take arrays is evaluated point by point (stacked):
+    # same multipoles, still differentiable
+    import math
+
+    from galpy import backend as _b
+
+    def dens_of(b):
+        return lambda R, z, phi=0.0: (
+            3.0
+            / (4.0 * math.pi)
+            * b**3
+            * (b**2 + float(R) ** 2 + float(z) ** 2) ** -2.5
+        )
+
+    rg = numpy.geomspace(1e-2, 10.0, 21)
+    ref = MultipoleExpansionPotential.from_density(
+        dens_of(1.3), L=1, rgrid=rg, symmetry="spherical"
+    )
+    with _b.use(backend_name, force=True):
+        p = MultipoleExpansionPotential.from_density(
+            dens_of(_asarray(backend_name, 1.3)), L=1, rgrid=rg, symmetry="spherical"
+        )
+        R = _asarray(backend_name, [0.5, 2.0])
+        z = _asarray(backend_name, [0.1, 0.2])
+        numpy.testing.assert_allclose(
+            as_numpy(p(R, z)), as_numpy(ref(R, z)), rtol=1e-13
+        )
