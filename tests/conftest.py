@@ -719,6 +719,19 @@ def _galpy_force_backend(request):
         yield
 
 
+@pytest.fixture
+def torch_default_float32():
+    """torch at its USER default dtype (float32) for one test: the harness forces
+    float64, which hides float32-meets-float64 defects from every other test."""
+    torch = pytest.importorskip("torch")
+    prev = torch.get_default_dtype()
+    torch.set_default_dtype(torch.float32)
+    try:
+        yield
+    finally:
+        torch.set_default_dtype(prev)
+
+
 def _liouville3d_tdep_amp(t):
     # Smooth, strictly-positive time-dependent amplitude used by the
     # TimeDependentAmplitudeWrapperPotential registry entry (module-level so it
