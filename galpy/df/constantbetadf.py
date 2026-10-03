@@ -13,6 +13,7 @@ from ..backend import (
     asarray_on_device,
     autodiff_ops,
     device_of,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -404,6 +405,7 @@ class _constantbetadf(anisotropicsphericaldf):
             / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
         )
 
+    @float64_default_if_torch_args
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
     ):
@@ -636,6 +638,7 @@ class constantbetadf(_constantbetadf):
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
 
+    @float64_default_if_torch_args
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
     ):

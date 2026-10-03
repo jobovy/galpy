@@ -2631,9 +2631,9 @@ def test_determine_stream_spread_backend_pipeline_float32_default(
 
 
 def test_approxaAInv_float32_query_points(sdf, torch_default_float32):
-    # float32 query points (torch's default) meet float64 track tables: they are
-    # promoted like numpy's, so the result equals that of the float64 points with
-    # the same (float32-rounded) values -- previously a dtype error
+    # float32 query points (torch's default) meet float64 track tables: computed
+    # in float64 and returned in float32 -- exactly the float64 points' result
+    # (same float32-rounded values), cast. Previously a dtype error
     if "torch" not in BACKENDS:
         pytest.skip("torch not installed")
     from galpy import backend as _bk
@@ -2643,5 +2643,5 @@ def test_approxaAInv_float32_query_points(sdf, torch_default_float32):
     with _bk.use("torch", force=True):
         got = sdf._approxaAInv(*(torch.tensor(c) for c in pts32.T))
         ref = sdf._approxaAInv(*(torch.tensor(c, dtype=torch.float64) for c in pts32.T))
-    assert got.dtype == torch.float64
-    numpy.testing.assert_array_equal(got.numpy(), ref.numpy())
+    assert got.dtype == torch.float32
+    numpy.testing.assert_array_equal(got.numpy(), ref.to(torch.float32).numpy())

@@ -31,6 +31,7 @@ from ..backend import (
     backend_input,
     device_of,
     exit_cast,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
 )
@@ -873,6 +874,7 @@ class sphericaldf(df):
         )
 
     ############################### SAMPLING THE DF################################
+    @float64_default_if_torch_args
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
     ):
