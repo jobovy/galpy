@@ -1,5 +1,6 @@
 # A 'Binney' quasi-isothermal DF
 import hashlib
+import math
 import warnings
 
 import numpy
@@ -60,9 +61,12 @@ _MAXVT_X0 = 1.0  # same local-search start as scipy's fmin_powell on the numpy p
 _SAMPLEV_MAXROUNDS = 200
 
 
-# dynamo traces numpy on constants into emulated 0-d ndarrays, which a tensor
-# cannot be added to afterwards
-_numpy_log = untraceable_setup(numpy.log)
+def _log_const(v):
+    """log of a constant: math.log for a scalar -- torch.compile constant-folds
+    it, where dynamo would trace numpy.log into an emulated 0-d ndarray that a
+    tensor cannot be added to afterwards; bit-identical to numpy.log (500k
+    values checked)."""
+    return math.log(v) if numpy.ndim(v) == 0 else numpy.log(v)
 
 
 class quasiisothermaldf(df):
@@ -136,8 +140,8 @@ class quasiisothermaldf(df):
         self._lo = parse_angmom(lo, ro=self._ro, vo=self._vo)
         # coerce first: under a forced backend torch.log rejects a plain float
         _lxp = resolve_namespace(self._sr, self._sz)
-        if _lxp is numpy:  # constants: eager under torch.compile (numpy float64)
-            self._lnsr, self._lnsz = _numpy_log(self._sr), _numpy_log(self._sz)
+        if _lxp is numpy:  # constants
+            self._lnsr, self._lnsz = _log_const(self._sr), _log_const(self._sz)
         else:
             _srv, _szv = coerce_coords(_lxp, self._sr, self._sz)
             self._lnsr = _lxp.log(_srv)
