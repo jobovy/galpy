@@ -335,6 +335,37 @@ def _run_backend(config):
     return name
 
 
+def pytest_report_header(config):
+    """The runner's CPU, once per job: some inductor-compiled kernels hit a GCC
+    internal compiler error only on AVX-512 runners (worked around in
+    test_backend_compile_workflows), and a passing job's log otherwise does not
+    say which kind of runner it was."""
+    import importlib.util
+    import platform
+
+    model, flags = platform.processor() or "?", set()
+    try:  # Linux runners
+        with open("/proc/cpuinfo") as fh:
+            for line in fh:
+                if line.startswith("model name") and model in ("?", "x86_64"):
+                    model = line.split(":", 1)[1].strip()
+                elif line.startswith("flags"):
+                    flags = set(line.split(":", 1)[1].split())
+                    break
+    except OSError:
+        pass
+    simd = sorted(f for f in flags if f in ("avx2", "avx512f", "amx_tile"))
+    line = f"cpu: {model} | simd: {' '.join(simd) or '?'}"
+    if importlib.util.find_spec("torch") is not None:
+        try:
+            from torch._inductor.cpu_vec_isa import pick_vec_isa
+
+            line += f" | inductor vec isa: {pick_vec_isa()}"
+        except Exception:  # noqa: BLE001 -- diagnostic only
+            pass
+    return line
+
+
 def pytest_addoption(parser):
     # Force a single array backend for the whole run (numpy|jax|torch). With
     # numpy (default) this is a no-op, so the existing suite is unchanged.
