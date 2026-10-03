@@ -782,6 +782,20 @@ def test_float64_default_scope_skipped_under_compile(
         assert torch.get_default_dtype() == torch.float32
 
 
+def test_float64_default_scope_without_torch_imported(monkeypatch):
+    # galpy never imports torch itself for the scope: absent torch, both the
+    # scope and the decorator are pass-throughs
+    import sys
+
+    from galpy.backend import float64_default, float64_default_if_torch_args
+
+    monkeypatch.delitem(sys.modules, "torch", raising=False)
+    with float64_default() as scope:
+        assert scope._prev is None
+    assert "torch" not in sys.modules
+    assert float64_default_if_torch_args(lambda x: 2.0 * x)(1.5) == 3.0
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_float64_default_if_torch_args_triggers(torch_default_float32):
     from galpy.backend import float64_default_if_torch_args
