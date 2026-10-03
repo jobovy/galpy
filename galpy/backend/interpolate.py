@@ -247,6 +247,43 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
 ###############################################################################
 #   (2) Differentiable in-backend 1D spline construction (mode 2).
 ###############################################################################
+def cubic_ppoly_knot_derivative(xp, c, h):
+    """First derivative at every knot of a cubic power-basis PPoly ``c`` (4,
+    n-1) with interval widths ``h`` (n-1,): the left-end slope of each piece
+    and, at the last knot, the right-end slope of the last piece."""
+    last = 3.0 * c[0][-1] * h[-1] ** 2 + 2.0 * c[1][-1] * h[-1] + c[2][-1]
+    return (getattr(xp, "concat", None) or xp.concatenate)(
+        [c[2], xp.reshape(last, (1,))]
+    )
+
+
+def cubic_ppoly_cumulative_integral(xp, c, h):
+    """Cumulative integral of a cubic power-basis PPoly ``c`` (4, n-1) at its
+    knots, 0 at the first: each piece integrated exactly over its width."""
+    seg = c[0] * h**4 / 4.0 + c[1] * h**3 / 3.0 + c[2] * h**2 / 2.0 + c[3] * h
+    return (getattr(xp, "concat", None) or xp.concatenate)(
+        [xp.zeros((1,), dtype=seg.dtype), xp.cumsum(seg, axis=0)]
+    )
+
+
+def quintic_hermite_coeffs(xp, v, d, a, h):
+    """Power-basis coefficients (6, n-1), highest power first, of the C2 quintic
+    Hermite interpolant of the value ``v``, first ``d`` and second ``a``
+    derivative at the n knots (interval widths ``h``) -- the piecewise
+    polynomial scipy's ``BPoly.from_derivatives`` builds from those three
+    constraints, in the layout of ``PPoly.from_bernstein_basis`` of it. Linear
+    in (v, d, a), so differentiable through them."""
+    v0, v1, d0, d1, a0, a1 = v[:-1], v[1:], d[:-1], d[1:], a[:-1], a[1:]
+    c5 = (12.0 * (v1 - v0) - 6.0 * (d1 + d0) * h - (a0 - a1) * h**2) / (2.0 * h**5)
+    c4 = (
+        30.0 * (v0 - v1) + (14.0 * d1 + 16.0 * d0) * h + (3.0 * a0 - 2.0 * a1) * h**2
+    ) / (2.0 * h**4)
+    c3 = (20.0 * (v1 - v0) - (8.0 * d1 + 12.0 * d0) * h - (3.0 * a0 - a1) * h**2) / (
+        2.0 * h**3
+    )
+    return xp.stack([c5, c4, c3, a0 / 2.0, d0, v0])
+
+
 def cubic_spline_coeffs(xp, x, y, bc="natural"):
     """Build piecewise-cubic power-basis coefficients from ``(x, y)`` in ``xp``.
 
