@@ -220,6 +220,35 @@ def test_orbitintegration_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_orbitintegration_forced_numpy_inputs_scalar_force(backend):
+    # numpy inputs under a FORCED backend route to the in-backend twin (not the
+    # numpy C path), and a potential whose forces are bare Python scalars (a
+    # zero-force galaxy) integrates there too
+    import galpy.backend
+    from galpy.potential import Potential
+
+    class _ZeroForce(Potential):
+        def __init__(self):
+            Potential.__init__(self, amp=1.0)
+            self.hasC = False
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+    v, x, b, w, x0, v0 = _oi_config()
+    pp = PlummerPotential(amp=1.5, b=4.0)
+    args = (v, x, b, w, x0, v0, pp, _OI_TMAX, _ZeroForce())
+    ref = numpy.asarray(impulse_deltav_general_orbitintegration(*args, nsamp=200))
+    with galpy.backend.use(backend, force=True):
+        got = impulse_deltav_general_orbitintegration(*args, nsamp=200)
+    assert is_backend_array(got), f"{backend}: forced numpy inputs ran on numpy"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7, atol=1e-11)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_orbitintegration_grad_vs_fd(backend):
     v, x, b, w, x0, v0 = _oi_config()
     lp = LogarithmicHaloPotential(normalize=1.0)
