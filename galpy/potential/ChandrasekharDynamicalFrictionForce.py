@@ -342,6 +342,25 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             self._force_hash = new_hash
         return self._cached_force
 
+    def _backend_force_factor(self, R, phi, z, v, t, xp):
+        """``_calc_force_backend`` with the eager twin of ``_cached_force_factor``:
+        the three components of one EOM evaluation pass the SAME arrays, so the
+        factor is computed once, not three times. Keyed on object identity (and
+        torch's in-place version counter), so a different or modified input
+        always recomputes; skipped under a trace (no stateful caching there)."""
+        args = (R, phi, z, t, v[0], v[1], v[2])
+        if under_trace(*args):
+            return self._calc_force_backend(R, phi, z, v, t, xp)
+        key = tuple((a, getattr(a, "_version", None)) for a in args)
+        hit = getattr(self, "_backend_force_cache", None)
+        if hit is not None and all(
+            k[0] is a and k[1] == ka for (k, (a, ka)) in zip(hit[0], key)
+        ):
+            return hit[1]
+        out = self._calc_force_backend(R, phi, z, v, t, xp)
+        self._backend_force_cache = (key, out)
+        return out
+
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         # Dispatch on the DATA, not get_namespace: this DissipativeForce is queried
         # via a path that skips the input-coercion gate, so under a forced backend
@@ -350,19 +369,19 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # genuine backend arrays take the backend path; else the numpy/cache path.
         if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
             xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-            return self._calc_force_backend(R, phi, z, v, t, xp) * v[0]
+            return self._backend_force_factor(R, phi, z, v, t, xp) * v[0]
         return self._cached_force_factor(R, phi, z, v, t) * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
             xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-            return self._calc_force_backend(R, phi, z, v, t, xp) * v[1] * R
+            return self._backend_force_factor(R, phi, z, v, t, xp) * v[1] * R
         return self._cached_force_factor(R, phi, z, v, t) * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
         if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
             xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-            return self._calc_force_backend(R, phi, z, v, t, xp) * v[2]
+            return self._backend_force_factor(R, phi, z, v, t, xp) * v[2]
         return self._cached_force_factor(R, phi, z, v, t) * v[2]
 
     # Pickling functions
@@ -370,6 +389,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         pdict = copy.copy(self.__dict__)
         # rm lambda function
         del pdict["_dens_host"]
+        pdict.pop("_backend_force_cache", None)  # holds arrays of the last step
         if self._sigmar_kwarg is None:
             # because an object set up with sigmar = user-provided function
             # cannot typically be picked, disallow this explicitly
