@@ -3,6 +3,7 @@ import scipy.special as sp
 
 from ..backend import coerce_coords
 from ..backend import special as _backend_special
+from ..backend._namespaces import under_trace
 from ..util import conversion
 from .ChandrasekharDynamicalFrictionForce import (
     _INVSQRTPI,
@@ -246,15 +247,19 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         C_cdm = lnLambda * Xfactor
         kr = self._mhbar * vs * r
         M_sigma = vs / sr
+        # Eager, all points in ONE regime (an orbit integration, step by step):
+        # compute only that regime's C -- the value xp.where would select --
+        # instead of all three (two sici series). Traced: all three, selected.
+        if not under_trace(kr, M_sigma):
+            lo, hi = kr < M_sigma / 2.0, kr > 2.0 * M_sigma
+            if bool(xp.all(lo)):
+                return xp.minimum(self._C_zero_backend(kr, xp), C_cdm)
+            if bool(xp.all(hi)):
+                return xp.minimum(xp.log(2.0 * kr / M_sigma) * Xfactor, C_cdm)
         # Dispersion regime (kr > 2 M_sigma)
         C_disp = xp.log(2.0 * kr / M_sigma) * Xfactor
         # Zero-velocity regime (kr < M_sigma / 2)
-        _, ci_2kr = _backend_special.sici(2.0 * kr)
-        C_zero = (
-            (-ci_2kr + xp.log(2.0 * kr) + numpy.euler_gamma)
-            + (xp.sin(2.0 * kr) / (2.0 * kr))
-            - 1.0
-        )
+        C_zero = self._C_zero_backend(kr, xp)
         # Intermediate regime: linear interp between the zero-velocity value at
         # kr = M_sigma/2 and the dispersion value log(4)*Xfactor at kr = 2 M_sigma
         _, ci_ms = _backend_special.sici(M_sigma)
@@ -273,6 +278,15 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             xp.where(kr < M_sigma / 2.0, C_zero, C_mid),
         )
         return xp.minimum(C, C_cdm)
+
+    @staticmethod
+    def _C_zero_backend(kr, xp):
+        _, ci_2kr = _backend_special.sici(2.0 * kr)
+        return (
+            (-ci_2kr + xp.log(2.0 * kr) + numpy.euler_gamma)
+            + (xp.sin(2.0 * kr) / (2.0 * kr))
+            - 1.0
+        )
 
     def _calc_force_backend(self, R, phi, z, v, t, xp):
         # v is a caller-supplied triple, not coerced by @backend_input like R/z,
