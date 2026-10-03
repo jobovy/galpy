@@ -19,7 +19,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, to_host, use
+from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._namespaces import (
     requires_backend_grad,
     under_trace,
@@ -2674,44 +2674,60 @@ class quasiisothermaldf(df):
                 # Removing accepted sampled from remain index
                 remain_indx[remain_indx] = ~accept_indx
             return out
-        # Backend: the same rejection with every array at ONE fixed shape --
-        # propose for all points each round and keep the outstanding ones with a
-        # mask. Eager jax compiles every op per new array shape (~5 s per DF
-        # call, measured), so proposing for just the outstanding points (a new
-        # count every round) recompiled every op every round; one shape compiles
-        # once (sampleV_interpolate: 532 s -> 39 s under jax), and the extra
-        # evaluations of already-accepted points are cheap by comparison.
+        # Backend: the same rejection, proposing for the outstanding points only
+        # (one full DF evaluation per round otherwise) but padded to a power-of-4
+        # bucket: eager jax compiles every op per new array shape (~5 s per DF
+        # call), and the bucket caps that at ~log4(n) shapes, where the exact
+        # outstanding count recompiled every round. The bookkeeping is
+        # numpy-side; padding rows scatter into a dummy row at index ``length``.
         # Sampled in float64 (the numpy-drawn proposals are float64).
         Rb, zb, mvT = at_least_float64(
             xp.asarray(R) * 1.0, xp.asarray(z) * 1.0, xp.asarray(maxVT) * 1.0
         )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
-        out = xp.zeros((length, 3), dtype=Rb.dtype)
-        remain = xp.ones(length, dtype=bool)
+        out = xp.zeros((length + 1, 3), dtype=Rb.dtype)
+        remain = numpy.ones(length, dtype=bool)
         for _ in range(_SAMPLEV_MAXROUNDS):
-            if not bool(xp.any(remain)):
+            idx = numpy.nonzero(remain)[0]
+            nmore = idx.shape[0]
+            if nmore == 0:
                 break
-            propvR = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sr
-            propvT = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sr + mvT
-            propvz = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sz
+            # smallest 4**k >= nmore, at least 16
+            nb = max(16, 1 << 2 * ((nmore - 1).bit_length() + 1 >> 1))
+            gidx = xp.asarray(numpy.pad(idx, (0, nb - nmore)))
+            mr = mvT[gidx]
+            propvR = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr
+            propvT = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr + mr
+            propvz = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sz
             VDatprop = (
-                self(Rb, propvR, propvT, zb, propvz, log=True, use_physical=False)
-                - logmaxVD
+                self(
+                    Rb[gidx],
+                    propvR,
+                    propvT,
+                    zb[gidx],
+                    propvz,
+                    log=True,
+                    use_physical=False,
+                )
+                - logmaxVD[gidx]
             )
             VDatprop -= -0.5 * (
                 propvR**2.0 / 4.0 / self._sr**2.0
                 + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - mvT) ** 2.0 / 4.0 / self._sr**2.0
+                + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
             )
-            accept = remain & (
-                VDatprop > xp.log(xp.asarray(numpy.random.random(size=length)))
+            accept = as_numpy(
+                VDatprop > xp.log(xp.asarray(numpy.random.random(size=nb)))
+            )[:nmore]
+            sidx = numpy.full(nb, length)
+            sidx[:nmore][accept] = idx[accept]
+            out = set_at(
+                xp, out, xp.asarray(sidx), xp.stack([propvR, propvT, propvz], axis=1)
             )
-            out = xp.where(
-                accept[:, None], xp.stack([propvR, propvT, propvz], axis=1), out
-            )
-            remain = remain & ~accept
-        return match_input_dtype(out, R)  # float32 R in -> float32 out
+            remain[idx[accept]] = False
+        # float32 R in -> float32 out
+        return match_input_dtype(out[:length], R)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)

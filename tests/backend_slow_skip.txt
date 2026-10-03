@@ -117,11 +117,15 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-# test_sampleV_interpolate UN-SKIPPED 2026-10-02: its 2837 s (vs 244 s alone) was
-# eager-jax RECOMPILATION -- the rejection loop proposed for the outstanding
-# points only, a new array size every round, and eager jax compiles every op per
-# new shape (~5 s per DF call). A fixed-shape loop compiles once: 242 s in its
-# file under jax, 171 s under jax-jit (this box; CI is ~2.7x faster here).
+# test_sampleV_interpolate 2026-10-03: its 2837 s in-shard was eager-jax
+# RECOMPILATION -- the rejection loop proposed for the outstanding points only,
+# a new array size every round, and eager jax compiles every op per new shape.
+# The loop now pads to power-of-4 buckets: 217 s for the test under jax, 191 s
+# under jax-jit (this box), still ~75% compile (half in the loop, half in
+# sampleV_interpolate's grid setup). Not enough: a fixed-shape variant at 242 s
+# / 171 s here timed out at 300 s on CI (gh#1621), so CI is NOT faster than this
+# box for this test, whatever the 2026-09-12 junit pairing suggested.
+jax tests/test_qdf.py::test_sampleV_interpolate  # 217s here; >300s on CI
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
@@ -426,6 +430,7 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # numerics task, not a dispatch one.
 jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 285.4s / 300.1s -- flips
 
+jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 191s here; >300s on CI (see the jax note)
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
                                                 # INSIDE the 240-300s band; every
