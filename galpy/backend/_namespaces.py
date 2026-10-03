@@ -167,6 +167,17 @@ def set_at(xp, arr, mask, values):
     return out
 
 
+def bucket_size(n, minimum=16):
+    """Smallest ``4**k >= n``, at least ``minimum`` (a power of 4); 0 stays 0.
+
+    Pads a varying array length to one of ~log4(n) sizes: eager jax compiles
+    every op per new shape, so a length that changes call to call (or round to
+    round) otherwise recompiles everything each time."""
+    if n <= 0:
+        return 0
+    return max(minimum, 1 << 2 * ((n - 1).bit_length() + 1 >> 1))
+
+
 def cummax(xp, x):
     """Running maximum of the 1D ``x`` (``numpy.maximum.accumulate``), traceable."""
     name = name_of_namespace(xp)

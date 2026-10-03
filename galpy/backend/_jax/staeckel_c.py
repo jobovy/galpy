@@ -10,6 +10,19 @@
 ###############################################################################
 import numpy
 
+from .._namespaces import under_jax_trace
+
+
+def _host_if_concrete(host, coords):
+    """``host``'s outputs as jax arrays when every coord is CONCRETE (plain eager
+    values: no grad/jit/vmap tracer to serve), else None. Each call builds a new
+    ``host`` closure, so a pure_callback would compile anew every time (~25 ms)."""
+    if under_jax_trace(*coords):
+        return None
+    import jax.numpy as jnp
+
+    return tuple(jnp.asarray(o) for o in host(*coords))
+
 
 def actions_with_jac(host_jac, coords):
     """Differentiable (jr, jz) with the native-C Jacobian as the vjp residual.
@@ -60,7 +73,8 @@ def actions_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(5)),)
 
     _actions.defvjp(_fwd, _bwd)
-    return _actions(coords)
+    out = _host_if_concrete(_host, coords)
+    return _actions(coords) if out is None else out[:2]
 
 
 def actionsfreqs_with_jac(host_jac, coords):
@@ -103,7 +117,8 @@ def actionsfreqs_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(5)),)
 
     _af.defvjp(_fwd, _bwd)
-    return _af(coords)
+    out = _host_if_concrete(_host, coords)
+    return _af(coords) if out is None else out[:5]
 
 
 def actionsfreqsangles_with_jac(host_jac, coords, phi):
@@ -151,7 +166,10 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
         return (tuple(g[:, k] for k in range(5)),)
 
     _afa.defvjp(_fwd, _bwd)
-    raw = _afa(coords)  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
+    out = _host_if_concrete(_host, coords)
+    raw = (
+        _afa(coords) if out is None else out[:8]
+    )  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
     # C flags an unbound orbit by returning 9999.99 in every output, and that
     # sentinel must survive the azimuth wrap -- folding it gives 3.44, which reads
     # as an ordinary angle. The numpy C wrapper guards this the same way
@@ -206,4 +224,5 @@ def ecczmax_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(n)),)
 
     _ez.defvjp(_fwd, _bwd)
-    return _ez(tuple(coords))
+    out = _host_if_concrete(_host, coords)
+    return _ez(tuple(coords)) if out is None else out[:4]
