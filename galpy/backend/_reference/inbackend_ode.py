@@ -21,7 +21,7 @@
 #   axis, and is naturally well-behaved for autodiff. The public input/output are
 #   transformed to/from ``Orbit`` order so they match ``Orbit``.
 ###############################################################################
-from .. import at_least_float64, get_namespace, is_backend_array
+from .. import at_least_float64, get_namespace, is_backend_array, match_input_dtype
 
 
 def _eom_rhs(y, pot, t, xp, dim=6):
@@ -209,8 +209,10 @@ def integrate_orbit(
     """
     xp = get_namespace(vxvv)
     name = xp.__name__
-    # numpy's Orbit integrates in float64; a float32 IC or time grid (torch's
-    # default dtype) would mix with float64 or ask float32 for the tolerances
+    # integrate in float64 like numpy's Orbit (a float32 IC or time grid would
+    # mix with float64 or ask float32 for the tolerances); a float32 IC gets its
+    # orbit back in float32 (float32 in -> float32 out)
+    vxvv_in = vxvv
     vxvv = at_least_float64(vxvv)
     if is_backend_array(ts):
         ts = at_least_float64(ts)
@@ -270,4 +272,4 @@ def integrate_orbit(
             "in-backend ODE integration requires a jax or torch input array; "
             "for numpy use Orbit.integrate (C / scipy integrators)"
         )
-    return _from_eom(xp, ys, phasedim)
+    return match_input_dtype(_from_eom(xp, ys, phasedim), vxvv_in)

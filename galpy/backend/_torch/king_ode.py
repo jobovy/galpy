@@ -11,10 +11,13 @@ _FOURPI = 4.0 * math.pi
 
 
 def _solve_segment(f, y0, t_eval, rtol, atol, max_steps):
+    import torch
     import torchode as to
 
     term = to.ODETerm(f)
     ctl = to.IntegralController(atol=atol, rtol=rtol, term=term)
+    # torchode builds atol with torch.tensor(): float32 at torch's default dtype
+    ctl.atol = torch.tensor(atol, dtype=y0.dtype, device=y0.device)
     # a 0-d-tensor rtol is baked into torch.compile unguarded (see orbit_ode)
     del ctl._buffers["rtol"]
     ctl.rtol = float(rtol)

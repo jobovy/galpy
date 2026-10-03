@@ -184,15 +184,26 @@ def test_torch_compile_torchode_orbit_matches_eager():
 @pytest.mark.parametrize("method", ["torchode", "torchdiffeq"])
 def test_float32_ic_integrates_in_float64(method, torch_default_float32):
     # A float32 IC and time grid (torch's default dtype) integrate in float64,
-    # as numpy's Orbit does: the same orbit as C from the float32-rounded IC
-    # (previously: a dtype error against float64 times, or float32 tolerances)
+    # as numpy's Orbit does, and the orbit comes back in float32 (float32 in ->
+    # float32 out): exactly the float64 integration of the same (float32-
+    # rounded) IC, cast. Previously a dtype error against float64 times, or a
+    # float32 solve stalled on the 1e-12 tolerances.
     pytest.importorskip(method)
-    ic32 = numpy.asarray(_IC, dtype=numpy.float32).astype(float)
-    ts32 = numpy.asarray(_TS, dtype=numpy.float32).astype(float)
-    o = Orbit(torch.tensor(_IC))
-    o.integrate(torch.tensor(_TS), _POT, method=method)
-    got = o.getOrbit()
-    assert got.dtype == torch.float64
+
+    def orbit(ic, ts):
+        o = Orbit(ic)
+        o.integrate(ts, _POT, method=method)
+        return o.getOrbit()
+
+    got = orbit(torch.tensor(_IC), torch.tensor(_TS))
+    ic64 = torch.tensor(_IC).to(torch.float64)
+    ref = orbit(ic64, torch.tensor(_TS).to(torch.float64))
+    assert got.dtype == torch.float32
+    numpy.testing.assert_array_equal(got.numpy(), ref.to(torch.float32).numpy())
+    # ... and that float64 orbit is the C one
     numpy.testing.assert_allclose(
-        got.cpu().numpy(), _c_orbit(ic32, ts32, _POT), rtol=1e-9, atol=1e-9
+        ref.numpy(),
+        _c_orbit(ic64.numpy(), torch.tensor(_TS).double().numpy(), _POT),
+        rtol=1e-9,
+        atol=1e-9,
     )

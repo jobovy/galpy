@@ -738,3 +738,128 @@ def test_match_input_dtype_mixed_framework_coords(backend):
         cast = match_input_dtype(out, numpy.array([0.5], dtype=numpy.float32))
         assert cast.dtype == torch.float32
         assert get_namespace(cast) is not numpy
+
+
+###############################################################################
+# torch's DEFAULT dtype is float32; galpy runs its internals in float64 anyway
+# (galpy.backend.float64_default) -- scoped at use("torch"), the @backend_input
+# boundary and the df/actionAngle/integrate/sample entry points -- while a
+# tensor the user made float32 stays float32 in -> float32 out. Each test runs
+# at the USER default (the harness otherwise forces float64, hiding all this).
+###############################################################################
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_float64_default_scope_sets_restores_and_nests(torch_default_float32):
+    from galpy import backend
+    from galpy.backend import float64_default
+
+    assert torch.get_default_dtype() == torch.float32
+    with float64_default():
+        assert torch.get_default_dtype() == torch.float64
+        with float64_default():
+            assert torch.get_default_dtype() == torch.float64
+        assert torch.get_default_dtype() == torch.float64
+    assert torch.get_default_dtype() == torch.float32
+    with backend.use("torch", force=True):
+        assert torch.get_default_dtype() == torch.float64
+    assert torch.get_default_dtype() == torch.float32
+    with pytest.raises(RuntimeError), float64_default():
+        raise RuntimeError  # restored on an exception too
+    assert torch.get_default_dtype() == torch.float32
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_float64_default_scope_skipped_under_compile(
+    torch_default_float32, monkeypatch
+):
+    # set_default_dtype inside a dynamo trace would break the graph
+    import galpy.backend._tracectx as tc
+    from galpy.backend import float64_default
+
+    monkeypatch.setattr(tc, "is_compiling", lambda: True)
+    with float64_default():
+        assert torch.get_default_dtype() == torch.float32
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_float64_default_if_torch_args_triggers(torch_default_float32):
+    from galpy.backend import float64_default_if_torch_args
+    from galpy.backend import random as grandom
+
+    class Obj:
+        pass
+
+    @float64_default_if_torch_args
+    def probe(self, *args, **kwargs):
+        return torch.get_default_dtype()
+
+    o = Obj()
+    assert probe(o, 1.0, numpy.ones(2), z=0.1) == torch.float32  # nothing torch
+    assert probe(o, torch.ones(2)) == torch.float64
+    assert probe(o, 1.0, z=torch.ones(2)) == torch.float64
+    assert probe(o, key=grandom.key(1, backend="torch")) == torch.float64
+    o._ic_backend = torch.ones(6)  # an Orbit holding a tensor IC
+    assert probe(o) == torch.float64
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_float32_default_internals_run_in_float64(torch_default_float32):
+    # PowerSphericalPotentialwCutoff's gammainc order and the gamma prefactor
+    # were float32 at the user default (1.9e-8 in the force); forced and
+    # data-dispatched evaluations now equal numpy, and a user float32 tensor
+    # still comes back float32
+    from galpy import backend
+    from galpy.potential import MWPotential2014, evaluateRforces
+
+    R, z = numpy.array([0.3, 1.1, 4.0]), numpy.array([0.1, -0.2, 0.5])
+    ref = evaluateRforces(MWPotential2014, R, z)
+    got = evaluateRforces(
+        MWPotential2014,
+        torch.tensor(R, dtype=torch.float64),
+        torch.tensor(z, dtype=torch.float64),
+    )
+    numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-14)
+    with backend.use("torch", force=True):
+        got = evaluateRforces(MWPotential2014, R, z)
+    numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-14)
+    got32 = evaluateRforces(
+        MWPotential2014,
+        torch.tensor(R, dtype=torch.float32),
+        torch.tensor(z, dtype=torch.float32),
+    )
+    assert got32.dtype == torch.float32
+    assert torch.get_default_dtype() == torch.float32
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_float32_default_orbit_and_df_match_float64_default(torch_default_float32):
+    # integrate / accessors / df sampling and moments with float64 user tensors
+    # give the same numbers at a float32 default as at a float64 one
+    from galpy.backend import random as grandom
+    from galpy.df import isotropicHernquistdf
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, MWPotential2014
+
+    def run():
+        t64 = lambda v: torch.tensor(v, dtype=torch.float64)  # noqa: E731
+        o = Orbit(t64([1.0, 0.1, 1.1, 0.1, 0.05, 0.3]))
+        o.integrate(t64(numpy.linspace(0.0, 1.0, 11)), MWPotential2014)
+        df = isotropicHernquistdf(pot=HernquistPotential(amp=t64(2.0), a=1.3))
+        s = df.sample(n=4, key=grandom.key(3, backend="torch"), return_orbit=False)
+        return [
+            o.getOrbit(),
+            o.zmax(analytic=True),
+            df.sigmar(t64([0.5, 1.5])),
+            *s,
+        ]
+
+    got32 = run()
+    torch.set_default_dtype(torch.float64)
+    try:
+        got64 = run()
+    finally:
+        torch.set_default_dtype(torch.float32)
+    for a, b in zip(got32, got64):
+        assert a.dtype == torch.float64
+        numpy.testing.assert_allclose(a.numpy(), b.numpy(), rtol=1e-14, atol=1e-300)

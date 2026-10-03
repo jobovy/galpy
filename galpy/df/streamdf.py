@@ -22,8 +22,10 @@ from ..backend import (
     as_numpy,
     at_least_float64,
     coerce_coords,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
+    match_input_dtype,
     name_of_namespace,
     on_host,
     promote_scalars,
@@ -4223,8 +4225,9 @@ class streamdf(df):
         the continuous track/Jacobian values it points at (reparameterised
         nearest-neighbour): the gradient flows through dOa, the gathered tables
         and the smoothing weight, NOT through the index. Returns a (6,N) array."""
-        # float32 query points (torch's default) meet float64 tables: promote,
-        # as numpy does (the constants below then anchor on float64 too)
+        # float32 query points meet float64 tables: compute in float64 (the
+        # constants below then anchor on float64 too), return in float32
+        Or_in = Or
         Or, Op, Oz, ar, ap, az = at_least_float64(Or, Op, Oz, ar, ap, az)
         # backend query points OR a backend-built track routes here; resolve the
         # namespace off whichever reference is a backend array (never mix).
@@ -4300,7 +4303,7 @@ class streamdf(df):
             :, None, None
         ] * allinvjacs[jacIndx2]  # (n,6,6)
         out = xp.einsum("nij,nj->ni", M, dOa) + track_obs[closestIndx]  # (n,6)
-        return out.T
+        return match_input_dtype(out.T, Or_in)
 
     ################################EVALUATE THE DF################################
     def __call__(self, *args, **kwargs):
@@ -4827,6 +4830,7 @@ class streamdf(df):
         return (condMean, condVar)
 
     ################################SAMPLE THE DF##################################
+    @float64_default_if_torch_args
     def sample(
         self,
         n,
@@ -5120,6 +5124,7 @@ class streamdf(df):
         angle = da + progAngle[:, None]
         return (Om, angle, dt)
 
+    @float64_default_if_torch_args
     def sample_t(self, n, key=None):
         """
         Sample the time since the progenitor was stripped
