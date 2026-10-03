@@ -1286,13 +1286,14 @@ class sphericaldf(df):
         such as King"""
         xp = resolve_namespace(r)
         if xp is numpy:
-            return numpy.sqrt(
-                2.0
-                * (
-                    _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
-                    - _evaluatePotentials(self._pot, r, 0.0)
+            phi_max = _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
+            if not is_backend_array(phi_max):
+                return numpy.sqrt(
+                    2.0 * (phi_max - _evaluatePotentials(self._pot, r, 0.0))
                 )
-            )
+            # backend potential parameters at numpy radii: a tensor amp times an
+            # ndarray goes through the deprecated __array_wrap__ (numpy 2.5)
+            xp = namespace_from_arrays((phi_max,))
         # coerce coords: undecorated potential evals reject numpy/scalars (torch)
         phi_max = _evaluatePotentials(
             self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0
