@@ -674,11 +674,12 @@ def float64_default_if_torch_args(fn):
     tensor IC (``self._ic_backend``) -- runs in a ``float64_default`` scope.
     On every public call, so kept to a few hundred ns: no generators, no
     exception-raising getattr, kwargs only scanned when present."""
-    modules = sys.modules
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        torch = modules.get("torch")
+        # not a closure over sys.modules: under torch.compile on py3.14 that made
+        # dynamo trip typing's _UnionGenericAlias DeprecationWarning
+        torch = sys.modules.get("torch")
         if torch is None:
             return fn(*args, **kwargs)
         T = _TORCH_TYPES or _torch_types(torch)
