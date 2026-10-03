@@ -2670,45 +2670,43 @@ class quasiisothermaldf(df):
                 # Removing accepted sampled from remain index
                 remain_indx[remain_indx] = ~accept_indx
             return out
-        # Backend: the same rejection, but proposing only for the points still
-        # outstanding (as the numpy loop does) -- proposing for the whole vector
-        # every round costs one full DF evaluation per round and is what made the
-        # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
-        # are scattered in with .at[].set() rather than a boolean assignment.
-        # sample in float64 (the numpy-drawn proposals are float64; an output
-        # allocated at torch's default dtype was float32)
+        # Backend: the same rejection with every array at ONE fixed shape --
+        # propose for all points each round and keep the outstanding ones with a
+        # mask. Eager jax compiles every op per new array shape (~5 s per DF
+        # call, measured), so proposing for just the outstanding points (a new
+        # count every round) recompiled every op every round; one shape compiles
+        # once (sampleV_interpolate: 532 s -> 39 s under jax), and the extra
+        # evaluations of already-accepted points are cheap by comparison.
+        # Sampled in float64 (the numpy-drawn proposals are float64).
         Rb, zb, mvT = at_least_float64(
             xp.asarray(R) * 1.0, xp.asarray(z) * 1.0, xp.asarray(maxVT) * 1.0
         )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
         out = xp.zeros((length, 3), dtype=Rb.dtype)
-        remain = xp.arange(length)
+        remain = xp.ones(length, dtype=bool)
         for _ in range(_SAMPLEV_MAXROUNDS):
-            nmore = int(remain.shape[0])
-            if nmore == 0:
+            if not bool(xp.any(remain)):
                 break
-            Rr, zr, mr = Rb[remain], zb[remain], mvT[remain]
-            propvR = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr
-            propvT = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr + mr
-            propvz = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sz
+            propvR = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sr
+            propvT = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sr + mvT
+            propvz = xp.asarray(numpy.random.normal(size=length)) * 2.0 * self._sz
             VDatprop = (
-                self(Rr, propvR, propvT, zr, propvz, log=True, use_physical=False)
-                - logmaxVD[remain]
+                self(Rb, propvR, propvT, zb, propvz, log=True, use_physical=False)
+                - logmaxVD
             )
             VDatprop -= -0.5 * (
                 propvR**2.0 / 4.0 / self._sr**2.0
                 + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
+                + (propvT - mvT) ** 2.0 / 4.0 / self._sr**2.0
             )
-            accept = VDatprop > xp.log(xp.asarray(numpy.random.random(size=nmore)))
-            prop = xp.stack([propvR, propvT, propvz], axis=1)
-            sel = remain[accept]
-            if hasattr(out, "at"):  # jax: immutable, scatter through .at[]
-                out = out.at[sel].set(prop[accept])
-            else:
-                out[sel] = prop[accept]
-            remain = remain[~accept]
+            accept = remain & (
+                VDatprop > xp.log(xp.asarray(numpy.random.random(size=length)))
+            )
+            out = xp.where(
+                accept[:, None], xp.stack([propvR, propvT, propvz], axis=1), out
+            )
+            remain = remain & ~accept
         return match_input_dtype(out, R)  # float32 R in -> float32 out
 
     @actionAngle_physical_input
