@@ -437,3 +437,69 @@ def test_dynfric_grad_wrt_host_potential_parameter(backend, which):
     assert abs(ad) > 1e-6, "host-parameter gradient disconnected"
     # measured 9.0e-9 (sigmar) and 1.4e-7 (Rforce, FD-limited at h=1e-4)
     numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
+
+
+###############################################################################
+# Eager per-step cost: the three force components of one EOM evaluation share
+# ONE backend force-factor computation (identity cache, the twin of the numpy
+# path's hash cache), and FDM computes only the friction regime every point is
+# in. Both are eager-only and value-preserving.
+###############################################################################
+
+
+def _fdm():
+    from galpy.potential import FDMDynamicalFrictionForce, LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    GMs = 10.0**6.0 / conversion.mass_in_msol(220.0, 8.0)
+    return FDMDynamicalFrictionForce(
+        GMs=GMs, dens=LogarithmicHaloPotential(normalize=1.0), m=1e-99
+    )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_backend_force_factor_cache_is_identity_keyed():
+    import galpy.backend as gb
+
+    f = _fdm()
+    T = lambda v: torch.tensor(v, dtype=torch.float64)  # noqa: E731
+    R, z, phi, t = T([0.5, 1.0]), T([0.1, 0.0]), T([0.0, 0.2]), T(0.0)
+    v = [T([0.1, 0.0]), T([1.0, 0.9]), T([0.0, 0.1])]
+    xp = gb.get_namespace(R)
+    first = f._backend_force_factor(R, phi, z, v, t, xp)
+    assert f._backend_force_factor(R, phi, z, v, t, xp) is first  # same step: hit
+    # fresh tensors with the same values: recomputed, equal
+    again = f._backend_force_factor(R.clone(), phi, z, [c.clone() for c in v], t, xp)
+    assert again is not first and torch.equal(again, first)
+    # an in-place change to an input: recomputed (version counter), different
+    v[1].mul_(1.1)
+    changed = f._backend_force_factor(R, phi, z, v, t, xp)
+    assert changed is not first and not torch.equal(changed, first)
+    assert torch.equal(changed, f._calc_force_backend(R, phi, z, v, t, xp))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_fdm_single_regime_shortcut_equals_full_selection(monkeypatch):
+    # points in the zero-velocity, intermediate and dispersion regimes, alone
+    # (shortcut) and mixed (full selection): the shortcut is the value the
+    # traced three-regime xp.where selects
+    import importlib
+
+    import galpy.backend as gb
+
+    mod = importlib.import_module("galpy.potential.FDMDynamicalFrictionForce")
+    f = _fdm()
+    T = lambda v: torch.tensor(v, dtype=torch.float64)  # noqa: E731
+    for r, vs in (
+        ([0.001, 0.002], [1.0, 0.9]),  # kr < M_sigma / 2: zero-velocity
+        ([0.012, 0.02], [1.0, 1.0]),  # in between: intermediate
+        ([5.0, 8.0], [5.0, 6.0]),  # kr > 2 M_sigma: dispersion
+        ([0.001, 0.015, 8.0], [1.0, 1.0, 6.0]),  # all three: full selection
+    ):
+        r, vs = T(r), T(vs)
+        xp = gb.get_namespace(r)
+        eager = f._frictionFactor_backend(r, vs, xp)
+        monkeypatch.setattr(mod, "under_trace", lambda *a: True)
+        full = f._frictionFactor_backend(r, vs, xp)
+        monkeypatch.undo()
+        assert torch.equal(eager, full), (r, eager, full)
