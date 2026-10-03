@@ -26,7 +26,18 @@ from ..backend import (
     to_host,
 )
 from ..backend import use as _use_backend
-from ..backend._namespaces import untraceable_setup
+from ..backend._namespaces import (
+    name_of_namespace,
+    namespace_from_arrays,
+    under_trace,
+    untraceable_setup,
+)
+from ..backend.interpolate import (
+    cubic_ppoly_cumulative_integral,
+    cubic_ppoly_knot_derivative,
+    cubic_spline_coeffs,
+    quintic_hermite_coeffs,
+)
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -52,6 +63,219 @@ if _APY_LOADED:
 # references (or if something else already registered a handler).
 if _types.ModuleType not in _copy._deepcopy_dispatch:  # pragma: no branch
     _copy._deepcopy_dispatch[_types.ModuleType] = lambda module, memo: module
+
+
+def _dens_on_grid(xp, dens_func, R, z, phi, dev):
+    """The density on a numpy (R, z, phi) grid as ONE backend array: a single
+    vectorized call, or point by point (stacked) for a density that cannot take
+    arrays."""
+    Rb, zb, pb = (
+        asarray_on_device(xp, numpy.asarray(v, dtype=float), dev) for v in (R, z, phi)
+    )
+    try:
+        out = dens_func(Rb, zb, pb)
+        if tuple(getattr(out, "shape", ())) == tuple(numpy.shape(R)):
+            return out
+    except (TypeError, ValueError):
+        pass
+    vals = [
+        dens_func(float(r), float(zz), float(p))
+        for r, zz, p in zip(numpy.ravel(R), numpy.ravel(z), numpy.ravel(phi))
+    ]
+    out = xp.stack([asarray_on_device(xp, v, dev) * 1.0 for v in vals])
+    return xp.reshape(out, numpy.shape(R))
+
+
+def _compute_rho_lm_backend(
+    xp, dens_func, rgrid, L, M, costheta_order, phi_order, dev, spherical_point=True
+):
+    """Backend (differentiable) twin of ``_compute_rho_lm``: the same quadrature,
+    vectorized over the grid and contracted with backend ops, so the multipoles
+    carry the density's parameters' gradient. ``spherical_point=False`` mirrors
+    ``_compute_rho_lm_timedep``, which has no L = M = 1 point-evaluation
+    shortcut (it angle-averages)."""
+    beta = sph_harm_normalization(L, M)
+    alpha = beta.copy()
+    alpha[:, 1:] /= 2.0
+
+    def T(a):
+        return asarray_on_device(xp, numpy.asarray(a, dtype=float), dev)
+
+    r = numpy.asarray(rgrid, dtype=float)
+    Nr = len(r)
+    if L == 1 and M == 1 and spherical_point:
+        vals = _dens_on_grid(xp, dens_func, r, numpy.zeros(Nr), numpy.zeros(Nr), dev)
+        rc = xp.reshape((alpha[0, 0] * 4.0 * numpy.pi) * vals, (Nr, 1, 1))
+        return rc, xp.zeros_like(rc)
+    ct, w = leggauss(costheta_order)
+    PP = numpy.stack([compute_legendre(c, L, M) for c in ct])  # (nct, L, M)
+    st = numpy.sqrt(1.0 - ct**2)
+    if M == 1:
+        R = r[:, None] * st[None, :]
+        vals = _dens_on_grid(
+            xp, dens_func, R, r[:, None] * ct[None, :], numpy.zeros_like(R), dev
+        )  # (Nr, nct)
+        kern = (w[:, None] * PP[:, :, 0]) * (2.0 * numpy.pi)  # (nct, L)
+        rc = xp.reshape(xp.matmul(vals, T(kern)) * T(alpha[None, :, 0]), (Nr, L, 1))
+        return rc, xp.zeros_like(rc)
+    phi = numpy.linspace(0.0, 2.0 * numpy.pi, phi_order, endpoint=False)
+    dphi = 2.0 * numpy.pi / phi_order
+    m = numpy.arange(M)
+    ones = numpy.ones(phi_order)
+    R = (r[:, None] * st[None, :])[:, :, None] * ones
+    z = (r[:, None] * ct[None, :])[:, :, None] * ones
+    vals = _dens_on_grid(
+        xp, dens_func, R, z, numpy.broadcast_to(phi, R.shape), dev
+    )  # (Nr, nct, nphi)
+    wPP = T(w[:, None, None] * PP)  # (nct, L, M)
+    rc = xp.einsum(
+        "rcm,clm->rlm", xp.matmul(vals, T(numpy.cos(numpy.outer(phi, m)) * dphi)), wPP
+    )
+    rs = xp.einsum(
+        "rcm,clm->rlm", xp.matmul(vals, T(numpy.sin(numpy.outer(phi, m)) * dphi)), wPP
+    )
+    return rc * T(alpha[None]), rs * T(alpha[None])
+
+
+def _static_tables_backend(xp, rgrid, rho_cos, rho_sin, comps, dev):
+    """Backend (differentiable) twin of the tables ``_backend_static_data``
+    builds from the FITPACK density splines and BPoly radial integrals: the
+    same not-a-knot cubic splines (FITPACK's interpolating spline), exact
+    piecewise integrals and C2 quintic Hermite pieces, from the (Nr, L, M)
+    multipoles (beta_lm applied here). Agrees with the numpy tables to ~1e-14 in
+    value and ~1e-11 in the first derivative (FITPACK's knot derivatives carry
+    the rounding there)."""
+    r_np = numpy.asarray(rgrid, dtype=float)
+    r = asarray_on_device(xp, r_np, dev)
+    h = r[1:] - r[:-1]
+    beta = sph_harm_normalization(rho_cos.shape[1], rho_cos.shape[2])
+    inner_c, outer_c, rho_c, I_or, I_ir = [], [], [], [], []
+    for l, m, is_sin in comps:
+        y = (rho_sin if is_sin else rho_cos)[:, l, m] * beta[l, m]
+        cr = cubic_spline_coeffs(xp, r_np, y, bc="not-a-knot")
+        dy = cubic_ppoly_knot_derivative(xp, cr, h)
+        pref = -4.0 * numpy.pi / (2 * l + 1)
+        f_in = r ** (l + 2) * y
+        f_out = r ** (1 - l) * y
+        Ii = cubic_ppoly_cumulative_integral(
+            xp, cubic_spline_coeffs(xp, r_np, f_in, bc="not-a-knot"), h
+        )
+        Io = cubic_ppoly_cumulative_integral(
+            xp, cubic_spline_coeffs(xp, r_np, f_out, bc="not-a-knot"), h
+        )
+        Io = Io[-1] - Io
+        d2i = (l + 2) * r ** (l + 1) * y + r ** (l + 2) * dy
+        d2o = -(1 - l) * r ** (-l) * y - r ** (1 - l) * dy
+        ci = quintic_hermite_coeffs(xp, pref * Ii, pref * f_in, pref * d2i, h)
+        co = quintic_hermite_coeffs(xp, pref * Io, pref * (-f_out), pref * d2o, h)
+        inner_c.append(ci)
+        outer_c.append(co)
+        rho_c.append(cr)
+        I_or.append(co[5][0])  # its value at rmin
+        I_ir.append(pref * Ii[-1])
+    return {
+        "breaks": r_np,
+        "inner_c": xp.stack(inner_c),  # (n_comp, 6, Nr-1)
+        "outer_c": xp.stack(outer_c),
+        "rho_breaks": r_np,
+        "rho_c": xp.stack(rho_c),  # (n_comp, 4, Nr-1)
+        "I_outer_rmin": xp.reshape(xp.stack(I_or), (-1, 1)),
+        "I_inner_rmax": xp.reshape(xp.stack(I_ir), (-1, 1)),
+        "R00": I_or[0],
+    }
+
+
+def _tdep_tables_backend(xp, rgrid, tgrid, rho_cos_all, rho_sin_all, comps, dev):
+    """Backend (differentiable) twin of the time-dependent tables
+    ``_backend_tdep_data`` builds, from the (Nt, Nr, L, M) multipoles at the
+    ``tgrid`` times: per time the static construction of
+    ``_static_tables_backend``, then scipy CubicSpline's not-a-knot spline in t
+    over the flattened (interval-major) radial coefficients, re-packed in the
+    same layout. Batched over time / coefficient rows (multi-RHS solves)."""
+    r_np = numpy.asarray(rgrid, dtype=float)
+    t_np = numpy.asarray(tgrid, dtype=float)
+    r = asarray_on_device(xp, r_np, dev)
+    h = r[1:] - r[:-1]
+    hcol = h[:, None]
+    nint, Nt = len(r_np) - 1, len(t_np)
+    beta = sph_harm_normalization(rho_cos_all.shape[2], rho_cos_all.shape[3])
+    concat = getattr(xp, "concat", None) or xp.concatenate
+
+    def knot_deriv(c):  # (4, nint, Nt) -> (Nr, Nt)
+        last = 3.0 * c[0][-1] * h[-1] ** 2 + 2.0 * c[1][-1] * h[-1] + c[2][-1]
+        return concat([c[2], last[None]], axis=0)
+
+    def cum_int(c):  # (4, nint, Nt) -> (Nr, Nt)
+        seg = (
+            c[0] * hcol**4 / 4.0
+            + c[1] * hcol**3 / 3.0
+            + c[2] * hcol**2 / 2.0
+            + c[3] * hcol
+        )
+        return concat([xp.zeros_like(seg[:1]), xp.cumsum(seg, axis=0)], axis=0)
+
+    def flat(q):  # quintic (6, nint, Nt) -> (Nt, 6*nint), interval-major in r
+        return xp.reshape(xp.permute_dims(q, (2, 1, 0)), (Nt, 6 * nint))
+
+    def tspline(Y):  # (Nt, K) -> CubicSpline-style c (4, Nt-1, K)
+        return cubic_spline_coeffs(xp, t_np, Y, bc="not-a-knot")
+
+    inner_tc, outer_tc, rho_tc = [], [], []
+    dIin, Iin, Iout, inner_last = [], [], [], []
+    for l, m, is_sin in comps:
+        Y = xp.permute_dims(
+            (rho_sin_all if is_sin else rho_cos_all)[:, :, l, m], (1, 0)
+        )
+        Y = Y * beta[l, m]  # (Nr, Nt)
+        pref = -4.0 * numpy.pi / (2 * l + 1)
+        dY = knot_deriv(cubic_spline_coeffs(xp, r_np, Y, bc="not-a-knot"))
+        rc = r[:, None]
+        f_in = rc ** (l + 2) * Y
+        f_out = rc ** (1 - l) * Y
+        Ii = cum_int(cubic_spline_coeffs(xp, r_np, f_in, bc="not-a-knot"))
+        Io = cum_int(cubic_spline_coeffs(xp, r_np, f_out, bc="not-a-knot"))
+        Io = Io[-1:] - Io
+        d2i = (l + 2) * rc ** (l + 1) * Y + rc ** (l + 2) * dY
+        d2o = -(1 - l) * rc ** (-l) * Y - rc ** (1 - l) * dY
+        ci = tspline(
+            flat(quintic_hermite_coeffs(xp, pref * Ii, pref * f_in, pref * d2i, hcol))
+        )
+        co = tspline(
+            flat(
+                quintic_hermite_coeffs(xp, pref * Io, pref * (-f_out), pref * d2o, hcol)
+            )
+        )
+
+        def pack(c):  # (4, Nt-1, 6*nint) -> (4, 6, (Nt-1)*nint)
+            c = xp.reshape(c, (4, Nt - 1, nint, 6))
+            return xp.reshape(xp.permute_dims(c, (0, 3, 1, 2)), (4, 6, (Nt - 1) * nint))
+
+        inner_tc.append(pack(ci))
+        outer_tc.append(pack(co))
+        dIin.append(ci[:, :, 4])
+        Iin.append(ci[:, :, 5])
+        Iout.append(co[:, :, 5])
+        inner_last.append(xp.permute_dims(ci[:, :, 6 * (nint - 1) :], (0, 2, 1)))
+        # density: the r-spline through each CubicSpline (in t) coefficient row
+        rho_c = tspline(xp.permute_dims(Y, (1, 0)))  # (4 kt, Nt-1, Nr)
+        rows = xp.permute_dims(xp.reshape(rho_c, (4 * (Nt - 1), len(r_np))), (1, 0))
+        cr = cubic_spline_coeffs(
+            xp, r_np, rows, bc="not-a-knot"
+        )  # (4 dr, nint, 4*(Nt-1))
+        cr = xp.reshape(cr, (4, nint, 4, Nt - 1))  # dr, i_r, kt, i_t
+        rho_tc.append(xp.reshape(xp.permute_dims(cr, (2, 0, 3, 1)), (4, 4, -1)))
+    return {
+        "tgrid": t_np,
+        "breaks": r_np,
+        "inner_tc": xp.stack(inner_tc),
+        "outer_tc": xp.stack(outer_tc),
+        "dIin_rmin_tc": xp.stack(dIin),
+        "Iin_rmin_tc": xp.stack(Iin),
+        "Iout_rmin_tc": xp.stack(Iout),
+        "inner_last_tc": xp.stack(inner_last),
+        "rho_breaks": r_np,
+        "rho_tc": xp.stack(rho_tc),
+    }
 
 
 class MultipoleExpansionPotential(
@@ -458,9 +682,48 @@ class MultipoleExpansionPotential(
                 beta_lm = sph_harm_normalization(L, M)
                 Nr = len(rgrid)
                 Nt = len(tgrid)
-                rho_cos_all, rho_sin_all = cls._compute_rho_lm_timedep(
-                    dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
-                )
+                # backend-parameter density: multipoles in that backend
+                # (as for the static path below)
+                _probe = dens_func(1.0, 0.0, 0.0, tgrid[0])
+                rho_b = None
+                if is_backend_array(_probe):
+                    _bxp = namespace_from_arrays([_probe])
+                    _dev = device_of(_probe)
+                    with _use_backend(name_of_namespace(_bxp), force=True):
+                        per_t = [
+                            _compute_rho_lm_backend(
+                                _bxp,
+                                lambda R, z, phi, _t=float(t): dens_func(R, z, phi, _t),
+                                rgrid,
+                                L,
+                                M,
+                                costheta_order,
+                                phi_order,
+                                _dev,
+                                spherical_point=False,
+                            )
+                            for t in tgrid
+                        ]
+                    rho_b = tuple(_bxp.stack([p[i] for p in per_t]) for i in (0, 1))
+                    if under_trace(*rho_b):
+                        return cls._from_backend_rho_traced(
+                            _bxp,
+                            rho_b,
+                            _dev,
+                            rgrid,
+                            L,
+                            M,
+                            amp,
+                            normalize,
+                            ro,
+                            vo,
+                            tgrid=tgrid,
+                        )
+                    rho_cos_all, rho_sin_all = as_numpy(rho_b[0]), as_numpy(rho_b[1])
+                else:
+                    rho_cos_all, rho_sin_all = cls._compute_rho_lm_timedep(
+                        dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
+                    )
                 # Build time-dependent callable splines for each (l, m)
                 # These are callables f(r, t) that return density values
                 rho_cos_funcs = [[None for _ in range(M)] for _ in range(L)]
@@ -486,7 +749,7 @@ class MultipoleExpansionPotential(
                 if cls._density_has_units(dens):
                     ro = internal_ro
                     vo = internal_vo
-                return cls(
+                out = cls(
                     amp=amp,
                     rho_cos_splines=rho_cos_funcs,
                     rho_sin_splines=rho_sin_funcs,
@@ -496,11 +759,39 @@ class MultipoleExpansionPotential(
                     ro=ro,
                     vo=vo,
                 )
+                if rho_b is not None:
+                    out._install_backend_tables(_bxp, *rho_b, _dev)
+                return out
             else:
-                # Static path
-                rho_cos, rho_sin = cls._compute_rho_lm(
-                    dens_func, rgrid, L, M, costheta_order, phi_order
-                )
+                # Static path. A density depending on backend (jax/torch)
+                # parameters gets its multipoles and backend tables built in
+                # that backend (differentiable w.r.t. those parameters); the
+                # numpy splines below then come from their concrete values.
+                _probe = dens_func(1.0, 0.0, 0.0)
+                rho_b = None
+                if is_backend_array(_probe):
+                    _bxp = namespace_from_arrays([_probe])
+                    _dev = device_of(_probe)
+                    with _use_backend(name_of_namespace(_bxp), force=True):
+                        rho_b = _compute_rho_lm_backend(
+                            _bxp,
+                            dens_func,
+                            rgrid,
+                            L,
+                            M,
+                            costheta_order,
+                            phi_order,
+                            _dev,
+                        )
+                    if under_trace(*rho_b):  # no values to fit numpy splines to
+                        return cls._from_backend_rho_traced(
+                            _bxp, rho_b, _dev, rgrid, L, M, amp, normalize, ro, vo
+                        )
+                    rho_cos, rho_sin = as_numpy(rho_b[0]), as_numpy(rho_b[1])
+                else:
+                    rho_cos, rho_sin = cls._compute_rho_lm(
+                        dens_func, rgrid, L, M, costheta_order, phi_order
+                    )
                 # Normalization for angular reconstruction; absorbed into splines
                 k = 3
                 beta_lm = sph_harm_normalization(L, M)
@@ -526,7 +817,7 @@ class MultipoleExpansionPotential(
                 if cls._density_has_units(dens):
                     ro = internal_ro
                     vo = internal_vo
-                return cls(
+                out = cls(
                     amp=amp,
                     rho_cos_splines=rho_cos_splines,
                     rho_sin_splines=rho_sin_splines,
@@ -535,6 +826,9 @@ class MultipoleExpansionPotential(
                     ro=ro,
                     vo=vo,
                 )
+                if rho_b is not None:
+                    out._install_backend_tables(_bxp, *rho_b, _dev)
+                return out
 
     @classmethod
     def from_scf(
@@ -2223,6 +2517,82 @@ class MultipoleExpansionPotential(
         return SphericalHarmonicPotentialMixin._evaluate_cyl_2nd_deriv(
             self, deriv_type, R, z, phi, t=t
         )
+
+    def _install_backend_tables(self, xp, rho_cos, rho_sin, dev):
+        """Replace the (numpy-built) backend tables with ones built in ``xp``
+        from backend density multipoles, so evaluation is differentiable w.r.t.
+        what the density depends on."""
+        comps = self._backend_comps()
+        L, M = self._L, self._M
+        if self._tdep:  # (Nt, Nr, L, M) multipoles at the tgrid times
+            data = _tdep_tables_backend(
+                xp,
+                self._rgrid,
+                self._tgrid,
+                rho_cos[..., :L, :M],
+                rho_sin[..., :L, :M],
+                comps,
+                dev,
+            )
+            data.update(self._backend_comp_consts(comps, self._rgrid[0]))
+        else:
+            data = _static_tables_backend(
+                xp, self._rgrid, rho_cos[:, :L, :M], rho_sin[:, :L, :M], comps, dev
+            )
+            data.update(self._backend_comp_consts(comps, self._rgrid[0]))
+            data["P_rho0"] = data["inner_c"][:, 4, 0:1] / asarray_on_device(
+                xp, data["rmin_pow_lp2"], dev
+            )
+        self._backend_data = data
+
+    @classmethod
+    def _from_backend_rho_traced(
+        cls, xp, rho_b, dev, rgrid, L, M, amp, normalize, ro, vo, tgrid=None
+    ):
+        """A traced (jax.grad / jit) from_density: no concrete multipoles to fit
+        the numpy splines to, so the instance carries ONLY the backend tables
+        (the numpy/C paths are disabled rather than silently wrong)."""
+        if normalize:
+            raise NotImplementedError(
+                "MultipoleExpansionPotential.from_density with normalize under a "
+                "trace: normalize after construction, or scale amp yourself"
+            )
+        if tgrid is None:  # placeholder numpy splines, never evaluated
+            out = cls(amp=amp, rgrid=rgrid, ro=ro, vo=vo)
+        else:
+            zero = [[lambda r, t: numpy.zeros_like(r)] * M for _ in range(L)]
+            out = cls(
+                amp=amp,
+                rho_cos_splines=zero,
+                rho_sin_splines=zero,
+                rgrid=rgrid,
+                tgrid=tgrid,
+                ro=ro,
+                vo=vo,
+            )
+        out._L, out._M = L, M
+        out.isNonAxi = M > 1
+        out.hasC = out.hasC_dxdv = out.hasC_dxdv3d = out.hasC_dens = False
+        for name in (
+            "_rho_cos_splines",
+            "_rho_sin_splines",
+            "_rho_cos_funcs",
+            "_rho_sin_funcs",
+            "_I_inner_cos",
+            "_I_inner_sin",
+            "_I_outer_cos",
+            "_I_outer_sin",
+            "_I_inner_cos_interp",
+            "_I_inner_sin_interp",
+            "_I_outer_cos_interp",
+            "_I_outer_sin_interp",
+            "_rho_cos_interp",
+            "_rho_sin_interp",
+        ):
+            if hasattr(out, name):
+                setattr(out, name, None)
+        out._install_backend_tables(xp, *rho_b, dev)
+        return out
 
     def _backend_comps(self):
         """(l, m, is_sin) component order shared by all backend tables."""
