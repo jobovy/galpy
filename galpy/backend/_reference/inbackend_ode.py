@@ -79,6 +79,8 @@ def _eom_rhs(y, pot, t, xp, dim=6):
         Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
         phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t, v=v)
         az = _evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
+        if isinstance(az, (int, float)):  # a potential returning a bare scalar
+            az = z * 0.0 + az
     ax = cosphi * Rforce - sinphi / R * phitorque
     ay = sinphi * Rforce + cosphi / R * phitorque
     return vx, ax, vy, ay, vz, az
