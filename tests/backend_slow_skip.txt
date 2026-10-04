@@ -117,21 +117,14 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-# RE-MEASURED 2026-09-12, and both numbers in the old note were wrong even
-# though its verdict was right. In its REAL shard (test_qdf + test_pv2qdf +
-# test_streamgapdf_impulse + test_noninertial, alone on an idle box, 133 passed)
-# test_sampleV_interpolate takes 2837.5 s -- not the ">300 s" recorded, and 11.6x
-# its own 244 s isolated reading. Running test_qdf.py ALONE gives 2826.5 s, i.e.
-# the same number, so this is not a shard interaction and "isolated" in the old
-# note cannot have meant a file-level run; a hand-picked nodeid builds a
-# different setup than the file does. For scale, test_sampleV (no interpolate) is
-# 17.1 s in the same run. Whatever the factor is, it is not CI speed:
-# pairing this shard's CI junit against the same shard run locally gives 0.74-0.95
-# for its test_python_vs_c/linacc/impulse tests and 0.36-0.40 for its qdf ones,
-# i.e. CI is ~2.7x FASTER than this box for exactly the family this row is in --
-# the opposite of the old note's "a CI shard runs ~3x slower". Even at 0.40 this
-# is ~1135 s against a 300 s cap. Un-skip needs jit, not another vectorization.
-jax tests/test_qdf.py::test_sampleV_interpolate  # 2837.5s in-shard (244s isolated)
+# test_sampleV_interpolate UN-SKIPPED 2026-10-03: its 2837 s in-shard was eager-jax
+# RECOMPILATION (eager jax compiles every op per new array shape). Fixed by
+# padding every varying length to power-of-4 buckets (rejection loop, maxVT
+# grid nodes, interpolation points) and by skipping pure_callback in the jax
+# C-action bridges for concrete inputs (a fresh closure recompiled every DF
+# call): 118 s in its file under jax, 87 s under jax-jit (this box). An earlier
+# fixed-shape variant at 242 s / 171 s here timed out on CI, so CI is NOT faster
+# than this box for this test.
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
@@ -436,7 +429,6 @@ jax tests/test_qdf.py::test_sampleV_interpolate  # 2837.5s in-shard (244s isolat
 # numerics task, not a dispatch one.
 jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 285.4s / 300.1s -- flips
 
-jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
                                                 # INSIDE the 240-300s band; every
