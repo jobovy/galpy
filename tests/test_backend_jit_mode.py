@@ -213,3 +213,46 @@ def test_static_key_falls_back_to_identity_for_an_unhashable_without_dict():
         "equal-but-distinct unhashables must key differently -- sharing a key "
         "would hand one object's compiled trace to the other"
     )
+
+
+def test_static_key_structural_for_objects():
+    # Objects key by TYPE + attributes, not identity: two toPlanar() wrappers of
+    # one potential share a key (vcirc/epifreq build one per call, which an
+    # identity key retraced every time), a wrapped potential's changed
+    # parameter changes it, and non-scalar attributes stay on identity, so
+    # same-typed objects with different arrays never collide.
+    from galpy.backend._jit import _static_key
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    k = _static_key(pot.toPlanar())
+    assert _static_key(pot.toPlanar()) == k
+    pot.normalize(0.5)
+    assert _static_key(pot.toPlanar()) != k
+
+    class _Holder:
+        def __init__(self, arr):
+            self.arr = arr
+
+    assert _static_key(_Holder(numpy.ones(2))) != _static_key(_Holder(numpy.ones(2)))
+    # backend arrays have a __dict__ too but hold their data elsewhere: recursing
+    # into one made EVERY jax array key alike (time-dependent SCF/Multipole
+    # potentials picked up each other's traces)
+    for mk in [m for m in (jnp, torch) if m is not None]:
+        assert _static_key(_Holder(mk.ones(2))) != _static_key(_Holder(mk.ones(2)))
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jit_retraces_when_a_wrapped_potential_changes():
+    # the identity key handed a toPlanar() wrapper its previous trace after the
+    # WRAPPED potential's normalize(): stale forces, here off by a factor of 2
+    from galpy.potential import MiyamotoNagaiPotential, evaluateplanarRforces
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    pp = pot.toPlanar()
+    R = jnp.asarray(1.1)
+    with gb.jit("jax"):
+        evaluateplanarRforces(pp, R)
+        pot.normalize(0.5)
+        got = float(evaluateplanarRforces(pp, R))
+    assert abs(got - float(evaluateplanarRforces(pp, 1.1))) < 1e-13
