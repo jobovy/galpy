@@ -308,3 +308,20 @@ def test_set_at_casts_values_to_the_destination_dtype(torch_default_float32):
     out = set_at(torch, arr, arr == 0.0, torch.tensor([1.5, 2.5, 3.5, 4.5]))
     assert out.dtype == torch.float64
     numpy.testing.assert_array_equal(out.numpy(), [1.5, 2.5, 3.5, 4.5])
+
+
+def test_bucket_size():
+    from galpy.backend import bucket_size
+
+    assert [bucket_size(n) for n in (0, 1, 16, 17, 64, 65, 4096, 4097, 16000)] == [
+        0,
+        16,
+        16,
+        64,
+        64,
+        256,
+        4096,
+        16384,
+        16384,
+    ]
+    assert bucket_size(3, minimum=4) == 4
