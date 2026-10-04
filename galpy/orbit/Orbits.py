@@ -28,6 +28,7 @@ from ..backend import (
     asarray_on_device,
     coerce_coords,
     device_of,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
     like,
@@ -1865,6 +1866,7 @@ class Orbit:
 
         return numpy.linspace(0, N_tdyn * to_host(tdyn_val), n_points)
 
+    @float64_default_if_torch_args
     def _integrate_impl(
         self,
         t,
@@ -2759,6 +2761,7 @@ class Orbit:
             inbackend_kwargs,
         )
 
+    @float64_default_if_torch_args
     def integrate_SOS(
         self,
         psi,
@@ -2932,6 +2935,7 @@ class Orbit:
         )
         return None
 
+    @float64_default_if_torch_args
     def integrate_dxdv(
         self,
         dxdv,
@@ -7127,6 +7131,7 @@ class Orbit:
             self.vxvv = old_vxvv
         return out
 
+    @float64_default_if_torch_args
     @physical_conversion_tuple(["position", "velocity"])
     def bruteSOS(
         self,
