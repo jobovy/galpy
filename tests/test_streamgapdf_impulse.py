@@ -348,8 +348,11 @@ def test_impulse_deltav_general_orbit_zeroforce():
     angrange = numpy.pi
     maxt = 5.0 * angrange / vang
     galpot = constantPotential()
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        v0, x0, 3.0, w, x0, v0, pp, maxt, galpot
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(
+            v0, x0, 3.0, w, x0, v0, pp, maxt, galpot
+        )
     )
     assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
         "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
@@ -369,8 +372,8 @@ def test_impulse_deltav_general_orbit_zeroforce():
     plummer_kick = impulse_deltav_plummer_curvedstream(
         V, Xc, 3.0, w, x0, v0, numpy.pi, numpy.exp(1.0)
     )
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        V, Xc, 3.0, w, x0, v0, pp, maxt, galpot
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(V, Xc, 3.0, w, x0, v0, pp, maxt, galpot)
     )
     assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
         "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
@@ -456,8 +459,11 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
     w = numpy.array([0.0, 0.0, 100.0])  # very fast compared to v=1
     lp = LogarithmicHaloPotential(normalize=1.0)
     pp = PlummerPotential(amp=GM, b=rs)
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        v0, x0, 3.0, w, x0, v0, pp, 5.0 * numpy.pi, lp
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(
+            v0, x0, 3.0, w, x0, v0, pp, 5.0 * numpy.pi, lp
+        )
     )
     full_kick = impulse_deltav_general_fullplummerintegration(
         v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
