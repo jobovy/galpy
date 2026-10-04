@@ -87,6 +87,8 @@ def integrate_torchode(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=N
     term = to.ODETerm(lambda t, y: torch.stack(_eom_rhs(y, pot, t, torch, dim), -1))
     step = (to.Dopri5 if method == "dopri5" else to.Tsit5)(term=term)
     controller = to.IntegralController(atol=atol, rtol=rtol, term=term)
+    # torchode builds atol with torch.tensor(): float32 at torch's default dtype
+    controller.atol = torch.tensor(atol, dtype=yb.dtype, device=yb.device)
     # torchode uses its 0-d-tensor rtol as torch.add(..., alpha=rtol), whose value
     # torch.compile bakes in UNGUARDED (and the FX graph cache serves across
     # processes): a later compile at another rtol would silently reuse the old
