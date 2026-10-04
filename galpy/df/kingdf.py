@@ -5,6 +5,7 @@ from scipy import integrate, interpolate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    at_least_float64,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -68,7 +69,7 @@ class kingdf(isotropicsphericaldf):
         """
         # Just run df init to set up unit-conversion parameters
         df.__init__(self, ro=ro, vo=vo)
-        self.W0 = W0
+        self.W0 = at_least_float64(W0)  # see _scalefreekingdf
         self.M = conversion.parse_mass(M, ro=self._ro, vo=self._vo)
         self.rt = conversion.parse_length(rt, ro=self._ro)
         # Solve (mass,rtidal)-scale-free model, which is the basis for
@@ -214,7 +215,9 @@ class _scalefreekingdf:
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
 
     def __init__(self, W0):
-        self.W0 = W0
+        # float64 like numpy's (scipy) solve: a float32 W0 (torch's default) would
+        # cast the solution tables, which follow its dtype, to float32
+        self.W0 = at_least_float64(W0)
 
     def solve(self, npt=1001):
         """Solve the model W(r) at npt points (note: not equally spaced in

@@ -3,7 +3,13 @@
 import numpy
 from scipy import integrate, interpolate, optimize
 
-from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace
+from ..backend import (
+    as_numpy,
+    float64_default_if_torch_args,
+    get_namespace,
+    is_backend_array,
+    resolve_namespace,
+)
 from ..backend._namespaces import has_concrete_truth_value
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
@@ -134,6 +140,7 @@ class eddingtondf(isotropicsphericaldf):
             else max(1e-6, self._rmin / self._scale)
         )
 
+    @float64_default_if_torch_args
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
     ):
