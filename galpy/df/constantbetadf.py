@@ -1,8 +1,6 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
 
-import contextlib
-
 import numpy
 from scipy import integrate, interpolate, special
 
@@ -49,11 +47,6 @@ _NCOSETA = 20001
 _QUAD_N_FE = 100
 
 
-def _active_backend_name():
-    """'torch'|'jax'|'numpy' for the active galpy backend (context/forced default)."""
-    return name_of_namespace(get_namespace())
-
-
 def _autodiff_xp():
     """Namespace whose autodiff builds the fE derivative chain.
 
@@ -70,21 +63,6 @@ def _autodiff_xp():
     import torch
 
     return torch
-
-
-def _numpy_ctx(backend_name):
-    """Force-numpy context under torch, else a no-op.
-
-    fE and the DF setup are inherently numpy (scipy interpolators + quadrature)
-    and only use the backend for the m-th density derivative (``_gradfunc``,
-    which drives its own tensors). torch rejects the numpy/scalar coords these
-    scipy paths hand to the (undecorated) potential evaluations, so under torch
-    they run on numpy; jax accepts numpy inputs natively, so its path (and the
-    numpy default) is a no-op here and stays byte-identical.
-    """
-    if backend_name == "torch":
-        return use("numpy", force=True)
-    return contextlib.nullcontext()
 
 
 def _make_gradfunc(vmapped, name):
@@ -408,23 +386,13 @@ class _constantbetadf(anisotropicsphericaldf):
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
     ):
         # No docstring so the superclass' is used.
-        # key=None (numpy sampling): a numpy-side (stateful-RNG) operation drawn
-        # from the interpolated fE (built with the backend's autodiff at
-        # construction); run it on numpy under torch so the scipy interpolators/
-        # quadrature don't see torch scalars and the returned Orbit is numpy
-        # (see _numpy_ctx -- byte-identical numpy pass-through). A backend key
-        # follows its OWN draws into jax/torch (the eta inverse-CDF and the
-        # velocity magnitude are backend-native, differentiable, GPU/jit-able),
-        # so it must NOT force numpy -- that would override the data dispatch.
+        # key=None (numpy sampling): drawn with the stateful numpy RNG from the
+        # interpolated fE. A backend key follows its OWN draws into jax/torch
+        # (the eta inverse-CDF and the velocity magnitude are backend-native,
+        # differentiable, GPU/jit-able).
         if grandom._backend_of_key(key) == "numpy":
-            # A differentiated potential cannot go down the forced-numpy route:
-            # _numpy_ctx forces numpy, so every potential evaluation still
-            # returns a tensor while every namespace resolves numpy, and the
-            # two meet deep inside the CMF/pvr tables. Say which key to pass
-            # instead of failing several frames down with a bare
-            # "Can't call numpy() on Tensor that requires grad".
-            # (Only constantbetadf wraps sampling this way -- the isotropic /
-            # Osipkov-Merritt families sample fine with key=None.)
+            # A differentiated potential cannot feed the numpy-RNG route: say
+            # which key to pass instead of failing several frames down.
             if _pot_grad_namespace(self._pot, any_backend=True) is not None:
                 raise NotImplementedError(
                     "constantbetadf.sample: a potential carrying a gradient "
@@ -432,17 +400,6 @@ class _constantbetadf(anisotropicsphericaldf):
                     "seed, 'jax'|'torch'), which samples natively and stays "
                     "differentiable. key=None forces the numpy sampling path, "
                     "which cannot consume backend potential parameters."
-                )
-            with _numpy_ctx(_active_backend_name()):
-                return sphericaldf.sample(
-                    self,
-                    R=R,
-                    z=z,
-                    phi=phi,
-                    n=n,
-                    return_orbit=return_orbit,
-                    rmin=rmin,
-                    key=key,
                 )
         return sphericaldf.sample(
             self,
