@@ -60,16 +60,16 @@ _MM_GN_ITERS = 14
 
 _LEGACY_BACKEND_MSG = (
     "actionAngleVerticalInverse's legacy evaluation (momentum_matched=False "
-    "or use_pointtransform) is not yet migrated to the jax/torch backends; "
-    "use the default momentum-matched map, or numpy."
+    "or use_pointtransform) is numpy-only; use the default momentum-matched map "
+    "for jax/torch."
 )
 
 
 def _reject_backend(*xs):
     # The legacy (non-momentum-matched: point-transformation / older angle-grid)
-    # evaluation is not yet backend-migrated: it builds scipy interpolation /
-    # ndimage.map_coordinates grids and runs under numpy only. Fail loudly under
-    # a forced/active backend or for jax/torch inputs rather than mis-behave.
+    # evaluation is numpy-only: it builds scipy interpolation /
+    # ndimage.map_coordinates grids. Fail loudly under a forced/active backend or
+    # for jax/torch inputs rather than mis-behave.
     if backend() != "numpy" or any(is_backend_array(x) for x in xs):
         raise NotImplementedError(_LEGACY_BACKEND_MSG)
 
@@ -199,10 +199,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems.
 
     .. note::
-       The default momentum-matched map evaluates natively under jax/torch
-       (differentiable in the action and the angles); its construction, and the
-       legacy evaluation (``momentum_matched=False`` or a point transformation),
-       are numpy-only for now.
+       The default momentum-matched map is built and evaluated natively under
+       jax/torch, differentiable in the action, the angles, and the potential's
+       parameters; the legacy evaluation (``momentum_matched=False`` or a point
+       transformation) is numpy-only.
     """
 
     def __init__(
