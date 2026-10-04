@@ -9,6 +9,7 @@
 ###############################################################################
 import copy
 import warnings
+from functools import wraps
 
 import numpy
 from matplotlib import cm, gridspec, pyplot
@@ -16,10 +17,27 @@ from matplotlib.ticker import NullFormatter
 from numpy.polynomial import chebyshev, polynomial
 from scipy import integrate, interpolate, ndimage, optimize
 
-from ..backend import backend, is_backend_array
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    at_least_float64,
+    backend,
+    concretely_true,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    match_input_dtype,
+    use,
+)
+from ..backend._namespaces import has_concrete_truth_value, stop_gradient
+from ..backend.interpolate import eval_ppoly
+from ..backend.optimize import brentq as _backend_brentq
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.linearPotential import _evaluatelinearx2derivs
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _pot_grad_namespace,
+)
 from ..util import conversion, galpyWarning
 
 if conversion._APY_LOADED:
@@ -38,19 +56,28 @@ _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
 
 
 def _reject_backend(*xs):
-    # actionAngleVerticalInverse is NOT yet backend-migrated (under active
-    # development): it builds scipy interpolation / ndimage.map_coordinates grids
-    # and runs under numpy only. Fail loudly rather than silently mis-behaving,
-    # so the not-migrated status is explicit. Two ways a backend sneaks in:
-    #   (1) a forced/active backend context (backend() != "numpy") -- this is what
-    #       the all-backend test harness sets via `use(..., force=True)`, which
-    #       coerces even numpy inputs to the backend, so the GRID SETUP would break;
-    #   (2) jax/torch array inputs passed directly to an evaluation method.
+    # The legacy (non-momentum-matched: point-transformation / older angle-grid)
+    # evaluation is not yet backend-migrated: it builds scipy interpolation /
+    # ndimage.map_coordinates grids and runs under numpy only. Fail loudly under
+    # a forced/active backend or for jax/torch inputs rather than mis-behave.
     if backend() != "numpy" or any(is_backend_array(x) for x in xs):
         raise NotImplementedError(
-            "actionAngleVerticalInverse is not yet migrated to the jax/torch "
-            "backends (it is still under development); use it under numpy only."
+            "actionAngleVerticalInverse's legacy evaluation (momentum_matched=False "
+            "or use_pointtransform) is not yet migrated to the jax/torch backends; "
+            "use the default momentum-matched map, or numpy."
         )
+
+
+def _plot_on_numpy(method):
+    """Plotting is host-side (matplotlib): its diagnostics are computed on numpy,
+    with any backend-array argument brought over."""
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with use("numpy", force=True):
+            return method(self, *(as_numpy(a) for a in args), **kwargs)
+
+    return wrapper
 
 
 def _slope_at_zero(js, ys, dys):
@@ -88,12 +115,69 @@ class _linearHermite:
         return _linearHermite(self._j0, self._dy0, 0.0 * self._dy0)
 
 
+def _mm_kernel(xp, tau, j, D, dDdj, K, dKdj):
+    """Position, momentum, and angle at anomalies tau on the torus of action j,
+    from the momentum-matched tables (D, dD/dj, K, dK/dj); see
+    actionAngleVerticalInverse._mm_eval_tau for the relations. Shared by the
+    numpy path (which reuses the intermediates for the angle's tau-derivative)
+    and the jax/torch path.
+
+    numpy computes the momentum as 2 J sin^2(eta) eta' / (xmax sin tau) off the
+    turning points and 0 on them (byte-identical to the original). A backend
+    uses 2 J sin(eta) eta' r / xmax with r = sin(eta) / sin(tau) in a form that
+    is regular everywhere, so that its autodiff derivative is right at and next
+    to a turning point (where sin(tau) is 0 or ~1e-16 and the plain ratio's
+    derivative cancels catastrophically): with eta = tau + delta,
+    r = cos(delta) + cos(tau) sinc(delta) q, where q = delta / sin(tau) =
+    sum_m D_m sin(m tau) / sin(tau) is, for even m, the cosine series
+    2 sum_{odd l < m} cos(l tau).
+    """
+    ms = asarray_on_device(xp, 2.0 * numpy.arange(1, D.shape[-1] + 1), device_of(tau))
+    mt = tau[:, None] * ms[None, :]
+    smt, cmt = xp.sin(mt), xp.cos(mt)
+    eta = tau + smt @ D
+    deta = 1.0 + cmt @ (ms * D)
+    detadj = smt @ dDdj
+    xmax = xp.sqrt(K * j)
+    dxmaxdj = (K + j * dKdj) / (2.0 * xmax)
+    se, ce = xp.sin(eta), xp.cos(eta)
+    st, ct = xp.sin(tau), xp.cos(tau)
+    x = -xmax * ct
+    nz = st != 0.0
+    if xp is numpy:
+        p = numpy.zeros_like(tau)
+        p[nz] = 2.0 * j * se[nz] ** 2.0 * deta[nz] / (xmax * st[nz])
+    else:
+        delta = smt @ D
+        nh = D.shape[-1]
+        ls = asarray_on_device(xp, 2.0 * numpy.arange(nh) + 1.0, device_of(tau))
+        tail = asarray_on_device(
+            xp, 2.0 * numpy.triu(numpy.ones((nh, nh))), device_of(tau)
+        )
+        q = xp.cos(tau[:, None] * ls[None, :]) @ (tail @ D)
+        small = xp.abs(delta) < 0.1
+        d2 = delta**2.0
+        dsafe = xp.where(small, 1.0, delta)
+        sinc = xp.where(
+            small,
+            1.0 - d2 / 6.0 * (1.0 - d2 / 20.0 * (1.0 - d2 / 42.0 * (1.0 - d2 / 72.0))),
+            xp.sin(dsafe) / dsafe,
+        )
+        p = 2.0 * j * se * deta * (xp.cos(delta) + ct * sinc * q) / xmax
+    angle = (
+        eta - se * ce + 2.0 * j * se**2.0 * detadj + p * dxmaxdj * ct - 0.5 * numpy.pi
+    )
+    return x, p, angle, (ms, smt, cmt, deta, detadj, xmax, dxmaxdj, se, ce, st, ct, nz)
+
+
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems.
 
-    .. warning::
-       NOT yet backend-migrated (under active development) -- numpy/scipy only.
-       Calling with jax/torch array inputs raises ``NotImplementedError``.
+    .. note::
+       The default momentum-matched map evaluates natively under jax/torch
+       (differentiable in the action and the angles); its construction, and the
+       legacy evaluation (``momentum_matched=False`` or a point transformation),
+       are numpy-only for now.
     """
 
     def __init__(
@@ -156,7 +240,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-11 - Started - Bovy (UofT)
         - 2026-08-30 - Added the momentum-matched canonical map - Bovy (UofT)
         """
-        _reject_backend()  # not yet backend-migrated; block construction under a backend
+        if backend() != "numpy":
+            if not momentum_matched or use_pointtransform:
+                _reject_backend()
+            if pot is not None and _pot_grad_namespace(pot, any_backend=True):
+                raise NotImplementedError(
+                    "actionAngleVerticalInverse: constructing the map for a "
+                    "potential with jax/torch parameters is not yet supported"
+                )
+            # TEMPORARY: the construction runs on numpy under a forced backend
+            # (the evaluation below is native); its backend migration follows.
+            args = {k: v for k, v in locals().items() if k not in ("self", "kwargs")}
+            with use("numpy", force=True):
+                return self.__init__(**args, **kwargs)
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVerticalInverse")
@@ -268,8 +364,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 # J(E) and E(J) at energies between the grid tori, from the
                 # same Hermite energy interpolant whose derivative is the
                 # frequency, so that E, J, and Freqs agree exactly
-                self.E = self._mm_E
-                self.J = self._mm_J_of_E
+                self.E = self._mm_E_dispatch
+                self.J = self._mm_J_of_E_dispatch
             return None
         if (
             isinstance(use_pointtransform, str)
@@ -1120,30 +1216,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2026-09-17 - Written - Bovy (UofT)
         """
         D, dDdj, K, dKdj = tables
-        ms = 2.0 * numpy.arange(1, len(D) + 1)
         tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
-        mt = tau[:, None] * ms[None, :]
-        smt, cmt = numpy.sin(mt), numpy.cos(mt)
-        eta = tau + smt @ D
-        deta = 1.0 + cmt @ (ms * D)
-        detadj = smt @ dDdj
-        xmax = numpy.sqrt(K * j)
-        dxmaxdj = (K + j * dKdj) / (2.0 * xmax)
-        se, ce = numpy.sin(eta), numpy.cos(eta)
-        st, ct = numpy.sin(tau), numpy.cos(tau)
-        x = -xmax * ct
-        p = numpy.zeros_like(tau)
-        nz = st != 0.0
-        p[nz] = 2.0 * j * se[nz] ** 2.0 * deta[nz] / (xmax * st[nz])
-        angle = (
-            eta
-            - se * ce
-            + 2.0 * j * se**2.0 * detadj
-            + p * dxmaxdj * ct
-            - 0.5 * numpy.pi
-        )
+        x, p, angle, aux = _mm_kernel(numpy, tau, j, D, dDdj, K, dKdj)
         if not deriv:
             return x, p, angle
+        ms, smt, cmt, deta, detadj, xmax, dxmaxdj, se, ce, st, ct, nz = aux
         d2eta = -smt @ (ms**2.0 * D)
         ddetadj = cmt @ (ms * dDdj)
         dp = numpy.zeros_like(tau)
@@ -1310,6 +1387,132 @@ class actionAngleVerticalInverse(actionAngleInverse):
         tau = self._mm_tau_of_angle(j, angle, tables=tables)
         x, p, _ = self._mm_eval_tau(j, tau, tables)
         return x, p
+
+    # ------------------------------------------------ backend (jax/torch) path
+    # The momentum-matched evaluation natively in jax/torch. The stored tables
+    # are scipy PPolys (Hermite splines in the action), evaluated here through
+    # eval_ppoly, so the map is differentiable in the action as well as in the
+    # angles.
+    def _mm_spline_backend(self, xp, spl, j, nu):
+        if isinstance(spl, _linearHermite):
+            dev = device_of(j)
+            y0 = asarray_on_device(xp, spl._y0, dev)
+            dy0 = asarray_on_device(xp, spl._dy0, dev)
+            return y0 + dy0 * (j - spl._j0) if nu == 0 else dy0 + 0.0 * j
+        return eval_ppoly(xp, spl.x, spl.c, j, nu=nu)
+
+    def _mm_tables_backend(self, xp, j):
+        """(D, dD/dj, K, dK/dj) at action j, as in _mm_tables, in namespace xp."""
+        return tuple(
+            self._mm_spline_backend(xp, spl, j, nu)
+            for spl in (self._mm_Dspl, self._mm_Kspl)
+            for nu in (0, 1)
+        )
+
+    def _mm_dEdj_backend(self, xp, j):
+        """The map's frequency dE/dJ (as _mm_dEdj) at action j, in namespace xp."""
+        j_in = xp.asarray(j) * 1.0
+        j = at_least_float64(j_in)
+        return match_input_dtype(self._mm_spline_backend(xp, self._mm_E, j, 1), j_in)
+
+    def _mm_xvFreqs_backend(self, xp, j, angle):
+        """
+        The momentum-matched evaluation (as _mm_xvFreqs) natively in xp:
+        position, velocity, and frequency on the torus of action j,
+        differentiable in j and in the angles.
+
+        The anomaly at each angle is the root of the angle relation, which is
+        monotone on [0, 2 pi], found by the backend brentq: its final Newton
+        step carries the implicit-function gradient through the tables to j
+        and to the angles. The zero-action torus is the point at the bottom.
+
+        Notes
+        -----
+        - 2026-10-04 - Written - Bovy (UofT)
+        """
+        dev = device_of(j, angle)
+        j = xp.reshape(asarray_on_device(xp, j, dev) * 1.0, ())
+        angle = xp.reshape(asarray_on_device(xp, angle, dev) * 1.0, (-1,))
+        angle_in = angle
+        j, angle = at_least_float64(j, angle)
+        if has_concrete_truth_value(j) and concretely_true(j < 0.0):
+            raise ValueError("The action must be non-negative")
+        pos = j > 0.0
+        # the j = 0 torus is the point at the bottom; its dead branch reads the
+        # tables at a grid action, where they are finite
+        jsafe = xp.where(pos, j, float(numpy.amax(self._js)) or 1.0)
+        tables = self._mm_tables_backend(xp, jsafe)
+        target = xp.remainder(angle + 0.5 * numpy.pi, 2.0 * numpy.pi)
+
+        def _resid(tau, D, dDdj, K, dKdj, jj, tgt):
+            return _mm_kernel(xp, tau, jj, D, dDdj, K, dKdj)[2] + 0.5 * numpy.pi - tgt
+
+        lo = xp.zeros_like(target)
+        tau = _backend_brentq(
+            _resid, lo, lo + 2.0 * numpy.pi, args=(*tables, jsafe, target)
+        )
+        x, p, _, _ = _mm_kernel(xp, tau, jsafe, *tables)
+        x = xp.where(pos, x, 0.0)
+        p = xp.where(pos, p, 0.0)
+        Om = self._mm_spline_backend(xp, self._mm_E, j, 1)
+        return (
+            match_input_dtype(x, angle_in),
+            match_input_dtype(p, angle_in),
+            match_input_dtype(Om, angle_in),
+        )
+
+    def _mm_E_dispatch(self, j):
+        """E(J) of the family's Hermite energy interpolant (setup_interp=True)."""
+        xp = get_namespace(j)
+        if xp is numpy:
+            return self._mm_E(j)
+        j_in = xp.asarray(j) * 1.0
+        j = at_least_float64(j_in)
+        return match_input_dtype(self._mm_spline_backend(xp, self._mm_E, j, 0), j_in)
+
+    def _mm_J_of_E_dispatch(self, E):
+        """J(E), the inverse of E(J) (setup_interp=True); see _mm_J_of_E. On a
+        backend the root is bracketed by the grid extended by one interval at
+        each end (where E(J) stays monotonic), and is differentiable in E."""
+        xp = get_namespace(E)
+        if xp is numpy:
+            return self._mm_J_of_E(E)
+        E_in = xp.asarray(E) * 1.0
+        E = at_least_float64(E_in)
+        if isinstance(self._mm_E, _linearHermite):
+            E0, Om0 = (
+                asarray_on_device(xp, v, device_of(E))
+                for v in (self._mm_E._y0, self._mm_E._dy0)
+            )
+            return match_input_dtype(self._mm_E._j0 + (E - E0) / Om0, E_in)
+        js = self._js
+        lo = xp.zeros_like(E) + (js[0] - (js[1] - js[0]))
+        hi = xp.zeros_like(E) + (js[-1] + (js[-1] - js[-2]))
+        out = _backend_brentq(
+            lambda jj, tE: self._mm_spline_backend(xp, self._mm_E, jj, 0) - tE,
+            lo,
+            hi,
+            args=(E,),
+        )
+        return match_input_dtype(out, E_in)
+
+    def _J_lookup_backend(self, xp, E):
+        """J(E) at a grid energy (as J), in namespace xp: the stored action, with
+        the derivative dJ/dE = 1 / Omega of the torus."""
+        E_in = xp.asarray(E) * 1.0
+        E = at_least_float64(E_in)
+        dev = device_of(E)
+        Es = asarray_on_device(xp, self._Es, dev)
+        indx = xp.argmin(xp.abs(E - Es))
+        if has_concrete_truth_value(E) and concretely_true(
+            xp.abs(E - Es[indx]) > 1e-10
+        ):
+            raise ValueError(
+                "Given energy not found; please specify an energy used in the initialization of the instance"
+            )
+        js = asarray_on_device(xp, self._js, dev)[indx]
+        Om = asarray_on_device(xp, self._Omegas, dev)[indx]
+        return match_input_dtype(js + (E - stop_gradient(E)) / Om, E_in)
 
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
@@ -1656,6 +1859,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._xmaxgrid = xmaxgrid
         return xgrid
 
+    @_plot_on_numpy
     def plot_convergence(
         self, E, overplot=False, return_gridspec=False, shift_action=None
     ):
@@ -1874,6 +2078,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         else:
             return None
 
+    @_plot_on_numpy
     def plot_power(self, Es, symm=True, overplot=False, return_gridspec=False, ls="-"):
         Es = numpy.sort(numpy.atleast_1d(Es))
         if self._momentum_matched:
@@ -1999,6 +2204,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         else:
             return None
 
+    @_plot_on_numpy
     def plot_orbit(self, E):
         ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
         if not self._interp:
@@ -2242,6 +2448,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pyplot.tight_layout()
         return None
 
+    @_plot_on_numpy
     def plot_interp(self, E, symm=True):
         if self._momentum_matched:
             return self._plot_interp_mm(E)
@@ -2389,7 +2596,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2022-11-24 - Written - Bovy (UofT)
 
         """
-        _reject_backend(E)
+        xp = get_namespace(E)
+        if xp is not numpy:
+            if not self._momentum_matched:
+                _reject_backend(E)
+            return self._J_lookup_backend(xp, E)
         indx = numpy.nanargmin(numpy.fabs(E - self._Es))
         if numpy.fabs(E - self._Es[indx]) > 1e-10:
             raise ValueError(
@@ -2469,11 +2680,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
-        _reject_backend(j, angle)
+        xp = get_namespace(j, angle)
         if self._momentum_matched:
             # the canonical map replaces the evaluation entirely; there is
             # no fallback path through the old correspondence
+            if xp is not numpy:
+                return self._mm_xvFreqs_backend(xp, j, angle)
             return self._mm_xvFreqs(j, angle)
+        _reject_backend(j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
@@ -2667,7 +2881,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
-        _reject_backend(j)
+        xp = get_namespace(j)
+        if xp is not numpy:
+            if not self._momentum_matched:
+                _reject_backend(j)
+            return self._mm_dEdj_backend(xp, j)
         # Find torus
         if self._momentum_matched:
             # The map's own frequency: dE/dJ of the Hermite energy
