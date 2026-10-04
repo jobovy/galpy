@@ -479,6 +479,18 @@ def test_sampleV_preoptimized_samples_natively(backend):
     arr = as_numpy(out)
     assert arr.shape == (3, 3)
     assert numpy.all(numpy.isfinite(arr))
+    # inputs are padded to a bucket internally; a backend maxVT, or inputs that
+    # arrive pre-padded (sampleV_interpolate) with n=3, draw the same samples
+    pad = lambda a: numpy.pad(a, (0, 13), mode="edge")  # noqa: E731
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(5)
+        got_b = _qdf._sampleV_preoptimized(R, z, xp.asarray(maxVT), xp)
+        numpy.random.seed(5)
+        got_p = _qdf._sampleV_preoptimized(
+            pad(R), pad(z), xp.asarray(pad(maxVT)), xp, n=3
+        )
+    numpy.testing.assert_array_equal(as_numpy(got_b), arr)
+    numpy.testing.assert_array_equal(as_numpy(got_p), arr)
 
 
 # --- d/d(DF parameter): the CONSTRUCTOR is differentiable ------------------

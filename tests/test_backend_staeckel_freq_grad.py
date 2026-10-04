@@ -154,3 +154,25 @@ def test_staeckel_freq_grad_useu0(backend):
     g = _backend_freq_grads(backend, coords, useu0=True)
     for k in range(3):
         numpy.testing.assert_allclose(g[k], fd[k], rtol=3e-3, atol=3e-6)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize(
+    "method,nargs",
+    [
+        ("__call__", 5),
+        ("actionsFreqs", 5),
+        ("actionsFreqsAngles", 6),
+        ("EccZmaxRperiRap", 5),
+    ],
+)
+def test_staeckel_c_true_under_jax_jit_matches_eager(method, nargs):
+    # concrete inputs call the C host directly (no pure_callback); under jax.jit
+    # WITHOUT a grad the custom_vjp's primal (pure_callback) runs instead. Both
+    # are the same C computation, so they must agree bit for bit.
+    args = [jnp.asarray([x]) for x in _ORBITS["generic"] + (0.3,)][:nargs]
+    f = getattr(_AAS, method)
+    eager = f(*args)
+    traced = jax.jit(lambda *a: f(*a))(*args)
+    for e, t in zip(eager, traced):
+        numpy.testing.assert_array_equal(numpy.asarray(t), numpy.asarray(e))
