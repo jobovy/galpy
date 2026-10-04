@@ -11,6 +11,7 @@ from ..actionAngle import actionAngleIsochrone
 from ..backend import (
     as_numpy,
     at_least_float64,
+    bucket_size,
     coerce_coords,
     float64_default_if_torch_args,
     get_namespace,
@@ -19,7 +20,7 @@ from ..backend import (
     promote_scalars,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, to_host, use
+from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._namespaces import (
     requires_backend_grad,
     under_trace,
@@ -2499,7 +2500,14 @@ class quasiisothermaldf(df):
             normal_max_vT = interpolate.RectBivariateSpline(
                 z_linspace, R_linspace, grid_max_vT, kx=kx, ky=ky
             ).ev(normal_z, normal_R)
+            nvalid = None
         else:
+            # padded to a bucket, sampled for the first nvalid (see
+            # _sampleV_preoptimized)
+            nvalid = normal_R.size
+            k = bucket_size(nvalid) - nvalid
+            normal_R = numpy.pad(normal_R, (0, k), mode="edge")
+            normal_z = numpy.pad(normal_z, (0, k), mode="edge")
             normal_max_vT = interp_bilinear(
                 xp,
                 xp.asarray(z_linspace),
@@ -2510,7 +2518,7 @@ class quasiisothermaldf(df):
             )
         # Sample all 3 velocities at a normal point and use interpolated vT
         normal_coord_v = as_numpy(
-            self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT, xp)
+            self._sampleV_preoptimized(normal_R, normal_z, normal_max_vT, xp, n=nvalid)
         )
         # Combine normal and outlier result, preserving original order
         coord_v[mask] = outlier_coord_v
@@ -2565,9 +2573,17 @@ class quasiisothermaldf(df):
         # what makes this minutes-slow; the mode only centres the rejection
         # proposal (and is interpolated across ~0.2-wide cells afterwards), so
         # the parabola is far more precision than the envelope can use.
-        Rf = xp.asarray(numpy.reshape(Rv, (-1,))) * 1.0
-        zf = xp.asarray(numpy.reshape(zv, (-1,))) * 1.0
-        npt = int(Rf.shape[0])
+        # nodes padded to a bucket (edge copies): grids differ call to call,
+        # and eager jax compiles every op per new shape
+        nreal = numpy.size(Rv)
+        npt = bucket_size(nreal)
+        Rf, zf = (
+            xp.asarray(
+                numpy.pad(numpy.reshape(a, (-1,)), (0, npt - nreal), mode="edge")
+            )
+            * 1.0
+            for a in (Rv, zv)
+        )
         vTn = numpy.linspace(_MAXVT_LO, _MAXVT_HI, _MAXVT_N)
         vTg = xp.asarray(vTn)
         # flattened (node, vT) mesh -> a single DF call
@@ -2607,9 +2623,9 @@ class quasiisothermaldf(df):
             0.0,
         )
         root = vTg[m] + xp.clip(shift, -h, h)
-        return xp.reshape(root, Rv.shape)
+        return xp.reshape(root[:nreal], Rv.shape)
 
-    def _sampleV_preoptimized(self, R, z, maxVT, xp):
+    def _sampleV_preoptimized(self, R, z, maxVT, xp, n=None):
         """Sample (vR, vT, vz) by rejection with a PRE-COMPUTED vT mode.
 
         Splitting the mode out is what makes ``sampleV_interpolate`` cheap: the
@@ -2674,46 +2690,75 @@ class quasiisothermaldf(df):
                 # Removing accepted sampled from remain index
                 remain_indx[remain_indx] = ~accept_indx
             return out
-        # Backend: the same rejection, but proposing only for the points still
-        # outstanding (as the numpy loop does) -- proposing for the whole vector
-        # every round costs one full DF evaluation per round and is what made the
-        # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
-        # are scattered in with .at[].set() rather than a boolean assignment.
-        # sample in float64 (the numpy-drawn proposals are float64; an output
-        # allocated at torch's default dtype was float32)
+        # Backend: the same rejection, proposing for the outstanding points only
+        # (one full DF evaluation per round otherwise) but padded to a power-of-4
+        # bucket: eager jax compiles every op per new array shape (~5 s per DF
+        # call), and the bucket caps that at ~log4(n) shapes, where the exact
+        # outstanding count recompiled every round. The inputs are padded to a
+        # bucket too (only the first ``n`` rows are sampled), so calls of
+        # different lengths share shapes. The bookkeeping is numpy-side; padding
+        # rows scatter into a dummy row at index ``nb0``.
+        # Sampled in float64 (the numpy-drawn proposals are float64).
+        n = length if n is None else n
+        nb0 = bucket_size(length)
+
+        def _pad(a):
+            k = nb0 - a.shape[0]
+            if k == 0:
+                return a
+            if is_backend_array(a):
+                return xp.concat([a, xp.broadcast_to(a[-1:], (k,))])
+            return numpy.pad(numpy.asarray(a), (0, k), mode="edge")
+
         Rb, zb, mvT = at_least_float64(
-            xp.asarray(R) * 1.0, xp.asarray(z) * 1.0, xp.asarray(maxVT) * 1.0
+            xp.asarray(_pad(R)) * 1.0,
+            xp.asarray(_pad(z)) * 1.0,
+            xp.asarray(_pad(maxVT)) * 1.0,
         )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
-        out = xp.zeros((length, 3), dtype=Rb.dtype)
-        remain = xp.arange(length)
+        out = xp.zeros((nb0 + 1, 3), dtype=Rb.dtype)
+        remain = numpy.zeros(nb0, dtype=bool)
+        remain[:n] = True
         for _ in range(_SAMPLEV_MAXROUNDS):
-            nmore = int(remain.shape[0])
+            idx = numpy.nonzero(remain)[0]
+            nmore = idx.shape[0]
             if nmore == 0:
                 break
-            Rr, zr, mr = Rb[remain], zb[remain], mvT[remain]
-            propvR = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr
-            propvT = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sr + mr
-            propvz = xp.asarray(numpy.random.normal(size=nmore)) * 2.0 * self._sz
+            nb = bucket_size(nmore)
+            gidx = xp.asarray(numpy.pad(idx, (0, nb - nmore)))
+            mr = mvT[gidx]
+            propvR = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr
+            propvT = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr + mr
+            propvz = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sz
             VDatprop = (
-                self(Rr, propvR, propvT, zr, propvz, log=True, use_physical=False)
-                - logmaxVD[remain]
+                self(
+                    Rb[gidx],
+                    propvR,
+                    propvT,
+                    zb[gidx],
+                    propvz,
+                    log=True,
+                    use_physical=False,
+                )
+                - logmaxVD[gidx]
             )
             VDatprop -= -0.5 * (
                 propvR**2.0 / 4.0 / self._sr**2.0
                 + propvz**2.0 / 4.0 / self._sz**2.0
                 + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
             )
-            accept = VDatprop > xp.log(xp.asarray(numpy.random.random(size=nmore)))
-            prop = xp.stack([propvR, propvT, propvz], axis=1)
-            sel = remain[accept]
-            if hasattr(out, "at"):  # jax: immutable, scatter through .at[]
-                out = out.at[sel].set(prop[accept])
-            else:
-                out[sel] = prop[accept]
-            remain = remain[~accept]
-        return match_input_dtype(out, R)  # float32 R in -> float32 out
+            accept = as_numpy(
+                VDatprop > xp.log(xp.asarray(numpy.random.random(size=nb)))
+            )[:nmore]
+            sidx = numpy.full(nb, nb0)
+            sidx[:nmore][accept] = idx[accept]
+            out = set_at(
+                xp, out, xp.asarray(sidx), xp.stack([propvR, propvT, propvz], axis=1)
+            )
+            remain[idx[accept]] = False
+        # float32 R in -> float32 out
+        return match_input_dtype(out[:n], R)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
