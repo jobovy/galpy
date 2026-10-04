@@ -8,6 +8,7 @@ from scipy.signal import find_peaks
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -179,6 +180,7 @@ class basestreamspraydf(df):
 
         return None
 
+    @float64_default_if_torch_args
     def sample(
         self, n, return_orbit=True, returndt=False, integrate=True, tail=None, key=None
     ):
