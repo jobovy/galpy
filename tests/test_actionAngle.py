@@ -6445,7 +6445,11 @@ def test_orbit_interface_staeckel_defaultdelta():
     assert numpy.fabs(est_delta - obs._aA._delta) < 1e-10, (
         "Directly estimated delta does not agree with Orbit-interface-estimated delta"
     )
-    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=est_delta)
+    # Compare the interfaces at the delta the Orbit actually used: under --jit the
+    # boundary-jitted estimateDeltaStaeckel and the Orbit's internal (eager)
+    # estimate can differ by an ulp (CPU-dependent XLA codegen), which the
+    # actions amplify to ~5e-11 -- not an interface difference
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=obs._aA._delta)
     acfs = numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type = "staeckel"
     acfso = numpy.array(
