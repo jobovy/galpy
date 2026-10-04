@@ -369,10 +369,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # explicitly selects the older evaluation.
         self._momentum_matched = momentum_matched and not use_pointtransform
         if self._momentum_matched:
-            if pt_only:
-                raise ValueError(
-                    'pt_only=True is only supported for use_pointtransform="exact"'
-                )
             bad = (self._xmaxs < 0.0) | ~numpy.isfinite(self._js)
             if numpy.any(bad):
                 raise RuntimeError(
