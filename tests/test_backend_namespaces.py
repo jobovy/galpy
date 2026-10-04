@@ -297,3 +297,14 @@ def test_as_backend_constant_with_a_numpy_ref(backend):
     assert get_namespace(out) is xp
     numpy.testing.assert_array_equal(as_numpy(out), [1.5, 2.0])
     assert str(out.dtype).endswith("float64")
+
+
+def test_set_at_casts_values_to_the_destination_dtype(torch_default_float32):
+    # numpy casts assigned values to the destination; torch raised on a float32
+    # source (its default dtype) into a float64 tensor
+    import torch
+
+    arr = torch.zeros(4, dtype=torch.float64)
+    out = set_at(torch, arr, arr == 0.0, torch.tensor([1.5, 2.5, 3.5, 4.5]))
+    assert out.dtype == torch.float64
+    numpy.testing.assert_array_equal(out.numpy(), [1.5, 2.5, 3.5, 4.5])

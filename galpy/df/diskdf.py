@@ -29,7 +29,14 @@ numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), w
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
-from ..backend import as_numpy, get_namespace, is_backend_array, to_host, use
+from ..backend import (
+    as_numpy,
+    float64_default_if_torch_args,
+    get_namespace,
+    is_backend_array,
+    to_host,
+    use,
+)
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
@@ -600,6 +607,7 @@ class diskdf(df):
                 * d
             )
 
+    @float64_default_if_torch_args
     @physical_conversion("position", pop=True)
     def sampledSurfacemassLOS(self, l, n=1, maxd=None, target=True):
         """
@@ -664,6 +672,7 @@ class diskdf(df):
                 out.append(prop)
         return numpy.array(out)
 
+    @float64_default_if_torch_args
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
     def sampleVRVT(self, R, n=1, nsigma=None, target=True):
@@ -714,6 +723,7 @@ class diskdf(df):
                 out.append(numpy.array([propvR, propvT]))
         return numpy.array(out)
 
+    @float64_default_if_torch_args
     def sampleLOS(
         self,
         los,
@@ -1788,6 +1798,7 @@ class diskdf(df):
             )
         )
 
+    @float64_default_if_torch_args
     def sample(
         self,
         n=1,
@@ -2115,6 +2126,7 @@ class dehnendf(diskdf):
             / numpy.pi
         )
 
+    @float64_default_if_torch_args
     def sample(
         self,
         n=1,
@@ -2567,6 +2579,7 @@ class shudf(diskdf):
         )
         return xp.where(xL < 0.0, 0.0, value)
 
+    @float64_default_if_torch_args
     def sample(
         self,
         n=1,

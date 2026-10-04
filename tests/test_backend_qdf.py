@@ -687,3 +687,28 @@ def test_rg_no_precompute_numpy_array():
     numpy.testing.assert_allclose(
         float(numpy.atleast_1d(q0._rg(0.8))[0]), float(got[1]), rtol=1e-12
     )
+
+
+def test_sampleV_interpolate_float32_default_matches_float64(torch_default_float32):
+    # Under torch's default float32 the backend sampler allocated its output in
+    # float32 and raised on scattering the float64 proposals; it now samples in
+    # float64 like numpy: the same draw as under a float64 default.
+    if "torch" not in BACKENDS:
+        pytest.skip("torch not installed")
+    import torch
+
+    Rs = numpy.linspace(0.7, 1.3, 40)
+    zs = numpy.linspace(0.02, 0.3, 40)
+
+    def draw():
+        with galpy.backend.use("torch", force=True):
+            numpy.random.seed(23)
+            return _qdf.sampleV_interpolate(Rs, zs, 0.1, 0.05, use_physical=False)
+
+    got32 = draw()
+    torch.set_default_dtype(torch.float64)
+    try:
+        got64 = draw()
+    finally:
+        torch.set_default_dtype(torch.float32)
+    numpy.testing.assert_array_equal(got32, got64)
