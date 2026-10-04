@@ -427,7 +427,11 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # the truncated-mass computation itself, not backend overhead -- and it is only
 # 7.6x numpy under jax where plain NFW is 36x. Making this retirable is a
 # numerics task, not a dispatch one.
-jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 285.4s / 300.1s -- flips
+# 2026-10-04: 40% of it WAS retracing -- vcirc/epifreq on a 3D potential build a
+# fresh toPlanar() wrapper per call and the harness keyed objects by identity
+# (293 of 466 compiles). Keying objects structurally (galpy.backend._jit): 501 s
+# -> 260 s here, compile 203 s -> 20 s. Still too near the cap to retire.
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 260s here (was 501s); near the cap
 
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
