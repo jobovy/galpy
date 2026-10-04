@@ -20,6 +20,7 @@
 #   OFF by default and a hard no-op on the numpy path, so nothing about the
 #   numpy behaviour changes.
 ###############################################################################
+import types
 from contextlib import contextmanager
 
 from ._namespaces import name_of_namespace
@@ -101,24 +102,40 @@ def _scalar_or_none(val):
     return None
 
 
-def _object_key(obj):
-    """Identity PLUS the object's scalar parameters.
+_KEY_DEPTH = 3
 
-    Identity alone is wrong. A traced function reads ``self._amp`` at trace time,
-    so its value is baked into the trace as a constant; ``pot.normalize(0.5)``
-    then mutates ``_amp`` without changing the cache key and the next call
-    silently returns the PREVIOUS normalization's numbers. Mixing the scalar
-    attributes into the key retraces when a parameter changes. Array-valued
-    attributes (coefficient tables) are left on identity: they are big, and
-    galpy replaces rather than mutates them.
+
+def _object_key(obj, depth=0):
+    """The object's TYPE plus its attributes, not its identity.
+
+    Scalars are keyed by value: a traced function reads ``self._amp`` at trace
+    time, so ``pot.normalize(0.5)`` must retrace. Sub-objects (a wrapper's
+    ``_Pot``) are keyed recursively, so equal wrappers share a trace --
+    ``vcirc``/``epifreq`` build a fresh ``toPlanar()`` wrapper per call, which
+    an identity key retraced every time -- and a wrapped potential's changed
+    parameter retraces too. Everything else (arrays, tables, dicts, callables) is
+    keyed by identity: galpy replaces rather than mutates those, and jax keeps
+    the first object alive in its cache, so those ids cannot be recycled.
     """
-    scalars = []
+    entries = []
     for name, attr in vars(obj).items():
         as_float = _scalar_or_none(attr)
         if as_float is not None:
-            scalars.append((name, as_float))
-    scalars.sort()
-    return (id(obj), tuple(scalars))
+            entries.append((name, as_float))
+        elif isinstance(attr, (str, type(None))):
+            entries.append((name, attr))
+        elif (
+            depth < _KEY_DEPTH
+            and hasattr(attr, "__dict__")
+            and not isinstance(
+                attr, (type, types.FunctionType, types.MethodType, types.ModuleType)
+            )
+        ):
+            entries.append((name, _object_key(attr, depth + 1)))
+        else:
+            entries.append((name, (id, id(attr))))
+    entries.sort(key=lambda e: e[0])
+    return (type(obj), tuple(entries))
 
 
 def _static_key(val):
