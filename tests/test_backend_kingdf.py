@@ -568,3 +568,24 @@ def test_king_ode_torch_failure_raises():
 
     with pytest.raises(RuntimeError, match="King ODE solve failed"):
         solve(_scalefreekingdf(3.0)._dens_W, torch.tensor(3.0), 101, max_steps=3)
+
+
+@pytest.mark.parametrize("which", ["mass", "c", "dens", "fE", "sigmar", "pot"])
+def test_kingdf_float32_W0_solves_in_float64(which, torch_default_float32):
+    # A float32 W0 (torch's default dtype) is solved in float64 like numpy's
+    # scipy solve: the quantity EQUALS the float64-W0 one (W0 = 3 is exact in
+    # float32). Previously the float32 primal cast the tables to float32 (8e-5
+    # in d/dW0, 6% in d2/dW0^2 for dens) and the in-backend solve failed.
+    if "torch" not in BACKENDS:
+        pytest.skip("torch not installed")
+    vals = []
+    for dt in (torch.float32, torch.float64):
+        W = torch.tensor(_W0, dtype=dt, requires_grad=True)
+        v = _w0_quantity("torch", W, which)
+        g = torch.autograd.grad(v, W)[0]
+        vals.append((v, g))
+    (v32, g32), (v64, g64) = vals
+    assert v32.dtype == torch.float64
+    assert float(v32) == float(v64)
+    # the gradient is cast back to the float32 leaf's dtype
+    numpy.testing.assert_allclose(float(g32), float(g64), rtol=1e-7)

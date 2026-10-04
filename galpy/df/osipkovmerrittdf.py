@@ -8,6 +8,7 @@ from ..backend import (
     as_numpy_constant,
     asarray_on_device,
     device_of,
+    float64_default_if_torch_args,
     get_namespace,
 )
 from ..backend import random as grandom
@@ -517,6 +518,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             )
         )
 
+    @float64_default_if_torch_args
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
     ):

@@ -34,6 +34,7 @@
 #   that break when their coordinates arrive as jax/torch arrays).
 ###############################################################################
 import inspect
+from contextlib import nullcontext
 from functools import wraps
 
 import numpy
@@ -41,8 +42,16 @@ import numpy
 from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
 from ._jit import NOT_TRACED, traced_call
-from ._namespaces import device_of, is_backend_array, prefer_backend_namespace
+from ._namespaces import (
+    device_of,
+    float64_default,
+    is_backend_array,
+    name_of_namespace,
+    prefer_backend_namespace,
+)
 from ._resolver import get_namespace
+
+_NULLCTX = nullcontext()
 
 _EMPTY = inspect.Parameter.empty
 
@@ -176,32 +185,37 @@ def backend_input(*coords):
             # below is skipped on the numpy path, so numpy pays just this probe.
             xp = prefer_backend_namespace(*probe)
             if xp is not numpy and _backend_ready(args[0]):
-                # ONE device anchor for the whole call. Coercing each coordinate
-                # on its own would let each derive its own: a numpy/python
-                # coordinate anchors to None -> the backend default device (CPU
-                # for torch) while its CUDA siblings stay on the GPU, and the
-                # evaluator gets a split-device coordinate set -- a mixed-device
-                # error in some potentials, a silent GPU->CPU transfer in others.
-                dev = device_of(*probe)
-                newargs = None
-                for c, ii in slots:
-                    if ii is not None and ii < nargs:
-                        if newargs is None:
-                            newargs = list(args)
-                        newargs[ii] = _coerce_one(xp, newargs[ii], dev)
-                    elif c in kwargs:
-                        kwargs[c] = _coerce_one(xp, kwargs[c], dev)
-                if newargs is not None:
-                    args = tuple(newargs)
-                for c, ii, dflt in defaults:
-                    if ii >= nargs and c not in kwargs:
-                        kwargs[c] = _coerce_one(xp, dflt, dev)
-                # Under an opt-in trace mode this boundary is also where the
-                # jit/compile happens: the declared coordinates are the traced
-                # arguments and everything else is static. Off by default.
-                out = traced_call(method, args, kwargs, slots, nargs, xp)
-                if out is not NOT_TRACED:
-                    return out
+                # torch: galpy's internals in float64 (see float64_default)
+                with (
+                    float64_default() if name_of_namespace(xp) == "torch" else _NULLCTX
+                ):
+                    # ONE device anchor for the whole call. Coercing each coordinate
+                    # on its own would let each derive its own: a numpy/python
+                    # coordinate anchors to None -> the backend default device (CPU
+                    # for torch) while its CUDA siblings stay on the GPU, and the
+                    # evaluator gets a split-device coordinate set -- a mixed-device
+                    # error in some potentials, a silent GPU->CPU transfer in others.
+                    dev = device_of(*probe)
+                    newargs = None
+                    for c, ii in slots:
+                        if ii is not None and ii < nargs:
+                            if newargs is None:
+                                newargs = list(args)
+                            newargs[ii] = _coerce_one(xp, newargs[ii], dev)
+                        elif c in kwargs:
+                            kwargs[c] = _coerce_one(xp, kwargs[c], dev)
+                    if newargs is not None:
+                        args = tuple(newargs)
+                    for c, ii, dflt in defaults:
+                        if ii >= nargs and c not in kwargs:
+                            kwargs[c] = _coerce_one(xp, dflt, dev)
+                    # Under an opt-in trace mode this boundary is also where the
+                    # jit/compile happens: the declared coordinates are the traced
+                    # arguments and everything else is static. Off by default.
+                    out = traced_call(method, args, kwargs, slots, nargs, xp)
+                    if out is not NOT_TRACED:
+                        return out
+                    return method(*args, **kwargs)
             return method(*args, **kwargs)
 
         return wrapper

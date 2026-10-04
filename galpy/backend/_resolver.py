@@ -78,7 +78,13 @@ def use(name, force=False):
     namespace_for_name(name)  # validate eagerly
     token = _BACKEND_CTX.set((name, force))
     try:
-        yield namespace_for_name(name)
+        if name == "torch":  # galpy's internals in float64 (see float64_default)
+            from ._namespaces import float64_default
+
+            with float64_default():
+                yield namespace_for_name(name)
+        else:
+            yield namespace_for_name(name)
     finally:
         _BACKEND_CTX.reset(token)
 
