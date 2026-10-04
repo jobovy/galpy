@@ -880,6 +880,19 @@ def physical_output(obj: Any, kwargs: dict, quantity: str) -> Tuple[bool, float,
     )
 
 
+def _f64_if_torch(fn):
+    """df / actionAngle methods called with torch in play run with torch's
+    default dtype at float64 (galpy.backend.float64_default). Potentials get the
+    scope at their @backend_input boundary at no numpy cost (they and the Orbit
+    accessors are the hot per-call paths); Orbit's analytic orbit parameters go
+    through actionAngle, so they inherit it."""
+    if not fn.__module__.startswith(("galpy.df", "galpy.actionAngle")):
+        return fn
+    from ..backend._namespaces import float64_default_if_torch_args
+
+    return float64_default_if_torch_args(fn)
+
+
 def physical_conversion(quantity, pop=False):
     """Decorator to convert to physical coordinates:
     quantity = [position,velocity,time]"""
@@ -1039,7 +1052,7 @@ def physical_conversion(quantity, pop=False):
                     )
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
@@ -1063,7 +1076,7 @@ def physical_conversion_tuple(quantities, pop=False):
                 )
             return out
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
@@ -1241,7 +1254,7 @@ def physical_conversion_actionAngle(quantity, pop=False):
             else:
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
@@ -1370,7 +1383,7 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
             else:
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 

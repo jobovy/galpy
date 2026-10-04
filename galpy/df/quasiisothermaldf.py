@@ -10,9 +10,12 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import (
     as_numpy,
+    at_least_float64,
     coerce_coords,
+    float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
+    match_input_dtype,
     promote_scalars,
 )
 from ..backend import random as grandom
@@ -2217,6 +2220,7 @@ class quasiisothermaldf(df):
                 R, z, 0.0, 0.0, 0.0, nsigma=nsigma, mc=mc, nmc=nmc, **kwargs
             )
 
+    @float64_default_if_torch_args
     @potential_physical_input
     def sampleV(self, R, z, n=1, **kwargs):
         """
@@ -2378,6 +2382,7 @@ class quasiisothermaldf(df):
         vz = batched_inverse_cdf_sample(xp, vzg, Fvzj, u[2])
         return xp.stack([vR, vT, vz], axis=1)
 
+    @float64_default_if_torch_args
     @potential_physical_input
     def sampleV_interpolate(
         self,
@@ -2674,12 +2679,14 @@ class quasiisothermaldf(df):
         # every round costs one full DF evaluation per round and is what made the
         # eager-jax path minutes-slow. jax arrays are immutable, so accepted rows
         # are scattered in with .at[].set() rather than a boolean assignment.
-        Rb = xp.asarray(R) * 1.0
-        zb = xp.asarray(z) * 1.0
-        mvT = xp.asarray(maxVT) * 1.0
+        # sample in float64 (the numpy-drawn proposals are float64; an output
+        # allocated at torch's default dtype was float32)
+        Rb, zb, mvT = at_least_float64(
+            xp.asarray(R) * 1.0, xp.asarray(z) * 1.0, xp.asarray(maxVT) * 1.0
+        )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
-        out = xp.zeros((length, 3))
+        out = xp.zeros((length, 3), dtype=Rb.dtype)
         remain = xp.arange(length)
         for _ in range(_SAMPLEV_MAXROUNDS):
             nmore = int(remain.shape[0])
@@ -2706,7 +2713,7 @@ class quasiisothermaldf(df):
             else:
                 out[sel] = prop[accept]
             remain = remain[~accept]
-        return out
+        return match_input_dtype(out, R)  # float32 R in -> float32 out
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
