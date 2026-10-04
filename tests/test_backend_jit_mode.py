@@ -235,6 +235,11 @@ def test_static_key_structural_for_objects():
             self.arr = arr
 
     assert _static_key(_Holder(numpy.ones(2))) != _static_key(_Holder(numpy.ones(2)))
+    # backend arrays have a __dict__ too but hold their data elsewhere: recursing
+    # into one made EVERY jax array key alike (time-dependent SCF/Multipole
+    # potentials picked up each other's traces)
+    for mk in [m for m in (jnp, torch) if m is not None]:
+        assert _static_key(_Holder(mk.ones(2))) != _static_key(_Holder(mk.ones(2)))
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")

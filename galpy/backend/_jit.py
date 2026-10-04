@@ -20,7 +20,6 @@
 #   OFF by default and a hard no-op on the numpy path, so nothing about the
 #   numpy behaviour changes.
 ###############################################################################
-import types
 from contextlib import contextmanager
 
 from ._namespaces import name_of_namespace
@@ -105,17 +104,35 @@ def _scalar_or_none(val):
 _KEY_DEPTH = 3
 
 
+class _Ident:
+    """Identity key that HOLDS its object: a bare id() of an attribute can be
+    recycled once the attribute is reassigned (time-dependent SCF swaps its
+    coefficient arrays), letting a new object match a stale cache entry."""
+
+    __slots__ = ("obj",)
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __hash__(self):
+        return id(self.obj)
+
+    def __eq__(self, other):
+        return isinstance(other, _Ident) and self.obj is other.obj
+
+
 def _object_key(obj, depth=0):
     """The object's TYPE plus its attributes, not its identity.
 
     Scalars are keyed by value: a traced function reads ``self._amp`` at trace
     time, so ``pot.normalize(0.5)`` must retrace. Sub-objects (a wrapper's
-    ``_Pot``) are keyed recursively, so equal wrappers share a trace --
+    ``_Pot``; galpy objects only -- a jax/torch array has a ``__dict__`` too, but
+    not its data) are keyed recursively, so equal wrappers share a trace --
     ``vcirc``/``epifreq`` build a fresh ``toPlanar()`` wrapper per call, which
     an identity key retraced every time -- and a wrapped potential's changed
     parameter retraces too. Everything else (arrays, tables, dicts, callables) is
-    keyed by identity: galpy replaces rather than mutates those, and jax keeps
-    the first object alive in its cache, so those ids cannot be recycled.
+    keyed by identity (held, see _Ident): galpy replaces rather than mutates
+    those, so a replaced table changes the key.
     """
     entries = []
     for name, attr in vars(obj).items():
@@ -126,14 +143,13 @@ def _object_key(obj, depth=0):
             entries.append((name, attr))
         elif (
             depth < _KEY_DEPTH
+            and type(attr).__module__.startswith("galpy.")
             and hasattr(attr, "__dict__")
-            and not isinstance(
-                attr, (type, types.FunctionType, types.MethodType, types.ModuleType)
-            )
+            and not isinstance(attr, type)
         ):
             entries.append((name, _object_key(attr, depth + 1)))
         else:
-            entries.append((name, (id, id(attr))))
+            entries.append((name, _Ident(attr)))
     entries.sort(key=lambda e: e[0])
     return (type(obj), tuple(entries))
 
