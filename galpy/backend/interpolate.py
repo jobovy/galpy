@@ -932,6 +932,42 @@ def _cubic_bspline_weights(xp, f):
     return out  # list of 4 weight arrays
 
 
+def _quintic_bspline_weights(xp, f):
+    r"""Centred quintic B-spline interpolation weights for the 6 taps about a
+    point (offsets ``-2 .. 3`` from ``floor``), as :func:`_cubic_bspline_weights`
+    for order 5: the weight of the tap at offset ``o`` is ``beta5(o - f)`` with
+
+        beta5(t) = 11/20 - t**2/2 + t**4/4 - |t|**5/12                  |t| < 1
+                 = 17/40 + 5|t|/8 - 7t**2/4 + 5|t|**3/4 - 3t**4/8 + |t|**5/24
+                                                                 1 <= |t| < 2
+                 = (3 - |t|)**5 / 120                            2 <= |t| < 3
+
+    -- the kernel of ``scipy.ndimage``'s order-5 interpolation. Pure polynomials
+    in ``f`` (dead-branch-safe ``xp.where``s)."""
+    out = []
+    for o in (-2.0, -1.0, 0.0, 1.0, 2.0, 3.0):
+        t = xp.abs(o - f)
+        t2 = t * t
+        inner = 11.0 / 20.0 - t2 / 2.0 + t2 * t2 / 4.0 - t2 * t2 * t / 12.0
+        mid = (
+            17.0 / 40.0
+            + 5.0 * t / 8.0
+            - 7.0 * t2 / 4.0
+            + 5.0 * t2 * t / 4.0
+            - 3.0 * t2 * t2 / 8.0
+            + t2 * t2 * t / 24.0
+        )
+        outer = (3.0 - t) ** 5 / 120.0
+        out.append(
+            xp.where(
+                t < 1.0,
+                inner,
+                xp.where(t < 2.0, mid, xp.where(t < 3.0, outer, t * 0.0)),
+            )
+        )
+    return out
+
+
 def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     """Backend-agnostic cubic ``map_coordinates`` off a prefiltered grid.
 
@@ -959,8 +995,8 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
         coordinate along grid dimension ``d``). On the backend path this is a
         jax/torch array carrying autodiff.
     order : int, optional
-        Spline order; only ``3`` (cubic) is implemented for the backend path
-        (the numpy path forwards any order to scipy). Default 3.
+        Spline order; ``3`` (cubic) or ``5`` (quintic) on the backend path (the
+        numpy path forwards any order to scipy). Default 3.
     mode : str, optional
         Boundary mode for taps outside ``[0, n_d - 1]``. Default ``'mirror'``,
         which is the PAIR to :func:`spline_filter`'s ``mode='mirror'`` prefilter:
@@ -1003,9 +1039,9 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
             mode=mode,
             prefilter=prefilter,
         )
-    if order != 3:  # pragma: no cover - galpy only uses cubic on the backend path
+    if order not in (3, 5):
         raise NotImplementedError(
-            "backend map_coordinates only implements order=3 (cubic)"
+            "backend map_coordinates only implements order=3 (cubic) and 5 (quintic)"
         )
     if mode not in ("mirror", "nearest"):
         raise NotImplementedError(
@@ -1035,11 +1071,16 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
         fl = xp.floor(c_d)
         frac = c_d - fl
         base.append(xp.astype(fl, _index_dtype(xp)) if hasattr(xp, "astype") else fl)
-        weights.append(_cubic_bspline_weights(xp, frac))
+        weights.append(
+            _cubic_bspline_weights(xp, frac)
+            if order == 3
+            else _quintic_bspline_weights(xp, frac)
+        )
     # Tensor product over the 4**D tap combinations: each combo picks tap offset
     # combo[d] in {-1,0,1,2} per dim; clamp the (base+offset) index to the edge
     # (mode='nearest'); multiply the per-dim weights; accumulate.
-    offs = (-1, 0, 1, 2)
+    offs = (-1, 0, 1, 2) if order == 3 else (-2, -1, 0, 1, 2, 3)
+    ntap = len(offs)
     # Per-dimension tap indices, folded ONCE. The loop this replaces re-derived
     # them inside every one of the 4**D combos -- for a 3-D grid that is 192
     # boundary folds computing the same 12 index arrays.
@@ -1047,12 +1088,17 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     for d in range(D):
         hi = shape[d] - 1
         row = []
-        for k in range(4):
+        for k in range(ntap):
             idx_d = base[d] + offs[k]
             if mode == "mirror":
                 # Whole-sample symmetric fold, the pair to spline_filter's
-                # mode='mirror': i<0 -> -i ; i>n-1 -> 2(n-1)-i.
-                idx_d = hi - xp.abs(hi - xp.abs(idx_d))
+                # mode='mirror': period 2(n-1), i -> -i and i -> 2(n-1)-i (a
+                # narrow axis reflects a stencil tap more than once)
+                if hi == 0:
+                    idx_d = idx_d * 0
+                else:
+                    idx_d = xp.remainder(idx_d, 2 * hi)
+                    idx_d = xp.where(idx_d > hi, 2 * hi - idx_d, idx_d)
             else:  # 'nearest': clamp the tap index to the edge
                 idx_d = xp.clip(idx_d, 0, hi)
             row.append(idx_d)
@@ -1069,7 +1115,7 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     wt = None
     for d in range(D):
         bshape = [1] * D + [-1]
-        bshape[d] = 4
+        bshape[d] = ntap
         i_d = xp.reshape(xp.stack(idx_rows[d], axis=0), tuple(bshape))
         w_d = xp.reshape(xp.stack(list(weights[d]), axis=0), tuple(bshape))
         term = i_d * strides[d]

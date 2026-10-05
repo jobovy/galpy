@@ -25,12 +25,16 @@ from ..backend import (
     concretely_true,
     device_of,
     get_namespace,
-    is_backend_array,
     match_input_dtype,
     use,
 )
 from ..backend._namespaces import has_concrete_truth_value, stop_gradient
-from ..backend.interpolate import cubic_hermite_coeffs, eval_ppoly
+from ..backend.interpolate import (
+    cubic_hermite_coeffs,
+    eval_ppoly,
+)
+from ..backend.interpolate import map_coordinates as _backend_map_coordinates
+from ..backend.interpolate import spline_to_ppoly
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.linearPotential import _evaluatelinearx2derivs
@@ -59,19 +63,27 @@ _MM_GN_ITERS = 14
 
 
 _LEGACY_BACKEND_MSG = (
-    "actionAngleVerticalInverse's legacy evaluation (momentum_matched=False "
-    "or use_pointtransform) is numpy-only; use the default momentum-matched map "
-    "for jax/torch."
+    "actionAngleVerticalInverse's legacy construction (momentum_matched=False "
+    "or use_pointtransform) is numpy-only and cannot take a potential with "
+    "jax/torch parameters; use the default momentum-matched map for that."
 )
 
 
-def _reject_backend(*xs):
-    # The legacy (non-momentum-matched: point-transformation / older angle-grid)
-    # evaluation is numpy-only: it builds scipy interpolation /
-    # ndimage.map_coordinates grids. Fail loudly under a forced/active backend or
-    # for jax/torch inputs rather than mis-behave.
-    if backend() != "numpy" or any(is_backend_array(x) for x in xs):
-        raise NotImplementedError(_LEGACY_BACKEND_MSG)
+class _SplineXP:
+    """A scipy UnivariateSpline that also evaluates jax/torch inputs, natively
+    through its piecewise-polynomial form (numpy inputs call the spline)."""
+
+    def __init__(self, spl):
+        self._spl = spl
+        self._pp = None
+
+    def __call__(self, x):
+        xp = get_namespace(x)
+        if xp is numpy:
+            return self._spl(x)
+        if self._pp is None:
+            self._pp = spline_to_ppoly(self._spl)
+        return eval_ppoly(xp, *self._pp, xp.asarray(x) * 1.0)
 
 
 def _plot_on_numpy(method):
@@ -201,8 +213,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
     .. note::
        The default momentum-matched map is built and evaluated natively under
        jax/torch, differentiable in the action, the angles, and the potential's
-       parameters; the legacy evaluation (``momentum_matched=False`` or a point
-       transformation) is numpy-only.
+       parameters. The legacy modes (``momentum_matched=False`` or a point
+       transformation) evaluate natively too (differentiable in the action and
+       the angles), but are built on numpy, so they cannot take a potential with
+       jax/torch parameters.
     """
 
     def __init__(
@@ -272,7 +286,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
         else:
             xp_bk = None if pot is None else _pot_grad_namespace(pot, any_backend=True)
         if xp_bk is not None and (not momentum_matched or use_pointtransform):
-            raise NotImplementedError(_LEGACY_BACKEND_MSG)
+            # the legacy construction is numpy-only: under a forced backend it
+            # runs on numpy (its evaluation is native); it cannot take a
+            # potential with jax/torch parameters
+            if backend() == "numpy" or _pot_grad_namespace(pot, any_backend=True):
+                raise NotImplementedError(_LEGACY_BACKEND_MSG)
+            args = {
+                k: v
+                for k, v in locals().items()
+                if k not in ("self", "kwargs", "xp_bk")
+            }
+            with use("numpy", force=True):
+                return self.__init__(**args, **kwargs)
         actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVerticalInverse")
@@ -1825,6 +1850,155 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Om = asarray_on_device(xp, self._Omegas, dev)[indx]
         return match_input_dtype(js + (E - stop_gradient(E)) / Om, E_in)
 
+    # ------------------------------------- legacy evaluation, jax/torch path
+    # The tables are built on numpy; the evaluation runs natively, differentiable
+    # in the action and the angles.
+    def _interp_rows_backend(self, xp, filtered, E, ncols):
+        """Rows of a spline-filtered (torus, coefficient) table at energies E,
+        as nSn & co. do with ndimage.map_coordinates (NaN outside the grid;
+        scipy's 'constant' mode equals 'mirror' for the in-grid queries)."""
+        E = xp.reshape(at_least_float64(xp.asarray(E) * 1.0), (-1,))
+        # in the grid up to round-off: E(J) from the PPoly can land an ulp past
+        # an edge energy that the FITPACK spline returns exactly
+        tol = 1e-12 * (self._Emax - self._Emin)
+        inside = (E >= self._Emin - tol) & (E <= self._Emax + tol)
+        row = xp.clip(
+            (E - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0),
+            0.0,
+            self._nE - 1.0,
+        )
+        rows = xp.reshape(row[:, None] + 0.0 * xp.zeros((1, ncols)), (-1,))
+        cols = asarray_on_device(
+            xp, numpy.tile(numpy.arange(ncols, dtype=float), E.shape[0]), device_of(E)
+        )
+        vals = xp.reshape(
+            _backend_map_coordinates(filtered, xp.stack([rows, cols]), order=3),
+            (E.shape[0], ncols),
+        )
+        return xp.where(inside[:, None], vals, xp.nan)
+
+    def _Freqs_legacy_backend(self, xp, j):
+        """The legacy frequency (as _Freqs) in namespace xp."""
+        j_in = xp.asarray(j) * 1.0
+        j = xp.reshape(at_least_float64(j_in), ())
+        if self._interp:
+            return match_input_dtype(self.Omega(self.E(j)), j_in)
+        js = asarray_on_device(xp, self._js, device_of(j))
+        indx = xp.argmin(xp.abs(j - js))
+        if has_concrete_truth_value(j) and concretely_true(
+            xp.abs(j - js[indx]) > 1e-10
+        ):
+            raise ValueError(
+                "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
+            )
+        Om = asarray_on_device(xp, self._Omegas, device_of(j))[indx]
+        return match_input_dtype(Om + 0.0 * j, j_in)
+
+    def _xvFreqs_legacy_backend(self, xp, j, angle):
+        """
+        The legacy evaluation (as _xvFreqs) natively in xp: the auxiliary angle
+        is the root of the monotone angle relation on [0, 2 pi] (backend brentq,
+        whose Newton polish carries the implicit-function gradient), then the
+        harmonic inverse and the point transformation.
+
+        Notes
+        -----
+        - 2026-10-04 - Written - Bovy (UofT)
+        """
+        dev = device_of(j, angle)
+        j = xp.reshape(asarray_on_device(xp, j, dev) * 1.0, ())
+        angle = xp.reshape(asarray_on_device(xp, angle, dev) * 1.0, (-1,))
+        angle_in = angle
+        j, angle = at_least_float64(j, angle)
+        if not self._interp:
+            js = asarray_on_device(xp, self._js, dev)
+            indx = xp.argmin(xp.abs(j - js))
+            if has_concrete_truth_value(j) and concretely_true(
+                xp.abs(j - js[indx]) > 1e-10
+            ):
+                raise ValueError(
+                    "Given action/energy not found, to use interpolation, initialize with setup_interp=True"
+                )
+
+            def tab(a):
+                return asarray_on_device(xp, a, dev)[indx]
+
+            tjaoffset, tnSn, tdSndJ = (
+                tab(self._jaoffset),
+                tab(self._nSn),
+                tab(self._dSndJ),
+            )
+            tOmegaHO, tOmega = tab(self._OmegaHO), tab(self._Omegas)
+            txmax, tptxmax = tab(self._xmaxs), tab(self._pt_xmaxs)
+            tptcoeffs, tptderivcoeffs = tab(self._pt_coeffs), tab(self._pt_deriv_coeffs)
+            trowcoord = (
+                xp.astype(indx, j.dtype) if hasattr(xp, "astype") else indx * 1.0
+            )
+        else:
+            tE = xp.reshape(self.E(j), ())
+            tjaoffset = self.jaoffset(tE)
+            tnSn = self.nSn(tE)[0]
+            tdSndJ = self.dSndJ(tE)[0]
+            tOmegaHO, tOmega = self.OmegaHO(tE), self.Omega(tE)
+            txmax, tptxmax = self.xmax(tE), self.ptxmax(tE)
+            tptcoeffs = self.pt_coeffs(tE)[0]
+            tptderivcoeffs = self.pt_deriv_coeffs(tE)[0]
+            trowcoord = (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+        n = asarray_on_device(xp, self._nforSn * 1.0, dev)
+        if self._pt_exact and self._pt_only:
+            anglea = angle
+            ja = (j + tjaoffset) + 0.0 * angle
+        else:
+            target = xp.remainder(angle, 2.0 * numpy.pi)
+
+            def _resid(a, dS, tgt):
+                return a + 2.0 * xp.sum(dS * xp.sin(n * a[:, None]), axis=1) - tgt
+
+            lo = xp.zeros_like(target)
+            anglea = _backend_brentq(
+                _resid, lo, lo + 2.0 * numpy.pi, args=(tdSndJ, target)
+            )
+            ja = (j + tjaoffset) + 2.0 * xp.sum(
+                tnSn * xp.cos(n * anglea[:, None]), axis=1
+            )
+        amp = xp.sqrt(2.0 * ja / tOmegaHO)
+        xa, va = amp * xp.sin(anglea), amp * tOmegaHO * xp.cos(anglea)
+        if self._pt_exact:
+            x = txmax * _ptxa_eval_backend(
+                xp,
+                xa / tptxmax,
+                trowcoord,
+                self._pt_filtered[0],
+                self._pt_nmesh,
+                self._exact_pt_spl_deg,
+            )
+            v = (
+                va
+                / tptxmax
+                * txmax
+                * _ptxa_eval_backend(
+                    xp,
+                    xa / tptxmax,
+                    trowcoord,
+                    self._pt_filtered[1],
+                    self._pt_nmesh,
+                    self._exact_pt_spl_deg,
+                )
+            )
+        else:
+            x = txmax * _polyval_backend(xp, xa / tptxmax, tptcoeffs)
+            v = (
+                va
+                / tptxmax
+                * txmax
+                * _polyval_backend(xp, xa / tptxmax, tptderivcoeffs)
+            )
+        return (
+            match_input_dtype(x, angle_in),
+            match_input_dtype(v, angle_in),
+            match_input_dtype(tOmega + 0.0 * j, angle_in),
+        )
+
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by direct
         # quadrature of the time-from-midplane profile and monotone spline
@@ -2568,21 +2742,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSnNormalize = numpy.ones(self._nnSn)
         self._nSnFiltered = ndimage.spline_filter(self._nSn, order=3)
         self._dSndJFiltered = ndimage.spline_filter(self._dSndJ, order=3)
-        self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
-        self.E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
-        self.jaoffset = interpolate.InterpolatedUnivariateSpline(
-            self._Es, self._jaoffset, k=3
-        )
-        self.OmegaHO = interpolate.InterpolatedUnivariateSpline(
-            self._Es, self._OmegaHO, k=3
-        )
-        self.Omega = interpolate.InterpolatedUnivariateSpline(
-            self._Es, self._Omegas, k=3
-        )
-        self.xmax = interpolate.InterpolatedUnivariateSpline(self._Es, self._xmaxs, k=3)
-        self.ptxmax = interpolate.InterpolatedUnivariateSpline(
-            self._Es, self._pt_xmaxs, k=3
-        )
+        # _SplineXP: numpy inputs call the splines, jax/torch evaluate natively
+        spl = interpolate.InterpolatedUnivariateSpline
+        self.J = _SplineXP(spl(self._Es, self._js, k=3))
+        self.E = _SplineXP(spl(self._js, self._Es, k=3))
+        self.jaoffset = _SplineXP(spl(self._Es, self._jaoffset, k=3))
+        self.OmegaHO = _SplineXP(spl(self._Es, self._OmegaHO, k=3))
+        self.Omega = _SplineXP(spl(self._Es, self._Omegas, k=3))
+        self.xmax = _SplineXP(spl(self._Es, self._xmaxs, k=3))
+        self.ptxmax = _SplineXP(spl(self._Es, self._pt_xmaxs, k=3))
         self._nptcoeffs = self._pt_coeffs.shape[1]
         self._ptcoeffsFiltered = ndimage.spline_filter(self._pt_coeffs, order=3)
         self._ptderivcoeffsFiltered = ndimage.spline_filter(
@@ -2608,6 +2776,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             raise RuntimeError(
                 "To evaluate nSn, interpolation must be activated at instantiation using setup_interp=True"
             )
+        xp = get_namespace(E)
+        if xp is not numpy:
+            return self._interp_rows_backend(xp, self._nSnFiltered, E, self._nnSn)
         evalE = numpy.atleast_1d(E)
         indxc = (evalE >= self._Emin) * (evalE <= self._Emax)
         coords = self._coords_for_map_coords(evalE[indxc])
@@ -2630,6 +2801,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             raise RuntimeError(
                 "To evaluate dnSndJ, interpolation must be activated at instantiation using setup_interp=True"
             )
+        xp = get_namespace(E)
+        if xp is not numpy:
+            return self._interp_rows_backend(xp, self._dSndJFiltered, E, self._nnSn)
         evalE = numpy.atleast_1d(E)
         indxc = (evalE >= self._Emin) * (evalE <= self._Emax)
         coords = self._coords_for_map_coords(evalE[indxc])
@@ -2663,6 +2837,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
             raise RuntimeError(
                 "To evaluate pt_coeffs, interpolation must be activated at instantiation using setup_interp=True"
             )
+        xp = get_namespace(E)
+        if xp is not numpy:
+            return self._interp_rows_backend(
+                xp, self._ptcoeffsFiltered, E, self._nptcoeffs
+            )
         evalE = numpy.atleast_1d(E)
         indxc = (evalE >= self._Emin) * (evalE <= self._Emax)
         coords = self._coords_for_map_coords_pt(evalE[indxc], deriv=False)
@@ -2684,6 +2863,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if not self._interp:
             raise RuntimeError(
                 "To evaluate pt_deriv_coeffs, interpolation must be activated at instantiation using setup_interp=True"
+            )
+        xp = get_namespace(E)
+        if xp is not numpy:
+            return self._interp_rows_backend(
+                xp, self._ptderivcoeffsFiltered, E, self._nptcoeffs - 1
             )
         evalE = numpy.atleast_1d(E)
         indxc = (evalE >= self._Emin) * (evalE <= self._Emax)
@@ -2911,8 +3095,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if self._momentum_matched:
             xp = self._mm_namespace(xp)
         if xp is not numpy:
-            if not self._momentum_matched:
-                _reject_backend(E)
             return self._J_lookup_backend(xp, E)
         indx = numpy.nanargmin(numpy.fabs(E - self._Es))
         if numpy.fabs(E - self._Es[indx]) > 1e-10:
@@ -3001,7 +3183,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
             if xp is not numpy:
                 return self._mm_xvFreqs_backend(xp, j, angle)
             return self._mm_xvFreqs(j, angle)
-        _reject_backend(j, angle)
+        if xp is not numpy:
+            return self._xvFreqs_legacy_backend(xp, j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
@@ -3199,9 +3382,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if self._momentum_matched:
             xp = self._mm_namespace(xp)
         if xp is not numpy:
-            if not self._momentum_matched:
-                _reject_backend(j)
-            return self._mm_dEdj_backend(xp, j)
+            if self._momentum_matched:
+                return self._mm_dEdj_backend(xp, j)
+            return self._Freqs_legacy_backend(xp, j)
         # Find torus
         if self._momentum_matched:
             # The map's own frequency: dE/dJ of the Hermite energy
@@ -3272,6 +3455,30 @@ def _ptxa_eval(xanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
         prefilter=False,
         mode="mirror",
     ).reshape(xanorm.shape)
+
+
+def _ptxa_eval_backend(xp, xanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
+    """_ptxa_eval in namespace xp (the backend map_coordinates, any order it
+    implements: the exact point transformation uses degree 5)."""
+    xanorm = xp.reshape(xanorm, (-1,))
+    rowcoord = rowcoord + 0.0 * xanorm
+    meshcoord = (xanorm + 1.0) * (pt_nmesh - 1.0) / 2.0 + (
+        pt_filtered_arr.shape[1] - pt_nmesh
+    ) / 2.0
+    return _backend_map_coordinates(
+        pt_filtered_arr,
+        xp.stack([rowcoord, meshcoord]),
+        order=pt_spl_deg,
+        mode="mirror",
+    )
+
+
+def _polyval_backend(xp, x, c):
+    """numpy.polynomial.polynomial.polyval(x, c) (c low -> high) in xp."""
+    out = c[-1] + 0.0 * x
+    for k in range(c.shape[0] - 2, -1, -1):
+        out = out * x + c[k]
+    return out
 
 
 def _anglea(
