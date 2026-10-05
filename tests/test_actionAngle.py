@@ -9206,8 +9206,14 @@ def test_actionAngleVerticalInverse_convergence_warnings():
     # harmonics, and fails outright when the turning point cannot be found
     with pytest.warns(galpyWarning, match="not converged for energies: 30"):
         actionAngleVerticalInverse(pot=isopot, nta=128, Es=[1.0, 30.0])
-    with pytest.raises(RuntimeError, match="turning point could not be found"):
-        actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
+    from galpy.backend import backend
+
+    if backend() == "numpy":  # numpy's calcxmax gives up at this energy
+        with pytest.raises(RuntimeError, match="turning point could not be found"):
+            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
+    else:  # the backend root finder finds it; the map is then not converged
+        with pytest.warns(galpyWarning, match="not converged for energies: 300"):
+            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
     return None
 
 

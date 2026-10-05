@@ -248,40 +248,37 @@ def test_torch_compile():
 def test_construction_and_legacy_contract():
     # Under a forced backend, or for a potential with backend parameters, the
     # momentum-matched family is built natively and evaluates there (numpy
-    # inputs included); the legacy evaluation (momentum_matched=False or a
-    # point transformation) is not migrated yet and raises, both for its
-    # construction on a backend and for backend inputs. numpy is unaffected.
+    # inputs included). The legacy modes (momentum_matched=False / a point
+    # transformation) construct on numpy -- under a forced backend too -- and
+    # evaluate natively for backend inputs or under a forced backend; a legacy
+    # construction cannot take a potential with backend parameters.
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleVerticalInverse
-    from galpy.actionAngle.actionAngleVerticalInverse import _reject_backend
     from galpy.potential import IsothermalDiskPotential
 
-    _reject_backend(1.0, numpy.array([0.1]))  # numpy: no raise
     isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     legacy = actionAngleVerticalInverse(pot=isopot, Es=[0.3], momentum_matched=False)
+    j0 = legacy._js[0]
     for bk in BACKENDS:
-        with pytest.raises(NotImplementedError, match="legacy"):
-            _reject_backend(_arr(bk, numpy.array([0.1])))
-        for meth, args in (
-            ("__call__", (legacy._js[0], numpy.array([0.1]))),
-            ("Freqs", (legacy._js[0],)),
-            ("J", (0.3,)),
-        ):
-            with pytest.raises(NotImplementedError, match="legacy"):
-                getattr(legacy, meth)(*(_arr(bk, a) for a in args))
+        assert _is_backend(bk, legacy(_arr(bk, j0), _arr(bk, numpy.array([0.1])))[0])
+        assert _is_backend(bk, legacy.Freqs(_arr(bk, j0)))
+        assert _is_backend(bk, legacy.J(_arr(bk, 0.3)))
         with gb.use(bk, force=True):
             aA = actionAngleVerticalInverse(pot=isopot, Es=[0.3])
             assert _is_backend(bk, aA(aA._js[0], numpy.array([0.1]))[0])
             for kw in ({"momentum_matched": False}, {"use_pointtransform": True}):
-                with pytest.raises(NotImplementedError, match="legacy"):
-                    actionAngleVerticalInverse(pot=isopot, Es=[0.3], **kw)
+                aL = actionAngleVerticalInverse(pot=isopot, Es=[0.3], **kw)
+                assert _is_backend(bk, aL(aL._js[0], numpy.array([0.1]))[0])
         gpot = IsothermalDiskPotential(amp=_arr(bk, 1.0), sigma=0.5)
         aA = actionAngleVerticalInverse(pot=gpot, Es=[0.3])
         assert _is_backend(bk, aA(float(aA._js[0]), numpy.array([0.1]))[0])
         assert _is_backend(bk, aA.Freqs(float(aA._js[0])))
         assert _is_backend(bk, aA.J(0.3))
-        with pytest.raises(NotImplementedError, match="legacy"):
+        with pytest.raises(NotImplementedError, match="legacy construction"):
             actionAngleVerticalInverse(pot=gpot, Es=[0.3], momentum_matched=False)
+        with gb.use(bk, force=True):
+            with pytest.raises(NotImplementedError, match="legacy construction"):
+                actionAngleVerticalInverse(pot=gpot, Es=[0.3], use_pointtransform=True)
 
 
 def _param_case(name, backend, p):
@@ -441,3 +438,91 @@ def test_backend_construction_edge_grids(backend):
         with pytest.raises(RuntimeError, match="turning point could not be found"):
             actionAngleVerticalInverse(pot=plummer, Es=[0.1, 3.28])
         actionAngleVerticalInverse(pot=plummer, Es=[0.1, 1.0])  # bound: no raise
+
+
+_LEGACY_MODES = {
+    "no_mm": {"momentum_matched": False},
+    "poly_pt": {"use_pointtransform": True, "pt_deg": 7},
+    "exact_pt": {"use_pointtransform": "exact"},
+    "exact_pt_only": {"use_pointtransform": "exact", "pt_only": True},
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("mode", list(_LEGACY_MODES))
+@pytest.mark.parametrize("interp", [False, True], ids=["grid", "interp"])
+def test_legacy_values_match_numpy(backend, mode, interp):
+    # the legacy evaluation (built on numpy) gives the numpy path's
+    # (x, v, Omega) natively, for backend inputs and under a forced backend, on
+    # the grid tori and (interpolated) between them
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import KGPotential
+
+    kw = dict(
+        pot=KGPotential(K=1.0, F=0.5, D=0.5),
+        Es=numpy.linspace(0.0, 0.6, 31) if interp else [0.1, 0.3],
+        nta=64,
+        setup_interp=interp,
+        **_LEGACY_MODES[mode],
+    )
+    aA = actionAngleVerticalInverse(**kw)
+    with gb.use(backend, force=True):
+        aAf = actionAngleVerticalInverse(**kw)
+    js = list(aA._js[1:3]) + ([float(aA.J(0.27))] if interp else [])
+    for j in js:
+        ref = aA.xvFreqs(j, _ANGLES)
+        got = aA.xvFreqs(_arr(backend, j), _arr(backend, _ANGLES))
+        with gb.use(backend, force=True):
+            gotf = aAf.xvFreqs(j, _ANGLES)
+        for g, gf, r in zip(got, gotf, ref):
+            assert _is_backend(backend, g) and _is_backend(backend, gf)
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=1e-13)
+            numpy.testing.assert_allclose(as_numpy(gf), r, rtol=0.0, atol=1e-13)
+        assert abs(float(as_numpy(aA.Freqs(_arr(backend, j)))) - aA.Freqs(j)) < 1e-14
+    if interp:
+        # the interpolated coefficient tables, NaN off the grid
+        for meth in ("nSn", "dSndJ", "pt_coeffs", "pt_deriv_coeffs"):
+            E = numpy.array([0.05, 0.27, 0.7])
+            got, ref = getattr(aA, meth)(_arr(backend, E)), getattr(aA, meth)(E)
+            assert _is_backend(backend, got)
+            numpy.testing.assert_allclose(
+                as_numpy(got), ref, rtol=0.0, atol=1e-14, equal_nan=True
+            )
+            assert numpy.all(numpy.isnan(as_numpy(got)[-1]))
+        assert abs(float(as_numpy(aA.E(_arr(backend, js[-1])))) - aA.E(js[-1])) < 1e-14
+    else:
+        with pytest.raises(ValueError, match="Given action/energy not found"):
+            aA(_arr(backend, 0.123), _arr(backend, _ANGLES))
+        with pytest.raises(ValueError, match="Given action/energy not found"):
+            aA.Freqs(_arr(backend, 0.123))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("mode", ["no_mm", "poly_pt", "exact_pt"])
+def test_legacy_derivatives_vs_finite_difference(backend, mode):
+    # d(x, v)/dJ and d(x, v)/dtheta of the (interpolated) legacy evaluation
+    # against a converged 5-point FD of the numpy path, through the turning points
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import KGPotential
+
+    aA = actionAngleVerticalInverse(
+        pot=KGPotential(K=1.0, F=0.5, D=0.5),
+        Es=numpy.linspace(0.0, 0.6, 31),
+        nta=64,
+        setup_interp=True,
+        **_LEGACY_MODES[mode],
+    )
+    j0, h, n = float(aA.J(0.27)), 3e-4, len(_ANGLES)
+
+    def npxv(j, a):
+        x, v, O = aA.xvFreqs(j, numpy.atleast_1d(a))
+        return numpy.concatenate([x, v, [O]])
+
+    dJ = _fd(lambda j: npxv(j, _ANGLES), j0, h)
+    dA = numpy.array([_fd(lambda a: npxv(j0, a)[:2], a, h) for a in _ANGLES])
+    dxdJ, dvdJ, dxda, dvda, _ = _jac_backend(backend, aA, j0, _ANGLES)
+    numpy.testing.assert_allclose(dxdJ, dJ[:n], rtol=0.0, atol=1e-10)
+    numpy.testing.assert_allclose(dvdJ, dJ[n : 2 * n], rtol=0.0, atol=1e-10)
+    numpy.testing.assert_allclose(dxda, dA[:, 0], rtol=0.0, atol=1e-10)
+    numpy.testing.assert_allclose(dvda, dA[:, 1], rtol=0.0, atol=1e-10)
