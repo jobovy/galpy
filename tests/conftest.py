@@ -225,7 +225,7 @@ def _load_slow_skip(backend_name):
 # Tests skipped under a backend for a PERMANENT reason -- one no amount of porting
 # work will change. Two kinds qualify (see the file's header): (a) the test belongs
 # to a family that is out of scope for the backend goal and stays _reject_backend-
-# guarded (actionAngleVerticalInverse), so it fails by design and always will; (b)
+# guarded (actionAngleTorus via streamdf's useTM), so it fails by design; (b)
 # one potential of a per-potential walk whose eager-jax cost no port removes.
 # Distinct from backend_slow_skip.txt
 # (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
