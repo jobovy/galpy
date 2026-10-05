@@ -266,6 +266,20 @@ def cubic_ppoly_cumulative_integral(xp, c, h):
     )
 
 
+def cubic_hermite_coeffs(xp, y, d, h):
+    """Power-basis coefficients (4, n-1, ...), highest power first, of the cubic
+    Hermite interpolant of the values ``y`` and slopes ``d`` (leading axis: the
+    n knots, any trailing axes carried) at knots with interval widths ``h`` --
+    scipy's ``CubicHermiteSpline(x, y, d, axis=0).c``. Linear in (y, d), so
+    differentiable through them and through the knots."""
+    h = xp.reshape(h, (-1,) + (1,) * (y.ndim - 1))
+    y0, y1, d0, d1 = y[:-1], y[1:], d[:-1], d[1:]
+    slope = (y1 - y0) / h
+    return xp.stack(
+        [(d0 + d1 - 2.0 * slope) / h**2, (3.0 * slope - 2.0 * d0 - d1) / h, d0, y0]
+    )
+
+
 def quintic_hermite_coeffs(xp, v, d, a, h):
     """Power-basis coefficients (6, n-1), highest power first, of the C2 quintic
     Hermite interpolant of the value ``v``, first ``d`` and second ``a``
