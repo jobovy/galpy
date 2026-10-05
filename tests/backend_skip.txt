@@ -22,14 +22,14 @@
 #
 # format: <backend> <nodeid>   (same as the other ledger files)
 #
-# --- actionAngleVerticalInverse: legacy modes, migration in progress ---------
-# 2026-10-04: actionAngleVerticalInverse is now IN scope (it was out of scope while
-# under development; maintainer decision reversed once it stabilized). The default
-# momentum-matched map evaluates natively and its tests run (removed from here);
-# what remains is the LEGACY evaluation (momentum_matched=False / point
-# transformations), still _reject_backend-guarded, plus tests that construct a
-# legacy object alongside the default one. Those leave this list as the legacy
-# modes are migrated -- this is no longer a permanent exclusion.
+# --- actionAngleVerticalInverse: legacy modes, permanently out of scope ------
+# 2026-10-04: actionAngleVerticalInverse is now on the backends (it was out of scope
+# while under development): the default momentum-matched map builds and evaluates
+# natively and its tests run (removed from here). The LEGACY evaluation
+# (momentum_matched=False / point transformations) stays numpy-only by maintainer
+# decision ("let's not worry about the legacy code") and _reject_backend-guarded,
+# so these tests -- and those that construct a legacy object alongside the
+# default one -- are a permanent exclusion, not pending work.
 #
 # These lived in backend_xfail.txt, where they were 48 of 96 entries -- half the
 # ledger was work that would never be done, so ledger size (the burndown metric)
