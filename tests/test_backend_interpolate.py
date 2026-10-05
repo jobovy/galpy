@@ -1270,6 +1270,62 @@ def test_map_coordinates_nearest_still_available(backend):
     numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_map_coordinates_quintic_and_narrow_grids_vs_scipy(backend_name):
+    # order 5 (the exact point transformation of actionAngleVerticalInverse) and
+    # grids so narrow that a stencil tap reflects more than once ('mirror' has
+    # period 2(n-1)), against scipy; plus the order-5 coordinate gradient vs FD
+    rng = numpy.random.default_rng(11)
+    for shape in ((9, 7), (9, 2), (9, 1), (2, 7), (3, 3), (40,), (2,)):
+        grid = rng.normal(size=shape)
+        coords = numpy.stack(
+            [rng.uniform(0, n - 1, 60) if n > 1 else numpy.zeros(60) for n in shape]
+        )
+        for order in (3, 5):
+            filt = sndi.spline_filter(grid, order=order)
+            ref = sndi.map_coordinates(
+                filt, coords, order=order, prefilter=False, mode="mirror"
+            )
+            got = as_numpy(
+                map_coordinates(filt, _asarray(backend_name, coords), order=order)
+            )
+            numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=5e-14)
+    filt = sndi.spline_filter(rng.normal(size=(9, 7)), order=5)
+    c0 = numpy.array([[3.3], [2.6]])
+
+    def val(c):
+        return sndi.map_coordinates(filt, c, order=5, prefilter=False, mode="mirror")[0]
+
+    h = 1e-4
+    fd = [
+        (
+            -val(c0 + 2 * h * e)
+            + 8 * val(c0 + h * e)
+            - 8 * val(c0 - h * e)
+            + val(c0 - 2 * h * e)
+        )
+        / (12 * h)
+        for e in (numpy.array([[1.0], [0.0]]), numpy.array([[0.0], [1.0]]))
+    ]
+    if backend_name == "jax":
+        import jax
+
+        g = numpy.asarray(
+            jax.grad(lambda c: map_coordinates(filt, c, order=5)[0])(
+                _asarray("jax", c0)
+            )
+        ).ravel()
+    else:
+        import torch
+
+        ct = torch.tensor(c0, requires_grad=True)
+        (g,) = torch.autograd.grad(map_coordinates(filt, ct, order=5)[0], ct)
+        g = g.numpy().ravel()
+    numpy.testing.assert_allclose(g, fd, rtol=0.0, atol=1e-9)
+    with pytest.raises(NotImplementedError, match="order=3.*5"):
+        map_coordinates(filt, _asarray(backend_name, c0), order=4)
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_map_coordinates_rejects_unimplemented_mode(backend):
     # The mode guard is reachable only with backend-array coords (numpy coords
