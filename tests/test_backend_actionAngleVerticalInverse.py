@@ -70,8 +70,11 @@ def _fd(f, x0, h):
     ids=["two_tori", "interp", "one_torus"],
 )
 def test_values_match_numpy(backend, kw):
-    # backend inputs and a forced backend both give the numpy path's (x, v, Omega)
-    # to round-off, on and between the grid tori and at J = 0
+    # a numpy-built family evaluated on a backend gives the numpy path's
+    # (x, v, Omega) to round-off, on and between the grid tori and at J = 0. A
+    # family BUILT on a backend (forced) agrees to ~1e-11: its turning points are
+    # polished roots (E - Phi(xmax) ~ 1e-17, against ~2e-14 for numpy's
+    # calcxmax), which the frequency amplifies through the samples next to them
     from galpy import backend as gb
 
     aA = _aAVI(**kw)
@@ -84,7 +87,7 @@ def test_values_match_numpy(backend, kw):
         for g, gf, r in zip(got, gotf, ref):
             assert _is_backend(backend, g) and _is_backend(backend, gf)
             numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=2e-14)
-            numpy.testing.assert_allclose(as_numpy(gf), r, rtol=0.0, atol=2e-14)
+            numpy.testing.assert_allclose(as_numpy(gf), r, rtol=0.0, atol=1e-11)
         Om = aA.Freqs(_arr(backend, j))
         assert _is_backend(backend, Om)
         assert abs(float(as_numpy(Om)) - aA.Freqs(j)) < 1e-14
@@ -243,11 +246,11 @@ def test_torch_compile():
 
 
 def test_construction_and_legacy_contract():
-    # Under a forced backend the momentum-matched map constructs (on numpy, for
-    # now) and evaluates natively; the legacy evaluation (momentum_matched=False
-    # or a point transformation) is not migrated yet and raises, both for its
-    # construction under a backend and for backend inputs; a potential with
-    # backend parameters cannot be constructed for yet. numpy is unaffected.
+    # Under a forced backend, or for a potential with backend parameters, the
+    # momentum-matched family is built natively and evaluates there (numpy
+    # inputs included); the legacy evaluation (momentum_matched=False or a
+    # point transformation) is not migrated yet and raises, both for its
+    # construction on a backend and for backend inputs. numpy is unaffected.
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.actionAngle.actionAngleVerticalInverse import _reject_backend
@@ -272,6 +275,169 @@ def test_construction_and_legacy_contract():
             for kw in ({"momentum_matched": False}, {"use_pointtransform": True}):
                 with pytest.raises(NotImplementedError, match="legacy"):
                     actionAngleVerticalInverse(pot=isopot, Es=[0.3], **kw)
-            gpot = IsothermalDiskPotential(amp=_arr(bk, 1.0), sigma=0.5)
-            with pytest.raises(NotImplementedError, match="jax/torch parameters"):
-                actionAngleVerticalInverse(pot=gpot, Es=[0.3])
+        gpot = IsothermalDiskPotential(amp=_arr(bk, 1.0), sigma=0.5)
+        aA = actionAngleVerticalInverse(pot=gpot, Es=[0.3])
+        assert _is_backend(bk, aA(float(aA._js[0]), numpy.array([0.1]))[0])
+        assert _is_backend(bk, aA.Freqs(float(aA._js[0])))
+        assert _is_backend(bk, aA.J(0.3))
+        with pytest.raises(NotImplementedError, match="legacy"):
+            actionAngleVerticalInverse(pot=gpot, Es=[0.3], momentum_matched=False)
+
+
+def _param_case(name, backend, p):
+    from galpy.potential import IsothermalDiskPotential, KGPotential
+
+    if name == "iso_sigma":
+        return IsothermalDiskPotential(amp=1.0, sigma=p)
+    return KGPotential(K=p, F=0.5, D=0.5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name,p0", [("iso_sigma", 0.5), ("kg_K", 1.0)])
+@pytest.mark.parametrize(
+    "kw", [{"setup_interp": True}, {"Es": [0.1, 0.3]}], ids=["interp", "two_tori"]
+)
+def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
+    # the construction is differentiable in the potential's parameters: the
+    # (x, v, Omega) of a torus of fixed action at fixed angles, against a
+    # 5-point FD of the backend construction itself (numpy's calcxmax roots are
+    # too noisy for a sharper reference than ~1e-8)
+    from galpy.actionAngle import actionAngleVerticalInverse
+
+    J0 = 0.11
+
+    def out(p):
+        aA = actionAngleVerticalInverse(pot=_param_case(name, backend, p), **kw)
+        x, v, O = aA.xvFreqs(J0, _ANGLES)
+        return x, v, O
+
+    def num(p):
+        x, v, O = out(_arr(backend, p))
+        return numpy.concatenate([as_numpy(x), as_numpy(v), [float(as_numpy(O))]])
+
+    h = 3e-4
+    fd = (-num(p0 + 2 * h) + 8 * num(p0 + h) - 8 * num(p0 - h) + num(p0 - 2 * h)) / (
+        12 * h
+    )
+    if backend == "jax":
+        g = numpy.asarray(
+            jax.jacfwd(
+                lambda p: jnp.concatenate(
+                    [jnp.ravel(o) for o in out(p)[:2]] + [jnp.atleast_1d(out(p)[2])]
+                )
+            )(jnp.asarray(p0))
+        )
+    else:
+        pt = torch.tensor(p0, requires_grad=True)
+        x, v, O = out(pt)
+        flat = torch.cat([x, v, O.reshape(1)])
+        g = numpy.array(
+            [
+                float(torch.autograd.grad(flat[k], pt, retain_graph=True)[0])
+                for k in range(len(flat))
+            ]
+        )
+    numpy.testing.assert_allclose(g, fd, rtol=0.0, atol=3e-10)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_construction():
+    # the whole pipeline -- construction and evaluation -- traces under jax.jit,
+    # and its derivative in a potential parameter does too
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    def f(s):
+        aA = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=s),
+            Es=numpy.linspace(0.0, 0.6, 9),
+            setup_interp=True,
+        )
+        x, v, O = aA.xvFreqs(0.11, jnp.asarray(_ANGLES))
+        return jnp.concatenate([x, v, jnp.atleast_1d(O)])
+
+    s0 = jnp.asarray(0.5)
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(f)(s0)), numpy.asarray(f(s0)), rtol=0.0, atol=1e-14
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.jacfwd(f))(s0)),
+        numpy.asarray(jax.jacfwd(f)(s0)),
+        rtol=0.0,
+        atol=1e-11,
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_construction_warns_unconverged(backend):
+    # the backend construction checks the map's convergence like numpy does
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import galpyWarning
+
+    pot = LogarithmicHaloPotential(normalize=1.0).toVertical(1.0)
+    with gb.use(backend, force=True):
+        with pytest.warns(galpyWarning, match="not converged"):
+            actionAngleVerticalInverse(pot=pot, Es=[0.5, 4.0], mm_npt=6)
+
+
+def _offset_oscillator():
+    # a harmonic oscillator whose potential is 1, not 0, at the midplane
+    from galpy.potential.linearPotential import linearPotential
+
+    class _Offset(linearPotential):
+        def __init__(self):
+            linearPotential.__init__(self, amp=1.0)
+
+        def _evaluate(self, x, t=0.0):
+            return 1.0 + 0.5 * x**2.0
+
+        def _force(self, x, t=0.0):
+            return -x
+
+        def _x2deriv(self, x, t=0.0):
+            return 1.0 + 0.0 * x
+
+    return _Offset()
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_construction_edge_grids(backend):
+    # the backend construction handles the same edge grids as numpy: a bottom
+    # torus at E = Phi(0) != 0, a family of bottom tori only, and an energy
+    # without a turning point (above Phi at infinity), which raises
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import KGPotential, PlummerPotential
+
+    # Phi(0) = 1: an exact harmonic oscillator, whose bottom torus has the
+    # frequency sqrt(Phi''(0)) = 1 exactly (numpy approximates it there by the
+    # torus at E + 1e-5, to ~5e-9)
+    with gb.use(backend, force=True):
+        aA = actionAngleVerticalInverse(pot=_offset_oscillator(), Es=[1.0, 1.5, 2.0])
+        for j in (0.0, 0.5, 1.0):
+            x, v, O = aA.xvFreqs(j, _ANGLES)
+            amp = numpy.sqrt(2.0 * j)
+            numpy.testing.assert_allclose(
+                as_numpy(x), amp * numpy.sin(_ANGLES), rtol=0.0, atol=1e-13
+            )
+            numpy.testing.assert_allclose(
+                as_numpy(v), amp * numpy.cos(_ANGLES), rtol=0.0, atol=1e-13
+            )
+            assert abs(float(as_numpy(O)) - 1.0) < 1e-13
+    # a family of the bottom torus only
+    kg = KGPotential(K=1.0, F=0.5, D=0.5)
+    ref = actionAngleVerticalInverse(pot=kg, Es=[0.0])
+    with gb.use(backend, force=True):
+        aA = actionAngleVerticalInverse(pot=kg, Es=[0.0])
+        for g, r in zip(aA.xvFreqs(0.0, _ANGLES), ref.xvFreqs(0.0, _ANGLES)):
+            assert _is_backend(backend, g)
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=1e-14)
+    plummer = PlummerPotential(normalize=1.0).toVertical(1.0)
+    with pytest.raises(RuntimeError, match="turning point could not be found"):
+        actionAngleVerticalInverse(pot=plummer, Es=[0.1, 3.28])
+    with gb.use(backend, force=True):
+        with pytest.raises(RuntimeError, match="turning point could not be found"):
+            actionAngleVerticalInverse(pot=plummer, Es=[0.1, 3.28])
+        actionAngleVerticalInverse(pot=plummer, Es=[0.1, 1.0])  # bound: no raise
