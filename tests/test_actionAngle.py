@@ -8206,10 +8206,10 @@ def test_actionAngleVerticalInverse_wrtVertical():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
     )
     return None
@@ -8231,7 +8231,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical"
     )
     return None
@@ -8253,7 +8253,7 @@ def test_actionAngleVerticalInverse_orbit():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8262,10 +8262,10 @@ def test_actionAngleVerticalInverse_orbit():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
     return None
@@ -8291,10 +8291,10 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
     )
     return None
@@ -8316,7 +8316,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using a point transform"
     )
     return None
@@ -8339,7 +8339,7 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8348,10 +8348,10 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
     return None
@@ -8377,10 +8377,10 @@ def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform="exact"
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
     )
     return None
@@ -8406,7 +8406,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using the exact point transform"
     )
     return None
@@ -8429,7 +8429,7 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using the exact point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8438,10 +8438,10 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
     )
     return None
@@ -8459,7 +8459,7 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     aAVI = actionAngleVerticalInverse(
         pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
     )
-    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-9, (
+    assert numpy.nanmax(numpy.fabs(as_numpy(aAVI._nSn))) < 1e-9, (
         "nSn coefficients using the exact point transformation are not all close to zero"
     )
     # Compare against no point transformation, where the coefficients are O(0.01-1)
@@ -8470,8 +8470,8 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
         use_pointtransform=False,
         momentum_matched=False,
     )
-    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-6 * numpy.nanmax(
-        numpy.fabs(aAVI_nopt._nSn)
+    assert numpy.nanmax(numpy.fabs(as_numpy(aAVI._nSn))) < 1e-6 * numpy.nanmax(
+        numpy.fabs(as_numpy(aAVI_nopt._nSn))
     ), (
         "nSn coefficients using the exact point transformation are not orders of magnitude smaller than without a point transformation"
     )
@@ -8480,7 +8480,7 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     aAVI0 = actionAngleVerticalInverse(
         pot=isopot, nta=32, Es=[0.0], use_pointtransform="exact"
     )
-    assert numpy.all(aAVI0._nSn == 0.0), (
+    assert numpy.all(as_numpy(aAVI0._nSn == 0.0)), (
         "nSn coefficients of the E=0 torus are not all zero when using the exact point transformation"
     )
     return None
@@ -8510,15 +8510,15 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly():
     # pt_only agrees with the full machinery at the level of the accuracy of
     # the point transformation itself
     xf, vf = aAVIfull(aAVIfull.J(1.0), ta)
-    assert numpy.amax(numpy.fabs(x - xf)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(x - xf))) < 1e-8, (
         "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(v - vf)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(v - vf))) < 1e-8, (
         "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
     )
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-9, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-9, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using pt_only evaluation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8527,10 +8527,10 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
     )
     return None
@@ -8600,10 +8600,10 @@ def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect():
         bisect=True,
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
     )
     return None
@@ -8629,10 +8629,10 @@ def test_actionAngleVerticalInverse_wrtVertical_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
     )
     return None
@@ -8658,7 +8658,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection"
     )
     return None
@@ -8684,7 +8684,7 @@ def test_actionAngleVerticalInverse_orbit_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8693,10 +8693,10 @@ def test_actionAngleVerticalInverse_orbit_bisect():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
     )
     return None
@@ -8722,10 +8722,10 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
     )
     return None
@@ -8751,7 +8751,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection and a point transformation"
     )
     return None
@@ -8778,7 +8778,7 @@ def test_actionAngleVerticalInverse_orbit_pointtransform_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection and a point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8787,10 +8787,10 @@ def test_actionAngleVerticalInverse_orbit_pointtransform_bisect():
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
     )
     return None
@@ -8863,10 +8863,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
     )
     return None
@@ -8893,15 +8893,16 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation(
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation"
     )
     # and the two public answers agree EXACTLY: Freqs is the frequency of
     # the trajectories _xvFreqs returns, which is the point of the routing
     j = float(aAVI.J(obs.E(pot=isopot)))
-    assert numpy.fabs(float(aAVI.Freqs(j)) - float(aAVI._xvFreqs(j, 0.0)[2])) == 0.0, (
-        "Freqs and _xvFreqs disagree on the frequency of the same torus"
-    )
+    assert (
+        numpy.fabs(as_numpy(float(aAVI.Freqs(j)) - float(aAVI._xvFreqs(j, 0.0)[2])))
+        == 0.0
+    ), "Freqs and _xvFreqs disagree on the frequency of the same torus"
     return None
 
 
@@ -8919,7 +8920,7 @@ def test_actionAngleVerticalInverse_orbit_interpolation(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -8928,10 +8929,10 @@ def test_actionAngleVerticalInverse_orbit_interpolation(
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
     )
     return None
@@ -8953,10 +8954,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
     )
     return None
@@ -8977,7 +8978,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransfo
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and a point transformation"
     )
     return None
@@ -8997,7 +8998,7 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-8, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -9006,10 +9007,10 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     return None
@@ -9031,10 +9032,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransfor
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
     )
     return None
@@ -9054,7 +9055,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtr
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and the exact point transformation"
     )
     return None
@@ -9074,7 +9075,7 @@ def test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-8, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
@@ -9083,10 +9084,10 @@ def test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform(
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
     return None
@@ -9994,33 +9995,37 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
         )
         # the stored action is the actual one; the point-transformed action
         # the Fourier structure is built on differs from it by the offset
-        assert numpy.amax(numpy.fabs(aAVI._jaoffset) / aAVI._js[1:].min()) > 1e-5, (
-            "The polynomial point transformation has no action offset to correct"
-        )
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(aAVI._jaoffset)) / aAVI._js[1:].min()) > 1e-5
+        ), "The polynomial point transformation has no action offset to correct"
         for ii in range(1, len(Es)):  # including the top torus
             jtrue = float(
                 numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0]
             )
-            assert numpy.fabs(aAVI.J(Es[ii]) / jtrue - 1.0) < 1e-8, (
+            assert numpy.fabs(as_numpy(aAVI.J(Es[ii]) / jtrue - 1.0)) < 1e-8, (
                 "J(E) does not return the torus's actual action"
             )
             x, v = aAVI(jtrue, angles)
-            assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
+            assert numpy.all(numpy.isfinite(as_numpy(x))) and numpy.all(
+                numpy.isfinite(as_numpy(v))
+            ), (
                 "Requesting the actual action of a torus fails (setup_interp=%s)"
                 % setup_interp
             )
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - jtrue)) / jtrue < 1e-7, (
+            assert (
+                numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - jtrue))) / jtrue < 1e-7
+            ), (
                 "Requesting the actual action of a torus returns a different torus "
                 "(setup_interp=%s)" % setup_interp
             )
-            assert numpy.isfinite(float(aAVI.Freqs(jtrue))), (
+            assert numpy.isfinite(as_numpy(float(aAVI.Freqs(jtrue)))), (
                 "Freqs fails at the actual action"
             )
     # without a point transformation, and with the exact one, there is no
     # offset: the mean auxiliary action IS the torus's action
     for kwargs in (dict(momentum_matched=False), dict(use_pointtransform="exact")):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
-        assert numpy.all(aAVI._jaoffset == 0.0), (
+        assert numpy.all(as_numpy(aAVI._jaoffset == 0.0)), (
             "An action offset appeared for a non-polynomial mode"
         )
     return None
@@ -10056,16 +10061,24 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
         aAVI = actionAngleVerticalInverse(
             pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=pt_deg
         )
-        assert numpy.amax(numpy.fabs(aAVI._jaoffset[1:]) / jforward) > 1e-8, (
+        assert numpy.amax(numpy.fabs(as_numpy(aAVI._jaoffset[1:])) / jforward) > 1e-8, (
             "The offset is not there to be corrected (degree %d)" % pt_deg
         )
-        assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(aAVI._js[1:] - jforward)) / jforward) < 1e-8
+        ), (
             "The stored action, mean auxiliary action minus the closed-form offset, "
             "does not agree with the forward transformation (degree %d)" % pt_deg
         )
         assert (
             numpy.amax(
-                numpy.fabs(numpy.nanmean(aAVI._ja, axis=1) - aAVI._js - aAVI._jaoffset)
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(
+                            numpy.nanmean(aAVI._ja, axis=1) - aAVI._js - aAVI._jaoffset
+                        )
+                    )
+                )
             )
             < 1e-15
         ), "The offset is not the difference it is defined as"
@@ -10073,10 +10086,12 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
     aAVI = actionAngleVerticalInverse(
         pot=pot, Es=Es, nta=128, use_pointtransform="exact"
     )
-    assert numpy.all(aAVI._jaoffset == 0.0), (
+    assert numpy.all(as_numpy(aAVI._jaoffset == 0.0)), (
         "The exact point transformation has an action offset"
     )
-    assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+    assert (
+        numpy.amax(numpy.fabs(as_numpy(aAVI._js[1:] - jforward)) / jforward) < 1e-8
+    ), (
         "The exact point transformation's stored action disagrees with the forward "
         "transformation"
     )
@@ -10105,8 +10120,8 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
             J = aAVI.J(E)
             x, v = aAVI(J, angles)
             H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
-            wE = max(wE, numpy.amax(numpy.fabs(H / E - 1.0)))
-            wJ = max(wJ, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+            wE = max(wE, numpy.amax(numpy.fabs(as_numpy(H / E - 1.0))))
+            wJ = max(wJ, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J)
         return wE, wJ
 
     wE8, _ = worst(mm_npt=8)
@@ -10125,10 +10140,10 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
     for E in Es[1:]:
         x1, v1 = aAVI1(aAVI1.J(E), angles)
         x2, v2 = aAVI2(aAVI2.J(E), angles)
-        assert numpy.amax(numpy.fabs(x1 - x2)) < 1e-9, (
+        assert numpy.amax(numpy.fabs(as_numpy(x1 - x2))) < 1e-9, (
             "The map depends on the number of anomaly samples beyond the resolved series"
         )
-        assert numpy.amax(numpy.fabs(v1 - v2)) < 1e-9, (
+        assert numpy.amax(numpy.fabs(as_numpy(v1 - v2))) < 1e-9, (
             "The map depends on the number of anomaly samples beyond the resolved series"
         )
     with pytest.raises(ValueError) as excinfo:
@@ -10138,7 +10153,7 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
     aAVI3 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=16)
     x3, v3 = aAVI3(aAVI3.J(1.0), angles)
     x2, v2 = aAVI2(aAVI2.J(1.0), angles)
-    assert numpy.amax(numpy.fabs(x3 - x2)) < 1e-9, (
+    assert numpy.amax(numpy.fabs(as_numpy(x3 - x2))) < 1e-9, (
         "A small nta breaks the momentum-matched map"
     )
     return None
@@ -10166,15 +10181,21 @@ def test_actionAngleVerticalInverse_momentum_matched_angles():
         j = aAVI.J(Es[(nE - 1) // 2])
         x, v = aAVI(j, th)
         xf, vf, Om = aAVI.xvFreqs(j, th)
-        assert numpy.amax(numpy.fabs(xf - x)) == 0.0, "__call__ and xvFreqs disagree"
-        assert numpy.amax(numpy.fabs(vf - v)) == 0.0, "__call__ and xvFreqs disagree"
+        assert numpy.amax(numpy.fabs(as_numpy(xf - x))) == 0.0, (
+            "__call__ and xvFreqs disagree"
+        )
+        assert numpy.amax(numpy.fabs(as_numpy(vf - v))) == 0.0, (
+            "__call__ and xvFreqs disagree"
+        )
         assert Om == aAVI.Freqs(j), "xvFreqs and Freqs disagree"
         jf, Omf, thfwd = aAV.actionsFreqsAngles(x, v)
-        dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        dth = numpy.fabs(
+            as_numpy((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        )
         return (
-            numpy.amax(numpy.fabs(jf - j)),
-            numpy.amax(dth),
-            numpy.amax(numpy.fabs(Omf - Om)) / numpy.mean(Omf),
+            numpy.amax(numpy.fabs(as_numpy(jf - j))),
+            numpy.amax(as_numpy(dth)),
+            numpy.amax(numpy.fabs(as_numpy(Omf - Om))) / numpy.mean(as_numpy(Omf)),
         )
 
     for nE in (9, 33):
@@ -10202,40 +10223,48 @@ def test_actionAngleVerticalInverse_momentum_matched_turning_points():
     for E in Es[1:]:
         J = aAVI.J(E)
         x, v = aAVI(J, numpy.array([0.5 * numpy.pi, 1.5 * numpy.pi]))
-        assert numpy.amax(numpy.fabs(v)) < 1e-14, (
+        assert numpy.amax(numpy.fabs(as_numpy(v))) < 1e-14, (
             "The velocity does not vanish at the turning points: %g"
-            % numpy.amax(numpy.fabs(v))
+            % numpy.amax(numpy.fabs(as_numpy(v)))
         )
         assert (
             numpy.amax(
-                numpy.fabs(
-                    evaluatelinearPotentials(pot, x, use_physical=False) / E - 1.0
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(
+                            evaluatelinearPotentials(pot, x, use_physical=False) / E
+                            - 1.0
+                        )
+                    )
                 )
             )
             < 1e-12
         ), "The turning points do not sit at the energy"
-        assert numpy.fabs(x[0] + x[1]) < 1e-14, "The turning points are not symmetric"
+        assert numpy.fabs(as_numpy(x[0] + x[1])) < 1e-14, (
+            "The turning points are not symmetric"
+        )
         xmax = x[0]
         # smooth through the turning points: x is stationary, v linear
         for delta in (1e-9, 1e-6, 1e-4):
             th = 0.5 * numpy.pi + numpy.array([-delta, 0.0, delta])
             for tth in (th, th + numpy.pi):
                 x, v = aAVI(J, tth)
-                assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
-                    "The evaluation is not finite next to a turning point"
-                )
-                assert numpy.amax(numpy.fabs(x - x[1])) < xmax * delta**2.0, (
+                assert numpy.all(numpy.isfinite(as_numpy(x))) and numpy.all(
+                    numpy.isfinite(as_numpy(v))
+                ), "The evaluation is not finite next to a turning point"
+                assert numpy.amax(numpy.fabs(as_numpy(x - x[1]))) < xmax * delta**2.0, (
                     "The orbit is not stationary in x through a turning point"
                 )
-                assert numpy.amax(numpy.fabs(v)) < 4.0 * xmax * delta, (
+                assert numpy.amax(numpy.fabs(as_numpy(v))) < 4.0 * xmax * delta, (
                     "The velocity does not vanish linearly at a turning point"
                 )
                 assert (
-                    numpy.fabs(v[0] + v[2]) < 1e-6 * numpy.fabs(v[0] - v[2]) + 1e-15
+                    numpy.fabs(as_numpy(v[0] + v[2]))
+                    < 1e-6 * numpy.fabs(as_numpy(v[0] - v[2])) + 1e-15
                 ), "The velocity is not odd about a turning point"
     # the zero-action torus is a point
     x, v = aAVI(0.0, numpy.linspace(0.0, 2.0 * numpy.pi, 11))
-    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+    assert numpy.all(as_numpy(x) == 0.0) and numpy.all(as_numpy(v) == 0.0), (
         "The zero-action torus is not the point at the bottom"
     )
     with pytest.raises(ValueError) as excinfo:
@@ -10251,19 +10280,19 @@ def test_actionAngleVerticalInverse_momentum_matched_turning_points():
         x, v = aAVI(J, th)
         dev = numpy.array(
             [
-                numpy.amax(x) ** 2.0 * omega0 / (2.0 * J) - 1.0,
-                numpy.amax(v) ** 2.0 / (2.0 * J * omega0) - 1.0,
+                numpy.amax(as_numpy(x)) ** 2.0 * omega0 / (2.0 * J) - 1.0,
+                numpy.amax(as_numpy(v)) ** 2.0 / (2.0 * J * omega0) - 1.0,
                 aAVI.Freqs(J) / omega0 - 1.0,
             ]
         )
-        assert numpy.amax(numpy.fabs(dev)) < 30.0 * J / J1, (
+        assert numpy.amax(numpy.fabs(as_numpy(dev))) < 30.0 * J / J1, (
             "The map does not go over to the harmonic oscillator at small action"
         )
         if prev is not None:
-            ratio = numpy.fabs(dev) / numpy.fabs(prev)
-            assert numpy.all(ratio > 5.0) and numpy.all(ratio < 20.0), (
-                "The anharmonic corrections are not linear in the action"
-            )
+            ratio = numpy.fabs(as_numpy(dev)) / numpy.fabs(as_numpy(prev))
+            assert numpy.all(as_numpy(ratio > 5.0)) and numpy.all(
+                as_numpy(ratio < 20.0)
+            ), "The anharmonic corrections are not linear in the action"
         prev = dev
     return None
 
@@ -10291,10 +10320,14 @@ def test_actionAngleVerticalInverse_momentum_matched_symplectic():
         xJp, vJp = aAVI(J + hj, angles)
         xJm, vJm = aAVI(J - hj, angles)
         return numpy.amax(
-            numpy.fabs(
-                (xp - xm) / (2.0 * h) * (vJp - vJm) / (2.0 * hj)
-                - (xJp - xJm) / (2.0 * hj) * (vp - vm) / (2.0 * h)
-                - 1.0
+            as_numpy(
+                numpy.fabs(
+                    as_numpy(
+                        (xp - xm) / (2.0 * h) * (vJp - vJm) / (2.0 * hj)
+                        - (xJp - xJm) / (2.0 * hj) * (vp - vm) / (2.0 * h)
+                        - 1.0
+                    )
+                )
             )
         )
 
@@ -10314,7 +10347,7 @@ def test_actionAngleVerticalInverse_momentum_matched_symplectic():
             # is large, so the canonicity is not the accuracy of the tables
             J = 0.5 * (js[1] + js[2])
             x, v = aAVI(J, angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J > 1e-5, (
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J > 1e-5, (
                 "The coarse grid is too accurate for this check to mean anything"
             )
     old = actionAngleVerticalInverse(
@@ -10358,7 +10391,7 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
         old = actionAngleVerticalInverse(
             pot=pot, Es=Es, nta=128, setup_interp=True, **kwargs
         )
-        assert numpy.all(numpy.isfinite(old.nSn(1.0))), (
+        assert numpy.all(numpy.isfinite(as_numpy(old.nSn(1.0)))), (
             "The older evaluation is no longer reachable"
         )
     # any number of energies will do, down to one, and each family returns
@@ -10371,19 +10404,25 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
             J = small.J(E)
             x, v = small(J, angles)
             jf, _, thf = aAV.actionsFreqsAngles(x, v)
-            assert numpy.amax(numpy.fabs(jf - J)) / J < 1e-9, (
+            assert numpy.amax(numpy.fabs(as_numpy(jf - J))) / J < 1e-9, (
                 "A %d-torus family does not return its torus" % len(tEs)
             )
             assert (
                 numpy.amax(
-                    numpy.fabs((thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+                    as_numpy(
+                        numpy.fabs(
+                            as_numpy(
+                                (thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                            )
+                        )
+                    )
                 )
                 < 1e-9
             ), "A %d-torus family does not return its torus's angles" % len(tEs)
     # the degenerate grid of only the harmonic bottom builds
     bottom = actionAngleVerticalInverse(pot=pot, Es=[0.0], nta=128)
     x, v = bottom(0.0, angles)
-    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+    assert numpy.all(as_numpy(x == 0.0)) and numpy.all(as_numpy(v == 0.0)), (
         "The bottom-only family does not build as the point at the bottom"
     )
     return None
@@ -10404,16 +10443,18 @@ def test_actionAngleVerticalInverse_momentum_matched_offnode_frequency():
     aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
     jm = 0.5 * (aAVI.J(Es[3]) + aAVI.J(Es[4]))
     Om = aAVI.Freqs(jm)
-    assert numpy.isfinite(Om) and Om > 0.0, "No frequency between the grid tori"
+    assert numpy.isfinite(as_numpy(Om)) and Om > 0.0, (
+        "No frequency between the grid tori"
+    )
     assert Om == aAVI.xvFreqs(jm, numpy.array([0.3]))[2], (
         "The off-node frequency is not the map's own"
     )
     # on a node it is the true frequency of the torus
     J = aAVI.J(Es[4])
     x, v = aAVI(J, numpy.array([0.3]))
-    assert numpy.fabs(aAVI.Freqs(J) / aAV.actionsFreqs(x, v)[1][0] - 1.0) < 1e-9, (
-        "The on-node frequency is not the torus's"
-    )
+    assert (
+        numpy.fabs(as_numpy(aAVI.Freqs(J) / aAV.actionsFreqs(x, v)[1][0] - 1.0)) < 1e-9
+    ), "The on-node frequency is not the torus's"
     # and with the older evaluation the off-node case raises
     old = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, momentum_matched=False)
     with pytest.raises(ValueError) as excinfo:
@@ -10449,7 +10490,7 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         # tables contain
         for J in js[1:]:
             x, v = aAVI(J, angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) < 1e-7, (
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) < 1e-7, (
                 "The evaluation leaves the requested torus at a grid node"
             )
         # between EVERY pair of nodes, including the first and the last
@@ -10457,7 +10498,7 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         out = 0.0
         for jm in 0.5 * (js[:-1] + js[1:]):
             x, v = aAVI(jm, angles)
-            out = max(out, numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm)
+            out = max(out, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - jm))) / jm)
         return out
 
     for uniform in (True, False):
@@ -10499,7 +10540,7 @@ def test_actionAngleVerticalInverse_momentum_matched_bottom_interval():
         worst = 0.0
         for J in (0.1 * J1, 0.5 * J1, 0.9 * J1):
             x, v = aAVI(J, angles)
-            worst = max(worst, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+            worst = max(worst, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J)
         assert worst < 1e-5, (
             "The family is inaccurate in the bottom interval (%d energies): %g"
             % (nE, worst)
@@ -10515,10 +10556,10 @@ def test_actionAngleVerticalInverse_momentum_matched_bottom_interval():
     )
     xs, vs = single(single.J(1.0), angles)
     xf, vf = family(family.J(1.0), angles)
-    assert numpy.amax(numpy.fabs(xs - xf)) < 1e-12, (
+    assert numpy.amax(numpy.fabs(as_numpy(xs - xf))) < 1e-12, (
         "A torus depends on the family it is built in"
     )
-    assert numpy.amax(numpy.fabs(vs - vf)) < 1e-12, (
+    assert numpy.amax(numpy.fabs(as_numpy(vs - vf))) < 1e-12, (
         "A torus depends on the family it is built in"
     )
     return None
@@ -10543,7 +10584,7 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
             nta=128,
             momentum_matched=momentum_matched,
         )
-        assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-14, (
+        assert numpy.fabs(as_numpy(float(aAVI.Freqs(0.0)) / omega0 - 1.0)) < 1e-14, (
             "Freqs at zero action is not the midplane's harmonic frequency"
         )
     return None
@@ -10565,33 +10606,39 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
     for Es in ([1.0], [0.5, 1.5], [0.0, 1.0, 2.0], numpy.linspace(0.0, 2.0, 9)):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, setup_interp=True)
         Jt = aAVI.J(Et)
-        assert numpy.amax(numpy.fabs(aAVI.E(Jt) - Et)) < 1e-12, (
+        assert numpy.amax(numpy.fabs(as_numpy(aAVI.E(Jt) - Et))) < 1e-12, (
             "E(J(E)) does not return the energy"
         )
         assert (
-            numpy.amax(numpy.fabs(Jt - numpy.array([aAVI.J(E) for E in Et]).flatten()))
+            numpy.amax(
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(Jt - numpy.array([aAVI.J(E) for E in Et]).flatten())
+                    )
+                )
+            )
             == 0.0
         ), "J(E) differs between array and scalar input"
         h = 1e-6
         for J in Jt:
             fd = (aAVI.E(J + h) - aAVI.E(J - h)) / (2.0 * h)
-            assert numpy.fabs(aAVI.Freqs(J) / fd - 1.0) < 1e-6, (
+            assert numpy.fabs(as_numpy(aAVI.Freqs(J) / fd - 1.0)) < 1e-6, (
                 "Freqs is not the derivative of E(J)"
             )
         if len(Es) == 9:
             for E, J in zip(Et, Jt):
                 x, v = aAVI(J, angles)
                 H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
-                assert numpy.amax(numpy.fabs(H / E - 1.0)) < 1e-5, (
+                assert numpy.amax(numpy.fabs(as_numpy(H / E - 1.0))) < 1e-5, (
                     "The interpolated torus does not have the requested energy"
                 )
-                assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J < 1e-5, (
+                assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J < 1e-5, (
                     "The interpolated torus does not have the requested action"
                 )
             # at a grid energy the interpolant returns the grid torus
-            assert numpy.fabs(aAVI.E(aAVI.J(1.0)) - 1.0) < 1e-14
+            assert numpy.fabs(as_numpy(aAVI.E(aAVI.J(1.0)) - 1.0)) < 1e-14
             x, v = aAVI(aAVI.J(1.0), angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI.J(1.0))) < 1e-10
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - aAVI.J(1.0)))) < 1e-10
     return None
 
 
