@@ -1909,6 +1909,35 @@ def test_cubic_spline_coeffs_grad_wrt_y_vs_fd(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_cubic_hermite_coeffs(backend):
+    # cubic_hermite_coeffs == scipy CubicHermiteSpline(axis=0), scalar- and
+    # vector-valued (compare the polynomial: the leading coefficient carries
+    # 1/h^2 rounding)
+    from galpy.backend.interpolate import cubic_hermite_coeffs
+
+    xp = _xp(backend)
+    r = numpy.geomspace(1e-2, 20.0, 41)
+    h = numpy.diff(r)
+    x = numpy.linspace(0.011, 19.9, 777)
+    for y, d in (
+        (numpy.sin(r), numpy.cos(r)),
+        (
+            numpy.stack([numpy.sin(r), numpy.exp(-r)], axis=1),
+            numpy.stack([numpy.cos(r), -numpy.exp(-r)], axis=1),
+        ),
+    ):
+        c = as_numpy(
+            cubic_hermite_coeffs(xp, *(_asarray(backend, a) for a in (y, d, h)))
+        )
+        ref = si.CubicHermiteSpline(r, y, d, axis=0)
+        assert c.shape == ref.c.shape
+        numpy.testing.assert_allclose(si.PPoly(c, r)(x), ref(x), rtol=0, atol=1e-14)
+        numpy.testing.assert_allclose(
+            si.PPoly(c, r)(x, 1), ref(x, 1), rtol=0, atol=1e-12
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_quintic_hermite_and_cubic_ppoly_helpers(backend):
     # quintic_hermite_coeffs == PPoly.from_bernstein_basis(BPoly.from_derivatives)
     # (values; the dr^5 coefficient carries 1/h^5 rounding, so compare the
