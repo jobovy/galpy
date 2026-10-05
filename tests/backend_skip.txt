@@ -2,8 +2,8 @@
 # one that no amount of porting work will change. Two kinds qualify:
 #
 #   (a) the test belongs to a family that is out of scope for the backend goal and
-#       stays _reject_backend-guarded (actionAngleVerticalInverse), so it fails by
-#       design and always will; or
+#       stays _reject_backend-guarded (actionAngleTorus, via streamdf's useTM), so
+#       it fails by design and always will; or
 #   (b) ONE potential in a per-potential walk whose cost under eager jax is a
 #       floor no port removes -- the work is a Python-stepped loop of correct,
 #       already-migrated backend calls, so the only thing that would fix it is
@@ -22,90 +22,6 @@
 #
 # format: <backend> <nodeid>   (same as the other ledger files)
 #
-# --- actionAngleVerticalInverse: legacy modes, permanently out of scope ------
-# 2026-10-04: actionAngleVerticalInverse is now on the backends (it was out of scope
-# while under development): the default momentum-matched map builds and evaluates
-# natively and its tests run (removed from here). The LEGACY evaluation
-# (momentum_matched=False / point transformations) stays numpy-only by maintainer
-# decision ("let's not worry about the legacy code") and _reject_backend-guarded,
-# so these tests -- and those that construct a legacy object alongside the
-# default one -- are a permanent exclusion, not pending work.
-#
-# These lived in backend_xfail.txt, where they were 48 of 96 entries -- half the
-# ledger was work that would never be done, so ledger size (the burndown metric)
-# read 2x the real remaining work and could not converge to zero. They are a
-# PERMANENT exclusion, which is exactly what this file is for.
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting[setup_actionAngleVerticalInverse_interpolated_exactpointtransform]
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting[setup_actionAngleVerticalInverse_interpolated_pointtransform]
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting[setup_actionAngleVerticalInverse_interpolated_exactpointtransform]
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_interpolation_plotting[setup_actionAngleVerticalInverse_interpolated_pointtransform]
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_notE_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-#
-# Second wave, re-homed 2026-09-11: the exactpointtransform / ptonly tests (and
-# their test_quantity sibling) landed on main after the move above and were
-# auto-ledgered as xfail. Same guard, verified under both backends -- all 22 fail
-# with `NotImplementedError: actionAngleVerticalInverse is not yet migrated`
-# raised by `_reject_backend` -- so they belong here, not in the burndown.
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_is_the_default
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_offnode_frequency
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_symplectic
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_polynomial_pt_true_action
-jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_zero_energy_frequency
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_coeffs_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_ptonly_warnings_errors
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_is_the_default
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_offnode_frequency
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_momentum_matched_symplectic
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_polynomial_pt_true_action
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_zero_energy_frequency
-
 # --- streamdf's useTM tests reach actionAngleTorus ---
 # "NotImplementedError: actionAngleTorus wraps the external Torus C++ library
 # and is not jax-..." -- the same standing decision that excludes
