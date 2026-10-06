@@ -3,12 +3,28 @@ import types
 
 import numpy
 
+from ..backend._namespaces import namespace_from_arrays
 from ..util import config, conversion
 from ..util.conversion import (
     actionAngle_physical_input,
     physical_compatible,
     physical_conversion_actionAngle,
 )
+
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures,
+# shared by the action-angle classes so the choice is made in one place.
+#
+# For ACTIONS, 50 matches scipy's adaptive quadrature to <1e-7 over the physical
+# orbit range (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only
+# at pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5.
+#
+# For ANGLES the floor is ~2e-6, i.e. ~20x looser, because the angle integrand
+# keeps the sqrt turning-point behaviour on a partial interval. Measured on
+# test_actionAngleSpherical_linear_angles: the deviation is 3.3e-6 at n=50,
+# 1.8e-6 at n=200, and 3.5e-6 at n=400 -- it does NOT converge, and round-off in
+# the larger node sum eventually makes it worse. Raising this constant is
+# therefore not a way to close a backend-vs-numpy angle gap.
+_BACKEND_GL_ORDER = 50
 
 
 # Metaclass for copying docstrings from subclass methods, first func
@@ -166,10 +182,12 @@ class actionAngle(metaclass=MetaActionAngle):
             else:
                 if args[0].phasedim() > 3:
                     self._eval_phi = orb.phi(use_physical=False)
-                self._eval_z = numpy.zeros_like(self._eval_R)
-                self._eval_vz = numpy.zeros_like(self._eval_R)
+                xp = namespace_from_arrays([self._eval_R]) or numpy
+                self._eval_z = xp.zeros_like(self._eval_R)
+                self._eval_vz = xp.zeros_like(self._eval_R)
         if hasattr(self, "_eval_z"):  # calculate the polar angle
-            self._eval_theta = numpy.arctan2(self._eval_R, self._eval_z)
+            xp = namespace_from_arrays([self._eval_R, self._eval_z]) or numpy
+            self._eval_theta = xp.arctan2(self._eval_R, self._eval_z)
         return None
 
     @actionAngle_physical_input

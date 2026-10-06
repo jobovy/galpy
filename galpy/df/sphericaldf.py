@@ -21,9 +21,35 @@ import warnings
 
 import numpy
 import scipy.interpolate
-from scipy import integrate, interpolate, special
+from scipy import integrate, special
 
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    as_numpy_constant,
+    asarray_on_device,
+    backend_input,
+    device_of,
+    exit_cast,
+    float64_default_if_torch_args,
+    get_namespace,
+    is_backend_array,
+)
+from ..backend import random as grandom
+from ..backend import resolve_namespace
+from ..backend._namespaces import (
+    concretely_true,
+    has_concrete_truth_value,
+    namespace_from_arrays,
+    requires_backend_grad,
+    stop_gradient,
+    under_jax_trace,
+    under_trace,
+)
+from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
+from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
+from ..orbit.Orbits import _backend_T
 from ..potential import (
     CompositePotential,
     KeplerPotential,
@@ -34,6 +60,7 @@ from ..potential import (
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
+    _pot_grad_namespace,
 )
 from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import _optional_deps, conversion, galpyWarning
@@ -43,6 +70,18 @@ from .df import df
 # Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
 if _optional_deps._APY_LOADED:
     from astropy import units
+
+# Fixed backend (jax/torch) Gauss-Legendre orders; chosen so the backend path
+# matches the adaptive-scipy numpy path to <~1e-9 over the physical range
+# (measured in tests/test_backend_sphericaldf.py).
+_QUAD_N_VMOM = 100  # velocity-moment integral over v
+_QUAD_N_VMOM2D = 60  # (v, eta) tensor product in the anisotropic base
+_QUAD_N_DMDE = 100  # dM/dE radius integral
+# Gauss-Legendre nodes/weights on [0, 1] for Phi(r0 + u) - Phi(r0) as u times
+# the mean of dPhi/dr over [r0, r0 + u]: no difference of O(1) potentials next
+# to a turning point (eddingtondf's and constantbetadf's small-r integrands)
+_GL_X, _GL_W = numpy.polynomial.legendre.leggauss(12)
+_GL_X, _GL_W = 0.5 * (_GL_X + 1.0), 0.5 * _GL_W
 
 
 def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
@@ -72,13 +111,37 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     rmin : float
         The rmin value to use (in internal units)
     """
-    # Check if potential diverges at r=0
-    phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
-    is_divergent = not numpy.isfinite(phi_at_zero)
-
-    # If rmin is explicitly specified, use it
+    # If rmin is explicitly specified, use it. FIRST: everything below is only
+    # consulted to pick an rmin automatically, so with an explicit rmin the
+    # Phi(0) probe is wasted work -- and it is not traceable (it reads a
+    # concrete Phi(0) out of the backend), so it would block building a DF
+    # inside a jitted function that differentiates w.r.t. a potential
+    # parameter.
     if rmin is not None:
         return conversion.parse_length(rmin, ro=ro)
+
+    # Check if potential diverges at r=0
+    xp = get_namespace()  # context/forced default only (inputs are scalars)
+    if xp is numpy:
+        phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+        is_divergent = not numpy.isfinite(phi_at_zero)
+    else:
+        # coerce coords: undecorated potential evals reject scalars (torch)
+        phi_at_zero = _evaluatePotentials(pot, xp.asarray(0.0), 0)
+        # bool(), not as_numpy(): this is only a divergence TEST. A
+        # DIFFERENTIATED Phi(0) cannot be converted to numpy at all -- that is
+        # what blocked building any spherical DF inside jax.grad/torch autograd
+        # w.r.t. a potential parameter -- while bool() reads the concrete primal
+        # that both carry. Inside jit there is no primal; pass rmin explicitly
+        # there, as the note above says.
+        finite = (xp if is_backend_array(phi_at_zero) else numpy).isfinite(phi_at_zero)
+        if not has_concrete_truth_value(finite):
+            raise ValueError(
+                f"{df_name}: inside jit whether Phi(0) diverges cannot be "
+                "decided (no concrete value); pass rmin explicitly (rmin=0 for "
+                "a potential finite at the centre)"
+            )
+        is_divergent = not bool(finite)
 
     # Check all potentials for known problematic types
     for p in denspot:
@@ -134,8 +197,199 @@ def _input_scales(obj, kwargs):
     return obj._ro if ro is None else ro, obj._vo if vo is None else vo
 
 
+def _attached_energy_bounds(gxp, pot, rmin, rmax, potInf):
+    """(Phi(rmin), Phi(rmax)) on ``gxp``, attached to a differentiated potential.
+
+    A DF may store these as numpy constants; an energy table whose knots span
+    them must move with the potential. Phi(inf) is the constant 0 whatever the
+    parameters (and its closed forms NaN the backward), so an infinite rmax
+    keeps the stored ``potInf``."""
+    Emin = _evaluatePotentials(pot, gxp.asarray(rmin) * 1.0, 0)
+    if numpy.isfinite(rmax):
+        return Emin, _evaluatePotentials(pot, gxp.asarray(rmax) * 1.0, 0)
+    if is_backend_array(potInf):  # traced (jax.jit): no numpy value to take
+        return Emin, stop_gradient(potInf)
+    return Emin, as_backend_constant(gxp, as_numpy_constant(potInf), Emin)
+
+
+class _PVRInterpolator:
+    """Dual-path inverse-CDF v/vesc interpolator for spherical-DF velocity
+    sampling.
+
+    Wraps the ``p(v|r)`` inverse cumulative-distribution table built by
+    :meth:`sphericaldf._make_pvr_interpolator`. A numpy query evaluates the
+    frozen scipy ``RectBivariateSpline`` (``kx=ky=1``, BYTE-IDENTICAL to galpy's
+    historical sampler); a backend (jax/torch) query evaluates the SAME bilinear
+    interpolation natively via :func:`galpy.backend.interpolate.interp_bilinear`,
+    so the sampled ``v/vesc`` is a backend array differentiable in the query
+    (``log10(r/scale)``) and GPU/jit-able. scipy CONSTANT-extrapolates a degree-1
+    ``RectBivariateSpline`` beyond the grid; the backend path matches with
+    ``extrapolate='clip'``. On a backend build the raw grids are held as backend
+    arrays (GPU-resident); a numpy build keeps them numpy and materialises them
+    onto the query's device if a backend query arrives.
+
+    Parameters
+    ----------
+    x_grid : numpy.ndarray
+        ``log10(r/a)`` grid (first axis), shape ``(n_r_a,)``.
+    y_grid : numpy.ndarray
+        Uniform CDF grid in ``[0, 1]`` (second axis), shape ``(n_pvr,)``.
+    z_grid : numpy.ndarray
+        ``v/vesc`` values, shape ``(n_r_a, n_pvr)``.
+    xp : module
+        The forced/context-default namespace at build time; a non-numpy ``xp``
+        stores the grids as backend arrays.
+    """
+
+    def __init__(self, x_grid, y_grid, z_grid, xp):
+        # (lo, hi, lo_b, hi_b): the grid's frozen extent and its attached
+        # (differentiated) counterpart; a query is remapped from one to the other
+        self._xmap = None
+        if xp is numpy:
+            self._x, self._y, self._z = x_grid, y_grid, z_grid
+            # scipy spline for the byte-identical numpy path
+            self._spl = scipy.interpolate.RectBivariateSpline(
+                x_grid, y_grid, z_grid, kx=1, ky=1
+            )
+        else:
+            self._x = xp.asarray(x_grid) * 1.0
+            self._y = xp.asarray(y_grid) * 1.0
+            self._z = xp.asarray(z_grid) * 1.0
+            # Built lazily: a backend z_grid carries the DF's parameter
+            # dependence, and handing a TRACED array to scipy raises
+            # TracerArrayConversionError -- which is what used to make
+            # d(sample_v)/d(DF parameter) impossible rather than merely absent.
+            self._spl = None
+
+    def _numpy_spline(self):
+        """The scipy spline, materialised on first numpy query."""
+        if self._spl is None:
+            self._spl = scipy.interpolate.RectBivariateSpline(
+                as_numpy(self._x), as_numpy(self._y), as_numpy(self._z), kx=1, ky=1
+            )
+        return self._spl
+
+    def __getattr__(self, name):
+        # Delegate unknown attributes (e.g. get_knots, tck) to the scipy spline
+        # so the wrapper is a drop-in for the RectBivariateSpline it replaces.
+        # Guard _spl to avoid infinite recursion before it is assigned.
+        if name == "_spl":
+            raise AttributeError(name)
+        return getattr(self._numpy_spline(), name)
+
+    def __call__(self, X, Y, grid=True):
+        """Evaluate ``v/vesc`` at ``(X, Y)``: on the grid ``X x Y`` (``grid=True``,
+        scipy's default) or paired elementwise (``grid=False``).
+
+        A numpy ``X`` delegates to the scipy spline (byte-identical); a backend
+        ``X`` runs the native bilinear interpolation."""
+        if not is_backend_array(X):
+            return self._numpy_spline()(X, Y, grid=grid)
+        xp = get_namespace(X)
+        if grid:
+            X = xp.reshape(X, (-1,))
+            Y = xp.reshape(
+                Y if is_backend_array(Y) else as_backend_constant(xp, Y, X), (-1,)
+            )
+            shape = (X.shape[0], Y.shape[0])
+            return self(
+                xp.broadcast_to(X[:, None], shape),
+                xp.broadcast_to(Y[None, :], shape),
+                grid=False,
+            )
+        if self._xmap is not None:
+            lo, hi, lo_b, hi_b = self._xmap
+            X = lo + (X - lo_b) * ((hi - lo) / (hi_b - lo_b))
+        xg = (
+            self._x
+            if is_backend_array(self._x)
+            else as_backend_constant(xp, self._x, X)
+        )
+        yg = (
+            self._y
+            if is_backend_array(self._y)
+            else as_backend_constant(xp, self._y, X)
+        )
+        zg = (
+            self._z
+            if is_backend_array(self._z)
+            else as_backend_constant(xp, self._z, X)
+        )
+        return interp_bilinear(xp, xg, yg, zg, X, Y, extrapolate="clip")
+
+
+class _RphiRootFind:
+    """``r(Phi)`` by root-find, for a TRACED potential.
+
+    Drop-in for the ``Spline1D`` :meth:`sphericaldf._setup_rphi_interpolator`
+    returns: called with an energy (scalar or array) it returns the radius where
+    ``Phi(r) == E``. Differentiable in the potential's parameters through the
+    backend ``brentq`` (bisection + one Newton step, so the value is the exact
+    root and the derivative comes from the implicit function theorem).
+
+    Cost: one call per ``_dMdE``, vectorised over the whole energy array, so the
+    price is per CALL and not per energy (100 vs 10000 energies differ by <2x).
+    The bisection is already the minimum length for the bracket
+    (``n_bisect_steps``: 61 halvings for ``[1e-6 a, 1e6 a]`` at ``xtol=2e-12``),
+    and each halving costs exactly one potential evaluation -- so EAGER, where a
+    jax potential evaluation is ~1 ms of dispatch, this is ~60 ms (~400 ms with
+    the gradient). Under ``jax.jit`` the same call plus its gradient is 0.18 ms,
+    2200x less and within 10x of a bare numpy spline lookup -- and 180x cheaper
+    than the 33 ms the numpy path spends building its 10001-point spline once.
+    The eager number is dispatch overhead, not this algorithm: differentiate
+    through a spherical DF under jit. A bisection/Newton hybrid would buy ~2x of
+    the eager cost and give up guaranteed bracketing, so it is deliberately not
+    done here.
+    """
+
+    def __init__(self, pot, scale, r_lo, r_hi):
+        self._pot = pot
+        self._scale = scale
+        self._r_lo = r_lo
+        self._r_hi = r_hi
+
+    def __call__(self, E):
+        from ..backend.optimize import brentq
+
+        # The bracket counts too, not just E: this class exists for a TRACED
+        # potential and the bracket is r_a_min/max * scale, so a differentiated
+        # scale makes it a backend array while a caller's E grid stays numpy
+        # (constantbetadf's construction-time calibration builds one). Passing
+        # all three to get_namespace is NOT the fix -- it refuses a mixed set.
+        xp = get_namespace(E)
+        if xp is numpy:
+            for _b in (self._r_lo, self._r_hi):
+                if is_backend_array(_b):
+                    xp = get_namespace(_b)
+                    break
+        E = xp.asarray(E)
+
+        # in u = log r: relative accuracy at every radius (an absolute xtol is
+        # no accuracy at all for the r ~ 1e-8 a of E near Emin), and the bracket
+        # reaches 1e-12 below the grid's first radius, which a finite Phi(0)
+        # puts roots under (the numpy spline has an r = 0 knot)
+        def f(u, Ev):
+            return _evaluatePotentials(self._pot, xp.exp(u), 0) - Ev
+
+        # broadcast rather than xp.full: the bracket is r_a_min/max * scale, so
+        # a DIFFERENTIATED scale makes it a backend array, and full() wants a
+        # scalar fill (torch raises). Adding zeros also keeps the gradient that
+        # flows through the bracket itself.
+        lo = xp.log(xp.asarray(self._r_lo) * 1e-12)
+        hi = xp.log(xp.asarray(self._r_hi))
+        if E.ndim:
+            _z = xp.zeros(E.shape, dtype=lo.dtype)
+            lo, hi = lo + _z, hi + _z
+        return xp.exp(brentq(f, lo, hi, args=(E,)))
+
+
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
+
+    # The radius-based evaluators below are backend-native (they resolve their
+    # namespace from the data and exit-cast), so the @backend_input boundary may
+    # coerce their coordinates. Mirrors the potentials' opt-in flag.
+    _backend_compatible = True
 
     def __init__(self, pot=None, denspot=None, rmax=None, scale=None, ro=None, vo=None):
         """
@@ -197,7 +451,9 @@ class sphericaldf(df):
                     else 1.0
                 )
         # Check that interpolated potential has appropriate grid range for DF
-        if isinstance(pot, interpSphericalPotential) and pot._rmax < self._rmax:
+        if isinstance(pot, interpSphericalPotential) and concretely_true(
+            pot._rmax < self._rmax
+        ):  # skipped under a trace, where there is no value to compare
             warnings.warn(
                 "The interpolated potential's rmax is smaller than the DF's rmax",
                 galpyWarning,
@@ -235,11 +491,28 @@ class sphericaldf(df):
                 E, L, Lz = (args[0] + (None, None))[:3]
             else:  # Orbit
                 E = args[0].E(pot=self._pot, use_physical=False)
-                L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0))
+                Lval = args[0].L(use_physical=False)
+                if is_backend_array(Lval):  # forced backend: |L| in-namespace
+                    xp = get_namespace(Lval)
+                    L = xp.sqrt(xp.sum(Lval**2.0))
+                else:
+                    L = numpy.sqrt(numpy.sum(Lval**2.0))
                 Lz = args[0].Lz(use_physical=False)
-            E = numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
-            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=ro, vo=vo))
-            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=ro, vo=vo))
+            E = conversion.parse_energy(E, vo=vo)
+            L = conversion.parse_angmom(L, ro=ro, vo=vo)
+            Lz = conversion.parse_angmom(Lz, ro=ro, vo=vo)
+            _inp = (E, L, Lz)
+            xp = resolve_namespace(E, L, Lz)
+            if xp is numpy:
+                E = numpy.atleast_1d(E)
+                L = numpy.atleast_1d(L)
+                Lz = numpy.atleast_1d(Lz)
+            else:
+                # asarray first (torch.atleast_1d rejects Python scalars); an
+                # unspecified L/Lz stays None (only the anisotropic DFs use them)
+                E = xp.atleast_1d(xp.asarray(E))
+                L = L if L is None else xp.atleast_1d(xp.asarray(L))
+                Lz = Lz if Lz is None else xp.atleast_1d(xp.asarray(Lz))
         else:  # Assume R,vR,vT,z,vz,(phi)
             R, vR, vT, z, vz, phi = (args + (None,))[:6]
             R = conversion.parse_length(R, ro=ro)
@@ -247,23 +520,108 @@ class sphericaldf(df):
             vT = conversion.parse_velocity(vT, vo=vo)
             z = conversion.parse_length(z, ro=ro)
             vz = conversion.parse_velocity(vz, vo=vo)
-            vtotSq = vR**2.0 + vT**2.0 + vz**2.0
-            E = numpy.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
-            Lz = numpy.atleast_1d(R * vT)
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            vrad = (R * vR + z * vz) / r
-            L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
-        return self._call_internal(E, L, Lz).reshape(
-            args[0].shape
-            if len(args) == 1 and hasattr(args[0], "shape")
-            else (
-                args[0][0].shape
-                if len(args) == 1
-                and hasattr(args[0], "__len__")
-                and hasattr(args[0][0], "shape")
-                else (args[0].shape if hasattr(args[0], "shape") else ())
+            _inp = (R, vR, vT, z, vz)
+            xp = resolve_namespace(R, vR, vT, z, vz)
+            if xp is numpy:
+                vtotSq = vR**2.0 + vT**2.0 + vz**2.0
+                E = numpy.atleast_1d(
+                    0.5 * vtotSq + _evaluatePotentials(self._pot, R, z)
+                )
+                Lz = numpy.atleast_1d(R * vT)
+                r = numpy.sqrt(R**2.0 + z**2.0)
+                vrad = (R * vR + z * vz) / r
+                L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
+            else:
+                # bring possibly-scalar coords into the namespace first (torch)
+                R, vR, vT, z, vz = (xp.asarray(c) * 1.0 for c in (R, vR, vT, z, vz))
+                vtotSq = vR**2.0 + vT**2.0 + vz**2.0
+                E = xp.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
+                Lz = xp.atleast_1d(R * vT)
+                r = xp.sqrt(R**2.0 + z**2.0)
+                vrad = (R * vR + z * vz) / r
+                L = xp.atleast_1d(xp.sqrt(vtotSq - vrad**2.0) * r)
+        return exit_cast(
+            self._call_internal(E, L, Lz).reshape(
+                args[0].shape
+                if len(args) == 1 and hasattr(args[0], "shape")
+                else (
+                    args[0][0].shape
+                    if len(args) == 1
+                    and hasattr(args[0], "__len__")
+                    and hasattr(args[0][0], "shape")
+                    else (args[0].shape if hasattr(args[0], "shape") else ())
+                )
+            ),
+            *_inp,
+        )
+
+    def _ensure_fE_interp(self):
+        """Build the frozen f(E) spline over the numpy energy grid, once.
+
+        Shared by every subclass that interpolates f(E) (eddingtondf,
+        constantbetadf). It lived in both of those independently and only one
+        copy ever grew the backend branch, so the other silently kept building a
+        scipy spline under a forced backend -- which then could not be traced.
+        One copy here, on their common ancestor, is the fix.
+        """
+        if hasattr(self, "_fE_interp"):
+            return
+        Es4interp = numpy.hstack(
+            (
+                numpy.geomspace(1e-8, 0.5, 101, endpoint=False),
+                sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
             )
         )
+        xp = get_namespace()  # context/forced default only (grid is numpy)
+        gxp = None if xp is numpy else _pot_grad_namespace(self._pot)
+        if gxp is not None:
+            # differentiated potential: knots AND values stay on-backend
+            # (Spline1D mode 2), so the gradient is that of the interpolant
+            # actually evaluated -- frozen knots miss their motion with the
+            # potential, ~7% off on p(v|r)
+            Emin, potInf = _attached_energy_bounds(
+                gxp, self._pot, self._rmin, self._rmax, self._potInf
+            )
+            Es_b = (
+                as_backend_constant(gxp, numpy.ascontiguousarray(Es4interp[::-1]), Emin)
+                * (Emin - potInf)
+                + potInf
+            )
+            # finite knots from a DETACHED pass, then evaluate only those
+            # attached: dropping entries after the fact still pushes a zero
+            # cotangent through their 0*inf backward (NaN)
+            probe = self.fE(stop_gradient(Es_b))
+            if not has_concrete_truth_value(xp.all(probe == probe)):
+                # jax.jit: which knots are finite is unknowable, so keep them
+                # all and zero any non-finite value (a fixed-shape table)
+                fE_b = self.fE(Es_b)
+                self._fE_interp = Spline1D(
+                    Es_b, xp.where(xp.isfinite(fE_b), fE_b, 0.0), k=3, ext=3
+                )
+                return
+            keep = numpy.flatnonzero(numpy.isfinite(as_numpy_constant(probe)))
+            Es_b = Es_b[keep]
+            self._fE_interp = Spline1D(Es_b, self.fE(Es_b), k=3, ext=3)
+            return
+        # the spline table is built on a numpy grid; under a forced backend the
+        # potential bounds are backend scalars, so pull them numpy-side (no-op
+        # on the numpy path)
+        Emin = as_numpy(self._Emin)
+        potInf = as_numpy(self._potInf)
+        Es4interp = (Es4interp * (Emin - potInf) + potInf)[::-1]
+        if xp is numpy:
+            fE4interp = self.fE(Es4interp)
+            iindx = numpy.isfinite(fE4interp)
+            self._fE_interp = scipy.interpolate.InterpolatedUnivariateSpline(
+                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
+            )
+        else:
+            # forced backend: one vectorized fE eval, pulled numpy-side for the
+            # frozen table (Spline1D queries numpy scipy / backend native);
+            # ascontiguousarray drops the [::-1] negative stride (torch rejects)
+            fE4interp = as_numpy(self.fE(numpy.ascontiguousarray(Es4interp)))
+            iindx = numpy.isfinite(fE4interp)
+            self._fE_interp = Spline1D(Es4interp[iindx], fE4interp[iindx], k=3, ext=3)
 
     @physical_conversion("massenergydensity", pop=False)
     def dMdE(self, E, **kwargs):
@@ -287,8 +645,17 @@ class sphericaldf(df):
 
         """
         _, vo = _input_scales(self, kwargs)
-        return self._dMdE(numpy.atleast_1d(conversion.parse_energy(E, vo=vo))).reshape(
-            E.shape if isinstance(E, numpy.ndarray) else ()
+        Ei = conversion.parse_energy(E, vo=vo)
+        xp = resolve_namespace(Ei)
+        if xp is numpy:
+            return self._dMdE(numpy.atleast_1d(Ei)).reshape(
+                E.shape if isinstance(E, numpy.ndarray) else ()
+            )
+        return exit_cast(
+            self._dMdE(xp.atleast_1d(xp.asarray(Ei))).reshape(
+                Ei.shape if hasattr(Ei, "shape") else ()
+            ),
+            Ei,
         )
 
     @potential_physical_input
@@ -325,41 +692,83 @@ class sphericaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = conversion.parse_velocity_kms(vo)
+        # The @backend_input boundary wraps only the compute below, so the
+        # Quantity is built out here rather than inside the trace -- astropy
+        # calls __array__, which a tracer refuses. Same principle as the
+        # physical_conversion/backend_input decorator order enforced by
+        # test_backend_conventions; this method carries no units decorator to
+        # reorder, so the split is done by hand.
+        out = self._vmomentdensity_backend(r, n, m)
         if use_physical and vo is not None and ro is not None:
             fac = conversion.mass_in_msol(vo, ro) * vo ** (n + m) / ro**3
             if _optional_deps._APY_UNITS:
                 u = units.Msun / units.kpc**3 * (units.km / units.s) ** (n + m)
-            out = self._vmomentdensity(r, n, m)
-            if _optional_deps._APY_UNITS:
-                return units.Quantity(out * fac, unit=u)
+                # a Quantity is a consumption boundary: astropy can't hold a
+                # backend array (#1052), so cast unconditionally
+                return units.Quantity(as_numpy(out) * fac, unit=u)
             else:
                 return out * fac
         else:
-            return self._vmomentdensity(r, n, m)
+            return out
+
+    @backend_input("r")
+    def _vmomentdensity_backend(self, r, n, m):
+        """Traced half of ``vmomentdensity``: no units may be built in here."""
+        return exit_cast(self._vmomentdensity(r, n, m), r)
 
     def _vmomentdensity(self, r, n, m):
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.dblquad(
+                    lambda eta, v: (
+                        v ** (2.0 + m + n)
+                        * numpy.sin(eta) ** (1 + m)
+                        * numpy.cos(eta) ** n
+                        * self(
+                            r,
+                            v * numpy.cos(eta),
+                            v * numpy.sin(eta),
+                            0.0,
+                            0.0,
+                            use_physical=False,
+                        )
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                    lambda x: 0.0,
+                    lambda x: numpy.pi,
+                )[0]
+            )
+        # jax/torch: tensor-product GL over (v, eta), differentiable in r; node
+        # axes must trail, so broadcast r/vmax/Phi(r) onto two extra axes
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        vmax = self._vmax_at_r(self._pot, rb)
+        r_b = rb[..., None, None]
+        v_hi = (xp.asarray(vmax) * 1.0)[..., None, None]
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0.0)) * 1.0)[
+            ..., None, None
+        ]
+
+        def _integrand(v, eta):
+            # at (R, vR, vT, z, vz) = (r, v cos eta, v sin eta, 0, 0):
+            # E = Phi(r) + v^2/2 and L = Lz = r v sin(eta)
+            L = r_b * v * xp.sin(eta)
+            return (
+                v ** (2.0 + m + n)
+                * xp.sin(eta) ** (1 + m)
+                * xp.cos(eta) ** n
+                * self._call_internal(0.5 * v**2.0 + Phir_b, L, L)
+            )
+
         return (
             2.0
             * numpy.pi
-            * integrate.dblquad(
-                lambda eta, v: (
-                    v ** (2.0 + m + n)
-                    * numpy.sin(eta) ** (1 + m)
-                    * numpy.cos(eta) ** n
-                    * self(
-                        r,
-                        v * numpy.cos(eta),
-                        v * numpy.sin(eta),
-                        0.0,
-                        0.0,
-                        use_physical=False,
-                    )
-                ),
-                0.0,
-                self._vmax_at_r(self._pot, r),
-                lambda x: 0.0,
-                lambda x: numpy.pi,
-            )[0]
+            * nested_quad(
+                xp, _integrand, [[0.0, v_hi], [0.0, numpy.pi]], n=_QUAD_N_VMOM2D
+            )
         )
 
     @potential_physical_input
@@ -382,9 +791,21 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
-        # No-op once the decorator has converted r, but validates the input
-        r = conversion.parse_length(r, ro=self._ro)
-        return numpy.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0))
+        # Parse input units OUT HERE, before the @backend_input boundary on the
+        # helper. A Quantity handed to the boundary is converted by jit through
+        # __array__, which yields the bare VALUE and silently drops the unit --
+        # sigmar(1 * u.pc) would then compute at r = 1 in INTERNAL units.
+        # Potentials avoid this because @potential_physical_input strips input
+        # units outside the boundary; these df methods parse inline, so the
+        # parse is hoisted and only the compute is traced.
+        return self._sigmar_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _sigmar_backend(self, r):
+        xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
+        return exit_cast(
+            xp.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0)), r
+        )
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
@@ -407,9 +828,15 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        # No-op once the decorator has converted r, but validates the input
-        r = conversion.parse_length(r, ro=self._ro)
-        return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
+        # units parsed outside the boundary -- see sigmar
+        return self._sigmat_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _sigmat_backend(self, r):
+        xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
+        return exit_cast(
+            xp.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0)), r
+        )
 
     @potential_physical_input
     def beta(self, r, ro=None, vo=None):
@@ -437,12 +864,20 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        # No-op once the decorator has converted r, but validates the input
-        r = conversion.parse_length(r, ro=self._ro)
-        return 1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0)
+        # units parsed outside the boundary -- see sigmar
+        return self._beta_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _beta_backend(self, r):
+        return exit_cast(
+            1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0), r
+        )
 
     ############################### SAMPLING THE DF################################
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    @float64_default_if_torch_args
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
+    ):
         """
         Sample the DF
 
@@ -460,6 +895,14 @@ class sphericaldf(df):
             If True, return an orbit.Orbit instance. If False, return a tuple of (R,vR,vT,z,vz,phi). Default is True.
         rmin : float, Quantity, optional
             Minimum radius at which to sample. Default is 0.
+        key : optional
+            Backend random key from :func:`galpy.backend.random.key`. Default
+            ``None`` uses the global ``numpy.random`` draws (the numpy path,
+            byte-identical to galpy's historical behaviour). A jax/torch key
+            makes the radial + analytic-angle position sampling backend-native
+            (reproducible, differentiable in the CDF/potential, GPU/jit-able)
+            and returns backend-array coordinates (use ``return_orbit=False`` to
+            keep them; the Orbit constructor materializes numpy). Default None.
 
         Returns
         -------
@@ -470,23 +913,40 @@ class sphericaldf(df):
         -----
         - When specifying position, it is necessary to specify both R and z; if phi is not set in this case, it is sampled
         - 2020-07-22 - Written - Lane (UofT)
+        - 2026-07-21 - Added backend ``key`` for differentiable radial/angle sampling - Bovy (UofT)
         """
         rmin = conversion.parse_length(rmin, ro=self._ro)
         if hasattr(self, "_rmin_sampling") and rmin != self._rmin_sampling:
             # Build new grids, easiest
-            if hasattr(self, "_xi_cmf_interpolator"):
-                delattr(self, "_xi_cmf_interpolator")
-            if hasattr(self, "_v_vesc_pvr_interpolator"):
-                delattr(self, "_v_vesc_pvr_interpolator")
+            for attr in ("_xi_cmf_grids", "_xi_cmf_spline", "_v_vesc_pvr_interpolator"):
+                if hasattr(self, attr):
+                    delattr(self, attr)
         self._rmin_sampling = conversion.parse_length(rmin, ro=self._ro)
+        # dispatch the namespace on the key, NOT get_namespace(): key=None keeps
+        # the whole assembly numpy (byte-identical) even under a forced backend;
+        # a backend key follows its own draws into the active namespace.
+        # Split into INDEPENDENT sub-keys for the radial, position-angle,
+        # velocity-angle, and velocity-magnitude draws: each helper re-splits its
+        # key internally, so handing the SAME key to two would make split() return
+        # identical sub-keys (biased joint distribution). key=None -> split returns
+        # (None,)*4 -> the global numpy generator draws sequentially in the SAME
+        # order (r, position angles, velocity angles, velocity) -> byte-identical.
+        key_r, key_pos, key_vel, key_v = grandom.split(key, 4)
         if R is None or z is None:  # Full 6D samples
-            r = self._sample_r(n=n)
-            phi, theta = self._sample_position_angles(n=n)
-            R = r * numpy.sin(theta)
-            z = r * numpy.cos(theta)
+            r = self._sample_r(n=n, key=key_r)
+            phi, theta = self._sample_position_angles(n=n, key=key_pos)
+            xp = numpy if key is None else get_namespace(r)
+            R = r * xp.sin(theta)
+            z = r * xp.cos(theta)
         else:  # 3D velocity samples
             R = conversion.parse_length(R, ro=self._ro)
             z = conversion.parse_length(z, ro=self._ro)
+            # sampling is numpy-side (stateful numpy RNG): pull backend inputs
+            # in; [()] turns a 0-d array into the scalar it wraps
+            if is_backend_array(R):
+                R = as_numpy(R)[()]
+            if is_backend_array(z):
+                z = as_numpy(z)[()]
             if isinstance(R, numpy.ndarray):
                 assert len(R) == len(z), (
                     """When R= is set to an array, z= needs to be set to """
@@ -498,24 +958,55 @@ class sphericaldf(df):
                 z = z * numpy.ones(n)
             r = numpy.sqrt(R**2.0 + z**2.0)
             theta = numpy.arctan2(R, z)
+            # the fixed-position branch stays numpy-side (R,z pulled in above)
+            xp = numpy
             if phi is None:  # Otherwise assume phi input type matches R,z
                 phi, _ = self._sample_position_angles(n=n)
             else:
                 phi = conversion.parse_angle(phi)
+                if is_backend_array(phi):  # sampling is numpy-side
+                    phi = as_numpy(phi)[()]
                 phi = (
                     phi * numpy.ones(n)
                     if not hasattr(phi, "__len__") or len(phi) < n
                     else phi
                 )
-        eta, psi = self._sample_velocity_angles(r, n=n)
-        v = self._sample_v(r, eta, n=n)
-        vr = v * numpy.cos(eta)
-        vtheta = v * numpy.sin(eta) * numpy.cos(psi)
-        vT = v * numpy.sin(eta) * numpy.sin(psi)
-        vR = vr * numpy.sin(theta) + vtheta * numpy.cos(theta)
-        vz = vr * numpy.cos(theta) - vtheta * numpy.sin(theta)
+        # gate the key on xp: the full-6D branch follows the backend key; the
+        # fixed-position (R,z) branch stays numpy-side (xp is numpy there)
+        eta, psi = self._sample_velocity_angles(
+            r, n=n, key=None if xp is numpy else key_vel
+        )
+        # velocity magnitude: a backend key evaluates the inverse-CDF pvr natively
+        # at the backend r (differentiable); coerce any numpy pieces into xp so a
+        # backend key assembles backend velocities (numpy*tensor raises under
+        # torch). key=None -> xp is numpy -> as_backend_constant is a no-op
+        # (byte-identical).
+        v = self._sample_v(r, eta, n=n, key=None if xp is numpy else key_v)
+        v = v if is_backend_array(v) else as_backend_constant(xp, v, r)
+        eta = eta if is_backend_array(eta) else as_backend_constant(xp, eta, r)
+        psi = psi if is_backend_array(psi) else as_backend_constant(xp, psi, r)
+        vr = v * xp.cos(eta)
+        vtheta = v * xp.sin(eta) * xp.cos(psi)
+        vT = v * xp.sin(eta) * xp.sin(psi)
+        vR = vr * xp.sin(theta) + vtheta * xp.cos(theta)
+        vz = vr * xp.cos(theta) - vtheta * xp.sin(theta)
         if return_orbit:
-            o = Orbit(vxvv=numpy.array([R, vR, vT, z, vz, phi]).T)
+            _comps = [R, vR, vT, z, vz, phi]
+            if any(is_backend_array(_c) for _c in _comps):
+                # Orbit takes a backend IC directly (it keeps the real one in
+                # _ic_backend); going through as_numpy here would silently drop
+                # the gradient of the DEFAULT return_orbit=True output, exactly
+                # as it did in streamspraydf.
+                _xo = get_namespace(*[_c for _c in _comps if is_backend_array(_c)])
+                _stacked = _xo.stack(
+                    [
+                        _c if is_backend_array(_c) else as_backend_constant(_xo, _c, r)
+                        for _c in _comps
+                    ]
+                )
+                o = Orbit(vxvv=_backend_T(_stacked))
+            else:
+                o = Orbit(vxvv=numpy.array(_comps).T)
             if self._roSet and self._voSet:
                 o.turn_physical_on(ro=self._ro, vo=self._vo)
             return o
@@ -529,7 +1020,7 @@ class sphericaldf(df):
                 phi = units.Quantity(phi) * units.rad
             return (R, vR, vT, z, vz, phi)
 
-    def _sample_r(self, n=1):
+    def _sample_r(self, n=1, key=None):
         """Generate radial position samples from potential
         Note - the function interpolates the normalized CMF onto the variable
         xi defined as:
@@ -537,16 +1028,66 @@ class sphericaldf(df):
         .. math:: \\xi = \\frac{r/a-1}{r/a+1}
 
         so that xi is in the range [-1,1], which corresponds to an r range of
-        [0,infinity)"""
-        rand_mass_frac = numpy.random.uniform(size=n)
+        [0,infinity)
+
+        ``key=None`` draws the mass fractions from the global ``numpy.random``
+        (byte-identical numpy path); a backend key draws backend uniforms and
+        returns a backend array, differentiable in the CDF/potential."""
+        rand_mass_frac = grandom.uniform(key, n)
         if hasattr(self, "_icmf"):
+            # closed-form / grid inverse-CMF; the analytic families and kingdf
+            # dispatch on the namespace of rand_mass_frac (backend -> backend)
             r_samples = self._icmf(rand_mass_frac)
+        elif is_backend_array(rand_mass_frac):
+            # backend inverse-CDF: differentiable in the CDF knots via a linear
+            # interp_linear on the (possibly backend, possibly frozen) mass grid
+            xp = get_namespace(rand_mass_frac)
+            cdf_grid, xi_grid = self._get_cmf_grids()
+            cg = (
+                cdf_grid
+                if is_backend_array(cdf_grid)
+                else as_backend_constant(xp, cdf_grid, rand_mass_frac)
+            )
+            # differentiated knots (a potential under the gradient) stay attached
+            xg = (
+                xi_grid
+                if is_backend_array(xi_grid)
+                else as_backend_constant(xp, xi_grid, rand_mass_frac)
+            )
+            xi_samples = interp_linear(xp, cg, xg, rand_mass_frac, extrapolate="clip")
+            # r = _xiToR inlined in-namespace (numpy.divide would drop the graph);
+            # parenthesized to match _xiToR's a*((1+xi)/(1-xi)) association exactly
+            r_samples = self._scale * ((1.0 + xi_samples) / (1.0 - xi_samples))
         else:
-            if not hasattr(self, "_xi_cmf_interpolator"):
-                self._xi_cmf_interpolator = self._make_cmf_interpolator()
-            xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
-            r_samples = _xiToR(xi_samples, a=self._scale)
-        return r_samples
+            # numpy path: byte-identical scipy k=1 inverse-CMF spline
+            if not hasattr(self, "_xi_cmf_spline"):
+                cdf_grid, xi_grid = self._get_cmf_grids()
+                self._xi_cmf_spline = Spline1D(
+                    as_numpy(cdf_grid), as_numpy(xi_grid), k=1
+                )
+            xi_samples = self._xi_cmf_spline(rand_mass_frac)
+            # numpy branch: the scale must be numpy too. The BACKEND branch
+            # above keeps self._scale so r_samples stays differentiable; here
+            # the draws are numpy by design, so a differentiated potential's
+            # tensor scale is coerced at the boundary rather than leaking into
+            # numpy ops.
+            r_samples = _xiToR(
+                xi_samples,
+                a=as_numpy(self._scale)
+                if is_backend_array(self._scale)
+                else self._scale,
+            )
+        # numpy path (key=None) is numpy-side by design (a forced backend can make
+        # the deterministic icdf eval a backend array); a backend key keeps it
+        if is_backend_array(rand_mass_frac):
+            return r_samples
+        return as_numpy(r_samples)
+
+    def _get_cmf_grids(self):
+        """Cache and return the (cdf_grid, xi_grid) inverse-CMF tables."""
+        if not hasattr(self, "_xi_cmf_grids"):
+            self._xi_cmf_grids = self._make_cmf_interpolator()
+        return self._xi_cmf_grids
 
     def _make_cmf_interpolator(self):
         """Create the interpolator object for calculating radii from the CMF
@@ -558,67 +1099,218 @@ class sphericaldf(df):
 
         so that xi is in the range [-1,1], which corresponds to an r range of
         [0,infinity)"""
-        ximin = _RToxi(self._rmin_sampling, a=self._scale)
-        ximax = _RToxi(self._rmax, a=self._scale)
-        xis = numpy.arange(ximin, ximax, 1e-4)
-        rs = _xiToR(xis, a=self._scale)
+        xp = get_namespace()  # forced/context default only (inputs are scalars)
+        # This table is the NUMPY sampling grid (scipy interpolators downstream),
+        # so the scale has to arrive as numpy. A differentiated potential makes
+        # self._scale a backend array, and numpy-key sampling runs inside
+        # use("numpy", force=True) -- so xp is numpy here and the branch below
+        # would hand a tensor to numpy ops. Coerce at the boundary, as
+        # _evalpot_asnumpy does; the differentiable route is a BACKEND key.
+        # jax.jit: no concrete scale, so the grid cannot be sized from it
+        jit = (
+            xp is not numpy
+            and is_backend_array(self._scale)
+            and not has_concrete_truth_value(self._scale == self._scale)
+        )
+        _scale_np = (
+            None
+            if jit
+            else as_numpy_constant(self._scale)
+            if is_backend_array(self._scale)
+            else self._scale
+        )
+        if jit:
+            ximin_b = _RToxi(xp.asarray(self._rmin_sampling) * 1.0, a=self._scale)
+            ximax_b = _RToxi(xp.asarray(self._rmax) * 1.0, a=self._scale)
+            # fixed-size grid over [ximin, ximax): the eager 1e-4 xi spacing
+            # for the widest range (xi in [-1, 1])
+            ximin, ximax = 0.0, 1.0
+        elif xp is numpy:
+            ximin = _RToxi(self._rmin_sampling, a=_scale_np)
+            ximax = _RToxi(self._rmax, a=_scale_np)
+        else:
+            # a forced backend makes _RToxi resolve that backend, which rejects
+            # plain floats (torch) -- coerce in and pull back to the numpy grid
+            ximin_b = _RToxi(xp.asarray(self._rmin_sampling) * 1.0, a=self._scale)
+            ximax_b = _RToxi(xp.asarray(self._rmax) * 1.0, a=self._scale)
+            ximin = float(as_numpy_constant(ximin_b))
+            ximax = float(as_numpy_constant(ximax_b))
+        xis = numpy.arange(20000) / 20000.0 if jit else numpy.arange(ximin, ximax, 1e-4)
+        grad = xp is not numpy and (
+            under_trace(self._scale) or requires_backend_grad(self._scale)
+        )
+        if grad:
+            # differentiated scale: knots fixed in xi, radii a*rho(xi) attached,
+            # so a self-similar profile's CDF values do not move and d/d(scale)
+            # is exact. A bound set by rmin/rmax moves in xi: span the knots
+            # over the attached [ximin, ximax] (interp_linear returns them as
+            # VALUES, so they carry the gradient directly).
+            # r=0 knot (rmin_sampling=0): closed-form masses (a/R, R**-n) are 0
+            # there but their backward is 0*inf=NaN, poisoning every CDF knot.
+            # M(0)=0, so evaluate a benign radius and zero it.
+            at0 = asarray_on_device(
+                xp,
+                (xis == 0.0) & (self._rmin_sampling == 0.0) if jit else xis == -1.0,
+                device_of(self._scale),
+            )
+            xis = ximin_b + as_backend_constant(
+                xp, (xis - ximin) / (ximax - ximin), self._scale
+            ) * (ximax_b - ximin_b)
+            rs = xp.where(at0, self._scale, self._scale * ((1.0 + xis) / (1.0 - xis)))
+        else:
+            rs = _xiToR(xis, a=_scale_np)
         # try/except necessary when mass doesn't take arrays, also need to
-        # switch to a more general mass method at some point...
+        # switch to a more general mass method at some point... (RuntimeError:
+        # a forced-backend integration-based mass can't broadcast the array rs
+        # against its quadrature nodes -- fall back to the per-r loop as numpy does)
         try:
             ms = mass(self._denspot, rs, use_physical=False)
-        except (ValueError, TypeError):
-            ms = numpy.array([mass(self._denspot, r, use_physical=False) for r in rs])
-        mnorm = mass(self._denspot, self._rmax, use_physical=False)
-        if self._rmin_sampling > 0:
-            ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
-            mnorm -= mass(self._denspot, self._rmin_sampling, use_physical=False)
-        ms /= mnorm
-        # Add total mass point to avoid extrapolation beyond rmax
-        if numpy.isinf(self._rmax):
-            xis = numpy.append(xis, 1)
-            ms = numpy.append(ms, 1)
-        else:
-            # For finite rmax, add the endpoint to ensure r <= rmax
-            xis = numpy.append(xis, ximax)
-            ms = numpy.append(ms, 1)
-        return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
+        except (ValueError, TypeError, RuntimeError):
+            ms = numpy.array(
+                [as_numpy(mass(self._denspot, r, use_physical=False)) for r in rs]
+            )
+            # keep ms on the active backend so the mnorm/rmin arithmetic below
+            # stays same-namespace (as_numpy'd for the icdf table at the end)
+            if xp is not numpy:
+                ms = xp.asarray(ms)
+        if grad:
+            ms = xp.where(at0, 0.0, ms)
 
-    def _sample_position_angles(self, n=1):
-        """Generate spherical angle samples"""
-        phi_samples = numpy.random.uniform(size=n) * 2 * numpy.pi
-        theta_samples = numpy.arccos(1.0 - 2 * numpy.random.uniform(size=n))
+        def _m(_r):
+            # Mirrors the as_numpy on `ms` above: on the NUMPY path these
+            # normalisations must be numpy too, or a differentiated denspot
+            # makes them tensors and `ms /= mnorm` raises. On a backend path
+            # they stay backend arrays, so the CDF knots keep their gradient.
+            _v = mass(self._denspot, _r, use_physical=False)
+            return as_numpy(_v) if xp is numpy and is_backend_array(_v) else _v
+
+        mnorm = _m(self._rmax)
+        if self._rmin_sampling > 0:
+            ms -= _m(self._rmin_sampling)
+            mnorm -= _m(self._rmin_sampling)
+        ms /= mnorm
+        # Add the total-mass endpoint so the inverse-CMF never extrapolates
+        # beyond rmax. The xi grid is fixed geometry (numpy); ms is the CDF.
+        if grad:
+            concat = getattr(xp, "concat", None) or xp.concatenate
+            xis = concat([xis, xp.reshape(ximax_b, (1,)) * 1.0])
+        else:
+            xis = numpy.append(xis, 1.0 if numpy.isinf(self._rmax) else ximax)
+        if is_backend_array(ms):
+            # backend context: KEEP ms a backend array so the inverse-CDF sample
+            # is differentiable in the CDF knots (interp_linear in _sample_r); the
+            # numpy path (key=None) as_numpy's it back for the byte-identical spline
+            end = as_backend_constant(xp, numpy.array([1.0]), ms)
+            concat = getattr(xp, "concat", None) or xp.concatenate
+            ms = concat([ms, end])
+        else:
+            # numpy path: the icdf table is numpy (byte-identical scipy k=1 spline)
+            ms = as_numpy(ms)
+            ms = numpy.append(ms, 1)
+        return ms, xis
+
+    def _sample_position_angles(self, n=1, key=None):
+        """Generate spherical angle samples
+
+        ``key=None`` draws from the global ``numpy.random`` (byte-identical: phi
+        first, then theta); a backend key splits into two independent sub-keys and
+        returns backend arrays (analytic, differentiable in the draws)."""
+        kphi, ktheta = grandom.split(key, 2)
+        u_phi = grandom.uniform(kphi, n)
+        u_theta = grandom.uniform(ktheta, n)
+        xp = numpy if key is None else get_namespace(u_phi)
+        phi_samples = u_phi * 2.0 * numpy.pi
+        theta_samples = xp.arccos(1.0 - 2.0 * u_theta)
         return phi_samples, theta_samples
 
-    def _sample_v(self, r, eta, n=1):
-        """Generate velocity samples: typically the total velocity, but not for OM"""
+    def _sample_v(self, r, eta, n=1, key=None):
+        """Generate velocity samples: typically the total velocity, but not for OM.
+
+        ``key=None`` draws the velocity uniform from the global ``numpy.random``
+        and queries the scipy pvr interpolator numpy-side (byte-identical). A
+        backend key draws a backend uniform, evaluates the same inverse-CDF pvr
+        NATIVELY (bilinear) at the BACKEND ``r``, and multiplies by the backend
+        ``vmax`` -- so the sampled velocity is a backend array differentiable in
+        ``r`` (and hence, through the radial inverse-CDF, in the CDF/potential)."""
         if not hasattr(self, "_v_vesc_pvr_interpolator"):
-            r_a_end = (
-                max(numpy.log10(self._rmax / self._scale), 3)
-                if numpy.isfinite(self._rmax)
-                else 3
-            )
+            # as_numpy on the scale: this is the numpy sampling path (see
+            # below), and self._scale is pot._scale, which carries the gradient
+            # when the potential is differentiated.
+            if is_backend_array(self._scale) and not has_concrete_truth_value(
+                self._scale == self._scale
+            ):
+                r_a_end = 3  # jax.jit: the pvr grid takes an attached extent
+            else:
+                _scale_np = as_numpy_constant(self._scale)
+                r_a_end = (
+                    max(numpy.log10(self._rmax / _scale_np), 3)
+                    if numpy.isfinite(self._rmax)
+                    else 3
+                )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
+        if key is None:
+            # numpy path: byte-identical scipy pvr + global-numpy uniform. A
+            # backend-key r may arrive as a backend array (forced backend); pull it
+            # numpy-side -- numpy.log10(<torch tensor>) trips the numpy-2.0
+            # __array_wrap__ deprecation (an error under the coverage shard's -W
+            # error).
+            r = as_numpy(r)
+            return self._v_vesc_pvr_interpolator(
+                numpy.log10(r / as_numpy(self._scale)),
+                numpy.random.uniform(size=n),
+                grid=False,
+            ) * as_numpy(self._vmax_at_r(self._pot, r))
+        # backend key: native bilinear inverse-CDF pvr at (log10(r/scale),
+        # backend-uniform), times the backend vmax -- r stays a backend array
+        # (differentiable, GPU/jit-able); no as_numpy / numpy-op-on-tensor here.
+        xp = get_namespace(r)
+        u = grandom.uniform(key, n)
         return self._v_vesc_pvr_interpolator(
-            numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
+            xp.log10(r / self._scale), u, grid=False
         ) * self._vmax_at_r(self._pot, r)
 
-    def _sample_velocity_angles(self, r, n=1):
+    def _sample_velocity_angles(self, r, n=1, key=None):
         """Generate samples of angles that set radial vs tangential
-        velocities"""
-        eta_samples = self._sample_eta(r, n)
-        psi_samples = numpy.random.uniform(size=n) * 2 * numpy.pi
+        velocities
+
+        ``key=None`` draws from the global ``numpy.random`` (byte-identical: eta
+        first, then psi); a backend key splits into independent eta/psi sub-keys."""
+        keta, kpsi = grandom.split(key, 2)
+        eta_samples = self._sample_eta(r, n, key=keta)
+        psi_samples = grandom.uniform(kpsi, n) * 2.0 * numpy.pi
         return eta_samples, psi_samples
 
     def _vmax_at_r(self, pot, r, **kwargs):
         """Function that gives the max velocity in the DF at r;
         typically equal to vesc, but not necessarily for finite systems
         such as King"""
-        return numpy.sqrt(
-            2.0
-            * (
-                _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
-                - _evaluatePotentials(self._pot, r, 0.0)
-            )
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            phi_max = _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
+            if not is_backend_array(phi_max):
+                return numpy.sqrt(
+                    2.0 * (phi_max - _evaluatePotentials(self._pot, r, 0.0))
+                )
+            # backend potential parameters at numpy radii: a tensor amp times an
+            # ndarray goes through the deprecated __array_wrap__ (numpy 2.5)
+            xp = namespace_from_arrays((phi_max,))
+        # coerce coords: undecorated potential evals reject numpy/scalars (torch)
+        phi_max = _evaluatePotentials(
+            self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0
+        )
+        if not is_backend_array(self._rmax) and not numpy.isfinite(self._rmax):
+            # (a traced rmax -- kingdf's tidal radius -- is finite)
+            # Phi(inf) is the zero point of a potential that vanishes at
+            # infinity, so its derivative w.r.t. any potential parameter is
+            # EXACTLY 0 -- but evaluating that limit numerically at r=inf gives
+            # nan (an inf-inf), which then poisons the whole backward pass and
+            # is what made sigmar/sigmat/vmomentdensity/beta return nan.
+            # stop_gradient restores the correct derivative, it does not
+            # approximate one. A FINITE rmax (King's tidal radius) keeps its
+            # gradient, which is why this is gated on isfinite.
+            phi_max = stop_gradient(phi_max)
+        return xp.sqrt(
+            2.0 * (phi_max - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
         )
 
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
@@ -652,27 +1344,115 @@ class sphericaldf(df):
         - 2020-07-24 - Written - Lane (UofT)
         """
         # Check that interpolated potential has appropriate grid range
-        if (
-            isinstance(self._pot, interpSphericalPotential)
-            and self._rmin_sampling < self._pot._rmin
-        ):
+        if isinstance(self._pot, interpSphericalPotential) and concretely_true(
+            self._rmin_sampling < self._pot._rmin
+        ):  # skipped under a trace, where there is no value to compare
             warnings.warn(
                 "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!",
                 galpyWarning,
             )
-        # Make an array of r/a by v/vesc and then calculate p(v|r)
-        r_a_start = numpy.amax(
-            [numpy.log10((self._rmin_sampling + 1e-8) / self._scale), r_a_start]
-        )
-        r_a_end = numpy.amin([numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end])
+        # Make an array of r/a by v/vesc and then calculate p(v|r).
+        # The EXTENT is taken numpy-side even when the potential carries a
+        # gradient: self._scale is pot._scale (e.g. Hernquist's a), so
+        # numpy.log10 on it raises. The PHYSICAL radii below (r_a_grid *
+        # self._scale) carry d/d(scale), which is what the DF is evaluated at;
+        # a bound fixed by rmin/rmax is re-attached below.
+        if is_backend_array(self._scale) and not has_concrete_truth_value(
+            self._scale == self._scale
+        ):
+            # jax.jit: which bound comes from rmin/rmax is decided statically
+            # (whether they are set); the frame stays nominal and the attached
+            # extent below carries the actual bounds
+            r_a_start = float(r_a_start) if not is_backend_array(r_a_start) else -3.0
+            r_a_end = float(r_a_end) if not is_backend_array(r_a_end) else 3.0
+            lo_from_r = self._rmin_sampling > 0.0
+            # a traced rmax is a finite radius (kingdf's tidal radius)
+            hi_from_r = is_backend_array(self._rmax) or bool(numpy.isfinite(self._rmax))
+        else:
+            _scale_np = as_numpy_constant(self._scale)
+            r_a_start = as_numpy_constant(r_a_start)
+            r_a_end = as_numpy_constant(r_a_end)
+            lo_r = numpy.log10(
+                (as_numpy_constant(self._rmin_sampling) + 1e-8) / _scale_np
+            )
+            hi_r = numpy.log10((as_numpy_constant(self._rmax) - 1e-8) / _scale_np)
+            lo_from_r, hi_from_r = lo_r >= r_a_start, hi_r <= r_a_end
+            r_a_start = numpy.amax([lo_r, r_a_start])
+            r_a_end = numpy.amin([hi_r, r_a_end])
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
-        vesc_grid = self._vmax_at_r(self._pot, r_a_grid * self._scale)
-        r_grid = r_a_grid * self._scale
+        # Lift the (numpy) r/a grid onto the namespace when the scale carries a
+        # gradient: `ndarray * Tensor` raises on torch, while jax accepts it --
+        # so a jax-only check would have looked fine here. The multiply is what
+        # carries d(r_grid)/d(scale) into the DF evaluation below.
+        # namespace_from_arrays, NOT get_namespace: get_namespace returns the
+        # FORCED namespace ahead of the data ("forced default beats the data"),
+        # and numpy-key sampling runs inside use("numpy", force=True) -- so
+        # get_namespace(<tensor scale>) hands back numpy, as_backend_constant
+        # yields an ndarray, and the multiply below is ndarray * Tensor again.
+        _r_a_grid = (
+            as_backend_constant(
+                namespace_from_arrays((self._scale,)), r_a_grid, self._scale
+            )
+            if is_backend_array(self._scale)
+            else r_a_grid
+        )
+        xmap = None
+        _bounds = (self._scale, self._rmin_sampling, self._rmax)
+        if under_trace(*_bounds) or requires_backend_grad(*_bounds):
+            # ...except where a bound is set by rmin/rmax: a FIXED physical
+            # radius, so in r/a units it moves with the scale (~0.7% off at a
+            # finite rmax if frozen). Span the grid over the attached extent and
+            # remap queries onto the frozen knots (value-identical at this scale).
+            sxp = namespace_from_arrays((self._scale,))
+            lo_b, hi_b = (
+                sxp.log10((b + e) / self._scale)
+                if from_r
+                else as_backend_constant(sxp, lim, self._scale)
+                for b, e, from_r, lim in (
+                    (self._rmin_sampling, 1e-8, lo_from_r, r_a_start),
+                    (self._rmax, -1e-8, hi_from_r, r_a_end),
+                )
+            )
+            frac = (numpy.log10(r_a_grid) - r_a_start) / (r_a_end - r_a_start)
+            _r_a_grid = 10.0 ** (
+                lo_b + as_backend_constant(sxp, frac, self._scale) * (hi_b - lo_b)
+            )
+            xmap = (r_a_start, r_a_end, lo_b, hi_b)
+        vesc_raw = self._vmax_at_r(self._pot, _r_a_grid * self._scale)
+        r_grid = _r_a_grid * self._scale
+        if is_backend_array(vesc_raw):
+            # Keep the whole chain on the backend: vesc carries the potential's
+            # parameters, and the velocities the DF is evaluated at are
+            # v_vesc * vesc(r), so pulling vesc numpy-side here would cut
+            # d(sample_v)/d(potential) before the DF is even called.
+            xp = get_namespace(vesc_raw)
+            pvr_raw = self._p_v_at_r(
+                as_backend_constant(xp, v_vesc_grid, vesc_raw) * vesc_raw,
+                as_backend_constant(xp, r_grid, vesc_raw),
+            )
+            if is_backend_array(pvr_raw):
+                interp = self._make_pvr_interpolator_backend(
+                    pvr_raw, r_a_grid, v_vesc_values
+                )
+                interp._xmap = xmap
+                return interp
+            # Some DFs evaluate p(v|r) numpy-side whatever the namespace -- the
+            # general Osipkov-Merritt df goes through a scipy interpolator -- so
+            # there is no backend table to build and no gradient to carry. Fall
+            # through to the numpy build. vesc was already evaluated on the
+            # backend, so the table matches a pure-numpy run to last-bit rounding
+            # (~1e-12 relative), not bit-identically; the numpy PATH itself --
+            # which never gets here -- stays byte-identical.
+        vesc_grid = as_numpy(vesc_raw)
         vr_grid = v_vesc_grid * vesc_grid
-        # Calculate p(v|r) and normalize
-        pvr_grid = self._p_v_at_r(vr_grid, r_grid)
+        # Calculate p(v|r) with one vectorized DF evaluation. Under a backend it
+        # comes back as a backend array carrying the DF/potential parameters'
+        # dependence; building the inverse-CDF table natively from it (below) is
+        # what makes the sampled velocity differentiable in those parameters
+        # rather than merely differentiable in r.
+        pvr_grid = as_numpy(self._p_v_at_r(vr_grid, r_grid))
         # Integrate between velocity grid points: a plain cumulative sum
         # shifts the inverse CDF down by roughly half a velocity bin.
         pvr_grid_cml = integrate.cumulative_trapezoid(
@@ -719,13 +1499,81 @@ class sphericaldf(df):
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:, i] = pvr_samples_reg
             icdf_v_vesc_grid_reg[:, i] = v_vesc_samples_reg
-        # Create the interpolator
-        return scipy.interpolate.RectBivariateSpline(
+        # Create the dual-path inverse-CDF interpolator: a numpy query hits the
+        # scipy RectBivariateSpline (kx=ky=1, byte-identical); a backend query
+        # evaluates the same bilinear interpolation natively. On a backend build
+        # the raw grids are stored as backend arrays (GPU-resident); otherwise
+        # they stay numpy and a stray backend query materialises them per-call.
+        return _PVRInterpolator(
             numpy.log10(r_a_grid[0, :]),
             icdf_pvr_grid_reg[:, 0],
             icdf_v_vesc_grid_reg.T,
-            kx=1,
-            ky=1,
+            get_namespace(),  # forced/context default (numpy build -> numpy grids)
+        )
+
+    def _make_pvr_interpolator_backend(
+        self, pvr_grid, r_a_grid, v_vesc_values, n_new_pvr=1000
+    ):
+        """Backend build of the p(v|r) inverse-CDF table (see _make_pvr_interpolator).
+
+        The numpy path walks the radii in Python -- clamping, de-duplicating and
+        fitting a scipy spline per column -- which both freezes the table to numpy
+        and costs one spline fit per radius. Here the same inverse CDF is formed
+        for every radius at once: clamp the density (the DF can go slightly
+        negative near a truncation radius), accumulate, normalise, and invert on
+        the regular CDF grid by a searchsorted-and-lerp. Every step is a namespace
+        op, so the table stays a backend array and d(v)/d(DF parameters) flows.
+
+        Clamping is applied to the density BEFORE accumulating (the numpy path
+        clamps the cumulative and re-imposes monotonicity afterwards); both keep
+        the CDF non-decreasing, and a non-negative density makes its cumulative
+        monotone by construction, with no cumulative-maximum op required.
+        """
+        xp = get_namespace(pvr_grid)
+        # Same diagnostic the numpy path emits: a DF that dips negative (e.g. an
+        # Eddington inversion near a truncation radius) still gets sampled, with
+        # the negative part clamped away. Skipped under a jax trace, where the
+        # test is data-dependent and would force a concretization.
+        if not under_jax_trace(pvr_grid) and bool(as_numpy(xp.any(pvr_grid < 0.0))):
+            warnings.warn(
+                "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",
+                galpyWarning,
+            )
+        p = xp.clip(pvr_grid, 0.0, None)
+        # trapezoidal cumulative, as on numpy (a plain cumulative sum shifts the
+        # inverse CDF down by about half a velocity bin)
+        dv = as_backend_constant(xp, numpy.diff(v_vesc_values), p)
+        seg = 0.5 * (p[1:] + p[:-1]) * dv[:, None]
+        c = xp.concat([xp.zeros_like(p[:1]), xp.cumulative_sum(seg, axis=0)], axis=0)
+        tot = c[-1, :]
+        # A radius with no velocity probability at all (e.g. near rmax where
+        # vesc ~ 0) would normalise 0/0; give it a zero-velocity inverse CDF, as
+        # the numpy path does explicitly.
+        good = tot > 0.0
+        c = c / xp.where(good, tot, xp.ones_like(tot))[None, :]
+        u = xp.linspace(0.0, 1.0, n_new_pvr)
+        # For each radius column and each CDF level u, the number of table
+        # entries strictly below u locates the bracketing interval.
+        idx = xp.sum(xp.astype(c[None, :, :] < u[:, None, None], c.dtype), axis=1)
+        nv = c.shape[0]
+        i0 = xp.astype(xp.clip(idx - 1.0, 0.0, float(nv - 2)), xp.int64)
+        i1 = i0 + 1
+        c0 = xp.take_along_axis(c, i0, axis=0)
+        c1 = xp.take_along_axis(c, i1, axis=0)
+        vg = as_backend_constant(xp, v_vesc_values, c)
+        v0 = vg[i0]
+        v1 = vg[i1]
+        dc = c1 - c0
+        t = xp.where(dc > 0.0, (u[:, None] - c0) / xp.where(dc > 0.0, dc, 1.0), 0.0)
+        # XLA divides by tot as a reciprocal multiply, so the last cumulative
+        # entry can land 1 ulp below u=1 and t > 1; clamp at the ends, as numpy
+        t = xp.clip(t, 0.0, 1.0)
+        v = xp.where(good[None, :], v0 + t * (v1 - v0), xp.zeros_like(v0))
+        return _PVRInterpolator(
+            numpy.log10(r_a_grid[0, :]),
+            numpy.linspace(0.0, 1.0, n_new_pvr),  # u's values; u is traced under jit
+            xp.matrix_transpose(v),
+            xp,
         )
 
     def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
@@ -743,8 +1591,9 @@ class sphericaldf(df):
 
         Returns
         -------
-        scipy.interpolate.InterpolatedUnivariateSpline
-            Interpolator for r(phi).
+        galpy.backend.interpolate.Spline1D
+            Interpolator for r(phi) (scipy-backed for numpy queries, natively
+            evaluated for backend queries).
 
         Notes
         -----
@@ -752,25 +1601,66 @@ class sphericaldf(df):
         """
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
-        phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        xp = get_namespace()  # context/forced default only (the grid is numpy)
+        _probe = (
+            _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
+            if xp is not numpy
+            else None
+        )
+        # under_trace alone misses EAGER torch autograd (there is no trace behind
+        # it), so a torch-differentiated potential fell through to the grid path
+        # below and died on ndarray * Tensor
+        if xp is not numpy and (under_trace(_probe) or requires_backend_grad(_probe)):
+            # A TRACED potential cannot build this grid at all: the r=0 test is a
+            # branch on a traced value, the monotonicity cleanup DELETES entries
+            # (a data-dependent array size), and the spline's knots would be the
+            # traced potential values -- at nra=10001 that is a dense (n, n)
+            # tridiagonal solve, ~800 MB. Invert by root-find instead: r(Phi) is
+            # the root of Phi(r) - E, the bracket is the same [r_a_min, r_a_max],
+            # and the backend brentq differentiates it exactly (implicit function
+            # theorem) rather than to spline accuracy.
+            return _RphiRootFind(
+                self._pot, self._scale, r_a_min * self._scale, r_a_max * self._scale
+            )
+        if xp is numpy:
+            phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        else:
+            # coerce coords: undecorated potential evals reject scalars (torch)
+            phi_at_zero = as_numpy(_evaluatePotentials(self._pot, xp.asarray(0.0), 0))
         if numpy.isfinite(phi_at_zero):
             r_a_values = numpy.concatenate(
                 (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
             )
         else:
             r_a_values = numpy.geomspace(r_a_min, r_a_max, nra)
-        phis = numpy.array(
-            [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
-        )
+        if xp is numpy:
+            phis = numpy.array(
+                [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
+            )
+        else:
+            # forced backend: one vectorized eval instead of nra scalar dispatches
+            phis = as_numpy(
+                _evaluatePotentials(self._pot, xp.asarray(r_a_values) * self._scale, 0)
+            )
         # Ensure phi is monotonic (required if coming from interpolated pot)
         if numpy.any(numpy.diff(phis) <= 0):
             phim = numpy.maximum.accumulate(phis)
             indx_rm = numpy.where(numpy.diff(phim) == 0)[0]
             phis = numpy.delete(phim, indx_rm)
             r_a_values = numpy.delete(r_a_values, indx_rm)
-        return interpolate.InterpolatedUnivariateSpline(
-            phis, r_a_values * self._scale, k=3
-        )
+        # backend-agnostic r(Phi): numpy queries hit the scipy spline
+        # (byte-identical); backend queries evaluate the frozen table natively.
+        # `ndarray * Tensor` raises (numpy's __rmul__ takes over and cannot
+        # handle a Tensor) while jax accepts the mix, so lift the numpy knots
+        # onto a backend scale. This is the NON-differentiated backend scale --
+        # a differentiated one returned the root-find above and never reaches
+        # here -- so the table is a plain backend array, not a gradient path.
+        if is_backend_array(self._scale) and not is_backend_array(r_a_values):
+            _xp_s = get_namespace(self._scale)
+            _rv = asarray_on_device(_xp_s, r_a_values, device_of(self._scale))
+        else:
+            _rv = r_a_values
+        return Spline1D(phis, _rv * self._scale, k=3)
 
 
 class isotropicsphericaldf(sphericaldf):
@@ -828,57 +1718,119 @@ class isotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
-        fE = numpy.atleast_1d(self.fE(E))
-        out = numpy.zeros_like(E)
-        out[fE > 0.0] = (
-            16.0
-            * numpy.pi**2.0
-            * numpy.sqrt(2.0)
-            * fE[fE > 0.0]
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r**2.0
-                            * numpy.sqrt(tE - _evaluatePotentials(self._pot, r, 0.0))
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                    if fE[ii] > 0.0
-                ]
+        xp = resolve_namespace(E)
+        if xp is numpy:
+            fE = numpy.atleast_1d(self.fE(E))
+            out = numpy.zeros_like(E)
+            out[fE > 0.0] = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.sqrt(2.0)
+                * fE[fE > 0.0]
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r**2.0
+                                * numpy.sqrt(
+                                    tE - _evaluatePotentials(self._pot, r, 0.0)
+                                )
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                        if fE[ii] > 0.0
+                    ]
+                )
             )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out
+        # jax/torch: GL after r = rphi(E) - s^2, which cancels the sqrt turning
+        # point at r = rphi(E) so fixed-order GL converges fast
+        fE = xp.atleast_1d(self.fE(E))
+        pos = fE > 0.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        # dead-branch guard: out-of-bounds E gets a safe dummy radius, zeroed below
+        rphiE = xp.where(pos, rphiE, xp.ones_like(rphiE))
+        Eb = (xp.asarray(E) * 1.0)[..., None]
+
+        def _integrand(s):
+            r = rphiE[..., None] - s**2.0
+            diff = Eb - _evaluatePotentials(self._pot, r, 0.0)
+            # guard: numerical noise can push E - Phi below 0 at the turning point
+            diffsafe = xp.where(diff > 0.0, diff, xp.ones_like(diff))
+            return (
+                r**2.0
+                * xp.where(diff > 0.0, xp.sqrt(diffsafe), xp.zeros_like(diff))
+                * 2.0
+                * s
+            )
+
+        integral = fixed_quad(xp, _integrand, 0.0, xp.sqrt(rphiE), n=_QUAD_N_DMDE)
+        return xp.where(
+            pos,
+            16.0 * numpy.pi**2.0 * numpy.sqrt(2.0) * fE * integral,
+            xp.zeros_like(fE),
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
             return 0.0
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.quad(
+                    lambda v: (
+                        v ** (2.0 + m + n)
+                        * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                )[0]
+                * special.gamma(m // 2 + 1)
+                * special.gamma(n // 2 + 0.5)
+                / special.gamma(m // 2 + n // 2 + 1.5)
+            )
+        # jax/torch: fixed-order GL over v, differentiable in r through Phi(r)
+        # and the vmax(r) integration limit; the node axis trails
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
         return (
             2.0
             * numpy.pi
-            * integrate.quad(
-                lambda v: (
-                    v ** (2.0 + m + n)
-                    * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
-                ),
+            * fixed_quad(
+                xp,
+                lambda v: v ** (2.0 + m + n) * self.fE(Phir_b + 0.5 * v**2.0),
                 0.0,
-                self._vmax_at_r(self._pot, r),
-            )[0]
+                self._vmax_at_r(self._pot, rb),
+                n=_QUAD_N_VMOM,
+            )
             * special.gamma(m // 2 + 1)
             * special.gamma(n // 2 + 0.5)
             / special.gamma(m // 2 + n // 2 + 1.5)
         )
 
-    def _sample_eta(self, r, n=1):
-        """Sample the angle eta which defines radial vs tangential velocities"""
-        return numpy.arccos(1.0 - 2.0 * numpy.random.uniform(size=n))
+    def _sample_eta(self, r, n=1, key=None):
+        """Sample the angle eta which defines radial vs tangential velocities
+
+        Isotropic: eta is analytic (``arccos(1-2u)``). ``key=None`` is the
+        byte-identical numpy draw; a backend key returns a backend array."""
+        u = grandom.uniform(key, n)
+        xp = numpy if key is None else get_namespace(u)
+        return xp.arccos(1.0 - 2.0 * u)
 
     def _p_v_at_r(self, v, r):
+        xp = resolve_namespace(v, r)
+        if xp is not numpy:
+            # coerce: a forced backend sees the numpy sampling grids here and
+            # torch potentials reject numpy coords
+            v = xp.asarray(v) * 1.0
+            r = xp.asarray(r) * 1.0
         if hasattr(self, "_fE_interp"):
             return (
                 self._fE_interp(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
@@ -922,42 +1874,76 @@ class anisotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
+        xp = resolve_namespace(E)
+        if xp is numpy:
 
-        def Lintegrand(t, L2lim, E):
-            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+            def Lintegrand(t, L2lim, E):
+                return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
 
-        out = (
+            out = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r
+                                * integrate.quad(
+                                    Lintegrand,
+                                    0.0,
+                                    numpy.sqrt(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                    ),
+                                    args=(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                        tE,
+                                    ),
+                                )[0]
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                    ]
+                )
+            )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out
+        # jax/torch: tensor-product GL after r = rphi(E) - s^2 (cancels the outer
+        # turning point) and t = Lmax sin(phi) (cancels the inner sqrt endpoint)
+        Eb = xp.asarray(E) * 1.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        # dead-branch guard: an unphysical (extrapolated) rphi <= 0 contributes 0
+        rpos = rphiE > 0.0
+        smax = xp.where(rpos, xp.sqrt(xp.where(rpos, rphiE, xp.ones_like(rphiE))), 0.0)
+        E_bb = Eb[..., None, None]
+        rphi_bb = xp.where(rpos, rphiE, xp.ones_like(rphiE))[..., None, None]
+
+        def _integrand(s, phi):
+            r = rphi_bb - s**2.0
+            L2lim = 2.0 * r**2.0 * (E_bb - _evaluatePotentials(self._pot, r, 0.0))
+            # guard: numerical noise can push E - Phi below 0 at the turning point
+            Lmax = xp.where(
+                L2lim > 0.0,
+                xp.sqrt(xp.where(L2lim > 0.0, L2lim, xp.ones_like(L2lim))),
+                xp.zeros_like(L2lim),
+            )
+            L = Lmax * xp.cos(phi)
+            return r * self._call_internal(E_bb, L, None) * L * 2.0 * s
+
+        return (
             16.0
             * numpy.pi**2.0
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r
-                            * integrate.quad(
-                                Lintegrand,
-                                0.0,
-                                numpy.sqrt(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                                ),
-                                args=(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                    tE,
-                                ),
-                            )[0]
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                ]
+            * nested_quad(
+                xp,
+                _integrand,
+                [[0.0, smax[..., None, None]], [0.0, numpy.pi / 2.0]],
+                n=_QUAD_N_VMOM2D,
             )
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out

@@ -7,8 +7,11 @@
 #                                 with m^2 = x^2+y^2/b^2+z^2/c^2
 #
 ###############################################################################
+import math
+
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -89,7 +92,8 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         if self._aligned and numpy.fabs(self._b - 1.0) < 1e-10 and self._c < 1.0:
             self._delta = self.a * numpy.sqrt(1.0 - self._c2)
         # Adjust amp
-        self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
+        self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
@@ -118,11 +122,12 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        xp = get_namespace(R)
         return (
             2.0
-            * numpy.pi
+            * math.pi
             * self._b
             * self._c
             / self.a
-            * (numpy.arctan(R / self.a) - R * self.a / (1.0 + R**2.0))
+            * (xp.atan(R / self.a) - R * self.a / (1.0 + R**2.0))
         )

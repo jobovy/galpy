@@ -539,9 +539,18 @@ def check_parser_input_type(func):
 
     @wraps(func)
     def parse_x_wrapper(x, **kwargs):
+        # A backend array (jax/torch, possibly traced) is accepted and passed
+        # through unscaled -- it carries no units, so it is treated as already in
+        # galpy's internal units, exactly like a plain Python float would be. This
+        # is what lets potential parameters be differentiated (d/dtheta). Detection
+        # is import-light and gated on the optional-dependency flags, so the
+        # numpy/number/Quantity paths below are byte-identical to before.
+        from ..backend import is_backend_array
+
         if (
             not x is None
             and not isinstance(x, numbers.Number)
+            and not is_backend_array(x)
             and not (
                 isinstance(x, numpy.ndarray)
                 and (x.size == 0 or isinstance(x.flatten()[0], numbers.Number))
@@ -871,6 +880,19 @@ def physical_output(obj: Any, kwargs: dict, quantity: str) -> Tuple[bool, float,
     )
 
 
+def _f64_if_torch(fn):
+    """df / actionAngle methods called with torch in play run with torch's
+    default dtype at float64 (galpy.backend.float64_default). Potentials get the
+    scope at their @backend_input boundary at no numpy cost (they and the Orbit
+    accessors are the hot per-call paths); Orbit's analytic orbit parameters go
+    through actionAngle, so they inherit it."""
+    if not fn.__module__.startswith(("galpy.df", "galpy.actionAngle")):
+        return fn
+    from ..backend._namespaces import float64_default_if_torch_args
+
+    return float64_default_if_torch_args(fn)
+
+
 def physical_conversion(quantity, pop=False):
     """Decorator to convert to physical coordinates:
     quantity = [position,velocity,time]"""
@@ -1013,7 +1035,9 @@ def physical_conversion(quantity, pop=False):
                 if out is None:
                     return out
                 if _apy_units:
-                    return units.Quantity(out * fac, unit=u)
+                    from ..backend import to_host
+
+                    return units.Quantity(to_host(out * fac), unit=u)
                 else:
                     # complicated logic for dealing with ro and vo arrays
                     return out * (
@@ -1028,7 +1052,7 @@ def physical_conversion(quantity, pop=False):
                     )
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
@@ -1052,14 +1076,20 @@ def physical_conversion_tuple(quantities, pop=False):
                 )
             return out
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
 
 def potential_physical_input(method):
     """Decorator to convert inputs to Potential functions from physical
-    to internal coordinates"""
+    to internal coordinates.
+
+    Backend coercion of the coordinate inputs is NOT done here -- it is owned by
+    the backend-specific ``@backend_input`` boundary decorator (galpy.backend),
+    stacked just inside this one on the potential/df entry points, keeping the
+    backend concern separate from this legacy unit-handling decorator.
+    """
 
     @wraps(method)
     def wrapper(*args, **kwargs):
@@ -1198,27 +1228,33 @@ def physical_conversion_actionAngle(quantity, pop=False):
                     fac = [1.0, ro, ro, ro]
                     if _APY_UNITS:
                         u = [1.0, units.kpc, units.kpc, units.kpc]
+                # `out` is either a SEQUENCE of separate quantities -- the 3D
+                # actions, or any (actions,freqs[,angles]) return -- or ONE
+                # array-valued quantity, which is what a 1D __call__ gives back
+                # (J alone). len() cannot tell those apart, because a
+                # length-N array has a len() too, so dispatch on the type: for
+                # a 1D __call__, `fac` is 3 long and scaling element-by-element
+                # silently returned a tuple of scalars below length 4 and raised
+                # IndexError at or above it.
                 if _APY_UNITS:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
-                            )
-                    except TypeError:  # happens if out = scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                    from ..backend import to_host
+                if isinstance(out, (tuple, list)):
+                    if _APY_UNITS:
+                        newOut = tuple(
+                            units.Quantity(to_host(out[ii] * fac[ii]), unit=u[ii])
+                            for ii in range(len(out))
+                        )
+                    else:
+                        newOut = tuple(out[ii] * fac[ii] for ii in range(len(out)))
+                elif _APY_UNITS:
+                    newOut = units.Quantity(to_host(out * fac[0]), unit=u[0])
                 else:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (out[ii] * fac[ii],)
-                    except TypeError:  # happens if out = scalar
-                        newOut = out * fac[0]
+                    newOut = out * fac[0]
                 return newOut
             else:
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 
@@ -1326,14 +1362,16 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                             Freqsu = units.Gyr**-1.0
                             u.extend([Freqsu, Freqsu, Freqsu])
                 if _APY_UNITS:
+                    from ..backend import to_host
+
                     newOut = ()
                     try:
                         for ii in range(len(out)):
                             newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
+                                units.Quantity(to_host(out[ii] * fac[ii]), unit=u[ii]),
                             )
                     except TypeError:  # Happens when out == scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                        newOut = units.Quantity(to_host(out * fac[0]), unit=u[0])
                 else:
                     newOut = ()
                     try:
@@ -1345,7 +1383,7 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
             else:
                 return method(*args, **kwargs)
 
-        return wrapped
+        return _f64_if_torch(wrapped)
 
     return wrapper
 

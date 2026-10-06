@@ -13,6 +13,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace, promote_scalars
 from ..util import conversion
 from .actionAngle import actionAngle
 
@@ -68,6 +69,8 @@ class actionAngleHarmonic(actionAngle):
         """
         if len(args) == 2:  # x,vx
             x, vx = args
+            xp = get_namespace(x, vx)
+            x, vx = promote_scalars(xp, x, vx)
             return (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")
@@ -94,9 +97,11 @@ class actionAngleHarmonic(actionAngle):
         """
         if len(args) == 2:  # x,vx
             x, vx = args
+            xp = get_namespace(x, vx)
+            x, vx = promote_scalars(xp, x, vx)
             return (
                 (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0,
-                self._omega * numpy.ones_like(x),
+                self._omega * xp.ones_like(x),
             )
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")
@@ -123,10 +128,12 @@ class actionAngleHarmonic(actionAngle):
         """
         if len(args) == 2:  # x,vx
             x, vx = args
+            xp = get_namespace(x, vx)
+            x, vx = promote_scalars(xp, x, vx)
             return (
                 (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0,
-                self._omega * numpy.ones_like(x),
-                numpy.arctan2(self._omega * x, vx),
+                self._omega * xp.ones_like(x),
+                xp.arctan2(self._omega * x, vx),
             )
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")

@@ -1,8 +1,15 @@
 import numpy
 import scipy.special as sp
 
+from ..backend import coerce_coords
+from ..backend import special as _backend_special
+from ..backend._namespaces import under_trace
 from ..util import conversion
-from .ChandrasekharDynamicalFrictionForce import ChandrasekharDynamicalFrictionForce
+from .ChandrasekharDynamicalFrictionForce import (
+    _INVSQRTPI,
+    _INVSQRTTWO,
+    ChandrasekharDynamicalFrictionForce,
+)
 
 
 class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
@@ -96,7 +103,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         maxr : float or Quantity, optional
             Maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider.
         nr : int, optional
-            Number of radii to use in the interpolation of sigmar.
+            Number of radii to use in the interpolation of sigmar (logarithmically spaced between minr and maxr; linearly if minr=0).
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -227,3 +234,69 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             self._cached_force = (
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * self._C
             )
+
+    def _frictionFactor_backend(self, r, vs, xp):
+        # jit/grad-safe FDM coefficient for backend (jax/torch) inputs; value
+        # matches frictionFactor(). The three kr-regimes are selected with
+        # nested xp.where (both branches finite for kr>0, M_sigma>0) and the
+        # C<C_cdm classical cutoff is an xp.minimum.
+        sr = self.sigmar(r)
+        X = vs * _INVSQRTTWO / sr
+        Xfactor = _backend_special.erf(X) - 2.0 * X * _INVSQRTPI * xp.exp(-(X**2.0))
+        lnLambda = self._lnLambda_backend(r, vs, xp)
+        C_cdm = lnLambda * Xfactor
+        kr = self._mhbar * vs * r
+        M_sigma = vs / sr
+        # Eager, all points in ONE regime (an orbit integration, step by step):
+        # compute only that regime's C -- the value xp.where would select --
+        # instead of all three (two sici series). Traced: all three, selected.
+        if not under_trace(kr, M_sigma):
+            lo, hi = kr < M_sigma / 2.0, kr > 2.0 * M_sigma
+            if bool(xp.all(lo)):
+                return xp.minimum(self._C_zero_backend(kr, xp), C_cdm)
+            if bool(xp.all(hi)):
+                return xp.minimum(xp.log(2.0 * kr / M_sigma) * Xfactor, C_cdm)
+        # Dispersion regime (kr > 2 M_sigma)
+        C_disp = xp.log(2.0 * kr / M_sigma) * Xfactor
+        # Zero-velocity regime (kr < M_sigma / 2)
+        C_zero = self._C_zero_backend(kr, xp)
+        # Intermediate regime: linear interp between the zero-velocity value at
+        # kr = M_sigma/2 and the dispersion value log(4)*Xfactor at kr = 2 M_sigma
+        _, ci_ms = _backend_special.sici(M_sigma)
+        C_fdm = (
+            (-ci_ms + xp.log(M_sigma) + numpy.euler_gamma)
+            + (xp.sin(M_sigma) / M_sigma)
+            - 1.0
+        )
+        C_hi = numpy.log(4.0) * Xfactor
+        C_mid = C_fdm + (C_hi - C_fdm) * (kr - M_sigma / 2.0) / (
+            2.0 * M_sigma - M_sigma / 2.0
+        )
+        C = xp.where(
+            kr > 2.0 * M_sigma,
+            C_disp,
+            xp.where(kr < M_sigma / 2.0, C_zero, C_mid),
+        )
+        return xp.minimum(C, C_cdm)
+
+    @staticmethod
+    def _C_zero_backend(kr, xp):
+        _, ci_2kr = _backend_special.sici(2.0 * kr)
+        return (
+            (-ci_2kr + xp.log(2.0 * kr) + numpy.euler_gamma)
+            + (xp.sin(2.0 * kr) / (2.0 * kr))
+            - 1.0
+        )
+
+    def _calc_force_backend(self, R, phi, z, v, t, xp):
+        # v is a caller-supplied triple, not coerced by @backend_input like R/z,
+        # so torch rejects a numpy v here. No-op when xp is numpy.
+        v = coerce_coords(xp, *v)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
+        if self._const_FDMfactor:
+            C = self._const_FDMfactor
+        else:
+            C = self._frictionFactor_backend(r, vs, xp)
+        force = -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * C
+        return xp.where(r < self._minr, xp.zeros_like(force), force)

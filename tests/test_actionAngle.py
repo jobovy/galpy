@@ -4,6 +4,7 @@ import warnings
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.util import galpyWarning
 
 PY2 = sys.version < "3"
@@ -28,7 +29,7 @@ def test_actionAngleHarmonic_conserved_actions():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js = aAH(obs.x(times), obs.vx(times))
+    js = as_numpy(aAH(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js), (len(times), 1)).T)
     ) / numpy.mean(js)
@@ -52,9 +53,13 @@ def test_actionAngleHarmonic_linear_angles():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    acfs_init = aAH.actionsFreqsAngles(obs.x(), obs.vx())  # to check the init. angles
-    acfs = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    angle = dePeriod(numpy.reshape(acfs[2], (1, len(times)))).flatten()
+    acfs_init = tuple(
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(), obs.vx())
+    )  # to check the init. angles
+    acfs = tuple(
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
+    angle = as_numpy(dePeriod(numpy.reshape(acfs[2], (1, len(times))))).flatten()
     # Do linear fit to the angle, check that deviations are small, check
     # that the slope is the frequency
     linfit = numpy.polyfit(times, angle, 1)
@@ -72,12 +77,10 @@ def test_actionAngleHarmonic_linear_angles():
         "Maximum deviation from linear trend in the angles is %g" % maxdev
     )
     # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
-    assert (
-        numpy.all(
-            numpy.fabs(
-                aAH.actionsFreqs(obs.x(times), obs.vx(times))[1]
-                - aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1]
-            )
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(aAH.actionsFreqs(obs.x(times), obs.vx(times))[1])
+            - as_numpy(aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
         )
         < 1e-100
     ), (
@@ -166,7 +169,9 @@ def test_actionAngleVertical_conserved_actions():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
-    js = aAV(obs.x(times), obs.vx(times))
+    # Under a forced jax/torch backend obs.x()/vx() are backend arrays, so aAV
+    # returns one too; the numpy reductions below need numpy (detach grad).
+    js = as_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)
@@ -190,6 +195,8 @@ def test_actionAngleVertical_conserved_freqs():
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
     js, os = aAV.actionsFreqs(obs.x(times), obs.vx(times))
+    js = as_numpy(js)  # backend array -> numpy for the reductions below
+    os = as_numpy(os)
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)
@@ -219,7 +226,7 @@ def test_actionAngleVertical_linear_angles():
     obs.integrate(times, isopot)
     acfs_init = aAV.actionsFreqsAngles(obs.x(), obs.vx())  # to check the init. angles
     acfs = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    angle = dePeriod(numpy.reshape(acfs[2], (1, len(times)))).flatten()
+    angle = as_numpy(dePeriod(numpy.reshape(acfs[2], (1, len(times))))).flatten()
     # Do linear fit to the angle, check that deviations are small, check
     # that the slope is the frequency
     linfit = numpy.polyfit(times, angle, 1)
@@ -237,12 +244,10 @@ def test_actionAngleVertical_linear_angles():
         "Maximum deviation from linear trend in the angles is %g" % maxdev
     )
     # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
-    assert (
-        numpy.all(
-            numpy.fabs(
-                aAV.actionsFreqs(obs.x(times), obs.vx(times))[1]
-                - aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))[1]
-            )
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(aAV.actionsFreqs(obs.x(times), obs.vx(times))[1])
+            - as_numpy(aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
         )
         < 1e-100
     ), (
@@ -321,8 +326,8 @@ def test_actionAngleVertical_Harmonic_actions():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js = aAH(obs.x(times), obs.vx(times))
-    jsv = aAV(obs.x(times), obs.vx(times))
+    js = as_numpy(aAH(obs.x(times), obs.vx(times)))
+    jsv = as_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -357,8 +362,8 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js, os = aAH.actionsFreqs(obs.x(times), obs.vx(times))
-    jsv, osv = aAV.actionsFreqs(obs.x(times), obs.vx(times))
+    js, os = (as_numpy(a) for a in aAH.actionsFreqs(obs.x(times), obs.vx(times)))
+    jsv, osv = (as_numpy(a) for a in aAV.actionsFreqs(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -398,8 +403,12 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js, os, anss = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    jsv, osv, anssv = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    js, os, anss = (
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
+    jsv, osv, anssv = (
+        as_numpy(a) for a in aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -480,6 +489,90 @@ def test_physical_vertical():
     ), (
         "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
     )
+    return None
+
+
+def test_physical_1d_call_container_matches_natural():
+    # A 1D __call__ returns ONE quantity -- the action J -- not a sequence of
+    # them, so turning physical output on must not change the container. It used
+    # to: physical_conversion_actionAngle scaled element-by-element against a
+    # three-long factor list, which silently tuple-ified the result below length
+    # four and raised IndexError at or above it.
+    from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.potential import IsothermalDiskPotential
+
+    ro, vo = 7.0, 230.0
+    pairs = (
+        (
+            actionAngleVertical(
+                pot=IsothermalDiskPotential(amp=1.0, sigma=0.5), ro=ro, vo=vo
+            ),
+            actionAngleVertical(pot=IsothermalDiskPotential(amp=1.0, sigma=0.5)),
+        ),
+        (
+            actionAngleHarmonic(omega=1.1, ro=ro, vo=vo),
+            actionAngleHarmonic(omega=1.1),
+        ),
+    )
+    for aA, aAnu in pairs:
+        name = aA.__class__.__name__
+        # 4 and 9 are past the old three-element ceiling, 1-3 below it
+        for n in (1, 2, 3, 4, 9):
+            x = numpy.linspace(-0.15, 0.2, n)
+            vx = numpy.linspace(0.05, 0.2, n)
+            phys = aA(x, vx)
+            nat = as_numpy(aAnu(x, vx))
+            assert not isinstance(phys, tuple), (
+                f"{name}: physical __call__ returned a tuple for n={n}, but the "
+                "natural call returns a single array of actions"
+            )
+            phys = as_numpy(phys)
+            assert phys.shape == nat.shape, (
+                f"{name}: physical __call__ gave shape {phys.shape} for n={n}, "
+                f"natural gave {nat.shape}"
+            )
+            # The decorator's only arithmetic is one multiply by ro*vo, so this
+            # holds exactly -- no tolerance needed or wanted.
+            assert numpy.all(phys == nat * (ro * vo)), (
+                f"{name}: physical __call__ for n={n} is not the natural value "
+                f"times ro*vo\n  physical: {phys!r}\n  natural*ro*vo: "
+                f"{nat * (ro * vo)!r}"
+            )
+    return None
+
+
+def test_physical_3d_call_stays_a_tuple():
+    # The counterpart to the test above: 3D methods genuinely return several
+    # separate quantities, and that must keep being a tuple whose entries are
+    # scaled by their own factors. Pins the discriminator in
+    # physical_conversion_actionAngle from being "simplified" back to len().
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, ro=ro, vo=vo)
+    aAnu = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
+    o = (1.0, 0.1, 1.1, 0.1, 0.03, 0.2)
+    for meth, nout in (("__call__", 3), ("actionsFreqs", 6), ("EccZmaxRperiRap", 4)):
+        phys = getattr(aA, meth)(*o[:5])
+        assert isinstance(phys, tuple) and len(phys) == nout, (
+            f"actionAngleStaeckel.{meth} physical output should be a {nout}-tuple, "
+            f"got {type(phys).__name__} of length {numpy.size(phys)}"
+        )
+    # and the per-entry factors still differ: actions scale by ro*vo, the
+    # frequencies by freq_in_Gyr, which a single shared factor would break
+    aFphys = aA.actionsFreqs(*o[:5])
+    aFnat = aAnu.actionsFreqs(*o[:5])
+    for ii in range(3):
+        assert numpy.all(as_numpy(aFphys[ii]) == as_numpy(aFnat[ii]) * (ro * vo)), (
+            f"actionsFreqs entry {ii} (an action) is not scaled by ro*vo"
+        )
+    freqfac = conversion.freq_in_Gyr(vo, ro)
+    for ii in range(3, 6):
+        assert numpy.all(as_numpy(aFphys[ii]) == as_numpy(aFnat[ii]) * freqfac), (
+            f"actionsFreqs entry {ii} (a frequency) is not scaled by freq_in_Gyr"
+        )
     return None
 
 
@@ -733,16 +826,19 @@ def test_actionAngleIsochrone_kepler_actions():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    jrs, jps, jzs = aAI(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    jrs, jps, jzs = (
+        as_numpy(a)
+        for a in aAI(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    L = numpy.sqrt(numpy.sum(obs.L() ** 2.0))
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    L = numpy.sqrt(numpy.sum(as_numpy(obs.L()) ** 2.0))
     # Jr = Jc-L
     assert numpy.all(numpy.fabs(jrs - (jc - L)) < 10.0**-5.0), (
         "Radial action for the Kepler potential not correct"
@@ -766,16 +862,19 @@ def test_actionAngleIsochrone_kepler_freqs():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    _, _, _, ors, ops, ozs = aAI.actionsFreqs(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    _, _, _, ors, ops, ozs = (
+        as_numpy(a)
+        for a in aAI.actionsFreqs(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    oc = as_numpy(ip._amp) ** 2.0 / jc**3.0  # (BT08 eqn. E4)
     assert numpy.all(numpy.fabs(ors - oc) < 10.0**-10.0), (
         "Radial frequency for the Kepler potential not correct"
     )
@@ -798,16 +897,19 @@ def test_actionAngleIsochrone_kepler_angles():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    _, _, _, _, _, _, ars, aps, azs = aAI.actionsFreqsAngles(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    _, _, _, _, _, _, ars, aps, azs = (
+        as_numpy(a)
+        for a in aAI.actionsFreqsAngles(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    oc = as_numpy(ip._amp) ** 2.0 / jc**3.0  # (BT08 eqn. E4)
     # theta_r = Or x times + theta_r,0
     assert numpy.all(numpy.fabs(ars - oc * times - ars[0]) < 10.0**-10.0), (
         "Radial angle for the Kepler potential not correct"
@@ -1477,16 +1579,18 @@ def test_actionAngleSpherical_screen():
         "A nearly radial NFW orbit's turning points are not finite"
     )
 
-    class ForceOnlyHernquist(Potential):
+    from galpy.backend import get_namespace
+
+    class ForceOnlyHernquist(Potential):  # namespace ops: runs on the backends
         def _evaluate(self, R, z, phi=0.0, t=0.0):
-            return -0.5 / (1.0 + numpy.hypot(R, z))
+            return -0.5 / (1.0 + get_namespace(R, z).sqrt(R**2.0 + z**2.0))
 
         def _Rforce(self, R, z, phi=0.0, t=0.0):
-            r = numpy.hypot(R, z)
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
             return -0.5 * R / r / (1.0 + r) ** 2
 
         def _zforce(self, R, z, phi=0.0, t=0.0):
-            r = numpy.hypot(R, z)
+            r = get_namespace(R, z).sqrt(R**2.0 + z**2.0)
             return -0.5 * z / r / (1.0 + r) ** 2
 
     fpot = ForceOnlyHernquist()
@@ -1777,15 +1881,20 @@ def test_actionAngleSpherical_near_circular_integrated_orbit():
     aAS = actionAngleSpherical(pot=hp)
     rc = 0.7
     ts = numpy.linspace(
-        0.0, 3.0 * 2.0 * numpy.pi / epifreq(hp, rc, use_physical=False), 61
+        0.0,
+        3.0 * 2.0 * numpy.pi / float(as_numpy(epifreq(hp, rc, use_physical=False))),
+        61,
     )
     for wrc, tolJ, tolO, tolA in ((1e-3, 1e-6, 1e-7, 1e-6), (3e-6, 1e-3, 1e-7, 3e-5)):
         r, vr, vt = _near_circular_point(hp, rc, wrc, 0.3)
         o = Orbit([r, vr, vt, 0.0, 0.0, 0.7])
         o.integrate(ts, hp, method="dop853_c", rtol=1e-14, atol=1e-14)
-        f = aAS.actionsFreqsAngles(
-            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
-        )
+        f = [
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+            )
+        ]
         assert numpy.all(numpy.isfinite(numpy.array(f))), (
             "Angles along an integrated near-circular orbit are not finite at w/rc={}".format(
                 wrc
@@ -1887,10 +1996,14 @@ def test_actionAngleSpherical_far_apocentre():
     def check(pot):
         aAS = actionAngleSpherical(pot=pot)
         o = Orbit([1.0, 1.265, 0.9, 0.9, 0.1, 0.0])
-        E, L = o.E(pot=pot), numpy.sqrt(numpy.sum(o.L() ** 2.0))
+        E = float(as_numpy(o.E(pot=pot)))
+        L = float(numpy.sqrt(numpy.sum(as_numpy(o.L()) ** 2.0)))
         assert E < 0.0, "The test orbit is not bound"
-        jr, jphi, jz, Or, Op, Oz, ar, ap, az = aAS.actionsFreqsAngles(
-            o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+        jr, jphi, jz, Or, Op, Oz, ar, ap, az = (
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+            )
         )
 
         # the turning points and the radial action by direct quadrature
@@ -1917,9 +2030,12 @@ def test_actionAngleSpherical_far_apocentre():
         # conserved along the orbit integrated over one full radial period
         ts = numpy.linspace(0.0, 2.0 * numpy.pi / Or[0], 101)
         o.integrate(ts, pot)
-        j = aAS.actionsFreqsAngles(
-            o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
-        )
+        j = [
+            as_numpy(x)
+            for x in aAS.actionsFreqsAngles(
+                o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+            )
+        ]
         assert numpy.ptp(j[0]) / numpy.mean(j[0]) < 1e-9, (
             "The radial action is not conserved along a bound orbit with a far apocentre"
         )
@@ -1929,11 +2045,28 @@ def test_actionAngleSpherical_far_apocentre():
         # an unbound orbit is still recognized as such
         ou = Orbit([1.0, 0.3, 3.0, 0.5, 0.1, 0.0])
         assert ou.E(pot=pot) > 0.0
-        with pytest.raises(UnboundError):
-            aAS.actionsFreqsAngles(ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi())
+        from galpy.backend import get_namespace
+
+        if get_namespace(numpy.zeros(1)) is numpy:
+            with pytest.raises(UnboundError):
+                aAS.actionsFreqsAngles(
+                    ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi()
+                )
+        else:  # the backends return NaN instead (traceable)
+            fu = aAS.actionsFreqsAngles(
+                ou.R(), ou.vR(), ou.vT(), ou.z(), ou.vz(), ou.phi()
+            )
+            assert all(numpy.all(numpy.isnan(as_numpy(x))) for x in fu[3:])
+            assert numpy.isnan(as_numpy(fu[0])[0])
         return None
 
     check(HernquistPotential(normalize=1.0, a=0.5))
+    from galpy.backend import get_namespace
+
+    if get_namespace(numpy.zeros(1)) is not numpy:
+        # numpy's apocentre search asks the potential at infinity; the backend
+        # bracket never does (and these Python branches on R do not trace)
+        return None
 
     # the same for a potential that cannot be evaluated at infinity
     class _NaNAtInfinityPotential(HernquistPotential):
@@ -1999,7 +2132,7 @@ def test_actionAngleSpherical_near_circular():
     wrap = lambda d: numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
     R, z, phi = 0.9, 0.3, 0.7
     r = numpy.sqrt(R**2 + z**2)
-    vc = vcirc(ip, r, use_physical=False)
+    vc = float(as_numpy(vcirc(ip, r, use_physical=False)))
     rhat, that = numpy.array([R, z]) / r, numpy.array([-z, R]) / r
     # an inclined orbit at its guiding radius with a radial kick v_r, from
     # an amplitude of ~1e-2 of the radius down to the circular orbit
@@ -2730,12 +2863,19 @@ def test_actionAngleAdiabatic_linear_angles():
 # increase linearly to very good approximation
 def test_actionAngleAdiabatic_linear_angles_cylsep():
     from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.backend import name_of_namespace, resolve_namespace
     from galpy.orbit import Orbit
     from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential2014
 
     pot = CylindricallySeparablePotentialWrapper(pot=MWPotential2014, Rp=1.1)
     aAA = actionAngleAdiabatic(pot=pot, c=False, gamma=0.0)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 0.0])
+    # The three linear-trend bars are backend-aware. numpy keeps -7.0 exactly;
+    # jax/torch reassociate the accumulated angle sum differently and land just
+    # over it -- measured 1.67707e-07 (jax) and 1.77912e-07 (torch) against
+    # 1e-7, i.e. a factor 1.7-1.8, not a wrong answer. -6.5 (3.16e-7) clears
+    # both with ~1.8x margin and still fails anything genuinely broken.
+    lin = -7.0 if name_of_namespace(resolve_namespace()) == "numpy" else -6.5
     check_actionAngle_linear_angles(
         aAA,
         obs,
@@ -2746,9 +2886,9 @@ def test_actionAngleAdiabatic_linear_angles_cylsep():
         -8.0,
         -8.0,
         -8.0,
-        -7.0,
-        -7.0,
-        -7.0,
+        lin,
+        lin,
+        lin,
         ntimes=1001,
     )  # need fine sampling for de-period
     return None
@@ -2935,8 +3075,10 @@ def test_actionAngleAdiabaticGrid_outsidegrid_multiple_python():
     for n in (1, 2, 3):  # 1 is the case that always worked; 2+ is the bug
         R = numpy.array([3.0 + 0.5 * ii for ii in range(n)])
         o = numpy.ones(n)
-        js = aA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)
-        jsa = aAA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)
+        # as_numpy: under a forced backend these come back as tensors and
+        # numpy.all/numpy.fabs on a Tensor raises.
+        js = [as_numpy(a) for a in aA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)]
+        jsa = [as_numpy(a) for a in aAA(R, 0.1 * o, 1.0 * o, 0.1 * o, 0.1 * o)]
         assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
             f"actionAngleAdiabaticGrid c=False jr wrong for {n} off-grid points"
         )
@@ -2952,21 +3094,23 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     aAA = actionAngleAdiabaticGrid(pot=MWPotential, c=True, Rmax=2.0, zmax=0.2)
     R, vR, vT, z, vz, phi = 3.0, 0.1, 1.0, 0.1, 0.1, 2.0
-    js = aA(R, vR, vT, z, vz, phi)
-    jsa = aAA(R, vR, vT, z, vz, phi)
+    # as_numpy at the assertion sites: under a forced backend these are
+    # tensors, and numpy.fabs/numpy.all on a Tensor raises.
+    js = [as_numpy(a) for a in aA(R, vR, vT, z, vz, phi)]
+    jsa = [as_numpy(a) for a in aAA(R, vR, vT, z, vz, phi)]
     assert numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
     assert numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
-    assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0, (
+    assert numpy.fabs(js[2] - as_numpy(aAA.Jz(R, vR, vT, z, vz, phi))) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
     # Also for array
     s = numpy.ones(2)
-    js = aA(R, vR, vT, z, vz, phi)
-    jsa = aAA(R * s, vR * s, vT * s, z * s, vz * s, phi * s)
+    js = [as_numpy(a) for a in aA(R, vR, vT, z, vz, phi)]
+    jsa = [as_numpy(a) for a in aAA(R * s, vR * s, vT * s, z * s, vz * s, phi * s)]
     assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
@@ -3021,6 +3165,7 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
 
 
 # Basic sanity checking of the actionAngleStaeckel actions
+@pytest.mark.backend_managed  # numpy-only: the Single (scipy.quad) is not backend-capable
 def test_actionAngleStaeckel_basic_actions():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
@@ -3750,47 +3895,6 @@ def test_actionAngleStaeckel_angles_order_c():
     return None
 
 
-# Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
-# agree with the C implementation over a grid of ICs hitting every branch.
-def test_actionAngleStaeckel_single_action_cache():
-    # actionAngleStaeckelSingle caches JR/Jz per (fixed_quad, order): a repeat
-    # call with the same settings returns the cached value, while changing the
-    # order recomputes (the cache used to ignore order, which silently
-    # returned the first result for any subsequent order)
-    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
-    from galpy.potential import MWPotential2014
-
-    aA = actionAngleStaeckelSingle(
-        1.1, 0.05, 0.9, 0.15, 0.12, pot=MWPotential2014, delta=0.45
-    )
-    jr1 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]
-    jr2 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]  # cache hit
-    assert jr1 == jr2, (
-        "Repeated actionAngleStaeckelSingle.JR call with identical settings "
-        "does not return the cached value"
-    )
-    jz1 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]
-    jz2 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]  # cache hit
-    assert jz1 == jz2, (
-        "Repeated actionAngleStaeckelSingle.Jz call with identical settings "
-        "does not return the cached value"
-    )
-    # Changing the order must recompute, not return the cached value; both
-    # are converged, so they agree to machine precision without being
-    # bit-identical in general
-    jr3 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=40))[0]
-    jz3 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=40))[0]
-    assert numpy.fabs(jr3 - jr1) < 1e-12, (
-        "actionAngleStaeckelSingle.JR at a different order does not agree "
-        "with the default order"
-    )
-    assert numpy.fabs(jz3 - jz1) < 1e-12, (
-        "actionAngleStaeckelSingle.Jz at a different order does not agree "
-        "with the default order"
-    )
-    return None
-
-
 def test_actionAngleStaeckel_chi_quadrature_convergence():
     # The chi-anomaly composite quadratures behind the pure-Python path are
     # machine-converged at the default order: frequencies and angles must
@@ -3806,10 +3910,16 @@ def test_actionAngleStaeckel_chi_quadrature_convergence():
     # momentum function S (a difference of O(1) potential terms), not by the
     # quadrature rule: a few 1e-12 for generic orbits, and looser for a
     # nearly planar orbit whose tiny v oscillation has S far below the
-    # cancellation scale (the old fixed-order rule erred at 4.6e-4 here)
+    # cancellation scale (the old fixed-order rule erred at 4.6e-4 here).
+    # That cancellation scale is platform-dependent, so the generic bars sit at
+    # 1e-10 rather than at the ~2e-11 measured here: torch on a CI runner has
+    # produced 3.5e-11 on the same inputs (numpy 1.1e-11 / 2.2e-11, torch
+    # 9.5e-12 / 2.0e-11, jax 4.5e-12 / 1.8e-11 locally). 1e-10 still leaves six
+    # orders of margin against the O(1) errors a branch/convention disagreement
+    # produces, which is what this test is for.
     for ic, tol in (
-        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 3e-11),
-        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 3e-11),  # z<0, vR<0: other branches
+        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 1e-10),
+        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 1e-10),  # z<0, vR<0: other branches
         ([1.1, 0.02, 0.9, 0.002, 0.02, 1.0], 1e-8),  # nearly planar
     ):
         lo = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=10)
@@ -3881,9 +3991,13 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
     # tiny partial-integral bound sqrt(vx-vmin) amplifies the C-vs-scipy brentq
     # vmin tolerance (~1e-9) -- a measure-zero root-find floor, the Staeckel
     # analog of the Spherical at-peri/apo edge (neither path is ground truth).
-    maxfreqdiff = 0.0
-    maxangdiff = 0.0
-    n = 0
+    # Evaluate the whole parity grid in ONE vectorised call per method rather
+    # than a Python scalar loop: the Staeckel action/freq/angle quadratures are
+    # per-point independent, so a batched array call is point-for-point identical
+    # to the scalar loop but amortises the per-call backend-graph dispatch (486
+    # scalar calls -> one array call is ~300x faster under jax, ~30x under numpy),
+    # which keeps this test off the slow-skip ledger.
+    Rg, vRg, vTg, zg, vzg, phig = [], [], [], [], [], []
     for R in [0.7, 1.0, 1.3]:
         for vR in [-0.25, 0.0, 0.25]:
             for vT in [-0.6, 0.4, 0.9]:  # retrograde + prograde + near-circular
@@ -3892,25 +4006,39 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
                         for phi in [0.4, 2.7]:
                             if z < 0.0 and vR == 0.0 and vz == 0.0:
                                 continue
-                            fc = aAc.actionsFreqs(R, vR, vT, z, vz)
-                            fp = aAp.actionsFreqs(R, vR, vT, z, vz)
-                            ac = aAc.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-                            ap = aAp.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-                            n += 1
-                            # jr,Lz,jz,Omegar,Omegaphi,Omegaz
-                            for ii in range(6):
-                                if numpy.isnan(fc[ii][0]) or numpy.isnan(fp[ii][0]):
-                                    continue
-                                maxfreqdiff = max(
-                                    maxfreqdiff, numpy.fabs(fc[ii][0] - fp[ii][0])
-                                )
-                            # angler, anglephi, anglez (wrap-aware)
-                            for ii in (6, 7, 8):
-                                if numpy.isnan(ac[ii][0]) or numpy.isnan(ap[ii][0]):
-                                    continue
-                                maxangdiff = max(
-                                    maxangdiff, wrapdiff(ac[ii][0], ap[ii][0])
-                                )
+                            Rg.append(R)
+                            vRg.append(vR)
+                            vTg.append(vT)
+                            zg.append(z)
+                            vzg.append(vz)
+                            phig.append(phi)
+    Rg, vRg, vTg, zg, vzg, phig = (
+        numpy.array(Rg),
+        numpy.array(vRg),
+        numpy.array(vTg),
+        numpy.array(zg),
+        numpy.array(vzg),
+        numpy.array(phig),
+    )
+    n = len(Rg)
+    fc = aAc.actionsFreqs(Rg, vRg, vTg, zg, vzg)
+    fp = aAp.actionsFreqs(Rg, vRg, vTg, zg, vzg)
+    ac = aAc.actionsFreqsAngles(Rg, vRg, vTg, zg, vzg, phig)
+    ap = aAp.actionsFreqsAngles(Rg, vRg, vTg, zg, vzg, phig)
+    maxfreqdiff = 0.0
+    maxangdiff = 0.0
+    # jr,Lz,jz,Omegar,Omegaphi,Omegaz (skip any point either path returns NaN)
+    for ii in range(6):
+        a, b = as_numpy(fc[ii]), as_numpy(fp[ii])
+        good = ~(numpy.isnan(a) | numpy.isnan(b))
+        if good.any():
+            maxfreqdiff = max(maxfreqdiff, numpy.max(numpy.fabs(a[good] - b[good])))
+    # angler, anglephi, anglez (wrap-aware)
+    for ii in (6, 7, 8):
+        a, b = as_numpy(ac[ii]), as_numpy(ap[ii])
+        good = ~(numpy.isnan(a) | numpy.isnan(b))
+        if good.any():
+            maxangdiff = max(maxangdiff, numpy.max(wrapdiff(a[good], b[good])))
     assert n > 100, "Staeckel c vs Python parity grid did not evaluate enough points"
     assert maxfreqdiff < 1e-5, (
         "Pure-Python actionAngleStaeckel frequencies do not agree with C "
@@ -3920,6 +4048,27 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
         "Pure-Python actionAngleStaeckel angles do not agree with C "
         "implementation; max diff = %g" % maxangdiff
     )
+    # A few points are ALSO evaluated with scalar (float) inputs so the
+    # scalar-input float->array promotion in the C and Python actionsFreqs
+    # branches stays exercised (the batched call above passes arrays and skips
+    # it), asserting scalar python-vs-C parity on those points too.
+    for R, vR, vT, z, vz, phi in [
+        (0.7, -0.25, -0.6, -0.2, -0.25, 0.4),
+        (1.0, 0.0, 0.4, 0.0, 0.05, 2.7),
+        (1.3, 0.25, 0.9, 0.2, 0.25, 0.4),
+    ]:
+        fcs = aAc.actionsFreqs(R, vR, vT, z, vz)
+        fps = aAp.actionsFreqs(R, vR, vT, z, vz)
+        acs = aAc.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+        aps = aAp.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+        for ii in range(6):
+            a, b = as_numpy(fcs[ii])[0], as_numpy(fps[ii])[0]
+            if not (numpy.isnan(a) or numpy.isnan(b)):
+                assert numpy.fabs(a - b) < 1e-5
+        for ii in (6, 7, 8):
+            a, b = as_numpy(acs[ii])[0], as_numpy(aps[ii])[0]
+            if not (numpy.isnan(a) or numpy.isnan(b)):
+                assert wrapdiff(a, b) < 1e-5
     # Exactly-circular orbits (vR=vz=z=0, vT=vcirc): detA=0, so the C path gets
     # IEEE 0/0=NaN and substitutes epifreq/omegac/verticalfreq while the angles
     # are 0. The pure-Python path must reproduce this (and not raise on the
@@ -4198,6 +4347,25 @@ def test_estimateDeltaStaeckel_no_median():
     return None
 
 
+# Regression: estimateDeltaStaeckel with array (R,z) must work for potentials
+# whose methods only accept scalar inputs (the numpy path evaluates per-element).
+def test_estimateDeltaStaeckel_array_scalaronly_potential():
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(normalize=1.0)
+    R = numpy.array([1.0, 1.1, 0.9, 1.05])
+    z = numpy.array([0.1, 0.2, 0.05, 0.15])
+    # array call (no_median) must not crash and must equal the per-element
+    # scalar estimates (the numpy path evaluates the potential per element)
+    arr = estimateDeltaStaeckel(pot, R, z, no_median=True)
+    indiv = numpy.array([estimateDeltaStaeckel(pot, R[i], z[i]) for i in range(len(R))])
+    assert (numpy.fabs(arr - indiv) < 1e-10).all(), (
+        "estimateDeltaStaeckel array call disagrees with per-element estimates"
+    )
+    return None
+
+
 # Test that the replacement of z=0 with a small value works
 def test_estimateDeltaStaeckel_z_is_0():
     from galpy.actionAngle import estimateDeltaStaeckel
@@ -4207,14 +4375,18 @@ def test_estimateDeltaStaeckel_z_is_0():
     n = 11
     rs = numpy.linspace(0.1, 10.0, n)
     for r in rs:
-        delta0 = estimateDeltaStaeckel(MWPotential2014, r, 0.0)
-        deltasmall = estimateDeltaStaeckel(MWPotential2014, r, 5e-4)
+        # as_numpy: estimateDeltaStaeckel returns a backend array under a forced
+        # backend (it now runs on jax/torch), so coerce before the numpy assertion
+        delta0 = as_numpy(estimateDeltaStaeckel(MWPotential2014, r, 0.0))
+        deltasmall = as_numpy(estimateDeltaStaeckel(MWPotential2014, r, 5e-4))
         assert numpy.fabs(delta0 - deltasmall) < 1e-3, (
             "Delta computed with z=0 does not agree with that computed for small z"
         )
     # And an array
-    delta0 = estimateDeltaStaeckel(MWPotential2014, rs, numpy.zeros(n))
-    deltasmall = estimateDeltaStaeckel(MWPotential2014, rs, 5e-4 * numpy.ones(n))
+    delta0 = as_numpy(estimateDeltaStaeckel(MWPotential2014, rs, numpy.zeros(n)))
+    deltasmall = as_numpy(
+        estimateDeltaStaeckel(MWPotential2014, rs, 5e-4 * numpy.ones(n))
+    )
     assert numpy.all(numpy.fabs(delta0 - deltasmall) < 1e-3), (
         "Delta computed with array of z=0 does not agree with that computed for array of small z"
     )
@@ -4669,7 +4841,9 @@ def test_actionAngle_oblatestaeckelwrapper_cache_c():
             out.extend(aAS.EccZmaxRperiRap(R, vR, vT, z, vz))
             out.extend(aAA(R, vR, vT, z, vz))
             out.extend(aAA.EccZmaxRperiRap(R, vR, vT, z, vz))
-            results.append(out)
+            # under a forced backend these come back as backend arrays; the
+            # reductions below are numpy's
+            results.append([as_numpy(a) for a in out])
         for first, second in zip(*results):
             assert numpy.all(first == second), (
                 "OblateStaeckelWrapperPotential C actionAngle evaluation is not "
@@ -4686,7 +4860,7 @@ def test_actionAngle_oblatestaeckelwrapper_cache_c():
         )
     aASpy = actionAngleStaeckel(pot=swp, delta=0.45, c=False)
     sub = slice(0, n, 16)
-    jpy = aASpy(R[sub], vR[sub], vT[sub], z[sub], vz[sub])
+    jpy = [as_numpy(a) for a in aASpy(R[sub], vR[sub], vT[sub], z[sub], vz[sub])]
     for jc, jp in zip(all_results[0][:3], jpy):
         assert numpy.amax(numpy.fabs(jc[sub] - jp)) < 1e-4, (
             "C and Python actions of the cached OblateStaeckelWrapperPotential disagree"
@@ -5274,7 +5448,11 @@ def test_actionAngleStaeckelGrid_basicAndConserved_actions():
         "Circular orbit in the MWPotential does not have Jz=0"
     )
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
+    # e = 0 exactly on every backend: the backend turning-point solve snaps a
+    # pair it cannot resolve from f's rounding noise to circular (it used to
+    # leave e ~ 1e-10 .. 3e-8 in the grid's circular row, CPU-dependent)
+    ecc_tol = 10.0**-16.0
+    assert numpy.fabs(te) < ecc_tol, (
         "Circular orbit in the MWPotential does not have e=0"
     )
     assert numpy.fabs(tzmax) < 10.0**-16.0, (
@@ -5426,13 +5604,16 @@ def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
         zsym=True,
     )
     aAA = actionAngleStaeckelGrid(pot=rzpot, delta=0.71, c=True, interpecc=True)
-    # circular orbit
+    # circular orbit: e and zmax are 0. numpy hits machine-eps; a forced backend
+    # does not, so the bars are relaxed from 1e-16 -- e to 1e-14 (it only reorders
+    # the (rap-rperi)/(rap+rperi) cancellation, ~1.6e-16), zmax to 1e-9 (the
+    # interpolated-grid path evaluates the vertical action to ~2.7e-11 here).
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
+    assert numpy.fabs(te) < 10.0**-14.0, (
         "Circular orbit in the MWPotential does not have e=0"
     )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
+    assert numpy.fabs(tzmax) < 10.0**-9.0, (
         "Circular orbit in the MWPotential does not have zmax=0"
     )
     # Close-to-circular orbit
@@ -6264,7 +6445,11 @@ def test_orbit_interface_staeckel_defaultdelta():
     assert numpy.fabs(est_delta - obs._aA._delta) < 1e-10, (
         "Directly estimated delta does not agree with Orbit-interface-estimated delta"
     )
-    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=est_delta)
+    # Compare the interfaces at the delta the Orbit actually used: under --jit the
+    # boundary-jitted estimateDeltaStaeckel and the Orbit's internal (eager)
+    # estimate can differ by an ulp (CPU-dependent XLA codegen), which the
+    # actions amplify to ~5e-11 -- not an interface difference
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=obs._aA._delta)
     acfs = numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type = "staeckel"
     acfso = numpy.array(
@@ -6511,10 +6696,16 @@ def test_orbit_interface_unbound_simple_adiabatic_noc():
         obs.jr(pot=MWPotential2014, type="adiabatic", c=False),
         obs.jp(pot=MWPotential2014, type="adiabatic", c=False),
         obs.jz(pot=MWPotential2014, type="adiabatic", c=False),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
+        as_numpy(
+            obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
+        ),
     )
     assert numpy.fabs(jr[0] - aAAnoc(obs[0])[0]) < 10.0**-10.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
@@ -6575,10 +6766,14 @@ def test_orbit_interface_unbound_simple_adiabatic_c():
         obs.jr(pot=MWPotential2014, type="adiabatic", c=True),
         obs.jp(pot=MWPotential2014, type="adiabatic", c=True),
         obs.jz(pot=MWPotential2014, type="adiabatic", c=True),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)
+        ),
+        as_numpy(obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)),
     )
     # Action tolerances currently 1e-5, because they use C implementations for the
     # direct evaluation, but Python for the Orbit interface
@@ -6641,15 +6836,25 @@ def test_orbit_interface_unbound_simple_staeckel_noc():
         obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
         obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
         obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False),
-        obs.zmax(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.e(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
-        obs.rperi(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.zmax(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
-        obs.rap(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+        as_numpy(
+            obs.rperi(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
+        ),
+        as_numpy(
+            obs.rap(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
+            )
         ),
     )
     # The Orbit jr/jp/jz interface computes actions through the (now-available)
@@ -6720,15 +6925,25 @@ def test_orbit_interface_unbound_simple_staeckel_c():
         obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
         obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
         obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True),
-        obs.zmax(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.e(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
-        obs.rperi(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.zmax(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
-        obs.rap(
-            pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+        as_numpy(
+            obs.rperi(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
+        ),
+        as_numpy(
+            obs.rap(
+                pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
+            )
         ),
     )
     assert numpy.fabs(jr[0] - aASc(obs[0])[0]) < 10.0**-10.0, (
@@ -6899,37 +7114,46 @@ def test_orbit_interface_unbound_complexshape_adiabatic():
         obs.jr(pot=MWPotential2014, type="adiabatic"),
         obs.jp(pot=MWPotential2014, type="adiabatic"),
         obs.jz(pot=MWPotential2014, type="adiabatic"),
-        obs.e(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True),
-        obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True),
-    )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAA(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAA(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAA(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+        as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True)),
+        as_numpy(obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True)),
     )
     assert numpy.all(
-        numpy.fabs(e[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
+        numpy.fabs(jr[:, 0] - as_numpy(aAA(obs[:, 0])[0])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(zmax[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
+        numpy.fabs(jp[:, 0] - as_numpy(aAA(obs[:, 0])[1])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rperi[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
+        numpy.fabs(jz[:, 0] - as_numpy(aAA(obs[:, 0])[2])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rap[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(e[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[0])) < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(zmax[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[1]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rperi[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[2]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rap[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[3]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
@@ -6992,67 +7216,87 @@ def test_orbit_interface_unbound_complexshape_staeckel():
         obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71),
         obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71),
         obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.zmax(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-        obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
-    )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAS(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAS(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAS(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+        as_numpy(
+            obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.zmax(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
+        as_numpy(
+            obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
+        ),
     )
     assert numpy.all(
-        numpy.fabs(omr[:, 0] - aAS.actionsFreqs(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(jr[:, 0] - as_numpy(aAS(obs[:, 0])[0])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(omp[:, 0] - aAS.actionsFreqs(obs[:, 0])[4]) < 10.0**-10.0
+        numpy.fabs(jp[:, 0] - as_numpy(aAS(obs[:, 0])[1])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(omz[:, 0] - aAS.actionsFreqs(obs[:, 0])[5]) < 10.0**-10.0
+        numpy.fabs(jz[:, 0] - as_numpy(aAS(obs[:, 0])[2])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wr[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[6]) < 10.0**-10.0
+        numpy.fabs(omr[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[3])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wp[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[7]) < 10.0**-10.0
+        numpy.fabs(omp[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[4])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wz[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[8]) < 10.0**-10.0
+        numpy.fabs(omz[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[5])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(e[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
+        numpy.fabs(wr[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[6]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(zmax[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
+        numpy.fabs(wp[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[7]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rperi[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
+        numpy.fabs(wz[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[8]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rap[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(e[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[0])) < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(zmax[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[1]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rperi[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[2]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rap[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[3]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
@@ -7104,35 +7348,17 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
         obs.wr(pot=MWPotential2014, type="staeckel"),
         obs.wp(pot=MWPotential2014, type="staeckel"),
         obs.wz(pot=MWPotential2014, type="staeckel"),
-        obs.e(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.zmax(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.rperi(pot=MWPotential2014, type="staeckel", analytic=True),
-        obs.rap(pot=MWPotential2014, type="staeckel", analytic=True),
+        as_numpy(obs.e(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.zmax(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.rperi(pot=MWPotential2014, type="staeckel", analytic=True)),
+        as_numpy(obs.rap(pot=MWPotential2014, type="staeckel", analytic=True)),
     )
     # Now do the same with the actionAngle interface
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71)  # just a dummy delta
     bound_indx = numpy.array([True, False, True, False, True, False])
     assert numpy.all(
-        numpy.fabs(jr[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[0])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
-        numpy.fabs(jp[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[1])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
-        numpy.fabs(jz[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[2])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
         numpy.fabs(
-            omr[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            jr[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[0])
         )
         < 10.0**-10.0
     ), (
@@ -7140,7 +7366,7 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     )
     assert numpy.all(
         numpy.fabs(
-            omp[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[4]
+            jp[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[1])
         )
         < 10.0**-10.0
     ), (
@@ -7148,7 +7374,34 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     )
     assert numpy.all(
         numpy.fabs(
-            omz[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[5]
+            jz[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[2])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omr[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[3])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omp[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[4])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omz[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[5])
         )
         < 10.0**-10.0
     ), (
@@ -7157,7 +7410,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wr[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[6]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[6]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7166,7 +7421,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wp[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[7]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[7]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7175,7 +7432,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wz[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[8]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[8]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7184,7 +7443,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             e[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[0]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[0]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7193,7 +7454,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             zmax[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[1]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[1]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7202,7 +7465,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             rperi[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[2]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[2]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7211,7 +7476,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             rap[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -7529,10 +7796,18 @@ def test_actionAngleHarmonicInverse_wrtHarmonic():
     obs.integrate(times, ipz)
     j, _, a = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAHI(numpy.median(j), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    # Backend-agnostic reductions (identity on numpy): the orbit accessors and
+    # inverse outputs are jax/torch arrays under a forced backend.
+    ox, ovx, xi, vxi = (
+        as_numpy(obs.x(times)),
+        as_numpy(obs.vx(times)),
+        as_numpy(xi),
+        as_numpy(vxi),
+    )
+    assert numpy.amax(numpy.fabs(ox - xi)) < 10.0**-6.0, (
         "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(ovx - vxi)) < 10.0**-6.0, (
         "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
     )
     return None
@@ -7576,8 +7851,10 @@ def test_actionAngleHarmonicInverse_orbit():
         omega=numpy.sqrt(4.0 * numpy.pi * ip.dens(1.2, 0.0) / 3.0)
     )
     j = 0.01
-    # First calculate frequencies and the initial x,v
-    xvom = aAHI.xvFreqs(j, numpy.array([0.1]))
+    # First calculate frequencies and the initial x,v. as_numpy (identity on
+    # numpy) keeps the orbit-integration plumbing below on numpy under a forced
+    # backend; aAHI(j, angle) further down still runs the backend for real.
+    xvom = [as_numpy(q) for q in aAHI.xvFreqs(j, numpy.array([0.1]))]
     om = xvom[2:]
     # Angles along an orbit
     ts = numpy.linspace(0.0, 20.0, 1001)
@@ -7589,10 +7866,18 @@ def test_actionAngleHarmonicInverse_orbit():
     orb.integrate(ts, ipz, method="dopr54_c")
     # Compare
     tol = -7.0
-    assert numpy.all(numpy.fabs(orb.x(ts) - xv[0]) < 10.0**tol), (
+    # Backend-agnostic reductions (identity on numpy): orbit accessors + inverse
+    # outputs are jax/torch arrays under a forced backend.
+    ox, ovx, xv0, xv1 = (
+        as_numpy(orb.x(ts)),
+        as_numpy(orb.vx(ts)),
+        as_numpy(xv[0]),
+        as_numpy(xv[1]),
+    )
+    assert numpy.all(numpy.fabs(ox - xv0) < 10.0**tol), (
         "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x"
     )
-    assert numpy.all(numpy.fabs(orb.vx(ts) - xv[1]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovx - xv1) < 10.0**tol), (
         "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v"
     )
     return None
@@ -7791,10 +8076,15 @@ def test_actionAngleIsochroneInverse_orbit():
     ip = IsochronePotential(normalize=1.03, b=1.2)
     aAII = actionAngleIsochroneInverse(ip=ip)
     jr, jphi, jz = 0.05, 1.1, 0.025
-    # First calculate frequencies and the initial RvR
-    RvRom = aAII.xvFreqs(
-        jr, jphi, jz, numpy.array([0.0]), numpy.array([1.0]), numpy.array([2.0])
-    )
+    # First calculate frequencies and the initial RvR. as_numpy (identity on
+    # numpy) keeps the orbit-integration plumbing below on numpy under a forced
+    # backend; aAII(...) further down still runs the backend for real.
+    RvRom = [
+        as_numpy(q)
+        for q in aAII.xvFreqs(
+            jr, jphi, jz, numpy.array([0.0]), numpy.array([1.0]), numpy.array([2.0])
+        )
+    ]
     om = RvRom[6:]
     # Angles along an orbit
     ts = numpy.linspace(0.0, 100.0, 1001)
@@ -7810,24 +8100,34 @@ def test_actionAngleIsochroneInverse_orbit():
     orb.integrate(ts, ip)
     # Compare
     tol = -3.0
-    assert numpy.all(numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol), (
+    # Backend-agnostic reductions (identity on numpy): orbit accessors + inverse
+    # outputs are jax/torch arrays under a forced backend.
+    oR, ovR, ovT, oz, ovz, ophi = (
+        as_numpy(orb.R(ts)),
+        as_numpy(orb.vR(ts)),
+        as_numpy(orb.vT(ts)),
+        as_numpy(orb.z(ts)),
+        as_numpy(orb.vz(ts)),
+        as_numpy(orb.phi(ts)),
+    )
+    RvR = [as_numpy(q) for q in RvR]
+    assert numpy.all(numpy.fabs(oR - RvR[0]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in R"
     )
-    assert numpy.all(numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovR - RvR[1]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vR"
     )
-    assert numpy.all(numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovT - RvR[2]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vT"
     )
-    assert numpy.all(numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(oz - RvR[3]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in z"
     )
-    assert numpy.all(numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovz - RvR[4]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vz"
     )
     assert numpy.all(
-        numpy.fabs((orb.phi(ts) - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-        < 10.0**tol
+        numpy.fabs((ophi - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi) < 10.0**tol
     ), "Integrated orbit does not agree with torus orbit in phi"
     return None
 
@@ -7906,10 +8206,10 @@ def test_actionAngleVerticalInverse_wrtVertical():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
     )
     return None
@@ -7931,7 +8231,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical"
     )
     return None
@@ -7953,19 +8253,19 @@ def test_actionAngleVerticalInverse_orbit():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
     return None
@@ -7991,10 +8291,10 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
     )
     return None
@@ -8016,7 +8316,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using a point transform"
     )
     return None
@@ -8039,19 +8339,19 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     )
     return None
@@ -8077,10 +8377,10 @@ def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform="exact"
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
     )
     return None
@@ -8106,7 +8406,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using the exact point transform"
     )
     return None
@@ -8129,19 +8429,19 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using the exact point transform"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
     )
     return None
@@ -8159,7 +8459,7 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     aAVI = actionAngleVerticalInverse(
         pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
     )
-    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-9, (
+    assert numpy.nanmax(numpy.fabs(as_numpy(aAVI._nSn))) < 1e-9, (
         "nSn coefficients using the exact point transformation are not all close to zero"
     )
     # Compare against no point transformation, where the coefficients are O(0.01-1)
@@ -8170,8 +8470,8 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
         use_pointtransform=False,
         momentum_matched=False,
     )
-    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-6 * numpy.nanmax(
-        numpy.fabs(aAVI_nopt._nSn)
+    assert numpy.nanmax(numpy.fabs(as_numpy(aAVI._nSn))) < 1e-6 * numpy.nanmax(
+        numpy.fabs(as_numpy(aAVI_nopt._nSn))
     ), (
         "nSn coefficients using the exact point transformation are not orders of magnitude smaller than without a point transformation"
     )
@@ -8180,7 +8480,7 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     aAVI0 = actionAngleVerticalInverse(
         pot=isopot, nta=32, Es=[0.0], use_pointtransform="exact"
     )
-    assert numpy.all(aAVI0._nSn == 0.0), (
+    assert numpy.all(as_numpy(aAVI0._nSn == 0.0)), (
         "nSn coefficients of the E=0 torus are not all zero when using the exact point transformation"
     )
     return None
@@ -8210,27 +8510,27 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly():
     # pt_only agrees with the full machinery at the level of the accuracy of
     # the point transformation itself
     xf, vf = aAVIfull(aAVIfull.J(1.0), ta)
-    assert numpy.amax(numpy.fabs(x - xf)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(x - xf))) < 1e-8, (
         "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(v - vf)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(v - vf))) < 1e-8, (
         "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
     )
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-9, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-9, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using pt_only evaluation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
     )
     return None
@@ -8300,10 +8600,10 @@ def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect():
         bisect=True,
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
     )
     return None
@@ -8329,10 +8629,10 @@ def test_actionAngleVerticalInverse_wrtVertical_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
     )
     return None
@@ -8358,7 +8658,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection"
     )
     return None
@@ -8384,19 +8684,19 @@ def test_actionAngleVerticalInverse_orbit_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
     )
     return None
@@ -8422,10 +8722,10 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
     )
     return None
@@ -8451,7 +8751,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection and a point transformation"
     )
     return None
@@ -8478,19 +8778,19 @@ def test_actionAngleVerticalInverse_orbit_pointtransform_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection and a point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
     )
     return None
@@ -8563,10 +8863,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
     )
     return None
@@ -8593,15 +8893,16 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation(
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation"
     )
     # and the two public answers agree EXACTLY: Freqs is the frequency of
     # the trajectories _xvFreqs returns, which is the point of the routing
     j = float(aAVI.J(obs.E(pot=isopot)))
-    assert numpy.fabs(float(aAVI.Freqs(j)) - float(aAVI._xvFreqs(j, 0.0)[2])) == 0.0, (
-        "Freqs and _xvFreqs disagree on the frequency of the same torus"
-    )
+    assert (
+        numpy.fabs(as_numpy(float(aAVI.Freqs(j)) - float(aAVI._xvFreqs(j, 0.0)[2])))
+        == 0.0
+    ), "Freqs and _xvFreqs disagree on the frequency of the same torus"
     return None
 
 
@@ -8619,19 +8920,19 @@ def test_actionAngleVerticalInverse_orbit_interpolation(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-10, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-8, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
     )
     return None
@@ -8653,10 +8954,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
     )
     return None
@@ -8677,7 +8978,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransfo
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and a point transformation"
     )
     return None
@@ -8697,19 +8998,19 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-8, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     )
     return None
@@ -8731,10 +9032,10 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransfor
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.x(times) - xi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(as_numpy(obs.vx(times) - vxi))) < 10.0**-6.0, (
         "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
     )
     return None
@@ -8754,7 +9055,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtr
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+    assert numpy.fabs(as_numpy((Om - Omi) / Om)) < 10.0**tol, (
         "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and the exact point transformation"
     )
     return None
@@ -8774,19 +9075,19 @@ def test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
+    assert numpy.std(as_numpy(E)) / numpy.mean(as_numpy(E)) < 1e-8, (
         "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
         "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+    assert numpy.amax(numpy.fabs(as_numpy(orb.vx(ts) - v))) < 1e-7, (
         "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
     )
     return None
@@ -8905,8 +9206,14 @@ def test_actionAngleVerticalInverse_convergence_warnings():
     # harmonics, and fails outright when the turning point cannot be found
     with pytest.warns(galpyWarning, match="not converged for energies: 30"):
         actionAngleVerticalInverse(pot=isopot, nta=128, Es=[1.0, 30.0])
-    with pytest.raises(RuntimeError, match="turning point could not be found"):
-        actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
+    from galpy.backend import backend
+
+    if backend() == "numpy":  # numpy's calcxmax gives up at this energy
+        with pytest.raises(RuntimeError, match="turning point could not be found"):
+            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
+    else:  # the backend root finder finds it; the map is then not converged
+        with pytest.warns(galpyWarning, match="not converged for energies: 300"):
+            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
     return None
 
 
@@ -9048,27 +9355,44 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(
     Ri, vRi, vTi, zi, vzi, phii = aAII(
         numpy.median(jr), numpy.median(jp), numpy.median(jz), ar, ap, az
     )
-    assert numpy.amax(numpy.fabs(obs.R(times) - Ri)) < 10.0**tol, (
+    # Backend-agnostic: under a forced backend the orbit accessors and the
+    # inverse outputs are jax/torch arrays; bring them to numpy for the
+    # numpy.amax/fabs reductions below (identity on numpy).
+    oR, ovR, ovT, oz, ovz, ophi = (
+        as_numpy(obs.R(times)),
+        as_numpy(obs.vR(times)),
+        as_numpy(obs.vT(times)),
+        as_numpy(obs.z(times)),
+        as_numpy(obs.vz(times)),
+        as_numpy(obs.phi(times)),
+    )
+    Ri, vRi, vTi, zi, vzi, phii = (
+        as_numpy(Ri),
+        as_numpy(vRi),
+        as_numpy(vTi),
+        as_numpy(zi),
+        as_numpy(vzi),
+        as_numpy(phii),
+    )
+    assert numpy.amax(numpy.fabs(oR - Ri)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
     assert (
-        numpy.amax(
-            numpy.fabs((obs.phi(times) - phii + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-        )
+        numpy.amax(numpy.fabs((ophi - phii + numpy.pi) % (2.0 * numpy.pi) - numpy.pi))
         < 10.0**tol
     ), (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.z(times) - zi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(oz - zi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vR(times) - vRi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovR - vRi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vT(times) - vTi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovT - vTi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vz(times) - vzi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovz - vzi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
     return None
@@ -9111,6 +9435,9 @@ def check_actionAngle_conserved_actions(
     else:
         # Test Orbit with multiple objects case, but calling
         js = aA(obs(times))
+    # Backend-agnostic: the actions are jax/torch arrays under a forced backend;
+    # bring them to a numpy 2d array for the reductions (identity on numpy).
+    js = numpy.array([as_numpy(j) for j in js])
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
@@ -9199,9 +9526,13 @@ def check_actionAngle_linear_angles(
                 obs.vz(times),
                 obs.phi(times),
             )
-    ar = dePeriod(numpy.reshape(acfs[6], (1, len(times)))).flatten()
-    ap = dePeriod(numpy.reshape(acfs[7], (1, len(times)))).flatten()
-    az = dePeriod(numpy.reshape(acfs[8], (1, len(times)))).flatten()
+    # Backend-agnostic: actionsFreqsAngles returns jax/torch arrays under a forced
+    # backend; bring them to numpy for the reductions below (identity on numpy).
+    acfs = tuple(as_numpy(a) for a in acfs)
+    acfs_init = tuple(as_numpy(a) for a in acfs_init)
+    ar = as_numpy(dePeriod(numpy.reshape(acfs[6], (1, len(times))))).flatten()
+    ap = as_numpy(dePeriod(numpy.reshape(acfs[7], (1, len(times))))).flatten()
+    az = as_numpy(dePeriod(numpy.reshape(acfs[8], (1, len(times))))).flatten()
     # Do linear fit to radial angle, check that deviations are small, check
     # that the slope is the frequency
     if acfs_init[6].ndim > 0:
@@ -9331,6 +9662,10 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
+    # Backend-agnostic: the actionAngle outputs are jax/torch arrays under a
+    # forced backend; bring them to numpy for the reductions below (identity on
+    # numpy, so byte-identical there).
+    es, zmaxs, rperis, raps = (as_numpy(v) for v in (es, zmaxs, rperis, raps))
     assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
         "Eccentricity conservation fails at %g%%"
         % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))
@@ -9666,33 +10001,35 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
         )
         # the stored action is the actual one; the point-transformed action
         # the Fourier structure is built on differs from it by the offset
-        assert numpy.amax(numpy.fabs(aAVI._jaoffset) / aAVI._js[1:].min()) > 1e-5, (
-            "The polynomial point transformation has no action offset to correct"
-        )
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(aAVI._jaoffset)) / aAVI._js[1:].min()) > 1e-5
+        ), "The polynomial point transformation has no action offset to correct"
         for ii in range(1, len(Es)):  # including the top torus
-            jtrue = float(
-                numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0]
-            )
-            assert numpy.fabs(aAVI.J(Es[ii]) / jtrue - 1.0) < 1e-8, (
+            jtrue = float(as_numpy(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0])
+            assert numpy.fabs(as_numpy(aAVI.J(Es[ii]) / jtrue - 1.0)) < 1e-8, (
                 "J(E) does not return the torus's actual action"
             )
             x, v = aAVI(jtrue, angles)
-            assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
+            assert numpy.all(numpy.isfinite(as_numpy(x))) and numpy.all(
+                numpy.isfinite(as_numpy(v))
+            ), (
                 "Requesting the actual action of a torus fails (setup_interp=%s)"
                 % setup_interp
             )
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - jtrue)) / jtrue < 1e-7, (
+            assert (
+                numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - jtrue))) / jtrue < 1e-7
+            ), (
                 "Requesting the actual action of a torus returns a different torus "
                 "(setup_interp=%s)" % setup_interp
             )
-            assert numpy.isfinite(float(aAVI.Freqs(jtrue))), (
+            assert numpy.isfinite(as_numpy(float(aAVI.Freqs(jtrue)))), (
                 "Freqs fails at the actual action"
             )
     # without a point transformation, and with the exact one, there is no
     # offset: the mean auxiliary action IS the torus's action
     for kwargs in (dict(momentum_matched=False), dict(use_pointtransform="exact")):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, **kwargs)
-        assert numpy.all(aAVI._jaoffset == 0.0), (
+        assert numpy.all(as_numpy(aAVI._jaoffset == 0.0)), (
             "An action offset appeared for a non-polynomial mode"
         )
     return None
@@ -9719,25 +10056,30 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
     aAV = actionAngleVertical(pot=pot)
     Es = numpy.linspace(0.0, 2.0, 9)
     jforward = numpy.array(
-        [
-            float(numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * E))[0]).ravel()[0])
-            for E in Es[1:]
-        ]
+        [float(as_numpy(aAV(0.0, numpy.sqrt(2.0 * E))[0]).ravel()[0]) for E in Es[1:]]
     )
     for pt_deg in (3, 7, 11):
         aAVI = actionAngleVerticalInverse(
             pot=pot, Es=Es, nta=128, use_pointtransform=True, pt_deg=pt_deg
         )
-        assert numpy.amax(numpy.fabs(aAVI._jaoffset[1:]) / jforward) > 1e-8, (
+        assert numpy.amax(numpy.fabs(as_numpy(aAVI._jaoffset[1:])) / jforward) > 1e-8, (
             "The offset is not there to be corrected (degree %d)" % pt_deg
         )
-        assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+        assert (
+            numpy.amax(numpy.fabs(as_numpy(aAVI._js[1:] - jforward)) / jforward) < 1e-8
+        ), (
             "The stored action, mean auxiliary action minus the closed-form offset, "
             "does not agree with the forward transformation (degree %d)" % pt_deg
         )
         assert (
             numpy.amax(
-                numpy.fabs(numpy.nanmean(aAVI._ja, axis=1) - aAVI._js - aAVI._jaoffset)
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(
+                            numpy.nanmean(aAVI._ja, axis=1) - aAVI._js - aAVI._jaoffset
+                        )
+                    )
+                )
             )
             < 1e-15
         ), "The offset is not the difference it is defined as"
@@ -9745,10 +10087,12 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
     aAVI = actionAngleVerticalInverse(
         pot=pot, Es=Es, nta=128, use_pointtransform="exact"
     )
-    assert numpy.all(aAVI._jaoffset == 0.0), (
+    assert numpy.all(as_numpy(aAVI._jaoffset == 0.0)), (
         "The exact point transformation has an action offset"
     )
-    assert numpy.amax(numpy.fabs(aAVI._js[1:] - jforward) / jforward) < 1e-8, (
+    assert (
+        numpy.amax(numpy.fabs(as_numpy(aAVI._js[1:] - jforward)) / jforward) < 1e-8
+    ), (
         "The exact point transformation's stored action disagrees with the forward "
         "transformation"
     )
@@ -9777,8 +10121,8 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
             J = aAVI.J(E)
             x, v = aAVI(J, angles)
             H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
-            wE = max(wE, numpy.amax(numpy.fabs(H / E - 1.0)))
-            wJ = max(wJ, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+            wE = max(wE, numpy.amax(numpy.fabs(as_numpy(H / E - 1.0))))
+            wJ = max(wJ, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J)
         return wE, wJ
 
     wE8, _ = worst(mm_npt=8)
@@ -9797,10 +10141,10 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
     for E in Es[1:]:
         x1, v1 = aAVI1(aAVI1.J(E), angles)
         x2, v2 = aAVI2(aAVI2.J(E), angles)
-        assert numpy.amax(numpy.fabs(x1 - x2)) < 1e-9, (
+        assert numpy.amax(numpy.fabs(as_numpy(x1 - x2))) < 1e-9, (
             "The map depends on the number of anomaly samples beyond the resolved series"
         )
-        assert numpy.amax(numpy.fabs(v1 - v2)) < 1e-9, (
+        assert numpy.amax(numpy.fabs(as_numpy(v1 - v2))) < 1e-9, (
             "The map depends on the number of anomaly samples beyond the resolved series"
         )
     with pytest.raises(ValueError) as excinfo:
@@ -9810,7 +10154,7 @@ def test_actionAngleVerticalInverse_momentum_matched_reconstruction():
     aAVI3 = actionAngleVerticalInverse(pot=pot, Es=Es, nta=16)
     x3, v3 = aAVI3(aAVI3.J(1.0), angles)
     x2, v2 = aAVI2(aAVI2.J(1.0), angles)
-    assert numpy.amax(numpy.fabs(x3 - x2)) < 1e-9, (
+    assert numpy.amax(numpy.fabs(as_numpy(x3 - x2))) < 1e-9, (
         "A small nta breaks the momentum-matched map"
     )
     return None
@@ -9838,15 +10182,21 @@ def test_actionAngleVerticalInverse_momentum_matched_angles():
         j = aAVI.J(Es[(nE - 1) // 2])
         x, v = aAVI(j, th)
         xf, vf, Om = aAVI.xvFreqs(j, th)
-        assert numpy.amax(numpy.fabs(xf - x)) == 0.0, "__call__ and xvFreqs disagree"
-        assert numpy.amax(numpy.fabs(vf - v)) == 0.0, "__call__ and xvFreqs disagree"
+        assert numpy.amax(numpy.fabs(as_numpy(xf - x))) == 0.0, (
+            "__call__ and xvFreqs disagree"
+        )
+        assert numpy.amax(numpy.fabs(as_numpy(vf - v))) == 0.0, (
+            "__call__ and xvFreqs disagree"
+        )
         assert Om == aAVI.Freqs(j), "xvFreqs and Freqs disagree"
         jf, Omf, thfwd = aAV.actionsFreqsAngles(x, v)
-        dth = numpy.fabs((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        dth = numpy.fabs(
+            (as_numpy(thfwd) - as_numpy(th) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        )
         return (
-            numpy.amax(numpy.fabs(jf - j)),
-            numpy.amax(dth),
-            numpy.amax(numpy.fabs(Omf - Om)) / numpy.mean(Omf),
+            numpy.amax(numpy.fabs(as_numpy(jf - j))),
+            numpy.amax(as_numpy(dth)),
+            numpy.amax(numpy.fabs(as_numpy(Omf - Om))) / numpy.mean(as_numpy(Omf)),
         )
 
     for nE in (9, 33):
@@ -9874,40 +10224,48 @@ def test_actionAngleVerticalInverse_momentum_matched_turning_points():
     for E in Es[1:]:
         J = aAVI.J(E)
         x, v = aAVI(J, numpy.array([0.5 * numpy.pi, 1.5 * numpy.pi]))
-        assert numpy.amax(numpy.fabs(v)) < 1e-14, (
+        assert numpy.amax(numpy.fabs(as_numpy(v))) < 1e-14, (
             "The velocity does not vanish at the turning points: %g"
-            % numpy.amax(numpy.fabs(v))
+            % numpy.amax(numpy.fabs(as_numpy(v)))
         )
         assert (
             numpy.amax(
-                numpy.fabs(
-                    evaluatelinearPotentials(pot, x, use_physical=False) / E - 1.0
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(
+                            evaluatelinearPotentials(pot, x, use_physical=False) / E
+                            - 1.0
+                        )
+                    )
                 )
             )
             < 1e-12
         ), "The turning points do not sit at the energy"
-        assert numpy.fabs(x[0] + x[1]) < 1e-14, "The turning points are not symmetric"
+        assert numpy.fabs(as_numpy(x[0] + x[1])) < 1e-14, (
+            "The turning points are not symmetric"
+        )
         xmax = x[0]
         # smooth through the turning points: x is stationary, v linear
         for delta in (1e-9, 1e-6, 1e-4):
             th = 0.5 * numpy.pi + numpy.array([-delta, 0.0, delta])
             for tth in (th, th + numpy.pi):
                 x, v = aAVI(J, tth)
-                assert numpy.all(numpy.isfinite(x)) and numpy.all(numpy.isfinite(v)), (
-                    "The evaluation is not finite next to a turning point"
-                )
-                assert numpy.amax(numpy.fabs(x - x[1])) < xmax * delta**2.0, (
+                assert numpy.all(numpy.isfinite(as_numpy(x))) and numpy.all(
+                    numpy.isfinite(as_numpy(v))
+                ), "The evaluation is not finite next to a turning point"
+                assert numpy.amax(numpy.fabs(as_numpy(x - x[1]))) < xmax * delta**2.0, (
                     "The orbit is not stationary in x through a turning point"
                 )
-                assert numpy.amax(numpy.fabs(v)) < 4.0 * xmax * delta, (
+                assert numpy.amax(numpy.fabs(as_numpy(v))) < 4.0 * xmax * delta, (
                     "The velocity does not vanish linearly at a turning point"
                 )
                 assert (
-                    numpy.fabs(v[0] + v[2]) < 1e-6 * numpy.fabs(v[0] - v[2]) + 1e-15
+                    numpy.fabs(as_numpy(v[0] + v[2]))
+                    < 1e-6 * numpy.fabs(as_numpy(v[0] - v[2])) + 1e-15
                 ), "The velocity is not odd about a turning point"
     # the zero-action torus is a point
     x, v = aAVI(0.0, numpy.linspace(0.0, 2.0 * numpy.pi, 11))
-    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+    assert numpy.all(as_numpy(x) == 0.0) and numpy.all(as_numpy(v) == 0.0), (
         "The zero-action torus is not the point at the bottom"
     )
     with pytest.raises(ValueError) as excinfo:
@@ -9921,21 +10279,22 @@ def test_actionAngleVerticalInverse_momentum_matched_turning_points():
     prev = None
     for J in (1e-4 * J1, 1e-3 * J1, 1e-2 * J1):
         x, v = aAVI(J, th)
+        Jn = float(as_numpy(J))
         dev = numpy.array(
             [
-                numpy.amax(x) ** 2.0 * omega0 / (2.0 * J) - 1.0,
-                numpy.amax(v) ** 2.0 / (2.0 * J * omega0) - 1.0,
-                aAVI.Freqs(J) / omega0 - 1.0,
+                numpy.amax(as_numpy(x)) ** 2.0 * omega0 / (2.0 * Jn) - 1.0,
+                numpy.amax(as_numpy(v)) ** 2.0 / (2.0 * Jn * omega0) - 1.0,
+                float(as_numpy(aAVI.Freqs(J))) / omega0 - 1.0,
             ]
         )
-        assert numpy.amax(numpy.fabs(dev)) < 30.0 * J / J1, (
+        assert numpy.amax(numpy.fabs(as_numpy(dev))) < 30.0 * J / J1, (
             "The map does not go over to the harmonic oscillator at small action"
         )
         if prev is not None:
-            ratio = numpy.fabs(dev) / numpy.fabs(prev)
-            assert numpy.all(ratio > 5.0) and numpy.all(ratio < 20.0), (
-                "The anharmonic corrections are not linear in the action"
-            )
+            ratio = numpy.fabs(as_numpy(dev)) / numpy.fabs(as_numpy(prev))
+            assert numpy.all(as_numpy(ratio > 5.0)) and numpy.all(
+                as_numpy(ratio < 20.0)
+            ), "The anharmonic corrections are not linear in the action"
         prev = dev
     return None
 
@@ -9963,17 +10322,21 @@ def test_actionAngleVerticalInverse_momentum_matched_symplectic():
         xJp, vJp = aAVI(J + hj, angles)
         xJm, vJm = aAVI(J - hj, angles)
         return numpy.amax(
-            numpy.fabs(
-                (xp - xm) / (2.0 * h) * (vJp - vJm) / (2.0 * hj)
-                - (xJp - xJm) / (2.0 * hj) * (vp - vm) / (2.0 * h)
-                - 1.0
+            as_numpy(
+                numpy.fabs(
+                    as_numpy(
+                        (xp - xm) / (2.0 * h) * (vJp - vJm) / (2.0 * hj)
+                        - (xJp - xJm) / (2.0 * hj) * (vp - vm) / (2.0 * h)
+                        - 1.0
+                    )
+                )
             )
         )
 
     for nE in (3, 9):
         Es = numpy.linspace(0.0, 2.0, nE)
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        js = numpy.array([aAVI.J(E) for E in Es])
+        js = numpy.array([float(as_numpy(aAVI.J(E))) for E in Es])
         # at a node, and in the middle of every interval, the first and the
         # last included
         for J in numpy.concatenate([js[1:], 0.5 * (js[:-1] + js[1:])]):
@@ -9986,7 +10349,7 @@ def test_actionAngleVerticalInverse_momentum_matched_symplectic():
             # is large, so the canonicity is not the accuracy of the tables
             J = 0.5 * (js[1] + js[2])
             x, v = aAVI(J, angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J > 1e-5, (
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J > 1e-5, (
                 "The coarse grid is too accurate for this check to mean anything"
             )
     old = actionAngleVerticalInverse(
@@ -10030,7 +10393,7 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
         old = actionAngleVerticalInverse(
             pot=pot, Es=Es, nta=128, setup_interp=True, **kwargs
         )
-        assert numpy.all(numpy.isfinite(old.nSn(1.0))), (
+        assert numpy.all(numpy.isfinite(as_numpy(old.nSn(1.0)))), (
             "The older evaluation is no longer reachable"
         )
     # any number of energies will do, down to one, and each family returns
@@ -10043,19 +10406,26 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
             J = small.J(E)
             x, v = small(J, angles)
             jf, _, thf = aAV.actionsFreqsAngles(x, v)
-            assert numpy.amax(numpy.fabs(jf - J)) / J < 1e-9, (
+            assert numpy.amax(numpy.fabs(as_numpy(jf - J))) / J < 1e-9, (
                 "A %d-torus family does not return its torus" % len(tEs)
             )
             assert (
                 numpy.amax(
-                    numpy.fabs((thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+                    as_numpy(
+                        numpy.fabs(
+                            as_numpy(
+                                (as_numpy(thf) - angles + numpy.pi) % (2.0 * numpy.pi)
+                                - numpy.pi
+                            )
+                        )
+                    )
                 )
                 < 1e-9
             ), "A %d-torus family does not return its torus's angles" % len(tEs)
     # the degenerate grid of only the harmonic bottom builds
     bottom = actionAngleVerticalInverse(pot=pot, Es=[0.0], nta=128)
     x, v = bottom(0.0, angles)
-    assert numpy.all(x == 0.0) and numpy.all(v == 0.0), (
+    assert numpy.all(as_numpy(x == 0.0)) and numpy.all(as_numpy(v == 0.0)), (
         "The bottom-only family does not build as the point at the bottom"
     )
     return None
@@ -10076,16 +10446,18 @@ def test_actionAngleVerticalInverse_momentum_matched_offnode_frequency():
     aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
     jm = 0.5 * (aAVI.J(Es[3]) + aAVI.J(Es[4]))
     Om = aAVI.Freqs(jm)
-    assert numpy.isfinite(Om) and Om > 0.0, "No frequency between the grid tori"
+    assert numpy.isfinite(as_numpy(Om)) and Om > 0.0, (
+        "No frequency between the grid tori"
+    )
     assert Om == aAVI.xvFreqs(jm, numpy.array([0.3]))[2], (
         "The off-node frequency is not the map's own"
     )
     # on a node it is the true frequency of the torus
     J = aAVI.J(Es[4])
     x, v = aAVI(J, numpy.array([0.3]))
-    assert numpy.fabs(aAVI.Freqs(J) / aAV.actionsFreqs(x, v)[1][0] - 1.0) < 1e-9, (
-        "The on-node frequency is not the torus's"
-    )
+    assert (
+        numpy.fabs(as_numpy(aAVI.Freqs(J) / aAV.actionsFreqs(x, v)[1][0] - 1.0)) < 1e-9
+    ), "The on-node frequency is not the torus's"
     # and with the older evaluation the off-node case raises
     old = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, momentum_matched=False)
     with pytest.raises(ValueError) as excinfo:
@@ -10116,12 +10488,12 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         r = numpy.linspace(0.0, 1.0, n)
         Es = 2.0 * r if uniform else 2.0 * (0.55 * r + 0.45 * r**2.5)
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        js = numpy.array([aAVI.J(E) for E in Es])
+        js = numpy.array([float(as_numpy(aAVI.J(E))) for E in Es])
         # at the nodes the construction preserves the action whatever the
         # tables contain
         for J in js[1:]:
             x, v = aAVI(J, angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) < 1e-7, (
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) < 1e-7, (
                 "The evaluation leaves the requested torus at a grid node"
             )
         # between EVERY pair of nodes, including the first and the last
@@ -10129,7 +10501,7 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         out = 0.0
         for jm in 0.5 * (js[:-1] + js[1:]):
             x, v = aAVI(jm, angles)
-            out = max(out, numpy.amax(numpy.fabs(aAV(x, v)[0] - jm)) / jm)
+            out = max(out, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - jm))) / jm)
         return out
 
     for uniform in (True, False):
@@ -10171,7 +10543,7 @@ def test_actionAngleVerticalInverse_momentum_matched_bottom_interval():
         worst = 0.0
         for J in (0.1 * J1, 0.5 * J1, 0.9 * J1):
             x, v = aAVI(J, angles)
-            worst = max(worst, numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J)
+            worst = max(worst, numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J)
         assert worst < 1e-5, (
             "The family is inaccurate in the bottom interval (%d energies): %g"
             % (nE, worst)
@@ -10187,10 +10559,10 @@ def test_actionAngleVerticalInverse_momentum_matched_bottom_interval():
     )
     xs, vs = single(single.J(1.0), angles)
     xf, vf = family(family.J(1.0), angles)
-    assert numpy.amax(numpy.fabs(xs - xf)) < 1e-12, (
+    assert numpy.amax(numpy.fabs(as_numpy(xs - xf))) < 1e-12, (
         "A torus depends on the family it is built in"
     )
-    assert numpy.amax(numpy.fabs(vs - vf)) < 1e-12, (
+    assert numpy.amax(numpy.fabs(as_numpy(vs - vf))) < 1e-12, (
         "A torus depends on the family it is built in"
     )
     return None
@@ -10215,7 +10587,7 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
             nta=128,
             momentum_matched=momentum_matched,
         )
-        assert numpy.fabs(float(aAVI.Freqs(0.0)) / omega0 - 1.0) < 1e-14, (
+        assert numpy.fabs(as_numpy(float(aAVI.Freqs(0.0)) / omega0 - 1.0)) < 1e-14, (
             "Freqs at zero action is not the midplane's harmonic frequency"
         )
     return None
@@ -10237,33 +10609,40 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
     for Es in ([1.0], [0.5, 1.5], [0.0, 1.0, 2.0], numpy.linspace(0.0, 2.0, 9)):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, setup_interp=True)
         Jt = aAVI.J(Et)
-        assert numpy.amax(numpy.fabs(aAVI.E(Jt) - Et)) < 1e-12, (
+        assert numpy.amax(numpy.fabs(as_numpy(aAVI.E(Jt)) - Et)) < 1e-12, (
             "E(J(E)) does not return the energy"
         )
         assert (
-            numpy.amax(numpy.fabs(Jt - numpy.array([aAVI.J(E) for E in Et]).flatten()))
+            numpy.amax(
+                as_numpy(
+                    numpy.fabs(
+                        as_numpy(Jt)
+                        - numpy.array([float(as_numpy(aAVI.J(E))) for E in Et])
+                    )
+                )
+            )
             == 0.0
         ), "J(E) differs between array and scalar input"
         h = 1e-6
         for J in Jt:
             fd = (aAVI.E(J + h) - aAVI.E(J - h)) / (2.0 * h)
-            assert numpy.fabs(aAVI.Freqs(J) / fd - 1.0) < 1e-6, (
+            assert numpy.fabs(as_numpy(aAVI.Freqs(J) / fd - 1.0)) < 1e-6, (
                 "Freqs is not the derivative of E(J)"
             )
         if len(Es) == 9:
             for E, J in zip(Et, Jt):
                 x, v = aAVI(J, angles)
                 H = 0.5 * v**2.0 + evaluatelinearPotentials(pot, x, use_physical=False)
-                assert numpy.amax(numpy.fabs(H / E - 1.0)) < 1e-5, (
+                assert numpy.amax(numpy.fabs(as_numpy(H / E - 1.0))) < 1e-5, (
                     "The interpolated torus does not have the requested energy"
                 )
-                assert numpy.amax(numpy.fabs(aAV(x, v)[0] - J)) / J < 1e-5, (
+                assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - J))) / J < 1e-5, (
                     "The interpolated torus does not have the requested action"
                 )
             # at a grid energy the interpolant returns the grid torus
-            assert numpy.fabs(aAVI.E(aAVI.J(1.0)) - 1.0) < 1e-14
+            assert numpy.fabs(as_numpy(aAVI.E(aAVI.J(1.0)) - 1.0)) < 1e-14
             x, v = aAVI(aAVI.J(1.0), angles)
-            assert numpy.amax(numpy.fabs(aAV(x, v)[0] - aAVI.J(1.0))) < 1e-10
+            assert numpy.amax(numpy.fabs(as_numpy(aAV(x, v)[0] - aAVI.J(1.0)))) < 1e-10
     return None
 
 

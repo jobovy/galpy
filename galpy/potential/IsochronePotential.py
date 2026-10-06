@@ -5,10 +5,10 @@
 #                          Phi(r)= ---------------------
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
-import numpy
+import math
 
+from ..backend import coerce_coords, get_namespace, radial_limits
 from ..util import conversion
-from ._smallr import radial_limits
 from .Potential import Potential
 
 
@@ -48,6 +48,7 @@ class IsochronePotential(Potential):
         self.b = b
         self._scale = self.b
         self.b2 = self.b**2.0
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
@@ -58,25 +59,33 @@ class IsochronePotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return -1.0 / (self.b + rb)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * z
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             -(
                 -(self.b**3.0)
@@ -88,8 +97,10 @@ class IsochronePotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             -(
                 -(self.b**3.0)
@@ -101,37 +112,47 @@ class IsochronePotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return -R * z * (self.b + 3.0 * rb) / rb**3.0 / (self.b + rb) ** 3.0
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r2 = R**2.0 + z**2.0
+
         def dens(r2):
-            rb = numpy.sqrt(r2 + self.b2)
+            rb = xp.sqrt(r2 + self.b2)
             return (
                 (3.0 * (self.b + rb) * rb**2.0 - r2 * (self.b + 3.0 * rb))
                 / rb**3.0
                 / (self.b + rb) ** 3.0
                 / 4.0
-                / numpy.pi
+                / math.pi
             )
 
         # inf - inf at r = inf, where the density is 0
-        return radial_limits(R**2.0 + z**2.0, dens, atinf=0.0)
+        return radial_limits(
+            r2, lambda x: dens(r2 if x is r2 else x), atinf=0.0, numpy_too=True
+        )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             self.b
             * (
                 (R * z) / r2
                 - (self.b * R * z * (self.b**2 + 2.0 * R**2 + z**2))
                 / ((self.b**2 + R**2) * r2 * rb)
-                + numpy.arctan(z / R)
-                - numpy.arctan(self.b * z / R / rb)
+                + xp.arctan(z / R)
+                - xp.arctan(self.b * z / R / rb)
             )
             / R**3
             / 2.0
-            / numpy.pi
+            / math.pi
         )

@@ -4,13 +4,20 @@
 import numpy
 from scipy import interpolate
 
-from ..util._optional_deps import _JAX_LOADED
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    match_input_dtype,
+    resolve_namespace,
+    to_host,
+)
+from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend.interpolate import Spline1D
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
-
-if _JAX_LOADED:
-    import jax.numpy as jnp
 
 
 class interpSphericalPotential(SphericalPotential):
@@ -49,13 +56,6 @@ class interpSphericalPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
         self._rgrid = rgrid
-        self._rforce_jax_rgrid = (
-            rgrid
-            if len(rgrid) > 10000
-            else numpy.geomspace(
-                1e-3 if rgrid[0] == 0.0 else rgrid[0], rgrid[-1], 10001
-            )
-        )
         # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
         try:
             _evaluateRforces(rforce, 1.0, 0.0)
@@ -77,58 +77,145 @@ class interpSphericalPotential(SphericalPotential):
                 self.turn_physical_on(ro=phys["ro"])
             if phys["voSet"]:
                 self.turn_physical_on(vo=phys["vo"])
-        self._rforce_grid = numpy.array([_rforce(r) for r in rgrid])
-        self._force_spline = interpolate.InterpolatedUnivariateSpline(
-            self._rgrid, self._rforce_grid, k=3, ext=0
+        _fgrid = None
+        if is_backend_array(rgrid):
+            # one vectorized force evaluation: the per-radius loop is 1001 scalar
+            # calls, which under a jax trace alone took ~380 s to trace
+            try:
+                _fv = _rforce(rgrid)
+                if getattr(_fv, "shape", None) == rgrid.shape:
+                    _fgrid = [_fv[i] for i in range(rgrid.shape[0])]
+            except Exception:  # a scalar-only force: loop below
+                _fgrid = None
+        if _fgrid is None:
+            _fgrid = [_rforce(r) for r in rgrid]
+        # Only a DIFFERENTIATED force grid stays on the backend: numpy.array()
+        # of tracers raises and would sever d/d(parameter). Backend-ness alone is
+        # not the test -- under a forced backend every value is a backend array
+        # while nothing is being differentiated, and fitting in-backend there
+        # would abandon the scipy fit the numpy queries want.
+        if any(under_trace(f) or requires_backend_grad(f) for f in _fgrid):
+            xp = resolve_namespace(*_fgrid)
+            self._rforce_grid = xp.stack(list(coerce_coords(xp, *_fgrid)))
+
+            def _q(v):  # a query point on the spline's own namespace
+                return coerce_coords(xp, v)[0]
+
+        else:
+            self._rforce_grid = numpy.array([to_host(f) for f in _fgrid])
+            # an undifferentiated backend grid (forced backend) goes to numpy
+            # with it: backend knots would make the spline return backend
+            # values that the numpy Phi0 below cannot be added to
+            if not (under_trace(rgrid) or requires_backend_grad(rgrid)):
+                self._rgrid = as_numpy(rgrid)
+
+            def _q(v):
+                return v
+
+        # Spline1D picks its own mode: a numpy grid fits the scipy
+        # InterpolatedUnivariateSpline (numpy queries byte-identical, backend
+        # queries through its frozen PPoly), a backend grid is fitted IN-backend
+        # so the coefficients carry d/d(parameter). 'not-a-knot' is exactly the
+        # InterpolatedUnivariateSpline(k=3) end condition, so both modes are the
+        # same spline (agreeing to ~1e-15).
+        self._force_spline = Spline1D(
+            self._rgrid, self._rforce_grid, k=3, ext=0, bc="not-a-knot"
         )
-        self._rforce_jax_grid = numpy.array(
-            [self._force_spline(r) for r in self._rforce_jax_rgrid]
-        )
-        # Get potential and r2deriv as splines for the integral and derivative
+        # Phi and d2Phi/dr2 come from the SAME spline: its antiderivative, and
+        # its nu=1 derivative at evaluation time (bitwise equal to scipy's
+        # .derivative()(r), so no third spline is needed).
         self._pot_spline = self._force_spline.antiderivative()
-        self._Phi0 = Phi0 + self._pot_spline(self._rgrid[0])
-        self._r2deriv_spline = self._force_spline.derivative()
+        # Freeze Phi0 on the numpy side unless the grid itself is on the backend:
+        # every other derived scalar here comes from the spline and is numpy, and
+        # _revaluate's numpy branch mixes them directly.
+        self._Phi0 = (
+            Phi0
+            if (under_trace(Phi0) or requires_backend_grad(Phi0))
+            else as_numpy(Phi0)
+        ) + self._pot_spline(_q(self._rgrid[0]))
         # Extrapolate as mass within rgrid[-1]
         self._rmin = rgrid[0]
         self._rmax = rgrid[-1]
-        self._total_mass = -(self._rmax**2.0) * self._force_spline(self._rmax)
+        self._total_mass = -(self._rmax**2.0) * self._force_spline(_q(self._rmax))
         self._Phimax = (
-            -self._pot_spline(self._rmax) + self._Phi0 + self._total_mass / self._rmax
+            -self._pot_spline(_q(self._rmax))
+            + self._Phi0
+            + self._total_mass / self._rmax
         )
+        # Concretize the derived scalars on the numpy side, once, so the backend
+        # branches below can mix them as plain floats. A backend grid leaves them
+        # on the namespace, keeping d/d(parameter).
+        for _attr in ("_Phi0", "_total_mass", "_Phimax"):
+            _val = getattr(self, _attr)
+            if not is_backend_array(_val):
+                setattr(self, _attr, float(_val))
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
     def _revaluate(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] + self._Phimax
-        out[r < self._rmax] = -self._pot_spline(r[r < self._rmax]) + self._Phi0
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] + self._Phimax
+            out[r < self._rmax] = -self._pot_spline(r[r < self._rmax]) + self._Phi0
+            return out
+        # Backend (jax/torch) path: same piecewise definition through xp.where.
+        # The spline piece extrapolates finitely beyond rmax (the dead side of
+        # the where), while the Kepler piece guards its dead-side r=0 (r >= rmax
+        # implies r > 0 on the live side), so autodiff stays NaN-free.
+        r = xp.asarray(r)
+        inside = -self._pot_spline(r) + self._Phi0
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -self._total_mass / rsafe + self._Phimax
+        # the spline knots/coefficients are deliberately float64 (precision);
+        # cast the result to the input dtype at exit (no-op for float64 input;
+        # the numpy path above already follows the input dtype via empty_like)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] ** 2.0
-        out[r < self._rmax] = self._force_spline(r[r < self._rmax])
-        return out
-
-    def _rforce_jax(self, r):
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
-        return jnp.interp(r, self._rforce_jax_rgrid, self._rforce_jax_grid)
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] ** 2.0
+            out[r < self._rmax] = self._force_spline(r[r < self._rmax])
+            return out
+        r = xp.asarray(r)
+        inside = self._force_spline(r)
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -self._total_mass / rsafe**2.0
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _r2deriv(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
-        out[r < self._rmax] = -self._r2deriv_spline(r[r < self._rmax])
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
+            out[r < self._rmax] = -self._force_spline(r[r < self._rmax], nu=1)
+            return out
+        r = xp.asarray(r)
+        inside = -self._force_spline(r, nu=1)
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -2.0 * self._total_mass / rsafe**3.0
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rdens(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = 0.0
-        # Fall back onto Poisson eqn., implemented in SphericalPotential
-        out[r < self._rmax] = SphericalPotential._rdens(self, r[r < self._rmax])
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = 0.0
+            # Fall back onto Poisson eqn., implemented in SphericalPotential
+            out[r < self._rmax] = SphericalPotential._rdens(self, r[r < self._rmax])
+            return out
+        # Poisson-eqn density via the backend _r2deriv/_rforce above; their
+        # finite extrapolation keeps the dead (r >= rmax) side of the where
+        # NaN-free (r >= rmax > 0, so the 1/r factors are safe there too).
+        r = xp.asarray(r)
+        inside = SphericalPotential._rdens(self, r, t=t)
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, 0.0, inside), r)

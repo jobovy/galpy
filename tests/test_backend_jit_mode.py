@@ -1,0 +1,258 @@
+###############################################################################
+# test_backend_jit_mode.py: the opt-in trace mode.
+#
+# galpy.backend.jit("jax"|"torch") traces every boundary call, so the WHOLE test
+# suite can be run jitted (pytest --backend jax --jit). These tests cover the
+# mode itself: that it is off by default, that it leaves the numpy path alone,
+# that traced results match eager, that the coordinate/static split follows the
+# @backend_input declaration, and that the cache does not recompile per call.
+###############################################################################
+import numpy
+import pytest
+
+pytestmark = pytest.mark.backend_managed
+
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+except ImportError:  # pragma: no cover
+    torch = None
+
+import galpy.backend as gb
+from galpy.potential import (
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+    evaluateRforces,
+)
+
+_R0, _Z0 = 1.1, 0.2
+
+
+def test_jit_mode_is_off_by_default():
+    assert gb.jit_mode() == "off"
+
+
+def test_jit_mode_context_restores():
+    with gb.jit("jax"):
+        assert gb.jit_mode() == "jax"
+    assert gb.jit_mode() == "off"
+
+
+def test_jit_mode_rejects_unknown_framework():
+    with pytest.raises(ValueError):
+        gb.set_jit("tensorflow")
+    with pytest.raises(ValueError):
+        with gb.jit("tensorflow"):  # pragma: no cover - never entered
+            pass
+
+
+def test_numpy_path_ignores_jit_mode():
+    """Trace mode must not touch the numpy path: same object type, same value."""
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    eager = pot.Rforce(_R0, _Z0)
+    with gb.jit("jax"):
+        traced = pot.Rforce(_R0, _Z0)
+    assert type(traced) is type(eager)
+    assert traced == eager
+
+
+@pytest.mark.skipif("jax is None")
+@pytest.mark.parametrize("entry", ["__call__", "Rforce", "zforce", "dens"])
+def test_jax_traced_matches_eager(entry):
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    call = {
+        "__call__": lambda p, R, z: p(R, z),
+        "Rforce": lambda p, R, z: p.Rforce(R, z),
+        "zforce": lambda p, R, z: p.zforce(R, z),
+        "dens": lambda p, R, z: p.dens(R, z),
+    }[entry]
+    R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+    eager = float(call(pot, R, z))
+    with gb.jit("jax"):
+        traced = float(call(pot, R, z))
+    # XLA is free to reassociate, so this is a numerical match, not bit-identity.
+    numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.skipif("jax is None")
+def test_jax_traces_with_an_unhashable_static():
+    """A composite potential is a STATIC argument and is unhashable, which
+    plain jax.jit rejects -- traced_call keys it structurally instead.
+
+    Built with ``+`` rather than as a list: both are unhashable, so either
+    exercises the same path, but passing a list is deprecated and the coverage
+    shard runs with -W error::DeprecationWarning.
+    """
+    pot = MiyamotoNagaiPotential(normalize=1.0) + LogarithmicHaloPotential(
+        normalize=1.0
+    )
+    with pytest.raises(TypeError):  # the premise: plain jax.jit could not key it
+        hash(pot)
+    R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+    eager = float(evaluateRforces(pot, R, z))
+    with gb.jit("jax"):
+        traced = float(evaluateRforces(pot, R, z))
+    numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.skipif("jax is None")
+def test_jax_control_parameters_stay_static():
+    """dR/dphi are derivative ORDERS, not coordinates: traced as a value they
+    would be a tracer where the body does `if dR == 0`."""
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+    eager = float(pot(R, z, dR=1))
+    with gb.jit("jax"):
+        traced = float(pot(R, z, dR=1))
+    numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.skipif("jax is None")
+def test_jax_reuses_the_compiled_trace():
+    """A second call with the same static bundle must hit the cache. Without a
+    value-based key on the static bundle every call would recompile."""
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+    with gb.jit("jax"):
+        pot.Rforce(R, z)
+        before = jax.jit._cache_size() if hasattr(jax.jit, "_cache_size") else None
+        for _ in range(5):
+            pot.Rforce(R, z)
+        after = jax.jit._cache_size() if hasattr(jax.jit, "_cache_size") else None
+    if before is not None:  # pragma: no cover - jax version dependent
+        assert after == before
+
+
+@pytest.mark.skipif("jax is None")
+def test_jax_retraces_after_a_parameter_changes():
+    """A trace bakes self._amp in as a constant, so a cache keyed on the
+    potential's IDENTITY alone would keep returning the previous
+    normalization's numbers after normalize() -- silently wrong, not an error.
+    """
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    R, z = jnp.asarray(1.0), jnp.asarray(0.0)
+    with gb.jit("jax"):
+        first = float(pot.Rforce(R, z))
+        pot.normalize(0.5)
+        second = float(pot.Rforce(R, z))
+    numpy.testing.assert_allclose(first, -1.0, rtol=1e-10)
+    numpy.testing.assert_allclose(second, -0.5, rtol=1e-10)
+
+
+@pytest.mark.skipif("jax is None")
+def test_jax_nested_boundaries_do_not_retrace():
+    """Entry points call each other; only the outermost may trace."""
+    from galpy.backend._jit import _TRACING
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    seen = []
+
+    R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+    original = pot._evaluate
+
+    def spy(*args, **kwargs):
+        seen.append(_TRACING.get())
+        return original(*args, **kwargs)
+
+    pot._evaluate = spy
+    try:
+        with gb.jit("jax"):
+            pot(R, z)
+    finally:
+        pot._evaluate = original
+    assert seen and all(seen), "inner boundaries must run inside the outer trace"
+
+
+@pytest.mark.skipif("torch is None")
+def test_torch_compiled_matches_eager():
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    R, z = torch.tensor(_R0), torch.tensor(_Z0)
+    eager = float(pot.Rforce(R, z))
+    try:
+        with gb.jit("torch"):
+            traced = float(pot.Rforce(R, z))
+    except Exception as exc:  # pragma: no cover - torch.compile unsupported here
+        pytest.skip(f"torch.compile unavailable: {type(exc).__name__}")
+    numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
+
+
+def test_set_jit_switches_mode_without_the_context_manager():
+    # set_jit is public API (galpy.backend.set_jit): turn tracing on and off
+    # without `with`. The jit() context manager is sugar over it, so every other
+    # test here goes through the manager and never exercises the setter itself.
+    assert gb.jit_mode() == "off"
+    try:
+        gb.set_jit("jax")
+        assert gb.jit_mode() == "jax"
+        gb.set_jit("torch")
+        assert gb.jit_mode() == "torch"
+    finally:
+        gb.set_jit("off")
+    assert gb.jit_mode() == "off"
+
+
+def test_static_key_falls_back_to_identity_for_an_unhashable_without_dict():
+    # _static_key's last resort. A set is unhashable AND has no __dict__, so it
+    # misses the list/tuple/dict branches and _object_key alike -- identity is
+    # its only route. The semantics that matter: keyed by IDENTITY, not value,
+    # so two equal-but-distinct objects must not collide in the trace cache.
+    from galpy.backend._jit import _static_key
+
+    a, b = {1, 2}, {1, 2}
+    assert a == b, "the two objects are equal but distinct"
+    assert _static_key(a) == _static_key(a), "must be stable for one object"
+    assert _static_key(a) != _static_key(b), (
+        "equal-but-distinct unhashables must key differently -- sharing a key "
+        "would hand one object's compiled trace to the other"
+    )
+
+
+def test_static_key_structural_for_objects():
+    # Objects key by TYPE + attributes, not identity: two toPlanar() wrappers of
+    # one potential share a key (vcirc/epifreq build one per call, which an
+    # identity key retraced every time), a wrapped potential's changed
+    # parameter changes it, and non-scalar attributes stay on identity, so
+    # same-typed objects with different arrays never collide.
+    from galpy.backend._jit import _static_key
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    k = _static_key(pot.toPlanar())
+    assert _static_key(pot.toPlanar()) == k
+    pot.normalize(0.5)
+    assert _static_key(pot.toPlanar()) != k
+
+    class _Holder:
+        def __init__(self, arr):
+            self.arr = arr
+
+    assert _static_key(_Holder(numpy.ones(2))) != _static_key(_Holder(numpy.ones(2)))
+    # backend arrays have a __dict__ too but hold their data elsewhere: recursing
+    # into one made EVERY jax array key alike (time-dependent SCF/Multipole
+    # potentials picked up each other's traces)
+    for mk in [m for m in (jnp, torch) if m is not None]:
+        assert _static_key(_Holder(mk.ones(2))) != _static_key(_Holder(mk.ones(2)))
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jit_retraces_when_a_wrapped_potential_changes():
+    # the identity key handed a toPlanar() wrapper its previous trace after the
+    # WRAPPED potential's normalize(): stale forces, here off by a factor of 2
+    from galpy.potential import MiyamotoNagaiPotential, evaluateplanarRforces
+
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    pp = pot.toPlanar()
+    R = jnp.asarray(1.1)
+    with gb.jit("jax"):
+        evaluateplanarRforces(pp, R)
+        pot.normalize(0.5)
+        got = float(evaluateplanarRforces(pp, R))
+    assert abs(got - float(evaluateplanarRforces(pp, 1.1))) < 1e-13

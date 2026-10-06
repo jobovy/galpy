@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import backend_input
 from ..util.conversion import physical_conversion, potential_physical_input
 from .planarForce import planarForce
 
@@ -34,6 +35,7 @@ class planarDissipativeForce(planarForce):
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t", "v")
     def Rforce(self, R, phi=0.0, t=0.0, v=None):
         """
         Evaluate cylindrical radial force F_R  (R,phi).
@@ -63,6 +65,7 @@ class planarDissipativeForce(planarForce):
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t", "v")
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
         """
         Evaluate the azimuthal torque F_phi (R, phi, t, v).
