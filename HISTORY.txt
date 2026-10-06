@@ -1,90 +1,27 @@
 v1.12.1 (2026-11-02)
 ====================
 
-- Added ``TruncatedNFWPotential`` and ``TruncatedHernquistPotential``: the NFW
-  and Hernquist profiles times the truncation of Baltz, Marshall & Oguri
-  (2009), ``(rc^2 / (rc^2 + r^2))^n`` for any positive integer ``n``, with
-  closed-form mass, potential, forces, and second derivatives accurate to
-  ~1e-14. The truncation radius can depend on time (``tgrid=``), e.g., for a
-  satellite that is stripped from the outside in, used as the ``pot`` of a
-  ``MovingObjectPotential``. Both have C implementations (including
-  ``integrate_dxdv``) and can be used with the spherical distribution
-  functions.
+- ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
+  now tabulate the host's velocity dispersion sigma_r(r) on a grid in log r
+  (previously linear in r: with the default maxr=25 the grid spacing was 0.05,
+  leaving sigma_r 20-60% wrong at r < 0.03 for common hosts) and the Python
+  force evaluates the same natural cubic spline of it as the C implementation
+  (previously a not-a-knot spline, so C and Python forces differed at small
+  r). sigma_r is now accurate to ~1e-9 at small r and ~1e-6 everywhere, and
+  an orbit sinking to the center integrates identically in C and Python
+  (previously ~20% apart in r at r ~ 0.003).
 
-- Added time-dependent support to ``SCFPotential``: the expansion coefficients
-  ``Acos`` and ``Asin`` can be functions of time, given as callables or as
-  arrays sampled on a ``tgrid``, interpolated in time with a cubic spline, with
-  fast evaluation in Python and C. ``SCFPotential.from_density`` likewise
-  accepts a ``tgrid`` to build a potential from a time-dependent density
-  (analogous to the time-dependent ``MultipoleExpansionPotential``).
-
-- Added ``SCFPotential.from_nbody`` to build an ``SCFPotential`` directly from
-  particle positions and masses. Multiple snapshots with a ``tgrid`` build a
-  time-dependent potential, and the particle sum is accumulated in batches, so
-  memory use stays bounded for any number of particles.
-
-- Added ``SCFPotential.from_multipole`` and
-  ``MultipoleExpansionPotential.from_scf`` to translate between the two
-  expansions. Because both expand in the same real spherical harmonics, the
-  translation is purely radial; it supports time-dependent potentials.
-
-- ``Orbit.integrate_dxdv`` now works with the symplectic C integrators
-  (``leapfrog_c``, ``symplec4_c``, ``symplec6_c``), which propagate the
-  deviations with the exact tangent map of each step, so the state-transition
-  matrix is symplectic to machine precision. ``integrate_dxdv`` now also
-  supports 1D orbits, with both the Runge-Kutta and the symplectic integrators.
-
-- Added an ``isConservative`` attribute to all potentials and forces, True when
-  the force derives from a (possibly time-dependent) potential. The symplectic
-  integrators now fall back to a non-symplectic integrator only for forces that
-  are not conservative, so they can, e.g., integrate orbits in a
-  ``NonInertialFrameForce`` frame that accelerates without rotating.
-
-- ``streamspraydf.streamTrack`` and ``StreamTrack.from_particles`` have a new
-  default reconstruction, ``method='pspline'``: the particles' offsets from the
-  progenitor's orbit are fit with a penalized cubic spline, with each
-  coordinate's penalty chosen by restricted maximum likelihood. The track is
-  now a smooth function of the particles and the progenitor, and for large
-  samples the fit takes about half the time and a quarter of the memory.
-  ``smoothing=`` and ``smoothing_s`` are now the 6 per-coordinate penalty
-  weights; the previous reconstruction remains available as
-  ``method='binned'``.
-
-- ``actionAngleVerticalInverse`` now evaluates through a momentum-matched
-  canonical map by default, whose auxiliary torus is the harmonic oscillator of
-  the same action. The map, its momentum, and the angle are closed form, so the
-  map is exactly symplectic, preserves the requested action to ~1e-13, and
-  ``Freqs`` returns exactly the frequency of the returned orbits; the family of
-  tori can be as small as a single torus. The previous evaluation remains
-  available with ``momentum_matched=False``. Also fixes the frequency of the
-  zero-energy grid torus.
-
-- Added an exact point transformation to ``actionAngleVerticalInverse``
-  (``use_pointtransform="exact"``), which maps each torus exactly onto its
-  auxiliary harmonic-oscillator torus by quadrature along the orbit, so the
-  point transformation alone is the complete torus mapping. With
-  ``pt_only=True``, the inverse transformation is evaluated with the point
-  transformation alone (much faster).
-
-- ``actionAngleVerticalInverse`` now supports physical units (``ro=``,
-  ``vo=``, and Quantity inputs and outputs).
-
-- ``OblateStaeckelWrapperPotential`` is ~3x faster in C, and the new ``ntab=``
-  option tabulates its functions along the reference curves as splines for
-  ~15x faster C orbit integration (agreeing with the exact evaluation to
-  ~2e-8 at ``ntab=3000``).
-
-- ``actionAngleStaeckel`` no longer needs ``delta=`` for a potential that
-  supplies its own focal length: the exact Staeckel potentials
-  ``KuzminKutuzovStaeckelPotential`` and the axisymmetric oblate (b = 1,
-  c < 1) ``PerfectEllipsoidPotential``, and
-  ``OblateStaeckelWrapperPotential``.
-
-- ``OblateStaeckelWrapperPotential`` now places its reference curve ``u0`` at
-  R = 1 by default (computed from the focal length) rather than on the symmetry
-  axis (u0 = 0), where a flattened potential looks nothing like it does in the
-  disk. This improves the default Staeckel approximation and changes its
-  values.
+- ``TwoPowerSphericalPotential``'s forces, second derivatives and enclosed
+  mass (python and C) for general (alpha, beta) are now computed from the same
+  incomplete beta function as its potential: dPhi/dr = M(r)/r^2 and, by
+  Poisson's equation, Phi'' = 4 pi rho - 2 M/r^3, with the cancellations
+  near alpha = 1 (Phi'') and alpha = 0 (Rzderiv) at small r removed in closed
+  form. The previous hypergeometric closed forms were up to 3e-3 off near
+  beta = 3, 1e-7 near beta = 2, NaN at large r for large beta (e.g.,
+  r/a >~ 2e3 at beta = 100) and for some (alpha, beta) at r/a > 4 (e.g.,
+  alpha = 1.9, beta = 6), and so inconsistent with the potential. They are
+  now accurate to ~3e-14 for 0 <= alpha < 3, 2 < beta <= 180, and
+  1e-12 <= r/a <= 1e8.
 
 - Added ``x2deriv`` to 1D (``linearPotential``) potentials and the
   corresponding ``evaluatelinearx2derivs`` function: the second derivative

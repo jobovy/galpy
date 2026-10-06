@@ -575,10 +575,12 @@ def test_dynamfric_c_python_agree_sinking():
     op = oc()
     oc.integrate(ts, potential.MWPotential2014 + cdf, method="dop853_c")
     op.integrate(ts, potential.MWPotential2014 + cdf, method="dop853")
-    assert oc.r(ts[-1]) < 0.005, "Test orbit does not sink to small r"
-    assert numpy.amax(numpy.fabs(oc.r(ts) / op.r(ts) - 1.0)) < 1e-8, (
-        "Dynamical friction in C and Python disagree for an orbit sinking to small r"
-    )
+    from galpy.backend import as_numpy
+
+    assert as_numpy(oc.r(ts[-1])) < 0.005, "Test orbit does not sink to small r"
+    assert (
+        numpy.amax(numpy.fabs(as_numpy(oc.r(ts)) / as_numpy(op.r(ts)) - 1.0)) < 1e-8
+    ), "Dynamical friction in C and Python disagree for an orbit sinking to small r"
     return None
 
 
