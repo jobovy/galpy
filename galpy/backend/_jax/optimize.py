@@ -8,7 +8,9 @@
 ###############################################################################
 
 
-def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
+def brentq_backend(
+    f, a, b, xp, *, xtol, maxiter, width=None, guess=None, newton_steps=10
+):
     """jax bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
     ``f`` is the single-argument closure ``x -> func(x, *args)`` in jax.numpy.
@@ -28,9 +30,11 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
 
     from ..optimize import newton_polish
 
-    x0 = jax.lax.stop_gradient(
-        _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
-    )
+    if guess is None:
+        x0 = _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
+    else:
+        x0 = _newton_root(f, a, b, guess, xp, newton_steps)
+    x0 = jax.lax.stop_gradient(x0)
     # df/dx at x0 via a forward-mode directional derivative along the all-ones
     # tangent (exact df/dx for an elementwise f); the value fx0 comes for free.
     fx0, dfx0 = jax.jvp(f, (x0,), (jnp.ones_like(x0),))
@@ -38,6 +42,30 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
     # constant w.r.t. theta and fx0 ~ 0 -- its theta-gradient is the implicit
     # one. Guard a (near-)singular slope so AD never sees a 0/0.
     return newton_polish(x0, fx0, dfx0, xp)
+
+
+def _newton_root(f, a, b, guess, xp, steps):
+    """Safeguarded Newton from ``guess`` (see optimize.newton_step_bracketed),
+    df/dx by jax.jvp; rolled into lax.fori_loop when tracing."""
+    import jax
+    import jax.numpy as jnp
+
+    from .._namespaces import under_jax_trace
+    from ..optimize import newton_step_bracketed
+
+    def fs(x):
+        return jax.jvp(f, (x,), (jnp.ones_like(x),))
+
+    x = jnp.clip(xp.asarray(guess) * 1.0, a, b)
+    lo, hi = xp.asarray(a) + 0.0 * x, xp.asarray(b) + 0.0 * x
+    if under_jax_trace(x, lo, hi):
+        x, lo, hi = jax.lax.fori_loop(
+            0, steps, lambda _, c: newton_step_bracketed(fs, *c, xp), (x, lo, hi)
+        )
+        return x
+    for _ in range(steps):
+        x, lo, hi = newton_step_bracketed(fs, x, lo, hi, xp)
+    return x
 
 
 def _bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
