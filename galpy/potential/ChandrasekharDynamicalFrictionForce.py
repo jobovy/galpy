@@ -73,7 +73,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         maxr : float or Quantity, optional
             Maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider.
         nr : int, optional
-            Number of radii to use in the interpolation of sigmar.
+            Number of radii to use in the interpolation of sigmar (logarithmically spaced between minr and maxr; linearly if minr=0).
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -122,7 +122,13 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             sigmar = lambda x: jeans.sigmar(
                 self._dens_pot, x, beta=0.0, use_physical=False
             )
-        self._sigmar_rs_4interp = numpy.linspace(self._minr, self._maxr, nr)
+        # sigma_r varies on the scale r, so tabulate it in log r (a linear grid
+        # left sigma_r ~50% wrong at r < 0.03 for the default maxr)
+        self._sigmar_rs_4interp = (
+            numpy.geomspace(self._minr, self._maxr, nr)
+            if self._minr > 0.0
+            else numpy.linspace(self._minr, self._maxr, nr)
+        )
         # For the default (Jeans) sigma_r, every grid radius comes from one
         # cumulative integral rather than one adaptive quadrature each; falls
         # back to the loop when that path does not apply (and always for a
@@ -158,8 +164,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                     fill_value="extrapolate",
                 )(self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig = sigmar
-        self.sigmar = interpolate.InterpolatedUnivariateSpline(
-            self._sigmar_rs_4interp, self._sigmars_4interp, k=3
+        # the natural cubic spline the C implementation (GSL cspline) evaluates
+        self.sigmar = interpolate.CubicSpline(
+            self._sigmar_rs_4interp, self._sigmars_4interp, bc_type="natural"
         )
         if const_lnLambda:
             self._lnLambda = const_lnLambda
