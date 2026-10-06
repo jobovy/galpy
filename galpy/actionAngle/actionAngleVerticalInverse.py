@@ -26,6 +26,7 @@ from ..backend import (
     device_of,
     get_namespace,
     match_input_dtype,
+    to_host,
     use,
 )
 from ..backend._namespaces import has_concrete_truth_value, stop_gradient
@@ -307,7 +308,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._Es = numpy.sort(
             as_numpy(
                 conversion._parse_grid_quantity(
-                    Es, conversion.parse_energy, vo=self._vo
+                    to_host(Es), conversion.parse_energy, vo=self._vo
                 )
             )
         )
