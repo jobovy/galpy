@@ -541,6 +541,49 @@ def test_dynamfric_c_minr_warning():
 # hash that guards that was computed and compared but never stored, so
 # _force_hash stayed None and the cache never hit. Nothing tested it, which is
 # exactly why a dead cache stayed invisible: the values are right either way.
+def test_ChandrasekharDynamicalFrictionForce_sigmar_interpolation():
+    # sigma_r is tabulated in log r: accurate at small r, where it varies fastest
+    # (a linear grid was ~20-60% off at r < 0.03 for the default maxr)
+    from galpy.df import jeans
+
+    rs = numpy.geomspace(2e-4, 20.0, 31)
+    for pot in [
+        potential.MWPotential2014,
+        potential.HernquistPotential(amp=2.0, a=1.0),
+        potential.NFWPotential(amp=2.0, a=2.0),
+    ]:
+        cdf = potential.ChandrasekharDynamicalFrictionForce(GMs=0.01, dens=pot)
+        exact = numpy.array(
+            [jeans.sigmar(pot, r, beta=0.0, use_physical=False) for r in rs]
+        )
+        assert numpy.amax(numpy.fabs(cdf.sigmar(rs) / exact - 1.0)) < 1e-6, (
+            "ChandrasekharDynamicalFrictionForce's interpolated sigma_r is inaccurate"
+        )
+    return None
+
+
+def test_dynamfric_c_python_agree_sinking():
+    # C and Python evaluate the same natural cubic spline of sigma_r, so an orbit
+    # sinking to the center agrees (they differed by ~20% in r at r ~ 0.003)
+    from galpy.orbit import Orbit
+
+    cdf = potential.ChandrasekharDynamicalFrictionForce(
+        GMs=0.008, rhm=0.0, dens=potential.MWPotential2014, maxr=10.0
+    )
+    ts = numpy.linspace(0.0, 10.0, 1001)
+    oc = Orbit([1.0, 0.1, 1.1, 0.0, 0.05, 0.0])
+    op = oc()
+    oc.integrate(ts, potential.MWPotential2014 + cdf, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + cdf, method="dop853")
+    from galpy.backend import as_numpy
+
+    assert as_numpy(oc.r(ts[-1])) < 0.005, "Test orbit does not sink to small r"
+    assert (
+        numpy.amax(numpy.fabs(as_numpy(oc.r(ts)) / as_numpy(op.r(ts)) - 1.0)) < 1e-8
+    ), "Dynamical friction in C and Python disagree for an orbit sinking to small r"
+    return None
+
+
 def test_dynamfric_force_factor_computed_once_per_step():
     from galpy.orbit import Orbit
 
