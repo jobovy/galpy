@@ -1722,3 +1722,36 @@ def test_hyp2f1_small_c_minus_B_is_accurate(backend):
             ref = scipy_special.hyp2f1(A, B, c, z)
             got = as_numpy(gsp.hyp2f1(A, B, c, _asarray(backend, z)))
             numpy.testing.assert_allclose(got, ref, rtol=1e-13)
+
+
+# A Python-float order with a CUDA argument, torch's DEFAULT device left on the
+# CPU (--device cuda sets it to cuda, which hides a device-less tensor): the
+# order must land on the argument's device. MWPotential2014's bulge
+# (PowerSphericalPotentialwCutoff) calls gammainc on every force evaluation.
+@pytest.mark.skipif(
+    torch is None or not torch.cuda.is_available(), reason="needs a CUDA GPU"
+)
+@pytest.mark.parametrize("requires_grad", [False, True])
+def test_gammainc_float_order_cuda_argument(requires_grad):
+    from galpy.potential import MWPotential2014, evaluateRforces
+
+    xs = numpy.array([0.1, 1.3, 4.0])
+    with torch.device("cpu"):
+        x = torch.tensor(xs, dtype=torch.float64, device="cuda")
+        x.requires_grad_(requires_grad)
+        for fn, ref in [
+            (gsp.gammainc, scipy_special.gammainc),
+            (gsp.gammaincc, scipy_special.gammaincc),
+        ]:
+            got = fn(1.5, x)
+            assert got.device.type == "cuda"
+            numpy.testing.assert_allclose(as_numpy(got), ref(1.5, xs), rtol=1e-13)
+        with use("torch"):
+            R = torch.tensor([0.5, 1.0, 2.0], dtype=torch.float64, device="cuda")
+            F = evaluateRforces(MWPotential2014, R, R * 0.0)
+    assert F.device.type == "cuda"
+    numpy.testing.assert_allclose(
+        as_numpy(F),
+        evaluateRforces(MWPotential2014, numpy.array([0.5, 1.0, 2.0]), 0.0),
+        rtol=1e-12,
+    )
