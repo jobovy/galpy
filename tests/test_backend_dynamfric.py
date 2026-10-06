@@ -439,6 +439,48 @@ def test_dynfric_grad_wrt_host_potential_parameter(backend, which):
     numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
 
 
+# --- sigma_r: C's natural spline on the log-r grid, on every path -------------
+# numpy, C and the backends interpolate the SAME natural cubic spline of the
+# log-r table (C: GSL cspline). Small r is where the old linear grid was ~20-60%
+# off and where natural vs not-a-knot end conditions differ.
+_SIGMAR_RS = numpy.geomspace(2e-4, 20.0, 31)
+
+
+def _sigmar_reference(cdf, host):
+    from scipy.interpolate import CubicSpline
+
+    from galpy.df import jeans
+
+    nat = CubicSpline(
+        cdf._sigmar_rs_4interp, as_numpy(cdf._sigmars_4interp), bc_type="natural"
+    )(_SIGMAR_RS)
+    exact = numpy.array(
+        [jeans.sigmar(host, r, beta=0.0, use_physical=False) for r in _SIGMAR_RS]
+    )
+    return nat, exact
+
+
+@pytest.mark.parametrize("host_params", ["float", "backend"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_sigmar_is_the_c_natural_spline(backend, host_params):
+    from galpy.backend import use
+    from galpy.potential import HernquistPotential
+
+    host = HernquistPotential(amp=2.0, a=_HOST_A)
+    if host_params == "float":  # frozen table, evaluated on backend arrays
+        cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=host)
+        val = as_numpy(cdf.sigmar(_arr(backend, _SIGMAR_RS)))
+    else:  # table built in-backend (differentiable in the host's parameters)
+        with use(backend, force=True):
+            bhost = HernquistPotential(amp=_arr(backend, 2.0), a=_arr(backend, _HOST_A))
+            cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=bhost)
+            val = as_numpy(cdf.sigmar(_arr(backend, _SIGMAR_RS)))
+    nat, exact = _sigmar_reference(cdf, host)
+    # measured 2.2e-16 (spline) and 1.4e-8 (exact) on every path
+    numpy.testing.assert_allclose(val, nat, rtol=1e-14)
+    numpy.testing.assert_allclose(val, exact, rtol=1e-7)
+
+
 ###############################################################################
 # Eager per-step cost: the three force components of one EOM evaluation share
 # ONE backend force-factor computation (identity cache, the twin of the numpy
