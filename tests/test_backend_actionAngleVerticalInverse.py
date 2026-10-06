@@ -126,7 +126,7 @@ def _jac_backend(backend, aA, j0, angles):
     (dxda,) = torch.autograd.grad(x.sum(), at, retain_graph=True)
     (dvda,) = torch.autograd.grad(v.sum(), at, retain_graph=True)
     (dOdJ,) = torch.autograd.grad(O, jt)
-    return dxdJ, dvdJ, dxda.numpy(), dvda.numpy(), float(dOdJ)
+    return dxdJ, dvdJ, as_numpy(dxda), as_numpy(dvda), float(dOdJ)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -242,7 +242,7 @@ def test_torch_compile():
         backend="eager",
     )
     got = f(torch.tensor(0.137), torch.tensor(_ANGLES))
-    numpy.testing.assert_allclose(got.numpy(), ref, rtol=0.0, atol=2e-14)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=2e-14)
 
 
 def test_construction_and_legacy_contract():
@@ -430,7 +430,9 @@ def test_backend_construction_edge_grids(backend):
         aA = actionAngleVerticalInverse(pot=kg, Es=[0.0])
         for g, r in zip(aA.xvFreqs(0.0, _ANGLES), ref.xvFreqs(0.0, _ANGLES)):
             assert _is_backend(backend, g)
-            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=1e-14)
+            numpy.testing.assert_allclose(
+                as_numpy(g), as_numpy(r), rtol=0.0, atol=1e-14
+            )
     plummer = PlummerPotential(normalize=1.0).toVertical(1.0)
     with pytest.raises(RuntimeError, match="turning point could not be found"):
         actionAngleVerticalInverse(pot=plummer, Es=[0.1, 3.28])
@@ -526,3 +528,48 @@ def test_legacy_derivatives_vs_finite_difference(backend, mode):
     numpy.testing.assert_allclose(dvdJ, dJ[n : 2 * n], rtol=0.0, atol=1e-10)
     numpy.testing.assert_allclose(dxda, dA[:, 0], rtol=0.0, atol=1e-10)
     numpy.testing.assert_allclose(dvda, dA[:, 1], rtol=0.0, atol=1e-10)
+
+
+# --- CUDA potential parameters with torch's default device left on the CPU ----
+# Every table the native construction creates must follow the potential's
+# device; --device cuda sets torch's DEFAULT device to cuda, which hides a
+# device-less constructor, so keep the default on the CPU here.
+@pytest.mark.skipif(
+    torch is None or not torch.cuda.is_available(), reason="needs a CUDA GPU"
+)
+@pytest.mark.parametrize("momentum_matched", [True, False])
+def test_cuda_potential_parameters_cpu_default_device(momentum_matched):
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.backend import use
+    from galpy.potential import IsothermalDiskPotential
+
+    Es = numpy.linspace(0.0, 2.0, 9)  # includes the bottom torus
+    angles = numpy.linspace(0.0, 2.0 * numpy.pi, 17)
+    ref = actionAngleVerticalInverse(
+        pot=IsothermalDiskPotential(amp=1.0, sigma=0.5),
+        Es=Es,
+        setup_interp=True,
+        momentum_matched=momentum_matched,
+    )
+    xr, vr, Or = ref.xvFreqs(0.3, angles)
+    with torch.device("cpu"):
+        cuda = torch.device("cuda")
+        kw = dict(dtype=torch.float64, device=cuda)
+        pot = IsothermalDiskPotential(
+            amp=torch.tensor(1.0, **kw), sigma=torch.tensor(0.5, **kw)
+        )
+        with use("torch"):
+            if momentum_matched:
+                aA = actionAngleVerticalInverse(pot=pot, Es=Es, setup_interp=True)
+            else:  # legacy: built on numpy, evaluated natively
+                aA = actionAngleVerticalInverse(
+                    pot=IsothermalDiskPotential(amp=1.0, sigma=0.5),
+                    Es=Es,
+                    setup_interp=True,
+                    momentum_matched=False,
+                )
+        x, v, O = aA.xvFreqs(torch.tensor(0.3, **kw), torch.tensor(angles, **kw))
+    assert x.device.type == "cuda" and v.device.type == "cuda"
+    numpy.testing.assert_allclose(as_numpy(x), xr, rtol=0.0, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(v), vr, rtol=0.0, atol=1e-10)
+    numpy.testing.assert_allclose(float(as_numpy(O)), Or, rtol=1e-10)
