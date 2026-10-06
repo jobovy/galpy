@@ -126,7 +126,7 @@ def _jac_backend(backend, aA, j0, angles):
     (dxda,) = torch.autograd.grad(x.sum(), at, retain_graph=True)
     (dvda,) = torch.autograd.grad(v.sum(), at, retain_graph=True)
     (dOdJ,) = torch.autograd.grad(O, jt)
-    return dxdJ, dvdJ, dxda.numpy(), dvda.numpy(), float(dOdJ)
+    return dxdJ, dvdJ, as_numpy(dxda), as_numpy(dvda), float(dOdJ)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -242,7 +242,7 @@ def test_torch_compile():
         backend="eager",
     )
     got = f(torch.tensor(0.137), torch.tensor(_ANGLES))
-    numpy.testing.assert_allclose(got.numpy(), ref, rtol=0.0, atol=2e-14)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=2e-14)
 
 
 def test_construction_and_legacy_contract():
@@ -430,7 +430,9 @@ def test_backend_construction_edge_grids(backend):
         aA = actionAngleVerticalInverse(pot=kg, Es=[0.0])
         for g, r in zip(aA.xvFreqs(0.0, _ANGLES), ref.xvFreqs(0.0, _ANGLES)):
             assert _is_backend(backend, g)
-            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=1e-14)
+            numpy.testing.assert_allclose(
+                as_numpy(g), as_numpy(r), rtol=0.0, atol=1e-14
+            )
     plummer = PlummerPotential(normalize=1.0).toVertical(1.0)
     with pytest.raises(RuntimeError, match="turning point could not be found"):
         actionAngleVerticalInverse(pot=plummer, Es=[0.1, 3.28])
