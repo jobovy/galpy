@@ -96,7 +96,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         maxr : float or Quantity, optional
             Maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider.
         nr : int, optional
-            Number of radii to use in the interpolation of sigmar.
+            Number of radii to use in the interpolation of sigmar (logarithmically spaced between minr and maxr; linearly if minr=0).
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional

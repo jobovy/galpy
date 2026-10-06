@@ -1,6 +1,16 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
+  now tabulate the host's velocity dispersion sigma_r(r) on a grid in log r
+  (previously linear in r: with the default maxr=25 the grid spacing was 0.05,
+  leaving sigma_r 20-60% wrong at r < 0.03 for common hosts) and the Python
+  force evaluates the same natural cubic spline of it as the C implementation
+  (previously a not-a-knot spline, so C and Python forces differed at small
+  r). sigma_r is now accurate to ~1e-9 at small r and ~1e-6 everywhere, and
+  an orbit sinking to the center integrates identically in C and Python
+  (previously ~20% apart in r at r ~ 0.003).
+
 - ``TwoPowerSphericalPotential``'s forces, second derivatives and enclosed
   mass (python and C) for general (alpha, beta) are now computed from the same
   incomplete beta function as its potential: dPhi/dr = M(r)/r^2 and, by
