@@ -8258,8 +8258,8 @@ def test_actionAngleVerticalInverse_orbit():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8344,8 +8344,8 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8434,8 +8434,8 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8523,8 +8523,8 @@ def test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8689,8 +8689,8 @@ def test_actionAngleVerticalInverse_orbit_bisect():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8783,8 +8783,8 @@ def test_actionAngleVerticalInverse_orbit_pointtransform_bisect():
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(1.0), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -8925,8 +8925,8 @@ def test_actionAngleVerticalInverse_orbit_interpolation(
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-8, (
@@ -9003,8 +9003,8 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
@@ -9080,8 +9080,8 @@ def test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform(
     )
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
-    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
-    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / as_numpy(Om), 1001)
+    x, v = aAVI(aAVI.J(Ei), as_numpy(Om) * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
     assert numpy.amax(numpy.fabs(as_numpy(orb.x(ts) - x))) < 1e-7, (
@@ -10005,9 +10005,7 @@ def test_actionAngleVerticalInverse_polynomial_pt_true_action():
             numpy.amax(numpy.fabs(as_numpy(aAVI._jaoffset)) / aAVI._js[1:].min()) > 1e-5
         ), "The polynomial point transformation has no action offset to correct"
         for ii in range(1, len(Es)):  # including the top torus
-            jtrue = float(
-                numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0]
-            )
+            jtrue = float(as_numpy(aAV(0.0, numpy.sqrt(2.0 * Es[ii]))[0]).ravel()[0])
             assert numpy.fabs(as_numpy(aAVI.J(Es[ii]) / jtrue - 1.0)) < 1e-8, (
                 "J(E) does not return the torus's actual action"
             )
@@ -10058,10 +10056,7 @@ def test_actionAngleVerticalInverse_polynomial_pt_offset_closed_form():
     aAV = actionAngleVertical(pot=pot)
     Es = numpy.linspace(0.0, 2.0, 9)
     jforward = numpy.array(
-        [
-            float(numpy.asarray(aAV(0.0, numpy.sqrt(2.0 * E))[0]).ravel()[0])
-            for E in Es[1:]
-        ]
+        [float(as_numpy(aAV(0.0, numpy.sqrt(2.0 * E))[0]).ravel()[0]) for E in Es[1:]]
     )
     for pt_deg in (3, 7, 11):
         aAVI = actionAngleVerticalInverse(
@@ -10196,7 +10191,7 @@ def test_actionAngleVerticalInverse_momentum_matched_angles():
         assert Om == aAVI.Freqs(j), "xvFreqs and Freqs disagree"
         jf, Omf, thfwd = aAV.actionsFreqsAngles(x, v)
         dth = numpy.fabs(
-            as_numpy((thfwd - th + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+            (as_numpy(thfwd) - as_numpy(th) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         )
         return (
             numpy.amax(numpy.fabs(as_numpy(jf - j))),
@@ -10284,11 +10279,12 @@ def test_actionAngleVerticalInverse_momentum_matched_turning_points():
     prev = None
     for J in (1e-4 * J1, 1e-3 * J1, 1e-2 * J1):
         x, v = aAVI(J, th)
+        Jn = float(as_numpy(J))
         dev = numpy.array(
             [
-                numpy.amax(as_numpy(x)) ** 2.0 * omega0 / (2.0 * J) - 1.0,
-                numpy.amax(as_numpy(v)) ** 2.0 / (2.0 * J * omega0) - 1.0,
-                aAVI.Freqs(J) / omega0 - 1.0,
+                numpy.amax(as_numpy(x)) ** 2.0 * omega0 / (2.0 * Jn) - 1.0,
+                numpy.amax(as_numpy(v)) ** 2.0 / (2.0 * Jn * omega0) - 1.0,
+                float(as_numpy(aAVI.Freqs(J))) / omega0 - 1.0,
             ]
         )
         assert numpy.amax(numpy.fabs(as_numpy(dev))) < 30.0 * J / J1, (
@@ -10340,7 +10336,7 @@ def test_actionAngleVerticalInverse_momentum_matched_symplectic():
     for nE in (3, 9):
         Es = numpy.linspace(0.0, 2.0, nE)
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        js = numpy.array([aAVI.J(E) for E in Es])
+        js = numpy.array([float(as_numpy(aAVI.J(E))) for E in Es])
         # at a node, and in the middle of every interval, the first and the
         # last included
         for J in numpy.concatenate([js[1:], 0.5 * (js[:-1] + js[1:])]):
@@ -10418,7 +10414,8 @@ def test_actionAngleVerticalInverse_momentum_matched_is_the_default():
                     as_numpy(
                         numpy.fabs(
                             as_numpy(
-                                (thf - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                                (as_numpy(thf) - angles + numpy.pi) % (2.0 * numpy.pi)
+                                - numpy.pi
                             )
                         )
                     )
@@ -10491,7 +10488,7 @@ def test_actionAngleVerticalInverse_momentum_matched_between_tori():
         r = numpy.linspace(0.0, 1.0, n)
         Es = 2.0 * r if uniform else 2.0 * (0.55 * r + 0.45 * r**2.5)
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128)
-        js = numpy.array([aAVI.J(E) for E in Es])
+        js = numpy.array([float(as_numpy(aAVI.J(E))) for E in Es])
         # at the nodes the construction preserves the action whatever the
         # tables contain
         for J in js[1:]:
@@ -10612,14 +10609,15 @@ def test_actionAngleVerticalInverse_momentum_matched_interpolation():
     for Es in ([1.0], [0.5, 1.5], [0.0, 1.0, 2.0], numpy.linspace(0.0, 2.0, 9)):
         aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, nta=128, setup_interp=True)
         Jt = aAVI.J(Et)
-        assert numpy.amax(numpy.fabs(as_numpy(aAVI.E(Jt) - Et))) < 1e-12, (
+        assert numpy.amax(numpy.fabs(as_numpy(aAVI.E(Jt)) - Et)) < 1e-12, (
             "E(J(E)) does not return the energy"
         )
         assert (
             numpy.amax(
                 as_numpy(
                     numpy.fabs(
-                        as_numpy(Jt - numpy.array([aAVI.J(E) for E in Et]).flatten())
+                        as_numpy(Jt)
+                        - numpy.array([float(as_numpy(aAVI.J(E))) for E in Et])
                     )
                 )
             )
