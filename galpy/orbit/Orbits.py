@@ -7324,7 +7324,13 @@ class Orbit:
         # streamdf's track grid, which depends on theta). Only its ndim/len are
         # used structurally below; the value comparison is already guarded by a
         # try/except that falls through to the in-backend interpolator.
-        _self_t = self.t if under_trace(self.t) else numpy.asarray(to_host(self.t))
+        # (or carries an eager torch graph: numpy would refuse it, and the
+        # times' gradient must reach the in-backend interpolator)
+        _self_t = (
+            self.t
+            if under_trace(self.t) or requires_backend_grad(self.t)
+            else numpy.asarray(to_host(self.t))
+        )
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
         if _self_t.ndim > 1:
             return self._call_internal_indiv_t(t)
@@ -7716,7 +7722,7 @@ class Orbit:
         # track grid depends on theta) cannot be compared or reversed concretely,
         # so order it with argsort instead. The concrete path keeps the exact
         # numpy reversal and stays byte-identical.
-        grid_traced = under_trace(self.t)
+        grid_traced = under_trace(self.t) or requires_backend_grad(self.t)
         self_t = self.t if grid_traced else numpy.asarray(to_host(self.t))
         scalar = isinstance(t, (int, float, numpy.number)) or (
             is_backend_array(t) and getattr(t, "ndim", 1) == 0

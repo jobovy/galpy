@@ -2645,3 +2645,82 @@ def test_approxaAInv_float32_query_points(sdf, torch_default_float32):
         ref = sdf._approxaAInv(*(torch.tensor(c, dtype=torch.float64) for c in pts32.T))
     assert got.dtype == torch.float32
     numpy.testing.assert_array_equal(got.numpy(), ref.to(torch.float32).numpy())
+
+
+# --- eager torch autograd through the construction helpers -------------------
+# An eager torch tensor carrying a graph is not "under a trace", but it cannot go
+# through numpy either: numpy refuses it (Can't call numpy() on Tensor that
+# requires grad), or -- worse -- a float() silently detaches it. These helpers
+# must keep such tensors on torch, as they do tracers (a torch progenitor's
+# construction hit every one of them).
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_span_grid_and_ns_sqrt_keep_eager_torch_grad():
+    from galpy.df.streamdf import _ns_sqrt, _span_grid
+
+    ext = torch.tensor(3.0, requires_grad=True)
+    grid = _span_grid(ext, 5)
+    assert isinstance(grid, torch.Tensor)
+    # d grid / d extent = linspace(0, 1): exact, and was silently dropped
+    (g,) = torch.autograd.grad(grid.sum(), ext)
+    numpy.testing.assert_allclose(float(g), 2.5, rtol=0.0, atol=1e-15)
+    x = torch.tensor(2.0, requires_grad=True)
+    s = _ns_sqrt(x)
+    assert isinstance(s, torch.Tensor)
+    (g,) = torch.autograd.grad(s, x)
+    numpy.testing.assert_allclose(float(g), 0.5 / numpy.sqrt(2.0), rtol=1e-15)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_ns_coerce_takes_the_namespace_of_any_backend_operand():
+    from galpy.df.streamdf import _ns_coerce
+
+    # a numpy first operand next to a torch one must not coerce torch to numpy
+    xp, a, b = _ns_coerce(numpy.array(0.5), torch.tensor(2.0, requires_grad=True))
+    assert isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor)
+    assert b.requires_grad
+    xp, a, b = _ns_coerce(numpy.array(0.5), numpy.array(2.0))
+    assert xp is numpy
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_orbit_on_a_time_grid_that_carries_a_graph():
+    # streamdf's track grid depends on the potential; evaluating an orbit
+    # integrated on it must keep the times' gradient: t5 = T/2, so
+    # dR(t5)/dT = vR(t5) / 2 at a fixed initial condition
+    pot = IsochronePotential(normalize=1.0, b=1.0)
+    T = torch.tensor(2.0, requires_grad=True)
+    ts = T * torch.linspace(0.0, 1.0, 11)
+    o = Orbit(torch.tensor([1.0, 0.1, 1.1, 0.0, 0.1, 0.0]))
+    o.integrate(ts, pot, method="torchode")
+    R5 = o.R(ts[5])
+    (g,) = torch.autograd.grad(R5, T)
+    vR5 = float(as_numpy(o.vR(ts[5])))
+    numpy.testing.assert_allclose(float(g), 0.5 * vR5, rtol=1e-6)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("flip", [False, True])
+def test_misalignment_traces(flip):
+    # a traced construction needs misalignment() under jax.jit (it then asks for
+    # nTrackIterations explicitly); both branches of the pi/2 fold, vs eager
+    from types import SimpleNamespace
+
+    from galpy.df.streamdf import streamdf
+
+    d = numpy.array([0.6, -0.48, 0.64])
+    d = -d if flip else d  # flip: angle > pi/2, folded by -pi
+
+    def misalign(pO):
+        fake = SimpleNamespace(
+            _progenitor_Omega=pO, _dsigomeanProgDirection=jnp.asarray(d)
+        )
+        return streamdf.misalignment(fake, isotropic=False)
+
+    pO = jnp.asarray([0.7, -0.5, 0.6])
+    eager = float(misalign(pO))
+    traced = float(jax.jit(misalign)(pO))
+    assert (eager < 0.0) == flip
+    numpy.testing.assert_allclose(traced, eager, rtol=0.0, atol=1e-15)
+    pn = numpy.asarray(pO)
+    ref = numpy.arccos(pn @ d / numpy.linalg.norm(pn))
+    numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)
