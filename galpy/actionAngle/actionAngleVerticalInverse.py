@@ -1121,7 +1121,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 return D - xp.linalg.solve(M, rhs[..., None])[..., 0]
 
             Jc, Ac = stop_gradient(J), stop_gradient(A)
-            D = xp.zeros((npos, mm_npt), dtype=J.dtype)
+            D = xp.zeros((npos, mm_npt), dtype=J.dtype, device=dev)
             for _ in range(_MM_GN_ITERS):
                 D = _gn_step(D, Jc, Ac)
             D = _gn_step(stop_gradient(D), J, A)
@@ -1146,17 +1146,17 @@ class actionAngleVerticalInverse(actionAngleInverse):
             dK = 2.0 * xmax * dxmaxdJ / J - xmax**2.0 / J**2.0
         else:  # every torus is a bottom torus
             dtype = Phi0.dtype
-            J = Om = xmax = K = dK = xp.zeros((0,), dtype=dtype)
-            D = dD = xp.zeros((0, mm_npt), dtype=dtype)
+            J = Om = xmax = K = dK = xp.zeros((0,), dtype=dtype, device=dev)
+            D = dD = xp.zeros((0, mm_npt), dtype=dtype, device=dev)
         # assemble the full grid (bottom tori first: the lowest energies)
         cat = getattr(xp, "concat", None) or xp.concatenate
         if nb:
             Ob = xp.stack(Om_bottom)
-            zb = xp.zeros((nb,), dtype=J.dtype)
+            zb = xp.zeros((nb,), dtype=J.dtype, device=dev)
             js = cat([zb, J])
             Oms = cat([Ob, Om])
             xmaxs = cat([zb, xmax])
-            Ds = cat([xp.zeros((nb, mm_npt), dtype=J.dtype), D])
+            Ds = cat([xp.zeros((nb, mm_npt), dtype=J.dtype, device=dev), D])
             Ks = cat([2.0 / Ob, K])
             # the bottom slopes: as in _setup_momentum_matched_family
             if npos:
@@ -1172,8 +1172,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     ]
                 )
             else:
-                dDb = xp.zeros((nb, mm_npt), dtype=J.dtype)
-                dKb = xp.zeros((nb,), dtype=J.dtype)
+                dDb = xp.zeros((nb, mm_npt), dtype=J.dtype, device=dev)
+                dKb = xp.zeros((nb,), dtype=J.dtype, device=dev)
             dDs = cat([dDb, dD])
             dKs = cat([dKb, dK])
         else:
@@ -1868,7 +1868,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             0.0,
             self._nE - 1.0,
         )
-        rows = xp.reshape(row[:, None] + 0.0 * xp.zeros((1, ncols)), (-1,))
+        rows = xp.reshape(
+            row[:, None] + xp.zeros((1, ncols), dtype=row.dtype, device=device_of(row)),
+            (-1,),
+        )
         cols = asarray_on_device(
             xp, numpy.tile(numpy.arange(ncols, dtype=float), E.shape[0]), device_of(E)
         )
