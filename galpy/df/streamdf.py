@@ -32,7 +32,12 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend import to_host
-from ..backend._namespaces import inbackend_ode_method, under_trace
+from ..backend._namespaces import (
+    inbackend_ode_method,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
 from ..backend.linalg import real_eig as _bk_real_eig
@@ -115,7 +120,10 @@ def _ns_coerce(*xs):
     module-scoped fixture is built before the --backend force fixture runs), so
     compute on ``xp`` after coercing rather than assuming either side.
     """
-    xp = get_namespace(xs[0])
+    # a backend operand fixes the namespace (a numpy dangle next to stored
+    # torch moments must not coerce those to numpy); else the ambient one
+    bk = [x for x in xs if is_backend_array(x)]
+    xp = namespace_from_arrays(bk) if bk else get_namespace(xs[0])
     return (xp, *coerce_coords(xp, *xs))
 
 
@@ -131,7 +139,7 @@ def _span_grid(extent, n):
     AMBIENT namespace, so keying on ``is_backend_array`` would build a backend
     grid under any forced backend and leak it into the numpy track path.
     """
-    if under_trace(extent):
+    if under_trace(extent) or requires_backend_grad(extent):
         return extent * get_namespace(extent).linspace(0.0, 1.0, n)
     return numpy.linspace(0.0, float(extent), n)
 
@@ -145,7 +153,7 @@ def _ns_sqrt(x):
     :func:`_span_grid`, so a forced backend does not silently turn a derived
     scalar into a backend array.
     """
-    if under_trace(x):
+    if under_trace(x) or requires_backend_grad(x):
         xp, xv = _ns_coerce(x)
         return xp.sqrt(xv)
     return numpy.sqrt(x)
@@ -2191,12 +2199,16 @@ class streamdf(df):
         # path is untouched (still scipy, byte-identical).
         # knots are geometry when concrete; a TRACED angle grid stays on the
         # backend so the gradient flows through the knot positions too
-        thetas_np = thetas if under_trace(thetas) else as_numpy(thetas)
+        thetas_np = (
+            thetas
+            if under_trace(thetas) or requires_backend_grad(thetas)
+            else as_numpy(thetas)
+        )
         interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
         nInterp = len(interpThetas_np)
         interpThetas = (
             interpThetas_np
-            if under_trace(interpThetas_np)
+            if under_trace(interpThetas_np) or requires_backend_grad(interpThetas_np)
             else as_backend_constant(xp, interpThetas_np, ref)
         )
         coeffs = cubic_spline_coeffs(xp, thetas_np, eigvals, bc="not-a-knot")
@@ -2485,6 +2497,7 @@ class streamdf(df):
         thetas_np = (
             self._thetasTrack
             if under_trace(self._thetasTrack)
+            or requires_backend_grad(self._thetasTrack)
             else as_numpy(self._thetasTrack)
         )
         phi = ObsTrack[:, 5]
@@ -3325,9 +3338,9 @@ class streamdf(df):
             or is_backend_array(self._meandO)
             or is_backend_array(self._sortedSigOEig[2])
         ):
-            xp, dangle, dOmin = _ns_coerce(dangle, dOmin)
-            (meandO,) = coerce_coords(xp, self._meandO)
-            (sig,) = coerce_coords(xp, self._sortedSigOEig[2])
+            xp, dangle, dOmin, meandO, sig = _ns_coerce(
+                dangle, dOmin, self._meandO, self._sortedSigOEig[2]
+            )
             dO1D = (
                 numpy.sqrt(2.0 / numpy.pi)
                 * xp.sqrt(sig)
@@ -3449,9 +3462,9 @@ class streamdf(df):
             or is_backend_array(dangle)
             or is_backend_array(self._meandO)
         ):
-            xp, t, dangle = _ns_coerce(t, dangle)
-            (meandO,) = coerce_coords(xp, self._meandO)
-            (sig,) = coerce_coords(xp, self._sortedSigOEig[2])
+            xp, t, dangle, meandO, sig = _ns_coerce(
+                t, dangle, self._meandO, self._sortedSigOEig[2]
+            )
             mask = (t > 0.0) & (t < self._tdisrupt)
             t_safe = xp.where(mask, t, xp.ones_like(t))
             dO = dangle / t_safe
