@@ -1784,7 +1784,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         lo = xp.zeros_like(target)
         tau = _backend_brentq(
-            _resid, lo, lo + 2.0 * numpy.pi, args=(*tables, jsafe, target)
+            _resid,
+            lo,
+            lo + 2.0 * numpy.pi,
+            args=(*tables, jsafe, target),
+            bracket_width=2.0 * numpy.pi,
         )
         x, p, _, _ = _mm_kernel(xp, tau, jsafe, *tables)
         x = xp.where(pos, x, 0.0)
@@ -1957,7 +1961,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
             lo = xp.zeros_like(target)
             anglea = _backend_brentq(
-                _resid, lo, lo + 2.0 * numpy.pi, args=(tdSndJ, target)
+                _resid,
+                lo,
+                lo + 2.0 * numpy.pi,
+                args=(tdSndJ, target),
+                bracket_width=2.0 * numpy.pi,
             )
             ja = (j + tjaoffset) + 2.0 * xp.sum(
                 tnSn * xp.cos(n * anglea[:, None]), axis=1
