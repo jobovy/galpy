@@ -55,7 +55,9 @@ _XTOL = 2e-12
 _MAXITER = 100
 
 
-def brentq(func, a, b, args=(), xtol=_XTOL, rtol=None, maxiter=_MAXITER):
+def brentq(
+    func, a, b, args=(), xtol=_XTOL, rtol=None, maxiter=_MAXITER, bracket_width=None
+):
     """Find a root of ``func`` in the bracket ``[a, b]`` (backend-agnostic).
 
     A drop-in for the subset of ``scipy.optimize.brentq`` galpy uses:
@@ -87,6 +89,13 @@ def brentq(func, a, b, args=(), xtol=_XTOL, rtol=None, maxiter=_MAXITER):
     maxiter : int, optional
         Maximum number of bisection iterations on the backend path / forwarded
         to scipy on the numpy path (default 100).
+    bracket_width : float, optional
+        A static (Python float) upper bound on ``|b - a|`` for the backend path.
+        The halving count is read off the bracket's width, which a TRACED bracket
+        (jit, torch.compile) does not have, so it falls back to ``maxiter``;
+        a caller whose bracket width is structural (e.g. ``[0, 2 pi]``) passes
+        it here to keep the traced schedule as short as the eager one. Ignored
+        on the numpy path.
 
     Returns
     -------
@@ -110,10 +119,10 @@ def brentq(func, a, b, args=(), xtol=_XTOL, rtol=None, maxiter=_MAXITER):
         from ._jax.optimize import brentq_backend as _bk
     else:  # array_api_compat.torch
         from ._torch.optimize import brentq_backend as _bk
-    return _bk(f, a, b, xp, xtol=xtol, maxiter=maxiter)
+    return _bk(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=bracket_width)
 
 
-def n_bisect_steps(a, b, xtol, maxiter):
+def n_bisect_steps(a, b, xtol, maxiter, width=None):
     """Number of bisection halvings to shrink ``[a, b]`` below ``xtol``.
 
     A fixed schedule (no data-dependent early-out) keeps the backend bisection
@@ -131,11 +140,14 @@ def n_bisect_steps(a, b, xtol, maxiter):
 
     import numpy
 
-    try:
-        width = float(numpy.max(numpy.abs(numpy.asarray(b) - numpy.asarray(a))))
-    except Exception:
-        # Traced (abstract) bracket under jit/grad: no concrete width available.
-        return min(maxiter, _MAXITER)
+    if width is not None:  # the caller's static bound (see brentq's bracket_width)
+        width = float(width)
+    else:
+        try:
+            width = float(numpy.max(numpy.abs(numpy.asarray(b) - numpy.asarray(a))))
+        except Exception:
+            # Traced (abstract) bracket under jit/grad: no concrete width.
+            return min(maxiter, _MAXITER)
     if not width > 0.0 or not xtol > 0.0:  # pragma: no cover - degenerate bracket
         return min(maxiter, _MAXITER)
     n = int(math.ceil(math.log2(width / xtol))) + 1
@@ -175,7 +187,7 @@ def iterate_bracket(step, x0, n):
     return x0
 
 
-def bisect_root(f, a, b, xp, *, xtol, maxiter):
+def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
     """Vectorised, sign-preserving bisection root of ``f`` on ``[a, b]`` in ``xp``.
 
     Runs a FIXED schedule of ``n_bisect_steps`` halvings (no data-dependent
@@ -202,12 +214,12 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     if under_jax_trace(a, b):
         from ._jax.optimize import _bisect_root
 
-        return _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
+        return _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     # Anchor on the inputs (device/dtype); * 1.0 promotes integer brackets.
     lo = xp.asarray(a) * 1.0
     hi = xp.asarray(b) * 1.0
     slo = xp.sign(f(lo))  # sign of f at the low endpoint
-    n = n_bisect_steps(a, b, xtol, maxiter)
+    n = n_bisect_steps(a, b, xtol, maxiter, width=width)
     for _ in range(n):
         lo, hi = bisect_step(lo, hi, slo, f, xp)
     return 0.5 * (lo + hi)
