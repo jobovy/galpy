@@ -193,10 +193,19 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                     fill_value="extrapolate",
                 )(self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig = sigmar
-        # Backend-agnostic spline: numpy queries hit the scipy spline
-        # (byte-identical), backend (jax/torch) queries evaluate the frozen
-        # piecewise-polynomial through the namespace (jit/grad-safe).
-        self.sigmar = Spline1D(self._sigmar_rs_4interp, self._sigmars_4interp, k=3)
+        # The natural cubic spline the C implementation (GSL cspline) evaluates;
+        # numpy queries call scipy, backend queries evaluate the same
+        # polynomial through the namespace (built in-backend for a host with
+        # backend parameters, so sigma_r stays differentiable in them).
+        self.sigmar = (
+            Spline1D(self._sigmar_rs_4interp, self._sigmars_4interp, bc="natural")
+            if is_backend_array(self._sigmars_4interp)
+            else Spline1D.from_ppoly(
+                interpolate.CubicSpline(
+                    self._sigmar_rs_4interp, self._sigmars_4interp, bc_type="natural"
+                )
+            )
+        )
         if const_lnLambda:
             self._lnLambda = const_lnLambda
         else:
