@@ -8,7 +8,7 @@
 ###############################################################################
 
 
-def brentq_backend(f, a, b, xp, *, xtol, maxiter):
+def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
     """torch bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
     ``f`` is the single-argument closure ``x -> func(x, *args)`` in the
@@ -31,7 +31,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # so x0 is a constant w.r.t. the parameters; the Newton step restores the
     # parameter sensitivity via the implicit-function theorem.
     with torch.no_grad():
-        x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
+        x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     x0 = x0.detach()
     # f(x0) carries f's PARAMETER grad-dependence (x0 is a constant w.r.t. them).
     # When no parameter requires grad -- the plain forward, e.g. the existing
