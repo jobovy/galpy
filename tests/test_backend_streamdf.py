@@ -2696,3 +2696,31 @@ def test_orbit_on_a_time_grid_that_carries_a_graph():
     (g,) = torch.autograd.grad(R5, T)
     vR5 = float(as_numpy(o.vR(ts[5])))
     numpy.testing.assert_allclose(float(g), 0.5 * vR5, rtol=1e-6)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("flip", [False, True])
+def test_misalignment_traces(flip):
+    # a traced construction needs misalignment() under jax.jit (it then asks for
+    # nTrackIterations explicitly); both branches of the pi/2 fold, vs eager
+    from types import SimpleNamespace
+
+    from galpy.df.streamdf import streamdf
+
+    d = numpy.array([0.6, -0.48, 0.64])
+    d = -d if flip else d  # flip: angle > pi/2, folded by -pi
+
+    def misalign(pO):
+        fake = SimpleNamespace(
+            _progenitor_Omega=pO, _dsigomeanProgDirection=jnp.asarray(d)
+        )
+        return streamdf.misalignment(fake, isotropic=False)
+
+    pO = jnp.asarray([0.7, -0.5, 0.6])
+    eager = float(misalign(pO))
+    traced = float(jax.jit(misalign)(pO))
+    assert (eager < 0.0) == flip
+    numpy.testing.assert_allclose(traced, eager, rtol=0.0, atol=1e-15)
+    pn = numpy.asarray(pO)
+    ref = numpy.arccos(pn @ d / numpy.linalg.norm(pn))
+    numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)

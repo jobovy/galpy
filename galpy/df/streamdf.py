@@ -791,6 +791,8 @@ class streamdf(df):
         _mxp = get_namespace(self._progenitor_Omega)
         _pO, dODir = coerce_coords(_mxp, self._progenitor_Omega, dODir)
         out = _mxp.acos(_mxp.sum(_pO * dODir) / _mxp.sqrt(_mxp.sum(_pO**2.0)))
+        if is_backend_array(out):  # traceable (a traced streamdf construction)
+            return _mxp.where(out > numpy.pi / 2.0, out - numpy.pi, out)
         if out > numpy.pi / 2.0:
             return out - numpy.pi
         else:
