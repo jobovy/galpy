@@ -288,6 +288,35 @@ def test_jax_jit_rolls_bisection():
     numpy.testing.assert_allclose(g, 1.0 / (2.0 * numpy.sqrt(2.0)), rtol=1e-6)
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_bracket_width_sets_the_traced_halving_count():
+    # A traced bracket has no width, so the halving count falls back to maxiter
+    # (100); a caller's static bracket_width restores the eager count (43 for
+    # [0, 2 pi] at xtol=2e-12) -- same root, 2.3x fewer f evaluations.
+    from galpy.backend.optimize import n_bisect_steps
+
+    eager = n_bisect_steps(0.0, 2.0 * numpy.pi, 2e-12, 100)
+    counts = []
+
+    def probe(a, b):
+        counts.append(n_bisect_steps(a, b, 2e-12, 100))
+        counts.append(n_bisect_steps(a, b, 2e-12, 100, width=2.0 * numpy.pi))
+        return a
+
+    jax.jit(probe)(jnp.asarray(0.0), jnp.asarray(2.0 * numpy.pi))
+    assert eager == 43
+    assert counts == [100, eager]
+    # and brentq passes it through: the jitted root equals the eager one
+    f = lambda x: numpy.pi - x - 0.3 * jnp.sin(x)  # Kepler-like, root in (0, 2 pi)
+    a, b = jnp.asarray(0.0), jnp.asarray(2.0 * numpy.pi)
+    r_eager = float(brentq(f, a, b))
+    r_jit = float(
+        jax.jit(lambda a, b: brentq(f, a, b, bracket_width=2.0 * numpy.pi))(a, b)
+    )
+    numpy.testing.assert_allclose(r_jit, r_eager, rtol=0.0, atol=4e-16)
+    numpy.testing.assert_allclose(r_eager, numpy.pi, rtol=1e-14)
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_vectorized_grad_jacobian(backend):
     # Per-element gradient of the vector root w.r.t. the vector theta: a diagonal
