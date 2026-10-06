@@ -8,7 +8,7 @@
 ###############################################################################
 
 
-def brentq_backend(f, a, b, xp, *, xtol, maxiter):
+def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
     """jax bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
     ``f`` is the single-argument closure ``x -> func(x, *args)`` in jax.numpy.
@@ -28,7 +28,9 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
 
     from ..optimize import newton_polish
 
-    x0 = jax.lax.stop_gradient(_bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter))
+    x0 = jax.lax.stop_gradient(
+        _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
+    )
     # df/dx at x0 via a forward-mode directional derivative along the all-ones
     # tangent (exact df/dx for an elementwise f); the value fx0 comes for free.
     fx0, dfx0 = jax.jvp(f, (x0,), (jnp.ones_like(x0),))
@@ -38,7 +40,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     return newton_polish(x0, fx0, dfx0, xp)
 
 
-def _bisect_root(f, a, b, xp, *, xtol, maxiter):
+def _bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
     """Bisection root, rolling the halving loop into ``lax.fori_loop`` only when
     tracing (user jit/grad/vmap).
 
@@ -55,11 +57,12 @@ def _bisect_root(f, a, b, xp, *, xtol, maxiter):
     from ..optimize import bisect_root, bisect_step, n_bisect_steps
 
     if not under_jax_trace(a, b):  # entered directly with a concrete bracket
-        return bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
+        return bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     lo = xp.asarray(a) * 1.0
     hi = xp.asarray(b) * 1.0
     slo = xp.sign(f(lo))
-    n = n_bisect_steps(a, b, xtol, maxiter)  # tracer -> min(maxiter, _MAXITER)
+    # a tracer has no width -> min(maxiter, _MAXITER), unless the caller bounds it
+    n = n_bisect_steps(a, b, xtol, maxiter, width=width)
     lo, hi = jax.lax.fori_loop(
         0, n, lambda _, c: bisect_step(c[0], c[1], slo, f, xp), (lo, hi)
     )
