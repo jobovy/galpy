@@ -1006,14 +1006,27 @@ def test_shared_step_aA_step_count(sdf):
     aA = mk({"max_steps": 5000})
     shared = _shared_step_aA(aA, jnp, Tmin)
     assert shared is not aA and aA._integrate_kwargs == {"max_steps": 5000}
+    # DirectAdjoint by default (the track differentiates these solves twice);
+    # a caller's own adjoint wins
     assert shared._integrate_kwargs == {
         "max_steps": 5000,
         "nsteps": math.ceil(100 * 30.0 / Tmin),
+        "adjoint": "direct",
     }
-    assert _shared_step_aA(mk(None), jnp, None)._integrate_kwargs == {"nsteps": 1000}
+    assert _shared_step_aA(mk(None), jnp, None)._integrate_kwargs == {
+        "nsteps": 1000,
+        "adjoint": "direct",
+    }
     assert _shared_step_aA(mk({"nsteps": 77}), jnp, Tmin)._integrate_kwargs == {
-        "nsteps": 77
+        "nsteps": 77,
+        "adjoint": "direct",
     }
+    assert (
+        _shared_step_aA(mk({"adjoint": "recursive"}), jnp, Tmin)._integrate_kwargs[
+            "adjoint"
+        ]
+        == "recursive"
+    )
     aAI = actionAngleIsochrone(b=0.8)
     assert _shared_step_aA(aAI, jnp, Tmin) is aAI
     if "torch" in BACKENDS:
