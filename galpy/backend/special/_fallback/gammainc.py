@@ -335,8 +335,12 @@ def _dispatch_one(xp, a, x, upper):
         return _JAX_FNS[upper](a, x)
     import torch
 
-    a = torch.as_tensor(a)
-    x = torch.as_tensor(x)
+    # a Python/numpy order lands on the argument tensor's device (torch's default
+    # device can differ: CUDA x with a float order raised in torch.igamma)
+    ref = x if torch.is_tensor(x) else a
+    dev = ref.device if torch.is_tensor(ref) else None
+    a = torch.as_tensor(a, device=dev)
+    x = torch.as_tensor(x, device=dev)
     native = torch.special.gammaincc if upper else torch.special.gammainc
     if not (a.requires_grad or x.requires_grad):
         # Nothing to differentiate: hand straight to the native kernel and skip
