@@ -30,7 +30,10 @@ MIRRORS=(
 )
 for mirror in "${MIRRORS[@]}"; do
     echo "fetch_gsl.sh: trying $mirror"
-    if curl -fsSL --connect-timeout 20 --max-time 300 --retry 2 \
+    # bounded per mirror (curl applies --max-time to EACH attempt): <= 2 x 90 s,
+    # and a mirror trickling under 20 kB/s for 20 s is abandoned early
+    if curl -fsSL --connect-timeout 20 --max-time 90 --retry 1 \
+        --speed-limit 20000 --speed-time 20 \
         -o "$TARBALL" "$mirror/$TARBALL"; then
         if echo "$SHA256  $TARBALL" | sha256sum -c --status; then
             echo "fetch_gsl.sh: $TARBALL from $mirror (SHA-256 verified)"
