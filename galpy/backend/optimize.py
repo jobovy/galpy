@@ -56,7 +56,16 @@ _MAXITER = 100
 
 
 def brentq(
-    func, a, b, args=(), xtol=_XTOL, rtol=None, maxiter=_MAXITER, bracket_width=None
+    func,
+    a,
+    b,
+    args=(),
+    xtol=_XTOL,
+    rtol=None,
+    maxiter=_MAXITER,
+    bracket_width=None,
+    guess=None,
+    newton_steps=10,
 ):
     """Find a root of ``func`` in the bracket ``[a, b]`` (backend-agnostic).
 
@@ -96,6 +105,15 @@ def brentq(
         a caller whose bracket width is structural (e.g. ``[0, 2 pi]``) passes
         it here to keep the traced schedule as short as the eager one. Ignored
         on the numpy path.
+    guess : backend array, optional
+        A starting point close to the root (backend path only). Replaces the
+        bisection by ``newton_steps`` safeguarded Newton steps from ``guess``
+        (a step leaving the shrinking bracket falls back to its midpoint; a
+        converged point is frozen), with ``df/dx`` from the backend's autodiff
+        -- a handful of ``func`` evaluations instead of ~43 halvings when the
+        guess is good. The final implicit-function step is unchanged.
+    newton_steps : int, optional
+        Number of safeguarded Newton steps from ``guess`` (default 10).
 
     Returns
     -------
@@ -119,7 +137,43 @@ def brentq(
         from ._jax.optimize import brentq_backend as _bk
     else:  # array_api_compat.torch
         from ._torch.optimize import brentq_backend as _bk
-    return _bk(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=bracket_width)
+    return _bk(
+        f,
+        a,
+        b,
+        xp,
+        xtol=xtol,
+        maxiter=maxiter,
+        width=bracket_width,
+        guess=guess,
+        newton_steps=newton_steps,
+    )
+
+
+def newton_step_bracketed(f_and_slope, x, lo, hi, xp):
+    """One safeguarded Newton step for a root of an increasing-or-decreasing f
+    on the bracket ``[lo, hi]`` (elementwise, branch-free).
+
+    ``f_and_slope(x) -> (f(x), df/dx(x))``. The bracket shrinks around the root
+    (by the sign of f, which must change sign on it); a Newton step that leaves
+    it -- or is not finite -- is replaced by the bracket's midpoint, and a point
+    whose residual or step is at round-off is frozen (stepping a converged point
+    can only move it off the root). Returns the updated ``(x, lo, hi)``.
+    """
+    import numpy
+
+    eps = numpy.finfo(float).eps
+    fx, dfx = f_and_slope(x)
+    step = fx / dfx
+    conv = (xp.abs(fx) < 8.0 * eps * (1.0 + xp.abs(x))) | (
+        xp.abs(step) <= 4.0 * eps * (1.0 + xp.abs(x))
+    )
+    below = fx * xp.sign(dfx) < 0.0  # root is above x
+    lo = xp.where(below, x, lo)
+    hi = xp.where(below, hi, x)
+    new = x - step
+    bad = ~xp.isfinite(new) | (new < lo) | (new > hi)
+    return xp.where(conv, x, xp.where(bad, 0.5 * (lo + hi), new)), lo, hi
 
 
 def n_bisect_steps(a, b, xtol, maxiter, width=None):
