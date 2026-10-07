@@ -8,7 +8,9 @@
 ###############################################################################
 
 
-def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
+def brentq_backend(
+    f, a, b, xp, *, xtol, maxiter, width=None, guess=None, newton_steps=10
+):
     """torch bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
     ``f`` is the single-argument closure ``x -> func(x, *args)`` in the
@@ -30,8 +32,11 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
     # Bisection root, detached: its branchy comparisons carry no useful gradient,
     # so x0 is a constant w.r.t. the parameters; the Newton step restores the
     # parameter sensitivity via the implicit-function theorem.
-    with torch.no_grad():
-        x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
+    if guess is None:
+        with torch.no_grad():
+            x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
+    else:
+        x0 = _newton_root(f, a, b, guess, xp, newton_steps)
     x0 = x0.detach()
     # f(x0) carries f's PARAMETER grad-dependence (x0 is a constant w.r.t. them).
     # When no parameter requires grad -- the plain forward, e.g. the existing
@@ -82,3 +87,25 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter, width=None):
     # dfdx carries df/dx and its parameter dependence. x0 is constant. So the
     # Newton step is differentiable w.r.t. every parameter f closes over.
     return newton_polish(x0, fxr, dfdx, xp)
+
+
+def _newton_root(f, a, b, guess, xp, steps):
+    """Safeguarded Newton from ``guess`` (see optimize.newton_step_bracketed),
+    df/dx by autograd on a detached x (the iterate carries no graph)."""
+    import torch
+
+    from ..optimize import newton_step_bracketed
+
+    def fs(x):
+        with torch.enable_grad():
+            xr = x.detach().requires_grad_(True)
+            fx = f(xr)
+            (dfdx,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
+        return fx.detach(), dfdx.detach()
+
+    x = torch.clamp(torch.as_tensor(guess) * 1.0, min=a, max=b).detach()
+    lo = (torch.as_tensor(a) + 0.0 * x).detach()
+    hi = (torch.as_tensor(b) + 0.0 * x).detach()
+    for _ in range(steps):
+        x, lo, hi = newton_step_bracketed(fs, x, lo, hi, xp)
+    return x
