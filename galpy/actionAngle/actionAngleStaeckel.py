@@ -111,11 +111,10 @@ def _nanmedian(xp, a):
 # Vectorised, backend-agnostic Staeckel action core (numpy / jax / torch). One
 # unified path that replaced the former per-object scipy loop:
 # elementwise setup + turning points via the shared backend.optimize.bisect_root
-# (fixed-iteration expanding bracket) + the action integrals via
-# backend.quadrature.fixed_quad. Matches the C gsl_glfixed exactly: plain GL of
-# `order` points over [umin,umax]/[vmin,pi/2] (the J integrands VANISH at the
-# turning points, so no t^2-substitution is needed and grads don't flow through
-# the limits). v0=pi/2 for the u (J_R) integral, u0 for the v (J_z) integral.
+# (fixed-iteration expanding bracket) + the action/frequency/angle integrals via
+# the chi-anomaly quadrature of _staeckel_chi_quads (q = qmin + D sin^2(chi/2)
+# makes sqrt(S) analytic at the turning points) on C's mesh (_staeckel_nchi).
+# v0=pi/2 for the u (J_R) integral, u0 for the v (J_z) integral.
 
 
 def _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta):
@@ -290,12 +289,8 @@ def _staeckel_dS_flat(xp, dSsq, q, args):
     return xp.reshape(dSsq(xp.reshape(q, (-1,)), *fargs), shp)
 
 
-@lru_cache(maxsize=None)
-def _staeckel_chi_mesh(nchi):
-    """The composite rule on the NORMALIZED anomaly t in [0,1]: `nchi` panels of
-    the 10-node GL rule. Kept normalized so ``chimax`` may be per-orbit (the
-    angles need an INCOMPLETE integral, whose upper anomaly differs per orbit)."""
-    e = numpy.linspace(0.0, 1.0, nchi + 1)
+def _staeckel_chi_mesh_edges(e):
+    """10-node GL rule on each panel of the edge list `e`, ravelled."""
     mid = 0.5 * (e[:-1] + e[1:])
     half = 0.5 * (e[1:] - e[:-1])
     t = (mid[:, None] + _CHIQUAD_GLX[None, :] * half[:, None]).ravel()
@@ -303,7 +298,45 @@ def _staeckel_chi_mesh(nchi):
     return t, w
 
 
-def _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
+@lru_cache(maxsize=None)
+def _staeckel_chi_mesh(nchi):
+    """The composite rule on the NORMALIZED anomaly t in [0,1]: `nchi` uniform
+    panels of the 10-node GL rule. Kept normalized so ``chimax`` may be per-orbit
+    (the angles need an INCOMPLETE integral, whose upper anomaly differs per
+    orbit)."""
+    return _staeckel_chi_mesh_edges(numpy.linspace(0.0, 1.0, nchi + 1))
+
+
+@lru_cache(maxsize=None)
+def _staeckel_chi_mesh_nearaxis(nchi):
+    """The J_R action meshes of a batch with near-axis orbits, at ONE node count
+    so the choice is a per-orbit xp.where: (uniform, graded). The graded one is
+    C's glfixed_graded on the low half t in [0, 1/2] -- panels halving toward the
+    cusp at the axis -- plus the uniform high half; the uniform one has the same
+    number of panels in all."""
+    nhigh = nchi // 2
+    lo = [0.0] + [0.5 * 2.0 ** (k + 1 - _STAECKEL_NEARAXIS_NPANELS)
+                  for k in range(_STAECKEL_NEARAXIS_NPANELS)]  # fmt: skip
+    hi = list(numpy.linspace(0.5, 1.0, nhigh + 1)[1:])
+    graded = _staeckel_chi_mesh_edges(numpy.array(lo + hi))
+    uniform = _staeckel_chi_mesh(_STAECKEL_NEARAXIS_NPANELS + nhigh)
+    return uniform, graded
+
+
+def _staeckel_nchi(order, vside):
+    """Panels of the composite 10-node chi rule. C parity: C integrates each half
+    of the u anomaly with one `order`-point GL rule, so nchi = 2*order/10 gives
+    C's nodes at the default order=10 and its node count above it. C's v side
+    ends in a t^2 panel based at the midplane, which resolves the disk structure
+    there; a uniform chi mesh needs twice the panels to match it (MWPotential2014
+    disk orbits: jz 1e-8 -> 2e-10, the turning-point floor)."""
+    n = max(2, -(-int(order) // 5))
+    return 2 * n if vside else n
+
+
+def _staeckel_chi_quads(
+    xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi, vside=False, nearaxis=None
+):
     """Chi-anomaly quadratures of sqrt(S) over the turning-point interval.
 
     S vanishes LINEARLY at each turning point, so sqrt(S) has a square-root
@@ -329,13 +362,28 @@ def _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
     S_z, not a turning point), or a per-orbit 2 arcsin(sqrt((q-qmin)/D)) for the
     incomplete integrals the angles need.
 
+    ``nearaxis`` (the J_R action only, as in C) is the per-orbit mask of orbits
+    reaching the axis, umin < 0.2: there S picks up the potential's inner cusp,
+    S ~ A - B u^0.2, i.e. chi^0.4 in the anomaly, against which a uniform rule
+    converges only algebraically (4.5e-5 at two panels) and the S' edge model
+    below is wrong (the model's linearization is what the cusp breaks). Those
+    orbits get C's graded mesh and the DIRECT Q; the rest of the batch keeps the
+    uniform rule at the same node count (jr matches C to 4e-12 either way).
+
     Returns (action, sqrt(Q), q, wts) so every quadrature on this mesh -- the
     action and the 1/p profiles -- comes from ONE evaluation of S.
     """
-    t, w = _staeckel_chi_mesh(max(2 * int(order), 20))
+    nchi = _staeckel_nchi(order, vside)
     dev = device_of(qmin)
-    t = asarray_on_device(xp, t, dev)
-    w = asarray_on_device(xp, w, dev)
+    if nearaxis is None:
+        t, w = _staeckel_chi_mesh(nchi)
+        t = asarray_on_device(xp, t, dev)
+        w = asarray_on_device(xp, w, dev)
+    else:
+        (tu, wu), (tg, wg) = _staeckel_chi_mesh_nearaxis(nchi)
+        na = nearaxis[..., None]
+        t = xp.where(na, asarray_on_device(xp, tg, dev), asarray_on_device(xp, tu, dev))
+        w = xp.where(na, asarray_on_device(xp, wg, dev), asarray_on_device(xp, wu, dev))
     chi = chimax * t
     wts = chimax * w
     y = xp.sin(chi / 2.0) ** 2.0
@@ -343,7 +391,9 @@ def _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
     # masks, not control flow: xp.where evaluates BOTH branches, so each unused
     # denominator is kept finite or reverse-mode AD is poisoned by its NaN
     ones = xp.ones_like(y1my)
-    is_edge = y1my <= 1e-6
+    is_edge = y1my <= _STAECKEL_CHI_EDGE
+    if nearaxis is not None:
+        is_edge = is_edge & ~na
     is_lo = y < 0.5
     y1my_safe = xp.where(is_edge, ones, y1my)
     omy_safe = xp.where(is_lo, 1.0 - y, ones)
@@ -368,9 +418,13 @@ def _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
     return action, sqQ, q, wts
 
 
-def _staeckel_chi_action(xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi):
+def _staeckel_chi_action(
+    xp, Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi, vside=False, nearaxis=None
+):
     """The action integral alone -- see :func:`_staeckel_chi_quads`."""
-    return _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax)[0]
+    return _staeckel_chi_quads(
+        xp, Ssq, dSsq, args, qmin, D, order, chimax, vside, nearaxis
+    )[0]
 
 
 def _staeckel_t2_action(xp, sqfunc, args, lo, hi, order):
@@ -445,6 +499,7 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
             umin,
             umax - umin,
             order,
+            nearaxis=umin < _STAECKEL_NEARAXIS,
         )
         * sqrt2
         * delta
@@ -463,6 +518,7 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
             numpy.pi - 2.0 * vmin,  # the FULL v loop; midplane is chi = pi/2
             order,
             chimax=numpy.pi / 2.0,
+            vside=True,
         )
         * 2.0
         * sqrt2
@@ -515,14 +571,16 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
 
 
 def _staeckel_chi_profiles(
-    xp, Ssq, dSsq, args, qmin, D, order, weight_fns, chimax=numpy.pi
+    xp, Ssq, dSsq, args, qmin, D, order, weight_fns, chimax=numpy.pi, vside=False
 ):
     """The 1/p profile integrals int f/sqrt(S) dq for every f in `weight_fns`,
     on the SAME chi mesh as the action: int f/sqrt(S) dq = D int f/sqrt(Q) dchi.
 
     One mesh serves all of them (main's `_chiQuadsU`/`_chiQuadsV` do the same),
     so the six Leibniz derivatives cost two S evaluations rather than twelve."""
-    _, sqQ, q, wts = _staeckel_chi_quads(xp, Ssq, dSsq, args, qmin, D, order, chimax)
+    _, sqQ, q, wts = _staeckel_chi_quads(
+        xp, Ssq, dSsq, args, qmin, D, order, chimax, vside
+    )
     return [D * xp.sum(wts * f(xp, q) / sqQ, axis=-1) for f in weight_fns]
 
 
@@ -570,6 +628,7 @@ def _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order):
             lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
         ),
         chimax=numpy.pi / 2.0,
+        vside=True,
     )
     djrdE = duE * prefr
     djrdLz = duLz * (-Lz / numpy.pi / sqrt2 / delta)
@@ -703,7 +762,7 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac):
             lambda xp, v: xp.sin(v) ** 2.0,
             lambda xp, v: xp.ones_like(v),
             lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
-        ), chimax=chimax_v[..., None],
+        ), chimax=chimax_v[..., None], vside=True,
     )  # fmt: skip
     half_v = _staeckel_chi_profiles(
         xp, JZsq, _dJzStaeckelIntegrandSquareddv, jz_args, vmin, Dv, order,
@@ -711,7 +770,7 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac):
             lambda xp, v: xp.sin(v) ** 2.0,
             lambda xp, v: xp.ones_like(v),
             lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
-        ), chimax=numpy.pi / 2.0,
+        ), chimax=numpy.pi / 2.0, vside=True,
     )  # fmt: skip
     QE, QI, QL = (
         xp.where(low_v, pv, xp.where(above, pv - hv, hv - pv))
@@ -1194,10 +1253,10 @@ class actionAngleStaeckel(actionAngle):
                 )
             kwargs.pop("c", None)
             # Unified vectorised, backend-agnostic path (numpy + jax/torch),
-            # replacing the former per-object scipy loop. Uses
-            # plain GL order-`order` to match the C path (the default GL order);
-            # the standalone-actions c=False result is thus now consistent with
-            # both c=True and _actionsFreqsAngles (was ~1e-5 off via adaptive quad).
+            # replacing the former per-object scipy loop. Uses the chi-anomaly
+            # quadrature on C's mesh (_staeckel_chi_quads), so the standalone
+            # c=False actions are consistent with both c=True and
+            # _actionsFreqsAngles (was ~1e-5 off via adaptive quad).
             # Resolve from the active namespace (honours use(backend, force=True))
             # and promote numpy inputs, so the existing tests run the vectorised
             # backend path for real; numpy stays byte-identical (xp is numpy).
@@ -1992,6 +2051,14 @@ def _dJzStaeckelIntegrandSquareddv(
 # error is O((chimax/nchi)^20), so the integrals are machine-converged already
 # at the default mesh (_staeckel_nchi)
 _CHIQUAD_GLX, _CHIQUAD_GLW = numpy.polynomial.legendre.leggauss(10)
+# below this y(1-y) the direct S is a cancelling difference; Q is rebuilt from
+# S' instead (C's STAECKEL_CHI_EDGE)
+_STAECKEL_CHI_EDGE = 1e-6
+# umin below which the J_R action uses the graded near-axis mesh (C's
+# STAECKEL_NEARAXIS); its low-half panel count. C grades 24 panels deep; 8
+# already reproduce C's jr to 4e-12 (6: 1e-10, 4: 2e-7) on the near-axis grid
+_STAECKEL_NEARAXIS = 0.2
+_STAECKEL_NEARAXIS_NPANELS = 8
 
 
 @potential_physical_input
