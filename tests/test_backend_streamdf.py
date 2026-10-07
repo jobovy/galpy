@@ -2733,7 +2733,9 @@ def test_misalignment_traces(flip):
     eager = float(misalign(pO))
     traced = float(jax.jit(misalign)(pO))
     assert (eager < 0.0) == flip
-    numpy.testing.assert_allclose(traced, eager, rtol=0.0, atol=1e-15)
+    # arccos at x ~ 0.995 amplifies one ulp of x ~10x (d arccos/dx = -1/sqrt(1-x^2)),
+    # and jit's fused arithmetic may differ from eager by an ulp: 1.2e-15 seen on CI
+    numpy.testing.assert_allclose(traced, eager, rtol=0.0, atol=1e-14)
     pn = numpy.asarray(pO)
     ref = numpy.arccos(pn @ d / numpy.linalg.norm(pn))
     numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)

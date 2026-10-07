@@ -1789,6 +1789,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             lo + 2.0 * numpy.pi,
             args=(*tables, jsafe, target),
             bracket_width=2.0 * numpy.pi,
+            # the relation is the auxiliary's angle plus small corrections, so
+            # the requested angle starts Newton within a few percent (as numpy)
+            guess=target,
+            newton_steps=8,  # round-off by 7 in isothermal and KG disks
         )
         x, p, _, _ = _mm_kernel(xp, tau, jsafe, *tables)
         x = xp.where(pos, x, 0.0)
@@ -1969,6 +1973,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 lo + 2.0 * numpy.pi,
                 args=(tdSndJ, target),
                 bracket_width=2.0 * numpy.pi,
+                guess=target,
+                newton_steps=8,
             )
             ja = (j + tjaoffset) + 2.0 * xp.sum(
                 tnSn * xp.cos(n * anglea[:, None]), axis=1
