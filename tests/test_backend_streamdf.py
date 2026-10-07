@@ -1006,14 +1006,27 @@ def test_shared_step_aA_step_count(sdf):
     aA = mk({"max_steps": 5000})
     shared = _shared_step_aA(aA, jnp, Tmin)
     assert shared is not aA and aA._integrate_kwargs == {"max_steps": 5000}
+    # DirectAdjoint by default (the track differentiates these solves twice);
+    # a caller's own adjoint wins
     assert shared._integrate_kwargs == {
         "max_steps": 5000,
         "nsteps": math.ceil(100 * 30.0 / Tmin),
+        "adjoint": "direct",
     }
-    assert _shared_step_aA(mk(None), jnp, None)._integrate_kwargs == {"nsteps": 1000}
+    assert _shared_step_aA(mk(None), jnp, None)._integrate_kwargs == {
+        "nsteps": 1000,
+        "adjoint": "direct",
+    }
     assert _shared_step_aA(mk({"nsteps": 77}), jnp, Tmin)._integrate_kwargs == {
-        "nsteps": 77
+        "nsteps": 77,
+        "adjoint": "direct",
     }
+    assert (
+        _shared_step_aA(mk({"adjoint": "recursive"}), jnp, Tmin)._integrate_kwargs[
+            "adjoint"
+        ]
+        == "recursive"
+    )
     aAI = actionAngleIsochrone(b=0.8)
     assert _shared_step_aA(aAI, jnp, Tmin) is aAI
     if "torch" in BACKENDS:
@@ -2724,3 +2737,33 @@ def test_misalignment_traces(flip):
     pn = numpy.asarray(pO)
     ref = numpy.arccos(pn @ d / numpy.linalg.norm(pn))
     numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_traced_track_jacobians_match_eager():
+    # A traced construction has no concrete progenitor period, so the track's
+    # shared-step aA takes one step per tsJ sample (~1e4). With diffrax's default
+    # RecursiveCheckpointAdjoint, the vmapped chunk Jacobians under jax.jit came out
+    # 2e-3 off (values unchanged) at that step count; _shared_step_aA now defaults
+    # the track solves to DirectAdjoint. Matches the per-point eager Jacobians.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA0 = actionAngleIsochroneApprox(
+        pot=lp, b=0.8, tintJ=20, integrate_method="diffrax"
+    )
+    aA = _shared_step_aA(aA0, jnp, None)  # the traced construction's aA
+    assert aA._integrate_kwargs["adjoint"] == "direct"
+    assert aA._integrate_kwargs["nsteps"] == len(aA0._tsJ) - 1
+    ic = numpy.array(_STREAM_IC)
+    xv = jnp.asarray(numpy.stack([ic, ic * 1.01]))
+    f = jax.vmap(lambda x: calcaAJac(x, aA, actionsFreqsAngles=True)[3:])
+    single = numpy.stack(
+        [
+            numpy.asarray(calcaAJac(xv[k], aA, actionsFreqsAngles=True)[3:])
+            for k in range(2)
+        ]
+    )
+    traced = numpy.asarray(jax.jit(f)(xv))
+    numpy.testing.assert_allclose(
+        traced, single, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(single))
+    )
