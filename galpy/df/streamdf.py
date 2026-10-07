@@ -500,9 +500,16 @@ class streamdf(df):
         else:
             # _ic_backend is the grad-connected (6,) IC; vxvv is numpy bookkeeping,
             # which lands calcaAJac on its finite-difference path.
+            # differentiated (jax.grad/jit of the constructor): the shared-step,
+            # DirectAdjoint aA, as for the track (a second derivative of the solve)
+            _xv = _progenitor_xv(self._progenitor)
             self._dOdJp = calcaAJac(
-                _progenitor_xv(self._progenitor),
-                self._aA,
+                _xv,
+                (
+                    _shared_step_aA(self._aA, get_namespace(_xv), None)
+                    if under_trace(_xv, *acfs)
+                    else self._aA
+                ),
                 dxv=None,
                 dOdJ=True,
                 _initacfs=acfs,
@@ -5191,6 +5198,11 @@ def _shared_step_aA(aA, xp, Tmin):
             if Tmin is None
             else int(numpy.ceil(_TRACK_STEPS_PER_PERIOD * aA._tintJ / Tmin))
         )
+    # DirectAdjoint unless the caller chose one: the track's d/d(param) is a
+    # SECOND derivative of these solves (calcaAJac is itself a jacrev), and
+    # diffrax's RecursiveCheckpointAdjoint batched under jit gave Jacobians 2e-3
+    # off at ~1e4 constant steps (the traced nsteps); values are unchanged
+    kw.setdefault("adjoint", "direct")
     out = copy.copy(aA)
     out._integrate_kwargs = kw
     return out
