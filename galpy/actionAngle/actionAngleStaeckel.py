@@ -81,7 +81,7 @@ class actionAngleStaeckel(actionAngle):
         c : bool, optional
             If True, always use C for calculations. Default is False.
         order : int, optional
-            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this instead scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
+            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, matching C's two order-point halves, and twice that in v), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -907,7 +907,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         fixed_quad : bool, optional
-            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= scales the mesh as nchi = max(2 x order, 20)) instead of adaptive scipy.integrate.quad. Default is False.
+            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= sets the mesh as nchi = max(2, order/5) panels in u, twice that in v) instead of adaptive scipy.integrate.quad. Default is False.
         **kwargs
             scipy.integrate.quad keywords
 
@@ -932,15 +932,25 @@ class actionAngleStaeckelSingle(actionAngle):
         self._JR_key = (fixed_quad, order)
         if fixed_quad:
             # chi-anomaly composite quadrature: machine-converged, with the
-            # sqrt turning-point behavior absorbed by the parametrization
+            # sqrt turning-point behavior absorbed by the parametrization;
+            # as in C, an orbit reaching the axis integrates the inner cusp
+            # on the graded mesh (the action only; the 1/p_u profiles of the
+            # frequencies and angles keep the uniform mesh)
+            if umin < _STAECKEL_NEARAXIS:
+                quad = _staeckelChiQuadratures(
+                    _JRStaeckelIntegrandSquared,
+                    _dJRStaeckelIntegrandSquareddu,
+                    self._uIntegrandArgs(),
+                    umin,
+                    umax - umin,
+                    (),
+                    nchi=_staeckel_nchi(order, vside=False),
+                    graded=True,
+                )[0]
+            else:
+                quad = self._chiQuadsU(order=order)[0]
             # factor in next line bc integrand=/2delta^2
-            self._JR = (
-                1.0
-                / numpy.pi
-                * numpy.sqrt(2.0)
-                * self._delta
-                * self._chiQuadsU(order=order)[0]
-            )
+            self._JR = 1.0 / numpy.pi * numpy.sqrt(2.0) * self._delta * quad
         else:
             self._JR = (
                 1.0
@@ -975,7 +985,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         fixed_quad : bool, optional
-            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= scales the mesh as nchi = max(2 x order, 20)) instead of adaptive scipy.integrate.quad. Default is False.
+            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= sets the mesh as nchi = max(2, order/5) panels in u, twice that in v) instead of adaptive scipy.integrate.quad. Default is False.
         **kwargs
             scipy.integrate.quad keywords
 
@@ -1402,7 +1412,7 @@ class actionAngleStaeckelSingle(actionAngle):
         1/sinh^2 u) from umin up to uupp (default: the complete integral
         to umax), from a single vectorized evaluation of the momentum on
         the chi mesh; cached"""
-        nchi = max(2 * int(order), 20)
+        nchi = _staeckel_nchi(order, vside=False)
         umin, umax = self.calcUminUmax()
         chimax = (
             numpy.pi
@@ -1435,7 +1445,7 @@ class actionAngleStaeckelSingle(actionAngle):
         mesh; cached. The anomaly always spans the full v loop
         [vmin, pi - vmin] (the midplane is a symmetry point of S_z, not a
         turning point), so integrating to the midplane is chimax = pi/2"""
-        nchi = max(2 * int(order), 20)
+        nchi = _staeckel_nchi(order, vside=True)
         vmin = self.calcVmin()
         chimax = (
             numpy.pi / 2.0
@@ -1469,7 +1479,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1505,7 +1515,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1542,7 +1552,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1579,7 +1589,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1960,9 +1970,49 @@ def _dJzStaeckelIntegrandSquareddv(
 
 # Nodes/weights of the composite 10-point Gauss-Legendre rule used by the
 # chi-anomaly quadratures: applied per interval of an nchi-panel mesh, the
-# error is O((chimax/nchi)^20), so the integrals are machine-converged for
-# modest nchi
+# error is O((chimax/nchi)^20), so the integrals are machine-converged already
+# at the default mesh (_staeckel_nchi)
 _CHIQUAD_GLX, _CHIQUAD_GLW = numpy.polynomial.legendre.leggauss(10)
+# below this y(1-y) the direct S is a cancelling difference; Q is rebuilt from
+# S' instead (C's STAECKEL_CHI_EDGE)
+_STAECKEL_CHI_EDGE = 1e-6
+# umin below which the J_R action uses the graded near-axis mesh (C's
+# STAECKEL_NEARAXIS); its low-half panel count. C grades 24 panels deep; 8
+# already reproduce C's jr to ~1e-11 (6: 1e-10, 4: 2e-7) on a near-axis grid
+_STAECKEL_NEARAXIS = 0.2
+_STAECKEL_NEARAXIS_NPANELS = 8
+
+
+def _staeckel_nchi(order, vside):
+    """Panels of the composite 10-node chi rule. C parity: C integrates each half
+    of the u anomaly with one `order`-point GL rule, so nchi = 2*order/10 gives
+    C's nodes at the default order=10 and its node count above it. C's v side
+    ends in a t^2 panel based at the midplane, which resolves the disk structure
+    there; a uniform chi mesh needs twice the panels to match it (MWPotential2014
+    disk orbits: jz 1e-8 -> 2e-10, the turning-point floor)."""
+    n = max(2, -(-int(order) // 5))
+    return 2 * n if vside else n
+
+
+def _staeckel_chi_mesh(nchi, chimax, graded=False):
+    """Nodes and weights of the composite 10-node GL rule on the anomaly
+    [0, chimax]: `nchi` uniform panels or, for `graded`, C's glfixed_graded on
+    the low half -- _STAECKEL_NEARAXIS_NPANELS panels halving toward the cusp at
+    the axis -- plus nchi//2 uniform panels on the high half."""
+    if graded:
+        nlo = _STAECKEL_NEARAXIS_NPANELS
+        lo = [0.0] + [0.5 * 2.0 ** (k + 1 - nlo) for k in range(nlo)]
+        hi = list(numpy.linspace(0.5, 1.0, nchi // 2 + 1)[1:])
+        chi = chimax * numpy.array(lo + hi)
+    else:
+        chi = numpy.linspace(0.0, chimax, nchi + 1)
+    mid = 0.5 * (chi[:-1] + chi[1:])
+    half = 0.5 * (chi[1:] - chi[:-1])
+    nodes = (mid[:, None] + half[:, None] * _CHIQUAD_GLX[None, :]).ravel()
+    wts = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
+    return nodes, wts
+
+
 # Weight functions of the 1/p_u and 1/p_v profile integrals, in the order
 # (dE, dI3, dLz)
 _CHIQUAD_UWEIGHTS = (
@@ -1978,7 +2028,7 @@ _CHIQUAD_VWEIGHTS = (
 
 
 def _staeckelChiQuadratures(
-    Ssq, dSsq, args, qmin, D, weights, nchi=20, chimax=numpy.pi
+    Ssq, dSsq, args, qmin, D, weights, nchi=2, chimax=numpy.pi, graded=False
 ):
     """
     Composite Gauss-Legendre quadratures in the chi anomaly.
@@ -2011,11 +2061,19 @@ def _staeckelChiQuadratures(
         Weight functions f(q) of the 1/sqrt(S) integrals; must accept an
         array q.
     nchi : int, optional
-        Number of panels of the composite rule.
+        Number of panels of the composite rule (see _staeckel_nchi).
     chimax : float, optional
         Upper integration limit in the anomaly (pi for the complete
         oscillation, pi/2 for the v integral to the midplane, or
         2 arcsin(sqrt([q - qmin]/D)) for an incomplete integral).
+    graded : bool, optional
+        If True, use C's near-axis mesh for the J_R action of an orbit
+        reaching the axis (umin < _STAECKEL_NEARAXIS): there S picks up the
+        potential's inner cusp, S ~ A - B u^0.2, i.e. chi^0.4 in the anomaly,
+        against which a uniform rule converges only algebraically (4.5e-5 at
+        two panels) and the S' edge model below is wrong (the model's
+        linearization is what the cusp breaks), so the low half gets
+        geometrically graded panels and Q is evaluated directly throughout.
 
     Returns
     -------
@@ -2026,11 +2084,7 @@ def _staeckelChiQuadratures(
     -----
     - 2026-08-21 - Written - Bovy (UofT)
     """
-    chi = numpy.linspace(0.0, chimax, nchi + 1)
-    mid = 0.5 * (chi[:-1] + chi[1:])
-    half = 0.5 * (chi[1:] - chi[:-1])
-    nodes = (mid[:, None] + half[:, None] * _CHIQUAD_GLX[None, :]).ravel()
-    wts = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
+    nodes, wts = _staeckel_chi_mesh(nchi, chimax, graded=graded)
     y = numpy.sin(nodes / 2.0) ** 2.0
     y1my = y * (1.0 - y)
     q = qmin + D * y
@@ -2043,8 +2097,8 @@ def _staeckelChiQuadratures(
     # S ~ (q - q0) [S'(q0) + S'(q)]/2, whose O(y^2) model error is far below
     # the switch threshold (a constant turning-point limit S' D would leave
     # O(y) model error at the switch, which dominates coarse meshes)
-    edge = y1my <= 1e-6
-    if numpy.any(edge):
+    edge = y1my <= _STAECKEL_CHI_EDGE
+    if not graded and numpy.any(edge):
         qe, ye = q[edge], y[edge]
         dSe = dSsq(qe, *args)
         Q[edge] = numpy.where(

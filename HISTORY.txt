@@ -1,6 +1,14 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- The pure-Python (``c=False``) ``actionAngleStaeckel`` action, frequency and
+  angle integrals now use the same Gauss-Legendre mesh as the C implementation
+  in the chi anomaly (2 x 10 nodes in u, 4 x 10 in v; a geometrically graded
+  mesh for J_R of orbits that reach the axis, as in C), instead of a 20-panel x
+  10-node composite rule, making ``actionsFreqsAngles`` ~1.6x faster at
+  unchanged accuracy (agreement with ``c=True``: jr ~1e-14, jz ~1e-9, Omega
+  and angles ~1e-10; jr of near-axis orbits 5e-10 -> 2e-12).
+
 - ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
   now tabulate the host's velocity dispersion sigma_r(r) on a grid in log r
   (previously linear in r: with the default maxr=25 the grid spacing was 0.05,
