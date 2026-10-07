@@ -209,6 +209,42 @@ def test_torch_compile_traces_public_entry_point(name, entry):
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=_ATOL)
 
 
+# Under a default device (torch.set_default_device / ``with torch.device``, what
+# --device cuda runs) torch.compile cannot take a numpy-scalar operand on the
+# left of an op ("'ndarray' object has no attribute 'mul'"): the potentials
+# below keep numpy.float64 constants (numpy.sqrt/scipy in __init__ or per call,
+# and the amp normalize() leaves), handed over as Python scalars by
+# galpy.backend.scalar_like. A CPU default device reproduces the CUDA failure.
+_DEFAULT_DEVICE_CASES = {
+    "DehnenBarPotential": lambda: gp.DehnenBarPotential(),
+    "EinastoPotential": lambda: gp.EinastoPotential(),
+    "ExpTruncNFWPotential": lambda: gp.ExpTruncNFWPotential(),
+    "FerrersPotential": lambda: gp.FerrersPotential(),
+    "PowerSphericalPotentialwCutoff": lambda: gp.PowerSphericalPotentialwCutoff(),
+    "SpiralArmsPotential": lambda: gp.SpiralArmsPotential(),
+    "TwoPowerSphericalPotential": lambda: gp.TwoPowerSphericalPotential(),
+    "TwoPowerTriaxialPotential": lambda: gp.TwoPowerTriaxialPotential(),
+    "normalized": lambda: gp.MiyamotoNagaiPotential(normalize=0.6, a=0.5, b=0.05),
+}
+
+
+@pytest.mark.skipif("not _TORCH_COMPILES")
+@pytest.mark.parametrize("name", list(_DEFAULT_DEVICE_CASES))
+def test_torch_compile_under_a_default_device(name):
+    pot = _DEFAULT_DEVICE_CASES[name]()
+    entries = [e for e in _ENTRY if _reference(pot, e) is not None]
+    ref = [_reference(pot, e) for e in entries]
+
+    def fn(R, z):
+        return torch.stack([_ENTRY[e](pot, R, z) for e in entries])
+
+    torch._dynamo.reset()
+    with torch.device("cpu"), torch._dynamo.config.patch(trace_numpy=False):
+        compiled = torch.compile(fn, fullgraph=False, dynamic=False, backend="eager")
+        got = compiled(torch.tensor(_R0), torch.tensor(_Z0))
+    numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-6, atol=_ATOL)
+
+
 def test_zoo_is_actually_covered():
     # Guard against the discovery silently finding nothing (a rename would make
     # both parametrised tests vacuous).

@@ -483,6 +483,20 @@ def test_kingdf_W0_under_torch_compile_torchode():
         numpy.testing.assert_allclose(jc.cpu().numpy(), fd.cpu().numpy(), rtol=1e-7)
 
 
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_king_dens_W_compiles_under_a_default_device():
+    # torch.compile under a default device (what --device cuda runs) cannot take
+    # the module-level numpy.float64 2/sqrt(pi) as a left operand
+    from galpy.df.kingdf import _scalefreekingdf
+
+    k = _scalefreekingdf(_W0)
+    W = numpy.array([0.3, 1.2, 2.5])
+    ref = k._dens_W(W)
+    with torch.device("cpu"), torch._dynamo.config.patch(trace_numpy=False):
+        got = _torch_compile_eager(k._dens_W)(torch.tensor(W))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
+
+
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_king_density_gradient_finite_at_W0():
     # dens(W=0) = 0 at the tidal radius, but sqrt's backward is infinite there;

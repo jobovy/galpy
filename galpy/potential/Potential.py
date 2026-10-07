@@ -33,7 +33,7 @@ from ..backend import (
     on_host,
 )
 from ..backend import quadrature as _bquad
-from ..backend import to_host
+from ..backend import scalar_like, to_host
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
@@ -407,7 +407,9 @@ class Potential(Force):
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
                 )
-            return self._amp * rawOut if not rawOut is None else rawOut
+            if rawOut is None:
+                return rawOut
+            return scalar_like(rawOut, self._amp) * rawOut
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R, z, phi=phi, t=t, use_physical=False)
         elif dR == 0 and dphi == 1:
@@ -541,7 +543,8 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._R2deriv(R, z, phi=phi, t=t)
+            out = self._R2deriv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_R2deriv' function not implemented for this potential"
@@ -576,7 +579,8 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._z2deriv(R, z, phi=phi, t=t)
+            out = self._z2deriv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_z2deriv' function not implemented for this potential"
@@ -610,7 +614,8 @@ class Potential(Force):
         - 2013-09-24 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._phi2deriv(R, z, phi=phi, t=t)
+            out = self._phi2deriv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -647,7 +652,8 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._Rzderiv(R, z, phi=phi, t=t)
+            out = self._Rzderiv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_Rzderiv' function not implemented for this potential"
@@ -681,7 +687,8 @@ class Potential(Force):
         - 2014-06-30 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
+            out = self._Rphideriv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -718,7 +725,8 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._phizderiv(R, z, phi=phi, t=t)
+            out = self._phizderiv(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -806,7 +814,8 @@ class Potential(Force):
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
-            return self._amp * self._dens(R, z, phi=phi, t=t)
+            out = self._dens(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:
             # Use the Poisson equation to get the density
             return (
@@ -872,17 +881,19 @@ class Potential(Force):
                         numpy.inf,
                     )[0]
                 )
-            return self._amp * _bquad.symmetric_quad(
+            out = _bquad.symmetric_quad(
                 xp,
                 lambda x: self._dens(
                     _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
                 ),
                 numpy.inf,  # a local constant, so concrete even inside a trace
             )
+            return scalar_like(out, self._amp) * out
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
-            return self._amp * self._surfdens(R, z, phi=phi, t=t)
+            out = self._surfdens(R, z, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:
             return self._surfdens_poisson(R, z, phi=phi, t=t)
 
@@ -1068,7 +1079,8 @@ class Potential(Force):
         try:
             if forceint:
                 raise AttributeError  # Hack!
-            return self._amp * self._mass(R, z=z, t=t)
+            out = self._mass(R, z=z, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:
             # Use numerical integration to get the mass, using Gauss' theorem.
             # numpy -> backend.quadrature.quad delegates to scipy.integrate.quad

@@ -2657,7 +2657,7 @@ def test_approxaAInv_float32_query_points(sdf, torch_default_float32):
         got = sdf._approxaAInv(*(torch.tensor(c) for c in pts32.T))
         ref = sdf._approxaAInv(*(torch.tensor(c, dtype=torch.float64) for c in pts32.T))
     assert got.dtype == torch.float32
-    numpy.testing.assert_array_equal(got.numpy(), ref.to(torch.float32).numpy())
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref.to(torch.float32)))
 
 
 # --- eager torch autograd through the construction helpers -------------------

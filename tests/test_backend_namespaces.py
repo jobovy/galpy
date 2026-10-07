@@ -307,7 +307,7 @@ def test_set_at_casts_values_to_the_destination_dtype(torch_default_float32):
     arr = torch.zeros(4, dtype=torch.float64)
     out = set_at(torch, arr, arr == 0.0, torch.tensor([1.5, 2.5, 3.5, 4.5]))
     assert out.dtype == torch.float64
-    numpy.testing.assert_array_equal(out.numpy(), [1.5, 2.5, 3.5, 4.5])
+    numpy.testing.assert_array_equal(as_numpy(out), [1.5, 2.5, 3.5, 4.5])
 
 
 def test_bucket_size():
@@ -325,3 +325,26 @@ def test_bucket_size():
         16384,
     ]
     assert bucket_size(3, minimum=4) == 4
+
+
+def test_scalar_like_anchors_a_numpy_scalar_on_torch():
+    from galpy.backend import scalar_like
+
+    a = numpy.float64(1.25)
+    assert scalar_like(numpy.ones(3), a) is a  # numpy: object-identical
+    assert scalar_like(2.0, a) is a
+    if jax is not None:  # jax takes numpy scalars natively: untouched
+        assert scalar_like(jnp.ones(3), a) is a
+    if torch is None:
+        return
+    t = torch.ones(3, dtype=torch.float64)
+    out = scalar_like(t, a)
+    assert isinstance(out, torch.Tensor) and out.ndim == 0 and float(out) == 1.25
+    assert out.dtype == t.dtype and out.device == t.device
+    arr = numpy.ones(3)
+    assert scalar_like(t, arr) is arr  # only scalars
+    assert scalar_like(t, 1.5) == 1.5
+    # anchored on ref's dtype, as eager's weak numpy scalar: a 0-d float32
+    # tensor stays float32 (like() would make a 0-d float64 tensor: upcast)
+    t32 = torch.ones((), dtype=torch.float32)
+    assert (scalar_like(t32, a) * t32).dtype == (a * t32).dtype == torch.float32
