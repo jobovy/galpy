@@ -398,3 +398,33 @@ def test_backend_root_survives_nan_function_value(backend):
     root = float(_to_np(brentq(f, a, b)))
     assert not numpy.isnan(root), f"{backend} returned nan instead of a root"
     assert abs(root - 0.5) < 1e-9, f"{backend} root {root!r} is not 0.5"
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("jit", [False, True])
+def test_guess_newton_root_and_gradient(backend, jit):
+    # guess= replaces the bisection by safeguarded Newton from the guess: the
+    # same root (to round-off) -- also for a guess that is already exact and one
+    # whose first step leaves the bracket -- and the same implicit gradient
+    if jit and backend != "jax":
+        pytest.skip("jax.jit only")
+    xp = _xp(backend)
+    cs = numpy.array([0.3, 2.0, 7.9])  # roots sqrt(c) on [0, 3]
+    guesses = numpy.array([2.5, numpy.sqrt(2.0), 0.05])  # far, exact, bad side
+
+    def root(c, guess):
+        lo = xp.zeros_like(guess)
+        return brentq(lambda x, cc: x * x - cc, lo, lo + 3.0, args=(c,), guess=guess)
+
+    r = root(xp.asarray(cs), xp.asarray(guesses))
+    if jit:
+        r = jax.jit(root)(xp.asarray(cs), xp.asarray(guesses))
+    numpy.testing.assert_allclose(_to_np(r), numpy.sqrt(cs), rtol=1e-14)
+    # d sqrt(c)/dc = 1/(2 sqrt(c)), via the implicit-function polish
+    c0 = 2.0
+    g = _dfdx_at(
+        backend,
+        lambda c: root(c + 0.0 * xp.asarray(guesses), xp.asarray(guesses))[0],
+        c0,
+    )
+    numpy.testing.assert_allclose(g, 1.0 / (2.0 * numpy.sqrt(c0)), rtol=1e-12)
