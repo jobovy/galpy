@@ -407,9 +407,11 @@ class Potential(Force):
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
                 )
-            if rawOut is None:
-                return rawOut
-            return scalar_like(rawOut, self._amp) * rawOut
+            return (
+                scalar_like(rawOut, self._amp) * rawOut
+                if rawOut is not None
+                else rawOut
+            )
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R, z, phi=phi, t=t, use_physical=False)
         elif dR == 0 and dphi == 1:
