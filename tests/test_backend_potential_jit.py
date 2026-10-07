@@ -53,6 +53,7 @@ if torch is not None:
     torch._dynamo.config.cache_size_limit = 4096
     torch._dynamo.config.accumulated_cache_size_limit = 8192
 
+from backend_jit_helpers import no_torch_compile_deprecations
 from conftest import torch_compiles
 
 _TORCH_COMPILES = torch_compiles()
@@ -239,7 +240,12 @@ def test_torch_compile_under_a_default_device(name):
         return torch.stack([_ENTRY[e](pot, R, z) for e in entries])
 
     torch._dynamo.reset()
-    with torch.device("cpu"), torch._dynamo.config.patch(trace_numpy=False):
+    # (py3.14 typing deprecations raised inside dynamo under CI's -W error)
+    with (
+        torch.device("cpu"),
+        torch._dynamo.config.patch(trace_numpy=False),
+        no_torch_compile_deprecations(),
+    ):
         compiled = torch.compile(fn, fullgraph=False, dynamic=False, backend="eager")
         got = compiled(torch.tensor(_R0), torch.tensor(_Z0))
     numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-6, atol=_ATOL)

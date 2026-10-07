@@ -492,7 +492,12 @@ def test_king_dens_W_compiles_under_a_default_device():
     k = _scalefreekingdf(_W0)
     W = numpy.array([0.3, 1.2, 2.5])
     ref = k._dens_W(W)
-    with torch.device("cpu"), torch._dynamo.config.patch(trace_numpy=False):
+    with (
+        torch.device("cpu"),
+        torch._dynamo.config.patch(trace_numpy=False),
+        warnings.catch_warnings(),
+    ):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)  # -W error
         got = _torch_compile_eager(k._dens_W)(torch.tensor(W))
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
 
