@@ -2933,3 +2933,39 @@ def test_streamTrack_from_a_traced_track(sdf, backend_name):
         float(f(_arr(backend_name, a0 + h))) - float(f(_arr(backend_name, a0 - h)))
     ) / (2.0 * h)
     assert abs(ad - fd) < 1e-8 * abs(fd), f"AD {ad} vs FD {fd}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize(
+    "xv",
+    [  # GD-1 track chunks 5 and 10 (q=0.9): their isochroneApprox orbit samples
+        # pass within ~1e-5 rad of a turning point
+        [1.9482019352225044, 0.47189276356910437, -0.9189398856638408]
+        + [0.34763049735879387, -0.6740049201833861, -0.4162726076077927],
+        [2.3242978213675394, 0.35270687705122844, -0.7702456756421648]
+        + [-0.273345198437566, -0.6872683590989853, -0.7673663501363959],
+    ],
+)
+def test_track_jacobian_potential_derivative_near_turning_points(xv):
+    # d/dq of the track's AA Jacobian (a second derivative of isochroneApprox) vs
+    # a central FD. The arccos/arcsin isochrone angles gave 1e3 and 2.9 (relative)
+    # here, at any step count; measured 1.0e-7 / 1.3e-7 (the FD floor).
+    x = jnp.asarray(xv)
+
+    def jac(q):
+        aA = actionAngleIsochroneApprox(
+            pot=LogarithmicHaloPotential(normalize=1.0, q=q),
+            b=0.8,
+            integrate_method="diffrax",
+            integrate_kwargs={"nsteps": 160, "adjoint": "direct"},
+        )
+        return calcaAJac(x, aA, actionsFreqsAngles=True)[3:]
+
+    ad = numpy.asarray(jax.jacfwd(jac)(0.9))
+    h = 1e-5
+    fd = (
+        numpy.asarray(jac(jnp.asarray(0.9 + h)))
+        - numpy.asarray(jac(jnp.asarray(0.9 - h)))
+    ) / (2.0 * h)
+    assert numpy.max(numpy.abs(ad - fd)) < 1e-6 * numpy.max(numpy.abs(fd))
