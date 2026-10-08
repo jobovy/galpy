@@ -2038,6 +2038,59 @@ def test_asymmetricdrift_powerrise():
     return None
 
 
+@pytest.fixture(
+    scope="module",
+    params=["dehnendf_flat", "shudf_powerfall"],
+)
+def warm_diskdf(request):
+    if request.param == "dehnendf_flat":
+        return dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.1))
+    return shudf(beta=-0.1, profileParams=(1.0 / 3.0, 1.0, 0.1))
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        "surfacemass",
+        "sigma2surfacemass",
+        "sigmaR2",
+        "sigmaT2",
+        "meanvT",
+        "meanvR",
+        "skewvT",
+        "kurtosisvR",
+        "oortA",
+        "asymmetricdrift",
+    ],
+)
+def test_moments_array_R(warm_diskdf, fn):
+    # array R (2D, to check the shape) == a loop over scalar R
+    R = numpy.array([[0.8], [1.2]])
+    got = getattr(warm_diskdf, fn)(R)
+    ref = numpy.array([getattr(warm_diskdf, fn)(r) for r in R.flat]).reshape(R.shape)
+    assert got.shape == R.shape, f"{fn} with array R returns the wrong shape"
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+    return None
+
+
+@pytest.mark.parametrize("nm", [(0, 1), (2, 0), (1, 0)])
+@pytest.mark.parametrize("deriv", [None, "R"])
+def test_vmomentsurfacemass_array_R(warm_diskdf, nm, deriv):
+    R = numpy.array([0.8, 1.2])
+    got = warm_diskdf.vmomentsurfacemass(R, *nm, deriv=deriv, ro=8.0, vo=220.0)
+    ref = numpy.array(
+        [
+            warm_diskdf.vmomentsurfacemass(r, *nm, deriv=deriv, ro=8.0, vo=220.0)
+            for r in R
+        ]
+    )
+    assert numpy.shape(got) == R.shape, (
+        "vmomentsurfacemass with array R returns the wrong shape"
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+    return None
+
+
 def test_estimateSigmaR2():
     beta = 0.0
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
