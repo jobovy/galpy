@@ -104,6 +104,15 @@ Quick-start guide
       galpy's natural and physical unit systems, and integrate
       a simple orbit.
 
+   .. grid-item-card:: JAX and PyTorch Backends
+      :img-top: images/tutorials/backends_quickstart.png
+      :link: tutorials/backends/quickstart
+      :link-type: doc
+
+      Compute with JAX arrays and PyTorch tensors, take derivatives
+      with automatic differentiation, compile with ``jax.jit``, and
+      run on GPUs.
+
 Potentials
 ^^^^^^^^^^
 
@@ -350,6 +359,71 @@ Tidal Streams
 
       Generate tidal streams using particle-spray techniques with
       chen24spraydf and fardal15spraydf.
+
+JAX and PyTorch Backends
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Quick Start
+      :img-top: images/tutorials/backends_quickstart.png
+      :link: tutorials/backends/quickstart
+      :link-type: doc
+
+      How galpy chooses between NumPy, JAX, and PyTorch, and a first
+      derivative.
+
+   .. grid-item-card:: Potentials
+      :img-top: images/tutorials/backends_potentials.png
+      :link: tutorials/backends/potentials
+      :link-type: doc
+
+      Evaluate potentials on backend arrays, differentiate with respect
+      to coordinates and parameters, compile and vectorize, use GPUs, and
+      write new potentials for every backend.
+
+   .. grid-item-card:: Orbits
+      :img-top: images/tutorials/backends_orbits.png
+      :link: tutorials/backends/orbits
+      :link-type: doc
+
+      Integrate orbits with diffrax, torchode, and torchdiffeq,
+      differentiate them with respect to initial conditions and
+      potential parameters, and use the C state-transition matrix.
+
+   .. grid-item-card:: Action-Angle Coordinates
+      :img-top: images/tutorials/backends_action_angle.png
+      :link: tutorials/backends/action_angle
+      :link-type: doc
+
+      Derivatives of Staeckel, adiabatic, spherical, and
+      isochrone-approximation actions, and of the inverse transformation
+      of actionAngleVerticalInverse.
+
+   .. grid-item-card:: Distribution Functions
+      :img-top: images/tutorials/backends_distribution_functions.png
+      :link: tutorials/backends/distribution_functions
+      :link-type: doc
+
+      Sample with random keys, differentiate samples, the King model's
+      derivative with respect to W0, and disk DFs.
+
+   .. grid-item-card:: Streams: streamdf and Gaps
+      :img-top: images/tutorials/backends_streams_streamdf.png
+      :link: tutorials/backends/streams_streamdf
+      :link-type: doc
+
+      The action-angle stream model and the stream-gap kick kernels on
+      the backends.
+
+   .. grid-item-card:: Streams: Particle Spray
+      :img-top: images/tutorials/backends_streams_streamspraydf.png
+      :link: tutorials/backends/streams_streamspraydf
+      :link-type: doc
+
+      Particle-spray streams under jax.jit and their derivatives with
+      respect to the potential.
 
 Extending galpy
 ^^^^^^^^^^^^^^^
