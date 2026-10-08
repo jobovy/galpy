@@ -46,8 +46,10 @@ from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend.jacobian import jacobian
 from galpy.df.streamdf import (
+    _aA_supports_jacfwd,
     _determine_stream_spread_single,
     _determine_stream_track_single,
+    _forward_mode_copy,
     _real_eig,
     _shared_step_aA,
     _sig_mean_sign,
@@ -1027,6 +1029,43 @@ def test_shared_step_aA_step_count(sdf):
         ]
         == "recursive"
     )
+    # a concrete diffrax aA: ForwardMode (calcaAJac takes a jacfwd); traced solve
+    # inputs, a traced potential, or no Tmin (a traced setup): DirectAdjoint
+    lpj = LogarithmicHaloPotential(normalize=1.0, q=jnp.asarray(0.9))
+
+    def mkd(pot):
+        return actionAngleIsochroneApprox(
+            pot=pot, b=0.8, tintJ=30.0, ntintJ=1001, integrate_method="diffrax"
+        )
+
+    xv = jnp.asarray(_STREAM_IC)
+
+    def adj(a, T, *x):
+        return _shared_step_aA(a, jnp, T, *x)._integrate_kwargs["adjoint"]
+
+    assert adj(mkd(lpj), Tmin, xv) == "forward"
+    assert _aA_supports_jacfwd(_shared_step_aA(mkd(lpj), jnp, Tmin, xv))
+    assert adj(mkd(lpj), None, xv) == "direct"
+    traced = []
+    jax.jit(lambda x: traced.append(adj(mkd(lpj), Tmin, x)) or x)(xv)
+    jax.jit(
+        lambda q: (
+            traced.append(
+                adj(mkd(LogarithmicHaloPotential(normalize=1.0, q=q)), Tmin, xv)
+            )
+            or q
+        )
+    )(0.9)
+    assert traced == ["direct", "direct"]
+    # the progenitor's dO/dJ: a ForwardMode copy only for a concrete diffrax aA
+    # without a chosen adjoint
+    aF = _forward_mode_copy(mkd(lpj), xv)
+    assert aF._integrate_kwargs == {"adjoint": "forward"} and _aA_supports_jacfwd(aF)
+    for a in (mk(None), aA, mkd(lpj)):
+        assert _forward_mode_copy(a, numpy.asarray(_STREAM_IC)) is a
+    aR = mkd(lpj)
+    aR._integrate_kwargs = {"adjoint": "recursive"}
+    assert _forward_mode_copy(aR, xv) is aR and not _aA_supports_jacfwd(aR)
     aAI = actionAngleIsochrone(b=0.8)
     assert _shared_step_aA(aAI, jnp, Tmin) is aAI
     if "torch" in BACKENDS:
@@ -2769,3 +2808,45 @@ def test_traced_track_jacobians_match_eager():
     numpy.testing.assert_allclose(
         traced, single, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(single))
     )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_concrete_track_jacobians_forward_mode():
+    # A concrete (untraced) construction runs the track's AA solves on diffrax
+    # ForwardMode and takes calcaAJac as a jacfwd: no reverse pass through the
+    # solves (~3x faster than DirectAdjoint's jacrev). Batched at the traced step
+    # count (~1e4 constant steps, where the reverse pass of the default adjoint went
+    # wrong under jit), eagerly and under jax.jit it matches a central finite
+    # difference of the same map (measured 2.6e-9 at h=1e-5).
+    lp = LogarithmicHaloPotential(normalize=1.0, q=jnp.asarray(0.9))
+    aA0 = actionAngleIsochroneApprox(
+        pot=lp, b=0.8, tintJ=20, integrate_method="diffrax"
+    )
+    ic = numpy.array(_STREAM_IC)
+    xv = jnp.asarray(numpy.stack([ic, ic * 1.01]))
+    aA = _shared_step_aA(aA0, jnp, 1.0, xv)
+    aA._integrate_kwargs["nsteps"] = len(aA0._tsJ) - 1
+    assert aA._integrate_kwargs["adjoint"] == "forward"
+    f = jax.vmap(lambda x: calcaAJac(x, aA, actionsFreqsAngles=True)[3:])
+    eager = numpy.asarray(f(xv))
+    traced = numpy.asarray(jax.jit(f)(xv))
+
+    def omega_theta(x):
+        o = aA.actionsFreqsAngles(*[jnp.asarray(x[i]) for i in range(6)])
+        return numpy.array([float(numpy.asarray(v).reshape(())) for v in o[3:]])
+
+    h = 1e-5
+    fd = numpy.empty_like(eager)
+    for k in range(2):
+        for i in range(6):
+            e = numpy.zeros(6)
+            e[i] = h
+            d = omega_theta(ic * (1.0 + 0.01 * k) + e) - omega_theta(
+                ic * (1.0 + 0.01 * k) - e
+            )
+            d[3:] = (d[3:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            fd[k, :, i] = d / (2.0 * h)
+    scale = numpy.max(numpy.abs(fd))
+    for got in (eager, traced):
+        numpy.testing.assert_allclose(got, fd, rtol=0.0, atol=1e-8 * scale)
