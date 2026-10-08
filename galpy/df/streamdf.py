@@ -2609,12 +2609,9 @@ class streamdf(df):
         xp = get_namespace(self._ObsTrack)
         interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
         interpThetas = as_backend_constant(xp, interpThetas_np, self._ObsTrack)
-        dmOs = xp.stack(
-            [
-                self.meanOmega(interpThetas[ii], oned=True, use_physical=False)
-                for ii in range(interpThetas.shape[0])
-            ]
-        )  # (nInterp,)
+        # one call on the whole grid: the backend meanOmega broadcasts (also
+        # streamgapdf's, whose per-angle evaluation reduces over the kick knots)
+        dmOs = self.meanOmega(interpThetas, oned=True, use_physical=False)
         # Vestigial spline (rebuilt for API parity; not read downstream).
         self._interpTrackAAdmeanOmegaOneD = Spline1D(
             interpThetas_np, dmOs, k=3, ext=0, bc="not-a-knot"
