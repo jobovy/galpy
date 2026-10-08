@@ -199,6 +199,42 @@ def test_torch_compile_torchode_orbit_matches_eager():
             )
 
 
+def test_torchode_solve_frame_runs_eagerly_on_cuda_only():
+    # On CUDA torchode's solve loop records a CUDA event after mutating graph
+    # inputs, which dynamo rejects; torchode_solve therefore leaves the solve
+    # FRAME to eager there while what it calls still compiles. Checked on CPU with
+    # a stub adjoint and a problem that merely REPORTS a cuda device.
+    from types import SimpleNamespace
+
+    from galpy.backend._torch.orbit_ode import torchode_solve
+
+    def step(y):
+        return torch.cos(y)
+
+    class Adjoint:
+        def solve(self, problem):
+            return step(torch.sin(problem.x))
+
+    graphs = []
+
+    def backend(gm, example_inputs):
+        graphs.append({n.target for n in gm.graph.nodes if n.op == "call_function"})
+        return gm.forward
+
+    x = torch.tensor([0.1, 0.2])
+    for device, solve_traced in (("cpu", True), ("cuda", False)):
+        problem = SimpleNamespace(x=x, y0=SimpleNamespace(device=torch.device(device)))
+        graphs.clear()
+        torch._dynamo.reset()
+        out = torch.compile(lambda p: torchode_solve(Adjoint(), p), backend=backend)(
+            problem
+        )
+        assert torch.equal(out, torch.cos(torch.sin(x)))
+        ops = set().union(*graphs)
+        assert torch.cos in ops  # the nested step compiles either way
+        assert (torch.sin in ops) is solve_traced
+
+
 @pytest.mark.parametrize("method", ["torchode", "torchdiffeq"])
 def test_float32_ic_integrates_in_float64(method, torch_default_float32):
     # A float32 IC and time grid (torch's default dtype) integrate in float64,

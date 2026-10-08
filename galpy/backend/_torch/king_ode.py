@@ -14,6 +14,8 @@ def _solve_segment(f, y0, t_eval, rtol, atol, max_steps):
     import torch
     import torchode as to
 
+    from .orbit_ode import torchode_solve
+
     term = to.ODETerm(f)
     ctl = to.IntegralController(atol=atol, rtol=rtol, term=term)
     # torchode builds atol with torch.tensor(): float32 at torch's default dtype
@@ -22,12 +24,15 @@ def _solve_segment(f, y0, t_eval, rtol, atol, max_steps):
     del ctl._buffers["rtol"]
     ctl.rtol = float(rtol)
     # step sizes detached: see solve()
-    sol = to.AutoDiffAdjoint(
-        to.Dopri5(term=term),
-        ctl,
-        max_steps=max_steps,
-        backprop_through_step_size_control=False,
-    ).solve(to.InitialValueProblem(y0=y0[None], t_eval=t_eval[None]))
+    sol = torchode_solve(
+        to.AutoDiffAdjoint(
+            to.Dopri5(term=term),
+            ctl,
+            max_steps=max_steps,
+            backprop_through_step_size_control=False,
+        ),
+        to.InitialValueProblem(y0=y0[None], t_eval=t_eval[None]),
+    )
     if bool((sol.status != to.Status.SUCCESS.value).any()):
         raise RuntimeError(f"King ODE solve failed (torchode status {sol.status})")
     return sol.ys[0]
