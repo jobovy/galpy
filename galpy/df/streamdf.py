@@ -501,14 +501,15 @@ class streamdf(df):
             # _ic_backend is the grad-connected (6,) IC; vxvv is numpy bookkeeping,
             # which lands calcaAJac on its finite-difference path.
             # differentiated (jax.grad/jit of the constructor): the shared-step,
-            # DirectAdjoint aA, as for the track (a second derivative of the solve)
+            # DirectAdjoint aA, as for the track (a second derivative of the solve);
+            # else forward mode (no reverse pass through the solve, ~3x faster)
             _xv = _progenitor_xv(self._progenitor)
             self._dOdJp = calcaAJac(
                 _xv,
                 (
                     _shared_step_aA(self._aA, get_namespace(_xv), None)
                     if under_trace(_xv, *acfs)
-                    else self._aA
+                    else _forward_mode_copy(self._aA, _xv)
                 ),
                 dxv=None,
                 dOdJ=True,
@@ -1732,7 +1733,8 @@ class streamdf(df):
         method = inbackend_ode_method(xp)
         # every action-angle evaluation below uses shared constant steps (jax), so
         # the vmapped chunk loop differentiates exactly (see _vmap_track_chunks)
-        aA = _shared_step_aA(self._aA, xp, getattr(self, "_progenitor_Tmin", None))
+        Tmin = getattr(self, "_progenitor_Tmin", None)
+        aA = _shared_step_aA(self._aA, xp, Tmin, xv0_prog)
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs
@@ -1791,6 +1793,7 @@ class streamdf(df):
                 auxiliaryTrack.phi(0.0),
             ]
         )
+        aA = _shared_step_aA(self._aA, xp, Tmin, aux0)
         aux_acfs = aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
         auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
         dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
@@ -1817,23 +1820,28 @@ class streamdf(df):
         if not is_backend_array(thetasTrack):
             thetasTrack = xp.asarray(thetasTrack)
 
-        def single(xv0, th):
-            return _determine_stream_track_single_backend(
-                aA,
-                xv0,
-                progenitor_angle,
-                self._sigMeanSign,
-                self._dsigomeanProgDirection,
-                meanOmega,
-                th,
-            )
+        def single_at(xv0s):  # the chunks' aA: forward mode iff xv0s is concrete
+            aA_c = _shared_step_aA(self._aA, xp, Tmin, xv0s)
 
-        outs = _vmap_track_chunks(xp, single, xv0_all, thetasTrack)
+            def single(xv0, th):
+                return _determine_stream_track_single_backend(
+                    aA_c,
+                    xv0,
+                    progenitor_angle,
+                    self._sigMeanSign,
+                    self._dsigomeanProgDirection,
+                    meanOmega,
+                    th,
+                )
+
+            return single
+
+        outs = _vmap_track_chunks(xp, single_at(xv0_all), xv0_all, thetasTrack)
         # nTrackIterations refinement: Orbit(ObsTrack)(0)==ObsTrack, so re-run each
         # chunk with xv0 = the current ObsTrack point (functional; no item-assign).
         ObsTrack = outs[3]
         for _ in range(self.nTrackIterations):
-            outs = _vmap_track_chunks(xp, single, ObsTrack, thetasTrack)
+            outs = _vmap_track_chunks(xp, single_at(ObsTrack), ObsTrack, thetasTrack)
             ObsTrack = outs[3]
         (
             self._allAcfsTrack,
@@ -5178,7 +5186,7 @@ class streamdf(df):
         return u * as_backend_constant(xp, self._tdisrupt, u)
 
 
-def _shared_step_aA(aA, xp, Tmin):
+def _shared_step_aA(aA, xp, Tmin, *inputs):
     """jax: a shallow copy of ``aA`` whose in-backend orbit solves take SHARED
     constant steps, which ``_vmap_track_chunks`` needs for an exact gradient.
 
@@ -5188,6 +5196,11 @@ def _shared_step_aA(aA, xp, Tmin):
     step per ``tsJ`` sample when ``Tmin`` is unknown (a traced setup). A C-STM
     (dxdv C method) aA ignores these in-backend options; torch is unchanged
     (torchdiffeq takes no ``nsteps``).
+
+    Adjoint (unless the caller chose one): ``'forward'`` (diffrax ``ForwardMode``;
+    ``calcaAJac`` then takes a jacfwd, with no reverse pass through the solves) when
+    nothing can reverse-differentiate them -- a diffrax aA, ``Tmin`` known, and
+    neither the solve ``inputs`` nor the potential traced; else ``'direct'``.
     """
     if name_of_namespace(xp) != "jax" or not hasattr(aA, "_integrate_kwargs"):
         return aA
@@ -5198,21 +5211,63 @@ def _shared_step_aA(aA, xp, Tmin):
             if Tmin is None
             else int(numpy.ceil(_TRACK_STEPS_PER_PERIOD * aA._tintJ / Tmin))
         )
-    # DirectAdjoint unless the caller chose one: the track's d/d(param) is a
-    # SECOND derivative of these solves (calcaAJac is itself a jacrev), and
-    # diffrax's RecursiveCheckpointAdjoint batched under jit gave Jacobians 2e-3
-    # off at ~1e4 constant steps (the traced nsteps); values are unchanged
-    kw.setdefault("adjoint", "direct")
+    # traced: an outer jax.grad may reverse-differentiate the (jacrev) Jacobian, and
+    # RecursiveCheckpointAdjoint vmapped under jit gave Jacobians 2e-3 off at ~1e4
+    # constant steps (the traced nsteps) -> DirectAdjoint. A C method may take the
+    # C-STM (no jvp) -> DirectAdjoint too. Values are unchanged either way.
+    _fwd = Tmin is not None and _untraced_diffrax_aA(aA, *inputs)
+    kw.setdefault("adjoint", "forward" if _fwd else "direct")
+    return _aA_with_kwargs(aA, kw)
+
+
+def _aA_with_kwargs(aA, kw):
+    """A shallow copy of ``aA`` with in-backend solver options ``kw``."""
     out = copy.copy(aA)
     out._integrate_kwargs = kw
     return out
+
+
+def _is_diffrax_aA(aA):
+    return str(getattr(aA, "_integrate_method", "")).lower() == "diffrax"
+
+
+def _untraced_diffrax_aA(aA, *inputs):
+    """A diffrax aA whose solves at ``inputs`` nothing can reverse-differentiate."""
+    from ..orbit.Orbits import _pot_has_traced_param
+
+    return (
+        _is_diffrax_aA(aA)
+        and not under_trace(*inputs)
+        and not _pot_has_traced_param(getattr(aA, "_pot", None))
+    )
+
+
+def _forward_mode_copy(aA, *inputs):
+    """``aA`` on diffrax ``ForwardMode`` (calcaAJac then takes a jacfwd) when its
+    solves at ``inputs`` are untraced and the caller chose no adjoint; else ``aA``."""
+    kw = dict(getattr(aA, "_integrate_kwargs", None) or {})
+    if (
+        "adjoint" in kw
+        or not any(is_backend_array(x) for x in inputs)
+        or not _untraced_diffrax_aA(aA, *inputs)
+    ):
+        return aA
+    return _aA_with_kwargs(aA, {**kw, "adjoint": "forward"})
+
+
+def _aA_supports_jacfwd(aA):
+    """True for a diffrax aA whose solves jvp: ``ForwardMode`` (jacfwd only) or
+    ``DirectAdjoint`` (jacfwd ~3x faster than jacrev there, and an outer reverse
+    pass still runs)."""
+    kw = getattr(aA, "_integrate_kwargs", None) or {}
+    return _is_diffrax_aA(aA) and kw.get("adjoint") in ("forward", "direct")
 
 
 def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     """Map the per-chunk backend track assembly over ``(xv0_all, thetasTrack)``.
 
     jax: ``jax.vmap`` -- fork-free, jit-compatible, batched. ``single`` calls
-    ``calcaAJac`` (``jax.jacrev`` of the AA map over a diffrax solve) and the
+    ``calcaAJac`` (``jax.jacfwd``/``jacrev`` of the AA map over a diffrax solve) and the
     track's outer d/d(parameter) differentiates THAT, through diffrax's
     ``DirectAdjoint``. With ADAPTIVE steps the batch elements take different step
     sequences and that batched reverse pass is wrong (d/dq of the track ~7% off)
@@ -5786,7 +5841,8 @@ def _calcaAJac_backend(
         acfs = aA.actionsFreqsAngles(v[0], v[1], v[2], v[3], v[4], v[5])
         return xp.stack([xp.reshape(o, ()) for o in acfs])
 
-    A = jacobian(_map, xv, xp=xp)  # 9x6, exact AD Jacobian
+    # 9x6, exact AD Jacobian; forward mode where the solves support it
+    A = jacobian(_map, xv, xp=xp, forward=_aA_supports_jacfwd(aA))
     if actionsFreqsAngles:
         return A
     # 6x6: (freqs|actions) rows over angle rows, mirroring the numpy construction.
