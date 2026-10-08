@@ -16,7 +16,7 @@ from ._namespaces import name_of_namespace
 from ._resolver import get_namespace
 
 
-def jacobian(f, x, xp=None):
+def jacobian(f, x, xp=None, forward=False):
     """Jacobian ``df/dx`` of a vector->vector map ``f`` by backend autodiff.
 
     Parameters
@@ -30,6 +30,10 @@ def jacobian(f, x, xp=None):
         the backend.
     xp : module, optional
         The array namespace; resolved from ``x`` when omitted.
+    forward : bool, optional
+        jax: forward mode (``jax.jacfwd``) -- cheaper for few inputs, and needs no
+        reverse pass through an ODE solve (diffrax ``ForwardMode``); ``f`` must be
+        jvp-able (not the C-STM). Ignored by torch.
 
     Returns
     -------
@@ -39,8 +43,8 @@ def jacobian(f, x, xp=None):
 
     Notes
     -----
-    - jax uses ``jax.jacrev`` (reverse mode): galpy's C-STM orbit integrator is a
-      ``custom_vjp``, so forward-mode ``jacfwd`` is unavailable.
+    - jax uses ``jax.jacrev`` (reverse mode) by default: galpy's C-STM orbit
+      integrator is a ``custom_vjp``, so forward-mode ``jacfwd`` is unavailable there.
     - torch uses ``torch.autograd.functional.jacobian(..., vectorize=False)``:
       the C-STM custom autograd Function has no vmap batching rule, so the
       ``vectorize=True`` fast path is unavailable.
@@ -56,4 +60,4 @@ def jacobian(f, x, xp=None):
         raise ValueError(
             "backend jacobian requires a jax or torch namespace (numpy has no autodiff)"
         )
-    return jacobian_backend(f, x)
+    return jacobian_backend(f, x, forward=forward)
