@@ -807,6 +807,80 @@ def test_integrate_diffrax_quantity_time():
     numpy.testing.assert_allclose(_wrap_phi(got), _wrap_phi(ref), rtol=1e-6, atol=1e-7)
 
 
+# ------------------------------------- Python-float IC follows an unforced default
+_DEFAULT_BACKENDS = (["jax"] if HAVE_JAX else []) + (["torch"] if HAVE_TORCH else [])
+
+
+@pytest.mark.parametrize("backend_name", _DEFAULT_BACKENDS)
+@pytest.mark.parametrize("radec", [False, True])
+def test_orbit_from_python_floats_follows_unforced_default(backend_name, radec):
+    # No array to dispatch on -> the use()/config default applies, as for a
+    # potential evaluated at Python floats: the IC becomes a backend array and
+    # the orbit is that backend's (outputs on it, differentiable w.r.t. the
+    # potential through the in-backend ODE).
+    from galpy.backend import use
+
+    ic = [20.0, 30.0, 2.0, -1.0, 3.0, 40.0] if radec else list(_IC)
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    ref = Orbit(ic, radec=radec)
+    ref.integrate(_TS, pot, method="dop853_c")
+    with use(backend_name):
+        o = Orbit(ic, radec=radec)
+    assert is_backend_array(o._ic_backend) and o._ic_backend_concrete
+    numpy.testing.assert_allclose(
+        as_numpy(o._ic_backend).reshape(-1), ref.vxvv.reshape(-1), rtol=1e-14
+    )
+    o.integrate(_TS, pot, method="dop853_c")
+    assert is_backend_array(o.R(_TS))
+    # (radec: the sky->galactocentric conversion runs on the backend, 1e-14 off)
+    numpy.testing.assert_allclose(as_numpy(o.R(_TS)), ref.R(_TS), rtol=1e-10)
+    # the same as handing in a backend array yourself
+    xp = jnp if backend_name == "jax" else torch
+    o2 = Orbit(xp.asarray(numpy.array(ic)), radec=radec)
+    o2.integrate(_TS, pot, method="dop853_c")
+    numpy.testing.assert_array_equal(as_numpy(o.R(_TS)), as_numpy(o2.R(_TS)))
+
+
+@pytest.mark.parametrize("backend_name", _DEFAULT_BACKENDS)
+def test_orbit_numpy_data_or_forced_default_keeps_numpy_ic(backend_name):
+    # numpy data (an array, numpy scalars) is data: it wins over an unforced
+    # default; a FORCED default keeps the numpy IC (the forced harness builds
+    # orbits from lists), and outside a context nothing changes.
+    from galpy.backend import use
+
+    with use(backend_name):
+        assert Orbit(numpy.array(_IC))._ic_backend is None
+        assert Orbit([numpy.float64(v) for v in _IC])._ic_backend is None
+        assert Orbit()._ic_backend is None  # the Sun: no IC to dispatch on
+    with use(backend_name, force=True):
+        assert Orbit(list(_IC))._ic_backend is None
+    assert Orbit(list(_IC))._ic_backend is None
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_from_python_floats_in_default_is_differentiable():
+    # d R(t_end) / d b through an Orbit built from Python floats inside use('jax')
+    # (in-backend ODE, the potential parameter traced) vs a central difference of
+    # the C orbit, h-converged
+    from galpy.backend import use
+
+    def final_R(b):
+        with use("jax"):
+            o = Orbit(list(_IC))
+            o.integrate(_TS, PlummerPotential(amp=1.0, b=b), method="diffrax")
+        return o.R(_TS[-1])
+
+    def final_R_np(b):
+        o = Orbit(list(_IC))
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=b), method="dop853_c")
+        return o.R(_TS[-1])
+
+    g = float(jax.grad(final_R)(0.6))
+    fd = [(final_R_np(0.6 + h) - final_R_np(0.6 - h)) / (2 * h) for h in (1e-4, 1e-5)]
+    assert abs(fd[0] - fd[1]) < 1e-7 * abs(fd[1])  # converged
+    numpy.testing.assert_allclose(g, fd[1], rtol=1e-7)
+
+
 # ------------------------------------------------------------- numpy path unaffected
 def test_integrate_numpy_path_unchanged():
     # a numpy Orbit with a standard method is untouched by the new dispatch

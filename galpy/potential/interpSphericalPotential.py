@@ -7,9 +7,9 @@ from scipy import interpolate
 from ..backend import (
     as_numpy,
     coerce_coords,
-    get_namespace,
     is_backend_array,
     match_input_dtype,
+    prefer_backend_namespace,
     resolve_namespace,
     to_host,
 )
@@ -157,7 +157,10 @@ class interpSphericalPotential(SphericalPotential):
         return None
 
     def _revaluate(self, r, t=0.0):
-        xp = get_namespace(r)
+        # differentiated tables (a traced/grad parameter) are data too: a numpy
+        # or Python-float r then evaluates on their backend, as an analytic
+        # potential with a backend parameter does
+        xp = prefer_backend_namespace(r, self._total_mass)
         if xp is numpy:
             out = numpy.empty_like(r)
             out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] + self._Phimax
@@ -177,7 +180,7 @@ class interpSphericalPotential(SphericalPotential):
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce(self, r, t=0.0):
-        xp = get_namespace(r)
+        xp = prefer_backend_namespace(r, self._total_mass)  # see _revaluate
         if xp is numpy:
             out = numpy.empty_like(r)
             out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] ** 2.0
@@ -191,7 +194,7 @@ class interpSphericalPotential(SphericalPotential):
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _r2deriv(self, r, t=0.0):
-        xp = get_namespace(r)
+        xp = prefer_backend_namespace(r, self._total_mass)  # see _revaluate
         if xp is numpy:
             out = numpy.empty_like(r)
             out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
@@ -205,7 +208,7 @@ class interpSphericalPotential(SphericalPotential):
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rdens(self, r, t=0.0):
-        xp = get_namespace(r)
+        xp = prefer_backend_namespace(r, self._total_mass)  # see _revaluate
         if xp is numpy:
             out = numpy.empty_like(r)
             out[r >= self._rmax] = 0.0

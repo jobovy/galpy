@@ -662,3 +662,33 @@ def test_surfdens_wholeline_eager_torch_matches_numpy():
     assert torch.is_tensor(got)
     rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
     assert rel < 5e-12, f"torch whole-line: rel={rel:g}"
+
+
+@pytest.mark.parametrize(
+    "mode",
+    (["grad", "jit_grad", "vmap"] if _HAS_JAX else [])
+    + (["torch"] if _HAS_TORCH else []),
+)
+def test_vcirc_python_float_R_follows_traced_parameter(mode):
+    """vcirc at a Python-float R with a differentiated potential parameter: the
+    backend force is the data (vcirc resolved numpy from R alone and ran
+    numpy.sqrt on a tracer / a grad tensor). vs a converged central difference."""
+
+    def vc(a):
+        return MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3).vcirc(
+            1.2, use_physical=False
+        )
+
+    fd = [(vc(0.5 + h) - vc(0.5 - h)) / (2.0 * h) for h in (1e-4, 1e-5)]
+    assert abs(fd[0] - fd[1]) < 2e-8 * abs(fd[1])  # converged (measured 3.6e-9)
+    if mode == "grad":
+        g = float(jax.grad(vc)(0.5))
+    elif mode == "jit_grad":
+        g = float(jax.jit(jax.grad(vc))(0.5))
+    elif mode == "vmap":
+        g = float(jax.vmap(jax.grad(vc))(jnp.asarray([0.5, 0.6]))[0])
+    else:
+        a = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+        (g,) = torch.autograd.grad(vc(a), a)
+        g = float(g)
+    numpy.testing.assert_allclose(g, fd[1], rtol=1e-9)

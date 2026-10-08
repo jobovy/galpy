@@ -328,6 +328,15 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # are listed here so a workflow_dispatch(jit=true) run does not surface them as
 # a surprise red. Un-defer when the per-force-call overhead work lands.
 
+# --- jax / jax-jit: KuzminKutuzov python leapfrog (2026-10-08) ---
+# 100 time units of the PYTHON leapfrog (vs leapfrog_c) on eager jax: ~10^5
+# force calls, each through coords.Rz_to_lambdanu_jac's ~20 scalar powers
+# (~5 ms/call eager jax). CI shard times: eager jax 146-295 s, jax-jit
+# 90-296 s on feat/backends' own runs, then a 300 s timeout (run 37721184156);
+# locally 340-379 s eager, 352 s traced. numpy (and torch, ~20 s) cover it.
+jax tests/test_kuzminkutuzov.py::test_orbitIntegrationC  # CI 146-295 s; near the cap
+jax-jit tests/test_kuzminkutuzov.py::test_orbitIntegrationC  # CI 90-296 s, then timed out
+
 # --- jax-jit: measured under `--backend jax --jit`, 2026-08-09 ---
 # These exist because the slow-skip list no longer inherits eager entries (see
 # _load_backend_nodeids): a traced run defers only what is measured slow WHEN
