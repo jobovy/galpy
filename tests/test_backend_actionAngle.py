@@ -319,6 +319,73 @@ def test_isochrone_dangle_dt_equals_freq(backend, vT, idx_ang, idx_om):
     numpy.testing.assert_allclose(dthdt, om_ret, rtol=1e-8, atol=1e-9)
 
 
+@pytest.fixture(scope="module")
+def iso_orbit_samples():
+    # A bound, inclined orbit in the isochrone itself, finely sampled: its angles
+    # advance exactly linearly at the returned frequencies
+    from galpy.orbit import Orbit
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    o = Orbit([1.5, 0.3, 1.0, 0.4, 0.2, 0.0])
+    ts = numpy.linspace(0.0, 30.0, 30001)
+    o.integrate(ts, ip, method="dop853_c", rtol=1e-14, atol=1e-14)
+    xv = numpy.stack([o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)])
+    return actionAngleIsochrone(ip=ip), ts, xv
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_angles_linear_along_an_orbit(backend, iso_orbit_samples):
+    # The backend angles (atan2 forms) through every radial and vertical turning
+    # point: theta(t) - Omega t is constant (the numpy arccos/arcsin forms: 1e-10)
+    aAI, ts, xv = iso_orbit_samples
+    out = aAI._actionsFreqsAngles(*[_arr(backend, c) for c in xv])
+    for ia in (6, 7, 8):
+        th = numpy.unwrap(as_numpy(out[ia]))
+        res = th - th[0] - as_numpy(out[ia - 3])[0] * ts
+        assert numpy.max(numpy.abs(res - numpy.mean(res))) < 1e-12
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("where", ["apocenter", "pericenter", "zmax"])
+def test_isochrone_angle_hessian_at_turning_points(backend, iso_orbit_samples, where):
+    # Second derivatives of the angles at the orbit sample closest to a turning
+    # point match a finite difference of the AD gradient. With arccos/arcsin/tan
+    # the sample ~1e-5 rad from apocenter came out ~60% off (it broke streamdf's
+    # d(track)/d(potential), a second derivative of isochroneApprox's angles).
+    aAI, ts, xv = iso_orbit_samples
+    angr = numpy.asarray(aAI._actionsFreqsAngles(*xv)[6])
+    if where == "zmax":
+        k = numpy.argmax(xv[3] / numpy.sqrt(xv[0] ** 2.0 + xv[3] ** 2.0))
+    else:
+        target = numpy.pi if where == "apocenter" else 0.0
+        k = numpy.argmin(numpy.abs(numpy.angle(numpy.exp(1j * (angr - target)))))
+    x0 = xv[:, k]
+    for ia in (6, 7, 8):
+
+        def f(x):
+            return aAI._actionsFreqsAngles(*[x[i : i + 1] for i in range(6)])[ia].sum()
+
+        if backend == "jax":
+            H = numpy.asarray(jax.hessian(f)(jnp.asarray(x0)))
+
+            def grad(x):
+                return numpy.asarray(jax.grad(f)(jnp.asarray(x)))
+        else:
+            H = as_numpy(torch.autograd.functional.hessian(f, torch.tensor(x0)))
+
+            def grad(x):
+                xt = torch.tensor(x, requires_grad=True)
+                return as_numpy(torch.autograd.grad(f(xt), xt)[0])
+
+        h = 1e-6
+        Hfd = numpy.stack(
+            [(grad(x0 + h * e) - grad(x0 - h * e)) / (2.0 * h) for e in numpy.eye(6)]
+        )
+        assert numpy.max(numpy.abs(H - Hfd)) < 1e-8 * numpy.max(numpy.abs(Hfd)), (
+            f"angle {ia} at {where}"
+        )
+
+
 # --------------------------------------------- inverse maps (J,angle) -> (x,v)
 # actionAngleHarmonicInverse is closed-form (amp=√(2J/ω); x=amp sinθ; vx=amp ω cosθ).
 # actionAngleIsochroneInverse solves Kepler's equation eta-(a e/ab)sin(eta)=ar; the

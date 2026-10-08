@@ -985,8 +985,14 @@ class streamdf(df):
             if custom_sky_transform is None
             else numpy.asarray(custom_sky_transform, dtype=float)
         )
+        # a traced/grad-carrying angle grid (``_deltaAngleTrack * linspace(0, 1)``,
+        # see _span_grid) goes in as a concrete normalized axis times a backend scale
+        tp_grid, tp_scale = self._interpolatedThetasTrack, None
+        if is_backend_array(tp_grid):
+            tp_grid = numpy.linspace(0.0, 1.0, len(tp_grid))
+            tp_scale = self._deltaAngleTrack
         self._streamTrack = StreamTrack(
-            tp_grid=self._interpolatedThetasTrack,
+            tp_grid=tp_grid,
             track_xyz=self._interpolatedObsTrackXY[:, 0:3],
             track_vxvyvz=self._interpolatedObsTrackXY[:, 3:6],
             cov_xyz=self._interpolatedAllErrCovsLocalXY,
@@ -996,6 +1002,7 @@ class streamdf(df):
             vo=prog_vo,
             zo=self._Zsun,
             solarmotion=sdf_solarmotion,
+            tp_scale=tp_scale,
         )
         return self._streamTrack
 
