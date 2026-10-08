@@ -241,3 +241,140 @@ def test_dehnendf_grad_wrt_profile_parameter(backend, fn):
     # the silent-zero guard: torch used to return a finite 0 here
     assert abs(g) > 0.0, f"{fn}: gradient is identically zero (detached?)"
     numpy.testing.assert_allclose(g, gfd, rtol=1e-6, atol=1e-12)
+
+
+# --------------------------------------------------------------------------
+# Array R: the moment quadrature batches over R (the GL grid takes the two
+# trailing axes); used to raise a (k,) vs (1, n) broadcasting error.
+# --------------------------------------------------------------------------
+_RARR = [[0.8, 1.0], [1.2, 1.1]]
+
+
+def _array(backend, x, requires_grad=False):
+    if backend == "jax":
+        return jnp.asarray(x)
+    return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("dfname,df", _DFS)
+@pytest.mark.parametrize(
+    "fn",
+    [
+        "surfacemass",
+        "sigma2surfacemass",
+        "sigmaR2",
+        "sigmaT2",
+        "meanvT",
+        "meanvR",
+        "kurtosisvR",
+        "oortA",
+    ],
+)
+def test_moment_array_R_matches_scalar(backend, dfname, df, fn):
+    # array R == a loop over scalar R (the scalar path is matched to numpy above);
+    # no ro/vo set, so these return internal units (kurtosisvR takes no use_physical)
+    with use(backend, force=True):
+        got = getattr(df, fn)(_array(backend, _RARR))
+        ref = [float(getattr(df, fn)(_scalar(backend, r))) for r in numpy.ravel(_RARR)]
+    assert is_backend_array(got)
+    assert tuple(got.shape) == numpy.shape(_RARR)
+    # the batched GL sum reorders the reduction: sigmaT2/kurtosis cancel to ~1e-13
+    numpy.testing.assert_allclose(as_numpy(got).ravel(), ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("deriv", [None, "R"])
+def test_vmomentsurfacemass_array_R_matches_scalar(backend, deriv):
+    with use(backend, force=True):
+        got = _shu_b.vmomentsurfacemass(
+            _array(backend, _RPTS), 0, 2, deriv=deriv, use_physical=False
+        )
+        ref = [
+            float(
+                _shu_b.vmomentsurfacemass(
+                    _scalar(backend, r), 0, 2, deriv=deriv, use_physical=False
+                )
+            )
+            for r in _RPTS
+        ]
+    assert tuple(got.shape) == (len(_RPTS),)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("dfname,df", _DFS)
+@pytest.mark.parametrize("fn", ["surfacemass", "meanvT"])
+def test_moment_array_R_grad_vs_fd(backend, dfname, df, fn):
+    # d(moment)/dR at an array R (jax.vmap(jax.grad) / torch backward of the sum)
+    # vs a central FD of the same (smooth, fixed-GL) backend quadrature
+    R0, h = numpy.array(_RPTS), 1e-5
+
+    def f(R):
+        return getattr(df, fn)(R, use_physical=False)
+
+    with use(backend, force=True):
+        gfd = (
+            as_numpy(f(_array(backend, R0 + h))) - as_numpy(f(_array(backend, R0 - h)))
+        ) / (2.0 * h)
+        if backend == "jax":
+            g = numpy.asarray(jax.vmap(jax.grad(f))(jnp.asarray(R0)))
+        else:
+            Rt = _array(backend, R0, requires_grad=True)
+            f(Rt).sum().backward()
+            g = Rt.grad.numpy()
+    # FD truncation ~h^2 f''' and roundoff ~1e-16/h: measured <= 1e-9
+    numpy.testing.assert_allclose(g, gfd, rtol=1e-8, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dehnendf_profile_parameter_grad_numpy_array_R(backend):
+    # a differentiated profile parameter with a NUMPY array R takes the batched
+    # backend quadrature (not the per-element numpy loop)
+    R = numpy.array(_RPTS)
+
+    def q(hr, R):
+        return dehnendf(beta=0.0, profileParams=(hr, 1.0, 0.2)).surfacemass(
+            R, use_physical=False
+        )
+
+    if backend == "jax":
+        g = numpy.asarray(jax.jacfwd(q)(jnp.asarray(_HR0), R))
+        ref = [float(jax.grad(q)(jnp.asarray(_HR0), float(r))) for r in R]
+    else:
+        g = torch.autograd.functional.jacobian(
+            lambda t: q(t, R), torch.tensor(_HR0, dtype=torch.float64)
+        ).numpy()
+        ref = []
+        for r in R:
+            t = torch.tensor(_HR0, dtype=torch.float64, requires_grad=True)
+            q(t, float(r)).backward()
+            ref.append(float(t.grad))
+    # the scalar-R profile-parameter gradient is matched to FD above
+    numpy.testing.assert_allclose(g, ref, rtol=1e-12, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_array_R_under_jit(backend):
+    # jax.jit / torch.compile (dynamo) of an array-R moment and its R-gradient
+    # match eager (measured 7e-16 values, round-off gradients)
+    def f(R):
+        return _dehnen_b.meanvT(R, use_physical=False)
+
+    R0 = numpy.array(_RARR)
+    with use(backend, force=True):
+        if backend == "jax":
+            ve, vc = f(jnp.asarray(R0)), jax.jit(f)(jnp.asarray(R0))
+            gf = jax.vmap(jax.vmap(jax.grad(f)))
+            ge, gc = gf(jnp.asarray(R0)), jax.jit(gf)(jnp.asarray(R0))
+        else:
+            torch._dynamo.reset()
+            cf = torch.compile(f, backend="eager")
+            Re = _array(backend, R0, requires_grad=True)
+            Rc = _array(backend, R0, requires_grad=True)
+            ve, vc = f(Re), cf(Rc)
+            ve.sum().backward()
+            vc.sum().backward()
+            ve, vc, ge, gc = ve.detach(), vc.detach(), Re.grad, Rc.grad
+    numpy.testing.assert_allclose(as_numpy(vc), as_numpy(ve), rtol=1e-14, atol=0.0)
+    numpy.testing.assert_allclose(as_numpy(gc), as_numpy(ge), rtol=1e-12, atol=0.0)

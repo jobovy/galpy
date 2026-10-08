@@ -69,11 +69,16 @@ _DEGTORAD = numpy.pi / 180.0
 
 
 def _loop_array_R(method):
-    """scipy's dblquad takes a scalar R: evaluate a numpy array R elementwise"""
+    """scipy's dblquad takes a scalar R: evaluate a numpy array R elementwise
+    (a differentiated profile takes the vectorized backend path instead)"""
 
     @functools.wraps(method)
     def wrapper(self, R, *args, **kwargs):
-        if isinstance(R, numpy.ndarray) and R.ndim > 0:
+        if (
+            isinstance(R, numpy.ndarray)
+            and R.ndim > 0
+            and not self._profile_differentiated()
+        ):
             return numpy.array(
                 [method(self, r, *args, **kwargs) for r in R.flat]
             ).reshape(R.shape)
@@ -844,10 +849,12 @@ class diskdf(df):
     def _backend_moment_prep(self, R, nsigma):
         """Backend (jax/torch) prelude shared by the moment quadratures: returns
         (xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box,
-        R on xp: a differentiated profile parameter at a Python-float R is data."""
+        R on xp: a differentiated profile parameter at a Python-float R is data.
+        All carry two trailing length-1 axes for the (vR, vT) GL grid."""
         params = getattr(self._surfaceSigmaProfile, "_params", ())
         xp = prefer_backend_namespace(R, *params)
         (R,) = coerce_coords(xp, R, device=device_of(R, *params))
+        R = xp.reshape(R, tuple(R.shape) + (1, 1))
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = xp.sqrt(sigmaR2)
@@ -903,7 +910,7 @@ class diskdf(df):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
                 self._backend_moment_prep(R, nsigma)
             )
-            norm = 1.0 if relative else xp.exp(logSigmaR)
+            norm = 1.0 if relative else xp.exp(logSigmaR[..., 0, 0])
             return (
                 nested_quad(
                     xp,
@@ -1004,7 +1011,7 @@ class diskdf(df):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
                 self._backend_moment_prep(R, nsigma)
             )
-            norm = 1.0 if relative else xp.exp(logSigmaR + logsigmaR2)
+            norm = 1.0 if relative else xp.exp((logSigmaR + logsigmaR2)[..., 0, 0])
             return (
                 nested_quad(
                     xp,
@@ -1141,7 +1148,8 @@ class diskdf(df):
             norm = (
                 1.0
                 if relative
-                else xp.exp(logSigmaR + logsigmaR2 * (n + m) / 2.0) / self._gamma**m
+                else xp.exp((logSigmaR + logsigmaR2 * (n + m) / 2.0)[..., 0, 0])
+                / self._gamma**m
             )
             if deriv is None:
                 integ = lambda vR, vT: _vmomentsurfaceIntegrand(
