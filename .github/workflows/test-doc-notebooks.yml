@@ -66,7 +66,9 @@ jobs:
           # Verbose install so that any GSL/C-extension build issues are visible
           # in CI logs.
           pip install -v ".[docs]"
-          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib array-api-compat
+          # CPU torch first, so torchode/torchdiffeq do not pull the CUDA wheels
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib array-api-compat diffrax equinox torchdiffeq torchode
       - name: Cache pynbody test snapshot
         id: cache-snapshot
         uses: actions/cache@v6
