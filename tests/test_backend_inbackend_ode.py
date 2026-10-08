@@ -831,3 +831,29 @@ def test_inbackend_ode_method_default(monkeypatch):
         lambda name, *a, **k: None if name == "torchode" else real(name, *a, **k),
     )
     assert inbackend_ode_method(txp) == "torchdiffeq"
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_carries_jvp_tangent_only_under_direct_linearize():
+    # The forward-mode probe sees jvp's JVPTracer, never grad's LinearizeTracer;
+    # without direct linearize (older jax) reverse mode runs on JVP tracers too,
+    # so the probe stands down rather than switch every jax.grad to DirectAdjoint.
+    from galpy.backend._jax.orbit_ode import _carries_jvp_tangent
+
+    seen = {}
+
+    def f(x, tag):
+        seen[tag] = _carries_jvp_tangent(x)
+        return x * 2.0
+
+    prev = jax.config.jax_use_direct_linearize
+    try:
+        jax.config.update("jax_use_direct_linearize", True)
+        jax.jvp(lambda x: f(x, "jvp"), (1.0,), (1.0,))
+        jax.grad(lambda x: f(x, "grad"))(1.0)
+        jax.config.update("jax_use_direct_linearize", False)
+        jax.jvp(lambda x: f(x, "jvp_off"), (1.0,), (1.0,))
+    finally:
+        jax.config.update("jax_use_direct_linearize", prev)
+    assert seen == {"jvp": True, "grad": False, "jvp_off": False}
+    assert not _carries_jvp_tangent(jnp.ones(2), 1.0)  # concrete values
