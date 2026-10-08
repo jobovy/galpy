@@ -117,6 +117,30 @@ def test_isochrone_parity(backend, b):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_b_constructor_grad(backend):
+    # actionAngleIsochrone(b=<traced / grad tensor>): the constructor's
+    # sqrt(b^2+1) runs on b's namespace (it was numpy.sqrt). d(jr, jz)/db vs a
+    # converged central difference of the numpy build.
+    def actions(b, xp_args):
+        jr, _, jz = actionAngleIsochrone(b=b)(*xp_args)
+        return jr.sum() + jz.sum()
+
+    fd = [
+        (actions(0.8 + h, _ISO[:5]) - actions(0.8 - h, _ISO[:5])) / (2.0 * h)
+        for h in (1e-4, 1e-5)
+    ]
+    assert abs(fd[0] - fd[1]) < 5e-8 * abs(fd[1])  # converged (measured 1.5e-8)
+    args = [_arr(backend, v) for v in _ISO[:5]]
+    if backend == "jax":
+        g = float(jax.grad(lambda b: actions(b, args))(0.8))
+    else:
+        b = torch.tensor(0.8, requires_grad=True)
+        (g,) = torch.autograd.grad(actions(b, args), b)
+        g = float(g)
+    numpy.testing.assert_allclose(g, fd[1], rtol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("b", [0.8, 1.5])  # b=0 EccZmaxRperiRap only approximate
 def test_isochrone_ecczmaxrperirap_parity(backend, b):
     aAI = actionAngleIsochrone(b=b)

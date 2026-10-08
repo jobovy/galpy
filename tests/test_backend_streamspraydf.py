@@ -435,6 +435,38 @@ def _theta_curve(leaf, xp, tf, tb):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_backend_theta_matches_numpy_sample(backend_name):
+    # A backend potential parameter samples the stream on the backend (the
+    # progenitor through the in-backend ODE); with the same key it must give the
+    # numpy-parameter stream to the integrators' accuracy -- the progenitor was
+    # splined on a coarser grid than numpy's, ~1e-7 off in velocity over the
+    # 4.5 Gyr disruption, ~7e-6 in the sample (and in an AD-vs-FD comparison
+    # across the two). A numpy and a backend progenitor IC give the same stream.
+    xp = jax.numpy if backend_name == "jax" else torch
+    key = grandom.key(1, backend_name)
+
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+
+    def sample(q, prog_ic):
+        spdf = fardal15spraydf(
+            mass,
+            progenitor=Orbit(prog_ic),
+            pot=LogarithmicHaloPotential(normalize=1.0, q=q),
+            tdisrupt=td,
+        )
+        return as_numpy(spdf.sample(n=40, return_orbit=False, key=key))
+
+    ref = sample(_Q0, _PROG_IC)  # numpy parameter: the numpy/C path
+    got = sample(xp.asarray(_Q0), _PROG_IC)  # backend parameter, numpy IC
+    # measured 6e-9 (jax), 4e-9 (torch); 7e-6 with the coarse progenitor grid
+    err = numpy.abs(got - ref).max() / numpy.abs(ref).max()
+    assert err < 3e-8, err
+    got_b = sample(xp.asarray(_Q0), xp.asarray(_PROG_IC))
+    numpy.testing.assert_array_equal(got_b, got)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_streamtrack_backend_theta_parity(backend_name):
     # A backend potential PARAMETER routes the progenitor curve through the
     # in-backend ODE -> a differentiable BACKEND track matching the numpy-parameter

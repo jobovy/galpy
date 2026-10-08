@@ -3,6 +3,7 @@
 #   namespaces and small namespace-agnostic utilities.
 ###############################################################################
 import sys
+import warnings
 from functools import singledispatchmethod, wraps
 
 import numpy
@@ -11,6 +12,18 @@ from ..util._optional_deps import (
     _ARRAY_API_COMPAT_LOADED,
     _JAX_LOADED,
     _TORCH_LOADED,
+)
+
+# galpy coerces with the torch namespace's asarray (array-api-compat) at ~330
+# sites, often on a grad-tracking tensor that is already on the backend. torch
+# >= 2.12 warns there that requires_grad now follows the input -- the behaviour
+# galpy relies on (keep the graph). Silence exactly that message from exactly
+# that wrapper.
+warnings.filterwarnings(
+    "ignore",
+    message=r"torch\.asarray: unspecified requires_grad",
+    category=UserWarning,
+    module=r"array_api_compat\.torch",
 )
 
 # Canonical backend names accepted throughout galpy.backend
