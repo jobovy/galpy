@@ -7,6 +7,7 @@ import copy
 
 import numpy
 
+from ..backend import scalar_like
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -250,7 +251,8 @@ class planarForce:
     def _Rforce_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._Rforce(R, phi=phi, t=t, **kwargs)
+            out = self._Rforce(R, phi=phi, t=t, **kwargs)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -261,7 +263,8 @@ class planarForce:
     def _phitorque_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._phitorque(R, phi=phi, t=t, **kwargs)
+            out = self._phitorque(R, phi=phi, t=t, **kwargs)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError
