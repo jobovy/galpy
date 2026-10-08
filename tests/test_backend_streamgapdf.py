@@ -1046,6 +1046,35 @@ def test_nTrackChunksImpact_must_be_given_when_traced():
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("dati", [0.3, 1.3, 2.97])
+def test_nTrackChunksImpact_default_from_concrete_backend_range(dati):
+    # A CONCRETE backend angle range gives the numpy default, floor(r/0.15)+1
+    # (at least 4), so an eager backend construction picks the same chunks.
+    from galpy.df.streamgapdf import streamgapdf
+
+    class _Stop(Exception):
+        pass
+
+    class _Mock:
+        _leading = False
+        _progenitor_Omega_along_dOmega = -0.5
+        _sigMeanSign = 1.0
+
+        def _gap_progenitor_setup(self):
+            pass
+
+        @property
+        def _gap_progenitor(self):  # read right after the chunk count is set
+            raise _Stop
+
+    m = _Mock()
+    m._deltaAngleTrackImpact = jnp.asarray(dati)
+    with pytest.raises(_Stop):
+        streamgapdf._determine_impact_coordtransform(m, dati, None, 1.0, -2.0)
+    assert m._nTrackChunksImpact == max(int(numpy.floor(dati / 0.15)) + 1, 4)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_backend_impact_angle_value(_gapdf_kick):
     # A backend impact angle gives the same kick as the float
     import copy
