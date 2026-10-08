@@ -31,6 +31,7 @@ from ..backend import (
     is_backend_compatible,
     like,
     on_host,
+    prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
 from ..backend import scalar_like, to_host
@@ -1584,11 +1585,11 @@ class Potential(Force):
         - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        xp = get_namespace(R)
-        # asarray so torch.sqrt accepts a numpy-scalar radicand (no-op on numpy)
-        return xp.sqrt(
-            xp.asarray(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
-        )
+        F = self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False)
+        # a backend force at a Python-float R (a differentiated parameter) is
+        # data too; asarray so torch.sqrt accepts a numpy-scalar radicand
+        xp = prefer_backend_namespace(R, F)
+        return xp.sqrt(xp.asarray(R * -F))
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
@@ -4033,21 +4034,20 @@ def vcirc(Pot, R, phi=None, t=0.0):
     """
     from ..potential import PotentialError, evaluateplanarRforces
 
-    # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt.
-    xp = get_namespace(R)
-    # forced numpy with backend potential parameters: read the force on the host
-    rd = to_host if xp is numpy else (lambda v: v)
     try:
-        return xp.sqrt(
-            -R * rd(evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False))
-        )
+        F = evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False)
     except PotentialError:
         from ..potential import toPlanarPotential
 
-        Pot = toPlanarPotential(Pot)
-        return xp.sqrt(
-            -R * rd(evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False))
+        F = evaluateplanarRforces(
+            toPlanarPotential(Pot), R, phi=phi, t=t, use_physical=False
         )
+    # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt. A
+    # backend force at a Python-float R (a differentiated parameter) is data too.
+    xp = prefer_backend_namespace(R, F)
+    # forced numpy with backend potential parameters: read the force on the host
+    rd = to_host if xp is numpy else (lambda v: v)
+    return xp.sqrt(-R * rd(F))
 
 
 @potential_physical_input
