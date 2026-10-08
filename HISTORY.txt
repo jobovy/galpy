@@ -1,6 +1,11 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``dehnendf`` and ``shudf`` moments (``surfacemass``, ``sigma2surfacemass``,
+  ``vmomentsurfacemass``, ``sigmaR2``, ``sigmaT2``, ``meanvT``, ``meanvR``,
+  skewness, kurtosis and the Oort functions) now accept a numpy array of
+  radii (previously only a scalar R worked; arrays raised an error).
+
 - ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
   now tabulate the host's velocity dispersion sigma_r(r) on a grid in log r
   (previously linear in r: with the default maxr=25 the grid spacing was 0.05,
