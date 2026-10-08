@@ -18,6 +18,7 @@ _MAXD_REJECTLOS = 4.0
 _PROFILE = False
 _NQUAD = 50  # fixed Gauss-Legendre order for the backend (jax/torch) moment path
 import copy
+import functools
 import os
 import os.path
 import pickle
@@ -65,6 +66,25 @@ _SCIPY_VERSION = parse_version(scipy.__version__)
 _SCIPY_VERSION_BREAK = parse_version("0.9")
 _CORRECTIONSDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 _DEGTORAD = numpy.pi / 180.0
+
+
+def _loop_array_R(method):
+    """scipy's dblquad takes a scalar R: evaluate a numpy array R elementwise
+    (a differentiated profile takes the vectorized backend path instead)"""
+
+    @functools.wraps(method)
+    def wrapper(self, R, *args, **kwargs):
+        if (
+            isinstance(R, numpy.ndarray)
+            and R.ndim > 0
+            and not self._profile_differentiated()
+        ):
+            return numpy.array(
+                [method(self, r, *args, **kwargs) for r in R.flat]
+            ).reshape(R.shape)
+        return method(self, R, *args, **kwargs)
+
+    return wrapper
 
 
 class diskdf(df):
@@ -829,10 +849,12 @@ class diskdf(df):
     def _backend_moment_prep(self, R, nsigma):
         """Backend (jax/torch) prelude shared by the moment quadratures: returns
         (xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box,
-        R on xp: a differentiated profile parameter at a Python-float R is data."""
+        R on xp: a differentiated profile parameter at a Python-float R is data.
+        All carry two trailing length-1 axes for the (vR, vT) GL grid."""
         params = getattr(self._surfaceSigmaProfile, "_params", ())
         xp = prefer_backend_namespace(R, *params)
         (R,) = coerce_coords(xp, R, device=device_of(R, *params))
+        R = xp.reshape(R, tuple(R.shape) + (1, 1))
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = xp.sqrt(sigmaR2)
@@ -854,13 +876,14 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
+    @_loop_array_R
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
         Calculate the surface-mass at R by marginalizing over velocity
 
         Parameters
         ----------
-        R : float or Quantity
+        R : float, numpy.ndarray or Quantity
             Radius at which to calculate the surfacemass density.
         romberg : bool, optional
             If True, use a romberg integrator (default: False)
@@ -887,7 +910,7 @@ class diskdf(df):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
                 self._backend_moment_prep(R, nsigma)
             )
-            norm = 1.0 if relative else xp.exp(logSigmaR)
+            norm = 1.0 if relative else xp.exp(logSigmaR[..., 0, 0])
             return (
                 nested_quad(
                     xp,
@@ -953,13 +976,14 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2surfacedensity", pop=True)
+    @_loop_array_R
     def sigma2surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
         Calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity.
 
         Parameters
         ----------
-        R : float or Quantity
+        R : float, numpy.ndarray or Quantity
             Radius at which to calculate the sigma_R^2 x surfacemass density.
         romberg : bool, optional
             If True, use a romberg integrator (default: False).
@@ -987,7 +1011,7 @@ class diskdf(df):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
                 self._backend_moment_prep(R, nsigma)
             )
-            norm = 1.0 if relative else xp.exp(logSigmaR + logsigmaR2)
+            norm = 1.0 if relative else xp.exp((logSigmaR + logsigmaR2)[..., 0, 0])
             return (
                 nested_quad(
                     xp,
@@ -1057,7 +1081,7 @@ class diskdf(df):
 
         Parameters
         ----------
-        R: float or Quantity
+        R: float, numpy.ndarray or Quantity
             Galactocentric radius at which to calculate the moment.
         n: int
             vR^n in the moment
@@ -1104,6 +1128,7 @@ class diskdf(df):
         else:
             return self._vmomentsurfacemass(*args, **kwargs)
 
+    @_loop_array_R
     def _vmomentsurfacemass(
         self, R, n, m, romberg=False, nsigma=None, relative=False, phi=0.0, deriv=None
     ):
@@ -1123,7 +1148,8 @@ class diskdf(df):
             norm = (
                 1.0
                 if relative
-                else xp.exp(logSigmaR + logsigmaR2 * (n + m) / 2.0) / self._gamma**m
+                else xp.exp((logSigmaR + logsigmaR2 * (n + m) / 2.0)[..., 0, 0])
+                / self._gamma**m
             )
             if deriv is None:
                 integ = lambda vR, vT: _vmomentsurfaceIntegrand(
