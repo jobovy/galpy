@@ -15,7 +15,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, promote_scalars, to_host
+from ..backend import get_namespace, is_backend_array, promote_scalars, to_host
 from ..backend._namespaces import namespace_from_arrays
 from ..potential import IsochronePotential
 from ..util import conversion, galpyWarning
@@ -266,6 +266,12 @@ class actionAngleIsochrone(actionAngle):
             c = -self.amp / 2.0 / E - self.b
             e2 = 1.0 - L2 / self.amp / c * (1.0 + self.b / c)
             e = xp.sqrt(e2)
+            if is_backend_array(R):
+                Jphi = xp.where(Lz / L > 1.0, L, Lz)
+                Jphi = xp.where(Jphi / L < -1.0, -L, Jphi)
+                return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz) + self._backend_angles(
+                    xp, R, vR, z, vz, phi, Lx, Ly, Jphi, L, L2, c, e, Omegar, Omegaz
+                )
             rsph = xp.sqrt(R**2.0 + z**2.0)  # shared by coseta(b==0) + cos/sintheta
             if self.b == 0.0:
                 coseta = 1 / e * (1.0 - rsph / c)
@@ -320,6 +326,43 @@ class actionAngleIsochrone(actionAngle):
             anglephi = anglephi % (2.0 * numpy.pi)
             anglez = anglez % (2.0 * numpy.pi)
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
+
+    def _backend_angles(
+        self, xp, R, vR, z, vz, phi, Lx, Ly, Lz, L, L2, c, e, Omegar, Omegaz
+    ):
+        """(angler, anglephi, anglez) with atan2 in place of the numpy path's
+        arccos/arcsin/tan: those are singular at the radial and vertical turning
+        points, where AD second derivatives lose all precision (a sample ~1e-5 rad
+        from apocenter gets a Hessian ~60% off). Same angles to rounding."""
+        twopi = 2.0 * numpy.pi
+        # e cos(eta), e sin(eta) from s = 1 + sqrt(1 + r^2/b^2) and its time
+        # derivative (valid for b = 0 too); r v_r = R vR + z vz
+        sq = xp.sqrt(self.b**2.0 + R**2.0 + z**2.0)
+        ecoseta = 1.0 - (sq - self.b) / c
+        cb = c / (c + self.b)
+        esineta = (R * vR + z * vz) * (1.0 - cb * ecoseta) / (c * sq * Omegar)
+        eta = xp.atan2(esineta, ecoseta) % twopi
+        angler = eta - cb * esineta
+        hs, hc = xp.sin(0.5 * eta), xp.cos(0.5 * eta)  # hs >= 0: atan2 in [0, pi]
+        tan11 = xp.atan2(xp.sqrt(1.0 + e) * hs, xp.sqrt(1.0 - e) * hc)
+        k2 = 2.0 * self.b / c
+        tan12 = xp.atan2(xp.sqrt(1.0 + e + k2) * hs, xp.sqrt(1.0 - e + k2) * hc)
+        # in-plane angle from the ascending node and the node's offset from phi,
+        # in the frame where the point sits at phi = 0 (Lx, Ly there); an orbit
+        # the numpy path finds planar (sin i == 0) keeps its Omega = 0 convention
+        inclined = L**2.0 - Lz**2.0 > 0.0
+        ly = xp.where(inclined, -Ly, 1.0)
+        psi = xp.where(inclined, xp.atan2(z * L, R * ly), phi) % twopi
+        u = xp.where(inclined, xp.atan2(-Lx, ly), phi)
+        anglez = (
+            psi
+            + Omegaz / Omegar * angler
+            - tan11
+            - 1.0 / xp.sqrt(1.0 + 4 * self.amp * self.b / L2) * tan12
+        )
+        Omega = phi - u
+        anglephi = xp.where(Lz < 0.0, Omega - anglez, Omega + anglez)
+        return (angler % twopi, anglephi % twopi, anglez % twopi)
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
