@@ -145,7 +145,9 @@ jobs:
           # Verbose install so that any GSL/C-extension build issues are visible
           # in CI logs.
           pip install -v ".[docs]"
-          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
+          # CPU torch first, so torchode/torchdiffeq do not pull the CUDA wheels
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib array-api-compat diffrax equinox torchdiffeq torchode
       - name: Uninstall tqdm to keep notebook output clean
         # tqdm is pulled in transitively by some of the optional deps above and
         # its progress bars clutter the rendered notebook outputs.
