@@ -124,7 +124,11 @@ def test_forced_backend_survives_a_fullgraph_compile():
             compiled = torch.compile(
                 lambda a, b: mp.Rforce(a, b), fullgraph=True, dynamic=False
             )(R, z)
-    assert torch.equal(compiled, eager)
+    if compiled.device.type == "cuda":
+        # compiled CUDA kernels fuse/FMA differently from eager: last-bit only
+        torch.testing.assert_close(compiled, eager, rtol=1e-15, atol=0.0)
+    else:
+        assert torch.equal(compiled, eager)
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
