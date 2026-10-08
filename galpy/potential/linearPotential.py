@@ -5,7 +5,7 @@ import pickle
 
 import numpy
 
-from ..backend import backend_input, coerce_coords, get_namespace
+from ..backend import backend_input, coerce_coords, get_namespace, scalar_like
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -282,7 +282,8 @@ class linearPotential:
         # Separate, so it can be used during orbit integration
         x = _coerce_x(self, x)
         try:
-            return self._amp * self._evaluate(x, t=t)
+            out = self._evaluate(x, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_evaluate' function not implemented for this potential"
@@ -318,7 +319,8 @@ class linearPotential:
         # Separate, so it can be used during orbit integration
         x = _coerce_x(self, x)
         try:
-            return self._amp * self._force(x, t=t)
+            out = self._force(x, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 
@@ -356,7 +358,8 @@ class linearPotential:
         # integration.
         x = _coerce_x(self, x)
         try:
-            return self._amp * self._x2deriv(x, t=t)
+            out = self._x2deriv(x, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_x2deriv' function not implemented for this potential"
