@@ -1332,9 +1332,14 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def tp_grid(self):
         """Return the fine tp grid on which the track is stored."""
-        if self._tp_scale is not None:
-            return self._tp_grid * self._tp_scale  # normalized axis -> physical
-        return self._tp_grid.copy()
+        if self._tp_scale is None:
+            return self._tp_grid.copy()
+        grid = self._tp_grid
+        if is_backend_array(self._tp_scale):  # torch: ndarray * Tensor raises
+            grid = asarray_on_device(
+                get_namespace(self._tp_scale), grid, device_of(self._tp_scale)
+            )
+        return grid * self._tp_scale  # normalized axis -> physical
 
     def _tp_query_axis(self, tp, xp, dev):
         """``(tp_b, in_range, tp_physical)`` for an accessor's backend query axis.

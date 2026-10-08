@@ -2850,3 +2850,122 @@ def test_concrete_track_jacobians_forward_mode():
     scale = numpy.max(numpy.abs(fd))
     for got in (eager, traced):
         numpy.testing.assert_allclose(got, fd, rtol=0.0, atol=1e-8 * scale)
+
+
+# --- streamTrack() from a traced/grad-carrying track --------------------------
+# A differentiated construction leaves _interpolatedThetasTrack as
+# _deltaAngleTrack * linspace(0, 1) on the backend (see _span_grid), which
+# StreamTrack cannot take as its (numpy) parameter axis; streamTrack() hands it
+# over as a concrete normalized axis times the backend extent (tp_scale).
+def _scaled_track_sdf(sdf, a, xp):
+    """A copy of the numpy ``sdf`` whose interpolated track/grid/cov depend smoothly
+    on the backend scalar ``a`` (= 1 reproduces ``sdf``), as a traced build has."""
+    import copy as _copy
+
+    m = _copy.copy(sdf)
+    m._streamTrack = None
+    n = len(sdf._interpolatedThetasTrack)
+    lin = numpy.linspace(0.0, 1.0, n)
+    m._deltaAngleTrack = a * sdf._deltaAngleTrack
+    m._interpolatedThetasTrack = m._deltaAngleTrack * xp.asarray(lin)
+    XY = xp.asarray(numpy.asarray(sdf._interpolatedObsTrackXY))
+    m._interpolatedObsTrackXY = XY * (1.0 + 0.3 * (a - 1.0) * xp.asarray(lin)[:, None])
+    m._interpolatedAllErrCovsLocalXY = (
+        xp.asarray(numpy.asarray(sdf._interpolatedAllErrCovsLocalXY)) * a**2
+    )
+    return m
+
+
+def _scaled_track_obs(track, a):
+    """Smooth scalar of the track: positions/velocities at interior tp, the full
+    grid, and one covariance entry."""
+    xp = get_namespace(a)
+    d = 0.5 * track.tp_grid()[-1]
+    tp = xp.stack([0.1 * d, 0.7 * d, 1.3 * d])
+    return (
+        xp.sum(track.x(tp) * track.vz(tp) + track.z(tp))
+        + xp.sum(track.y(track.tp_grid()))
+        + 1e4 * track.cov(0.9 * d)[0, 0]
+    )
+
+
+@pytest.mark.skipif(not AD_BACKENDS, reason="needs a jax/torch backend")
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamTrack_from_a_traced_track(sdf, backend_name):
+    xp = get_namespace(_arr(backend_name, 0.0))
+    ref = sdf.streamTrack()
+    # a = 1: the backend StreamTrack reproduces the numpy one
+    if backend_name == "jax":
+        track = _scaled_track_sdf(sdf, jnp.asarray(1.0), jnp).streamTrack()
+    else:
+        a1 = torch.tensor(1.0, requires_grad=True)
+        track = _scaled_track_sdf(sdf, a1, torch).streamTrack()
+    assert is_backend_array(track.tp_grid())
+    numpy.testing.assert_allclose(
+        as_numpy(track.tp_grid()), ref.tp_grid(), rtol=0.0, atol=1e-15
+    )
+    tp = ref.tp_grid()[[3, 250, 700, -5]]
+    for acc in ("x", "y", "z", "vx", "vy", "vz", "ll", "bb", "dist", "pmll"):
+        got = as_numpy(getattr(track, acc)(_arr(backend_name, tp)))
+        want = getattr(ref, acc)(tp)
+        numpy.testing.assert_allclose(
+            got, want, rtol=1e-12, atol=1e-12 * numpy.max(numpy.abs(want))
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(track.cov(_arr(backend_name, tp[1]))), ref.cov(tp[1]), rtol=1e-12
+    )
+
+    def f(a):
+        return _scaled_track_obs(_scaled_track_sdf(sdf, a, xp).streamTrack(), a)
+
+    a0 = 1.02
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(a0))
+        numpy.testing.assert_allclose(
+            float(jax.jit(f)(a0)), float(f(jnp.asarray(a0))), rtol=1e-13
+        )
+    else:
+        at = torch.tensor(a0, requires_grad=True)
+        f(at).backward()
+        ad = float(at.grad)
+    h = 1e-5
+    fd = (
+        float(f(_arr(backend_name, a0 + h))) - float(f(_arr(backend_name, a0 - h)))
+    ) / (2.0 * h)
+    assert abs(ad - fd) < 1e-8 * abs(fd), f"AD {ad} vs FD {fd}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize(
+    "xv",
+    [  # GD-1 track chunks 5 and 10 (q=0.9): their isochroneApprox orbit samples
+        # pass within ~1e-5 rad of a turning point
+        [1.9482019352225044, 0.47189276356910437, -0.9189398856638408]
+        + [0.34763049735879387, -0.6740049201833861, -0.4162726076077927],
+        [2.3242978213675394, 0.35270687705122844, -0.7702456756421648]
+        + [-0.273345198437566, -0.6872683590989853, -0.7673663501363959],
+    ],
+)
+def test_track_jacobian_potential_derivative_near_turning_points(xv):
+    # d/dq of the track's AA Jacobian (a second derivative of isochroneApprox) vs
+    # a central FD. The arccos/arcsin isochrone angles gave 1e3 and 2.9 (relative)
+    # here, at any step count; measured 1.0e-7 / 1.3e-7 (the FD floor).
+    x = jnp.asarray(xv)
+
+    def jac(q):
+        aA = actionAngleIsochroneApprox(
+            pot=LogarithmicHaloPotential(normalize=1.0, q=q),
+            b=0.8,
+            integrate_method="diffrax",
+            integrate_kwargs={"nsteps": 160, "adjoint": "direct"},
+        )
+        return calcaAJac(x, aA, actionsFreqsAngles=True)[3:]
+
+    ad = numpy.asarray(jax.jacfwd(jac)(0.9))
+    h = 1e-5
+    fd = (
+        numpy.asarray(jac(jnp.asarray(0.9 + h)))
+        - numpy.asarray(jac(jnp.asarray(0.9 - h)))
+    ) / (2.0 * h)
+    assert numpy.max(numpy.abs(ad - fd)) < 1e-6 * numpy.max(numpy.abs(fd))
