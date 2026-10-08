@@ -64,13 +64,33 @@ def integrate(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=None):
 _TORCHODE_SOLVERS = ("dopri5", "tsit5")
 
 
+def torchode_solve(adjoint, problem):
+    """``adjoint.solve(problem)``, compilable on CUDA too.
+
+    On CUDA torchode's solve loop records a ``torch.cuda.Event`` every step
+    (torchode/adjoints.py, ``continue_iterating_done.record``) after mutating
+    tensors that are graph inputs once its data-dependent branches have graph-
+    broken (``y_eval[eval_at_start, 0] = ...``, ``stats_n_steps.add_``); dynamo
+    refuses that with a RuntimeError. So on CUDA the solve FRAME runs eagerly
+    (non-recursive disable) while the step, controller and RHS it calls are still
+    compiled. CPU records no event: unchanged."""
+    import torch
+
+    solve = adjoint.solve
+    if problem.y0.device.type == "cuda":
+        solve = torch.compiler.disable(solve, recursive=False)
+    return solve(problem)
+
+
 def integrate_torchode(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=None):
     """Integrate the EOM with torchode: same contract as :func:`integrate`.
 
     Unlike torchdiffeq, torchode is torch.compile-able (inductor) and steps every
     orbit of a batch with its own controller, so a shared (nt,) grid and a
     per-orbit (N, nt) grid are one batched solve alike. ``solver`` is 'dopri5'
-    (default) or 'tsit5'; ``max_steps`` caps the adaptive step count."""
+    (default) or 'tsit5'; ``max_steps`` caps the adaptive step count. On CUDA,
+    torch.compile compiles the steps but not torchode's solve loop (see
+    :func:`torchode_solve`)."""
     import torch
     import torchode as to
 
@@ -95,8 +115,9 @@ def integrate_torchode(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=N
     # one. As a python float it is guarded and part of the cache key.
     del controller._buffers["rtol"]
     controller.rtol = float(rtol)
-    sol = to.AutoDiffAdjoint(step, controller, max_steps=max_steps).solve(
-        to.InitialValueProblem(y0=yb, t_eval=tb)
+    sol = torchode_solve(
+        to.AutoDiffAdjoint(step, controller, max_steps=max_steps),
+        to.InitialValueProblem(y0=yb, t_eval=tb),
     )
     if bool((sol.status != to.Status.SUCCESS.value).any()):
         raise RuntimeError(
