@@ -190,6 +190,39 @@ def _dehnen_quantity(hr, fn, backend):
         )
 
 
+@pytest.mark.parametrize("fn", ["surfacemass", "sigmaR2", "meanvT"])
+@pytest.mark.parametrize("ip", [0, 2])  # hr, sigma_R(R=1)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dehnendf_profile_parameter_grad_without_backend_context(backend, ip, fn):
+    # A differentiated profile parameter at a Python-float R, with no use()
+    # context: the parameter is the data (the leaves and the moment quadrature
+    # used to resolve numpy from R alone and meet the traced parameter)
+    from galpy.df import dehnendf
+
+    p0 = (1.0 / 3.0, 1.0, 0.2)
+
+    def q(p):
+        pp = list(p0)
+        pp[ip] = p
+        return getattr(dehnendf(beta=0.0, profileParams=tuple(pp)), fn)(
+            0.9, use_physical=False
+        )
+
+    if backend == "jax":
+        g = float(jax.grad(q)(p0[ip]))
+    else:
+        t = torch.tensor(p0[ip], requires_grad=True)
+        (g,) = torch.autograd.grad(q(t), t)
+        g = float(g)
+    fd = [
+        (float(q(p0[ip] + h)) - float(q(p0[ip] - h))) / (2.0 * h) for h in (1e-4, 1e-5)
+    ]
+    # one numpy quadrature (not the backend one): FD converged to <= 1.3e-6
+    # between h=1e-4 and 1e-5, AD vs h=1e-5 measured <= 1.3e-8
+    assert abs(fd[0] - fd[1]) < 2e-6 * abs(fd[1])
+    numpy.testing.assert_allclose(g, fd[1], rtol=5e-8)
+
+
 @pytest.mark.parametrize("fn", ["surfacemass", "sigma2"])
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_dehnendf_grad_wrt_profile_parameter(backend, fn):

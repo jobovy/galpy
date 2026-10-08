@@ -25,6 +25,7 @@ from .sphericaldf import (
     _QUAD_N_VMOM,
     _QUAD_N_VMOM2D,
     _attached_energy_bounds,
+    _handle_rmin,
     anisotropicsphericaldf,
     sphericaldf,
 )
@@ -464,6 +465,10 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         # Because f(Q) is the same integral as the Eddington conversion, but
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density
+        # (rmin resolved here, so its warnings/errors name this DF)
+        rmin = _handle_rmin(
+            rmin, self._pot, self._denspot, self._scale, self._ro, "osipkovmerrittdf"
+        )
         self._edf = eddingtondf(
             pot=self._pot,
             denspot=self._denspot,

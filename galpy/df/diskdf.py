@@ -32,9 +32,12 @@ from scipy import integrate, interpolate, optimize, stats
 from ..actionAngle import actionAngleAdiabatic
 from ..backend import (
     as_numpy,
+    coerce_coords,
+    device_of,
     float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
+    prefer_backend_namespace,
     to_host,
     use,
 )
@@ -840,8 +843,11 @@ class diskdf(df):
 
     def _backend_moment_prep(self, R, nsigma):
         """Backend (jax/torch) prelude shared by the moment quadratures: returns
-        (xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box."""
-        xp = get_namespace(R)
+        (xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box,
+        R on xp: a differentiated profile parameter at a Python-float R is data."""
+        params = getattr(self._surfaceSigmaProfile, "_params", ())
+        xp = prefer_backend_namespace(R, *params)
+        (R,) = coerce_coords(xp, R, device=device_of(R, *params))
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = xp.sqrt(sigmaR2)
@@ -859,7 +865,7 @@ class diskdf(df):
         )
         va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
         vTcen = self._gamma * (R**self._beta - va) / sigmaR1
-        return xp, logSigmaR, logsigmaR2, sigmaR1, vTcen - nsigma, vTcen + nsigma
+        return xp, R, logSigmaR, logsigmaR2, sigmaR1, vTcen - nsigma, vTcen + nsigma
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
@@ -894,8 +900,8 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
-                R, nsigma
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+                self._backend_moment_prep(R, nsigma)
             )
             norm = 1.0 if relative else xp.exp(logSigmaR)
             return (
@@ -995,8 +1001,8 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
-                R, nsigma
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+                self._backend_moment_prep(R, nsigma)
             )
             norm = 1.0 if relative else xp.exp(logSigmaR + logsigmaR2)
             return (
@@ -1129,8 +1135,8 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
-                R, nsigma
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+                self._backend_moment_prep(R, nsigma)
             )
             norm = (
                 1.0

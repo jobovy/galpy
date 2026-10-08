@@ -22,7 +22,9 @@ from ..backend import (
 from ..backend import random as grandom
 from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._namespaces import (
+    namespace_for_name,
     requires_backend_grad,
+    stop_gradient,
     under_trace,
     untraceable_setup,
 )
@@ -2257,7 +2259,12 @@ class quasiisothermaldf(df):
         # namespace and returns BACKEND arrays -- which is what makes the sampled
         # velocity differentiable in the DF and potential parameters, inverse-CDF
         # sampling being v = Q(u) with Q built from the DF itself.
-        raw = self._sampleV_icdf(R, z, n, get_namespace(), key=key)
+        # A backend key is the data here: a qdf built from Python floats has
+        # nothing else to dispatch on, so the key's backend applies
+        xp = get_namespace()
+        if xp is numpy and key is not None:
+            xp = namespace_for_name(grandom._backend_of_key(key))
+        raw = self._sampleV_icdf(R, z, n, xp, key=key)
         out = raw if key is not None else as_numpy(raw)
         if use_physical and not vo is None:
             if _APY_UNITS:
@@ -2315,7 +2322,13 @@ class quasiisothermaldf(df):
                 tuple(-1 if k == axis else 1 for k in range(p.ndim)),
             )
             good = tot > 0.0
-            return xp.where(good, c / xp.where(good, tot, xp.ones_like(tot)), ramp)
+            tot = xp.where(good, tot, xp.ones_like(tot))
+            # Divide by a gradient-free copy of tot first: c/tot's derivative has
+            # a 1/tot**2 that overflows for a far-tail row (tot ~ 1e-177 at
+            # 5 sigma_R and small vT) and NaN-poisons the sample's gradient. The
+            # value is bit-identical: tot/s == 1.0 exactly.
+            s = stop_gradient(tot)
+            return xp.where(good, (c / s) / (tot / s), ramp)
 
         # The local dispersions set the velocity-grid extents. Scale a UNIT
         # linspace by them rather than passing them as linspace limits: torch
