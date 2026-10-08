@@ -84,6 +84,9 @@ def integrate_torchode(pot, y0, ts, *, dim, rtol, atol, max_steps=None, solver=N
     single = y0.ndim == 1
     yb = y0[None] if single else y0
     tb = ts.expand(yb.shape[0], ts.shape[-1]) if ts.ndim == 1 else ts
+    # torchode asserts t_eval is on y0's device (torchdiffeq moves it itself):
+    # numpy times reach here as CPU tensors even for a CUDA IC
+    tb = tb.to(device=yb.device, dtype=yb.dtype)
     term = to.ODETerm(lambda t, y: torch.stack(_eom_rhs(y, pot, t, torch, dim), -1))
     step = (to.Dopri5 if method == "dopri5" else to.Tsit5)(term=term)
     controller = to.IntegralController(atol=atol, rtol=rtol, term=term)

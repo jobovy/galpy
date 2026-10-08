@@ -14,7 +14,11 @@ from ..backend._namespaces import has_concrete_truth_value
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
-from ..potential.Potential import _evaluatePotentials, _evaluateRforces
+from ..potential.Potential import (
+    _evaluatePotentials,
+    _evaluateRforces,
+    _pot_grad_namespace,
+)
 from ..util import conversion
 from .sphericaldf import (
     _GL_W,
@@ -91,8 +95,16 @@ class eddingtondf(isotropicsphericaldf):
             if not isinstance(self._denspot, CompositePotential)
             else lambda r: sum(p._d2densdr2(r) for p in self._denspot)
         )
-        self._potInf = _evaluatePotentials(pot, self._rmax, 0)
-        self._Emin = _evaluatePotentials(pot, self._rmin, 0)
+        # a differentiated potential parameter: the radii follow its namespace
+        # (as in constantbetadf), not numpy
+        _gxp = _pot_grad_namespace(pot)
+        _rmax, _rmin = (
+            (self._rmax, self._rmin)
+            if _gxp is None
+            else (_gxp.asarray(self._rmax) * 1.0, _gxp.asarray(self._rmin) * 1.0)
+        )
+        self._potInf = _evaluatePotentials(pot, _rmax, 0)
+        self._Emin = _evaluatePotentials(pot, _rmin, 0)
         # inside jax.jit the potential has no concrete value (see _rInf, _rphi)
         self._jit = is_backend_array(self._Emin) and not has_concrete_truth_value(
             self._Emin == self._Emin

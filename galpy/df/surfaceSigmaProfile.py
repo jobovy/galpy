@@ -11,12 +11,21 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, device_of, prefer_backend_namespace
 from ..backend._input import backend_input
+from ..backend._namespaces import namespace_from_arrays
 
 
 class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
+
+    def _namespace_and_R(self, R):
+        # R AND the parameters are data: a differentiated parameter at a
+        # Python-float R evaluates on its backend (R brought onto its device)
+        params = getattr(self, "_params", ())
+        xp = prefer_backend_namespace(R, *params)
+        (R,) = coerce_coords(xp, R, device=device_of(R, *params))
+        return xp, R
 
     def __init__(self):
         """Place holder for implementations of this class"""
@@ -157,7 +166,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -R / self._params[0]
         else:
-            xp = get_namespace(R)
+            xp, R = self._namespace_and_R(R)
             return xp.exp(-R / self._params[0])
 
     @backend_input("R")
@@ -184,7 +193,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -1.0 / self._params[0]
         else:
-            xp = get_namespace(R)
+            xp, R = self._namespace_and_R(R)
             return -xp.exp(-R / self._params[0]) / self._params[0]
 
     @backend_input("R")
@@ -209,9 +218,11 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         - 2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return 2.0 * numpy.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
+            # the parameter's own namespace: a traced sigma_R stays differentiable
+            lxp = namespace_from_arrays((self._params[2],)) or numpy
+            return 2.0 * lxp.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
         else:
-            xp = get_namespace(R)
+            xp, R = self._namespace_and_R(R)
             return self._params[2] ** 2.0 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
 
     @backend_input("R")
@@ -239,7 +250,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -2.0 / self._params[1]
         else:
-            xp = get_namespace(R)
+            xp, R = self._namespace_and_R(R)
             return (
                 self._params[2] ** 2.0
                 * xp.exp(-2.0 * (R - 1.0) / self._params[1])

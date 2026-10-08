@@ -374,6 +374,31 @@ def test_kingdf_W0_grad_vs_finite_difference(backend, which):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
 
 
+@pytest.mark.parametrize("which", ["W0", "M"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kingdf_param_grad_without_backend_context(backend, which):
+    # The differentiated parameter is the data: the constructor's Python-float
+    # potential evaluations (_potInf, ...) follow its backend with no use()
+    # context (they used to resolve numpy and meet the traced parameter).
+    p0 = _W0 if which == "W0" else 2.3
+
+    def dens(p, r):
+        return kingdf(rt=1.4, **{"W0": _W0, "M": 2.3, which: p}).dens(r)
+
+    if backend == "jax":
+        ad = float(jax.grad(lambda p: dens(p, jnp.asarray(0.4)))(p0))
+    else:
+        P = torch.tensor(p0, requires_grad=True)
+        ad = float(torch.autograd.grad(dens(P, torch.tensor(0.4)), P)[0])
+    # Richardson-extrapolated central difference of the numpy build; W0 floors
+    # at the ODE solve's ~1e-8 (measured 1.3e-8), M (a rescaling) at ~1e-12
+    h = 1e-4 if which == "W0" else 1e-3
+    d1 = (dens(p0 + h, 0.4) - dens(p0 - h, 0.4)) / (2 * h)
+    d2 = (dens(p0 + h / 2, 0.4) - dens(p0 - h / 2, 0.4)) / h
+    rtol = 5e-8 if which == "W0" else 1e-11
+    numpy.testing.assert_allclose(ad, (4 * d2 - d1) / 3, rtol=rtol)
+
+
 # --- under jax.jit / torch.compile -----------------------------------------------
 # M and rt only rescale the (numpy) scale-free solution: jit vs eager-traced to
 # <= 2.7e-15. W0 changes the ODE solution itself: under jax.jit it is solved with
