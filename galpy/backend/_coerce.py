@@ -60,6 +60,7 @@ import math
 
 import numpy
 
+from ..util._optional_deps import _TORCH_LOADED
 from ._namespaces import (
     _backend_dtype,
     _is_floating_dtype,
@@ -167,6 +168,31 @@ def as_backend_constant(xp, value, ref):
         return xp.asarray(value, dtype=dtype, device=device)
     except TypeError:  # pragma: no cover - namespace without device= kwarg
         return xp.asarray(value, dtype=dtype)
+
+
+def scalar_like(ref, value):
+    """``as_backend_constant`` for a numpy SCALAR ``value`` when ``ref`` is a torch
+    tensor; anything else (Python scalars, numpy/jax ``ref``) is returned
+    untouched, object-identical.
+
+    torch.compile under a default device (``torch.set_default_device``, what
+    --device cuda runs) cannot take a numpy scalar on the left of an op
+    ("'ndarray' object has no attribute 'mul'"). Anchoring on ``ref``'s dtype
+    keeps eager's weak-scalar promotion (``like`` would make a strong 0-d
+    float64 tensor). ``.item()``/``float()`` would avoid the dispatch but break
+    on a scalar dynamo has lifted into the graph. jax takes numpy scalars
+    natively.
+    """
+    if (
+        _TORCH_LOADED
+        and isinstance(value, (numpy.ndarray, numpy.generic))  # dynamo: 0-d ndarray
+        and value.ndim == 0
+    ):
+        import torch
+
+        if isinstance(ref, torch.Tensor):
+            return as_backend_constant(namespace_from_arrays((ref,)), value, ref)
+    return value
 
 
 def zeros_like_backend(xp, R):

@@ -17,6 +17,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     radial_limits,
+    scalar_like,
     to_host,
 )
 from ..backend._coerce import mask_where, power_series
@@ -220,7 +221,7 @@ def _limit_at_infinite_radius(component):
             out = method(
                 self, xp.where(inf, 1.0, R), xp.where(inf, 0.0, z), phi=phi, t=t
             )
-            amp0 = self._amp == 0.0  # traced for a differentiated amp
+            amp0 = scalar_like(R, self._amp) == 0.0  # traced for a differentiated amp
             if has_concrete_truth_value(amp0):
                 if bool(amp0):
                     return xp.where(inf, 0.0, out)
@@ -332,7 +333,7 @@ class TwoPowerSphericalPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         # Phi(0) = -B(2-alpha, beta-2)/a is finite for alpha < 2 only
         phi0 = (
-            -special.beta(2.0 - self.alpha, self.beta - 2.0) / self.a
+            -scalar_like(R, special.beta(2.0 - self.alpha, self.beta - 2.0)) / self.a
             if self.alpha < 2.0
             else -numpy.inf
         )
@@ -400,7 +401,7 @@ class TwoPowerSphericalPotential(Potential):
 
     def _ddensdr(self, r, t=0.0):
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * (self.a / r) ** (self.alpha - 1.0)
             * (1.0 + r / self.a) ** (self.alpha - self.beta - 1.0)
             * (self.a * self.alpha + r * self.beta)
@@ -412,7 +413,7 @@ class TwoPowerSphericalPotential(Potential):
 
     def _d2densdr2(self, r, t=0.0):
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (self.a / r) ** (self.alpha - 2.0)
             * (1.0 + r / self.a) ** (self.alpha - self.beta - 2.0)
             * (
@@ -448,7 +449,7 @@ class TwoPowerSphericalPotential(Potential):
 
         """
         return (
-            self._amp
+            scalar_like(r, self._amp)
             / 4.0
             / numpy.pi
             / self.a**3.0
@@ -485,7 +486,7 @@ class TwoPowerSphericalPotential(Potential):
         # (the formula is 0 * inf = NaN at R = inf)
         # special.beta, not a ratio of gammas: those overflow for beta > ~170
         mtot = (
-            special.beta(3.0 - self.alpha, self.beta - 3.0)
+            scalar_like(R, special.beta(3.0 - self.alpha, self.beta - 3.0))
             if self.beta > 3.0
             else numpy.inf
         )

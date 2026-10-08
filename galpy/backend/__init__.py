@@ -17,6 +17,7 @@ from ._coerce import (
     coerce_coords,
     promote_scalars,
     radial_limits,
+    scalar_like,
     zeros_like_backend,
 )
 from ._compat import is_backend_compatible
@@ -87,6 +88,7 @@ __all__ = [
     "float64_default",
     "float64_default_if_torch_args",
     "like",
+    "scalar_like",
     "as_numpy",
     "to_host",
     "on_host",

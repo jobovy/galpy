@@ -15,7 +15,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, concretely_true, get_namespace
+from ..backend import coerce_coords, concretely_true, get_namespace, scalar_like
 from ..backend import special as _bspecial
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -174,7 +174,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
                 -2.0
                 * self.a**2
                 * (
-                    self.psi_inf
+                    scalar_like(m, self.psi_inf)
                     - (m / self.a) ** self.twominusalpha
                     / self.twominusalpha
                     * _hyp2f1(

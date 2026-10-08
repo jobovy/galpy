@@ -4,7 +4,13 @@ import pickle
 import numpy
 from scipy import integrate
 
-from ..backend import backend_input, get_namespace, is_backend_compatible, to_host
+from ..backend import (
+    backend_input,
+    get_namespace,
+    is_backend_compatible,
+    scalar_like,
+    to_host,
+)
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -74,7 +80,8 @@ class planarPotential(planarForce):
         # Separate, so it can be used during orbit integration
         if dR == 0 and dphi == 0:
             try:
-                return self._amp * self._evaluate(R, phi=phi, t=t)
+                out = self._evaluate(R, phi=phi, t=t)
+                return scalar_like(out, self._amp) * out
             except AttributeError:  # pragma: no cover
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
@@ -176,7 +183,8 @@ class planarPotential(planarForce):
         - 2011-10-09 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._R2deriv(R, phi=phi, t=t)
+            out = self._R2deriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_R2deriv' function not implemented for this potential"
@@ -209,7 +217,8 @@ class planarPotential(planarForce):
 
         """
         try:
-            return self._amp * self._phi2deriv(R, phi=phi, t=t)
+            out = self._phi2deriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_phi2deriv' function not implemented for this potential"
@@ -242,7 +251,8 @@ class planarPotential(planarForce):
 
         """
         try:
-            return self._amp * self._Rphideriv(R, phi=phi, t=t)
+            out = self._Rphideriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_Rphideriv' function not implemented for this potential"
