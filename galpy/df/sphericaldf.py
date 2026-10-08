@@ -122,6 +122,8 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
 
     # Check if potential diverges at r=0
     xp = get_namespace()  # context/forced default only (inputs are scalars)
+    if xp is numpy:  # a differentiated potential parameter is the data
+        xp = _pot_grad_namespace(pot) or numpy
     if xp is numpy:
         phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
         is_divergent = not numpy.isfinite(phi_at_zero)
@@ -1602,6 +1604,8 @@ class sphericaldf(df):
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
         xp = get_namespace()  # context/forced default only (the grid is numpy)
+        if xp is numpy:  # a differentiated potential parameter is the data
+            xp = _pot_grad_namespace(self._pot) or numpy
         _probe = (
             _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
             if xp is not numpy

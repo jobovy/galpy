@@ -435,31 +435,27 @@ def test_sampleV_key_is_differentiable(backend):
     numpy.testing.assert_allclose(g, fd, rtol=1e-5)
 
 
-_aAS14 = None
-
-
-def _qdf14():
-    # MWPotential2014: its velocity mesh has far-tail vz rows whose total is
-    # ~1e-177 (5 sigma_R, small vT); the CDF normalisation's 1/total**2
-    # derivative overflowed there and NaN-poisoned d(sample)/d(parameter)
-    global _aAS14
+@pytest.fixture(scope="module")
+def aAS14():
     from galpy.potential import MWPotential2014
 
-    if _aAS14 is None:
-        _aAS14 = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.45)
-    return quasiisothermaldf(
-        1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=_aAS14
-    )
+    return actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.45)
 
 
 @pytest.mark.parametrize(
     "backend,name",
     [(b, n) for b, n in [("jax", "_hsr"), ("torch", "_hsz")] if b in BACKENDS],
 )
-def test_sampleV_key_grad_mwpotential2014_vs_fd(backend, name):
+def test_sampleV_key_grad_mwpotential2014_vs_fd(backend, name, aAS14):
+    # MWPotential2014: its velocity mesh has far-tail vz rows whose total is
+    # ~1e-177 (5 sigma_R, small vT); the CDF normalisation's 1/total**2
+    # derivative overflowed there and NaN-poisoned d(sample)/d(parameter)
     from galpy.backend import random as grandom
+    from galpy.potential import MWPotential2014
 
-    _dqdf = _qdf14()
+    _dqdf = quasiisothermaldf(
+        1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=aAS14
+    )
 
     def total(p):
         setattr(_dqdf, name, p)

@@ -23,7 +23,6 @@ from ..backend._namespaces import (
     under_trace,
     untraceable_setup,
 )
-from ..backend._resolver import follow_namespace
 from ..backend._tracectx import is_compiling
 from ..backend.autodiff import graft_derivative
 from ..backend.interpolate import Spline1D, interp_linear
@@ -69,14 +68,6 @@ class kingdf(isotropicsphericaldf):
         -----
         - 2020-07-09 - Written - Bovy (UofT)
         """
-        # a backend (e.g., traced) W0/M/rt: the Python-float radii the setup
-        # evaluates the potential at follow it rather than numpy
-        with follow_namespace(
-            namespace_from_arrays([p for p in (W0, M, rt) if is_backend_array(p)])
-        ):
-            self._setup(W0, M, rt, npt, ro, vo)
-
-    def _setup(self, W0, M, rt, npt, ro, vo):
         # Just run df init to set up unit-conversion parameters
         df.__init__(self, ro=ro, vo=vo)
         self.W0 = at_least_float64(W0)  # see _scalefreekingdf

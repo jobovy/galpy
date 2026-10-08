@@ -28,7 +28,6 @@ from ..backend._namespaces import (
     under_trace,
     untraceable_setup,
 )
-from ..backend._resolver import follow_namespace
 from ..backend.interpolate import Spline1D, interp_bilinear
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -2261,12 +2260,11 @@ class quasiisothermaldf(df):
         # velocity differentiable in the DF and potential parameters, inverse-CDF
         # sampling being v = Q(u) with Q built from the DF itself.
         # A backend key is the data here: a qdf built from Python floats has
-        # nothing else to dispatch on, so the key's backend applies (unless forced)
-        _kname = grandom._backend_of_key(key)
-        with follow_namespace(
-            None if _kname == "numpy" else namespace_for_name(_kname)
-        ):
-            raw = self._sampleV_icdf(R, z, n, get_namespace(), key=key)
+        # nothing else to dispatch on, so the key's backend applies
+        xp = get_namespace()
+        if xp is numpy and key is not None:
+            xp = namespace_for_name(grandom._backend_of_key(key))
+        raw = self._sampleV_icdf(R, z, n, xp, key=key)
         out = raw if key is not None else as_numpy(raw)
         if use_physical and not vo is None:
             if _APY_UNITS:
