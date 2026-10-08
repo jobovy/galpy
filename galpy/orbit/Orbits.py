@@ -353,6 +353,14 @@ def _copy_for_continuation(x):
     return x.clone() if hasattr(x, "clone") else x.copy()
 
 
+def _python_number_ic(vxvv):
+    """True if ``vxvv`` is a (nested) list/tuple of plain Python numbers only
+    (numpy scalars are numpy data; Quantities, Orbits and None are not numbers)."""
+    if isinstance(vxvv, (list, tuple)):
+        return len(vxvv) > 0 and all(_python_number_ic(v) for v in vxvv)
+    return type(vxvv) in (int, float)
+
+
 def _pot_has_traced_param(pot, _depth=0):
     """True if ``pot`` -- or anything it wraps -- STORES a traced parameter.
 
@@ -520,6 +528,18 @@ class Orbit:
         # in which case numpy.asarray fails and self.vxvv is a shape-only zeros
         # placeholder -- then only method='diffrax'/'torchdiffeq' can integrate it.
         self._ic_backend_concrete = True
+        # A list of Python numbers has no array to dispatch on, so an unforced
+        # use()/config default backend applies, as for a potential evaluated at
+        # Python floats: the IC becomes that backend's array. A forced default
+        # keeps the numpy IC (the forced-suite harness builds orbits from lists).
+        if isinstance(vxvv, (list, tuple)):
+            _dxp = get_namespace()
+            if (
+                _dxp is not numpy
+                and get_namespace(numpy.zeros(1)) is numpy  # not forced
+                and _python_number_ic(vxvv)
+            ):
+                vxvv = _dxp.asarray(numpy.asarray(vxvv, dtype=numpy.float64))
         if is_backend_array(vxvv):
             self._ic_backend = vxvv
             # self.vxvv (numpy) is bookkeeping only; the differentiable IC lives
@@ -2644,7 +2664,7 @@ class Orbit:
         atol : float, optional
             Absolute tolerance. Default is None.
         inbackend_kwargs : dict, optional
-            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only, and forward mode (jax.jvp/jacfwd/hessian) switches to 'direct' automatically -- except for the jvp of a jax.jit-compiled function, where 'direct' must be passed. Ignored by all other (C/scipy) methods.
 
         Returns
         -------

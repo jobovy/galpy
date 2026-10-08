@@ -854,9 +854,10 @@ class basestreamspraydf(df):
         # keeping self.t concrete lets o.x(t)/L(t) interpolate under jit (the orbit
         # STATE is still a backend array -> differentiable). A backend-array grid
         # would be a tracer under jit and break the interpolator's numpy.asarray(t).
-        # Coarser than the numpy 10001: the frame queries interpolate the orbit spline
-        # (density-insensitive; 501 pts already match numpy to ~4e-11).
-        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
+        # The numpy path's grid: the frame queries interpolate the orbit spline, and
+        # a coarser 2001-point grid left ~1e-7 velocity errors over a 4.5 Gyr
+        # disruption (the numpy grid: ~2e-10), ~7e-6 in the sampled stream.
+        bgrid = self._progenitor_times
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
         self._progenitor.integrate(bgrid, self._pot, method=method, **self._ikw(method))
@@ -946,7 +947,7 @@ class basestreamspraydf(df):
             method = inbackend
         else:
             method = "dop853_c"
-        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)  # match the progenitor grid
+        bgrid = self._progenitor_times  # match the progenitor grid
         self._center = Orbit(ic)
         self._center.turn_physical_off()
         self._center.integrate(
@@ -960,7 +961,7 @@ class basestreamspraydf(df):
         center= sampling while ``self._pot`` carries no backend parameter. Sets ``_bsamp``.
         """
         ic = xp.asarray(numpy.array(self._progenitor_now()))
-        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
+        bgrid = self._progenitor_times
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
         self._progenitor.integrate(
