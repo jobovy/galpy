@@ -435,6 +435,73 @@ def test_sampleV_key_is_differentiable(backend):
     numpy.testing.assert_allclose(g, fd, rtol=1e-5)
 
 
+_aAS14 = None
+
+
+def _qdf14():
+    # MWPotential2014: its velocity mesh has far-tail vz rows whose total is
+    # ~1e-177 (5 sigma_R, small vT); the CDF normalisation's 1/total**2
+    # derivative overflowed there and NaN-poisoned d(sample)/d(parameter)
+    global _aAS14
+    from galpy.potential import MWPotential2014
+
+    if _aAS14 is None:
+        _aAS14 = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.45)
+    return quasiisothermaldf(
+        1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=_aAS14
+    )
+
+
+@pytest.mark.parametrize(
+    "backend,name",
+    [(b, n) for b, n in [("jax", "_hsr"), ("torch", "_hsz")] if b in BACKENDS],
+)
+def test_sampleV_key_grad_mwpotential2014_vs_fd(backend, name):
+    from galpy.backend import random as grandom
+
+    _dqdf = _qdf14()
+
+    def total(p):
+        setattr(_dqdf, name, p)
+        v = _dqdf.sampleV(
+            0.9, 0.05, n=20, key=grandom.key(0, backend), use_physical=False
+        )
+        return (v**2).sum()
+
+    if backend == "jax":
+        g = float(jax.grad(total)(jnp.asarray(1.0)))
+    else:
+        t = torch.tensor(1.0, requires_grad=True)
+        (g,) = torch.autograd.grad(total(t), t)
+        g = float(g)
+    fd = [
+        (float(total(_arr(backend, 1.0 + h))) - float(total(_arr(backend, 1.0 - h))))
+        / (2.0 * h)
+        for h in (1e-4, 1e-5)
+    ]
+    assert numpy.isfinite(g), f"d(sampleV)/d({name}) is NaN-poisoned"
+    # converged: O(h^2), measured 2e-8 between h=1e-4 and 1e-5; AD vs h=1e-5
+    # measured <= 3.5e-10 (the inverse CDF is piecewise linear in the tables)
+    assert abs(fd[0] - fd[1]) < 1e-7 * abs(fd[1])
+    numpy.testing.assert_allclose(g, fd[1], rtol=5e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_key_follows_key_backend_without_context(backend):
+    # A backend key is the data: a qdf built from Python floats has nothing
+    # else to dispatch on, so sampleV(key=...) runs on the key's backend with no
+    # use() context -- the same draws as inside use(backend).
+    from galpy.backend import random as grandom
+
+    got = _qdf.sampleV(0.9, 0.05, n=50, key=grandom.key(3, backend), use_physical=False)
+    with galpy.backend.use(backend):
+        ref = _qdf.sampleV(
+            0.9, 0.05, n=50, key=grandom.key(3, backend), use_physical=False
+        )
+    assert is_backend_array(got)
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref))
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_sampleV_without_key_still_returns_numpy(backend):
     # the historical contract is unchanged when no key is given

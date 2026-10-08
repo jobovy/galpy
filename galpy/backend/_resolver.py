@@ -17,7 +17,7 @@ import contextlib
 
 import numpy
 
-from ._namespaces import namespace_for_name, namespace_from_arrays
+from ._namespaces import name_of_namespace, namespace_for_name, namespace_from_arrays
 from ._tracectx import TracedContextVar
 
 # Thread-/async-safe default backend; stores (name, force) or None. Traced so a
@@ -87,6 +87,22 @@ def use(name, force=False):
             yield namespace_for_name(name)
     finally:
         _BACKEND_CTX.reset(token)
+
+
+@contextlib.contextmanager
+def follow_namespace(xp):
+    """Make ``xp`` -- the namespace an entry point's PARAMETERS resolved to (a
+    traced DF parameter, a potential parameter, a backend key) -- the non-forced
+    default for the enclosed code, so values with no array to dispatch on (the
+    Python-float radii a constructor evaluates its potential at) follow that
+    data instead of falling to numpy. No-op for ``None``/numpy, and under a
+    forced backend, which already beats the data."""
+    ctx = _BACKEND_CTX.get()
+    if xp is None or xp is numpy or (ctx is not None and ctx[1]):
+        yield
+        return
+    with use(name_of_namespace(xp)):
+        yield
 
 
 def set_default_backend(name, force=False):

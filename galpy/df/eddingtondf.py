@@ -11,10 +11,15 @@ from ..backend import (
     resolve_namespace,
 )
 from ..backend._namespaces import has_concrete_truth_value
+from ..backend._resolver import follow_namespace
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
-from ..potential.Potential import _evaluatePotentials, _evaluateRforces
+from ..potential.Potential import (
+    _evaluatePotentials,
+    _evaluateRforces,
+    _pot_grad_namespace,
+)
 from ..util import conversion
 from .sphericaldf import (
     _GL_W,
@@ -70,6 +75,15 @@ class eddingtondf(isotropicsphericaldf):
         - 2021-02-04 - Written - Bovy (UofT)
 
         """
+        # a backend (e.g., traced) potential parameter: the Python-float radii
+        # the setup evaluates the potential at follow it rather than numpy
+        with follow_namespace(
+            _pot_grad_namespace(pot, any_backend=True)
+            or _pot_grad_namespace(denspot, any_backend=True)
+        ):
+            self._setup(pot, denspot, rmax, rmin, scale, ro, vo)
+
+    def _setup(self, pot, denspot, rmax, rmin, scale, ro, vo):
         isotropicsphericaldf.__init__(
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
         )

@@ -417,13 +417,68 @@ def test_inbackend_hessian_direct_adjoint_jax():
     assert numpy.isfinite(h)
     numpy.testing.assert_allclose(h, fd2, rtol=1e-3, atol=1e-6)
 
-    # the DEFAULT (recursive) adjoint cannot be differentiated twice -> errors
+    # the DEFAULT (recursive) adjoint is reverse-mode first order: jax.hessian
+    # (forward over reverse) switches to DirectAdjoint by itself, while reverse
+    # over reverse still cannot go through it
     def final_R_default(vR):
         ic = jnp.asarray(_IC).at[1].set(vR)
         return integrate_orbit(pot, ic, ts)[-1][0]
 
+    numpy.testing.assert_allclose(
+        float(jax.hessian(final_R_default)(jnp.asarray(0.1))), h, rtol=1e-12
+    )
     with pytest.raises(Exception):
-        jax.hessian(final_R_default)(jnp.asarray(0.1))
+        jax.jacrev(jax.jacrev(final_R_default))(jnp.asarray(0.1))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("mode", ["jvp", "jit_jvp", "jacfwd"])
+def test_orbit_forward_mode_without_adjoint_kwarg(mode):
+    # Forward mode (jax.jvp/jacfwd) through Orbit.integrate(method='diffrax')
+    # with no adjoint given: the default adjoint is a custom_vjp, which forward
+    # mode cannot go through, so the DirectAdjoint is selected automatically.
+    # The tangent enters through a POTENTIAL parameter (not the IC or times).
+    def final_x(b):
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.asarray(_TS), PlummerPotential(amp=1.0, b=b), method="diffrax")
+        return o.x(_TS[-1])
+
+    if mode == "jvp":
+        val, tan = jax.jvp(final_x, (0.6,), (1.0,))
+    elif mode == "jit_jvp":
+        val, tan = jax.jit(lambda b: jax.jvp(final_x, (b,), (1.0,)))(0.6)
+    else:
+        val, tan = final_x(0.6), jax.jacfwd(final_x)(0.6)
+    numpy.testing.assert_allclose(float(val), float(final_x(0.6)), rtol=1e-13)
+    # the reverse-mode derivative of the same discretization
+    numpy.testing.assert_allclose(float(tan), float(jax.grad(final_x)(0.6)), rtol=1e-9)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_forward_mode_undetected_tangent_error_message(monkeypatch):
+    # A tangent the automatic switch cannot see (jvp OF a jax.jit-ed function)
+    # meets the default adjoint; where galpy can catch that (eagerly), the
+    # error says what to pass. Simulated by hiding the tangent from the probe.
+    import galpy.backend._jax.orbit_ode as jode
+
+    monkeypatch.setattr(jode, "_carries_jvp_tangent", lambda *xs: False)
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R(vR):
+        ic = jnp.asarray(_IC).at[1].set(vR)
+        return integrate_orbit(pot, ic, jnp.asarray(_TS))[-1][0]
+
+    with pytest.raises(TypeError, match="inbackend_kwargs"):
+        jax.jvp(final_R, (0.1,), (1.0,))
+    # any other TypeError passes through unchanged
+    import diffrax
+
+    def boom(*a, **k):
+        raise TypeError("boom")
+
+    monkeypatch.setattr(diffrax, "diffeqsolve", boom)
+    with pytest.raises(TypeError, match="^boom$"):
+        final_R(0.1)
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
