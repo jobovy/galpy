@@ -528,40 +528,29 @@ def test_gapdf_kick_spline_order_1(_gapdf_kick, backend):
         _reset_kick_numpy(sdf, deltav_np)
 
 
-def test_replace_at_matches_the_concat_it_replaces():
-    # The numpy body writes Oparb[lowbindx+1] in place. The backend rebuilds it
-    # functionally: a CONCRETE index can concat around the slot, but a TRACED one
-    # cannot size a slice (arr[:idx] has a data-dependent length), so it masks
-    # instead. Both must give the same array.
-    import array_api_compat.numpy as xnp
-
-    from galpy.df.streamgapdf import _replace_at
-
-    a = numpy.arange(7.0)
-    for idx in (0, 3, 6):
-        ref = numpy.concatenate([a[:idx], numpy.array([99.0]), a[idx + 1 :]])
-        got = _replace_at(xnp, a, idx, numpy.float64(99.0))
-        numpy.testing.assert_array_equal(got, ref)
-
-
-@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
-def test_replace_at_traced_index_matches_concrete():
-    from galpy.df.streamgapdf import _replace_at
-
-    a = jnp.arange(7.0)
-    for idx in (0, 3, 6):
-        ref = as_numpy(_replace_at(jnp, a, idx, jnp.asarray(99.0)))
-        got = as_numpy(
-            jax.jit(lambda i: _replace_at(jnp, a, i, jnp.asarray(99.0)))(
-                jnp.asarray(idx)
-            )
-        )
-        numpy.testing.assert_array_equal(got, ref)
-    # and it stays differentiable in the VALUE through the masked branch
-    g = jax.grad(lambda v: jnp.sum(_replace_at(jnp, a, jnp.asarray(3), v) ** 2))(
-        jnp.asarray(99.0)
-    )
-    assert abs(float(g) - 2.0 * 99.0) < 1e-9, "d/d(value) must be 2*value"
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_eval_broadcasts_over_dangle(_gapdf_kick, backend):
+    # The backend density / meanOmega / minOpar broadcast over an array of
+    # angles (one call on the whole grid where the track interpolation used to
+    # loop): elementwise the same as the per-angle calls, and the per-angle
+    # calls are the numpy values (test_gapdf_eval_value_parity)
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    dangles = numpy.array([0.05, 0.1, 0.2, 0.3, 0.9])
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        db = _to_backend(backend, dangles)
+        for fn in (
+            lambda d: sdf._density_par(d),
+            lambda d: sdf.meanOmega(d, oned=True, use_physical=False),
+            lambda d: sdf.minOpar(d),
+        ):
+            batched = as_numpy(fn(db))
+            assert batched.shape == dangles.shape
+            single = numpy.array([float(as_numpy(fn(d))) for d in dangles])
+            numpy.testing.assert_allclose(batched, single, rtol=1e-14, atol=1e-16)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
 
 
 @pytest.fixture(scope="module")
@@ -820,3 +809,279 @@ def test_gapdf_perturber_chain_grad_vs_fd(_gapdf_kick, backend, param, request):
         numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-12)
     finally:
         _reset_kick_numpy(sdf, deltav_np)
+
+
+# --------------------------------------------------------------------------
+# The whole constructor on the backend: a jax progenitor + a diffrax aA build
+# every stage (offset setup, impact coordinate transform, kick, track) as jax
+# arrays, eagerly and under jax.jit, and the model is differentiable in the
+# subhalo parameters through it.
+# --------------------------------------------------------------------------
+_FULL_V0, _FULL_R0 = 220.0, 8.0
+_FULL_IC = [
+    2.6556151742081835,
+    0.2183747276300308,
+    0.67876510797240575,
+    -2.0143395648974671,
+    -0.3273737682604374,
+    0.24218273922966019,
+]
+_FULL_DANGLES = numpy.array([0.3, 0.6, 0.9])
+
+
+def _full_kwargs():
+    from galpy.util import conversion
+
+    V0, R0 = _FULL_V0, _FULL_R0
+    return dict(
+        leading=False,
+        nTrackChunks=5,
+        nTrackIterations=1,
+        nTrackChunksImpact=5,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        impactb=0.1 / R0,
+        subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464]) / V0,
+        timpact=0.88 / conversion.time_in_Gyr(V0, R0),
+        impact_angle=-2.34,
+        GM=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0),
+        rs=0.625 / R0,
+    )
+
+
+def _full_build(backend, **overrides):
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    if backend == "numpy":
+        aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0, ntintJ=1000)
+        prog = Orbit(numpy.array(_FULL_IC))
+    else:
+        aA = actionAngleIsochroneApprox(
+            pot=lp, b=0.8, tintJ=20.0, ntintJ=1000, integrate_method="diffrax"
+        )
+        prog = Orbit(jnp.asarray(_FULL_IC))
+    kw = _full_kwargs()
+    kw.update(overrides)
+    with use(backend, force=True):
+        return streamgapdf(
+            0.365 * (10.0 / 2.0) ** (1.0 / 3.0) / _FULL_V0,
+            progenitor=prog,
+            pot=lp,
+            aA=aA,
+            **kw,
+        )
+
+
+def _full_outputs(sdf):
+    """density and mean frequency along the stream, the kicks, both tracks"""
+    if is_backend_array(sdf._kick_dOap):  # the backend evaluators broadcast
+        d = jnp.asarray(_FULL_DANGLES)
+        dens = sdf._density_par(d)
+        mO = sdf.meanOmega(d, oned=True, use_physical=False)
+    else:
+        dens = numpy.array([sdf._density_par(d) for d in _FULL_DANGLES])
+        mO = numpy.array(
+            [sdf.meanOmega(d, oned=True, use_physical=False) for d in _FULL_DANGLES]
+        )
+    return {
+        "density": dens,
+        "meanOmega": mO,
+        "kick_dOap": sdf._kick_dOap,
+        "gap_ObsTrack": sdf._gap_ObsTrack,
+        "ObsTrack": sdf._ObsTrack,
+        "interpolatedObsTrackXY": sdf._interpolatedObsTrackXY,
+    }
+
+
+@pytest.fixture(scope="module")
+def _full_pair():
+    """(numpy-built, jax-built) streamgapdf with the same configuration."""
+    ref = _full_build("numpy")
+    bk = _full_build("jax")
+    return ref, bk
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_full_construction_on_jax_matches_numpy(_full_pair):
+    # Every stage runs on jax (nothing laundered through numpy), and the model
+    # agrees with the numpy one to the gap between numpy's finite-difference
+    # action-angle Jacobians and the backend's exact ones. Measured (max abs
+    # difference / max abs value): density 2.5e-6, meanOmega 1.5e-6, tracks
+    # 3.3e-6 / 4.8e-6 / 9.4e-6, and the kicks 6.2e-5 -- the kicks map the
+    # velocity kick through the near-impact AA Jacobians themselves, where the
+    # finite-difference gap is largest (cf. the streamdf track Jacobians).
+    tol = {"kick_dOap": 2e-4}
+    ref, bk = _full_pair
+    got, want = _full_outputs(bk), _full_outputs(ref)
+    for k in got:
+        assert is_backend_array(got[k]), f"{k} was laundered to numpy"
+        g, w = numpy.asarray(as_numpy(got[k])), numpy.asarray(want[k])
+        rel = numpy.max(numpy.abs(g - w)) / numpy.max(numpy.abs(w))
+        assert rel < tol.get(k, 2e-5), f"{k}: jax vs numpy {rel:.2e}"
+    for k in ("_gap_alljacsTrack", "_kick_deltav", "_kick_interpolatedObsTrackAA"):
+        assert is_backend_array(getattr(bk, k)), f"{k} was laundered to numpy"
+
+
+def _kick_tail(sdf, GM, rs, impactb, subhalovel):
+    """Re-run the constructor from the kick on (a copy of) a built object.
+
+    The subhalo parameters enter the constructor first in _determine_deltav_kick;
+    everything before it (offset setup, impact coordinate transform) does not
+    depend on them, so for these parameters this IS the full rebuild."""
+    import copy
+
+    s = copy.copy(sdf)
+    with use("jax", force=True):
+        s._determine_deltav_kick(-2.34, impactb, subhalovel, GM, rs, None, 3, False)
+        s._determine_deltaOmegaTheta_kick(3)
+        d = jnp.asarray(_FULL_DANGLES)
+        return jnp.concatenate(
+            [
+                s._density_par(d),
+                s.meanOmega(d, oned=True, use_physical=False),
+                jnp.ravel(s._kick_dOap[::25]),
+            ]
+        )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_full_construction_grad_subhalo_params_vs_fd(_full_pair):
+    # d(density, meanOmega, kicks)/d(GM, rs, b, w) through the backend-built
+    # model, vs Richardson-extrapolated central differences of rebuilds.
+    _, bk = _full_pair
+    kw = _full_kwargs()
+    p0 = numpy.concatenate(
+        [[kw["GM"], kw["rs"], kw["impactb"]], numpy.asarray(kw["subhalovel"])]
+    )
+
+    def f(p):
+        return _kick_tail(bk, p[0], p[1], p[2], p[3:6])
+
+    jac = numpy.asarray(jax.jacrev(f)(jnp.asarray(p0)))
+
+    def cfd(i, h):
+        dp = numpy.zeros_like(p0)
+        dp[i] = h
+        return (
+            numpy.asarray(f(jnp.asarray(p0 + dp)))
+            - numpy.asarray(f(jnp.asarray(p0 - dp)))
+        ) / (2.0 * h)
+
+    for i in range(p0.shape[0]):
+        h = 1e-3 * abs(p0[i])
+        fd = (4.0 * cfd(i, h / 2.0) - cfd(i, h)) / 3.0  # Richardson: O(h^4)
+        scale = numpy.max(numpy.abs(fd))
+        assert scale > 0.0
+        err = numpy.max(numpy.abs(jac[:, i] - fd)) / scale
+        # measured 4e-9 (GM) .. 4.9e-7 (the small x component of w)
+        assert err < 2e-6, f"parameter {i}: AD vs FD {err:.2e}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_full_construction_under_jit(_full_pair):
+    # The whole constructor traces: jax.jit of (GM -> model) runs, and agrees
+    # with the eager construction (measured 1.9e-11). Under jit every stage is
+    # staged out, including the impact transform and both tracks.
+    _, bk = _full_pair
+    GM0 = _full_kwargs()["GM"]
+
+    def model(GM):
+        s = _full_build("jax", GM=GM)
+        out = _full_outputs(s)
+        return jnp.concatenate([jnp.ravel(v) for v in out.values()])
+
+    got = numpy.asarray(jax.jit(model)(jnp.asarray(GM0)))
+    want = numpy.concatenate(
+        [numpy.ravel(as_numpy(v)) for v in _full_outputs(bk).values()]
+    )
+    assert numpy.max(numpy.abs(got - want)) < 1e-9 * numpy.max(numpy.abs(want))
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_impact_arm_is_structural_under_a_trace():
+    # The arm of the impact is the sign of the impact angle; traced, there is no
+    # concrete sign and the modelled arm is used (a mismatch raises eagerly).
+    from galpy.df.streamgapdf import _impact_is_leading
+
+    assert _impact_is_leading(-2.34, True) is False
+    assert _impact_is_leading(jnp.asarray(2.34), False) is True
+    for leading in (True, False):
+        out = jax.jit(lambda a: a * float(_impact_is_leading(a, leading)))(-2.34)
+        assert float(out) == (-2.34 if leading else 0.0)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_nTrackChunksImpact_must_be_given_when_traced():
+    # A structural integer: the default is read off the impact's angle range,
+    # which has no concrete value under a trace.
+    from types import SimpleNamespace
+
+    from galpy.df.streamgapdf import streamgapdf
+
+    seen = {}
+
+    def probe(dati):
+        m = SimpleNamespace(
+            _gap_progenitor_setup=lambda: None,
+            _leading=False,
+            _progenitor_Omega_along_dOmega=-0.5,
+            _sigMeanSign=1.0,
+            _deltaAngleTrackImpact=dati,
+        )
+        try:
+            streamgapdf._determine_impact_coordtransform(m, dati, None, 1.0, -2.0)
+        except ValueError as e:
+            seen["msg"] = str(e)
+        return dati
+
+    jax.jit(probe)(1.3)
+    assert "nTrackChunksImpact" in seen.get("msg", "")
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("dati", [0.3, 1.3, 2.97])
+def test_nTrackChunksImpact_default_from_concrete_backend_range(dati):
+    # A CONCRETE backend angle range gives the numpy default, floor(r/0.15)+1
+    # (at least 4), so an eager backend construction picks the same chunks.
+    from galpy.df.streamgapdf import streamgapdf
+
+    class _Stop(Exception):
+        pass
+
+    class _Mock:
+        _leading = False
+        _progenitor_Omega_along_dOmega = -0.5
+        _sigMeanSign = 1.0
+
+        def _gap_progenitor_setup(self):
+            pass
+
+        @property
+        def _gap_progenitor(self):  # read right after the chunk count is set
+            raise _Stop
+
+    m = _Mock()
+    m._deltaAngleTrackImpact = jnp.asarray(dati)
+    with pytest.raises(_Stop):
+        streamgapdf._determine_impact_coordtransform(m, dati, None, 1.0, -2.0)
+    assert m._nTrackChunksImpact == max(int(numpy.floor(dati / 0.15)) + 1, 4)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_backend_impact_angle_value(_gapdf_kick):
+    # A backend impact angle gives the same kick as the float
+    import copy
+
+    sdf = copy.deepcopy(_gapdf_kick[0])
+    ref = numpy.asarray(_chain_kick(sdf, "impact_angle", -2.34))
+    with use("jax", force=True):
+        got = _chain_kick(sdf, "impact_angle", jnp.asarray(-2.34))
+    assert is_backend_array(sdf._impact_angle)
+    numpy.testing.assert_allclose(numpy.asarray(as_numpy(got)), ref, rtol=1e-12)

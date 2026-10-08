@@ -20,6 +20,8 @@ from ..backend import (
 from ..backend import special as _bspecial
 from ..backend import to_host, use
 from ..backend._namespaces import (
+    concretely_true,
+    has_concrete_truth_value,
     inbackend_ode_method,
     namespace_from_arrays,
     under_trace,
@@ -39,6 +41,8 @@ from .streamdf import (
     _determine_stream_track_single,
     _determine_stream_track_single_backend,
     _ns_sqrt,
+    _shared_step_aA,
+    _sig_mean_sign,
     _span_grid,
     _vmap_track_chunks,
 )
@@ -70,17 +74,14 @@ def impact_check_range(func):
     return impact_wrapper
 
 
-def _replace_at(xp, arr, idx, value):
-    """``arr`` with ``arr[idx]`` replaced by ``value``, shape-preserving.
+def _impact_is_leading(impact_angle, leading):
+    """``impact_angle > 0``; under a trace (no concrete sign) the modelled arm.
 
-    A CONCRETE idx keeps the concat that mirrors the numpy body's in-place
-    write. A TRACED idx cannot size a slice (``arr[:idx]`` has a data-dependent
-    length), so select with a mask instead -- same result, static shape.
+    The arm is structural: a mismatch with ``leading`` raises eagerly, so a traced
+    angle can only be on the arm the DF models.
     """
-    if isinstance(idx, (int, numpy.integer)):
-        v = value[None] if getattr(value, "ndim", 0) == 0 else value
-        return xp.concat([arr[:idx], v, arr[idx + 1 :]])
-    return xp.where(xp.arange(arr.shape[0]) == idx, value, arr)
+    pos = impact_angle > 0.0
+    return bool(pos) if has_concrete_truth_value(pos) else leading
 
 
 class streamgapdf(streamdf.streamdf, SplinePickleMixin):
@@ -414,52 +415,66 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         )
         return out
 
+    def _gap_backend_operands(self, dangle):
+        """Namespace, kick poly coefficients/knots, (meandO, sig) and the query
+        ``dangle[..., None]`` for the backend gap-DF evaluators, which broadcast
+        over any leading shape of ``dangle`` (reductions run over the knots)."""
+        poly = self._kick_interpdOpar_poly
+        # namespace from the backend operand (poly.c or dangle); coerce the other
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, c)
+        d = dangle if is_backend_array(dangle) else as_backend_constant(xp, dangle, c)
+        # these come from _offset_setup, which runs on the backend -- they may
+        # already BE backend (and traced), so numpy.asarray would throw
+        meandO = (
+            self._meandO
+            if is_backend_array(self._meandO)
+            else as_backend_constant(xp, numpy.asarray(self._meandO), c)
+        )
+        _s2 = self._sortedSigOEig[2]
+        sig = (
+            _s2
+            if is_backend_array(_s2)
+            else as_backend_constant(xp, numpy.asarray(_s2), c)
+        )
+        return xp, c, px, d[..., None], meandO, sig
+
+    def _gap_breakpoints_backend(self, xp, px, d, dangle, tdisrupt):
+        """The breakpoints Oparb with the numpy body's in-place
+        ``Oparb[lowbindx+1] = Oparb[lowbindx] - lowx`` done by selection, and
+        the mask of the intervals below the lower integration limit."""
+        Oparb = (d - px) / self._timpact
+        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
+        idx = xp.arange(Oparb.shape[-1], device=device_of(Oparb))
+        low = idx == lowbindx[..., None]
+        Ob_low = xp.sum(xp.where(low, Oparb, 0.0), axis=-1)
+        Oparb = xp.where(
+            idx == lowbindx[..., None] + 1, (Ob_low - lowx)[..., None], Oparb
+        )
+        return Oparb, idx[:-1] <= lowbindx[..., None]
+
     def _density_par_approx_backend(
         self, dangle, tdisrupt, _return_array=False, higherorder=False
     ):
         # Backend twin of _density_par_approx (higherorder=False path -- the
         # default): the per-interval Gaussian integral via the backend erf over
         # the differentiable pw-cubic-kick breakpoints, plus the tail term.
+        # Broadcasts over the shape of dangle.
         if higherorder:  # pragma: no cover - non-default; needs the moment recursion
             raise NotImplementedError(
                 "streamgapdf higherorderTrack=True is not yet supported on the "
                 "jax/torch backend"
             )
-        poly = self._kick_interpdOpar_poly
-        # namespace from the backend operand (poly.c or dangle); coerce the other
-        ref = poly.c if is_backend_array(poly.c) else dangle
-        xp = get_namespace(ref)
-        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
-        px = as_backend_constant(xp, poly.x, ref)
-        # these come from _offset_setup, which runs on the backend -- they may
-        # already BE backend (and traced), so numpy.asarray would throw
-        meandO = (
-            self._meandO
-            if is_backend_array(self._meandO)
-            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
-        )
-        _s2 = self._sortedSigOEig[2]
-        sig = (
-            _s2
-            if is_backend_array(_s2)
-            else as_backend_constant(xp, numpy.asarray(_s2), ref)
-        )
+        xp, c, px, d, meandO, sig = self._gap_backend_operands(dangle)
         c1 = c[-1]  # dOpar value at the left knot of each interval
         c2 = c[-2]  # dOpar slope
-        Oparb = (dangle - px) / self._timpact
-        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
-        # numpy does Oparb[lowbindx+1] = Oparb[lowbindx] - lowx (in place); rebuild
-        # functionally (lowbindx is a concrete stop-gradient int, lowx is backend).
-        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
+        Oparb, mask = self._gap_breakpoints_backend(xp, px, d, dangle, tdisrupt)
         sqrt2sig = xp.sqrt(2.0 * sig)
-        Oparb_roll = xp.roll(Oparb, -1)
-        a = Oparb[:-1] - c1 - meandO
-        b = (
-            Oparb_roll[:-1]
-            - c1
-            - meandO
-            - c2 * self._timpact * (Oparb - Oparb_roll)[:-1]
-        )
+        Ol, Or = Oparb[..., :-1], Oparb[..., 1:]
+        a = Ol - c1 - meandO
+        b = Or - c1 - meandO - c2 * self._timpact * (Ol - Or)
         out = (
             0.5
             / (1.0 + c2 * self._timpact)
@@ -467,11 +482,9 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         )
         if _return_array:
             return out
-        # numpy.sum(out[:lowbindx+1]) -> mask-sum (avoid a data-dependent slice)
-        mask = xp.arange(out.shape[0]) <= lowbindx
-        out = xp.sum(xp.where(mask, out, 0.0))
+        out = xp.sum(xp.where(mask, out, 0.0), axis=-1)
         # integration to infinity
-        out = out + 0.5 * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+        out = out + 0.5 * (1.0 + _bspecial.erf((meandO - Oparb[..., 0]) / sqrt2sig))
         return out
 
     def _density_par_approx_higherorder(
@@ -590,32 +603,21 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             return Oparb[lowbindx] - lowx[lowbindx]
 
     def _minOpar_backend(self, dangle, tdisrupt, _return_raw=False):
-        # Backend twin of minOpar. The pw-linear lower Opar limit; the argmin
-        # over intervals is a concrete stop-gradient integer that gathers the
-        # continuous (differentiable) lowx/Oparb values it points at.
-        poly = self._kick_interpdOpar_poly
-        # dispatch triggers on backend poly.c OR backend dangle; resolve the
-        # namespace from whichever is backend and coerce the other (a numpy-built
-        # DF queried with a backend dangle, e.g. d/d(angle), stays on the backend)
-        ref = poly.c if is_backend_array(poly.c) else dangle
-        xp = get_namespace(ref)
-        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
-        px = as_backend_constant(xp, poly.x, ref)
-        Oparb = (dangle - px[:-1]) / self._timpact
+        # Backend twin of minOpar, broadcasting over dangle. The pw-linear lower
+        # Opar limit; the argmin over intervals is a stop-gradient integer that
+        # SELECTS the continuous (differentiable) lowx/Oparb values it points at.
+        xp, c, px, d, _, _ = self._gap_backend_operands(dangle)
+        Oparb = (d - px[:-1]) / self._timpact
         lowx = (
-            (Oparb - c[-1]) * (tdisrupt - self._timpact)
-            + Oparb * self._timpact
-            - dangle
+            (Oparb - c[-1]) * (tdisrupt - self._timpact) + Oparb * self._timpact - d
         ) / ((tdisrupt - self._timpact) * (1.0 + c[-2] * self._timpact) + self._timpact)
         lowx = xp.where(lowx < 0.0, float("inf"), lowx)
-        _am = xp.argmin(lowx)
-        # a traced lowx has no concrete argmin; keep the index on the backend and
-        # let the consumers gather/mask with it
-        lowbindx = _am if under_trace(_am) else int(as_numpy(_am))
+        lowbindx = xp.argmin(lowx, axis=-1)
+        sel = xp.arange(lowx.shape[-1], device=device_of(lowx)) == lowbindx[..., None]
+        lowx_at = xp.sum(xp.where(sel, lowx, 0.0), axis=-1)
         if _return_raw:
-            return (lowbindx, lowx[lowbindx])
-        else:
-            return Oparb[lowbindx] - lowx[lowbindx]
+            return (lowbindx, lowx_at)
+        return xp.sum(xp.where(sel, Oparb, 0.0), axis=-1) - lowx_at
 
     @physical_conversion("frequency", pop=True)
     def meanOmega(
@@ -766,60 +768,36 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         # Backend twin of _meanOmega_num_approx (higherorder=False -- default):
         # the per-interval mean-frequency numerator (Gaussian moment integrals
         # via backend exp/erf over the differentiable pw-cubic-kick breakpoints).
+        # Broadcasts over the shape of dangle.
         if higherorder:  # pragma: no cover - non-default; needs the moment recursion
             raise NotImplementedError(
                 "streamgapdf higherorderTrack=True is not yet supported on the "
                 "jax/torch backend"
             )
-        poly = self._kick_interpdOpar_poly
-        # namespace from the backend operand (poly.c or dangle); coerce the other
-        ref = poly.c if is_backend_array(poly.c) else dangle
-        xp = get_namespace(ref)
-        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
-        px = as_backend_constant(xp, poly.x, ref)
-        # these come from _offset_setup, which runs on the backend -- they may
-        # already BE backend (and traced), so numpy.asarray would throw
-        meandO = (
-            self._meandO
-            if is_backend_array(self._meandO)
-            else as_backend_constant(xp, numpy.asarray(self._meandO), ref)
-        )
-        _s2 = self._sortedSigOEig[2]
-        sig = (
-            _s2
-            if is_backend_array(_s2)
-            else as_backend_constant(xp, numpy.asarray(_s2), ref)
-        )
+        xp, c, px, d, meandO, sig = self._gap_backend_operands(dangle)
         c1 = c[-1]
         c2 = c[-2]
-        Oparb = (dangle - px) / self._timpact
-        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
-        Oparb = _replace_at(xp, Oparb, lowbindx + 1, Oparb[lowbindx] - lowx)
-        Oparb_roll = xp.roll(Oparb, -1)
+        Oparb, mask = self._gap_breakpoints_backend(xp, px, d, dangle, tdisrupt)
+        Ol, Or = Oparb[..., :-1], Oparb[..., 1:]
         onepc2t = 1.0 + c2 * self._timpact
         dens_arr = self._density_par_approx(dangle, tdisrupt, _return_array=True)
-        term1 = (Oparb[:-1] + (meandO + c1 - Oparb[:-1]) / onepc2t) * dens_arr
+        term1 = (Ol + (meandO + c1 - Ol) / onepc2t) * dens_arr
         term2 = (
             xp.sqrt(sig / 2.0 / numpy.pi)
             / onepc2t**2.0
             * (
-                xp.exp(
-                    -0.5
-                    * (Oparb[:-1] - c1 - onepc2t * (Oparb - Oparb_roll)[:-1] - meandO)
-                    ** 2.0
-                    / sig
-                )
-                - xp.exp(-0.5 * (Oparb[:-1] - c1 - meandO) ** 2.0 / sig)
+                xp.exp(-0.5 * (Ol - c1 - onepc2t * (Ol - Or) - meandO) ** 2.0 / sig)
+                - xp.exp(-0.5 * (Ol - c1 - meandO) ** 2.0 / sig)
             )
         )
-        mask = xp.arange(term1.shape[0]) <= lowbindx
-        out = xp.sum(xp.where(mask, term1 + term2, 0.0))
+        out = xp.sum(xp.where(mask, term1 + term2, 0.0), axis=-1)
         sqrt2sig = xp.sqrt(2.0 * sig)
+        Ob0 = Oparb[..., 0]
         out = out + 0.5 * (
             numpy.sqrt(2.0 / numpy.pi)
             * xp.sqrt(sig)
-            * xp.exp(-0.5 * (meandO - Oparb[0]) ** 2.0 / sig)
-            + meandO * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+            * xp.exp(-0.5 * (meandO - Ob0) ** 2.0 / sig)
+            + meandO * (1.0 + _bspecial.erf((meandO - Ob0) / sqrt2sig))
         )
         return out
 
@@ -889,17 +867,18 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         # Sign of delta angle tells us whether the impact happens to the
         # leading or trailing arm, self._sigMeanSign contains this info;
         # Checked before, but check it again in case impact_angle has changed
-        if impact_angle > 0.0:
-            self._gap_leading = True
-        else:
-            self._gap_leading = False
+        self._gap_leading = _impact_is_leading(impact_angle, self._leading)
         if (self._gap_leading and not self._leading) or (
             not self._gap_leading and self._leading
         ):
             raise ValueError(
                 "Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework"
             )
-        self._impact_angle = numpy.fabs(impact_angle)
+        self._impact_angle = (
+            get_namespace(impact_angle).abs(impact_angle)
+            if is_backend_array(impact_angle)
+            else numpy.fabs(impact_angle)
+        )
         # Interpolate the track near the gap in (x,v) at the kick_thetas
         self._interpolate_stream_track_kick()
         self._interpolate_stream_track_kick_aA()
@@ -1390,16 +1369,12 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         thetas = self._kick_interpolatedThetasTrack
         if not is_backend_array(thetas):
             thetas = as_backend_constant(xp, thetas, self._gap_ObsTrack)
-        dmOs = xp.stack(
-            [
-                super(streamgapdf, self).meanOmega(
-                    thetas[ii],
-                    oned=True,
-                    tdisrupt=self._tdisrupt - self._timpact,
-                    use_physical=False,
-                )
-                for ii in range(thetas.shape[0])
-            ]
+        # the smooth meanOmega is elementwise: one call on the whole grid
+        dmOs = super().meanOmega(
+            thetas,
+            oned=True,
+            tdisrupt=self._tdisrupt - self._timpact,
+            use_physical=False,
         )
         # Vestigial spline, rebuilt for API parity (not read downstream).
         self._kick_interpTrackAAdmeanOmegaOneD = Spline1D(
@@ -1485,7 +1460,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         if deltaAngleTrackImpact is None:
             deltaAngleTrackImpact = deltaAngleTrackLim
         else:
-            if deltaAngleTrackImpact > deltaAngleTrackLim:
+            if concretely_true(deltaAngleTrackImpact > deltaAngleTrackLim):
                 warnings.warn(
                     "WARNING: deltaAngleTrackImpact angle range large compared to plausible value",
                     galpyWarning,
@@ -1528,13 +1503,25 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         xp = get_namespace(xv0_prog)
         method = inbackend_ode_method(xp)
         ikw = getattr(self._aA, "_integrate_kwargs", None)
+        # shared constant steps for every AA evaluation: the vmapped chunk loop
+        # then differentiates exactly; forward mode where the solve inputs are
+        # concrete (as in streamdf's backend track)
+        Tmin = getattr(self, "_progenitor_Tmin", None)
+        aA = _shared_step_aA(self._aA, xp, Tmin, xv0_prog)
         dt = (
             self._deltaAngleTrackImpact
             / self._progenitor_Omega_along_dOmega
             / self._sigMeanSign
             * self._gap_sigMeanSign
         )
-        _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
+        # dt<0 exactly on the trailing arm (the sign conventions above make
+        # Omega_along * gap_sigMeanSign >= 0 when leading, <= 0 when trailing),
+        # so a traced dt takes the structural answer
+        _dt_neg = (
+            bool(dt < 0.0)
+            if has_concrete_truth_value(dt < 0.0)
+            else (not self._gap_leading)
+        )
         self._gap_trackts = _span_grid(
             (-2.0 if _dt_neg else 2.0) * dt, 2 * self._nTrackChunksImpact - 1
         )
@@ -1549,7 +1536,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             )
 
         prog_offset = _determine_stream_track_single_backend(
-            self._aA,
+            aA,
             xv0_prog,
             prog_angle_imp,
             self._gap_sigMeanSign,
@@ -1580,7 +1567,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
                 auxiliaryTrack.phi(0.0),
             ]
         )
-        aux_acfs = self._aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
+        aA = _shared_step_aA(self._aA, xp, Tmin, aux0)
+        aux_acfs = aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
         auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
         dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
         factor = xp.abs(
@@ -1601,21 +1589,26 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         )
         thetasTrack = _span_grid(self._deltaAngleTrackImpact, self._nTrackChunksImpact)
 
-        def single(xv0, th):
-            return _determine_stream_track_single_backend(
-                self._aA,
-                xv0,
-                prog_angle_imp,
-                self._gap_sigMeanSign,
-                self._dsigomeanProgDirection,
-                meanOmega,
-                th,
-            )
+        def single_at(xv0s):  # the chunks' aA: forward mode iff xv0s is concrete
+            aA_c = _shared_step_aA(self._aA, xp, Tmin, xv0s)
 
-        outs = _vmap_track_chunks(xp, single, xv0_all, thetasTrack)
+            def single(xv0, th):
+                return _determine_stream_track_single_backend(
+                    aA_c,
+                    xv0,
+                    prog_angle_imp,
+                    self._gap_sigMeanSign,
+                    self._dsigomeanProgDirection,
+                    meanOmega,
+                    th,
+                )
+
+            return single
+
+        outs = _vmap_track_chunks(xp, single_at(xv0_all), xv0_all, thetasTrack)
         ObsTrack = outs[3]
         for _ in range(self.nTrackIterations):
-            outs = _vmap_track_chunks(xp, single, ObsTrack, thetasTrack)
+            outs = _vmap_track_chunks(xp, single_at(ObsTrack), ObsTrack, thetasTrack)
             ObsTrack = outs[3]
         (
             self._gap_allAcfsTrack,
@@ -1651,31 +1644,30 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         self._gap_progenitor_setup()
         # Sign of delta angle tells us whether the impact happens to the
         # leading or trailing arm, self._sigMeanSign contains this info
-        if impact_angle > 0.0:
-            self._gap_leading = True
-        else:
-            self._gap_leading = False
+        self._gap_leading = _impact_is_leading(impact_angle, self._leading)
         if (self._gap_leading and not self._leading) or (
             not self._gap_leading and self._leading
         ):
             raise ValueError(
                 "Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework"
             )
-        self._gap_sigMeanSign = 1.0
-        if (
-            self._gap_leading
-            and self._progenitor_Omega_along_dOmega / self._sigMeanSign < 0.0
-        ) or (
-            not self._gap_leading
-            and self._progenitor_Omega_along_dOmega / self._sigMeanSign > 0.0
-        ):
-            self._gap_sigMeanSign = -1.0
+        # same rule as streamdf's _sigMeanSign (traceable: xp.where when traced)
+        self._gap_sigMeanSign = _sig_mean_sign(
+            self._gap_leading, self._progenitor_Omega_along_dOmega / self._sigMeanSign
+        )
         # Determine how much orbital time is necessary for the progenitor's orbit at the time of impact to cover the part of the stream near the impact; we cover the whole leading (or trailing) part of the stream
         if nTrackChunksImpact is None:
+            _dati = self._deltaAngleTrackImpact
+            if is_backend_array(_dati):
+                # a structural integer: needs a concrete angle range
+                if not has_concrete_truth_value(_dati > 0.0):
+                    raise ValueError(
+                        "nTrackChunksImpact must be given explicitly when the "
+                        "impact's angle range is traced"
+                    )
+                _dati = float(_dati)
             # default is floor(self._deltaAngleTrackImpact/0.15)+1
-            self._nTrackChunksImpact = (
-                int(numpy.floor(self._deltaAngleTrackImpact / 0.15)) + 1
-            )
+            self._nTrackChunksImpact = int(numpy.floor(_dati / 0.15)) + 1
             self._nTrackChunksImpact = (
                 self._nTrackChunksImpact if self._nTrackChunksImpact >= 4 else 4
             )
