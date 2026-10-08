@@ -12,6 +12,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     radial_limits,
+    scalar_like,
 )
 from ..backend._coerce import mask_where, power_series
 from ..backend.optimize import brentq
@@ -140,8 +141,8 @@ class EinastoPotential(SphericalPotential):
         # d(s**(1/n))/ds is infinite at s == 0 (which would NaN-poison reverse-
         # mode autodiff). Evaluate the dead branch at the safe s == 1 instead.
         ssafe = xp.where(r == 0, 1.0, s)
-        gamma_3n = _gamma(3 * self.n)
-        gamma_2n = _gamma(2 * self.n)
+        gamma_3n = scalar_like(r, _gamma(3 * self.n))
+        gamma_2n = scalar_like(r, _gamma(2 * self.n))
         # the regularized LOWER gamma directly: 1 - gammaincc loses everything
         # once it is < eps (the force was exactly 0 below r/h ~ 1e-6)
         gamma_lower_3n = _gammainc(3 * self.n, (ssafe ** (1 / self.n)))
@@ -150,7 +151,7 @@ class EinastoPotential(SphericalPotential):
         out = -(4 * numpy.pi * (self.h**2) * self.n * gamma_3n) * (
             gamma_lower_3n / ssafe + gamma_upper_2n * (gamma_2n / gamma_3n)
         )
-        core = -(4 * numpy.pi * (self.h**2) * self.n) * _gamma(2 * self.n)
+        core = -(4 * numpy.pi * (self.h**2) * self.n) * gamma_2n
         return xp.where(r == 0, core, out)
 
     def _rforce(self, r, t=0.0):
@@ -165,7 +166,7 @@ class EinastoPotential(SphericalPotential):
 
     def _rforce_generic(self, r):
         s = r / self.h
-        gamma_3n = _gamma(3 * self.n)
+        gamma_3n = scalar_like(r, _gamma(3 * self.n))
         gamma_lower_3n = _gammainc(3 * self.n, (s ** (1 / self.n)))
         return -(4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * gamma_lower_3n
 
@@ -193,7 +194,7 @@ class EinastoPotential(SphericalPotential):
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
-        gamma_3n = _gamma(3 * self.n)
+        gamma_3n = scalar_like(r, _gamma(3 * self.n))
         gamma_lower_3n = _gammainc(3 * self.n, (s ** (1 / self.n)))
         # (self.h**2)
         return -(4 * numpy.pi * self.n * gamma_3n) * (
@@ -206,11 +207,12 @@ class EinastoPotential(SphericalPotential):
             raise AttributeError  # use general implementation
         # 0 at the center, the total mass 4 pi h^3 n Gamma(3n) at infinity (both
         # 0 * inf NaN before)
+        gamma_3n = scalar_like(R, _gamma(3 * self.n))
         return radial_limits(
             R,
             lambda r: SphericalPotential._mass(self, r, t=t),
             at0=0.0,
-            atinf=4 * numpy.pi * self.h**3.0 * self.n * _gamma(3 * self.n),
+            atinf=4 * numpy.pi * self.h**3.0 * self.n * gamma_3n,
             numpy_too=True,
         )
 
