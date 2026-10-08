@@ -396,3 +396,40 @@ def test_dMdE_nfw_grad_wrt_potential_parameter(backend):
         - float(as_numpy(_nfw_dMdE(_NFW_A0 - h, cast, backend)))
     ) / (2.0 * h)
     numpy.testing.assert_allclose(ad, fd, rtol=2e-3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_om_potential_parameter_grad_without_backend_context(backend):
+    # a differentiated potential parameter needs no use() context: Phi(0) and the
+    # r(Phi) setup follow it (they resolved numpy from the Python-float radii)
+    from galpy.potential import HernquistPotential
+
+    def sigmar(a, r):
+        return osipkovmerrittdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.5).sigmar(r)
+
+    if backend == "jax":
+        g = float(jax.grad(lambda a: sigmar(a, jnp.asarray(1.0)))(1.3))
+    else:
+        a = torch.tensor(1.3, requires_grad=True)
+        (g,) = torch.autograd.grad(sigmar(a, torch.tensor(1.0)), a)
+        g = float(g)
+    fd = [
+        (sigmar(1.3 + h, 1.0) - sigmar(1.3 - h, 1.0)) / (2.0 * h) for h in (1e-3, 1e-4)
+    ]
+    # converged: 1.3e-7 between h=1e-3 and 1e-4; AD vs h=1e-4 measured 2.2e-8
+    assert abs(fd[0] - fd[1]) < 3e-7 * abs(fd[1])
+    numpy.testing.assert_allclose(g, fd[1], rtol=5e-8)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_om_under_jit_without_rmin_names_itself():
+    # under jax.jit Phi(0) has no value, so rmin cannot be chosen: the error
+    # names the DF the user built (it used to name the internal eddingtondf)
+    from galpy.potential import HernquistPotential
+
+    def f(a):
+        df = osipkovmerrittdf(pot=HernquistPotential(amp=2.0, a=a), ra=1.5)
+        return df.sigmar(jnp.asarray(1.0))
+
+    with pytest.raises(ValueError, match="^osipkovmerrittdf: .*pass rmin"):
+        jax.jit(f)(1.3)

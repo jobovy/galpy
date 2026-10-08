@@ -68,6 +68,23 @@ def test_torchode_matches_c(ic, ts, pot):
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-9)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA GPU")
+@pytest.mark.parametrize(
+    "ic,ts",
+    [(_IC, _TS), (_ICS, numpy.stack([_TS, 2.0 * _TS]))],
+    ids=["single", "per_orbit_t"],
+)
+def test_torchode_numpy_times_cuda_ic(ic, ts):
+    # numpy times reach torchode as CPU tensors; torchode asserts they are on
+    # the IC's device (torchdiffeq moves them itself)
+    o = Orbit(torch.tensor(ic, device="cuda"))
+    o.integrate(ts, _POT, method="torchode")
+    assert o.getOrbit().device.type == "cuda"
+    numpy.testing.assert_allclose(
+        o.getOrbit().cpu().numpy(), _c_orbit(ic, ts, _POT), rtol=1e-9, atol=1e-9
+    )
+
+
 def test_torchode_tsit5_matches_c():
     got = _torchode_orbit(_ICS, _TS, _POT, inbackend_kwargs={"solver": "tsit5"})
     numpy.testing.assert_allclose(got, _c_orbit(_ICS, _TS, _POT), rtol=1e-9, atol=1e-9)

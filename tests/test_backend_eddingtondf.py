@@ -304,6 +304,31 @@ def test_eddingtondf_fE_grad_wrt_potential_parameter(backend):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eddingtondf_grad_wrt_potential_parameter_without_backend_context(backend):
+    # The traced potential parameter is the data: the constructor's Python-float
+    # potential evaluations (Phi(0), Phi(rmax), ...) follow its backend with no
+    # use() context (they used to resolve numpy and meet the traced parameter).
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    def sigmar(a, r):
+        df = eddingtondf(
+            pot=NFWPotential(amp=1.0, a=a), denspot=HernquistPotential(amp=0.1, a=0.7)
+        )
+        return df.sigmar(r)
+
+    if backend == "jax":
+        ad = float(jax.grad(lambda a: sigmar(a, jnp.asarray(1.0)))(2.0))
+    else:
+        a = torch.tensor(2.0, requires_grad=True)
+        ad = float(torch.autograd.grad(sigmar(a, torch.tensor(1.0)), a)[0])
+    # central differences of the numpy build: O(h^2) down to h=1e-4 (measured
+    # 1.4e-7 between 1e-3 and 1e-4), quadrature noise below; AD vs h=1e-4: 9e-10
+    fd = [(sigmar(2.0 + h, 1.0) - sigmar(2.0 - h, 1.0)) / (2 * h) for h in (1e-3, 1e-4)]
+    assert abs(fd[0] - fd[1]) < 3e-7 * abs(fd[1])
+    numpy.testing.assert_allclose(ad, fd[1], rtol=2e-8)
+
+
 # --- eddingtondf under jax.jit, differentiated w.r.t. the potential ------------
 # Inside jit there is no concrete value: the boundary radius for the r -> inf
 # limit is taken as 1e12 (which every standard profile already gets eagerly),
