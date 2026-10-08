@@ -8,8 +8,9 @@
 ###############################################################################
 
 
-def jacobian_backend(f, x):
-    """``torch.autograd.functional.jacobian(f, x, create_graph=True)`` (dense)."""
+def jacobian_backend(f, x, forward=False):
+    """``torch.autograd.functional.jacobian(f, x, create_graph=True)`` (dense);
+    ``forward`` is a jax option (ignored)."""
     import torch
 
     return torch.autograd.functional.jacobian(f, x, create_graph=True, vectorize=False)
