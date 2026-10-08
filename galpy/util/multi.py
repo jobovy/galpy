@@ -230,7 +230,8 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
     if jit_mode() != "off":
         return list(map(function, sequence))
 
-    # jax deadlocks on fork with no way to cure it in the child (see
+    # jax deadlocks on fork with no way to cure it in the child, and a child of
+    # a CUDA-initialized torch parent cannot use CUDA (see
     # galpy.backend.fork_deadlocks_backend); serial is slower, a hang is fatal.
     if fork_deadlocks_backend():
         return list(map(function, sequence))

@@ -17,6 +17,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    scalar_like,
     zeros_like_backend,
 )
 from ..backend.optimize import brentq
@@ -148,7 +149,7 @@ class FerrersPotential(Potential):
         aligned coordinate frame"""
         return (
             -math.pi
-            * self._rhoc_M
+            * scalar_like(x, self._rhoc_M)
             / (self.n + 1.0)
             * self.a**3
             * self._b
@@ -219,7 +220,7 @@ class FerrersPotential(Potential):
         return (
             -2.0
             * math.pi
-            * self._rhoc_M
+            * scalar_like(x, self._rhoc_M)
             * self.a**3
             * self._b
             * self._c
@@ -234,7 +235,7 @@ class FerrersPotential(Potential):
         return (
             -2.0
             * math.pi
-            * self._rhoc_M
+            * scalar_like(x, self._rhoc_M)
             * self.a**3
             * self._b
             * self._c
@@ -249,7 +250,7 @@ class FerrersPotential(Potential):
         return (
             -2.0
             * math.pi
-            * self._rhoc_M
+            * scalar_like(x, self._rhoc_M)
             * self.a**3
             * self._b
             * self._c
@@ -369,7 +370,7 @@ class FerrersPotential(Potential):
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""
         return (
             -math.pi
-            * self._rhoc_M
+            * scalar_like(x, self._rhoc_M)
             * self.a**3
             * self._b
             * self._c
@@ -401,7 +402,7 @@ class FerrersPotential(Potential):
         # (1 - m2/a^2) on the m2>=1 side so a non-integer n does not NaN-poison
         # AD; the where discards it.
         base_safe = xp.where(m2 < 1, 1.0 - m2 / self.a**2, 1.0)
-        return xp.where(m2 < 1, self._rhoc_M * base_safe**self.n, 0.0)
+        return xp.where(m2 < 1, scalar_like(m2, self._rhoc_M) * base_safe**self.n, 0.0)
 
     def OmegaP(self):
         return self._omegab
