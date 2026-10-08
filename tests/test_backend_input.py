@@ -465,7 +465,10 @@ def test_traced_call_traces_exactly_the_matching_namespace(mode):
     from galpy.backend._jit import NOT_TRACED, traced_call
 
     def probe(x):
-        return x * 2.0
+        # no arithmetic: under --device cuda (set_default_device, trace_numpy
+        # off) torch.compile cannot multiply the numpy input -- a harness limit
+        # galpy never hits, as @backend_input only traces backend coordinates
+        return x
 
     def _ns_module(name):
         if name == "numpy":

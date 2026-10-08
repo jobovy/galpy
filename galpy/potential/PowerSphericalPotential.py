@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace, radial_limits
+from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
 from ..backend import special as _bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -299,7 +299,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-25 - Written - Bovy (UofT)
         """
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * self.alpha
             * (3.0 - self.alpha)
             / 4.0
@@ -328,7 +328,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-25: Written by Bovy (UofT)
         """
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (self.alpha + 1.0)
             * self.alpha
             * (3.0 - self.alpha)
@@ -358,7 +358,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-14: Written by Bovy (UofT)
         """
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * (self.alpha - 2.0 * beta)
             * (3.0 - self.alpha)
             / 4.0

@@ -10,6 +10,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     resolve_namespace,
+    scalar_like,
 )
 from ..backend import special as _bspecial
 from ..backend._namespaces import (
@@ -467,7 +468,8 @@ class _scalefreekingdf:
         live = Wb > 0.0
         Ws = xp.where(live, Wb, xp.ones_like(Wb))
         sqW = xp.sqrt(Ws)
-        out = xp.exp(Ws) * _bspecial.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+        twooversqrtpi = scalar_like(Ws, _TWOOVERSQRTPI)  # numpy.float64
+        out = xp.exp(Ws) * _bspecial.erf(sqW) - twooversqrtpi * sqW * (
             1.0 + 2.0 / 3.0 * Ws
         )
         return xp.where(live, out, xp.zeros_like(out))

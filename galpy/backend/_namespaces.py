@@ -900,7 +900,14 @@ def fork_deadlocks_backend():
     so a numpy run that happens to have jax loaded still forks. A numpy-default
     run that feeds jax arrays to the mapped function is not covered -- deciding
     that would mean inspecting the sequence.
+
+    Also True once the parent has initialized CUDA in torch: a forked child
+    cannot re-initialize it, so its first CUDA op raises. CPU torch is
+    unaffected (the thread cap above suffices).
     """
     from ._resolver import backend
 
-    return backend() == "jax"
+    if backend() == "jax":
+        return True
+    torch = sys.modules.get("torch")
+    return torch is not None and torch.cuda.is_initialized()

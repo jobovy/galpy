@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import coerce_coords, get_namespace, is_backend_array, scalar_like
 from ..util import conversion
 from .linearPotential import linearPotential
 
@@ -58,19 +58,18 @@ class IsothermalDiskPotential(linearPotential):
     def _evaluate(self, x, t=0.0):
         xp = get_namespace(x)
         (x,) = coerce_coords(xp, x)
-        return 2.0 * self._sigma2 * xp.log(xp.cosh(0.5 * x / self._H))
+        H = scalar_like(x, self._H)
+        return 2.0 * self._sigma2 * xp.log(xp.cosh(0.5 * x / H))
 
     def _force(self, x, t=0.0):
         xp = get_namespace(x)
         (x,) = coerce_coords(xp, x)
-        return -self._sigma2 * xp.tanh(0.5 * x / self._H) / self._H
+        H = scalar_like(x, self._H)
+        return -self._sigma2 * xp.tanh(0.5 * x / H) / H
 
     def _x2deriv(self, x, t=0.0):
         # d^2 Phi / dx^2 = sigma^2 / (2 H^2) sech^2(x/2H)
         xp = get_namespace(x)
         (x,) = coerce_coords(xp, x)
-        return (
-            self._sigma2
-            / (2.0 * self._H**2.0)
-            * (1.0 - xp.tanh(0.5 * x / self._H) ** 2.0)
-        )
+        H = scalar_like(x, self._H)
+        return self._sigma2 / (2.0 * H**2.0) * (1.0 - xp.tanh(0.5 * x / H) ** 2.0)

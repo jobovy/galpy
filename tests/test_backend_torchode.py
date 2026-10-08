@@ -15,6 +15,7 @@ torch = pytest.importorskip("torch")
 to = pytest.importorskip("torchode")
 torch.set_default_dtype(torch.float64)
 
+from galpy.backend import as_numpy  # noqa: E402
 from galpy.backend._reference import integrate_orbit  # noqa: E402
 from galpy.orbit import Orbit  # noqa: E402
 from galpy.potential import (  # noqa: E402
@@ -199,11 +200,11 @@ def test_float32_ic_integrates_in_float64(method, torch_default_float32):
     ic64 = torch.tensor(_IC).to(torch.float64)
     ref = orbit(ic64, torch.tensor(_TS).to(torch.float64))
     assert got.dtype == torch.float32
-    numpy.testing.assert_array_equal(got.numpy(), ref.to(torch.float32).numpy())
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(ref.to(torch.float32)))
     # ... and that float64 orbit is the C one
     numpy.testing.assert_allclose(
-        ref.numpy(),
-        _c_orbit(ic64.numpy(), torch.tensor(_TS).double().numpy(), _POT),
+        as_numpy(ref),
+        _c_orbit(as_numpy(ic64), as_numpy(torch.tensor(_TS).double()), _POT),
         rtol=1e-9,
         atol=1e-9,
     )

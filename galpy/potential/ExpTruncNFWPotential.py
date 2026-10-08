@@ -13,6 +13,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    scalar_like,
 )
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
@@ -298,7 +299,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         # cannot NaN-poison AD -- a plain xp.where suffices.
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
-        small = r < self._small_r_thresh
+        small = r < scalar_like(r, self._small_r_thresh)
         return xp.where(small, self._F_series(r), self._F_closed(r))
 
     def _F_closed(self, r):
@@ -310,7 +311,9 @@ class ExpTruncNFWPotential(SphericalPotential):
         a, rc = self.a, self.rc
         beta = (a + r) / rc
         return (
-            self._exp_alpha * (1.0 + self._alpha) * (self._E1_alpha - exp1(beta))
+            scalar_like(r, self._exp_alpha)
+            * (1.0 + self._alpha)
+            * (scalar_like(r, self._E1_alpha) - exp1(beta))
             - 1.0
             + a * xp.exp(-r / rc) / (a + r)
         )
@@ -346,7 +349,10 @@ class ExpTruncNFWPotential(SphericalPotential):
         r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
         beta = (a + r) / rc
-        return xp.exp(-r / rc) / (a + r) - self._exp_alpha * exp1(beta) / rc
+        return (
+            xp.exp(-r / rc) / (a + r)
+            - scalar_like(r, self._exp_alpha) * exp1(beta) / rc
+        )
 
     def _rcoerce(self, r):
         """(xp, r): r's own namespace, or for a plain-scalar r the parameters'
@@ -411,12 +417,12 @@ class ExpTruncNFWPotential(SphericalPotential):
     def _ddensdr(self, r, t=0.0):
         # galpy calls _ddensdr/_d2densdr2 with amp already applied, so bake in
         # self._amp here (matching the TwoPowerSphericalPotential convention).
-        rho_phys = self._amp * self._rdens(r)
+        rho_phys = scalar_like(r, self._amp) * self._rdens(r)
         g = 1.0 / r + 2.0 / (self.a + r) + 1.0 / self.rc
         return -rho_phys * g
 
     def _d2densdr2(self, r, t=0.0):
-        rho_phys = self._amp * self._rdens(r)
+        rho_phys = scalar_like(r, self._amp) * self._rdens(r)
         g = 1.0 / r + 2.0 / (self.a + r) + 1.0 / self.rc
         gprime = -1.0 / (r * r) - 2.0 / (self.a + r) ** 2
         return rho_phys * (g * g - gprime)
@@ -450,7 +456,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         xp, r = self._rcoerce(r)
         a, rc = self.a, self.rc
         rho = (
-            self._amp
+            scalar_like(r, self._amp)
             * xp.exp(-r / rc)
             / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
         )
