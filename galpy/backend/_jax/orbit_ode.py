@@ -30,7 +30,8 @@ def _resolve_adjoint(diffrax, adjoint):
     'direct' -> DirectAdjoint, which differentiates through the solver's internal
     operations and so supports forward-mode + higher-order autodiff (jax.hessian /
     nested jacrev) -- needed for SECOND derivatives, at the cost of a max_steps-long
-    scan (keep max_steps small)."""
+    scan (keep max_steps small). 'forward' -> ForwardMode: forward-mode only
+    (jax.jvp / jacfwd), a plain while loop, so no reverse-mode derivative."""
     if adjoint is None:
         return None  # let diffrax use its default (RecursiveCheckpointAdjoint)
     if not isinstance(adjoint, str):
@@ -40,9 +41,12 @@ def _resolve_adjoint(diffrax, adjoint):
         return diffrax.RecursiveCheckpointAdjoint()
     if key == "direct":
         return diffrax.DirectAdjoint()
+    if key == "forward":
+        return diffrax.ForwardMode()
     raise ValueError(
         f"unknown diffrax adjoint {adjoint!r}; use 'recursive' (default, first "
-        "order) or 'direct' (higher-order / hessian-capable)"
+        "order), 'direct' (higher-order / hessian-capable) or 'forward' "
+        "(forward-mode only)"
     )
 
 
