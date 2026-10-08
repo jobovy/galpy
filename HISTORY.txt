@@ -1,6 +1,11 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``dehnendf`` and ``shudf`` moments (``surfacemass``, ``sigma2surfacemass``,
+  ``vmomentsurfacemass``, ``sigmaR2``, ``sigmaT2``, ``meanvT``, ``meanvR``,
+  skewness, kurtosis and the Oort functions) now accept a numpy array of
+  radii (previously only a scalar R worked; arrays raised an error).
+
 - The pure-Python (``c=False``) ``actionAngleStaeckel`` action, frequency and
   angle integrals now use the same Gauss-Legendre mesh as the C implementation
   in the chi anomaly (2 x 10 nodes in u, 4 x 10 in v; a geometrically graded

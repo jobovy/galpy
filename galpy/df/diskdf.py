@@ -17,6 +17,7 @@ _RMIN = 10.0**-10.0
 _MAXD_REJECTLOS = 4.0
 _PROFILE = False
 import copy
+import functools
 import os
 import os.path
 import pickle
@@ -51,6 +52,20 @@ _SCIPY_VERSION = parse_version(scipy.__version__)
 _SCIPY_VERSION_BREAK = parse_version("0.9")
 _CORRECTIONSDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 _DEGTORAD = numpy.pi / 180.0
+
+
+def _loop_array_R(method):
+    """scipy's dblquad takes a scalar R: evaluate a numpy array R elementwise"""
+
+    @functools.wraps(method)
+    def wrapper(self, R, *args, **kwargs):
+        if isinstance(R, numpy.ndarray) and R.ndim > 0:
+            return numpy.array(
+                [method(self, r, *args, **kwargs) for r in R.flat]
+            ).reshape(R.shape)
+        return method(self, R, *args, **kwargs)
+
+    return wrapper
 
 
 class diskdf(df):
@@ -753,13 +768,14 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
+    @_loop_array_R
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
         Calculate the surface-mass at R by marginalizing over velocity
 
         Parameters
         ----------
-        R : float or Quantity
+        R : float, numpy.ndarray or Quantity
             Radius at which to calculate the surfacemass density.
         romberg : bool, optional
             If True, use a romberg integrator (default: False)
@@ -832,13 +848,14 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2surfacedensity", pop=True)
+    @_loop_array_R
     def sigma2surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
         Calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity.
 
         Parameters
         ----------
-        R : float or Quantity
+        R : float, numpy.ndarray or Quantity
             Radius at which to calculate the sigma_R^2 x surfacemass density.
         romberg : bool, optional
             If True, use a romberg integrator (default: False).
@@ -916,7 +933,7 @@ class diskdf(df):
 
         Parameters
         ----------
-        R: float or Quantity
+        R: float, numpy.ndarray or Quantity
             Galactocentric radius at which to calculate the moment.
         n: int
             vR^n in the moment
@@ -963,6 +980,7 @@ class diskdf(df):
         else:
             return self._vmomentsurfacemass(*args, **kwargs)
 
+    @_loop_array_R
     def _vmomentsurfacemass(
         self, R, n, m, romberg=False, nsigma=None, relative=False, phi=0.0, deriv=None
     ):
