@@ -109,12 +109,31 @@ def test_parallel_map_does_not_fork_under_jax():
     assert numpy.array_equal(got, seq**2.0), f"parallel_map returned {got}"
 
 
-def test_parallel_map_still_forks_off_jax():
-    # Negative control for the test above: a guard that serialized everything
-    # would satisfy it while silently costing every numpy user their cores.
+def test_parallel_map_does_not_fork_after_cuda_init(monkeypatch):
+    # A forked child of a CUDA-initialized torch parent cannot use CUDA ("Cannot
+    # re-initialize CUDA in forked subprocess"), so parallel_map runs in-process
+    # then. CUDA init is faked: the guard reads torch.cuda.is_initialized().
+    torch = pytest.importorskip("torch")
     import os
 
     from galpy.util.multi import parallel_map
+
+    monkeypatch.setattr(torch.cuda, "is_initialized", lambda: True)
+    pids = list(parallel_map(_child_pid, numpy.arange(4), numcores=2))
+    assert pids == [os.getpid()] * 4, f"parallel_map forked after CUDA init: {pids}"
+
+
+def test_parallel_map_still_forks_off_jax(monkeypatch):
+    # Negative control for the tests above: a guard that serialized everything
+    # would satisfy them while silently costing every numpy user their cores.
+    import os
+    import sys
+
+    from galpy.util.multi import parallel_map
+
+    torch = sys.modules.get("torch")
+    if torch is not None:  # a --device cuda run has initialized CUDA by now
+        monkeypatch.setattr(torch.cuda, "is_initialized", lambda: False)
 
     pids = set(parallel_map(_child_pid, numpy.arange(4), numcores=2))
     assert pids != {os.getpid()}, "numpy parallel_map must still fork"

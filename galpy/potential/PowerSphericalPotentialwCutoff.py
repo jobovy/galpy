@@ -8,7 +8,7 @@
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace, radial_limits
+from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
@@ -83,7 +83,7 @@ class PowerSphericalPotentialwCutoff(Potential):
             atinf=2.0
             * numpy.pi
             * self.rc ** (2.0 - self.alpha)
-            * _gamma(1.0 - self.alpha / 2.0),
+            * scalar_like(R, _gamma(1.0 - self.alpha / 2.0)),
         )
 
     def _revaluate_body(self, r):
@@ -98,9 +98,9 @@ class PowerSphericalPotentialwCutoff(Potential):
             * (
                 1
                 / self.rc
-                * _gamma(1.0 - self.alpha / 2.0)
+                * scalar_like(r, _gamma(1.0 - self.alpha / 2.0))
                 * _gammainc(1.0 - self.alpha / 2.0, (rsafe / self.rc) ** 2.0)
-                - _gamma(1.5 - self.alpha / 2.0)
+                - scalar_like(r, _gamma(1.5 - self.alpha / 2.0))
                 * _gammainc(1.5 - self.alpha / 2.0, (rsafe / self.rc) ** 2.0)
                 / rsafe
             )
@@ -117,7 +117,7 @@ class PowerSphericalPotentialwCutoff(Potential):
             -2.0
             * numpy.pi
             * self.rc ** (3.0 - self.alpha)
-            * _gamma(1.5 - 0.5 * self.alpha)
+            * scalar_like(r, _gamma(1.5 - 0.5 * self.alpha))
             * _gammainc(1.5 - 0.5 * self.alpha, (r / self.rc) ** 2.0)
             / r**2.0
         )
@@ -172,7 +172,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         # forced other backend.
         xp = namespace_from_arrays((r,)) or numpy
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * r ** (-1.0 - self.alpha)
             * xp.exp(-((r / self.rc) ** 2.0))
             * (2.0 * r**2.0 / self.rc**2.0 + self.alpha)
@@ -181,7 +181,7 @@ class PowerSphericalPotentialwCutoff(Potential):
     def _d2densdr2(self, r, t=0.0):
         xp = get_namespace(r)
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * r ** (-2.0 - self.alpha)
             * xp.exp(-((r / self.rc) ** 2))
             * (
@@ -218,7 +218,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         # forced other backend.
         xp = namespace_from_arrays((r,)) or numpy
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * xp.exp(-((r / self.rc) ** 2.0))
             / r ** (self.alpha - 2.0 * beta)
             * ((self.alpha - 2.0 * beta) / r + 2.0 * r / self.rc**2.0)
@@ -246,7 +246,7 @@ class PowerSphericalPotentialwCutoff(Potential):
             2.0
             * numpy.pi
             * self.rc ** (3.0 - self.alpha)
-            * _gamma(1.5 - 0.5 * self.alpha)
+            * scalar_like(R, _gamma(1.5 - 0.5 * self.alpha))
         )
         return radial_limits(
             R,
@@ -254,7 +254,7 @@ class PowerSphericalPotentialwCutoff(Potential):
                 2.0
                 * numpy.pi
                 * self.rc ** (3.0 - self.alpha)
-                * _gamma(1.5 - 0.5 * self.alpha)
+                * scalar_like(R, _gamma(1.5 - 0.5 * self.alpha))
                 * _gammainc(1.5 - 0.5 * self.alpha, (R / self.rc) ** 2.0)
             ),
             at0=0.0,

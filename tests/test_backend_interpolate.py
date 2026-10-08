@@ -1320,7 +1320,7 @@ def test_map_coordinates_quintic_and_narrow_grids_vs_scipy(backend_name):
 
         ct = torch.tensor(c0, requires_grad=True)
         (g,) = torch.autograd.grad(map_coordinates(filt, ct, order=5)[0], ct)
-        g = g.numpy().ravel()
+        g = as_numpy(g).ravel()
     numpy.testing.assert_allclose(g, fd, rtol=0.0, atol=1e-9)
     with pytest.raises(NotImplementedError, match="order=3.*5"):
         map_coordinates(filt, _asarray(backend_name, c0), order=4)

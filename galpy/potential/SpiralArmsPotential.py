@@ -10,7 +10,13 @@ import math
 
 import numpy
 
-from ..backend import asarray_on_device, coerce_coords, device_of, get_namespace
+from ..backend import (
+    asarray_on_device,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    scalar_like,
+)
 from ..util import conversion
 from .Potential import Potential
 
@@ -258,7 +264,7 @@ class SpiralArmsPotential(Potential):
         d2Ks_dR2 = 2 * self._N * ns / R**3 / self._sin_alpha
         d2Bs_dR2 = HNn_R_sina / R**2 * (2.4 * HNn_R_sina + 2)
         d2Ds_dR2 = (
-            self._sin_alpha
+            scalar_like(R, self._sin_alpha)
             / R
             / x
             * (
@@ -718,7 +724,8 @@ class SpiralArmsPotential(Potential):
         """Return numpy array of dB/dR from B1 up to and including Bn."""
         if HNn is None:
             HNn = self._HNn0
-        return -HNn / R**3 / self._sin_alpha**2 * (0.8 * HNn + R * self._sin_alpha)
+        sin_alpha = scalar_like(R, self._sin_alpha)  # numpy.sin in __init__
+        return -HNn / R**3 / sin_alpha**2 * (0.8 * HNn + R * sin_alpha)
 
     def _D(self, R, HNn=None):
         """Return numpy array from D1 up to and including Dn. (eqn. 7)"""

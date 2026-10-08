@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 
-from ..backend import backend_input, get_namespace
+from ..backend import backend_input, get_namespace, scalar_like
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -286,7 +286,8 @@ class Force:
     def _Rforce_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._Rforce(R, z, **kwargs)
+            out = self._Rforce(R, z, **kwargs)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -295,7 +296,8 @@ class Force:
     def _zforce_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._zforce(R, z, **kwargs)
+            out = self._zforce(R, z, **kwargs)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -306,7 +308,8 @@ class Force:
     def _phitorque_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._phitorque(R, z, **kwargs)
+            out = self._phitorque(R, z, **kwargs)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError

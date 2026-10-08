@@ -17,6 +17,7 @@ from ...util.special import (
     pow_or_inf,
 )
 from .. import asarray_on_device, branch_where, device_of
+from .._namespaces import untraceable_setup
 
 # Backend (jax/torch) versions of galpy.util.special's incomplete beta: p and q
 # are fixed (TwoPowerSphericalPotential: at construction), so every series has static coefficients, summed as
@@ -160,14 +161,22 @@ def _incomplete_beta_reflected_xp(xp, p, q, s1, z1, s2):
             - s1**q * z1**p / q
             + (p + q) / q * _incomplete_beta_reflected_xp(xp, p, q + 1.0, s1, z1, s2)
         )
-    B2 = float(
+    B2 = _reflected_end_term(p, q, s2)
+    return B2 - s1**q * z1**p / q * incomplete_beta_series_xp(
+        xp, incomplete_beta_series_coeffs("hi", p, q, s2), s1
+    )
+
+
+@untraceable_setup
+def _reflected_end_term(p, q, s2):
+    """The constant s2^q (1-s2)^p / q 2F1(1, p+q; q+1; s2), run eagerly: scipy's
+    numpy.float64 result cannot meet a Python float inside torch.compile under a
+    default device"""
+    return float(
         pow_or_inf(s2, q)
         * (1.0 - s2) ** p
         / q
         * special.hyp2f1(1.0, p + q, q + 1.0, s2)
-    )
-    return B2 - s1**q * z1**p / q * incomplete_beta_series_xp(
-        xp, incomplete_beta_series_coeffs("hi", p, q, s2), s1
     )
 
 

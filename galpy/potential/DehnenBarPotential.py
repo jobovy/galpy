@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, scalar_like
 from ..util import conversion
 from .Potential import Potential
 
@@ -155,15 +155,24 @@ class DehnenBarPotential(Potential):
         # in-backend diffrax/torchdiffeq integrator, or autodiff wrt time) -> that
         # backend's where, so it is differentiable. Branch-free so a tracer works.
         xp = get_namespace(t)
-        deltat = t - self._tform
-        xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+        tform, tsteady = scalar_like(t, self._tform), scalar_like(t, self._tsteady)
+        deltat = t - tform
+        xi = 2.0 * deltat / (tsteady - tform) - 1.0
         growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-        return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
+        return xp.where(t < tform, 0.0, xp.where(t < tsteady, growth, 1.0))
+
+    def _bar_consts(self, ref):
+        # numpy scalars (numpy.sqrt in __init__): see scalar_like
+        return tuple(
+            scalar_like(ref, c)
+            for c in (self._af, self._rb, self._omegab, self._barphi)
+        )
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -179,14 +188,14 @@ class DehnenBarPotential(Potential):
         Rinf = xp.isinf(R)
         R2_over_r2 = xp.where(bad | Rinf, xp.ones_like(r2 * 1.0), R**2.0 / r2safe)
         factor = xp.where(
-            r <= self._rb,
-            (r / self._rb) ** 3.0 - 2.0,
-            -((self._rb / rsafe) ** 3.0),
+            r <= rb,
+            (r / rb) ** 3.0 - 2.0,
+            -((rb / rsafe) ** 3.0),
         )
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
             * factor
             * R2_over_r2
         )
@@ -195,6 +204,7 @@ class DehnenBarPotential(Potential):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -202,26 +212,22 @@ class DehnenBarPotential(Potential):
         rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
         r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
         inner = (
-            -(
-                (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0)
-                - 4.0 * R * z**2.0
-            )
+            -((r / rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0)
             / r4safe
         )
-        outer = (
-            -((self._rb / rsafe) ** 3.0) * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
-        )
+        outer = -((rb / rsafe) ** 3.0) * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -230,15 +236,15 @@ class DehnenBarPotential(Potential):
         r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
         R2_over_r2 = R**2.0 / r2safe
         factor = xp.where(
-            r <= self._rb,
-            (r / self._rb) ** 3.0 - 2.0,
-            -((self._rb / rsafe) ** 3.0),
+            r <= rb,
+            (r / rb) ** 3.0 - 2.0,
+            -((rb / rsafe) ** 3.0),
         )
         return (
             2.0
-            * self._af
+            * af
             * smooth
-            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.sin(2.0 * (phi - omegab * t - barphi))
             * factor
             * R2_over_r2
         )
@@ -247,25 +253,27 @@ class DehnenBarPotential(Potential):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
         rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
         r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
-        inner = -((r / self._rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
-        outer = -5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
+        inner = -((r / rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
+        outer = -5.0 * (rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -273,26 +281,27 @@ class DehnenBarPotential(Potential):
         rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
         r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
         r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
-        inner = (r / self._rb) ** 3.0 * (
+        inner = (r / rb) ** 3.0 * (
             (9.0 * R**2.0 + 2.0 * z**2.0) / r4safe
             - R**2.0 / r6safe * (3.0 * R**2.0 + 2.0 * z**2.0)
         ) + 4.0 * z**2.0 / r6safe * (4.0 * R**2.0 - r2)
         outer = (
-            (self._rb / rsafe) ** 3.0
+            (rb / rsafe) ** 3.0
             / r6safe
             * ((r2 - 7.0 * R**2.0) * (3.0 * R**2.0 - 2.0 * z**2.0) + 6.0 * R**2.0 * r2)
         )
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -301,15 +310,15 @@ class DehnenBarPotential(Potential):
         r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
         R2_over_r2 = R**2.0 / r2safe
         factor = xp.where(
-            r <= self._rb,
-            -((r / self._rb) ** 3.0 - 2.0),
-            (self._rb / rsafe) ** 3.0,
+            r <= rb,
+            -((r / rb) ** 3.0 - 2.0),
+            (rb / rsafe) ** 3.0,
         )
         return (
             4.0
-            * self._af
+            * af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
             * factor
             * R2_over_r2
         )
@@ -318,6 +327,7 @@ class DehnenBarPotential(Potential):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -325,21 +335,22 @@ class DehnenBarPotential(Potential):
         rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
         r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
         inner = (
-            (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0
+            (r / rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0
         ) / r4safe
-        outer = (self._rb / rsafe) ** 3.0 * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
+        outer = (rb / rsafe) ** 3.0 * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
         return (
             -2.0
-            * self._af
+            * af
             * smooth
-            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.sin(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -349,20 +360,21 @@ class DehnenBarPotential(Potential):
         inner = (
             R**2.0
             / r6safe
-            * ((r / self._rb) ** 3.0 * (r2 - z**2.0) + 4.0 * (r2 - 4.0 * z**2.0))
+            * ((r / rb) ** 3.0 * (r2 - z**2.0) + 4.0 * (r2 - 4.0 * z**2.0))
         )
-        outer = 5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 / r6safe * (r2 - 7.0 * z**2.0)
+        outer = 5.0 * (rb / rsafe) ** 3.0 * R**2.0 / r6safe * (r2 - 7.0 * z**2.0)
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -373,36 +385,35 @@ class DehnenBarPotential(Potential):
             R
             * z
             / r6safe
-            * ((r / self._rb) ** 3.0 * (2.0 * r2 - R**2.0) + 8.0 * (r2 - 2.0 * R**2.0))
+            * ((r / rb) ** 3.0 * (2.0 * r2 - R**2.0) + 8.0 * (r2 - 2.0 * R**2.0))
         )
-        outer = (
-            5.0 * (self._rb / rsafe) ** 3.0 * R * z / r6safe * (2.0 * r2 - 7.0 * R**2.0)
-        )
+        outer = 5.0 * (rb / rsafe) ** 3.0 * R * z / r6safe * (2.0 * r2 - 7.0 * R**2.0)
         return (
-            self._af
+            af
             * smooth
-            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.cos(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         xp = get_namespace(R, z, phi, t)
         R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        af, rb, omegab, barphi = self._bar_consts(R)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
         rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
         r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
-        inner = -((r / self._rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
-        outer = -5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
+        inner = -((r / rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
+        outer = -5.0 * (rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
         return (
             2.0
-            * self._af
+            * af
             * smooth
-            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
-            * xp.where(r <= self._rb, inner, outer)
+            * xp.sin(2.0 * (phi - omegab * t - barphi))
+            * xp.where(r <= rb, inner, outer)
         )
 
     def tform(self):  # pragma: no cover

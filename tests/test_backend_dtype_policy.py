@@ -31,7 +31,7 @@
 import numpy
 import pytest
 
-from galpy.backend import match_input_dtype
+from galpy.backend import as_numpy, match_input_dtype
 from galpy.potential import (
     BurkertPotential,
     CosmphiDiskPotential,
@@ -833,10 +833,10 @@ def test_float32_default_internals_run_in_float64(torch_default_float32):
         torch.tensor(R, dtype=torch.float64),
         torch.tensor(z, dtype=torch.float64),
     )
-    numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
     with backend.use("torch", force=True):
         got = evaluateRforces(MWPotential2014, R, z)
-    numpy.testing.assert_allclose(got.numpy(), ref, rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
     got32 = evaluateRforces(
         MWPotential2014,
         torch.tensor(R, dtype=torch.float32),
@@ -876,4 +876,4 @@ def test_float32_default_orbit_and_df_match_float64_default(torch_default_float3
         torch.set_default_dtype(torch.float32)
     for a, b in zip(got32, got64):
         assert a.dtype == torch.float64
-        numpy.testing.assert_allclose(a.numpy(), b.numpy(), rtol=1e-14, atol=1e-300)
+        numpy.testing.assert_allclose(as_numpy(a), as_numpy(b), rtol=1e-14, atol=1e-300)

@@ -6,7 +6,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace, radial_limits
+from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -112,7 +112,7 @@ class PlummerPotential(Potential):
         xp = get_namespace(r)
         (r,) = coerce_coords(xp, r)
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (-15.0)
             / 4.0
             / math.pi
@@ -125,7 +125,7 @@ class PlummerPotential(Potential):
         xp = get_namespace(r)
         (r,) = coerce_coords(xp, r)
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (-15.0)
             / 4.0
             / math.pi
@@ -157,7 +157,7 @@ class PlummerPotential(Potential):
         xp = get_namespace(r)
         (r,) = coerce_coords(xp, r)
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * 3.0
             / 4.0
             / math.pi
