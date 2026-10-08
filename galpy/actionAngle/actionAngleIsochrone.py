@@ -16,6 +16,7 @@ import warnings
 import numpy
 
 from ..backend import get_namespace, promote_scalars, to_host
+from ..backend._namespaces import namespace_from_arrays
 from ..potential import IsochronePotential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -61,7 +62,8 @@ class actionAngleIsochrone(actionAngle):
             self.amp = ip._amp
         else:
             self.b = conversion.parse_length(kwargs["b"], ro=self._ro)
-            rb = numpy.sqrt(self.b**2.0 + 1.0)
+            # b's own namespace: a traced / grad-tracking b stays differentiable
+            rb = (namespace_from_arrays((self.b,)) or numpy).sqrt(self.b**2.0 + 1.0)
             self.amp = (self.b + rb) ** 2.0 * rb
         self._c = False
         ext_loaded = False

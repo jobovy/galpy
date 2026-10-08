@@ -348,3 +348,29 @@ def test_scalar_like_anchors_a_numpy_scalar_on_torch():
     # tensor stays float32 (like() would make a 0-d float64 tensor: upcast)
     t32 = torch.ones((), dtype=torch.float32)
     assert (scalar_like(t32, a) * t32).dtype == (a * t32).dtype == torch.float32
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_torch_asarray_requires_grad_warning_silenced():
+    # torch >= 2.12 warns when array-api-compat's asarray (galpy's torch xp.asarray)
+    # gets a grad-tracking tensor; galpy wants exactly the new behaviour (keep the
+    # graph), so that one message from that wrapper is filtered. A fresh process:
+    # the warnings registry would hide a repeat in this one.
+    import subprocess
+    import sys
+
+    code = (
+        "import warnings, torch\n"
+        "torch.set_default_dtype(torch.float64)\n"
+        "from galpy.df import kingdf\n"
+        "with warnings.catch_warnings(record=True) as rec:\n"
+        "    W = torch.tensor(3.0, requires_grad=True)\n"
+        "    kingdf(W0=W, M=2.3, rt=1.4).dens(torch.tensor(0.4)).backward()\n"
+        "    import array_api_compat.torch as txp\n"
+        "    txp.asarray(W)  # the wrapper itself, directly\n"
+        "print(sum('torch.asarray' in str(r.message) for r in rec))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip().splitlines()[-1] == "0", out.stdout + out.stderr

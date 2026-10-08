@@ -46,6 +46,26 @@ def _resolve_adjoint(diffrax, adjoint):
     )
 
 
+def _carries_jvp_tangent(*xs):
+    """True if one of ``xs`` carries a forward-mode (jax.jvp/jacfwd) tangent.
+
+    Walks each tracer's chain (``.primal`` / ``.val``) by class name -- private
+    API, so it can only ever MISS a tangent (e.g. jvp of a jitted function,
+    whose inner trace has none), never invent one. Off when reverse mode also
+    runs on JVP tracers (``jax_use_direct_linearize`` off, older jax), so a
+    jax.grad never switches adjoints."""
+    import jax
+
+    if not getattr(jax.config, "jax_use_direct_linearize", False):
+        return False
+    for x in xs:
+        while isinstance(x, jax.core.Tracer):
+            if type(x).__name__ == "JVPTracer":
+                return True
+            x = getattr(x, "primal", getattr(x, "val", None))
+    return False
+
+
 def integrate(
     pot, y0, ts, *, dim, rtol, atol, max_steps, solver=None, adjoint=None, nsteps=None
 ):
@@ -60,10 +80,12 @@ def integrate(
 
     ``solver`` selects the diffrax solver (name or instance; default Dopri8).
     ``adjoint`` selects the diffrax adjoint (name or instance; ``None`` -> diffrax's
-    default RecursiveCheckpointAdjoint, reverse-mode FIRST order, so forward-mode
-    jacfwd is unavailable -- use jacrev). Pass adjoint='direct' for SECOND
-    derivatives (jax.hessian / nested jacrev); it scans ``max_steps`` steps, so keep
-    ``max_steps`` modest."""
+    default RecursiveCheckpointAdjoint, reverse-mode FIRST order; but
+    DirectAdjoint when a forward-mode tangent reaches the solve, i.e. under
+    jax.jvp/jacfwd/hessian -- except jvp OF a jax.jit-ed function, whose tangent
+    is invisible here: pass adjoint='direct' there). Pass adjoint='direct' for
+    SECOND derivatives (jax.hessian / nested jacrev); it scans ``max_steps``
+    steps, so keep ``max_steps`` modest."""
     import diffrax
     import jax
     import jax.numpy as jnp
@@ -85,11 +107,31 @@ def integrate(
         max_steps = min(max_steps, nsteps + 1)
     _solver = _resolve_solver(diffrax, solver)
     _adjoint = _resolve_adjoint(diffrax, adjoint)
+    # the default adjoint is a custom_vjp, which forward mode cannot go through;
+    # a tangent can enter via y0, ts or a potential parameter, so probe the EOM
+    # at the initial state (unused: dead code under jit)
+    if _adjoint is None and _carries_jvp_tangent(
+        y0, ts, term.vf(jnp.reshape(ts, (-1,))[0], y0, None)
+    ):
+        _adjoint = diffrax.DirectAdjoint()
     # only pass adjoint when explicitly chosen, so the default call is byte-for-byte
     # the prior diffeqsolve (diffrax's own RecursiveCheckpointAdjoint default).
     _extra = {} if _adjoint is None else {"adjoint": _adjoint}
 
     def _solve(y0i, tsi):
+        try:
+            return _diffeqsolve(y0i, tsi)
+        except TypeError as e:  # a tangent the probe above could not see
+            if "custom_vjp" in str(e):
+                raise TypeError(
+                    f"{e} Forward-mode differentiation (jax.jvp/jacfwd) of an "
+                    "orbit integration needs adjoint='direct': pass "
+                    "inbackend_kwargs={'adjoint': 'direct'} to Orbit.integrate "
+                    "(or integrate_kwargs={'adjoint': 'direct'} to a stream DF)."
+                ) from e
+            raise
+
+    def _diffeqsolve(y0i, tsi):
         return diffrax.diffeqsolve(
             term,
             _solver,
