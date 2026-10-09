@@ -20,7 +20,8 @@ from ..backend import (
     scalar_like,
     zeros_like_backend,
 )
-from ..backend.optimize import brentq
+from ..backend._namespaces import stop_gradient
+from ..backend.optimize import newton_polish
 from ..backend.quadrature import fixed_quad_semiinfinite
 from ..backend.special import gamma
 from ..util import conversion, coords
@@ -190,9 +191,7 @@ class FerrersPotential(Potential):
         # Pure-functional aligned-then-de-rotated rectangular forces; no
         # per-instance state, so it is safe under jax/torch tracing.
         x, y, z = self._compute_xyz(R, phi, z, t)
-        Fx = self._xforce_xyz(x, y, z)
-        Fy = self._yforce_xyz(x, y, z)
-        Fz = self._zforce_xyz(x, y, z)
+        (Fx, Fy, Fz), _ = self._derivs_xyz(x, y, z, forces=(0, 1, 2))
         # de-rotation angle; follows t (concrete scalar t -> numpy coefficient that
         # broadcasts against backend coords; traced backend t -> that backend's cos/sin),
         # as in SoftenedNeedleBarPotential.
@@ -213,6 +212,37 @@ class FerrersPotential(Potential):
             )
             self._force_hash = new_hash
         return self._cached_Fx, self._cached_Fy, self._cached_Fz
+
+    def _derivs_xyz(self, x, y, z, forces=(), seconds=()):
+        """Aligned-frame forces (axes ``forces``) and second derivatives (index
+        pairs ``seconds``) at (x,y,z), as ``_[xyz]force_xyz``/``_2ndderiv_xyz``.
+        numpy: those, one adaptive quad each. Backend: ONE fixed-order quadrature
+        over all the integrands, sharing the lower limit and the node evaluations
+        (the dxdv EOM needs 19 integrals per step, at one point)."""
+        if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+            force_xyz = (self._xforce_xyz, self._yforce_xyz, self._zforce_xyz)
+            return (
+                [force_xyz[i](x, y, z) for i in forces],
+                [self._2ndderiv_xyz(x, y, z, i, j) for i, j in seconds],
+            )
+        ints = _derivInts_backend(
+            x,
+            y,
+            z,
+            self._a2,
+            self._b2 * self._a2,
+            self._c2 * self._a2,
+            self.n,
+            forces,
+            seconds,
+            get_namespace(x, y, z),
+        )
+        pref = scalar_like(x, self._rhoc_M) * self.a**3 * self._b * self._c
+        nf = len(forces)
+        return (
+            [-2.0 * math.pi * pref * ints[k] for k in range(nf)],
+            [-math.pi * pref * ints[nf + k] for k in range(len(seconds))],
+        )
 
     def _xforce_xyz(self, x, y, z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
@@ -264,9 +294,9 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
+        _, (phixxa, phixya, phiyya) = self._derivs_xyz(
+            x, y, z, seconds=((0, 0), (0, 1), (1, 1))
+        )
         xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
         c, s = xpt.cos(ang), xpt.sin(ang)
@@ -284,8 +314,7 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
-        phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
+        _, (phixza, phiyza) = self._derivs_xyz(x, y, z, seconds=((0, 2), (1, 2)))
         xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
         c, s = xpt.cos(ang), xpt.sin(ang)
@@ -304,17 +333,15 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        Fx = self._xforce_xyz(x, y, z)
-        Fy = self._yforce_xyz(x, y, z)
+        (Fx, Fy), (phixxa, phixya, phiyya) = self._derivs_xyz(
+            x, y, z, forces=(0, 1), seconds=((0, 0), (0, 1), (1, 1))
+        )
         # rot(t, transposed=True) @ [Fx, Fy] without array stacking (torch concat
         # blocker); the rotation angle follows t.
         xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
         c, s = xpt.cos(ang), xpt.sin(ang)
         Fx, Fy = c * Fx - s * Fy, s * Fx + c * Fy
-        phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
         phixx = c**2 * phixxa + 2.0 * c * s * phixya + s**2 * phiyya
         phixy = (c**2 - s**2) * phixya + c * s * (phiyya - phixxa)
         phiyy = s**2 * phixxa - 2.0 * c * s * phixya + c**2 * phiyya
@@ -329,17 +356,15 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        Fx = self._xforce_xyz(x, y, z)
-        Fy = self._yforce_xyz(x, y, z)
+        (Fx, Fy), (phixxa, phixya, phiyya) = self._derivs_xyz(
+            x, y, z, forces=(0, 1), seconds=((0, 0), (0, 1), (1, 1))
+        )
         # rot(t, transposed=True) @ [Fx, Fy] without array stacking (torch concat
         # blocker); the rotation angle follows t.
         xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
         c, s = xpt.cos(ang), xpt.sin(ang)
         Fx, Fy = c * Fx - s * Fy, s * Fx + c * Fy
-        phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
         phixx = c**2 * phixxa + 2.0 * c * s * phixya + s**2 * phiyya
         phixy = (c**2 - s**2) * phixya + c * s * (phiyya - phixxa)
         phiyy = s**2 * phixxa - 2.0 * c * s * phixya + c**2 * phiyya
@@ -355,8 +380,7 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
-        phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
+        _, (phixza, phiyza) = self._derivs_xyz(x, y, z, seconds=((0, 2), (1, 2)))
         # rot(t, transposed=True) @ [phixza, phiyza] without array stacking; the
         # rotation angle follows t.
         xpt = get_namespace(t)
@@ -524,6 +548,46 @@ def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
     )
 
 
+def _derivInts_backend(x, y, z, a2, b2, c2, n, forces, seconds, xp):
+    """Backend :func:`_forceInt` (axes ``forces``) and :func:`_2ndDerivInt` (index
+    pairs ``seconds``) at one (x,y,z) in ONE fixed-order quadrature: one lower
+    limit, one set of node evaluations, the integrands stacked on a leading axis.
+    Each integrand is the same arithmetic as in those functions (their factors of
+    exactly 1 and terms of exactly 0 dropped)."""
+    ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
+    X = (x[..., None], y[..., None], z[..., None])
+    A = (a2, b2, c2)
+
+    def integrand(tau):
+        denom = xp.sqrt((a2 + tau) * (b2 + tau) * (c2 + tau))
+        base = (
+            1.0
+            - X[0] ** 2 / (a2 + tau)
+            - X[1] ** 2 / (b2 + tau)
+            - X[2] ** 2 / (c2 + tau)
+        )
+        frac_n = base**n / denom
+        out = [X[i] / (A[i] + tau) * frac_n for i in forces]
+        if seconds:
+            frac_nm1 = base ** (n - 1) / denom
+        for i, j in seconds:
+            if i != j:
+                out.append(
+                    frac_nm1
+                    * n
+                    * (1.0 + (-1.0 - 2.0 * X[i] / (tau + A[i])))
+                    * (1.0 + (-1.0 - 2.0 * X[j] / (tau + A[j])))
+                )
+            else:
+                out.append(
+                    frac_nm1 * n * (4.0 * X[i] ** 2) / (tau + A[i]) ** 2
+                    + frac_n * (-2.0 / (tau + A[i]))
+                )
+        return xp.stack(out, axis=0)
+
+    return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
+
+
 def _FracInt(x, y, z, a, b, c, tau, n, xp=numpy):
     """Returns
                 1                     x^2       y^2       z^2
@@ -557,20 +621,27 @@ def _lowerlim_backend(x, y, z, a, b, c, xp):
     """Backend (jax/torch) counterpart of :func:`lowerlim`.
 
     ``x, y, z`` are the SQUARED coordinates and ``a, b, c`` the squared axis
-    parameters (as ``lowerlim`` is called). The lower limit is the real positive
-    root of ``g(t) = x/(a+t) + y/(b+t) + z/(c+t) - 1`` (the confocal-ellipsoid
-    coordinate) when the point is outside (``g(0) > 0``), else 0. ``g`` is
-    monotonically decreasing on ``[0, inf)`` from ``g(0) > 0`` to ``-1``, so the
-    root is bracketed by ``[0, x+y+z+a+b+c]`` (``t* < x+y+z``); ``brentq`` returns
-    it with the implicit-function gradient. The inside case (no sign change) is
-    masked to 0 by ``xp.where``; its bisection value stays finite so the eager
-    dead branch never poisons AD.
+    parameters (as ``lowerlim`` is called). The lower limit is the largest root
+    of the cubic ``lowerlim`` solves with ``numpy.roots`` when the point is
+    outside (``g(0) > 0`` for ``g(t) = x/(a+t) + y/(b+t) + z/(c+t) - 1``), else 0.
+    Its three roots are real (one per pole interval of ``g``), so the largest is
+    the trigonometric closed form, held constant and Newton-polished once on
+    ``g``: machine precision, and the implicit-function gradient. A bisection
+    cost ~42 eager ``g`` evaluations per call, and the forces take ~19 calls.
+    Inside points polish at ``t = 0`` (finite) and are masked to 0.
     """
     outside = (x / a + y / b + z / c) > 1.0
-    hi = x + y + z + a + b + c
-
-    def g(t):
-        return x / (a + t) + y / (b + t) + z / (c + t) - 1.0
-
-    root = brentq(g, zeros_like_backend(xp, hi), hi)
+    B = a + b + c - x - y - z
+    C = a * b + a * c + b * c - a * y - a * z - b * x - b * z - c * x - c * y
+    D = a * b * c - a * b * z - a * c * y - b * c * x
+    # t = s - B/3: s^3 + p s + q = 0 with p < 0 (three real roots)
+    p = C - B**2 / 3.0
+    q = 2.0 * B**3 / 27.0 - B * C / 3.0 + D
+    m = xp.sqrt(xp.maximum(-p / 3.0, 1e-300 * xp.ones_like(p)))
+    cos3 = xp.clip(-q / (2.0 * m**3), -1.0, 1.0)
+    t0 = stop_gradient(2.0 * m * xp.cos(xp.acos(cos3) / 3.0) - B / 3.0)
+    t0 = xp.where(outside, t0, xp.zeros_like(t0))
+    fx0 = x / (a + t0) + y / (b + t0) + z / (c + t0) - 1.0
+    dfx0 = -(x / (a + t0) ** 2 + y / (b + t0) ** 2 + z / (c + t0) ** 2)
+    root = newton_polish(t0, fx0, dfx0, xp)
     return xp.where(outside, root, xp.zeros_like(root))

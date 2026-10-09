@@ -170,6 +170,42 @@ def as_backend_constant(xp, value, ref):
         return xp.asarray(value, dtype=dtype)
 
 
+def _host_eval_eager(f, a):
+    from ._namespaces import as_numpy
+
+    out = numpy.asarray(f(as_numpy(a)))
+    return as_backend_constant(namespace_from_arrays((a,)), out, a)
+
+
+def host_eval(f, a):
+    """The numpy-only, elementwise function ``f`` evaluated on the backend array
+    ``a``, anchored back on ``a``'s backend/dtype/device (no gradient).
+
+    For callables galpy cannot run in the backend, e.g. a user's astropy-units
+    density. Eager, ``a``'s values go through numpy. Traced, there are none:
+    ``jax.jit`` gets a ``jax.pure_callback`` (differentiating through it raises,
+    as the eager numpy conversion does) and ``torch.compile`` runs the eager
+    evaluation outside the graph.
+    """
+    import sys
+
+    from ._namespaces import under_jax_trace
+    from ._tracectx import is_compiling
+
+    if under_jax_trace(a):
+        import jax
+
+        return jax.pure_callback(
+            lambda v: numpy.asarray(f(numpy.asarray(v)), dtype=v.dtype),
+            jax.ShapeDtypeStruct(a.shape, a.dtype),
+            a,
+            vmap_method="expand_dims",
+        )
+    if is_compiling():
+        return sys.modules["torch"].compiler.disable(_host_eval_eager)(f, a)
+    return _host_eval_eager(f, a)
+
+
 def scalar_like(ref, value):
     """``as_backend_constant`` for a numpy SCALAR ``value`` when ``ref`` is a torch
     tensor; anything else (Python scalars, numpy/jax ``ref``) is returned
