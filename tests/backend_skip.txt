@@ -54,11 +54,12 @@ torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
 
 # --- (b) retired 2026-10-09: none of the four was a floor. Each recomputed the
 # same thing per call (local, shared machine, eager jax, before -> after):
-#   liouville_planar[Ferrers]          493 -> ~45 s  lambda root by closed form,
-#                                      one fused quadrature per call (19 -> 5)
-#   analytic_zmax[RazorThinExpDisk]    337 -> ~115 s / analytic_ecc_rperi_rap
-#                                      280 -> ~60 s  Bessel K regimes/panels
-#                                      shared, dead where-branches skipped, the
-#                                      Orbit aA cache no longer rebuilt per call
-#   dxdv_3d_c_vs_python[RotTilt...]    529 -> ~82 s  eager value memo: one inner
-#                                      Hessian per point instead of 36
+#   liouville_planar[Ferrers]        493 -> 33 s   closed-form lambda root; all
+#                                    derivatives at a point in one quadrature,
+#                                    memoized (19 bisections + quads per EOM -> 1)
+#   analytic_zmax[RazorThinExpDisk]  337 -> 129 s  force panels shared by Rforce
+#   analytic_ecc_rperi_rap[same]     280 -> 51 s   and zforce, dead where-sides
+#                                    skipped, one Bessel K pass for K0 and K1,
+#                                    Orbit aA cache no longer rebuilt per call
+#   dxdv_3d_c_vs_python[RotTilt...]  529 -> 96 s   eager value memo: one inner
+#                                    Hessian per point instead of 36

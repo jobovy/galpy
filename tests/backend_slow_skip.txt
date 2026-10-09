@@ -79,8 +79,9 @@
 # another micro-optimisation. (torchdiffeq was tried and is far slower; see
 # tests/conftest.py::_inbackend_method.)
 # RETIRED 2026-10-09 by shortening that leg under torch to 2 tau / 50 (r still
-# decays 4%, 40x the 1e-3 tolerance): 446 -> 53 s local. A TEST-SIZE change --
-# the per-step floor is ~2x numpy's own 190 us/EOM, so no galpy fix gets there.
+# decays 4%, 40x the 1e-3 tolerance): 446 -> ~52 s local (torch-jit ~62 s).
+# A TEST-SIZE change -- the per-step floor is ~2x numpy's own 190 us/EOM, so no
+# galpy fix gets there.
 
 # calling the DECORATED evaluateDensities once per force evaluation (98,800 @backend_input
 # crossings for a five-point integration -> 0). Its sibling const_FDMfactor went 253.1 -> 188.6s
@@ -338,7 +339,7 @@
 # locally 340-379 s eager, 352 s traced. numpy (and torch, ~20 s) cover it.
 # RETIRED 2026-10-09: under jax the Python arm integrates with diffrax
 # (_inbackend_method, as the FDM tests do) and the KK force shares its square
-# roots: ~9 s local.
+# roots: ~5 s local, eager and traced.
 
 # --- jax-jit: measured under `--backend jax --jit`, 2026-08-09 ---
 # These exist because the slow-skip list no longer inherits eager entries (see
@@ -447,7 +448,7 @@
 # was rebuilt on every e/rperi/rap call (the staeckel request never matched the
 # spherical fallback it set up: 5 aA setups for 5 calls -> 1), bracket expansion
 # ran all 80 steps past its fixed point, and E1 was evaluated twice per Phi:
-# 453 -> 67 s traced, 363 -> 61 s eager (local).
+# 453 -> ~60 s traced, 363 -> ~67 s eager (local, shared machine).
 
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
