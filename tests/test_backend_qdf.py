@@ -787,3 +787,51 @@ def test_sampleV_interpolate_float32_default_matches_float64(torch_default_float
     finally:
         torch.set_default_dtype(torch.float32)
     numpy.testing.assert_array_equal(got32, got64)
+
+
+_QDF_FLOAT_QUANTITIES = {
+    "sigmaR2": lambda d: d.sigmaR2(0.9, 0.05, use_physical=False),
+    "pvR": lambda d: d.pvR(0.1, 0.9, 0.05),
+}
+
+
+@pytest.fixture(scope="module")
+def qdf_sr_fd(aAS14):
+    """Each quantity as a function of sr, with its converged d/d(sr) at 0.2."""
+    from galpy.potential import MWPotential2014
+
+    out = {}
+    for name, q in _QDF_FLOAT_QUANTITIES.items():
+        f = lambda sr, q=q: q(  # noqa: E731
+            quasiisothermaldf(
+                1.0 / 3.0, sr, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=aAS14
+            )
+        )
+        fd = [(f(0.2 + h) - f(0.2 - h)) / (2.0 * h) for h in (1e-5, 1e-6)]
+        # converged: measured 1.6e-10 (sigmaR2), 5.4e-10 (pvR)
+        assert abs(fd[0] - fd[1]) < 2e-9 * abs(fd[1])
+        out[name] = (f, fd[0])
+    return out
+
+
+@pytest.mark.parametrize("name", list(_QDF_FLOAT_QUANTITIES))
+@pytest.mark.parametrize(
+    "mode",
+    (["jax", "jit"] if "jax" in BACKENDS else [])
+    + (["torch"] if "torch" in BACKENDS else []),
+)
+def test_float_coordinates_follow_traced_parameter(
+    mode, name, qdf_sr_fd, torch_default_float32
+):
+    # A differentiated sr is the data at Python-float (R,z): the moments and
+    # p(v) resolved numpy from the coordinates and met the traced parameter.
+    # torch at its float32 default: the parameter alone must give the float64
+    # interior (zeros(n) at the default dtype cut it to float32: 3e-8).
+    f, fd = qdf_sr_fd[name]
+    if mode == "torch":
+        sr = torch.tensor(0.2, dtype=torch.float64, requires_grad=True)
+        (g,) = torch.autograd.grad(f(sr), sr)
+    else:
+        g = (jax.jit(jax.grad(f)) if mode == "jit" else jax.grad(f))(0.2)
+    # measured <= 5e-10 vs h=1e-5 (all modes)
+    numpy.testing.assert_allclose(float(g), fd, rtol=2e-9)
