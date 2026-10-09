@@ -105,8 +105,8 @@ Quick-start guide
       a simple orbit.
 
    .. grid-item-card:: JAX and PyTorch Backends
-      :img-top: images/tutorials/backends_quickstart.png
-      :link: tutorials/backends/quickstart
+      :img-top: images/tutorials/getting_started_backends.png
+      :link: tutorials/getting_started/backends
       :link-type: doc
 
       Compute with JAX arrays and PyTorch tensors, take derivatives
@@ -179,6 +179,15 @@ Potentials
       Export galpy potentials to NEMO, AMUSE, AGAMA, and gala
       for use in other simulation frameworks.
 
+   .. grid-item-card:: JAX and PyTorch
+      :img-top: images/tutorials/potentials_backends.png
+      :link: tutorials/potentials/backends
+      :link-type: doc
+
+      Evaluate potentials on backend arrays, differentiate with respect
+      to coordinates and parameters, compile and vectorize, use GPUs, and
+      write new potentials for every backend.
+
 Orbits
 ^^^^^^
 
@@ -246,6 +255,15 @@ Orbits
       LMC orbit with dynamical friction,
       and barycentric acceleration from the LMC.
 
+   .. grid-item-card:: JAX and PyTorch
+      :img-top: images/tutorials/orbits_backends.png
+      :link: tutorials/orbits/backends
+      :link-type: doc
+
+      Integrate orbits with diffrax, torchode, and torchdiffeq,
+      differentiate them with respect to initial conditions and
+      potential parameters, and use the C state-transition matrix.
+
 Action-Angle Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -302,6 +320,15 @@ Action-Angle Coordinates
       Compute phase-space coordinates from given actions and angles
       using the Torus Mapper.
 
+   .. grid-item-card:: JAX and PyTorch
+      :img-top: images/tutorials/action_angle_backends.png
+      :link: tutorials/action_angle/backends
+      :link-type: doc
+
+      Derivatives of Staeckel, adiabatic, spherical, and
+      isochrone-approximation actions, and of the inverse transformation
+      of actionAngleVerticalInverse.
+
 
 Distribution Functions
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -337,6 +364,14 @@ Distribution Functions
       Includes N-body initial conditions for a truncated NFW halo and a
       two-component dwarf galaxy (stars embedded in dark matter).
 
+   .. grid-item-card:: JAX and PyTorch
+      :img-top: images/tutorials/distribution_functions_backends.png
+      :link: tutorials/distribution_functions/backends
+      :link-type: doc
+
+      Sample with random keys, differentiate samples, the King model's
+      derivative with respect to W0, and disk DFs.
+
 Tidal Streams
 ^^^^^^^^^^^^^
 
@@ -360,70 +395,22 @@ Tidal Streams
       Generate tidal streams using particle-spray techniques with
       chen24spraydf and fardal15spraydf.
 
-JAX and PyTorch Backends
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. grid:: 1 2 3 4
-   :gutter: 4
-
-   .. grid-item-card:: Quick Start
-      :img-top: images/tutorials/backends_quickstart.png
-      :link: tutorials/backends/quickstart
+   .. grid-item-card:: streamdf with JAX and PyTorch
+      :img-top: images/tutorials/streams_backends_streamdf.png
+      :link: tutorials/streams/backends_streamdf
       :link-type: doc
 
-      How galpy chooses between NumPy, JAX, and PyTorch, and a first
-      derivative.
+      The action-angle stream model and stream gaps in JAX: construction
+      under jax.jit, tracks, and derivatives with respect to the potential
+      and the subhalo's parameters.
 
-   .. grid-item-card:: Potentials
-      :img-top: images/tutorials/backends_potentials.png
-      :link: tutorials/backends/potentials
+   .. grid-item-card:: Particle Spray with JAX
+      :img-top: images/tutorials/streams_backends_streamspraydf.png
+      :link: tutorials/streams/backends_streamspraydf
       :link-type: doc
 
-      Evaluate potentials on backend arrays, differentiate with respect
-      to coordinates and parameters, compile and vectorize, use GPUs, and
-      write new potentials for every backend.
-
-   .. grid-item-card:: Orbits
-      :img-top: images/tutorials/backends_orbits.png
-      :link: tutorials/backends/orbits
-      :link-type: doc
-
-      Integrate orbits with diffrax, torchode, and torchdiffeq,
-      differentiate them with respect to initial conditions and
-      potential parameters, and use the C state-transition matrix.
-
-   .. grid-item-card:: Action-Angle Coordinates
-      :img-top: images/tutorials/backends_action_angle.png
-      :link: tutorials/backends/action_angle
-      :link-type: doc
-
-      Derivatives of Staeckel, adiabatic, spherical, and
-      isochrone-approximation actions, and of the inverse transformation
-      of actionAngleVerticalInverse.
-
-   .. grid-item-card:: Distribution Functions
-      :img-top: images/tutorials/backends_distribution_functions.png
-      :link: tutorials/backends/distribution_functions
-      :link-type: doc
-
-      Sample with random keys, differentiate samples, the King model's
-      derivative with respect to W0, and disk DFs.
-
-   .. grid-item-card:: Streams: streamdf and Gaps
-      :img-top: images/tutorials/backends_streams_streamdf.png
-      :link: tutorials/backends/streams_streamdf
-      :link-type: doc
-
-      The action-angle stream model on the backends, the derivative of
-      its track with respect to the potential, and stream gaps.
-
-   .. grid-item-card:: Streams: Particle Spray
-      :img-top: images/tutorials/backends_streams_streamspraydf.png
-      :link: tutorials/backends/streams_streamspraydf
-      :link-type: doc
-
-      Particle-spray streams under jax.jit and their derivatives with
-      respect to the potential.
+      Particle-spray streams and their tracks under jax.jit, and their
+      derivatives with respect to the potential.
 
 Extending galpy
 ^^^^^^^^^^^^^^^
