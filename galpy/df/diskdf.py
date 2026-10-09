@@ -205,6 +205,8 @@ class diskdf(df):
         - 2010-07-10 - Written - Bovy (NYU)
         """
         if isinstance(args[0], Orbit):
+            # _stored=True: the orbit's own coordinates (numpy for a numpy
+            # orbit), not the accessors' forced-backend lift
             if len(args[0]) > 1:
                 raise RuntimeError(
                     "Only single-object Orbit instances can be passed to DF instances at this point"
@@ -218,9 +220,9 @@ class diskdf(df):
                     return self._real(
                         self.eval(
                             *vRvTRToEL(
-                                args[0].vR(use_physical=False),
-                                args[0].vT(use_physical=False),
-                                args[0].R(use_physical=False),
+                                args[0].vR(use_physical=False, _stored=True),
+                                args[0].vT(use_physical=False, _stored=True),
+                                args[0].R(use_physical=False, _stored=True),
                                 self._beta,
                                 self._dftype,
                             )
@@ -231,9 +233,9 @@ class diskdf(df):
                 return self._real(
                     self.eval(
                         *vRvTRToEL(
-                            no.vR(use_physical=False),
-                            no.vT(use_physical=False),
-                            no.R(use_physical=False),
+                            no.vR(use_physical=False, _stored=True),
+                            no.vT(use_physical=False, _stored=True),
+                            no.R(use_physical=False, _stored=True),
                             self._beta,
                             self._dftype,
                         )
@@ -245,9 +247,9 @@ class diskdf(df):
                     "Only single-object Orbit instances can be passed to DF instances at this point"
                 )  # pragma: no cover
             # Grab all of the vR, vT, and R
-            vR = numpy.array([o.vR(use_physical=False) for o in args[0]])
-            vT = numpy.array([o.vT(use_physical=False) for o in args[0]])
-            R = numpy.array([o.R(use_physical=False) for o in args[0]])
+            vR = numpy.array([o.vR(use_physical=False, _stored=True) for o in args[0]])
+            vT = numpy.array([o.vT(use_physical=False, _stored=True) for o in args[0]])
+            R = numpy.array([o.R(use_physical=False, _stored=True) for o in args[0]])
             return self._real(
                 self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype))
             )
