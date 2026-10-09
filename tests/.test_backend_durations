@@ -3240,6 +3240,8 @@
 "tests/test_backend_streamgapdf.py::test_full_construction_on_jax_matches_numpy": 325.0,
 "tests/test_backend_streamgapdf.py::test_full_construction_grad_subhalo_params_vs_fd": 80.0,
 "tests/test_backend_streamgapdf.py::test_full_construction_under_jit": 231.0,
+"tests/test_backend_streamgapdf.py::test_impact_grad_timpact_q_vs_fd[timpact]": 285.0,
+"tests/test_backend_streamgapdf.py::test_impact_grad_timpact_q_vs_fd[q]": 240.0,
 "tests/test_backend_streamgapdf.py::test_gapdf_eval_broadcasts_over_dangle[jax]": 2.0,
 "tests/test_backend_streamgapdf.py::test_gapdf_eval_broadcasts_over_dangle[torch]": 1.0,
 "tests/test_backend_streamgapdf.py::test_impact_arm_is_structural_under_a_trace": 0.2,
