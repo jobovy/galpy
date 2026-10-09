@@ -322,6 +322,24 @@ def _value_key(a):
     return (type(a).__module__, str(v.dtype), str(device_of(a)), v.shape, v.tobytes())
 
 
+def _carries_grad(obj, depth=0):
+    """Whether a parameter of ``obj`` (or of a galpy object it holds, as
+    ``_jit._object_key`` recurses) is a grad-tracking tensor or a jax tracer:
+    a result built on it carries the graph, so there is nothing to reuse."""
+    for attr in vars(obj).values():
+        if requires_backend_grad(attr) or under_jax_trace(attr):
+            return True
+        if (
+            depth < 3
+            and type(attr).__module__.startswith("galpy.")
+            and hasattr(attr, "__dict__")
+            and not isinstance(attr, type)
+            and _carries_grad(attr, depth + 1)
+        ):
+            return True
+    return False
+
+
 def _leaves(out):
     if isinstance(out, (tuple, list)):
         return [leaf for o in out for leaf in _leaves(o)]
@@ -336,14 +354,15 @@ def eager_value_memo(owner, slot, args, compute):
     coordinate values and on ``owner``'s parameters (as a jit static key is, so
     a re-normalized potential recomputes). Never under a trace (no values; no
     state), and a result carrying a graph or a tracer is not kept (reusing it
-    could re-run a freed backward or leak the tracer). Held off-instance
+    could re-run a freed backward or leak the tracer; a differentiated
+    parameter skips the memo up front). Held off-instance
     (weakly), so it is neither pickled nor part of a jit static key.
     """
     global _EAGER_MEMOS
     from ._jit import _object_key
     from ._tracectx import is_compiling
 
-    if is_compiling() or under_trace(*args):
+    if is_compiling() or under_trace(*args) or _carries_grad(owner):
         return compute()
 
     if _EAGER_MEMOS is None:

@@ -189,13 +189,9 @@ class RazorThinExponentialDiskPotential(Potential):
                 R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
                 z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
                 y = 0.5 * self._alpha * R_safe
+                k0y, k1y = bspecial.k0k1(y)
                 inplane_val = (
-                    -math.pi
-                    * R_safe
-                    * (
-                        bspecial.i0(y) * bspecial.k1(y)
-                        - bspecial.i1(y) * bspecial.k0(y)
-                    )
+                    -math.pi * R_safe * (bspecial.i0(y) * k1y - bspecial.i1(y) * k0y)
                 )
             if live_off:
                 kalphamax = 10.0
@@ -247,14 +243,9 @@ class RazorThinExponentialDiskPotential(Potential):
                 R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
                 z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
                 y = 0.5 * self._alpha * R_safe
+                k0y, k1y = bspecial.k0k1(y)
                 inplane_val = (
-                    -2.0
-                    * math.pi
-                    * y
-                    * (
-                        bspecial.i0(y) * bspecial.k0(y)
-                        - bspecial.i1(y) * bspecial.k1(y)
-                    )
+                    -2.0 * math.pi * y * (bspecial.i0(y) * k0y - bspecial.i1(y) * k1y)
                 )
             if live_off:
                 (
@@ -316,7 +307,7 @@ class RazorThinExponentialDiskPotential(Potential):
             inplane = xp.abs(z) < 10.0**-6.0
             y = 0.5 * self._alpha * R
             i0y, i1y = bspecial.i0(y), bspecial.i1(y)
-            k0y, k1y = bspecial.k0(y), bspecial.k1(y)
+            k0y, k1y = bspecial.k0k1(y)
             val = math.pi * self._alpha * (
                 i0y * k0y - i1y * k1y
             ) + math.pi / 4.0 * self._alpha**2.0 * R * (
