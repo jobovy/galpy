@@ -1085,3 +1085,86 @@ def test_backend_impact_angle_value(_gapdf_kick):
         got = _chain_kick(sdf, "impact_angle", jnp.asarray(-2.34))
     assert is_backend_array(sdf._impact_angle)
     numpy.testing.assert_allclose(numpy.asarray(as_numpy(got)), ref, rtol=1e-12)
+
+
+def _impact_tail(sdf, timpact, q=None):
+    """Re-run the constructor from the impact on a copy of a built object.
+
+    timpact first enters at the impact stage, so for it this IS the full model
+    (bar the unperturbed track, which does not depend on it). For q it is the
+    model with the unperturbed setup (progenitor frequencies, frequency
+    covariance) held fixed: the impact-time gap track, its action-angle
+    Jacobians (second derivatives of isochroneApprox) and the kicks."""
+    import copy
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.potential import LogarithmicHaloPotential
+
+    s = copy.copy(sdf)
+    for cached in ("_kick_interpolatedThetasTrack", "_kick_interpolatedObsTrackAA"):
+        s.__dict__.pop(cached, None)  # else the kick stage returns the cached ones
+    if q is not None:
+        s._pot = LogarithmicHaloPotential(normalize=1.0, q=q)
+        s._aA = actionAngleIsochroneApprox(
+            pot=s._pot, b=0.8, tintJ=20.0, ntintJ=1000, integrate_method="diffrax"
+        )
+    kw = _full_kwargs()
+    with use("jax", force=True):
+        s._determine_deltaAngleTrackImpact(None, timpact)
+        s._determine_impact_coordtransform(
+            s._deltaAngleTrackImpact,
+            kw["nTrackChunksImpact"],
+            timpact,
+            kw["impact_angle"],
+        )
+        s._determine_deltav_kick(
+            kw["impact_angle"],
+            kw["impactb"],
+            kw["subhalovel"],
+            kw["GM"],
+            kw["rs"],
+            None,
+            3,
+            False,
+        )
+        s._determine_deltaOmegaTheta_kick(3)
+        d = jnp.asarray(_FULL_DANGLES)
+        return {
+            "density": s._density_par(d),
+            "meanOmega": s.meanOmega(d, oned=True, use_physical=False),
+            "kick_dOap": s._kick_dOap,
+            "gap_alljacsTrack": s._gap_alljacsTrack,
+            "gap_ObsTrack": s._gap_ObsTrack,
+        }
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("param", ["timpact", "q"])
+def test_impact_grad_timpact_q_vs_fd(_full_pair, param):
+    # d/d(timpact) and d/dq through the impact stage vs a central FD of re-runs:
+    # second derivatives of isochroneApprox (the gap track's AA Jacobians), which
+    # the arccos/arcsin isochrone angles (before #1654) got wrong by up to 1.6e-4.
+    # Measured vs Richardson-extrapolated FD: <= 5e-9 for every output; this
+    # single step is good to ~2e-7.
+    _, bk = _full_pair
+    t0 = _full_kwargs()["timpact"]
+    if param == "timpact":
+        x0 = t0
+
+        def f(x):
+            return _impact_tail(bk, x)
+    else:
+        x0 = 0.9
+
+        def f(x):
+            return _impact_tail(bk, t0, q=x)
+
+    ad = jax.jacfwd(f)(x0)
+    h = 2e-5 * x0
+    plus, minus = f(jnp.asarray(x0 + h)), f(jnp.asarray(x0 - h))
+    for k in ad:
+        fd = (numpy.asarray(plus[k]) - numpy.asarray(minus[k])) / (2.0 * h)
+        scale = numpy.max(numpy.abs(fd))
+        err = numpy.max(numpy.abs(numpy.asarray(ad[k]) - fd)) / scale
+        assert err < 1e-6, f"d({k})/d({param}): AD vs FD {err:.2e}"
