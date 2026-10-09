@@ -7,6 +7,8 @@
 # moments / dM/dE, grad-vs-FD, and the numpy-side sampling contract (numpy RNG
 # draws unchanged under a forced backend; outputs are numpy arrays).
 ###############################################################################
+import contextlib
+
 import numpy
 import pytest
 
@@ -1145,12 +1147,12 @@ def test_pot_grad_namespace_any_backend_keyword():
 # the same gradient-carrying path: constantbetadf's plain path integrates fE by
 # scipy-adaptive quadrature, whose tolerance jitters the samples at ~5e-6 --
 # amplified to several % by an h=1e-4 difference.
-def _sample_rv2(backend, dfname, a, rmax, rmin):
+def _sample_rv2(backend, dfname, a, rmax, rmin, ctx=True, dfkw=None):
     from galpy.df import constantbetadf, osipkovmerrittdf
 
-    with use(backend, force=True):
+    with use(backend, force=True) if ctx else contextlib.nullcontext():
         pot = HernquistPotential(amp=2.0, a=a)
-        kw = {} if rmax is None else {"rmax": rmax}
+        kw = dict(dfkw or {}, **({} if rmax is None else {"rmax": rmax}))
         if dfname == "constantbeta":
             d = constantbetadf(pot=pot, beta=-0.2, **kw)
         elif dfname == "osipkovmerritt":
@@ -1161,17 +1163,17 @@ def _sample_rv2(backend, dfname, a, rmax, rmin):
         return o.r(), o.vR() ** 2.0 + o.vT() ** 2.0 + o.vz() ** 2.0
 
 
-def _sample_rv2_jvp(backend, dfname, a, rmax, rmin):
+def _sample_rv2_jvp(backend, dfname, a, rmax, rmin, ctx=True, dfkw=None):
     """Per-sample (value, d/da) of (r, v^2) on the gradient-carrying path."""
     if backend == "jax":
         (r, v2), (dr, dv2) = jax.jvp(
-            lambda a: _sample_rv2("jax", dfname, a, rmax, rmin),
+            lambda a: _sample_rv2("jax", dfname, a, rmax, rmin, ctx, dfkw),
             (jnp.asarray(a),),
             (jnp.asarray(1.0),),
         )
         return [numpy.asarray(x) for x in (r, v2, dr, dv2)]
     at = torch.tensor(a, requires_grad=True)
-    r, v2 = _sample_rv2("torch", dfname, at, rmax, rmin)
+    r, v2 = _sample_rv2("torch", dfname, at, rmax, rmin, ctx, dfkw)
     grads = [
         numpy.array(
             [
@@ -1219,6 +1221,45 @@ def test_sample_grad_wrt_potential_parameter(backend, dfname, rmax, rmin):
         # Hernquist's CMF is self-similar in r/a, so with no truncation r_i is
         # EXACTLY a * const (eddingtondf defaults to rmax=1e4, which breaks it)
         numpy.testing.assert_allclose(dr, r / a0, rtol=1e-10)
+
+
+# The differentiated parameter is the data: the same samples and derivatives
+# come out without a use() block, eagerly and under jax.jit (which needs the
+# DF's rmin= set: Phi(0) has no value there).
+_SAMPLE_NOCTX_CASES = [
+    (backend, dfname)
+    for backend in BACKENDS
+    for dfname in ("constantbeta", "eddington", "osipkovmerritt")
+]
+
+
+@pytest.mark.parametrize("backend,dfname", _SAMPLE_NOCTX_CASES)
+def test_sample_grad_wrt_potential_parameter_without_use(backend, dfname):
+    # vs the use() path, which the test above checks against finite differences
+    args = (backend, dfname, 1.2, 8.0, 0.1)
+    ref = _sample_rv2_jvp(*args, dfkw={"rmin": 0.0})
+    got = _sample_rv2_jvp(*args, ctx=False, dfkw={"rmin": 0.0})
+    for g, r in zip(got, ref):
+        numpy.testing.assert_allclose(g, r, rtol=1e-12, atol=0.0)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("dfname", ["constantbeta", "eddington", "osipkovmerritt"])
+def test_sample_grad_wrt_potential_parameter_without_use_under_jit(dfname):
+    f = jax.jit(
+        lambda a: jax.jvp(
+            lambda a: _sample_rv2("jax", dfname, a, 8.0, 0.1, False, {"rmin": 0.0}),
+            (a,),
+            (jnp.asarray(1.0),),
+        )
+    )
+    a0, h = 1.2, 3e-4
+    _, (dr, dv2) = f(jnp.asarray(a0))
+    (rp, v2p), _ = f(jnp.asarray(a0 + h))
+    (rm, v2m), _ = f(jnp.asarray(a0 - h))
+    # measured 1.3e-6 (r) and 8.1e-7 (v^2); FD noise floor ~7e-6 at h=1e-3
+    numpy.testing.assert_allclose(dr, (rp - rm) / (2.0 * h), rtol=3e-6)
+    numpy.testing.assert_allclose(dv2, (v2p - v2m) / (2.0 * h), rtol=2e-6)
 
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")

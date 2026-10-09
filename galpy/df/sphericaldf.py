@@ -29,6 +29,7 @@ from ..backend import (
     as_numpy_constant,
     asarray_on_device,
     backend_input,
+    coerce_coords,
     device_of,
     exit_cast,
     float64_default_if_torch_args,
@@ -60,6 +61,7 @@ from ..potential import (
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
+    _pot_data_namespace,
     _pot_grad_namespace,
 )
 from ..potential.SCFPotential import _RToxi, _xiToR
@@ -121,9 +123,8 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         return conversion.parse_length(rmin, ro=ro)
 
     # Check if potential diverges at r=0
-    xp = get_namespace()  # context/forced default only (inputs are scalars)
-    if xp is numpy:  # a differentiated potential parameter is the data
-        xp = _pot_grad_namespace(pot) or numpy
+    # context/forced default, else a differentiated potential parameter's
+    xp = _pot_data_namespace((pot,))
     if xp is numpy:
         phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
         is_divergent = not numpy.isfinite(phi_at_zero)
@@ -574,7 +575,8 @@ class sphericaldf(df):
                 sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
             )
         )
-        xp = get_namespace()  # context/forced default only (grid is numpy)
+        # context/forced default, else a differentiated potential parameter's
+        xp = _pot_data_namespace((self._pot,))
         gxp = None if xp is numpy else _pot_grad_namespace(self._pot)
         if gxp is not None:
             # differentiated potential: knots AND values stay on-backend
@@ -700,7 +702,7 @@ class sphericaldf(df):
         # physical_conversion/backend_input decorator order enforced by
         # test_backend_conventions; this method carries no units decorator to
         # reorder, so the split is done by hand.
-        out = self._vmomentdensity_backend(r, n, m)
+        out = self._vmomentdensity_backend(self._r_on_params(r), n, m)
         if use_physical and vo is not None and ro is not None:
             fac = conversion.mass_in_msol(vo, ro) * vo ** (n + m) / ro**3
             if _optional_deps._APY_UNITS:
@@ -712,6 +714,12 @@ class sphericaldf(df):
                 return out * fac
         else:
             return out
+
+    def _r_on_params(self, r):
+        """``r`` on a differentiated (potential / tracer) parameter's namespace:
+        a Python-float r then needs no use() block (numpy path: unchanged)."""
+        xp = _pot_data_namespace((self._pot, self._denspot), r)
+        return coerce_coords(xp, r)[0]
 
     @backend_input("r")
     def _vmomentdensity_backend(self, r, n, m):
@@ -800,7 +808,9 @@ class sphericaldf(df):
         # Potentials avoid this because @potential_physical_input strips input
         # units outside the boundary; these df methods parse inline, so the
         # parse is hoisted and only the compute is traced.
-        return self._sigmar_backend(conversion.parse_length(r, ro=self._ro))
+        return self._sigmar_backend(
+            self._r_on_params(conversion.parse_length(r, ro=self._ro))
+        )
 
     @backend_input("r")
     def _sigmar_backend(self, r):
@@ -831,7 +841,9 @@ class sphericaldf(df):
 
         """
         # units parsed outside the boundary -- see sigmar
-        return self._sigmat_backend(conversion.parse_length(r, ro=self._ro))
+        return self._sigmat_backend(
+            self._r_on_params(conversion.parse_length(r, ro=self._ro))
+        )
 
     @backend_input("r")
     def _sigmat_backend(self, r):
@@ -867,7 +879,9 @@ class sphericaldf(df):
 
         """
         # units parsed outside the boundary -- see sigmar
-        return self._beta_backend(conversion.parse_length(r, ro=self._ro))
+        return self._beta_backend(
+            self._r_on_params(conversion.parse_length(r, ro=self._ro))
+        )
 
     @backend_input("r")
     def _beta_backend(self, r):
@@ -1101,7 +1115,8 @@ class sphericaldf(df):
 
         so that xi is in the range [-1,1], which corresponds to an r range of
         [0,infinity)"""
-        xp = get_namespace()  # forced/context default only (inputs are scalars)
+        # forced/context default, else a differentiated parameter's
+        xp = _pot_data_namespace((self._pot, self._denspot))
         # This table is the NUMPY sampling grid (scipy interpolators downstream),
         # so the scale has to arrive as numpy. A differentiated potential makes
         # self._scale a backend array, and numpy-key sampling runs inside
@@ -1603,9 +1618,8 @@ class sphericaldf(df):
         """
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
-        xp = get_namespace()  # context/forced default only (the grid is numpy)
-        if xp is numpy:  # a differentiated potential parameter is the data
-            xp = _pot_grad_namespace(self._pot) or numpy
+        # context/forced default, else a differentiated potential parameter's
+        xp = _pot_data_namespace((self._pot,))
         _probe = (
             _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
             if xp is not numpy
