@@ -414,8 +414,8 @@ JAX and PyTorch Backends
       :link: tutorials/backends/streams_streamdf
       :link-type: doc
 
-      The action-angle stream model and the stream-gap kick kernels on
-      the backends.
+      The action-angle stream model on the backends, the derivative of
+      its track with respect to the potential, and stream gaps.
 
    .. grid-item-card:: Streams: Particle Spray
       :img-top: images/tutorials/backends_streams_streamspraydf.png
