@@ -21,9 +21,13 @@ import pytest
 from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.potential import (
+    BurkertPotential,
     HernquistPotential,
+    IsochronePotential,
+    KuzminKutuzovStaeckelPotential,
     LogarithmicHaloPotential,
     MiyamotoNagaiPotential,
+    NFWPotential,
 )
 
 # This module manages backends explicitly; exempt from the global --backend
@@ -692,3 +696,45 @@ def test_vcirc_python_float_R_follows_traced_parameter(mode):
         (g,) = torch.autograd.grad(vc(a), a)
         g = float(g)
     numpy.testing.assert_allclose(g, fd[1], rtol=1e-9)
+
+
+_NORMALIZE_POTS = {
+    "Isochrone": lambda p: IsochronePotential(b=p, normalize=1.0),
+    "NFW": lambda p: NFWPotential(a=p, normalize=1.0),
+    "Burkert": lambda p: BurkertPotential(a=p, normalize=1.0),
+    "MiyamotoNagai_b": lambda p: MiyamotoNagaiPotential(a=0.5, b=p, normalize=1.0),
+    "KuzminKutuzov": lambda p: KuzminKutuzovStaeckelPotential(Delta=p, normalize=1.0),
+}
+
+
+@pytest.mark.parametrize("name", list(_NORMALIZE_POTS))
+@pytest.mark.parametrize(
+    "mode",
+    (["grad", "jit_grad", "vmap"] if _HAS_JAX else [])
+    + (["torch"] if _HAS_TORCH else []),
+)
+def test_normalize_with_differentiated_parameter(mode, name):
+    """normalize= with a differentiated parameter: Rforce(R=1) is evaluated on
+    the parameter's namespace (it ran on numpy at the Python float R=1 and met
+    the tracer / grad tensor). vs a converged central difference."""
+
+    def F(p, R):
+        return _NORMALIZE_POTS[name](p).Rforce(R, 0.1, use_physical=False)
+
+    def fd(p0):
+        d = [(F(p0 + h, 1.3) - F(p0 - h, 1.3)) / (2.0 * h) for h in (1e-4, 1e-5)]
+        assert abs(d[0] - d[1]) < 1e-8 * abs(d[1])  # converged (measured <=3.5e-9)
+        return d[1]
+
+    if mode == "torch":
+        p = torch.tensor(0.8, dtype=torch.float64, requires_grad=True)
+        (g,) = torch.autograd.grad(F(p, torch.tensor(1.3, dtype=torch.float64)), p)
+        g, ref = [float(g)], [fd(0.8)]
+    else:
+        gf = jax.grad(lambda p: F(p, jnp.asarray(1.3)))
+        if mode == "vmap":
+            g, ref = jax.vmap(gf)(jnp.asarray([0.8, 0.9])), [fd(0.8), fd(0.9)]
+        else:
+            g, ref = [(jax.jit(gf) if mode == "jit_grad" else gf)(0.8)], [fd(0.8)]
+    # measured <= 1.4e-10
+    numpy.testing.assert_allclose(numpy.asarray(g, dtype=float), ref, rtol=1e-9)
