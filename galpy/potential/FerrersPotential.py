@@ -489,38 +489,23 @@ def _forceInt(x, y, z, a2, b2, c2, n, i):
     A = sqrt((tau+a)(tau+b)(tau+c)) and B = (1-x^2/(tau+a)-y^2/(tau+b)-z^2/(tau+c))
     from lambda to infty with respect to tau.
     The lower limit lambda is given by lowerlim function.
-    numpy inputs use scipy.integrate.quad (byte-identical); backend inputs use a
-    fixed-order Gauss-Legendre semi-infinite quadrature (jit/grad-safe).
+    numpy only (scipy.integrate.quad): backend forces are all computed with the
+    other derivatives at the point, by :func:`_derivInts_backend`.
     """
-    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
-
-        def integrand(tau):
-            return (
-                (x * (i == 0) + y * (i == 1) + z * (i == 2))
-                / (a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2) + tau)
-                * _FracInt(x, y, z, a2, b2, c2, tau, n, numpy)
-            )
-
-        return integrate.quad(
-            integrand,
-            lowerlim(x**2, y**2, z**2, a2, b2, c2),
-            numpy.inf,
-            epsabs=1e-12,
-        )[0]
-    xp = get_namespace(x, y, z)
-    ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
-    # trailing quadrature-node axis on the coordinates (see _potInt): scalar-safe,
-    # and correct for an array of evaluation points.
-    xe, ye, ze = x[..., None], y[..., None], z[..., None]
 
     def integrand(tau):
         return (
-            (xe * (i == 0) + ye * (i == 1) + ze * (i == 2))
+            (x * (i == 0) + y * (i == 1) + z * (i == 2))
             / (a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2) + tau)
-            * _FracInt(xe, ye, ze, a2, b2, c2, tau, n, xp)
+            * _FracInt(x, y, z, a2, b2, c2, tau, n, numpy)
         )
 
-    return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
+    return integrate.quad(
+        integrand,
+        lowerlim(x**2, y**2, z**2, a2, b2, c2),
+        numpy.inf,
+        epsabs=1e-12,
+    )[0]
 
 
 def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
