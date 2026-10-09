@@ -6674,6 +6674,31 @@ def test_zmax(p, ttol, firstTest):
 # Test the vT of circular orbits is always vc
 
 
+# Staeckel's automagic delta falls back to the spherical actionAngle for a
+# spherical potential; repeated analytic e/rperi/rap/zmax must reuse that setup
+# (and its cached results) rather than rebuild it on every call
+def test_analytic_spherical_fallback_is_cached():
+    from galpy.orbit import Orbit
+
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    o.integrate(numpy.linspace(0.0, 10.0, 101), potential.NFWPotential(normalize=1.0))
+    e = o.e(analytic=True)
+    aA = o._aA
+    assert o._aAType == "spherical"
+    rperi, rap, zmax = (
+        o.rperi(analytic=True),
+        o.rap(analytic=True),
+        o.zmax(analytic=True),
+    )
+    assert o._aA is aA, "the spherical fallback was rebuilt"
+    assert float(o.e(analytic=True)) == float(e)
+    assert 0.0 < float(rperi) < 1.0 < float(rap) and float(zmax) > 0.0
+    # an explicit, different type still rebuilds
+    o.e(analytic=True, type="adiabatic")
+    assert o._aA is not aA
+    return None
+
+
 # Test that the eccentricity, apo-, and pericenters of orbits calculated analytically agrees with the numerical calculation
 def test_analytic_ecc_rperi_rap(p, ttol):
     # Basic parameters for the test
