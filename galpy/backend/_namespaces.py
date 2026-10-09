@@ -694,8 +694,9 @@ def _torch_types(torch):
 
 def float64_default_if_torch_args(fn):
     """Wrap a public galpy method so a call with torch in play -- a tensor or a
-    torch sampling key (galpy.backend.random) argument, or an Orbit holding a
-    tensor IC (``self._ic_backend``) -- runs in a ``float64_default`` scope.
+    torch sampling key (galpy.backend.random) argument, an Orbit holding a
+    tensor IC (``self._ic_backend``), or an object whose class defines a true
+    ``_torch_params_in_play(self)`` -- runs in a ``float64_default`` scope.
     On every public call, so kept to a few hundred ns: no generators, no
     exception-raising getattr, kwargs only scanned when present."""
 
@@ -721,6 +722,10 @@ def float64_default_if_torch_args(fn):
             d = getattr(args[0], "__dict__", None)
             ic = None if d is None else d.get("_ic_backend")
             hit = ic is not None and isinstance(ic, T)
+            if not hit and d is not None:
+                # opt-in: an object whose torch PARAMETERS put torch in play
+                probe = getattr(type(args[0]), "_torch_params_in_play", None)
+                hit = probe is not None and probe(args[0])
         if not hit:
             return fn(*args, **kwargs)
         with float64_default():

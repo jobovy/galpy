@@ -17,6 +17,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     match_input_dtype,
+    name_of_namespace,
     promote_scalars,
 )
 from ..backend import random as grandom
@@ -244,6 +245,17 @@ class quasiisothermaldf(df):
         # backend-array eval of the same spline (numpy path stays byte-identical)
         self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
 
+    def _namespace(self, *xs):
+        """``get_namespace(*xs)``; at numpy/Python-float ``xs`` a differentiated
+        DF or potential parameter is the data (no use() block needed)."""
+        xp = get_namespace(*xs)
+        return (_pot_grad_namespace(self) or numpy) if xp is numpy else xp
+
+    def _torch_params_in_play(self):
+        """float64_default_if_torch_args hook: a differentiated torch parameter
+        gets galpy's float64 interior at Python-float coordinates too."""
+        return name_of_namespace(_pot_grad_namespace(self) or numpy) == "torch"
+
     @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
@@ -318,7 +330,7 @@ class quasiisothermaldf(df):
                     return 0.0
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
-        xp = get_namespace(jr, lz, jz)
+        xp = self._namespace(jr, lz, jz)
         jr, lz, jz = coerce_coords(xp, jr, lz, jz)  # torch rejects python-float xp.abs
         if (
             not isinstance(lz, numpy.ndarray)
@@ -727,7 +739,7 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of vmomentdensity, otherwise the same"""
-        xp = get_namespace(R, z)
+        xp = self._namespace(R, z)
         if getattr(R, "ndim", 0) > 0:
             # array R (numpy or backend): the GL grid below is per-scalar-R, so
             # recurse per (r,z) and collect on the resolved namespace -- xp.stack
@@ -1121,7 +1133,7 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of jmomentdensity, otherwise the same"""
-        xp = get_namespace(R, z)
+        xp = self._namespace(R, z)
         if nsigma == None:
             nsigma = _NSIGMA
         if xp is not numpy:  # promote scalar (R,z) so xp.exp etc. run on backend
@@ -2806,7 +2818,7 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS@MPIA)
 
         """
-        xp = get_namespace(vR, R, z)
+        xp = self._namespace(vR, R, z)
         if xp is not numpy:
             vR, R, z = promote_scalars(xp, vR, R, z)
         sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
@@ -2902,7 +2914,7 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
 
         """
-        xp = get_namespace(vT, R, z)
+        xp = self._namespace(vT, R, z)
         if xp is not numpy:
             vT, R, z = promote_scalars(xp, vT, R, z)
         sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
@@ -3029,7 +3041,7 @@ class quasiisothermaldf(df):
         -----
         - 2012-12-22 - Written - Bovy (IAS)
         """
-        xp = get_namespace(vz, R, z)
+        xp = self._namespace(vz, R, z)
         if xp is not numpy:
             # promote inputs (scalars or numpy arrays) to the backend so the GL
             # grid arithmetic below runs on tensors (numpy path: no-op).
@@ -3207,7 +3219,7 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
         """
-        xp = get_namespace(vR, vT, R, z)
+        xp = self._namespace(vR, vT, R, z)
         if xp is not numpy:
             vR, vT, R, z = promote_scalars(xp, vR, vT, R, z)
         sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
@@ -3295,7 +3307,7 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
-        xp = get_namespace(vT, vz, R, z)
+        xp = self._namespace(vT, vz, R, z)
         if xp is not numpy:
             vT, vz, R, z = promote_scalars(xp, vT, vz, R, z)
         sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
@@ -3382,7 +3394,7 @@ class quasiisothermaldf(df):
         - 2013-01-02 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
         """
-        xp = get_namespace(vR, vz, R, z)
+        xp = self._namespace(vR, vz, R, z)
         if xp is not numpy:
             vR, vz, R, z = promote_scalars(xp, vR, vz, R, z)
         if gl:
