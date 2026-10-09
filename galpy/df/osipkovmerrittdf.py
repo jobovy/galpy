@@ -18,7 +18,11 @@ from ..backend.interpolate import Spline1D
 from ..backend.optimize import bisect_root, newton_polish
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
-from ..potential.Potential import _evaluatePotentials, _pot_grad_namespace
+from ..potential.Potential import (
+    _evaluatePotentials,
+    _pot_data_namespace,
+    _pot_grad_namespace,
+)
 from ..util import conversion
 from .eddingtondf import eddingtondf
 from .sphericaldf import (
@@ -548,7 +552,8 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                     sorted(1.0 - numpy.geomspace(1e-8, 0.5, 101)),
                 )
             )
-            xp = get_namespace()  # context/forced default only (grid is numpy)
+            # context/forced default, else a differentiated potential parameter's
+            xp = _pot_data_namespace((self._pot,))
             gxp = None if xp is numpy else _pot_grad_namespace(self._pot)
             if gxp is not None:
                 # differentiated potential: knots AND values on-backend
