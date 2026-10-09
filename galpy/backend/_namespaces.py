@@ -346,6 +346,14 @@ def _leaves(out):
     return [out]
 
 
+def eager_memo_applies(owner, *args):
+    """Whether :func:`eager_value_memo` would reuse results for these arguments:
+    eager, concrete, and no differentiated parameter on ``owner``."""
+    from ._tracectx import is_compiling
+
+    return not (is_compiling() or under_trace(*args) or _carries_grad(owner))
+
+
 def eager_value_memo(owner, slot, args, compute):
     """``compute()``, reused while the backend arrays ``args`` keep their VALUES.
 
@@ -360,9 +368,8 @@ def eager_value_memo(owner, slot, args, compute):
     """
     global _EAGER_MEMOS
     from ._jit import _object_key
-    from ._tracectx import is_compiling
 
-    if is_compiling() or under_trace(*args) or _carries_grad(owner):
+    if not eager_memo_applies(owner, *args):
         return compute()
 
     if _EAGER_MEMOS is None:

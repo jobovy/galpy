@@ -145,8 +145,8 @@ class RazorThinExponentialDiskPotential(Potential):
     def _force_panels_eval(self, xp, R, z_safe):
         # Nodes live on a NEW TRAILING axis and the quadrature reduces only that
         # axis, so the coordinate shape is preserved (see _evaluate).
-        Rb = xp.asarray(R)[..., None]
-        zb = xp.asarray(z_safe)[..., None]
+        Rb = xp.expand_dims(xp.asarray(R), axis=-1)
+        zb = xp.expand_dims(xp.asarray(z_safe), axis=-1)
         # main's substituted nodes (k = R(1-v^2)): the Jacobian's zero sits on the
         # k=R square-root singularity, ~5e-5 instead of ~5e-3. Rb carries the
         # trailing node axis, so the helpers broadcast to (..., n) unchanged.
@@ -208,8 +208,8 @@ class RazorThinExponentialDiskPotential(Potential):
                 # returns one Phi for every point -- silently, and galpy's Phi
                 # call IS vectorised (Orbit.E(ts) evaluates all times at once),
                 # so that is a wrong answer rather than an error.
-                Rb = xp.asarray(R)[..., None]
-                zb = xp.asarray(z_safe)[..., None]
+                Rb = xp.expand_dims(xp.asarray(R), axis=-1)
+                zb = xp.expand_dims(xp.asarray(z_safe), axis=-1)
                 sqrtp = xp.sqrt(zb**2.0 + (ks + Rb) ** 2.0)
                 sqrtm = xp.sqrt(zb**2.0 + (ks - Rb) ** 2.0)
                 k0_fixed = getattr(self, "_k0_fixed", None)

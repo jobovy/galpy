@@ -20,7 +20,11 @@ from ..backend import (
     scalar_like,
     zeros_like_backend,
 )
-from ..backend._namespaces import stop_gradient
+from ..backend._namespaces import (
+    eager_memo_applies,
+    eager_value_memo,
+    stop_gradient,
+)
 from ..backend.optimize import newton_polish
 from ..backend.quadrature import fixed_quad_semiinfinite
 from ..backend.special import gamma
@@ -32,6 +36,9 @@ from .Potential import Potential
 # smooth, so this converges immediately (order 50 already matches scipy to
 # ~1e-13). numpy inputs keep the scipy adaptive path (byte-identical).
 _GLORDER = 100
+# every force axis and second-derivative pair (_derivs_xyz's eager memo)
+_FORCES = (0, 1, 2)
+_SECONDS = ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))
 
 
 class FerrersPotential(Potential):
@@ -201,8 +208,8 @@ class FerrersPotential(Potential):
         return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
 
     def _cached_xyzforces(self, R, z, phi, t, xp):
-        # numpy gets a per-instance hash cache (perf); jax/torch compute directly
-        # so the traced path never reads/writes self-state (illegal under tracing).
+        # numpy gets a per-instance hash cache (perf); eager jax/torch reuse
+        # through _derivs_xyz's memo, and the traced path holds no state.
         if xp is not numpy:
             return self._xyzforces(R, z, phi, t)
         new_hash = hashlib.md5(numpy.array([R, phi, z, t])).hexdigest()
@@ -225,6 +232,19 @@ class FerrersPotential(Potential):
                 [force_xyz[i](x, y, z) for i in forces],
                 [self._2ndderiv_xyz(x, y, z, i, j) for i, j in seconds],
             )
+        if eager_memo_applies(self, x, y, z):
+            # eager: every derivative at the point in one quadrature, reused by
+            # all the methods asked at that point (the EOM asks five)
+            F, S = eager_value_memo(
+                self,
+                "derivs_xyz",
+                (x, y, z),
+                lambda: self._derivs_xyz_backend(x, y, z, _FORCES, _SECONDS),
+            )
+            return [F[i] for i in forces], [S[_SECONDS.index(p)] for p in seconds]
+        return self._derivs_xyz_backend(x, y, z, forces, seconds)
+
+    def _derivs_xyz_backend(self, x, y, z, forces, seconds):
         ints = _derivInts_backend(
             x,
             y,
