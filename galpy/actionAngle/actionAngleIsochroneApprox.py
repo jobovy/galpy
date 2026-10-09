@@ -995,26 +995,29 @@ class actionAngleIsochroneApprox(actionAngle):
                     oR, ovR, ovT = cat(bR, R), cat(-bvR, vR), cat(-bvT, vT)
                     oz, ovz, ophi = cat(bz, zf), cat(-bvz, vzf), cat(bphi, phi)
                 return (oR, ovR, ovT, oz, ovz, ophi)
+
+            # numpy buffers: read the (forced-backend) accessors on the host
+            def _h(ii, acc):
+                return numpy.asarray(to_host(getattr(os[ii], acc)(ts[1:])))
+
             if _firstFlip:
                 for ii in range(no):
-                    oR[ii, nt:] = os[ii].R(ts[1:])  # drop t=0, which we have
-                    ovR[ii, nt:] = os[ii].vR(ts[1:])  # already
-                    ovT[ii, nt:] = os[ii].vT(ts[1:])  # reverse, such that
+                    oR[ii, nt:] = _h(ii, "R")  # drop t=0, which we have
+                    ovR[ii, nt:] = _h(ii, "vR")  # already
+                    ovT[ii, nt:] = _h(ii, "vT")  # reverse, such that
                     if os[ii].getOrbit().shape[1] == 6:
-                        oz[ii, nt:] = os[ii].z(ts[1:])  # everything is in the
-                        ovz[ii, nt:] = os[ii].vz(ts[1:])  # right order
-                    ophi[ii, nt:] = os[ii].phi(ts[1:])  #!
+                        oz[ii, nt:] = _h(ii, "z")  # everything is in the
+                        ovz[ii, nt:] = _h(ii, "vz")  # right order
+                    ophi[ii, nt:] = _h(ii, "phi")  #!
             else:
                 for ii in range(no):
-                    oR[ii, : nt - 1] = os[ii].R(ts[1:])[::-1]  # drop t=0, which we have
-                    ovR[ii, : nt - 1] = -os[ii].vR(ts[1:])[::-1]  # already
-                    ovT[ii, : nt - 1] = -os[ii].vT(ts[1:])[::-1]  # reverse, such that
+                    oR[ii, : nt - 1] = _h(ii, "R")[::-1]  # drop t=0, which we have
+                    ovR[ii, : nt - 1] = -_h(ii, "vR")[::-1]  # already
+                    ovT[ii, : nt - 1] = -_h(ii, "vT")[::-1]  # reverse, such that
                     if os[ii].getOrbit().shape[1] == 6:
-                        oz[ii, : nt - 1] = os[ii].z(ts[1:])[
-                            ::-1
-                        ]  # everything is in the
-                        ovz[ii, : nt - 1] = -os[ii].vz(ts[1:])[::-1]  # right order
-                    ophi[ii, : nt - 1] = os[ii].phi(ts[1:])[::-1]  #!
+                        oz[ii, : nt - 1] = _h(ii, "z")[::-1]  # everything is in the
+                        ovz[ii, : nt - 1] = -_h(ii, "vz")[::-1]  # right order
+                    ophi[ii, : nt - 1] = _h(ii, "phi")[::-1]  #!
             return (oR, ovR, ovT, oz, ovz, ophi)
         else:
             return (R, vR, vT, z, vz, phi)

@@ -332,6 +332,13 @@ def _resolve_accessor_namespace(thiso):
     return xp, xp.asarray(thiso)
 
 
+def _accessor_out(x, kwargs):
+    """A stored-coordinate accessor's result: on the accessor namespace (see
+    ``_resolve_accessor_namespace``), or as stored for an internal reader that
+    passes ``_stored=True`` (keeps a numpy orbit's internals on numpy)."""
+    return x if kwargs.get("_stored", False) else _resolve_accessor_namespace(x)[1]
+
+
 def _backend_safe_copy(x):
     """Defensive copy of a backend (jax/torch) array that does not alias the
     Orbit's internal storage, so a caller cannot mutate ``self.orbit`` through a
@@ -4186,7 +4193,7 @@ class Orbit:
             self._aA = actionAngle.actionAngleAdiabatic(pot=self._aAPot, **kwargs)
         elif self._aAType.lower() == "staeckel":
             # try to make sure this is not 0
-            _z = self.z(use_physical=False, dontreshape=True)
+            _z = self.z(use_physical=False, dontreshape=True, _stored=True)
             # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
             # which raises on the numpy/torch combination CI pins; the numpy call
             # is kept for numpy input so that path stays byte-identical.
@@ -4198,7 +4205,7 @@ class Orbit:
                 try:
                     delta = actionAngle.estimateDeltaStaeckel(
                         self._aAPot,
-                        self.R(use_physical=False, dontreshape=True),
+                        self.R(use_physical=False, dontreshape=True, _stored=True),
                         tz,
                         no_median=True,
                         use_physical=False,
@@ -4342,18 +4349,20 @@ class Orbit:
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
         """Internal function to compute the actions, frequencies, and angles and cache them for reuse"""
+        # _stored=True: the actionAngle input is the orbit's own storage (the
+        # accessors' forced-backend lift is for the caller, at the return)
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_jr"):
             return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            _z = self.z(use_physical=False, dontreshape=True)
+            _z = self.z(use_physical=False, dontreshape=True, _stored=True)
             # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
             # which raises on the numpy/torch combination CI pins; the numpy call
             # is kept for numpy input so that path stays byte-identical.
             _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
             tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
-            tvz = self.vz(use_physical=False, dontreshape=True)
+            tvz = self.vz(use_physical=False, dontreshape=True, _stored=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
@@ -4372,7 +4381,9 @@ class Orbit:
                 self._aA_wp,
                 self._aA_wz,
             ) = tuple(
-                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
+                numpy.zeros_like(
+                    self.R(use_physical=False, dontreshape=True, _stored=True)
+                )
                 + numpy.nan
                 for _ in range(9)
             )
@@ -4388,12 +4399,12 @@ class Orbit:
                 self._aA_wp,
                 self._aA_wz,
             ) = self._aA.actionsFreqsAngles(
-                self.R(use_physical=False, dontreshape=True),
-                self.vR(use_physical=False, dontreshape=True),
-                self.vT(use_physical=False, dontreshape=True),
+                self.R(use_physical=False, dontreshape=True, _stored=True),
+                self.vR(use_physical=False, dontreshape=True, _stored=True),
+                self.vT(use_physical=False, dontreshape=True, _stored=True),
                 tz,
                 tvz,
-                self.phi(use_physical=False, dontreshape=True),
+                self.phi(use_physical=False, dontreshape=True, _stored=True),
                 use_physical=False,
                 **aAkwargs,
             )
@@ -4409,12 +4420,12 @@ class Orbit:
                 self._aA_wp[indx],
                 self._aA_wz[indx],
             ) = on_host(self._aA.actionsFreqsAngles)(
-                self.R(use_physical=False, dontreshape=True)[indx],
-                self.vR(use_physical=False, dontreshape=True)[indx],
-                self.vT(use_physical=False, dontreshape=True)[indx],
+                self.R(use_physical=False, dontreshape=True, _stored=True)[indx],
+                self.vR(use_physical=False, dontreshape=True, _stored=True)[indx],
+                self.vT(use_physical=False, dontreshape=True, _stored=True)[indx],
                 tz[indx],
                 tvz[indx],
-                self.phi(use_physical=False, dontreshape=True)[indx],
+                self.phi(use_physical=False, dontreshape=True, _stored=True)[indx],
                 use_physical=False,
                 **aAkwargs,
             )
@@ -5420,7 +5431,7 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[0])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[0], kwargs)
         return _backend_T(out)
 
     @physical_conversion("position")
@@ -5486,7 +5497,7 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[1])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[1], kwargs)
         return _backend_T(out)
 
     @physical_conversion("velocity")
@@ -5516,7 +5527,7 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[2])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[2], kwargs)
         return _backend_T(out)
 
     @physical_conversion("position")
@@ -5548,7 +5559,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[3])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[3], kwargs)
         return _backend_T(out)
 
     @physical_conversion("velocity")
@@ -5580,7 +5591,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[4])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[4], kwargs)
         return _backend_T(out)
 
     @physical_conversion("angle")
@@ -5606,7 +5617,7 @@ class Orbit:
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use phi()")
-        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[-1])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[-1], kwargs)
         return _backend_T(out)
 
     @physical_conversion("position")
