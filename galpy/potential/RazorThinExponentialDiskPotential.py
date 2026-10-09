@@ -11,7 +11,11 @@ from scipy import special
 
 from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..backend import special as bspecial
-from ..backend._namespaces import eager_value_memo, under_trace
+from ..backend._namespaces import (
+    eager_value_memo,
+    requires_backend_grad,
+    under_trace,
+)
 from ..util import conversion
 from .Potential import Potential
 
@@ -111,12 +115,13 @@ class RazorThinExponentialDiskPotential(Potential):
         return R + u**2.0, 2.0 * umax * u * glw
 
     @staticmethod
-    def _live_branches(xp, inplane):
+    def _live_branches(xp, inplane, z):
         """(in-plane, off-plane): which side of the ``xp.where`` carries a live
-        value. Traced, both (undecidable). Eager, the dead side is skipped --
-        ``xp.where`` discards it anyway, and the off-plane side alone is two
-        Bessel K evaluations on the node arrays."""
-        if under_trace(inplane):
+        value. Traced, both (undecidable); differentiated, both too, so the
+        output keeps its graph to z (the in-plane side does not depend on z).
+        Eager, the dead side is skipped -- ``xp.where`` discards it anyway, and
+        the off-plane side alone is two Bessel K evaluations on the node arrays."""
+        if under_trace(inplane, z) or requires_backend_grad(z):
             return True, True
         n_in = int(xp.sum(inplane))
         return n_in > 0, n_in < math.prod(getattr(inplane, "shape", ()))
@@ -183,7 +188,7 @@ class RazorThinExponentialDiskPotential(Potential):
             # not a python `if`, so this traces. Both branches run eagerly, so
             # each gets a dead-side guard (Bessel at R=0, integrand at z=0).
             inplane = xp.abs(z) < 10.0**-6.0
-            live_in, live_off = self._live_branches(xp, inplane)
+            live_in, live_off = self._live_branches(xp, inplane, z)
             inplane_val, offplane_val, z_safe = 0.0, 0.0, z
             if live_in:
                 R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
@@ -237,7 +242,7 @@ class RazorThinExponentialDiskPotential(Potential):
             # form (R_safe: Bessel diverges at R=0) vs the [0,R]+[R,10]
             # quadrature (z_safe: its integrand is 0/0 at z=0 for k>R).
             inplane = xp.abs(z) < 10.0**-6.0
-            live_in, live_off = self._live_branches(xp, inplane)
+            live_in, live_off = self._live_branches(xp, inplane, z)
             inplane_val, offplane_val, z_safe = 0.0, 0.0, z
             if live_in:
                 R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
@@ -274,7 +279,7 @@ class RazorThinExponentialDiskPotential(Potential):
             # z_safe guards the eagerly-evaluated dead branch; max(R,10) empties
             # the [R,10] panel for R >= 10 (the old `if R < 10.`).
             inplane = xp.abs(z) < 10.0**-6.0
-            live_in, live_off = self._live_branches(xp, inplane)
+            live_in, live_off = self._live_branches(xp, inplane, z)
             if not live_off:  # all in-plane: the broadcast shape, all zero
                 return xp.where(inplane, xp.zeros_like(z * 1.0), 0.0 * R)
             z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z) if live_in else z

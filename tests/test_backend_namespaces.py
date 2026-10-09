@@ -435,3 +435,18 @@ def test_eager_value_memo_under_jax_transforms():
     assert float(jax.jit(jax.grad(via_coord))(x)) == 3.0
     assert "p" not in _ns._EAGER_MEMOS.get(owner, {})
     assert "c" not in _ns._EAGER_MEMOS.get(owner, {})
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_eager_value_memo_bypassed_for_a_differentiated_argument():
+    # A graph-free result cached at a point must not answer a later call at the
+    # same VALUE whose argument requires grad: that would drop the gradient.
+    from galpy.backend._namespaces import eager_value_memo
+
+    owner = _MemoOwner()
+    x = torch.tensor(1.5)
+    eager_value_memo(owner, "a", (x,), lambda: 2.0 * x)
+    xg = torch.tensor(1.5, requires_grad=True)
+    out = eager_value_memo(owner, "a", (xg,), lambda: 2.0 * xg)
+    (g,) = torch.autograd.grad(out, xg)
+    assert float(g) == 2.0

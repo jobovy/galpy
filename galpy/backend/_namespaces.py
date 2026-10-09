@@ -348,10 +348,16 @@ def _leaves(out):
 
 def eager_memo_applies(owner, *args):
     """Whether :func:`eager_value_memo` would reuse results for these arguments:
-    eager, concrete, and no differentiated parameter on ``owner``."""
+    eager, concrete, nothing differentiated (an argument or a parameter of
+    ``owner``) -- a cached graph-free result would silently drop the gradient."""
     from ._tracectx import is_compiling
 
-    return not (is_compiling() or under_trace(*args) or _carries_grad(owner))
+    return not (
+        is_compiling()
+        or under_trace(*args)
+        or requires_backend_grad(*args)
+        or _carries_grad(owner)
+    )
 
 
 def eager_value_memo(owner, slot, args, compute):
