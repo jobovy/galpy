@@ -3922,7 +3922,8 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        return (thiso[0] * thiso[2]).T
+        _, thiso = _resolve_accessor_namespace(thiso)
+        return _backend_T(thiso[0] * thiso[2])
 
     @physical_conversion("energy")
     @shapeDecorator
@@ -4618,19 +4619,21 @@ class Orbit:
                 [rl(pot, lz, use_physical=False) for lz in precomputergLzgrid]
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
+            out = interpolate.InterpolatedUnivariateSpline(
                 precomputergLzgrid, rls, k=3
             )(Lz).reshape(Lz_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             rls = [rl(pot, lz, use_physical=False) for lz in Lz]
             # rl follows the gradient, so against a traced potential these are
             # backend scalars that numpy.array() cannot collect; stack them in
-            # their own namespace instead. A merely forced backend (no gradient)
-            # keeps the numpy collection, and with it the numpy return type.
+            # their own namespace instead. Otherwise collect on numpy and return
+            # on the accessor namespace, like every other accessor.
             if any(under_trace(v) or requires_backend_grad(v) for v in rls):
                 xp = get_namespace(*rls)
                 return xp.reshape(xp.stack(rls), Lz_shape)
-            return numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
+            out = numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4676,9 +4679,8 @@ class Orbit:
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
         # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. Under a merely forced backend E is a backend array
-        # but carries no gradient, and taking the backend path there would
-        # change the return type callers see, so keep numpy for it.
+        # refuses a tracer. A merely forced backend computes on numpy and lifts
+        # the result onto the accessor namespace at the return.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
@@ -4691,18 +4693,19 @@ class Orbit:
                 to_host([rE(pot, tE, use_physical=False) for tE in precomputerEEgrid])
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
-                precomputerEEgrid, rEs, k=3
-            )(E).reshape(E_shape)
+            out = interpolate.InterpolatedUnivariateSpline(precomputerEEgrid, rEs, k=3)(
+                E
+            ).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             vals = [rE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect. A merely forced
-            # backend keeps the numpy collection (and the numpy return type).
+            # scalars, which numpy.array() cannot collect.
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(to_host(vals)).reshape(E_shape)
+            out = numpy.array(to_host(vals)).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4748,9 +4751,8 @@ class Orbit:
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
         # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. Under a merely forced backend E is a backend array
-        # but carries no gradient, and taking the backend path there would
-        # change the return type callers see, so keep numpy for it.
+        # refuses a tracer. A merely forced backend computes on numpy and lifts
+        # the result onto the accessor namespace at the return.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
@@ -4763,18 +4765,19 @@ class Orbit:
                 to_host([LcE(pot, tE, use_physical=False) for tE in precomputeLcEEgrid])
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
+            out = interpolate.InterpolatedUnivariateSpline(
                 precomputeLcEEgrid, LcEs, k=3
             )(E).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             vals = [LcE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect. A merely forced
-            # backend keeps the numpy collection (and the numpy return type).
+            # scalars, which numpy.array() cannot collect.
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(to_host(vals)).reshape(E_shape)
+            out = numpy.array(to_host(vals)).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4864,7 +4867,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jr
+        return _resolve_accessor_namespace(self._aA_jr)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4905,7 +4908,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jp
+        return _resolve_accessor_namespace(self._aA_jp)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4946,7 +4949,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jz
+        return _resolve_accessor_namespace(self._aA_jz)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -4987,7 +4990,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wr
+        return _resolve_accessor_namespace(self._aA_wr)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5028,7 +5031,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wp
+        return _resolve_accessor_namespace(self._aA_wp)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5069,7 +5072,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wz
+        return _resolve_accessor_namespace(self._aA_wz)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5110,7 +5113,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Or
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Or)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5151,7 +5154,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Op
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Op)[1]
 
     @shapeDecorator
     def TrTp(self, pot=None, **kwargs):
@@ -5183,7 +5186,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Op / self._aA_Or * numpy.pi
+        return _resolve_accessor_namespace(self._aA_Op / self._aA_Or * numpy.pi)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5224,7 +5227,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Oz
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Oz)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5265,7 +5268,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Or
+        return _resolve_accessor_namespace(self._aA_Or)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5306,7 +5309,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Op
+        return _resolve_accessor_namespace(self._aA_Op)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5347,7 +5350,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Oz
+        return _resolve_accessor_namespace(self._aA_Oz)[1]
 
     @physical_conversion("time")
     def time(self, *args, **kwargs):
@@ -5417,7 +5420,8 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[0])
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[0])
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5482,7 +5486,8 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[1])
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[1])
+        return _backend_T(out)
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5511,7 +5516,8 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[2])
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[2])
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5542,7 +5548,8 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return _backend_T(self._call_internal(*args, **kwargs)[3])
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[3])
+        return _backend_T(out)
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5573,7 +5580,8 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return _backend_T(self._call_internal(*args, **kwargs)[4])
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[4])
+        return _backend_T(out)
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5598,7 +5606,8 @@ class Orbit:
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use phi()")
-        return self._call_internal(*args, **kwargs)[-1].T
+        _, out = _resolve_accessor_namespace(self._call_internal(*args, **kwargs)[-1])
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5772,7 +5781,8 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        return (thiso[2] / thiso[0]).T
+        _, thiso = _resolve_accessor_namespace(thiso)
+        return _backend_T(thiso[2] / thiso[0])
 
     @physical_conversion("velocity")
     @shapeDecorator

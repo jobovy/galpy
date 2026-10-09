@@ -26,7 +26,7 @@ import numpy
 import pytest
 from backend_jit_helpers import assert_jit_matches_eager
 
-from galpy.backend import as_numpy, is_backend_array
+from galpy.backend import as_numpy, get_namespace, is_backend_array
 from galpy.potential import SCFPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -694,7 +694,7 @@ def test_scf_coeffs_general_grad_wrt_density_parameter(backend_name):
                 / (4.0 * numpy.pi)
                 * b**3
                 * (b**2 + r2) ** -2.5
-                * (1.0 + 0.1 * numpy.cos(2 * phi))
+                * (1.0 + 0.1 * get_namespace(phi).cos(2 * phi))
             )
 
         return dens
@@ -761,12 +761,13 @@ def test_scf_axi_batched_matches_sequential(backend_name):
     S = importlib.import_module("galpy.potential.SCFPotential")
 
     def dens_vec(R, z):  # accepts arrays -> batched path
-        return numpy.exp(-numpy.sqrt(R**2 + z**2))
+        xp = get_namespace(R, z)
+        return xp.exp(-xp.sqrt(R**2 + z**2))
 
     def dens_scalar(R, z):  # rejects arrays -> sequential path
         if numpy.ndim(R) != 0:
             raise TypeError("scalar-only density")
-        return numpy.exp(-numpy.sqrt(R**2 + z**2))
+        return dens_vec(R, z)
 
     # guard the premise: the two really do take different paths
     assert S._dens_accepts_arrays(dens_vec, 2, {})
@@ -834,8 +835,9 @@ def test_scf_general_batched_matches_sequential(backend_name):
     orders = dict(radial_order=6, costheta_order=5, phi_order=5)
 
     def dens_vec(R, z, phi):  # accepts arrays -> batched path
-        r = numpy.sqrt(R**2 + z**2)
-        return numpy.exp(-r) * (1.0 + 0.2 * numpy.cos(phi) + 0.1 * numpy.sin(2 * phi))
+        xp = get_namespace(R, z, phi)
+        r = xp.sqrt(R**2 + z**2)
+        return xp.exp(-r) * (1.0 + 0.2 * xp.cos(phi) + 0.1 * xp.sin(2 * phi))
 
     def dens_scalar(R, z, phi):  # rejects arrays -> sequential path
         if numpy.ndim(R) != 0:
@@ -912,10 +914,11 @@ def test_scf_tdep_batched_reduce_matches_sequential(backend_name):
     tgrid = numpy.linspace(0.0, 4.0, 5)
 
     def profile(R, z, t):
-        return numpy.exp(-numpy.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
+        xp = get_namespace(R, z)
+        return xp.exp(-xp.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
 
     def gen_bc(R, z, phi, t=0.0):
-        return profile(R, z, t) * (1.0 + 0.2 * numpy.cos(phi))
+        return profile(R, z, t) * (1.0 + 0.2 * get_namespace(phi).cos(phi))
 
     def gen_nobc(R, z, phi, t=0.0):
         if numpy.ndim(R) > 1:  # rejects the (nodes, 1) probe -> sequential
@@ -1005,11 +1008,13 @@ def test_scf_tdep_batched_reduce_degenerate_sizes(backend_name):
     S = importlib.import_module("galpy.potential.SCFPotential")
 
     def dens(R, z, phi, t=0.0):
-        r = numpy.sqrt(R**2 + z**2)
-        return numpy.exp(-r) * (1.0 + 0.2 * numpy.cos(phi)) * (1.0 + 0.02 * t)
+        xp = get_namespace(R, z, phi)
+        r = xp.sqrt(R**2 + z**2)
+        return xp.exp(-r) * (1.0 + 0.2 * xp.cos(phi)) * (1.0 + 0.02 * t)
 
     def dens_axi(R, z, t=0.0):
-        return numpy.exp(-numpy.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
+        xp = get_namespace(R, z)
+        return xp.exp(-xp.sqrt(R**2 + z**2)) * (1.0 + 0.02 * t)
 
     for N, L, Nt, ro in ((1, 1, 1, 4), (2, 1, 3, 4), (1, 3, 2, 4), (3, 2, 1, 1)):
         tgrid = numpy.linspace(0.0, 4.0, Nt)
@@ -1086,7 +1091,7 @@ def _fd_dens(b, symmetry, tdep, xp=numpy):
             if numpy.ndim(t) != 0:
                 raise TypeError("scalar t only")
             return 1.0 + 0.2 * math.exp(-0.4 * float(t))
-        return 1.0 + 0.2 * numpy.exp(-0.4 * t)
+        return 1.0 + 0.2 * get_namespace(t).exp(-0.4 * t)
 
     def rho(r2):
         return 3.0 / (4.0 * numpy.pi) * b**3 * (b**2 + r2) ** -2.5
@@ -1096,13 +1101,15 @@ def _fd_dens(b, symmetry, tdep, xp=numpy):
             return lambda r: rho(r**2)
         if symmetry == "axisymmetry":
             return lambda R, z: rho(R**2 + (z / 0.9) ** 2)
-        return lambda R, z, phi: rho(R**2 + z**2) * (1.0 + 0.1 * numpy.cos(2 * phi))
+        return lambda R, z, phi: (
+            rho(R**2 + z**2) * (1.0 + 0.1 * get_namespace(phi).cos(2 * phi))
+        )
     if symmetry == "spherical":
         return lambda r, t=0.0: rho(r**2) * f(t)
     if symmetry == "axisymmetry":
         return lambda R, z, t=0.0: rho(R**2 + (z / 0.9) ** 2) * f(t)
     return lambda R, z, phi, t=0.0: (
-        rho(R**2 + z**2) * (1.0 + 0.1 * numpy.cos(2 * phi)) * f(t)
+        rho(R**2 + z**2) * (1.0 + 0.1 * get_namespace(phi).cos(2 * phi)) * f(t)
     )
 
 
@@ -1217,3 +1224,159 @@ def test_timedep_callable_backend_coeffs(backend_name):
         )
     numpy.testing.assert_allclose(got, ref.Rforce(1.1, 0.2, t=0.7), rtol=1e-13)
     numpy.testing.assert_allclose(grad, ref.Rforce(1.1, 0.2, t=0.7), rtol=1e-13)
+
+
+###############################################################################
+# The user-density contract: under a FORCED backend the coefficient quadrature
+# hands the density that backend's arrays (as the KuijkenDubinski expansions
+# do), on every entry point; without one it hands numpy, as before.
+###############################################################################
+def _recording_dens(kind, calls):
+    # the same Plummer-like profile in every arity; records what it is called with
+    def dens(*args, t=None):
+        calls.append(args + (() if t is None else (t,)))
+        xp = get_namespace(*args)
+        R = args[0]
+        z = args[1] if len(args) > 1 else 0.0
+        out = xp.exp(-xp.sqrt(R**2 + (z / 0.9) ** 2 + 0.3))
+        if len(args) > 2:
+            out = out * (1.0 + 0.1 * xp.cos(2 * args[2]))
+        if t is not None:
+            out = out * (1.0 + 0.05 * t)
+        return out
+
+    # explicit signatures: the arity autodetect probes the argument count
+    if kind == "spherical":
+        return lambda R: dens(R)
+    if kind == "axi":
+        return lambda R, z: dens(R, z)
+    if kind == "axi_scalar":  # rejects arrays -> the sequential quadrature
+
+        def f(R, z):
+            if numpy.ndim(R) != 0:
+                raise TypeError("scalar-only density")
+            return dens(R, z)
+
+        return f
+    if kind == "general":
+        return lambda R, z, phi: dens(R, z, phi)
+    if kind == "tdep_axi":
+        return lambda R, z, t=0.0: dens(R, z, t=t)
+    if kind == "tdep_scalar_t":  # rejects array t -> the per-timestep fallback
+
+        def g(R, z, t=0.0):
+            if numpy.ndim(t) != 0:
+                raise TypeError("scalar t only")
+            return dens(R, z, t=t)
+
+        return g
+    raise ValueError(kind)  # pragma: no cover
+
+
+def _build_scf_coeffs(kind, dens):
+    orders = dict(radial_order=8, costheta_order=6)
+    if kind == "spherical":
+        p = SCFPotential.from_density(dens, 4, symmetry="spherical", radial_order=8)
+    elif kind in ("axi", "axi_scalar"):
+        p = SCFPotential.from_density(dens, 4, 3, symmetry="axisymmetry", **orders)
+    elif kind == "general":
+        p = SCFPotential.from_density(dens, 3, 3, phi_order=5, **orders)
+    else:
+        p = SCFPotential.from_density(
+            dens, 3, 2, symmetry="axisymmetry", tgrid=numpy.linspace(0, 1, 3), **orders
+        )
+        return p._Acos_all
+    return p._Acos
+
+
+_DENS_KINDS = [
+    "spherical",
+    "axi",
+    "axi_scalar",
+    "general",
+    "tdep_axi",
+    "tdep_scalar_t",
+]
+
+
+@pytest.mark.parametrize("kind", _DENS_KINDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_density_receives_forced_backend_arrays(backend_name, kind):
+    from galpy import backend as _b
+
+    ref_calls, calls = [], []
+    ref = _build_scf_coeffs(kind, _recording_dens(kind, ref_calls))
+    # no forced backend: numpy throughout (the probes call with Python ints)
+    assert not any(is_backend_array(a) for c in ref_calls for a in c)
+    with _b.use(backend_name, force=True):
+        xp = get_namespace(numpy.zeros(1))
+        got = _build_scf_coeffs(kind, _recording_dens(kind, calls))
+    assert is_backend_array(got)
+    # the quadrature calls -- every call after the numpy-pinned arity probes --
+    # pass the forced backend's float64 arrays, positions and times alike
+    quad = [c for c in calls if any(is_backend_array(a) for a in c)]
+    assert len(quad) > 0
+    for c in quad:
+        for a in c:
+            assert is_backend_array(a) and get_namespace(a) is xp, (kind, type(a))
+            assert str(a.dtype).endswith("float64"), (kind, a.dtype)
+    # the batched quadratures pass node ARRAYS, the sequential ones 0-d arrays
+    sequential = kind in ("spherical", "axi_scalar")
+    assert (max(numpy.ndim(c[0]) for c in quad) == 0) == sequential, kind
+    # and the coefficients are the numpy ones: same nodes, same weights
+    scale = numpy.max(numpy.abs(ref))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0, atol=1e-14 * scale)
+
+
+def _ops_dens(kind, h):
+    # the parameter enters through backend ops ON THE NODES (xp.exp(-r/h)); with
+    # numpy nodes a torch density had to lift them itself
+    def rho(R, z):
+        xp = get_namespace(R, z)
+        return xp.exp(-xp.sqrt(R**2 + z**2 + 0.2) / h)
+
+    if kind == "spherical":
+        return lambda R: rho(R, 0.0 * R)
+    if kind == "axi":
+        return lambda R, z: rho(R, z / 0.8)
+    return lambda R, z, phi: rho(R, z) * (1.0 + 0.2 * get_namespace(phi).cos(2 * phi))
+
+
+def _ops_coeffs(kind, h):
+    from galpy.potential.SCFPotential import (
+        scf_compute_coeffs,
+        scf_compute_coeffs_axi,
+        scf_compute_coeffs_spherical,
+    )
+
+    if kind == "spherical":
+        return scf_compute_coeffs_spherical(_ops_dens(kind, h), 4, a=1.0)[0]
+    if kind == "axi":
+        return scf_compute_coeffs_axi(_ops_dens(kind, h), 3, 3, a=1.0)[0]
+    out = scf_compute_coeffs(
+        _ops_dens(kind, h), 2, 3, a=1.0, radial_order=10, costheta_order=6, phi_order=6
+    )
+    return out[0]
+
+
+@pytest.mark.parametrize("kind", ["spherical", "axi", "general"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_grad_through_backend_node_ops(backend_name, kind):
+    # d A / dh for a density whose parameter meets the NODES inside backend ops,
+    # against a 4th-order central difference of the same forced-backend build
+    from galpy import backend as _b
+
+    h0, dh = 0.9, 1e-3
+    # the l=2 (and m=2) coefficient carries the flattening / cos(2 phi): a
+    # different h-dependence from the monopole
+    idx = {"spherical": (1, 0, 0), "axi": (1, 2, 0), "general": (1, 2, 2)}[kind]
+
+    def A(h):
+        return _ops_coeffs(kind, h)[idx]
+
+    with _b.use(backend_name, force=True):
+        grad = _scalar_grad(backend_name, A, h0)
+        Fs = [float(as_numpy(A(h0 + k * dh))) for k in (-2, -1, 1, 2)]
+    fd = (Fs[0] - 8.0 * Fs[1] + 8.0 * Fs[2] - Fs[3]) / (12.0 * dh)
+    # O(dh^4) truncation ~1e-12 relative; roundoff ~1e-16/dh
+    assert numpy.fabs(grad - fd) < 1e-9 * numpy.fabs(fd), (grad, fd)
