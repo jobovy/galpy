@@ -844,6 +844,28 @@ def test_make_smoothing_spline_parity(backend):
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_make_smoothing_spline_gcv_1d_y(backend, monkeypatch):
+    # The frozen GCV operator passes scipy's private GCV a 1-D y: scipy 1.15
+    # (Python 3.10) accepts only a 1-D y (a (n,1) y fails to broadcast), so
+    # this pins the call on any scipy; the fit still matches scipy's.
+    import scipy.interpolate._bsplines as _bspl
+
+    orig = _bspl._compute_optimal_gcv_parameter
+    ndims = []
+
+    def _wrapped(X, wE, y, w):
+        ndims.append(numpy.ndim(y))
+        return orig(X, wE, y, w)
+
+    monkeypatch.setattr(_bspl, "_compute_optimal_gcv_parameter", _wrapped)
+    spl = make_smoothing_spline(_SMX, _asarray(backend, _SMY), w=_SMW)
+    got = as_numpy(spl(_SMG))
+    assert ndims and all(d == 1 for d in ndims), ndims
+    ref = si.make_smoothing_spline(_SMX, _SMY, w=_SMW)(_SMG)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_smoothing_spline_parity(backend):
     # backend y reconstructs UnivariateSpline(w, s) at the query grid to ~1e-9.
     ref = si.UnivariateSpline(_SMX, _SMY, w=1.0 / _SMSIG, s=5.0, k=3)(_SMG)
