@@ -1731,11 +1731,8 @@ def _gcv_operator(xv, yv, w):
     wE[:-1, -2] = -_coeff_of_divided_diff(xv[-4:]) / w[-4:]
     wE[:-2, -1] = _coeff_of_divided_diff(xv[-3:]) / w[-3:]
     wE *= 6
-    lam = float(
-        numpy.asarray(
-            _compute_optimal_gcv_parameter(X, wE, yv.reshape(-1, 1), w)
-        ).ravel()[0]
-    )
+    # 1-D yv: scipy 1.15's (Python 3.10) private GCV accepts only a 1-D y
+    lam = float(numpy.asarray(_compute_optimal_gcv_parameter(X, wE, yv, w)).ravel()[0])
     # natural coeffs = Ainv @ yv; scipy's own banded LU (solve_banded) reproduces
     # its solve even for ill-conditioned A.
     Ainv = solve_banded((2, 2), X + lam * wE, numpy.eye(n))
