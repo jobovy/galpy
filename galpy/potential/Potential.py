@@ -34,7 +34,7 @@ from ..backend import (
     prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend import scalar_like, to_host
+from ..backend import resolve_namespace, scalar_like, to_host
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
@@ -1266,9 +1266,11 @@ class Potential(Force):
         - 2010-07-10 - Written - Bovy (NYU)
 
         """
+        # a differentiated parameter: R=1 on its namespace (numpy cannot take it)
+        (R,) = coerce_coords(_pot_grad_namespace(self) or numpy, 1.0)
         # abs() (via __abs__) is backend-agnostic and byte-identical to the old
         # numpy.fabs on the numpy scalar Rforce returns.
-        self._amp = self._amp * (norm / abs(self.Rforce(1.0, 0.0, use_physical=False)))
+        self._amp = self._amp * (norm / abs(self.Rforce(R, 0.0, use_physical=False)))
 
     def toPlanar(self):
         """
@@ -3675,6 +3677,12 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
     return rtry
 
 
+# stored types that are neither a backend parameter nor a wrapped potential
+_NOT_A_PARAMETER = frozenset(
+    (type(None), bool, int, float, str, numpy.ndarray, numpy.float64, numpy.bool_)
+)
+
+
 def _pot_grad_namespace(Pot, _depth=0, any_backend=False):
     """The array namespace of a gradient-carrying parameter of ``Pot``, else None.
 
@@ -3699,6 +3707,16 @@ def _pot_grad_namespace(Pot, _depth=0, any_backend=False):
         return None
     for p in Pot if isinstance(Pot, (list, tuple)) else [Pot]:
         for v in getattr(p, "__dict__", {}).values():
+            if type(v) in _NOT_A_PARAMETER:  # cheap skips: the scan is hot
+                continue
+            # wrapper potentials keep the differentiated parameters one level in
+            if isinstance(v, (list, tuple, Force)):
+                sub = _pot_grad_namespace(v, _depth + 1, any_backend=any_backend)
+                if sub is not None:
+                    return sub
+                continue
+            if not hasattr(v, "dtype"):  # not an array (splines, actionAngle, ...)
+                continue
             try:
                 if (any_backend and is_backend_array(v)) or (
                     under_trace(v) or requires_backend_grad(v)
@@ -3706,12 +3724,20 @@ def _pot_grad_namespace(Pot, _depth=0, any_backend=False):
                     return get_namespace(v)
             except Exception:  # pragma: no cover - not an array-like
                 continue
-            # wrapper potentials keep the differentiated parameters one level in
-            if isinstance(v, (list, tuple, Force)):
-                sub = _pot_grad_namespace(v, _depth + 1, any_backend=any_backend)
-                if sub is not None:
-                    return sub
     return None
+
+
+def _pot_data_namespace(Pots, *xs):
+    """``resolve_namespace(*xs)`` with a differentiated parameter of any of
+    ``Pots`` counted as data: at Python-float ``xs`` it needs no use() block (a
+    forced backend still wins)."""
+    xp = resolve_namespace(*xs)
+    if xp is numpy:
+        for Pot in Pots:
+            gxp = _pot_grad_namespace(Pot)
+            if gxp is not None:
+                return gxp
+    return xp
 
 
 def _abs_backend(x):
