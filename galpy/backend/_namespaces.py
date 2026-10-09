@@ -326,18 +326,18 @@ def _carries_grad(obj, depth=0):
     """Whether a parameter of ``obj`` (or of a galpy object it holds, as
     ``_jit._object_key`` recurses) is a grad-tracking tensor or a jax tracer:
     a result built on it carries the graph, so there is nothing to reuse."""
-    for attr in vars(obj).values():
-        if requires_backend_grad(attr) or under_jax_trace(attr):
-            return True
-        if (
+    return any(
+        requires_backend_grad(attr)
+        or under_jax_trace(attr)
+        or (
             depth < 3
             and type(attr).__module__.startswith("galpy.")
             and hasattr(attr, "__dict__")
             and not isinstance(attr, type)
             and _carries_grad(attr, depth + 1)
-        ):
-            return True
-    return False
+        )
+        for attr in vars(obj).values()
+    )
 
 
 def _leaves(out):
