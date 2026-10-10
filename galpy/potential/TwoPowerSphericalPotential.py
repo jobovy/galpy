@@ -16,12 +16,15 @@ from ..backend import (
     branch_where,
     coerce_coords,
     get_namespace,
+    is_backend_array,
     radial_limits,
     scalar_like,
-    to_host,
 )
-from ..backend._coerce import mask_where, power_series
-from ..backend._namespaces import has_concrete_truth_value
+from ..backend import special as _bspecial
+from ..backend import to_host
+from ..backend._coerce import exprel, mask_where, power_series, promote_scalars
+from ..backend._namespaces import concretely_true, has_concrete_truth_value
+from ..backend.special._fallback.hyp2f1 import hyp2f1_euler
 from ..backend.special.incomplete_beta import (
     incomplete_beta_hi_xp,
     incomplete_beta_lo_series_xp,
@@ -110,6 +113,7 @@ def _nfw_hk5(xp, small, r, a):
 # those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
 # off at beta = 3 +- 1e-12 and NaN at large beta and r.
 _TP_GFORM_ALPHA = 1.5
+_TP_POW_MAX = 600.0
 
 
 def _tp_radial(alpha, beta, w, s, hess):
@@ -186,12 +190,84 @@ def _tp_radial_xp(xp, alpha, beta, w, s, hess):
     return branch_where(xp, lo, below, above)
 
 
+def _tp_radial_backend(xp, alpha, beta, x, hess):
+    """_tp_radial for backend-array (differentiable) exponents, as 2F1s at -x
+    on the backend's Euler route (incomplete_beta's series need concrete
+    exponents): M/x^3 = x^-alpha / p 2F1(beta-alpha, p; p+1; -x), and below
+    the split G = (p+q)/(p+1) x 2F1(1-q, 1; p+2; -x); all positive-term."""
+    p, q = 3.0 - alpha, beta - 3.0
+    m = x**-alpha / p * hyp2f1_euler(xp, beta - alpha, p, p + 1.0, -x)
+    # at large beta the grid under-resolves (1+xt)^(alpha-beta) beyond x ~ 1:
+    # B(p, q) - x^-q/q 2F1(beta-alpha, q; q+1; -1/x) there (beta > 4 keeps
+    # the subtraction to < 1 digit)
+    tail = (x > 1.0) & (beta > 4.0)
+    xt, qt = xp.where(tail, x, 2.0), xp.where(beta > 4.0, q, 2.0)  # 2F1 params: 0-d
+    Mt = _backend_beta(xp, p, qt) - xt**-qt / qt * hyp2f1_euler(
+        xp, beta - alpha, qt, qt + 1.0, -1.0 / xt
+    )
+    m = xp.where(tail, Mt / xt**3.0, m)
+    if not hess:
+        return (m,)
+    D = x**-alpha * (1.0 + x) ** (alpha - beta)
+    # as _tp_radial: the G form only below incomplete_beta_split, alpha < 1.5
+    pq2 = p + q + 2.0
+    c = (p + 1.0) / xp.where(pq2 > 0.0, pq2, 1.0)
+    c = xp.where((pq2 > 0.0) & (c < 0.9), c, 0.9)
+    gform = (alpha < _TP_GFORM_ALPHA) & (x / (1.0 + x) <= c)
+    xg = xp.where(gform, x, 0.5 * c / (1.0 - 0.5 * c))  # (1+x)^(q-1) finite
+    E = xg**-alpha * (1.0 + xg) ** (alpha - beta) / p
+    G = (p + q) / (p + 1.0) * xg * hyp2f1_euler(xp, 1.0 - q, 1.0, p + 2.0, -xg)
+    return (
+        m,
+        xp.where(gform, E * (1.0 - alpha - 2.0 * G), D - 2.0 * m),
+        xp.where(gform, -E * (alpha + 3.0 * G), D - 3.0 * m),
+    )
+
+
+def _tp_outer_backend(xp, alpha, beta, x):
+    """O(x) = int_x^inf t^(1-alpha) (1+t)^(alpha-beta) dt for backend
+    exponents: x^(2-beta)/(beta-2) 2F1(beta-alpha, beta-2; beta-1; -1/x) for
+    x^(2-beta) < e^600 (or alpha >= 2), else B(2-alpha, beta-2) - int_0^x."""
+    be2 = beta - 2.0
+    head = (be2 * xp.log(x) < -_TP_POW_MAX) & (alpha < 2.0)
+    xt = xp.where(head, 1.0, x)
+    tail = xt**-be2 / be2 * hyp2f1_euler(xp, beta - alpha, be2, be2 + 1.0, -1.0 / xt)
+    al = xp.where(alpha < 2.0, alpha, 1.0)
+    xh = xp.where(head, x, 0.5)
+    inner = xh ** (2.0 - al) / (2.0 - al)
+    inner = inner * hyp2f1_euler(xp, beta - al, 2.0 - al, 3.0 - al, -xh)
+    return xp.where(head, _backend_beta(xp, 2.0 - al, be2) - inner, tail)
+
+
+def _backend_beta(xp, p, q, finite=None):
+    """B(p, q) for backend p, q; inf where not ``finite`` (safe dead branch)"""
+    if finite is not None:
+        p, q = xp.where(finite, p, 1.0), xp.where(finite, q, 1.0)
+    B = xp.exp(_bspecial.gammaln(p) + _bspecial.gammaln(q) - _bspecial.gammaln(p + q))
+    return B if finite is None else xp.where(finite, B, math.inf)
+
+
 def _force_at_infinity(beta, a):
     """dPhi/dr (amp = 1) as r -> inf: M(x) / (x a)^2 -> 0 for beta > 1,
     1 / (2 a^2) at beta = 1 (M ~ x^2 / 2), inf for beta < 1"""
     if beta > 1.0:
         return 0.0
     return 0.5 / a**2.0 if beta == 1.0 else numpy.inf
+
+
+def _backend_limit_at_infinity(xp, component, beta, a, X, Xinf, Yinf):
+    """The limits below for a backend-array beta, selected rather than branched"""
+    if component == "Rz":
+        lim = 0.0
+    elif component == "RR":
+        lim = xp.where(beta == 0.0, 1.0 / (3.0 * a**3.0), 0.0)
+    else:
+        F = xp.where(beta > 1.0, 0.0, xp.where(beta == 1.0, 0.5 / a**2.0, math.inf))
+        along = -F * xp.sign(xp.where(Xinf, X, 1.0))
+        both = xp.where(beta > 1.0, 0.0, math.nan)
+        lim = xp.where(Xinf & Yinf, both, xp.where(Xinf, along, 0.0))
+        lim = xp.where(beta == 0.0, -X / (3.0 * a**3.0), lim)
+    return xp.where(beta < 0.0, math.nan, lim)
 
 
 def _limit_at_infinite_radius(component):
@@ -227,7 +303,11 @@ def _limit_at_infinite_radius(component):
                     return xp.where(inf, 0.0, out)
                 amp0 = None
             X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
-            if self.beta < 0.0:
+            if self._backend_shape:
+                lim = _backend_limit_at_infinity(
+                    xp, component, self.beta, self.a, X, Xinf, Yinf
+                )
+            elif self.beta < 0.0:
                 lim = numpy.nan
             elif component == "Rz":
                 lim = 0.0
@@ -291,12 +371,15 @@ class TwoPowerSphericalPotential(Potential):
         """
         # Instantiate
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
-        # _specialSelf for special cases (Dehnen class, Dehnen core, Hernquist, Jaffe, NFW)
+        # _specialSelf for special cases (Dehnen class, Dehnen core, Hernquist, Jaffe, NFW);
+        # backend-array exponents keep the general form, differentiable in them
         self._specialSelf = None
+        self._backend_shape = is_backend_array(alpha) or is_backend_array(beta)
         if (
             (self.__class__ == TwoPowerSphericalPotential)
-            & (alpha == round(alpha))
-            & (beta == round(beta))
+            and not self._backend_shape
+            and (alpha == round(alpha))
+            and (beta == round(beta))
         ):
             if int(alpha) == 0 and int(beta) == 4:
                 self._specialSelf = DehnenCoreSphericalPotential(
@@ -315,6 +398,10 @@ class TwoPowerSphericalPotential(Potential):
         self._scale = self.a
         self.alpha = alpha
         self.beta = beta
+        if self._backend_shape:  # both on the backend: they meet in xp.where
+            self.alpha, self.beta = promote_scalars(
+                get_namespace(alpha, beta), alpha, beta
+            )
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True
@@ -331,6 +418,17 @@ class TwoPowerSphericalPotential(Potential):
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
+        if self._backend_shape:
+            phi0 = (
+                -_backend_beta(xp, 2.0 - self.alpha, self.beta - 2.0, self.alpha < 2.0)
+                / self.a
+            )
+            return radial_limits(
+                xp.sqrt(R**2.0 + z**2.0),
+                lambda r: self._evaluate_backend_shape(xp, r),
+                at0=phi0,
+                atinf=0.0,
+            )
         # Phi(0) = -B(2-alpha, beta-2)/a is finite for alpha < 2 only
         phi0 = (
             -scalar_like(R, special.beta(2.0 - self.alpha, self.beta - 2.0)) / self.a
@@ -358,12 +456,23 @@ class TwoPowerSphericalPotential(Potential):
         O = ibeta(self.beta - 2.0, 2.0 - self.alpha, s, w)
         return -(M / x + O) / self.a
 
+    def _evaluate_backend_shape(self, xp, r):
+        """_evaluate_ibeta for backend exponents (_tp_radial_backend,
+        _tp_outer_backend)"""
+        x = r / self.a
+        Mx = x**2.0 * _tp_radial_backend(xp, self.alpha, self.beta, x, False)[0]
+        O = _tp_outer_backend(xp, self.alpha, self.beta, x)
+        return -(Mx + O) / self.a
+
     def _radial(self, xp, r, hess):
         """(dPhi/dr / r,) or (dPhi/dr / r, Phi'', Phi'' - dPhi/dr / r) at r
         (amp = 1; see _tp_radial)"""
-        radial = _tp_radial if xp is numpy else functools.partial(_tp_radial_xp, xp)
         x = r / self.a
-        out = radial(self.alpha, self.beta, x / (1.0 + x), 1.0 / (1.0 + x), hess)
+        if self._backend_shape:
+            out = _tp_radial_backend(xp, self.alpha, self.beta, x, hess)
+        else:
+            radial = _tp_radial if xp is numpy else functools.partial(_tp_radial_xp, xp)
+            out = radial(self.alpha, self.beta, x / (1.0 + x), 1.0 / (1.0 + x), hess)
         a3 = self.a**3.0
         return [f / a3 for f in out]
 
@@ -485,6 +594,22 @@ class TwoPowerSphericalPotential(Potential):
         # finite total mass B(3-alpha, beta-3) for beta > 3, divergent otherwise
         # (the formula is 0 * inf = NaN at R = inf)
         # special.beta, not a ratio of gammas: those overflow for beta > ~170
+        if self._backend_shape:
+            xp = get_namespace(R)
+            (R,) = coerce_coords(xp, R)
+            return radial_limits(
+                R,
+                lambda R: (
+                    (R / self.a) ** 3.0
+                    * _tp_radial_backend(xp, self.alpha, self.beta, R / self.a, False)[
+                        0
+                    ]
+                ),
+                at0=0.0,
+                atinf=_backend_beta(
+                    xp, 3.0 - self.alpha, self.beta - 3.0, self.beta > 3.0
+                ),
+            )
         mtot = (
             scalar_like(R, special.beta(3.0 - self.alpha, self.beta - 3.0))
             if self.beta > 3.0
@@ -538,7 +663,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         -----
         - Started - Starkman (UofT) - 2019-10-07
         """
-        if (alpha < 0.0) or (alpha >= 3.0):
+        if concretely_true(alpha < 0.0) or concretely_true(alpha >= 3.0):
             raise OSError("DehnenSphericalPotential requires 0 <= alpha < 3")
         # instantiate
         TwoPowerSphericalPotential.__init__(
@@ -546,7 +671,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         )
         # make special-self and protect subclasses
         self._specialSelf = None
-        if (self.__class__ == DehnenSphericalPotential) & (alpha == round(alpha)):
+        if (
+            self.__class__ == DehnenSphericalPotential
+            and not self._backend_shape
+            and alpha == round(alpha)
+        ):
             if round(alpha) == 0:
                 self._specialSelf = DehnenCoreSphericalPotential(
                     amp=1.0, a=a, normalize=False
@@ -566,10 +695,22 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        if self._backend_shape:
+            # (1 - (1+a/r)^(alpha-2)) / (2-alpha) = L exprel((alpha-2) L),
+            # L = log(1+a/r): smooth through Jaffe's alpha = 2
+            a3 = self.a * (3.0 - self.alpha)
+
+            def phi(r):
+                L = xp.log1p(self.a / r)
+                return -L * exprel(xp, (self.alpha - 2.0) * L) / a3
+
+            inner = self.alpha < 2.0  # Phi(0) finite
+            at0 = -1.0 / (a3 * xp.where(inner, 2.0 - self.alpha, 1.0))
+            return radial_limits(r, phi, at0=xp.where(inner, at0, -math.inf))
         else:  # valid for alpha != 2, 3
-            xp = get_namespace(R, z)
-            R, z = coerce_coords(xp, R, z)
-            r = xp.sqrt(R**2.0 + z**2.0)
             norm = self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
             return radial_limits(
                 r,
@@ -1177,7 +1318,9 @@ class NFWPotential(TwoPowerSphericalPotential):
             mvirNatural = mvir * 100.0 / conversion.mass_in_1010msol(self._vo, self._ro)
             rvir = (3.0 * mvirNatural / od / 4.0 / numpy.pi) ** (1.0 / 3.0)
             self.a = rvir / conc
-            self._amp = mvirNatural / (numpy.log(1.0 + conc) - conc / (1.0 + conc))
+            xp = get_namespace(conc)
+            (lc,) = promote_scalars(xp, 1.0 + conc)  # differentiable in conc
+            self._amp = mvirNatural / (xp.log(lc) - conc / (1.0 + conc))
             # Turn on physical output, because mass is given in 1e12 Msun (see #465)
             self._roSet = True
             self._voSet = True

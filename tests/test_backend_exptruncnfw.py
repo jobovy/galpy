@@ -349,3 +349,23 @@ def test_scalar_r_with_backend_parameters_is_float64(backend):
         )
         g = float(g)
     numpy.testing.assert_allclose(g, ref._ddensdr(r) / amp0, rtol=1e-15)
+
+
+# mass= (gap audit R-SHAPE): whether a Quantity was passed is decided by type,
+# not by `newmass != mass` on a possibly traced value
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("method", ["Phi", "Rforce"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_exptruncnfw_mass_gradient(backend_name, mode, method):
+    assert_param_grad(
+        backend_name,
+        mode,
+        lambda **kw: ExpTruncNFWPotential(a=1.0, rc=2.0, **kw),
+        {"mass": 1.2},
+        "mass",
+        method,
+        [0.9, 0.2],
+    )

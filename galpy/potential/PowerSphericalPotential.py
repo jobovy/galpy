@@ -11,7 +11,15 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
+from ..backend import (
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    has_concrete_truth_value,
+    is_backend_array,
+    radial_limits,
+    scalar_like,
+)
 from ..backend import special as _bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -53,7 +61,14 @@ class PowerSphericalPotential(Potential):
         r1 = conversion.parse_length(r1, ro=self._ro)
         self.alpha = alpha
         # Back to old definition
-        if self.alpha != 3.0:
+        if not has_concrete_truth_value(alpha != 3.0):  # traced: select
+            xp = get_namespace(alpha)
+            kepler = alpha == 3.0
+            safe = xp.where(kepler, 2.0, alpha)
+            self._amp = self._amp * xp.where(
+                kepler, 1.0, r1 ** (safe - 3.0) * 4.0 * numpy.pi / (3.0 - safe)
+            )
+        elif self.alpha != 3.0:
             self._amp = self._amp * (
                 r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
             )
@@ -94,6 +109,8 @@ class PowerSphericalPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
+        if is_backend_array(self.alpha):
+            return self._evaluate_backend_alpha(xp, r2)
         if self.alpha == 2.0:
             return xp.log(r2) / 2.0
         elif self.alpha > 2:
@@ -106,6 +123,16 @@ class PowerSphericalPotential(Potential):
             return xp.where(bad, -math.inf, out)
         else:
             return -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
+
+    def _evaluate_backend_alpha(self, xp, r2):
+        """_evaluate for a backend-array alpha: its three cases selected"""
+        log = self.alpha == 2.0
+        safe_alpha = xp.where(log, 1.0, self.alpha)
+        bad = r2 == 0.0
+        safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        power = -(safe ** (1.0 - safe_alpha / 2.0)) / (safe_alpha - 2.0)
+        center = xp.where(self.alpha > 2.0, -math.inf, 0.0)
+        return xp.where(log, xp.log(r2) / 2.0, xp.where(bad, center, power))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -269,7 +296,7 @@ class PowerSphericalPotential(Potential):
         # d/dalpha r**-alpha = -log(r) r**-alpha is inf*0 at r=inf. alpha = 3
         # (Kepler) is 0/0 at r=0, where the density is 0 like everywhere else
         # (alpha < 3's divergence there is real)
-        kepler = self.alpha == 3.0
+        kepler = concretely_true(self.alpha == 3.0)
         return radial_limits(
             r,
             lambda r: (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha,

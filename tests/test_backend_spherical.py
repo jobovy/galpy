@@ -1001,3 +1001,213 @@ def test_twopower_generic_potential_at_small_r(backend_name, alpha, beta):
     z = numpy.zeros_like(R)
     got = as_numpy(pot._evaluate(_asarray(backend_name, R), _asarray(backend_name, z)))
     numpy.testing.assert_allclose(got, pot._evaluate(R, z), rtol=1e-13, atol=0.0)
+
+
+###############################################################################
+# Differentiable shape parameters (gap audit R-SHAPE): backend-array exponents
+# keep the general (alpha, beta) forms -- no special-case dispatch, no
+# round()/bool on a tracer -- so d/dalpha, d/dbeta exist in data and forced
+# mode, eagerly, under jax.jit/vmap and on torch, and match the numpy special
+# cases' values where the exponents are integers.
+###############################################################################
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+_SHAPE_COORDS = [0.9, 0.2]
+
+
+def _tp(**kw):
+    return TwoPowerSphericalPotential(amp=1.3, **kw)
+
+
+_SHAPE_GRAD_CASES = [  # build, params, differentiated, method
+    (_tp, {"a": 2.0, "alpha": 1.5, "beta": 3.5}, "alpha", "Phi"),
+    (_tp, {"a": 2.0, "alpha": 1.5, "beta": 3.5}, "beta", "Phi"),
+    (_tp, {"a": 2.0, "alpha": 1.5, "beta": 3.5}, "alpha", "R2deriv"),
+    (_tp, {"a": 2.0, "alpha": 0.5, "beta": 3.5}, "beta", "z2deriv"),
+    (_tp, {"a": 2.0, "alpha": 1.5, "beta": 6.0}, "beta", "Rforce"),
+    (_tp, {"a": 2.0, "alpha": 1.0, "beta": 3.0}, "alpha", "Phi"),  # NFW
+    (_tp, {"a": 2.0, "alpha": 1.0, "beta": 3.0}, "beta", "Rforce"),
+    (_tp, {"a": 2.0, "alpha": 2.0, "beta": 4.0}, "alpha", "Rforce"),  # Jaffe
+    (_tp, {"a": 2.0, "alpha": 1.0, "beta": 4.0}, "beta", "dens"),  # Hernquist
+    (_tp, {"a": 0.5, "alpha": 0.0, "beta": 4.0}, "alpha", "Rzderiv"),  # core
+    (_tp, {"a": 2.0, "alpha": 1.5, "beta": 3.5}, "a", "zforce"),
+    (DehnenSphericalPotential, {"a": 2.0, "alpha": 1.5}, "alpha", "Phi"),
+    (DehnenSphericalPotential, {"a": 2.0, "alpha": 2.0}, "alpha", "Phi"),
+    (DehnenSphericalPotential, {"a": 2.0, "alpha": 1.0}, "alpha", "Rforce"),
+    (DehnenSphericalPotential, {"a": 2.0, "alpha": 0.3}, "alpha", "R2deriv"),
+    (PowerSphericalPotential, {"amp": 1.3, "alpha": 1.0}, "alpha", "Phi"),
+    (PowerSphericalPotential, {"amp": 1.3, "alpha": 2.7}, "alpha", "Phi"),
+    (PowerSphericalPotential, {"amp": 1.3, "alpha": 2.0}, "alpha", "Rforce"),
+    (NFWPotential, {"conc": 10.0, "mvir": 1.2}, "conc", "Phi"),
+    (NFWPotential, {"conc": 10.0, "mvir": 1.2}, "mvir", "Rforce"),
+]
+_SHAPE_GRAD_IDS = [
+    f"{c[0].__name__.lstrip('_')}-{'-'.join(f'{v:g}' for v in c[1].values())}"
+    f"-d{c[2]}-{c[3]}"
+    for c in _SHAPE_GRAD_CASES
+]
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "build,params,name,method", _SHAPE_GRAD_CASES, ids=_SHAPE_GRAD_IDS
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_shape_parameter_gradient(backend_name, mode, build, params, name, method):
+    assert_param_grad(backend_name, mode, build, params, name, method, _SHAPE_COORDS)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_backend_exponent_mass_gradient(backend_name):
+    # mass(r): M/x^3 from the 2F1 form below x ~ 1, B(p, q) - tail above it
+    for r in (0.5, 7.0):
+        assert_param_grad(
+            backend_name,
+            "data",
+            _tp,
+            {"a": 2.0, "alpha": 1.5, "beta": 4.5},
+            "beta",
+            "mass",
+            [r],
+        )
+
+
+# 50-digit references (above): every value through the backend-exponent route
+# (2F1s on the Euler route) to the same 5e-14, and d/da to 1e-12
+@pytest.mark.parametrize(
+    "alpha,beta,q,x,ref,dref",
+    _TWOPOWER_DERIV_CASES,
+    ids=[f"{c[2]}-a{c[0]}-b{c[1]}-x{c[3]}" for c in _TWOPOWER_DERIV_CASES],
+)
+def test_twopower_backend_exponent_derivs_match_references(
+    alpha, beta, q, x, ref, dref
+):
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    a0 = 1.2
+
+    def f(a):
+        pot = TwoPowerSphericalPotential(
+            amp=2.0, a=a, alpha=jnp.asarray(alpha), beta=jnp.asarray(beta)
+        )
+        return _twopower_deriv_quantity(pot, q, x * a0 * (a * 0.0 + 1.0))
+
+    val, da = float(f(jnp.asarray(a0))), float(jax.grad(f)(jnp.asarray(a0)))
+    # beta = 180 at x = 1e4 is B(p, q) - tail: B from lgammas ~750 (3e-13)
+    assert abs(val / ref - 1.0) < (5e-13 if beta > 100 else 5e-14), (val, ref)
+    assert abs(da - dref) <= 1e-12 * abs(dref) + 1e-15 * abs(ref) / a0, (da, dref)
+
+
+_SPECIAL_EXPONENTS = [  # (class, kwargs): integer exponents with closed forms
+    (TwoPowerSphericalPotential, {"alpha": 0.0, "beta": 4.0}),
+    (TwoPowerSphericalPotential, {"alpha": 1.0, "beta": 4.0}),
+    (TwoPowerSphericalPotential, {"alpha": 2.0, "beta": 4.0}),
+    (TwoPowerSphericalPotential, {"alpha": 1.0, "beta": 3.0}),
+    (DehnenSphericalPotential, {"alpha": 0.0}),
+    (DehnenSphericalPotential, {"alpha": 1.0}),
+    (DehnenSphericalPotential, {"alpha": 2.0}),
+    (PowerSphericalPotential, {"alpha": 2.0}),
+    (PowerSphericalPotential, {"alpha": 3.0}),
+]
+
+
+@pytest.mark.parametrize(
+    "cls,kw",
+    _SPECIAL_EXPONENTS,
+    ids=[
+        f"{c.__name__}-{'-'.join(f'{v:g}' for v in k.values())}"
+        for c, k in _SPECIAL_EXPONENTS
+    ],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_exponents_match_the_special_cases(backend_name, cls, kw):
+    # numpy dispatches integer exponents to closed forms (NFW, Hernquist,
+    # Jaffe, ...); traced/backend exponents take the general form, which must
+    # reproduce them. Over 8 decades in r; under jax.jit with the exponents
+    # traced, so no Python branch can pick the closed form.
+    rs = numpy.geomspace(1e-3, 1e3, 13)
+    R, z = 0.8 * rs, 0.6 * rs
+    npot = (
+        cls(amp=1.3, a=1.7, **kw)
+        if cls is not PowerSphericalPotential
+        else cls(amp=1.3, **kw)
+    )
+    methods = ["__call__", "Rforce", "zforce", "R2deriv", "Rzderiv", "dens"]
+    if cls is PowerSphericalPotential and kw["alpha"] == 3.0:
+        methods.remove("dens")  # 0 everywhere: relative comparison is moot
+
+    def evaluate(*exps):
+        kwb = dict(zip(kw, exps))
+        pot = (
+            cls(amp=1.3, a=1.7, **kwb)
+            if cls is not PowerSphericalPotential
+            else cls(amp=1.3, **kwb)
+        )
+        if backend_name == "jax":
+            Rb, zb = jnp.asarray(R), jnp.asarray(z)
+        else:
+            Rb, zb = torch.tensor(R), torch.tensor(z)
+        return [getattr(pot, m)(Rb, zb) for m in methods]
+
+    if backend_name == "jax":
+        exps = [jnp.asarray(v) for v in kw.values()]
+        outs = jax.jit(evaluate)(*exps)
+    else:
+        exps = [torch.tensor(v, requires_grad=True) for v in kw.values()]
+        outs = evaluate(*exps)
+    for m, got in zip(methods, outs):
+        numpy.testing.assert_allclose(
+            as_numpy(got), getattr(npot, m)(R, z), rtol=5e-13, err_msg=m
+        )
+
+
+_GENERIC_EXPONENTS = [(0.5, 3.5), (1.5, 6.0), (1.999, 4.5), (2.5, 40.0), (1.5, 180.0)]
+
+
+@pytest.mark.parametrize("alpha,beta", _GENERIC_EXPONENTS)
+def test_twopower_backend_exponents_match_numpy(alpha, beta):
+    # the backend-exponent forms against numpy's incomplete-beta ones over 8
+    # decades in r; beta = 180 is limited by B(p, q) from lgammas ~750 and by
+    # the fixed Euler grid at A |z| ~ 1e3 (3e-12)
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    rs = numpy.geomspace(1e-4, 1e4, 17)
+    R, z = 0.8 * rs, 0.6 * rs
+    npot = TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=alpha, beta=beta)
+    methods = ["__call__", "Rforce", "R2deriv", "z2deriv", "Rzderiv", "dens"]
+
+    def evaluate(al, be, R, z):
+        pot = TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=al, beta=be)
+        return [getattr(pot, m)(R, z) for m in methods] + [pot.mass(R)]
+
+    outs = jax.jit(evaluate)(
+        jnp.asarray(alpha), jnp.asarray(beta), jnp.asarray(R), jnp.asarray(z)
+    )
+    with numpy.errstate(over="ignore"):  # numpy's dens: (1+r/a)^180 -> inf
+        refs = [getattr(npot, m)(R, z) for m in methods]
+    refs.append(numpy.array([npot.mass(r) for r in R]))
+    rtol = 5e-12 if beta > 100 else 2e-13
+    # second derivatives cross 0 (4 pi rho vs 2 M/r^3): relative to |F/R|
+    scale = numpy.abs(npot.Rforce(R, z) / R)
+    for m, got, ref in zip(methods + ["mass"], outs, refs):
+        err = numpy.abs(as_numpy(got) - ref)
+        bound = rtol * (numpy.abs(ref) + (scale if "deriv" in m else 0.0))
+        assert numpy.all(err <= bound), (m, numpy.max(err / bound))
+
+
+@pytest.mark.parametrize("beta", [0.5, 1.0, 3.5, -0.5, 0.0])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_backend_beta_limits_at_infinity(backend_name, beta):
+    # _limit_at_infinite_radius with a backend beta: the same limits as numpy's
+    npot = TwoPowerSphericalPotential(amp=1.0, a=1.3, alpha=0.5, beta=beta)
+    R = numpy.array([numpy.inf, 0.0, numpy.inf, 1.0])
+    z = numpy.array([0.0, -numpy.inf, numpy.inf, 0.5])
+    xp = jnp if backend_name == "jax" else torch
+    bpot = TwoPowerSphericalPotential(
+        amp=1.0, a=1.3, alpha=0.5, beta=xp.asarray(beta, dtype=xp.float64)
+    )
+    for m in ("Rforce", "zforce", "R2deriv", "Rzderiv"):
+        got = as_numpy(getattr(bpot, m)(xp.asarray(R), xp.asarray(z)))
+        ref = getattr(npot, m)(R, z)
+        numpy.testing.assert_allclose(got[:3], ref[:3], rtol=1e-15, err_msg=m)
+        numpy.testing.assert_allclose(got[3], ref[3], rtol=1e-12, err_msg=m)

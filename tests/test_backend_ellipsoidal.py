@@ -644,3 +644,34 @@ def test_evaluate_xyz_namespace_fallback():
         pot._evaluate(numpy.asarray(R), numpy.asarray(z), numpy.asarray(phi))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+
+
+# PowerTriaxial alpha (gap audit R-SHAPE): the alpha == 3 amplitude convention
+# is selected, not branched on, under a trace
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("method", ["Phi", "Rforce", "dens"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_powertriaxial_alpha_gradient(backend_name, mode, method):
+    assert_param_grad(
+        backend_name,
+        mode,
+        lambda **kw: PowerTriaxialPotential(amp=1.3, r1=1.5, b=0.9, c=0.8, **kw),
+        {"alpha": 1.4},
+        "alpha",
+        method,
+        [0.9, 0.2, 0.4],
+        rtol=1e-8,
+    )
+
+
+def test_powertriaxial_traced_alpha_three_keeps_its_amplitude():
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    npot = PowerTriaxialPotential(amp=1.3, r1=1.5, alpha=3.0, b=0.9, c=0.8)
+    got = jax.jit(
+        lambda al: PowerTriaxialPotential(amp=1.3, r1=1.5, alpha=al, b=0.9, c=0.8)._amp
+    )(jnp.asarray(3.0))
+    assert float(got) == npot._amp

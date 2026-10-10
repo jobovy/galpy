@@ -180,6 +180,14 @@ def hyp2f1_fallback(xp, a, b, c, z):
     return xp.where(pos, (1.0 - z) ** (-a) * pfaff, direct)
 
 
+def hyp2f1_euler(xp, A, B, c, z):
+    """2F1(A, B; c; z) for backend z <= 0 when B > 0 and c - B > 0 are known
+    to hold: the Euler route alone, without hyp2f1_fallback's Pfaff and series
+    sides (under a trace both would be built: ~4x the cost and a far larger
+    graph to compile)."""
+    return _euler_quad(xp, A, B, c, xp.asarray(z) * 1.0)
+
+
 def _in_regime_mask(xp, a, b, c):
     """_in_regime as an elementwise mask, for traced (a, b, c)."""
     return ((a > 0) & ((c - a) > 0.0)) | ((b > 0) & ((c - b) > 0.0))
