@@ -36,7 +36,11 @@ from ..backend import (
 )
 from ..backend import quadrature as _bquad
 from ..backend import resolve_namespace, scalar_like, to_host
-from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend._namespaces import (
+    param_grad_namespace,
+    requires_backend_grad,
+    under_trace,
+)
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -3708,54 +3712,22 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
     return rtry
 
 
-# stored types that are neither a backend parameter nor a wrapped potential
-_NOT_A_PARAMETER = frozenset(
-    (type(None), bool, int, float, str, numpy.ndarray, numpy.float64, numpy.bool_)
-)
-
-
-def _pot_grad_namespace(Pot, _depth=0, any_backend=False):
+def _pot_grad_namespace(Pot, any_backend=False):
     """The array namespace of a gradient-carrying parameter of ``Pot``, else None.
 
     A differentiated potential PARAMETER is invisible from a root-finder's own
     argument, so rl/rE ask this before choosing the scipy or the backend solver.
     Answered by inspecting the stored parameters rather than by evaluating the
     potential: an evaluation probe has to pick a radius, and a plain-float
-    radius makes vcirc resolve the NUMPY namespace and then numpy.sqrt a traced
-    force -- the probe itself raises.
+    radius would be the very float-coordinate call this decides about.
 
-    Gated on under_trace/requires_backend_grad rather than is_backend_array so a
-    merely-forced backend keeps the scipy path, and its numbers, unchanged.
-
-    ``any_backend=True`` widens the test to ANY backend-array parameter. That is
-    for callers which must match the potential's FRAMEWORK rather than detect a
-    gradient -- picking the autodiff engine, say, where a jax tracer cannot
-    multiply a torch tensor whether or not a gradient is involved. The default
-    stays gradient-only, because that is what keeps a merely-forced backend on
-    the scipy path.
+    Gated on a gradient (traced or grad-tracking) rather than is_backend_array
+    so a merely-forced backend keeps the scipy path, and its numbers, unchanged;
+    ``any_backend=True`` matches the parameters' FRAMEWORK instead (picking the
+    autodiff engine, where a jax tracer cannot multiply a torch tensor). See
+    ``galpy.backend.param_grad_namespace``.
     """
-    if _depth > 2:  # pragma: no cover - deeper nesting than any galpy wrapper
-        return None
-    for p in Pot if isinstance(Pot, (list, tuple)) else [Pot]:
-        for v in getattr(p, "__dict__", {}).values():
-            if type(v) in _NOT_A_PARAMETER:  # cheap skips: the scan is hot
-                continue
-            # wrapper potentials keep the differentiated parameters one level in
-            if isinstance(v, (list, tuple, Force)):
-                sub = _pot_grad_namespace(v, _depth + 1, any_backend=any_backend)
-                if sub is not None:
-                    return sub
-                continue
-            if not hasattr(v, "dtype"):  # not an array (splines, actionAngle, ...)
-                continue
-            try:
-                if (any_backend and is_backend_array(v)) or (
-                    under_trace(v) or requires_backend_grad(v)
-                ):
-                    return get_namespace(v)
-            except Exception:  # pragma: no cover - not an array-like
-                continue
-    return None
+    return param_grad_namespace(Pot, any_backend=any_backend)
 
 
 def _pot_data_namespace(Pots, *xs):
