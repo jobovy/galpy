@@ -110,7 +110,7 @@ def test_isotropic_hernquist_singlerphi_is_atsinglephi():
     dfh = isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp = dfh.sample(R=1.3, z=0.0, phi=numpy.pi - 0.3, n=100000)
-    assert numpy.all(numpy.fabs(samp.phi() - numpy.pi + 0.3) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.phi()) - numpy.pi + 0.3) < 1e-8), (
         "Sampling a spherical distribution function at a single r and phi oes not produce orbits at a single phi"
     )
     return None
@@ -290,22 +290,34 @@ def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
     # Reset seed such that we should get the same
     numpy.random.seed(10)
     samp_RvR = dfh.sample(n=1000, return_orbit=False)
-    assert numpy.all(numpy.fabs(samp_orbits.R() - samp_RvR[0]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.R()) - as_numpy(samp_RvR[0])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
-    assert numpy.all(numpy.fabs(samp_orbits.vR() - samp_RvR[1]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.vR()) - as_numpy(samp_RvR[1])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
-    assert numpy.all(numpy.fabs(samp_orbits.vT() - samp_RvR[2]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.vT()) - as_numpy(samp_RvR[2])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
-    assert numpy.all(numpy.fabs(samp_orbits.z() - samp_RvR[3]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.z()) - as_numpy(samp_RvR[3])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
-    assert numpy.all(numpy.fabs(samp_orbits.vz() - samp_RvR[4]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.vz()) - as_numpy(samp_RvR[4])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
-    assert numpy.all(numpy.fabs(samp_orbits.phi() - samp_RvR[5]) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(samp_orbits.phi()) - as_numpy(samp_RvR[5])) < 1e-8
+    ), (
         "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
     )
     return None
@@ -3304,7 +3316,7 @@ def test_pvr_interpolator_large_rmax_sampling():
     numpy.random.seed(42)
     samp = dfh.sample(n=10000)
     rs = as_numpy(samp.r())
-    vs = as_numpy(numpy.sqrt(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2))
+    vs = numpy.sqrt(as_numpy(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2))
     # All velocities should be <= escape velocity at their radius
     vescs = as_numpy(
         numpy.sqrt(
@@ -3848,7 +3860,8 @@ def test_osipkovmerritt_powerlaw_nonself_dens_directint():
 def check_spherical_symmetry(samp, l, m, tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
-    thetas, phis = numpy.arctan2(samp.R(), samp.z()), samp.phi()
+    thetas = numpy.arctan2(as_numpy(samp.R()), as_numpy(samp.z()))
+    phis = as_numpy(samp.phi())
     assert (
         numpy.fabs(
             numpy.sum(special.lpmv(m, l, numpy.cos(thetas)) * numpy.cos(m * phis))
@@ -3865,7 +3878,8 @@ def check_spherical_symmetry(samp, l, m, tol):
 def check_azimuthal_symmetry(samp, m, tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
-    thetas, phis = numpy.arctan2(samp.R(), samp.z()), samp.phi()
+    thetas = numpy.arctan2(as_numpy(samp.R()), as_numpy(samp.z()))
+    phis = as_numpy(samp.phi())
     assert numpy.fabs(numpy.sum(numpy.cos(m * phis)) / samp.size - (m == 0)) < tol, (
         f"Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {m}"
     )
@@ -3892,8 +3906,8 @@ def check_sigmar_against_jeans(
     """Check that sigma_r(r) obtained from a sampling agrees with that coming
     from the Jeans equation
     Does this by logarithmically binning in r between rmin and rmax"""
-    vrs = (samp.vR() * samp.R() + samp.vz() * samp.z()) / samp.r()
-    logrs = numpy.log(samp.r())
+    vrs = as_numpy((samp.vR() * samp.R() + samp.vz() * samp.z()) / samp.r())
+    logrs = numpy.log(as_numpy(samp.r()))
     if rmin is None:
         rmin = numpy.exp(numpy.amin(logrs))
     if rmax is None:
@@ -3912,7 +3926,8 @@ def check_sigmar_against_jeans(
     for ii, br in enumerate(brs):
         assert (
             numpy.fabs(
-                samp_sigr[ii] / jeans.sigmar(pot, br, beta=beta, dens=dens) - 1.0
+                samp_sigr[ii] / as_numpy(jeans.sigmar(pot, br, beta=beta, dens=dens))
+                - 1.0
             )
             < tol
         ), (
@@ -3925,10 +3940,10 @@ def check_beta(samp, pot, tol, beta=0.0, rmin=None, rmax=None, bins=31):
     """Check that beta(r) obtained from a sampling agrees with the expected
     value
     Does this by logarithmically binning in r between rmin and rmax"""
-    vrs = (samp.vR() * samp.R() + samp.vz() * samp.z()) / samp.r()
-    vthetas = (samp.z() * samp.vR() - samp.R() * samp.vz()) / samp.r()
-    vphis = samp.vT()
-    logrs = numpy.log(samp.r())
+    vrs = as_numpy((samp.vR() * samp.R() + samp.vz() * samp.z()) / samp.r())
+    vthetas = as_numpy((samp.z() * samp.vR() - samp.R() * samp.vz()) / samp.r())
+    vphis = as_numpy(samp.vT())
+    logrs = numpy.log(as_numpy(samp.r()))
     if rmin is None:
         rmin = numpy.exp(numpy.amin(logrs))
     if rmax is None:

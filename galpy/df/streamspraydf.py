@@ -520,12 +520,12 @@ class basestreamspraydf(df):
                 ic = xp.asarray(
                     numpy.array(
                         [
-                            float(p0.R()),
-                            float(p0.vR()),
-                            float(p0.vT()),
-                            float(p0.z()),
-                            float(p0.vz()),
-                            float(p0.phi()),
+                            float(p0.R(_stored=True)),
+                            float(p0.vR(_stored=True)),
+                            float(p0.vT(_stored=True)),
+                            float(p0.z(_stored=True)),
+                            float(p0.vz(_stored=True)),
+                            float(p0.phi(_stored=True)),
                         ]
                     )
                 )
@@ -541,10 +541,10 @@ class basestreamspraydf(df):
                     [
                         prog.x(track_t_grid),
                         prog.y(track_t_grid),
-                        prog.z(track_t_grid),
+                        prog.z(track_t_grid, _stored=True),
                         prog.vx(track_t_grid),
                         prog.vy(track_t_grid),
-                        prog.vz(track_t_grid),
+                        prog.vz(track_t_grid, _stored=True),
                     ]
                 )
             )
@@ -733,12 +733,12 @@ class basestreamspraydf(df):
         """
         p = self._progenitor
         return (
-            float(p.R(0.0)),
-            float(p.vR(0.0)),
-            float(p.vT(0.0)),
-            float(p.z(0.0)),
-            float(p.vz(0.0)),
-            float(p.phi(0.0)),
+            float(p.R(0.0, _stored=True)),
+            float(p.vR(0.0, _stored=True)),
+            float(p.vT(0.0, _stored=True)),
+            float(p.z(0.0, _stored=True)),
+            float(p.vz(0.0, _stored=True)),
+            float(p.phi(0.0, _stored=True)),
         )
 
     def _theta_probe_point(self):
@@ -823,12 +823,12 @@ class basestreamspraydf(df):
             ic = xp.asarray(
                 numpy.array(
                     [
-                        float(_pp.R(0.0)),
-                        float(_pp.vR(0.0)),
-                        float(_pp.vT(0.0)),
-                        float(_pp.z(0.0)),
-                        float(_pp.vz(0.0)),
-                        float(_pp.phi(0.0)),
+                        float(_pp.R(0.0, _stored=True)),
+                        float(_pp.vR(0.0, _stored=True)),
+                        float(_pp.vT(0.0, _stored=True)),
+                        float(_pp.z(0.0, _stored=True)),
+                        float(_pp.vz(0.0, _stored=True)),
+                        float(_pp.phi(0.0, _stored=True)),
                     ]
                 )
             )
@@ -929,12 +929,12 @@ class basestreamspraydf(df):
             ic = xp.asarray(
                 numpy.array(
                     [
-                        float(_c.R(0.0)),
-                        float(_c.vR(0.0)),
-                        float(_c.vT(0.0)),
-                        float(_c.z(0.0)),
-                        float(_c.vz(0.0)),
-                        float(_c.phi(0.0)),
+                        float(_c.R(0.0, _stored=True)),
+                        float(_c.vR(0.0, _stored=True)),
+                        float(_c.vT(0.0, _stored=True)),
+                        float(_c.z(0.0, _stored=True)),
+                        float(_c.vz(0.0, _stored=True)),
+                        float(_c.phi(0.0, _stored=True)),
                     ]
                 )
             )
@@ -1006,11 +1006,11 @@ class basestreamspraydf(df):
             _ys = _Rs * numpy.sin(_phis)
             _px = float(self._progenitor.x(0.0))
             _py = float(self._progenitor.y(0.0))
-            _pz = float(self._progenitor.z(0.0))
+            _pz = float(self._progenitor.z(0.0, _stored=True))
             _pv = numpy.sqrt(
                 float(self._progenitor.vx(0.0)) ** 2
                 + float(self._progenitor.vy(0.0)) ** 2
-                + float(self._progenitor.vz(0.0)) ** 2
+                + float(self._progenitor.vz(0.0, _stored=True)) ** 2
             )
             _d_max = numpy.sqrt(
                 numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
@@ -1023,11 +1023,11 @@ class basestreamspraydf(df):
             _y = _R * xp.sin(_phi)
             _px = self._progenitor.x(0.0)
             _py = self._progenitor.y(0.0)
-            _pz = self._progenitor.z(0.0)
+            _pz = self._progenitor.z(0.0, _stored=True)
             _pv = xp.sqrt(
                 self._progenitor.vx(0.0) ** 2
                 + self._progenitor.vy(0.0) ** 2
-                + self._progenitor.vz(0.0) ** 2
+                + self._progenitor.vz(0.0, _stored=True) ** 2
             )
             _d_max = xp.sqrt(
                 xp.max((_x - _px) ** 2 + (_y - _py) ** 2 + (_z - _pz) ** 2)
@@ -1071,17 +1071,17 @@ class basestreamspraydf(df):
         # relative to the center orbit if necessary
         centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
         centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
-        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt, _stored=True)))
         centervx = xp.atleast_1d(xp.asarray(prog.vx(qt)))
         centervy = xp.atleast_1d(xp.asarray(prog.vy(qt)))
-        centervz = xp.atleast_1d(xp.asarray(prog.vz(qt)))
+        centervz = xp.atleast_1d(xp.asarray(prog.vz(qt, _stored=True)))
         if not self._center is None:
             centerx = centerx - xp.asarray(self._center.x(qt))
             centery = centery - xp.asarray(self._center.y(qt))
-            centerz = centerz - xp.asarray(self._center.z(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt, _stored=True))
             centervx = centervx - xp.asarray(self._center.vx(qt))
             centervy = centervy - xp.asarray(self._center.vy(qt))
-            centervz = centervz - xp.asarray(self._center.vz(qt))
+            centervz = centervz - xp.asarray(self._center.vz(qt, _stored=True))
         # stack(axis=0).T matches numpy.array([...]).T's F-contiguous layout so
         # einsum rounds byte-identically to the pre-migration numpy path.
         xyzpt = xp.einsum(
@@ -1108,10 +1108,10 @@ class basestreamspraydf(df):
         if not self._center is None:
             absx = absx + xp.asarray(self._center.x(qt))
             absy = absy + xp.asarray(self._center.y(qt))
-            absz = absz + xp.asarray(self._center.z(qt))
+            absz = absz + xp.asarray(self._center.z(qt, _stored=True))
             absvx = absvx + xp.asarray(self._center.vx(qt))
             absvy = absvy + xp.asarray(self._center.vy(qt))
-            absvz = absvz + xp.asarray(self._center.vz(qt))
+            absvz = absvz + xp.asarray(self._center.vz(qt, _stored=True))
         Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
         vRs, vTs, vZs = coords.rect_to_cyl_vec(
             absvx, absvy, absvz, Rs, phis, Zs, cyl=True
@@ -1149,17 +1149,19 @@ class basestreamspraydf(df):
         n = len(dt)
         centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
         centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
-        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt, _stored=True)))
         if self._center is None:
             L = xp.atleast_2d(xp.asarray(prog.L(qt)))
         # Compute relative angular momentum to the center orbit
         else:
             centerx = centerx - xp.asarray(self._center.x(qt))
             centery = centery - xp.asarray(self._center.y(qt))
-            centerz = centerz - xp.asarray(self._center.z(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt, _stored=True))
             centervx = xp.asarray(prog.vx(qt)) - xp.asarray(self._center.vx(qt))
             centervy = xp.asarray(prog.vy(qt)) - xp.asarray(self._center.vy(qt))
-            centervz = xp.asarray(prog.vz(qt)) - xp.asarray(self._center.vz(qt))
+            centervz = xp.asarray(prog.vz(qt, _stored=True)) - xp.asarray(
+                self._center.vz(qt, _stored=True)
+            )
             L = xp.atleast_2d(
                 xp.stack(
                     [
@@ -1828,14 +1830,14 @@ def pericenter_stripping_pdf(
             with use("numpy", force=True):
                 _tf = evaluateRforces(
                     pot,
-                    float(prog_copy.R(0.0)),
-                    float(prog_copy.z(0.0)),
-                    phi=float(prog_copy.phi(0.0)),
+                    float(prog_copy.R(0.0, _stored=True)),
+                    float(prog_copy.z(0.0, _stored=True)),
+                    phi=float(prog_copy.phi(0.0, _stored=True)),
                     v=numpy.array(
                         [
-                            float(prog_copy.vR(0.0)),
-                            float(prog_copy.vT(0.0)),
-                            float(prog_copy.vz(0.0)),
+                            float(prog_copy.vR(0.0, _stored=True)),
+                            float(prog_copy.vT(0.0, _stored=True)),
+                            float(prog_copy.vz(0.0, _stored=True)),
                         ]
                     ),
                 )

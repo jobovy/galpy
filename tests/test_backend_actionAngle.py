@@ -3077,3 +3077,49 @@ def test_spherical_relative_problem_param_grad(backend, case):
             axis=0,
         )
         assert numpy.all(err < 2e-6), (k, err)
+
+
+# --- a single point given as 0-d backend arrays --------------------------------
+# What a single Orbit's accessors return under a forced backend. The actionAngle
+# entry points treat it like float input: shape-(1,) outputs (here on the
+# backend), where the C paths used to fail on len() of a 0-d array and the
+# python ones returned 0-d.
+_PT0 = (1.0, 0.1, 1.1, 0.1, 0.05, 0.3)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["staeckel_c", "staeckel", "adiabatic_c", "adiabatic", "spherical", "isochrone"],
+)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_zero_d_backend_point_like_float_point(backend_name, kind):
+    from galpy import backend as _b
+
+    aa = {
+        "staeckel_c": lambda: actionAngleStaeckel(
+            pot=MWPotential2014, delta=0.4, c=True
+        ),
+        "staeckel": lambda: actionAngleStaeckel(
+            pot=MWPotential2014, delta=0.4, c=False
+        ),
+        "adiabatic_c": lambda: actionAngleAdiabatic(pot=MWPotential2014, c=True),
+        "adiabatic": lambda: actionAngleAdiabatic(pot=MWPotential2014, c=False),
+        "spherical": lambda: actionAngleSpherical(
+            pot=HernquistPotential(normalize=1.0)
+        ),
+        "isochrone": lambda: actionAngleIsochrone(
+            ip=IsochronePotential(normalize=1.0, b=1.2)
+        ),
+    }[kind]()
+    methods = ["__call__", "actionsFreqs", "actionsFreqsAngles", "EccZmaxRperiRap"]
+    with _b.use(backend_name, force=True):
+        xp = _b.get_namespace(numpy.zeros(1))
+        pt = tuple(xp.asarray(v, dtype=xp.float64) for v in _PT0)
+        pt1 = tuple(xp.reshape(p, (1,)) for p in pt)
+        for m in methods:
+            got, ref = getattr(aa, m)(*pt), getattr(aa, m)(*pt1)
+            assert len(got) == len(ref)
+            for g, r in zip(got, ref):
+                assert _b.is_backend_array(g) and tuple(g.shape) == (1,), (m, g)
+                # the same computation as for the (1,) point
+                numpy.testing.assert_array_equal(as_numpy(g), as_numpy(r), err_msg=m)

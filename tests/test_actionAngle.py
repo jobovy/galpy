@@ -843,11 +843,11 @@ def test_actionAngleIsochrone_kepler_actions():
     assert numpy.all(numpy.fabs(jrs - (jc - L)) < 10.0**-5.0), (
         "Radial action for the Kepler potential not correct"
     )
-    assert numpy.all(numpy.fabs(jps - obs.R() * obs.vT()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(jps - as_numpy(obs.R() * obs.vT())) < 10.0**-10.0), (
         "Azimuthal action for the Kepler potential not correct"
     )
     assert numpy.all(
-        numpy.fabs(jzs - (L - numpy.fabs(obs.R() * obs.vT()))) < 10.0**-10.0
+        numpy.fabs(jzs - (L - numpy.fabs(as_numpy(obs.R() * obs.vT())))) < 10.0**-10.0
     ), "Vertical action for the Kepler potential not correct"
     return None
 
@@ -882,7 +882,7 @@ def test_actionAngleIsochrone_kepler_freqs():
         "Azimuthal frequency for the Kepler potential not correct"
     )
     assert numpy.all(
-        numpy.fabs(ozs - numpy.sign(obs.R() * obs.vT()) * oc) < 10.0**-10.0
+        numpy.fabs(ozs - numpy.sign(as_numpy(obs.R() * obs.vT())) * oc) < 10.0**-10.0
     ), "Vertical frequency for the Kepler potential not correct"
     return None
 
@@ -2214,9 +2214,10 @@ def test_actionAngleSpherical_angler_at_pericenter():
     ip = IsochronePotential()
     o = Orbit([1.0, 0.0, ip.vcirc(1.0) * 2.1, 0.0, 0.0, 0.0])
     # Radial angle wr should be zero
-    assert numpy.fabs(o.wr(analytic=True, pot=ip, type="spherical")) < 10.0**-10.0, (
-        "angler is not 0 at pericenter"
-    )
+    assert (
+        numpy.fabs(as_numpy(o.wr(analytic=True, pot=ip, type="spherical")))
+        < 10.0**-10.0
+    ), "angler is not 0 at pericenter"
     return None
 
 
@@ -6215,12 +6216,12 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs)
     aAI.plot(obs, type="jr")
     aAI.plot(
-        numpy.reshape(obs.R(obs.t), (1, len(obs.t))),
-        numpy.reshape(obs.vR(obs.t), (1, len(obs.t))),
-        numpy.reshape(obs.vT(obs.t), (1, len(obs.t))),
-        numpy.reshape(obs.z(obs.t), (1, len(obs.t))),
-        numpy.reshape(obs.vz(obs.t), (1, len(obs.t))),
-        numpy.reshape(obs.phi(obs.t), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.R(obs.t)), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.vR(obs.t)), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.vT(obs.t)), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.z(obs.t)), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.vz(obs.t)), (1, len(obs.t))),
+        numpy.reshape(as_numpy(obs.phi(obs.t)), (1, len(obs.t))),
         type="lz",
     )
     aAI.plot(obs, type="jz")
@@ -6258,7 +6259,7 @@ def test_orbit_interface_spherical():
     acfs = numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type = "spherical"
     try:
-        obs.jr(type=type)
+        as_numpy(obs.jr(type=type))
     except AttributeError:
         pass  # should raise this, as we have not specified a potential
     else:
@@ -6267,15 +6268,15 @@ def test_orbit_interface_spherical():
         )
     acfso = numpy.array(
         [
-            obs.jr(pot=lp, type=type),
-            obs.jp(pot=lp, type=type),
-            obs.jz(pot=lp, type=type),
-            obs.Or(pot=lp, type=type),
-            obs.Op(pot=lp, type=type),
-            obs.Oz(pot=lp, type=type),
-            obs.wr(pot=lp, type=type),
-            obs.wp(pot=lp, type=type),
-            obs.wz(pot=lp, type=type),
+            as_numpy(obs.jr(pot=lp, type=type)),
+            as_numpy(obs.jp(pot=lp, type=type)),
+            as_numpy(obs.jz(pot=lp, type=type)),
+            as_numpy(obs.Or(pot=lp, type=type)),
+            as_numpy(obs.Op(pot=lp, type=type)),
+            as_numpy(obs.Oz(pot=lp, type=type)),
+            as_numpy(obs.wr(pot=lp, type=type)),
+            as_numpy(obs.wp(pot=lp, type=type)),
+            as_numpy(obs.wz(pot=lp, type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6283,16 +6284,19 @@ def test_orbit_interface_spherical():
         "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface"
     )
     assert (
-        numpy.abs(obs.Tr(pot=lp, type=type) - 2.0 * numpy.pi / acfs[3]) < 10.0**-16.0
+        numpy.abs(as_numpy(obs.Tr(pot=lp, type=type)) - 2.0 * numpy.pi / acfs[3])
+        < 10.0**-16.0
     ), "Orbit.Tr does not agree with actionAngleSpherical frequency"
     assert (
-        numpy.abs(obs.Tp(pot=lp, type=type) - 2.0 * numpy.pi / acfs[4]) < 10.0**-16.0
+        numpy.abs(as_numpy(obs.Tp(pot=lp, type=type)) - 2.0 * numpy.pi / acfs[4])
+        < 10.0**-16.0
     ), "Orbit.Tp does not agree with actionAngleSpherical frequency"
     assert (
-        numpy.abs(obs.Tz(pot=lp, type=type) - 2.0 * numpy.pi / acfs[5]) < 10.0**-16.0
+        numpy.abs(as_numpy(obs.Tz(pot=lp, type=type)) - 2.0 * numpy.pi / acfs[5])
+        < 10.0**-16.0
     ), "Orbit.Tz does not agree with actionAngleSpherical frequency"
     assert (
-        numpy.abs(obs.TrTp(pot=lp, type=type) - acfs[4] / acfs[3] * numpy.pi)
+        numpy.abs(as_numpy(obs.TrTp(pot=lp, type=type)) - acfs[4] / acfs[3] * numpy.pi)
         < 10.0**-16.0
     ), "Orbit.TrTp does not agree with actionAngleSpherical frequency"
     # Different spherical potential
@@ -6307,15 +6311,15 @@ def test_orbit_interface_spherical():
     )  # to test that not specifying the potential works
     acfso = numpy.array(
         [
-            obs.jr(type=type),
-            obs.jp(type=type),
-            obs.jz(type=type),
-            obs.Or(type=type),
-            obs.Op(type=type),
-            obs.Oz(type=type),
-            obs.wr(type=type),
-            obs.wp(type=type),
-            obs.wz(type=type),
+            as_numpy(obs.jr(type=type)),
+            as_numpy(obs.jp(type=type)),
+            as_numpy(obs.jz(type=type)),
+            as_numpy(obs.Or(type=type)),
+            as_numpy(obs.Op(type=type)),
+            as_numpy(obs.Oz(type=type)),
+            as_numpy(obs.wr(type=type)),
+            as_numpy(obs.wp(type=type)),
+            as_numpy(obs.wz(type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6332,15 +6336,15 @@ def test_orbit_interface_spherical():
     type = "spherical"
     acfso = numpy.array(
         [
-            obs.jr(pot=lp, type=type) / ro / vo,
-            obs.jp(pot=lp, type=type) / ro / vo,
-            obs.jz(pot=lp, type=type) / ro / vo,
-            obs.Or(pot=lp, type=type) / vo * ro / 1.0227121655399913,
-            obs.Op(pot=lp, type=type) / vo * ro / 1.0227121655399913,
-            obs.Oz(pot=lp, type=type) / vo * ro / 1.0227121655399913,
-            obs.wr(pot=lp, type=type),
-            obs.wp(pot=lp, type=type),
-            obs.wz(pot=lp, type=type),
+            as_numpy(obs.jr(pot=lp, type=type)) / ro / vo,
+            as_numpy(obs.jp(pot=lp, type=type)) / ro / vo,
+            as_numpy(obs.jz(pot=lp, type=type)) / ro / vo,
+            as_numpy(obs.Or(pot=lp, type=type)) / vo * ro / 1.0227121655399913,
+            as_numpy(obs.Op(pot=lp, type=type)) / vo * ro / 1.0227121655399913,
+            as_numpy(obs.Oz(pot=lp, type=type)) / vo * ro / 1.0227121655399913,
+            as_numpy(obs.wr(pot=lp, type=type)),
+            as_numpy(obs.wp(pot=lp, type=type)),
+            as_numpy(obs.wz(pot=lp, type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6349,7 +6353,7 @@ def test_orbit_interface_spherical():
     )
     assert (
         numpy.abs(
-            obs.Tr(pot=lp, type=type) / ro * vo * 1.0227121655399913
+            as_numpy(obs.Tr(pot=lp, type=type)) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[3]
         )
         < 10.0**-8.0
@@ -6358,7 +6362,7 @@ def test_orbit_interface_spherical():
     )
     assert (
         numpy.abs(
-            obs.Tp(pot=lp, type=type) / ro * vo * 1.0227121655399913
+            as_numpy(obs.Tp(pot=lp, type=type)) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[4]
         )
         < 10.0**-8.0
@@ -6367,7 +6371,7 @@ def test_orbit_interface_spherical():
     )
     assert (
         numpy.abs(
-            obs.Tz(pot=lp, type=type) / ro * vo * 1.0227121655399913
+            as_numpy(obs.Tz(pot=lp, type=type)) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[5]
         )
         < 10.0**-8.0
@@ -6375,26 +6379,26 @@ def test_orbit_interface_spherical():
         "Orbit.Tz does not agree with actionAngleSpherical frequency when using physical coordinates"
     )
     assert (
-        numpy.abs(obs.TrTp(pot=lp, type=type) - acfs[4] / acfs[3] * numpy.pi)
+        numpy.abs(as_numpy(obs.TrTp(pot=lp, type=type)) - acfs[4] / acfs[3] * numpy.pi)
         < 10.0**-8.0
     ), (
         "Orbit.TrTp does not agree with actionAngleSpherical frequency when using physical coordinates"
     )
     # Test frequency in km/s/kpc
     assert (
-        numpy.abs(obs.Or(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[3])
+        numpy.abs(as_numpy(obs.Or(pot=lp, type=type, kmskpc=True)) / vo * ro - acfs[3])
         < 10.0**-8.0
     ), (
         "Orbit.Or does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
     )
     assert (
-        numpy.abs(obs.Op(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[4])
+        numpy.abs(as_numpy(obs.Op(pot=lp, type=type, kmskpc=True)) / vo * ro - acfs[4])
         < 10.0**-8.0
     ), (
         "Orbit.Op does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
     )
     assert (
-        numpy.abs(obs.Oz(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[5])
+        numpy.abs(as_numpy(obs.Oz(pot=lp, type=type, kmskpc=True)) / vo * ro - acfs[5])
         < 10.0**-8.0
     ), (
         "Orbit.Oz does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
@@ -6414,15 +6418,15 @@ def test_orbit_interface_staeckel():
     type = "staeckel"
     acfso = numpy.array(
         [
-            obs.jr(pot=MWPotential, type=type, delta=0.71),
-            obs.jp(pot=MWPotential, type=type, delta=0.71),
-            obs.jz(pot=MWPotential, type=type, delta=0.71),
-            obs.Or(pot=MWPotential, type=type, delta=0.71),
-            obs.Op(pot=MWPotential, type=type, delta=0.71),
-            obs.Oz(pot=MWPotential, type=type, delta=0.71),
-            obs.wr(pot=MWPotential, type=type, delta=0.71),
-            obs.wp(pot=MWPotential, type=type, delta=0.71),
-            obs.wz(pot=MWPotential, type=type, delta=0.71),
+            as_numpy(obs.jr(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.jp(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.jz(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.Or(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.Op(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.Oz(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.wr(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.wp(pot=MWPotential, type=type, delta=0.71)),
+            as_numpy(obs.wz(pot=MWPotential, type=type, delta=0.71)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6441,7 +6445,7 @@ def test_orbit_interface_staeckel_defaultdelta():
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     est_delta = estimateDeltaStaeckel(MWPotential2014, obs.R(), obs.z())
     # Just need to trigger delta estimation in orbit
-    jr_orb = obs.jr(pot=MWPotential2014, type="staeckel")
+    jr_orb = as_numpy(obs.jr(pot=MWPotential2014, type="staeckel"))
     assert numpy.fabs(est_delta - obs._aA._delta) < 1e-10, (
         "Directly estimated delta does not agree with Orbit-interface-estimated delta"
     )
@@ -6454,15 +6458,15 @@ def test_orbit_interface_staeckel_defaultdelta():
     type = "staeckel"
     acfso = numpy.array(
         [
-            obs.jr(pot=MWPotential2014, type=type),
-            obs.jp(pot=MWPotential2014, type=type),
-            obs.jz(pot=MWPotential2014, type=type),
-            obs.Or(pot=MWPotential2014, type=type),
-            obs.Op(pot=MWPotential2014, type=type),
-            obs.Oz(pot=MWPotential2014, type=type),
-            obs.wr(pot=MWPotential2014, type=type),
-            obs.wp(pot=MWPotential2014, type=type),
-            obs.wz(pot=MWPotential2014, type=type),
+            as_numpy(obs.jr(pot=MWPotential2014, type=type)),
+            as_numpy(obs.jp(pot=MWPotential2014, type=type)),
+            as_numpy(obs.jz(pot=MWPotential2014, type=type)),
+            as_numpy(obs.Or(pot=MWPotential2014, type=type)),
+            as_numpy(obs.Op(pot=MWPotential2014, type=type)),
+            as_numpy(obs.Oz(pot=MWPotential2014, type=type)),
+            as_numpy(obs.wr(pot=MWPotential2014, type=type)),
+            as_numpy(obs.wp(pot=MWPotential2014, type=type)),
+            as_numpy(obs.wz(pot=MWPotential2014, type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6496,7 +6500,7 @@ def test_orbit_interface_staeckel_PotentialErrors():
         )
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
-        obs.jr(pot=tp, type="staeckel")
+        as_numpy(obs.jr(pot=tp, type="staeckel"))
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
@@ -6506,7 +6510,7 @@ def test_orbit_interface_staeckel_PotentialErrors():
     # Generic non-axi
     sp = SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
-        obs.jr(pot=sp, type="staeckel")
+        as_numpy(obs.jr(pot=sp, type="staeckel"))
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
@@ -6542,7 +6546,7 @@ def test_orbits_interface_staeckel_PotentialErrors():
         )
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
-        obs.jr(pot=tp, type="staeckel")
+        as_numpy(obs.jr(pot=tp, type="staeckel"))
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
@@ -6552,7 +6556,7 @@ def test_orbits_interface_staeckel_PotentialErrors():
     # Generic non-axi
     sp = SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
-        obs.jr(pot=sp, type="staeckel")
+        as_numpy(obs.jr(pot=sp, type="staeckel"))
         pytest.fail(
             "SpiralArms appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
@@ -6574,9 +6578,9 @@ def test_orbit_interface_adiabatic():
     type = "adiabatic"
     acfso = numpy.array(
         [
-            obs.jr(pot=MWPotential, type=type),
-            obs.jp(pot=MWPotential, type=type),
-            obs.jz(pot=MWPotential, type=type),
+            as_numpy(obs.jr(pot=MWPotential, type=type)),
+            as_numpy(obs.jp(pot=MWPotential, type=type)),
+            as_numpy(obs.jz(pot=MWPotential, type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6598,9 +6602,9 @@ def test_orbit_interface_adiabatic_2d():
     type = "adiabatic"
     acfso = numpy.array(
         [
-            obs.jr(pot=MWPotential, type=type),
-            obs.jp(pot=MWPotential, type=type),
-            obs.jz(pot=MWPotential, type=type),
+            as_numpy(obs.jr(pot=MWPotential, type=type)),
+            as_numpy(obs.jp(pot=MWPotential, type=type)),
+            as_numpy(obs.jz(pot=MWPotential, type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6622,9 +6626,9 @@ def test_orbit_interface_adiabatic_2d_2dpot():
     type = "adiabatic"
     acfso = numpy.array(
         [
-            obs.jr(pot=toPlanarPotential(MWPotential), type=type),
-            obs.jp(pot=toPlanarPotential(MWPotential), type=type),
-            obs.jz(pot=toPlanarPotential(MWPotential), type=type),
+            as_numpy(obs.jr(pot=toPlanarPotential(MWPotential), type=type)),
+            as_numpy(obs.jp(pot=toPlanarPotential(MWPotential), type=type)),
+            as_numpy(obs.jz(pot=toPlanarPotential(MWPotential), type=type)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6646,15 +6650,15 @@ def test_orbit_interface_actionAngleIsochroneApprox():
     type = "isochroneApprox"
     acfso = numpy.array(
         [
-            obs.jr(pot=MWPotential, type=type, b=0.8),
-            obs.jp(pot=MWPotential, type=type, b=0.8),
-            obs.jz(pot=MWPotential, type=type, b=0.8),
-            obs.Or(pot=MWPotential, type=type, b=0.8),
-            obs.Op(pot=MWPotential, type=type, b=0.8),
-            obs.Oz(pot=MWPotential, type=type, b=0.8),
-            obs.wr(pot=MWPotential, type=type, b=0.8),
-            obs.wp(pot=MWPotential, type=type, b=0.8),
-            obs.wz(pot=MWPotential, type=type, b=0.8),
+            as_numpy(obs.jr(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.jp(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.jz(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.Or(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.Op(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.Oz(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.wr(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.wp(pot=MWPotential, type=type, b=0.8)),
+            as_numpy(obs.wz(pot=MWPotential, type=type, b=0.8)),
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
@@ -6662,20 +6666,30 @@ def test_orbit_interface_actionAngleIsochroneApprox():
         "Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface"
     )
     assert (
-        numpy.abs(obs.Tr(pot=MWPotential, type=type, b=0.8) - 2.0 * numpy.pi / acfso[3])
+        numpy.abs(
+            as_numpy(obs.Tr(pot=MWPotential, type=type, b=0.8))
+            - 2.0 * numpy.pi / acfso[3]
+        )
         < 10.0**-13.0
     ), "Orbit.Tr does not agree with actionAngleIsochroneApprox frequency"
     assert (
-        numpy.abs(obs.Tp(pot=MWPotential, type=type, b=0.8) - 2.0 * numpy.pi / acfso[4])
+        numpy.abs(
+            as_numpy(obs.Tp(pot=MWPotential, type=type, b=0.8))
+            - 2.0 * numpy.pi / acfso[4]
+        )
         < 10.0**-13.0
     ), "Orbit.Tp does not agree with actionAngleIsochroneApprox frequency"
     assert (
-        numpy.abs(obs.Tz(pot=MWPotential, type=type, b=0.8) - 2.0 * numpy.pi / acfso[5])
+        numpy.abs(
+            as_numpy(obs.Tz(pot=MWPotential, type=type, b=0.8))
+            - 2.0 * numpy.pi / acfso[5]
+        )
         < 10.0**-13.0
     ), "Orbit.Tz does not agree with actionAngleIsochroneApprox frequency"
     assert (
         numpy.abs(
-            obs.TrTp(pot=MWPotential, type=type, b=0.8) - acfso[4] / acfso[3] * numpy.pi
+            as_numpy(obs.TrTp(pot=MWPotential, type=type, b=0.8))
+            - acfso[4] / acfso[3] * numpy.pi
         )
         < 10.0**-13.0
     ), "Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency"
@@ -6693,9 +6707,9 @@ def test_orbit_interface_unbound_simple_adiabatic_noc():
     )
     aAAnoc = actionAngleAdiabatic(pot=MWPotential2014, c=False)
     jr, jp, jz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="adiabatic", c=False),
-        obs.jp(pot=MWPotential2014, type="adiabatic", c=False),
-        obs.jz(pot=MWPotential2014, type="adiabatic", c=False),
+        as_numpy(obs.jr(pot=MWPotential2014, type="adiabatic", c=False)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="adiabatic", c=False)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="adiabatic", c=False)),
         as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)),
         as_numpy(
             obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=False)
@@ -6763,9 +6777,9 @@ def test_orbit_interface_unbound_simple_adiabatic_c():
     )
     aAAc = actionAngleAdiabatic(pot=MWPotential2014, c=True)
     jr, jp, jz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="adiabatic", c=True),
-        obs.jp(pot=MWPotential2014, type="adiabatic", c=True),
-        obs.jz(pot=MWPotential2014, type="adiabatic", c=True),
+        as_numpy(obs.jr(pot=MWPotential2014, type="adiabatic", c=True)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="adiabatic", c=True)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="adiabatic", c=True)),
         as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)),
         as_numpy(
             obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True, c=True)
@@ -6833,9 +6847,9 @@ def test_orbit_interface_unbound_simple_staeckel_noc():
     )
     aASnoc = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=False)
     jr, jp, jz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
-        obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
-        obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=False),
+        as_numpy(obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=False)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=False)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=False)),
         as_numpy(
             obs.e(
                 pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
@@ -6916,15 +6930,15 @@ def test_orbit_interface_unbound_simple_staeckel_c():
     )
     aASc = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
     jr, jp, jz, omr, omp, omz, wr, wp, wz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.Or(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.Op(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.Oz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
-        obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True),
+        as_numpy(obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.Or(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.Op(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.Oz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
+        as_numpy(obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71, c=True)),
         as_numpy(
             obs.e(
                 pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
@@ -7025,9 +7039,9 @@ def test_orbit_interface_unbound_simple_2d_adiabatic():
     # in 2D, adiabatic and Staeckel are the same and the same as spherical
     aAS = actionAngleSpherical(pot=MWPotential2014)
     jr, jp, jz = (
-        obs.jr(pot=MWPotential2014, type="adiabatic"),
-        obs.jp(pot=MWPotential2014, type="adiabatic"),
-        obs.jz(pot=MWPotential2014, type="adiabatic"),
+        as_numpy(obs.jr(pot=MWPotential2014, type="adiabatic")),
+        as_numpy(obs.jp(pot=MWPotential2014, type="adiabatic")),
+        as_numpy(obs.jz(pot=MWPotential2014, type="adiabatic")),
     )
     assert numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
@@ -7060,9 +7074,9 @@ def test_orbit_interface_unbound_simple_2d_staeckel():
     # in 2D, adiabatic and Staeckel are the same and the same as spherical
     aAS = actionAngleSpherical(pot=MWPotential2014)
     jr, jp, jz = (
-        obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71),
+        as_numpy(obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71)),
     )
     assert numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0, (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
@@ -7111,9 +7125,9 @@ def test_orbit_interface_unbound_complexshape_adiabatic():
     )
     aAA = actionAngleAdiabatic(pot=MWPotential2014)
     jr, jp, jz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="adiabatic"),
-        obs.jp(pot=MWPotential2014, type="adiabatic"),
-        obs.jz(pot=MWPotential2014, type="adiabatic"),
+        as_numpy(obs.jr(pot=MWPotential2014, type="adiabatic")),
+        as_numpy(obs.jp(pot=MWPotential2014, type="adiabatic")),
+        as_numpy(obs.jz(pot=MWPotential2014, type="adiabatic")),
         as_numpy(obs.e(pot=MWPotential2014, type="adiabatic", analytic=True)),
         as_numpy(obs.zmax(pot=MWPotential2014, type="adiabatic", analytic=True)),
         as_numpy(obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True)),
@@ -7207,15 +7221,15 @@ def test_orbit_interface_unbound_complexshape_staeckel():
     )
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71)
     jr, jp, jz, omr, omp, omz, wr, wp, wz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.Or(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.Op(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.Oz(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71),
-        obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71),
+        as_numpy(obs.jr(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.Or(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.Op(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.Oz(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.wr(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.wp(pot=MWPotential2014, type="staeckel", delta=0.71)),
+        as_numpy(obs.wz(pot=MWPotential2014, type="staeckel", delta=0.71)),
         as_numpy(
             obs.e(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True)
         ),
@@ -7339,15 +7353,15 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     )
     # Compute the actions with the automagically determined delta using the orbit interface
     jr, jp, jz, omr, omp, omz, wr, wp, wz, e, zmax, rperi, rap = (
-        obs.jr(pot=MWPotential2014, type="staeckel"),
-        obs.jp(pot=MWPotential2014, type="staeckel"),
-        obs.jz(pot=MWPotential2014, type="staeckel"),
-        obs.Or(pot=MWPotential2014, type="staeckel"),
-        obs.Op(pot=MWPotential2014, type="staeckel"),
-        obs.Oz(pot=MWPotential2014, type="staeckel"),
-        obs.wr(pot=MWPotential2014, type="staeckel"),
-        obs.wp(pot=MWPotential2014, type="staeckel"),
-        obs.wz(pot=MWPotential2014, type="staeckel"),
+        as_numpy(obs.jr(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.jp(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.jz(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.Or(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.Op(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.Oz(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.wr(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.wp(pot=MWPotential2014, type="staeckel")),
+        as_numpy(obs.wz(pot=MWPotential2014, type="staeckel")),
         as_numpy(obs.e(pot=MWPotential2014, type="staeckel", analytic=True)),
         as_numpy(obs.zmax(pot=MWPotential2014, type="staeckel", analytic=True)),
         as_numpy(obs.rperi(pot=MWPotential2014, type="staeckel", analytic=True)),
