@@ -140,6 +140,55 @@ def test_isochrone_b_constructor_grad(backend):
     numpy.testing.assert_allclose(g, fd[1], rtol=1e-9)
 
 
+# A batch with unbound (E >= 0) phase-space points: Jr and the frequencies are
+# NaN there (as on numpy), and the bound entries' gradient is not NaN-poisoned
+# by sqrt(-2E) at the unbound ones.
+_ISO_UNBOUND_VT = numpy.array([0.4, 0.9, 2.5, 3.0])  # last two unbound
+
+
+def _iso_unbound(b, vT, freqs):
+    n = len(_ISO_UNBOUND_VT)
+    args = (1.1 + 0.0 * vT, 0.1 + 0.0 * vT, vT, 0.05 + 0.0 * vT, 0.02 + 0.0 * vT)
+    aAI = actionAngleIsochrone(b=b)
+    out = aAI._actionsFreqs(*args) if freqs else aAI._evaluate(*args)
+    assert out[0].shape == (n,)
+    return out
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("freqs", [False, True])
+def test_isochrone_unbound_grad_not_nan(backend, freqs):
+    ref = _iso_unbound(0.8, _ISO_UNBOUND_VT, freqs)
+    bound = numpy.isfinite(ref[0])
+    assert list(bound) == [True, True, False, False]
+
+    def bound_sum(out):
+        # Jr (+ Omegar, Omegaz) summed over the bound entries
+        return sum(o[:2].sum() for i, o in enumerate(out) if i in (0, 3, 5))
+
+    fd = [
+        (
+            bound_sum(_iso_unbound(0.8 + h, _ISO_UNBOUND_VT, freqs))
+            - bound_sum(_iso_unbound(0.8 - h, _ISO_UNBOUND_VT, freqs))
+        )
+        / (2.0 * h)
+        for h in (1e-4, 5e-5)
+    ]
+    fd = (4.0 * fd[1] - fd[0]) / 3.0
+    vT = _arr(backend, _ISO_UNBOUND_VT)
+    got = _iso_unbound(0.8, vT, freqs)
+    for r, g in zip(ref, got):  # NaN where numpy has NaN, same values elsewhere
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-12, atol=1e-12)
+    if backend == "jax":
+        g = float(jax.grad(lambda b: bound_sum(_iso_unbound(b, vT, freqs)))(0.8))
+    else:
+        b = torch.tensor(0.8, requires_grad=True)
+        (g,) = torch.autograd.grad(bound_sum(_iso_unbound(b, vT, freqs)), b)
+        g = float(g)
+    # was NaN; measured <= 2e-10
+    numpy.testing.assert_allclose(g, fd, rtol=1e-9)
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("b", [0.8, 1.5])  # b=0 EccZmaxRperiRap only approximate
 def test_isochrone_ecczmaxrperirap_parity(backend, b):

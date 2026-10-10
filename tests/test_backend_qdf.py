@@ -906,3 +906,92 @@ def test_construction_param_grad_jax(mode, name, par, qdf_construction_fd):
     )
     # measured <= 5.6e-9
     numpy.testing.assert_allclose(float(g), qdf_construction_fd(name, par), rtol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# An unnormalized potential (Isochrone amp=1, b=0.6): some velocity GL nodes of
+# the moments are unbound (Jr = NaN). Masking them after kappa*jr*exp(...) left
+# every parameter's gradient NaN; the nodes are now evaluated at benign actions
+# and masked. Under a forced jax jit, the constant rg table no longer float()s a
+# tracer.
+# ---------------------------------------------------------------------------
+_UNB_PARS = {
+    "amp": 1.0,
+    "b": 0.6,
+    "hr": 1.0 / 3.0,
+    "sr": 0.2,
+    "sz": 0.1,
+    "hsr": 1.0,
+    "hsz": 1.0,
+}
+
+
+def _unb_quantity(name, par, v, cast=float):
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
+
+    P = dict(_UNB_PARS)
+    P[par] = v
+    pot = IsochronePotential(amp=P["amp"], b=P["b"])
+    q = quasiisothermaldf(
+        P["hr"],
+        P["sr"],
+        P["sz"],
+        P["hsr"],
+        P["hsz"],
+        pot=pot,
+        aA=actionAngleIsochrone(ip=pot),
+        cutcounter=True,
+    )
+    return getattr(q, name)(cast(1.1), cast(0.1), gl=True)
+
+
+@pytest.fixture(scope="module")
+def qdf_unbound_fd():
+    """Richardson central difference of the numpy DF's moments, converged."""
+    cache = {}
+
+    def fd(name, par):
+        if (name, par) not in cache:
+            v0 = _UNB_PARS[par]
+            f = lambda v: float(_unb_quantity(name, par, v))  # noqa: E731
+            cd = [
+                (f(v0 * (1 + e)) - f(v0 * (1 - e))) / (2 * e * v0)
+                for e in (4e-3, 2e-3, 1e-3)
+            ]
+            d = [(4.0 * cd[i + 1] - cd[i]) / 3.0 for i in (0, 1)]
+            # converged: measured <= 3.4e-9
+            assert abs(d[0] - d[1]) < 1e-8 * abs(d[1])
+            cache[(name, par)] = d[1]
+        return cache[(name, par)]
+
+    return fd
+
+
+_UNB_MODES = (["jax-data", "jit-forced"] if "jax" in BACKENDS else []) + (
+    ["torch-data", "torch-forced"] if "torch" in BACKENDS else []
+)
+
+
+@pytest.mark.parametrize("mode", _UNB_MODES)
+@pytest.mark.parametrize("par", list(_UNB_PARS))
+@pytest.mark.parametrize("name", ["sigmaR2", "meanvT"])
+def test_moment_grad_unnormalized_potential(name, par, mode, qdf_unbound_fd):
+    backend, how = mode.split("-")
+    backend = "torch" if backend == "torch" else "jax"
+    cast = float if how == "forced" else (lambda x: _arr(backend, x))
+
+    def val(v):
+        if how == "forced":
+            with galpy.backend.use(backend, force=True):
+                return _unb_quantity(name, par, v, cast)
+        return _unb_quantity(name, par, v, cast)
+
+    if backend == "torch":
+        v = torch.tensor(_UNB_PARS[par], requires_grad=True)
+        (g,) = torch.autograd.grad(val(v), v)
+    else:
+        gf = jax.grad(val)
+        g = (jax.jit(gf) if mode == "jit-forced" else gf)(_UNB_PARS[par])
+    # was NaN; measured <= 2e-10
+    numpy.testing.assert_allclose(float(g), qdf_unbound_fd(name, par), rtol=1e-8)
