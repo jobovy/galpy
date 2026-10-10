@@ -20,6 +20,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
 )
+from ..backend._namespaces import eager_value_memo
 from ..backend.quadrature import quad as bquad
 from ..util import _rotate_to_arbitrary_vector, conversion
 from .Potential import Potential
@@ -230,12 +231,19 @@ class EllipsoidalPotential(Potential):
         shared force integral is computed as a local; for the numpy backend the
         result is also stored in a per-instance cache (keyed on the input hash)
         so the three public force methods evaluated at the same point reuse a
-        single quadrature, exactly as before. The traced (jax/torch) path never
-        touches ``self``-state."""
+        single quadrature, exactly as before. Eager jax/torch reuse it through
+        ``eager_value_memo``; the traced path never touches state."""
         if xp is numpy:
             new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
             if new_hash == self._force_hash:
                 return self._cached_Fx, self._cached_Fy, self._cached_Fz
+        else:
+            return eager_value_memo(
+                self, "forces", (x, y, z), lambda: self._forces_xyz(x, y, z, xp)
+            )
+        return self._forces_xyz(x, y, z, xp, new_hash)
+
+    def _forces_xyz(self, x, y, z, xp, new_hash=None):
         if self._aligned:
             xa, ya, za = x, y, z
         else:
@@ -294,9 +302,10 @@ class EllipsoidalPotential(Potential):
 
         Returns ``(xx, xy, xz, yy, yz, zz)``. The shared quadrature is computed
         as a local; for the numpy backend the result is also cached on the
-        instance (keyed on the input hash) so methods sharing a point reuse it.
-        The traced (jax/torch) path never touches ``self``-state. Only used for
-        the aligned case (the public methods raise for rotated frames)."""
+        instance (keyed on the input hash) so methods sharing a point reuse it;
+        eager jax/torch through ``eager_value_memo``, and the traced path never
+        touches state. Only used for the aligned case (the public methods raise
+        for rotated frames)."""
         if xp is numpy:
             new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
             if new_hash == self._2ndderiv_hash:
@@ -308,6 +317,13 @@ class EllipsoidalPotential(Potential):
                     self._cached_2nd_yz,
                     self._cached_2nd_zz,
                 )
+        else:
+            return eager_value_memo(
+                self, "2ndderivs", (x, y, z), lambda: self._2ndderivs_xyz(x, y, z, xp)
+            )
+        return self._2ndderivs_xyz(x, y, z, xp, new_hash)
+
+    def _2ndderivs_xyz(self, x, y, z, xp, new_hash=None):
         prefac = 4.0 * math.pi * self._b * self._c
         xx, xy, xz, yy, yz, zz = _2ndDerivInt_all(
             x,

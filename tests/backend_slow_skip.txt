@@ -78,8 +78,11 @@
 # this row retirable means fewer force evaluations or an in-backend stepper, not
 # another micro-optimisation. (torchdiffeq was tried and is far slower; see
 # tests/conftest.py::_inbackend_method.)
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 291.9s in-shard, flips to a 300s timeout
-torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 305.7s traced
+# RETIRED 2026-10-09 by shortening that leg under torch to 2 tau / 50 (r still
+# decays 4%, 40x the 1e-3 tolerance): 446 -> ~52 s local (torch-jit ~62 s).
+# A TEST-SIZE change -- the per-step floor is ~2x numpy's own 190 us/EOM, so no
+# galpy fix gets there.
+
 # calling the DECORATED evaluateDensities once per force evaluation (98,800 @backend_input
 # crossings for a five-point integration -> 0). Its sibling const_FDMfactor went 253.1 -> 188.6s
 # and stays un-ledgered. STILL OVER the cap here, and the residue is NOT backend overhead:
@@ -334,8 +337,9 @@ torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_lim
 # (~5 ms/call eager jax). CI shard times: eager jax 146-295 s, jax-jit
 # 90-296 s on feat/backends' own runs, then a 300 s timeout (run 37721184156);
 # locally 340-379 s eager, 352 s traced. numpy (and torch, ~20 s) cover it.
-jax tests/test_kuzminkutuzov.py::test_orbitIntegrationC  # CI 146-295 s; near the cap
-jax-jit tests/test_kuzminkutuzov.py::test_orbitIntegrationC  # CI 90-296 s, then timed out
+# RETIRED 2026-10-09: under jax the Python arm integrates with diffrax
+# (_inbackend_method, as the FDM tests do) and the KK force shares its square
+# roots: ~5 s local, eager and traced.
 
 # --- jax-jit: measured under `--backend jax --jit`, 2026-08-09 ---
 # These exist because the slow-skip list no longer inherits eager entries (see
@@ -440,7 +444,11 @@ jax-jit tests/test_kuzminkutuzov.py::test_orbitIntegrationC  # CI 90-296 s, then
 # fresh toPlanar() wrapper per call and the harness keyed objects by identity
 # (293 of 466 compiles). Keying objects structurally (galpy.backend._jit): 501 s
 # -> 260 s here, compile 203 s -> 20 s. Still too near the cap to retire.
-jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap[ExpTruncNFWPotential]  # 260s here (was 501s); near the cap
+# RETIRED 2026-10-09: the rest was redundant work, not numerics. Orbit's aA cache
+# was rebuilt on every e/rperi/rap call (the staeckel request never matched the
+# spherical fallback it set up: 5 aA setups for 5 calls -> 1), bracket expansion
+# ran all 80 steps past its fixed point, and E1 was evaluated twice per Phi:
+# 453 -> ~60 s traced, 363 -> ~67 s eager (local, shared machine).
 
 # NOT an eager entry: tracing alone makes these slow, so inheritance could never
 # have produced them.
