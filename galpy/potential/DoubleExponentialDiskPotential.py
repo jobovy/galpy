@@ -11,12 +11,17 @@ from ..backend import (
     asarray_on_device,
     coerce_coords,
     device_of,
-    get_namespace,
+    is_backend_array,
     match_input_dtype,
 )
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.quadrature import node_axis
 from ..util import conversion
-from .Potential import Potential, check_potential_inputs_not_arrays
+from .Potential import (
+    Potential,
+    _pot_data_namespace,
+    check_potential_inputs_not_arrays,
+)
 
 
 def _de_psi(t):
@@ -144,14 +149,17 @@ class DoubleExponentialDiskPotential(Potential):
             * special.j1(self._de_j1_xs)
             * _de_psiprime(self._de_h * self._de_j1zeros)
         )
-        # Potential at zero in case we want that
+        # Potential at zero in case we want that; on hr/hz's namespace so a
+        # differentiated scale is carried through (numpy for float scales)
+        xp = namespace_from_arrays((hr, hz)) or numpy
+        _atanh = numpy.arctanh if xp is numpy else xp.atanh
         _gamma = self._beta / self._alpha
         _gamma2 = _gamma**2.0
         self._pot_zero = (
-            2.0 * (_gamma - 1.0) * numpy.sqrt(1.0 + _gamma2)
-            + 2.0 * numpy.arctanh(1.0 / numpy.sqrt(1.0 + _gamma2))
-            - numpy.log(1.0 - _gamma / numpy.sqrt(1.0 + _gamma2))
-            + numpy.log(1.0 + _gamma / numpy.sqrt(1.0 + _gamma2))
+            2.0 * (_gamma - 1.0) * xp.sqrt(1.0 + _gamma2)
+            + 2.0 * _atanh(1.0 / xp.sqrt(1.0 + _gamma2))
+            - xp.log(1.0 - _gamma / xp.sqrt(1.0 + _gamma2))
+            + xp.log(1.0 + _gamma / xp.sqrt(1.0 + _gamma2))
         ) / (2.0 * (1.0 + _gamma2) ** 1.5)
         self._pot_zero *= -4.0 * numpy.pi / self._alpha**2.0
         # Normalize?
@@ -159,6 +167,12 @@ class DoubleExponentialDiskPotential(Potential):
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
+
+    def _coords_namespace(self, R, z):
+        """(xp, R, z): the coordinates' namespace, or at float coordinates a
+        differentiated parameter's (the coordinates then coerced onto it)"""
+        xp = _pot_data_namespace((self,), R, z)
+        return (xp, *coerce_coords(xp, R, z))
 
     def _evaluate(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
@@ -186,7 +200,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # the Ogata quadrature nodes/weights are deliberately float64
         # (precision); the result is cast to the input dtype at exit (no-op
         # for float64/scalar inputs), so keep the original inputs for that.
@@ -240,7 +254,10 @@ class DoubleExponentialDiskPotential(Potential):
                 axis=1,
             )
         )
-        out = xp.where((R == 0) & (z == 0), float(self._pot_zero), out)
+        pot_zero = self._pot_zero
+        if not is_backend_array(pot_zero):
+            pot_zero = float(pot_zero)
+        out = xp.where((R == 0) & (z == 0), pot_zero, out)
         out = xp.where((R == 0) & (z != 0), numpy.nan, out)
         if floatIn:
             return match_input_dtype(out[0], *in_coords)
@@ -274,7 +291,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         # node_axis so R/z broadcast against the trailing Ogata-node axis; a
@@ -337,7 +354,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         # node_axis so R/z broadcast against the trailing Ogata-node axis; a
@@ -397,7 +414,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-27 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         # node_axis so R/z broadcast against the trailing Ogata-node axis; a
@@ -466,7 +483,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         # node_axis so R/z broadcast against the trailing Ogata-node axis; a
@@ -530,7 +547,7 @@ class DoubleExponentialDiskPotential(Potential):
         - 2013-08-28 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
+        xp, R, z = self._coords_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         # node_axis so R/z broadcast against the trailing Ogata-node axis; a
@@ -563,13 +580,11 @@ class DoubleExponentialDiskPotential(Potential):
         return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         return xp.exp(-self._alpha * R - self._beta * xp.abs(z))
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         return (
             2.0
             * xp.exp(-self._alpha * R)
