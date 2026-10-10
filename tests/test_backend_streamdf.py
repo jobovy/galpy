@@ -2906,6 +2906,46 @@ def test_misalignment_traces(flip):
     numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_misalignment_isotropic_grad_vs_fd(sdf, backend_name):
+    # isotropic misalignment reads the top eigenVECTOR of dO/dJ (_dOdJpEig, as
+    # _progenitor_setup builds it); its rotation must carry the gradient. The
+    # numpy (finite-difference) dO/dJ is slightly asymmetric: eigh symmetrises it.
+    from types import SimpleNamespace
+
+    from galpy.df.streamdf import streamdf
+
+    xp = jnp if backend_name == "jax" else torch
+    D0 = numpy.asarray(sdf._dOdJp)
+    pert = numpy.random.default_rng(7).normal(size=(3, 3))
+    pert = 0.5 * (pert + pert.T)
+
+    def f(t):
+        D = xp.asarray(D0) * (1.0 + 0.1 * t * xp.asarray(pert))
+        fake = SimpleNamespace(
+            _dOdJpEig=_real_eig(D),
+            _progenitor_Omega=xp.asarray(numpy.asarray(sdf._progenitor_Omega)),
+        )
+        with pytest.warns(Warning):
+            return streamdf.misalignment(fake, isotropic=True)
+
+    t0 = 0.4
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(t0)))
+    else:
+        tt = torch.tensor(t0, requires_grad=True)
+        f(tt).backward()
+        ad = float(tt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, t0 + h))) - float(f(_arr(backend_name, t0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(rich) > 1e-3 and abs(ad - rich) < 1e-8 * abs(rich), (ad, rich)
+
+
 @pytest.mark.slow
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_traced_track_jacobians_match_eager():
