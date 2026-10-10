@@ -2,6 +2,7 @@
 
 import numpy
 import scipy
+from conftest import _ic_on_backend, _inbackend_method
 
 from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
 from galpy.backend import as_numpy
@@ -574,7 +575,10 @@ def test_orbitIntegrationC():
 
     # _____integrate the orbit with python and C_____
     ts = numpy.linspace(0, 100, 101)
-    o_P.integrate(ts, pot, method="leapfrog")  # python
+    # the Python arm checks the Python force: under jax, integrated in-backend
+    _m = _inbackend_method("leapfrog")
+    o_P = o_P if _m == "leapfrog" else Orbit(_ic_on_backend(o_P))
+    o_P.integrate(ts, pot, method=_m)  # python
     o_C.integrate(ts, pot, method="leapfrog_c")  # C
 
     for ii in range(5):

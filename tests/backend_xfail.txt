@@ -230,38 +230,14 @@
 # CUDA torch gives "Cannot re-initialize CUDA in forked subprocess", and with
 # CUDA_VISIBLE_DEVICES='' the run wedged past a 900 s timeout. Keeping them
 # ledgered under torch-jit so a workflow_dispatch(jit=true) stays honest.
-# A units-based density is NOT TRACEABLE, and this is by construction rather
-# than a defect. AnySphericalPotential._backend_dens deliberately evaluates such
-# a density on the numpy node --  astropy Quantity arithmetic strips a jax/torch
-# node to numpy, so the density is inherently non-differentiable -- and anchors
-# the result back (see its docstring). That routes through as_numpy(), i.e.
-# numpy.asarray(), which a tracer cannot satisfy. Eager jax/torch are fine: a
-# concrete array converts.
-#
-# `test_pickling_potential_unitful_dens` was de-ledgered on 2026-08-18 as
-# "MEASURED PASSING traced -- the workflow_dispatch(jit=true, regen=true) run
-# (32141815273) does not list it". THAT WAS WRONG, and re-ledgered here.
-# Re-measured 2026-08-28, whole test_potential.py plus single-nodeid:
-#
-#     jax  --jit   FAIL  TracerArrayConversionError
-#     torch --jit  FAIL  (the torch equivalent)
-#     jax  eager   pass
-#     torch eager  pass
-#
-# which is EXACTLY what the reasoning above predicts -- a units density routes
-# through as_numpy(), which a tracer cannot satisfy, while a concrete array
-# converts. The de-ledgering contradicted its own paragraph.
-#
-# "Does not list it" was read as "passes". Absence of a result is NO DATA, not
-# evidence of a pass: the regen run most likely never reached this test. That is
-# the rule tools/ledger_harvest.py bakes in, and it applies to reading a regen
-# run by hand too.
-#
-# CI never runs jit mode, so this only reds a workflow_dispatch(jit=true) --
-# which is precisely why it went unnoticed for ten days.
-jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
-jax-jit tests/test_potential.py::test_pickling_potential_unitful_dens
-torch-jit tests/test_potential.py::test_pickling_potential_unitful_dens
+# --- RETIRED 2026-10-09: test_pickling_potential_unitful_dens (jax-jit,
+# torch-jit) and test_pickling_potential_drops_units_wrapper (jax-jit). A
+# units-based density is host-only, but "not traceable" was the wrong conclusion:
+# AnySphericalPotential._backend_dens now evaluates it through
+# galpy.backend.host_eval -- a jax.pure_callback under jax.jit, an eager
+# graph-break region under torch.compile (dynamo had been tracing into astropy
+# and hit a RecursionError) -- so the traced value equals eager and
+# differentiating through it still raises.
 
 # jax-jit: actionAngleStaeckelGrid, MEASURED 2026-08-07 on the first traced run of
 # test_actionAngle.py (whole file, regen mode). This nodeid is ledgered for EAGER

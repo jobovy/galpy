@@ -374,3 +374,79 @@ def test_torch_asarray_requires_grad_warning_silenced():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert out.stdout.strip().splitlines()[-1] == "0", out.stdout + out.stderr
+
+
+class _MemoOwner:
+    def __init__(self):
+        self._p = 1.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eager_value_memo_reuses_by_value(backend):
+    # One computation per point: a NEW array with an equal value hits, a new
+    # value or a changed owner parameter (a re-normalized potential) recomputes.
+    from galpy.backend._namespaces import eager_value_memo
+
+    xp = jnp if backend == "jax" else torch
+    owner, calls = _MemoOwner(), []
+
+    def memo(v):
+        x = xp.asarray(v)
+        return eager_value_memo(owner, "s", (x,), lambda: calls.append(v) or 2.0 * x)
+
+    first = memo(1.5)
+    assert memo(1.5) is first and calls == [1.5]
+    assert float(memo(2.5)) == 5.0 and calls == [1.5, 2.5]
+    owner._p = 2.0
+    assert float(memo(2.5)) == 5.0 and calls == [1.5, 2.5, 2.5]
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_eager_value_memo_does_not_keep_a_graph():
+    # A result carrying an autograd graph (also nested) is recomputed, never
+    # reused: a second backward through a freed graph would raise.
+    from galpy.backend._namespaces import eager_value_memo
+
+    owner = _MemoOwner()
+    for _ in range(2):
+        p = torch.tensor(3.0, requires_grad=True)
+        x = torch.tensor(1.5)
+        out = eager_value_memo(owner, "g", (x,), lambda: (x, [p * x]))
+        (g,) = torch.autograd.grad(out[1][0], p)
+        assert float(g) == 1.5
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_eager_value_memo_under_jax_transforms():
+    # Traced coordinates bypass the memo; a concrete coordinate with a traced
+    # closure (d/dparameter) computes but does not store the tracer.
+    import galpy.backend._namespaces as _ns
+
+    owner = _MemoOwner()
+    x = jnp.asarray(1.5)
+
+    def via_param(p):
+        return _ns.eager_value_memo(owner, "p", (x,), lambda: p * x)
+
+    def via_coord(y):
+        return _ns.eager_value_memo(owner, "c", (y,), lambda: y**2)
+
+    assert float(jax.grad(via_param)(3.0)) == 1.5
+    assert float(jax.jit(jax.grad(via_coord))(x)) == 3.0
+    assert "p" not in _ns._EAGER_MEMOS.get(owner, {})
+    assert "c" not in _ns._EAGER_MEMOS.get(owner, {})
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_eager_value_memo_bypassed_for_a_differentiated_argument():
+    # A graph-free result cached at a point must not answer a later call at the
+    # same VALUE whose argument requires grad: that would drop the gradient.
+    from galpy.backend._namespaces import eager_value_memo
+
+    owner = _MemoOwner()
+    x = torch.tensor(1.5)
+    eager_value_memo(owner, "a", (x,), lambda: 2.0 * x)
+    xg = torch.tensor(1.5, requires_grad=True)
+    out = eager_value_memo(owner, "a", (xg,), lambda: 2.0 * xg)
+    (g,) = torch.autograd.grad(out, xg)
+    assert float(g) == 2.0

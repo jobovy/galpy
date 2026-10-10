@@ -73,19 +73,17 @@ class KuzminKutuzovStaeckelPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
-        dldR = xp.asarray(jac[0, 0])
-        dndR = xp.asarray(jac[1, 0])
-        return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
+        dldR, dndR = coords._Rz_to_lambdanu_jac_column(R, z, self._delta, xp, "R")
+        lderiv, nderiv = self._lnderivs(l, n)
+        return -(dldR * lderiv + dndR * nderiv)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
-        dldz = xp.asarray(jac[0, 1])
-        dndz = xp.asarray(jac[1, 1])
-        return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
+        dldz, dndz = coords._Rz_to_lambdanu_jac_column(R, z, self._delta, xp, "z")
+        lderiv, nderiv = self._lnderivs(l, n)
+        return -(dldz * lderiv + dndz * nderiv)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
@@ -142,6 +140,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
             + dndR * dndz * self._n2deriv(l, n)
             + (dldR * dndz + dldz * dndR) * self._lnderiv(l, n)
         )
+
+    def _lnderivs(self, l, n):
+        """(:meth:`_lderiv`, :meth:`_nderiv`) sharing their square roots."""
+        xp = get_namespace(l, n)
+        sl, sn = xp.sqrt(l), xp.sqrt(n)
+        den = (sl + sn) ** 2
+        return 0.5 / sl / den, 0.5 / sn / den
 
     def _lderiv(self, l, n):
         """
