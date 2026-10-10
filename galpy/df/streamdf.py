@@ -94,14 +94,14 @@ _SQRT2 = numpy.sqrt(2.0)
 _SQRT2PI = numpy.sqrt(2.0 * numpy.pi)
 
 
-def _real_eig(a, freeze_vectors=True):
+def _real_eig(a):
     # numpy>=2.5 returns a complex result from numpy.linalg.eig even for input
     # with real eigenvalues (e.g. the symmetric dO/dJ = d^2H/dJ^2 and covariance
     # matrices used here); return the real part so the downstream real-valued
     # math (fabs/sqrt/argsort) works. No-op (byte-identical) on numpy<2.5, where
     # eig already returns real arrays for these inputs. A backend a stays on its
     # namespace (galpy.backend.linalg.real_eig).
-    return _bk_real_eig(a, freeze_vectors=freeze_vectors)
+    return _bk_real_eig(a)
 
 
 def _stack3(x, y, z):
@@ -576,15 +576,7 @@ class streamdf(df):
             self._dOdJp, _xp.matmul(self._sigjmatrix, self._dOdJp.T)
         )
         # Estimate angle spread as the ratio of the largest to the middle eigenvalue
-        # freeze_vectors=False: the direction read off below is the eigenvector
-        # of the LARGEST eigenvalue, and for a stream frequency covariance the
-        # physics keeps that ratio large -- the stream spreads overwhelmingly
-        # along one direction (measured 1.257e-6 vs 2.049e-9 and 3.923e-10 at
-        # q=0.9, i.e. ~600x, and 0.9949-0.9984 of the spectrum norm across q).
-        # So its eigenvector is well conditioned; the near-degeneracy is between
-        # the two SMALL eigenvalues, whose eigenvectors nothing reads. Freezing
-        # this rotation costs ~70% of d(track)/d(theta).
-        self._sigomatrixEig = _real_eig(self._sigomatrix, freeze_vectors=False)
+        self._sigomatrixEig = _real_eig(self._sigomatrix)
         self._sigomatrixEigsortIndx = _xp.argsort(self._sigomatrixEig[0])
         # sorted() on a backend array would iterate it into Python scalars
         self._sortedSigOEig = _sorted_eigvals(self._sigomatrixEig[0])
@@ -593,7 +585,11 @@ class streamdf(df):
         else:
             self._sigangle = sigangle
         self._sigangle2 = self._sigangle**2.0
-        self._lnsigangle = numpy.log(self._sigangle)
+        self._lnsigangle = (
+            get_namespace(self._sigangle).log(self._sigangle)
+            if is_backend_array(self._sigangle)
+            else numpy.log(self._sigangle)
+        )
         # Estimate the frequency mean as lying along the direction of the largest eigenvalue
         self._dsigomeanProgDirection = self._sigomatrixEig[1][
             :, _xp.argmax(self._sigomatrixEig[0])
@@ -1739,9 +1735,8 @@ class streamdf(df):
         Jacobian, its 2nd derivative w.r.t. a parameter). The progenitor freqs/
         angles are recomputed (below) so the offset carries the gradient; only the
         frequency-covariance moments (``_meandO``/``_sortedSigOEig``) stay constant
-        here. ``_dsigomeanProgDirection`` -- the frame rotation -- does NOT: it was
-        frozen, which cost ~70% of d(track)/d(theta) (not the ~10% once claimed
-        here), and ``real_eig(..., freeze_vectors=False)`` now differentiates it.
+        here; ``_dsigomeanProgDirection`` (an eigenvector, ``real_eig``) is
+        differentiated by a full construction.
         """
         from ..orbit import Orbit
 
@@ -3729,13 +3724,11 @@ class streamdf(df):
         # denom==0/nan far-field/progenitor control flow becomes xp.where.
         if is_backend_array(dangle):
             xp = get_namespace(dangle)
-            aplow = numpy.amax(
-                [
-                    numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,
-                    self._sigangle,
-                ]
+            sig = as_backend_constant(xp, self._sortedSigOEig[eigIndx], dangle)
+            apb = xp.maximum(
+                xp.sqrt(sig) * self._tdisrupt * 5.0,
+                as_backend_constant(xp, self._sigangle, dangle),
             )
-            apb = as_backend_constant(xp, aplow, dangle)
             num = _backend_fixed_quad(
                 xp,
                 lambda x: x * self.pangledAngle(x, dangle, smallest),
@@ -3807,13 +3800,10 @@ class streamdf(df):
                 dt = self.meantdAngle(dangle, use_physical=False)
                 sigangle2 = as_backend_constant(xp, self._sigangle2, dangle)
                 return xp.sqrt(sigangle2 + sig * dt**2.0)
-            aplow = numpy.amax(
-                [
-                    numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,
-                    self._sigangle,
-                ]
+            apb = xp.maximum(
+                xp.sqrt(sig) * self._tdisrupt * 5.0,
+                as_backend_constant(xp, self._sigangle, dangle),
             )
-            apb = as_backend_constant(xp, aplow, dangle)
             numsig2 = _backend_fixed_quad(
                 xp,
                 lambda x: x**2.0 * self.pangledAngle(x, dangle),
