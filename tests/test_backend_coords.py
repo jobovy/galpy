@@ -1045,3 +1045,150 @@ def test_migrated_transforms_grad_vs_fd(backend_name, name):
     numpy.testing.assert_allclose(
         ad, fd, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(fd))
     )
+
+
+###############################################################################
+# B1950: with astropy, numpy's radec_to_lb / lb_to_radec go through astropy's
+# FK4, which carries the E-terms of aberration; the backend rotation now applies
+# them too (it was ~1.5e-6 rad off). Without astropy numpy uses the bare
+# rotation, and so does the backend. The astropy reference below is hardcoded,
+# so the astropy branch is also checked where astropy is absent (flag forced).
+###############################################################################
+_B1950_RA = numpy.array([0.3, 1.0, 2.5, 4.0, 5.9])
+_B1950_DEC = numpy.array([-1.2, 0.3, 0.05, 0.9, -0.4])
+# numpy + astropy 7.2: radec_to_lb(ra, dec, epoch=1950), lb_to_radec(same)
+_B1950_LB = numpy.array(
+    [
+        [5.241212403239471, -0.8472122785546199],
+        [3.014483199544537, -0.481675363802285],
+        [4.046219653185793, 0.6492733776165741],
+        [1.4719044806994828, 0.9300006219721799],
+        [0.5852775563076801, -1.0265188385479849],
+    ]
+)
+_B1950_RADEC = numpy.array(
+    [
+        [6.077617573848345, -0.5428521761331672],
+        [4.83288862220069, 0.5063314420070917],
+        [0.942788765010903, 1.0254682240788267],
+        [2.699143324179138, 0.20817479226424548],
+        [4.923744709500278, -1.0134993675777106],
+    ]
+)
+
+
+@pytest.mark.parametrize("epoch", [1950.0, "B1950"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_b1950_matches_astropy_fk4(backend_name, epoch, monkeypatch):
+    if coords._APY_COORDS:  # the reference is reproduced live
+        numpy.testing.assert_allclose(
+            coords.radec_to_lb(_B1950_RA, _B1950_DEC, epoch=epoch),
+            _B1950_LB,
+            rtol=0.0,
+            atol=1e-14,
+        )
+    monkeypatch.setattr(coords, "_APY_COORDS", True)
+    A = lambda a: _asarray(backend_name, a)  # noqa: E731
+    lb = coords.radec_to_lb(A(_B1950_RA), A(_B1950_DEC), epoch=epoch)
+    radec = coords.lb_to_radec(A(_B1950_RA), A(_B1950_DEC), epoch=epoch)
+    assert is_backend_array(lb) and is_backend_array(radec)
+    # was up to 4.5e-6; measured <= 9e-16
+    numpy.testing.assert_allclose(as_numpy(lb), _B1950_LB, rtol=0.0, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(radec), _B1950_RADEC, rtol=0.0, atol=1e-14)
+    # and they invert each other
+    back = coords.lb_to_radec(lb[:, 0], lb[:, 1], epoch=epoch)
+    numpy.testing.assert_allclose(
+        as_numpy(back), numpy.stack([_B1950_RA, _B1950_DEC], axis=-1), atol=1e-14
+    )
+
+
+def test_b1950_without_astropy_is_the_bare_rotation(monkeypatch):
+    # no astropy: FK4 without E-terms, numpy and backend alike (byte-identical
+    # numpy), 1.5e-6 rad from astropy's FK4
+    monkeypatch.setattr(coords, "_APY_COORDS", False)
+    lb = coords.radec_to_lb(_B1950_RA, _B1950_DEC, epoch=1950.0)
+    assert 1e-7 < numpy.max(numpy.abs(lb - _B1950_LB)) < 1e-5
+    for backend_name in AD_BACKENDS:
+        A = lambda a: _asarray(backend_name, a)  # noqa: E731
+        got = coords.radec_to_lb(A(_B1950_RA), A(_B1950_DEC), epoch=1950.0)
+        numpy.testing.assert_allclose(as_numpy(got), lb, rtol=0.0, atol=1e-14)
+
+
+###############################################################################
+# Parameter gradients: a differentiated Delta / ac (Rz_to_lambdanu) or Zsun
+# (vxvyvz_to_galcencyl) with numpy/float coordinates. Rz_to_lambdanu took its
+# namespace from (R, z) only (numpy.sqrt of a tracer); rect_to_cyl_vec met the
+# backend velocities with numpy positions (Multiple namespaces).
+###############################################################################
+def _richardson(f, x0):
+    h = 1e-3 * max(1.0, abs(x0))
+    cd = [(f(x0 + s) - f(x0 - s)) / (2.0 * s) for s in (h, h / 2.0)]
+    return (4.0 * cd[1] - cd[0]) / 3.0
+
+
+def _ad(mode, f, x0):
+    if mode == "torch":
+        x = torch.tensor(x0, requires_grad=True)
+        return float(torch.autograd.grad(f(x), x)[0])
+    g = jax.grad(f)
+    return float((jax.jit(g) if mode == "jit" else g)(x0))
+
+
+_PARAM_MODES = (["jax", "jit"] if jax is not None else []) + (
+    ["torch"] if torch is not None else []
+)
+
+
+def _lambdanu_sum(par, v, R, z):
+    kw = {"ac": 5.0, "Delta": 1.4}
+    kw[par] = v
+    l, n = coords.Rz_to_lambdanu(R, z, **kw)
+    return (l * l).sum() + (l * n).sum()
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("par", ["Delta", "ac"])
+@pytest.mark.parametrize("mode", _PARAM_MODES)
+def test_Rz_to_lambdanu_param_grad(mode, par, forced):
+    x0 = {"Delta": 1.4, "ac": 5.0}[par]
+    fd = _richardson(lambda v: _lambdanu_sum(par, v, _LN_R, _LN_Z), x0)
+    backend_name = "torch" if mode == "torch" else "jax"
+
+    def f(v):
+        if forced:  # plain numpy coordinates (one of them z = 0)
+            with use(backend_name, force=True):
+                return _lambdanu_sum(par, v, _LN_R, _LN_Z)
+        A = lambda a: _asarray(backend_name, a)  # noqa: E731
+        return _lambdanu_sum(par, v, A(_LN_R), A(_LN_Z))
+
+    # forced was TracerArrayConversionError / TypeError; measured <= 4e-12
+    numpy.testing.assert_allclose(_ad(mode, f, x0), fd, rtol=1e-10)
+
+
+def _galcencyl_sum(Zsun, args):
+    out = coords.vxvyvz_to_galcencyl(*args, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=Zsun)
+    comps = out if isinstance(out, tuple) else (out[:, 0], out[:, 1], out[:, 2])
+    # not a norm: a rotation (what Zsun does) leaves that unchanged
+    return sum((k + 1.0) * c.sum() for k, c in enumerate(comps))
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("scalar", [True, False], ids=["scalar", "array"])
+@pytest.mark.parametrize("mode", _PARAM_MODES)
+def test_vxvyvz_to_galcencyl_Zsun_grad(mode, scalar, forced):
+    args = (
+        (0.1, 0.2, 0.05, 1.0, 0.5, 0.3)
+        if scalar
+        else (_VX[:3], _VY[:3], _VZ[:3], _X[:3], _Y[:3], _Z[:3])
+    )
+    fd = _richardson(lambda v: float(_galcencyl_sum(v, args)), 0.02)
+    backend_name = "torch" if mode == "torch" else "jax"
+
+    def f(v):
+        if forced:
+            with use(backend_name, force=True):
+                return _galcencyl_sum(v, args)
+        return _galcencyl_sum(v, args)  # only Zsun is a backend array
+
+    # was "Multiple namespaces" (rect_to_cyl_vec) in data mode; measured <= 1.6e-12
+    numpy.testing.assert_allclose(_ad(mode, f, 0.02), fd, rtol=1e-10)
