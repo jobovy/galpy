@@ -1,6 +1,19 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``AdiabaticContractionWrapperPotential`` now applies its ``amp`` (it was
+  silently ignored, so ``amp`` had no effect in Python, C, or JAX).
+
+- ``quasiisothermaldf``: ``_precomputerg=False`` no longer raises
+  "'NoneType' object is not callable". When the actionAngle object raises
+  ``UnboundError`` for an array of phase-space points (the Python
+  implementations do so when any single point is unbound), the DF is now
+  evaluated point by point (unbound points get zero DF and NaN actions)
+  instead of returning a single scalar; this made moments computed with
+  ``gl=True`` fail with "cannot unpack non-iterable" whenever a Gauss-Legendre
+  velocity node was unbound (e.g., in a low-mass potential with the Python
+  ``actionAngleAdiabatic``). They now agree with ``c=True`` to ~1e-10.
+
 - ``dehnendf`` and ``shudf`` moments (``surfacemass``, ``sigma2surfacemass``,
   ``vmomentsurfacemass``, ``sigmaR2``, ``sigmaT2``, ``meanvT``, ``meanvR``,
   skewness, kurtosis and the Oort functions) now accept a numpy array of
