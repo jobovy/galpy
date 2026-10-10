@@ -8,9 +8,9 @@
 # (jax/torch, including traced ones) through unscaled, so a parameter supplied as
 # a tracer survives construction and the gradient flows through _evaluate/_Rforce.
 #
-# Usage contract exercised here: the *coordinates* are supplied as backend arrays
-# too, so the namespace resolver follows the data into jax/torch (a numpy-float
-# coordinate would pin the namespace to numpy and choke on the traced parameter).
+# The coordinates may be backend arrays, Python floats (the @backend_input
+# boundary then follows the differentiated PARAMETER onto its backend), or
+# Python floats under a forced backend.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -349,3 +349,171 @@ def test_orbit_analytic_grad_wrt_potential_parameter(backend_name, method):
     # a DETACHED gradient is the failure this guards: it returns a finite 0
     assert abs(ad) > 0.0, f"{method}: gradient is identically zero (detached?)"
     numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Python-float coordinates with a differentiated parameter (no use() block):
+# the @backend_input boundary lifts the coordinates onto the parameter's
+# backend. Before, `jax.grad(lambda a: MiyamotoNagaiPotential(a=a)(1.0, 0.1))`
+# raised (numpy.sqrt of a tracer).
+# ---------------------------------------------------------------------------
+def _mn(**kw):
+    from galpy.potential import MiyamotoNagaiPotential
+
+    return MiyamotoNagaiPotential(**kw)
+
+
+def _nfw(**kw):
+    from galpy.potential import NFWPotential
+
+    return NFWPotential(**kw)
+
+
+def _loghalo(**kw):
+    from galpy.potential import LogarithmicHaloPotential
+
+    return LogarithmicHaloPotential(**kw)
+
+
+def _smooth_mn(a):
+    # a wrapper: the differentiated parameter sits one level in
+    from galpy.potential import DehnenSmoothWrapperPotential
+
+    return DehnenSmoothWrapperPotential(
+        pot=_mn(amp=1.0, a=a, b=0.3), tform=-1.0, tsteady=0.5
+    )
+
+
+def _composite_mn(a):
+    # a composite: the parameter sits in one of its components
+    return _mn(amp=1.0, a=a, b=0.3) + PlummerPotential(amp=0.5, b=0.7)
+
+
+FLOAT_SPECS = [
+    ("MN-a", lambda th: _mn(amp=1.0, a=th, b=0.3), 0.5),
+    ("MN-b", lambda th: _mn(amp=1.0, a=0.5, b=th), 0.3),
+    ("Plummer-b", lambda th: PlummerPotential(amp=1.0, b=th), 0.7),
+    ("Isochrone-amp", lambda th: IsochronePotential(amp=th, b=1.1), 2.0),
+    ("NFW-a", lambda th: _nfw(amp=1.0, a=th), 1.5),
+    ("LogHalo-q", lambda th: _loghalo(amp=1.0, core=0.2, q=th), 0.8),
+    ("DehnenSmooth(MN)-a", _smooth_mn, 0.5),
+    ("MN+Plummer-a", _composite_mn, 0.5),
+]
+FLOAT_IDS = [s[0] for s in FLOAT_SPECS]
+
+
+def _float_value(build, theta, method, R=_R0, z=_Z0):
+    return METHODS[method](build(theta), R, z)
+
+
+def _float_fd(build, th0, method):
+    def fnp(theta):
+        return float(_float_value(build, theta, method))
+
+    d1 = (fnp(th0 + _EPS) - fnp(th0 - _EPS)) / (2 * _EPS)
+    d2 = (fnp(th0 + _EPS / 2) - fnp(th0 - _EPS / 2)) / _EPS
+    return (4 * d2 - d1) / 3
+
+
+def _forced_ctx(backend_name, mode):
+    import contextlib
+
+    return (
+        backend.use(backend_name, force=True)
+        if mode == "forced"
+        else (contextlib.nullcontext())
+    )
+
+
+@pytest.mark.parametrize("mode", ["float", "forced"])
+@pytest.mark.parametrize("method", METHOD_IDS)
+@pytest.mark.parametrize("spec", FLOAT_SPECS, ids=FLOAT_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_param_grad_at_float_coordinates(backend_name, spec, method, mode):
+    _, build, th0 = spec
+    fd = _float_fd(build, th0, method)
+    if backend_name == "jax":
+
+        def f(th):
+            with _forced_ctx("jax", mode):
+                out = _float_value(build, th, method)
+            assert backend.is_backend_array(out)
+            return out
+
+        grads = [jax.grad(f)(jnp.asarray(th0)), jax.jit(jax.grad(f))(th0)]
+        # a batch of parameter values under vmap(grad) (eager and jitted)
+        thetas = jnp.asarray([th0, 1.1 * th0])
+        vg = jax.vmap(jax.grad(f))(thetas)
+        numpy.testing.assert_allclose(
+            numpy.asarray(jax.jit(jax.vmap(jax.grad(f)))(thetas)), vg, rtol=1e-13
+        )
+        numpy.testing.assert_allclose(
+            float(vg[1]), _float_fd(build, 1.1 * th0, method), rtol=1e-9, atol=1e-11
+        )
+        grads.append(vg[0])
+    else:
+        th = torch.tensor(th0, requires_grad=True)
+        with _forced_ctx("torch", mode):
+            out = _float_value(build, th, method)
+        assert backend.is_backend_array(out)
+        out.backward()
+        grads = [th.grad]
+    for g in grads:
+        numpy.testing.assert_allclose(float(g), fd, rtol=1e-9, atol=1e-11)
+
+
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_forced_numpy_beats_a_parameter_backend():
+    # precedence: a forced backend beats the data, parameters included -- under
+    # use("numpy", force=True) the coordinates stay numpy, so numpy meets the
+    # grad tensor and refuses it
+    pot = PlummerPotential(amp=1.0, b=torch.tensor(0.7, requires_grad=True))
+    assert backend.is_backend_array(pot(_R0, _Z0))
+    with backend.use("numpy", force=True):
+        with pytest.raises(RuntimeError, match="requires grad"):
+            pot(_R0, _Z0)
+
+
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_parameter_cache_follows_amp_and_attributes():
+    # the "no differentiated parameter" answer is cached on the object; a later
+    # differentiated amp (normalize, a reassignment) or a new attribute
+    # invalidates it
+    from galpy.backend._input import PARAM_CACHE_ATTR
+
+    pot = PlummerPotential(amp=1.0, b=0.7)
+    v0 = pot(_R0, _Z0)
+    assert not backend.is_backend_array(v0)
+    assert PARAM_CACHE_ATTR in pot.__dict__
+    assert pot(_R0, _Z0) == v0  # cached negative: still numpy
+    amp = torch.tensor(1.0, requires_grad=True)
+    pot._amp = amp
+    out = pot(_R0, _Z0)
+    assert backend.is_backend_array(out)
+    out.backward()
+    numpy.testing.assert_allclose(float(amp.grad), v0, rtol=1e-15)
+    # a new attribute holding the parameter
+    pot = PlummerPotential(amp=1.0, b=0.7)
+    pot(_R0, _Z0)
+    pot._extra = torch.tensor(1.0, requires_grad=True)
+    assert backend.is_backend_array(pot(_R0, _Z0))
+
+
+def test_parameter_cache_is_not_part_of_the_jit_key():
+    # the cache is derived from the attributes the jit static key already holds:
+    # setting it must not change the key (that would retrace once per object)
+    from galpy.backend._jit import _static_key
+
+    pot = PlummerPotential(amp=1.0, b=0.7)
+    k0 = _static_key(pot)
+    pot(_R0, _Z0)
+    assert _static_key(pot) == k0
+
+
+def test_parameter_cache_survives_pickling():
+    import pickle
+
+    pot = PlummerPotential(amp=1.0, b=0.7)
+    v0 = pot(_R0, _Z0)
+    pot2 = pickle.loads(pickle.dumps(pot))
+    assert pot2(_R0, _Z0) == v0

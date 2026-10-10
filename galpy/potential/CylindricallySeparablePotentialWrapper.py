@@ -18,6 +18,7 @@ from .Potential import (
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
+    _pot_data_namespace,
     evaluateR2derivs,
     evaluatez2derivs,
 )
@@ -73,9 +74,11 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
             )
         self._Rp = conversion.parse_length(Rp, ro=ro)
         # Reference value Phi(Rp,0); coerce the construction-time scalars onto
-        # the active backend (no-op/byte-identical on numpy) so the wrapped
-        # migrated potential is not fed a raw float under a forced backend.
-        _Rp_b, _zero_b = coerce_coords(get_namespace(), self._Rp, 0.0)
+        # the active backend, or a differentiated parameter's (no-op/byte-
+        # identical on numpy) so the wrapped potential is not fed a raw float.
+        _Rp_b, _zero_b = coerce_coords(
+            _pot_data_namespace((self._pot,), self._Rp), self._Rp, 0.0
+        )
         self._refpot = _evaluatePotentials(self._pot, _Rp_b, _zero_b)
         self.hasC = True
         self._backend_compatible = True

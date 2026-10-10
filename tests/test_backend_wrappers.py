@@ -28,7 +28,13 @@
 ###############################################################################
 import numpy
 import pytest
-from backend_jit_helpers import assert_jit_matches_eager
+from backend_jit_helpers import (
+    INPUT_MODES,
+    assert_jit_matches_eager,
+    autodiff_param_grads,
+    input_mode,
+    richardson_fd,
+)
 
 from galpy.potential import (
     AdiabaticContractionWrapperPotential,
@@ -874,3 +880,50 @@ def test_oblatestaeckel_ntab_folds_v_elementwise(backend_name):
         "per-point numpy values; the z-symmetry fold is not elementwise",
     )
     return None
+
+
+# --- a differentiated parameter of the WRAPPED potential -----------------------
+# The OblateStaeckel/CylindricallySeparable constructors evaluate the wrapped
+# potential at Python-float reference points; with a traced parameter that hit
+# numpy.sqrt(tracer), in every input mode.
+def _wrapped_mn(a):
+    from galpy.potential import MiyamotoNagaiPotential
+
+    return MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3)
+
+
+def _oblate(th, which):
+    from galpy.potential import OblateStaeckelWrapperPotential
+
+    if which == "delta":  # u0=None: the reference curve is set from delta
+        return OblateStaeckelWrapperPotential(pot=_wrapped_mn(0.5), delta=th)
+    return OblateStaeckelWrapperPotential(pot=_wrapped_mn(th), delta=0.5, u0=1.0)
+
+
+def _cylsep(th, which):
+    from galpy.potential import CylindricallySeparablePotentialWrapper
+
+    return CylindricallySeparablePotentialWrapper(pot=_wrapped_mn(th), Rp=1.0)
+
+
+@pytest.mark.parametrize("mode", INPUT_MODES)
+@pytest.mark.parametrize("method", ["__call__", "Rforce", "zforce"])
+@pytest.mark.parametrize(
+    "build,which,th0",
+    [(_oblate, "a", 0.5), (_oblate, "delta", 0.5), (_cylsep, "a", 0.5)],
+    ids=["oblate-a", "oblate-delta", "cylsep-a"],
+)
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_wrapper_grad_wrt_wrapped_parameter(backend, build, which, th0, method, mode):
+    R, z = 0.9, 0.2
+    fd = richardson_fd(
+        lambda th: float(getattr(build(th, which), method)(R, z)), th0, 1e-3
+    )
+    cv, ctx = input_mode(backend, mode)
+
+    def f(th):
+        with ctx():
+            return getattr(build(th, which), method)(cv(R), cv(z))
+
+    for g in autodiff_param_grads(f, th0, backend):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-12)
