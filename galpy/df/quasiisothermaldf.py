@@ -239,6 +239,9 @@ class quasiisothermaldf(df):
         # backend-array eval of the same spline (numpy path stays byte-identical)
         self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
 
+    # torch.compile: run eagerly (autograd still records it); a compiled graph's
+    # backward cannot serve rl's create_graph implicit-diff step (donated buffers)
+    @untraceable_setup
     def _setup_rg_table_backend(self, xp):
         # _setup_rg_table on xp: a traced extent / grid, rl solved by the
         # implicit-diff backend root finder, an in-backend not-a-knot spline
