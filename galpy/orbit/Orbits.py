@@ -332,6 +332,13 @@ def _resolve_accessor_namespace(thiso):
     return xp, xp.asarray(thiso)
 
 
+def _accessor_out(x, kwargs):
+    """A stored-coordinate accessor's result: on the accessor namespace (see
+    ``_resolve_accessor_namespace``), or as stored for an internal reader that
+    passes ``_stored=True`` (keeps a numpy orbit's internals on numpy)."""
+    return x if kwargs.get("_stored", False) else _resolve_accessor_namespace(x)[1]
+
+
 def _backend_safe_copy(x):
     """Defensive copy of a backend (jax/torch) array that does not alias the
     Orbit's internal storage, so a caller cannot mutate ``self.orbit`` through a
@@ -626,6 +633,9 @@ class Orbit:
             elif isinstance(vxvv[0], numpy.ndarray):
                 input_shape = vxvv[0].shape
                 vxvv = numpy.array(vxvv).T
+            elif is_backend_array(vxvv[0]):  # [R, vR, ...] accessor outputs
+                input_shape = tuple(vxvv[0].shape)
+                vxvv = numpy.array(to_host(list(vxvv))).T
             else:
                 input_shape = (len(vxvv),)
                 try:
@@ -3935,7 +3945,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        return (thiso[0] * thiso[2]).T
+        return _backend_T(_accessor_out(thiso[0] * thiso[2], kwargs))
 
     @physical_conversion("energy")
     @shapeDecorator
@@ -4102,6 +4112,11 @@ class Orbit:
             E, Lz = self.E(*args, **kwargs), self.Lz(*args, **kwargs)
             if not is_backend_array(Lz):  # a numpy orbit: read E, OmegaP on the host
                 E, OmegaP = to_host(E), to_host(OmegaP)
+            else:  # numpy E (some potentials) / per-orbit OmegaP: onto Lz's backend
+                if isinstance(E, numpy.ndarray):
+                    E = like(Lz, E)
+                if isinstance(OmegaP, numpy.ndarray):
+                    OmegaP = like(Lz, OmegaP)
             out = E - OmegaP * Lz
         if not old_physical is None:
             kwargs["use_physical"] = old_physical
@@ -4202,7 +4217,7 @@ class Orbit:
             self._aA = actionAngle.actionAngleAdiabatic(pot=self._aAPot, **kwargs)
         elif self._aAType.lower() == "staeckel":
             # try to make sure this is not 0
-            _z = self.z(use_physical=False, dontreshape=True)
+            _z = self.z(use_physical=False, dontreshape=True, _stored=True)
             # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
             # which raises on the numpy/torch combination CI pins; the numpy call
             # is kept for numpy input so that path stays byte-identical.
@@ -4214,7 +4229,7 @@ class Orbit:
                 try:
                     delta = actionAngle.estimateDeltaStaeckel(
                         self._aAPot,
-                        self.R(use_physical=False, dontreshape=True),
+                        self.R(use_physical=False, dontreshape=True, _stored=True),
                         tz,
                         no_median=True,
                         use_physical=False,
@@ -4361,18 +4376,20 @@ class Orbit:
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
         """Internal function to compute the actions, frequencies, and angles and cache them for reuse"""
+        # _stored=True: the actionAngle input is the orbit's own storage (the
+        # accessors' forced-backend lift is for the caller, at the return)
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_jr"):
             return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            _z = self.z(use_physical=False, dontreshape=True)
+            _z = self.z(use_physical=False, dontreshape=True, _stored=True)
             # numpy.fabs on a backend array goes through Tensor.__array_wrap__,
             # which raises on the numpy/torch combination CI pins; the numpy call
             # is kept for numpy input so that path stays byte-identical.
             _absz = _z.__abs__() if is_backend_array(_z) else numpy.fabs(_z)
             tz = _z + (_absz < 1e-8) * (2.0 * (_z >= 0) - 1.0) * 1e-10
-            tvz = self.vz(use_physical=False, dontreshape=True)
+            tvz = self.vz(use_physical=False, dontreshape=True, _stored=True)
         elif self.dim() == 2:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
@@ -4391,7 +4408,9 @@ class Orbit:
                 self._aA_wp,
                 self._aA_wz,
             ) = tuple(
-                numpy.zeros_like(self.R(use_physical=False, dontreshape=True))
+                numpy.zeros_like(
+                    self.R(use_physical=False, dontreshape=True, _stored=True)
+                )
                 + numpy.nan
                 for _ in range(9)
             )
@@ -4407,12 +4426,12 @@ class Orbit:
                 self._aA_wp,
                 self._aA_wz,
             ) = self._aA.actionsFreqsAngles(
-                self.R(use_physical=False, dontreshape=True),
-                self.vR(use_physical=False, dontreshape=True),
-                self.vT(use_physical=False, dontreshape=True),
+                self.R(use_physical=False, dontreshape=True, _stored=True),
+                self.vR(use_physical=False, dontreshape=True, _stored=True),
+                self.vT(use_physical=False, dontreshape=True, _stored=True),
                 tz,
                 tvz,
-                self.phi(use_physical=False, dontreshape=True),
+                self.phi(use_physical=False, dontreshape=True, _stored=True),
                 use_physical=False,
                 **aAkwargs,
             )
@@ -4428,12 +4447,12 @@ class Orbit:
                 self._aA_wp[indx],
                 self._aA_wz[indx],
             ) = on_host(self._aA.actionsFreqsAngles)(
-                self.R(use_physical=False, dontreshape=True)[indx],
-                self.vR(use_physical=False, dontreshape=True)[indx],
-                self.vT(use_physical=False, dontreshape=True)[indx],
+                self.R(use_physical=False, dontreshape=True, _stored=True)[indx],
+                self.vR(use_physical=False, dontreshape=True, _stored=True)[indx],
+                self.vT(use_physical=False, dontreshape=True, _stored=True)[indx],
                 tz[indx],
                 tvz[indx],
-                self.phi(use_physical=False, dontreshape=True)[indx],
+                self.phi(use_physical=False, dontreshape=True, _stored=True)[indx],
                 use_physical=False,
                 **aAkwargs,
             )
@@ -4638,19 +4657,21 @@ class Orbit:
                 [rl(pot, lz, use_physical=False) for lz in precomputergLzgrid]
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
+            out = interpolate.InterpolatedUnivariateSpline(
                 precomputergLzgrid, rls, k=3
             )(Lz).reshape(Lz_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             rls = [rl(pot, lz, use_physical=False) for lz in Lz]
             # rl follows the gradient, so against a traced potential these are
             # backend scalars that numpy.array() cannot collect; stack them in
-            # their own namespace instead. A merely forced backend (no gradient)
-            # keeps the numpy collection, and with it the numpy return type.
+            # their own namespace instead. Otherwise collect on numpy and return
+            # on the accessor namespace, like every other accessor.
             if any(under_trace(v) or requires_backend_grad(v) for v in rls):
                 xp = get_namespace(*rls)
                 return xp.reshape(xp.stack(rls), Lz_shape)
-            return numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
+            out = numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4696,9 +4717,8 @@ class Orbit:
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
         # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. Under a merely forced backend E is a backend array
-        # but carries no gradient, and taking the backend path there would
-        # change the return type callers see, so keep numpy for it.
+        # refuses a tracer. A merely forced backend computes on numpy and lifts
+        # the result onto the accessor namespace at the return.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
@@ -4711,18 +4731,19 @@ class Orbit:
                 to_host([rE(pot, tE, use_physical=False) for tE in precomputerEEgrid])
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
-                precomputerEEgrid, rEs, k=3
-            )(E).reshape(E_shape)
+            out = interpolate.InterpolatedUnivariateSpline(precomputerEEgrid, rEs, k=3)(
+                E
+            ).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             vals = [rE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect. A merely forced
-            # backend keeps the numpy collection (and the numpy return type).
+            # scalars, which numpy.array() cannot collect.
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(to_host(vals)).reshape(E_shape)
+            out = numpy.array(to_host(vals)).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4768,9 +4789,8 @@ class Orbit:
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
         # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. Under a merely forced backend E is a backend array
-        # but carries no gradient, and taking the backend path there would
-        # change the return type callers see, so keep numpy for it.
+        # refuses a tracer. A merely forced backend computes on numpy and lifts
+        # the result onto the accessor namespace at the return.
         _E_grad = under_trace(_E) or requires_backend_grad(_E)
         _xpE = get_namespace(_E) if _E_grad else numpy
         E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
@@ -4783,18 +4803,19 @@ class Orbit:
                 to_host([LcE(pot, tE, use_physical=False) for tE in precomputeLcEEgrid])
             )
             # Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(
+            out = interpolate.InterpolatedUnivariateSpline(
                 precomputeLcEEgrid, LcEs, k=3
             )(E).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
         else:
             vals = [LcE(pot, tE, use_physical=False) for tE in E]
             # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect. A merely forced
-            # backend keeps the numpy collection (and the numpy return type).
+            # scalars, which numpy.array() cannot collect.
             if any(under_trace(v) or requires_backend_grad(v) for v in vals):
                 xp = get_namespace(*vals)
                 return xp.reshape(xp.stack(vals), E_shape)
-            return numpy.array(to_host(vals)).reshape(E_shape)
+            out = numpy.array(to_host(vals)).reshape(E_shape)
+            return _resolve_accessor_namespace(out)[1]
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4884,7 +4905,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jr
+        return _resolve_accessor_namespace(self._aA_jr)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4925,7 +4946,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jp
+        return _resolve_accessor_namespace(self._aA_jp)[1]
 
     @physical_conversion("action")
     @shapeDecorator
@@ -4966,7 +4987,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_jz
+        return _resolve_accessor_namespace(self._aA_jz)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5007,7 +5028,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wr
+        return _resolve_accessor_namespace(self._aA_wr)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5048,7 +5069,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wp
+        return _resolve_accessor_namespace(self._aA_wp)[1]
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5089,7 +5110,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_wz
+        return _resolve_accessor_namespace(self._aA_wz)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5130,7 +5151,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Or
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Or)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5171,7 +5192,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Op
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Op)[1]
 
     @shapeDecorator
     def TrTp(self, pot=None, **kwargs):
@@ -5203,7 +5224,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Op / self._aA_Or * numpy.pi
+        return _resolve_accessor_namespace(self._aA_Op / self._aA_Or * numpy.pi)[1]
 
     @physical_conversion("time")
     @shapeDecorator
@@ -5244,7 +5265,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return 2.0 * numpy.pi / self._aA_Oz
+        return _resolve_accessor_namespace(2.0 * numpy.pi / self._aA_Oz)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5285,7 +5306,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Or
+        return _resolve_accessor_namespace(self._aA_Or)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5326,7 +5347,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Op
+        return _resolve_accessor_namespace(self._aA_Op)[1]
 
     @physical_conversion("frequency")
     @shapeDecorator
@@ -5367,7 +5388,7 @@ class Orbit:
         galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        return self._aA_Oz
+        return _resolve_accessor_namespace(self._aA_Oz)[1]
 
     @physical_conversion("time")
     def time(self, *args, **kwargs):
@@ -5437,7 +5458,8 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[0])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[0], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5502,7 +5524,8 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[1])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[1], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5531,7 +5554,8 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        return _backend_T(self._call_internal(*args, **kwargs)[2])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[2], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5562,7 +5586,8 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return _backend_T(self._call_internal(*args, **kwargs)[3])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[3], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5593,7 +5618,8 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return _backend_T(self._call_internal(*args, **kwargs)[4])
+        out = _accessor_out(self._call_internal(*args, **kwargs)[4], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5618,7 +5644,8 @@ class Orbit:
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use phi()")
-        return self._call_internal(*args, **kwargs)[-1].T
+        out = _accessor_out(self._call_internal(*args, **kwargs)[-1], kwargs)
+        return _backend_T(out)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5792,7 +5819,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        return (thiso[2] / thiso[0]).T
+        return _backend_T(_accessor_out(thiso[2] / thiso[0], kwargs))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -10306,19 +10333,19 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
             obs.turn_physical_on()
@@ -10337,18 +10364,18 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
             obs.turn_physical_on()
     if isinstance(ro, numpy.ndarray):  # per-orbit ro follows the coordinates
@@ -10421,9 +10448,9 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
@@ -10431,41 +10458,41 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                     thiso[1],
                     thiso[2],
                     numpy.zeros_like(thiso[0]),
-                    thiso[3] - obs.phi(*args, **kwargs),
+                    thiso[3] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            numpy.zeros_like(obs.vR(*args, **kwargs)),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            numpy.zeros_like(obs.vR(*args, **kwargs, _stored=True)),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     numpy.zeros_like(thiso[0]),
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            obs.vz(*args, **kwargs),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            obs.vz(*args, **kwargs, _stored=True),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
             obs.turn_physical_on()
@@ -10506,44 +10533,48 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     thiso[4, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
-                        [obs.vR(*args, **kwargs), obs.vT(*args, **kwargs), 0.0]
+                        [
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            0.0,
+                        ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     thiso[4, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            obs.vz(*args, **kwargs),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            obs.vz(*args, **kwargs, _stored=True),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
             obs.turn_physical_on()
     if isinstance(ro, numpy.ndarray):  # per-orbit ro/vo follow the coordinates
