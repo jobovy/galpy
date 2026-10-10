@@ -27,6 +27,7 @@ from ..backend import random as grandom
 from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._coerce import mask_where
 from ..backend._namespaces import (
+    has_concrete_truth_value,
     namespace_for_name,
     namespace_from_arrays,
     requires_backend_grad,
@@ -342,10 +343,52 @@ class quasiisothermaldf(df):
             try:
                 jr, lz, jz = self._aA(*args, use_physical=False, **kwargs)
             except actionAngle.UnboundError:
-                if log:
-                    return -numpy.finfo(numpy.dtype(numpy.float64)).max
+                nobj = (
+                    args[0].size if isinstance(args[0], Orbit) else numpy.size(args[0])
+                )
+                if nobj > 1:
+                    # The actionAngle raised for the whole array because one
+                    # point is unbound: evaluate point by point instead
+                    pointouts = [
+                        self(
+                            *[
+                                a[ii]
+                                if isinstance(a, Orbit) or numpy.ndim(a) > 0
+                                else a
+                                for a in args
+                            ],
+                            log=log,
+                            _return_actions=True,
+                            _return_freqs=True,
+                            func=_func,
+                            **kwargs,
+                        )
+                        for ii in range(nobj)
+                    ]
+                    _cxp = namespace_from_arrays(tuple(pointouts[0]))
+                    out, jr, lz, jz, thisrg, kappa, nu, Omega = (
+                        _cxp.concat(
+                            [
+                                _cxp.reshape(_cxp.asarray(p[jj]), (-1,))
+                                for p in pointouts
+                            ]
+                        )
+                        if _cxp is not numpy
+                        else numpy.concatenate(
+                            [numpy.atleast_1d(p[jj]) for p in pointouts]
+                        )
+                        for jj in range(8)
+                    )
                 else:
-                    return 0.0
+                    out = -numpy.finfo(numpy.dtype(numpy.float64)).max if log else 0.0
+                    jr = lz = jz = thisrg = kappa = nu = Omega = numpy.nan
+                if _return_actions and _return_freqs:
+                    return (out, jr, lz, jz, thisrg, kappa, nu, Omega)
+                elif _return_actions:
+                    return (out, jr, lz, jz)
+                elif _return_freqs:
+                    return (out, thisrg, kappa, nu, Omega)
+                return out
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         xp = self._namespace(jr, lz, jz)
@@ -3539,12 +3582,16 @@ class quasiisothermaldf(df):
         if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
             if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
                 return potential.rl(self._pot, lz)
-            # _precomputerg=True: spline everywhere. This mirrors the numpy-array
-            # path, whose out-of-range rl branch is dead for a valid Lz grid
-            # (indx = (lz>Lzmax)&(lz<Lzmin) is empty when Lzmin<Lzmax), so it too
-            # only ever splines an array. AD-safe (no root-find), and it avoids the
-            # eager full-array rl solve an xp.where(indx, rl, spline) would run.
-            return self._rgInterpBackend(lz)
+            # _precomputerg=True: the spline inside the table, rl outside it
+            xp = namespace_from_arrays((lz,))
+            out = self._rgInterpBackend(lz)
+            indx = (lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)
+            nout = xp.sum(indx)
+            if not has_concrete_truth_value(nout):  # traced: rl on every lz
+                return xp.where(indx, potential.rl(self._pot, lz), out)
+            if int(nout) == 0:
+                return out
+            return set_at(xp, out, indx, potential.rl(self._pot, lz[indx]))
         if self._rgInterp is None:  # _precomputerg=False: rl everywhere
             # The backend branch above already had this fallback; the numpy one
             # did not, so _precomputerg=False -- a documented constructor
@@ -3555,13 +3602,13 @@ class quasiisothermaldf(df):
                 return numpy.array([potential.rl(self._pot, t) for t in lz])
             return potential.rl(self._pot, lz)
         if isinstance(lz, numpy.ndarray):
-            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
+            indx = (lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
-            out[indx] = numpy.array(
-                [potential.rl(self._pot, lz[indx][ii]) for ii in range(numpy.sum(indx))]
-            )
+            # rl only once per distinct out-of-grid lz (GL grids repeat them)
+            ulz, uinv = numpy.unique(lz[indx], return_inverse=True)
+            out[indx] = numpy.array([potential.rl(self._pot, tlz) for tlz in ulz])[uinv]
             return out
         else:
             if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
