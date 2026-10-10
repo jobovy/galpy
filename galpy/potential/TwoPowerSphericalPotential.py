@@ -38,7 +38,7 @@ from ..util.special import (
     incomplete_beta_hi,
     incomplete_beta_split,
 )
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 # NFW's closed forms subtract terms of order 1/r^2 that cancel to leading
 # order, losing ~eps/x^2 (force, mass) and ~eps/x^3 (second derivatives) at
@@ -407,9 +407,7 @@ class TwoPowerSphericalPotential(Potential):
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         return None
 
@@ -1118,9 +1116,7 @@ class JaffePotential(DehnenSphericalPotential):
         self.alpha = 2
         self.beta = 4
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
@@ -1295,9 +1291,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._backend_compatible = True
         if conc is None and rmax is None:
             self.a = a
-            if normalize or (
-                isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-            ):
+            if _normalize_requested(normalize):
                 self.normalize(normalize)
         elif not rmax is None:
             if _APY_LOADED and isinstance(rmax, units.Quantity):

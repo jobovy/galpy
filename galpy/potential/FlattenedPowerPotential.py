@@ -10,7 +10,7 @@ import math
 
 from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 _CORE = 10**-8
 
@@ -77,9 +77,7 @@ class FlattenedPowerPotential(Potential):
         # Back to old definition
         self._amp = self._amp * (r1**self.alpha)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

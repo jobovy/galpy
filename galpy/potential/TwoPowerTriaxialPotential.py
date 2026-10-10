@@ -20,6 +20,7 @@ from ..backend import special as _bspecial
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class TwoPowerTriaxialPotential(EllipsoidalPotential):
@@ -140,9 +141,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         # Adjust amp
         self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
@@ -295,9 +294,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         self.a4 = self.a**4
         self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
@@ -415,9 +412,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         self.a2 = self.a**2
         self._amp = self._amp / (4.0 * numpy.pi * self.a2 * self.a)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
@@ -573,9 +568,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         # Adjust amp
         self.a3 = self.a**3
         self._amp = self._amp / (4.0 * numpy.pi * self.a3)
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         return None
 

@@ -36,7 +36,7 @@ from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
 from ..util._pickle import SplinePickleMixin
 from ..util.special import compute_legendre, sph_harm_normalization
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 if _APY_LOADED:
     from astropy import units
@@ -154,9 +154,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # integration is supported.
         self.hasC_dxdv3d = True
         self.hasC_dens = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         return None
 

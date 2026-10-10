@@ -19,6 +19,7 @@ from ..backend.quadrature import node_axis
 from ..util import conversion
 from .Potential import (
     Potential,
+    _normalize_requested,
     _pot_data_namespace,
     check_potential_inputs_not_arrays,
 )
@@ -163,9 +164,7 @@ class DoubleExponentialDiskPotential(Potential):
         ) / (2.0 * (1.0 + _gamma2) ** 1.5)
         self._pot_zero *= -4.0 * numpy.pi / self._alpha**2.0
         # Normalize?
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
 
     def _coords_namespace(self, R, z):

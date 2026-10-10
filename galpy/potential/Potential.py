@@ -54,6 +54,17 @@ if _APY_LOADED:
 _INF = 10**12.0
 
 
+def _normalize_requested(normalize):
+    """Whether a constructor's ``normalize=`` asks for ``Potential.normalize``:
+    True or any number (0 included). A backend array always does; testing its
+    truth value instead would fail on a traced normalize under jit."""
+    if is_backend_array(normalize):
+        return True
+    return bool(normalize) or (
+        isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+    )
+
+
 def check_potential_inputs_not_arrays(func):
     """
     Decorator to check inputs and throw TypeError if any of the inputs are arrays for Potentials that do not support array evaluation.
@@ -1266,8 +1277,8 @@ class Potential(Force):
         - 2010-07-10 - Written - Bovy (NYU)
 
         """
-        # a differentiated parameter: R=1 on its namespace (numpy cannot take it)
-        (R,) = coerce_coords(_pot_grad_namespace(self) or numpy, 1.0)
+        # a backend parameter: R=1 on its namespace (numpy cannot take it)
+        (R,) = coerce_coords(_pot_grad_namespace(self, any_backend=True) or numpy, 1.0)
         # abs() (via __abs__) is backend-agnostic and byte-identical to the old
         # numpy.fabs on the numpy scalar Rforce returns.
         self._amp = self._amp * (norm / abs(self.Rforce(R, 0.0, use_physical=False)))

@@ -13,6 +13,7 @@ from ..backend import get_namespace
 from ..backend import special as _bspecial
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class TriaxialGaussianPotential(EllipsoidalPotential):
@@ -90,9 +91,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
             (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
         )
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned

@@ -14,6 +14,7 @@ import numpy
 from ..backend import get_namespace
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class PerfectEllipsoidPotential(EllipsoidalPotential):
@@ -94,9 +95,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         # Adjust amp
         self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned

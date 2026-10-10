@@ -18,7 +18,11 @@ from ..backend import special as _bspecial
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
-from .Potential import Potential, check_potential_inputs_not_arrays
+from .Potential import (
+    Potential,
+    _normalize_requested,
+    check_potential_inputs_not_arrays,
+)
 
 # Below this |z| both second derivatives are indistinguishable from their z=0
 # limits, so we evaluate the z=0 branch: the finite-|z| branch degrades here (the
@@ -257,9 +261,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         self._pot_zero = (
             -2.0 * numpy.pi * integrate.quad(lambda a: self._sdens(a), 0, numpy.inf)[0]
         )
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
 
     # -----------------------------------------------------------------------
