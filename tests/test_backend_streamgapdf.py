@@ -1084,7 +1084,17 @@ def test_backend_impact_angle_value(_gapdf_kick):
     with use("jax", force=True):
         got = _chain_kick(sdf, "impact_angle", jnp.asarray(-2.34))
     assert is_backend_array(sdf._impact_angle)
-    numpy.testing.assert_allclose(numpy.asarray(as_numpy(got)), ref, rtol=1e-12)
+    got = numpy.asarray(as_numpy(got))
+    if jax.default_backend() == "gpu":
+        # the kick is dOap = Oap - track, ~1e-3 from O(1) frequencies/angles: the
+        # GPU's last-ulp differences in Oap survive the cancellation (jax CPU is
+        # bit-identical to numpy). Measured (TITAN Xp, H100) <= 2 ulp of the
+        # column's largest |track|; 5e-11 relative at worst
+        track = numpy.abs(numpy.asarray(as_numpy(sdf._kick_interpolatedObsTrackAA)))
+        tol = 1e-12 * numpy.abs(ref) + 2.0 * numpy.spacing(track.max(axis=0))
+        assert numpy.all(numpy.abs(got - ref) <= tol), numpy.abs(got - ref).max()
+    else:
+        numpy.testing.assert_allclose(got, ref, rtol=1e-12)
 
 
 def _impact_tail(sdf, timpact, q=None):

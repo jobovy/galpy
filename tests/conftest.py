@@ -305,8 +305,20 @@ def _ic_on_backend(o):
     return xp.asarray(ic, dtype=float)
 
 
+def _xla_gpu_deterministic():
+    """--device cuda: XLA:GPU autotunes kernels by timing, per process, so the
+    adjoint's recompute of an adaptive diffrax solve can round differently from
+    the forward solve; the gradient then moves (5.6e-4 relative, H100
+    evolveddiskdf meanvT). Set before jax initializes its backend; any backend
+    (a --backend torch run puts the jax tests on the GPU too)."""
+    flags = os.environ.get("XLA_FLAGS", "")
+    if "xla_gpu_deterministic_ops" not in flags:
+        os.environ["XLA_FLAGS"] = f"{flags} --xla_gpu_deterministic_ops=true".strip()
+
+
 def _configure_cuda(backend_name):
     """--device cuda: fail loudly if there is no GPU, then make it the default."""
+    _xla_gpu_deterministic()
     if backend_name == "torch":
         import torch
 

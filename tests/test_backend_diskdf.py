@@ -322,7 +322,7 @@ def test_moment_array_R_grad_vs_fd(backend, dfname, df, fn):
         else:
             Rt = _array(backend, R0, requires_grad=True)
             f(Rt).sum().backward()
-            g = Rt.grad.numpy()
+            g = as_numpy(Rt.grad)
     # FD truncation ~h^2 f''' and roundoff ~1e-16/h: measured <= 1e-9
     numpy.testing.assert_allclose(g, gfd, rtol=1e-8, atol=0.0)
 
@@ -342,9 +342,11 @@ def test_dehnendf_profile_parameter_grad_numpy_array_R(backend):
         g = numpy.asarray(jax.jacfwd(q)(jnp.asarray(_HR0), R))
         ref = [float(jax.grad(q)(jnp.asarray(_HR0), float(r))) for r in R]
     else:
-        g = torch.autograd.functional.jacobian(
-            lambda t: q(t, R), torch.tensor(_HR0, dtype=torch.float64)
-        ).numpy()
+        g = as_numpy(
+            torch.autograd.functional.jacobian(
+                lambda t: q(t, R), torch.tensor(_HR0, dtype=torch.float64)
+            )
+        )
         ref = []
         for r in R:
             t = torch.tensor(_HR0, dtype=torch.float64, requires_grad=True)
@@ -378,3 +380,36 @@ def test_moment_array_R_under_jit(backend):
             ve, vc, ge, gc = ve.detach(), vc.detach(), Re.grad, Rc.grad
     numpy.testing.assert_allclose(as_numpy(vc), as_numpy(ve), rtol=1e-14, atol=0.0)
     numpy.testing.assert_allclose(as_numpy(gc), as_numpy(ge), rtol=1e-12, atol=0.0)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize(
+    "dfname,fn",
+    [
+        ("dehnendf", "surfacemass"),
+        ("shudf", "sigma2surfacemass"),
+        ("dehnendf_beta", "meanvT"),
+        ("shudf_beta", "meanvT"),
+    ],
+)
+def test_moment_compiles_under_a_default_device(dfname, fn):
+    # torch.compile under a default device (what --device cuda runs; a CPU
+    # default device reproduces it) cannot take the numpy.float64 gamma or
+    # log(sigma_R) as a left operand ("'ndarray' object has no attribute 'mul'")
+    from backend_jit_helpers import no_torch_compile_deprecations
+
+    df = dict(_DFS)[dfname]
+
+    def f(R):
+        return getattr(df, fn)(R, use_physical=False)
+
+    torch._dynamo.reset()
+    with (
+        use("torch", force=True),
+        torch.device("cpu"),
+        torch._dynamo.config.patch(trace_numpy=False),
+        no_torch_compile_deprecations(),
+    ):
+        R = torch.tensor(_RARR, dtype=torch.float64)
+        ref, got = f(R), torch.compile(f, backend="eager")(R)
+    numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-14, atol=0.0)
