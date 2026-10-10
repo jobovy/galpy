@@ -344,7 +344,11 @@ class quasiisothermaldf(df):
                 jr, lz, jz = self._aA(*args, use_physical=False, **kwargs)
             except actionAngle.UnboundError:
                 nobj = (
-                    args[0].size if isinstance(args[0], Orbit) else numpy.size(args[0])
+                    args[0].size
+                    if isinstance(args[0], Orbit)
+                    else int(numpy.prod(args[0].shape))
+                    if hasattr(args[0], "shape")  # torch's .size is a method
+                    else numpy.size(args[0])
                 )
                 if nobj > 1:
                     # The actionAngle raised for the whole array because one
@@ -353,7 +357,8 @@ class quasiisothermaldf(df):
                         self(
                             *[
                                 a[ii]
-                                if isinstance(a, Orbit) or numpy.ndim(a) > 0
+                                if isinstance(a, Orbit)
+                                or (a.ndim if hasattr(a, "ndim") else numpy.ndim(a)) > 0
                                 else a
                                 for a in args
                             ],

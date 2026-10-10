@@ -1087,3 +1087,38 @@ def test_unbound_in_array_python_aa_backend(backend):
     got_s = q.sigmaR2(_arr(backend, 1.1), _arr(backend, 0.1), gl=True, ngl=6)
     # measured <= 1.7e-15
     numpy.testing.assert_allclose(float(got_s), ref_s, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_unbound_error_point_by_point_backend(backend):
+    # an actionAngle that raises UnboundError for a backend batch (as the
+    # Python ones do for numpy): qdf evaluates point by point and joins the
+    # outputs on the backend
+    from galpy.actionAngle import UnboundError, actionAngleIsochrone
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(amp=1.0, b=0.6)
+    aA = actionAngleIsochrone(ip=ip)
+
+    class _RaisingaA:
+        def __call__(self, *args, **kwargs):
+            jr, lz, jz = aA(*args, **kwargs)
+            if jr.shape[0] > 1 and not bool(numpy.all(numpy.isfinite(as_numpy(jr)))):
+                raise UnboundError("Orbit seems to be unbound")
+            return jr, lz, jz
+
+    q = quasiisothermaldf(1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=ip, aA=aA)
+    xv = numpy.array(
+        [
+            [1.1, 0.1, 0.5, 0.1, 0.02],
+            [1.1, 0.1, 2.5, 0.1, 0.02],  # unbound
+            [0.9, -0.05, 0.6, 0.0, 0.05],
+        ]
+    )
+    ref, rjr, _, _ = q(*xv.T, _return_actions=True)
+    q._aA = _RaisingaA()
+    got, jr, _, _ = q(*_cols(backend, xv), _return_actions=True)
+    assert is_backend_array(got) and is_backend_array(jr) and got.shape == (3,)
+    assert float(got[1]) == 0.0 and numpy.isnan(float(jr[1]))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(jr)[[0, 2]], rjr[[0, 2]], rtol=1e-12)
