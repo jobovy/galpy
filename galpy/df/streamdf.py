@@ -145,15 +145,16 @@ def _span_grid(extent, n):
 
 
 def _ns_sqrt(x):
-    """``sqrt(x)``, on ``x``'s own namespace when it is TRACED.
+    """``sqrt(x)``, on ``x``'s own namespace when it is a backend array.
 
     ``numpy.sqrt`` of a tracer raises (it works eagerly, which is why this only
-    shows up under ``jax.grad`` of the constructor). Concrete input keeps
+    shows up under ``jax.grad`` of the constructor). Non-backend input keeps
     ``numpy.sqrt`` so the eager path is byte-identical -- and, as for
     :func:`_span_grid`, so a forced backend does not silently turn a derived
     scalar into a backend array.
     """
-    if under_trace(x) or requires_backend_grad(x):
+    if under_trace(x) or requires_backend_grad(x) or is_backend_array(x):
+        # numpy.sqrt(Tensor) works but warns (__array_wrap__ deprecation)
         xp, xv = _ns_coerce(x)
         return xp.sqrt(xv)
     return numpy.sqrt(x)
