@@ -908,6 +908,93 @@ def test_streamtrack_jit_grad_fd_stripping():
 
 
 # --------------------------------------------------------------------------
+# sample(tail='both', returndt=True): the two arms' stripping times are joined on
+# their backend (numpy.concatenate silently cast eager jax to numpy, dropping
+# d(dt)/dtheta, and raised under jax.jit).
+# --------------------------------------------------------------------------
+def _both_tails_dt(xp, t0, backend_name, forced):
+    def pdf(t):
+        return xp.exp(-(((t - t0) / (0.5 * _JIT_TD)) ** 2))
+
+    def build_and_sample():
+        ic = _JIT_IC if forced else xp.asarray(_JIT_IC)
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(ic),
+            pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+            tdisrupt=_JIT_TD,
+            stripping_pdf=pdf,
+        )
+        return spdf.sample(
+            n=7,
+            return_orbit=False,
+            returndt=True,
+            integrate=False,
+            tail="both",
+            key=grandom.key(_SEED, backend=backend_name),
+        )
+
+    if forced:
+        with use(backend_name, force=True):
+            return build_and_sample()
+    return build_and_sample()
+
+
+@pytest.fixture(scope="module")
+def both_tails_dt_fd():
+    """Richardson central FD of the weighted sum of the drawn stripping times
+    w.r.t. the burst center t0 (same key, so the same uniforms), per backend."""
+    cache = {}
+
+    def fd(backend_name):
+        if backend_name not in cache:
+            xp = jax.numpy if backend_name == "jax" else torch
+            w = xp.asarray(numpy.arange(1.0, 8.0))
+
+            def f(t0):
+                _, dt = _both_tails_dt(xp, xp.asarray(t0), backend_name, False)
+                return float(xp.sum(w * dt))
+
+            t0 = -0.4 * _JIT_TD
+            # small steps: dt(t0) is piecewise smooth (its inverse-CDF bracket
+            # jumps), so a larger h straddles a kink (2e-5 does: 7e-8 off)
+            cd = [(f(t0 + h) - f(t0 - h)) / (2.0 * h) for h in (4e-6, 2e-6)]
+            # converged: measured <= 1e-9
+            assert abs(cd[0] - cd[1]) < 5e-9 * abs(cd[1])
+            cache[backend_name] = (4.0 * cd[1] - cd[0]) / 3.0
+        return cache[backend_name]
+
+    return fd
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize(
+    "mode",
+    (["jax", "jit"] if jax is not None else []) + (["torch"] if torch else []),
+)
+def test_sample_both_tails_dt_grad_vs_fd(mode, forced, both_tails_dt_fd):
+    backend_name = "torch" if mode == "torch" else "jax"
+    xp = jax.numpy if backend_name == "jax" else torch
+    w = xp.asarray(numpy.arange(1.0, 8.0))
+    t0 = -0.4 * _JIT_TD
+
+    def loss(t0):
+        out, dt = _both_tails_dt(xp, t0, backend_name, forced)
+        assert is_backend_array(out) and is_backend_array(dt)
+        assert dt.shape == (7,)
+        return xp.sum(w * dt)
+
+    if mode == "torch":
+        t = torch.tensor(t0, requires_grad=True)
+        (g,) = torch.autograd.grad(loss(t), t)
+    else:
+        gf = jax.grad(loss)
+        g = (jax.jit(gf) if mode == "jit" else gf)(t0)
+    # measured 4e-11 (jax), 1.1e-9 (torch: its FD floor)
+    numpy.testing.assert_allclose(float(g), both_tails_dt_fd(backend_name), rtol=1e-8)
+
+
+# --------------------------------------------------------------------------
 # Differentiable stream track w.r.t. the PERICENTER-STRIPPING width. The built-in
 # pericenter_stripping_pdf helper builds a Gaussian mixture centered on the progenitor's
 # pericenter passages; a backend `sigma` (or a backend pot/IC) makes it return a BACKEND
