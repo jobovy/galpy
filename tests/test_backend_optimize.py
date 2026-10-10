@@ -428,3 +428,17 @@ def test_guess_newton_root_and_gradient(backend, jit):
         c0,
     )
     numpy.testing.assert_allclose(g, 1.0 / (2.0 * numpy.sqrt(c0)), rtol=1e-12)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_guess_newton_root_follows_the_input_device():
+    # guess= on inputs that are not on torch's default device (CUDA parameters
+    # with a CPU default device; here a "meta" default device):
+    # torch.as_tensor copied the guess to the default device -> mixed-device clamp
+    cs = torch.tensor([0.3, 2.0, 7.9])
+    guesses = torch.tensor([2.5, numpy.sqrt(2.0), 0.05])
+    lo = torch.zeros_like(guesses)
+    with torch.device("meta"):
+        r = brentq(lambda x, cc: x * x - cc, lo, lo + 3.0, args=(cs,), guess=guesses)
+    assert r.device == guesses.device
+    numpy.testing.assert_allclose(_to_np(r), numpy.sqrt(_to_np(cs)), rtol=1e-14)
