@@ -3,6 +3,7 @@ import types
 
 import numpy
 
+from ..backend._coerce import backend_point_1d
 from ..backend._namespaces import namespace_from_arrays
 from ..util import config, conversion
 from ..util.conversion import (
@@ -56,6 +57,14 @@ class MetaActionAngle(type):
                         attrs[skey] = funccopy
                         break
         return type.__new__(meta, name, bases, attrs)
+
+
+def _point_1d(args):
+    """A (R,vR,vT,z,vz[,phi]) point of 0-d backend arrays (e.g., a single orbit's
+    accessors under a forced backend) -> shape (1,), as for float input."""
+    if len(args) in (5, 6):
+        return backend_point_1d(*args)
+    return args
 
 
 # Python 2 & 3 compatible way to have a metaclass
@@ -171,17 +180,20 @@ class actionAngle(metaclass=MetaActionAngle):
                 raise RuntimeError(
                     "Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not supported"
                 )
-            self._eval_R = orb.R(use_physical=False)
-            self._eval_vR = orb.vR(use_physical=False)
-            self._eval_vT = orb.vT(use_physical=False)
+            # the orbit's own storage (numpy for a numpy orbit, whatever the
+            # forced backend; the backend for a backend orbit)
+            kw = dict(use_physical=False, _stored=True)
+            self._eval_R = orb.R(**kw)
+            self._eval_vR = orb.vR(**kw)
+            self._eval_vT = orb.vT(**kw)
             if args[0].phasedim() > 4:
-                self._eval_z = orb.z(use_physical=False)
-                self._eval_vz = orb.vz(use_physical=False)
+                self._eval_z = orb.z(**kw)
+                self._eval_vz = orb.vz(**kw)
                 if args[0].phasedim() > 5:
-                    self._eval_phi = orb.phi(use_physical=False)
+                    self._eval_phi = orb.phi(**kw)
             else:
                 if args[0].phasedim() > 3:
-                    self._eval_phi = orb.phi(use_physical=False)
+                    self._eval_phi = orb.phi(**kw)
                 xp = namespace_from_arrays([self._eval_R]) or numpy
                 self._eval_z = xp.zeros_like(self._eval_R)
                 self._eval_vz = xp.zeros_like(self._eval_R)
@@ -224,7 +236,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'__call__' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return method(*_point_1d(args), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqs", pop=True)
@@ -261,7 +273,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqs' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return method(*_point_1d(args), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqsAngles", pop=True)
@@ -297,7 +309,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqsAngles' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return method(*_point_1d(args), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("EccZmaxRperiRap", pop=True)
@@ -333,7 +345,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'EccZmaxRperiRap' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return method(*_point_1d(args), **kwargs)
 
 
 class UnboundError(Exception):  # pragma: no cover

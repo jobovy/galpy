@@ -198,15 +198,15 @@ class evolveddiskdf(df):
                 # Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == "r":
                     dderiv = 10.0**-10.0
-                    tmp = o.R(use_physical=False) + dderiv
-                    dderiv = tmp - o.R(use_physical=False)
+                    tmp = o.R(use_physical=False, _stored=True) + dderiv
+                    dderiv = tmp - o.R(use_physical=False, _stored=True)
                     msg = o.integrate_dxdv(
                         [dderiv, 0.0, 0.0, 0.0], ts, self._pot, method=integrate_method
                     )
                 elif deriv.lower() == "phi":
                     dderiv = 10.0**-10.0
-                    tmp = o.phi(use_physical=False) + dderiv
-                    dderiv = tmp - o.phi(use_physical=False)
+                    tmp = o.phi(use_physical=False, _stored=True) + dderiv
+                    dderiv = tmp - o.phi(use_physical=False, _stored=True)
                     msg = o.integrate_dxdv(
                         [0.0, 0.0, 0.0, dderiv], ts, self._pot, method=integrate_method
                     )
@@ -256,9 +256,21 @@ class evolveddiskdf(df):
                     dlnfdRo = numpy.array(
                         [
                             self._initdf._dlnfdR(
-                                o.R(self._to + t[0] - ti, use_physical=False),
-                                o.vR(self._to + t[0] - ti, use_physical=False),
-                                o.vT(self._to + t[0] - ti, use_physical=False),
+                                o.R(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vR(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vT(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
                             )
                             for ti in t
                         ]
@@ -266,9 +278,21 @@ class evolveddiskdf(df):
                     dlnfdvRo = numpy.array(
                         [
                             self._initdf._dlnfdvR(
-                                o.R(self._to + t[0] - ti, use_physical=False),
-                                o.vR(self._to + t[0] - ti, use_physical=False),
-                                o.vT(self._to + t[0] - ti, use_physical=False),
+                                o.R(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vR(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vT(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
                             )
                             for ti in t
                         ]
@@ -276,9 +300,21 @@ class evolveddiskdf(df):
                     dlnfdvTo = numpy.array(
                         [
                             self._initdf._dlnfdvT(
-                                o.R(self._to + t[0] - ti, use_physical=False),
-                                o.vR(self._to + t[0] - ti, use_physical=False),
-                                o.vT(self._to + t[0] - ti, use_physical=False),
+                                o.R(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vR(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
+                                o.vT(
+                                    self._to + t[0] - ti,
+                                    use_physical=False,
+                                    _stored=True,
+                                ),
                             )
                             for ti in t
                         ]
@@ -390,15 +426,15 @@ class evolveddiskdf(df):
                 # Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == "r":
                     dderiv = 10.0**-10.0
-                    tmp = o.R(use_physical=False) + dderiv
-                    dderiv = tmp - o.R(use_physical=False)
+                    tmp = o.R(use_physical=False, _stored=True) + dderiv
+                    dderiv = tmp - o.R(use_physical=False, _stored=True)
                     o.integrate_dxdv(
                         [dderiv, 0.0, 0.0, 0.0], ts, self._pot, method=integrate_method
                     )
                 elif deriv.lower() == "phi":
                     dderiv = 10.0**-10.0
-                    tmp = o.phi(use_physical=False) + dderiv
-                    dderiv = tmp - o.phi(use_physical=False)
+                    tmp = o.phi(use_physical=False, _stored=True) + dderiv
+                    dderiv = tmp - o.phi(use_physical=False, _stored=True)
                     o.integrate_dxdv(
                         [0.0, 0.0, 0.0, dderiv], ts, self._pot, method=integrate_method
                     )
@@ -406,7 +442,7 @@ class evolveddiskdf(df):
                 o.integrate(ts, self._pot, method=integrate_method)
             # int_time= (time.time()-start)
             # Now evaluate the DF
-            if o.R(self._to, use_physical=False) <= 0.0:
+            if o.R(self._to, use_physical=False, _stored=True) <= 0.0:
                 return (
                     -numpy.finfo(numpy.dtype(numpy.float64)).max
                     if kwargs.get("log", False)
@@ -3258,8 +3294,8 @@ class evolveddiskdf(df):
         # a scipy marginalization below: read the orbit on the host
         l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
         vlos = to_host(o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        R = to_host(o.R(use_physical=False))
-        phi = to_host(o.phi(use_physical=False))
+        R = to_host(o.R(use_physical=False, _stored=True))
+        phi = to_host(o.phi(use_physical=False, _stored=True))
         # Get local circular velocity, projected onto the los
         vcirc = to_host(
             calcRotcurve(
@@ -3333,8 +3369,8 @@ class evolveddiskdf(df):
         # a scipy marginalization below: read the orbit on the host
         l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
         vperp = to_host(o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        R = to_host(o.R(use_physical=False))
-        phi = to_host(o.phi(use_physical=False))
+        R = to_host(o.R(use_physical=False, _stored=True))
+        phi = to_host(o.phi(use_physical=False, _stored=True))
         # Get local circular velocity, projected onto the perpendicular
         # direction
         vcirc = to_host(

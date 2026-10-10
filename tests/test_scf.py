@@ -300,7 +300,10 @@ def test_scf_compute_spherical_nbody_hernquist():
 
     positions = numpy.array(
         [
-            [samples[i].x(), samples[i].y(), samples[i].z() * factor]
+            [
+                as_numpy(c)
+                for c in (samples[i].x(), samples[i].y(), samples[i].z() * factor)
+            ]
             for i in range(nsamp)
         ]
     )
@@ -349,7 +352,10 @@ def test_scf_compute_axi_nbody_twopowertriaxial():
     samp = [hdf.sample(n=N) for i in range(nsamp)]
 
     positions = numpy.array(
-        [[samp[i].x(), samp[i].y(), samp[i].z() * zfactor] for i in range(nsamp)]
+        [
+            [as_numpy(c) for c in (samp[i].x(), samp[i].y(), samp[i].z() * zfactor)]
+            for i in range(nsamp)
+        ]
     )
 
     # This is an axisymmtric Hernquist profile with the same mass as the above
@@ -401,7 +407,10 @@ def test_scf_compute_nbody_twopowertriaxial():
 
     positions = numpy.array(
         [
-            [samp[i].x(), samp[i].y() * yfactor, samp[i].z() * zfactor]
+            [
+                as_numpy(c)
+                for c in (samp[i].x(), samp[i].y() * yfactor, samp[i].z() * zfactor)
+            ]
             for i in range(nsamp)
         ]
     )
@@ -645,7 +654,7 @@ def test_from_nbody_matches_from_density():
     hdf = df.isotropicHernquistdf(hern)
     numpy.random.seed(1)
     s = hdf.sample(n=n)
-    pos = numpy.array([s.x(), s.y(), s.z()])
+    pos = numpy.array([as_numpy(s.x()), as_numpy(s.y()), as_numpy(s.z())])
     snb = SCFPotential.from_nbody(pos, N, symmetry="spherical", a=ah, mass=Mh / n)
     sde = SCFPotential.from_density(hern.dens, N, symmetry="spherical", a=ah)
     rs = numpy.array([1.0, 3.0, 8.0, 20.0])
@@ -1548,8 +1557,8 @@ def test_static_c_orbit_parity():
     op = Orbit(init)
     oc.integrate(ts, sp, method="dop853_c")
     op.integrate(ts, sp, method="dop853")
-    assert numpy.max(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-6
-    assert numpy.max(numpy.fabs(oc.z(ts) - op.z(ts))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.R(ts)) - as_numpy(op.R(ts)))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.z(ts)) - as_numpy(op.z(ts)))) < 1e-6
 
 
 def test_tdep_c_orbit_spherical():
@@ -1562,8 +1571,8 @@ def test_tdep_c_orbit_spherical():
     op = Orbit(init)
     oc.integrate(ts, sp, method="dop853_c")
     op.integrate(ts, sp, method="dop853")
-    assert numpy.max(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-6
-    assert numpy.max(numpy.fabs(oc.z(ts) - op.z(ts))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.R(ts)) - as_numpy(op.R(ts)))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.z(ts)) - as_numpy(op.z(ts)))) < 1e-6
 
 
 def test_tdep_c_orbit_nonaxi():
@@ -1574,8 +1583,8 @@ def test_tdep_c_orbit_nonaxi():
     op = Orbit(init)
     oc.integrate(ts, sp, method="dop853_c")
     op.integrate(ts, sp, method="dop853")
-    assert numpy.max(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-6
-    assert numpy.max(numpy.fabs(oc.phi(ts) - op.phi(ts))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.R(ts)) - as_numpy(op.R(ts)))) < 1e-6
+    assert numpy.max(numpy.fabs(as_numpy(oc.phi(ts)) - as_numpy(op.phi(ts)))) < 1e-6
 
 
 def test_tdep_c_full_dxdv():
@@ -1622,8 +1631,8 @@ def test_tdep_c_beyond_tgrid():
     op = Orbit(init)
     oc.integrate(ts, sp, method="dop853_c")
     op.integrate(ts, sp, method="dop853")
-    assert numpy.all(numpy.isfinite(oc.R(ts)))
-    assert numpy.max(numpy.fabs(oc.R(ts) - op.R(ts))) < 1e-6
+    assert numpy.all(numpy.isfinite(as_numpy(oc.R(ts))))
+    assert numpy.max(numpy.fabs(as_numpy(oc.R(ts)) - as_numpy(op.R(ts)))) < 1e-6
 
 
 def test_tdep_c_dynamical_friction_dens():

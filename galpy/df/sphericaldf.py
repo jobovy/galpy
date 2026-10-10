@@ -500,7 +500,7 @@ class sphericaldf(df):
                     L = xp.sqrt(xp.sum(Lval**2.0))
                 else:
                     L = numpy.sqrt(numpy.sum(Lval**2.0))
-                Lz = args[0].Lz(use_physical=False)
+                Lz = args[0].Lz(use_physical=False, _stored=True)
             E = conversion.parse_energy(E, vo=vo)
             L = conversion.parse_angmom(L, ro=ro, vo=vo)
             Lz = conversion.parse_angmom(Lz, ro=ro, vo=vo)
