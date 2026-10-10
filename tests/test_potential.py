@@ -7613,7 +7613,7 @@ def test_AdiabaticContractionWrapper_amp():
     o2 = Orbit([1.0, 0.1, 1.3, 0.1, -0.05, 0.3])
     o11 = o2()
     o2.integrate(ts, dm2, method="dop853_c")
-    o11.integrate(ts, [dm1, dm1], method="dop853_c")
+    o11.integrate(ts, dm1 + dm1, method="dop853_c")
     assert numpy.amax(numpy.fabs(o2.getOrbit() - o11.getOrbit())) < 1e-10, (
         "AdiabaticContractionWrapperPotential amp is not used in C orbit integration"
     )
