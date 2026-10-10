@@ -292,6 +292,27 @@ def test_real_eig_degenerate_pair_is_finite_and_isolated_vector_exact(backend, g
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_real_eig_slightly_asymmetric_input(backend):
+    # a finite-difference dO/dJ is symmetric only to ~1e-3: both backends take
+    # the eigh of its symmetric part (torch alone would read the lower triangle)
+    xp = jnp if backend == "jax" else torch
+    skew = numpy.triu(numpy.ones((3, 3)), 1) * 2e-3
+    spec = lambda t: xp.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
+
+    def mat(t):
+        return _eig_fixture_matrix(xp, t, spec) + t * xp.asarray(skew)
+
+    a = numpy.asarray(as_numpy(mat(_arr(backend, 1.0))))
+    w, _ = real_eig(_arr(backend, a))
+    numpy.testing.assert_allclose(
+        numpy.sort(as_numpy(w)), numpy.linalg.eigvalsh(0.5 * (a + a.T)), rtol=1e-13
+    )
+    f = lambda t: _eig_readout(xp, mat(t))
+    g, fd = _grad_and_richardson_fd(backend, f, 1.0)
+    assert abs(g - fd) < 1e-9 * abs(fd), (g, fd)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_real_eig_second_derivative_vs_fd(backend):
     # the custom rules are written in differentiable ops of the outputs, so the
     # second derivative is exact too (a stop-gradient graft would drop terms)

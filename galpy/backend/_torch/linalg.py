@@ -29,4 +29,5 @@ class _SafeEigh(torch.autograd.Function):
 
 def safe_eigh(a):
     """``eigh`` whose eigenvector derivative is zero inside degenerate clusters."""
-    return _SafeEigh.apply(a)
+    # symmetrise like jax's eigh (torch reads only the lower triangle)
+    return _SafeEigh.apply(0.5 * (a + a.transpose(-1, -2)))
