@@ -40,7 +40,9 @@ from ..backend import use as _use_backend
 from ..backend._namespaces import (
     compilable_singledispatchmethod,
     concretely_true,
+    has_concrete_truth_value,
     inbackend_ode_method,
+    namespace_from_arrays,
     requires_backend_grad,
     set_at,
     under_jax_trace,
@@ -408,6 +410,16 @@ def _pot_traced_param(pot, _depth=0):
 def _pot_has_traced_param(pot):
     """True if ``pot`` stores a traced or grad-tracking parameter (``_pot_traced_param``)."""
     return _pot_traced_param(pot) is not None
+
+
+def _maybe_differs(a, b):
+    """``numpy.any(a != b)``; True when a traced comparison cannot decide it
+    (rebuilding a cached object is always safe)."""
+    if not (is_backend_array(a) or is_backend_array(b)):
+        return numpy.any(a != b)
+    d = a != b
+    d = get_namespace(d).any(d) if is_backend_array(d) else numpy.any(d)
+    return not has_concrete_truth_value(d) or bool(d)
 
 
 def _flip_velocity_columns(a, phasedim):
@@ -4203,7 +4215,7 @@ class Orbit:
                 or (
                     not delta is None
                     and hasattr(self._aA, "_delta")
-                    and numpy.any(delta != self._aA._delta)
+                    and _maybe_differs(delta, self._aA._delta)
                 )
                 or (
                     delta is None
@@ -4213,14 +4225,14 @@ class Orbit:
                 or (
                     not b is None
                     and hasattr(self._aA, "_aAI")
-                    and numpy.any(b != self._aA._aAI.b)
+                    and _maybe_differs(b, self._aA._aAI.b)
                 )
                 or (
                     "ip" in kwargs
                     and hasattr(self._aA, "_aAI")
                     and (
-                        numpy.any(kwargs["ip"].b != self._aA._aAI.b)
-                        or numpy.any(kwargs["ip"]._amp != self._aA._aAI.amp)
+                        _maybe_differs(kwargs["ip"].b, self._aA._aAI.b)
+                        or _maybe_differs(kwargs["ip"]._amp, self._aA._aAI.amp)
                     )
                 )
             ):
@@ -4331,7 +4343,8 @@ class Orbit:
             Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
         indx = as_numpy(E) < Einf
         if hasattr(self._aA, "_delta"):
-            if hasattr(self._aA._delta, "__len__"):
+            # a 0-d backend delta has __len__ but cannot be indexed
+            if hasattr(self._aA._delta, "__len__") and numpy.ndim(self._aA._delta):
                 aAkwargs = {"delta": self._aA._delta[indx]}
             else:
                 aAkwargs = {"delta": self._aA._delta}
@@ -4414,48 +4427,58 @@ class Orbit:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
+        R = self.R(use_physical=False, dontreshape=True, _stored=True)
+        vR = self.vR(use_physical=False, dontreshape=True, _stored=True)
+        vT = self.vT(use_physical=False, dontreshape=True, _stored=True)
+        phi = self.phi(use_physical=False, dontreshape=True, _stored=True)
         # Exclude unbound orbits (aAkwargs deals with delta processing)
         indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        if indx is not None:  # masked path: preallocate the nan-filled outputs
-            (
-                self._aA_jr,
-                self._aA_jp,
-                self._aA_jz,
-                self._aA_Or,
-                self._aA_Op,
-                self._aA_Oz,
-                self._aA_wr,
-                self._aA_wp,
-                self._aA_wz,
-            ) = tuple(
-                numpy.zeros_like(
-                    self.R(use_physical=False, dontreshape=True, _stored=True)
+        # a backend orbit or delta runs on the backend (data, not a forced default,
+        # decides: a forced backend lifts the result at the accessor)
+        _vals = (R, vR, vT, tz, tvz, phi, *aAkwargs.values())
+        _bk = [x for x in _vals if is_backend_array(x)]
+        xp = namespace_from_arrays(_bk[:1]) if _bk else numpy
+        if xp is not numpy:
+            R, vR, vT, tz, tvz, phi = coerce_coords(xp, R, vR, vT, tz, tvz, phi)
+        _names = ("jr", "jp", "jz", "Or", "Op", "Oz", "wr", "wp", "wz")
+        if indx is None or (xp is not numpy and indx.all()):
+            # differentiated (no mask) or all bound on a backend: every orbit
+            out = self._aA.actionsFreqsAngles(
+                R, vR, vT, tz, tvz, phi, use_physical=False, **aAkwargs
+            )
+            for n, o in zip(_names, out):
+                setattr(self, f"_aA_{n}", o)
+            return None
+        if xp is not numpy:  # backend masked path: nan for the unbound orbits
+            out = [xp.zeros_like(R) + numpy.nan for _ in _names]
+            if numpy.sum(indx) > 0:
+                res = self._aA.actionsFreqsAngles(
+                    R[indx],
+                    vR[indx],
+                    vT[indx],
+                    tz[indx],
+                    tvz[indx],
+                    phi[indx],
+                    use_physical=False,
+                    **aAkwargs,
                 )
-                + numpy.nan
-                for _ in range(9)
-            )
-        if indx is None:  # differentiated: no mask, evaluate every orbit
-            (
-                self._aA_jr,
-                self._aA_jp,
-                self._aA_jz,
-                self._aA_Or,
-                self._aA_Op,
-                self._aA_Oz,
-                self._aA_wr,
-                self._aA_wp,
-                self._aA_wz,
-            ) = self._aA.actionsFreqsAngles(
-                self.R(use_physical=False, dontreshape=True, _stored=True),
-                self.vR(use_physical=False, dontreshape=True, _stored=True),
-                self.vT(use_physical=False, dontreshape=True, _stored=True),
-                tz,
-                tvz,
-                self.phi(use_physical=False, dontreshape=True, _stored=True),
-                use_physical=False,
-                **aAkwargs,
-            )
-        elif numpy.sum(indx) > 0:
+                out = [set_at(xp, o, indx, r) for o, r in zip(out, res)]
+            for n, o in zip(_names, out):
+                setattr(self, f"_aA_{n}", o)
+            return None
+        # numpy masked path: preallocate the nan-filled outputs
+        (
+            self._aA_jr,
+            self._aA_jp,
+            self._aA_jz,
+            self._aA_Or,
+            self._aA_Op,
+            self._aA_Oz,
+            self._aA_wr,
+            self._aA_wp,
+            self._aA_wz,
+        ) = tuple(numpy.zeros_like(R) + numpy.nan for _ in range(9))
+        if numpy.sum(indx) > 0:
             (
                 self._aA_jr[indx],
                 self._aA_jp[indx],
@@ -4467,12 +4490,12 @@ class Orbit:
                 self._aA_wp[indx],
                 self._aA_wz[indx],
             ) = on_host(self._aA.actionsFreqsAngles)(
-                self.R(use_physical=False, dontreshape=True, _stored=True)[indx],
-                self.vR(use_physical=False, dontreshape=True, _stored=True)[indx],
-                self.vT(use_physical=False, dontreshape=True, _stored=True)[indx],
+                R[indx],
+                vR[indx],
+                vT[indx],
                 tz[indx],
                 tvz[indx],
-                self.phi(use_physical=False, dontreshape=True, _stored=True)[indx],
+                phi[indx],
                 use_physical=False,
                 **aAkwargs,
             )
