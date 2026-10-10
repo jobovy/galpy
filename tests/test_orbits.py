@@ -955,19 +955,31 @@ def test_integration_p3d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].R(times)) - as_numpy(orbits.R(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vR(times)) - as_numpy(orbits.vR(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vT(times)) - as_numpy(orbits.vT(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -1131,31 +1143,51 @@ def test_integration_p5d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].z(times)) - as_numpy(orbits.z(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vz(times)) - as_numpy(orbits.vz(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].R(times)) - as_numpy(orbits.R(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vR(times)) - as_numpy(orbits.vR(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vT(times)) - as_numpy(orbits.vT(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -2658,8 +2690,8 @@ def test_bruteSOS_3D():
             method=method,
             force_map="rk" in method,
         )
-        zs = orbits.z(orbits.t)
-        vzs = orbits.vz(orbits.t)
+        zs = as_numpy(orbits.z(orbits.t))
+        vzs = as_numpy(orbits.vz(orbits.t))
         assert (numpy.fabs(zs[~numpy.isnan(zs)]) < 10.0**-3.0).all(), (
             f"z on bruteSOS is not zero for bruteSOS for method={method}"
         )
@@ -5847,11 +5879,15 @@ def test_backinterpolation():
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(as_numpy(os.R(itimes))[ii] - as_numpy(list_os[ii].R(itimes)))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(
+                as_numpy(os.R(itimes[1]))[ii] - as_numpy(list_os[ii].R(itimes[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
     return None
 
@@ -7926,22 +7962,22 @@ def test_newOrbits():
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o.integrate(ts, lp)
     no = o(ts[-1])  # new Orbits
-    assert numpy.all(no.R() == o.R(ts[-1])), (
+    assert numpy.all(as_numpy(no.R()) == as_numpy(o.R(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct R"
     )
-    assert numpy.all(no.vR() == o.vR(ts[-1])), (
+    assert numpy.all(as_numpy(no.vR()) == as_numpy(o.vR(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct vR"
     )
-    assert numpy.all(no.vT() == o.vT(ts[-1])), (
+    assert numpy.all(as_numpy(no.vT()) == as_numpy(o.vT(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct vT"
     )
-    assert numpy.all(no.z() == o.z(ts[-1])), (
+    assert numpy.all(as_numpy(no.z()) == as_numpy(o.z(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct z"
     )
-    assert numpy.all(no.vz() == o.vz(ts[-1])), (
+    assert numpy.all(as_numpy(no.vz()) == as_numpy(o.vz(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct vz"
     )
-    assert numpy.all(no.phi() == o.phi(ts[-1])), (
+    assert numpy.all(as_numpy(no.phi()) == as_numpy(o.phi(ts[-1]))), (
         "New Orbits formed from calling an old orbit does not have the correct phi"
     )
     assert not no._roSet, (
@@ -7952,24 +7988,24 @@ def test_newOrbits():
     )
     # Also test this for multiple time outputs
     nos = o(ts[-2:])  # new Orbits
-    assert numpy.all(numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct R"
-    )
-    assert numpy.all(numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct vR"
-    )
-    assert numpy.all(numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct vT"
-    )
-    assert numpy.all(numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct z"
-    )
-    assert numpy.all(numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct vz"
-    )
-    assert numpy.all(numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct phi"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.R()) - as_numpy(o.R(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct R"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vR()) - as_numpy(o.vR(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vT()) - as_numpy(o.vT(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.z()) - as_numpy(o.z(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct z"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vz()) - as_numpy(o.vz(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.phi()) - as_numpy(o.phi(ts[-2:]))) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct phi"
     assert not nos._roSet, (
         "New Orbits formed from calling an old orbit does not have the correct roSet"
     )
@@ -7985,24 +8021,24 @@ def test_newOrbit_b4integration():
 
     o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.0, 0.0], [1.1, 0.3, 0.9, -0.2, 0.3, 2.0]])
     no = o()  # New Orbits formed before integration
-    assert numpy.all(numpy.fabs(no.R() - o.R()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(no.R()) - as_numpy(o.R())) < 10.0**-10.0), (
         "New Orbits formed from calling an old orbit does not have the correct R"
     )
-    assert numpy.all(numpy.fabs(no.vR() - o.vR()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(no.vR()) - as_numpy(o.vR())) < 10.0**-10.0), (
         "New Orbits formed from calling an old orbit does not have the correct vR"
     )
-    assert numpy.all(numpy.fabs(no.vT() - o.vT()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(no.vT()) - as_numpy(o.vT())) < 10.0**-10.0), (
         "New Orbits formed from calling an old orbit does not have the correct vT"
     )
-    assert numpy.all(numpy.fabs(no.z() - o.z()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(no.z()) - as_numpy(o.z())) < 10.0**-10.0), (
         "New Orbits formed from calling an old orbit does not have the correct z"
     )
-    assert numpy.all(numpy.fabs(no.vz() - o.vz()) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(no.vz()) - as_numpy(o.vz())) < 10.0**-10.0), (
         "New Orbits formed from calling an old orbit does not have the correct vz"
     )
-    assert numpy.all(numpy.fabs(no.phi() - o.phi()) < 10.0**-10.0), (
-        "New Orbits formed from calling an old orbit does not have the correct phi"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(no.phi()) - as_numpy(o.phi())) < 10.0**-10.0
+    ), "New Orbits formed from calling an old orbit does not have the correct phi"
     assert not no._roSet, (
         "New Orbits formed from calling an old orbit does not have the correct roSet"
     )
@@ -8023,22 +8059,22 @@ def test_badinterpolation():
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o.integrate(ts, lp)
     no = o(ts[-1])  # new orbit
-    assert numpy.all(no.R() == o.R(ts[-1])), (
+    assert numpy.all(as_numpy(no.R()) == as_numpy(o.R(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct R"
     )
-    assert numpy.all(no.vR() == o.vR(ts[-1])), (
+    assert numpy.all(as_numpy(no.vR()) == as_numpy(o.vR(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct vR"
     )
-    assert numpy.all(no.vT() == o.vT(ts[-1])), (
+    assert numpy.all(as_numpy(no.vT()) == as_numpy(o.vT(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct vT"
     )
-    assert numpy.all(no.z() == o.z(ts[-1])), (
+    assert numpy.all(as_numpy(no.z()) == as_numpy(o.z(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct z"
     )
-    assert numpy.all(no.vz() == o.vz(ts[-1])), (
+    assert numpy.all(as_numpy(no.vz()) == as_numpy(o.vz(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct vz"
     )
-    assert numpy.all(no.phi() == o.phi(ts[-1])), (
+    assert numpy.all(as_numpy(no.phi()) == as_numpy(o.phi(ts[-1]))), (
         "New orbit formed from calling an old orbit does not have the correct phi"
     )
     assert not no._roSet, (
@@ -8050,24 +8086,24 @@ def test_badinterpolation():
     # Also test this for multiple time outputs
     nos = o(ts[-2:])  # new Orbits
     # First t
-    assert numpy.all(numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct R"
-    )
-    assert numpy.all(numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct vR"
-    )
-    assert numpy.all(numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct vT"
-    )
-    assert numpy.all(numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct z"
-    )
-    assert numpy.all(numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct vz"
-    )
-    assert numpy.all(numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0), (
-        "New orbit formed from calling an old orbit does not have the correct phi"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.R()) - as_numpy(o.R(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vR()) - as_numpy(o.vR(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vT()) - as_numpy(o.vT(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.z()) - as_numpy(o.z(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.vz()) - as_numpy(o.vz(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(
+        numpy.fabs(as_numpy(nos.phi()) - as_numpy(o.phi(ts[-2:]))) < 10.0**-10.0
+    ), "New orbit formed from calling an old orbit does not have the correct phi"
     assert not nos._roSet, (
         "New orbit formed from calling an old orbit does not have the correct roSet"
     )
@@ -8319,19 +8355,31 @@ def test_integrate_Cfallback_symplec():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].R(times)) - as_numpy(orbits.R(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vR(times)) - as_numpy(orbits.vR(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vT(times)) - as_numpy(orbits.vT(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -8361,19 +8409,31 @@ def test_integrate_Cfallback_nonsymplec():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].R(times)) - as_numpy(orbits.R(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vR(times)) - as_numpy(orbits.vR(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(
+                    as_numpy(orbits_list[ii].vT(times)) - as_numpy(orbits.vT(times))[ii]
+                )
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -8793,12 +8853,12 @@ def test_getOrbit():
     o = Orbit([[1.0, 0.1, 1.2, 0.3, 0.2, 2.0], [1.0, -0.1, 1.1, -0.3, 0.2, 5.0]])
     times = numpy.linspace(0.0, 7.0, 251)
     o.integrate(times, lp)
-    Rs = o.R(times)
-    vRs = o.vR(times)
-    vTs = o.vT(times)
-    zs = o.z(times)
-    vzs = o.vz(times)
-    phis = o.phi(times)
+    Rs = as_numpy(o.R(times))
+    vRs = as_numpy(o.vR(times))
+    vTs = as_numpy(o.vT(times))
+    zs = as_numpy(o.z(times))
+    vzs = as_numpy(o.vz(times))
+    phis = as_numpy(o.phi(times))
     orbarray = o.getOrbit()
     assert numpy.all(numpy.fabs(Rs - orbarray[..., 0]) < 10.0**-16.0), (
         "getOrbit does not work as expected for R"
@@ -9044,13 +9104,13 @@ def test_rguiding():
     ]
     # First test that if potential is not given, error is raised
     with pytest.raises(RuntimeError):
-        os.rguiding()
+        as_numpy(os.rguiding())
     # With small number, calculation is direct
     for ii in range(nrand):
         assert numpy.all(
             numpy.fabs(
-                os.rguiding(pot=MWPotential2014)[ii]
-                / list_os[ii].rguiding(pot=MWPotential2014)
+                as_numpy(os.rguiding(pot=MWPotential2014))[ii]
+                / as_numpy(list_os[ii].rguiding(pot=MWPotential2014))
                 - 1.0
             )
             < 10.0**-10.0
@@ -9068,10 +9128,12 @@ def test_rguiding():
         Orbit([R, vR, vT, z, vz, phi])
         for R, vR, vT, z, vz, phi in zip(Rs, vRs, vTs, zs, vzs, phis)
     ]
-    rgs = os.rguiding(pot=MWPotential2014)
+    rgs = as_numpy(os.rguiding(pot=MWPotential2014))
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(rgs[ii] / list_os[ii].rguiding(pot=MWPotential2014) - 1.0)
+            numpy.fabs(
+                rgs[ii] / as_numpy(list_os[ii].rguiding(pot=MWPotential2014)) - 1.0
+            )
             < 10.0**-10.0
         ), "Evaluating Orbits rguiding analytically does not agree with Orbit"
     # rguiding for non-axi potential fails
@@ -9079,7 +9141,7 @@ def test_rguiding():
         RuntimeError,
         match="Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential",
     ) as exc_info:
-        os.rguiding(pot=MWPotential2014 + potential.DehnenBarPotential())
+        as_numpy(os.rguiding(pot=MWPotential2014 + potential.DehnenBarPotential()))
     return None
 
 
@@ -9102,12 +9164,13 @@ def test_rE():
     ]
     # First test that if potential is not given, error is raised
     with pytest.raises(RuntimeError):
-        os.rE()
+        as_numpy(os.rE())
     # With small number, calculation is direct
     for ii in range(nrand):
         assert numpy.all(
             numpy.fabs(
-                os.rE(pot=MWPotential2014)[ii] / list_os[ii].rE(pot=MWPotential2014)
+                as_numpy(os.rE(pot=MWPotential2014))[ii]
+                / as_numpy(list_os[ii].rE(pot=MWPotential2014))
                 - 1.0
             )
             < 10.0**-10.0
@@ -9125,10 +9188,10 @@ def test_rE():
         Orbit([R, vR, vT, z, vz, phi])
         for R, vR, vT, z, vz, phi in zip(Rs, vRs, vTs, zs, vzs, phis)
     ]
-    rgs = os.rE(pot=MWPotential2014)
+    rgs = as_numpy(os.rE(pot=MWPotential2014))
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(rgs[ii] / list_os[ii].rE(pot=MWPotential2014) - 1.0)
+            numpy.fabs(rgs[ii] / as_numpy(list_os[ii].rE(pot=MWPotential2014)) - 1.0)
             < 10.0**-10.0
         ), "Evaluating Orbits rE analytically does not agree with Orbit"
     # rE for non-axi potential fails
@@ -9136,7 +9199,7 @@ def test_rE():
         RuntimeError,
         match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential",
     ) as exc_info:
-        os.rE(pot=MWPotential2014 + potential.DehnenBarPotential())
+        as_numpy(os.rE(pot=MWPotential2014 + potential.DehnenBarPotential()))
     return None
 
 
@@ -9159,12 +9222,13 @@ def test_LcE():
     ]
     # First test that if potential is not given, error is raised
     with pytest.raises(RuntimeError):
-        os.LcE()
+        as_numpy(os.LcE())
     # With small number, calculation is direct
     for ii in range(nrand):
         assert numpy.all(
             numpy.fabs(
-                os.LcE(pot=MWPotential2014)[ii] / list_os[ii].LcE(pot=MWPotential2014)
+                as_numpy(os.LcE(pot=MWPotential2014))[ii]
+                / as_numpy(list_os[ii].LcE(pot=MWPotential2014))
                 - 1.0
             )
             < 10.0**-10.0
@@ -9182,10 +9246,10 @@ def test_LcE():
         Orbit([R, vR, vT, z, vz, phi])
         for R, vR, vT, z, vz, phi in zip(Rs, vRs, vTs, zs, vzs, phis)
     ]
-    rgs = os.LcE(pot=MWPotential2014)
+    rgs = as_numpy(os.LcE(pot=MWPotential2014))
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(rgs[ii] / list_os[ii].LcE(pot=MWPotential2014) - 1.0)
+            numpy.fabs(rgs[ii] / as_numpy(list_os[ii].LcE(pot=MWPotential2014)) - 1.0)
             < 10.0**-10.0
         ), "Evaluating Orbits LcE analytically does not agree with Orbit"
     # LcE for non-axi potential fails
@@ -9193,7 +9257,7 @@ def test_LcE():
         RuntimeError,
         match="Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential",
     ) as exc_info:
-        os.LcE(pot=MWPotential2014 + potential.DehnenBarPotential())
+        as_numpy(os.LcE(pot=MWPotential2014 + potential.DehnenBarPotential()))
     return None
 
 
@@ -9218,31 +9282,31 @@ def test_actionsFreqsAngles_againstorbit_3d():
     ]
     # First test AttributeError when no potential and not integrated
     with pytest.raises(AttributeError):
-        os.jr()
+        as_numpy(os.jr())
     with pytest.raises(AttributeError):
-        os.jp()
+        as_numpy(os.jp())
     with pytest.raises(AttributeError):
-        os.jz()
+        as_numpy(os.jz())
     with pytest.raises(AttributeError):
-        os.wr()
+        as_numpy(os.wr())
     with pytest.raises(AttributeError):
-        os.wp()
+        as_numpy(os.wp())
     with pytest.raises(AttributeError):
-        os.wz()
+        as_numpy(os.wz())
     with pytest.raises(AttributeError):
-        os.Or()
+        as_numpy(os.Or())
     with pytest.raises(AttributeError):
-        os.Op()
+        as_numpy(os.Op())
     with pytest.raises(AttributeError):
-        os.Oz()
+        as_numpy(os.Oz())
     with pytest.raises(AttributeError):
-        os.Tr()
+        as_numpy(os.Tr())
     with pytest.raises(AttributeError):
-        os.Tp()
+        as_numpy(os.Tp())
     with pytest.raises(AttributeError):
-        os.TrTp()
+        as_numpy(os.TrTp())
     with pytest.raises(AttributeError):
-        os.Tz()
+        as_numpy(os.Tz())
     # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
     # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
     # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
@@ -9258,9 +9322,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
         for ii in range(nrand):
             assert numpy.all(
                 numpy.fabs(
-                    os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].jr(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].jr(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9270,9 +9338,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].jp(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].jp(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9282,9 +9354,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].jz(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].jz(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9294,9 +9370,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].wr(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].wr(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9306,9 +9386,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.wp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].wp(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.wp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].wp(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9318,9 +9402,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.wz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].wz(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.wz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].wz(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9330,9 +9418,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Or(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Or(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9342,9 +9434,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Op(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Op(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9354,9 +9450,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Oz(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Oz(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9366,9 +9466,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Tr(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Tr(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9378,9 +9482,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Tp(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Tp(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9390,9 +9498,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].TrTp(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].TrTp(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9402,9 +9514,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].Tz(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].Tz(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9433,31 +9549,31 @@ def test_actionsFreqsAngles_againstorbit_2d():
     list_os = [Orbit([R, vR, vT, phi]) for R, vR, vT, phi in zip(Rs, vRs, vTs, phis)]
     # First test AttributeError when no potential and not integrated
     with pytest.raises(AttributeError):
-        os.jr()
+        as_numpy(os.jr())
     with pytest.raises(AttributeError):
-        os.jp()
+        as_numpy(os.jp())
     with pytest.raises(AttributeError):
-        os.jz()
+        as_numpy(os.jz())
     with pytest.raises(AttributeError):
-        os.wr()
+        as_numpy(os.wr())
     with pytest.raises(AttributeError):
-        os.wp()
+        as_numpy(os.wp())
     with pytest.raises(AttributeError):
-        os.wz()
+        as_numpy(os.wz())
     with pytest.raises(AttributeError):
-        os.Or()
+        as_numpy(os.Or())
     with pytest.raises(AttributeError):
-        os.Op()
+        as_numpy(os.Op())
     with pytest.raises(AttributeError):
-        os.Oz()
+        as_numpy(os.Oz())
     with pytest.raises(AttributeError):
-        os.Tr()
+        as_numpy(os.Tr())
     with pytest.raises(AttributeError):
-        os.Tp()
+        as_numpy(os.Tp())
     with pytest.raises(AttributeError):
-        os.TrTp()
+        as_numpy(os.TrTp())
     with pytest.raises(AttributeError):
-        os.Tz()
+        as_numpy(os.Tz())
     # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
     # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
     # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
@@ -9473,9 +9589,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
         for ii in range(nrand):
             assert numpy.all(
                 numpy.fabs(
-                    os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].jr(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].jr(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9485,9 +9605,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
             )
             assert numpy.all(
                 numpy.fabs(
-                    os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                    / list_os[ii].jp(
-                        pot=MWPotential2014, analytic=True, type=type, b=0.8
+                    as_numpy(
+                        os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                    )[ii]
+                    / as_numpy(
+                        list_os[ii].jp(
+                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        )
                     )
                     - 1.0
                 )
@@ -9499,9 +9623,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
             if not type == "isochroneApprox":
                 assert numpy.all(
                     numpy.fabs(
-                        os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        - list_os[ii].jz(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        - as_numpy(
+                            list_os[ii].jz(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                     )
                     < 10.0 ** tol[type]
@@ -9510,9 +9638,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].wr(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].wr(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9521,13 +9653,17 @@ def test_actionsFreqsAngles_againstorbit_2d():
                     f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
                 )
                 # Think I may have fixed wp = NaN?
-                # assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
-                # assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
+                # assert numpy.all(numpy.fabs(as_numpy(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8))[ii]/as_numpy(list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8))-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
+                # assert numpy.all(numpy.fabs(as_numpy(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8))[ii]/as_numpy(list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8))-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
                 assert numpy.all(
                     numpy.fabs(
-                        os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Or(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Or(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9537,9 +9673,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Op(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Op(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9549,9 +9689,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Oz(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Oz(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9561,9 +9705,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Tr(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Tr(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9573,9 +9721,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Tp(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Tp(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9585,11 +9737,15 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[
-                            ii
-                        ]
-                        / list_os[ii].TrTp(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.TrTp(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].TrTp(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9599,9 +9755,13 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 )
                 assert numpy.all(
                     numpy.fabs(
-                        os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
-                        / list_os[ii].Tz(
-                            pot=MWPotential2014, analytic=True, type=type, b=0.8
+                        as_numpy(
+                            os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+                        )[ii]
+                        / as_numpy(
+                            list_os[ii].Tz(
+                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            )
                         )
                         - 1.0
                     )
@@ -9661,27 +9821,29 @@ def test_actionsFreqsAngles_output_shape():
     #    for type in ['spherical','staeckel','adiabatic']:
     for type in ["spherical", "staeckel", "isochroneApprox"]:
         # Evaluate Orbits once to not be too slow...
-        tjr = os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tjp = os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tjz = os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        twr = os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        twp = os.wp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        twz = os.wz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tOr = os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tOp = os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tOz = os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tTr = os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tTp = os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tTrTp = os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)
-        tTz = os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)
+        tjr = as_numpy(os.jr(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tjp = as_numpy(os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tjz = as_numpy(os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        twr = as_numpy(os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        twp = as_numpy(os.wp(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        twz = as_numpy(os.wz(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tOr = as_numpy(os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tOp = as_numpy(os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tOz = as_numpy(os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tTr = as_numpy(os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tTp = as_numpy(os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tTrTp = as_numpy(os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8))
+        tTz = as_numpy(os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8))
         for ii in range(nrand[0]):
             for jj in range(nrand[1]):
                 for kk in range(nrand[2]):
                     assert numpy.all(
                         numpy.fabs(
                             tjr[ii, jj, kk]
-                            / list_os[ii][jj][kk].jr(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].jr(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9692,8 +9854,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tjp[ii, jj, kk]
-                            / list_os[ii][jj][kk].jp(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].jp(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9704,8 +9868,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tjz[ii, jj, kk]
-                            / list_os[ii][jj][kk].jz(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].jz(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9716,8 +9882,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             twr[ii, jj, kk]
-                            / list_os[ii][jj][kk].wr(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].wr(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9728,8 +9896,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             twp[ii, jj, kk]
-                            / list_os[ii][jj][kk].wp(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].wp(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9740,8 +9910,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             twz[ii, jj, kk]
-                            / list_os[ii][jj][kk].wz(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].wz(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9752,8 +9924,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tOr[ii, jj, kk]
-                            / list_os[ii][jj][kk].Or(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Or(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9764,8 +9938,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tOp[ii, jj, kk]
-                            / list_os[ii][jj][kk].Op(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Op(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9776,8 +9952,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tOz[ii, jj, kk]
-                            / list_os[ii][jj][kk].Oz(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Oz(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9788,8 +9966,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tTr[ii, jj, kk]
-                            / list_os[ii][jj][kk].Tr(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Tr(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9800,8 +9980,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tTp[ii, jj, kk]
-                            / list_os[ii][jj][kk].Tp(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Tp(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9812,8 +9994,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tTrTp[ii, jj, kk]
-                            / list_os[ii][jj][kk].TrTp(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].TrTp(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9824,8 +10008,10 @@ def test_actionsFreqsAngles_output_shape():
                     assert numpy.all(
                         numpy.fabs(
                             tTz[ii, jj, kk]
-                            / list_os[ii][jj][kk].Tz(
-                                pot=MWPotential2014, analytic=True, type=type, b=0.8
+                            / as_numpy(
+                                list_os[ii][jj][kk].Tz(
+                                    pot=MWPotential2014, analytic=True, type=type, b=0.8
+                                )
                             )
                             - 1.0
                         )
@@ -9846,18 +10032,18 @@ def test_actionsFreqsAngles_staeckeldelta():
 
     os = Orbit([None, None])  # Just twice the Sun!
     # First with delta
-    jr = os.jr(delta=0.4, pot=MWPotential2014)
+    jr = as_numpy(os.jr(delta=0.4, pot=MWPotential2014))
     # Now without, should be different
-    jrn = os.jr(pot=MWPotential2014)
+    jrn = as_numpy(os.jr(pot=MWPotential2014))
     assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
         "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
     )
     # Again, now the other way around
     os = Orbit([None, None])  # Just twice the Sun!
     # First without delta
-    jrn = os.jr(pot=MWPotential2014)
+    jrn = as_numpy(os.jr(pot=MWPotential2014))
     # Now with, should be different
-    jr = os.jr(delta=0.4, pot=MWPotential2014)
+    jr = as_numpy(os.jr(delta=0.4, pot=MWPotential2014))
     assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
         "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
     )
@@ -9873,55 +10059,82 @@ def test_actionsFreqsAngles_staeckeldeltaequalzero():
     os = Orbit([None, None])  # Just twice the Sun!
     lp = LogarithmicHaloPotential(normalize=1.0)
     assert numpy.all(
-        numpy.fabs(os.jr(pot=lp, type="staeckel") - os.jr(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.jr(pot=lp, type="staeckel"))
+            - as_numpy(os.jr(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.jp(pot=lp, type="staeckel") - os.jp(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.jp(pot=lp, type="staeckel"))
+            - as_numpy(os.jp(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.jz(pot=lp, type="staeckel") - os.jz(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.jz(pot=lp, type="staeckel"))
+            - as_numpy(os.jz(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.wr(pot=lp, type="staeckel") - os.wr(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.wr(pot=lp, type="staeckel"))
+            - as_numpy(os.wr(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.wp(pot=lp, type="staeckel") - os.wp(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.wp(pot=lp, type="staeckel"))
+            - as_numpy(os.wp(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.wz(pot=lp, type="staeckel") - os.wz(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.wz(pot=lp, type="staeckel"))
+            - as_numpy(os.wz(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.Tr(pot=lp, type="staeckel") - os.Tr(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.Tr(pot=lp, type="staeckel"))
+            - as_numpy(os.Tr(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.Tp(pot=lp, type="staeckel") - os.Tp(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.Tp(pot=lp, type="staeckel"))
+            - as_numpy(os.Tp(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
     )
     assert numpy.all(
-        numpy.fabs(os.Tz(pot=lp, type="staeckel") - os.Tz(pot=lp, type="spherical"))
+        numpy.fabs(
+            as_numpy(os.Tz(pot=lp, type="staeckel"))
+            - as_numpy(os.Tz(pot=lp, type="spherical"))
+        )
         < 1e-8
     ), (
         "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
@@ -9937,25 +10150,29 @@ def test_actionsFreqsAngles_isochroneapproxb():
 
     os = Orbit([None, None])  # Just twice the Sun!
     # First with one b
-    jr = os.jr(type="isochroneapprox", b=0.8, pot=MWPotential2014)
+    jr = as_numpy(os.jr(type="isochroneapprox", b=0.8, pot=MWPotential2014))
     # Now with another b, should be different
-    jrn = os.jr(type="isochroneapprox", b=1.8, pot=MWPotential2014)
+    jrn = as_numpy(os.jr(type="isochroneapprox", b=1.8, pot=MWPotential2014))
     assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
         "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying b to not specifying it"
     )
     # Again, now specifying ip
     os = Orbit([None, None])  # Just twice the Sun!
     # First with one
-    jrn = os.jr(
-        pot=MWPotential2014,
-        type="isochroneapprox",
-        ip=IsochronePotential(normalize=1.1, b=0.8),
+    jrn = as_numpy(
+        os.jr(
+            pot=MWPotential2014,
+            type="isochroneapprox",
+            ip=IsochronePotential(normalize=1.1, b=0.8),
+        )
     )
     # Now with another one, should be different
-    jr = os.jr(
-        pot=MWPotential2014,
-        type="isochroneapprox",
-        ip=IsochronePotential(normalize=0.99, b=1.8),
+    jr = as_numpy(
+        os.jr(
+            pot=MWPotential2014,
+            type="isochroneapprox",
+            ip=IsochronePotential(normalize=0.99, b=1.8),
+        )
     )
     assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
         "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying delta to not specifying it"
@@ -10026,28 +10243,28 @@ def test_toPlanar():
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0, 2.0], [1.0, -0.2, 1.3, -0.3, 0.0, 5.0]])
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for FullOrbit"
-    assert numpy.all(obsp.R() == obs.R()), (
+    assert numpy.all(as_numpy(obsp.R()) == as_numpy(obs.R())), (
         "Planar orbit generated w/ toPlanar does not have the correct R"
     )
-    assert numpy.all(obsp.vR() == obs.vR()), (
+    assert numpy.all(as_numpy(obsp.vR()) == as_numpy(obs.vR())), (
         "Planar orbit generated w/ toPlanar does not have the correct vR"
     )
-    assert numpy.all(obsp.vT() == obs.vT()), (
+    assert numpy.all(as_numpy(obsp.vT()) == as_numpy(obs.vT())), (
         "Planar orbit generated w/ toPlanar does not have the correct vT"
     )
-    assert numpy.all(obsp.phi() == obs.phi()), (
+    assert numpy.all(as_numpy(obsp.phi()) == as_numpy(obs.phi())), (
         "Planar orbit generated w/ toPlanar does not have the correct phi"
     )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0], [1.0, -0.2, 1.3, -0.3, 0.0]])
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for RZOrbit"
-    assert numpy.all(obsp.R() == obs.R()), (
+    assert numpy.all(as_numpy(obsp.R()) == as_numpy(obs.R())), (
         "Planar orbit generated w/ toPlanar does not have the correct R"
     )
-    assert numpy.all(obsp.vR() == obs.vR()), (
+    assert numpy.all(as_numpy(obsp.vR()) == as_numpy(obs.vR())), (
         "Planar orbit generated w/ toPlanar does not have the correct vR"
     )
-    assert numpy.all(obsp.vT() == obs.vT()), (
+    assert numpy.all(as_numpy(obsp.vT()) == as_numpy(obs.vT())), (
         "Planar orbit generated w/ toPlanar does not have the correct vT"
     )
     ro, vo, zo, solarmotion = 10.0, 300.0, 0.01, "schoenrich"
@@ -10060,13 +10277,13 @@ def test_toPlanar():
     )
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for RZOrbit"
-    assert numpy.all(obsp.R() == obs.R()), (
+    assert numpy.all(as_numpy(obsp.R()) == as_numpy(obs.R())), (
         "Planar orbit generated w/ toPlanar does not have the correct R"
     )
-    assert numpy.all(obsp.vR() == obs.vR()), (
+    assert numpy.all(as_numpy(obsp.vR()) == as_numpy(obs.vR())), (
         "Planar orbit generated w/ toPlanar does not have the correct vR"
     )
-    assert numpy.all(obsp.vT() == obs.vT()), (
+    assert numpy.all(as_numpy(obsp.vT()) == as_numpy(obs.vT())), (
         "Planar orbit generated w/ toPlanar does not have the correct vT"
     )
     assert numpy.fabs(obs._ro - obsp._ro) < 10.0**-15.0, (

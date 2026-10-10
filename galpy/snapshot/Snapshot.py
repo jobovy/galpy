@@ -103,10 +103,18 @@ class Snapshot:
                 thisp = nu.array([self.orbits[ii].vx(), self.orbits[ii].vy()]).flatten()
             elif dim == 3:
                 thisq = nu.array(
-                    [self.orbits[ii].x(), self.orbits[ii].y(), self.orbits[ii].z()]
+                    [
+                        self.orbits[ii].x(),
+                        self.orbits[ii].y(),
+                        self.orbits[ii].z(_stored=True),
+                    ]
                 ).flatten()
                 thisp = nu.array(
-                    [self.orbits[ii].vx(), self.orbits[ii].vy(), self.orbits[ii].vz()]
+                    [
+                        self.orbits[ii].vx(),
+                        self.orbits[ii].vy(),
+                        self.orbits[ii].vz(_stored=True),
+                    ]
                 ).flatten()
             q.append(thisq)
             p.append(thisp)
@@ -231,15 +239,15 @@ class Snapshot:
             kwargs.pop("d2")
         # Get x and y
         if d1 == "R":
-            x = [o.R() for o in self.orbits]
+            x = [o.R(_stored=True) for o in self.orbits]
         elif d1 == "z":
-            x = [o.z() for o in self.orbits]
+            x = [o.z(_stored=True) for o in self.orbits]
         elif d1 == "vz":
-            x = [o.vz() for o in self.orbits]
+            x = [o.vz(_stored=True) for o in self.orbits]
         elif d1 == "vR":
-            x = [o.vR() for o in self.orbits]
+            x = [o.vR(_stored=True) for o in self.orbits]
         elif d1 == "vT":
-            x = [o.vT() for o in self.orbits]
+            x = [o.vT(_stored=True) for o in self.orbits]
         elif d1 == "x":
             x = [o.x() for o in self.orbits]
         elif d1 == "y":
@@ -249,17 +257,17 @@ class Snapshot:
         elif d1 == "vy":
             x = [o.vy() for o in self.orbits]
         elif d1 == "phi":
-            x = [o.phi() for o in self.orbits]
+            x = [o.phi(_stored=True) for o in self.orbits]
         if d2 == "R":
-            y = [o.R() for o in self.orbits]
+            y = [o.R(_stored=True) for o in self.orbits]
         elif d2 == "z":
-            y = [o.z() for o in self.orbits]
+            y = [o.z(_stored=True) for o in self.orbits]
         elif d2 == "vz":
-            y = [o.vz() for o in self.orbits]
+            y = [o.vz(_stored=True) for o in self.orbits]
         elif d2 == "vR":
-            y = [o.vR() for o in self.orbits]
+            y = [o.vR(_stored=True) for o in self.orbits]
         elif d2 == "vT":
-            y = [o.vT() for o in self.orbits]
+            y = [o.vT(_stored=True) for o in self.orbits]
         elif d2 == "x":
             y = [o.x() for o in self.orbits]
         elif d2 == "y":
@@ -269,7 +277,7 @@ class Snapshot:
         elif d2 == "vy":
             y = [o.vy() for o in self.orbits]
         elif d2 == "phi":
-            y = [o.phi() for o in self.orbits]
+            y = [o.phi(_stored=True) for o in self.orbits]
 
         # Plot
         if not kwargs.has_key("xlabel"):
@@ -357,15 +365,15 @@ class Snapshot:
             kwargs.pop("d3")
         # Get x, y, and z
         if d1 == "R":
-            x = [o.R() for o in self.orbits]
+            x = [o.R(_stored=True) for o in self.orbits]
         elif d1 == "z":
-            x = [o.z() for o in self.orbits]
+            x = [o.z(_stored=True) for o in self.orbits]
         elif d1 == "vz":
-            x = [o.vz() for o in self.orbits]
+            x = [o.vz(_stored=True) for o in self.orbits]
         elif d1 == "vR":
-            x = [o.vR() for o in self.orbits]
+            x = [o.vR(_stored=True) for o in self.orbits]
         elif d1 == "vT":
-            x = [o.vT() for o in self.orbits]
+            x = [o.vT(_stored=True) for o in self.orbits]
         elif d1 == "x":
             x = [o.x() for o in self.orbits]
         elif d1 == "y":
@@ -375,17 +383,17 @@ class Snapshot:
         elif d1 == "vy":
             x = [o.vy() for o in self.orbits]
         elif d1 == "phi":
-            x = [o.phi() for o in self.orbits]
+            x = [o.phi(_stored=True) for o in self.orbits]
         if d2 == "R":
-            y = [o.R() for o in self.orbits]
+            y = [o.R(_stored=True) for o in self.orbits]
         elif d2 == "z":
-            y = [o.z() for o in self.orbits]
+            y = [o.z(_stored=True) for o in self.orbits]
         elif d2 == "vz":
-            y = [o.vz() for o in self.orbits]
+            y = [o.vz(_stored=True) for o in self.orbits]
         elif d2 == "vR":
-            y = [o.vR() for o in self.orbits]
+            y = [o.vR(_stored=True) for o in self.orbits]
         elif d2 == "vT":
-            y = [o.vT() for o in self.orbits]
+            y = [o.vT(_stored=True) for o in self.orbits]
         elif d2 == "x":
             y = [o.x() for o in self.orbits]
         elif d2 == "y":
@@ -395,17 +403,17 @@ class Snapshot:
         elif d2 == "vy":
             y = [o.vy() for o in self.orbits]
         elif d2 == "phi":
-            y = [o.phi() for o in self.orbits]
+            y = [o.phi(_stored=True) for o in self.orbits]
         if d3 == "R":
-            z = [o.R() for o in self.orbits]
+            z = [o.R(_stored=True) for o in self.orbits]
         elif d3 == "z":
-            z = [o.z() for o in self.orbits]
+            z = [o.z(_stored=True) for o in self.orbits]
         elif d3 == "vz":
-            z = [o.vz() for o in self.orbits]
+            z = [o.vz(_stored=True) for o in self.orbits]
         elif d3 == "vR":
-            z = [o.vR() for o in self.orbits]
+            z = [o.vR(_stored=True) for o in self.orbits]
         elif d3 == "vT":
-            z = [o.vT() for o in self.orbits]
+            z = [o.vT(_stored=True) for o in self.orbits]
         elif d3 == "x":
             z = [o.x() for o in self.orbits]
         elif d3 == "y":
@@ -415,7 +423,7 @@ class Snapshot:
         elif d3 == "vy":
             z = [o.vy() for o in self.orbits]
         elif d3 == "phi":
-            z = [o.phi() for o in self.orbits]
+            z = [o.phi(_stored=True) for o in self.orbits]
 
         # Plot
         if not kwargs.has_key("xlabel"):

@@ -33,7 +33,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
     all force/derivative/density methods) is backend-agnostic (numpy/jax/torch).
     Full backend support additionally requires (a) the expansion sub-potential
     ``self._me`` to be backend-agnostic and (b) any *user-provided*
-    Sigma/dSigmadR/d2SigmadR2/hz/Hz/dHzdz callables to accept backend arrays
+    dens/Sigma/dSigmadR/d2SigmadR2/hz/Hz/dHzdz callables to accept backend arrays
     (e.g., be written with ``galpy.backend.get_namespace``); callables written
     against plain numpy silently degrade backend inputs to numpy.
     """

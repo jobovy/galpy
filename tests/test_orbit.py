@@ -1486,7 +1486,7 @@ def test_kuzmindisk_dxdv_3d_c_vs_python_offplane():
     times = numpy.linspace(0.0, 2.0, 101)
     obase = Orbit(ic)
     obase.integrate(times, pot, method="dop853_c")
-    assert numpy.amin(numpy.fabs(obase.z(times))) > 1.0, (
+    assert numpy.amin(numpy.fabs(as_numpy(obase.z(times)))) > 1.0, (
         "test precondition: the IC must keep the orbit well off the disk plane "
         "(away from the z=0 kink in d2Phi/dz2)"
     )
@@ -1541,7 +1541,7 @@ def test_dehnenbar_dxdv_inside_rb_c_vs_python():
     times = numpy.linspace(0.0, 2.0, 101)
     obase = Orbit(ic)
     obase.integrate(times, pot, method="dop853_c")
-    r = numpy.sqrt(obase.R(times) ** 2 + obase.z(times) ** 2)
+    r = numpy.sqrt(as_numpy(obase.R(times)) ** 2 + as_numpy(obase.z(times)) ** 2)
     assert numpy.mean(r < pot._rb) > 0.1, (
         "test precondition: the orbit must spend time inside rb to exercise the "
         "r <= rb branch of the C Hessian"
@@ -2034,13 +2034,13 @@ def test_oblatestaeckelwrapper_ntab_c():
     # the exact-vs-tabulated truncation scale
     opytb = Orbit([0.9, 0.55, 0.45, 0.2, 0.25, 0.0])
     opytb.integrate(ts, swpT, method="dop853")
-    assert numpy.amax(numpy.fabs(opytb.R(ts) - otb.R(ts))) < 1e-6, (
+    assert numpy.amax(numpy.fabs(as_numpy(opytb.R(ts)) - as_numpy(otb.R(ts)))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper Python orbit deviates from the C one"
     )
-    assert numpy.amax(numpy.fabs(oE.R(ts) - otb.R(ts))) < 1e-6, (
+    assert numpy.amax(numpy.fabs(as_numpy(oE.R(ts)) - as_numpy(otb.R(ts)))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper 3D C orbit deviates from the exact one"
     )
-    assert numpy.amax(numpy.fabs(oE.z(ts) - otb.z(ts))) < 1e-6, (
+    assert numpy.amax(numpy.fabs(as_numpy(oE.z(ts)) - as_numpy(otb.z(ts)))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper 3D C orbit deviates from the exact one"
     )
     # planar
@@ -2048,7 +2048,7 @@ def test_oblatestaeckelwrapper_ntab_c():
     optb = Orbit([0.9, 0.55, 0.45, 0.0])
     opE.integrate(ts, swpE.toPlanar(), method="dop853_c")
     optb.integrate(ts, swpT.toPlanar(), method="dop853_c")
-    assert numpy.amax(numpy.fabs(opE.R(ts) - optb.R(ts))) < 1e-6, (
+    assert numpy.amax(numpy.fabs(as_numpy(opE.R(ts)) - as_numpy(optb.R(ts)))) < 1e-6, (
         "Tabulated OblateStaeckelWrapper planar C orbit deviates from the exact one"
     )
     # planar variational equations exercise the tabulated planar-Hessian
@@ -7136,14 +7136,18 @@ def test_orbit_rguiding():
     lp = LogarithmicHaloPotential(normalize=1.0)
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
-    assert numpy.fabs(o.rguiding(pot=lp) - rl(lp, Lz)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.rguiding(pot=lp)) - as_numpy(rl(lp, Lz))) < 1e-10, (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     assert (
-        numpy.fabs(o.rguiding(pot=MWPotential2014) - rl(MWPotential2014, Lz)) < 1e-10
+        numpy.fabs(
+            as_numpy(o.rguiding(pot=MWPotential2014))
+            - as_numpy(rl(MWPotential2014, Lz))
+        )
+        < 1e-10
     ), (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
@@ -7157,8 +7161,8 @@ def test_orbit_rguiding():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.rguiding(ts, pot=npaxi)
-                - numpy.array([rl(npaxi, o.Lz(t)) for t in ts])
+                as_numpy(o.rguiding(ts, pot=npaxi))
+                - numpy.array([as_numpy(rl(npaxi, as_numpy(o.Lz(t)))) for t in ts])
             )
         )
         < 1e-10
@@ -7181,14 +7185,18 @@ def test_orbit_rguiding_planar():
     lp = LogarithmicHaloPotential(normalize=1.0)
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0])
-    assert numpy.fabs(o.rguiding(pot=lp) - rl(lp, Lz)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.rguiding(pot=lp)) - as_numpy(rl(lp, Lz))) < 1e-10, (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     assert (
-        numpy.fabs(o.rguiding(pot=MWPotential2014) - rl(MWPotential2014, Lz)) < 1e-10
+        numpy.fabs(
+            as_numpy(o.rguiding(pot=MWPotential2014))
+            - as_numpy(rl(MWPotential2014, Lz))
+        )
+        < 1e-10
     ), (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
@@ -7202,8 +7210,8 @@ def test_orbit_rguiding_planar():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.rguiding(ts, pot=npaxi)
-                - numpy.array([rl(npaxi, o.Lz(t)) for t in ts])
+                as_numpy(o.rguiding(ts, pot=npaxi))
+                - numpy.array([as_numpy(rl(npaxi, as_numpy(o.Lz(t)))) for t in ts])
             )
         )
         < 1e-10
@@ -7227,14 +7235,19 @@ def test_orbit_rE():
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=lp)
-    assert numpy.fabs(o.rE(pot=lp) - rE(lp, E)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.rE(pot=lp)) - as_numpy(rE(lp, E))) < 1e-10, (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.rE(pot=MWPotential2014) - rE(MWPotential2014, E)) < 1e-10, (
+    assert (
+        numpy.fabs(
+            as_numpy(o.rE(pot=MWPotential2014)) - as_numpy(rE(MWPotential2014, E))
+        )
+        < 1e-10
+    ), (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
     # For an orbit integrated in a time-dependent potential, such that E varies
@@ -7247,7 +7260,8 @@ def test_orbit_rE():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.rE(ts, pot=lp) - numpy.array([rE(lp, o.E(t, pot=lp)) for t in ts])
+                as_numpy(o.rE(ts, pot=lp))
+                - numpy.array([as_numpy(rE(lp, o.E(t, pot=lp))) for t in ts])
             )
         )
         < 1e-10
@@ -7271,14 +7285,19 @@ def test_orbit_rE_planar():
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=lp)
-    assert numpy.fabs(o.rE(pot=lp) - rE(lp, E)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.rE(pot=lp)) - as_numpy(rE(lp, E))) < 1e-10, (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.rE(pot=MWPotential2014) - rE(MWPotential2014, E)) < 1e-10, (
+    assert (
+        numpy.fabs(
+            as_numpy(o.rE(pot=MWPotential2014)) - as_numpy(rE(MWPotential2014, E))
+        )
+        < 1e-10
+    ), (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
     # For an orbit integrated in a time-dependent potential, such that E varies
@@ -7297,7 +7316,8 @@ def test_orbit_rE_planar():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.rE(ts, pot=lp) - numpy.array([rE(lp, o.E(t, pot=lp)) for t in ts])
+                as_numpy(o.rE(ts, pot=lp))
+                - numpy.array([as_numpy(rE(lp, o.E(t, pot=lp))) for t in ts])
             )
         )
         < 1e-10
@@ -7321,14 +7341,19 @@ def test_orbit_LcE():
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=lp)
-    assert numpy.fabs(o.LcE(pot=lp) - LcE(lp, E)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.LcE(pot=lp)) - as_numpy(LcE(lp, E))) < 1e-10, (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.LcE(pot=MWPotential2014) - LcE(MWPotential2014, E)) < 1e-10, (
+    assert (
+        numpy.fabs(
+            as_numpy(o.LcE(pot=MWPotential2014)) - as_numpy(LcE(MWPotential2014, E))
+        )
+        < 1e-10
+    ), (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
     # For an orbit integrated in a time-dependent potential, such that E varies
@@ -7341,7 +7366,8 @@ def test_orbit_LcE():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.LcE(ts, pot=lp) - numpy.array([LcE(lp, o.E(t, pot=lp)) for t in ts])
+                as_numpy(o.LcE(ts, pot=lp))
+                - numpy.array([as_numpy(LcE(lp, o.E(t, pot=lp))) for t in ts])
             )
         )
         < 1e-10
@@ -7365,14 +7391,19 @@ def test_orbit_LcE_planar():
     R, Lz = 1.0, 1.4
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=lp)
-    assert numpy.fabs(o.LcE(pot=lp) - LcE(lp, E)) < 1e-10, (
+    assert numpy.fabs(as_numpy(o.LcE(pot=lp)) - as_numpy(LcE(lp, E))) < 1e-10, (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
     # For a list of potentials
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.LcE(pot=MWPotential2014) - LcE(MWPotential2014, E)) < 1e-10, (
+    assert (
+        numpy.fabs(
+            as_numpy(o.LcE(pot=MWPotential2014)) - as_numpy(LcE(MWPotential2014, E))
+        )
+        < 1e-10
+    ), (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
     # For an orbit integrated in a time-dependent potential, such that E varies
@@ -7391,7 +7422,8 @@ def test_orbit_LcE_planar():
     assert (
         numpy.amax(
             numpy.fabs(
-                o.LcE(ts, pot=lp) - numpy.array([LcE(lp, o.E(t, pot=lp)) for t in ts])
+                as_numpy(o.LcE(ts, pot=lp))
+                - numpy.array([as_numpy(LcE(lp, o.E(t, pot=lp))) for t in ts])
             )
         )
         < 1e-10
@@ -7916,42 +7948,42 @@ def test_orbit_setup_planar():
 
     o = Orbit([1.0, 0.1, 1.1])
     assert o.dim() == 2, "planarROrbit does not have dim == 2"
-    assert numpy.fabs(o.R() - 1.0) < 10.0**-16.0, (
-        "planarOrbit R setup does not agree with o.R()"
+    assert numpy.fabs(as_numpy(o.R()) - 1.0) < 10.0**-16.0, (
+        "planarOrbit R setup does not agree with as_numpy(o.R())"
     )
-    assert numpy.fabs(o.vR() - 0.1) < 10.0**-16.0, (
-        "planarOrbit vR setup does not agree with o.vR()"
+    assert numpy.fabs(as_numpy(o.vR()) - 0.1) < 10.0**-16.0, (
+        "planarOrbit vR setup does not agree with as_numpy(o.vR())"
     )
-    assert numpy.fabs(o.vT() - 1.1) < 10.0**-16.0, (
-        "planarOrbit vT setup does not agree with o.vT()"
+    assert numpy.fabs(as_numpy(o.vT()) - 1.1) < 10.0**-16.0, (
+        "planarOrbit vT setup does not agree with as_numpy(o.vT())"
     )
     if False:
         # setphi was deprecated when moving to Orbits
         o.setphi(3.0)
-        assert numpy.fabs(o.phi() - 3.0) < 10.0**-16.0, (
-            "Orbit setphi does not agree with o.phi()"
+        assert numpy.fabs(as_numpy(o.phi()) - 3.0) < 10.0**-16.0, (
+            "Orbit setphi does not agree with as_numpy(o.phi())"
         )
         # planarROrbit no longer exists after moving to Orbits
         # assert not isinstance(o._orb,planarROrbit), 'After applying setphi, planarROrbit did not become planarOrbit'
     o = Orbit([1.0, 0.1, 1.1, 2.0])
     assert o.dim() == 2, "planarOrbit does not have dim == 2"
-    assert numpy.fabs(o.R() - 1.0) < 10.0**-16.0, (
-        "planarOrbit R setup does not agree with o.R()"
+    assert numpy.fabs(as_numpy(o.R()) - 1.0) < 10.0**-16.0, (
+        "planarOrbit R setup does not agree with as_numpy(o.R())"
     )
-    assert numpy.fabs(o.vR() - 0.1) < 10.0**-16.0, (
-        "planarOrbit vR setup does not agree with o.vR()"
+    assert numpy.fabs(as_numpy(o.vR()) - 0.1) < 10.0**-16.0, (
+        "planarOrbit vR setup does not agree with as_numpy(o.vR())"
     )
-    assert numpy.fabs(o.vT() - 1.1) < 10.0**-16.0, (
-        "planarOrbit vT setup does not agree with o.vT()"
+    assert numpy.fabs(as_numpy(o.vT()) - 1.1) < 10.0**-16.0, (
+        "planarOrbit vT setup does not agree with as_numpy(o.vT())"
     )
-    assert numpy.fabs(o.phi() - 2.0) < 10.0**-16.0, (
-        "planarOrbit phi setup does not agree with o.phi()"
+    assert numpy.fabs(as_numpy(o.phi()) - 2.0) < 10.0**-16.0, (
+        "planarOrbit phi setup does not agree with as_numpy(o.phi())"
     )
     if False:
         # setphi was deprecated when moving to Orbits
         o.setphi(3.0)
-        assert numpy.fabs(o.phi() - 3.0) < 10.0**-16.0, (
-            "Orbit setphi does not agree with o.phi()"
+        assert numpy.fabs(as_numpy(o.phi()) - 3.0) < 10.0**-16.0, (
+            "Orbit setphi does not agree with as_numpy(o.phi())"
         )
     # lb, plane w/ default
     o = Orbit([120.0, 2.0, 0.5, 30.0], lb=True, zo=0.0, solarmotion=[-10.0, 10.0, 0.0])
@@ -8048,57 +8080,57 @@ def test_orbit_setup():
 
     o = Orbit([1.0, 0.1, 1.1, 0.2, 0.3])
     assert o.dim() == 3, "RZOrbitOrbit does not have dim == 3"
-    assert numpy.fabs(o.R() - 1.0) < 10.0**-16.0, (
-        "Orbit R setup does not agree with o.R()"
+    assert numpy.fabs(as_numpy(o.R()) - 1.0) < 10.0**-16.0, (
+        "Orbit R setup does not agree with as_numpy(o.R())"
     )
-    assert numpy.fabs(o.vR() - 0.1) < 10.0**-16.0, (
-        "Orbit vR setup does not agree with o.vR()"
+    assert numpy.fabs(as_numpy(o.vR()) - 0.1) < 10.0**-16.0, (
+        "Orbit vR setup does not agree with as_numpy(o.vR())"
     )
-    assert numpy.fabs(o.vT() - 1.1) < 10.0**-16.0, (
-        "Orbit vT setup does not agree with o.vT()"
+    assert numpy.fabs(as_numpy(o.vT()) - 1.1) < 10.0**-16.0, (
+        "Orbit vT setup does not agree with as_numpy(o.vT())"
     )
-    assert numpy.fabs(o.vphi() - 1.1) < 10.0**-16.0, (
-        "Orbit vT setup does not agree with o.vphi()"
+    assert numpy.fabs(as_numpy(o.vphi()) - 1.1) < 10.0**-16.0, (
+        "Orbit vT setup does not agree with as_numpy(o.vphi())"
     )
-    assert numpy.fabs(o.z() - 0.2) < 10.0**-16.0, (
-        "Orbit z setup does not agree with o.z()"
+    assert numpy.fabs(as_numpy(o.z()) - 0.2) < 10.0**-16.0, (
+        "Orbit z setup does not agree with as_numpy(o.z())"
     )
-    assert numpy.fabs(o.vz() - 0.3) < 10.0**-16.0, (
-        "Orbit vz setup does not agree with o.vz()"
+    assert numpy.fabs(as_numpy(o.vz()) - 0.3) < 10.0**-16.0, (
+        "Orbit vz setup does not agree with as_numpy(o.vz())"
     )
     if False:
         # setphi was deprecated when moving to Orbits
         o.setphi(3.0)
-        assert numpy.fabs(o.phi() - 3.0) < 10.0**-16.0, (
-            "Orbit setphi does not agree with o.phi()"
+        assert numpy.fabs(as_numpy(o.phi()) - 3.0) < 10.0**-16.0, (
+            "Orbit setphi does not agree with as_numpy(o.phi())"
         )
         # FullOrbit no longer exists after switch to Orbits
         # assert isinstance(o._orb,FullOrbit), 'After applying setphi, RZOrbit did not become FullOrbit'
     o = Orbit((1.0, 0.1, 1.1, 0.2, 0.3, 2.0))  # also testing tuple input
     assert o.dim() == 3, "FullOrbit does not have dim == 3"
-    assert numpy.fabs(o.R() - 1.0) < 10.0**-16.0, (
-        "Orbit R setup does not agree with o.R()"
+    assert numpy.fabs(as_numpy(o.R()) - 1.0) < 10.0**-16.0, (
+        "Orbit R setup does not agree with as_numpy(o.R())"
     )
-    assert numpy.fabs(o.vR() - 0.1) < 10.0**-16.0, (
-        "Orbit vR setup does not agree with o.vR()"
+    assert numpy.fabs(as_numpy(o.vR()) - 0.1) < 10.0**-16.0, (
+        "Orbit vR setup does not agree with as_numpy(o.vR())"
     )
-    assert numpy.fabs(o.vT() - 1.1) < 10.0**-16.0, (
-        "Orbit vT setup does not agree with o.vT()"
+    assert numpy.fabs(as_numpy(o.vT()) - 1.1) < 10.0**-16.0, (
+        "Orbit vT setup does not agree with as_numpy(o.vT())"
     )
-    assert numpy.fabs(o.z() - 0.2) < 10.0**-16.0, (
-        "Orbit z setup does not agree with o.z()"
+    assert numpy.fabs(as_numpy(o.z()) - 0.2) < 10.0**-16.0, (
+        "Orbit z setup does not agree with as_numpy(o.z())"
     )
-    assert numpy.fabs(o.vz() - 0.3) < 10.0**-16.0, (
-        "Orbit vz setup does not agree with o.vz()"
+    assert numpy.fabs(as_numpy(o.vz()) - 0.3) < 10.0**-16.0, (
+        "Orbit vz setup does not agree with as_numpy(o.vz())"
     )
-    assert numpy.fabs(o.phi() - 2.0) < 10.0**-16.0, (
-        "Orbit phi setup does not agree with o.phi()"
+    assert numpy.fabs(as_numpy(o.phi()) - 2.0) < 10.0**-16.0, (
+        "Orbit phi setup does not agree with as_numpy(o.phi())"
     )
     if False:
         # setphi was deprecated when moving to Orbits
         o.setphi(3.0)
-        assert numpy.fabs(o.phi() - 3.0) < 10.0**-16.0, (
-            "Orbit setphi does not agree with o.phi()"
+        assert numpy.fabs(as_numpy(o.phi()) - 3.0) < 10.0**-16.0, (
+            "Orbit setphi does not agree with as_numpy(o.phi())"
         )
     # Radec w/ default
     o = Orbit([120.0, 60.0, 2.0, 0.5, 0.4, 30.0], radec=True)
@@ -9305,12 +9337,12 @@ def test_getOrbit():
     o = Orbit([1.0, 0.1, 1.2, 0.3, 0.2, 2.0])
     times = numpy.linspace(0.0, 7.0, 251)
     o.integrate(times, lp)
-    Rs = o.R(times)
-    vRs = o.vR(times)
-    vTs = o.vT(times)
-    zs = o.z(times)
-    vzs = o.vz(times)
-    phis = o.phi(times)
+    Rs = as_numpy(o.R(times))
+    vRs = as_numpy(o.vR(times))
+    vTs = as_numpy(o.vT(times))
+    zs = as_numpy(o.z(times))
+    vzs = as_numpy(o.vz(times))
+    phis = as_numpy(o.phi(times))
     orbarray = o.getOrbit()
     assert numpy.all(numpy.fabs(Rs - orbarray[:, 0]) < 10.0**-16.0), (
         "getOrbit does not work as expected for R"
@@ -10190,14 +10222,14 @@ def test_interpolation_issue187():
     assert numpy.all(
         numpy.fabs(
             ((preWrapInterpolate(tsPreWrap) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-            - orb.phi(tsPreWrap)
+            - as_numpy(orb.phi(tsPreWrap))
         )
         < 10.0**-5.0
     ), "phase interpolation near a phase-wrap does not work"
     assert numpy.all(
         numpy.fabs(
             ((postWrapInterpolate(tsPostWrap) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-            - orb.phi(tsPostWrap)
+            - as_numpy(orb.phi(tsPostWrap))
         )
         < 10.0**-5.0
     ), "phase interpolation near a phase-wrap does not work"
@@ -10526,22 +10558,22 @@ def test_backinterpolation_issue204():
     # Test that interpolation works and gives the same result
     nitimes = numpy.linspace(0.0, -10.0, 2501)
     pitimes = -nitimes
-    assert numpy.all((o.R(nitimes) - of.R(pitimes)) < 10.0**-8.0), (
+    assert numpy.all((as_numpy(o.R(nitimes)) - as_numpy(of.R(pitimes))) < 10.0**-8.0), (
         "Forward and backward integration with interpolation do not agree"
     )
-    assert numpy.all((o.z(nitimes) - of.z(pitimes)) < 10.0**-8.0), (
+    assert numpy.all((as_numpy(o.z(nitimes)) - as_numpy(of.z(pitimes))) < 10.0**-8.0), (
         "Forward and backward integration with interpolation do not agree"
     )
     # Velocities should be flipped
-    assert numpy.all((o.vR(nitimes) + of.vR(pitimes)) < 10.0**-8.0), (
-        "Forward and backward integration with interpolation do not agree"
-    )
-    assert numpy.all((o.vT(nitimes) + of.vT(pitimes)) < 10.0**-8.0), (
-        "Forward and backward integration with interpolation do not agree"
-    )
-    assert numpy.all((o.vT(nitimes) + of.vT(pitimes)) < 10.0**-8.0), (
-        "Forward and backward integration with interpolation do not agree"
-    )
+    assert numpy.all(
+        (as_numpy(o.vR(nitimes)) + as_numpy(of.vR(pitimes))) < 10.0**-8.0
+    ), "Forward and backward integration with interpolation do not agree"
+    assert numpy.all(
+        (as_numpy(o.vT(nitimes)) + as_numpy(of.vT(pitimes))) < 10.0**-8.0
+    ), "Forward and backward integration with interpolation do not agree"
+    assert numpy.all(
+        (as_numpy(o.vT(nitimes)) + as_numpy(of.vT(pitimes))) < 10.0**-8.0
+    ), "Forward and backward integration with interpolation do not agree"
     return None
 
 
@@ -10976,7 +11008,11 @@ def test_orbit_obs_Orbits_issue322():
                 o.helioX(times, obs=obs, ro=1.0)[ii]
                 - o.helioX(
                     times[ii],
-                    obs=[obs.x(times[ii]), obs.y(times[ii]), obs.z(times[ii])],
+                    obs=[
+                        obs.x(times[ii]),
+                        obs.y(times[ii]),
+                        as_numpy(obs.z(times[ii])),
+                    ],
                     ro=1.0,
                 )
             )
@@ -10989,7 +11025,11 @@ def test_orbit_obs_Orbits_issue322():
                 o.helioY(times, obs=obs, ro=1.0)[ii]
                 - o.helioY(
                     times[ii],
-                    obs=[obs.x(times[ii]), obs.y(times[ii]), obs.z(times[ii])],
+                    obs=[
+                        obs.x(times[ii]),
+                        obs.y(times[ii]),
+                        as_numpy(obs.z(times[ii])),
+                    ],
                     ro=1.0,
                 )
             )
@@ -11012,7 +11052,11 @@ def test_orbit_obs_Orbits_issue322():
                 o.helioX(times, obs=obs, ro=1.0)[ii]
                 - o.helioX(
                     times[ii],
-                    obs=[obs.x(times[ii]), obs.y(times[ii]), obs.z(times[ii])],
+                    obs=[
+                        obs.x(times[ii]),
+                        obs.y(times[ii]),
+                        as_numpy(obs.z(times[ii])),
+                    ],
                     ro=1.0,
                 )
             )
@@ -11025,7 +11069,11 @@ def test_orbit_obs_Orbits_issue322():
                 o.helioY(times, obs=obs, ro=1.0)[ii]
                 - o.helioY(
                     times[ii],
-                    obs=[obs.x(times[ii]), obs.y(times[ii]), obs.z(times[ii])],
+                    obs=[
+                        obs.x(times[ii]),
+                        obs.y(times[ii]),
+                        as_numpy(obs.z(times[ii])),
+                    ],
                     ro=1.0,
                 )
             )
@@ -11243,10 +11291,10 @@ def test_orbit_obsvel_Orbits_issue322():
                     obs=[
                         obs.x(times[ii]),
                         obs.y(times[ii]),
-                        obs.z(times[ii]),
+                        as_numpy(obs.z(times[ii])),
                         obs.vx(times[ii]),
                         obs.vy(times[ii]),
-                        obs.vz(times[ii]),
+                        as_numpy(obs.vz(times[ii])),
                     ],
                     ro=1.0,
                 )
@@ -11263,10 +11311,10 @@ def test_orbit_obsvel_Orbits_issue322():
                     obs=[
                         obs.x(times[ii]),
                         obs.y(times[ii]),
-                        obs.z(times[ii]),
+                        as_numpy(obs.z(times[ii])),
                         obs.vx(times[ii]),
                         obs.vy(times[ii]),
-                        obs.vz(times[ii]),
+                        as_numpy(obs.vz(times[ii])),
                     ],
                     ro=1.0,
                 )
@@ -11293,10 +11341,10 @@ def test_orbit_obsvel_Orbits_issue322():
                     obs=[
                         obs.x(times[ii]),
                         obs.y(times[ii]),
-                        obs.z(times[ii]),
+                        as_numpy(obs.z(times[ii])),
                         obs.vx(times[ii]),
                         obs.vy(times[ii]),
-                        obs.vz(times[ii]),
+                        as_numpy(obs.vz(times[ii])),
                     ],
                     ro=1.0,
                 )
@@ -11313,10 +11361,10 @@ def test_orbit_obsvel_Orbits_issue322():
                     obs=[
                         obs.x(times[ii]),
                         obs.y(times[ii]),
-                        obs.z(times[ii]),
+                        as_numpy(obs.z(times[ii])),
                         obs.vx(times[ii]),
                         obs.vy(times[ii]),
-                        obs.vz(times[ii]),
+                        as_numpy(obs.vz(times[ii])),
                     ],
                     ro=1.0,
                 )
@@ -12445,7 +12493,7 @@ def test_orbitint_planar_interprz_pythonfallback():
         "Integrating a planar orbit in a planar interpRZPotential with a C method did not raise the Python-fallback warning"
     )
     # Integration should have completed sensibly
-    assert numpy.all(numpy.isfinite(o.R(ts))), (
+    assert numpy.all(numpy.isfinite(as_numpy(o.R(ts)))), (
         "Integrating a planar orbit in a planar interpRZPotential did not complete correctly"
     )
     return None
@@ -13068,28 +13116,28 @@ def test_orbinterp_reset_integrate():
     op = o()
     ts = numpy.linspace(0.0, 100.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    as_numpy(o.R(numpy.linspace(0.0, o.t[-1], 1001)))
     o.integrate(ts, MWPotential2014)
     op.integrate(ts, MWPotential2014)
     # If things are reset correctly, o and op should now agree on everything
-    assert numpy.all(numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0), (
-        "Orbit R not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0), (
-        "Orbit vR not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0), (
-        "Orbit vT not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0), (
-        "Orbit z not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0), (
-        "Orbit vz not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0), (
-        "Orbit phi not reset correctly"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.R(ts)) - as_numpy(op.R(ts))) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(ts)) - as_numpy(op.vR(ts))) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(ts)) - as_numpy(op.vT(ts))) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.z(ts)) - as_numpy(op.z(ts))) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vz(ts)) - as_numpy(op.vz(ts))) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(ts)) - as_numpy(op.phi(ts))) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
     assert numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0, (
         "Orbit rperi not reset correctly"
     )
@@ -13109,29 +13157,29 @@ def test_orbinterp_reset_integrateSOS():
     ts = numpy.linspace(0.0, 100.0, 10001)
     psis = numpy.linspace(0.0, 100.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    as_numpy(o.R(numpy.linspace(0.0, o.t[-1], 1001)))
     o.integrate_SOS(psis, MWPotential2014)
     op.integrate_SOS(psis, MWPotential2014)
     ts = o.t
     # If things are reset correctly, o and op should now agree on everything
-    assert numpy.all(numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0), (
-        "Orbit R not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0), (
-        "Orbit vR not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0), (
-        "Orbit vT not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0), (
-        "Orbit z not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0), (
-        "Orbit vz not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0), (
-        "Orbit phi not reset correctly"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.R(ts)) - as_numpy(op.R(ts))) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(ts)) - as_numpy(op.vR(ts))) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(ts)) - as_numpy(op.vT(ts))) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.z(ts)) - as_numpy(op.z(ts))) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vz(ts)) - as_numpy(op.vz(ts))) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(ts)) - as_numpy(op.phi(ts))) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
     assert numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0, (
         "Orbit rperi not reset correctly"
     )
@@ -13276,29 +13324,29 @@ def test_orbinterp_reset_bruteSOS():
     ts = numpy.linspace(0.0, 100.0, 10001)
     ts2 = numpy.linspace(0.0, 99.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    as_numpy(o.R(numpy.linspace(0.0, o.t[-1], 1001)))
     o.bruteSOS(ts2, MWPotential2014)
     op.bruteSOS(ts2, MWPotential2014)
     ts = o.t
     # If things are reset correctly, o and op should now agree on everything
-    assert numpy.all(numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0), (
-        "Orbit R not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0), (
-        "Orbit vR not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0), (
-        "Orbit vT not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0), (
-        "Orbit z not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0), (
-        "Orbit vz not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0), (
-        "Orbit phi not reset correctly"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.R(ts)) - as_numpy(op.R(ts))) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(ts)) - as_numpy(op.vR(ts))) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(ts)) - as_numpy(op.vT(ts))) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.z(ts)) - as_numpy(op.z(ts))) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vz(ts)) - as_numpy(op.vz(ts))) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(ts)) - as_numpy(op.phi(ts))) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
     assert numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0, (
         "Orbit rperi not reset correctly"
     )
@@ -13317,22 +13365,22 @@ def test_orbinterp_reset_integratedxdv():
     op = o()
     ts = numpy.linspace(0.0, 100.0, 10001)
     o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    as_numpy(o.R(numpy.linspace(0.0, o.t[-1], 1001)))
     o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
     op.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
     # If things are reset correctly, o and op should now agree on everything
-    assert numpy.all(numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0), (
-        "Orbit R not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0), (
-        "Orbit vR not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0), (
-        "Orbit vT not reset correctly"
-    )
-    assert numpy.all(numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0), (
-        "Orbit phi not reset correctly"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.R(ts)) - as_numpy(op.R(ts))) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(ts)) - as_numpy(op.vR(ts))) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(ts)) - as_numpy(op.vT(ts))) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(ts)) - as_numpy(op.phi(ts))) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
     assert numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0, (
         "Orbit rperi not reset correctly"
     )
@@ -13395,15 +13443,15 @@ def test_integrate_notevenlyspaced_ok():
         o_1.integrate(time_1, MWPotential2014, method=integrator)
         o_2 = Orbit()
         o_2.integrate(time_2, MWPotential2014, method=integrator)
-        assert numpy.all(numpy.fabs(o_1.R(time_1) - o_2.R(time_1)) < 10.0**-5.0), (
-            "Integration with unevenly-spaced times does not work"
-        )
-        assert numpy.all(numpy.fabs(o_1.vR(time_1) - o_2.vR(time_1)) < 10.0**-4.0), (
-            "Integration with unevenly-spaced times does not work"
-        )
-        assert numpy.all(numpy.fabs(o_1.vT(time_1) - o_2.vT(time_1)) < 10.0**-4.0), (
-            "Integration with unevenly-spaced times does not work"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(o_1.R(time_1)) - as_numpy(o_2.R(time_1))) < 10.0**-5.0
+        ), "Integration with unevenly-spaced times does not work"
+        assert numpy.all(
+            numpy.fabs(as_numpy(o_1.vR(time_1)) - as_numpy(o_2.vR(time_1))) < 10.0**-4.0
+        ), "Integration with unevenly-spaced times does not work"
+        assert numpy.all(
+            numpy.fabs(as_numpy(o_1.vT(time_1)) - as_numpy(o_2.vT(time_1))) < 10.0**-4.0
+        ), "Integration with unevenly-spaced times does not work"
     for integrator in [
         "leapfrog",
         "leapfrog_c",
@@ -14312,14 +14360,26 @@ def test_phi_range():
     o = Orbit()
     ts = numpy.linspace(0.0, -30, 5000)
     o.integrate(ts, MWPotential2014)
-    assert numpy.all(o.phi(ts) <= numpy.pi), "o.phi does not return values <= pi"
-    assert numpy.all(o.phi(ts) >= -numpy.pi), "o.phi does not return values >= pi"
-    assert numpy.all(o.phi(ts[::-1]) <= numpy.pi), "o.phi does not return values <= pi"
-    assert numpy.all(o.phi(ts[::-1]) >= -numpy.pi), "o.phi does not return values >= pi"
+    assert numpy.all(as_numpy(o.phi(ts)) <= numpy.pi), (
+        "o.phi does not return values <= pi"
+    )
+    assert numpy.all(as_numpy(o.phi(ts)) >= -numpy.pi), (
+        "o.phi does not return values >= pi"
+    )
+    assert numpy.all(as_numpy(o.phi(ts[::-1])) <= numpy.pi), (
+        "o.phi does not return values <= pi"
+    )
+    assert numpy.all(as_numpy(o.phi(ts[::-1])) >= -numpy.pi), (
+        "o.phi does not return values >= pi"
+    )
     # Also really interpolated
     its = numpy.linspace(0.0, -30, 5001)
-    assert numpy.all(o.phi(its) <= numpy.pi), "o.phi does not return values <= pi"
-    assert numpy.all(o.phi(its) >= -numpy.pi), "o.phi does not return values >= pi"
+    assert numpy.all(as_numpy(o.phi(its)) <= numpy.pi), (
+        "o.phi does not return values <= pi"
+    )
+    assert numpy.all(as_numpy(o.phi(its)) >= -numpy.pi), (
+        "o.phi does not return values >= pi"
+    )
     return None
 
 

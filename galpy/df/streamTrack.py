@@ -779,10 +779,10 @@ def _fit_track_from_particles(
                     [
                         prog_orbit.x(tp),
                         prog_orbit.y(tp),
-                        prog_orbit.z(tp),
+                        prog_orbit.z(tp, _stored=True),
                         prog_orbit.vx(tp),
                         prog_orbit.vy(tp),
-                        prog_orbit.vz(tp),
+                        prog_orbit.vz(tp, _stored=True),
                     ]
                 )
             )

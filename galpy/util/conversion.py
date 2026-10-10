@@ -1037,7 +1037,9 @@ def physical_conversion(quantity, pop=False):
                 if _apy_units:
                     from ..backend import to_host
 
-                    return units.Quantity(to_host(out * fac), unit=u)
+                    # numpy.asarray: astropy's copy=False __array__ call warns
+                    # on a (host) tensor; a no-op on numpy output
+                    return units.Quantity(numpy.asarray(to_host(out * fac)), unit=u)
                 else:
                     # complicated logic for dealing with ro and vo arrays
                     return out * (

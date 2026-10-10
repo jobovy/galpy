@@ -468,7 +468,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_args.extend(p._orb.t)
             pot_args.extend(p._orb.x(p._orb.t, use_physical=False))
             pot_args.extend(p._orb.y(p._orb.t, use_physical=False))
-            pot_args.extend(p._orb.z(p._orb.t, use_physical=False))
+            pot_args.extend(p._orb.z(p._orb.t, use_physical=False, _stored=True))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0], p._orb.t[-1]])  # t_0, t_f
         # Note that this one is out of pot_type order because it's closely associated
