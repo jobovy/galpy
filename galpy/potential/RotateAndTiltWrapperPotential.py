@@ -4,7 +4,8 @@
 ###############################################################################
 import numpy
 
-from ..backend import as_backend_constant, get_namespace, to_host
+from ..backend import as_backend_constant, coerce_coords, get_namespace, to_host
+from ..backend._namespaces import eager_value_memo
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import (
     _evaluatephitorques,
@@ -258,6 +259,18 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def _force_xyz(self, R, z, phi=0.0, t=0.0):
         """Get the rectangular forces in the transformed frame"""
         xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:  # eager: the methods at one point share it
+            # coerced first, so float and array calls at one point share a key
+            R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+            return eager_value_memo(
+                self,
+                "force_xyz",
+                (R, z, phi, t),
+                lambda: self._force_xyz_eval(xp, R, z, phi, t),
+            )
+        return self._force_xyz_eval(xp, R, z, phi, t)
+
+    def _force_xyz_eval(self, xp, R, z, phi, t):
         xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
@@ -321,8 +334,20 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         return R * (xp.cos(phi) * phi2[..., 1, 2] - xp.sin(phi) * phi2[..., 0, 2])
 
     def _2ndderiv_xyz(self, R, z, phi=0.0, t=0.0):
-        """Get the rectangular forces in the transformed frame"""
+        """Get the rectangular second derivatives in the transformed frame"""
         xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:  # eager: the methods at one point share it
+            # coerced first, so float and array calls at one point share a key
+            R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+            return eager_value_memo(
+                self,
+                "2ndderiv_xyz",
+                (R, z, phi, t),
+                lambda: self._2ndderiv_xyz_eval(xp, R, z, phi, t),
+            )
+        return self._2ndderiv_xyz_eval(xp, R, z, phi, t)
+
+    def _2ndderiv_xyz_eval(self, xp, R, z, phi, t):
         xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)

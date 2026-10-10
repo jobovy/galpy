@@ -314,6 +314,86 @@ def under_torch_grad(*xs):
     )
 
 
+_EAGER_MEMOS = None
+
+
+def _value_key(a):
+    v = numpy.asarray(as_numpy(a))
+    return (type(a).__module__, str(v.dtype), str(device_of(a)), v.shape, v.tobytes())
+
+
+def _carries_grad(obj, depth=0):
+    """Whether a parameter of ``obj`` (or of a galpy object it holds, as
+    ``_jit._object_key`` recurses) is a grad-tracking tensor or a jax tracer:
+    a result built on it carries the graph, so there is nothing to reuse."""
+    return any(
+        requires_backend_grad(attr)
+        or under_jax_trace(attr)
+        or (
+            depth < 3
+            and type(attr).__module__.startswith("galpy.")
+            and hasattr(attr, "__dict__")
+            and not isinstance(attr, type)
+            and _carries_grad(attr, depth + 1)
+        )
+        for attr in vars(obj).values()
+    )
+
+
+def _leaves(out):
+    if isinstance(out, (tuple, list)):
+        return [leaf for o in out for leaf in _leaves(o)]
+    return [out]
+
+
+def eager_memo_applies(owner, *args):
+    """Whether :func:`eager_value_memo` would reuse results for these arguments:
+    eager, concrete, nothing differentiated (an argument or a parameter of
+    ``owner``) -- a cached graph-free result would silently drop the gradient."""
+    from ._tracectx import is_compiling
+
+    return not (
+        is_compiling()
+        or under_trace(*args)
+        or requires_backend_grad(*args)
+        or _carries_grad(owner)
+    )
+
+
+def eager_value_memo(owner, slot, args, compute):
+    """``compute()``, reused while the backend arrays ``args`` keep their VALUES.
+
+    The eager-backend twin of the per-instance numpy md5 caches (several public
+    methods evaluated at one point sharing one quadrature), keyed on the
+    coordinate values and on ``owner``'s parameters (as a jit static key is, so
+    a re-normalized potential recomputes). Never under a trace (no values; no
+    state), and a result carrying a graph or a tracer is not kept (reusing it
+    could re-run a freed backward or leak the tracer; a differentiated
+    parameter skips the memo up front). Held off-instance
+    (weakly), so it is neither pickled nor part of a jit static key.
+    """
+    global _EAGER_MEMOS
+    from ._jit import _object_key
+
+    if not eager_memo_applies(owner, *args):
+        return compute()
+
+    if _EAGER_MEMOS is None:
+        import weakref
+
+        _EAGER_MEMOS = weakref.WeakKeyDictionary()
+    key = (_object_key(owner), tuple(_value_key(a) for a in args))
+    memos = _EAGER_MEMOS.setdefault(owner, {})
+    hit = memos.get(slot)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    out = compute()
+    leaves = _leaves(out)
+    if not (requires_backend_grad(*leaves) or under_trace(*leaves)):
+        memos[slot] = (key, out)
+    return out
+
+
 def stop_gradient(x):
     """Backend stop-gradient: identity (numpy), ``jax.lax.stop_gradient`` / ``.detach``.
 

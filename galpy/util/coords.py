@@ -3088,10 +3088,14 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
-    term = R**2 + z**2 - a - g
-    discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    l = 0.5 * (term + xp.sqrt(discr))
-    n = 0.5 * (term - xp.sqrt(discr))
+    # shared subexpressions computed once (each op is an eager dispatch on a
+    # backend); same arithmetic, so numpy is unchanged
+    R2 = R**2
+    s = R2 + z**2
+    term = s - a - g
+    sq = xp.sqrt((s - Delta**2) ** 2 + (4.0 * Delta**2 * R2))
+    l = 0.5 * (term + sq)
+    n = 0.5 * (term - sq)
     if isinstance(z, float) and z == 0.0:
         l = R**2 - a
         n = -g
@@ -3126,11 +3130,8 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     """
 
     xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
-    discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
-    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
-    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
-    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
+    dldR, dndR = _Rz_to_lambdanu_jac_column(R, z, Delta, xp, "R")
+    dldz, dndz = _Rz_to_lambdanu_jac_column(R, z, Delta, xp, "z")
     if is_backend_array(R) or is_backend_array(z):
         return xp.stack(
             [xp.stack([dldR, dldz], axis=0), xp.stack([dndR, dndz], axis=0)], axis=0
@@ -3145,6 +3146,19 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
         return jac[:, :, 0]
     else:
         return jac
+
+
+def _Rz_to_lambdanu_jac_column(R, z, Delta, xp, wrt):
+    """(dlambda/dwrt, dnu/dwrt), one column of :func:`Rz_to_lambdanu_jac` for
+    ``wrt`` "R" or "z", without building (and indexing) the full Jacobian: a
+    force needs only one column."""
+    s = R**2 + z**2
+    sq = xp.sqrt((s - Delta**2) ** 2 + (4.0 * Delta**2 * R**2))
+    if wrt == "R":
+        q = (s + Delta**2) / sq
+        return R * (1.0 + q), R * (1.0 - q)
+    q = (s - Delta**2) / sq
+    return z * (1.0 + q), z * (1.0 - q)
 
 
 def Rz_to_lambdanu_hess(R, z, Delta=1.0):
