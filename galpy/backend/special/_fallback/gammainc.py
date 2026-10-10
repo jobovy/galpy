@@ -292,8 +292,11 @@ def _jax_incgamma(upper):
     idx = 1 if upper else 0
     sign = -1.0 if upper else 1.0
     native = jss.gammaincc if upper else jss.gammainc
+    # jax.core.is_concrete is deprecated (jax >= 0.10); same function, no warning
+    from jax._src import core as _jcore
+
     _is_concrete = getattr(
-        jax.core, "is_concrete", lambda v: not isinstance(v, jax.core.Tracer)
+        _jcore, "is_concrete", lambda v: not isinstance(v, jax.core.Tracer)
     )
 
     def value(a, x):
