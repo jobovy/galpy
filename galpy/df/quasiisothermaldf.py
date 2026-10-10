@@ -10,9 +10,12 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import (
     as_numpy,
+    asarray_on_device,
     at_least_float64,
     bucket_size,
     coerce_coords,
+    concretely_true,
+    device_of,
     float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
@@ -24,6 +27,7 @@ from ..backend import random as grandom
 from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._namespaces import (
     namespace_for_name,
+    namespace_from_arrays,
     requires_backend_grad,
     stop_gradient,
     under_trace,
@@ -168,42 +172,32 @@ class quasiisothermaldf(df):
                 )
             elif (
                 isinstance(self._pot, IsochronePotential)
-                and not self._aA.b == self._pot.b
-                and not self._aA.amp == self._pot._amp
+                # concretely: a traced b / amp cannot be checked
+                and concretely_true(self._aA.b != self._pot.b)
+                and concretely_true(self._aA.amp != self._pot._amp)
             ):
                 raise OSError(
                     "Potential in aA does not appear to be the same as given potential pot"
                 )
         self._check_consistent_units()
         self._cutcounter = cutcounter
-        # The rg(Lz) interpolation table is a pure OPTIMIZATION whose extent is
-        # 5*hr, so a DIFFERENTIATED hr makes that bound traced -- and the bound
-        # has to be a concrete Python scalar (see the float() below, and the
-        # numpy _rg branch's `lz > self._precomputergLzmax`). A grid extent is a
-        # discretization choice carrying no gradient, but it cannot be
-        # concretized under a trace either, so skip the table entirely: _rg then
-        # root-finds with potential.rl, which IS differentiable. Only the speed
-        # changes, and only while differentiating.
-        #
-        # The same applies to a differentiated POTENTIAL, and for the same
-        # reason: the bound is rmax * vcirc(pot, rmax), so a traced potential
-        # parameter makes the float() below raise
-        # ConcretizationTypeError. hr alone was not the whole question -- asking
-        # only about it left every velocity moment and pv* of a qdf built on a
-        # traced potential undifferentiable.
-        if _precomputerg and (
-            under_trace(self._hr)
-            or requires_backend_grad(self._hr)
-            or _pot_grad_namespace(self._pot) is not None
-        ):
-            _precomputerg = False
+        # A differentiated hr (the table extends to 5*hr) or potential (the
+        # extent is rmax*vcirc(rmax), the nodes rl(Lz)) makes the rg(Lz) table a
+        # function of the parameters: built on their namespace then, so the
+        # traced DF interpolates the SAME rg(Lz) as the numpy one
+        _txp = _pot_grad_namespace(self._pot)
+        if _txp is None and (under_trace(self._hr) or requires_backend_grad(self._hr)):
+            _txp = get_namespace(self._hr)
         if _precomputerg:
             if _precomputergrmax is None:
                 _precomputergrmax = 5 * self._hr
             self._precomputergrmax = _precomputergrmax
             self._precomputergnLz = _precomputergnLz
             self._precomputergLzmin = 0.01
-            self._setup_rg_table()
+            if _txp is None:
+                self._setup_rg_table()
+            else:
+                self._setup_rg_table_backend(_txp)
         else:
             self._precomputergrmax = 0.0
             self._rgInterp = None
@@ -243,6 +237,29 @@ class quasiisothermaldf(df):
             self._precomputergLzgrid, self._rls, k=3
         )
         # backend-array eval of the same spline (numpy path stays byte-identical)
+        self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
+
+    # torch.compile: run eagerly (autograd still records it); a compiled graph's
+    # backward cannot serve rl's create_graph implicit-diff step (donated buffers)
+    @untraceable_setup
+    def _setup_rg_table_backend(self, xp):
+        # _setup_rg_table on xp: a traced extent / grid, rl solved by the
+        # implicit-diff backend root finder, an in-backend not-a-knot spline
+        # (scipy's InterpolatedUnivariateSpline is not-a-knot)
+        rmax = self._precomputergrmax
+        if not is_backend_array(rmax):
+            (rmax,) = coerce_coords(xp, rmax)
+        self._precomputergLzmax = rmax * potential.vcirc(
+            self._pot, rmax, use_physical=False
+        )
+        frac = numpy.linspace(0.0, 1.0, self._precomputergnLz)
+        self._precomputergLzgrid = self._precomputergLzmin + (
+            self._precomputergLzmax - self._precomputergLzmin
+        ) * asarray_on_device(xp, frac, device_of(self._precomputergLzmax))
+        self._rls = potential.rl(
+            self._pot, self._precomputergLzgrid, use_physical=False
+        )
+        self._rgInterp = None  # no numpy spline of traced nodes
         self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
 
     def _namespace(self, *xs):
@@ -3502,6 +3519,9 @@ class quasiisothermaldf(df):
         -----
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        if self._rgInterp is None and self._rgInterpBackend is not None:
+            # backend-built table (differentiated parameters): lz onto its namespace
+            (lz,) = coerce_coords(namespace_from_arrays((self._rls,)), lz)
         if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
             if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
                 return potential.rl(self._pot, lz)
