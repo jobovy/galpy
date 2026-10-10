@@ -11,7 +11,7 @@ import numpy
 from ..backend._namespaces import under_trace
 from ..util import conversion, galpyWarning
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 
 class MN3ExponentialDiskPotential(Potential):
@@ -138,9 +138,7 @@ class MN3ExponentialDiskPotential(Potential):
                 ),
             ]
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
