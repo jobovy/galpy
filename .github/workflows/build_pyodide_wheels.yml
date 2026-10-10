@@ -72,11 +72,8 @@ jobs:
           export LIBDIR=`pwd`/.libs
           export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
           # Build gsl
-          # ftpmirror.gnu.org redirects to the nearest working GNU mirror
-          wget --tries=3 --timeout=30 \
-             https://ftpmirror.gnu.org/gsl/gsl-${{ env.GSL_VERSION }}.tar.gz \
-             || wget --tries=3 --timeout=30 \
-             https://ftp.gnu.org/gnu/gsl/gsl-${{ env.GSL_VERSION }}.tar.gz
+          # GNU's hosts first, then independent mirrors; SHA-256 verified
+          bash tools/fetch_gsl.sh ${{ env.GSL_VERSION }}
           tar -xvzf gsl-${{ env.GSL_VERSION }}.tar.gz
           cd gsl-${{ env.GSL_VERSION }}
           emconfigure ./configure \
