@@ -976,3 +976,134 @@ def test_analytic_c_rejects_potential_parameter_gradient(backend_name):
                 jax.grad(lambda a: f(a).reshape(()))(jnp.asarray(0.6))
             else:
                 f(torch.tensor(0.6, requires_grad=True))
+
+
+# --- every accessor of a NUMPY-stored orbit follows a forced backend ----------
+# The stored-coordinate accessors (R/vR/vT/z/vz/phi) used to return the stored
+# numpy array while the derived ones (r/x/...) returned the forced backend's, so
+# `o.R() - o.r()` mixed ndarray and Tensor (and broke on CUDA). All now follow
+# `_resolve_accessor_namespace`: the forced backend wins, values unchanged.
+_ALL_ACC = _ACCESSORS + ["Lz", "L", "E", "ER", "Ez", "Jacobi"]
+_ALL_ACC += ["ra", "dec", "ll", "bb", "dist", "pmra", "pmdec", "pmll", "pmbb"]
+_ALL_ACC += ["vlos", "vra", "vdec", "vll", "vbb", "helioX", "helioY", "helioZ"]
+_ALL_ACC += ["U", "V", "W"]
+_ORB_TS = numpy.linspace(0.0, 5.0, 51)
+_WHEN = {
+    "ic": (),
+    "grid": (_ORB_TS,),
+    "ongrid_scalar": (_ORB_TS[7],),
+    "offgrid": (numpy.array([0.33, 2.71]),),
+}
+
+
+def _numpy_orbit():
+    o = Orbit([_IC_E, [1.1, -0.1, 1.0, -0.05, 0.1, 1.0]], ro=8.0, vo=220.0)
+    o.integrate(_ORB_TS, _LP, method="dop853_c")
+    return o
+
+
+@pytest.mark.parametrize("when", list(_WHEN))
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_every_accessor_follows_forced_backend(backend_name, when):
+    o = _numpy_orbit()
+    args = _WHEN[when]
+    for acc in _ALL_ACC:
+        ref = getattr(o, acc)(*args)  # physical output: exercises the conversion
+        assert not is_backend_array(ref), acc
+        with use(backend_name, force=True):
+            got = getattr(o, acc)(*args)
+        assert is_backend_array(got), f"{acc}({when}) left the forced backend"
+        assert tuple(got.shape) == numpy.shape(ref), acc
+        # the stored coordinates are lifted exactly; the rest is the same
+        # arithmetic on the backend (pmra/pmdec: ~1e-12, rotations of ~1e3 values)
+        tol = 0.0 if acc in _IC_IDX else 1e-11
+        numpy.testing.assert_allclose(
+            as_numpy(got), ref, rtol=tol, atol=tol, err_msg=acc
+        )
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_stored_and_derived_accessors_mix(backend_name):
+    # the CUDA failure: R and r of the same orbit in one expression
+    from galpy.backend._namespaces import namespace_from_arrays
+
+    o = _numpy_orbit()
+    with use(backend_name, force=True):
+        xp = _galpy_backend.get_namespace(numpy.zeros(1))
+        for args in _WHEN.values():
+            res = o.r(*args) ** 2 - o.R(*args) ** 2 - o.z(*args) ** 2
+            assert namespace_from_arrays((res,)) is xp
+            x = o.R(*args) * xp.cos(o.phi(*args))  # backend ufunc on R and phi
+            numpy.testing.assert_allclose(as_numpy(x), as_numpy(o.x(*args)), rtol=1e-15)
+            numpy.testing.assert_allclose(
+                as_numpy(res), 0.0, atol=1e-12 * float(as_numpy(o.r(*args) ** 2).max())
+            )
+
+
+# rl's scipy root find reads the forced backend's vcirc (pre-existing; not the
+# accessor): numpy-2 __array_wrap__ DeprecationWarning under torch
+@pytest.mark.filterwarnings("ignore:.*__array_wrap__.*:DeprecationWarning")
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_characteristics_follow_forced_backend(backend_name):
+    # rguiding/rE/LcE (root finds) and the actions/frequencies/angles
+    # (actionAngle) compute on numpy and are lifted at the return
+    o = _numpy_orbit()
+    kw = dict(pot=_LP, type="staeckel", delta=0.4)
+    names = ["jr", "jp", "jz", "wr", "wp", "wz", "Or", "Op", "Oz"]
+    names += ["Tr", "Tp", "Tz", "TrTp"]
+    ref = {n: getattr(o, n)(**kw) for n in names}
+    ref.update({n: getattr(o, n)(pot=_LP) for n in ("rguiding", "rE", "LcE")})
+    o2 = _numpy_orbit()
+    with use(backend_name, force=True):
+        got = {n: getattr(o2, n)(**kw) for n in names}
+        got.update({n: getattr(o2, n)(pot=_LP) for n in ("rguiding", "rE", "LcE")})
+    for n, v in got.items():
+        assert is_backend_array(v), f"{n} left the forced backend"
+        # the actions are evaluated by the forced backend's actionAngle path
+        numpy.testing.assert_allclose(as_numpy(v), ref[n], rtol=1e-10, err_msg=n)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_accessor_quantity_output_under_forced_backend(backend_name):
+    # a Quantity cannot hold a backend array: quantity=True stays numpy-valued
+    units = pytest.importorskip("astropy.units")
+    o = _numpy_orbit()
+    for acc in ("R", "vT", "z", "phi", "r", "vx", "Lz", "E"):
+        for args in _WHEN.values():
+            ref = getattr(o, acc)(*args, quantity=True)
+            with use(backend_name, force=True):
+                got = getattr(o, acc)(*args, quantity=True)
+            assert isinstance(got, units.Quantity), acc
+            assert got.unit == ref.unit
+            numpy.testing.assert_allclose(got.value, ref.value, rtol=1e-13, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_orbit_from_forced_accessor_outputs(backend_name):
+    # Orbit([o.R(), o.vR(), ...]) from a one-object orbit's accessors: under a
+    # forced backend these are shape-(1,) backend arrays, parsed like ndarrays
+    o = Orbit([[1.0, 0.1, 1.1, 0.3]])
+    o.integrate(_ORB_TS, _LP, method="dop853_c")
+    ref = Orbit([o.R(2.0), o.vR(2.0), o.vT(2.0), o.phi(2.0)])
+    with use(backend_name, force=True):
+        op = Orbit([o.R(2.0), o.vR(2.0), o.vT(2.0), o.phi(2.0)])
+    assert op.shape == ref.shape == (1,)
+    assert op.phasedim() == 4
+    numpy.testing.assert_array_equal(op.vxvv, ref.vxvv)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_jacobi_numpy_orbit_forced_backend(backend_name):
+    # Lz is on the forced backend; a per-orbit numpy OmegaP and a potential whose
+    # energy comes back numpy (SpiralArms) must join it
+    from galpy.potential import SpiralArmsPotential
+
+    o = _numpy_orbit()
+    om = numpy.array([0.3, 0.5])
+    sp = _LP + SpiralArmsPotential(omega=0.5)
+    refs = [o.Jacobi(OmegaP=om, pot=_LP), o.Jacobi(_ORB_TS, pot=sp)]
+    with use(backend_name, force=True):
+        gots = [o.Jacobi(OmegaP=om, pot=_LP), o.Jacobi(_ORB_TS, pot=sp)]
+    for g, r in zip(gots, refs):
+        assert is_backend_array(g)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-13, atol=1e-13)

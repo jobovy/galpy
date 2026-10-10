@@ -72,7 +72,7 @@ def _backend_ready(target):
         at the grid edge -- at (R,z)=(0.5,0.0) the force is off by 3.3% and the
         second derivative by 32%, in float64;
       * ``MovingObjectPotential`` interpolates the perturber's trajectory with
-        ``self._orb.R(t)``, so a coerced ``t`` reaches a numpy lookup as a jax
+        ``self._orb.R(t, _stored=True)``, so a coerced ``t`` reaches a numpy lookup as a jax
         tracer under jit (``TracerArrayConversionError``).
 
     Drop this guard -- and this function -- once those are backend-native; the

@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import inspect
 
@@ -492,7 +493,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         Parameters
         ----------
         dens : function
-            Density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities. For a time-dependent potential (``tgrid`` given), the density may additionally accept a ``t`` keyword argument (e.g., ``dens(R, z, phi, t=0.)``) or be a galpy ``Potential`` instance whose density is time-dependent.
+            Density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities. For a time-dependent potential (``tgrid`` given), the density may additionally accept a ``t`` keyword argument (e.g., ``dens(R, z, phi, t=0.)``) or be a galpy ``Potential`` instance whose density is time-dependent. Under a forced backend (``galpy.backend.use(..., force=True)``) the density is called with that backend's arrays and must accept them (e.g., be written with ``galpy.backend.get_namespace``); otherwise the density is called with numpy arrays/floats.
         N : int
             Number of radial basis functions.
         L : int, optional
@@ -550,23 +551,21 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # Turn on physical outputs if input density was physical
         if _APY_LOADED:
             # First need to determine number of parameters, like in
-            # scf_compute_coeffs_spherical/axi. Pin to numpy: the arity probe
-            # calls the (backend-aware) density on plain floats, which must
-            # dispatch on numpy regardless of any forced backend default.
-            with _use_backend("numpy", force=True):
+            # scf_compute_coeffs_spherical/axi (and probed the same way).
+            with _dens_probe_context():
                 numOfParam = 0
                 try:
-                    dens(0)
+                    dens(*_dens_nodes(0))
                     numOfParam = 1
                 except:
                     try:
-                        dens(0, 0)
+                        dens(*_dens_nodes(0, 0))
                         numOfParam = 2
                     except:
                         numOfParam = 3
                 param = [1] * numOfParam
                 try:
-                    dens(*param).to(units.kg / units.m**3)
+                    dens(*_dens_nodes(*param)).to(units.kg / units.m**3)
                 except (AttributeError, units.UnitConversionError, TypeError):
                     # We'll just assume that unit conversion means density
                     # is scalar Quantity. TypeError: a backend (torch) tensor
@@ -914,7 +913,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             Asin_list = []
             any_sin = False
             for t in tgrid:
-                make_dens_t = lambda *args, _t=t, **kwargs: dens(*args, t=_t, **kwargs)
+                make_dens_t = lambda *args, _t=t, **kwargs: dens(
+                    *args, t=_dens_nodes(_t)[0], **kwargs
+                )
                 Ac, As = cls._symmetry_coeffs(
                     make_dens_t,
                     N,
@@ -1765,6 +1766,23 @@ def _RToxi(r, a=1):
     return xp.where(xp.isinf(r), 1.0, (rsafe / a - 1.0) / (rsafe / a + 1.0))
 
 
+def _dens_nodes(*args):
+    """Arguments for a user density in the coefficient quadrature: on the forced
+    backend (its default device) under ``use(..., force=True)``, as the
+    KuijkenDubinski expansions also pass them; untouched (numpy) otherwise."""
+    return coerce_coords(get_namespace(numpy.zeros(1)), *args)
+
+
+def _dens_probe_context():
+    """Context for the try/except probes of a user density (arity, keywords):
+    numpy, unless a backend is forced -- then that backend, with the probe's
+    arguments passed through ``_dens_nodes`` like the quadrature's (a Python 0
+    would make e.g. ``torch.sqrt`` raise and fake a wrong arity)."""
+    if get_namespace(numpy.zeros(1)) is numpy:
+        return _use_backend("numpy", force=True)
+    return contextlib.nullcontext()
+
+
 def _coeff_dens_numpy(val):
     """Cast a coefficient-quadrature density value to numpy.
 
@@ -1952,7 +1970,7 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
 def _scf_compute_determine_dens_kwargs(dens, param):
     try:
         param[0] = 1.0
-        dens(*param, use_physical=False)
+        dens(*_dens_nodes(*param), use_physical=False)
     except:
         dens_kw = {}
     else:
@@ -1967,7 +1985,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     Parameters
     ----------
     dens : function
-        A density function that takes a parameter R
+        A density function that takes a parameter R. Under a forced backend (``galpy.backend.use(..., force=True)``) it is called with that backend's arrays and must accept them (e.g., be written with ``galpy.backend.get_namespace``); otherwise it is called with numpy arrays/floats.
     N : int
         Size of expansion coefficients
     a : float, optional
@@ -1984,19 +2002,18 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     -----
     - 2016-05-18 - Written - Aladdin Seaifan (UofT)
     """
-    # The density-arity autodetect PROBES user code with try/except, so it stays
-    # pinned to numpy: a forced backend can change which exception a wrong-arity
-    # call raises, and the probe must not depend on that. The quadrature below is
-    # deliberately NOT pinned -- it follows the ambient namespace, so a backend
-    # density yields coefficients differentiable w.r.t. its parameters.
-    with _use_backend("numpy", force=True):
+    # The density-arity autodetect PROBES user code with try/except, with the
+    # arguments the quadrature passes (see _dens_probe_context). The quadrature
+    # follows the ambient namespace: under a forced backend the density gets
+    # backend nodes, and the coefficients are differentiable w.r.t. its parameters.
+    with _dens_probe_context():
         numOfParam = 0
         try:
-            dens(0)
+            dens(*_dens_nodes(0))
             numOfParam = 1
         except:
             try:
-                dens(0, 0)
+                dens(*_dens_nodes(0, 0))
                 numOfParam = 2
             except:
                 numOfParam = 3
@@ -2009,7 +2026,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
         param[0] = R
         return (
             a**3.0
-            * dens(*param, **dens_kw)
+            * dens(*_dens_nodes(*param), **dens_kw)
             * (1 + xi) ** 2.0
             * (1 - xi) ** -3.0
             * _C(xi, N, 1)[:, 0]
@@ -2127,7 +2144,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     Parameters
     ----------
     dens : function
-        A density function that takes parameters R and z
+        A density function that takes parameters R and z. Under a forced backend (``galpy.backend.use(..., force=True)``) it is called with that backend's arrays and must accept them (e.g., be written with ``galpy.backend.get_namespace``); otherwise it is called with numpy arrays/floats.
     N : int
         Size of the Nth dimension of the expansion coefficients
     L : int
@@ -2148,14 +2165,12 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     -----
     - 2016-05-20 - Written - Aladdin Seaifan (UofT)
     """
-    # Construction-time numerical setup: pin to numpy (see scf_compute_coeffs_spherical).
-    # Only the density-arity autodetect stays pinned: it PROBES user code with
-    # try/except, and a forced backend can change which exception a wrong-arity
-    # call raises. The quadrature below follows the ambient namespace.
-    with _use_backend("numpy", force=True):
+    # The density-arity autodetect PROBES user code with try/except (see
+    # scf_compute_coeffs_spherical); the quadrature follows the ambient namespace.
+    with _dens_probe_context():
         numOfParam = 0
         try:
-            dens(0, 0)
+            dens(*_dens_nodes(0, 0))
             numOfParam = 2
         except:
             numOfParam = 3
@@ -2181,19 +2196,14 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         phi_nl = _pref * _CC * PP
         param[0] = R
         param[1] = z
-        return phi_nl * dV * dens(*param, **dens_kw)
+        return phi_nl * dV * dens(*_dens_nodes(*param), **dens_kw)
 
     def integrand_batched(xi, costheta):
         # Same expression with the (n, l) axes moved to TRAILING so a leading
         # node axis broadcasts; verified bit-exact against stacking the scalar
-        # integrand. Only attached when the density accepts arrays.
-        # Node arrays stay NUMPY, exactly as the scalar twin passes numpy scalars.
-        # That matters for the density: batching must not change what user code
-        # receives. A density written with numpy.* (the documented way) would
-        # otherwise be handed Tensors and make numpy own its ops -- warning today,
-        # broken on a future numpy. Differentiability does not need backend R/z:
-        # it flows from the density's CLOSED-OVER parameter tensors, which is
-        # exactly how the scalar path already works.
+        # integrand. Only attached when the density accepts arrays. The basis is
+        # built from numpy nodes; the density gets them on the backend, as in
+        # the scalar twin.
         xi = numpy.asarray(to_host(xi))
         costheta = numpy.asarray(to_host(costheta))
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
@@ -2217,20 +2227,17 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         phi_nl = _pref * _CC * PP
         param[0] = R
         param[1] = z
-        # The density may return numpy OR a backend array (if it closes over
-        # backend parameters); either is fine -- the product follows the data.
-        _d = dens(*param, **dens_kw)
+        _d = dens(*_dens_nodes(*param), **dens_kw)
         _d = _d[:, None, None] if numpy.ndim(_d) else _d
         # `_C` follows the AMBIENT namespace, so phi_nl is a backend array while
-        # dV and the density stay numpy. `like` carries the numpy factors across
+        # dV (and a numpy-returning density) stay numpy. `like` carries the numpy factors across
         # so the BACKEND owns the product; without it numpy does, which is the
         # __array_wrap__ warning. No-op when everything is already numpy.
         _dVb, _db = like(phi_nl, dV), like(phi_nl, _d)
         return phi_nl * _dVb * _db
 
-    with _use_backend("numpy", force=True):
-        if _dens_accepts_arrays(dens, numOfParam, dens_kw):
-            integrand.batched = integrand_batched
+    if _dens_accepts_arrays(dens, numOfParam, dens_kw):
+        integrand.batched = integrand_batched
 
     Asin = None
 
@@ -2541,7 +2548,7 @@ def scf_compute_coeffs(
     Parameters
     ----------
     dens : function
-        A density function that takes parameters R, z and phi
+        A density function that takes parameters R, z and phi. Under a forced backend (``galpy.backend.use(..., force=True)``) it is called with that backend's arrays and must accept them (e.g., be written with ``galpy.backend.get_namespace``); otherwise it is called with numpy arrays/floats.
     N : int
         Size of the Nth dimension of the expansion coefficients
     L : int
@@ -2565,9 +2572,9 @@ def scf_compute_coeffs(
     - 2016-05-27 - Written - Aladdin Seaifan (UofT)
 
     """
-    # Only the density-kwargs probe stays pinned to numpy (it PROBES user code
-    # with try/except); the quadrature follows the ambient namespace.
-    with _use_backend("numpy", force=True):
+    # The density-kwargs probe PROBES user code with try/except (see
+    # scf_compute_coeffs_spherical); the quadrature follows the ambient namespace.
+    with _dens_probe_context():
         dens_kw = _scf_compute_determine_dens_kwargs(dens, [0.1, 0.1, 0.1])
 
     def integrand(xi, costheta, phi):
@@ -2585,7 +2592,7 @@ def scf_compute_coeffs(
         _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
 
-        _dens = dens(R, z, phi, **dens_kw)
+        _dens = dens(*_dens_nodes(R, z, phi), **dens_kw)
         _cs = numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
         # _cs is a numpy ARRAY, so it would own `backend * _cs` and resolve it
         # by calling .numpy() on a grad-tracking tensor; anchor it first. The
@@ -2596,9 +2603,7 @@ def scf_compute_coeffs(
     def integrand_batched(xi, costheta, phi):
         # Node-batched twin of `integrand`: same expression with the node axis
         # LEADING, so the 3-D solve's thousands of nodes go through in one call
-        # instead of one eager dispatch each. Nodes stay NUMPY, exactly as the
-        # scalar twin passes numpy scalars -- batching must not change what user
-        # density code receives (see scf_compute_coeffs_axi).
+        # instead of one eager dispatch each (see scf_compute_coeffs_axi).
         xi = numpy.asarray(to_host(xi))
         costheta = numpy.asarray(to_host(costheta))
         phi = numpy.asarray(to_host(phi))
@@ -2621,7 +2626,7 @@ def scf_compute_coeffs(
         # `l` must cross to the backend BEFORE the power, as in the axi twin.
         _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
         phi_nl = _pref * _CC * PP
-        _dens = dens(R, z, phi, **dens_kw)
+        _dens = dens(*_dens_nodes(R, z, phi), **dens_kw)
         if not is_backend_array(_dens):
             _dens = numpy.asarray(_dens)
         _dens = like(phi_nl, _dens)[:, None, None, None, None]
@@ -2629,9 +2634,8 @@ def scf_compute_coeffs(
         _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
         return _dens * phi_nl[:, numpy.newaxis] * _cs * like(phi_nl, dV)
 
-    with _use_backend("numpy", force=True):
-        if _dens_accepts_arrays(dens, 3, dens_kw):
-            integrand.batched = integrand_batched
+    if _dens_accepts_arrays(dens, 3, dens_kw):
+        integrand.batched = integrand_batched
 
     Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
     if radial_order != None:
@@ -2693,9 +2697,10 @@ def _dens_accepts_arrays(dens, numOfParam, dens_kw):
     -----
     - 2026-08-30 - Written - Bovy (UofT)
     """
+    # probed with the arrays the batched integrand passes (backend when forced)
     probe = numpy.array([0.5, 0.75, 1.0])
     try:
-        out = dens(*([probe] * numOfParam), **dens_kw)
+        out = dens(*_dens_nodes(*([probe] * numOfParam)), **dens_kw)
     except Exception:
         return False
     # shape check, not merely "it did not raise": a density that broadcasts to a
@@ -2796,10 +2801,11 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
     -----
     - 2026-07-02 - Written - Bovy (UofT)
     """
-    t0 = tgrid[0]
-    param = [1.0] * numOfParam
+    # the density's times, like its positions, are on the forced backend
+    (_tg,) = _dens_nodes(tgrid)
+    param = _dens_nodes(*([1.0] * numOfParam))
     try:
-        dens(*param, t=t0, use_physical=False)
+        dens(*param, t=_tg[0], use_physical=False)
     except Exception:
         dens_kw = {}
     else:
@@ -2807,7 +2813,7 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
     # shapes read without converting: a density over a differentiated
     # (traced / grad-tracking) parameter returns a backend array
     try:
-        out = dens(*param, t=tgrid, **dens_kw)
+        out = dens(*param, t=_tg, **dens_kw)
     except Exception:
         raise _TimeDepDensityNotVectorized()
     if (numpy.shape(out) or (1,)) != numpy.shape(tgrid):
@@ -2817,7 +2823,7 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
         return v * 1.0 if is_backend_array(v) else numpy.asarray(v, dtype=float)
 
     def f(R, z, phi):
-        return _keep(dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw))
+        return _keep(dens(*_dens_nodes(*(R, z, phi)[:numOfParam]), t=_tg, **dens_kw))
 
     # Spatial-batching companion: evaluate every (node, time) pair in one call by
     # giving the spatial arguments a trailing axis for `t` to broadcast against.
@@ -2829,10 +2835,9 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
     # corrupt coefficients.
     sprobe = numpy.array([0.5, 0.75, 1.0])
     try:
-        # Pinned to numpy like `_dens_accepts_arrays`: this PROBES user code with
-        # try/except, so it must not run under a forced backend.
-        with _use_backend("numpy", force=True):
-            sout = dens(*([sprobe[:, numpy.newaxis]] * numOfParam), t=tgrid, **dens_kw)
+        sout = dens(
+            *_dens_nodes(*([sprobe[:, numpy.newaxis]] * numOfParam)), t=_tg, **dens_kw
+        )
     except Exception:
         pass
     else:
@@ -2850,7 +2855,7 @@ def _timedep_dens_setup(dens, tgrid, numOfParam):
                     *[numpy.asarray(v) for v in (R, z, phi)[:numOfParam]]
                 )
                 cols = [numpy.ascontiguousarray(v)[:, numpy.newaxis] for v in vals]
-                return _keep(dens(*cols, t=tgrid, **dens_kw))
+                return _keep(dens(*_dens_nodes(*cols), t=_tg, **dens_kw))
 
             f.batched = f_batched
 
@@ -2870,16 +2875,18 @@ def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=No
     - 2026-07-02 - Written - Bovy (UofT)
     """
     tgrid = numpy.asarray(tgrid, dtype=float)
-    numOfParam = 0
-    try:
-        dens(0, t=tgrid[0])
-        numOfParam = 1
-    except Exception:
+    # arity probe as in scf_compute_coeffs_spherical
+    with _dens_probe_context():
+        numOfParam = 0
         try:
-            dens(0, 0, t=tgrid[0])
-            numOfParam = 2
+            dens(*_dens_nodes(0), t=_dens_nodes(tgrid[0])[0])
+            numOfParam = 1
         except Exception:
-            numOfParam = 3
+            try:
+                dens(*_dens_nodes(0, 0), t=_dens_nodes(tgrid[0])[0])
+                numOfParam = 2
+            except Exception:
+                numOfParam = 3
     f = _timedep_dens_setup(dens, tgrid, numOfParam)
 
     def integrand(xi):
@@ -2916,12 +2923,14 @@ def _scf_compute_coeffs_axi_timedep(
     - 2026-07-02 - Written - Bovy (UofT)
     """
     tgrid = numpy.asarray(tgrid, dtype=float)
-    numOfParam = 0
-    try:
-        dens(0, 0, t=tgrid[0])
-        numOfParam = 2
-    except Exception:
-        numOfParam = 3
+    # arity probe as in scf_compute_coeffs_spherical
+    with _dens_probe_context():
+        numOfParam = 0
+        try:
+            dens(*_dens_nodes(0, 0), t=_dens_nodes(tgrid[0])[0])
+            numOfParam = 2
+        except Exception:
+            numOfParam = 3
     f = _timedep_dens_setup(dens, tgrid, numOfParam)
 
     def integrand(xi, costheta):

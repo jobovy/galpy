@@ -123,6 +123,18 @@ def coerce_coords(xp, *coords, device=None):
     return tuple(out)
 
 
+def backend_point_1d(*coords):
+    """A single phase-space point given as 0-d backend arrays (what a forced
+    backend's accessors return for one object) as shape-(1,) arrays on that
+    backend and device -- the backend twin of the ``numpy.array([R])`` scalar
+    promotion. Anything else (arrays, Python/numpy scalars) passes through."""
+    if not (coords and is_backend_array(coords[0]) and coords[0].ndim == 0):
+        return coords
+    xp = namespace_from_arrays(coords[:1])
+    out = coerce_coords(xp, *coords, device=device_of(coords[0]))
+    return tuple(c if c is None else xp.reshape(c, (1,)) for c in out)
+
+
 def promote_scalars(xp, *vals):
     """Promote plain Python scalars among ``vals`` to the active non-numpy
     namespace, anchored on the dtype/device of the first array argument, so

@@ -109,18 +109,29 @@ class MovingObjectPotential(Potential):
     @_numpy_ctx_for_numpy_inputs
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
         # Evaluate potential
         return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
     @_numpy_ctx_for_numpy_inputs
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(
+            self._orb.R(t, _stored=True),
+            self._orb.phi(t, _stored=True),
+            orbz,
+            R,
+            phi,
+            z,
+        )
         # Evaluate cylindrical radial force
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
@@ -131,20 +142,38 @@ class MovingObjectPotential(Potential):
     @_numpy_ctx_for_numpy_inputs
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(
+            self._orb.R(t, _stored=True),
+            self._orb.phi(t, _stored=True),
+            orbz,
+            R,
+            phi,
+            z,
+        )
         # Evaluate and return z force
         return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
     @_numpy_ctx_for_numpy_inputs
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(
+            self._orb.R(t, _stored=True),
+            self._orb.phi(t, _stored=True),
+            orbz,
+            R,
+            phi,
+            z,
+        )
         # Evaluate cylindrical radial force.
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
@@ -165,10 +194,19 @@ class MovingObjectPotential(Potential):
         be axisymmetric (enforced in __init__), so its phi derivatives vanish.
         """
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(
+            self._orb.R(t, _stored=True),
+            self._orb.phi(t, _stored=True),
+            orbz,
+            R,
+            phi,
+            z,
+        )
         # Kernel cylindrical derivatives at the shifted point (R',z')=(Rdist,zd)
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         R2d = evaluateR2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
@@ -247,10 +285,19 @@ class MovingObjectPotential(Potential):
     @_numpy_ctx_for_numpy_inputs
     def _dens(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        Rdist = _cylR(
+            R, phi, self._orb.R(t, _stored=True), self._orb.phi(t, _stored=True)
+        )
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        orbz = self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(
+            self._orb.R(t, _stored=True),
+            self._orb.phi(t, _stored=True),
+            orbz,
+            R,
+            phi,
+            z,
+        )
         # Return the density
         return evaluateDensities(self._pot, Rdist, zd, t=t, use_physical=False)
 

@@ -1492,12 +1492,12 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         _ti = self._timpact
         xv0_prog = get_namespace(_gp._ic_backend).stack(
             [
-                _gp.R(_ti),
-                _gp.vR(_ti),
-                _gp.vT(_ti),
-                _gp.z(_ti),
-                _gp.vz(_ti),
-                _gp.phi(_ti),
+                _gp.R(_ti, _stored=True),
+                _gp.vR(_ti, _stored=True),
+                _gp.vT(_ti, _stored=True),
+                _gp.z(_ti, _stored=True),
+                _gp.vz(_ti, _stored=True),
+                _gp.phi(_ti, _stored=True),
             ]
         )
         xp = get_namespace(xv0_prog)
@@ -1559,12 +1559,12 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             )
         aux0 = xp.stack(
             [
-                auxiliaryTrack.R(0.0),
-                auxiliaryTrack.vR(0.0),
-                auxiliaryTrack.vT(0.0),
-                auxiliaryTrack.z(0.0),
-                auxiliaryTrack.vz(0.0),
-                auxiliaryTrack.phi(0.0),
+                auxiliaryTrack.R(0.0, _stored=True),
+                auxiliaryTrack.vR(0.0, _stored=True),
+                auxiliaryTrack.vT(0.0, _stored=True),
+                auxiliaryTrack.z(0.0, _stored=True),
+                auxiliaryTrack.vz(0.0, _stored=True),
+                auxiliaryTrack.phi(0.0, _stored=True),
             ]
         )
         aA = _shared_step_aA(self._aA, xp, Tmin, aux0)
@@ -1578,12 +1578,12 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         times = xp.asarray(self._gap_trackts[: self._nTrackChunksImpact]) * factor
         xv0_all = xp.stack(
             [
-                auxiliaryTrack.R(times),
-                auxiliaryTrack.vR(times),
-                auxiliaryTrack.vT(times),
-                auxiliaryTrack.z(times),
-                auxiliaryTrack.vz(times),
-                auxiliaryTrack.phi(times),
+                auxiliaryTrack.R(times, _stored=True),
+                auxiliaryTrack.vR(times, _stored=True),
+                auxiliaryTrack.vT(times, _stored=True),
+                auxiliaryTrack.z(times, _stored=True),
+                auxiliaryTrack.vz(times, _stored=True),
+                auxiliaryTrack.phi(times, _stored=True),
             ],
             axis=-1,
         )
@@ -2556,12 +2556,12 @@ def impulse_deltav_general_orbitintegration(
         o.integrate(times, galpot, method=integrate_method)
         xres[i, nsamp:, 0] = o.x(times)[1:]
         xres[i, nsamp:, 1] = o.y(times)[1:]
-        xres[i, nsamp:, 2] = o.z(times)[1:]
+        xres[i, nsamp:, 2] = o.z(times, _stored=True)[1:]
         oreverse = o.flip()
         oreverse.integrate(times, galpot, method=integrate_method)
         xres[i, :nsamp, 0] = oreverse.x(times)[::-1]
         xres[i, :nsamp, 1] = oreverse.y(times)[::-1]
-        xres[i, :nsamp, 2] = oreverse.z(times)[::-1]
+        xres[i, :nsamp, 2] = oreverse.z(times, _stored=True)[::-1]
     times = numpy.concatenate((-times[::-1], times[1:]))
     nsamp = len(times)
     X = b0 + xres - x0 - numpy.outer(times, w)
@@ -2662,7 +2662,7 @@ def impulse_deltav_general_fullplummerintegration(
         ogalpot.integrate(times, galpot, method=integrate_method)
         deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
         deltav[i][1] = -ogalpot.vy(times[-1]) - v[i][1]
-        deltav[i][2] = -ogalpot.vz(times[-1]) - v[i][2]
+        deltav[i][2] = -ogalpot.vz(times[-1], _stored=True) - v[i][2]
     return deltav
 
 
@@ -2805,8 +2805,12 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
 def _astream_integrand(t, b_, orb, tx, w, GSigma, rs2, tmin, compt):
     teval = tx - tmin - t
     # a scipy quad integrand: read the orbit on the host
-    b__ = b_ + numpy.array(to_host([orb.x(teval), orb.y(teval), orb.z(teval)]))
-    w = w - numpy.array(to_host([orb.vx(teval), orb.vy(teval), orb.vz(teval)]))
+    b__ = b_ + numpy.array(
+        to_host([orb.x(teval), orb.y(teval), orb.z(teval, _stored=True)])
+    )
+    w = w - numpy.array(
+        to_host([orb.vx(teval), orb.vy(teval), orb.vz(teval, _stored=True)])
+    )
     wmag = numpy.sqrt(numpy.sum(w**2))
     bdotw = numpy.sum(b__ * w) / wmag
     denom = wmag * (numpy.sum(b__**2) + rs2 - bdotw**2)

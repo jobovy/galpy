@@ -58,7 +58,7 @@ def test_lsrframe_scalaromegaz():
     # Test that integrating an orbit in the LSR frame is equivalent to
     # normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
     framepot = potential.NonInertialFrameForce(cinterp=False, Omega=omega)
@@ -96,7 +96,7 @@ def test_lsrframe_scalaromegaz_2d():
     # Test that integrating an orbit in the LSR frame is equivalent to
     # normal orbit integration in 2D
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
     framepot = potential.NonInertialFrameForce(cinterp=False, Omega=omega)
@@ -134,7 +134,7 @@ def test_lsrframe_vecomegaz():
     # Test that integrating an orbit in the LSR frame is equivalent to
     # normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
     framepot = potential.NonInertialFrameForce(
@@ -174,7 +174,7 @@ def test_lsrframe_vecomegaz_2d():
     # Test that integrating an orbit in the LSR frame is equivalent to
     # normal orbit integration in 2D
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
     framepot = potential.NonInertialFrameForce(
@@ -214,7 +214,7 @@ def test_accellsrframe_scalaromegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
@@ -257,7 +257,7 @@ def test_accellsrframe_scalaromegaz_2d():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration in 2D
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
@@ -300,7 +300,7 @@ def test_accellsrframe_vecomegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
@@ -345,7 +345,7 @@ def test_accellsrframe_vecomegaz_2d():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration in 2D
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
@@ -390,7 +390,7 @@ def test_accellsrframe_funcomegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     omega_func = lambda t: lp.omegac(1.0) + 0.02 * t
     omegadot_func = lambda t: 0.02
@@ -435,7 +435,7 @@ def test_accellsrframe_funcomegaz_2d():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     omega_func = lambda t: lp.omegac(1.0) + 0.02 * t
     omegadot_func = lambda t: 0.02
@@ -480,7 +480,7 @@ def test_accellsrframe_vecfuncomegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     omega_func = [lambda t: 0.0, lambda t: 0.0, lambda t: lp.omegac(1.0) + 0.02 * t]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: 0.02]
@@ -525,7 +525,7 @@ def test_accellsrframe_vecfuncomegaz_2D():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     omega_func = [lambda t: 0.0, lambda t: 0.0, lambda t: lp.omegac(1.0) + 0.02 * t]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: 0.02]
@@ -1700,7 +1700,7 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
         cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
@@ -1813,7 +1813,7 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
         cinterp=False,
@@ -1931,7 +1931,7 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.1
     omegadotdot = 0.01
     omega_func = lambda t: omega + omegadot * t + omegadotdot * t**2.0 / 2.0
@@ -2051,7 +2051,7 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.1
     omegadotdot = 0.01
     omega_func = [
@@ -2468,7 +2468,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
         cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
@@ -2529,7 +2529,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
         cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
@@ -2584,7 +2584,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
         cinterp=False,
@@ -2650,7 +2650,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.1
     omegadotdot = 0.01
     omega_func = lambda t: omega + omegadot * t + omegadotdot * t**2.0 / 2.0
@@ -2714,7 +2714,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         lambda t: 0.04 + 0.08 * t / 20.0,
         lambda t: 0.02 + 0.03 * t / 20.0,
     ]
-    omega = as_numpy(lp.omegac(1.0))
+    omega = float(as_numpy(lp.omegac(1.0)))
     omegadot = 0.1
     omegadotdot = 0.01
     omega_func = [

@@ -701,8 +701,8 @@ def test_c_orbit_below_grid_l2():
     o = Orbit([1.0, 0.1, 1.0, 0.0, 0.1, 0.0])
     ts = numpy.linspace(0, 10, 101)
     o.integrate(ts, mp, method="leapfrog_c")
-    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R should be finite"
-    assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z should be finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.R(ts)))), "Orbit R should be finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.z(ts)))), "Orbit z should be finite"
 
 
 def test_c_planar_liouville_below_grid_d2R():
@@ -1802,8 +1802,8 @@ def test_time_dependent_c_density_dynamical_friction():
     o = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
     ts = numpy.linspace(0.0, 1.0, 51)
     o.integrate(ts, lp + cdf, method="dop853_c")
-    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
-    assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z not finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.R(ts)))), "Orbit R not finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.z(ts)))), "Orbit z not finite"
     # Friction should dissipate energy: E(final) < E(initial)
     E_init = o.E(ts[0], pot=lp + cdf)
     E_final = o.E(ts[-1], pot=lp + cdf)
@@ -1958,8 +1958,8 @@ def test_large_L_c_orbit():
     o = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
     ts = numpy.linspace(0, 1, 21)
     o.integrate(ts, mp, method="dop853_c")
-    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
-    assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z not finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.R(ts)))), "Orbit R not finite"
+    assert numpy.all(numpy.isfinite(as_numpy(o.z(ts)))), "Orbit z not finite"
 
 
 # --- from_scf (SCFPotential -> MultipoleExpansionPotential) ---
