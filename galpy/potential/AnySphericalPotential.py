@@ -6,13 +6,7 @@ import copy
 import numpy
 from scipy import integrate
 
-from ..backend import (
-    as_backend_constant,
-    as_numpy,
-    get_namespace,
-    is_backend_array,
-)
-from ..backend._namespaces import namespace_from_arrays
+from ..backend import get_namespace, host_eval, is_backend_array
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.quadpack import quad_over_limits
@@ -172,14 +166,13 @@ class AnySphericalPotential(SphericalPotential):
         strips a jax/torch node to numpy (emitting a numpy-2 ``__array__``
         deprecation) and yields numpy -- and ``numpy * Tensor`` then raises. Such
         a density is inherently non-differentiable, so on a backend node it is
-        evaluated on the numpy node and the result anchored back on the node's
-        backend/dtype/device. A backend-native (differentiable) density and the
+        evaluated on the host (``host_eval``, which also works under jit) and
+        anchored back on the node's backend/dtype/device. A backend-native (differentiable) density and the
         numpy path both pass through untouched (``is_backend_array(a)`` is False
         for numpy), so the numpy path stays byte-identical.
         """
         if is_backend_array(a) and self._dens_needs_numpy:
-            d = numpy.asarray(self._rawdens(as_numpy(a)))
-            return as_backend_constant(namespace_from_arrays((a,)), d, a)
+            return host_eval(self._rawdens, a)
         return self._rawdens(a)
 
     def _rawmass(self, r):

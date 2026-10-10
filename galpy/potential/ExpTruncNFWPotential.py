@@ -9,6 +9,7 @@ from scipy.special import exp1 as _scipy_exp1
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    branch_where,
     coerce_coords,
     device_of,
     get_namespace,
@@ -290,7 +291,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         out._voSet = nfw._voSet
         return out
 
-    def _F(self, r):
+    def _F(self, r, e1=None, ex=None):
         # F(r) = M(<r) / amp = int_0^r s e^{-s/rc} / (a+s)^2 ds, the
         # dimensionless enclosed-mass scale (so that _rforce = -F(r)/r^2 in
         # amp-units). For r << a, rc the two E1 terms cancel; use a Taylor
@@ -300,23 +301,39 @@ class ExpTruncNFWPotential(SphericalPotential):
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         small = r < scalar_like(r, self._small_r_thresh)
-        return xp.where(small, self._F_series(r), self._F_closed(r))
+        if xp is not numpy:  # eager: only the branch in use
+            return branch_where(
+                xp,
+                small,
+                lambda: self._F_series(r),
+                lambda: self._F_closed(r, e1, ex),
+            )
+        return xp.where(small, self._F_series(r), self._F_closed(r, e1, ex))
 
-    def _F_closed(self, r):
+    def _F_closed(self, r, e1=None, ex=None):
         # F(r) = exp(alpha)(1+alpha)[E1(alpha) - E1(beta)] - 1
         #        + a exp(-r/rc)/(a+r),
-        # with alpha = a/rc and beta = (a+r)/rc.
+        # with alpha = a/rc and beta = (a+r)/rc. e1 = E1(beta), ex = exp(-r/rc)
+        # when the caller already has them (_revaluate shares them with _G).
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
-        beta = (a + r) / rc
+        e1, ex = self._e1_ex(xp, r, e1, ex)
         return (
             scalar_like(r, self._exp_alpha)
             * (1.0 + self._alpha)
-            * (scalar_like(r, self._E1_alpha) - exp1(beta))
+            * (scalar_like(r, self._E1_alpha) - e1)
             - 1.0
-            + a * xp.exp(-r / rc) / (a + r)
+            + a * ex / (a + r)
         )
+
+    def _e1_ex(self, xp, r, e1=None, ex=None):
+        """(E1((a+r)/rc), exp(-r/rc)), each unless given."""
+        if e1 is None:
+            e1 = exp1((self.a + r) / self.rc)
+        if ex is None:
+            ex = xp.exp(-r / self.rc)
+        return e1, ex
 
     def _F_series(self, r):
         # Taylor expansion of F(r) about r=0 (through O(r^5)):
@@ -341,18 +358,15 @@ class ExpTruncNFWPotential(SphericalPotential):
         )
         return (r * r / (a * a)) * (c2 + r * (c3 + r * (c4 + r * c5)))
 
-    def _G(self, r):
+    def _G(self, r, e1=None, ex=None):
         # G(r) := 4 pi int_r^inf rho(s) s ds / amp
         #       = exp(-r/rc)/(a+r) - exp(alpha) E1(beta) / rc,
         # the outer-shell contribution to the potential.
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
-        beta = (a + r) / rc
-        return (
-            xp.exp(-r / rc) / (a + r)
-            - scalar_like(r, self._exp_alpha) * exp1(beta) / rc
-        )
+        e1, ex = self._e1_ex(xp, r, e1, ex)
+        return ex / (a + r) - scalar_like(r, self._exp_alpha) * e1 / rc
 
     def _rcoerce(self, r):
         """(xp, r): r's own namespace, or for a plain-scalar r the parameters'
@@ -385,8 +399,11 @@ class ExpTruncNFWPotential(SphericalPotential):
         r = xp.asarray(r) * 1.0
         at0 = r == 0.0
         safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
-        FoverR = xp.where(at0, xp.zeros_like(r), self._F(safe) / safe)
-        return -(FoverR + self._G(r))
+        # E1 and the exponential once for _F and _G: they differ only at r=0,
+        # where _F's value is masked
+        e1, ex = self._e1_ex(xp, r)
+        FoverR = xp.where(at0, xp.zeros_like(r), self._F(safe, e1, ex) / safe)
+        return -(FoverR + self._G(r, e1, ex))
 
     def _rforce(self, r, t=0.0):
         # -F(r)/r^2, with the finite r->0 limit -1/(2 a^2) substituted by hand.

@@ -21,9 +21,16 @@
 #   Kn (``kn_fallback``) uses the upward recurrence K_{m+1}=K_{m-1}+(2m/x)K_m
 #   from K0, K1 -- the stable direction for K.
 ###############################################################################
+import math
+
 import numpy
 
-from ..._namespaces import asarray_on_device, device_of, under_jax_trace
+from ..._namespaces import (
+    asarray_on_device,
+    device_of,
+    under_jax_trace,
+    under_trace,
+)
 
 _GAMMA = 0.5772156649015328606  # Euler-Mascheroni
 _NSERIES = 30  # ascending-series terms (x <= 2)
@@ -56,7 +63,8 @@ _SERIES_CACHE = {}
 
 
 def _series_tables(xp, dev):
-    """Series tables as backend arrays, materialized once per (namespace, device).
+    """Series and trapezoid tables as backend arrays, materialized once per
+    (namespace, device).
 
     Rebuilding them on every call put five host->device conversions in the hot
     path, and under jax each fresh array is another primitive for the eager
@@ -67,7 +75,15 @@ def _series_tables(xp, dev):
     if got is None:
         got = tuple(
             asarray_on_device(xp, t, dev)
-            for t in (_K0_RATIO_DEN, _K0_COEFF, _K1_RATIO_DEN, _K1_COEFF, _K1_NUM_POW)
+            for t in (
+                _K0_RATIO_DEN,
+                _K0_COEFF,
+                _K1_RATIO_DEN,
+                _K1_COEFF,
+                _K1_NUM_POW,
+                _TRAP_NODES,
+                _TRAP_W,
+            )
         )
         # Under a jax trace, asarray(..., device=) lowers to device_put, so these
         # tables come back as TRACERS; caching one leaks it out of its trace
@@ -82,40 +98,50 @@ def _k01(xp, x):
     """Return (K0(x), K1(x)) for real x > 0, ~1e-15 vs scipy, AD-friendly."""
     x = xp.asarray(x) * 1.0
     inside = x <= 2.0
+    # Eager, a regime no element is in is skipped (xp.where would discard it);
+    # traced, both run.
+    if under_trace(x):
+        live_s = live_t = True
+    else:
+        n_in = int(xp.sum(inside))
+        live_s, live_t = n_in > 0, n_in < math.prod(x.shape)
     # Clamp the dead region of each branch into its valid domain.
-    xs = xp.where(inside, x, xp.ones_like(x))  # series branch (x<=2)
-    xt = xp.where(inside, 2.0 * xp.ones_like(x), x)  # trapezoid branch (x>2)
+    K0s = K1s = K0t = K1t = 0.0
+    tabs = _series_tables(xp, device_of(x))
+    k0_den, k0_coeff, k1_den, k1_coeff, k1_pow, nodes, weights = tabs
 
-    # --- ascending series (x <= 2), via native i0/i1 ---
-    from .._router import i0, i1
+    if live_s:
+        # --- ascending series (x <= 2), via native i0/i1 ---
+        from .._router import i0, i1
 
-    x2 = xs * xs / 4.0
-    dev0 = device_of(x)
-    tabs = _series_tables(xp, dev0)
-    # Both series run as ONE cumulative product over the term axis rather than a
-    # Python loop of _NSERIES eager ops. `cumprod` of the per-step ratios is the
-    # same recurrence the loop ran; only the reduction is vectorized.
-    k0_den, k0_coeff, k1_den, k1_coeff, k1_pow = tabs
-    k0_terms = xp.cumulative_prod(x2[..., None] / k0_den, axis=-1)
-    K0s = -(xp.log(xs / 2.0) + _GAMMA) * i0(xs) + xp.sum(k0_terms * k0_coeff, axis=-1)
+        xs = xp.where(inside, x, 1.0)  # series branch (x<=2)
+        x2 = xs * xs / 4.0
+        # Both series run as ONE cumulative product over the term axis rather
+        # than a Python loop of _NSERIES eager ops. `cumprod` of the per-step
+        # ratios is the same recurrence the loop ran; only the reduction is
+        # vectorized. A trailing axis via expand_dims: x[..., None] is a gather
+        # under eager jax.
+        x2e = xp.expand_dims(x2, axis=-1)
+        k0_terms = xp.cumulative_prod(x2e / k0_den, axis=-1)
+        xs_half = xs / 2.0
+        log_xs_half = xp.log(xs_half)
+        K0s = -(log_xs_half + _GAMMA) * i0(xs) + xp.sum(k0_terms * k0_coeff, axis=-1)
+        # first ratio is 1 (t_0 = 1), the rest are x2/(k(k+1))
+        k1_terms = xp.cumulative_prod((x2e**k1_pow) / k1_den, axis=-1)
+        s1 = xp.sum(k1_terms * k1_coeff, axis=-1)
+        K1s = 1.0 / xs + log_xs_half * i1(xs) - xs_half * s1
 
-    # first ratio is 1 (t_0 = 1), the rest are x2/(k(k+1))
-    k1_terms = xp.cumulative_prod((x2[..., None] ** k1_pow) / k1_den, axis=-1)
-    s1 = xp.sum(k1_terms * k1_coeff, axis=-1)
-    K1s = 1.0 / xs + xp.log(xs / 2.0) * i1(xs) - (xs / 2.0) * s1
-
-    # --- peak-resolving scaled trapezoidal (x > 2) ---
-    # node/weight tables stay float64 (precision is the point; the router
-    # exit-casts) but must live on the input's device (CUDA support)
-    dev = device_of(x)
-    nodes = asarray_on_device(xp, _TRAP_NODES, dev)
-    weights = asarray_on_device(xp, _TRAP_W, dev)
-    sc = 1.0 / xp.sqrt(xt)
-    t = sc[..., None] * nodes  # (..., N+1)
-    cosh_t = xp.cosh(t)
-    e = xp.exp(-xt[..., None] * cosh_t) * weights
-    K0t = xp.sum(e, axis=-1) * sc
-    K1t = xp.sum(e * cosh_t, axis=-1) * sc
+    if live_t:
+        # --- peak-resolving scaled trapezoidal (x > 2) ---
+        # node/weight tables stay float64 (precision is the point; the router
+        # exit-casts) and live on the input's device (CUDA support)
+        xt = xp.where(inside, 2.0, x)  # trapezoid branch (x>2)
+        sc = 1.0 / xp.sqrt(xt)
+        t = xp.expand_dims(sc, axis=-1) * nodes  # (..., N+1)
+        cosh_t = xp.cosh(t)
+        e = xp.exp(-xp.expand_dims(xt, axis=-1) * cosh_t) * weights
+        K0t = xp.sum(e, axis=-1) * sc
+        K1t = xp.sum(e * cosh_t, axis=-1) * sc
 
     return xp.where(inside, K0s, K0t), xp.where(inside, K1s, K1t)
 
