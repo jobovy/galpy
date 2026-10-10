@@ -597,6 +597,7 @@ def test_orbitIntegrationC():
         elif ii == 4:
             Python, CC, string, exp1, exp2 = o_P.vT(ts), o_C.vT(ts), "vT", -5.0, -10.0
 
+        Python, CC = as_numpy(Python), as_numpy(CC)
         rel_diff = numpy.fabs((Python - CC) / CC) < 10.0**exp1
         abs_diff = (numpy.fabs(Python - CC) < 10.0**exp2) * (
             numpy.fabs(Python) < 10.0**exp3

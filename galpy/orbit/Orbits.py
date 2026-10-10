@@ -633,6 +633,9 @@ class Orbit:
             elif isinstance(vxvv[0], numpy.ndarray):
                 input_shape = vxvv[0].shape
                 vxvv = numpy.array(vxvv).T
+            elif is_backend_array(vxvv[0]):  # [R, vR, ...] accessor outputs
+                input_shape = tuple(vxvv[0].shape)
+                vxvv = numpy.array(to_host(list(vxvv))).T
             else:
                 input_shape = (len(vxvv),)
                 try:
@@ -3929,8 +3932,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        _, thiso = _resolve_accessor_namespace(thiso)
-        return _backend_T(thiso[0] * thiso[2])
+        return _backend_T(_accessor_out(thiso[0] * thiso[2], kwargs))
 
     @physical_conversion("energy")
     @shapeDecorator
@@ -4097,6 +4099,11 @@ class Orbit:
             E, Lz = self.E(*args, **kwargs), self.Lz(*args, **kwargs)
             if not is_backend_array(Lz):  # a numpy orbit: read E, OmegaP on the host
                 E, OmegaP = to_host(E), to_host(OmegaP)
+            else:  # numpy E (some potentials) / per-orbit OmegaP: onto Lz's backend
+                if isinstance(E, numpy.ndarray):
+                    E = like(Lz, E)
+                if isinstance(OmegaP, numpy.ndarray):
+                    OmegaP = like(Lz, OmegaP)
             out = E - OmegaP * Lz
         if not old_physical is None:
             kwargs["use_physical"] = old_physical
@@ -5792,8 +5799,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        _, thiso = _resolve_accessor_namespace(thiso)
-        return _backend_T(thiso[2] / thiso[0])
+        return _backend_T(_accessor_out(thiso[2] / thiso[0], kwargs))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -10305,19 +10311,19 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
             obs.turn_physical_on()
@@ -10336,18 +10342,18 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
             obs.turn_physical_on()
     if isinstance(ro, numpy.ndarray):  # per-orbit ro follows the coordinates
@@ -10420,9 +10426,9 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
@@ -10430,41 +10436,41 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                     thiso[1],
                     thiso[2],
                     numpy.zeros_like(thiso[0]),
-                    thiso[3] - obs.phi(*args, **kwargs),
+                    thiso[3] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            numpy.zeros_like(obs.vR(*args, **kwargs)),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            numpy.zeros_like(obs.vR(*args, **kwargs, _stored=True)),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                     _extra_rot=False,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     numpy.zeros_like(thiso[0]),
-                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            obs.vz(*args, **kwargs),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            obs.vz(*args, **kwargs, _stored=True),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                     _extra_rot=False,
                 ).T
             obs.turn_physical_on()
@@ -10505,44 +10511,48 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             if obs.dim() == 2:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     thiso[4, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
-                        [obs.vR(*args, **kwargs), obs.vT(*args, **kwargs), 0.0]
+                        [
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            0.0,
+                        ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
                     Zsun=0.0,
                 ).T
             else:
                 X, Y, Z = coords.galcencyl_to_XYZ(
                     thiso[0, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     thiso[3, :],
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
                 vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                     thiso[1, :],
                     thiso[2, :],
                     thiso[4, :],
-                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[5, :] - obs.phi(*args, **kwargs, _stored=True),
                     vsun=numpy.array(
                         [
-                            obs.vR(*args, **kwargs),
-                            obs.vT(*args, **kwargs),
-                            obs.vz(*args, **kwargs),
+                            obs.vR(*args, **kwargs, _stored=True),
+                            obs.vT(*args, **kwargs, _stored=True),
+                            obs.vz(*args, **kwargs, _stored=True),
                         ]
                     ),
-                    Xsun=obs.R(*args, **kwargs),
-                    Zsun=obs.z(*args, **kwargs),
+                    Xsun=obs.R(*args, **kwargs, _stored=True),
+                    Zsun=obs.z(*args, **kwargs, _stored=True),
                 ).T
             obs.turn_physical_on()
     if isinstance(ro, numpy.ndarray):  # per-orbit ro/vo follow the coordinates

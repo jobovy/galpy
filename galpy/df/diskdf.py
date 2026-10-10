@@ -277,8 +277,8 @@ class diskdf(df):
         # a scipy marginalization below: read the orbit on the host
         l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
         vlos = to_host(o.vlos(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        R = to_host(o.R(use_physical=False))
-        phi = to_host(o.phi(use_physical=False))
+        R = to_host(o.R(use_physical=False, _stored=True))
+        phi = to_host(o.phi(use_physical=False, _stored=True))
         # Get local circular velocity, projected onto the los
         vcirc = R**self._beta
         vcirclos = vcirc * numpy.sin(phi + l)
@@ -357,8 +357,8 @@ class diskdf(df):
         # a scipy marginalization below: read the orbit on the host
         l = to_host(o.ll(obs=[1.0, 0.0, 0.0], ro=1.0)) * _DEGTORAD
         vperp = to_host(o.vll(ro=1.0, vo=1.0, obs=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        R = to_host(o.R(use_physical=False))
-        phi = to_host(o.phi(use_physical=False))
+        R = to_host(o.R(use_physical=False, _stored=True))
+        phi = to_host(o.phi(use_physical=False, _stored=True))
         # Get local circular velocity, projected onto the perpendicular
         # direction
         vcirc = R**self._beta

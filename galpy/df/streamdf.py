@@ -1208,21 +1208,31 @@ class streamdf(df):
         elif d1.lower() == "y":
             tx = self._progenitor.y(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
         elif d1.lower() == "z":
-            tx = self._progenitor.z(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
+            tx = self._progenitor.z(
+                ts, ro=ro, vo=vo, obs=obs, use_physical=False, _stored=True
+            )
         elif d1.lower() == "r":
-            tx = self._progenitor.R(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
+            tx = self._progenitor.R(
+                ts, ro=ro, vo=vo, obs=obs, use_physical=False, _stored=True
+            )
         elif d1.lower() == "phi":
-            tx = self._progenitor.phi(ts, ro=ro, vo=vo, obs=obs)
+            tx = self._progenitor.phi(ts, ro=ro, vo=vo, obs=obs, _stored=True)
         elif d1.lower() == "vx":
             tx = self._progenitor.vx(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
         elif d1.lower() == "vy":
             tx = self._progenitor.vy(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
         elif d1.lower() == "vz":
-            tx = self._progenitor.vz(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
+            tx = self._progenitor.vz(
+                ts, ro=ro, vo=vo, obs=obs, use_physical=False, _stored=True
+            )
         elif d1.lower() == "vr":
-            tx = self._progenitor.vR(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
+            tx = self._progenitor.vR(
+                ts, ro=ro, vo=vo, obs=obs, use_physical=False, _stored=True
+            )
         elif d1.lower() == "vt":
-            tx = self._progenitor.vT(ts, ro=ro, vo=vo, obs=obs, use_physical=False)
+            tx = self._progenitor.vT(
+                ts, ro=ro, vo=vo, obs=obs, use_physical=False, _stored=True
+            )
         elif d1.lower() == "ll":
             tx = self._progenitor.ll(ts, ro=ro, vo=vo, obs=obs)
         elif d1.lower() == "bb":
@@ -1792,12 +1802,12 @@ class streamdf(df):
         # auxiliary frequency (rescales progenitor vs. auxiliary orbital time)
         aux0 = xp.stack(
             [
-                auxiliaryTrack.R(0.0),
-                auxiliaryTrack.vR(0.0),
-                auxiliaryTrack.vT(0.0),
-                auxiliaryTrack.z(0.0),
-                auxiliaryTrack.vz(0.0),
-                auxiliaryTrack.phi(0.0),
+                auxiliaryTrack.R(0.0, _stored=True),
+                auxiliaryTrack.vR(0.0, _stored=True),
+                auxiliaryTrack.vT(0.0, _stored=True),
+                auxiliaryTrack.z(0.0, _stored=True),
+                auxiliaryTrack.vz(0.0, _stored=True),
+                auxiliaryTrack.phi(0.0, _stored=True),
             ]
         )
         aA = _shared_step_aA(self._aA, xp, Tmin, aux0)
@@ -1814,12 +1824,12 @@ class streamdf(df):
         times = xp.asarray(self._trackts[: self._nTrackChunks]) * factor
         xv0_all = xp.stack(
             [
-                auxiliaryTrack.R(times),
-                auxiliaryTrack.vR(times),
-                auxiliaryTrack.vT(times),
-                auxiliaryTrack.z(times),
-                auxiliaryTrack.vz(times),
-                auxiliaryTrack.phi(times),
+                auxiliaryTrack.R(times, _stored=True),
+                auxiliaryTrack.vR(times, _stored=True),
+                auxiliaryTrack.vT(times, _stored=True),
+                auxiliaryTrack.z(times, _stored=True),
+                auxiliaryTrack.vz(times, _stored=True),
+                auxiliaryTrack.phi(times, _stored=True),
             ],
             axis=-1,
         )  # (nTrackChunks, 6)
@@ -4550,7 +4560,13 @@ class streamdf(df):
                 )  # pragma: no cover
             o = args[0]
             return self._approxaA(
-                o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi(), interp=interp
+                o.R(_stored=True),
+                o.vR(_stored=True),
+                o.vT(_stored=True),
+                o.z(_stored=True),
+                o.vz(_stored=True),
+                o.phi(_stored=True),
+                interp=interp,
             )
         elif isinstance(args[0], list) and isinstance(args[0][0], Orbit):
             if numpy.any([len(no) > 1 for no in args[0]]):
@@ -4559,12 +4575,12 @@ class streamdf(df):
                 )  # pragma: no cover
             R, vR, vT, z, vz, phi = [], [], [], [], [], []
             for o in args[0]:
-                R.append(o.R())
-                vR.append(o.vR())
-                vT.append(o.vT())
-                z.append(o.z())
-                vz.append(o.vz())
-                phi.append(o.phi())
+                R.append(o.R(_stored=True))
+                vR.append(o.vR(_stored=True))
+                vT.append(o.vT(_stored=True))
+                z.append(o.z(_stored=True))
+                vz.append(o.vz(_stored=True))
+                phi.append(o.phi(_stored=True))
             return self._approxaA(
                 numpy.array(R),
                 numpy.array(vR),
