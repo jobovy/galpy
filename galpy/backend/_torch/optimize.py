@@ -94,6 +94,7 @@ def _newton_root(f, a, b, guess, xp, steps):
     df/dx by autograd on a detached x (the iterate carries no graph)."""
     import torch
 
+    from .._namespaces import asarray_on_device, device_of
     from ..optimize import newton_step_bracketed
 
     def fs(x):
@@ -103,9 +104,11 @@ def _newton_root(f, a, b, guess, xp, steps):
             (dfdx,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
         return fx.detach(), dfdx.detach()
 
-    x = torch.clamp(torch.as_tensor(guess) * 1.0, min=a, max=b).detach()
-    lo = (torch.as_tensor(a) + 0.0 * x).detach()
-    hi = (torch.as_tensor(b) + 0.0 * x).detach()
+    # torch.as_tensor would copy a CUDA guess/bracket to a CPU default device
+    dev = device_of(guess, a, b)
+    x = torch.clamp(asarray_on_device(xp, guess, dev) * 1.0, min=a, max=b).detach()
+    lo = (asarray_on_device(xp, a, dev) + 0.0 * x).detach()
+    hi = (asarray_on_device(xp, b, dev) + 0.0 * x).detach()
     for _ in range(steps):
         x, lo, hi = newton_step_bracketed(fs, x, lo, hi, xp)
     return x
