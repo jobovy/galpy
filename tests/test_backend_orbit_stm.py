@@ -1469,3 +1469,204 @@ def test_torch_compile_orbit_integration_matches_eager(method):
     numpy.testing.assert_allclose(
         gc.cpu().numpy(), g.cpu().numpy(), rtol=1e-12, atol=1e-14
     )
+
+
+# --- potential-parameter and time gradients through the C methods -------------
+# The C-STM carries d/d(IC) only. A differentiated potential parameter or t must
+# therefore reach the in-backend ODE for EVERY dxdv C method; an eager torch
+# requires_grad parameter used to take the C-STM (under_trace misses it) and came
+# back silently DETACHED, and a list IC under a forced backend integrated in numpy.
+_PG_METHODS = list(_ROUTE_METHODS) + ["leapfrog_c", "symplec4_c", "symplec6_c"]
+_PG_IC = [1.0, 0.1, 1.1, 0.1, 0.05, 0.3]
+_PG_TS = numpy.linspace(0.0, 1.0, 11)
+
+
+def _pg_final(o):
+    return [o.R(1.0), o.vR(1.0), o.z(1.0)]
+
+
+def _pg_orbit(a, backend, mode, method):
+    """Endpoint (R, vR, z) of an orbit in MN(a), the IC as backend data or a forced list."""
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3)
+    if mode == "data":
+        o = Orbit(_arr(backend, numpy.array(_PG_IC)))
+        o.integrate(_arr(backend, _PG_TS), pot, method=method)
+        return _pg_final(o)
+    with use(backend, force=True):
+        o = Orbit(list(_PG_IC))
+        o.integrate(_PG_TS, pot, method=method)
+        return _pg_final(o)
+
+
+@pytest.fixture(scope="module")
+def pg_fd_ref():
+    # Richardson central FD of the numpy dop853_c endpoint w.r.t. MN a at 0.5
+    from galpy.orbit import Orbit
+
+    def f(a):
+        o = Orbit(list(_PG_IC))
+        o.integrate(_PG_TS, MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3), "dop853_c")
+        return numpy.array(_pg_final(o))
+
+    def d(h):
+        return (f(0.5 + h) - f(0.5 - h)) / (2.0 * h)
+
+    return (4.0 * d(1e-3) - d(2e-3)) / 3.0
+
+
+@pytest.mark.parametrize("method", _PG_METHODS)
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_potential_param_grad_every_c_method(pg_fd_ref, backend, mode, method):
+    if backend == "jax":
+        pytest.importorskip("diffrax")
+
+        def f(a):
+            return jnp.stack(
+                [jnp.reshape(x, ()) for x in _pg_orbit(a, "jax", mode, method)]
+            )
+
+        g = numpy.asarray(jax.jacrev(f)(jnp.asarray(0.5)))
+    else:
+        a = torch.tensor(0.5, requires_grad=True)
+        outs = _pg_orbit(a, "torch", mode, method)
+        g = []
+        for x in outs:
+            assert x.grad_fn is not None, f"{method}: detached from the parameter"
+            g.append(float(torch.autograd.grad(x.reshape(()), a, retain_graph=True)[0]))
+        g = numpy.array(g)
+    # measured <= 1e-9 (fixed-step leapfrog_c's own FD agrees to 8e-9)
+    numpy.testing.assert_allclose(g, pg_fd_ref, rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+@pytest.mark.parametrize("mode", ["data", "forced"])
+def test_potential_param_grad_c_method_under_jit(pg_fd_ref, mode, method):
+    pytest.importorskip("diffrax")
+
+    def f(a):
+        return jnp.stack(
+            [jnp.reshape(x, ()) for x in _pg_orbit(a, "jax", mode, method)]
+        )
+
+    g = numpy.asarray(jax.jit(jax.jacrev(f))(jnp.asarray(0.5)))
+    numpy.testing.assert_allclose(g, pg_fd_ref, rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.parametrize("method", ["ias15_c", "odeint", "dop853", "leapfrog"])
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_potential_param_grad_numpy_methods_refuse(backend, mode, method):
+    # these integrate in numpy: a documented refusal, not a detached result or a
+    # TracerArrayConversionError from deep inside the integrator
+    with pytest.raises(ValueError, match="cannot carry the gradient"):
+        if backend == "jax":
+            jax.grad(lambda a: _pg_orbit(a, "jax", mode, method)[0].sum())(0.5)
+        else:
+            _pg_orbit(torch.tensor(0.5, requires_grad=True), "torch", mode, method)
+
+
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_time_grad_c_method_routes_inbackend(backend, method):
+    # d R(T) / dT = vR(T): exact, so the time-grid sensitivity is checked without FD.
+    # The C-STM would drop it (torch) or fail on the tracer (jax).
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(amp=2.1, a=0.5, b=0.3)
+    unit = numpy.linspace(0.0, 1.0, 11)
+    onp = Orbit(list(_PG_IC))
+    onp.integrate(unit * 1.3, pot, method="dop853_c")
+    want = onp.vR(1.3)
+    if backend == "jax":
+        pytest.importorskip("diffrax")
+
+        def f(T):
+            o = Orbit(jnp.asarray(_PG_IC))
+            o.integrate(T * jnp.asarray(unit), pot, method=method)
+            return jnp.reshape(o.R(T), ())
+
+        g = float(jax.grad(f)(1.3))
+    else:
+        T = torch.tensor(1.3, requires_grad=True)
+        o = Orbit(torch.tensor(_PG_IC))
+        o.integrate(T * torch.tensor(unit), pot, method=method)
+        g = float(torch.autograd.grad(o.R(T).reshape(()), T)[0])
+    numpy.testing.assert_allclose(g, want, rtol=1e-9)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_cstm_refuses_grad_tracking_times():
+    from galpy.backend._torch.orbit_stm import integrate
+
+    ts = torch.tensor(_TS, requires_grad=True)
+    with pytest.raises(ValueError, match="not d/d\\(times\\)"):
+        integrate(MiyamotoNagaiPotential(normalize=1.0), torch.tensor(_IC), ts)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cstm_second_derivative_is_loud(backend):
+    # The C-STM gradient is M(t)^T applied to the cotangent with M a constant, so a
+    # second derivative would silently drop dM/d(IC): it must raise instead (jax:
+    # pure_callback has no JVP; torch: an explicit error node on the IC).
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+
+    def f(x):
+        o = Orbit(x)
+        o.integrate(_TS, pot, method="dop853_c")
+        return o.R(_TS[-1]).reshape(())
+
+    if backend == "jax":
+        with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
+            jax.hessian(f)(jnp.asarray(_IC))
+        with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
+            jax.jacrev(jax.jacrev(f))(jnp.asarray(_IC))
+    else:
+        with pytest.raises(RuntimeError, match="second derivatives through the C"):
+            torch.autograd.functional.hessian(f, torch.tensor(_IC))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_cstm_first_order_unchanged_under_create_graph():
+    # create_graph=True (as torch Jacobians of the AA map use) keeps the
+    # first-order gradient exact; only differentiating it again raises
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+
+    def f(x):
+        o = Orbit(x)
+        o.integrate(_TS, pot, method="dop853_c")
+        return o.R(_TS[-1]).reshape(())
+
+    x = torch.tensor(_IC, requires_grad=True)
+    (g1,) = torch.autograd.grad(f(x), x)
+    (g2,) = torch.autograd.grad(f(x), x, create_graph=True)
+    assert torch.equal(g1, g2.detach())
+    with pytest.raises(RuntimeError, match="second derivatives through the C"):
+        torch.autograd.grad(g2.sum(), x)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_grad_tracking_torch_param_is_detected():
+    # eager torch autograd has no trace: under_trace misses a requires_grad
+    # parameter, so the detector must check for the graph itself
+    from galpy.orbit.Orbits import _pot_has_traced_param
+    from galpy.potential import DehnenSmoothWrapperPotential
+
+    a = torch.tensor(0.5, requires_grad=True)
+    assert _pot_has_traced_param(MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3))
+    assert _pot_has_traced_param(
+        DehnenSmoothWrapperPotential(
+            pot=MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3), tform=-1.0, tsteady=1.0
+        )
+    )
+    assert not _pot_has_traced_param(
+        MiyamotoNagaiPotential(amp=2.1, a=torch.tensor(0.5), b=0.3)
+    )

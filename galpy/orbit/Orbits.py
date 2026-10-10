@@ -368,8 +368,9 @@ def _python_number_ic(vxvv):
     return type(vxvv) in (int, float)
 
 
-def _pot_has_traced_param(pot, _depth=0):
-    """True if ``pot`` -- or anything it wraps -- STORES a traced parameter.
+def _pot_traced_param(pot, _depth=0):
+    """A traced or grad-tracking parameter that ``pot`` -- or anything it wraps --
+    STORES, else None.
 
     Structural inspection, deliberately NOT a force probe. Evaluating a force to
     detect this perturbs potentials that cache their last evaluation: it changed
@@ -377,27 +378,36 @@ def _pot_has_traced_param(pot, _depth=0):
     was traced and the routing was unaffected. A detector must not have side
     effects on the thing it inspects.
 
-    TRACED, not merely backend: only a tracer breaks the C-STM's callback (its
-    parser calls as_numpy on the potential arguments). A potential that merely
-    HOLDS backend data with concrete values -- e.g. a MovingObjectPotential built
-    on a backend progenitor orbit -- converts fine and must keep the fast C-STM.
+    Differentiated, not merely backend: the C-STM carries d/d(IC) only, so a
+    differentiated parameter must reach the in-backend ODE (a jax tracer dies in
+    the C parser; an eager grad-tracking torch tensor is silently DETACHED). A
+    potential that merely HOLDS backend data with concrete values -- e.g. a
+    MovingObjectPotential built on a backend progenitor orbit -- converts fine
+    and must keep the fast C-STM.
     """
     if _depth > 5:  # pragma: no cover - guards against a cyclic wrapper chain
-        return False
+        return None
     if isinstance(pot, (list, tuple)):
-        return any(_pot_has_traced_param(p, _depth + 1) for p in pot)
-    if under_trace(pot):
-        return True
+        for p in pot:
+            found = _pot_traced_param(p, _depth + 1)
+            if found is not None:
+                return found
+        return None
+    if under_trace(pot) or requires_backend_grad(pot):
+        return pot
     for v in getattr(pot, "__dict__", {}).values():
-        if under_trace(v):
-            return True
-        if isinstance(v, (list, tuple)):
-            if any(_pot_has_traced_param(x, _depth + 1) for x in v):
-                return True
-        elif hasattr(v, "_amp"):  # a wrapped / composite potential
-            if _pot_has_traced_param(v, _depth + 1):
-                return True
-    return False
+        if under_trace(v) or requires_backend_grad(v):
+            return v
+        if isinstance(v, (list, tuple)) or hasattr(v, "_amp"):  # wrapped/composite
+            found = _pot_traced_param(v, _depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _pot_has_traced_param(pot):
+    """True if ``pot`` stores a traced or grad-tracking parameter (``_pot_traced_param``)."""
+    return _pot_traced_param(pot) is not None
 
 
 def _flip_velocity_columns(a, phasedim):
@@ -1921,6 +1931,15 @@ class Orbit:
         # these names) and before any numpy coercion of t / the IC, so the
         # entire numpy/C/scipy path below is dead code for these methods and
         # byte-identical for every existing method.
+        # A differentiated potential parameter with a numpy IC (Python floats, or a
+        # list IC under a forced backend): lift the IC onto the parameter's backend
+        # so the differentiable routes below take it, rather than the numpy/C path
+        # dropping the parameter's gradient.
+        _dparam = _pot_traced_param(pot)
+        if _dparam is not None and getattr(self, "_ic_backend", None) is None:
+            self._ic_backend = like(
+                _dparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
+            )
         if method.lower() in ("diffrax", "torchdiffeq", "torchode"):
             # the same list -> CompositePotential conversion (and deprecation
             # warning) every other method gets below
@@ -1946,6 +1965,17 @@ class Orbit:
                 _C_SYMPLEC_METHODS,
             )
 
+            if _dparam is not None and method.lower() not in (
+                _C_RK_METHODS + _C_SYMPLEC_METHODS
+            ):
+                raise ValueError(
+                    f"method='{method}' integrates in numpy, which cannot carry the "
+                    "gradient of a differentiated potential parameter; use one of "
+                    "the C methods rk4_c, rk6_c, dopr54_c, dop853_c, leapfrog_c, "
+                    "symplec4_c or symplec6_c (which then integrate in the backend), "
+                    "or method='diffrax' (jax) / 'torchdiffeq' (torch)"
+                )
+
             # Runge-Kutta dxdv methods auto-route for ANY backend IC. Symplectic
             # dxdv methods (incl. galpy's DEFAULT symplec4_c) route ONLY for a
             # grad-tracking IC: a CONCRETE backend IC has real values in self.vxvv
@@ -1957,26 +1987,29 @@ class Orbit:
             # (the alternative for these was to raise below).
             _ml = method.lower()
             _concrete = getattr(self, "_ic_backend_concrete", True)
-            if _ml in _C_RK_METHODS or (_ml in _C_SYMPLEC_METHODS and not _concrete):
+            # A differentiated parameter or t routes every dxdv method: the numpy/C
+            # path would drop its gradient.
+            _tgrad = under_jax_trace(t) or requires_backend_grad(t)
+            if _ml in _C_RK_METHODS or (
+                _ml in _C_SYMPLEC_METHODS
+                and (not _concrete or _dparam is not None or _tgrad)
+            ):
                 _potl = _check_potential_list_and_deprecate(pot)
                 _inbk = inbackend_ode_method(get_namespace(ic_backend))
                 # C-STM eligibility by phase-space dim: 6D needs the full C 3D
                 # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
                 # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
                 _pdim = self.phasedim()
-                # A TRACED t cannot take the C-STM: it pure_callbacks into the C
-                # integrator, which closes over a CONCRETE ts (orbit_stm.integrate).
-                # Neither can a BACKEND POTENTIAL PARAMETER: the same callback
-                # parses concrete pot args, so a traced theta dies in _parse_pot
-                # (as_numpy on the tracer). The C-STM carries d/d(IC) but never
-                # d/d(theta), so such a potential must reach the in-backend ODE --
-                # the same conclusion streamspraydf reached for its own dispatch.
+                # The C-STM carries d/d(IC) only: a differentiated t or potential
+                # parameter must reach the in-backend ODE (a jax tracer dies in
+                # the C parser; an eager torch one would be silently detached).
                 if (
                     _check_c(_potl)
-                    # jax only: under torch.compile the C-STM runs eagerly as an
-                    # opaque call (_integrate_cstm is @untraceable_setup)
-                    and not under_jax_trace(t)
-                    and not _pot_has_traced_param(_potl)
+                    # a traced (jax) or grad-tracking (torch) t; a torch.compile
+                    # trace is fine: the C-STM runs eagerly as an opaque call
+                    # (_integrate_cstm is @untraceable_setup)
+                    and not _tgrad
+                    and _dparam is None
                     and (
                         _check_c(_potl, dxdv3d=True)
                         if _pdim == 6
