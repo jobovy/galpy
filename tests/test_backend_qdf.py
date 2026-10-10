@@ -1080,3 +1080,95 @@ def test_moment_grad_unnormalized_potential(name, par, mode, qdf_unbound_fd):
         g = (jax.jit(gf) if mode == "jit-forced" else gf)(_UNB_PARS[par])
     # was NaN; measured <= 2e-10
     numpy.testing.assert_allclose(float(g), qdf_unbound_fd(name, par), rtol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# #1671 on the backend: out-of-grid Lz in an array is solved with rl (the numpy
+# array path used to spline-extrapolate it, its `&` mask always empty, and the
+# backend mirrored that), and a qdf whose Python actionAngle raises
+# UnboundError for an array (MN, amp=1) agrees with numpy point by point.
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def qdf_rg_outofgrid():
+    from galpy.actionAngle import actionAngleAdiabatic
+
+    qdf = quasiisothermaldf(
+        0.25,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=actionAngleAdiabatic(pot=MWPotential, c=True),
+        cutcounter=True,
+    )
+    lmax = qdf._precomputergLzmax
+    lzs = numpy.array([-0.3, 0.001, 0.5, 1.1, 1.5 * lmax, 0.001, 3.0 * lmax])
+    ref = qdf._rg(lzs)
+    f = lambda l: float(numpy.sum(qdf._rg(l)))  # noqa: E731
+    cd = [(f(lzs + h) - f(lzs - h)) / (2 * h) for h in (2e-5, 1e-5)]
+    # elementwise rg(lz), so d sum / d(common shift) = sum of the derivatives
+    return qdf, lzs, ref, (4.0 * cd[1] - cd[0]) / 3.0
+
+
+@pytest.mark.parametrize(
+    "mode",
+    (["jax", "jit"] if "jax" in BACKENDS else [])
+    + (["torch"] if "torch" in BACKENDS else []),
+)
+def test_rg_outofgrid_array_backend(mode, qdf_rg_outofgrid):
+    qdf, lzs, ref, fd = qdf_rg_outofgrid
+    if mode == "torch":
+        s = torch.tensor(0.0, requires_grad=True)
+        rg = qdf._rg(torch.tensor(lzs) + s)
+        (g,) = torch.autograd.grad(rg.sum(), s)
+    else:
+
+        def rgs(s):
+            return qdf._rg(jnp.asarray(lzs) + s)
+
+        rgs = jax.jit(rgs) if mode == "jit" else rgs
+        rg = rgs(0.0)
+        g = jax.grad(lambda s: rgs(s).sum())(0.0)
+    # numpy now solves out-of-grid Lz with rl too: measured <= 3.4e-14
+    numpy.testing.assert_allclose(
+        as_numpy(rg.detach() if mode == "torch" else rg), ref, rtol=1e-12
+    )
+    # measured 7e-10
+    numpy.testing.assert_allclose(float(g), fd, rtol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_unbound_in_array_python_aa_backend(backend):
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3)
+    q = quasiisothermaldf(
+        1.0 / 3.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=pot,
+        aA=actionAngleAdiabatic(pot=pot, c=False),
+        cutcounter=True,
+    )
+    xv = numpy.array(
+        [
+            [1.1, 0.1, 0.5, 0.1, 0.02],
+            [1.1, 0.1, 1.4, 0.1, 0.02],  # unbound
+            [0.9, -0.05, 0.6, 0.0, 0.05],
+        ]
+    )
+    ref = q(*xv.T)
+    got = q(*_cols(backend, xv))
+    assert is_backend_array(got) and got.shape == (3,)
+    assert float(got[1]) == 0.0
+    # measured <= 3.1e-13
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
+    # the moments' GL grid has unbound nodes
+    ref_s = q.sigmaR2(1.1, 0.1, gl=True, ngl=6)
+    got_s = q.sigmaR2(_arr(backend, 1.1), _arr(backend, 0.1), gl=True, ngl=6)
+    # measured <= 1.7e-15
+    numpy.testing.assert_allclose(float(got_s), ref_s, rtol=1e-12)
