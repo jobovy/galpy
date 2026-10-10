@@ -2,7 +2,10 @@
 # slow-skip, permanent skip). The "-jit inherits eager" rule below is otherwise
 # reachable only from a traced (--jit) dispatch, which does not run on every
 # push, so it would land unexercised.
+import os
+
 import conftest
+import pytest
 
 
 def _ledger(tmp_path, body):
@@ -117,3 +120,68 @@ def test_regen_of_traced_run_drops_inherited_eager_entries(tmp_path, monkeypatch
 def test_missing_file_is_empty(tmp_path):
     """A backend with no list at all is not an error."""
     assert conftest._load_backend_nodeids(str(tmp_path / "nope.txt"), "jax") == set()
+
+
+# --- per-process TORCHINDUCTOR_CACHE_DIR cleanup ----------------------------
+def _conftest_child(tmp_path, body):
+    """Run ``body`` in a fresh interpreter that imports conftest with
+    TMPDIR=tmp_path; returns the completed process."""
+    import os
+    import subprocess
+    import sys
+
+    env = dict(os.environ, TMPDIR=str(tmp_path))
+    code = (
+        "import sys; sys.path.insert(0, %r); import conftest\n"
+        % os.path.dirname(conftest.__file__)
+        + body
+    )
+    return subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True
+    )
+
+
+def _inductor_dirs(tmp_path):
+    return sorted(
+        p.name for p in tmp_path.iterdir() if p.name.startswith("torchinductor_galpy_")
+    )
+
+
+def test_inductor_cache_is_pid_tagged_and_private():
+    name = os.path.basename(conftest._inductor_cache)
+    assert name.startswith(f"torchinductor_galpy_{os.getpid()}_")
+    assert os.environ["TORCHINDUCTOR_CACHE_DIR"] == conftest._inductor_cache
+
+
+def test_inductor_cache_removed_at_normal_exit(tmp_path):
+    proc = _conftest_child(tmp_path, "print(conftest._inductor_cache)")
+    assert proc.returncode == 0, proc.stderr
+    assert _inductor_dirs(tmp_path) == []
+
+
+def test_inductor_cache_removed_at_force_exit(tmp_path):
+    # _backend_force_exit's os._exit skips atexit: it removes the dir itself.
+    proc = _conftest_child(tmp_path, "conftest._backend_force_exit(3)")
+    assert proc.returncode == 3, proc.stderr
+    assert _inductor_dirs(tmp_path) == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX signals/PIDs")
+def test_inductor_cache_of_killed_process_swept(tmp_path):
+    # SIGKILL skips every cleanup; the next session sweeps the dead PID's dir.
+    import signal
+
+    proc = _conftest_child(
+        tmp_path, "import os, signal; os.kill(os.getpid(), signal.SIGKILL)"
+    )
+    assert proc.returncode == -signal.SIGKILL
+    leaked = _inductor_dirs(tmp_path)
+    assert len(leaked) == 1
+    live = tmp_path / f"torchinductor_galpy_{os.getpid()}_live"
+    untagged = tmp_path / "torchinductor_galpy_abc123"
+    other = tmp_path / "unrelated_1_dir"
+    for d in (live, untagged, other):
+        d.mkdir()
+    conftest._sweep_dead_inductor_caches(str(tmp_path))
+    assert _inductor_dirs(tmp_path) == sorted([live.name, untagged.name])
+    assert other.exists()

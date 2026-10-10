@@ -19,9 +19,45 @@ import pytest
 # measured is always the cold compile a user actually hits. Set here rather than
 # per test module because it must land before torch is imported ANYWHERE, and it
 # applies equally to the always-on jit shard and to `--backend torch --jit`.
-_inductor_cache = tempfile.mkdtemp(prefix="torchinductor_galpy_")
+# The dir is tagged with the owning PID: os._exit (_backend_force_exit), a crash
+# or a SIGKILL skips atexit, so each session also sweeps the dirs of dead PIDs.
+_INDUCTOR_PREFIX = "torchinductor_galpy_"
+
+
+def _sweep_dead_inductor_caches(tmpdir=None):
+    """Remove this user's ``torchinductor_galpy_<pid>_*`` dirs whose PID is dead."""
+    if os.name != "posix":
+        return  # os.kill(pid, 0) TERMINATES the process on Windows
+    tmpdir = tempfile.gettempdir() if tmpdir is None else tmpdir
+    try:
+        names = os.listdir(tmpdir)
+    except OSError:
+        return
+    for name in names:
+        if not name.startswith(_INDUCTOR_PREFIX):
+            continue
+        pid = name[len(_INDUCTOR_PREFIX) :].split("_", 1)[0]
+        if not pid.isdigit():
+            continue  # untagged dirs: owner unknown, leave alone
+        path = os.path.join(tmpdir, name)
+        try:
+            if os.stat(path).st_uid != os.getuid():
+                continue
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            continue  # alive (EPERM) or vanished
+
+
+def _remove_inductor_cache():
+    shutil.rmtree(_inductor_cache, ignore_errors=True)
+
+
+_sweep_dead_inductor_caches()
+_inductor_cache = tempfile.mkdtemp(prefix=f"{_INDUCTOR_PREFIX}{os.getpid()}_")
 os.environ["TORCHINDUCTOR_CACHE_DIR"] = _inductor_cache
-atexit.register(shutil.rmtree, _inductor_cache, True)
+atexit.register(_remove_inductor_cache)
 
 # galpy.backend.jit("torch") verifies that galpy code TRACES and produces the
 # right value under torch.compile; the inductor kernel it generates is torch's
@@ -634,6 +670,7 @@ def _backend_force_exit(status):
                     pass
     except OSError:
         pass
+    _remove_inductor_cache()  # os._exit skips atexit
     try:
         sys.stdout.flush()
         sys.stderr.flush()
