@@ -42,6 +42,7 @@ except ImportError:  # pragma: no cover
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
+
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend.jacobian import jacobian
@@ -404,6 +405,85 @@ def test_sigangled_assumezeromean_false(sdf, backend_name):
         )
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
+
+
+# --- the offset setup's eigendecomposition carries its exact gradient ---------
+# A copy of the numpy sdf whose dO/dJ, frequencies and sigv depend on a backend
+# scalar t (t = 0 reproduces sdf); _offset_setup then runs on the backend, so
+# d/dt flows through the frequency covariance's eigenvalues AND eigenvectors
+# (real_eig), sigangle (log) and the angle-spread quadratures.
+def _offset_copy(sdf, xp, t):
+    m = _copy.copy(sdf)
+    pert = numpy.random.default_rng(5).normal(size=(3, 3))
+    pert = 0.5 * (pert + pert.T)  # dO/dJ stays symmetric
+    m._dOdJp = xp.asarray(numpy.asarray(sdf._dOdJp)) * (
+        1.0 + 0.05 * t * xp.asarray(pert)
+    )
+    m._progenitor_Omega = xp.asarray(numpy.asarray(sdf._progenitor_Omega)) * (
+        1.0 + 0.02 * t
+    )
+    m._sigv = sdf._sigv * (1.0 + 0.1 * t)
+    m._offset_setup(None, sdf._leading, None)
+    return m
+
+
+def _offset_readout(m, dangle):
+    xp = get_namespace(m._meandO)
+    w = xp.asarray(numpy.array([1.0, -2.0, 3.0]))
+    return (
+        1e3 * m._meandO
+        + 1e6 * xp.sum(m._sortedSigOEig * w)
+        + 1e3 * xp.sum(m._dsigomeanProg * w)
+        + 1e3 * xp.sum(m._dsigomeanProgDirection * m._sigMeanSign * w)
+        + m._sigomatrixLogdet
+        + m._lnsigangle
+        + m._deltaAngleTrack
+        + 1e2 * m.sigangledAngle(dangle, use_physical=False)
+        + 1e2 * m.sigangledAngle(dangle, smallest=True, use_physical=False)
+        + 1e2 * m.meanangledAngle(dangle, use_physical=False)
+    )
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_offset_setup_grad_vs_fd(sdf, backend_name, forced):
+    xp = jnp if backend_name == "jax" else torch
+    import contextlib
+
+    def ctx():
+        return use(backend_name, force=True) if forced else contextlib.nullcontext()
+
+    def f(t):
+        with ctx():
+            m = _offset_copy(sdf, xp, t)
+            return _offset_readout(m, xp.asarray(0.3) + 0.0 * t)
+
+    # t = 0 reproduces the numpy setup
+    with ctx():
+        m0 = _offset_copy(sdf, xp, _arr(backend_name, 0.0))
+    assert is_backend_array(m0._sigomatrixEig[1]) and is_backend_array(m0._lnsigangle)
+    for attr in ("_meandO", "_dsigomeanProg", "_lnsigangle", "_deltaAngleTrack"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(m0, attr)), getattr(sdf, attr), rtol=1e-12, atol=1e-15
+        )
+    t0 = 0.3
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(t0)))
+        numpy.testing.assert_allclose(
+            float(jax.jit(jax.grad(f))(jnp.asarray(t0))), ad, rtol=1e-11
+        )
+    else:
+        tt = torch.tensor(t0, requires_grad=True)
+        f(tt).backward()
+        ad = float(tt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, t0 + h))) - float(f(_arr(backend_name, t0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(ad - rich) < 1e-8 * abs(rich), f"AD {ad} vs FD {rich}"
 
 
 ###############################################################################
@@ -786,8 +866,8 @@ def test_determine_stream_track_single_grad_vs_fd(backend_name):
 # (track AA - progenitor AA) carries the physical d(offset)/dparam cancellation.
 # Full differentiability needs an integrate_method='diffrax'/'torchdiffeq' AA (the
 # track uses the AA's 2nd derivative); the frequency-covariance moments
-# (_meandO/_sortedSigOEig/_dsigomeanProgDirection -- an eigendecomposition) stay
-# constant here (a ~10% residual vs a full numpy-rebuild FD), a Phase-C follow-up.
+# (_meandO/_sortedSigOEig/_dsigomeanProgDirection) come from the NUMPY sdf and stay
+# constant here (a full construction differentiates them, test_offset_setup_*).
 #
 # These tests build a NUMPY streamdf, then re-run the track on the backend with a
 # diffrax AA and check value parity + the differentiable pipeline. Slow (a backend
@@ -949,10 +1029,8 @@ def test_determine_stream_track_differentiable_potential():
     # d(sum(W*ObsTrack))/d(LogHalo q) flows end-to-end through the backend track
     # (auxiliary diffrax integration + AD calcaAJac + vmap assembly). The analytic
     # AD MUST equal a central FD of the SAME backend track -- here to ~1e-3 (the
-    # stringent grad-vs-FD bar; vmap with ADAPTIVE steps instead is ~7% off). [The separate
-    # ~10% gap to a full numpy-rebuild FD is the frozen frequency-covariance
-    # eigendecomposition (_meandO/_dsigomeanProgDirection), a differentiable-__init__
-    # (Phase C) follow-up -- not tested here.]
+    # stringent grad-vs-FD bar; vmap with ADAPTIVE steps instead is ~7% off). The
+    # frequency-covariance moments are the numpy sdf's, constant here.
     # tintJ=30, not 8: at tintJ=8 the isochrone-approx actions are not converged,
     # so the TRACK is not a settled function of q and this AD-vs-own-FD check
     # passes only at a sweet-spot step size. Measured central FD in h:
