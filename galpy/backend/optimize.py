@@ -46,7 +46,14 @@
 #   first-order sensitivity; a Hessian through x* would require a true
 #   custom_jvp differentiating the implicit relation a second time.
 ###############################################################################
-from ._namespaces import is_backend_array, under_jax_trace
+import numpy
+
+from ._namespaces import (
+    is_backend_array,
+    namespace_from_arrays,
+    under_jax_trace,
+    under_trace,
+)
 from ._resolver import get_namespace
 
 # Default bracketing tolerance (matches scipy.optimize.brentq's xtol default, so
@@ -237,7 +244,16 @@ def iterate_bracket(step, x0, n):
 
         return jax.lax.fori_loop(0, n, lambda _, x: step(x), x0)
     for _ in range(n):
-        x0 = step(x0)
+        x1 = step(x0)
+        # a step that moves nothing is a fixed point: every later step is the
+        # same no-op, so stopping is exact (each step is an eager dispatch)
+        if (
+            type(x1) is type(x0)
+            and not under_trace(x1)
+            and bool((namespace_from_arrays((x1,)) or numpy).all(x1 == x0))
+        ):
+            return x1
+        x0 = x1
     return x0
 
 

@@ -272,3 +272,38 @@ def test_backend_dens_numpy_fallback_and_mass(backend_name):
     m = pot._rawmass(r)
     assert backend_name in type(m).__module__
     numpy.testing.assert_allclose(as_numpy(m), pot._rawmass(r0), rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_dens_numpy_fallback_traced(backend_name):
+    # The same host-evaluated density under a TRACE, where the node has no values
+    # to hand to numpy: jax.jit takes a pure_callback, torch.compile runs the
+    # evaluation outside the graph (galpy.backend.host_eval). Must reproduce
+    # eager, through the density and through the force's mass quadrature.
+    pot = AnySphericalPotential(amp=1.3, dens=_dens)
+    pot._dens_needs_numpy = True
+    for R0, z0 in _RZ:
+        R = _asarray(backend_name, R0)
+        z = _asarray(backend_name, z0)
+        for fn in (evaluateDensities, evaluateRforces):
+
+            def f(R, z, fn=fn):
+                return fn(pot, R, z)
+
+            if backend_name == "jax":
+                assert_jit_matches_eager(f, R, z, err_msg=f"{fn.__name__} R={R0}")
+            else:
+                got = torch.compile(f, backend="eager", dynamic=False)(R, z)
+                numpy.testing.assert_allclose(
+                    as_numpy(got), as_numpy(f(R, z)), rtol=1e-12, atol=1e-14
+                )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_backend_dens_numpy_fallback_grad_raises():
+    # A host-evaluated density has no derivative: differentiating it must fail
+    # loudly, never return a silent zero.
+    pot = AnySphericalPotential(amp=1.3, dens=_dens)
+    pot._dens_needs_numpy = True
+    with pytest.raises(Exception, match="(?i)jvp|tracer"):
+        jax.grad(lambda r: pot._backend_dens(r))(jnp.asarray(1.7))
