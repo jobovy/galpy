@@ -504,6 +504,116 @@ def test_doubleexp_grad_z_vs_finite_difference(backend_name):
 
 
 ###############################################################################
+# DoubleExponentialDiskPotential with a differentiated hr / hz / amp: the
+# constructor's analytic Phi(0,0) runs on the parameter's namespace, and at
+# float coordinates the parameter's namespace is the data. vs a converged
+# central difference on the numpy path.
+###############################################################################
+_DEXP_PARAMS = {"hr": 0.4, "hz": 0.1, "amp": 1.3}
+_DEXP_PUBLIC = [
+    "__call__",
+    "Rforce",
+    "zforce",
+    "dens",
+    "surfdens",
+    "R2deriv",
+    "z2deriv",
+    "Rzderiv",
+]
+_DEXP_PGRAD_MODES = (["grad", "jit_grad", "vmap"] if "jax" in BACKENDS else []) + (
+    ["torch", "torch_coords"] if "torch" in BACKENDS else []
+)
+
+
+def _dexp_param_eval(par, v, method, R, z, normalize=False):
+    kw = dict(_DEXP_PARAMS, normalize=normalize)
+    kw[par] = v
+    pot = DoubleExponentialDiskPotential(**kw)
+    return getattr(pot, method)(R, z, use_physical=False)
+
+
+@pytest.fixture(scope="module")
+def dexp_param_fd():
+    """Converged central difference of a DoubleExponentialDisk method w.r.t. hr / hz / amp."""
+    cache = {}
+    _EPS = (4e-3, 2e-3, 1e-3)
+
+    def fd(par, method, R, z, normalize=False):
+        key = (par, method, R, z, normalize)
+        if key not in cache:
+            v0 = _DEXP_PARAMS[par]
+            f = lambda v: float(_dexp_param_eval(par, v, method, R, z, normalize))
+            cd = [(f(v0 + e * v0) - f(v0 - e * v0)) / (2 * e * v0) for e in _EPS]
+            # Richardson at two step pairs; converged (measured <= 2.3e-10)
+            d = [(4.0 * cd[i + 1] - cd[i]) / 3.0 for i in (0, 1)]
+            assert abs(d[0] - d[1]) < 5e-10 * abs(d[1])
+            cache[key] = d[1]
+        return cache[key]
+
+    return fd
+
+
+def _dexp_param_grad(mode, par, method, R, z, normalize=False):
+    v0 = _DEXP_PARAMS[par]
+    F = lambda v, R, z: _dexp_param_eval(par, v, method, R, z, normalize)
+    if mode == "grad":
+        return float(jax.grad(lambda v: F(v, R, z))(v0))
+    if mode == "jit_grad":
+        g = jax.jit(jax.grad(lambda v: F(v, jnp.asarray(R), jnp.asarray(z))))
+        return float(g(v0))
+    if mode == "vmap":
+        g = jax.vmap(jax.grad(lambda v: F(v, R, z)))(jnp.asarray([v0, v0]))
+        assert float(g[0]) == float(g[1])
+        return float(g[0])
+    v = torch.tensor(v0, dtype=torch.float64, requires_grad=True)
+    if mode == "torch_coords":
+        R, z = (
+            torch.tensor(R, dtype=torch.float64),
+            torch.tensor(z, dtype=torch.float64),
+        )
+    (g,) = torch.autograd.grad(F(v, R, z), v)
+    return float(g)
+
+
+@pytest.mark.parametrize("method", _DEXP_PUBLIC)
+@pytest.mark.parametrize("par", list(_DEXP_PARAMS))
+@pytest.mark.parametrize("mode", _DEXP_PGRAD_MODES)
+def test_doubleexp_param_grad_vs_finite_difference(mode, par, method, dexp_param_fd):
+    # z < 0 exercises the odd-in-z sign factor; measured <= 8e-11, except
+    # d Rzderiv / d hz: an ill-conditioned Ogata sum where jax eager / jit /
+    # torch themselves differ by 3.2e-9 (round-off; measured 1.8e-9 vs FD)
+    rtol = 1e-8 if (par, method) == ("hz", "Rzderiv") else 1e-9
+    for R, z in [(1.1, 0.1), (0.6, -0.25)]:
+        numpy.testing.assert_allclose(
+            _dexp_param_grad(mode, par, method, R, z),
+            dexp_param_fd(par, method, R, z),
+            rtol=rtol,
+        )
+
+
+@pytest.mark.parametrize("par", ["hr", "hz"])
+@pytest.mark.parametrize("mode", _DEXP_PGRAD_MODES)
+def test_doubleexp_param_grad_potential_at_origin(mode, par, dexp_param_fd):
+    # Phi(0, 0) is the constructor's analytic _pot_zero
+    numpy.testing.assert_allclose(
+        _dexp_param_grad(mode, par, "__call__", 0.0, 0.0),
+        dexp_param_fd(par, "__call__", 0.0, 0.0),
+        rtol=1e-9,
+    )
+
+
+@pytest.mark.parametrize("par", ["hr", "hz"])
+@pytest.mark.parametrize("mode", _DEXP_PGRAD_MODES)
+def test_doubleexp_param_grad_normalize(mode, par, dexp_param_fd):
+    # normalize= makes amp a function of hr / hz through Rforce(1, 0)
+    numpy.testing.assert_allclose(
+        _dexp_param_grad(mode, par, "Rforce", 1.3, 0.1, normalize=0.8),
+        dexp_param_fd(par, "Rforce", 1.3, 0.1, normalize=0.8),
+        rtol=1e-9,
+    )
+
+
+###############################################################################
 # RazorThinExponentialDiskPotential: dedicated tests for the scalar
 # Bessel-quadrature methods. The in-plane closed form vs. the two-panel
 # quadrature (was `if xp.abs(z) < 1e-6`) and the empty second panel at R >= 10
