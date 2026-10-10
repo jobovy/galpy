@@ -15,7 +15,12 @@ from ..backend import (
     to_host,
     use,
 )
-from ..backend._namespaces import inbackend_ode_method, namespace_from_arrays
+from ..backend._namespaces import (
+    inbackend_ode_method,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..df.df import df
 from ..orbit import Orbit
 from ..orbit.Orbits import _backend_T
@@ -237,7 +242,12 @@ class basestreamspraydf(df):
                 out = get_namespace(out_l).hstack([out_l, out_t])
             else:
                 out = numpy.hstack([out_l, out_t])
-            dt = numpy.concatenate([dt_l, dt_t])
+            _xp = namespace_from_arrays((dt_l, dt_t))
+            dt = (
+                numpy.concatenate([dt_l, dt_t])
+                if _xp is numpy
+                else _xp.concat([dt_l, dt_t])
+            )
         else:
             out, dt = self._sample_tail(
                 n, integrate, leading=tail == "leading", key=key
@@ -809,9 +819,16 @@ class basestreamspraydf(df):
         # orbit in the unmigrated MovingObjectPotential under the in-backend ODE). A
         # genuine backend IC survives even a forced context; a theta/mass/stripping under
         # force does not, so `get_namespace(numpy.zeros(1)) is not numpy` isolates it.
+        # A differentiated (traced / grad-tracking) trigger is real under force too.
         _forced = get_namespace(numpy.zeros(1)) is not numpy
         _backend_trig = theta_backend or mass_backend or stripping_backend
-        if not (ic_backend or (_backend_trig and not _forced)):
+        _trig_vals = (
+            _tf,
+            _mass_probe,
+            self._stripping_cdf[0] if stripping_backend else None,
+        )
+        _differentiated = under_trace(*_trig_vals) or requires_backend_grad(*_trig_vals)
+        if not (ic_backend or (_backend_trig and (not _forced or _differentiated))):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
