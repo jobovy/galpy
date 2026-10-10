@@ -25,6 +25,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, set_at, to_host, use
+from ..backend._coerce import mask_where
 from ..backend._namespaces import (
     namespace_for_name,
     namespace_from_arrays,
@@ -219,19 +220,19 @@ class quasiisothermaldf(df):
     # potential is traced), so it runs eagerly as an opaque call
     @untraceable_setup
     def _setup_rg_table(self):
-        # float(): under a forced backend vcirc returns a backend scalar, which
-        # would make this grid bound a Tensor and break the numpy _rg branch's
-        # `lz > self._precomputergLzmax` (ndarray > Tensor raises). Keep it a
-        # Python scalar; the numpy path is byte-identical (linspace stop value).
-        self._precomputergLzmax = float(
-            self._precomputergrmax * potential.vcirc(self._pot, self._precomputergrmax)
-        )
-        self._precomputergLzgrid = numpy.linspace(
-            self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
-        )
-        self._rls = numpy.array(
-            [potential.rl(self._pot, l) for l in self._precomputergLzgrid]
-        )
+        # a constant table: built on numpy also under a forced backend (inside
+        # a jit, forced-backend constants are tracers that float() rejects)
+        with use("numpy", force=True):
+            self._precomputergLzmax = float(
+                self._precomputergrmax
+                * potential.vcirc(self._pot, self._precomputergrmax)
+            )
+            self._precomputergLzgrid = numpy.linspace(
+                self._precomputergLzmin, self._precomputergLzmax, self._precomputergnLz
+            )
+            self._rls = numpy.array(
+                [potential.rl(self._pot, l) for l in self._precomputergLzgrid]
+            )
         # Spline interpolate
         self._rgInterp = interpolate.InterpolatedUnivariateSpline(
             self._precomputergLzgrid, self._rls, k=3
@@ -349,6 +350,14 @@ class quasiisothermaldf(df):
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         xp = self._namespace(jr, lz, jz)
         jr, lz, jz = coerce_coords(xp, jr, lz, jz)  # torch rejects python-float xp.abs
+        # unbound nodes (NaN/inf actions) evaluate on benign actions and are
+        # masked below; a NaN action would NaN-poison the gradient
+        unbound = None
+        jr_out, jz_out = jr, jz
+        if is_backend_array(jr) or is_backend_array(jz):
+            unbound = ~(xp.isfinite(jr) & xp.isfinite(jz))
+            jr = mask_where(xp, ~unbound, jr, 0.0)
+            jz = mask_where(xp, ~unbound, jz, 0.0)
         if (
             not isinstance(lz, numpy.ndarray)
             and not is_backend_array(lz)
@@ -401,6 +410,8 @@ class quasiisothermaldf(df):
             if is_backend_array(out):
                 sentinel = -xp.finfo(out.dtype).max
                 out = xp.where(xp.isnan(out), sentinel, out)
+                if unbound is not None:
+                    out = xp.where(unbound, sentinel, out)
                 if self._cutcounter:
                     out = xp.where(lz < 0.0, sentinel, out)
             elif isinstance(lz, numpy.ndarray):
@@ -425,6 +436,8 @@ class quasiisothermaldf(df):
             out = fsr * fsz * funcFactor
             if is_backend_array(out):
                 out = xp.where(xp.isnan(out), 0.0, out)
+                if unbound is not None:
+                    out = xp.where(unbound, 0.0, out)
                 if self._cutcounter:
                     out = xp.where(lz < 0.0, 0.0, out)
             elif isinstance(lz, numpy.ndarray):
@@ -433,6 +446,7 @@ class quasiisothermaldf(df):
                     out[(lz < 0.0)] = 0.0
             elif numpy.isnan(out):  # pragma: no cover
                 out = 0.0
+        jr, jz = jr_out, jz_out
         if _return_actions and _return_freqs:
             return (out, jr, lz, jz, thisrg, kappa, nu, Omega)
         elif _return_actions:
