@@ -169,13 +169,25 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
 def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     r"""Return a rotation matrix that rotates v to align with unit vector a
     i.e. R . v = |v|\hat{a}"""
-    from ..backend import as_backend_constant, get_namespace, is_backend_array, to_host
+    from ..backend import (
+        as_backend_constant,
+        asarray_on_device,
+        device_of,
+        is_backend_array,
+        promote_scalars,
+    )
+    from ..backend._namespaces import namespace_from_arrays
 
     # Dispatch DATA-first (not via the forced-context get_namespace): this leaf is
     # called from numpy-context code (streamspraydf/streamgapdf/rotated potentials)
-    # that may feed it a numpy v even under a forced backend, so numpy v must take
-    # the byte-identical numpy branch regardless of the forced default.
-    if not is_backend_array(v):
+    # that may feed it numpy data even under a forced backend, so numpy v and a
+    # take the byte-identical numpy branch regardless of the forced default. A
+    # backend a (a differentiated zvec) takes the backend branch with a numpy v.
+    if isinstance(a, (list, tuple)) and any(is_backend_array(x) for x in a):
+        ref = next(x for x in a if is_backend_array(x))
+        xp = namespace_from_arrays((ref,))
+        a = xp.stack(promote_scalars(xp, *a))
+    if not (is_backend_array(v) or is_backend_array(a)):
         normv = v / numpy.tile(numpy.sqrt(numpy.sum(v**2.0, axis=1)), (3, 1)).T
         rotaxis = numpy.cross(normv, a)
         rotaxis /= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.0, axis=1)), (3, 1)).T
@@ -199,14 +211,19 @@ def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
             out[numpy.fabs(costheta - 1.0) < 10.0**-10.0] = numpy.eye(3)
             out[numpy.fabs(costheta + 1.0) < 10.0**-10.0] = -numpy.eye(3)
         return out
-    # genuine backend array (jax/torch): out-of-place, differentiable. The
-    # rotaxis-normalization denominator is guarded so a v parallel to a -- whose
-    # row is degenerate and cut/masked below anyway -- does not NaN-poison AD.
-    # Resolve the namespace from v ONLY: a is a Python list (the target axis) and
-    # array_namespace(backend_array, list) raises outside a forced context; a is
-    # re-created as a backend constant on the next line regardless.
-    xp = get_namespace(v)
-    a = as_backend_constant(xp, numpy.asarray(to_host(a), dtype=float), v)
+    # genuine backend array (jax/torch): out-of-place, differentiable in v and a.
+    # The rotaxis-normalization denominator is guarded so a v parallel to a --
+    # whose row is degenerate and cut/masked below anyway -- does not NaN-poison
+    # AD. The namespace is the backend operand's own; the other one (a Python
+    # list axis, a numpy v) joins it as a constant.
+    ref = v if is_backend_array(v) else a
+    xp = namespace_from_arrays((ref,))
+    if not is_backend_array(v):
+        v = as_backend_constant(xp, numpy.asarray(v, dtype=float), ref)
+    if not is_backend_array(a):
+        a = as_backend_constant(xp, numpy.asarray(a, dtype=float), ref)
+    elif ref is v:  # both backend: one device
+        a = asarray_on_device(xp, a, device_of(v))
     normv = v / xp.sqrt(xp.sum(v**2.0, axis=1))[:, None]
     nx, ny, nz = normv[:, 0], normv[:, 1], normv[:, 2]
     rotaxis = xp.stack(
