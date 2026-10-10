@@ -348,3 +348,18 @@ def power_series(xp, x, coeffs, first):
     c = asarray_on_device(xp, c, device_of(x), dtype=x.dtype)
     powers = xp.cumprod(xp.stack([x] * k, axis=-1), axis=-1)
     return xp.sum(c * powers, axis=-1)
+
+
+_EXPREL_SMALL = 1e-2
+_EXPREL_COEFFS = [1.0 / math.factorial(k + 1) for k in range(1, 7)]
+
+
+def exprel(xp, t):
+    """``expm1(t) / t``, 1 at t = 0, with a finite derivative there: a Taylor
+    series below |t| = 1e-2 (truncation < 1e-16), else expm1(t) / t."""
+    small = xp.abs(t) < _EXPREL_SMALL
+    ts = xp.where(small, t, 0.0)
+    tl = xp.where(small, 1.0, t)
+    return xp.where(
+        small, 1.0 + power_series(xp, ts, _EXPREL_COEFFS, 1), xp.expm1(tl) / tl
+    )
