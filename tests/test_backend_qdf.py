@@ -629,10 +629,7 @@ def test_qdf_numpy_lnsr_byte_identical():
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_qdf_call_grad_wrt_hr_vs_finite_difference(backend):
     # d/d(hr) specifically: hr sets the extent of the rg(Lz) precompute table
-    # (5*hr), so a differentiated hr made that bound traced -- and the bound has
-    # to be a concrete Python scalar, so jax raised ConcretizationTypeError.
-    # The table is a pure optimization, so it is skipped while hr carries a
-    # gradient and _rg root-finds with potential.rl instead.
+    # (5*hr), so a differentiated hr builds that table on the backend
     hr0 = 1.0 / 3.0
 
     def val(hr, bk):
@@ -657,8 +654,7 @@ def test_qdf_call_grad_wrt_hr_vs_finite_difference(backend):
 
 
 def test_qdf_precompute_table_kept_when_not_differentiated():
-    # the skip above must NOT fire for an ordinary build: the table is the fast
-    # path and dropping it silently would be a performance regression
+    # an ordinary build keeps the numpy (scipy) table
     aA = actionAngleStaeckel(pot=MWPotential, c=True, delta=0.5)
     q = quasiisothermaldf(
         1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aA, cutcounter=True
@@ -670,15 +666,10 @@ def test_qdf_precompute_table_kept_when_not_differentiated():
 # ---------------------------------------------------------------------------
 # d/d(POTENTIAL PARAMETER) through the velocity moments and pv*
 #
-# Distinct from the d/d(orbit) tests above, and the reason the gap existed: the
-# rg(Lz) table's extent is float(rmax * vcirc(pot, rmax)), so it is the
-# POTENTIAL -- not just hr -- that can make it untraceable. __init__ guarded on
-# hr alone, so every moment and pv* of a qdf built on a differentiated
-# potential raised ConcretizationTypeError.
-#
-# Both arms use _precomputerg=False so they run the SAME code path: with the
-# guard active the traced arm root-finds, and a numpy arm still interpolating
-# the table is a different function (~1e-2 apart, which is not a gradient bug).
+# Distinct from the d/d(orbit) tests above: the rg(Lz) table's extent is
+# rmax * vcirc(pot, rmax), so it is the POTENTIAL -- not just hr -- that makes
+# it a function of the parameters. These run with _precomputerg=False (rl
+# everywhere); the table built on the backend is tested below.
 # ---------------------------------------------------------------------------
 _PGRAD_MN_A = 0.6
 
@@ -835,3 +826,83 @@ def test_float_coordinates_follow_traced_parameter(
         g = (jax.jit(jax.grad(f)) if mode == "jit" else jax.grad(f))(0.2)
     # measured <= 5e-10 vs h=1e-5 (all modes)
     numpy.testing.assert_allclose(float(g), fd, rtol=2e-9)
+
+
+# ---------------------------------------------------------------------------
+# Construction on the backend: a differentiated potential parameter (Isochrone
+# b) or hr builds the rg(Lz) table on its namespace -- traced extent and grid,
+# rl by the implicit-diff root finder, an in-backend not-a-knot spline -- so the
+# traced DF is the same function as the numpy one (whose table is scipy's).
+# Without it the traced DF root-finds rg instead: 4e-3 off in d sigmaR2 / d b.
+# ---------------------------------------------------------------------------
+_CONS_PARS = {"b": 0.6, "hr": 1.0 / 3.0}
+_CONS_QUANTITIES = ["sigmaR2", "meanvT"]
+
+
+def _cons_qdf(b=0.6, hr=1.0 / 3.0):
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
+
+    pot = IsochronePotential(normalize=1.0, b=b)
+    aA = actionAngleIsochrone(ip=pot)
+    return quasiisothermaldf(hr, 0.2, 0.1, 1.0, 1.0, pot=pot, aA=aA, cutcounter=True)
+
+
+def _cons_quantity(name, par, v):
+    # at Python-float (R, z): the differentiated parameter is the data
+    return getattr(_cons_qdf(**{par: v}), name)(1.1, 0.1, gl=True)
+
+
+@pytest.fixture(scope="module")
+def qdf_construction_fd():
+    """Richardson central difference of the numpy (scipy-table) DF, converged."""
+    cache = {}
+
+    def fd(name, par):
+        if (name, par) not in cache:
+            v0 = _CONS_PARS[par]
+            f = lambda v: float(_cons_quantity(name, par, v))  # noqa: E731
+            cd = [
+                (f(v0 * (1 + e)) - f(v0 * (1 - e))) / (2 * e * v0)
+                for e in (4e-3, 2e-3, 1e-3)
+            ]
+            d = [(4.0 * cd[i + 1] - cd[i]) / 3.0 for i in (0, 1)]
+            # converged: measured <= 1.4e-9 (the scipy-brentq table nodes are
+            # good to 4e-12, which floors a finite difference at ~1e-9)
+            assert abs(d[0] - d[1]) < 5e-9 * abs(d[1])
+            cache[(name, par)] = d[1]
+        return cache[(name, par)]
+
+    return fd
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+@pytest.mark.parametrize("par", list(_CONS_PARS))
+@pytest.mark.parametrize("name", _CONS_QUANTITIES)
+def test_construction_param_grad_torch(name, par, qdf_construction_fd):
+    v = torch.tensor(_CONS_PARS[par], dtype=torch.float64, requires_grad=True)
+    q = _cons_qdf(**{par: v})
+    # the table is built (on the backend), not skipped
+    assert q._precomputerg and q._rgInterp is None
+    assert is_backend_array(q._rls) and q._rls.requires_grad
+    (g,) = torch.autograd.grad(_cons_quantity(name, par, v), v)
+    # measured <= 2.2e-9
+    numpy.testing.assert_allclose(float(g), qdf_construction_fd(name, par), rtol=1e-8)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "mode,name,par",
+    [("jit", "sigmaR2", "b"), ("jit", "sigmaR2", "hr"), ("eager", "meanvT", "b")],
+)
+def test_construction_param_grad_jax(mode, name, par, qdf_construction_fd):
+    vg = jax.value_and_grad(lambda v: _cons_quantity(name, par, v))
+    v0 = _CONS_PARS[par]
+    val, g = (jax.jit(vg) if mode == "jit" else vg)(v0)
+    # built (and evaluated) inside the trace, the backend table interpolates the
+    # same rg(Lz) as scipy's: value measured <= 1.3e-13
+    numpy.testing.assert_allclose(
+        float(val), float(_cons_quantity(name, par, v0)), rtol=1e-12
+    )
+    # measured <= 5.6e-9
+    numpy.testing.assert_allclose(float(g), qdf_construction_fd(name, par), rtol=1e-8)
