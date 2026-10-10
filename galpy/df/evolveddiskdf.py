@@ -14,6 +14,7 @@ _DIRECT_GL_ORDER = 50
 _NTS = 1000
 _PROFILE = False
 import copy
+import functools
 import sys
 import time as time_module
 import warnings
@@ -27,9 +28,10 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend import to_host
+from ..backend import to_host, use
 from ..backend._namespaces import inbackend_ode_method
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
@@ -47,6 +49,26 @@ from .df import df
 _DEGTORAD = numpy.pi / 180.0
 _RADTODEG = 180.0 / numpy.pi
 _NAN = numpy.nan
+
+
+def _on_numpy_unless_backend_data(method):
+    """TRANSITIONAL (task #117): with no backend data -- a plain R, a potential
+    and an initdf without a gradient -- run on numpy even under a forced backend,
+    so the scipy/C paths and the initdf calls inside them (whose public entry
+    points coerce under force) stay numpy."""
+
+    @functools.wraps(method)
+    def wrapper(self, R, *args, **kwargs):
+        if (
+            is_backend_array(R)
+            or _pot_grad_namespace(self._pot) is not None
+            or getattr(self._initdf, "_backend_path", lambda: False)()
+        ):
+            return method(self, R, *args, **kwargs)
+        with use("numpy", force=True):
+            return method(self, R, *args, **kwargs)
+
+    return wrapper
 
 
 class evolveddiskdf(df):
@@ -120,6 +142,13 @@ class evolveddiskdf(df):
         - 2011-03-30 - Written - Bovy (NYU)
         - 2011-04-15 - Added list of times option - Bovy (NYU)
         """
+        # TRANSITIONAL (task #117), like the moments: numpy orbits and a numpy
+        # initdf, so stay on numpy under a merely forced backend (the initdf's
+        # own entry points would coerce onto it)
+        with use("numpy", force=True):
+            return self._call_numpy(*args, **kwargs)
+
+    def _call_numpy(self, *args, **kwargs):
         integrate_method = kwargs.pop("integrate_method", "dopr54_c")
         # Must match Python fallback for non-C potentials here, bc odeint needs
         # custom t list to avoid numerically instabilities
@@ -480,6 +509,7 @@ class evolveddiskdf(df):
         else:
             return retval
 
+    @_on_numpy_unless_backend_data
     def vmomentsurfacemass(
         self,
         R,
@@ -601,23 +631,28 @@ class evolveddiskdf(df):
             and hasattr(self._initdf, "_estimateSigmaR2")
             and hasattr(self._initdf, "_estimateSigmaT2")
         ):
-            sigmaR1 = xp.sqrt(_onbe(self._initdf._estimateSigmaR2(R, phi=az)))
-            sigmaT1 = xp.sqrt(_onbe(self._initdf._estimateSigmaT2(R, phi=az)))
-            meanvR = _onbe(self._initdf._estimatemeanvR(R, phi=az))
-            meanvT = _onbe(self._initdf._estimatemeanvT(R, phi=az))
+            moms = (
+                self._initdf._estimateSigmaR2(R, phi=az),
+                self._initdf._estimateSigmaT2(R, phi=az),
+                self._initdf._estimatemeanvR(R, phi=az),
+                self._initdf._estimatemeanvT(R, phi=az),
+            )
         else:
             warnings.warn(
                 "No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                 galpyWarning,
             )
-            sigmaR1 = xp.sqrt(
-                _onbe(self._initdf.sigmaR2(R, phi=az, use_physical=False))
+            moms = (
+                self._initdf.sigmaR2(R, phi=az, use_physical=False),
+                self._initdf.sigmaT2(R, phi=az, use_physical=False),
+                self._initdf.meanvR(R, phi=az, use_physical=False),
+                self._initdf.meanvT(R, phi=az, use_physical=False),
             )
-            sigmaT1 = xp.sqrt(
-                _onbe(self._initdf.sigmaT2(R, phi=az, use_physical=False))
-            )
-            meanvR = _onbe(self._initdf.meanvR(R, phi=az, use_physical=False))
-            meanvT = _onbe(self._initdf.meanvT(R, phi=az, use_physical=False))
+        if xp is numpy and any(is_backend_array(v) for v in moms):
+            # a differentiated initdf parameter (plain R, plain potential)
+            xp = prefer_backend_namespace(*moms)
+        sigmaR2, sigmaT2, meanvR, meanvT = (_onbe(v) for v in moms)
+        sigmaR1, sigmaT1 = xp.sqrt(sigmaR2), xp.sqrt(sigmaT2)
         if _PROFILE:  # pragma: no cover
             setup_time = time_module.time() - start
         if not grid is None and isinstance(grid, bool) and grid:
@@ -681,7 +716,7 @@ class evolveddiskdf(df):
         # differentiable route -- and so does a gradient-carrying POTENTIAL,
         # which is invisible to is_backend_array(R) and used to be computed in
         # numpy and returned as a bare float64 with the gradient silently lost.
-        _direct_backend = is_backend_array(R) or _xp_pot is not None
+        _direct_backend = xp is not numpy
         # No second _xp_pot fix-up is needed here: when the gradient lives in
         # the potential the moments above were already lifted onto it, so
         # get_namespace resolves the backend through sigmaR1 even though R is a
