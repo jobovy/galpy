@@ -1076,3 +1076,34 @@ def test_numpy_orbit_accessor_quantity_output_under_forced_backend(backend_name)
             assert isinstance(got, units.Quantity), acc
             assert got.unit == ref.unit
             numpy.testing.assert_allclose(got.value, ref.value, rtol=1e-13, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_orbit_from_forced_accessor_outputs(backend_name):
+    # Orbit([o.R(), o.vR(), ...]) from a one-object orbit's accessors: under a
+    # forced backend these are shape-(1,) backend arrays, parsed like ndarrays
+    o = Orbit([[1.0, 0.1, 1.1, 0.3]])
+    o.integrate(_ORB_TS, _LP, method="dop853_c")
+    ref = Orbit([o.R(2.0), o.vR(2.0), o.vT(2.0), o.phi(2.0)])
+    with use(backend_name, force=True):
+        op = Orbit([o.R(2.0), o.vR(2.0), o.vT(2.0), o.phi(2.0)])
+    assert op.shape == ref.shape == (1,)
+    assert op.phasedim() == 4
+    numpy.testing.assert_array_equal(op.vxvv, ref.vxvv)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_jacobi_numpy_orbit_forced_backend(backend_name):
+    # Lz is on the forced backend; a per-orbit numpy OmegaP and a potential whose
+    # energy comes back numpy (SpiralArms) must join it
+    from galpy.potential import SpiralArmsPotential
+
+    o = _numpy_orbit()
+    om = numpy.array([0.3, 0.5])
+    sp = _LP + SpiralArmsPotential(omega=0.5)
+    refs = [o.Jacobi(OmegaP=om, pot=_LP), o.Jacobi(_ORB_TS, pot=sp)]
+    with use(backend_name, force=True):
+        gots = [o.Jacobi(OmegaP=om, pot=_LP), o.Jacobi(_ORB_TS, pot=sp)]
+    for g, r in zip(gots, refs):
+        assert is_backend_array(g)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-13, atol=1e-13)
