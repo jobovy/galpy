@@ -1380,3 +1380,27 @@ def test_scf_coeffs_grad_through_backend_node_ops(backend_name, kind):
     fd = (Fs[0] - 8.0 * Fs[1] + 8.0 * Fs[2] - Fs[3]) / (12.0 * dh)
     # O(dh^4) truncation ~1e-12 relative; roundoff ~1e-16/dh
     assert numpy.fabs(grad - fd) < 1e-9 * numpy.fabs(fd), (grad, fd)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_general_batched_numpy_returning_density(backend_name):
+    # A density may hand back NUMPY for the backend nodes it receives (e.g. it
+    # evaluates on the host); the batched general quadrature lifts it onto the
+    # backend and gives the same coefficients as the numpy build
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import scf_compute_coeffs
+
+    orders = dict(radial_order=6, costheta_order=5, phi_order=5)
+
+    def dens_host(R, z, phi):
+        R, z, phi = as_numpy(R), as_numpy(z), as_numpy(phi)
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) * (1.0 + 0.2 * numpy.cos(phi))
+
+    ref_c, ref_s = scf_compute_coeffs(dens_host, 4, 3, a=1.0, **orders)
+    with _b.use(backend_name, force=True):
+        got_c, got_s = scf_compute_coeffs(dens_host, 4, 3, a=1.0, **orders)
+    assert is_backend_array(got_c) and is_backend_array(got_s)
+    scale = max(numpy.max(numpy.abs(ref_c)), numpy.max(numpy.abs(ref_s)))
+    # batched vs sequential reduction order: ~1 ulp of the array's magnitude
+    numpy.testing.assert_allclose(as_numpy(got_c), ref_c, rtol=0, atol=1e-15 * scale)
+    numpy.testing.assert_allclose(as_numpy(got_s), ref_s, rtol=0, atol=1e-15 * scale)
