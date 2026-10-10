@@ -150,3 +150,62 @@ def test_force_grad_vs_finite_difference(backend_name, force):
     assert rel < 1e-6, (
         f"DehnenBar {force}-force grad-vs-FD rel={rel:.2e} ({backend_name})"
     )
+
+
+# Shape parameters (gap audit R-SHAPE): beta's sqrt on the backend and the
+# omegab = 0 period selected under a trace, so d/dbeta, d/drolr, d/domegab
+# exist in data and forced mode, eagerly, under jit/vmap and on torch. t sits
+# in the growth phase, where the period tb enters through tform/tsteady.
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+_BAR_COORDS = [0.9, 0.2, 0.4, 0.3]
+
+
+def _bar_chi(**kw):
+    return DehnenBarPotential(amp=1.3, barphi=0.4, tform=-0.1, tsteady=2.0, **kw)
+
+
+def _bar_omegab(**kw):
+    return DehnenBarPotential(barphi=0.4, rb=0.8, Af=0.01, tform=-0.1, **kw)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "build,params,name,method",
+    [
+        (
+            _bar_chi,
+            {"chi": 0.8, "rolr": 0.9, "beta": 0.1, "alpha": 0.01},
+            "beta",
+            "Phi",
+        ),
+        (
+            _bar_chi,
+            {"chi": 0.8, "rolr": 0.9, "beta": 0.1, "alpha": 0.01},
+            "beta",
+            "Rforce",
+        ),
+        (
+            _bar_chi,
+            {"chi": 0.8, "rolr": 0.9, "beta": -0.2, "alpha": 0.01},
+            "rolr",
+            "phitorque",
+        ),
+        (_bar_omegab, {"omegab": 1.85}, "omegab", "Phi"),
+        (_bar_omegab, {"omegab": 1.85}, "omegab", "zforce"),
+    ],
+    ids=["beta-Phi", "beta-Rforce", "rolr-phitorque", "omegab-Phi", "omegab-zforce"],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_dehnenbar_shape_parameter_gradient(
+    backend_name, mode, build, params, name, method
+):
+    assert_param_grad(backend_name, mode, build, params, name, method, _BAR_COORDS)
+
+
+def test_dehnenbar_traced_zero_pattern_speed_keeps_unit_period():
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    tb = jax.jit(lambda om: _bar_omegab(omegab=om)._tb)
+    assert float(tb(jnp.asarray(0.0))) == _bar_omegab(omegab=0.0)._tb == 1.0
+    assert float(tb(jnp.asarray(1.85))) == _bar_omegab(omegab=1.85)._tb

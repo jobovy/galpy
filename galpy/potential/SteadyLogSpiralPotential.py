@@ -3,7 +3,12 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    has_concrete_truth_value,
+    promote_scalars,
+)
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -78,10 +83,18 @@ class SteadyLogSpiralPotential(planarPotential):
         self._m = m
         self._gamma = gamma
         if not p is None:
-            self._alpha = self._m / numpy.tan(p)
+            xp = get_namespace(p)
+            (p,) = promote_scalars(xp, p)
+            self._alpha = self._m / xp.tan(p)
         else:
             self._alpha = alpha
-        self._ts = 2.0 * numpy.pi / self._omegas if self._omegas != 0.0 else 1.0
+        rotating = self._omegas != 0.0
+        if has_concrete_truth_value(rotating):
+            self._ts = 2.0 * numpy.pi / self._omegas if rotating else 1.0
+        else:  # traced pattern speed: select the omegas = 0 period
+            xp = get_namespace(self._omegas)
+            safe = xp.where(rotating, self._omegas, 1.0)
+            self._ts = xp.where(rotating, 2.0 * numpy.pi / safe, 1.0)
         if not tform is None:
             self._tform = tform * self._ts
         else:
