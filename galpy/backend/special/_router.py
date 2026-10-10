@@ -224,6 +224,20 @@ def k1(x):
     return _dispatch("k1", (x,), k1_fallback)
 
 
+def k0k1(x):
+    """(K0(x), K1(x)) together: the fallback computes both in one pass, so a
+    caller needing both pays once. numpy: scipy's k0 and k1 (byte-identical)."""
+    xp = get_namespace(x)
+    name, sp = _backend_special(xp)
+    if name == "numpy":
+        return sp.k0(x), sp.k1(x)
+    # jax and torch both take k0/k1 from the fallback (_NATIVE_MISSING)
+    from ._fallback.bessel_k import _k01
+
+    K0, K1 = _k01(xp, x)
+    return match_input_dtype(K0, x), match_input_dtype(K1, x)
+
+
 def kn(n, x):
     # Integer-order modified Bessel K_n; only the array arg x carries the namespace.
     from ._fallback.bessel_k import kn_fallback
