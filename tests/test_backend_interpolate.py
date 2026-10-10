@@ -843,26 +843,137 @@ def test_make_smoothing_spline_parity(backend):
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
 
 
-@pytest.mark.parametrize("backend", AD_BACKENDS)
-def test_make_smoothing_spline_gcv_1d_y(backend, monkeypatch):
-    # The frozen GCV operator passes scipy's private GCV a 1-D y: scipy 1.15
-    # (Python 3.10) accepts only a 1-D y (a (n,1) y fails to broadcast), so
-    # this pins the call on any scipy; the fit still matches scipy's.
-    import scipy.interpolate._bsplines as _bspl
+def _gcv_cases():
+    rng = numpy.random.RandomState(11)
+    xs = numpy.sort(rng.uniform(0.0, 10.0, 101))
+    ys = numpy.exp(-xs / 3.0) + 0.02 * rng.randn(101)
+    return {
+        "weighted": (_SMX, _SMY, _SMW),
+        "unit_weights": (_SMX, _SMY, numpy.ones(len(_SMX))),
+        "n5_min": (
+            numpy.array([0.0, 0.3, 1.0, 1.7, 2.5]),
+            numpy.array([1.0, 0.2, -0.4, 0.3, 0.9]),
+            numpy.ones(5),
+        ),
+        "n101_varw": (xs, ys, rng.uniform(0.5, 2.0, 101) / 0.02**2),
+        "linear": (_SMX, 2.0 * _SMX + 1.0, numpy.ones(len(_SMX))),
+        "tiny_scale": (_SMX, 1e-5 * _SMY, _SMW * 1e10),
+    }
 
-    orig = _bspl._compute_optimal_gcv_parameter
-    ndims = []
 
-    def _wrapped(X, wE, y, w):
-        ndims.append(numpy.ndim(y))
-        return orig(X, wE, y, w)
+@pytest.mark.parametrize("case", list(_gcv_cases()))
+def test_gcv_operator_matches_public_make_smoothing_spline(case, monkeypatch):
+    # galpy's port of scipy's GCV picks scipy's lambda: refitting with PUBLIC
+    # make_smoothing_spline(lam=galpy's lambda) reproduces the lam=None fit,
+    # and the frozen operator S @ y equals scipy's coefficients.
+    import galpy.backend.interpolate as BI
 
-    monkeypatch.setattr(_bspl, "_compute_optimal_gcv_parameter", _wrapped)
-    spl = make_smoothing_spline(_SMX, _asarray(backend, _SMY), w=_SMW)
-    got = as_numpy(spl(_SMG))
-    assert ndims and all(d == 1 for d in ndims), ndims
-    ref = si.make_smoothing_spline(_SMX, _SMY, w=_SMW)(_SMG)
-    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
+    x, y, w = _gcv_cases()[case]
+    lams = []
+    orig = BI._gcv_optimal_lambda
+
+    def _spy(*args):
+        lams.append(orig(*args))
+        return lams[-1]
+
+    monkeypatch.setattr(BI, "_gcv_optimal_lambda", _spy)
+    t, S = BI._gcv_operator(x, y, w)
+    assert len(lams) == 1
+    ref = si.make_smoothing_spline(x, y, w=w)
+    numpy.testing.assert_array_equal(t, ref.t)
+    numpy.testing.assert_allclose(
+        si.make_smoothing_spline(x, y, w=w, lam=lams[0]).c, ref.c, rtol=1e-12, atol=0
+    )
+    numpy.testing.assert_allclose(
+        S @ y, ref.c, rtol=0, atol=1e-12 * numpy.max(numpy.abs(ref.c))
+    )
+
+
+@pytest.mark.parametrize("case", list(_gcv_cases()))
+def test_gcv_optimal_lambda_matches_scipy_private(case):
+    # Test-only cross-check: galpy's port returns exactly the lambda of scipy's
+    # private GCV (skipped if scipy ever drops or renames it).
+    import galpy.backend.interpolate as BI
+
+    _bspl = pytest.importorskip("scipy.interpolate._bsplines")
+    ref_fn = getattr(_bspl, "_compute_optimal_gcv_parameter", None)
+    if ref_fn is None:
+        pytest.skip("scipy no longer has _compute_optimal_gcv_parameter")
+    x, y, w = _gcv_cases()[case]
+    args = {}
+    orig = BI._gcv_optimal_lambda
+
+    def _spy(X, wE, yv, ww):
+        args.update(X=X, wE=wE, y=yv, w=ww)
+        return orig(X, wE, yv, ww)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(BI, "_gcv_optimal_lambda", _spy)
+        BI._gcv_operator(x, y, w)
+    got = orig(args["X"], args["wE"], args["y"], args["w"])
+    ref = float(numpy.ravel(ref_fn(args["X"], args["wE"], args["y"], args["w"]))[0])
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=0)
+
+
+def test_gcv_optimal_lambda_minimizer_failure_raises(monkeypatch):
+    # an unsuccessful bounded minimisation is reported, as in scipy.
+    import scipy.optimize
+
+    import galpy.backend.interpolate as BI
+
+    monkeypatch.setattr(
+        scipy.optimize,
+        "minimize_scalar",
+        lambda *a, **k: scipy.optimize.OptimizeResult(
+            x=1.0, success=False, message="forced failure"
+        ),
+    )
+    with pytest.raises(ValueError, match="forced failure"):
+        BI._gcv_operator(_SMX, _SMY, _SMW)
+
+
+def test_gcv_optimal_lambda_ill_posed_raises():
+    # a non-positive-definite X^T W X + lam X^T E (negative weights) is
+    # reported as ill-posed, as in scipy.
+    import galpy.backend.interpolate as BI
+
+    with pytest.raises(ValueError, match="ill-posed"):
+        BI._gcv_operator(_SMX, _SMY, -numpy.ones(len(_SMX)))
+
+
+def test_galpy_imports_no_private_scipy():
+    # galpy never imports private scipy names (scipy.*._* modules or _-names):
+    # they change without notice (gh#1657's scipy-1.15 shape break was one).
+    import ast
+    import os
+
+    import galpy
+
+    root = os.path.dirname(galpy.__file__)
+    bad = []
+    for dirpath, _, files in os.walk(root):
+        for fname in files:
+            if not fname.endswith(".py"):
+                continue
+            path = os.path.join(dirpath, fname)
+            with open(path, encoding="utf-8") as f:
+                tree = ast.parse(f.read(), filename=path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    mods = [(a.name, None) for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    mods = [(node.module, a.name) for a in node.names]
+                else:
+                    continue
+                for mod, name in mods:
+                    parts = mod.split(".")
+                    if parts[0] != "scipy":
+                        continue
+                    if any(p.startswith("_") for p in parts[1:]) or (
+                        name is not None and name.startswith("_")
+                    ):
+                        bad.append(f"{os.path.relpath(path, root)}:{node.lineno}")
+    assert not bad, bad
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
