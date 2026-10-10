@@ -7582,6 +7582,50 @@ def test_AdiabaticContractionWrapper():
     return None
 
 
+def test_AdiabaticContractionWrapper_amp():
+    # amp scales the contracted potential (it used to be silently ignored)
+    from galpy.orbit import Orbit
+    from galpy.util._optional_deps import _JAX_LOADED
+
+    kw = dict(
+        pot=potential.MWPotential2014[2],
+        baryonpot=potential.MWPotential2014[:2],
+        method="cautun",
+    )
+    dm1 = AdiabaticContractionWrapperPotential(**kw)
+    dm2 = AdiabaticContractionWrapperPotential(amp=2.0, **kw)
+    assert dm2._amp == 2.0, "AdiabaticContractionWrapperPotential ignores amp"
+    for R, z in [(0.5, 0.1), (1.2, -0.3), (80.0, 2.0)]:  # last: beyond rmax
+        for func in [
+            potential.evaluatePotentials,
+            potential.evaluateRforces,
+            potential.evaluatezforces,
+            potential.evaluateR2derivs,
+            potential.evaluateDensities,
+        ]:
+            assert numpy.fabs(
+                func(dm2, R, z) - 2.0 * func(dm1, R, z)
+            ) <= 1e-14 * numpy.fabs(func(dm1, R, z)), (
+                f"AdiabaticContractionWrapperPotential amp does not scale {func.__name__}"
+            )
+    # the C implementation also uses amp: dm2 == dm1 + dm1
+    ts = numpy.linspace(0.0, 10.0, 101)
+    o2 = Orbit([1.0, 0.1, 1.3, 0.1, -0.05, 0.3])
+    o11 = o2()
+    o2.integrate(ts, dm2, method="dop853_c")
+    o11.integrate(ts, [dm1, dm1], method="dop853_c")
+    assert numpy.amax(numpy.fabs(o2.getOrbit() - o11.getOrbit())) < 1e-10, (
+        "AdiabaticContractionWrapperPotential amp is not used in C orbit integration"
+    )
+    if _JAX_LOADED:
+        rs = numpy.array([0.3, 1.0, 5.0])
+        assert numpy.all(
+            numpy.fabs(dm2._rforce_jax(rs) - 2.0 * dm1._rforce_jax(rs))
+            < 1e-14 * numpy.fabs(dm1._rforce_jax(rs))
+        ), "AdiabaticContractionWrapperPotential amp does not scale _rforce_jax"
+    return None
+
+
 def test_RotateAndTiltWrapper():
     # some tests of the rotate and tilt wrapper
     zvec = numpy.array([numpy.sqrt(1 / 3.0), numpy.sqrt(1 / 3.0), numpy.sqrt(1 / 3.0)])

@@ -79,8 +79,9 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         .. [2] Blumenthal et al. (1986), Astrophys. J., 301, 27. ADS:  https://ui.adsabs.harvard.edu/abs/1986ApJ...301...27B
         .. [3] Gnedin et al. (2004), Astrophys. J., 616, 16. ADS:  https://ui.adsabs.harvard.edu/abs/2004ApJ...616...16G
         """
-        # Initialize with Force just to parse (ro,vo)
-        Force.__init__(self, ro=ro, vo=vo)
+        # Initialize with Force just to parse (amp,ro,vo)
+        Force.__init__(self, amp=amp, ro=ro, vo=vo)
+        amp = self._amp
         rmax = conversion.parse_length(rmax, ro=self._ro)
         rmin = (
             conversion.parse_length(rmin, ro=self._ro)
@@ -125,6 +126,8 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         interpSphericalPotential.__init__(
             self, rforce=new_rforce_func, rgrid=rgrid, Phi0=Phi0, ro=ro, vo=vo
         )
+        # interpSphericalPotential always sets amp=1
+        self._amp = amp
 
 
 def _contraction_Cautun2020(r, M_DMO, Mbar, fbar):

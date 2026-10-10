@@ -1684,3 +1684,111 @@ def test_meanjz_noaac_issue300():
         "Mean Jz computed using MC with Python actionAngleAdiabatic integration fails"
     )
     return None
+
+
+def test_precomputerg_false():
+    # _precomputerg=False used to raise "'NoneType' object is not callable"
+    from galpy.potential import rl
+
+    qdfnpc = quasiisothermaldf(
+        1.0 / 4.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=aAA,
+        cutcounter=True,
+        _precomputerg=False,
+    )
+    assert numpy.fabs(qdfnpc._rg(1.1) - rl(MWPotential, 1.1)) < 1e-14, (
+        "qdf w/ _precomputerg=False does not compute rg exactly"
+    )
+    lzs = numpy.array([0.5, 1.1])
+    assert numpy.all(
+        numpy.fabs(qdfnpc._rg(lzs) - numpy.array([rl(MWPotential, l) for l in lzs]))
+        < 1e-14
+    ), "qdf w/ _precomputerg=False does not compute rg exactly"
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
+    )
+    assert (
+        numpy.fabs(
+            qdfnpc(0.9, 0.1, 0.95, 0.1, 0.08) / qdf(0.9, 0.1, 0.95, 0.1, 0.08) - 1.0
+        )
+        < 1e-8
+    ), "qdf w/ _precomputerg=False does not agree with _precomputerg=True"
+    assert (
+        numpy.fabs(
+            qdfnpc.density(0.9, 0.1, gl=True, ngl=6)
+            / qdf.density(0.9, 0.1, gl=True, ngl=6)
+            - 1.0
+        )
+        < 1e-7
+    ), "qdf density w/ _precomputerg=False does not agree with _precomputerg=True"
+    return None
+
+
+def test_unbound_in_array_adiabatic_python():
+    # The Python actionAngleAdiabatic raises UnboundError for a whole array when
+    # one point is unbound; qdf then returned a single scalar, which crashed
+    # moment calculations (where unbound GL nodes are common in a weak
+    # potential) with "cannot unpack non-iterable" and collapsed array calls
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3)
+    qdfs = [
+        quasiisothermaldf(
+            1.0 / 3.0,
+            0.2,
+            0.1,
+            1.0,
+            1.0,
+            pot=pot,
+            aA=actionAngleAdiabatic(pot=pot, c=c),
+            cutcounter=True,
+            _precomputerg=pc,
+        )
+        for c, pc in [(False, True), (True, True), (False, False), (True, False)]
+    ]
+    R = numpy.array([1.1, 1.1, 0.9])
+    vR = numpy.array([0.1, 0.1, -0.05])
+    vT = numpy.array([0.5, 1.4, 0.6])  # middle one is unbound
+    z = numpy.array([0.1, 0.1, 0.0])
+    vz = numpy.array([0.02, 0.02, 0.05])
+    qdf = qdfs[0]
+    f = qdf(R, vR, vT, z, vz)
+    assert f.shape == (3,), (
+        "qdf array call with an unbound point does not return an array"
+    )
+    for ii in range(3):
+        assert numpy.fabs(f[ii] - qdf(R[ii], vR[ii], vT[ii], z[ii], vz[ii])) < 1e-10, (
+            "qdf array call with an unbound point does not agree with point-by-point calls"
+        )
+    assert f[1] == 0.0, "unbound point in qdf array call does not return zero"
+    assert numpy.fabs(f[0] / qdfs[1](R[0], vR[0], vT[0], z[0], vz[0]) - 1.0) < 1e-8, (
+        "qdf array call with an unbound point does not agree with C"
+    )
+    out, jr, lz, jz = qdf(R, vR, vT, z, vz, log=True, _return_actions=True)
+    assert out[1] == -numpy.finfo(numpy.dtype(numpy.float64)).max, (
+        "unbound point in qdf array call does not return log(0)"
+    )
+    assert numpy.isnan(jr[1]) and numpy.isnan(jz[1]), (
+        "unbound point in qdf array call does not return NaN actions"
+    )
+    assert numpy.all(
+        numpy.fabs(jr[[0, 2]] - qdfs[1]._aA(R, vR, vT, z, vz)[0][[0, 2]]) < 1e-8
+    ), "qdf array call with an unbound point does not return the correct actions"
+    out, rg, kappa, nu, Omega = qdf(R, vR, vT, z, vz, _return_freqs=True)
+    assert numpy.isnan(rg[1]) and numpy.all(numpy.fabs(out - f) < 1e-14), (
+        "qdf array call with an unbound point and _return_freqs fails"
+    )
+    # moments: the GL grid contains unbound nodes; Python and C must agree
+    for qpy, qc in [(qdfs[0], qdfs[1]), (qdfs[2], qdfs[3])]:
+        for moment in ["density", "sigmaR2"]:
+            vpy = getattr(qpy, moment)(1.1, 0.1, gl=True, ngl=6)
+            vc = getattr(qc, moment)(1.1, 0.1, gl=True, ngl=6)
+            assert numpy.fabs(vpy / vc - 1.0) < 1e-9, (
+                f"qdf {moment} with Python actionAngleAdiabatic and unbound GL nodes does not agree with C"
+            )
+    return None
