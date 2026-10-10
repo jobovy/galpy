@@ -143,8 +143,8 @@ def qdf_density(bk, x):
 
 
 def qdf_constructor_parameters(bk, x):
-    # d/d(hr, sr): the constructor itself is traced (a traced hr skips the
-    # constant rg table)
+    # d/d(hr, sr): the constructor itself is traced (a traced hr builds the rg
+    # table on the backend)
     aA = actionAngleStaeckel(pot=MWPotential2014, c=True, delta=0.5)
     q = quasiisothermaldf(
         x / 4.0, 0.2 * x, 0.1, 1.0, 1.0, pot=MWPotential2014, aA=aA, cutcounter=True
