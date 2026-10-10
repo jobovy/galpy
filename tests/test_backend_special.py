@@ -735,6 +735,18 @@ def test_bessel_k_value_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_bessel_k0k1_matches_k0_and_k1(backend):
+    # k0k1 is k0 and k1 from one evaluation: bit-equal to the separate calls on
+    # every backend (scipy's own on numpy), across both fallback regimes and on
+    # inputs entirely inside each one (where the other regime is skipped).
+    for x in (_BESSEL_X, _BESSEL_X[:4], _BESSEL_X[6:], _BESSEL_X[3]):
+        xb = _asarray(backend, x)
+        K0, K1 = gsp.k0k1(xb)
+        numpy.testing.assert_array_equal(as_numpy(K0), as_numpy(gsp.k0(xb)))
+        numpy.testing.assert_array_equal(as_numpy(K1), as_numpy(gsp.k1(xb)))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_bessel_kn_value_parity(backend):
     # kn via the upward recurrence from k0, k1 (galpy uses kn(2, .)). n=0,1
     # exercise the recurrence base cases (kn_fallback short-circuits to K0/K1).

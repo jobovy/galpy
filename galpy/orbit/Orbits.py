@@ -4147,7 +4147,11 @@ class Orbit:
         if hasattr(self, "_aA"):
             if (
                 (not pot is None and pot != self._aAPot)
-                or (not type is None and type != self._aAType)
+                or (
+                    not type is None
+                    and type != self._aAType
+                    and type != getattr(self, "_aA_fallback_for", None)
+                )
                 or (
                     not delta is None
                     and hasattr(self._aA, "_delta")
@@ -4233,6 +4237,9 @@ class Orbit:
                 else numpy.all(delta == 1e-6)
             ):
                 self._setupaA(pot=pot, type="spherical")
+                # stands in for the requested type: a repeat request reuses it
+                # (else every e/rperi/rap call rebuilt it and its cached results)
+                self._aA_fallback_for = type
             else:
                 if hasattr(delta, "__len__"):
                     if delta_grad:

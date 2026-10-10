@@ -9,7 +9,7 @@ import numpy
 from conftest import _ic_on_backend, _inbackend_method
 
 from galpy import potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, backend
 from galpy.util import galpyWarning
 
 
@@ -52,9 +52,13 @@ def test_FDMDynamicalFrictionForce_central_limit():
     )
 
     # Also run this test using the Python implementation, but for less time
-    t = numpy.linspace(0.0, 2 * tau_pred / 5, 1001)
-    r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
     _m = _inbackend_method("dop853")
+    # Under torch the Python stepper stays eager: ~40k steps (~390k force
+    # evaluations) over 2 tau / 5, ~440 s. A tenth of that horizon still decays
+    # r by 4%, 40x the tolerance below.
+    tfac = 50.0 if (_m == "dop853" and backend() != "numpy") else 5.0
+    t = numpy.linspace(0.0, 2 * tau_pred / tfac, 1001)
+    r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
     o = o if _m == "dop853" else Orbit(_ic_on_backend(o))
     o.integrate(t, Loghalo + fdf, method=_m)
 
