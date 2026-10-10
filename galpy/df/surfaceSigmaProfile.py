@@ -11,7 +11,12 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, device_of, prefer_backend_namespace
+from ..backend import (
+    coerce_coords,
+    device_of,
+    prefer_backend_namespace,
+    scalar_like,
+)
 from ..backend._input import backend_input
 from ..backend._namespaces import namespace_from_arrays
 
@@ -220,7 +225,9 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             # the parameter's own namespace: a traced sigma_R stays differentiable
             lxp = namespace_from_arrays((self._params[2],)) or numpy
-            return 2.0 * lxp.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
+            # numpy.float64 log: see scalar_like
+            logsigma = scalar_like(R, lxp.log(self._params[2]))
+            return 2.0 * logsigma - 2.0 * (R - 1.0) / self._params[1]
         else:
             xp, R = self._namespace_and_R(R)
             return self._params[2] ** 2.0 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
