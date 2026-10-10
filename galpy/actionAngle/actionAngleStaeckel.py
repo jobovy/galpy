@@ -156,7 +156,7 @@ def _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta):
     }  # fmt: skip
 
 
-def _refine_tp(xp, f, u, skip):
+def _refine_tp(xp, f, df, u, skip):
     """Differentiable turning point: one Newton step off the frozen bisection
     root, grafted so the VALUE is byte-identical (numpy: graft_gradient is the
     identity) but AD carries the TRUE implicit derivative du/dtheta =
@@ -172,11 +172,12 @@ def _refine_tp(xp, f, u, skip):
         # here is only ~machine-eps identity, which the 1/sqrt(S) frequency panels
         # amplify to ~1e-13 -- a byte-identity break we must not introduce.)
     u0 = stop_gradient(u)
-    h = 1e-6
     fu0 = f(u0)
-    fp = (f(u0 + h) - f(u0 - h)) / (2.0 * h)
+    # analytic slope: a finite difference's ~1e-9 relative error carries into
+    # du/dtheta, which the chi profiles amplify by 1/y(1-y) at their edge nodes
+    fp = df(u0)
     # f(u0) can be NaN/inf AT the root (S dips <0 / divides by 0 there) while the
-    # FD slope from f(u0+/-h) is finite -> skip the Newton step there. Mask the
+    # slope is finite -> skip the Newton step there. Mask the
     # numerator to NaN-free BEFORE dividing (dead-branch guard: eager xp.where
     # evaluates both sides, so raw fu0/fp would still poison the value/grad).
     good = (xp.abs(fp) > 1e-10) & xp.isfinite(fu0) & xp.isfinite(fp) & ~skip
@@ -242,8 +243,9 @@ def _staeckel_uminumax(xp, s, pot, delta):
     circular = circular | unresolved
     umin = xp.where(reaches_axis, xp.zeros_like(umin), umin)  # axis-reaching -> 0
     # differentiable turning points (value byte-identical; injects du/dtheta)
-    umin = _refine_tp(xp, f, umin, skip=reaches_axis | circular)
-    umax = _refine_tp(xp, f, umax, skip=circular)
+    df = lambda u: _dJRStaeckelIntegrandSquareddu(u, *args)
+    umin = _refine_tp(xp, f, df, umin, skip=reaches_axis | circular)
+    umax = _refine_tp(xp, f, df, umax, skip=circular)
     return umin, umax, unbound
 
 
@@ -260,7 +262,8 @@ def _staeckel_vmin(xp, s, pot, delta):
     )
     vmin = bisect_root(f, vlo, vx, xp, xtol=1e-13, maxiter=200)
     vmin = xp.where(at_vmin, vx, vmin)
-    return _refine_tp(xp, f, vmin, skip=(xp.zeros_like(vmin) > 0.5))
+    df = lambda v: _dJzStaeckelIntegrandSquareddv(v, *args)
+    return _refine_tp(xp, f, df, vmin, skip=(xp.zeros_like(vmin) > 0.5))
 
 
 def _staeckel_trig(xp, name, x):

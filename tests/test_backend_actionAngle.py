@@ -3378,7 +3378,8 @@ def test_staeckel_c_grad_wrt_potential_parameter(bk, mode, jit, name, method, cj
         lambda p: _staeckel_c_method(p, name, cjac_ics, method), _CJAC_P0[name]
     )
     assert numpy.all(numpy.fabs(fd) > 1e-6)
-    rtol = {"__call__": 1e-8, "actionsFreqs": 1e-6, "EccZmaxRperiRap": 1e-7}[method]
+    # EccZmax: c=False's and C's turning points differ by ~1e-8 in derivative
+    rtol = 3e-8 if method == "EccZmaxRperiRap" else 1e-8
     numpy.testing.assert_allclose(ad, fd, rtol=rtol, atol=0.0)
 
 
@@ -3498,3 +3499,59 @@ def test_adiabaticgrid_c_grad_wrt_potential_parameter(bk, jit, cjac_ics):
     )
     assert numpy.all(numpy.fabs(fd) > 1e-5)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=0.0)
+
+
+def _staeckel_afa(p, name, cs, c):
+    pars = dict(_CJAC_P0)
+    if name == "R":
+        cs = (p * cs[0],) + tuple(cs[1:])
+    else:
+        pars[name] = p
+    pot = MiyamotoNagaiPotential(amp=2.1, a=pars["a"], b=pars["b"])
+    aA = actionAngleStaeckel(pot=pot, delta=pars["delta"], c=c)
+    return _cjac_stack(aA.actionsFreqsAngles(*cs))
+
+
+def _cjac_fd7(fnp, p0, hrel=1e-2):
+    """6th-order central difference of the numpy outputs."""
+    h = hrel * p0
+    f = {k: numpy.asarray(fnp(p0 + k * h)) for k in (-3, -2, -1, 1, 2, 3)}
+    return (45.0 * (f[1] - f[-1]) - 9.0 * (f[2] - f[-2]) + (f[3] - f[-3])) / (60.0 * h)
+
+
+_CFALSE_CASES = [
+    ("torch", "data", False, "delta"),
+    ("torch", "forced", False, "delta"),
+    ("torch", "data", False, "R"),  # a coordinate: data mode only
+    ("torch", "data", False, "a"),
+    ("torch", "forced", False, "a"),
+    ("jax", "data", True, "delta"),
+    ("jax", "forced", True, "delta"),
+    ("jax", "data", False, "R"),  # one eager jax case: the angle graph is slow
+    ("jax", "data", True, "a"),
+]
+
+
+@pytest.mark.parametrize(
+    "bk,mode,jit,name", [c for c in _CFALSE_CASES if c[0] in BACKENDS]
+)
+def test_staeckel_cfalse_freqs_angles_grad(bk, mode, jit, name, cjac_ics):
+    # the turning points' implicit derivative du/dtheta = -S_theta/S_u used a
+    # finite-difference S_u, whose ~1e-9 error the chi profiles amplify by
+    # 1/y(1-y) at their edge nodes: d/d(delta) of the frequencies and angles
+    # was off by 2.6e-3-1.3e-2, d(angles)/dR by 2.6e-5 (values exact)
+    p0 = 1.0 if name == "R" else _CJAC_P0[name]
+
+    def fbk(p, cs):
+        return _staeckel_afa(p, name, cs, False)
+
+    ad = _cjac_ad(bk, mode, jit, fbk, cjac_ics, p0)
+    fd = _cjac_fd7(lambda p: _staeckel_afa(p, name, cjac_ics, True), p0)
+    # The C values carry ~1e-12 relative noise (S is a difference of O(1)
+    # potential terms, divided by y(1-y) near the turning points), which floors
+    # the FD reference at ~1e-12 |value|/h: measured AD-vs-FD <= 5e-9 relative
+    # w.r.t. R and a, and <= 2e-7 relative (1e-10 of |value|/delta) for the
+    # small d/d(delta) of Omegar and the angles
+    vals = numpy.abs(numpy.asarray(_staeckel_afa(p0, name, cjac_ics, True)))
+    tol = 1e-8 * numpy.fabs(fd) + 1e-9 * vals / p0
+    assert numpy.all(numpy.fabs(ad - fd) <= tol), (ad - fd) / fd
