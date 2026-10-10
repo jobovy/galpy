@@ -27,14 +27,13 @@ def _host_if_concrete(host, coords):
 def actions_with_jac(host_jac, coords):
     """Differentiable (jr, jz) with the native-C Jacobian as the vjp residual.
 
-    host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). coords : tuple of 5
-        traced jax (N,) arrays (R,vR,vT,z,vz).
+    host_jac : callable taking the n numpy (N,) coord arrays, returning
+        (jr, jz, jac) with jr,jz (N,) and jac (N,2,n). coords : tuple of
+        (N,) arrays (R,vR,vT,z,vz and optionally per-object parameters).
     """
     import jax
-    import jax.numpy as jnp
 
-    shape, dtype = coords[0].shape, coords[0].dtype
+    shape, dtype, n = coords[0].shape, coords[0].dtype, len(coords)
 
     def _host(*cs):
         jr, jz, jac = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
@@ -51,7 +50,7 @@ def actions_with_jac(host_jac, coords):
             (
                 jax.ShapeDtypeStruct(shape, dtype),
                 jax.ShapeDtypeStruct(shape, dtype),
-                jax.ShapeDtypeStruct(shape + (2, 5), dtype),
+                jax.ShapeDtypeStruct(shape + (2, n), dtype),
             ),
             *cs,
             vmap_method="sequential",
@@ -64,13 +63,13 @@ def actions_with_jac(host_jac, coords):
 
     def _fwd(cs):
         jr, jz, jac = _call(cs)
-        return (jr, jz), jac  # residual = the 2x5 Jacobian
+        return (jr, jz), jac  # residual = the (2,n) Jacobian
 
     def _bwd(jac, ct):
         ct_jr, ct_jz = ct  # each (N,)
         # grad_k = ct_jr * dJr/dx_k + ct_jz * dJz/dx_k
-        g = ct_jr[:, None] * jac[:, 0, :] + ct_jz[:, None] * jac[:, 1, :]  # (N,5)
-        return (tuple(g[:, k] for k in range(5)),)
+        g = ct_jr[:, None] * jac[:, 0, :] + ct_jz[:, None] * jac[:, 1, :]  # (N,n)
+        return (tuple(g[:, k] for k in range(n)),)
 
     _actions.defvjp(_fwd, _bwd)
     out = _host_if_concrete(_host, coords)
@@ -81,12 +80,12 @@ def actionsfreqs_with_jac(host_jac, coords):
     """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) with the native-C fused (5,5)
     Jacobian d(jr,jz,Omega)/d(R,vR,vT,z,vz) as the vjp residual (#131).
 
-    host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr,jz,Or,Op,Oz,jac) with the values (N,) and jac (N,5,5).
+    host_jac : callable taking the n numpy (N,) coord arrays, returning
+        (jr,jz,Or,Op,Oz,jac) with the values (N,) and jac (N,5,n).
     """
     import jax
 
-    shape, dtype = coords[0].shape, coords[0].dtype
+    shape, dtype, n = coords[0].shape, coords[0].dtype, len(coords)
 
     def _host(*cs):
         out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
@@ -97,7 +96,7 @@ def actionsfreqs_with_jac(host_jac, coords):
         return jax.pure_callback(
             _host,
             tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(5))
-            + (jax.ShapeDtypeStruct(shape + (5, 5), dtype),),
+            + (jax.ShapeDtypeStruct(shape + (5, n), dtype),),
             *cs,
             vmap_method="sequential",
         )
@@ -109,12 +108,12 @@ def actionsfreqs_with_jac(host_jac, coords):
 
     def _fwd(cs):
         out = _call(cs)
-        return out[:5], out[5]  # residual = the (5,5) Jacobian
+        return out[:5], out[5]  # residual = the (5,n) Jacobian
 
     def _bwd(jac, ct):
         # grad_k = sum_o ct_o * jac[:,o,k]  (o over jr,jz,Or,Op,Oz)
-        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(5))  # (N,5)
-        return (tuple(g[:, k] for k in range(5)),)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(5))  # (N,n)
+        return (tuple(g[:, k] for k in range(n)),)
 
     _af.defvjp(_fwd, _bwd)
     out = _host_if_concrete(_host, coords)
@@ -127,16 +126,16 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
     residual (#131 PR-B). phi enters analytically (d anglephi/dphi==1) via the plain
     remainder(anglephi_raw+phi,2pi) below, so jax handles its gradient/wrap.
 
-    host_jac : callable taking 5 numpy (N,) coord arrays, returning
+    host_jac : callable taking the n numpy (N,) coord arrays, returning
         (jr,jz,Or,Op,Oz,angler,anglephi_raw,anglez, jac) with the 8 values (N,) --
         angler/anglez already wrapped to [0,2pi), anglephi WITHOUT phi -- and
-        jac (N,8,5) = [ojac(5,5) stacked on ajac(3,5)]. coords : 5 traced (N,) arrays;
-        phi : traced (N,) array.
+        jac (N,8,n) = [ojac(5,n) stacked on ajac(3,n)]. coords : the n (N,) arrays
+        (R,vR,vT,z,vz and optionally per-object parameters); phi : (N,) array.
     """
     import jax
     import jax.numpy as jnp
 
-    shape, dtype = coords[0].shape, coords[0].dtype
+    shape, dtype, n = coords[0].shape, coords[0].dtype, len(coords)
 
     def _host(*cs):
         out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
@@ -147,7 +146,7 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
         return jax.pure_callback(
             _host,
             tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(8))
-            + (jax.ShapeDtypeStruct(shape + (8, 5), dtype),),
+            + (jax.ShapeDtypeStruct(shape + (8, n), dtype),),
             *cs,
             vmap_method="sequential",
         )
@@ -158,18 +157,18 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
 
     def _fwd(cs):
         out = _call(cs)
-        return out[:8], out[8]  # residual = the stacked (8,5) Jacobian
+        return out[:8], out[8]  # residual = the stacked (8,n) Jacobian
 
     def _bwd(jac, ct):
         # grad_k = sum_o ct_o * jac[:,o,k]  (o over jr,jz,Or,Op,Oz,angler,anglephi,anglez)
-        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(8))  # (N,5)
-        return (tuple(g[:, k] for k in range(5)),)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(8))  # (N,n)
+        return (tuple(g[:, k] for k in range(n)),)
 
     _afa.defvjp(_fwd, _bwd)
     out = _host_if_concrete(_host, coords)
     raw = (
         _afa(coords) if out is None else out[:8]
-    )  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
+    )  # 8 values, differentiable w.r.t. the n coords via ajac/ojac
     # C flags an unbound orbit by returning 9999.99 in every output, and that
     # sentinel must survive the azimuth wrap -- folding it gives 3.44, which reads
     # as an ordinary angle. The numpy C wrapper guards this the same way

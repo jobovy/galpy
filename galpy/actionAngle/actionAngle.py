@@ -28,6 +28,32 @@ from ..util.conversion import (
 _BACKEND_GL_ORDER = 50
 
 
+def _c_param_jac_column(values, p, angle_rows=(), rel_h=5e-3):
+    """d(values)/dp for a C evaluation with no parameter derivative of its own.
+
+    ``values(p)`` returns the (nout, N) numpy outputs at the per-object parameter
+    ``p`` (N,). A 5-point central difference, h = rel_h*|p| (rel_h where p == 0;
+    narrow, as a wider stencil crosses nearby orbits' unbound/circular switches);
+    ``angle_rows`` are differenced modulo 2pi, and objects whose C evaluation
+    fails (9999.99) get a zero column, as C zeroes their coordinate Jacobian.
+    Returns the (N, nout, 1) Jacobian column."""
+    p = numpy.asarray(p, dtype=numpy.float64)
+    h = rel_h * numpy.where(p == 0.0, 1.0, numpy.fabs(p))
+    f0 = numpy.asarray(values(p))
+    bad = numpy.any(f0 == 9999.99, axis=0)
+    D = {}
+    for k in (-2, -1, 1, 2):
+        fk = numpy.asarray(values(p + k * h))
+        bad |= numpy.any(fk == 9999.99, axis=0)
+        d = fk - f0
+        for r in angle_rows:
+            d[r] = numpy.remainder(d[r] + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+        D[k] = d
+    col = (8.0 * (D[1] - D[-1]) - (D[2] - D[-2])) / (12.0 * h)
+    col[:, bad] = 0.0
+    return col.T[:, :, None]
+
+
 # Metaclass for copying docstrings from subclass methods, first func
 # to copy func
 def copyfunc(func):

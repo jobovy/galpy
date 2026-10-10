@@ -906,3 +906,89 @@ def test_construction_param_grad_jax(mode, name, par, qdf_construction_fd):
     )
     # measured <= 5.6e-9
     numpy.testing.assert_allclose(float(g), qdf_construction_fd(name, par), rtol=1e-8)
+
+
+# ---------------------------------------------------------------------------
+# d/d(potential parameter, delta) with actionAngleStaeckel(c=True), the audit's
+# case: the C action Jacobian dropped both (torch d/da 0.63-5x wrong through
+# the qdf's own potential dependence, d/ddelta disconnected). A differentiated
+# potential now runs the backend c=False actions (C's unbound flags kept) and a
+# differentiated delta adds a column to the C Jacobian.
+# ---------------------------------------------------------------------------
+_SC_PARS = {"a": 0.5, "delta": 0.45}
+
+
+def _qdf_staeckel_c(name, a=0.5, delta=0.45):
+    from galpy.potential import MiyamotoNagaiPotential, NFWPotential
+
+    pot = MiyamotoNagaiPotential(amp=0.6, a=a, b=0.3) + NFWPotential(
+        amp=0.4 * 4.0, a=4.0
+    )
+    q = quasiisothermaldf(
+        1.0 / 3.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=pot,
+        aA=actionAngleStaeckel(pot=pot, delta=delta, c=True),
+        cutcounter=True,
+    )
+    if name == "f":
+        return q(0.9, 0.1, 0.9, 0.05, 0.02)
+    # the velocity grid reaches unbound orbits, which C flags (9999.99)
+    return getattr(q, name)(1.1, 0.1, gl=True)
+
+
+@pytest.fixture(scope="module")
+def qdf_staeckel_c_fd():
+    cache = {}
+
+    def fd(name, par):
+        if (name, par) not in cache:
+            p0 = _SC_PARS[par]
+            h = 2.5e-3 * p0
+
+            def f(v):
+                return float(
+                    numpy.asarray(_qdf_staeckel_c(name, **{par: v})).reshape(-1)[0]
+                )
+
+            fk = {k: f(p0 + k * h) for k in (-2, -1, 1, 2)}
+            cache[(name, par)] = (8.0 * (fk[1] - fk[-1]) - (fk[2] - fk[-2])) / (
+                12.0 * h
+            )
+        return cache[(name, par)]
+
+    return fd
+
+
+# a plain potential under a forced torch builds the qdf's rg table with scipy's
+# brentq on torch scalars (numpy's __array_wrap__ deprecation), as any
+# forced-torch qdf construction with a plain potential does; not this test's
+# subject
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize(
+    "bk,name,par",
+    [("torch", n, p) for n in ("f", "sigmaR2", "meanvT") for p in _SC_PARS]
+    + [("jax", "f", p) for p in _SC_PARS],
+)  # jax: the DF value only, the moments' eager c=False actions are slow
+def test_qdf_staeckel_c_grad_wrt_potential_and_delta(bk, name, par, qdf_staeckel_c_fd):
+    if bk not in BACKENDS:  # pragma: no cover
+        pytest.skip(f"{bk} not installed")
+    with galpy.backend.use(bk, force=True):
+        if bk == "jax":
+            g = jax.grad(
+                lambda v: jnp.reshape(_qdf_staeckel_c(name, **{par: v}), (-1,))[0]
+            )(jnp.asarray(_SC_PARS[par]))
+        else:
+            v = torch.tensor(_SC_PARS[par], requires_grad=True)
+            (g,) = torch.autograd.grad(
+                _qdf_staeckel_c(name, **{par: v}).reshape(-1)[0], v
+            )
+    # delta: both arms finite-difference the C actions (whose turning points are
+    # root-found to ~1e-12), and the moments' d/d(delta) is a small difference
+    rtol = 3e-8 if par == "a" else 2e-7
+    numpy.testing.assert_allclose(float(g), qdf_staeckel_c_fd(name, par), rtol=rtol)

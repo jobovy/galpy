@@ -13,21 +13,55 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, promote_scalars, to_host
+from ..backend import get_namespace, name_of_namespace, promote_scalars, to_host
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
     _check_potential_list_and_deprecate,
     _dim,
     _evaluatePotentials,
+    _pot_grad_namespace,
 )
 from ..potential.verticalPotential import _BatchedVerticalPotential
 from ..util import galpyWarning
 from . import actionAngleAdiabatic_c
-from .actionAngle import actionAngle
+from .actionAngle import _c_param_jac_column, actionAngle
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
+
+
+def _adiabatic_c_tie(name, gamma, R, vR, vT, z, vz, c_jac):
+    """Shared body of the C-native Adiabatic ties: ``c_jac(gamma, *cs)`` returns
+    (values..., jac (N,nout,5)). A differentiated gamma is a sixth, per-object
+    coordinate (copies of the one gamma) whose Jacobian column is a finite
+    difference of the C values (C has no gamma derivative)."""
+    gamma_grad = under_trace(gamma) or requires_backend_grad(gamma)
+
+    def host_jac(*cs):
+        if not gamma_grad:
+            return c_jac(gamma, *cs)
+        cs, g = cs[:5], cs[5]
+        out = c_jac(g[0], *cs)
+        col = _c_param_jac_column(lambda gg: c_jac(gg[0], *cs)[:-1], g)
+        return out[:-1] + (numpy.concatenate([out[-1], col], axis=2),)
+
+    coords = (R, vR, vT, z, vz)
+    if gamma_grad:
+        coords += (gamma * get_namespace(R).ones_like(R),)
+    bk = name_of_namespace(get_namespace(*coords))
+    if bk == "jax":
+        from ..backend._jax import adiabatic_c as tie
+
+        return getattr(tie, name + "_with_jac")(host_jac, coords)
+    if bk == "torch":
+        from ..backend._torch import adiabatic_c as tie
+
+        return getattr(tie, name + "_with_jac")(host_jac, *coords)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Adiabatic gradients require a jax or torch input array."
+    )
 
 
 def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=20):
@@ -39,29 +73,19 @@ def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=20):
     (actionAngleAdiabatic_actionsJac_c) in the backend custom_vjp / autograd.Function
     (galpy.backend._{jax,torch}.adiabatic_c): the forward is the plain round-trip C
     action value; the backward is a matvec of the C-computed Jacobian. numpy inputs
-    never reach here. gamma is a fixed scalar (no gradient); the vertical action is
-    injected into the radial Lz internally in C (Lz -> |R vT| + gamma*Jz), so the
-    (z,vz) gradients of jr are nonzero for gamma!=0. First-order only.
+    never reach here. A differentiated gamma adds a d/d(gamma) column (see
+    _adiabatic_c_tie); the vertical action is injected into the radial Lz
+    internally in C (Lz -> |R vT| + gamma*Jz), so the (z,vz) gradients of jr are
+    nonzero for gamma!=0. First-order only.
     """
 
-    def host_jac(Rn, vRn, vTn, zn, vzn):
+    def c_jac(g, *cs):
         jr, jz, jac, err = actionAngleAdiabatic_c.actionAngleAdiabatic_actionsJac_c(
-            pot, gamma, Rn, vRn, vTn, zn, vzn, order=order
+            pot, g, *cs, order=order
         )
         return jr, jz, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
-        from ..backend._jax.adiabatic_c import actions_with_jac
-
-        return actions_with_jac(host_jac, (R, vR, vT, z, vz))
-    if "torch" in name:
-        from ..backend._torch.adiabatic_c import actions_with_jac
-
-        return actions_with_jac(host_jac, R, vR, vT, z, vz)
-    raise NotImplementedError(  # pragma: no cover
-        "C-native Adiabatic action gradients require a jax or torch input array."
-    )
+    return _adiabatic_c_tie("actions", gamma, R, vR, vT, z, vz, c_jac)
 
 
 def _adiabatic_c_grad_ecczmax(pot, gamma, R, vR, vT, z, vz, order=20):
@@ -70,31 +94,20 @@ def _adiabatic_c_grad_ecczmax(pot, gamma, R, vR, vT, z, vz, order=20):
     d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz) C entry
     (actionAngleEccZmaxRperiRapAdiabaticJac_c) in the backend custom_vjp /
     autograd.Function: forward = the round-trip turning-point values; backward =
-    a matvec of the C Jacobian. numpy inputs never reach here. gamma is a fixed
-    scalar (no gradient); the gamma*Jz coupling into the radial Lz is handled
-    internally in C. First-order only. Mirrors _adiabatic_c_grad_actions.
+    a matvec of the C Jacobian. numpy inputs never reach here. A differentiated
+    gamma adds a d/d(gamma) column; the gamma*Jz coupling into the radial Lz is
+    handled internally in C. First-order only. Mirrors _adiabatic_c_grad_actions.
     """
 
-    def host_jac(Rn, vRn, vTn, zn, vzn):
+    def c_jac(g, *cs):
         ecc, zmax, rperi, rap, jac, err = (
             actionAngleAdiabatic_c.actionAngleEccZmaxRperiRapAdiabaticJac_c(
-                pot, gamma, Rn, vRn, vTn, zn, vzn, order=order
+                pot, g, *cs, order=order
             )
         )
         return ecc, zmax, rperi, rap, jac
 
-    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
-    if "jax" in name:
-        from ..backend._jax.adiabatic_c import ecczmax_with_jac
-
-        return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
-    if "torch" in name:
-        from ..backend._torch.adiabatic_c import ecczmax_with_jac
-
-        return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
-    raise NotImplementedError(  # pragma: no cover
-        "C-native Adiabatic EccZmax gradients require a jax or torch input array."
-    )
+    return _adiabatic_c_tie("ecczmax", gamma, R, vR, vT, z, vz, c_jac)
 
 
 class actionAngleAdiabatic(actionAngle):
@@ -197,9 +210,14 @@ class actionAngleAdiabatic(actionAngle):
             vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot)
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            # C cannot carry a potential-parameter gradient; c=False can
+            and _pot_grad_namespace(self._pot) is None
+        )
         _special = (
             kwargs.get("_justjr", False)
             or kwargs.get("_justjz", False)
@@ -514,9 +532,14 @@ class actionAngleAdiabatic(actionAngle):
             vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot)
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            # C cannot carry a potential-parameter gradient; c=False can
+            and _pot_grad_namespace(self._pot) is None
+        )
         if use_c and xp is not numpy:
             # C-native differentiable (ecc,zmax,rperi,rap) via the fused (4,5) C
             # Jacobian; numpy path below is byte-identical (#131 Adiabatic PR-2c).
