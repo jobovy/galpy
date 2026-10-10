@@ -954,15 +954,16 @@ def test_analytic_turning_points_under_jit(potkind):
 
 @pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
 @pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
-def test_analytic_c_rejects_potential_parameter_gradient(backend_name):
-    # The C path cannot carry d/d(potential parameter); with the automagic
-    # delta (which reads the potential) it would otherwise return the
-    # delta-mediated part of it alone.
+def test_analytic_c_potential_parameter_gradient(backend_name):
+    # C cannot carry d/d(potential parameter): the call runs the backend
+    # c=False turning points, so the gradient includes the direct dependence
+    # as well as the automagic delta's (which reads the potential). It used to
+    # raise; before that, it returned the delta-mediated part alone.
     from galpy.potential import MiyamotoNagaiPotential
 
     cast = jnp.asarray if backend_name == "jax" else torch.tensor
 
-    def f(a):
+    def f(a, cast):
         return Orbit(cast(_TP_IC)).rap(
             analytic=True,
             pot=MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3),
@@ -970,12 +971,18 @@ def test_analytic_c_rejects_potential_parameter_gradient(backend_name):
             c=True,
         )
 
-    with pytest.raises(NotImplementedError, match="use c=False"):
-        with use(backend_name, force=True):
-            if backend_name == "jax":
-                jax.grad(lambda a: f(a).reshape(()))(jnp.asarray(0.6))
-            else:
-                f(torch.tensor(0.6, requires_grad=True))
+    with use(backend_name, force=True):
+        if backend_name == "jax":
+            g = float(jax.grad(lambda a: f(a, cast).reshape(()))(jnp.asarray(0.6)))
+        else:
+            a = torch.tensor(0.6, requires_grad=True)
+            (g,) = torch.autograd.grad(f(a, cast).reshape(()), a)
+            g = float(g)
+    h = 1.5e-3
+    fk = {k: float(f(0.6 + k * h, numpy.asarray)) for k in (-2, -1, 1, 2)}
+    fd = (8.0 * (fk[1] - fk[-1]) - (fk[2] - fk[-2])) / (12.0 * h)
+    assert abs(fd) > 1e-3
+    numpy.testing.assert_allclose(g, fd, rtol=1e-7)
 
 
 # --- every accessor of a NUMPY-stored orbit follows a forced backend ----------
