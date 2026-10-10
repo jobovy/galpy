@@ -805,12 +805,16 @@ def test_finite_part_quad_batches_over_its_limits(backend):
     # so batched must be BIT-identical there. torch dispatches a different
     # reduction for the 2-D case and lands ~1e-13 relative away (measured) --
     # a reduction-order difference, not a different rule, so it gets a tight
-    # rtol rather than an exemption.
+    # rtol rather than an exemption. XLA:GPU picks its reduction kernel by
+    # shape too: jax on a GPU lands 1 ulp away (measured, H100), so 1e-15 there.
+    if backend == "torch":
+        rtol = 1e-12
+    elif backend == "jax" and jax.default_backend() == "gpu":
+        rtol = 1e-15
+    else:
+        rtol = 0.0
     numpy.testing.assert_allclose(
-        numpy.asarray(to_host(got), dtype=float),
-        per_element,
-        rtol=1e-12 if backend == "torch" else 0.0,
-        atol=0,
+        numpy.asarray(to_host(got), dtype=float), per_element, rtol=rtol, atol=0
     )
 
 

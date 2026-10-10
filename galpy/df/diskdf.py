@@ -38,6 +38,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     prefer_backend_namespace,
+    scalar_like,
     to_host,
     use,
 )
@@ -848,13 +849,15 @@ class diskdf(df):
 
     def _backend_moment_prep(self, R, nsigma):
         """Backend (jax/torch) prelude shared by the moment quadratures: returns
-        (xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box,
-        R on xp: a differentiated profile parameter at a Python-float R is data.
-        All carry two trailing length-1 axes for the (vR, vT) GL grid."""
+        (xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma) for the
+        velocity box, R on xp: a differentiated profile parameter at a
+        Python-float R is data. All carry two trailing length-1 axes for the
+        (vR, vT) GL grid; gamma is the scalar_like-anchored self._gamma."""
         params = getattr(self._surfaceSigmaProfile, "_params", ())
         xp = prefer_backend_namespace(R, *params)
         (R,) = coerce_coords(xp, R, device=device_of(R, *params))
         R = xp.reshape(R, tuple(R.shape) + (1, 1))
+        gamma = scalar_like(R, self._gamma)  # numpy.float64: see scalar_like
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = xp.sqrt(sigmaR2)
@@ -864,15 +867,24 @@ class diskdf(df):
             / 2.0
             / R**self._beta
             * (
-                1.0 / self._gamma**2.0
+                1.0 / gamma**2.0
                 - 1.0
                 - R * self._ssp("surfacemassDerivative", R, log=True)
                 - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
-        vTcen = self._gamma * (R**self._beta - va) / sigmaR1
-        return xp, R, logSigmaR, logsigmaR2, sigmaR1, vTcen - nsigma, vTcen + nsigma
+        vTcen = gamma * (R**self._beta - va) / sigmaR1
+        return (
+            xp,
+            R,
+            logSigmaR,
+            logsigmaR2,
+            sigmaR1,
+            vTcen - nsigma,
+            vTcen + nsigma,
+            gamma,
+        )
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
@@ -907,7 +919,7 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
             norm = 1.0 if relative else xp.exp(logSigmaR[..., 0, 0])
@@ -915,7 +927,7 @@ class diskdf(df):
                 nested_quad(
                     xp,
                     lambda vR, vT: _surfaceIntegrand(
-                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma
+                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, gamma
                     ),
                     [(0.0, nsigma), (vTlo, vThi)],
                     n=_NQUAD,
@@ -1008,7 +1020,7 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
             norm = 1.0 if relative else xp.exp((logSigmaR + logsigmaR2)[..., 0, 0])
@@ -1016,7 +1028,7 @@ class diskdf(df):
                 nested_quad(
                     xp,
                     lambda vR, vT: _sigma2surfaceIntegrand(
-                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma
+                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, gamma
                     ),
                     [(0.0, nsigma), (vTlo, vThi)],
                     n=_NQUAD,
@@ -1142,18 +1154,18 @@ class diskdf(df):
         if (
             is_backend_array(R) or self._profile_differentiated()
         ) and not self._correct:
-            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = (
+            xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
             norm = (
                 1.0
                 if relative
                 else xp.exp((logSigmaR + logsigmaR2 * (n + m) / 2.0)[..., 0, 0])
-                / self._gamma**m
+                / gamma**m
             )
             if deriv is None:
                 integ = lambda vR, vT: _vmomentsurfaceIntegrand(
-                    vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma, n, m
+                    vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, gamma, n, m
                 )
             else:
                 integ = lambda vR, vT: _vmomentderivsurfaceIntegrand(
@@ -1164,7 +1176,7 @@ class diskdf(df):
                     logSigmaR,
                     logsigmaR2,
                     sigmaR1,
-                    self._gamma,
+                    gamma,
                     n,
                     m,
                     deriv,
@@ -2145,7 +2157,7 @@ class dehnendf(diskdf):
         correction = xp.zeros(2)
         SRE2 = self.targetSigma2(xE, log=True, use_physical=False) + correction[1]
         return (
-            self._gamma
+            scalar_like(E, self._gamma)
             * xp.exp(
                 logsigmaR2
                 - SRE2
@@ -2597,7 +2609,7 @@ class shudf(diskdf):
         correction = xp.zeros(2)
         SRE2 = self.targetSigma2(xLsafe, log=True, use_physical=False) + correction[1]
         value = (
-            self._gamma
+            scalar_like(E, self._gamma)
             * xp.exp(
                 logsigmaR2
                 - SRE2

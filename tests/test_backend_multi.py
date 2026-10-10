@@ -42,10 +42,14 @@ def _child_torch_matmul(x):
     return float((m @ m)[0, 0]) + float(x)  # == 256 + x, exactly
 
 
-def test_forked_child_is_capped_at_one_torch_thread():
+def test_forked_child_is_capped_at_one_torch_thread(monkeypatch):
     torch = pytest.importorskip("torch")
     from galpy.util.multi import parallel_map
 
+    # after CUDA init (--device cuda) parallel_map does not fork at all (see
+    # test_parallel_map_does_not_fork_after_cuda_init); fake it off to test the
+    # fork path's cap (the children only read their thread count, no CUDA)
+    monkeypatch.setattr(torch.cuda, "is_initialized", lambda: False)
     parent_before = torch.get_num_threads()
     got = list(parallel_map(_child_torch_threads, numpy.arange(4), numcores=2))
     assert got == [1, 1, 1, 1], (

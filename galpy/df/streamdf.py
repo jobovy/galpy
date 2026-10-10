@@ -1430,16 +1430,22 @@ class streamdf(df):
                 ).flatten()
         else:
             aatrack = numpy.reshape(
-                multi.parallel_map(
-                    (
-                        lambda x: self._aA.actionsFreqsAngles(
-                            Orbit(self._ObsTrack[x, :]), use_physical=False
-                        )[3:]
-                    ),
-                    range(self._nTrackChunks),
-                    numcores=numpy.amin(
-                        [self._nTrackChunks, multiprocessing.cpu_count(), self._multi]
-                    ),
+                to_host(  # serial under CUDA torch (see parallel_map): tensors
+                    multi.parallel_map(
+                        (
+                            lambda x: self._aA.actionsFreqsAngles(
+                                Orbit(self._ObsTrack[x, :]), use_physical=False
+                            )[3:]
+                        ),
+                        range(self._nTrackChunks),
+                        numcores=numpy.amin(
+                            [
+                                self._nTrackChunks,
+                                multiprocessing.cpu_count(),
+                                self._multi,
+                            ]
+                        ),
+                    )
                 ),
                 (self._nTrackChunks, 6),
             )
