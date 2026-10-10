@@ -592,11 +592,11 @@ def test_check_backend_compatible_semantics():
         cbc(potential.TimeDependentAmplitudeWrapperPotential(pot=mn, A=lambda t: 1.0))
         is False
     )
-    # opts back out despite its interpSphericalPotential base
+    # an interpSphericalPotential, compatible like its base
     ac = potential.AdiabaticContractionWrapperPotential(
         pot=mn, baryonpot=potential.NFWPotential(amp=0.2)
     )
-    assert cbc(ac) is False
+    assert cbc(ac) is True
     # a non-potential first arg (e.g. a df instance) is never compatible
     assert cbc(object()) is False
 
