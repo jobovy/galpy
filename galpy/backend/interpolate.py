@@ -1653,8 +1653,8 @@ class Spline2D:
 #   frozen linear operator ``y -> fit`` that is differentiable in ``y`` -- the
 #   smoothing hyperparameters (GCV ``lambda`` / FITPACK knots+``p``) are frozen
 #   from the concrete ``y`` (a stop-gradient), so the gradient is d(fit)/d(y) at
-#   fixed smoothing. The reconstruction ties to scipy's private GCV solve
-#   (``_bsplines``) and to FITPACK's augmented least-squares; the numpy path is
+#   fixed smoothing. The reconstruction ports scipy's GCV solve (no private
+#   scipy API) and FITPACK's augmented least-squares; the numpy path is
 #   unaffected. streamTrack (which needs an extra y-rescaling POLICY) drives the
 #   lower-level ``_gcv_operator`` / ``_fitpack_operator`` directly.
 ###############################################################################
@@ -1695,16 +1695,114 @@ def _smoothing_design(q, t, k=3):
     return _scipy_interpolate.BSpline(t, numpy.eye(nk1), k, extrapolate=True)(q)
 
 
+def _coeff_of_divided_diff(x):
+    """Coefficients of the divided difference over the (distinct) nodes ``x``."""
+    n = x.shape[0]
+    res = numpy.zeros(n)
+    for i in range(n):
+        pp = 1.0
+        for k in range(n):
+            if k != i:
+                pp *= x[i] - x[k]
+        res[i] = 1.0 / pp
+    return res
+
+
+def _gcv_optimal_lambda(X, wE, y, w):
+    """GCV-optimal regularization ``lambda`` of the natural-spline smoothing
+    problem (``X`` / ``wE``: 5-band LAPACK storage of the design and
+    ``W^-1 E`` penalty matrices; 1-D ``y``; weights ``w``), via the same
+    bounded scalar minimisation over ``[0, n]``. Port of scipy's private
+    ``scipy.interpolate._bsplines._compute_optimal_gcv_parameter`` (identical
+    from scipy 1.10 to 1.18), kept operation-for-operation so the chosen
+    ``lambda`` is that of public ``make_smoothing_spline(x, y, w, lam=None)``.
+    Ported from SciPy, Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy
+    Developers; BSD-3-Clause license
+    (https://github.com/scipy/scipy/blob/main/LICENSE.txt)."""
+    from scipy.linalg import LinAlgError, cholesky_banded, solve_banded
+    from scipy.optimize import minimize_scalar
+
+    def banded_sym_XtWY(X, w, Y):
+        # unique 4 bands of the symmetric 7-banded X^T W Y
+        W_Y = numpy.copy(Y)
+        W_Y[2] *= w
+        for i in range(2):
+            W_Y[i, 2 - i :] *= w[: -2 + i]
+            W_Y[3 + i, : -1 - i] *= w[1 + i :]
+        n = X.shape[1]
+        res = numpy.zeros((4, n))
+        for i in range(n):
+            for j in range(min(n - i, 4)):
+                res[-j - 1, i + j] = sum(X[j:, i] * W_Y[: 5 - j, i + j])
+        return res
+
+    def b_inv(A):
+        # 3 central bands of A^-1 (A = U^T D^-1 U, Hutchinson & de Hoog 1985)
+        def b_inv_elem(i, j, U, D, B):
+            rng = min(3, n - i - 1)
+            rng_sum = 0.0
+            if j == 0:
+                for k in range(1, rng + 1):
+                    rng_sum -= U[-k - 1, i + k] * B[-k - 1, i + k]
+                rng_sum += D[i]
+                B[-1, i] = rng_sum
+            else:
+                for k in range(1, rng + 1):
+                    diag = abs(k - j)
+                    ind = i + min(k, j)
+                    rng_sum -= U[-k - 1, i + k] * B[-diag - 1, ind + diag]
+                B[-j - 1, i + j] = rng_sum
+
+        U = cholesky_banded(A)
+        for i in range(2, 5):
+            U[-i, i - 1 :] /= U[-1, : -i + 1]
+        D = 1.0 / (U[-1]) ** 2
+        U[-1] /= U[-1]
+        n = U.shape[1]
+        B = numpy.zeros(shape=(4, n))
+        for i in range(n - 1, -1, -1):
+            for j in range(min(3, n - i - 1), -1, -1):
+                b_inv_elem(i, j, U, D, B)
+        B[0] = [0.0] * n  # first row is garbage
+        return B
+
+    def gcv(lam, X, XtWX, wE, XtE, y):
+        # GCV(lam) = |lam W^-1 E c|^2 / n / (1 - Tr(A)/n)^2
+        n = X.shape[1]
+        c = solve_banded((2, 2), X + lam * wE, y)
+        res = numpy.zeros(n)
+        tmp = wE * c
+        for i in range(n):
+            for j in range(max(0, i - n + 3), min(5, i + 3)):
+                res[i] += tmp[j, i + 2 - j]
+        numerator = numpy.linalg.norm(lam * res) ** 2 / n
+        lhs = XtWX + lam * XtE
+        try:
+            tr = b_inv(lhs) * XtWX
+            tr[:-1] *= 2
+            denom = (1 - sum(sum(tr)) / n) ** 2
+        except LinAlgError:
+            raise ValueError("Seems like the problem is ill-posed")
+        return numerator / denom
+
+    n = X.shape[1]
+    XtWX = banded_sym_XtWY(X, w, X)
+    XtE = banded_sym_XtWY(X, w, wE)
+    est = minimize_scalar(
+        gcv, bounds=(0, n), method="Bounded", args=(X, XtWX, wE, XtE, y)
+    )
+    if est.success:
+        return est.x
+    raise ValueError(f"Unable to find minimum of the GCV function: {est.message}")
+
+
 def _gcv_operator(xv, yv, w):
     """Reconstruct ``make_smoothing_spline(xv, yv, w=w)`` as a linear operator
     y -> B-spline coeffs: freeze the GCV ``lambda`` from the concrete data, then
     the natural-spline solve is LINEAR in y. Returns ``(t, S)`` with fitted
-    B-spline coeffs ``= S @ yv``. ``w`` is scipy's weight (``1/variance``). Ties
-    to scipy private API (``_bsplines``); the numpy path is unaffected."""
-    from scipy.interpolate._bsplines import (
-        _coeff_of_divided_diff,
-        _compute_optimal_gcv_parameter,
-    )
+    B-spline coeffs ``= S @ yv``. ``w`` is scipy's weight (``1/variance``). The
+    GCV ``lambda`` is galpy's port of scipy's (no private scipy API); the numpy
+    path is unaffected."""
     from scipy.linalg import solve_banded
 
     n = xv.shape[0]
@@ -1731,8 +1829,7 @@ def _gcv_operator(xv, yv, w):
     wE[:-1, -2] = -_coeff_of_divided_diff(xv[-4:]) / w[-4:]
     wE[:-2, -1] = _coeff_of_divided_diff(xv[-3:]) / w[-3:]
     wE *= 6
-    # 1-D yv: scipy 1.15's (Python 3.10) private GCV accepts only a 1-D y
-    lam = float(numpy.asarray(_compute_optimal_gcv_parameter(X, wE, yv, w)).ravel()[0])
+    lam = float(_gcv_optimal_lambda(X, wE, yv, w))
     # natural coeffs = Ainv @ yv; scipy's own banded LU (solve_banded) reproduces
     # its solve even for ill-conditioned A.
     Ainv = solve_banded((2, 2), X + lam * wE, numpy.eye(n))
