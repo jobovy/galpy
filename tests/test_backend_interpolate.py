@@ -2165,3 +2165,24 @@ def test_quintic_hermite_and_cubic_ppoly_helpers(backend):
         rtol=1e-15,
         atol=1e-16,
     )
+
+
+# --- interp1d_clamped: scipy interp1d with constant fill, backend-agnostic ----
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_interp1d_clamped(backend):
+    from galpy.backend.interpolate import interp1d_clamped
+
+    rq = numpy.array([0.1, 0.3, 1.1, 2.7, 6.0, 7.5])  # both fills
+    ref = si.interp1d(_XG, _YG, bounds_error=False, fill_value=(_YG[0], _YG[-1]))(rq)
+    got = interp1d_clamped(_asarray(backend, _XG), _asarray(backend, _YG))(
+        _asarray(backend, rq)
+    )
+    assert _is_backend(backend, got)
+    if backend == "numpy":
+        assert got.tobytes() == ref.tobytes()
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14)
+    if backend == "jax":  # d/d(knot y): the lerp weight, 0 in the fills
+        g = jax.grad(
+            lambda y: interp1d_clamped(jnp.asarray(_XG), y)(jnp.asarray(rq)).sum()
+        )(jnp.asarray(_YG))
+        numpy.testing.assert_allclose(numpy.asarray(g)[[0, -1]], 2.0, rtol=1e-14)
