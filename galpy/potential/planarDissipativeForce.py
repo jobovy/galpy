@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import backend_input
+from ..backend import backend_input, is_backend_compatible
 from ..util.conversion import physical_conversion, potential_physical_input
 from .planarForce import planarForce
 
@@ -126,6 +126,8 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
         self.hasC = Pot.hasC and _hasC_planar
         self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
         self.hasC_dens = Pot.hasC_dens
+        # an adapter is only as backend-aware as the force it adapts
+        self._backend_compatible = is_backend_compatible(Pot)
         return None
 
     def _Rforce(self, R, phi=0.0, t=0.0, v=None):

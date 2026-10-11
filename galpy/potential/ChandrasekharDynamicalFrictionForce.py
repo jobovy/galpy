@@ -8,10 +8,21 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    lazy_cond,
+    resolve_namespace,
+)
 from ..backend import special as _backend_special
 from ..backend import to_host
-from ..backend._namespaces import under_trace
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
@@ -24,6 +35,16 @@ from .Potential import (
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 _INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
+
+
+def _traced_host_namespace(dens):
+    """The forced backend's namespace when ``dens`` evaluates to traced values
+    (a forced backend inside jax.jit / torch.compile), else None: scipy cannot
+    tabulate sigma_r there."""
+    if resolve_namespace() is numpy:
+        return None
+    probe = _evaluateDensities(dens, 1.0, 0.0, phi=0.0, t=0.0)
+    return get_namespace(probe) if under_trace(probe) else None
 
 
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
@@ -152,6 +173,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # quadrature instead -- differentiable, and as accurate (Spline1D below
         # then takes differentiated values: mode 2).
         grad_xp = _pot_grad_namespace(self._dens_pot) if default_sigmar else None
+        if default_sigmar and grad_xp is None:
+            grad_xp = _traced_host_namespace(self._dens_pot)
         fast_sigmars = (
             jeans._sigmar_on_grid(self._dens_pot, self._sigmar_rs_4interp, beta=0.0)
             if default_sigmar and grad_xp is None
@@ -164,13 +187,25 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 beta=0.0,
                 use_physical=False,
             )
+        elif fast_sigmars is not None:
+            self._sigmars_4interp = fast_sigmars
         else:
-            self._sigmars_4interp = (
-                fast_sigmars
-                if fast_sigmars is not None
-                else numpy.array(to_host([sigmar(x) for x in self._sigmar_rs_4interp]))
-            )
-        if grad_xp is None and numpy.any(numpy.isnan(self._sigmars_4interp)):
+            sigmars = [sigmar(x) for x in self._sigmar_rs_4interp]
+            on_backend = [
+                s for s in sigmars if under_trace(s) or requires_backend_grad(s)
+            ]
+            if on_backend:
+                # traced or differentiated values (a sigmar built from backend
+                # parameters): keep the graph; concrete ones go to numpy as before
+                sxp = namespace_from_arrays(on_backend)
+                self._sigmars_4interp = sxp.stack(
+                    coerce_coords(sxp, *sigmars, device=device_of(*on_backend))
+                )
+            else:
+                self._sigmars_4interp = numpy.array(to_host(sigmars))
+        if not is_backend_array(self._sigmars_4interp) and numpy.any(
+            numpy.isnan(self._sigmars_4interp)
+        ):
             # Check for case where density is zero, in that case, just
             # paint in the nearest neighbor for the interpolation
             # (doesn't matter in the end, because force = 0 when dens = 0)
@@ -222,6 +257,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # C integrator (also covers FDMDynamicalFrictionForce, which inherits
         # its hasC* attributes from here)
         self.hasC_planar = False
+        self._backend_compatible = True
+        self._reset_param_namespace()
         return None
 
     def GMs(self, gms):
@@ -230,6 +267,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._ms = gms
         # Reset the hash
         self._force_hash = None
+        self._reset_param_namespace()
         return None
 
     GMs = property(None, GMs)
@@ -238,6 +276,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._rhm = conversion.parse_length(new_rhm, ro=self._ro)
         # Reset the hash
         self._force_hash = None
+        self._reset_param_namespace()
         return None
 
     rhm = property(None, rhm)
@@ -320,16 +359,30 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
+    def _sigmar_backend(self, r, xp):
+        """sigma_r(r) on the backend: the table spline inside maxr, the given
+        sigmar (sigmar_orig) beyond, as the numpy path does."""
+        sr = self.sigmar(r)
+        outside = r > self._maxr
+
+        def beyond():
+            # dead-branch-safe: sigmar_orig only sees radii beyond maxr
+            r_out = xp.where(outside, r, self._maxr * xp.ones_like(r))
+            return xp.where(outside, self.sigmar_orig(r_out) * xp.ones_like(sr), sr)
+
+        # sigmar_orig (for the default, a Jeans integral) only when needed
+        return lazy_cond(xp, xp.any(outside), beyond, lambda: sr)
+
     def _calc_force_backend(self, R, phi, z, v, t, xp):
         # jit/grad-safe common friction factor for backend inputs; no hashing/
         # caching (traced arrays are unhashable). Returns the scalar that the
         # cylindrical force components are built from.
         # v is a caller-supplied triple, not coerced by @backend_input like R/z,
-        # so torch rejects a numpy v here. No-op when xp is numpy.
-        v = coerce_coords(xp, *v)
+        # and R/z are plain floats when only a parameter is on the backend.
+        R, z, phi, t, v = self._coerce_force_args(R, z, phi, t, v, xp)
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
-        sr = self.sigmar(r)
+        sr = self._sigmar_backend(r, xp)
         X = vs * _INVSQRTTWO / sr
         Xfactor = _backend_special.erf(X) - 2.0 * X * _INVSQRTPI * xp.exp(-(X**2.0))
         lnLambda = self._lnLambda_backend(r, vs, xp)
@@ -376,26 +429,60 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._backend_force_cache = (key, out)
         return out
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+    def _reset_param_namespace(self):
+        """Cache the namespace of a differentiated parameter (amp, GMs, gamma,
+        rhm, the host potential, a user sigmar), else None; called whenever a
+        parameter is set. The eager force cache holds coordinates, not
+        parameters, so it goes first."""
+        self.__dict__.pop("_backend_force_cache", None)
+        self.__dict__.pop("_param_xp", None)
+        # gradient-carrying only: a merely-forced backend leaves backend-array
+        # host parameters behind, and the Python integrators' numpy steps must
+        # stay on numpy
+        self._param_xp = _pot_grad_namespace(self)
+
+    def _param_namespace(self):
+        try:
+            return self._param_xp
+        except AttributeError:  # unpickled
+            self._reset_param_namespace()
+            return self._param_xp
+
+    def _force_namespace(self, R, z, phi, t, v):
         # Dispatch on the DATA, not get_namespace: this DissipativeForce is queried
         # via a path that skips the input-coercion gate, so under a forced backend
         # get_namespace would return that backend for bare python/numpy inputs and
-        # send them into the backend arithmetic (torch.sqrt(float) crashes). Only
-        # genuine backend arrays take the backend path; else the numpy/cache path.
-        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
-            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        # send them into the backend arithmetic (torch.sqrt(float) crashes). Backend
+        # coordinates or a differentiated parameter take the backend path; else
+        # (None) the numpy/cache path.
+        if is_backend_array(R) or is_backend_array(z) or any(map(is_backend_array, v)):
+            return get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        return self._param_namespace()
+
+    def _coerce_force_args(self, R, z, phi, t, v, xp):
+        """(R, z, phi, t, v) on ``xp``, anchored on the coordinates' device or,
+        for plain-float coordinates, on the parameters'."""
+        dev = device_of(R, z, *v) or device_of(
+            self._amp, self._ms, self._gamma, self._rhm, self._sigmars_4interp
+        )
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t, device=dev)
+        return R, z, phi, t, coerce_coords(xp, *v, device=dev)
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+        xp = self._force_namespace(R, z, phi, t, v)
+        if xp is not None:
             return self._backend_force_factor(R, phi, z, v, t, xp) * v[0]
         return self._cached_force_factor(R, phi, z, v, t) * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
-            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        xp = self._force_namespace(R, z, phi, t, v)
+        if xp is not None:
             return self._backend_force_factor(R, phi, z, v, t, xp) * v[1] * R
         return self._cached_force_factor(R, phi, z, v, t) * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
-            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        xp = self._force_namespace(R, z, phi, t, v)
+        if xp is not None:
             return self._backend_force_factor(R, phi, z, v, t, xp) * v[2]
         return self._cached_force_factor(R, phi, z, v, t) * v[2]
 
@@ -405,6 +492,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # rm lambda function
         del pdict["_dens_host"]
         pdict.pop("_backend_force_cache", None)  # holds arrays of the last step
+        pdict.pop("_param_xp", None)  # a module
         if self._sigmar_kwarg is None:
             # because an object set up with sigmar = user-provided function
             # cannot typically be picked, disallow this explicitly
