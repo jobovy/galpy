@@ -927,3 +927,63 @@ def test_wrapper_grad_wrt_wrapped_parameter(backend, build, which, th0, method, 
 
     for g in autodiff_param_grads(f, th0, backend):
         numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-12)
+
+
+# Orientation and offset (gap audit R-ROT): galaxy_pa, inclination, sky_pa,
+# zvec and offset build the rotation on the backend, so their gradients exist
+# in data and forced mode, under jit/vmap and on torch. A differentiated
+# galaxy_pa = 0 keeps the (identity) rotation rather than dropping it.
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+def _rat(**kw):
+    return RotateAndTiltWrapperPotential(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), **kw
+    )
+
+
+def _rat_zvec(zx, **kw):
+    return _rat(zvec=[zx, 0.1, 1.0], **kw)
+
+
+def _rat_offset(ox, **kw):
+    return _rat(offset=[ox, -0.2, 0.05], **kw)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "build,params,name,method",
+    [
+        (_rat, {"galaxy_pa": 0.3}, "galaxy_pa", "Phi"),
+        (_rat, {"galaxy_pa": 0.0}, "galaxy_pa", "phitorque"),
+        (
+            _rat,
+            {"inclination": 0.6, "sky_pa": 0.2, "galaxy_pa": 0.1},
+            "inclination",
+            "Phi",
+        ),
+        (
+            _rat,
+            {"inclination": 0.6, "sky_pa": 0.2, "galaxy_pa": 0.1},
+            "sky_pa",
+            "Rforce",
+        ),
+        (_rat_zvec, {"zx": 0.2, "galaxy_pa": 0.3}, "zx", "zforce"),
+        (_rat_offset, {"ox": 0.1}, "ox", "Phi"),
+        (_rat_offset, {"ox": 0.1}, "ox", "Rforce"),
+    ],
+    ids=[
+        "gpa-Phi",
+        "gpa0-phitorque",
+        "incl-Phi",
+        "skypa-Rforce",
+        "zvec-zforce",
+        "offset-Phi",
+        "offset-Rforce",
+    ],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotateandtilt_orientation_gradient(
+    backend_name, mode, build, params, name, method
+):
+    assert_param_grad(backend_name, mode, build, params, name, method, [0.9, 0.2, 0.4])
