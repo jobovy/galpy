@@ -495,6 +495,13 @@ class quasiisothermaldf(df):
             elif numpy.isnan(out):  # pragma: no cover
                 out = 0.0
         jr, jz = jr_out, jz_out
+        if unbound is not None and (_return_actions or _return_freqs):
+            # NaN actions and frequencies at unbound points, as numpy's
+            # point-by-point UnboundError fallback returns
+            jr, lz, jz, thisrg, kappa, nu, Omega = (
+                xp.where(unbound, xp.nan, x)
+                for x in (jr, lz, jz, thisrg, kappa, nu, Omega)
+            )
         if _return_actions and _return_freqs:
             return (out, jr, lz, jz, thisrg, kappa, nu, Omega)
         elif _return_actions:
