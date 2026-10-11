@@ -615,6 +615,11 @@ def test_full_construction_sigv_grad_vs_fd(forced):
         return jnp.stack([jnp.reshape(jnp.asarray(o), ()) for o in out])
 
     ad = numpy.asarray(jax.jacfwd(f)(jnp.asarray(s0)))
+    # release the eager construction's compiled kernels and buffers (~2 GB)
+    import gc
+
+    jax.clear_caches()
+    gc.collect()
 
     def ev(x):
         out = _sigv_full_obs(_sigv_full_sdf(x, forced, "jax"), forced, "jax")
