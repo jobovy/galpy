@@ -1114,18 +1114,23 @@ class Potential(Force):
                 # node_axis lets an array R broadcast against the nodes.
                 Rn = _bquad.node_axis(R)
 
-                def _integrand_b(theta, R=Rn):
+                def _integrand_at(theta, RR):
                     return self.rforce(
-                        R * xp.sin(theta), R * xp.cos(theta), t=t, use_physical=False
+                        RR * xp.sin(theta),
+                        RR * xp.cos(theta),
+                        t=t,
+                        use_physical=False,
                     ) * xp.sin(theta)
 
-                if not _vec:  # scalar-only force: node by node
+                # closures, not a tensor default argument: dynamo guards a
+                # default by identity and recompiled every call under --jit
+                if _vec:
+                    _f = lambda th: _integrand_at(th, Rn)
+                else:  # scalar-only force: node by node
                     _f = lambda th: xp.stack(
-                        [_integrand_b(th[..., i], R) for i in range(th.shape[-1])],
+                        [_integrand_at(th[..., i], R) for i in range(th.shape[-1])],
                         axis=-1,
                     )
-                else:
-                    _f = _integrand_b
                 return (
                     -(R**2.0)
                     * _bquad.transformed_quad(

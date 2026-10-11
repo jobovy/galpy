@@ -1176,20 +1176,14 @@ class sphericaldf(df):
             rs = xp.where(at0, self._scale, self._scale * ((1.0 + xis) / (1.0 - xis)))
         else:
             rs = _xiToR(xis, a=_scale_np)
-        # try/except necessary when mass doesn't take arrays, also need to
-        # switch to a more general mass method at some point... (RuntimeError:
-        # a forced-backend integration-based mass can't broadcast the array rs
-        # against its quadrature nodes -- fall back to the per-r loop as numpy does)
+        # try/except necessary when mass doesn't take arrays (numpy's scipy
+        # quad); a backend mass broadcasts an array rs against its nodes
         try:
             ms = mass(self._denspot, rs, use_physical=False)
         except (ValueError, TypeError, RuntimeError):
             ms = numpy.array(
                 [as_numpy(mass(self._denspot, r, use_physical=False)) for r in rs]
             )
-            # keep ms on the active backend so the mnorm/rmin arithmetic below
-            # stays same-namespace (as_numpy'd for the icdf table at the end)
-            if xp is not numpy:
-                ms = xp.asarray(ms)
         if grad:
             ms = xp.where(at0, 0.0, ms)
 
