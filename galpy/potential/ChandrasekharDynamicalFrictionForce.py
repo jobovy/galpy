@@ -12,6 +12,7 @@ from ..backend import (
     coerce_coords,
     device_of,
     get_namespace,
+    host_eval,
     is_backend_array,
     lazy_cond,
     resolve_namespace,
@@ -368,7 +369,14 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         def beyond():
             # dead-branch-safe: sigmar_orig only sees radii beyond maxr
             r_out = xp.where(outside, r, self._maxr * xp.ones_like(r))
-            return xp.where(outside, self.sigmar_orig(r_out) * xp.ones_like(sr), sr)
+            try:
+                s_out = self.sigmar_orig(r_out)
+            except Exception:
+                s_out = None
+            if s_out is None or isinstance(s_out, numpy.ndarray):
+                # a numpy-only user sigmar: its values (no gradient)
+                s_out = host_eval(self.sigmar_orig, r_out)
+            return xp.where(outside, s_out * xp.ones_like(sr), sr)
 
         # sigmar_orig (for the default, a Jeans integral) only when needed
         return lazy_cond(xp, xp.any(outside), beyond, lambda: sr)

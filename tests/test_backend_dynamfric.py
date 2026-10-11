@@ -723,3 +723,45 @@ def test_dynfric_param_namespace_follows_parameters_only(backend):
         pickle.dumps(ChandrasekharDynamicalFrictionForce(GMs=0.05, dens=_NFW))
     )
     assert "_param_xp" not in cdf.__dict__ and cdf._param_namespace() is None
+
+
+# sigma_r beyond maxr is the given sigmar, as on numpy (not the table spline's
+# extrapolation): a backend-capable one keeps its gradient, a numpy-only one
+# gives its values. Only evaluated when a radius is beyond maxr.
+@pytest.mark.parametrize("kind", ["xp", "numpy_only"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_sigmar_beyond_maxr(backend, kind):
+    from galpy.potential import HernquistPotential
+
+    sig = (
+        (lambda r: 0.5 / (1.0 + r))
+        if kind == "xp"
+        else (lambda r: 0.5 * numpy.exp(-numpy.asarray(r) / 5.0))
+    )
+
+    def F(R):
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=HernquistPotential(a=1.0), sigmar=sig, maxr=2.0
+        )
+        return cdf.Rforce(R, _Z0, phi=_PHI0, v=[_arr_like(backend, c) for c in _V0])
+
+    Rs = [1.5, 3.0]  # inside and beyond maxr
+    for R in Rs:
+        ref = float(F(R) if backend == "numpy" else as_numpy(F(_arr_like("numpy", R))))
+        if backend == "numpy":
+            continue
+        got = F(_arr_like(backend, R))
+        numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-13)
+        if backend == "jax":
+            numpy.testing.assert_allclose(float(jax.jit(F)(R)), ref, rtol=1e-13)
+        if kind == "xp":
+            h = 1e-3
+            fd = (float(F(R + h)) - float(F(R - h))) / (2.0 * h)
+            fd = (4.0 * (float(F(R + h / 2)) - float(F(R - h / 2))) / h - fd) / 3.0
+            if backend == "jax":
+                ads = [float(jax.grad(F)(R)), float(jax.jit(jax.grad(F))(R))]
+            else:
+                x = torch.tensor(R, requires_grad=True)
+                ads = [float(torch.autograd.grad(F(x), x)[0])]
+            for ad in ads:
+                numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
