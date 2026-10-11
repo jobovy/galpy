@@ -56,6 +56,7 @@ __all__ = [
     "cubic_spline_coeffs",
     "eval_cubic",
     "interp_linear",
+    "interp1d_clamped",
     "interp_bilinear",
     "rect_bivariate_to_ppoly",
     "native_rect_cubic_coeffs",
@@ -517,6 +518,21 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
     if nu == 1:
         return slope
     return slope * 0.0
+
+
+def interp1d_clamped(x, y):
+    """``scipy.interpolate.interp1d(x, y, bounds_error=False,
+    fill_value=(y[0], y[-1]))``, backend-agnostic: linear, constant beyond the
+    ends. numpy ``x, y`` return scipy's interpolator (byte-identical); a
+    jax/torch one returns ``interp_linear(..., extrapolate='clip')`` on their
+    namespace, differentiable in ``x`` (the knots), ``y`` and the query.
+    """
+    if not (is_backend_array(x) or is_backend_array(y)):
+        return _scipy_interpolate.interp1d(
+            x, y, bounds_error=False, fill_value=(y[0], y[-1])
+        )
+    xp = prefer_backend_namespace(x, y)
+    return lambda r: interp_linear(xp, x, y, r, extrapolate="clip")
 
 
 def interp_bilinear(xp, x, y, Z, X, Y, *, extrapolate=True):
