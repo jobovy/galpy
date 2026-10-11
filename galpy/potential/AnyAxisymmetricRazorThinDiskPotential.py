@@ -15,6 +15,7 @@ from ..backend import (
 )
 from ..backend import quadrature as _bquad
 from ..backend import special as _bspecial
+from ..backend import use
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
@@ -44,6 +45,15 @@ _ZFORCE_ZFLOOR_REL = 1e-8
 
 if _APY_LOADED:
     from astropy import units
+
+
+def _on_numpy(f, *args):
+    """f(*args) with numpy semantics: the unit probes and the scipy quadratures
+    pass surfdens plain floats, which a forced backend would otherwise hand an
+    xp-agnostic surfdens as that backend's namespace"""
+    with use("numpy", force=True):
+        return f(*args)
+
 
 # Gauss-Legendre nodes per panel on the differentiable backend path (the numpy
 # path keeps scipy's adaptive quad and is byte-identical). The a=R (m->1)
@@ -218,20 +228,20 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         if _APY_LOADED:
             _sdens_unit_input = False
             try:
-                surfdens(1)
+                _on_numpy(surfdens, 1)
             except (units.UnitConversionError, units.UnitTypeError):
                 _sdens_unit_input = True
             _sdens_unit_output = False
             if _sdens_unit_input:
                 try:
-                    surfdens(1.0 * units.kpc).to(units.Msun / units.pc**2)
+                    _on_numpy(surfdens, 1.0 * units.kpc).to(units.Msun / units.pc**2)
                 except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
                     _sdens_unit_output = True
             else:
                 try:
-                    surfdens(1.0).to(units.Msun / units.pc**2)
+                    _on_numpy(surfdens, 1.0).to(units.Msun / units.pc**2)
                 except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
@@ -255,7 +265,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             self._sdens = surfdens
         # The potential at zero, in case it's asked for
         self._pot_zero = (
-            -2.0 * numpy.pi * integrate.quad(lambda a: self._sdens(a), 0, numpy.inf)[0]
+            -2.0
+            * numpy.pi
+            * integrate.quad(lambda a: _on_numpy(self._sdens, a), 0, numpy.inf)[0]
         )
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -385,7 +397,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             # recover the lost digits -> a derivative test's dr=1e-8 FD blows
             # up); match_input_dtype then honours the input's own dtype.
             return match_input_dtype(
-                asarray_on_device(xp, numpy.asarray(numpy_fn(Rf, zf)), dev), R, z
+                asarray_on_device(xp, numpy.asarray(_on_numpy(numpy_fn, Rf, zf)), dev),
+                R,
+                z,
             )
         return match_input_dtype(gl_fn(R, z, xp, dev), R, z)  # differentiate: GL
 
