@@ -229,10 +229,42 @@ class quasiisothermaldf(df):
             try:
                 jr, lz, jz = self._aA(*args, use_physical=False, **kwargs)
             except actionAngle.UnboundError:
-                if log:
-                    return -numpy.finfo(numpy.dtype(numpy.float64)).max
+                nobj = (
+                    args[0].size if isinstance(args[0], Orbit) else numpy.size(args[0])
+                )
+                if nobj > 1:
+                    # The actionAngle raised for the whole array because one
+                    # point is unbound: evaluate point by point instead
+                    pointouts = [
+                        self(
+                            *[
+                                a[ii]
+                                if isinstance(a, Orbit) or numpy.ndim(a) > 0
+                                else a
+                                for a in args
+                            ],
+                            log=log,
+                            _return_actions=True,
+                            _return_freqs=True,
+                            func=_func,
+                            **kwargs,
+                        )
+                        for ii in range(nobj)
+                    ]
+                    out, jr, lz, jz, thisrg, kappa, nu, Omega = (
+                        numpy.concatenate([numpy.atleast_1d(p[jj]) for p in pointouts])
+                        for jj in range(8)
+                    )
                 else:
-                    return 0.0
+                    out = -numpy.finfo(numpy.dtype(numpy.float64)).max if log else 0.0
+                    jr = lz = jz = thisrg = kappa = nu = Omega = numpy.nan
+                if _return_actions and _return_freqs:
+                    return (out, jr, lz, jz, thisrg, kappa, nu, Omega)
+                elif _return_actions:
+                    return (out, jr, lz, jz)
+                elif _return_freqs:
+                    return (out, thisrg, kappa, nu, Omega)
+                return out
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         if not isinstance(lz, numpy.ndarray) and self._cutcounter and lz < 0.0:
@@ -3051,8 +3083,16 @@ class quasiisothermaldf(df):
         -----
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        if self._rgInterp is None:  # _precomputerg=False: rl everywhere
+            if isinstance(lz, numpy.ndarray):
+                return numpy.array([potential.rl(self._pot, t) for t in lz])
+            return potential.rl(self._pot, lz)
         if isinstance(lz, numpy.ndarray):
-            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
+            # lz == 0: rl is undefined (rg -> 0), but the DF vanishes there
+            # (Omega = |lz|/rg^2 = 0), so keep the finite spline value
+            indx = (lz > self._precomputergLzmax) | (
+                (lz < self._precomputergLzmin) * (lz != 0.0)
+            )
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
@@ -3061,7 +3101,9 @@ class quasiisothermaldf(df):
             )
             return out
         else:
-            if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
+            if lz > self._precomputergLzmax or (
+                lz < self._precomputergLzmin and lz != 0.0
+            ):
                 return potential.rl(self._pot, lz)
             return numpy.atleast_1d(self._rgInterp(lz))
 

@@ -118,7 +118,7 @@ class interpSphericalPotential(SphericalPotential):
             raise ImportError(
                 "Making use of _rforce_jax function requires the google/jax library"
             )
-        return jnp.interp(r, self._rforce_jax_rgrid, self._rforce_jax_grid)
+        return self._amp * jnp.interp(r, self._rforce_jax_rgrid, self._rforce_jax_grid)
 
     def _r2deriv(self, r, t=0.0):
         out = numpy.empty_like(r)
