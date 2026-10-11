@@ -26,16 +26,13 @@ from ..backend import (
     name_of_namespace,
     promote_scalars,
     to_host,
-    use,
 )
 from ..backend._namespaces import (
     graft_gradient,
     has_concrete_truth_value,
-    requires_backend_grad,
     stop_gradient,
     under_jax_trace,
     under_torch_grad,
-    under_trace,
 )
 from ..backend.optimize import bisect_root, iterate_bracket
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
@@ -59,7 +56,6 @@ from ..potential.Potential import (
     _evaluateRforces,
     _evaluatezforces,
     _isNonAxi,
-    _pot_grad_namespace,
 )
 from ..util import coords  # for prolate confocal transforms
 from ..util import (
@@ -68,7 +64,7 @@ from ..util import (
 )
 from ..util.conversion import physical_conversion, potential_physical_input
 from . import actionAngleStaeckel_c
-from .actionAngle import UnboundError, _c_param_jac_column, actionAngle
+from .actionAngle import UnboundError, _c_cannot_carry, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
 
@@ -869,69 +865,6 @@ def _staeckel_actions_freqs_angles(
     return (outs[0], Lz) + outs[1:]
 
 
-def _staeckel_c_delta(delta, R):
-    """(numpy delta, extra coords) for the C-native Jacobian ties. A differentiated
-    delta is a sixth, per-object coordinate whose Jacobian column is a finite
-    difference of the C values (C has no delta derivative); a fixed delta is a
-    numpy reference."""
-    if under_trace(delta) or requires_backend_grad(delta):
-        return None, (delta * get_namespace(R).ones_like(R),)
-    return (
-        numpy.atleast_1d(numpy.asarray(stop_gradient(delta), dtype=numpy.float64)),
-        (),
-    )
-
-
-def _staeckel_c_tie(name, pot, delta, R, vR, vT, z, vz, u0, useu0, c_jac, c_vals):
-    """Shared body of the C-native Staeckel ties: ``c_jac(d, u0, *cs)`` returns
-    (values..., jac (N,nout,5)) and ``c_vals(d, u0, *cs)`` the (nout, N) values for
-    the delta column. useu0 without a u0 recomputes calcu0(E,Lz;delta) on the host
-    (the C Jacobian then adds the exact du0/dx term)."""
-    from ..orbit.integrateFullOrbit import _parse_pot
-
-    _parse_pot(
-        pot, potforactions=True
-    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
-    delta_np, extra = _staeckel_c_delta(delta, R)
-    u0_np = (
-        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
-    )
-
-    def _u0(d, cs):
-        if useu0 and u0_np is None:
-            return _staeckel_c_calcu0_host(pot, d, *cs)
-        return u0_np
-
-    def host_jac(*cs):
-        cs, d = cs[:5], (cs[5] if extra else delta_np)
-        out = c_jac(d, _u0(d, cs), *cs)
-        if not extra:
-            return out
-        col = _c_param_jac_column(lambda dd: c_vals(dd, _u0(dd, cs), *cs), d, **kw)
-        return out[:-1] + (numpy.concatenate([out[-1], col], axis=2),)
-
-    kw = {"angle_rows": (5, 6, 7)} if name == "actionsfreqsangles" else {}
-    coords = (R, vR, vT, z, vz) + extra
-    return host_jac, coords
-
-
-def _staeckel_c_backend_call(name, host_jac, coords, *rest):
-    bk = name_of_namespace(get_namespace(*coords))
-    if bk == "jax":
-        from ..backend._jax import staeckel_c as tie
-
-        return getattr(tie, name + "_with_jac")(host_jac, tuple(coords), *rest)
-    if bk == "torch":
-        from ..backend._torch import staeckel_c as tie
-
-        if name == "actionsfreqsangles":
-            return tie.actionsfreqsangles_with_jac(host_jac, tuple(coords), *rest)
-        return getattr(tie, name + "_with_jac")(host_jac, *coords)
-    raise NotImplementedError(  # pragma: no cover
-        "C-native Staeckel gradients require a jax or torch input array."
-    )
-
-
 def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
     """Differentiable (jr, jz) via the C-native Staeckel action Jacobian.
 
@@ -939,26 +872,40 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
     (actionAngleStaeckel_actionsJac_c) in the backend custom_vjp / autograd.Function
     (galpy.backend._{jax,torch}.staeckel_c): the forward is the plain round-trip C
     action value; the backward is a matvec of the C-computed Jacobian. numpy inputs
-    never reach here. A differentiated delta adds a d/d(delta) column (see
-    _staeckel_c_delta). u0 is a fixed reference when a user kwarg (useu0=False);
-    when it is the calcu0(E,Lz) reference (useu0=True) the C Jacobian adds the
-    exact dJ/du0*du0/dx term. First-order only."""
+    never reach here. delta is a fixed reference (no gradient). u0 is a fixed
+    reference too when a user kwarg (useu0=False); when it is the calcu0(E,Lz)
+    reference (useu0=True) the C Jacobian adds the exact dJ/du0*du0/dx term.
+    First-order only."""
+    from ..orbit.integrateFullOrbit import _parse_pot
 
-    def c_jac(d, u0, *cs):
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
         jr, jz, jac, err = actionAngleStaeckel_c.actionAngleStaeckel_actionsJac_c(
-            pot, d, *cs, u0=u0, order=order, useu0=useu0
+            pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
         )
         return jr, jz, jac
 
-    def c_vals(d, u0, *cs):
-        return actionAngleStaeckel_c.actionAngleStaeckel_c(
-            pot, d, *cs, u0=u0, order=order
-        )[:2]
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
+        from ..backend._jax.staeckel_c import actions_with_jac
 
-    host_jac, coords = _staeckel_c_tie(
-        "actions", pot, delta, R, vR, vT, z, vz, u0, useu0, c_jac, c_vals
+        return actions_with_jac(host_jac, (R, vR, vT, z, vz))
+    if name == "torch":
+        from ..backend._torch.staeckel_c import actions_with_jac
+
+        return actions_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel action gradients require a jax or torch input array."
     )
-    return _staeckel_c_backend_call("actions", host_jac, coords)
 
 
 def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
@@ -968,25 +915,41 @@ def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
     For jax/torch inputs, wraps the compiled 4x5 d(e,zmax,rperi,rap)/d(R,vR,vT,z,vz)
     C entry (actionAngleStaeckel_EccZmaxRperiRapJac_c) in the backend custom_vjp /
     autograd.Function: the forward is the round-trip C value, the backward a matvec
-    of the C-computed Jacobian. numpy inputs never reach here. A differentiated
-    delta (e.g., Orbit's automagic delta, estimated at the phase-space point) adds
-    a d/d(delta) column (see _staeckel_c_delta). First-order only."""
+    of the C-computed Jacobian. numpy inputs never reach here. delta is a fixed
+    reference (a differentiated one runs the c=False path, see _use_c).
+    First-order only."""
+    from ..orbit.integrateFullOrbit import _parse_pot
 
-    def c_jac(d, u0, *cs):
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
         e, zm, rp, ra, jac, err = (
             actionAngleStaeckel_c.actionAngleStaeckel_EccZmaxRperiRapJac_c(
-                pot, d, *cs, u0=u0, useu0=useu0
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, useu0=useu0
             )
         )
         return e, zm, rp, ra, jac
 
-    def c_vals(d, u0, *cs):
-        return c_jac(d, u0, *cs)[:4]
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
+        from ..backend._jax.staeckel_c import ecczmax_with_jac
 
-    host_jac, coords = _staeckel_c_tie(
-        "ecczmax", pot, delta, R, vR, vT, z, vz, u0, useu0, c_jac, c_vals
+        return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
+    if name == "torch":
+        from ..backend._torch.staeckel_c import ecczmax_with_jac
+
+        return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel EccZmax gradients require a jax or torch input array."
     )
-    return _staeckel_c_backend_call("ecczmax", host_jac, coords)
 
 
 def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
@@ -994,30 +957,42 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
     Staeckel Jacobian (actionsFreqsJac_c): the jr,jz rows are the #1051 action
     Jacobian; the Omega rows are the analytic action-Hessian composition (#131).
     One C pass (setup + turning points + derivative integrals shared). numpy never
-    reaches here. A differentiated delta adds a d/d(delta) column. First-order
-    only; close-to-circular/planar frequency VALUES get the
-    epifreq/omegac/verticalfreq substitution (host) with their Jacobian rows
+    reaches here. First-order only; close-to-circular/planar frequency VALUES get
+    the epifreq/omegac/verticalfreq substitution (host) with their Jacobian rows
     zeroed in C."""
+    from ..orbit.integrateFullOrbit import _parse_pot
 
-    def c_jac(d, u0, *cs):
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
         jr, jz, Or, Op, Oz, jac, err = (
             actionAngleStaeckel_c.actionAngleStaeckel_actionsFreqsJac_c(
-                pot, d, *cs, u0=u0, order=order, useu0=useu0
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
             )
         )
-        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, cs[0], jr, jz, Or, Op, Oz)
+        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
         return jr, jz, Or, Op, Oz, jac
 
-    def c_vals(d, u0, *cs):
-        jr, jz, Or, Op, Oz, err = actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
-            pot, d, *cs, u0=u0, order=order
-        )
-        return (jr, jz) + _staeckel_c_freq_circ_fix(pot, cs[0], jr, jz, Or, Op, Oz)
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
+        from ..backend._jax.staeckel_c import actionsfreqs_with_jac
 
-    host_jac, coords = _staeckel_c_tie(
-        "actionsfreqs", pot, delta, R, vR, vT, z, vz, u0, useu0, c_jac, c_vals
+        return actionsfreqs_with_jac(host_jac, (R, vR, vT, z, vz))
+    if name == "torch":
+        from ..backend._torch.staeckel_c import actionsfreqs_with_jac
+
+        return actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel freq gradients require a jax or torch input array."
     )
-    return _staeckel_c_backend_call("actionsfreqs", host_jac, coords)
 
 
 def _staeckel_c_grad_actionsfreqsangles(
@@ -1028,64 +1003,75 @@ def _staeckel_c_grad_actionsfreqsangles(
     are #1051/#131-PR-A; the angle rows compose the action Hessians through the SAME
     dP/dcoord chain PLUS the current-position boundary term (#131 PR-B). phi enters
     analytically (d anglephi/dphi==1) via the backend tie. numpy never reaches here.
-    A differentiated delta adds a d/d(delta) column. First-order only;
-    near-turning-point angle-Jacobian rows are zeroed in C (the AA
+    First-order only; near-turning-point angle-Jacobian rows are zeroed in C (the AA
     turning-point-edge convention)."""
+    from ..orbit.integrateFullOrbit import _parse_pot
 
-    def c_jac(d, u0, *cs):
-        jr, jz, Or, Op, Oz, angler, anglephi, anglez, ojac, ajac, err = (
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        (jr, jz, Or, Op, Oz, angler, anglephi, anglez, ojac, ajac, err) = (
             actionAngleStaeckel_c.actionAngleStaeckel_actionsFreqsAnglesJac_c(
-                pot, d, *cs, u0=u0, order=order, useu0=useu0
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
             )
         )
-        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, cs[0], jr, jz, Or, Op, Oz)
+        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
         jac = numpy.concatenate((ojac, ajac), axis=1)  # (N,8,5): ojac(5,5) + ajac(3,5)
         return jr, jz, Or, Op, Oz, angler, anglephi, anglez, jac
 
-    def c_vals(d, u0, *cs):
-        out = actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-            pot, d, *cs, numpy.zeros_like(cs[0]), u0=u0, order=order
-        )
-        jr, jz, Or, Op, Oz = out[:5]
-        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, cs[0], jr, jz, Or, Op, Oz)
-        return (jr, jz, Or, Op, Oz) + tuple(out[5:8])
+    name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
+    if name == "jax":
+        from ..backend._jax.staeckel_c import actionsfreqsangles_with_jac
 
-    host_jac, coords = _staeckel_c_tie(
-        "actionsfreqsangles", pot, delta, R, vR, vT, z, vz, u0, useu0, c_jac, c_vals
+        return actionsfreqsangles_with_jac(host_jac, (R, vR, vT, z, vz), phi)
+    if name == "torch":
+        from ..backend._torch.staeckel_c import actionsfreqsangles_with_jac
+
+        return actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel angle gradients require a jax or torch input array."
     )
-    return _staeckel_c_backend_call("actionsfreqsangles", host_jac, coords, phi)
 
 
-def _staeckel_c_backend_refu0(useu0, u0_kwarg):
+def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
     """Reference u0 (numpy) for the C-native backend path, plus a flag marking
     whether it is the coordinate-dependent calcu0(E,Lz) reference (useu0=True,
-    no kwarg; computed on the host, _staeckel_c_calcu0_host) -> the C Jacobian
-    then adds the exact dJ/du0*du0/dx term. An explicit u0-kwarg is a fixed
-    reference (du0/dx=0); if neither, returns (None, False) and the C uses ux
-    (du0/dx=dux/dx)."""
+    no kwarg) -> the C Jacobian then adds the exact dJ/du0*du0/dx term. An
+    explicit u0-kwarg is a fixed reference (du0/dx=0); if neither, returns
+    (None, False) and the C uses ux (du0/dx=dux/dx)."""
     if u0_kwarg is not None:
-        return (
-            numpy.asarray(to_host(stop_gradient(u0_kwarg)), dtype=numpy.float64),
-            False,
+        return numpy.asarray(
+            to_host(stop_gradient(u0_kwarg)), dtype=numpy.float64
+        ), False
+    if not useu0:
+        return None, False
+    Rn, vRn, vTn, zn, vzn = (
+        numpy.atleast_1d(numpy.asarray(to_host(stop_gradient(c)), dtype=numpy.float64))
+        for c in (R, vR, vT, z, vz)
+    )
+    E = numpy.array(
+        to_host(
+            [
+                _evaluatePotentials(pot, Rn[ii], zn[ii])
+                + vRn[ii] ** 2.0 / 2.0
+                + vzn[ii] ** 2.0 / 2.0
+                + vTn[ii] ** 2.0 / 2.0
+                for ii in range(len(Rn))
+            ]
         )
-    return None, bool(useu0)
-
-
-def _staeckel_c_calcu0_host(pot, delta, Rn, vRn, vTn, zn, vzn):
-    """calcu0(E,Lz;delta) on numpy coordinates (the C-native ties' host side)."""
-    with use("numpy", force=True):
-        E = numpy.array(
-            to_host(
-                [
-                    _evaluatePotentials(pot, Rn[ii], zn[ii])
-                    + vRn[ii] ** 2.0 / 2.0
-                    + vzn[ii] ** 2.0 / 2.0
-                    + vTn[ii] ** 2.0 / 2.0
-                    for ii in range(len(Rn))
-                ]
-            )
-        )
-    return actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0]
+    )
+    return (
+        actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0],
+        True,
+    )
 
 
 def _staeckel_c_freq_circ_fix(pot, Rn, jrn, jzn, Or, Op, Oz):
@@ -1118,7 +1104,7 @@ class actionAngleStaeckel(actionAngle):
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
-            If True, always use C for calculations. Default is False.
+            If True, always use C for calculations. Default is False. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order : int, optional
             Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, matching C's two order-point halves, and twice that in v), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
         ro : float or Quantity, optional
@@ -1174,12 +1160,14 @@ class actionAngleStaeckel(actionAngle):
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot)
 
-    def _use_c(self, kwargs):
+    def _use_c(self, kwargs, delta):
         """Whether this call runs the C code: requested and available, and no
-        differentiated potential parameter (C cannot carry its gradient; the
-        backend c=False path, equal to C to ~1e-9, does, flagging unbound orbits
-        as C does)."""
-        return self._c_requested(kwargs) and _pot_grad_namespace(self._pot) is None
+        derivative C cannot carry -- w.r.t. a potential parameter or delta. As
+        Orbit.integrate falls back from a C method to the in-backend ODE, such a
+        call runs the backend c=False implementation instead (equal to C to
+        ~1e-8; unbound orbits flagged as C does); coordinate derivatives stay
+        C-native."""
+        return self._c_requested(kwargs) and not _c_cannot_carry(self._pot, delta)
 
     def _evaluate(self, *args, **kwargs):
         """
@@ -1198,7 +1186,7 @@ class actionAngleStaeckel(actionAngle):
         u0: float, optional
             if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation.
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
             number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
         fixed_quad: bool, optional
@@ -1235,7 +1223,7 @@ class actionAngleStaeckel(actionAngle):
             vT = numpy.array([to_host(vT)])
             z = numpy.array([to_host(z)])
             vz = numpy.array([to_host(vz)])
-        if self._use_c(kwargs):
+        if self._use_c(kwargs, delta):
             Lz = R * vT
             # Resolve namespace first so a forced backend (numpy inputs) also routes
             # to the C-native path; numpy stays on the plain C path below.
@@ -1246,7 +1234,15 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
-                    self._useu0, kwargs.pop("u0", None)
+                    self._pot,
+                    delta,
+                    R,
+                    vR,
+                    vT,
+                    z,
+                    vz,
+                    self._useu0,
+                    kwargs.pop("u0", None),
                 )
                 jr, jz = _staeckel_c_grad_actions(
                     self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
@@ -1333,7 +1329,7 @@ class actionAngleStaeckel(actionAngle):
         u0: float, optional
             if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation.
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
             number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
         fixed_quad: bool, optional
@@ -1352,7 +1348,7 @@ class actionAngleStaeckel(actionAngle):
         """
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
-        if self._use_c(kwargs):
+        if self._use_c(kwargs, delta):
             if len(args) == 5:  # R,vR.vT, z, vz
                 R, vR, vT, z, vz = args
             elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -1381,7 +1377,15 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
-                    self._useu0, kwargs.pop("u0", None)
+                    self._pot,
+                    delta,
+                    R,
+                    vR,
+                    vT,
+                    z,
+                    vz,
+                    self._useu0,
+                    kwargs.pop("u0", None),
                 )
                 jr, jz, Omegar, Omegaphi, Omegaz = _staeckel_c_grad_actionsfreqs(
                     self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
@@ -1509,7 +1513,7 @@ class actionAngleStaeckel(actionAngle):
         u0: float, optional
             if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation.
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
             number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
         fixed_quad: bool, optional
@@ -1528,7 +1532,7 @@ class actionAngleStaeckel(actionAngle):
         """
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
-        if self._use_c(kwargs):
+        if self._use_c(kwargs, delta):
             if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
                 raise OSError("Must specify phi")
             elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -1559,7 +1563,15 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
-                    self._useu0, kwargs.pop("u0", None)
+                    self._pot,
+                    delta,
+                    R,
+                    vR,
+                    vT,
+                    z,
+                    vz,
+                    self._useu0,
+                    kwargs.pop("u0", None),
                 )
                 jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez = (
                     _staeckel_c_grad_actionsfreqsangles(
@@ -1719,7 +1731,7 @@ class actionAngleStaeckel(actionAngle):
         u0: float, optional
             if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation.
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
 
         Returns
         -------
@@ -1752,13 +1764,13 @@ class actionAngleStaeckel(actionAngle):
         # Resolve namespace first so a forced backend (numpy inputs) also routes to
         # the C-native path; numpy stays on the turning-point path below.
         xp = get_namespace(R, vR, vT, z, vz)
-        if self._use_c(kwargs) and xp is not numpy:
+        if self._use_c(kwargs, delta) and xp is not numpy:
             # jax/torch: differentiable (e,zmax,rperi,rap) via the C-native 4x5
             # Jacobian (custom_vjp/autograd.Function); numpy stays on the path
             # below (the ctypes turning-point wrapper cannot take backend arrays).
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             u0, refu0_calc = _staeckel_c_backend_refu0(
-                self._useu0, kwargs.pop("u0", None)
+                self._pot, delta, R, vR, vT, z, vz, self._useu0, kwargs.pop("u0", None)
             )
             return _staeckel_c_grad_ecczmax(
                 self._pot, delta, R, vR, vT, z, vz, u0, useu0=refu0_calc
@@ -1790,7 +1802,7 @@ class actionAngleStaeckel(actionAngle):
         u0: float, optional
             if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation.
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
 
         Returns
         -------
@@ -1827,7 +1839,7 @@ class actionAngleStaeckel(actionAngle):
             vT = numpy.array([to_host(vT)])
             z = numpy.array([to_host(z)])
             vz = numpy.array([to_host(vz)])
-        if self._use_c(kwargs):
+        if self._use_c(kwargs, delta):
             Lz = R * vT
             if self._useu0:
                 # First calculate u0

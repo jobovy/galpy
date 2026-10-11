@@ -80,6 +80,8 @@ class actionAngleAdiabaticGrid(actionAngle):
             Number of Lz values to use in the grid
         numcores : int
             Number of cores to use for multi-processing
+        c : bool, optional
+            If True, build the grid (and evaluate off-grid points) with C. Default is False. A differentiated potential parameter or gamma skips the grid for the exact actionAngleAdiabatic, whose c=True then falls back to its backend c=False implementation for that derivative.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
