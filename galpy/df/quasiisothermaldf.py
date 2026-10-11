@@ -3618,9 +3618,7 @@ class quasiisothermaldf(df):
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
-            # rl only once per distinct out-of-grid lz (GL grids repeat them)
-            ulz, uinv = numpy.unique(lz[indx], return_inverse=True)
-            out[indx] = numpy.array([potential.rl(self._pot, tlz) for tlz in ulz])[uinv]
+            out[indx] = numpy.array([potential.rl(self._pot, tlz) for tlz in lz[indx]])
             return out
         else:
             if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
