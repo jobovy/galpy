@@ -751,9 +751,8 @@ def like(ref, *arrays):
     """
     if not is_backend_array(ref):
         return arrays[0] if len(arrays) == 1 else arrays
-    from ._resolver import get_namespace
-
-    xp = get_namespace(ref)
+    # ref's OWN namespace: get_namespace would let a forced numpy context win
+    xp = namespace_from_arrays((ref,))
     dev = device_of(ref)
     out = tuple(asarray_on_device(xp, a, dev) for a in arrays)
     return out[0] if len(out) == 1 else out

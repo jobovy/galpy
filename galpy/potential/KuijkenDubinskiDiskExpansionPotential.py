@@ -6,7 +6,13 @@ import copy
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import (
+    co_like,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+)
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import logsumexp
 from .Potential import Potential
@@ -18,6 +24,18 @@ def _default_dens(R, z):
     # looked up by qualname, which <lambda> has not).
     xp = namespace_from_arrays([R, z]) or numpy
     return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z))
+
+
+def _on_param_namespace(x, *params):
+    """(xp, (x,)): the namespace of ``x`` or, for a numpy ``x``, of a backend
+    profile parameter (a scale length under a gradient; its own namespace, even
+    inside a forced-numpy probe), with ``x`` coerced onto it."""
+    bk = [p for p in params if is_backend_array(p)]
+    if bk and not is_backend_array(x):
+        xp = namespace_from_arrays(bk)
+    else:
+        xp = get_namespace(x)
+    return xp, coerce_coords(xp, x, device=device_of(x, *bk))
 
 
 class KuijkenDubinskiDiskExpansionPotential(Potential):
@@ -70,35 +88,22 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             self._inputdens = dens
         else:
             self._inputdens = lambda R, z, phi: dens(R, z)
-        # Compute phiME density function
-        if not self.isNonAxi:
-            self._phiME_dens_func = lambda R, z: phiME_dens(
-                R,
-                z,
-                0.0,
-                self._inputdens,
-                self._Sigma,
-                self._dSigmadR,
-                self._d2SigmadR2,
-                self._hz,
-                self._Hz,
-                self._dHzdz,
-                self._Sigma_amp,
-            )
-        else:
-            self._phiME_dens_func = lambda R, z, phi: phiME_dens(
-                R,
-                z,
-                phi,
-                self._inputdens,
-                self._Sigma,
-                self._dSigmadR,
-                self._d2SigmadR2,
-                self._hz,
-                self._Hz,
-                self._dHzdz,
-                self._Sigma_amp,
-            )
+        # Compute phiME density function; one arity, so the arity probes of the
+        # expansions' from_density never mistake a failing 2-arg call for a 3-arg
+        # density (phi is ignored by an axisymmetric input density)
+        self._phiME_dens_func = lambda R, z, phi=0.0: phiME_dens(
+            R,
+            z,
+            phi,
+            self._inputdens,
+            self._Sigma,
+            self._dSigmadR,
+            self._d2SigmadR2,
+            self._hz,
+            self._Hz,
+            self._dHzdz,
+            self._Sigma_amp,
+        )
         return None
 
     # Pickling functions
@@ -204,18 +209,15 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             ta = Sigma.get("amp", 1.0)
 
             def ts(R, trd=rd):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd)
                 return xp.exp(-R / trd)
 
             def tds(R, trd=rd):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd)
                 return -xp.exp(-R / trd) / trd
 
             def td2s(R, trd=rd):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd)
                 return xp.exp(-R / trd) / trd**2.0
 
         elif stype == "expwhole" or (stype == "exp" and "Rhole" in Sigma):
@@ -224,18 +226,15 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             ta = Sigma.get("amp", 1.0)
 
             def ts(R, trd=rd, trm=rm):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd, trm)
                 return xp.exp(-trm / R - R / trd)
 
             def tds(R, trd=rd, trm=rm):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd, trm)
                 return (trm / R**2.0 - 1.0 / trd) * xp.exp(-trm / R - R / trd)
 
             def td2s(R, trd=rd, trm=rm):
-                xp = get_namespace(R)
-                (R,) = coerce_coords(xp, R)
+                xp, (R,) = _on_param_namespace(R, trd, trm)
                 return (
                     (trm / R**2.0 - 1.0 / trd) ** 2.0 - 2.0 * trm / R**3.0
                 ) * xp.exp(-trm / R - R / trd)
@@ -298,18 +297,15 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             zd = hz.get("h", 0.0375)
 
             def th(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return 1.0 / 2.0 / tzd * xp.exp(-xp.abs(z) / tzd)
 
             def tH(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return (xp.exp(-xp.abs(z) / tzd) - 1.0 + xp.abs(z) / tzd) * tzd / 2.0
 
             def tdH(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return 0.5 * xp.sign(z) * (1.0 - xp.exp(-xp.abs(z) / tzd))
 
         elif htype == "sech2":
@@ -317,8 +313,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
             # th/tH written so as to avoid overflow in cosh
             def th(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return (
                     xp.exp(
                         -logsumexp(
@@ -332,16 +327,14 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
                 )
 
             def tH(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return tzd * (
                     logsumexp(xp.stack([z / 2.0 / tzd, -z / 2.0 / tzd]), axis=0)
                     - numpy.log(2.0)
                 )
 
             def tdH(z, tzd=zd):
-                xp = get_namespace(z)
-                (z,) = coerce_coords(xp, z)
+                xp, (z,) = _on_param_namespace(z, tzd)
                 return xp.tanh(z / 2.0 / tzd) / 2.0
 
         return (th, tH, tdH)
@@ -504,7 +497,10 @@ def phiME_dens(R, z, phi, dens, Sigma, dSigmadR, d2SigmadR2, hz, Hz, dHzdz, Sigm
     for a, s, ds, d2s, h, H, dH in zip(
         Sigma_amp, Sigma, dSigmadR, d2SigmadR2, hz, Hz, dHzdz
     ):
-        out = out - a * (
-            s(r) * h(z) + d2s(r) * H(z) + 2.0 / r * ds(r) * (H(z) + z * dH(z))
+        # backend profile parameters at numpy (R, z): the backend owns the update
+        out, corr = co_like(
+            out,
+            a * (s(r) * h(z) + d2s(r) * H(z) + 2.0 / r * ds(r) * (H(z) + z * dH(z))),
         )
+        out = out - corr
     return out

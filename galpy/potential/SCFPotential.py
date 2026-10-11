@@ -1766,6 +1766,27 @@ def _RToxi(r, a=1):
     return xp.where(xp.isinf(r), 1.0, (rsafe / a - 1.0) / (rsafe / a + 1.0))
 
 
+def _scf_prefactor(ref, a3, xi, l):
+    """``like(ref, a3 * (1+xi)**l * (1-xi)**(l+1))``, the (n, l) basis
+    prefactor. A backend ``a3`` (a differentiated scale) takes the numpy factors
+    onto its backend first: ``Tensor * ndarray`` is numpy's, which detaches or
+    raises. Same operands and grouping, so numpy stays byte-identical."""
+    A, B = (1.0 + xi) ** l, (1.0 - xi) ** (l + 1.0)
+    if is_backend_array(a3):
+        A, B = like(a3, A, B)
+    return like(ref, a3 * A * B)
+
+
+def _prod(*factors):
+    """``factors[0] * factors[1] * ...`` left to right, with any numpy factor
+    moved onto the namespace of a backend one first (``ndarray * Tensor`` is
+    numpy's, which detaches or raises). Plain product on numpy."""
+    out = None
+    for f in co_like(*factors):
+        out = f if out is None else out * f
+    return out
+
+
 def _dens_nodes(*args):
     """Arguments for a user density in the coefficient quadrature: on the forced
     backend (its default device) under ``use(..., force=True)``, as the
@@ -2192,11 +2213,13 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         # The (n, l) prefactor is built with numpy.arange, so on a backend it
         # would own `prefactor * _CC` and call .numpy() on it. `like` carries it
         # across (a no-op on numpy) WITHOUT reordering or regrouping the product.
-        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
-        phi_nl = _pref * _CC * PP
+        _pref = _scf_prefactor(_CC, a**3, xi, l)
+        # a backend factor (a differentiated a, or a density closing over a
+        # backend parameter) takes the numpy ones along: ndarray * Tensor is numpy's
+        phi_nl = _prod(_pref, _CC, PP)
         param[0] = R
         param[1] = z
-        return phi_nl * dV * dens(*_dens_nodes(*param), **dens_kw)
+        return _prod(phi_nl * dV, dens(*_dens_nodes(*param), **dens_kw))
 
     def integrand_batched(xi, costheta):
         # Same expression with the (n, l) axes moved to TRAILING so a leading
@@ -2208,8 +2231,8 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         costheta = numpy.asarray(to_host(costheta))
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
         r = _xiToR(xi, a)
-        R = r * numpy.sqrt(1 - costheta**2.0)
-        z = r * costheta
+        R = _prod(r, numpy.sqrt(1 - costheta**2.0))
+        z = _prod(r, costheta)
         PP = assoc_legendre(L, 1, costheta)[..., 0][:, numpy.newaxis, :]
         dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[:, None, None]
         # _C vectorizes over the nodes but puts that axis LAST; move it to the
@@ -2223,18 +2246,18 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         # lets numpy own the op, and `like` on the RESULT is too late -- it can
         # only fix operands it is given, not an expression numpy already
         # evaluated. The scalar twin is safe because there `xi` really is numpy.
-        _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
-        phi_nl = _pref * _CC * PP
+        _pref = _scf_prefactor(_CC, a**3, _xiB, l)
+        phi_nl = _prod(_pref, _CC, PP)
         param[0] = R
         param[1] = z
         _d = dens(*_dens_nodes(*param), **dens_kw)
         _d = _d[:, None, None] if numpy.ndim(_d) else _d
         # `_C` follows the AMBIENT namespace, so phi_nl is a backend array while
-        # dV (and a numpy-returning density) stay numpy. `like` carries the numpy factors across
-        # so the BACKEND owns the product; without it numpy does, which is the
-        # __array_wrap__ warning. No-op when everything is already numpy.
-        _dVb, _db = like(phi_nl, dV), like(phi_nl, _d)
-        return phi_nl * _dVb * _db
+        # dV (and a numpy-returning density) stay numpy, or the reverse for a
+        # backend a or density parameter. `_prod` carries the numpy factors
+        # across so the BACKEND owns the product; without it numpy does, which is
+        # the __array_wrap__ warning. No-op when everything is already numpy.
+        return _prod(phi_nl, dV, _d)
 
     if _dens_accepts_arrays(dens, numOfParam, dens_kw):
         integrand.batched = integrand_batched
@@ -2589,16 +2612,15 @@ def scf_compute_coeffs(
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
 
         _CC = _C(xi, N, L)[:, :, numpy.newaxis]
-        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
-        phi_nl = _pref * _CC * PP
+        _pref = _scf_prefactor(_CC, -(a**3), xi, l)
+        phi_nl = _prod(_pref, _CC, PP)
 
         _dens = dens(*_dens_nodes(R, z, phi), **dens_kw)
         _cs = numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
         # _cs is a numpy ARRAY, so it would own `backend * _cs` and resolve it
         # by calling .numpy() on a grad-tracking tensor; anchor it first. The
         # left-to-right grouping is untouched, so numpy stays byte-identical.
-        _cs = like(phi_nl, _cs)
-        return _dens * phi_nl[numpy.newaxis, :, :, :] * _cs * dV
+        return _prod(_dens, phi_nl[numpy.newaxis, :, :, :], _cs, dV)
 
     def integrand_batched(xi, costheta, phi):
         # Node-batched twin of `integrand`: same expression with the node axis
@@ -2610,8 +2632,8 @@ def scf_compute_coeffs(
         l = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :, numpy.newaxis]
         m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, numpy.newaxis, :]
         r = _xiToR(xi, a)
-        R = r * numpy.sqrt(1 - costheta**2.0)
-        z = r * costheta
+        R = _prod(r, numpy.sqrt(1 - costheta**2.0))
+        z = _prod(r, costheta)
         PP = assoc_legendre(L, L, costheta)[:, numpy.newaxis, :, :]
         dV = ((1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0))[
             :, None, None, None, None
@@ -2624,15 +2646,15 @@ def scf_compute_coeffs(
         _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))[..., numpy.newaxis]
         _xiB = xi[:, None, None, None]
         # `l` must cross to the backend BEFORE the power, as in the axi twin.
-        _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
-        phi_nl = _pref * _CC * PP
+        _pref = _scf_prefactor(_CC, -(a**3), _xiB, l)
+        phi_nl = _prod(_pref, _CC, PP)
         _dens = dens(*_dens_nodes(R, z, phi), **dens_kw)
         if not is_backend_array(_dens):
             _dens = numpy.asarray(_dens)
         _dens = like(phi_nl, _dens)[:, None, None, None, None]
         _mp = m * phi[:, None, None, None]
-        _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
-        return _dens * phi_nl[:, numpy.newaxis] * _cs * like(phi_nl, dV)
+        _cs = numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1)
+        return _prod(_dens, phi_nl[:, numpy.newaxis], _cs, dV)
 
     if _dens_accepts_arrays(dens, 3, dens_kw):
         integrand.batched = integrand_batched
@@ -2942,7 +2964,7 @@ def _scf_compute_coeffs_axi_timedep(
         PP = assoc_legendre(L, 1, costheta)[..., 0][numpy.newaxis, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
         _CC = _C(xi, N, L)[:, :]
-        _pref = like(_CC, a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        _pref = _scf_prefactor(_CC, a**3, xi, l)
         phi_nl = _pref * _CC * PP
         base = phi_nl * dV  # (N, L)
         # `f` evaluates the density over tgrid and returns NUMPY, so it would own
@@ -2965,7 +2987,7 @@ def _scf_compute_coeffs_axi_timedep(
         _cxp = get_namespace(_CC_raw)
         _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))  # (N,L,K) -> (K,N,L)
         _xiB = xi[:, None, None]
-        _pref = like(_CC, a**3 * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        _pref = _scf_prefactor(_CC, a**3, _xiB, l)
         base = _pref * _CC * PP * like(_CC, dV)  # (K, N, L)
         return _tdep_node_contract(base, f.batched(R, z, 0.0), weights)  # (Nt,N,L)
 
@@ -3023,7 +3045,7 @@ def _scf_compute_coeffs_timedep(
         PP = assoc_legendre(L, L, costheta)[numpy.newaxis, :, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
         _CC = _C(xi, N, L)[:, :, numpy.newaxis]
-        _pref = like(_CC, -(a**3) * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0))
+        _pref = _scf_prefactor(_CC, -(a**3), xi, l)
         phi_nl = _pref * _CC * PP
         _cs = like(phi_nl, numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)]))
         base = phi_nl[numpy.newaxis, :, :, :] * _cs * dV  # (2, N, L, L)
@@ -3053,7 +3075,7 @@ def _scf_compute_coeffs_timedep(
         _cxp = get_namespace(_CC_raw)
         _CC = _cxp.permute_dims(_CC_raw, (2, 0, 1))[..., numpy.newaxis]
         _xiB = xi[:, None, None, None]
-        _pref = like(_CC, -(a**3) * (1.0 + _xiB) ** l * (1.0 - _xiB) ** (l + 1.0))
+        _pref = _scf_prefactor(_CC, -(a**3), _xiB, l)
         phi_nl = _pref * _CC * PP
         _mp = m * phi[:, None, None, None]
         _cs = like(phi_nl, numpy.stack([numpy.cos(_mp), numpy.sin(_mp)], axis=1))
@@ -3204,11 +3226,15 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     # the reduction differs -- so this is the only place the two paths diverge.
     _batched = getattr(integrand, "batched", None)
     # The AMBIENT namespace decides, not the nodes: xp/wp are built with
-    # numpy.zeros, so the nodes are numpy and everything derived from them
-    # (_C, the density) would be numpy too -- leaving this branch permanently
-    # dead under a forced backend. Coerce the nodes ONTO the backend so the
-    # batched evaluation is genuinely backend-native.
+    # numpy.zeros, so the nodes are numpy. The batched integrands build their
+    # basis (_C, the density nodes) on the ambient backend from numpy nodes; the
+    # separable ones take the nodes on the backend.
     _amb = get_namespace(numpy.zeros(1))
+    # Not forced, but the integrand is on a backend (a differentiated basis
+    # scale or density parameter): batch on its namespace.
+    _data_bk = _amb is numpy and is_backend_array(s_temp)
+    if _data_bk:
+        _amb = namespace_from_arrays((s_temp,))
     # A SEPARABLE integrand -- one whose value is an outer product of a per-node
     # factor and a per-node basis -- can contract the weighted node sum itself and
     # never materialize the (K,) + shape array. `batched_reduce` is that opt-in,
@@ -3218,14 +3244,15 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     # put Nt in front, so (K,) + shape is K times that budget's working set.
     _reduce = getattr(integrand, "batched_reduce", None)
     if (
-        (_batched is not None or _reduce is not None)
+        (_batched is not None or (_reduce is not None and not _data_bk))
         and shape is not None
         and _amb is not numpy
     ):
         _idx = (numpy.arange(len(bounds))[:, None], li.T)
-        nodes = tuple(_amb.asarray(n) for n in xp[_idx])  # (ndim, K) on backend
+        np_nodes = tuple(xp[_idx])  # (ndim, K)
         w = numpy.prod(wp[_idx], axis=0)
-        if _reduce is not None:
+        if _reduce is not None and not _data_bk:
+            nodes = tuple(_amb.asarray(n) for n in np_nodes)
             # The reduced RESULT does not grow with the node count, but the basis
             # the integrand materializes to get there does -- it is (K,) + the
             # per-node part of `shape`. That is independent of the caller's time
@@ -3247,7 +3274,9 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
                     f"batched_reduce returned {tuple(s.shape)}, expected {tuple(shape)}"
                 )
         else:
-            vals = _batched(*nodes)  # (K,) + shape
+            # numpy nodes: the batched integrands build their basis on the
+            # host grid (a traced node array has no host values under jax.jit)
+            vals = _batched(*np_nodes)  # (K,) + shape
             # value LEADS so the backend owns the product, as in the loop below
             _vxp = get_namespace(vals)
             s = _vxp.sum(
