@@ -1787,7 +1787,9 @@ def test_unbound_in_array_adiabatic_python():
     assert numpy.fabs(f[0] / qdfs[1](R[0], vR[0], vT[0], z[0], vz[0]) - 1.0) < 1e-8, (
         "qdf array call with an unbound point does not agree with C"
     )
-    out, jr, lz, jz = qdf(R, vR, vT, z, vz, log=True, _return_actions=True)
+    out, jr, lz, jz = (
+        as_numpy(x) for x in qdf(R, vR, vT, z, vz, log=True, _return_actions=True)
+    )
     assert out[1] == -numpy.finfo(numpy.dtype(numpy.float64)).max, (
         "unbound point in qdf array call does not return log(0)"
     )
@@ -1795,10 +1797,13 @@ def test_unbound_in_array_adiabatic_python():
         "unbound point in qdf array call does not return NaN actions"
     )
     assert numpy.all(
-        numpy.fabs(jr[[0, 2]] - qdfs[1]._aA(R, vR, vT, z, vz)[0][[0, 2]]) < 1e-8
+        numpy.fabs(jr[[0, 2]] - as_numpy(qdfs[1]._aA(R, vR, vT, z, vz)[0])[[0, 2]])
+        < 1e-8
     ), "qdf array call with an unbound point does not return the correct actions"
-    out, rg, kappa, nu, Omega = qdf(R, vR, vT, z, vz, _return_freqs=True)
-    assert numpy.isnan(rg[1]) and numpy.all(numpy.fabs(out - f) < 1e-14), (
+    out, rg, kappa, nu, Omega = (
+        as_numpy(x) for x in qdf(R, vR, vT, z, vz, _return_freqs=True)
+    )
+    assert numpy.isnan(rg[1]) and numpy.all(numpy.fabs(out - as_numpy(f)) < 1e-14), (
         "qdf array call with an unbound point and _return_freqs fails"
     )
     # moments: the GL grid contains unbound nodes; Python and C must agree
