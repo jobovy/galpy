@@ -45,31 +45,32 @@ class SphericalPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         return None
 
+    def _coords_namespace(self, *coords):
+        """(xp, *coords): the coordinates' namespace, coords coerced onto it"""
+        xp = get_namespace(*coords)
+        return (xp, *coerce_coords(xp, *coords))
+
     def _rdens(self, r, t=0.0):
         """Implement using the Poisson equation in case this isn't implemented"""
         return (self._r2deriv(r, t=t) - 2.0 * self._rforce(r, t=t) / r) / 4.0 / math.pi
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._revaluate(r, t=t)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R**2.0 / r**2.0
@@ -77,8 +78,7 @@ class SphericalPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * z**2.0 / r**2.0
@@ -86,8 +86,7 @@ class SphericalPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R * z / r**2.0
@@ -95,15 +94,14 @@ class SphericalPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+        xp, R, z = self._coords_namespace(R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rdens(r, t=t)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        xp = get_namespace(R)
+        xp, R = self._coords_namespace(R)
         # asarray (not float64) avoids the original indexing issues for
         # array-like input while preserving the backend (so a jax/torch R
         # stays a tracked array rather than being coerced to numpy).
