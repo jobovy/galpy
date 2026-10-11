@@ -9,7 +9,7 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..orbit import Orbit
 from ..potential import IsochronePotential
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import _check_potential_list_and_deprecate, _rl_array
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import (
@@ -3088,16 +3088,20 @@ class quasiisothermaldf(df):
                 return numpy.array([potential.rl(self._pot, t) for t in lz])
             return potential.rl(self._pot, lz)
         if isinstance(lz, numpy.ndarray):
-            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
+            # lz == 0: rl is undefined (rg -> 0), but the DF vanishes there
+            # (Omega = |lz|/rg^2 = 0), so keep the finite spline value
+            indx = (lz > self._precomputergLzmax) | (
+                (lz < self._precomputergLzmin) * (lz != 0.0)
+            )
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
-            out[indx] = numpy.array(
-                [potential.rl(self._pot, lz[indx][ii]) for ii in range(numpy.sum(indx))]
-            )
+            out[indx] = _rl_array(self._pot, lz[indx])
             return out
         else:
-            if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
+            if lz > self._precomputergLzmax or (
+                lz < self._precomputergLzmin and lz != 0.0
+            ):
                 return potential.rl(self._pot, lz)
             return numpy.atleast_1d(self._rgInterp(lz))
 

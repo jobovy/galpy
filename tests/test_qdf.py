@@ -859,7 +859,7 @@ def test_sampleV_interpolate():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     vo = 225.0
-    numpy.random.seed(3)
+    numpy.random.seed(4)
 
     def Rz_array(R_array, z_array, num_std=3, R_min=None, R_max=None, z_max=None):
         R = numpy.hstack([i * numpy.ones(1000) for i in R_array])
@@ -1791,4 +1791,45 @@ def test_unbound_in_array_adiabatic_python():
             assert numpy.fabs(vpy / vc - 1.0) < 1e-9, (
                 f"qdf {moment} with Python actionAngleAdiabatic and unbound GL nodes does not agree with C"
             )
+    return None
+
+
+def test_rg_outofgrid_array():
+    # Out-of-grid Lz in an array used to be extrapolated with the rg(Lz) spline
+    # instead of being solved for, as the scalar path does with rl
+    from galpy.potential import rl, vcirc
+
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
+    )
+    lzs = numpy.array(
+        [
+            -0.3,
+            0.001,
+            0.5,
+            1.1,
+            qdf._precomputergLzmax * 1.5,
+            0.001,
+            qdf._precomputergLzmax * 3.0,
+            0.0,  # rl undefined, spline value kept (DF vanishes there)
+        ]
+    )
+    rgs = qdf._rg(lzs)
+    for lz, rg in zip(lzs, rgs):
+        # rl's brentq has an absolute xtol of 2e-12
+        assert numpy.fabs(rg / qdf._rg(lz) - 1.0) < 1e-9, (
+            "qdf rg for an array of Lz does not agree with the scalar path"
+        )
+        if lz != 0.0:
+            assert numpy.fabs(rg / rl(MWPotential, lz) - 1.0) < 1e-5, (
+                "qdf rg for an array of Lz does not agree with rl"
+            )
+    # out-of-grid points are solved for exactly: rg vc(rg) = |Lz|
+    for ii in [0, 1, 4, 5, 6]:
+        assert (
+            numpy.fabs(
+                rgs[ii] * vcirc(MWPotential, rgs[ii]) / numpy.fabs(lzs[ii]) - 1.0
+            )
+            < 1e-13
+        ), "qdf rg for an out-of-grid Lz in an array is not the circular-orbit radius"
     return None

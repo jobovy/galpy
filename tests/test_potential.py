@@ -3778,6 +3778,37 @@ def test_toVerticalPotential():
 
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
+def test_rl_array():
+    # vectorized circular-orbit radius for an array of Lz
+    from galpy.potential.Potential import _rl_array
+
+    for pot in [
+        potential.MWPotential2014,
+        potential.KeplerPotential(normalize=1.0),  # vc > 1 at r < 1
+        potential.LogarithmicHaloPotential(normalize=1.0),
+        potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3),
+    ]:
+        lzs = numpy.concatenate(
+            [-numpy.geomspace(1e-3, 50.0, 11), numpy.geomspace(1e-8, 100.0, 31)]
+        )
+        rls = _rl_array(pot, lzs)
+        assert numpy.all(
+            numpy.fabs(
+                rls * potential.vcirc(pot, rls, use_physical=False) / numpy.fabs(lzs)
+                - 1.0
+            )
+            < 1e-13
+        ), "_rl_array does not return the circular-orbit radius"
+        # rl's brentq has an absolute xtol of 2e-12, so compare at r > 1e-3
+        rl_scalar = numpy.array([potential.rl(pot, lz) for lz in lzs])
+        indx = rl_scalar > 1e-3
+        assert numpy.all(numpy.fabs(rls[indx] / rl_scalar[indx] - 1.0) < 1e-9), (
+            "_rl_array does not agree with rl"
+        )
+    assert _rl_array(potential.MWPotential2014, numpy.array([])).shape == (0,)
+    return None
+
+
 def test_dvcircdR_omegac_epifreq_rl_vesc():
     # Derivative of rotation curve
     # LogarithmicHaloPotential: rotation everywhere flat
