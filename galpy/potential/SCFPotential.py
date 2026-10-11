@@ -2648,7 +2648,8 @@ def scf_compute_coeffs(
         # `l` must cross to the backend BEFORE the power, as in the axi twin.
         _pref = _scf_prefactor(_CC, -(a**3), _xiB, l)
         phi_nl = _prod(_pref, _CC, PP)
-        _dens = dens(*_dens_nodes(R, z, phi), **dens_kw)
+        # a backend a puts R, z on its backend: phi joins them for the density
+        _dens = dens(*_dens_nodes(*co_like(R, z, phi)), **dens_kw)
         if not is_backend_array(_dens):
             _dens = numpy.asarray(_dens)
         _dens = like(phi_nl, _dens)[:, None, None, None, None]

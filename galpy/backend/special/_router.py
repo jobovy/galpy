@@ -4,7 +4,12 @@
 ###############################################################################
 import numpy
 
-from .._namespaces import match_input_dtype, name_of_namespace
+from .._namespaces import (
+    is_backend_array,
+    match_input_dtype,
+    name_of_namespace,
+    namespace_from_arrays,
+)
 from .._resolver import get_namespace
 
 # Per-backend functions whose NATIVE implementation is simply absent, so the
@@ -347,7 +352,9 @@ def logsumexp(a, axis=None):
     plain int that must not be promoted to a tensor (and torch's ``dim`` is
     required, so ``axis=None`` reduces over all axes explicitly).
     """
-    xp = get_namespace(a)
+    # a backend array keeps its own namespace (a forced-numpy context, e.g. a
+    # density probe, would otherwise hand it to scipy)
+    xp = namespace_from_arrays((a,)) if is_backend_array(a) else get_namespace(a)
     name, sp = _backend_special(xp)
     if name == "torch":
         import torch
