@@ -292,9 +292,9 @@ def _jax_incgamma(upper):
     idx = 1 if upper else 0
     sign = -1.0 if upper else 1.0
     native = jss.gammaincc if upper else jss.gammainc
-    _is_concrete = getattr(
-        jax.core, "is_concrete", lambda v: not isinstance(v, jax.core.Tracer)
-    )
+
+    def _is_concrete(v):  # jax.core.is_concrete, deprecated in jax 0.10
+        return not isinstance(v, jax.core.Tracer) or v.to_concrete_value() is not None
 
     def value(a, x):
         if x.size < _JAX_MIN_SIZE or (_is_concrete(a) and _is_concrete(x)):
