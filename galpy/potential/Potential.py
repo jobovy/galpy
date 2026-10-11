@@ -26,6 +26,7 @@ from scipy import integrate, optimize
 from ..backend import (
     backend_input,
     coerce_coords,
+    device_of,
     get_namespace,
     is_backend_array,
     is_backend_compatible,
@@ -1106,16 +1107,46 @@ class Potential(Force):
             # value to 12 digits.
             _vec = _accepts_node_array_on_backend(self, "_Rforce", "_zforce", "_rforce")
             xp = get_namespace(R) if z is None else get_namespace(R, z)
-            if z is None:  # Within spherical shell
+            if z is None and xp is not numpy:  # Within spherical shell, backend
+                # Split at the midplane, nodes clustered there: a flattened
+                # density peaks at theta=pi/2 with width ~b/R, which one GL panel
+                # over [0, pi] missed by 8e-6 (MiyamotoNagai, R=50); this is 4e-13.
+                # node_axis lets an array R broadcast against the nodes.
+                Rn = _bquad.node_axis(R)
+
+                def _integrand_b(theta, R=Rn):
+                    return self.rforce(
+                        R * xp.sin(theta), R * xp.cos(theta), t=t, use_physical=False
+                    ) * xp.sin(theta)
+
+                if not _vec:  # scalar-only force: node by node
+                    _f = lambda th: xp.stack(
+                        [_integrand_b(th[..., i], R) for i in range(th.shape[-1])],
+                        axis=-1,
+                    )
+                else:
+                    _f = _integrand_b
+                return (
+                    -(R**2.0)
+                    * _bquad.transformed_quad(
+                        xp,
+                        _f,
+                        0.0,
+                        numpy.pi,
+                        n=_bquad._QUAD_N // 2,
+                        interior_point=numpy.pi / 2.0,
+                        device=device_of(R),
+                    )
+                    / 2.0
+                )
+            elif z is None:  # Within spherical shell
 
                 def _integrand(theta):
                     tz = R * xp.cos(theta)
                     tR = R * xp.sin(theta)
                     return self.rforce(tR, tz, t=t, use_physical=False) * xp.sin(theta)
 
-                # Anchor the constant limits on the namespace so dispatch follows
-                # R (the integrand closes over R): numpy R -> 0-d numpy limits ->
-                # scipy (byte-identical); jax/torch R -> backend GL.
+                # numpy R -> 0-d numpy limits -> scipy (byte-identical)
                 lo = xp.asarray(0.0)
                 hi = xp.asarray(numpy.pi)
                 return -(R**2.0) * _bk_quad(_integrand, lo, hi, vectorized=_vec) / 2.0
@@ -4071,6 +4102,7 @@ def vcirc(Pot, R, phi=None, t=0.0):
     # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt. A
     # backend force at a Python-float R (a differentiated parameter) is data too.
     xp = prefer_backend_namespace(R, F)
+    (R,) = coerce_coords(xp, R)  # a numpy R array cannot multiply a tensor
     # forced numpy with backend potential parameters: read the force on the host
     rd = to_host if xp is numpy else (lambda v: v)
     return xp.sqrt(-R * rd(F))

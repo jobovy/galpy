@@ -78,13 +78,15 @@ class interpSphericalPotential(SphericalPotential):
             if phys["voSet"]:
                 self.turn_physical_on(vo=phys["vo"])
         _fgrid = None
+        _farr = None  # the vectorized force grid, kept whole
         if is_backend_array(rgrid):
             # one vectorized force evaluation: the per-radius loop is 1001 scalar
             # calls, which under a jax trace alone took ~380 s to trace
             try:
                 _fv = _rforce(rgrid)
                 if getattr(_fv, "shape", None) == rgrid.shape:
-                    _fgrid = [_fv[i] for i in range(rgrid.shape[0])]
+                    _farr = _fv
+                    _fgrid = [_fv]
             except Exception:  # a scalar-only force: loop below
                 _fgrid = None
         if _fgrid is None:
@@ -96,13 +98,22 @@ class interpSphericalPotential(SphericalPotential):
         # would abandon the scipy fit the numpy queries want.
         if any(under_trace(f) or requires_backend_grad(f) for f in _fgrid):
             xp = resolve_namespace(*_fgrid)
-            self._rforce_grid = xp.stack(list(coerce_coords(xp, *_fgrid)))
+            # not sliced per radius: eager jax compiles every distinct slice
+            self._rforce_grid = (
+                xp.stack(list(coerce_coords(xp, *_fgrid)))
+                if _farr is None
+                else coerce_coords(xp, _farr)[0]
+            )
 
             def _q(v):  # a query point on the spline's own namespace
                 return coerce_coords(xp, v)[0]
 
         else:
-            self._rforce_grid = numpy.array([to_host(f) for f in _fgrid])
+            self._rforce_grid = (
+                numpy.array([to_host(f) for f in _fgrid])
+                if _farr is None
+                else numpy.array(as_numpy(_farr))
+            )
             # an undifferentiated backend grid (forced backend) goes to numpy
             # with it: backend knots would make the spline return backend
             # values that the numpy Phi0 below cannot be added to
@@ -155,6 +166,11 @@ class interpSphericalPotential(SphericalPotential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
+
+    def _coords_namespace(self, *coords):
+        # a differentiated grid's namespace is the data at numpy coordinates
+        xp = prefer_backend_namespace(*coords, self._total_mass)
+        return (xp, *coerce_coords(xp, *coords))
 
     def _revaluate(self, r, t=0.0):
         # differentiated tables (a traced/grad parameter) are data too: a numpy

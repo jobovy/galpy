@@ -1165,3 +1165,45 @@ def test_mass_still_drives_a_scalar_only_potential_node_by_node(backend, monkeyp
         assert not PM._accepts_node_array_on_backend(
             tp, "_Rforce", "_zforce", "_rforce"
         ), "a scalar-only potential without the opt-in must not be batched"
+
+
+# ---------------------------------------------------------------------------
+# Potential.mass (spherical shell) on a backend: GL split at the midplane with
+# nodes clustered there. One panel over [0, pi] missed a thin disk's peak at
+# theta = pi/2 by 8e-6 at R=50; the split rule is at a converged quadrature's
+# precision (scipy's default quad is itself 3e-8 off there), batched over R and
+# node by node alike.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("batched", [True, False])
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_mass_shell_of_a_thin_disk_is_converged(backend, batched, monkeypatch):
+    import importlib
+
+    from scipy import integrate
+
+    from galpy.backend import as_numpy, use
+    from galpy.potential import MiyamotoNagaiPotential
+
+    mn = MiyamotoNagaiPotential(amp=1.0, a=3.0, b=0.2)
+    Rs = numpy.array([0.02, 1.0, 8.0, 50.0])
+    gold = []
+    for R in Rs:
+        f = lambda th: mn.rforce(R * numpy.sin(th), R * numpy.cos(th)) * numpy.sin(th)
+        q = integrate.quad(
+            f,
+            0.0,
+            numpy.pi,
+            points=[numpy.pi / 2.0],
+            epsabs=0.0,
+            epsrel=1e-13,
+            limit=200,
+        )[0]
+        gold.append(-(R**2.0) * q / 2.0)
+    if not batched:  # the node-by-node drive of a scalar-only potential
+        PM = importlib.import_module("galpy.potential.Potential")
+        monkeypatch.setattr(PM, "_accepts_node_array_on_backend", lambda p, *m: False)
+    with use(backend, force=True):
+        got = as_numpy(mn.mass(Rs if batched else Rs[2], use_physical=False))
+    numpy.testing.assert_allclose(
+        got, gold if batched else gold[2], rtol=1e-12, atol=0.0
+    )
