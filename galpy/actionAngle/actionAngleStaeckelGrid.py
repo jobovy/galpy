@@ -78,6 +78,8 @@ class actionAngleStaeckelGrid(actionAngle):
             The number of cores to use for multi-processing.
         interpecc : bool
             If True, also interpolate the approximate eccentricity, zmax, rperi, and rapo.
+        c : bool, optional
+            If True, build the grid (and evaluate off-grid points) with C. Default is False. A differentiated potential parameter or delta skips the grid for the exact actionAngleStaeckel, whose c=True then falls back to its backend c=False implementation for that derivative.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional

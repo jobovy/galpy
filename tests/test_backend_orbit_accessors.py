@@ -940,9 +940,11 @@ def test_analytic_turning_points_under_jit(potkind):
     # jit: value and IC-Jacobian as eager. For a spherical potential the
     # automagic delta is degenerate and eager falls back to type="spherical";
     # a traced delta cannot choose that, and Staeckel at the clipped delta
-    # agrees with it.
+    # agrees with it. The automagic delta follows the (traced) IC, so it runs
+    # the c=False path; axi uses a fixed delta to keep the C-native path.
     pot = MWPotential2014 if potkind == "axi" else _POT
-    f = lambda x: _tp_stack(jnp)(x, "staeckel-c", pot=pot)
+    case = "staeckel-c-delta" if potkind == "axi" else "staeckel-c"
+    f = lambda x: _tp_stack(jnp)(x, case, pot=pot)
     x = jnp.asarray(_TP_IC)
     # 7e-11: the Staeckel-at-1e-6 vs spherical zmax (sph)
     atol = 1e-12 if potkind == "axi" else 2e-10
