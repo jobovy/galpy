@@ -1122,3 +1122,27 @@ def test_unbound_error_point_by_point_backend(backend):
     assert float(got[1]) == 0.0 and numpy.isnan(float(jr[1]))
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
     numpy.testing.assert_allclose(as_numpy(jr)[[0, 2]], rjr[[0, 2]], rtol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "mode",
+    (["jax", "jit"] if "jax" in BACKENDS else [])
+    + (["torch"] if "torch" in BACKENDS else []),
+)
+def test_rg_lz_zero_array_backend(mode, qdf_rg_outofgrid):
+    # rl has no root at Lz = 0 (MWPotential: it raises); the array path keeps
+    # the spline there, on numpy and the backend, with a finite gradient
+    qdf = qdf_rg_outofgrid[0]
+    lzs = numpy.array([0.0, 0.5, 3.0 * qdf._precomputergLzmax])
+    ref = qdf._rg(lzs)
+    if mode == "torch":
+        x = torch.tensor(lzs, requires_grad=True)
+        rg = qdf._rg(x)
+        (g,) = torch.autograd.grad(rg.sum(), x)
+        rg = rg.detach()
+    else:
+        f = jax.jit(qdf._rg) if mode == "jit" else qdf._rg
+        rg = f(jnp.asarray(lzs))
+        g = jax.grad(lambda x: f(x).sum())(jnp.asarray(lzs))
+    numpy.testing.assert_allclose(as_numpy(rg), ref, rtol=1e-12)
+    assert numpy.all(numpy.isfinite(as_numpy(g)))

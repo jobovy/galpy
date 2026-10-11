@@ -3590,10 +3590,13 @@ class quasiisothermaldf(df):
             # _precomputerg=True: the spline inside the table, rl outside it
             xp = namespace_from_arrays((lz,))
             out = self._rgInterpBackend(lz)
-            indx = (lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)
+            indx = ((lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)) & (
+                lz != 0.0
+            )  # see the numpy branch on lz = 0
             nout = xp.sum(indx)
             if not has_concrete_truth_value(nout):  # traced: rl on every lz
-                return xp.where(indx, potential.rl(self._pot, lz), out)
+                lzs = mask_where(xp, indx, lz, self._precomputergLzmin)
+                return xp.where(indx, potential.rl(self._pot, lzs), out)
             if int(nout) == 0:
                 return out
             return set_at(xp, out, indx, potential.rl(self._pot, lz[indx]))
@@ -3607,7 +3610,11 @@ class quasiisothermaldf(df):
                 return numpy.array([potential.rl(self._pot, t) for t in lz])
             return potential.rl(self._pot, lz)
         if isinstance(lz, numpy.ndarray):
-            indx = (lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)
+            # rl has no root at lz = 0 (it raises for e.g. MWPotential): keep the
+            # spline value there, as before
+            indx = ((lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)) & (
+                lz != 0.0
+            )
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
