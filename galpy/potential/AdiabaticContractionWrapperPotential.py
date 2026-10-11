@@ -6,13 +6,19 @@
 ###############################################################################
 import numpy
 from scipy import integrate
-from scipy.interpolate import interp1d
-from scipy.optimize import fixed_point
 
 from ..backend import to_host
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
+from ..backend.interpolate import interp1d_clamped, interp_linear
+from ..backend.optimize import fixed_point
 from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
+from .Potential import _pot_grad_namespace, flatten
 
 
 # Note: not actually implemented as a WrapperPotential!
@@ -91,14 +97,25 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         # Compute baryon and DM enclosed masses on radial grid
         from ..potential import mass
 
+        # A differentiated parameter (of pot, baryonpot, or f_bar) builds the
+        # profile in its namespace, so the contracted halo carries d/d(param)
+        xp = _pot_grad_namespace(flatten([pot, baryonpot]))
+        for v in (f_bar, amp):
+            if xp is None and (under_trace(v) or requires_backend_grad(v)):
+                xp = namespace_from_arrays((v,))
         rgrid = numpy.geomspace(rmin, rmax, 301)
-        # numpy/scipy construction: host the (forced-backend) masses
-        baryon_mass = numpy.array(
-            to_host([mass(baryonpot, r, use_physical=False) for r in rgrid])
-        )
-        dm_mass = numpy.array(
-            to_host([mass(pot, r, use_physical=False) for r in rgrid])
-        )
+        if xp is None:
+            # numpy/scipy construction: host the (forced-backend) masses
+            baryon_mass = numpy.array(
+                to_host([mass(baryonpot, r, use_physical=False) for r in rgrid])
+            )
+            dm_mass = numpy.array(
+                to_host([mass(pot, r, use_physical=False) for r in rgrid])
+            )
+        else:
+            rgrid = xp.asarray(rgrid)
+            baryon_mass = mass(baryonpot, rgrid, use_physical=False)
+            dm_mass = mass(pot, rgrid, use_physical=False)
         # Adiabatic contraction
         if f_bar is None:
             f_bar = baryon_mass[-1] / (baryon_mass[-1] + dm_mass[-1])
@@ -116,63 +133,72 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
             new_rforce = _contraction_Blumenthal1986(rgrid, dm_mass, baryon_mass, f_bar)
         else:  # pragma: no cover
             raise ValueError(f"Adiabatic contraction method '{method}' not recognized")
-        # Add central point
-        rgrid = numpy.concatenate(([0.0], rgrid))
-        new_rforce = numpy.concatenate(([0.0], new_rforce))
-        new_rforce_func = lambda r: -numpy.interp(r, rgrid, new_rforce)
-        # Potential at zero = int_0^inf dr rforce, and enc. mass constant
-        # outside of last rgrid point
-        Phi0 = (
-            integrate.quad(new_rforce_func, rgrid[0], rgrid[-1])[0]
-            - new_rforce[-1] * rgrid[-1]
-        )
+        if xp is None:
+            # Add central point
+            rgrid = numpy.concatenate(([0.0], rgrid))
+            new_rforce = numpy.concatenate(([0.0], new_rforce))
+            new_rforce_func = lambda r: -numpy.interp(r, rgrid, new_rforce)
+            # Potential at zero = int_0^inf dr rforce, and enc. mass constant
+            # outside of last rgrid point
+            Phi0 = (
+                integrate.quad(new_rforce_func, rgrid[0], rgrid[-1])[0]
+                - new_rforce[-1] * rgrid[-1]
+            )
+        else:
+            zero = xp.zeros_like(rgrid[:1])
+            rgrid = xp.concat((zero, rgrid))
+            new_rforce = xp.concat((zero, new_rforce))
+            new_rforce_func = lambda r: -interp_linear(xp, rgrid, new_rforce, r)
+            # the force is piecewise linear, so its integral is the exact
+            # trapezoid sum (scipy's quad above stops at 50 subintervals, ~1e-6)
+            Phi0 = (
+                -xp.sum(
+                    0.5 * (new_rforce[1:] + new_rforce[:-1]) * (rgrid[1:] - rgrid[:-1])
+                )
+                - new_rforce[-1] * rgrid[-1]
+            )
         interpSphericalPotential.__init__(
             self, rforce=new_rforce_func, rgrid=rgrid, Phi0=Phi0, ro=ro, vo=vo
         )
-        # scipy/numpy-only: opt out of interpSphericalPotential's True flag
-        self._backend_compatible = False
+        if xp is not None:  # honour amp (the numpy path drops it: fixed separately)
+            self._amp = amp
 
 
+# Parameters go through fixed_point's args, not a closure: its backend
+# iteration detaches them and differentiates implicitly.
 def _contraction_Cautun2020(r, M_DMO, Mbar, fbar):
     # solve for the contracted enclosed DM mass
-    func_M_DM_contract = lambda M: (
+    func_M_DM_contract = lambda M, M_DMO, Mbar, fbar: (
         M_DMO * 1.023 * (M_DMO / (1.0 - fbar) / (M + Mbar)) ** -0.54
     )
-    M_DM = fixed_point(func_M_DM_contract, M_DMO)
+    M_DM = fixed_point(func_M_DM_contract, M_DMO, args=(M_DMO, Mbar, fbar))
     return M_DM / M_DMO * M_DMO / r**2.0
 
 
 def _contraction_Blumenthal1986(r, M_DMO, Mbar, fbar):
     # solve for the contracted radius 'rf' containing the same DM mass
     # as enclosed for r
-    func_M_bar = interp1d(r, Mbar, bounds_error=False, fill_value=(Mbar[0], Mbar[-1]))
-    func_r_contract = lambda rf: r * (M_DMO / (1.0 - fbar)) / (M_DMO + func_M_bar(rf))
-    rf = fixed_point(func_r_contract, r)
-    # now find how much the enclosed mass increased at r
-    func_M_DM = interp1d(
-        rf, M_DMO, bounds_error=False, fill_value=(M_DMO[0], M_DMO[-1])
+    func_r_contract = lambda rf, r, M_DMO, Mbar, fbar: (
+        r * (M_DMO / (1.0 - fbar)) / (M_DMO + interp1d_clamped(r, Mbar)(rf))
     )
+    rf = fixed_point(func_r_contract, r, args=(r, M_DMO, Mbar, fbar))
+    # now find how much the enclosed mass increased at r
+    func_M_DM = interp1d_clamped(rf, M_DMO)
     return func_M_DM(r) / r**2.0
 
 
 def _contraction_Gnedin2004(r, M_DMO, M_bar, Rvir, fbar):
     # solve for the contracted radius 'rf' containing the same DM mass
     # as enclosed for r
-    func_M_bar = interp1d(
-        r, M_bar, bounds_error=False, fill_value=(M_bar[0], M_bar[-1])
-    )
-    func_M_DMO = interp1d(
-        r, M_DMO, bounds_error=False, fill_value=(M_DMO[0], M_DMO[-1])
-    )
     A, w = 0.85, 0.8
-    func_r_mean = lambda ri: A * Rvir * (ri / Rvir) ** w
-    M_DMO_rmean = func_M_DMO(func_r_mean(r))
-    func_r_contract = lambda rf: (
-        r * (M_DMO_rmean / (1.0 - fbar)) / (M_DMO_rmean + func_M_bar(func_r_mean(rf)))
+    func_r_mean = lambda ri, Rvir: A * Rvir * (ri / Rvir) ** w
+    M_DMO_rmean = interp1d_clamped(r, M_DMO)(func_r_mean(r, Rvir))
+    func_r_contract = lambda rf, r, M_DMO_rmean, M_bar, Rvir, fbar: (
+        r
+        * (M_DMO_rmean / (1.0 - fbar))
+        / (M_DMO_rmean + interp1d_clamped(r, M_bar)(func_r_mean(rf, Rvir)))
     )
-    rf = fixed_point(func_r_contract, r)
+    rf = fixed_point(func_r_contract, r, args=(r, M_DMO_rmean, M_bar, Rvir, fbar))
     # now find how much the enclosed mass increased at r
-    func_M_DM = interp1d(
-        rf, M_DMO, bounds_error=False, fill_value=(M_DMO[0], M_DMO[-1])
-    )
+    func_M_DM = interp1d_clamped(rf, M_DMO)
     return func_M_DM(r) / r**2.0
