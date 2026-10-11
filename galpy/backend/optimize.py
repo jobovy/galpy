@@ -50,7 +50,9 @@ import numpy
 
 from ._namespaces import (
     is_backend_array,
+    name_of_namespace,
     namespace_from_arrays,
+    prefer_backend_namespace,
     under_jax_trace,
     under_trace,
 )
@@ -155,6 +157,57 @@ def brentq(
         guess=guess,
         newton_steps=newton_steps,
     )
+
+
+def fixed_point(func, x0, args=(), xtol=1e-8, maxiter=500):
+    """``x = func(x, *args)`` by del2 (Steffensen) iteration (backend-agnostic).
+
+    Drop-in for ``scipy.optimize.fixed_point`` (default ``method='del2'``).
+    numpy/Python ``x0`` and ``args`` delegate to scipy (byte-identical); a
+    jax/torch one runs scipy's iteration in the namespace on DETACHED ``args``
+    (same updates, same joint stopping rule), then one implicit-function step
+
+        x* = p + (g(p) - stop_gradient(g(p))) / (1 - dg/dx(p)),  g = func(., *args),
+
+    which leaves the value at the iterate ``p`` and gives the exact first-order
+    dx*/dtheta for every parameter in ``args``. ``func`` must act elementwise in
+    ``x`` (diagonal Jacobian) and take its parameters through ``args``, not a
+    closure, so the iteration can detach them.
+    """
+    if not (is_backend_array(x0) or any(map(is_backend_array, args))):
+        from scipy import optimize as _sopt
+
+        return _sopt.fixed_point(func, x0, args=args, xtol=xtol, maxiter=maxiter)
+    xp = prefer_backend_namespace(x0, *args)
+    from ._coerce import coerce_coords
+
+    x0, *args = coerce_coords(xp, x0, *args)  # numpy ones lifted
+    if name_of_namespace(xp) == "jax":
+        from ._jax.optimize import fixed_point_backend as _bk
+    else:  # array_api_compat.torch
+        from ._torch.optimize import fixed_point_backend as _bk
+    return _bk(func, x0, args, xp, xtol=xtol, maxiter=maxiter)
+
+
+def del2_step(f, p0, xp):
+    """One scipy ``fixed_point`` del2 update: ``(p, relerr)``, branch-free."""
+    p1 = f(p0)
+    p2 = f(p1)
+    d = p2 - 2.0 * p1 + p0
+    one = xp.ones_like(d)
+    p = xp.where(d != 0, p0 - (p1 - p0) ** 2 / xp.where(d != 0, d, one), p2)
+    relerr = xp.where(p0 != 0, (p - p0) / xp.where(p0 != 0, p0, one), p)
+    return p, relerr
+
+
+def del2_iterate(f, p0, xp, xtol, maxiter):
+    """scipy's eager del2 loop: stop once EVERY element's relerr < xtol."""
+    for _ in range(maxiter):
+        p, relerr = del2_step(f, p0, xp)
+        if bool(xp.all(xp.abs(relerr) < xtol)):
+            return p
+        p0 = p
+    raise RuntimeError(f"Failed to converge after {maxiter} iterations, value is {p}")
 
 
 def newton_step_bracketed(f_and_slope, x, lo, hi, xp):
