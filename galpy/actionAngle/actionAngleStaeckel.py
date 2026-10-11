@@ -28,14 +28,10 @@ from ..backend import (
     to_host,
 )
 from ..backend._namespaces import (
-    graft_gradient,
     has_concrete_truth_value,
     stop_gradient,
-    under_jax_trace,
-    under_torch_grad,
 )
 from ..backend.optimize import bisect_root, iterate_bracket
-from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
     CompositePotential,
     DiskSCFPotential,
@@ -158,8 +154,7 @@ def _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta):
 
 def _refine_tp(xp, f, df, u, skip):
     """Differentiable turning point: one Newton step off the frozen bisection
-    root, grafted so the VALUE is byte-identical (numpy: graft_gradient is the
-    identity) but AD carries the TRUE implicit derivative du/dtheta =
+    root, grafted so the VALUE is byte-identical (numpy: no refinement) but AD carries the TRUE implicit derivative du/dtheta =
     -f_theta(u)/f_u(u). The bisection roots (backend.optimize.bisect_root) build
     u from piecewise-constant xp.where comparisons, so their AD gradient is a
     meaningless bracket artifact; without this the Staeckel FREQUENCY gradients
@@ -186,7 +181,7 @@ def _refine_tp(xp, f, df, u, skip):
     donor = u0 - fu0_safe / fp_safe  # finite everywhere; == u0 where ~good
     # Value-exact graft: donor - stop_gradient(donor) == 0 EXACTLY (finite donor),
     # so the value is byte-exactly the bisection root (no 1/sqrt(S) amplification of
-    # a graft_gradient ~1e-16 wobble) while AD carries du/dtheta = grad(donor).
+    # a sg(u)+donor-sg(donor) ~1e-16 wobble) while AD carries du/dtheta = grad(donor).
     return u0 + (donor - stop_gradient(donor))
 
 
@@ -428,37 +423,6 @@ def _staeckel_chi_action(
     )[0]
 
 
-def _staeckel_t2_action(xp, sqfunc, args, lo, hi, order):
-    """Low(lo)+High(hi) t^2-substituted panels of sqrt(sqfunc) over [lo, hi] --
-    the AD-regular gradient DONOR for the plain-GL action value: d(sqrt S) is
-    turning-point-singular under plain GL, but after u = lo + t^2 the du = 2t dt
-    Jacobian cancels the 1/sqrt(S) ~ 1/t, and AD through it carries the FULL
-    dependence (E, Lz, I3, the u0/v0u reference geometry, potential parameters)."""
-    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args)
-    # Turning-point limits held fixed: the Leibniz boundary terms vanish exactly
-    # (S = 0 there). The limits now arrive from _refine_tp carrying their TRUE
-    # implicit derivatives (needed for the action Hessian / frequency gradients);
-    # the direct boundary term still vanishes (S=0), so the action's first
-    # gradient is unchanged, while the second derivative gets its missing
-    # turning-point-motion term.
-    span = hi - lo
-    ok = span > 0.0  # degenerate (circular/planar) panel: 0 with 0 gradient
-    mid = xp.sqrt(0.5 * xp.where(ok, span, xp.ones_like(span)))
-
-    def panel(base, sign):
-        def integ(s):  # s: (n,) -> (N, n); u = base + sign*t^2, t = mid*s
-            t = mid[..., None] * s
-            u = base[..., None] + sign * t**2.0
-            S = sqfunc(u, *a2)
-            Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
-            g = xp.where(S > 0.0, xp.sqrt(Ssafe), xp.zeros_like(S))
-            return 2.0 * t * g * mid[..., None]
-
-        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
-
-    return xp.where(ok, panel(lo, 1.0) + panel(hi, -1.0), xp.zeros_like(span))
-
-
 def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta, flag_unbound=False):
     """Setup quantities + turning points (+ unbound check), shared by the
     vectorised actions and frequencies. Returns (setup, umin, umax, vmin, delta).
@@ -534,7 +498,6 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
     )
     jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
                s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
-    pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
     jz = (
         _staeckel_chi_action(
             xp,
@@ -552,30 +515,6 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
         * delta
         / numpy.pi
     )
-    # Backend AD: graft the t^2-substituted donor's gradient onto the plain-GL
-    # value (naive d(sqrt S) is turning-point-singular, and the dJ/d(E,Lz,I3)
-    # chain misses the u0/v0u geometry's direct R,z dependence). Value unchanged
-    # (C parity), first-order only, no cost on plain (untraced/no-grad) forwards.
-    if is_backend_array(jr) and (under_jax_trace(jr) or under_torch_grad(jr)):
-        jr = graft_gradient(
-            jr,
-            _staeckel_t2_action(
-                xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order
-            )
-            * sqrt2
-            * delta
-            / numpy.pi,
-        )
-        jz = graft_gradient(
-            jz,
-            _staeckel_t2_action(
-                xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order
-            )
-            * 2.0
-            * sqrt2
-            * delta
-            / numpy.pi,
-        )
     jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
     jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
     return jr, jz
