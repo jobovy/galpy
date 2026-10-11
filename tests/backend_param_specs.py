@@ -16,6 +16,8 @@ A spec is a dict:
   the first "[" or "(").
 """
 
+import warnings
+
 import numpy as np
 
 import galpy.actionAngle as aa
@@ -1082,10 +1084,9 @@ add_df("quasiisothermaldf[MN,Adiabatic,c=False]", _qad, {"a": 0.5}, q_out, _QC)
 
 
 def _qst(P):
-    pot = [
-        gp.MiyamotoNagaiPotential(amp=0.6, a=P["a"], b=0.3),
-        gp.NFWPotential(amp=0.4 * 4.0, a=4.0),
-    ]
+    pot = gp.MiyamotoNagaiPotential(amp=0.6, a=P["a"], b=0.3) + gp.NFWPotential(
+        amp=0.4 * 4.0, a=4.0
+    )
     return gdf.quasiisothermaldf(
         1 / 3.0,
         0.2,
@@ -1273,12 +1274,14 @@ def spray_out(spdf, C):
 
 def _spray(cls):
     def f(P):
-        sp = getattr(gdf, cls)(
-            P["mass_e5"] * 1e-5,
-            progenitor=Orbit(vec(P["pR"], *_SIC[1:])),
-            pot=gp.LogarithmicHaloPotential(amp=P["lamp"], q=P["q"]),
-            tdisrupt=1.0,
-        )
+        with warnings.catch_warnings():  # streamspraydf is deprecated
+            warnings.simplefilter("ignore", DeprecationWarning)
+            sp = getattr(gdf, cls)(
+                P["mass_e5"] * 1e-5,
+                progenitor=Orbit(vec(P["pR"], *_SIC[1:])),
+                pot=gp.LogarithmicHaloPotential(amp=P["lamp"], q=P["q"]),
+                tdisrupt=1.0,
+            )
         sp._spray_bk = bk(*P.values())
         return sp
 

@@ -30,7 +30,13 @@ import numpy
 import pytest
 from backend_param_specs import SPECS, SPECS_BY_NAME
 
-pytestmark = pytest.mark.backend_managed
+# CI runs the test_backend shards with these as errors; match that everywhere so
+# a strict xfail cannot flip with the command line.
+pytestmark = [
+    pytest.mark.backend_managed,
+    pytest.mark.filterwarnings("error::DeprecationWarning"),
+    pytest.mark.filterwarnings("error::FutureWarning"),
+]
 
 try:
     import jax

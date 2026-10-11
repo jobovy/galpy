@@ -731,14 +731,14 @@ jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-a-
 jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-data-eager]  # 27 s, passes
 jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-forced-eager]  # 24 s, passes
 jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-floatcoords-eager]  # 17 s, passes
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-eager]  # 47 s, fails
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-jit]  # 41 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-eager]  # 47 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-jit]  # 41 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
 jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-forced-eager]  # 15 s, fails
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-eager]  # 43 s, fails
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-jit]  # 61 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-eager]  # 43 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-jit]  # 61 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
 jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-forced-eager]  # 15 s, fails
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-eager]  # 31 s, fails
-jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-jit]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-eager]  # 31 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-jit]  # 17 s, fails at rtol 1e-6 only (passes at the spec rtol 5e-5)
 jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-forced-eager]  # 11 s, fails
 jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-data-eager]  # 22 s, passes
 jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-data-jit]  # 11 s, passes
