@@ -611,3 +611,179 @@ def test_eval_grad_wrt_profile_parameter_at_plain_EL(backend, cls, forced):
         g = float(g)
     # closed form on both sides: FD (Richardson) floor ~1e-12
     numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=0.0)
+
+
+# --------------------------------------------------------------------------
+# correct=True (DFcorrection). Backend profile parameters / beta: the
+# corrections are computed on the backend (niter fixed iterations; the
+# parameter-keyed save file is skipped) and interpolated with the same
+# not-a-knot cubic as InterpolatedUnivariateSpline; plain parameters keep the
+# numpy (cached) corrections, evaluated on the backend through their exact
+# piecewise polynomials.
+# --------------------------------------------------------------------------
+_CORR_KW = dict(correct=True, niter=2, npoints=21)
+
+
+@pytest.fixture
+def corr_outputs(tmp_path):
+    import contextlib
+
+    def q(hr, s0, R, backend=None, forced=False):
+        ctx = use(backend, force=True) if forced else contextlib.nullcontext()
+        with ctx:
+            df = dehnendf(
+                profileParams=(hr, 1.0, s0), savedir=str(tmp_path), **_CORR_KW
+            )
+            vals = [df(*vRvTRToEL(0.1, 0.9, R, 0.0))]
+            vals += [
+                getattr(df, fn)(R, use_physical=False)
+                for fn in ("surfacemass", "sigmaR2", "meanvT")
+            ]
+        if backend is None:
+            return numpy.array([float(numpy.real(v)) for v in vals])
+        xp = jnp if backend == "jax" else torch
+        return xp.stack([xp.reshape(xp.asarray(v), ()) for v in vals])
+
+    return q
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_corrections_match_numpy(backend, tmp_path):
+    from galpy.df.diskdf import DFcorrection
+
+    ref = dehnendf(profileParams=(0.25, 1.0, 0.2), savedir=str(tmp_path), **_CORR_KW)
+    files = sorted(tmp_path.iterdir())
+    got = dehnendf(
+        profileParams=(_scalar(backend, 0.25), 1.0, 0.2),
+        savedir=str(tmp_path),
+        **_CORR_KW,
+    )
+    # the backend corrections skip the (parameter-keyed) save file
+    assert sorted(tmp_path.iterdir()) == files
+    assert is_backend_array(got._corr._corrections)
+    # GL (order 100) vs adaptive dblquad, compounded over the iterations
+    numpy.testing.assert_allclose(
+        as_numpy(got._corr._corrections), ref._corr._corrections, rtol=1e-8
+    )
+    # small-R slope: the least-squares cubic == UnivariateSpline(k=3, default s)
+    # and the not-a-knot cubic == InterpolatedUnivariateSpline(k=3)
+    c = got._corr._corrections
+    ssp = ref._surfaceSigmaProfile
+    npc = DFcorrection(corrections=as_numpy(c), surfaceSigmaProfile=ssp)
+    bkc = DFcorrection(corrections=c, surfaceSigmaProfile=ssp)
+    numpy.testing.assert_allclose(
+        as_numpy(bkc._backend_tables[3]),
+        [npc._surfaceDerivSmallR, npc._sigma2DerivSmallR],
+        rtol=1e-10,
+    )
+    for R in [1e-12, 0.3, 1.1, 4.9, 7.0, 12.0]:
+        numpy.testing.assert_allclose(
+            as_numpy(bkc.correct(R, log=True)),
+            npc.correct(R, log=True),
+            rtol=1e-12,
+            atol=1e-14,
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("interp_k", [1, 3])
+def test_numpy_corrections_on_backend_inputs(backend, interp_k, tmp_path):
+    # cached numpy corrections, backend R: the scipy splines' own polynomials
+    from galpy.df.diskdf import DFcorrection
+
+    df = dehnendf(profileParams=(0.25, 1.0, 0.2), savedir=str(tmp_path), **_CORR_KW)
+    corr = DFcorrection(
+        corrections=df._corr._corrections,
+        surfaceSigmaProfile=df._surfaceSigmaProfile,
+        interp_k=interp_k,
+    )
+    R = numpy.array([1e-12, 0.3, 1.1, 4.9, 7.0, 12.0])
+    for log in (True, False):
+        got = corr.correct(_array(backend, R), log=log)
+        assert is_backend_array(got)
+        ref = numpy.array([corr.correct(r, log=log) for r in R]).T
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_corrections_interp_k(backend, tmp_path):
+    from galpy.df.diskdf import DFcorrection
+
+    df = dehnendf(profileParams=(0.25, 1.0, 0.2), savedir=str(tmp_path), **_CORR_KW)
+    c = df._corr._corrections
+    for k in (1, 3):
+        npc = DFcorrection(
+            corrections=c, surfaceSigmaProfile=df._surfaceSigmaProfile, interp_k=k
+        )
+        bkc = DFcorrection(
+            corrections=_array(backend, c),
+            surfaceSigmaProfile=df._surfaceSigmaProfile,
+            interp_k=k,
+        )
+        for R in [0.3, 1.1, 4.9, 7.0]:
+            numpy.testing.assert_allclose(
+                as_numpy(bkc.correct(R, log=True)),
+                npc.correct(R, log=True),
+                rtol=1e-12,
+                atol=1e-14,
+            )
+    with pytest.raises(NotImplementedError, match="interp_k"):
+        DFcorrection(
+            corrections=_array(backend, c),
+            surfaceSigmaProfile=df._surfaceSigmaProfile,
+            interp_k=2,
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_corrected_forced_plain_inputs_match_numpy(backend, corr_outputs):
+    # plain parameters under a forced backend: the cached numpy corrections,
+    # evaluated (and the moments integrated) on the backend
+    ref = corr_outputs(0.25, 0.2, 0.9)
+    vals = corr_outputs(0.25, 0.2, 0.9, backend=backend, forced=True)
+    assert is_backend_array(vals)
+    # f: exact; moments: GL (order 100) vs adaptive dblquad across spline knots
+    numpy.testing.assert_allclose(as_numpy(vals)[0], ref[0], rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(vals)[1:], ref[1:], rtol=1e-9)
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("param", ["hR", "sigma0", "R"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_corrected_grad_vs_fd(backend, param, mode, corr_outputs):
+    if param == "R" and mode == "forced":
+        pytest.skip("R is the differentiated coordinate: data mode")
+    p0 = {"hR": 0.25, "sigma0": 0.2, "R": 0.9}
+    forced = mode == "forced"
+
+    def f(x, xp):
+        P = {k: (x if k == param else v) for k, v in p0.items()}
+        if not forced:  # data mode: every input a backend array
+            P = {k: (v if k == param else xp(v)) for k, v in P.items()}
+        return corr_outputs(P["hR"], P["sigma0"], P["R"], backend, forced)
+
+    if backend == "jax":
+        jf = jax.jit(lambda x: f(x, jnp.asarray))
+        g = numpy.asarray(
+            jax.jacrev(lambda x: f(x, jnp.asarray))(jnp.asarray(p0[param]))
+        )
+        gj = numpy.asarray(
+            jax.jit(jax.jacrev(lambda x: f(x, jnp.asarray)))(jnp.asarray(p0[param]))
+        )
+        numpy.testing.assert_allclose(gj, g, rtol=1e-10)
+        # traced parameter: the backend-corrections route for the FD too
+        fv = lambda x: numpy.asarray(jf(jnp.asarray(x)))
+    else:
+        tt = lambda v: torch.tensor(v)
+        t = torch.tensor(p0[param], requires_grad=True)
+        out = f(t, tt)
+        g = numpy.array(
+            [float(torch.autograd.grad(o, t, retain_graph=True)[0]) for o in out]
+        )
+        fv = lambda x: as_numpy(f(torch.tensor(x, requires_grad=True), tt).detach())
+    d = lambda h: (fv(p0[param] + h) - fv(p0[param] - h)) / (2.0 * h)
+    d1, d2 = d(1e-3), d(5e-4)
+    fd = (4.0 * d2 - d1) / 3.0
+    assert numpy.all(numpy.fabs(d2 - d1) < 1e-3 * numpy.fabs(fd) + 1e-10)
+    # Richardson truncation ~1e-12; measured AD-vs-FD <= 2e-10
+    numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-11)
