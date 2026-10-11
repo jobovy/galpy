@@ -9,7 +9,7 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..orbit import Orbit
 from ..potential import IsochronePotential
-from ..potential.Potential import _check_potential_list_and_deprecate, _rl_array
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import (
@@ -3096,7 +3096,9 @@ class quasiisothermaldf(df):
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(lz[indxc])
-            out[indx] = _rl_array(self._pot, lz[indx])
+            out[indx] = numpy.array(
+                [potential.rl(self._pot, lz[indx][ii]) for ii in range(numpy.sum(indx))]
+            )
             return out
         else:
             if lz > self._precomputergLzmax or (

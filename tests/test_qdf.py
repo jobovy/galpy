@@ -1796,8 +1796,8 @@ def test_unbound_in_array_adiabatic_python():
 
 def test_rg_outofgrid_array():
     # Out-of-grid Lz in an array used to be extrapolated with the rg(Lz) spline
-    # instead of being solved for, as the scalar path does with rl
-    from galpy.potential import rl, vcirc
+    # instead of being solved for with rl, as the scalar path does
+    from galpy.potential import rl
 
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
@@ -1816,20 +1816,16 @@ def test_rg_outofgrid_array():
     )
     rgs = qdf._rg(lzs)
     for lz, rg in zip(lzs, rgs):
-        # rl's brentq has an absolute xtol of 2e-12
-        assert numpy.fabs(rg / qdf._rg(lz) - 1.0) < 1e-9, (
+        assert numpy.fabs(rg - qdf._rg(lz)) < 1e-14, (
             "qdf rg for an array of Lz does not agree with the scalar path"
         )
         if lz != 0.0:
             assert numpy.fabs(rg / rl(MWPotential, lz) - 1.0) < 1e-5, (
                 "qdf rg for an array of Lz does not agree with rl"
             )
-    # out-of-grid points are solved for exactly: rg vc(rg) = |Lz|
+    # out-of-grid points are solved for exactly
     for ii in [0, 1, 4, 5, 6]:
-        assert (
-            numpy.fabs(
-                rgs[ii] * vcirc(MWPotential, rgs[ii]) / numpy.fabs(lzs[ii]) - 1.0
-            )
-            < 1e-13
-        ), "qdf rg for an out-of-grid Lz in an array is not the circular-orbit radius"
+        assert numpy.fabs(rgs[ii] - rl(MWPotential, lzs[ii])) < 1e-14, (
+            "qdf rg for an out-of-grid Lz in an array does not agree with rl"
+        )
     return None

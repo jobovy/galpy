@@ -3214,59 +3214,6 @@ def rl(Pot, lz, t=0.0):
         return optimize.brentq(_rlfunc, rlower, rstart, args=(numpy.fabs(lz), Pot, t))
 
 
-def _rl_array(Pot, lz, t=0.0):
-    """rl for an array of lz (internal units): vectorized bracketing + Illinois
-    regula falsi on r vc(r) - |lz|, which is increasing in r"""
-    lz = numpy.fabs(numpy.atleast_1d(lz)).astype(float)
-    out = numpy.empty_like(lz)
-    if lz.size == 0:
-        return out
-    from .planarPotential import toPlanarPotential
-
-    Pot = toPlanarPotential(Pot)  # once, rather than in every vcirc call
-    g = lambda r, l: r * vcirc(Pot, r, t=t, use_physical=False) - l
-    # Bracket [lo,hi] by doubling/halving from r = lz (vc ~ 1)
-    lo, hi = lz.copy(), lz.copy()
-    glo, ghi = g(lo, lz), g(hi, lz)
-    while numpy.any(glo > 0.0):
-        indx = glo > 0.0
-        hi[indx], ghi[indx] = lo[indx], glo[indx]
-        lo[indx] /= 2.0
-        glo[indx] = g(lo[indx], lz[indx])
-    while numpy.any(ghi < 0.0):
-        indx = ghi < 0.0
-        lo[indx], glo[indx] = hi[indx], ghi[indx]
-        hi[indx] *= 2.0
-        ghi[indx] = g(hi[indx], lz[indx])
-    # Illinois iterations on the active points
-    active = numpy.arange(lz.size)
-    side = numpy.zeros(lz.size, dtype=int)
-    for _ in range(200):
-        a, b, ga, gb = lo[active], hi[active], glo[active], ghi[active]
-        denom = gb - ga
-        r = numpy.where(
-            denom != 0.0,
-            b - gb * (b - a) / numpy.where(denom != 0.0, denom, 1.0),
-            0.5 * (a + b),
-        )
-        r = numpy.clip(r, a, b)
-        gr = g(r, lz[active])
-        out[active] = r
-        right = gr > 0.0
-        # gr > 0: root in [a,r]; else in [r,b]; halve the stale end (Illinois)
-        hi[active[right]], ghi[active[right]] = r[right], gr[right]
-        lo[active[~right]], glo[active[~right]] = r[~right], gr[~right]
-        s = side[active]
-        glo[active[right & (s == 1)]] *= 0.5
-        ghi[active[~right & (s == -1)]] *= 0.5
-        side[active] = numpy.where(right, 1, -1)
-        done = (gr == 0.0) | (hi[active] - lo[active] <= 1e-13 * r)
-        active = active[~done]
-        if active.size == 0:
-            break
-    return out
-
-
 def _rlfunc(rl, lz, pot, t=0.0):
     """Function that gives rvc-lz"""
     thisvcirc = vcirc(pot, rl, t=t, use_physical=False)
