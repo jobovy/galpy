@@ -442,3 +442,55 @@ def test_guess_newton_root_follows_the_input_device():
         r = brentq(lambda x, cc: x * x - cc, lo, lo + 3.0, args=(cs,), guess=guesses)
     assert r.device == guesses.device
     numpy.testing.assert_allclose(_to_np(r), numpy.sqrt(_to_np(cs)), rtol=1e-14)
+
+
+# --- fixed_point: scipy's del2 iteration, implicit-function gradient ----------
+from galpy.backend.optimize import fixed_point  # noqa: E402
+
+# x = a cos(x), elementwise: dx*/da = cos(x*) / (1 + a sin(x*))
+_FP_A = numpy.array([0.3, 0.9, 1.4])
+
+
+def _fp(xp, a, **kw):
+    return fixed_point(lambda x, a: a * xp.cos(x), 0.0 * a + 0.5, args=(a,), **kw)
+
+
+def test_fixed_point_numpy_is_scipy():
+    f = lambda x, a: a * numpy.cos(x)
+    got = fixed_point(f, 0.0 * _FP_A + 0.5, args=(_FP_A,))
+    ref = sopt.fixed_point(f, 0.0 * _FP_A + 0.5, args=(_FP_A,))
+    assert got.tobytes() == ref.tobytes()
+
+
+@pytest.mark.parametrize("mode", ["eager", "jit", "vmap", "torch"])
+def test_fixed_point_value_and_gradient(mode):
+    if (torch if mode == "torch" else jax) is None:
+        pytest.skip("backend not installed")
+    ref = sopt.fixed_point(
+        lambda x, a: a * numpy.cos(x), 0.0 * _FP_A + 0.5, args=(_FP_A,)
+    )
+    dref = numpy.cos(ref) / (1.0 + _FP_A * numpy.sin(ref))
+    if mode == "torch":
+        a = torch.tensor(_FP_A, requires_grad=True)
+        x = _fp(txp, a)
+        (g,) = torch.autograd.grad(x.sum(), a)
+        # nothing needs grad -> the bare iterate, no graph
+        assert not _fp(txp, torch.tensor(_FP_A)).requires_grad
+    else:
+        F = lambda a: _fp(jnp, a)
+        if mode == "jit":  # the while_loop iteration
+            F = jax.jit(F)
+        x = F(jnp.asarray(_FP_A))
+        if mode == "vmap":
+            g = jax.vmap(jax.grad(lambda a: F(a[None])[0]))(jnp.asarray(_FP_A))
+        else:
+            g = jax.grad(lambda a: F(a).sum())(jnp.asarray(_FP_A))
+    # the same del2 iteration as scipy: the same value to round-off
+    numpy.testing.assert_allclose(_to_np(x), ref, rtol=1e-15)
+    numpy.testing.assert_allclose(_to_np(g), dref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_fixed_point_backend_raises_without_convergence(backend):
+    with pytest.raises(RuntimeError, match="Failed to converge"):
+        _fp(_xp(backend), _xp(backend).asarray(_FP_A), maxiter=1)
