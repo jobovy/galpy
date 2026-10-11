@@ -413,3 +413,30 @@ def test_frequency_grad_vs_fd_all_modes(backend_name, name, mode):
     assert numpy.amax(numpy.fabs(fd)) > 0.1
     for ad in ads:
         numpy.testing.assert_allclose(ad, fd, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_force_anchor_cache_never_holds_traced_constants():
+    # Constants anchored inside a jax.jit trace are tracers: caching them leaked
+    # them into later traces (wrong orbits, "supplied 7 buffers but compiled
+    # program expected 12" under --jit). Traced calls bypass the cache.
+    pot = _build("vec_odot")
+    v = [jnp.asarray(c) for c in _V0]
+    f = jax.jit(lambda R, z: pot._force(R, z, jnp.asarray(_PHI0), jnp.asarray(_T0), v))
+    for R in (_R0, 1.3 * _R0):
+        got = numpy.asarray(f(jnp.asarray(R), jnp.asarray(_Z0)))
+        ref = _build("vec_odot")._force(R, _Z0, _PHI0, _T0, list(_V0))
+        numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
+    assert not any(
+        isinstance(a, jax.core.Tracer)
+        for c in pot._const_anchor_cache.values()
+        for a in c.values()
+    )
+    eager = numpy.asarray(
+        pot._force(
+            jnp.asarray(_R0), jnp.asarray(_Z0), jnp.asarray(_PHI0), jnp.asarray(_T0), v
+        )
+    )
+    numpy.testing.assert_allclose(
+        eager, _build("vec_odot")._force(_R0, _Z0, _PHI0, _T0, list(_V0)), rtol=1e-13
+    )

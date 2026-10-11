@@ -16,7 +16,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
 )
-from ..backend._namespaces import namespace_from_arrays
+from ..backend._namespaces import namespace_from_arrays, under_trace
 from ..util import conversion, coords, galpyWarning
 from .DissipativeForce import DissipativeForce
 
@@ -367,6 +367,7 @@ class NonInertialFrameForce(DissipativeForce):
             getattr(ref, "dtype", None),
             getattr(ref, "device", None),
         )
+        tracing = under_trace(ref)
         _cache = self._const_anchor_cache.get(_ckey)
         if _cache is None:
             _cache = self._const_anchor_cache[_ckey] = {}
@@ -383,6 +384,8 @@ class NonInertialFrameForce(DissipativeForce):
             # key is always hashable -- an unhashable one would be a new caller
             # doing something unintended, and should raise rather than silently
             # fall back to re-anchoring on every call.
+            if tracing:  # an array made inside a trace must not outlive it
+                return as_backend_constant(xp, c, ref)
             hit = _cache.get(c)
             if hit is None:
                 hit = _cache[c] = as_backend_constant(xp, c, ref)
