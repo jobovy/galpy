@@ -560,3 +560,794 @@
 #
 #
 #
+
+# --- tests/test_backend_param_sweep.py (gap audit PR 0, 2026-10-10) ---
+# The sweep manages its own backends, so this block is read by the test itself
+# (and by conftest under --backend). Every case slower than 10 s, measured one
+# spec per process on a loaded 2-CPU lane (CI runs ~0.7x this), plus:
+#   * OOM: jax.jit compile of TwoPowerTriaxial alpha/beta/a above 7 GB;
+#   * unmeasured: streamdf, streamdf[Cint], streamgapdf -- every case builds the
+#     stream (jax eager > 20 min and > 7 GB; the numpy FD alone ~400 s).
+# Each line carries its time and whether the case passed or failed; failing
+# cases are also in backend_param_known_gaps.txt.
+jax tests/test_backend_param_sweep.py::test_param_grad[DoubleExponentialDiskPotential-hr-jax-data-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DoubleExponentialDiskPotential-hr-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DoubleExponentialDiskPotential-hr-jax-floatcoords-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[EinastoPotential-n-jax-data-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-hr-jax-data-eager]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-hr-jax-data-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-hr-jax-forced-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-hr-jax-forced-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-R-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-R-jax-forced-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-R-jax-forced-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-R-jax-floatcoords-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RazorThinExponentialDiskPotential-R-jax-floatcoords-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RingPotential-a-jax-data-jit]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RingPotential-a-jax-forced-jit]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RingPotential-R-jax-data-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RingPotential-R-jax-forced-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[RingPotential-R-jax-floatcoords-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[TriaxialHernquistPotential-a-jax-floatcoords-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[TriaxialNFWPotential-a-jax-floatcoords-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[TwoPowerTriaxialPotential-a-jax-floatcoords-jit]  # OOM (>7 GB)
+jax tests/test_backend_param_sweep.py::test_param_grad[TwoPowerTriaxialPotential-alpha-jax-data-jit]  # OOM (>7 GB)
+jax tests/test_backend_param_sweep.py::test_param_grad[TwoPowerTriaxialPotential-alpha-jax-forced-jit]  # OOM (>7 GB)
+jax tests/test_backend_param_sweep.py::test_param_grad[TwoPowerTriaxialPotential-beta-jax-data-jit]  # OOM (>7 GB)
+jax tests/test_backend_param_sweep.py::test_param_grad[TwoPowerTriaxialPotential-beta-jax-forced-jit]  # OOM (>7 GB)
+jax tests/test_backend_param_sweep.py::test_param_grad[EinastoPotential[rs]-n-jax-data-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[EinastoPotential[rs]-n-jax-data-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[EinastoPotential[rs]-n-jax-forced-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[AnyAxisymmetricRazorThinDiskPotential-R-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[AnyAxisymmetricRazorThinDiskPotential-R-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[AnyAxisymmetricRazorThinDiskPotential-R-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[AnyAxisymmetricRazorThinDiskPotential-R-jax-floatcoords-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[AnyAxisymmetricRazorThinDiskPotential-R-jax-floatcoords-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[SCFPotential-a-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[SCFPotential-a-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[SCFPotential-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[SCFPotential-R-jax-forced-eager]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[SCFPotential-R-jax-floatcoords-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-a-jax-data-eager]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-a-jax-data-jit]  # 147 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-a-jax-forced-eager]  # 21 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-a-jax-floatcoords-eager]  # 11 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-q-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-q-jax-data-jit]  # 40 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-q-jax-forced-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-q-jax-floatcoords-jit]  # 34 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-R-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-R-jax-forced-eager]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[scf_compute_coeffs_axi[SCFPotential]-R-jax-floatcoords-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-amp-jax-data-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-amp-jax-forced-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-h-jax-forced-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-hz-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-R-jax-data-eager]  # 21 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-R-jax-forced-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-R-jax-floatcoords-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskSCFPotential-R-jax-floatcoords-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-amp-jax-data-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-data-eager]  # 115 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-data-jit]  # 377 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-forced-eager]  # 93 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-forced-jit]  # 333 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-floatcoords-eager]  # 65 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-a-jax-floatcoords-jit]  # 74 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-data-eager]  # 89 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-data-jit]  # 289 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-forced-eager]  # 107 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-forced-jit]  # 311 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-floatcoords-eager]  # 45 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-q-jax-floatcoords-jit]  # 77 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-R-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-R-jax-forced-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-R-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[MultipoleExpansionPotential-R-jax-floatcoords-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskMultipoleExpansionPotential-amp-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskMultipoleExpansionPotential-R-jax-data-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskMultipoleExpansionPotential-R-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskMultipoleExpansionPotential-R-jax-floatcoords-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[DiskMultipoleExpansionPotential-R-jax-floatcoords-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[ChandrasekharDynamicalFrictionForce-a-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[ChandrasekharDynamicalFrictionForce-R-jax-forced-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[FDMDynamicalFrictionForce-a-jax-data-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[FDMDynamicalFrictionForce-R-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[OblateStaeckelWrapperPotential-delta-jax-data-jit]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[OblateStaeckelWrapperPotential-delta-jax-forced-jit]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[OblateStaeckelWrapperPotential-R-jax-data-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[OblateStaeckelWrapperPotential-R-jax-forced-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[OblateStaeckelWrapperPotential-R-jax-floatcoords-jit]  # 19 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[interpRZPotential-mna-torch-forced-eager]  # 13 s, fails
+torch tests/test_backend_param_sweep.py::test_param_grad[interpRZPotential-mnb-torch-forced-eager]  # 13 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-amp-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-amp-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-amp-jax-floatcoords-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-data-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-forced-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-forced-jit]  # 44 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-floatcoords-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential-a-jax-floatcoords-jit]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-amp-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-amp-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-amp-jax-floatcoords-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-a-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-a-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[interpSphericalPotential[callable]-a-jax-floatcoords-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-data-eager]  # 108 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-data-jit]  # 91 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-forced-eager]  # 116 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-forced-jit]  # 103 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-floatcoords-eager]  # 121 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-W0-jax-floatcoords-jit]  # 95 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-M-jax-data-eager]  # 35 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-M-jax-forced-eager]  # 102 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-M-jax-floatcoords-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-data-eager]  # 123 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-data-jit]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-forced-eager]  # 110 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-forced-jit]  # 48 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-floatcoords-eager]  # 119 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-rt-jax-floatcoords-jit]  # 50 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[KingPotential-R-jax-forced-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[isotropicHernquistdf-a-jax-data-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittNFWdf-amp-jax-data-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetaHernquistdf-amp-jax-data-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetaHernquistdf-a-jax-data-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetaHernquistdf-a-jax-data-jit]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetaHernquistdf-beta-jax-data-jit]  # 15 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetaHernquistdf-R-jax-forced-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-amp-jax-data-eager]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-amp-jax-data-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-amp-jax-forced-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-a-jax-data-eager]  # 49 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-a-jax-data-jit]  # 38 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-a-jax-forced-eager]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-R-jax-data-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-R-jax-forced-eager]  # 29 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf-R-jax-floatcoords-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-amp-jax-data-eager]  # 55 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-amp-jax-data-jit]  # 53 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-amp-jax-forced-eager]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-a-jax-data-eager]  # 56 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-a-jax-data-jit]  # 84 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-a-jax-forced-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-da-jax-data-eager]  # 43 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-da-jax-forced-eager]  # 18 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-data-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-data-jit]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-forced-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-forced-jit]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-floatcoords-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[denspot]-R-jax-floatcoords-jit]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-amp-jax-data-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-amp-jax-data-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-amp-jax-forced-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-a-jax-data-eager]  # 43 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-a-jax-data-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-a-jax-forced-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-data-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-forced-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[eddingtondf[Hernquist]-R-jax-floatcoords-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-eager]  # 47 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-data-jit]  # 41 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-amp-jax-forced-eager]  # 15 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-eager]  # 43 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-data-jit]  # 61 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-a-jax-forced-eager]  # 15 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-eager]  # 31 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-data-jit]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-ra-jax-forced-eager]  # 11 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-data-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-forced-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-forced-jit]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-floatcoords-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[osipkovmerrittdf-R-jax-floatcoords-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-amp-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-a-jax-data-eager]  # 45 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-a-jax-data-jit]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-a-jax-forced-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-R-jax-forced-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-R-jax-floatcoords-eager]  # 137 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[constantbetadf-R-torch-floatcoords-eager]  # 98 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-W0-jax-data-eager]  # 123 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-W0-jax-data-jit]  # 96 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-W0-jax-forced-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-W0-jax-floatcoords-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-M-jax-data-eager]  # 46 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-M-jax-forced-eager]  # 24 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-M-jax-floatcoords-eager]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-rt-jax-data-eager]  # 121 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-rt-jax-data-jit]  # 67 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-rt-jax-forced-eager]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-rt-jax-floatcoords-eager]  # 18 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[kingdf-R-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-amp-jax-data-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-a-jax-data-eager]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-a-jax-forced-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-beta-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-R-jax-data-eager]  # 21 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-R-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos-R-jax-floatcoords-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos[dens,surfdens]-amp-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos[dens,surfdens]-a-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos[dens,surfdens]-da-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[jeans.sigmalos[dens,surfdens]-R-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-beta-jax-data-eager]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-hR-jax-data-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-sR-jax-data-eager]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-sigma0-jax-data-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-R-jax-data-eager]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf-R-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-beta-jax-data-eager]  # 11 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-hR-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-sR-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-sigma0-jax-data-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-R-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[shudf-R-jax-floatcoords-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-beta-jax-data-eager]  # 16 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-hR-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-sR-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-sigma0-jax-data-eager]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-R-jax-data-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[schwarzschilddf-R-jax-forced-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf[correct]-hR-jax-data-eager]  # 1011 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf[correct]-sigma0-jax-data-eager]  # 1200 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf[correct]-sigma0-jax-data-jit]  # 723 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[dehnendf[correct]-R-jax-data-eager]  # 392 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-hR-jax-data-eager]  # 40 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-hR-jax-data-jit]  # 19 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-hR-torch-data-eager]  # 54 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-hR-torch-forced-eager]  # 53 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-hR-torch-floatcoords-eager]  # 32 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-data-eager]  # 32 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-data-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-forced-eager]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-forced-jit]  # 21 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-floatcoords-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-jax-floatcoords-jit]  # 22 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-torch-data-eager]  # 50 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-torch-forced-eager]  # 40 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-lamp-torch-floatcoords-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-data-eager]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-data-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-forced-eager]  # 31 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-forced-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-floatcoords-eager]  # 29 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-jax-floatcoords-jit]  # 18 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-torch-data-eager]  # 37 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-torch-forced-eager]  # 36 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-A-torch-floatcoords-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-jax-data-eager]  # 32 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-jax-forced-eager]  # 34 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-jax-floatcoords-eager]  # 32 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-torch-data-eager]  # 38 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-torch-forced-eager]  # 35 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-omegas-torch-floatcoords-eager]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-data-eager]  # 34 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-data-jit]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-forced-eager]  # 35 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-forced-jit]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-floatcoords-eager]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-jax-floatcoords-jit]  # 23 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-torch-data-eager]  # 44 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-torch-forced-eager]  # 44 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[evolveddiskdf-R-torch-floatcoords-eager]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-amp-jax-data-eager]  # 35 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-amp-jax-data-jit]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-amp-jax-forced-eager]  # 28 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-amp-jax-forced-jit]  # 19 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-b-jax-data-eager]  # 35 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-b-jax-data-jit]  # 24 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-b-jax-forced-eager]  # 33 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-b-jax-forced-jit]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-b-jax-floatcoords-eager]  # 10 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-data-eager]  # 27 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-data-jit]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-forced-eager]  # 29 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-forced-jit]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-floatcoords-eager]  # 28 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hr-jax-floatcoords-jit]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sr-jax-data-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sr-jax-forced-eager]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sr-jax-floatcoords-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sz-jax-data-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sz-jax-forced-eager]  # 19 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-sz-jax-floatcoords-eager]  # 14 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsr-jax-data-eager]  # 19 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsr-jax-forced-eager]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsr-jax-floatcoords-eager]  # 17 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsz-jax-data-eager]  # 16 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsz-jax-forced-eager]  # 16 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-hsz-jax-floatcoords-eager]  # 18 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-R-jax-data-eager]  # 16 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-R-jax-forced-eager]  # 19 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Isochrone]-R-jax-floatcoords-eager]  # 15 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-a-jax-data-eager]  # 278 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-a-jax-forced-eager]  # 48 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-a-jax-forced-jit]  # 402 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-data-eager]  # 330 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-data-jit]  # 200 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-forced-eager]  # 60 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-forced-jit]  # 204 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-floatcoords-eager]  # 50 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[MN,Adiabatic,c=False]-R-jax-floatcoords-jit]  # 213 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-data-eager]  # 25 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-data-jit]  # 28 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-forced-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-forced-jit]  # 29 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-floatcoords-eager]  # 20 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-a-jax-floatcoords-jit]  # 30 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-delta-jax-data-eager]  # 13 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-delta-jax-forced-eager]  # 21 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-R-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-R-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-R-jax-forced-eager]  # 33 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-R-jax-floatcoords-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[quasiisothermaldf[Staeckel,c=True]-R-jax-floatcoords-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general-wy-jax-forced-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general-vx-jax-data-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general-vx-jax-forced-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-b-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-b-jax-forced-eager]  # 13 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-b-torch-data-eager]  # 16 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-b-torch-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-wy-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-wy-jax-forced-eager]  # 13 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-wy-torch-data-eager]  # 15 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-wy-torch-forced-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-amp-jax-data-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-amp-jax-forced-eager]  # 12 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-amp-torch-data-eager]  # 16 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-amp-torch-forced-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-pb-jax-data-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-pb-jax-forced-eager]  # 12 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-pb-torch-data-eager]  # 11 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-pb-torch-forced-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-jax-data-eager]  # 33 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-jax-data-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-jax-forced-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-jax-forced-jit]  # 19 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-torch-data-eager]  # 89 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-lamp-torch-forced-eager]  # 88 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-data-eager]  # 33 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-data-jit]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-forced-eager]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-forced-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-floatcoords-eager]  # 33 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-jax-floatcoords-jit]  # 20 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-torch-data-eager]  # 61 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-torch-forced-eager]  # 50 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[impulse_deltav_general_orbitintegration-vx-torch-floatcoords-eager]  # 60 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-mass_e5-jax-data-eager]  # 124 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-mass_e5-jax-data-jit]  # 59 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-mass_e5-jax-floatcoords-eager]  # 45 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-mass_e5-jax-floatcoords-jit]  # 67 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-mass_e5-torch-floatcoords-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-lamp-jax-data-eager]  # 173 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-lamp-jax-data-jit]  # 92 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-lamp-jax-floatcoords-eager]  # 67 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-lamp-jax-floatcoords-jit]  # 78 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-lamp-torch-floatcoords-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-q-jax-data-eager]  # 160 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-q-jax-data-jit]  # 77 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-q-jax-floatcoords-eager]  # 60 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-q-jax-floatcoords-jit]  # 74 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-q-torch-floatcoords-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-data-eager]  # 101 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-data-jit]  # 89 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-forced-eager]  # 67 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-forced-jit]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-floatcoords-eager]  # 69 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-jax-floatcoords-jit]  # 74 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[fardal15spraydf-pR-torch-data-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-jax-data-eager]  # 131 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-jax-data-jit]  # 62 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-jax-forced-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-jax-floatcoords-eager]  # 55 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-jax-floatcoords-jit]  # 83 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-mass_e5-torch-data-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-jax-data-eager]  # 176 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-jax-data-jit]  # 82 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-jax-floatcoords-eager]  # 68 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-jax-floatcoords-jit]  # 90 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-torch-data-eager]  # 11 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-lamp-torch-floatcoords-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-jax-data-eager]  # 161 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-jax-data-jit]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-jax-floatcoords-eager]  # 68 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-jax-floatcoords-jit]  # 80 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-torch-data-eager]  # 12 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-q-torch-floatcoords-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-data-eager]  # 116 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-data-jit]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-forced-eager]  # 72 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-forced-jit]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-floatcoords-eager]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[chen24spraydf-pR-jax-floatcoords-jit]  # 80 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-mass_e5-jax-data-eager]  # 140 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-mass_e5-jax-data-jit]  # 63 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-mass_e5-jax-floatcoords-eager]  # 47 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-mass_e5-jax-floatcoords-jit]  # 70 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-mass_e5-torch-floatcoords-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-lamp-jax-data-eager]  # 159 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-lamp-jax-data-jit]  # 94 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-lamp-jax-floatcoords-eager]  # 67 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-lamp-jax-floatcoords-jit]  # 84 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-lamp-torch-data-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-q-jax-data-eager]  # 165 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-q-jax-data-jit]  # 76 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-q-jax-floatcoords-eager]  # 67 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-q-jax-floatcoords-jit]  # 80 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-q-torch-floatcoords-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-data-eager]  # 111 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-data-jit]  # 83 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-forced-eager]  # 74 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-forced-jit]  # 76 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-floatcoords-eager]  # 71 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-jax-floatcoords-jit]  # 87 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf-pR-torch-data-eager]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-jax-data-eager]  # 255 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-jax-data-jit]  # 103 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-jax-floatcoords-eager]  # 102 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-jax-floatcoords-jit]  # 98 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-torch-data-eager]  # 23 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-torch-forced-eager]  # 11 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-mass_e5-torch-floatcoords-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-jax-data-eager]  # 296 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-jax-data-jit]  # 115 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-jax-floatcoords-eager]  # 129 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-jax-floatcoords-jit]  # 106 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-torch-data-eager]  # 26 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-torch-forced-eager]  # 11 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-lamp-torch-floatcoords-eager]  # 28 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-jax-data-eager]  # 265 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-jax-data-jit]  # 127 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-jax-floatcoords-eager]  # 124 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-jax-floatcoords-jit]  # 116 s, fails
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-torch-data-eager]  # 23 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-torch-forced-eager]  # 11 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-q-torch-floatcoords-eager]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-data-eager]  # 189 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-data-jit]  # 116 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-forced-eager]  # 128 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-forced-jit]  # 116 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-floatcoords-eager]  # 139 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-jax-floatcoords-jit]  # 106 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-torch-data-eager]  # 22 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-torch-forced-eager]  # 23 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-pR-torch-floatcoords-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-tp-jax-data-eager]  # 13 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-tp-jax-forced-eager]  # 20 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-tp-torch-data-eager]  # 13 s, fails
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-tp-torch-forced-eager]  # 15 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack-tp-torch-floatcoords-eager]  # 13 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-jax-data-eager]  # 384 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-jax-data-jit]  # 197 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-jax-floatcoords-eager]  # 167 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-jax-floatcoords-jit]  # 238 s, fails
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-torch-data-eager]  # 43 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-torch-forced-eager]  # 22 s, passes
+torch tests/test_backend_param_sweep.py::test_param_grad[streamspraydf.streamTrack[pair]-lamp-torch-floatcoords-eager]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-sigv_kms-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-lamp-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-q-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-pR-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf-dangle-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-sigv_kms-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-lamp-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-q-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamdf[Cint]-pR-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-GM_e3-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-rs-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-impactb-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-data-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-data-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-forced-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-forced-jit]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-jax-floatcoords-jit]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-torch-data-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-torch-forced-eager]  # unmeasured
+torch tests/test_backend_param_sweep.py::test_param_grad[streamgapdf-timpact-torch-floatcoords-eager]  # unmeasured
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-a-jax-data-eager]  # 43 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-a-jax-data-jit]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-a-jax-forced-eager]  # 49 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-a-jax-forced-jit]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-b-jax-data-eager]  # 46 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-b-jax-data-jit]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-b-jax-forced-eager]  # 47 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-b-jax-forced-jit]  # 46 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-delta-jax-data-eager]  # 58 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-delta-jax-data-jit]  # 54 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-delta-jax-forced-eager]  # 51 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-delta-jax-forced-jit]  # 46 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-data-eager]  # 43 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-data-jit]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-forced-eager]  # 45 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-forced-jit]  # 44 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-floatcoords-eager]  # 50 s, fails
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-R-jax-floatcoords-jit]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-vz-jax-data-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckel[c=False]-vz-jax-data-jit]  # 30 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-a-jax-forced-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-a-jax-forced-jit]  # 53 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-b-jax-forced-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-b-jax-forced-jit]  # 52 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-gamma-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-gamma-jax-forced-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-data-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-data-jit]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-forced-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-forced-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-floatcoords-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-R-jax-floatcoords-jit]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-vz-jax-data-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=False]-vz-jax-data-jit]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-a-jax-forced-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-a-jax-forced-jit]  # 68 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-b-jax-forced-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-b-jax-forced-jit]  # 73 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-gamma-jax-data-eager]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-gamma-jax-forced-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-data-jit]  # 46 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-forced-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-forced-jit]  # 45 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-floatcoords-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-R-jax-floatcoords-jit]  # 43 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-vz-jax-data-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabatic[c=True]-vz-jax-data-jit]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-a-jax-data-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-a-jax-data-jit]  # 57 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-a-jax-forced-eager]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-a-jax-forced-jit]  # 45 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-data-jit]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-forced-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-forced-jit]  # 45 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-floatcoords-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-R-jax-floatcoords-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-vz-jax-data-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical-vz-jax-data-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-core-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-core-jax-data-jit]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-core-jax-forced-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-core-jax-forced-jit]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-data-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-forced-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-floatcoords-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleSpherical[LogHalo]-R-jax-floatcoords-jit]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-a-jax-data-eager]  # 47 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-a-jax-data-jit]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-b-jax-data-eager]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-b-jax-data-jit]  # 21 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-bI-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-bI-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-R-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-R-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleIsochroneApprox-R-jax-floatcoords-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-R-jax-data-eager]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-R-jax-forced-eager]  # 33 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-R-jax-floatcoords-eager]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-vz-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-vz-jax-forced-eager]  # 35 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleStaeckelGrid-vz-jax-floatcoords-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabaticGrid-R-jax-forced-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleAdiabaticGrid-vz-jax-forced-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-data-eager]  # 40 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-data-jit]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-forced-eager]  # 42 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-forced-jit]  # 11 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-floatcoords-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-K-jax-floatcoords-jit]  # 10 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-F-jax-data-eager]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-F-jax-forced-eager]  # 40 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-F-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-F-jax-floatcoords-eager]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-F-jax-floatcoords-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-J-jax-data-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-J-jax-forced-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[actionAngleVerticalInverse-J-jax-floatcoords-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-a-jax-data-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-a-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-a-jax-forced-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-a-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-b-jax-data-eager]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-b-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-b-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-b-jax-forced-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-data-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-forced-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-floatcoords-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[inbackend]-R-jax-floatcoords-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-a-jax-data-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-a-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-a-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-a-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-b-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-b-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-b-jax-forced-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-b-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-R-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-R-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dop853_c]-R-jax-floatcoords-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-a-jax-data-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-a-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-a-jax-forced-eager]  # 18 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-a-jax-forced-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-b-jax-data-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-b-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-b-jax-forced-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-b-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-R-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-R-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk4_c]-R-jax-floatcoords-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-a-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-a-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-a-jax-forced-eager]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-a-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-b-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-b-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-b-jax-forced-eager]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-b-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-R-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-R-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[rk6_c]-R-jax-floatcoords-jit]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-a-jax-data-eager]  # 20 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-a-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-a-jax-forced-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-a-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-b-jax-data-eager]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-b-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-b-jax-forced-eager]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-b-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-R-jax-data-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-R-jax-forced-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[dopr54_c]-R-jax-floatcoords-jit]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-a-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-a-jax-forced-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-b-jax-data-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-b-jax-forced-jit]  # 12 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-R-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-R-jax-forced-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec4_c]-R-jax-floatcoords-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-a-jax-data-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-a-jax-forced-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-b-jax-data-jit]  # 15 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-b-jax-forced-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-R-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-R-jax-forced-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[symplec6_c]-R-jax-floatcoords-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-a-jax-data-jit]  # 16 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-a-jax-forced-jit]  # 17 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-b-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-b-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-R-jax-data-jit]  # 14 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-R-jax-forced-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.integrate[leapfrog_c]-R-jax-floatcoords-jit]  # 13 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-a-jax-forced-eager]  # 25 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-a-jax-forced-jit]  # 41 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-b-jax-forced-eager]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-b-jax-forced-jit]  # 35 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-data-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-data-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-forced-eager]  # 22 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-forced-jit]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-floatcoords-eager]  # 19 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[adiabatic]-R-jax-floatcoords-jit]  # 27 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-a-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-a-jax-data-jit]  # 39 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-a-jax-forced-eager]  # 26 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-a-jax-forced-jit]  # 37 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-data-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-data-jit]  # 32 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-forced-eager]  # 23 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-forced-jit]  # 36 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-floatcoords-eager]  # 24 s, passes
+jax tests/test_backend_param_sweep.py::test_param_grad[Orbit.analytic[spherical]-R-jax-floatcoords-jit]  # 33 s, passes
