@@ -562,6 +562,78 @@ def test_call_grad_vs_fd_stream_parameters(sdf, backend_name, forced, param):
     assert abs(rich) > 1e-2 and abs(ad - rich) < 1e-8 * abs(rich), (ad, rich)
 
 
+# d/dsigv through a FULL construction from a numpy progenitor/potential/aA, sigv
+# the only differentiated input: the offset moments, the backend track (its AA
+# solves routed in-backend, since the track differentiates the AA Jacobian) and
+# the DF moments all carry it. Reference: Richardson FD of the numpy (data) or
+# forced-float (forced) construction. 3 chunks, no interpolation: kept small.
+def _sigv_full_sdf(sigv, forced, backend_name):
+    import contextlib
+
+    from galpy.df import streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=30.0, ntintJ=1000)
+    ctx = use(backend_name, force=True) if forced else contextlib.nullcontext()
+    with ctx:
+        return streamdf(
+            sigv,
+            progenitor=Orbit(_STREAM_IC),
+            pot=lp,
+            aA=aA,
+            leading=True,
+            nTrackChunks=3,
+            nTrackIterations=0,
+            nospreadsetup=True,
+            interpTrack=False,
+            useInterp=False,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        )
+
+
+def _sigv_full_obs(s, forced, backend_name):
+    import contextlib
+
+    ctx = use(backend_name, force=True) if forced else contextlib.nullcontext()
+    with ctx:
+        return [
+            s.density_par(0.3),
+            s.meanOmega(0.3, oned=True),
+            s.sigangledAngle(0.3),
+            (s._ObsTrack**2).sum(),
+        ]
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+def test_full_construction_sigv_grad_vs_fd(forced):
+    s0 = 0.365 / 220.0
+
+    def f(x):
+        out = _sigv_full_obs(_sigv_full_sdf(x, forced, "jax"), forced, "jax")
+        return jnp.stack([jnp.reshape(jnp.asarray(o), ()) for o in out])
+
+    ad = numpy.asarray(jax.jacfwd(f)(jnp.asarray(s0)))
+
+    def ev(x):
+        out = _sigv_full_obs(_sigv_full_sdf(x, forced, "jax"), forced, "jax")
+        return numpy.array([float(as_numpy(o)) for o in out])
+
+    def fd(h):
+        return (ev(s0 * (1 + h)) - ev(s0 * (1 - h))) / (2.0 * h * s0)
+
+    fd1 = fd(1e-3)
+    rich = (4.0 * fd(5e-4) - fd1) / 3.0
+    # density_par / meanOmega / sigangledAngle vs Richardson: measured <= 1.3e-8.
+    # The track's FD carries the numpy C integrator's adaptive-step noise
+    # (~1e-4 between h's, which Richardson amplifies): plain central FD there
+    # (measured 3.7e-5 data, 1.2e-5 forced).
+    rel = numpy.abs(ad - rich) / numpy.abs(rich)
+    rel[3] = abs(ad[3] - fd1[3]) / abs(fd1[3])
+    assert numpy.all(rel[:3] < 5e-8) and rel[3] < 2e-4, (ad, rich, fd1, rel)
+
+
 ###############################################################################
 # Phase B.1: calcaAJac -- the AA-map Jacobian d(J,Omega,theta)/d(x,v), the
 # foundation of the stream-track spine.
