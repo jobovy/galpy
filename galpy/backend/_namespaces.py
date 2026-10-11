@@ -338,7 +338,8 @@ def param_grad_array(obj, any_backend=False, _depth=0):
     compile) or a grad-tracking torch tensor: a merely-forced backend array does
     not count, so plain numpy objects keep their path. ``any_backend=True``
     counts any backend array, for callers that must match the parameters'
-    FRAMEWORK rather than detect a gradient.
+    FRAMEWORK rather than detect a gradient -- but not inside caches (dicts,
+    galpy.backend objects), where only a gradient counts.
     """
     if isinstance(obj, (list, tuple)):
         vals = obj
@@ -354,7 +355,12 @@ def param_grad_array(obj, any_backend=False, _depth=0):
             tv.__module__.startswith("galpy.") and hasattr(v, "__dict__")
         ):
             if _depth < 3:
-                sub = param_grad_array(v, any_backend, _depth + 1)
+                # dicts and galpy.backend objects (splines, ...) hold caches:
+                # a forced backend's copy of a table is not a parameter there
+                sub_any = any_backend and not (
+                    isinstance(v, dict) or tv.__module__.startswith("galpy.backend")
+                )
+                sub = param_grad_array(v, sub_any, _depth + 1)
                 if sub is not None:
                     return sub
             continue

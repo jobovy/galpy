@@ -515,3 +515,24 @@ def test_parameter_cache_survives_pickling():
     v0 = pot(_R0, _Z0)
     pot2 = pickle.loads(pickle.dumps(pot))
     assert pot2(_R0, _Z0) == v0
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_forced_backend_caches_are_not_parameters(backend_name):
+    # an interpolated potential evaluated under a forced backend caches its
+    # spline tables on that backend: neither a gradient nor a parameter
+    from galpy.backend import param_grad_array
+    from galpy.potential import NFWPotential, interpSphericalPotential
+    from galpy.potential.Potential import _pot_grad_namespace
+
+    with backend.use(backend_name, force=True):
+        ipot = interpSphericalPotential(
+            rforce=NFWPotential(amp=1.3, a=1.5), rgrid=numpy.geomspace(1e-3, 1e2, 101)
+        )
+        ipot(_R0, _Z0)
+    assert param_grad_array(ipot) is None
+    assert _pot_grad_namespace(ipot, any_backend=True) is None
+    # while a differentiated parameter one level in is still found
+    b = torch.tensor(0.7, requires_grad=True) if backend_name == "torch" else None
+    if b is not None:
+        assert param_grad_array([PlummerPotential(amp=1.0, b=b)]) is b
