@@ -987,3 +987,20 @@ def test_rotateandtilt_orientation_gradient(
     backend_name, mode, build, params, name, method
 ):
     assert_param_grad(backend_name, mode, build, params, name, method, [0.9, 0.2, 0.4])
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotateandtilt_surfdens_inclination_gradient(backend_name, mode):
+    # surfdens splits its vertical quadrature at the tilted mid-plane, which
+    # depends on rot[2, 2]: here a backend (differentiated) entry
+    assert_param_grad(
+        backend_name,
+        mode,
+        _rat,
+        {"inclination": 0.6, "galaxy_pa": 0.1},
+        "inclination",
+        "surfdens",
+        [0.9, 0.3, 0.4],
+        rtol=1e-8,
+    )

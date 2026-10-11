@@ -763,3 +763,21 @@ def test_triaxial_backend_rotation_matches_numpy(backend_name):
             rtol=1e-13,
             err_msg=m,
         )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_perfectellipsoid_oblate_delta_gradient(backend_name):
+    # the oblate (b = 1) perfect ellipsoid's Staeckel delta = a sqrt(1 - c^2),
+    # differentiable in c (eagerly: under jit c < 1 is unknown, so no delta)
+    c0, a0 = 0.6, 2.0
+    ref = -a0 * c0 / numpy.sqrt(1.0 - c0**2)
+    if backend_name == "jax":
+        f = lambda c: PerfectEllipsoidPotential(a=a0, b=1.0, c=c)._delta  # noqa: E731
+        got = [float(jax.grad(f)(jnp.asarray(c0)))]
+    else:
+        c = torch.tensor(c0, dtype=torch.float64, requires_grad=True)
+        (g,) = torch.autograd.grad(
+            PerfectEllipsoidPotential(a=a0, b=1.0, c=c)._delta, c
+        )
+        got = [float(g)]
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14)
