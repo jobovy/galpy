@@ -1107,3 +1107,38 @@ def test_jacobi_numpy_orbit_forced_backend(backend_name):
     for g, r in zip(gots, refs):
         assert is_backend_array(g)
         numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-13, atol=1e-13)
+
+
+# --- Orbit.analytic with a differentiated potential parameter: the adiabatic
+# path evaluates the potential at the Python-float (inf, 0) reference
+@pytest.mark.parametrize(
+    "mode,acc",
+    [("data", a) for a in ("rperi", "zmax", "jr", "jz")]
+    + [("forced", a) for a in ("rperi", "zmax")],
+)
+@pytest.mark.parametrize(
+    "bk",
+    [b for b, ok in (("jax", HAVE_JAX), ("torch", HAVE_TORCH)) if ok],
+)
+def test_analytic_adiabatic_grad_wrt_potential_parameter(bk, mode, acc):
+    from backend_jit_helpers import autodiff_param_grads, input_mode, richardson_fd
+
+    from galpy.potential import MiyamotoNagaiPotential
+
+    ic = [1.0, 0.1, 1.1, 0.1, 0.05, 0.3]
+
+    def val(a, o):
+        pot = MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3)
+        return getattr(o, acc)(
+            analytic=True, pot=pot, type="adiabatic", use_physical=False
+        )
+
+    fd = richardson_fd(lambda a: float(val(a, Orbit(ic))), 0.5, 1e-3)
+    cv, ctx = input_mode(bk, mode)
+
+    def f(a):
+        with ctx():
+            return val(a, Orbit(cv(ic)) if mode == "data" else Orbit(ic))
+
+    for g in autodiff_param_grads(f, 0.5, bk, jit=False):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-12)
