@@ -3354,8 +3354,7 @@ def test_staeckel_c_grad_wrt_delta(bk, mode, jit, method, cjac_ics):
         _CJAC_P0["delta"],
     )
     assert numpy.all(numpy.fabs(fd) > 1e-7)  # every output depends on delta
-    rtol = 2e-6 if method == "EccZmaxRperiRap" else 1e-7
-    numpy.testing.assert_allclose(ad, fd, rtol=rtol, atol=0.0)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=0.0)
 
 
 @pytest.mark.parametrize(
