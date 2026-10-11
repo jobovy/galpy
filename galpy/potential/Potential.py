@@ -36,6 +36,7 @@ from ..backend import (
 )
 from ..backend import quadrature as _bquad
 from ..backend import resolve_namespace, scalar_like, to_host
+from ..backend._input import params_changed
 from ..backend._namespaces import (
     param_grad_namespace,
     requires_backend_grad,
@@ -1311,6 +1312,7 @@ class Potential(Force):
         # abs() (via __abs__) is backend-agnostic and byte-identical to the old
         # numpy.fabs on the numpy scalar Rforce returns.
         self._amp = self._amp * (norm / abs(self.Rforce(R, 0.0, use_physical=False)))
+        params_changed(self)  # a differentiated norm makes _amp one
 
     def toPlanar(self):
         """

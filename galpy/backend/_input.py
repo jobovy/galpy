@@ -82,25 +82,29 @@ def _backend_ready(target):
     return is_backend_compatible(target)
 
 
-# per-object cache of a negative param_grad_array answer (see _grad_param)
+# per-object flag: False = "no differentiated parameter" (see _grad_param)
 PARAM_CACHE_ATTR = "_backend_param_cache"
-_SEQ = (list, tuple)
+
+
+def params_changed(obj):
+    """Drop ``obj``'s cached "no differentiated parameter" answer: call after
+    changing a parameter once the object has been evaluated (normalize())."""
+    getattr(obj, "__dict__", {}).pop(PARAM_CACHE_ATTR, None)
 
 
 def _grad_param(target):
     """A gradient-carrying parameter of ``target`` (a galpy object or a list of
     them), else None: the boundary lifts Python/numpy coordinates onto its
-    backend. "No such parameter" is cached on the object, keyed on its attribute
-    count and its ``_amp`` (what construction and normalize() change), so a
-    plain numpy object pays a dict lookup rather than a parameter scan."""
+    backend. "None" is cached on the object as one flag, so a plain numpy
+    object pays a dict lookup rather than a parameter scan; parameters set later
+    than the first evaluation must call ``params_changed``."""
     d = getattr(target, "__dict__", None)
     if d is not None:
-        c = d.get(PARAM_CACHE_ATTR)
-        if c is not None and c[0] == len(d) and c[1] is d.get("_amp"):
+        if d.get(PARAM_CACHE_ATTR) is False:
             return None
         p = param_grad_array(target)
         if p is None:
-            d[PARAM_CACHE_ATTR] = (len(d) + (PARAM_CACHE_ATTR not in d), d.get("_amp"))
+            d[PARAM_CACHE_ATTR] = False
         return p
     if isinstance(target, (list, tuple)):
         for t in target:
@@ -108,6 +112,16 @@ def _grad_param(target):
             if p is not None:
                 return p
     return None
+
+
+def _lift_param(target):
+    """``_grad_param(target)``, unless a forced backend overrides the data."""
+    p = _grad_param(target)
+    if p is not None:
+        ctx = _BACKEND_CTX.get()
+        if ctx is not None and ctx[1]:
+            return None
+    return p
 
 
 def _coerce_one(xp, val, device=None):
@@ -214,28 +228,18 @@ def backend_input(*coords):
             # below is skipped on the numpy path, so numpy pays just this probe
             # and _grad_param's cached lookup.
             xp = prefer_backend_namespace(*probe)
-            dev_ref = probe
-            lifted = False
+            lift = None
             if xp is numpy and args:
                 # Numpy/Python coordinates but a differentiated PARAMETER (a
                 # tracer, a grad tensor): the parameter is data too, so follow
-                # it -- unless a forced numpy backend says otherwise. No
-                # _backend_ready gate then: numpy cannot take the parameter.
-                # The cached "none" answer is checked inline (hot path).
-                tgt = args[0]
-                d = None if type(tgt) in _SEQ else getattr(tgt, "__dict__", None)
-                c = None if d is None else d.get(PARAM_CACHE_ATTR)
-                if c is None or c[0] != len(d) or c[1] is not d.get("_amp"):
-                    param = _grad_param(tgt)
-                else:
-                    param = None
-                if param is not None:
-                    ctx = _BACKEND_CTX.get()
-                    if ctx is None or not ctx[1]:
-                        xp = namespace_from_arrays((param,))
-                        dev_ref = (param,)
-                        lifted = True
-            if xp is not numpy and (lifted or _backend_ready(args[0])):
+                # it (_lift_param; a forced numpy backend still wins), without
+                # the _backend_ready gate: numpy cannot take the parameter. The
+                # cached "none" flag is checked inline (the numpy hot path).
+                if getattr(args[0], PARAM_CACHE_ATTR, None) is not False:
+                    lift = _lift_param(args[0])
+                    if lift is not None:
+                        xp = namespace_from_arrays((lift,))
+            if xp is not numpy and (lift is not None or _backend_ready(args[0])):
                 # torch: galpy's internals in float64 (see float64_default)
                 with (
                     float64_default() if name_of_namespace(xp) == "torch" else _NULLCTX
@@ -246,7 +250,7 @@ def backend_input(*coords):
                     # for torch) while its CUDA siblings stay on the GPU, and the
                     # evaluator gets a split-device coordinate set -- a mixed-device
                     # error in some potentials, a silent GPU->CPU transfer in others.
-                    dev = device_of(*dev_ref)
+                    dev = device_of(lift) if lift is not None else device_of(*probe)
                     newargs = None
                     for c, ii in slots:
                         if ii is not None and ii < nargs:

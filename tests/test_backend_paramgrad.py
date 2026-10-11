@@ -475,28 +475,26 @@ def test_forced_numpy_beats_a_parameter_backend():
 
 
 @pytest.mark.skipif(torch is None, reason="needs torch")
-def test_parameter_cache_follows_amp_and_attributes():
-    # the "no differentiated parameter" answer is cached on the object; a later
-    # differentiated amp (normalize, a reassignment) or a new attribute
-    # invalidates it
+def test_parameter_cache_invalidated_by_normalize():
+    # the "no differentiated parameter" answer is cached on the object at its
+    # first evaluation; normalize() with a differentiated norm drops it
     from galpy.backend._input import PARAM_CACHE_ATTR
 
     pot = PlummerPotential(amp=1.0, b=0.7)
     v0 = pot(_R0, _Z0)
     assert not backend.is_backend_array(v0)
-    assert PARAM_CACHE_ATTR in pot.__dict__
-    assert pot(_R0, _Z0) == v0  # cached negative: still numpy
-    amp = torch.tensor(1.0, requires_grad=True)
-    pot._amp = amp
+    assert pot.__dict__[PARAM_CACHE_ATTR] is False
+    assert pot(_R0, _Z0) == v0  # cached: still numpy
+    norm = torch.tensor(0.5, requires_grad=True)
+    pot.normalize(norm)
     out = pot(_R0, _Z0)
     assert backend.is_backend_array(out)
     out.backward()
-    numpy.testing.assert_allclose(float(amp.grad), v0, rtol=1e-15)
-    # a new attribute holding the parameter
-    pot = PlummerPotential(amp=1.0, b=0.7)
-    pot(_R0, _Z0)
-    pot._extra = torch.tensor(1.0, requires_grad=True)
-    assert backend.is_backend_array(pot(_R0, _Z0))
+    numpy.testing.assert_allclose(
+        float(norm.grad),
+        float(PlummerPotential(normalize=1.0, b=0.7)(_R0, _Z0)),
+        rtol=1e-14,
+    )
 
 
 def test_parameter_cache_is_not_part_of_the_jit_key():
