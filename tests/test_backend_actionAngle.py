@@ -40,7 +40,12 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
-from backend_jit_helpers import assert_jit_matches_eager
+from backend_jit_helpers import (
+    assert_jit_matches_eager,
+    autodiff_param_grads,
+    input_mode,
+    richardson_fd,
+)
 
 from galpy.actionAngle import (
     actionAngleAdiabatic,
@@ -3123,3 +3128,56 @@ def test_zero_d_backend_point_like_float_point(backend_name, kind):
                 assert _b.is_backend_array(g) and tuple(g.shape) == (1,), (m, g)
                 # the same computation as for the (1,) point
                 numpy.testing.assert_array_equal(as_numpy(g), as_numpy(r), err_msg=m)
+
+
+# --- a differentiated potential parameter with an internal reference call ------
+# actionAngleVertical(toVerticalPotential(...)) and actionAngleAdiabatic evaluate
+# the potential at Python-float reference points (Phi(R0, 0)); with a traced
+# parameter that hit numpy.sqrt(tracer) even for backend-array phase-space
+# coordinates. Inputs are 1-d (0-d coordinates are a separate gap).
+def _aa_vertical(a):
+    return actionAngleVertical(
+        pot=toVerticalPotential(MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3), 1.0)
+    )
+
+
+def _aa_adiabatic(a):
+    return actionAngleAdiabatic(
+        pot=MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3), gamma=1.0, c=False
+    )
+
+
+_AA_PARAM_CASES = {
+    # name: (build(a), call(aA, cv) -> tuple, {output index: (FD step, rtol)})
+    # the vertical frequency carries ~1e-10 root-finding noise in its VALUE, so
+    # its FD needs a larger step and is good to ~2e-8 (the numerical limit)
+    "vertical": (
+        _aa_vertical,
+        lambda o, cv: o.actionsFreqsAngles(cv([0.1]), cv([0.05])),
+        {0: (1e-3, 1e-8), 1: (1e-2, 5e-8)},
+    ),
+    "adiabatic": (
+        _aa_adiabatic,
+        lambda o, cv: o(*(cv([v]) for v in (1.0, 0.1, 1.1, 0.1, 0.05))),
+        {0: (1e-3, 1e-8), 2: (1e-3, 1e-8)},
+    ),
+}
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("case", list(_AA_PARAM_CASES))
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_aa_grad_wrt_potential_parameter(backend, case, mode):
+    build, call, outputs = _AA_PARAM_CASES[case]
+    cv, ctx = input_mode(backend, mode)
+    if mode == "forced":  # 1-d numpy inputs under the forced backend
+        cv = numpy.asarray
+    for i, (h, rtol) in outputs.items():
+        fd = richardson_fd(lambda a: float(call(build(a), numpy.asarray)[i][0]), 0.5, h)
+
+        def f(a):
+            with ctx():
+                return call(build(a), cv)[i]
+
+        for g in autodiff_param_grads(f, 0.5, backend):
+            numpy.testing.assert_allclose(g, fd, rtol=rtol, atol=1e-11)
