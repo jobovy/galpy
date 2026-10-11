@@ -95,3 +95,32 @@ def _bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
         0, n, lambda _, c: bisect_step(c[0], c[1], slo, f, xp), (lo, hi)
     )
     return 0.5 * (lo + hi)
+
+
+def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
+    """jax half of optimize.fixed_point: del2 on stop_gradient'd args (a
+    lax.while_loop when tracing), then the implicit-function step."""
+    import jax
+
+    from .._namespaces import is_backend_array, under_jax_trace
+    from ..optimize import del2_iterate, del2_step, nonzero_slope
+
+    sg = jax.lax.stop_gradient
+    dargs = tuple(sg(a) if is_backend_array(a) else a for a in args)
+    f = lambda x: func(x, *dargs)
+    p = sg(xp.asarray(x0) * 1.0)
+    if under_jax_trace(p, *dargs):
+
+        def body(c):
+            i, p0, _ = c
+            p1, relerr = del2_step(f, p0, xp)
+            return i + 1, p1, xp.all(xp.abs(relerr) < xtol)
+
+        _, p, _ = jax.lax.while_loop(
+            lambda c: (c[0] < maxiter) & ~c[2], body, (0, p, xp.asarray(False))
+        )
+    else:
+        p = del2_iterate(f, p, xp, xtol, maxiter)
+    g = func(p, *args)
+    _, slope = jax.jvp(f, (p,), (xp.ones_like(p),))
+    return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)
