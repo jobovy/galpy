@@ -45,11 +45,12 @@ from ._jit import NOT_TRACED, traced_call
 from ._namespaces import (
     device_of,
     float64_default,
-    is_backend_array,
     name_of_namespace,
+    namespace_from_arrays,
+    param_grad_array,
     prefer_backend_namespace,
 )
-from ._resolver import get_namespace
+from ._resolver import _BACKEND_CTX
 
 _NULLCTX = nullcontext()
 
@@ -79,6 +80,34 @@ def _backend_ready(target):
     lists in tests/test_backend_input.py track what is left.
     """
     return is_backend_compatible(target)
+
+
+# per-object cache of a negative param_grad_array answer (see _grad_param)
+PARAM_CACHE_ATTR = "_backend_param_cache"
+_SEQ = (list, tuple)
+
+
+def _grad_param(target):
+    """A gradient-carrying parameter of ``target`` (a galpy object or a list of
+    them), else None: the boundary lifts Python/numpy coordinates onto its
+    backend. "No such parameter" is cached on the object, keyed on its attribute
+    count and its ``_amp`` (what construction and normalize() change), so a
+    plain numpy object pays a dict lookup rather than a parameter scan."""
+    d = getattr(target, "__dict__", None)
+    if d is not None:
+        c = d.get(PARAM_CACHE_ATTR)
+        if c is not None and c[0] == len(d) and c[1] is d.get("_amp"):
+            return None
+        p = param_grad_array(target)
+        if p is None:
+            d[PARAM_CACHE_ATTR] = (len(d) + (PARAM_CACHE_ATTR not in d), d.get("_amp"))
+        return p
+    if isinstance(target, (list, tuple)):
+        for t in target:
+            p = _grad_param(t)
+            if p is not None:
+                return p
+    return None
 
 
 def _coerce_one(xp, val, device=None):
@@ -177,14 +206,36 @@ def backend_input(*coords):
                     probe.extend(val)
                 else:
                     probe.append(val)
-            # Namespace follows the coordinates only. When some coordinates are
+            # Namespace follows the coordinates. When some coordinates are
             # backend arrays and others are numpy (Orbits.E passes a numpy t=
             # alongside torch R/z), resolve from the backend ones -- the numpy
             # coordinates are weak and coerce_coords brings them across below,
             # whereas probing the mix raises "Multiple namespaces". Everything
-            # below is skipped on the numpy path, so numpy pays just this probe.
+            # below is skipped on the numpy path, so numpy pays just this probe
+            # and _grad_param's cached lookup.
             xp = prefer_backend_namespace(*probe)
-            if xp is not numpy and _backend_ready(args[0]):
+            dev_ref = probe
+            lifted = False
+            if xp is numpy and args:
+                # Numpy/Python coordinates but a differentiated PARAMETER (a
+                # tracer, a grad tensor): the parameter is data too, so follow
+                # it -- unless a forced numpy backend says otherwise. No
+                # _backend_ready gate then: numpy cannot take the parameter.
+                # The cached "none" answer is checked inline (hot path).
+                tgt = args[0]
+                d = None if type(tgt) in _SEQ else getattr(tgt, "__dict__", None)
+                c = None if d is None else d.get(PARAM_CACHE_ATTR)
+                if c is None or c[0] != len(d) or c[1] is not d.get("_amp"):
+                    param = _grad_param(tgt)
+                else:
+                    param = None
+                if param is not None:
+                    ctx = _BACKEND_CTX.get()
+                    if ctx is None or not ctx[1]:
+                        xp = namespace_from_arrays((param,))
+                        dev_ref = (param,)
+                        lifted = True
+            if xp is not numpy and (lifted or _backend_ready(args[0])):
                 # torch: galpy's internals in float64 (see float64_default)
                 with (
                     float64_default() if name_of_namespace(xp) == "torch" else _NULLCTX
@@ -195,7 +246,7 @@ def backend_input(*coords):
                     # for torch) while its CUDA siblings stay on the GPU, and the
                     # evaluator gets a split-device coordinate set -- a mixed-device
                     # error in some potentials, a silent GPU->CPU transfer in others.
-                    dev = device_of(*probe)
+                    dev = device_of(*dev_ref)
                     newargs = None
                     for c, ii in slots:
                         if ii is not None and ii < nargs:

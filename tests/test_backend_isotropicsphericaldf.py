@@ -32,6 +32,13 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import (
+    INPUT_MODES,
+    autodiff_param_grads,
+    input_mode,
+    richardson_fd,
+)
+
 import galpy.backend
 from galpy.backend import as_numpy
 from galpy.df import isotropicNFWdf, isotropicPlummerdf, isotropicPowerLawdf
@@ -242,3 +249,42 @@ def test_sample_numpy_side_forced(backend, name, mk, seed, rtol, atol):
     for g, r in zip(got, ref):
         assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
         numpy.testing.assert_allclose(g, r, rtol=rtol, atol=atol)
+
+
+# --- a differentiated potential parameter: the constructors evaluate the
+# potential at the Python-float (rmax, 0), which hit numpy.sqrt(tracer)
+def _nfw_df(th, which):
+    p = {"amp": 2.0, "a": 1.5, which: th}
+    return isotropicNFWdf(pot=NFWPotential(**p), rmax=1e4)
+
+
+def _plaw_df(th, which):
+    return isotropicPowerLawdf(
+        pot=PowerSphericalPotential(amp=1.0, alpha=th), rmax=1e4, rmin=1e-6
+    )
+
+
+@pytest.mark.parametrize("mode", INPUT_MODES)
+@pytest.mark.parametrize("moment", ["sigmar", "vmomentdensity"])
+@pytest.mark.parametrize(
+    "build,which,th0",
+    [(_nfw_df, "a", 1.5), (_nfw_df, "amp", 2.0), (_plaw_df, "alpha", 2.5)],
+    ids=["NFW-a", "NFW-amp", "PowerLaw-alpha"],
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_grad_wrt_potential_parameter(backend, build, which, th0, moment, mode):
+    r = 1.1
+
+    def mom(df, rr):
+        return df.sigmar(rr) if moment == "sigmar" else df.vmomentdensity(rr, 2, 0)
+
+    fd = richardson_fd(lambda th: float(mom(build(th, which), r)), th0, 1e-3)
+    cv, ctx = input_mode(backend, mode)
+
+    def f(th):
+        with ctx():
+            return mom(build(th, which), cv(r))
+
+    # the PowerLaw constructor branches on alpha (not jit-able: a later fix)
+    for g in autodiff_param_grads(f, th0, backend, jit=which != "alpha"):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-12)

@@ -102,6 +102,8 @@ def _scalar_or_none(val):
 
 
 _KEY_DEPTH = 3
+# _input.PARAM_CACHE_ATTR (not imported: _input imports this module)
+_PARAM_CACHE_ATTR = "_backend_param_cache"
 
 
 class _Ident:
@@ -136,6 +138,8 @@ def _object_key(obj, depth=0):
     """
     entries = []
     for name, attr in vars(obj).items():
+        if name == _PARAM_CACHE_ATTR:  # derived from the attributes keyed here
+            continue
         as_float = _scalar_or_none(attr)
         if as_float is not None:
             entries.append((name, as_float))

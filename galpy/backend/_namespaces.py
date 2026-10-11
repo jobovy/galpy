@@ -322,22 +322,58 @@ def _value_key(a):
     return (type(a).__module__, str(v.dtype), str(device_of(a)), v.shape, v.tobytes())
 
 
-def _carries_grad(obj, depth=0):
-    """Whether a parameter of ``obj`` (or of a galpy object it holds, as
-    ``_jit._object_key`` recurses) is a grad-tracking tensor or a jax tracer:
-    a result built on it carries the graph, so there is nothing to reuse."""
-    return any(
-        requires_backend_grad(attr)
-        or under_jax_trace(attr)
-        or (
-            depth < 3
-            and type(attr).__module__.startswith("galpy.")
-            and hasattr(attr, "__dict__")
-            and not isinstance(attr, type)
-            and _carries_grad(attr, depth + 1)
-        )
-        for attr in vars(obj).values()
-    )
+# stored types that are neither a parameter array nor a container to recurse into
+_NOT_A_PARAMETER = frozenset(
+    (type(None), bool, int, float, str, numpy.ndarray, numpy.float64, numpy.bool_)
+)
+
+
+def param_grad_array(obj, any_backend=False, _depth=0):
+    """A gradient-carrying parameter array of ``obj``, else None.
+
+    Scans the attributes of ``obj`` (a galpy object, or a list/tuple/dict of
+    them), recursing into the galpy objects it holds -- a wrapper's potential, a
+    df's potential, an actionAngle's -- as ``_jit._object_key`` does. A
+    parameter "carries a gradient" when it is traced (jax tracer, torch under
+    compile) or a grad-tracking torch tensor: a merely-forced backend array does
+    not count, so plain numpy objects keep their path. ``any_backend=True``
+    counts any backend array, for callers that must match the parameters'
+    FRAMEWORK rather than detect a gradient.
+    """
+    if isinstance(obj, (list, tuple)):
+        vals = obj
+    elif isinstance(obj, dict):
+        vals = obj.values()
+    else:
+        vals = getattr(obj, "__dict__", {}).values()
+    for v in vals:
+        tv = type(v)
+        if tv in _NOT_A_PARAMETER:  # cheap skips
+            continue
+        if isinstance(v, (list, tuple, dict)) or (
+            tv.__module__.startswith("galpy.") and hasattr(v, "__dict__")
+        ):
+            if _depth < 3:
+                sub = param_grad_array(v, any_backend, _depth + 1)
+                if sub is not None:
+                    return sub
+            continue
+        if not hasattr(v, "dtype"):  # not an array (splines, callables, ...)
+            continue
+        if (
+            (any_backend and is_backend_array(v))
+            or under_trace(v)
+            or requires_backend_grad(v)
+        ):
+            return v
+    return None
+
+
+def param_grad_namespace(obj, any_backend=False):
+    """The namespace of :func:`param_grad_array` (the parameter's own, not a
+    forced one), else None."""
+    arr = param_grad_array(obj, any_backend=any_backend)
+    return None if arr is None else namespace_from_arrays((arr,))
 
 
 def _leaves(out):
@@ -356,7 +392,7 @@ def eager_memo_applies(owner, *args):
         is_compiling()
         or under_trace(*args)
         or requires_backend_grad(*args)
-        or _carries_grad(owner)
+        or param_grad_array(owner) is not None
     )
 
 
