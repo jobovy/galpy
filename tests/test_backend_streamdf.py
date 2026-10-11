@@ -486,6 +486,82 @@ def test_offset_setup_grad_vs_fd(sdf, backend_name, forced):
     assert abs(ad - rich) < 1e-8 * abs(rich), f"AD {ad} vs FD {rich}"
 
 
+# __call__ on a differentiated offset setup: the stored dispersions, logdet and
+# mean offset stay on the backend in _call_backend (float() dropped them)
+def _sigv_copy(sdf, sigv, t=None):
+    m = _copy.copy(sdf)
+    m._sigv = sigv
+    if t is not None:  # also move dO/dJ, the offset direction and the logdet
+        xp = get_namespace(t)
+        pert = numpy.random.default_rng(5).normal(size=(3, 3))
+        pert = 0.5 * (pert + pert.T)
+        m._dOdJp = xp.asarray(numpy.asarray(sdf._dOdJp)) * (
+            1.0 + 0.05 * t * xp.asarray(pert)
+        )
+        m._logmeandetdOdJp = sdf._logmeandetdOdJp + 0.3 * t
+    m._offset_setup(None, sdf._leading, None)
+    return m
+
+
+@pytest.mark.parametrize("param", ["sigv", "dOdJ"])
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_call_grad_vs_fd_stream_parameters(sdf, backend_name, forced, param):
+    import contextlib
+
+    sigv0 = sdf._sigv
+    tp = numpy.asarray(sdf._interpolatedObsTrack[[300, 500, 700]])
+    tp = tp + 1e-4 * numpy.array([2.0, -1.0, 1.0, 1.5, -2.0, 3.0])
+
+    def ctx():
+        return use(backend_name, force=True) if forced else contextlib.nullcontext()
+
+    def f(x):
+        with ctx():
+            if param == "sigv":
+                m = _sigv_copy(sdf, sigv0 * x)
+            else:
+                m = _sigv_copy(sdf, sigv0 * (1.0 + 0.1 * x), t=x)
+            coords = (
+                [tp[:, i] for i in range(6)]  # plain numpy under the forced context
+                if forced
+                else [_arr(backend_name, tp[:, i]) for i in range(6)]
+            )
+            out = m(*coords, log=True)
+            assert is_backend_array(out)
+            return out @ (out * 0.0 + _arr(backend_name, [1.0, -0.5, 2.0]))
+
+    x0 = 1.1 if param == "sigv" else 0.3
+    # x -> its numpy value reproduces the numpy __call__ of the same setup
+    with ctx():
+        m0 = _sigv_copy(sdf, sigv0 * 1.1) if param == "sigv" else None
+    if m0 is not None:
+        mn = _copy.copy(sdf)
+        mn._sigv = sigv0 * 1.1
+        mn._offset_setup(None, sdf._leading, None)
+        want = mn(*[tp[:, i] for i in range(6)], log=True)
+        with ctx():
+            got = m0(*[_arr(backend_name, tp[:, i]) for i in range(6)], log=True)
+        numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-10)
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(x0)))
+        numpy.testing.assert_allclose(
+            float(jax.jit(jax.grad(f))(jnp.asarray(x0))), ad, rtol=1e-10
+        )
+    else:
+        xt = torch.tensor(x0, requires_grad=True)
+        f(xt).backward()
+        ad = float(xt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, x0 + h))) - float(f(_arr(backend_name, x0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(rich) > 1e-2 and abs(ad - rich) < 1e-8 * abs(rich), (ad, rich)
+
+
 ###############################################################################
 # Phase B.1: calcaAJac -- the AA-map Jacobian d(J,Omega,theta)/d(x,v), the
 # foundation of the stream-track spine.

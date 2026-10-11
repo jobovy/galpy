@@ -564,9 +564,15 @@ class streamdf(df):
         # hand the derived moments back in the caller's kind. _native says whether
         # dO/dJ arrived carrying a gradient; if it did not, casting back loses
         # nothing and keeps the (27) numpy consumers of these moments working.
-        _native = is_backend_array(self._dOdJp)
+        # A backend sigv/sigangle with a numpy dO/dJ carries a gradient too.
+        _lift = [a for a in (self._sigv, sigangle) if is_backend_array(a)]
+        _native = is_backend_array(self._dOdJp) or bool(_lift)
         _xp = get_namespace(self._dOdJp)
-        (self._dOdJp,) = coerce_coords(_xp, self._dOdJp)
+        if _xp is numpy and _lift:
+            _xp = get_namespace(*_lift)
+        self._dOdJp, self._progenitor_Omega = coerce_coords(
+            _xp, self._dOdJp, self._progenitor_Omega
+        )
 
         self._sigjmatrix = _xp.diag(
             _stack3(self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0)
@@ -4381,7 +4387,12 @@ class streamdf(df):
         # First parse log
         log = kwargs.pop("log", True)
         dOmega, dangle = self.prepData4Call(*args, **kwargs)
-        if is_backend_array(dOmega) or is_backend_array(dangle):
+        if (
+            is_backend_array(dOmega)
+            or is_backend_array(dangle)
+            or is_backend_array(self._dsigomeanProg)
+            or is_backend_array(self._sigangle)
+        ):
             return self._call_backend(dOmega, dangle, log)
         # Omega part
         dOmega4dfOmega = (
@@ -4427,25 +4438,35 @@ class streamdf(df):
 
         Reproduces the numpy assembly exactly (numpy stays byte-identical via the
         :meth:`__call__` dispatch), functionally so it differentiates w.r.t. the
-        offsets. The frozen numpy constants (``_dsigomeanProg`` etc.) are brought
-        into the active namespace via :func:`as_backend_constant`; the scalar
-        dispersions are exact python floats (weak scalars, no dtype upcast)."""
-        ref = dOmega if is_backend_array(dOmega) else dangle
+        offsets. Numpy constants (``_dsigomeanProg`` etc.) are brought into the
+        active namespace via :func:`as_backend_constant`, numpy scalars as exact
+        python floats (weak scalars, no dtype upcast); backend ones (a
+        differentiated construction) stay live, so d/dsigv etc. flow."""
+        ref = next(
+            a
+            for a in (dOmega, dangle, self._dsigomeanProg, self._sigangle)
+            if is_backend_array(a)
+        )
         xp = get_namespace(ref)
         dOmega, dangle = promote_scalars(xp, dOmega, dangle)
 
-        def C(v):  # frozen numpy vector/matrix -> backend, anchored on the offsets
+        def C(v):  # stored vector/matrix -> backend, anchored on the offsets
+            if is_backend_array(v):
+                return as_backend_constant(xp, v, ref)
             return as_backend_constant(xp, numpy.asarray(v), ref)
+
+        def S(v):  # stored scalar
+            return as_backend_constant(xp, v, ref) if is_backend_array(v) else float(v)
 
         dsigomeanProg = C(self._dsigomeanProg)  # (3,)
         sigomatrixinv = C(self._sigomatrixinv)  # (3,3)
         dsigomeanProgDirection = C(self._dsigomeanProgDirection)  # (3,)
-        sigmatrixLogdet = float(self._sigomatrixLogdet)
-        sigangle2 = float(self._sigangle2)
-        lnsigangle = float(self._lnsigangle)
-        sigangle = float(self._sigangle)
-        tdisrupt = float(self._tdisrupt)
-        logmeandetdOdJp = float(self._logmeandetdOdJp)
+        sigmatrixLogdet = S(self._sigomatrixLogdet)
+        sigangle2 = S(self._sigangle2)
+        lnsigangle = S(self._lnsigangle)
+        sigangle = S(self._sigangle)
+        tdisrupt = S(self._tdisrupt)
+        logmeandetdOdJp = S(self._logmeandetdOdJp)
         sqrt2 = float(numpy.sqrt(2.0))
         # Omega part (dsigomeanProg broadcasts over the n query points)
         dOmega4dfOmega = dOmega - xp.reshape(dsigomeanProg, (-1, 1))
@@ -4507,11 +4528,14 @@ class streamdf(df):
         # First calculate the actionAngle coordinates if they're not given
         # as such
         freqsAngles = self._parse_call_args(*args, **kwargs)
-        if is_backend_array(freqsAngles):
+        if is_backend_array(freqsAngles) or is_backend_array(self._progenitor_Omega):
             # Backend (jax/torch): the single-wrap angle resolution as functional
             # xp.where (the numpy in-place mask-assignment below is jax-untraceable);
             # the two conditions are disjoint after the first, so sequential where
             # matches. numpy path unchanged (byte-identical).
+            if not is_backend_array(freqsAngles):  # a differentiated setup
+                xp = get_namespace(self._progenitor_Omega)
+                (freqsAngles,) = coerce_coords(xp, freqsAngles)
             xp = get_namespace(freqsAngles)
             prog_O = as_backend_constant(xp, self._progenitor_Omega, freqsAngles)
             prog_a = as_backend_constant(xp, self._progenitor_angle, freqsAngles)
