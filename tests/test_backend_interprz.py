@@ -22,7 +22,13 @@
 ###############################################################################
 import numpy
 import pytest
-from backend_jit_helpers import assert_jit_matches_eager
+from backend_jit_helpers import (
+    INPUT_MODES,
+    assert_jit_matches_eager,
+    autodiff_param_grads,
+    input_mode,
+    richardson_fd,
+)
 
 from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
@@ -370,3 +376,99 @@ def test_staeckelgrid_interpecc_divergence_fixed(backend_name):
         numpy.testing.assert_allclose(
             as_numpy(gg), numpy.asarray(r), rtol=2e-2, atol=2e-2, err_msg=name
         )
+
+
+# --- the original potential's parameters, and the forced-backend island --------
+# A differentiated parameter of the interpolated potential: the grids are
+# evaluated on its backend and fit natively (Spline2D/Spline1D from backend
+# values, matching scipy's not-a-knot fit), so the interpolant is differentiable
+# w.r.t. the parameter. Off the grid both paths use the original potential.
+
+_IP_FLAG = {
+    "Phi": "interpPot",
+    "Rforce": "interpRforce",
+    "zforce": "interpzforce",
+    "dens": "interpDens",
+    "R2deriv": "interpR2deriv",
+    "vcirc": "interpvcirc",
+    "epifreq": "interpepifreq",
+}
+
+
+def _ip_of(a, q, **kw):
+    # only the grid under test: each one is a full backend fit
+    return interpRZPotential(
+        RZPot=MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3),
+        rgrid=(numpy.log(0.1), numpy.log(5.0), 31),
+        zgrid=(0.0, 1.0, 21),
+        logR=True,
+        zsym=True,
+        **{_IP_FLAG[q]: True},
+        **kw,
+    )
+
+
+_IP_QUANTITIES = {
+    "Phi": lambda p, R, z: p(R, z),
+    "Rforce": lambda p, R, z: p.Rforce(R, z),
+    "zforce": lambda p, R, z: p.zforce(R, z),
+    "dens": lambda p, R, z: p.dens(R, z),
+    "R2deriv": lambda p, R, z: p.R2deriv(R, z),
+    "vcirc": lambda p, R, z: p.vcirc(R),
+    "epifreq": lambda p, R, z: p.epifreq(R),
+}
+# on the grid (incl. negative z: the zsym branch) and off it (R beyond the grid)
+_IP_POINTS = [(0.9, 0.2), (1.3, -0.35), (7.0, 0.1)]
+
+
+@pytest.mark.parametrize("mode", INPUT_MODES)
+@pytest.mark.parametrize("point", _IP_POINTS, ids=["on", "on-negz", "off"])
+@pytest.mark.parametrize("q", list(_IP_QUANTITIES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_grad_wrt_original_potential_parameter(backend_name, q, point, mode):
+    R, z = point
+    ev = _IP_QUANTITIES[q]
+    fd = richardson_fd(lambda a: float(ev(_ip_of(a, q), R, z)), 0.5, 1e-3)
+    cv, ctx = input_mode(backend_name, mode)
+
+    def f(a):
+        with ctx():
+            out = ev(_ip_of(a, q), cv(R), cv(z))
+        assert is_backend_array(out)
+        return out
+
+    # the jit compiles the native 2D fit: once per backend, on the Phi row only
+    jit = q == "Phi" and mode == "float"
+    for g in autodiff_param_grads(f, 0.5, backend_name, jit=jit):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-11)
+
+
+@pytest.mark.parametrize(
+    "point", [(0.5, 0.0), (0.1, 0.0), (5.0, 1.0), (7.0, 0.1), (1.0, 1.5), (0.05, -0.2)]
+)
+@pytest.mark.parametrize("q", list(_IP_QUANTITIES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_forced_backend_is_not_an_island(backend_name, q, point):
+    # forced backend, Python-float inputs: a backend array equal to numpy, at the
+    # grid edges and off the grid (the original potential there, as numpy)
+    from galpy.backend import use
+
+    ip = _ip_of(0.5, q)
+    ref = _IP_QUANTITIES[q](ip, *point)
+    with use(backend_name, force=True):
+        got = _IP_QUANTITIES[q](ip, *point)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_differentiated_parameter_turns_c_off():
+    # C takes numpy grids only: with a differentiated parameter the grids live
+    # on the backend and the C paths are off, rather than detaching
+    a = torch.tensor(0.5, requires_grad=True)
+    ip = _ip_of(
+        a, "Phi", interpRforce=True, interpzforce=True, use_c=True, enable_c=True
+    )
+    assert not ip.hasC and not ip._enable_c
+    assert ip(0.9, 0.2).requires_grad
+    assert _ip_of(0.5, "Phi", enable_c=True).hasC
