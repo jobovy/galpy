@@ -26,4 +26,8 @@ def safe_eigh(a):
             v @ (degenerate_safe_gap_inverse(lam) * x),
         )
 
+    # a concrete input stays concrete: under an outer jvp the custom rule would
+    # lift even constants to (zero-tangent) tracers
+    if not isinstance(a, jax.core.Tracer):
+        return jnp.linalg.eigh(a)
     return _eigh(a)

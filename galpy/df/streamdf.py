@@ -1541,7 +1541,11 @@ class streamdf(df):
         # _ic_backend is the PRECONDITION, not just a trigger: the backend track
         # dereferences it. A numpy progenitor under a forced backend has backend
         # acfs (so _progenitor_angle is a backend array) but no _ic_backend.
-        if getattr(self._progenitor, "_ic_backend", None) is not None:
+        # A differentiated sigv/sigangle (numpy progenitor) leaves the offset
+        # moments on the backend: the track must carry their gradient too.
+        if getattr(
+            self._progenitor, "_ic_backend", None
+        ) is not None or is_backend_array(self._dsigomeanProgDirection):
             return self._determine_stream_track_backend()
         # Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
         prog_stream_offset = _determine_stream_track_single(
@@ -1754,12 +1758,27 @@ class streamdf(df):
         # immutable trajectory, so this no longer has to be refused.
         _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
+        baseaA = self._aA
+        if xv0_prog is None:  # numpy progenitor, differentiated moments
+            (xv0_prog,) = coerce_coords(
+                get_namespace(self._dsigomeanProgDirection),
+                numpy.asarray(self._progenitor.vxvv[0], dtype=float),
+            )
+            # the track's AA Jacobians are differentiated (a 2nd derivative of
+            # the orbit solves), which the first-order C-STM cannot supply
+            if str(getattr(baseaA, "_integrate_method", "diffrax")).lower() not in (
+                "diffrax",
+                "torchdiffeq",
+                "torchode",
+            ):
+                baseaA = copy.copy(baseaA)
+                baseaA._integrate_method = inbackend_ode_method(get_namespace(xv0_prog))
         xp = get_namespace(xv0_prog)
         method = inbackend_ode_method(xp)
         # every action-angle evaluation below uses shared constant steps (jax), so
         # the vmapped chunk loop differentiates exactly (see _vmap_track_chunks)
         Tmin = getattr(self, "_progenitor_Tmin", None)
-        aA = _shared_step_aA(self._aA, xp, Tmin, xv0_prog)
+        aA = _shared_step_aA(baseaA, xp, Tmin, xv0_prog)
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs
@@ -1801,7 +1820,7 @@ class streamdf(df):
             xp.asarray(self._trackts),
             self._pot,
             method=method,
-            inbackend_kwargs=getattr(self._aA, "_integrate_kwargs", None),
+            inbackend_kwargs=getattr(baseaA, "_integrate_kwargs", None),
         )
         if _dt_neg:  # flip the stored trajectory's velocities back
             auxiliaryTrack.orbit = _flip_velocity_columns(
@@ -1818,7 +1837,7 @@ class streamdf(df):
                 auxiliaryTrack.phi(0.0, _stored=True),
             ]
         )
-        aA = _shared_step_aA(self._aA, xp, Tmin, aux0)
+        aA = _shared_step_aA(baseaA, xp, Tmin, aux0)
         aux_acfs = aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
         auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
         dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
@@ -1846,7 +1865,7 @@ class streamdf(df):
             thetasTrack = xp.asarray(thetasTrack)
 
         def single_at(xv0s):  # the chunks' aA: forward mode iff xv0s is concrete
-            aA_c = _shared_step_aA(self._aA, xp, Tmin, xv0s)
+            aA_c = _shared_step_aA(baseaA, xp, Tmin, xv0s)
 
             def single(xv0, th):
                 return _determine_stream_track_single_backend(
@@ -3191,10 +3210,18 @@ class streamdf(df):
         dOmin = dangle / tdisrupt
         # Normalize to 1 close to progenitor. A backend (jax/torch) dangle routes to the
         # backend erf so d(density)/d(dangle) flows; numpy stays scipy (byte-identical).
-        if is_backend_array(dangle):
-            xp = get_namespace(dangle)
-            meandO = as_backend_constant(xp, self._meandO, dangle)
-            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+        # dispatch on the stored moments too (backend for a differentiated setup)
+        if (
+            is_backend_array(dangle)
+            or is_backend_array(self._meandO)
+            or is_backend_array(self._sortedSigOEig[2])
+        ):
+            if not is_backend_array(dangle):  # numpy dangle, backend moments
+                dOmin = _ns_coerce(dOmin, self._meandO)[1]
+            ref = dangle if is_backend_array(dangle) else dOmin
+            xp = get_namespace(ref)
+            meandO = as_backend_constant(xp, self._meandO, ref)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], ref)
             return 0.5 * (1.0 + _bspecial.erf((meandO - dOmin) / xp.sqrt(2.0 * sig)))
         return 0.5 * (
             1.0
@@ -3729,7 +3756,9 @@ class streamdf(df):
         # backend (jax/torch): outer GL quad over angleperp of the batched
         # pangledAngle; numpy keeps scipy quad. num is ~0 by odd symmetry;
         # denom==0/nan far-field/progenitor control flow becomes xp.where.
-        if is_backend_array(dangle):
+        if is_backend_array(dangle) or is_backend_array(self._sortedSigOEig[eigIndx]):
+            if not is_backend_array(dangle):
+                dangle = _ns_coerce(dangle, self._sortedSigOEig[eigIndx])[1]
             xp = get_namespace(dangle)
             sig = as_backend_constant(xp, self._sortedSigOEig[eigIndx], dangle)
             apb = xp.maximum(
@@ -3800,7 +3829,9 @@ class streamdf(df):
         # backend (jax/torch): the simple estimate reuses the backend meantdAngle;
         # otherwise the nested outer GL quad (numsig2/denom) with sqrt/denom
         # dead-branch guarded. numpy keeps scipy quad.
-        if is_backend_array(dangle):
+        if is_backend_array(dangle) or is_backend_array(self._sortedSigOEig[eigIndx]):
+            if not is_backend_array(dangle):
+                dangle = _ns_coerce(dangle, self._sortedSigOEig[eigIndx])[1]
             xp = get_namespace(dangle)
             sig = as_backend_constant(xp, self._sortedSigOEig[eigIndx], dangle)
             if simple:
