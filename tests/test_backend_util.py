@@ -16,7 +16,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.util import _rotate_to_arbitrary_vector
 
 pytestmark = pytest.mark.backend_managed
@@ -147,3 +147,136 @@ def test_rotate_numpy_data_under_forced_backend(backend_name):
         got = _rotate_to_arbitrary_vector(numpy.asarray(_V), numpy.asarray(_A))
     assert isinstance(got, numpy.ndarray)
     numpy.testing.assert_array_equal(got, ref)
+
+
+# A backend TARGET AXIS a (a differentiated zvec) with a numpy v: the callers
+# (EllipsoidalPotential, RotateAndTiltWrapperPotential) rotate the numpy
+# [[0,0,1]] onto a parameter-built axis. The axis is parametrized by an angle,
+# a = (sin t cos p, sin t sin p, cos t), so the gradient is w.r.t. the angle.
+_T0, _P0 = 0.7, 0.4
+_VZ = numpy.array([[0.0, 0.0, 1.0]])
+
+
+def _axis(xp, t, as_list=False):
+    a = [
+        xp.sin(t) * numpy.cos(_P0),
+        xp.sin(t) * numpy.sin(_P0),
+        xp.cos(t),
+    ]
+    return a if as_list else xp.stack(a)
+
+
+def _rot_of_angle_fd(inv):
+    def f(t):
+        return _rotate_to_arbitrary_vector(_VZ, _axis(numpy, t), inv=inv)[0]
+
+    # Richardson-extrapolated central difference: O(h^4)
+    h = 1e-3
+    d1 = (f(_T0 + h) - f(_T0 - h)) / (2 * h)
+    d2 = (f(_T0 + h / 2) - f(_T0 - h / 2)) / h
+    return (4 * d2 - d1) / 3
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+@pytest.mark.parametrize("inv", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotate_backend_axis_value_parity(backend_name, inv, as_list):
+    xp = jnp if backend_name == "jax" else torch
+    ref = _rotate_to_arbitrary_vector(_VZ, _axis(numpy, _T0), inv=inv)
+    got = _rotate_to_arbitrary_vector(
+        _VZ, _axis(xp, xp.asarray(_T0), as_list=as_list), inv=inv
+    )
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14, atol=1e-15)
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+@pytest.mark.parametrize("inv", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotate_grad_wrt_axis_angle(backend_name, inv, as_list):
+    # the Jacobian of all 9 matrix entries w.r.t. the axis angle
+    fd = _rot_of_angle_fd(inv)
+    if backend_name == "jax":
+
+        def f(t):
+            return _rotate_to_arbitrary_vector(
+                _VZ, _axis(jnp, t, as_list=as_list), inv=inv
+            )[0]
+
+        t0 = jnp.asarray(_T0)
+        for g in (jax.jacfwd(f)(t0), jax.jit(jax.jacrev(f))(t0)):
+            numpy.testing.assert_allclose(numpy.asarray(g), fd, rtol=1e-9, atol=1e-11)
+    else:
+        t = torch.tensor(_T0, requires_grad=True)
+        out = _rotate_to_arbitrary_vector(
+            _VZ, _axis(torch, t, as_list=as_list), inv=inv
+        )[0]
+        g = numpy.array(
+            [
+                float(torch.autograd.grad(out.reshape(-1)[i], t, retain_graph=True)[0])
+                for i in range(9)
+            ]
+        ).reshape(3, 3)
+        numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-11)
+
+
+@pytest.mark.skipif(jax is None, reason="needs jax")
+def test_rotate_axis_angle_vmap_jit():
+    # a batch of axis angles under vmap(jit): what a fit over orientations uses
+    ts = numpy.array([0.3, _T0, 1.2])
+    f = jax.jit(jax.vmap(lambda t: _rotate_to_arbitrary_vector(_VZ, _axis(jnp, t))[0]))
+    got = numpy.asarray(f(jnp.asarray(ts)))
+    for t, g in zip(ts, got):
+        ref = _rotate_to_arbitrary_vector(_VZ, _axis(numpy, t))[0]
+        numpy.testing.assert_allclose(g, ref, rtol=1e-14, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotate_backend_axis_under_forced_backend(backend_name):
+    # FORCED mode: a Python-float angle under use(..., force=True) builds a
+    # forced-backend axis; the rotation follows it onto the backend
+    from galpy.backend import get_namespace, use
+
+    ref = _rotate_to_arbitrary_vector(_VZ, _axis(numpy, _T0))
+    with use(backend_name, force=True):
+        xp = get_namespace()
+        got = _rotate_to_arbitrary_vector(_VZ, _axis(xp, xp.asarray(_T0)))
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14, atol=1e-15)
+
+
+@pytest.mark.skipif(jax is None, reason="needs jax")
+@pytest.mark.parametrize("kick", ["plummer", "hernquist"])
+def test_impulse_kicks_under_jit(kick):
+    # the closed-form impulse kicks rotate onto a backend y-axis built inside
+    # the trace; host-converting that axis made them un-jittable
+    import importlib
+
+    # galpy.df.streamgapdf is the CLASS; the kicks live in the submodule
+    fn = getattr(
+        importlib.import_module("galpy.df.streamgapdf"), f"impulse_deltav_{kick}"
+    )
+    v = numpy.array([[3.4, 1.9, 0.0], [1.0, 0.2, -0.3]])
+    y = numpy.array([0.1, -0.4])
+    w = numpy.array([0.0, 1.0, 0.0])
+    ref = fn(v, y, 0.08, w, 0.003, 0.078)
+    jf = jax.jit(lambda v, y, b: fn(v, y, b, jnp.asarray(w), 0.003, 0.078))
+    got = numpy.asarray(jf(jnp.asarray(v), jnp.asarray(y), 0.08))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-16)
+
+    # and d(sum dv^2)/db under jit vs Richardson FD of the numpy path
+    def s(b):
+        return numpy.sum(fn(v, y, b, w, 0.003, 0.078) ** 2)
+
+    h = 1e-4
+    d1 = (s(0.08 + h) - s(0.08 - h)) / (2 * h)
+    d2 = (s(0.08 + h / 2) - s(0.08 - h / 2)) / h
+    fd = (4 * d2 - d1) / 3
+    g = jax.jit(
+        jax.grad(
+            lambda b: jnp.sum(
+                fn(jnp.asarray(v), jnp.asarray(y), b, jnp.asarray(w), 0.003, 0.078) ** 2
+            )
+        )
+    )(0.08)
+    numpy.testing.assert_allclose(float(g), fd, rtol=1e-8)
