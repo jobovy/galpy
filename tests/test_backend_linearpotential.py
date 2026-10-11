@@ -34,7 +34,13 @@
 ###############################################################################
 import numpy
 import pytest
-from backend_jit_helpers import count_boundary_crossings
+from backend_jit_helpers import (
+    INPUT_MODES,
+    autodiff_param_grads,
+    count_boundary_crossings,
+    input_mode,
+    richardson_fd,
+)
 
 from galpy.backend import use
 from galpy.potential import (
@@ -332,3 +338,35 @@ def test_vertical_adapter_forwards_do_not_recross_boundary_torch():
     _assert_vertical_adapters_do_not_recross(
         "torch", lambda v: torch.tensor(v, dtype=torch.float64)
     )
+
+
+# --- a differentiated parameter of the 3D potential ---------------------------
+# toVerticalPotential evaluates the 3D potential at the Python-float (R, 0) to
+# reference Phi; with a traced parameter that hit numpy.sqrt(tracer), even for
+# backend-array x.
+def _vertical_of_mn(a, how):
+    from galpy.potential import RZToverticalPotential
+
+    mn = MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3)
+    return (toVerticalPotential if how == "to" else RZToverticalPotential)(mn, 0.9)
+
+
+@pytest.mark.parametrize("mode", INPUT_MODES)
+@pytest.mark.parametrize("method", ["__call__", "force"])
+@pytest.mark.parametrize("how", ["to", "RZTo"])
+@pytest.mark.parametrize(
+    "backend", [b for b, ok in (("jax", _HAS_JAX), ("torch", _HAS_TORCH)) if ok]
+)
+def test_vertical_grad_wrt_3d_parameter(backend, how, method, mode):
+    x = 0.7
+    fd = richardson_fd(
+        lambda a: float(getattr(_vertical_of_mn(a, how), method)(x)), 0.5, 1e-3
+    )
+    cv, ctx = input_mode(backend, mode)
+
+    def f(a):
+        with ctx():
+            return getattr(_vertical_of_mn(a, how), method)(cv(x))
+
+    for g in autodiff_param_grads(f, 0.5, backend):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-12)

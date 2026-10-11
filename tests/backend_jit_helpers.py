@@ -118,3 +118,65 @@ def no_torch_compile_deprecations():
             yield
 
     return _ctx()
+
+
+def richardson_fd(f, x0, h):
+    """O(h^4) Richardson-extrapolated central difference of the scalar ``f``."""
+    d1 = (f(x0 + h) - f(x0 - h)) / (2.0 * h)
+    d2 = (f(x0 + h / 2.0) - f(x0 - h / 2.0)) / h
+    return (4.0 * d2 - d1) / 3.0
+
+
+def coord(backend, x, data):
+    """The coordinate ``x``: a float64 ``backend`` array in data mode, else
+    the Python float itself."""
+    if not data:
+        return x
+    if backend == "jax":
+        import jax.numpy as jnp
+
+        return jnp.asarray(x, dtype=jnp.float64)
+    import torch
+
+    return torch.as_tensor(x, dtype=torch.float64)
+
+
+def autodiff_param_grads(f, th0, backend, jit=True):
+    """d f / d theta at ``th0`` by autodiff, as a list of floats: jax.grad and
+    (``jit``) jax.jit(jax.grad) for jax, a torch backward for torch. ``f`` takes
+    the parameter, builds the galpy object from it, and returns a one-element
+    result."""
+    if backend == "jax":
+        import jax.numpy as jnp
+
+        def g(th):
+            return jnp.reshape(jnp.asarray(f(th)), ())
+
+        out = [float(jax.grad(g)(jnp.asarray(th0)))]
+        if jit:
+            out.append(float(jax.jit(jax.grad(g))(jnp.asarray(th0))))
+        return out
+    import torch
+
+    th = torch.tensor(th0, dtype=torch.float64, requires_grad=True)
+    f(th).reshape(()).backward()
+    return [float(th.grad)]
+
+
+INPUT_MODES = ("data", "float", "forced")
+
+
+def input_mode(backend, mode):
+    """(coordinate converter, context factory) for an input mode: backend-array
+    coordinates ("data"), Python floats ("float"), or Python floats under
+    use(backend, force=True) ("forced")."""
+    import contextlib
+
+    from galpy.backend import use
+
+    def ctx():
+        return (
+            use(backend, force=True) if mode == "forced" else contextlib.nullcontext()
+        )
+
+    return (lambda x: coord(backend, x, mode == "data")), ctx

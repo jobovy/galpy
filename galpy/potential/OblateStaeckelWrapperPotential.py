@@ -20,6 +20,7 @@ from .Potential import (
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
+    _pot_grad_namespace,
     evaluateR2derivs,
     evaluateRzderivs,
     evaluatez2derivs,
@@ -93,7 +94,9 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # Place the reference curve at R=1, so that it tracks delta rather
             # than landing at an arbitrary radius; a fixed u0 means
             # R = delta sinh(u0), which drifts with delta
-            u0 = numpy.arcsinh(1.0 / self._delta)
+            u0 = (namespace_from_arrays((self._delta,)) or numpy).arcsinh(
+                1.0 / self._delta
+            )
         if isinstance(u0, (tuple, list, numpy.ndarray)):
             self._u0 = coords.Rz_to_uv(
                 conversion.parse_length(u0[0], ro=ro),
@@ -105,6 +108,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         self._v0 = numpy.pi / 2.0  # so we know when we're using this
         R0, z0 = coords.uv_to_Rz(self._u0, self._v0, delta=self._delta)
         xp = namespace_from_arrays((self._u0,)) or numpy
+        # float u0, delta but a differentiated parameter of the wrapped potential
+        R0, z0 = coerce_coords(_pot_grad_namespace(self._pot) or numpy, R0, z0)
         self._refpot = _evaluatePotentials(self._pot, R0, z0) * xp.cosh(self._u0) ** 2.0
         self._ntab = 0 if ntab is None else int(ntab)
         # mode discriminator, mirroring spline1d != NULL in C: None = exact
