@@ -1515,7 +1515,8 @@ def test_pangledAngle(bovy14_setup):
     assert sdf_bovy14.pangledAngle(0.0, da, smallest=True) > sdf_bovy14.pangledAngle(
         -0.1, da, smallest=False
     ), "pangledAngle does not peak near zero"
-    dangles = numpy.linspace(-0.01, 0.01, 201)
+    # +-5 sigma: a +-3.3 sigma grid truncates the Riemann-sum sigma by ~1%
+    dangles = numpy.linspace(-0.015, 0.015, 301)
     pdangles = (
         numpy.array(
             [sdf_bovy14.pangledAngle(pda, da, smallest=False) for pda in dangles]

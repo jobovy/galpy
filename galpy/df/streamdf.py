@@ -334,11 +334,14 @@ class streamdf(df):
     def _offset_setup(self, sigangle, leading, deltaAngleTrack):
         """The part of the setup related to calculating the stream/progenitor offset"""
         # From the progenitor orbit, determine the sigmas in J and angle
-        self._sigjr = (
-            (self._progenitor.rap() - self._progenitor.rperi()) / numpy.pi * self._sigv
-        )
-        self._siglz = self._progenitor.rperi() * self._sigv
-        self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
+        # Orbit extent from the actions (analytic=True): smooth in the potential,
+        # unlike the extrema of the sampled orbit, which jump between samples
+        rap = self._progenitor.rap(analytic=True, pot=self._pot)
+        rperi = self._progenitor.rperi(analytic=True, pot=self._pot)
+        zmax = self._progenitor.zmax(analytic=True, pot=self._pot)
+        self._sigjr = (rap - rperi) / numpy.pi * self._sigv
+        self._siglz = rperi * self._sigv
+        self._sigjz = 2.0 * zmax / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
         self._sigjmatrix = numpy.diag(
             [self._sigjr**2.0, self._siglz**2.0, self._sigjz**2.0]
