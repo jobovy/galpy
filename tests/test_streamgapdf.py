@@ -332,66 +332,65 @@ def test_nTrackChunks(setup_sanders15_trailing):
 def test_deltaAngleTrackImpact(setup_sanders15_trailing):
     # Load the streamgapdf objects
     sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
-    assert numpy.fabs(sdf_sanders15._deltaAngleTrackImpact - 4.31) < 0.01, (
-        "deltaAngleTrackImpact should have been ~4.31"
+    # 4.31 before the action spreads came from the analytic rap/rperi/zmax
+    assert numpy.fabs(sdf_sanders15._deltaAngleTrackImpact - 4.24) < 0.01, (
+        "deltaAngleTrackImpact should have been ~4.24"
     )
     return None
+
+
+def _gap_track_at_old_points(sdf, indices, old_deltaAngleTrackImpact):
+    """The gap track, linearly interpolated in time, at the times that the
+    given points had for deltaAngleTrackImpact = old_deltaAngleTrackImpact"""
+    x = numpy.array(indices) * old_deltaAngleTrackImpact / sdf._deltaAngleTrackImpact
+    jj = numpy.floor(x).astype(int)
+    f = (x - jj)[:, None]
+    return (1.0 - f) * sdf._gap_ObsTrack[jj] + f * sdf._gap_ObsTrack[jj + 1]
 
 
 # Tests of the track near the impact
 def test_trackNearImpact(setup_sanders15_trailing):
     # Load the streamgapdf objects
     sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
+    # The track points are spaced in time over _deltaAngleTrackImpact, which
+    # depends on the stream's action spread; compare at the times of the points
+    # 14 and 27 for deltaAngleTrackImpact = 4.31, at which the reference numbers
+    # (read off the simulation's plots) were taken
+    track = _gap_track_at_old_points(sdf_sanders15, [14, 27], 4.31)
     # Sanity checks against numbers taken from plots of the simulation
     # Make sure we're near 14.5
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 0] * sdf_sanders15._ro - 14.5) < 0.2
-    ), "14th point along track near the impact is not near 14.5 kpc"
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 1] * sdf_sanders15._vo - 80) < 3.0
-    ), (
+    assert numpy.fabs(track[0, 0] * sdf_sanders15._ro - 14.5) < 0.2, (
+        "14th point along track near the impact is not near 14.5 kpc"
+    )
+    assert numpy.fabs(track[0, 1] * sdf_sanders15._vo - 80) < 3.0, (
         "Point along the track near impact near R=14.5 does not have the correct radial velocity"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 2] * sdf_sanders15._vo - 220.0) < 3.0
-    ), (
+    assert numpy.fabs(track[0, 2] * sdf_sanders15._vo - 220.0) < 3.0, (
         "Point along the track near impact near R=14.5 does not have the correct tangential velocity"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 3] * sdf_sanders15._ro - 0.0) < 1.0
-    ), (
+    assert numpy.fabs(track[0, 3] * sdf_sanders15._ro - 0.0) < 1.0, (
         "Point along the track near impact near R=14.5 does not have the correct vertical height"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 4] * sdf_sanders15._vo - 200.0) < 5.0
-    ), (
+    assert numpy.fabs(track[0, 4] * sdf_sanders15._vo - 200.0) < 5.0, (
         "Point along the track near impact near R=14.5 does not have the correct vertical velocity"
     )
     # Another one!
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 0] * sdf_sanders15._ro - 16.25) < 0.2
-    ), "27th point along track near the impact is not near 16.25 kpc"
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 1] * sdf_sanders15._vo + 130) < 3.0
-    ), (
+    assert numpy.fabs(track[1, 0] * sdf_sanders15._ro - 16.25) < 0.2, (
+        "27th point along track near the impact is not near 16.25 kpc"
+    )
+    assert numpy.fabs(track[1, 1] * sdf_sanders15._vo + 130) < 3.0, (
         "Point along the track near impact near R=16.25 does not have the correct radial velocity"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 2] * sdf_sanders15._vo - 200.0) < 3.0
-    ), (
+    assert numpy.fabs(track[1, 2] * sdf_sanders15._vo - 200.0) < 3.0, (
         "Point along the track near impact near R=16.25 does not have the correct tangential velocity"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 3] * sdf_sanders15._ro + 12.0) < 1.0
-    ), (
+    assert numpy.fabs(track[1, 3] * sdf_sanders15._ro + 12.0) < 1.0, (
         "Point along the track near impact near R=16.25 does not have the correct vertical height"
     )
-    assert (
-        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 4] * sdf_sanders15._vo - 25.0) < 5.0
-    ), (
+    assert numpy.fabs(track[1, 4] * sdf_sanders15._vo - 25.0) < 5.0, (
         "Point along the track near impact near R=16.25 does not have the correct vertical velocity"
     )
-    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 5] - 1.2) < 0.2, (
+    assert numpy.fabs(track[1, 5] - 1.2) < 0.2, (
         "Point along the track near impact near R=16.25 does not have the correct azimuth"
     )
     return None
