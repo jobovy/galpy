@@ -394,8 +394,10 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
         )
         c = c.transform_to(apycoords.Galactic)
         return numpy.array([c.l.to(units.rad).value, c.b.to(units.rad).value]).T
-    # First calculate the transformation matrix T
-    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    # First calculate the transformation matrix T (numpy with astropy returned
+    # above; its B1950 FK4 has E-terms, which the backend applies below)
+    eterms = _APY_COORDS and _is_b1950(epoch)
+    theta, dec_ngp, ra_ngp = get_epoch_angles(1950.0 if eterms else epoch)
     T = numpy.dot(
         numpy.array(
             [
@@ -427,6 +429,8 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
         XYZ = xp.stack(
             [xp.cos(dec) * xp.cos(ra), xp.cos(dec) * xp.sin(ra), xp.sin(dec)]
         )
+        if eterms:
+            XYZ = _fk4_eterms(xp, XYZ, remove=True)
         galXYZ = T @ XYZ
         sinb = xp.clip(galXYZ[2], -1.0, 1.0)
         b = xp.asin(sinb)
@@ -492,8 +496,9 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
         else:
             c = c.transform_to(apycoords.ICRS)
         return numpy.array([c.ra.to(units.rad).value, c.dec.to(units.rad).value]).T
-    # First calculate the transformation matrix T'
-    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    # First calculate the transformation matrix T' (see radec_to_lb on eterms)
+    eterms = _APY_COORDS and _is_b1950(epoch)
+    theta, dec_ngp, ra_ngp = get_epoch_angles(1950.0 if eterms else epoch)
     T = numpy.dot(
         numpy.array(
             [
@@ -525,6 +530,8 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
     # Whether to use degrees and scalar input is handled by decorators
     XYZ = xp.stack([xp.cos(b) * xp.cos(l), xp.cos(b) * xp.sin(l), xp.sin(b)])
     eqXYZ = T @ XYZ
+    if eterms:
+        eqXYZ = _fk4_eterms(xp, eqXYZ, remove=False)
     dec = xp.asin(eqXYZ[2])
     ra = xp.atan2(eqXYZ[1], eqXYZ[0])
     # was `ra[ra < 0.0] += 2*pi`; in-place masked assignment is not available on
@@ -1960,7 +1967,8 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False, *, xp=None):
         R, phi, Z = rect_to_cyl(X, Y, Z, xp=xp)
     else:
         phi = Y
-    xp = get_namespace(vx, vy, vz, phi, xp=xp)
+    # a backend Zsun/vsun meets numpy positions (phi): the backend decides
+    xp = xp if xp is not None else prefer_backend_namespace(vx, vy, vz, phi)
     vx, vy, phi = promote_scalars(xp, vx, vy, phi)
     vr = +vx * xp.cos(phi) + vy * xp.sin(phi)
     vt = -vx * xp.sin(phi) + vy * xp.cos(phi)
@@ -1994,7 +2002,7 @@ def cyl_to_rect_vec(vr, vt, vz, phi, *, xp=None):
     -----
     - 2011-02-24 - Written - Bovy (NYU)
     """
-    xp = get_namespace(vr, vt, vz, phi, xp=xp)
+    xp = xp if xp is not None else prefer_backend_namespace(vr, vt, vz, phi)
     vr, vt, phi = promote_scalars(xp, vr, vt, phi)
     vx = vr * xp.cos(phi) - vt * xp.sin(phi)
     vy = vr * xp.sin(phi) + vt * xp.cos(phi)
@@ -3085,7 +3093,12 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     -----
     - 2015-02-13 - Written - Trick (MPIA)
     """
-    xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+    # a differentiated Delta/ac is data too
+    if any(is_backend_array(x) for x in (R, z, ac, Delta)):
+        xp = prefer_backend_namespace(R, z, ac, Delta)
+        R, z = promote_scalars(xp, *coerce_coords(xp, R, z))
+    else:
+        xp = numpy
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     # shared subexpressions computed once (each op is an eager dispatch on a
@@ -3099,6 +3112,9 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     if isinstance(z, float) and z == 0.0:
         l = R**2 - a
         n = -g
+    elif xp is not numpy:
+        l = xp.where(z == 0.0, R2 - a, l)
+        n = xp.where(z == 0.0, -g * xp.ones_like(n), n)
     elif isinstance(z, numpy.ndarray) and numpy.sum(z == 0.0) > 0:
         R = numpy.atleast_1d(R)
         l[z == 0.0] = R[z == 0.0] ** 2 - a
@@ -3660,6 +3676,33 @@ else:
     theta_icrs = 2.1455668515225916
     dec_ngp_icrs = 0.4734773249532947
     ra_ngp_icrs = 3.366032882941063
+
+
+# astropy's fk4_e_terms(B1950): the E-terms of aberration of B1950 FK4
+_FK4_ETERMS_B1950 = numpy.array(
+    [-1.6255741516894347e-06, -3.191905371563791e-07, -1.384290671929659e-07]
+)
+
+
+def _is_b1950(epoch):
+    return (not isinstance(epoch, str) and epoch == 1950.0) or epoch in (
+        "1950",
+        "B1950",
+    )
+
+
+def _fk4_eterms(xp, XYZ, remove):
+    """Unit vectors XYZ (3, ...) from B1950 FK4 to FK4 without E-terms
+    (``remove``) or back, as astropy's FK4 <-> FK4NoETerms transforms."""
+    A = asarray_on_device(xp, _FK4_ETERMS_B1950, device_of(XYZ))
+    A = xp.reshape(A, (3,) + (1,) * (XYZ.ndim - 1))
+    if remove:
+        out = XYZ - A + xp.sum(A * XYZ, axis=0) * XYZ
+    else:  # astropy's fixed-point inversion
+        out = XYZ
+        for _ in range(10):
+            out = (A + XYZ) / (1.0 + xp.sum(A * out, axis=0))
+    return out / xp.sqrt(xp.sum(out * out, axis=0))
 
 
 def _parse_epoch_frame_apy(epoch):
