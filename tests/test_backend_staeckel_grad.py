@@ -1,10 +1,7 @@
 ###############################################################################
 # test_backend_staeckel_grad.py: accurate Staeckel ACTION gradients under
-# jax/torch AD. The plain-GL action value is kept (C parity; numpy path
-# byte-identical) while the gradient is grafted from the t^2-substituted donor
-# quadrature (_staeckel_t2_action), which is turning-point-regular where naive
-# d(sqrt S) is singular and carries the full (E, Lz, I3, u0/v0u geometry)
-# dependence that the dJ/d(E,Lz,I3) chain alone misses. First-order only.
+# jax/torch AD: the chi-anomaly action quadrature (C parity; numpy path
+# byte-identical) differentiated directly, through the refined turning points.
 ###############################################################################
 import numpy
 import pytest
@@ -285,28 +282,6 @@ def test_staeckel_actionsfreqs_c_true_backend(backend):
         aAS.actionsFreqs(*gargs)[0].sum().backward()
         djr_dR = float(gargs[0].grad[0])
     numpy.testing.assert_allclose(djr_dR, fjr[0], rtol=2e-3, atol=2e-6)
-
-
-def test_graft_gradient_numpy_identity():
-    # numpy path: stop_gradient is the identity and the graft is value-neutral.
-    from galpy.backend._namespaces import graft_gradient, stop_gradient
-
-    x = numpy.array([1.5])
-    assert stop_gradient(x) is x
-    numpy.testing.assert_array_equal(
-        graft_gradient(numpy.array([2.0]), numpy.array([3.0])), numpy.array([2.0])
-    )
-
-
-def test_under_torch_grad_without_torch(monkeypatch):
-    # the sys.modules early-out (torch never imported -> False): the test env
-    # always has torch imported, so simulate its absence.
-    import sys
-
-    from galpy.backend._namespaces import under_torch_grad
-
-    monkeypatch.delitem(sys.modules, "torch", raising=False)
-    assert under_torch_grad(numpy.array([1.0])) is False
 
 
 # --- coverage for the C-native reference-u0 host branches + circular-freq fix ---

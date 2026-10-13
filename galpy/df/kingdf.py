@@ -356,7 +356,7 @@ class _scalefreekingdf:
         at the same tolerances as the solve itself. The
         pieces that MOVE with W0 are carried explicitly: rbreak = r0(W0), the
         second segment's start Psi = W(rbreak), and both output grids. Values are
-        unchanged; first order only (graft_gradient)."""
+        unchanged; first order only (a gradient graft)."""
         dr0 = -0.5 * self.r0 * self._ddens_dW(W0) / self.rho0
         drb = rbreak / self.r0 * dr0
         n1 = npt // 2
