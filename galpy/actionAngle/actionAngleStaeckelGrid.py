@@ -24,6 +24,7 @@ from ..backend import (
 )
 from ..backend import interpolate as backend_interpolate
 from ..backend import is_backend_array, promote_scalars, use
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -77,6 +78,8 @@ class actionAngleStaeckelGrid(actionAngle):
             The number of cores to use for multi-processing.
         interpecc : bool
             If True, also interpolate the approximate eccentricity, zmax, rperi, and rapo.
+        c : bool, optional
+            If True, build the grid (and evaluate off-grid points) with C. Default is False. A differentiated potential parameter or delta skips the grid for the exact actionAngleStaeckel, whose c=True then falls back to its backend c=False implementation for that derivative.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -109,10 +112,14 @@ class actionAngleStaeckelGrid(actionAngle):
         # constant in the differentiated parameter -- a silently zero gradient,
         # worse than an error. The exact actionAngleStaeckel IS differentiable:
         # same numbers, slower. Warned, since the caller asked for the grid.
-        self._grid_bypassed = _pot_grad_namespace(self._pot) is not None
+        self._grid_bypassed = (
+            _pot_grad_namespace(self._pot) is not None
+            or under_trace(self._delta)
+            or requires_backend_grad(self._delta)
+        )
         if self._grid_bypassed:
             warnings.warn(
-                "actionAngleStaeckelGrid: the potential carries a gradient, so "
+                "actionAngleStaeckelGrid: the potential (or delta) carries a gradient, so "
                 "the interpolation grid cannot be built (its nodes need "
                 "non-differentiable root-finds). Delegating to the exact "
                 "actionAngleStaeckel -- results are unchanged, evaluation is "

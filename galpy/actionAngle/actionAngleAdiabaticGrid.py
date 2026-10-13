@@ -24,7 +24,7 @@ from ..backend import (
 )
 from ..backend import interpolate as backend_interpolate
 from ..backend import promote_scalars, set_at, use
-from ..backend._namespaces import under_trace
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -80,6 +80,8 @@ class actionAngleAdiabaticGrid(actionAngle):
             Number of Lz values to use in the grid
         numcores : int
             Number of cores to use for multi-processing
+        c : bool, optional
+            If True, build the grid (and evaluate off-grid points) with C. Default is False. A differentiated potential parameter or gamma skips the grid for the exact actionAngleAdiabatic, whose c=True then falls back to its backend c=False implementation for that derivative.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -105,10 +107,14 @@ class actionAngleAdiabaticGrid(actionAngle):
         # differentiated parameter -- a silently zero gradient, worse than an
         # error. The exact actionAngleAdiabatic IS differentiable: same
         # numbers, slower. Warned, since the caller asked for the grid.
-        self._grid_bypassed = _pot_grad_namespace(self._pot) is not None
+        self._grid_bypassed = (
+            _pot_grad_namespace(self._pot) is not None
+            or under_trace(self._gamma)
+            or requires_backend_grad(self._gamma)
+        )
         if self._grid_bypassed:
             warnings.warn(
-                "actionAngleAdiabaticGrid: the potential carries a gradient, so "
+                "actionAngleAdiabaticGrid: the potential (or gamma) carries a gradient, so "
                 "the interpolation grid cannot be built (its nodes need "
                 "non-differentiable numpy evaluation). Delegating to the exact "
                 "actionAngleAdiabatic -- results are unchanged, evaluation is "

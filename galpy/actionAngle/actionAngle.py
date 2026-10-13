@@ -4,7 +4,11 @@ import types
 import numpy
 
 from ..backend._coerce import backend_point_1d
-from ..backend._namespaces import namespace_from_arrays
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..util import config, conversion
 from ..util.conversion import (
     actionAngle_physical_input,
@@ -26,6 +30,16 @@ from ..util.conversion import (
 # the larger node sum eventually makes it worse. Raising this constant is
 # therefore not a way to close a backend-vs-numpy angle gap.
 _BACKEND_GL_ORDER = 50
+
+
+def _c_cannot_carry(pot, *params):
+    """True if a derivative is requested that the C-native Jacobians cannot
+    carry: w.r.t. a parameter of ``pot`` or one of ``params`` (delta, gamma)."""
+    from ..potential.Potential import _pot_grad_namespace
+
+    return _pot_grad_namespace(pot) is not None or any(
+        under_trace(p) or requires_backend_grad(p) for p in params
+    )
 
 
 # Metaclass for copying docstrings from subclass methods, first func

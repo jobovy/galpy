@@ -3246,3 +3246,255 @@ def test_aa_grad_wrt_potential_parameter(backend, case, mode):
 
         for g in autodiff_param_grads(f, 0.5, backend):
             numpy.testing.assert_allclose(g, fd, rtol=rtol, atol=1e-11)
+
+
+# --- gradients w.r.t. delta, gamma and the potential's parameters through the
+# C-native Jacobian paths (Staeckel/Adiabatic c=True and the grids on them) ---
+# C carries only coordinate derivatives: a differentiated potential parameter,
+# delta or gamma runs the backend c=False path instead (equal to C to ~1e-8),
+# as a C orbit integration falls back to the in-backend ODE. These used to
+# return a silently ZERO (jax) or DISCONNECTED (torch) gradient.
+@pytest.fixture
+def cjac_ics():
+    # two bound, inclined orbits away from turning points and angle wraps
+    return (
+        numpy.array([1.0, 0.85]),
+        numpy.array([0.1, -0.15]),
+        numpy.array([1.1, 0.95]),
+        numpy.array([0.1, -0.2]),
+        numpy.array([0.05, 0.12]),
+        numpy.array([0.3, 2.0]),
+    )
+
+
+_CJAC_P0 = {"a": 0.5, "b": 0.3, "delta": 0.4, "gamma": 1.0}
+
+
+def _cjac_stack(out, skip_lz=True):
+    vals = [o for i, o in enumerate(out) if not (skip_lz and i == 1)]
+    return vals
+
+
+def _cjac_fd(fnp, p0, hrel=2.5e-3):
+    """h-converged (5-point) central difference of the numpy outputs."""
+    h = hrel * p0
+    f = {k: numpy.asarray(fnp(p0 + k * h)) for k in (-2, -1, 1, 2)}
+    return (8.0 * (f[1] - f[-1]) - (f[2] - f[-2])) / (12.0 * h)
+
+
+def _cjac_ad(backend, mode, jit, fbk, ics, p0):
+    """d(outputs)/dp: ``fbk(p, ics)`` builds everything from the scalar p.
+    mode='data': backend-array ics; 'forced': numpy ics under use(force=True)."""
+    from galpy import backend as galpy_backend
+
+    def f(p):
+        if mode == "data":
+            cs = tuple(_arr(backend, c) for c in ics)
+            return fbk(p, cs)
+        with galpy_backend.use(backend, force=True):
+            return fbk(p, ics)
+
+    if backend == "jax":
+
+        def fs(p):
+            return jnp.stack([jnp.reshape(o, (-1,)) for o in f(p)])
+
+        jac = jax.jacrev(fs)
+        if jit:
+            jac = jax.jit(jac)
+        return numpy.asarray(jac(jnp.asarray(p0)))
+    t = torch.tensor(p0, requires_grad=True)
+    outs = f(t)
+    rows = []
+    for o in outs:
+        rr = []
+        for k in range(o.shape[0]):
+            # an output that does not depend on p is disconnected: 0, which the
+            # FD comparison then checks
+            g = (
+                torch.autograd.grad(o[k], t, retain_graph=True)[0]
+                if o.requires_grad
+                else 0.0
+            )
+            rr.append(float(g))
+        rows.append(rr)
+    return numpy.array(rows)
+
+
+def _cjac_modes():
+    out = []
+    for bk in BACKENDS:
+        for mode in ("data", "forced"):
+            for jit in (False, True) if bk == "jax" else (False,):
+                out.append((bk, mode, jit))
+    return out
+
+
+def _staeckel_c_method(p, name, cs, method):
+    pars = dict(_CJAC_P0)
+    pars[name] = p
+    pot = MiyamotoNagaiPotential(amp=2.1, a=pars["a"], b=pars["b"])
+    aA = actionAngleStaeckel(pot=pot, delta=pars["delta"], c=True)
+    if method == "EccZmaxRperiRap":
+        return aA.EccZmaxRperiRap(*cs[:5])
+    out = getattr(aA, method)(*(cs if method == "actionsFreqsAngles" else cs[:5]))
+    return _cjac_stack(out)
+
+
+@pytest.mark.parametrize("bk,mode,jit", _cjac_modes())
+@pytest.mark.parametrize("method", ["__call__", "EccZmaxRperiRap"])
+def test_staeckel_c_grad_wrt_delta(bk, mode, jit, method, cjac_ics):
+    # a differentiated delta runs the backend c=False path
+    def fbk(p, cs):
+        return _staeckel_c_method(p, "delta", cs, method)
+
+    ad = _cjac_ad(bk, mode, jit, fbk, cjac_ics, _CJAC_P0["delta"])
+    fd = _cjac_fd(
+        lambda p: _staeckel_c_method(p, "delta", cjac_ics, method),
+        _CJAC_P0["delta"],
+    )
+    assert numpy.all(numpy.fabs(fd) > 1e-7)  # every output depends on delta
+    rtol = 2e-6 if method == "EccZmaxRperiRap" else 1e-7
+    numpy.testing.assert_allclose(ad, fd, rtol=rtol, atol=0.0)
+
+
+@pytest.mark.parametrize(
+    "bk,mode,jit,name",
+    [
+        m + (n,)
+        for m in _cjac_modes()
+        for n in ("a", "b")
+        if m[0] == "torch" or n == "a"
+    ],
+)  # b only on torch: the same path as a, and the jax c=False compiles are slow
+@pytest.mark.parametrize("method", ["__call__", "actionsFreqs", "EccZmaxRperiRap"])
+def test_staeckel_c_grad_wrt_potential_parameter(bk, mode, jit, name, method, cjac_ics):
+    # a differentiated potential runs the backend c=False path
+    def fbk(p, cs):
+        return _staeckel_c_method(p, name, cs, method)
+
+    ad = _cjac_ad(bk, mode, jit, fbk, cjac_ics, _CJAC_P0[name])
+    fd = _cjac_fd(
+        lambda p: _staeckel_c_method(p, name, cjac_ics, method), _CJAC_P0[name]
+    )
+    assert numpy.all(numpy.fabs(fd) > 1e-6)
+    rtol = {"__call__": 1e-8, "actionsFreqs": 1e-6, "EccZmaxRperiRap": 1e-7}[method]
+    numpy.testing.assert_allclose(ad, fd, rtol=rtol, atol=0.0)
+
+
+def _adiabatic_c_method(p, name, cs, method, grid=False):
+    pars = dict(_CJAC_P0)
+    pars[name] = p
+    pot = MiyamotoNagaiPotential(amp=2.1, a=pars["a"], b=pars["b"])
+    if grid:
+        aA = actionAngleAdiabaticGrid(
+            pot=pot, gamma=pars["gamma"], nR=12, nEz=12, nEr=20, nLz=20, c=True
+        )
+    else:
+        aA = actionAngleAdiabatic(pot=pot, gamma=pars["gamma"], c=True)
+    if method == "EccZmaxRperiRap":
+        return aA.EccZmaxRperiRap(*cs[:5])
+    out = aA(*cs[:5])
+    return (out[0], out[2])
+
+
+@pytest.mark.parametrize(
+    "bk,mode,jit", [m for m in _cjac_modes() if not m[2]]
+)  # c=False's actionAngleSpherical setup branches on a traced gamma (audit PR 21)
+@pytest.mark.parametrize("method", ["__call__", "EccZmaxRperiRap"])
+def test_adiabatic_c_grad_wrt_gamma(bk, mode, jit, method, cjac_ics):
+    # a differentiated gamma runs the backend c=False path; gamma couples Jz
+    # into the radial Lz, so jz and zmax do not depend on it
+    def fbk(p, cs):
+        return _adiabatic_c_method(p, "gamma", cs, method)
+
+    ad = _cjac_ad(bk, mode, jit, fbk, cjac_ics, _CJAC_P0["gamma"])
+    fd = _cjac_fd(
+        lambda p: _adiabatic_c_method(p, "gamma", cjac_ics, method),
+        _CJAC_P0["gamma"],
+    )
+    assert numpy.all(numpy.fabs(fd[0]) > 1e-5)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=1e-13)
+
+
+@pytest.mark.parametrize(
+    "bk,jit", [m[::2] for m in _cjac_modes() if m[1] == "forced"]
+)  # data mode needs the parameter-aware namespace (verticalPotential's lift)
+@pytest.mark.parametrize("method", ["__call__", "EccZmaxRperiRap"])
+def test_adiabatic_c_grad_wrt_potential_parameter(bk, jit, method, cjac_ics):
+    # a differentiated potential runs the backend c=False path
+    def fbk(p, cs):
+        return _adiabatic_c_method(p, "a", cs, method)
+
+    ad = _cjac_ad(bk, "forced", jit, fbk, cjac_ics, _CJAC_P0["a"])
+    fd = _cjac_fd(
+        lambda p: _adiabatic_c_method(p, "a", cjac_ics, method), _CJAC_P0["a"]
+    )
+    assert numpy.all(numpy.fabs(fd) > 1e-5)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=0.0)
+
+
+@pytest.mark.parametrize(
+    "bk,mode,jit,grid",
+    [
+        m + (g,)
+        for m in _cjac_modes()
+        for g in ("staeckel", "adiabatic")
+        if not (m[2] and g == "adiabatic")
+    ],
+)  # adiabatic gamma under jit: see test_adiabatic_c_grad_wrt_gamma
+def test_gridaa_bypassed_for_differentiated_delta_gamma(bk, mode, jit, grid, cjac_ics):
+    # a differentiated delta/gamma bypasses the grid (its nodes are built in
+    # numpy) for the exact class, which runs its c=False path for it; the grid
+    # used to raise (delta) or fail to concretize (gamma)
+    import warnings
+
+    from galpy.util import galpyWarning
+
+    name = "delta" if grid == "staeckel" else "gamma"
+
+    def build(p, cs, grid_):
+        if grid == "adiabatic":
+            return _adiabatic_c_method(p, name, cs, "__call__", grid=grid_)
+        pars = dict(_CJAC_P0)
+        pars[name] = p
+        pot = MiyamotoNagaiPotential(amp=2.1, a=pars["a"], b=pars["b"])
+        if grid_:
+            aA = actionAngleStaeckelGrid(
+                pot=pot, delta=pars["delta"], nE=9, npsi=9, nLz=9, c=True
+            )
+        else:
+            aA = actionAngleStaeckel(pot=pot, delta=pars["delta"], c=True)
+        out = aA(*cs[:5])
+        return (out[0], out[2])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", galpyWarning)
+        ad = _cjac_ad(
+            bk, mode, jit, lambda p, cs: build(p, cs, True), cjac_ics, _CJAC_P0[name]
+        )
+    # the FD arm is the exact class: FD-ing the grid measures the interpolant
+    fd = _cjac_fd(lambda p: build(p, cjac_ics, False), _CJAC_P0[name])
+    assert numpy.all(numpy.fabs(fd[0]) > 1e-5)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-8, atol=1e-13)
+
+
+@pytest.mark.parametrize("bk,jit", [m[::2] for m in _cjac_modes() if m[1] == "forced"])
+def test_adiabaticgrid_c_grad_wrt_potential_parameter(bk, jit, cjac_ics):
+    # the grid bypass delegates to actionAngleAdiabatic(c=True), which used to
+    # run C on the frozen parameter: ZERO under jax.jit, DISCONNECTED on torch
+    import warnings
+
+    from galpy.util import galpyWarning
+
+    def fbk(p, cs):
+        return _adiabatic_c_method(p, "a", cs, "__call__", grid=True)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", galpyWarning)
+        ad = _cjac_ad(bk, "forced", jit, fbk, cjac_ics, _CJAC_P0["a"])
+    fd = _cjac_fd(
+        lambda p: _adiabatic_c_method(p, "a", cjac_ics, "__call__"), _CJAC_P0["a"]
+    )
+    assert numpy.all(numpy.fabs(fd) > 1e-5)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=0.0)

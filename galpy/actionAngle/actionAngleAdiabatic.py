@@ -24,7 +24,7 @@ from ..potential.Potential import (
 from ..potential.verticalPotential import _BatchedVerticalPotential
 from ..util import galpyWarning
 from . import actionAngleAdiabatic_c
-from .actionAngle import actionAngle
+from .actionAngle import _c_cannot_carry, actionAngle
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
@@ -110,6 +110,8 @@ class actionAngleAdiabatic(actionAngle):
             The potential or a combined potential formed using addition (pot1+pot2+…).
         gamma : float, optional
             Replace Lz by Lz+gamma Jz in effective potential. Default is 1.0.
+        c : bool, optional
+            If True, use C for calculations. Default is False. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or gamma -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -163,7 +165,7 @@ class actionAngleAdiabatic(actionAngle):
                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or gamma -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         _justjr, _justjz: bool, optional
             If True, only calculate the radial or vertical action (internal use)
         **kwargs : dict
@@ -197,9 +199,14 @@ class actionAngleAdiabatic(actionAngle):
             vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot)
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            # derivatives C cannot carry run the backend c=False path
+            and not _c_cannot_carry(self._pot, self._gamma)
+        )
         _special = (
             kwargs.get("_justjr", False)
             or kwargs.get("_justjz", False)
@@ -484,7 +491,7 @@ class actionAngleAdiabatic(actionAngle):
                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         c: bool, optional
-            True/False to override the object-wide setting for whether or not to use the C implementation
+            True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or gamma -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
 
         Returns
         -------
@@ -514,9 +521,14 @@ class actionAngleAdiabatic(actionAngle):
             vz = numpy.array([to_host(vz)])
         xp = get_namespace(R, vR, vT, z, vz)
         use_c = (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot)
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            # derivatives C cannot carry run the backend c=False path
+            and not _c_cannot_carry(self._pot, self._gamma)
+        )
         if use_c and xp is not numpy:
             # C-native differentiable (ecc,zmax,rperi,rap) via the fused (4,5) C
             # Jacobian; numpy path below is byte-identical (#131 Adiabatic PR-2c).
