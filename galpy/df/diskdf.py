@@ -489,8 +489,8 @@ class diskdf(df):
             )
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R")
     def targetSigma2(self, R, log=False):
         """
         Evaluate the target Sigma_R^2(R)
@@ -514,8 +514,8 @@ class diskdf(df):
         return self._ssp("sigma2", R, log=log)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R")
     def targetSurfacemass(self, R, log=False):
         """
         Evaluate the target surface mass at R.
@@ -891,8 +891,8 @@ class diskdf(df):
         return out
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R")
     def asymmetricdrift(self, R):
         """
         Estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation.
@@ -965,8 +965,8 @@ class diskdf(df):
         )
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R")
     @_loop_array_R
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
@@ -1064,8 +1064,8 @@ class diskdf(df):
             )
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity2surfacedensity", pop=True)
+    @backend_input("R")
     @_loop_array_R
     def sigma2surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
@@ -1372,8 +1372,8 @@ class diskdf(df):
                 )
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R")
     def oortA(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function A.
@@ -1417,8 +1417,8 @@ class diskdf(df):
         return 0.5 * (meanvphi / R - dmeanvRRdphi / R - dmeanvphidR)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R")
     def oortB(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function B.
@@ -1462,8 +1462,8 @@ class diskdf(df):
         return 0.5 * (-meanvphi / R + dmeanvRRdphi / R - dmeanvphidR)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R")
     def oortC(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function C.
@@ -1507,8 +1507,8 @@ class diskdf(df):
         return 0.5 * (-meanvr / R - dmeanvphiRdphi / R + dmeanvRdR)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R")
     def oortK(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function K.
@@ -1552,8 +1552,8 @@ class diskdf(df):
         return 0.5 * (+meanvr / R + dmeanvphiRdphi / R + dmeanvRdR)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R")
     def sigma2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1584,8 +1584,8 @@ class diskdf(df):
         ) / self.surfacemass(R, romberg, nsigma, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R")
     def sigmaT2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_T^2 at R by marginalizing over velocity
@@ -1621,8 +1621,8 @@ class diskdf(df):
         ) / surfmass
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R")
     def sigmaR2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1651,8 +1651,8 @@ class diskdf(df):
         return self.sigma2(R, romberg=romberg, nsigma=nsigma, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R")
     def meanvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the mean tangential velocity at a given radius by marginalizing over velocity.
@@ -1682,8 +1682,8 @@ class diskdf(df):
         ) / self.surfacemass(R, romberg=romberg, nsigma=nsigma, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R")
     def meanvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate <vR> at R by marginalizing over velocity.
