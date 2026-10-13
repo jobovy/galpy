@@ -13,6 +13,7 @@ import numpy
 from ..backend import get_namespace, has_concrete_truth_value
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class PowerTriaxialPotential(EllipsoidalPotential):
@@ -99,9 +100,7 @@ class PowerTriaxialPotential(EllipsoidalPotential):
         # Multiply in constants
         self._amp = self._amp * ((3.0 - self.alpha) / 4.0 / numpy.pi)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned

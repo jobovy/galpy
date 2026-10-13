@@ -6,6 +6,7 @@ import math
 
 from ..backend import get_namespace
 from ..util import conversion
+from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
 
 
@@ -47,9 +48,7 @@ class SphericalShellPotential(SphericalPotential):
         self.a = a
         self.a2 = a**2
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             if self.a > 1.0:
                 raise ValueError(
                     "SphericalShellPotential with normalize= for a > 1 is not supported (because the force is always 0 at r=1)"

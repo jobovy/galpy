@@ -9,7 +9,7 @@ import math
 
 from ..backend import coerce_coords, get_namespace
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class KuzminDiskPotential(Potential):
@@ -48,9 +48,7 @@ class KuzminDiskPotential(Potential):
         a = conversion.parse_length(a, ro=self._ro)
         self._a = a  ## a must be greater or equal to 0.
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

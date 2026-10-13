@@ -6,7 +6,7 @@ import numpy
 from ..backend import coerce_coords, get_namespace
 from ..backend.special import ellipe, ellipk
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class RingPotential(Potential):
@@ -46,9 +46,7 @@ class RingPotential(Potential):
         self.a2 = self.a**2
         self._amp = self._amp / (2.0 * numpy.pi * self.a)
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             if self.a > 1.0:
                 raise ValueError(
                     "RingPotential with normalize= for a > 1 is not supported (because the force is always positive at r=1)"

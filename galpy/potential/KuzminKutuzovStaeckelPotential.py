@@ -11,7 +11,7 @@ import numpy
 from ..backend import coerce_coords, get_namespace
 from ..util import conversion  # for prolate spherical coordinate transforms
 from ..util import coords
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class KuzminKutuzovStaeckelPotential(Potential):
@@ -55,9 +55,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self._gamma = self._delta**2 / (1.0 - self._ac**2)
         self._alpha = self._gamma - self._delta**2
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

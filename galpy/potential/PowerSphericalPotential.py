@@ -22,7 +22,7 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class PowerSphericalPotential(Potential):
@@ -73,9 +73,7 @@ class PowerSphericalPotential(Potential):
                 r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
             )
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

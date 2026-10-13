@@ -8,7 +8,7 @@ import math
 
 from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
 from ..util import conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 
 class PlummerPotential(Potential):
@@ -47,9 +47,7 @@ class PlummerPotential(Potential):
         self._scale = self._b
         self._b2 = self._b**2.0
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

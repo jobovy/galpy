@@ -19,6 +19,7 @@ from ..backend import (
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
+from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
 
 
@@ -126,9 +127,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         # rc does not have (jax.jit(jax.grad(...)) w.r.t. a scale radius raises
         # TracerBoolConversionError here). Same value on numpy.
         self._small_r_thresh = 1e-3 * get_namespace(a, rc).minimum(a, rc)
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self._backend_compatible = True

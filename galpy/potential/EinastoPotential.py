@@ -20,6 +20,7 @@ from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
 from ..backend.special import gammaincc as _gammaincc
 from ..util import conversion
+from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
 
 
@@ -118,9 +119,7 @@ class EinastoPotential(SphericalPotential):
         except Exception:  # a jax tracer has no concrete value to take
             self._scale = self.h
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True

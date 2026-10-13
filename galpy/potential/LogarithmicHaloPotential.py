@@ -9,7 +9,7 @@ import numpy
 
 from ..backend import coerce_coords, get_namespace
 from ..util import conversion, galpyWarning
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 _CORE = 10**-8
 
@@ -71,9 +71,7 @@ class LogarithmicHaloPotential(Potential):
         if not self._b is None:
             self.isNonAxi = True
             self._1m1overb2 = 1.0 - 1.0 / self._b**2.0
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self._nemo_accname = "LogPot"
         return None

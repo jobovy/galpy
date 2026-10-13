@@ -29,7 +29,7 @@ from ..backend.optimize import newton_polish
 from ..backend.quadrature import fixed_quad_semiinfinite
 from ..backend.special import gamma
 from ..util import conversion, coords
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 # Gauss-Legendre order for the backend (jax/torch) branch of the ellipsoidal
 # integrals; the 'recip' semi-infinite substitution makes the Ferrers integrand
@@ -127,9 +127,7 @@ class FerrersPotential(Potential):
         # numpy.fabs(self._b - 1.0) check below rejects a tensor under -W error.
         (n_,) = coerce_coords(get_namespace(n), n)
         self._rhoc_M = gamma(n_ + 2.5) / gamma(n_ + 1) / numpy.pi**1.5 / a**3 / b / c
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         if numpy.fabs(self._b - 1.0) > 10.0**-10.0:
             self.isNonAxi = True

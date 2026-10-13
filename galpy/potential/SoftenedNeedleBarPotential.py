@@ -9,7 +9,7 @@ import numpy
 
 from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class SoftenedNeedleBarPotential(Potential):
@@ -87,9 +87,7 @@ class SoftenedNeedleBarPotential(Potential):
         self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (incl. zphideriv) in C
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.isNonAxi = True
         return None

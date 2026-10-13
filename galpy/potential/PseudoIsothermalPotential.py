@@ -8,7 +8,7 @@ import numpy
 
 from ..backend import coerce_coords, get_namespace, radial_limits
 from ..util import conversion
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class PseudoIsothermalPotential(Potential):
@@ -51,9 +51,7 @@ class PseudoIsothermalPotential(Potential):
         self._a = a
         self._a2 = a**2.0
         self._a3 = a**3.0
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         return None
 
