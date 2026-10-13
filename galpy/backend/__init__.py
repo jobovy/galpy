@@ -16,6 +16,7 @@ from ._coerce import (
     branch_where,
     coerce_coords,
     host_eval,
+    lazy_cond,
     promote_scalars,
     radial_limits,
     scalar_like,
@@ -110,4 +111,5 @@ __all__ = [
     "zeros_like_backend",
     "radial_limits",
     "branch_where",
+    "lazy_cond",
 ]
