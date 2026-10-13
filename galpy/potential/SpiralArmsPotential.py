@@ -15,6 +15,7 @@ from ..backend import (
     coerce_coords,
     device_of,
     get_namespace,
+    promote_scalars,
     scalar_like,
 )
 from ..util import conversion
@@ -106,8 +107,11 @@ class SpiralArmsPotential(Potential):
         omega = conversion.parse_frequency(omega, ro=self._ro, vo=self._vo)
         self._N = -N  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
         self._alpha = -alpha  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)
-        self._sin_alpha = numpy.sin(-alpha)
-        self._tan_alpha = numpy.tan(-alpha)
+        xa = get_namespace(alpha)  # differentiable in alpha on a backend
+        (nalpha,) = promote_scalars(xa, -alpha)
+        self._sin_alpha = xa.sin(nalpha)
+        self._tan_alpha = xa.tan(nalpha)
+        self._cos_alpha = math.cos(-alpha) if xa is numpy else xa.cos(nalpha)
         self._r_ref = r_ref
         self._phi_ref = phi_ref
         self._Rs = Rs
@@ -116,7 +120,13 @@ class SpiralArmsPotential(Potential):
         self._ns = self._ns0 = numpy.arange(1, len(Cs) + 1)
         self._omega = omega
         self._rho0 = 1 / (4 * numpy.pi)
-        self._HNn = self._HNn0 = self._H * self._N * self._ns0
+        xh = get_namespace(H)
+        if xh is numpy:
+            self._HNn = self._HNn0 = self._H * self._N * self._ns0
+        else:  # an ndarray times a backend H raises (or detaches)
+            (Hb,) = promote_scalars(xh, H)
+            ns = asarray_on_device(xh, self._ns0, device_of(Hb), dtype=Hb.dtype)
+            self._HNn = self._HNn0 = Hb * self._N * ns
 
         self.isNonAxi = True  # Potential is not axisymmetric
         self.hasC = (
@@ -650,7 +660,7 @@ class SpiralArmsPotential(Potential):
             * (
                 xp.cos(ng)
                 * (Ks * R * (Bs + 1) / Bs * sech_zKB**2 - 1 / Ks / R * (E**2 + rE))
-                - 2 * xp.sin(ng) * E * math.cos(self._alpha)
+                - 2 * xp.sin(ng) * E * scalar_like(R, self._cos_alpha)
             ),
             axis=0,
         )
