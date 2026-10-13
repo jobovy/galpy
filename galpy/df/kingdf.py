@@ -32,6 +32,11 @@ from .sphericaldf import isotropicsphericaldf
 
 _FOURPI = 4.0 * numpy.pi
 _TWOOVERSQRTPI = 2.0 / numpy.sqrt(numpy.pi)
+# Poisson-ODE tolerances. A differentiated W0 needs tighter ones: d(Phi)/dW0 is a
+# ~700x cancellation of terms that carry the solve's error (1e-10 left d/dW0
+# 1.4e-7 off the exact derivative, 1e-12 up to 2e-8, 1e-13 <= 1e-9)
+_ODE_TOL = {"rtol": 1e-10, "atol": 1e-12}
+_ODE_TOL_DIFF = {"rtol": 1e-13, "atol": 1e-15}
 
 
 class kingdf(isotropicsphericaldf):
@@ -238,6 +243,11 @@ class _scalefreekingdf:
             if is_backend_array(self.W0)
             else self.W0
         )
+        self._ode_tol = (
+            _ODE_TOL_DIFF
+            if under_trace(self.W0) or requires_backend_grad(self.W0)
+            else _ODE_TOL
+        )
         # Initialize (r[0]=0 already)
         W[0] = W0
         # Determine central density and r0
@@ -263,8 +273,7 @@ class _scalefreekingdf:
             t_eval=r[: npt // 2],
             # scipy's default rtol=1e-3 left ~1e-4 errors in the tables (and
             # ~1e-3 in their W0-dependence); this is ~1e-10 for ~10 ms more
-            rtol=1e-10,
-            atol=1e-12,
+            **self._ode_tol,
         )
         W[: npt // 2] = sol.y[0]
         dWdr[: npt // 2] = sol.y[1]
@@ -282,8 +291,7 @@ class _scalefreekingdf:
             [rbreak, sol.y[1, -1]],
             method="DOP853",
             t_eval=W[npt // 2 - 1 :],
-            rtol=1e-10,
-            atol=1e-12,
+            **self._ode_tol,
         )
         r[npt // 2 - 1 :] = sol.y[0]
         dWdr[npt // 2 - 1 :] = sol.y[1]
@@ -320,7 +328,9 @@ class _scalefreekingdf:
             from ..backend._torch.king_ode import solve as _king_solve
         else:
             from ..backend._jax.king_ode import solve as _king_solve
-        self.rho0, self.r0, r, W, dWdr = _king_solve(self._dens_W, self.W0, npt)
+        self.rho0, self.r0, r, W, dWdr = _king_solve(
+            self._dens_W, self.W0, npt, **_ODE_TOL_DIFF
+        )
         self._r, self._W, self._dWdr = r, W, dWdr
         self._rho = self._dens_W(W)
         self.rt = r[-1]
@@ -363,8 +373,7 @@ class _scalefreekingdf:
             [W0, 0.0, 1.0, 0.0],
             method="DOP853",
             t_eval=self._r[:n1],
-            rtol=1e-10,
-            atol=1e-12,
+            **self._ode_tol,
         )
         r1, W1, v1 = self._r[:n1], self._W[:n1], self._dWdr[:n1]
         frac = numpy.linspace(0.0, 1.0, n1)  # r1 = frac * rbreak
@@ -393,8 +402,7 @@ class _scalefreekingdf:
             [rbreak, vb, *sig0],
             method="DOP853",
             t_eval=self._W[n1 - 1 :],
-            rtol=1e-10,
-            atol=1e-12,
+            **self._ode_tol,
         )
         r2, W2, v2 = self._r[n1 - 1 :], self._W[n1 - 1 :], self._dWdr[n1 - 1 :]
         dt2 = numpy.linspace(1.0, 0.0, len(W2)) * dW1[-1]  # the grid moves too
@@ -446,7 +454,7 @@ class _scalefreekingdf:
         else:
             from ..backend._jax.king_ode import solve as _king_solve
 
-            kw = {}
+            kw = _ODE_TOL_DIFF
         rho0, r0, r, W, dWdr = _king_solve(self._dens_W, W0, npt, **kw)
         cm = -dWdr * r**2.0  # d/dW0 of the repaired mass is the raw one's
         head = xp.stack([xp.log10(r[-1] / r0), rho0, r0, r[-1], cm[-1]])
