@@ -35,8 +35,9 @@ def _numpy_ctx_for_numpy_inputs(method):
     input-coercion gate) would otherwise route into the backend -- the kernel's
     own gate coerces the shifted coords to jax/torch and a backend array leaks
     back into the numpy integrator (and ``torch.cos/sqrt(numpy)`` crashes). Pin
-    such a query to numpy. Genuine backend-array inputs, and any query in an
-    unforced numpy context, run unchanged (numpy path byte-identical)."""
+    such a query to numpy. Genuine backend-array inputs, a backend-integrated
+    (e.g. differentiated) object orbit, and any query in an unforced numpy
+    context run unchanged (numpy path byte-identical)."""
 
     @wraps(method)
     def wrapper(self, R, z, phi=0.0, t=0.0):
@@ -45,6 +46,7 @@ def _numpy_ctx_for_numpy_inputs(method):
             or is_backend_array(z)
             or is_backend_array(phi)
             or get_namespace(_NUMPY_PROBE) is numpy
+            or is_backend_array(getattr(self._orb, "orbit", None))
         ):
             return method(self, R, z, phi, t)
         with use("numpy", force=True):
@@ -93,7 +95,10 @@ class MovingObjectPotential(Potential):
                     "MovingObjectPotential for non-axisymmetric potentials is not currently supported"
                 )
             self._pot = pot
-        self._orb = copy.deepcopy(orbit)
+        # backend arrays are shared, not copied: a non-leaf torch tensor (a
+        # differentiated orbit) cannot be deep-copied, and none is mutated here
+        memo = {id(v): v for v in vars(orbit).values() if is_backend_array(v)}
+        self._orb = copy.deepcopy(orbit, memo)
         self._orb.turn_physical_off()
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)
@@ -104,6 +109,7 @@ class MovingObjectPotential(Potential):
         # available in C exactly when the kernel's are (same gating as hasC).
         self.hasC_dxdv = _check_c(self._pot, dxdv=True)
         self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
+        self._backend_compatible = True
         return None
 
     @_numpy_ctx_for_numpy_inputs
