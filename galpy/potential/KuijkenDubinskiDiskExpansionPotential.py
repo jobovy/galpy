@@ -9,7 +9,7 @@ import numpy
 from ..backend import coerce_coords, get_namespace
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import logsumexp
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 def _default_dens(R, z):
@@ -148,9 +148,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             # expansion sub-potential self._me (SCF / MultipoleExpansion) have
             # the full 3D Hessian in C.
             self.hasC_dxdv3d = getattr(self._me, "hasC_dxdv3d", False)
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
 
     def _parse_Sigma(self, Sigma_amp, Sigma, dSigmadR, d2SigmadR2):
