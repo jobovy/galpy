@@ -10,6 +10,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace, has_concrete_truth_value
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -84,7 +85,14 @@ class PowerTriaxialPotential(EllipsoidalPotential):
         r1 = conversion.parse_length(r1, ro=self._ro)
         self.alpha = alpha
         # Back to old definition
-        if self.alpha != 3.0:
+        if not has_concrete_truth_value(alpha != 3.0):  # traced: select
+            xp = get_namespace(alpha)
+            kepler = alpha == 3.0
+            safe = xp.where(kepler, 2.0, alpha)
+            self._amp = self._amp * xp.where(
+                kepler, 1.0, r1 ** (safe - 3.0) * 4.0 * numpy.pi / (3.0 - safe)
+            )
+        elif self.alpha != 3.0:
             self._amp = self._amp * (
                 r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
             )

@@ -8,7 +8,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential
 
@@ -69,6 +69,9 @@ class FlattenedPowerPotential(Potential):
         core = conversion.parse_length(core, ro=self._ro)
         r1 = conversion.parse_length(r1, ro=self._ro)
         self.alpha = alpha
+        # alpha = 0 is the logarithmic special case; a backend-array alpha keeps
+        # the power-law forms (valid at 0 for all but Phi), differentiable in it
+        self._logarithmic = not is_backend_array(alpha) and alpha == 0.0
         self.q2 = q**2.0
         self.core2 = core**2.0
         # Back to old definition
@@ -84,30 +87,36 @@ class FlattenedPowerPotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             xp = get_namespace(R, z)
             R, z = coerce_coords(xp, R, z)
             return 1.0 / 2.0 * xp.log(R**2.0 + z**2.0 / self.q2 + self.core2)
+        elif is_backend_array(self.alpha):  # select the alpha = 0 case
+            xp = get_namespace(R, z)
+            log = self.alpha == 0.0
+            alpha = xp.where(log, 1.0, self.alpha)
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return xp.where(log, xp.log(m2) / 2.0, -(m2 ** (-alpha / 2.0)) / alpha)
         else:
             m2 = self.core2 + R**2.0 + z**2.0 / self.q2
             return -(m2 ** (-self.alpha / 2.0)) / self.alpha
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             return -R / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
             m2 = self.core2 + R**2.0 + z**2.0 / self.q2
             return -(m2 ** (-self.alpha / 2.0 - 1.0)) * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             return -z / self.q2 / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
             m2 = self.core2 + R**2.0 + z**2.0 / self.q2
             return -(m2 ** (-self.alpha / 2.0 - 1.0)) * z / self.q2
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
             return denom - 2.0 * R**2.0 * denom**2.0
         else:
@@ -117,7 +126,7 @@ class FlattenedPowerPotential(Potential):
             )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
             return denom / self.q2 - 2.0 * z**2.0 * denom**2.0 / self.q2**2.0
         else:
@@ -130,7 +139,7 @@ class FlattenedPowerPotential(Potential):
             )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
             return -2.0 * R * z / self.q2 * denom**2.0
         else:
@@ -140,7 +149,7 @@ class FlattenedPowerPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        if self.alpha == 0.0:
+        if self._logarithmic:
             return (
                 1.0
                 / 4.0

@@ -116,7 +116,7 @@ class ExpTruncNFWPotential(SphericalPotential):
         self._Ftot = self._exp_alpha * (1.0 + self._alpha) * self._E1_alpha - 1.0
         if mass is not None:
             newmass = conversion.parse_mass(mass, ro=self._ro, vo=self._vo)
-            if newmass != mass:  # a Quantity was passed; report physical units
+            if newmass is not mass:  # a Quantity: report physical units
                 self.turn_physical_on(ro=self._ro, vo=self._vo)
             self._amp = newmass / self._Ftot
         # Threshold below which the closed-form M(<r) suffers cancellation; use

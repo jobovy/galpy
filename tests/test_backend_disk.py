@@ -808,3 +808,53 @@ def test_razorthin_vectorised_equals_elementwise(method):
     )
     assert vec1.shape == (len(pts),), f"{method}: 1-D shape {vec1.shape}"
     numpy.testing.assert_array_equal(vec1, elementwise, err_msg=f"{method}: 1-D")
+
+
+# FlattenedPower alpha (gap audit R-SHAPE): a backend alpha keeps the power-law
+# forms, so d/dalpha exists under jit and AT alpha = 0 too (the forces there
+# depend on alpha; numpy's logarithmic special case has no alpha to
+# differentiate), and Phi selects the logarithm at alpha = 0 exactly.
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+def _flattenedpower(**kw):
+    return FlattenedPowerPotential(amp=1.3, q=0.9, core=0.1, **kw)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "alpha,method",
+    [(0.5, "Phi"), (0.5, "zforce"), (0.0, "Rforce"), (0.0, "R2deriv"), (0.0, "dens")],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_flattenedpower_alpha_gradient(backend_name, mode, alpha, method):
+    assert_param_grad(
+        backend_name,
+        mode,
+        _flattenedpower,
+        {"alpha": alpha},
+        "alpha",
+        method,
+        [0.9, 0.2],
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_flattenedpower_traced_alpha_zero_is_the_logarithm(backend_name):
+    R, z = numpy.array([0.3, 0.9, 4.0]), numpy.array([0.1, -0.2, 2.0])
+    npot = _flattenedpower(alpha=0.0)
+    methods = ["__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv", "dens"]
+
+    def evaluate(alpha, R, z):
+        pot = _flattenedpower(alpha=alpha)
+        return [getattr(pot, m)(R, z) for m in methods]
+
+    if backend_name == "jax":
+        outs = jax.jit(evaluate)(jnp.asarray(0.0), jnp.asarray(R), jnp.asarray(z))
+    else:
+        a = torch.tensor(0.0, requires_grad=True)
+        outs = evaluate(a, torch.tensor(R), torch.tensor(z))
+    for m, got in zip(methods, outs):
+        numpy.testing.assert_allclose(
+            as_numpy(got), getattr(npot, m)(R, z), rtol=1e-14, err_msg=m
+        )
