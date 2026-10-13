@@ -633,3 +633,103 @@ def test_kingdf_float32_W0_solves_in_float64(which, torch_default_float32):
     assert float(v32) == float(v64)
     # the gradient is cast back to the float32 leaf's dtype
     numpy.testing.assert_allclose(float(g32), float(g64), rtol=1e-7)
+
+
+# ---------------------------------------------------------------------------
+# d/dW0 against the EXACT model derivative: a Richardson FD of the numpy build
+# with every Poisson solve at rtol 1e-13. At the shipped 1e-10 the AD was
+# 1.4e-7 off it (and a numpy FD 9e-7: the W8 audit's 1.1e-6): d(Phi)/dW0 is a
+# ~700x cancellation of terms carrying the solve's error. A differentiated W0
+# is now solved at 1e-12, in the scipy graft and the traced diffrax solve.
+# ---------------------------------------------------------------------------
+_KING_R, _KING_Z = 0.9, 0.2
+_KING_NAMES = ["Phi", "Rforce", "dens"]
+
+
+def _king_quantity(name, W0, M=2.3):
+    from galpy.potential import KingPotential
+
+    p = KingPotential(W0=W0, M=M, rt=1.4)
+    f = {"Phi": p, "Rforce": p.Rforce, "dens": p.dens}[name]
+    return f(_KING_R, _KING_Z)
+
+
+@pytest.fixture(scope="module")
+def king_exact_W0_fd():
+    """Richardson central FD of the numpy build with all solves at rtol 1e-13."""
+    import importlib
+
+    from scipy import integrate
+
+    kmod = importlib.import_module("galpy.df.kingdf")
+    cache = {}
+
+    def fd(name, W0):
+        if (name, W0) not in cache:
+            orig = integrate.solve_ivp
+
+            def tight(*a, **k):
+                return orig(*a, **{**k, "rtol": 1e-13, "atol": 1e-15})
+
+            kmod.integrate.solve_ivp = tight
+            try:
+                f = lambda w: float(_king_quantity(name, w))  # noqa: E731
+                cd = [(f(W0 + h) - f(W0 - h)) / (2 * h) for h in (8e-3, 4e-3, 2e-3)]
+            finally:
+                kmod.integrate.solve_ivp = orig
+            d = [(4 * cd[i + 1] - cd[i]) / 3 for i in (0, 1)]
+            # converged: measured <= 4e-9 (Phi at W0 = 9: 7e-9, its FD floor)
+            assert abs(d[0] - d[1]) < 1.5e-8 * abs(d[1])
+            cache[(name, W0)] = d[1]
+        return cache[(name, W0)]
+
+    return fd
+
+
+_KING_MODES = (["jax", "jit"] if "jax" in BACKENDS else []) + (
+    ["torch"] if "torch" in BACKENDS else []
+)
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("W0", [1.5, 3.0, 9.0])
+@pytest.mark.parametrize("name", _KING_NAMES)
+@pytest.mark.parametrize("mode", _KING_MODES)
+def test_king_W0_grad_vs_exact(mode, name, W0, forced, king_exact_W0_fd):
+    if mode == "jit" and (W0 != 3.0 or name != "Phi"):
+        pytest.skip("one jit compile (the traced diffrax solve) is enough")
+    backend = "torch" if mode == "torch" else "jax"
+
+    def val(w):
+        if forced:
+            with galpy.backend.use(backend, force=True):
+                return _king_quantity(name, w)
+        return _king_quantity(name, w)
+
+    if mode == "torch":
+        w = torch.tensor(W0, requires_grad=True)
+        g = torch.autograd.grad(val(w), w)[0]
+    else:
+        g = (jax.jit(jax.grad(val)) if mode == "jit" else jax.grad(val))(W0)
+    # was <= 1.4e-7 (W0 = 3); measured <= 5e-9. Phi at W0 = 9 is a 1e4x
+    # cancellation of terms good to ~1e-12: the FD floor there is ~1e-8
+    rtol = 3e-8 if (name, W0) == ("Phi", 9.0) else 1e-8
+    numpy.testing.assert_allclose(float(g), king_exact_W0_fd(name, W0), rtol=rtol)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("cls", ["KingPotential", "kingdf"])
+def test_king_M_grad_under_jit(cls):
+    # `if newM != M` (the Quantity check) was a traced truth value under jit
+    def val(M):
+        if cls == "kingdf":
+            return kingdf(W0=3.0, M=M, rt=1.4).dens(0.4)
+        return _king_quantity("Phi", 3.0, M=M)
+
+    # M only rescales: exact up to roundoff (Richardson of the numpy build)
+    f = lambda M: float(val(M))  # noqa: E731
+    cd = [(f(2.3 + h) - f(2.3 - h)) / (2 * h) for h in (1e-2, 5e-3)]
+    fd = (4 * cd[1] - cd[0]) / 3
+    g = float(jax.jit(jax.grad(val))(2.3))
+    # measured <= 1e-12
+    numpy.testing.assert_allclose(g, fd, rtol=1e-10)
