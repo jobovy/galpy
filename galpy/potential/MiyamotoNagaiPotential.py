@@ -10,7 +10,7 @@ import math
 from ..backend import coerce_coords, get_namespace
 from ..backend._namespaces import under_trace
 from ..util import conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 
 class MiyamotoNagaiPotential(Potential):
@@ -58,9 +58,7 @@ class MiyamotoNagaiPotential(Potential):
         self._b = b
         self._b2 = self._b**2.0
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
