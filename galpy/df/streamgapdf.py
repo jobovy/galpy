@@ -11,6 +11,7 @@ from scipy import integrate, interpolate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    backend_input,
     coerce_coords,
     device_of,
     get_namespace,
@@ -27,6 +28,7 @@ from ..backend._namespaces import (
     under_trace,
 )
 from ..backend.interpolate import Spline1D
+from ..backend.optimize import newton_polish
 from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
 from ..orbit.Orbits import _flip_velocity_columns
@@ -84,6 +86,23 @@ def _impact_is_leading(impact_angle, leading):
     return bool(pos) if has_concrete_truth_value(pos) else leading
 
 
+def _gaussxpolyInts_backend(xp, ll, ul, maxj):
+    """Backend twin of streamgapdf._densMoments_approx_higherorder_gaussxpolyInts:
+    the list of rows (row i <-> its numpy row i) of x**p x Gaussian integrals."""
+    rows = [None] * maxj
+    ell, eul = xp.exp(-(ll**2.0)), xp.exp(-(ul**2.0))
+    rows[-1] = 1.0 / numpy.sqrt(numpy.pi) * (ell - eul)
+    rows[-2] = 1.0 / numpy.sqrt(numpy.pi) * (ell * ll - eul * ul) + 0.5 * (
+        _bspecial.erf(ul) - _bspecial.erf(ll)
+    )
+    for jj in range(maxj - 2):
+        rows[-jj - 3] = (
+            1.0 / numpy.sqrt(numpy.pi) * (ell * ll ** (jj + 2) - eul * ul ** (jj + 2))
+            + 0.5 * (jj + 2) * rows[-jj - 1]
+        )
+    return rows
+
+
 class streamgapdf(streamdf.streamdf, SplinePickleMixin):
     """The DF of a gap in a tidal stream"""
 
@@ -92,6 +111,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
     # the backend path stores a plain SimpleNamespace, which packs through
     # untouched, so one declaration covers both.
     _PICKLE_SPLINE_ATTRS = ("_kick_interpdOpar_poly",)
+    # the DF-evaluation layer (_density_par, meanOmega) is backend-native
+    _backend_compatible = True
 
     def __init__(self, *args, **kwargs):
         """
@@ -335,6 +356,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         )
         return xp.where(afterIndx, p_after, p_before)
 
+    @backend_input("dangle")
     def _density_par(self, dangle, tdisrupt=None, approx=True, higherorder=None):
         """The raw density as a function of parallel angle,
         approx= use faster method that directly integrates the spline
@@ -345,6 +367,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             tdisrupt = self._tdisrupt
         if approx:
             return self._density_par_approx(dangle, tdisrupt, higherorder=higherorder)
+        elif is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(
+            dangle
+        ):
+            return self._direct_backend(dangle, 0)
         else:
             return integrate.quad(
                 lambda T: (
@@ -458,15 +484,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
     def _density_par_approx_backend(
         self, dangle, tdisrupt, _return_array=False, higherorder=False
     ):
-        # Backend twin of _density_par_approx (higherorder=False path -- the
-        # default): the per-interval Gaussian integral via the backend erf over
-        # the differentiable pw-cubic-kick breakpoints, plus the tail term.
+        # Backend twin of _density_par_approx: the per-interval Gaussian integral
+        # via the backend erf over the differentiable pw-cubic-kick breakpoints
+        # (+ the non-linear spline terms for higherorder), plus the tail term.
         # Broadcasts over the shape of dangle.
-        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
-            raise NotImplementedError(
-                "streamgapdf higherorderTrack=True is not yet supported on the "
-                "jax/torch backend"
-            )
         xp, c, px, d, meandO, sig = self._gap_backend_operands(dangle)
         c1 = c[-1]  # dOpar value at the left knot of each interval
         c2 = c[-2]  # dOpar slope
@@ -483,9 +504,125 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         if _return_array:
             return out
         out = xp.sum(xp.where(mask, out, 0.0), axis=-1)
+        if higherorder:
+            out = out + xp.sum(
+                xp.where(
+                    mask,
+                    self._higherorder_backend(xp, c, meandO, sig, Oparb, 0),
+                    0.0,
+                ),
+                axis=-1,
+            )
         # integration to infinity
         out = out + 0.5 * (1.0 + _bspecial.erf((meandO - Oparb[..., 0]) / sqrt2sig))
         return out
+
+    def _direct_backend(self, dangle, moment):
+        """Backend approx=False: int Opar**moment pOparapar(Opar, dangle) dOpar
+        (the numpy body's quad, which also uses the object's tdisrupt). The
+        before-impact part is a GL panel per kick interval between the
+        breakpoints, the lowest one ending on the exact support boundary (the
+        cubic-kick root, Newton-polished from the linear-kick minOpar); the
+        after-impact part is the closed-form Gaussian tail."""
+        xp, c, px, d, meandO, sig = self._gap_backend_operands(dangle)
+        T2 = self._tdisrupt - self._timpact
+        t = self._timpact
+        Oparb, mask = self._gap_breakpoints_backend(xp, px, d, dangle, self._tdisrupt)
+        lowbindx, _ = self.minOpar(dangle, self._tdisrupt, _return_raw=True)
+        idx = xp.arange(Oparb.shape[-1], device=device_of(Oparb))
+        bnd = idx == lowbindx[..., None] + 1
+        sel = bnd[..., 1:]  # the interval holding the boundary
+
+        def _pick(row):
+            return xp.sum(xp.where(sel, row, 0.0), axis=-1)
+
+        xk = _pick(px[:-1])
+        ck = [_pick(c[j]) for j in range(c.shape[0])]
+        dd = d[..., 0]
+
+        def g_slope(O):
+            u = dd - O * t - xk
+            K, Kp = ck[0], 0.0
+            for cj in ck[1:]:  # Horner for the piece and its derivative
+                Kp = Kp * u + K
+                K = K * u + cj
+            return dd - O * t - T2 * (O - K), -t - T2 * (1.0 + t * Kp)
+
+        O0 = xp.sum(xp.where(bnd, Oparb, 0.0), axis=-1)
+        for _ in range(3):
+            O0 = newton_polish(O0, *g_slope(O0), xp)
+        Oparb = xp.where(bnd, O0[..., None], Oparb)
+
+        # each panel lies in one kick interval: evaluate that cubic piece directly
+        xs, cs = px[:-1][..., None], [cj[..., None] for cj in c]
+
+        def integrand(O):
+            apar_impact = d[..., None] - O * t
+            u = apar_impact - xs
+            K = cs[0]
+            for cj in cs[1:]:
+                K = K * u + cj
+            return O**moment * super(streamgapdf, self).pOparapar(
+                O - K, apar_impact, tdisrupt=T2
+            )
+
+        panels = fixed_quad(xp, integrand, Oparb[..., 1:], Oparb[..., :-1], n=12)
+        out = xp.sum(xp.where(mask, panels, 0.0), axis=-1)
+        # after impact (Opar > Oparb[0]): the untruncated Gaussian, in closed form
+        B = Oparb[..., 0]
+        tail = (
+            numpy.sqrt(2.0 * numpy.pi)
+            * 0.5
+            * (1.0 + _bspecial.erf((meandO - B) / xp.sqrt(2.0 * sig)))
+        )
+        if moment:
+            tail = meandO * tail + xp.sqrt(sig) * xp.exp(-0.5 * (B - meandO) ** 2 / sig)
+        return out + tail
+
+    def _higherorder_backend(self, xp, c, meandO, sig, Oparb, moment, rows=None):
+        """Backend twin of _density_par_approx_higherorder (moment=0) and
+        _meanOmega_num_approx_higherorder (moment=1) with _return_array: the
+        per-interval contribution of the non-linear spline terms, (..., nint)."""
+        so = self._kick_spline_order
+        if so == 1:
+            return xp.zeros_like(Oparb[..., :-1])
+        c1, c2 = c[-1], c[-2]
+        Ol, Or = Oparb[..., :-1], Oparb[..., 1:]
+        x = Ol - c1 - meandO
+        sqrt2sig = xp.sqrt(2.0 * sig)
+        n = so + 1 + moment
+        if rows is None:
+            ll = (Or - c1 - meandO - c2 * self._timpact * (Ol - Or)) / sqrt2sig
+            rows = _gaussxpolyInts_backend(xp, ll, x / sqrt2sig, n)
+        first = (
+            Ol * self._higherorder_backend(xp, c, meandO, sig, Oparb, 0, rows=rows[1:])
+            if moment
+            else 0.0
+        )
+        onepc2t = 1.0 + c2 * self._timpact
+        pws = numpy.arange(so + 1)[::-1][:-2]  # the c[:-2] powers
+        out = 0.0
+        for i in range(n):
+            p = n - 1 - i  # rows[i] is the x**p Gaussian integral
+            jj = p
+            coeff = 0.0
+            for k, pw in enumerate(pws):
+                b = special.binom(pw + moment, jj)
+                if b == 0.0:  # x**(negative) terms vanish; skip (no 0*inf)
+                    continue
+                coeff = coeff + (
+                    c[k]
+                    * self._timpact**pw
+                    / onepc2t ** (pw + 1 + moment)
+                    * b
+                    * x ** (pw - jj + moment)
+                )
+            out = out + (
+                rows[i]
+                * (-0.5 * (-numpy.sqrt(2.0)) ** (p + 1) * sig ** (0.5 * (p - 1)))
+                * coeff
+            )
+        return out + first
 
     def _density_par_approx_higherorder(
         self, Oparb, lowbindx, _return_array=False, gaussxpolyInt=None
@@ -620,6 +757,7 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         return xp.sum(xp.where(sel, Oparb, 0.0), axis=-1) - lowx_at
 
     @physical_conversion("frequency", pop=True)
+    @backend_input("dangle")
     def meanOmega(
         self, dangle, oned=False, tdisrupt=None, approx=True, higherorder=None
     ):
@@ -655,6 +793,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             tdisrupt = self._tdisrupt
         if approx:
             num = self._meanOmega_num_approx(dangle, tdisrupt, higherorder=higherorder)
+        elif is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(
+            dangle
+        ):
+            num = self._direct_backend(dangle, 1)
         else:
             num = integrate.quad(
                 lambda T: (
@@ -765,15 +907,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         return out
 
     def _meanOmega_num_approx_backend(self, dangle, tdisrupt, higherorder=False):
-        # Backend twin of _meanOmega_num_approx (higherorder=False -- default):
-        # the per-interval mean-frequency numerator (Gaussian moment integrals
-        # via backend exp/erf over the differentiable pw-cubic-kick breakpoints).
-        # Broadcasts over the shape of dangle.
-        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
-            raise NotImplementedError(
-                "streamgapdf higherorderTrack=True is not yet supported on the "
-                "jax/torch backend"
-            )
+        # Backend twin of _meanOmega_num_approx: the per-interval mean-frequency
+        # numerator (Gaussian moment integrals via backend exp/erf over the
+        # differentiable pw-cubic-kick breakpoints, + the non-linear spline terms
+        # for higherorder). Broadcasts over the shape of dangle.
         xp, c, px, d, meandO, sig = self._gap_backend_operands(dangle)
         c1 = c[-1]
         c2 = c[-2]
@@ -790,7 +927,10 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
                 - xp.exp(-0.5 * (Ol - c1 - meandO) ** 2.0 / sig)
             )
         )
-        out = xp.sum(xp.where(mask, term1 + term2, 0.0), axis=-1)
+        terms = term1 + term2
+        if higherorder:
+            terms = terms + self._higherorder_backend(xp, c, meandO, sig, Oparb, 1)
+        out = xp.sum(xp.where(mask, terms, 0.0), axis=-1)
         sqrt2sig = xp.sqrt(2.0 * sig)
         Ob0 = Oparb[..., 0]
         out = out + 0.5 * (
