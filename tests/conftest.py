@@ -465,9 +465,21 @@ def _install_jit_counter():
 
     orig = _J.traced_call
 
+    try:
+        from torch.compiler import is_compiling
+    except ImportError:  # pragma: no cover (torch-less shards never compile)
+
+        def is_compiling():
+            return False
+
     def counting(method, args, kwargs, slots, nargs, xp=None):
         out = orig(method, args, kwargs, slots, nargs, xp=xp)
-        _JITCOV["not_traced" if out is _J.NOT_TRACED else "traced"] += 1
+        # Not while dynamo traces an enclosing compiled call: the increment would
+        # make dynamo guard on the counter's value, so every call recompiles
+        # (and falls back to eager at the cache limit); a call nested inside a
+        # compiled region is part of that traced call anyway.
+        if not is_compiling():
+            _JITCOV["not_traced" if out is _J.NOT_TRACED else "traced"] += 1
         return out
 
     _J.traced_call = counting
