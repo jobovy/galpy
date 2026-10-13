@@ -10,6 +10,7 @@ from ..backend import get_namespace, host_eval, is_backend_array
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.quadpack import quad_over_limits
+from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
 
 if _APY_LOADED:
@@ -118,9 +119,7 @@ class AnySphericalPotential(SphericalPotential):
         )
         self._pot_inf = 0.0 if not _infmass else numpy.inf
         # Normalize?
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         return None
 

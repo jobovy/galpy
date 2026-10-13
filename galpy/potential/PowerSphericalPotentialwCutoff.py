@@ -13,7 +13,7 @@ from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
 from ..util import conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
 
 class PowerSphericalPotentialwCutoff(Potential):
@@ -62,9 +62,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         self.rc = rc
         self._scale = self.rc
         self._backend_compatible = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
