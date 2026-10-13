@@ -545,3 +545,223 @@ def test_fdm_single_regime_shortcut_equals_full_selection(monkeypatch):
         full = f._frictionFactor_backend(r, vs, xp)
         monkeypatch.undo()
         assert torch.equal(eager, full), (r, eager, full)
+
+
+# --- d/d(every constructor parameter), in every input mode ---------------------
+# The forces used to leave _backend_compatible unset, so under a forced backend
+# Python-float coordinates were never coerced and the numpy lnLambda path met
+# backend parameters (amp, GMs, gamma, the host's a, m: RAISE). A user sigmar
+# built from a backend parameter died in to_host, and under jax.jit the scipy
+# sigma_r table could not be built from traced host evaluations. Modes:
+#   data        -- backend coordinates, plain-float other parameters;
+#   forced      -- Python-float coordinates under use(backend, force=True);
+#   floatcoords -- Python-float coordinates, no forcing: the parameter decides.
+# The object is built inside the differentiated function.
+def _dynfric_specs():
+    from galpy.potential import HernquistPotential
+
+    def cdf(P):
+        return ChandrasekharDynamicalFrictionForce(
+            amp=P["amp"],
+            GMs=P["GMs"],
+            gamma=P["gamma"],
+            rhm=P["rhm"],
+            dens=HernquistPotential(amp=1.0, a=P["a"]),
+        )
+
+    def cdf_rhm(P):  # GM/v^2 < rhm: the rhm arm of the Coulomb logarithm
+        return ChandrasekharDynamicalFrictionForce(
+            GMs=0.001, gamma=P["gamma"], rhm=P["rhm"], dens=_NFW
+        )
+
+    def cdf_sigmar(P):  # a user sigma_r carrying the parameter
+        return ChandrasekharDynamicalFrictionForce(
+            GMs=P["GMs"],
+            dens=HernquistPotential(amp=1.0, a=1.0),
+            sigmar=lambda r: P["s0"] * numpy.exp(-r / 5.0),
+        )
+
+    def fdm(kr, gamma, params):
+        def build(P):
+            return FDMDynamicalFrictionForce(
+                amp=P["amp"],
+                GMs=P["GMs"],
+                gamma=P["gamma"],
+                rhm=0.1,
+                m=P["m"],
+                dens=_NFW,
+                sigmar=_SIGMAR,
+            )
+
+        P0 = {"amp": 1.0, "GMs": 0.05, "gamma": gamma, "m": _m_for_kr(kr)}
+        return build, P0, params
+
+    fdm_params = ("amp", "GMs", "m")
+    return {
+        "CDF": (
+            cdf,
+            {"amp": 1.0, "GMs": 0.1, "gamma": 1.0, "rhm": 0.05, "a": 1.0},
+            ("amp", "GMs", "gamma", "rhm", "a"),
+        ),
+        "CDF-rhmbranch": (cdf_rhm, {"gamma": 0.8, "rhm": 2.0}, ("gamma", "rhm")),
+        "CDF-sigmar": (cdf_sigmar, {"GMs": 0.1, "s0": 0.5}, ("GMs", "s0")),
+        # a small gamma (large Coulomb logarithm) puts the FDM coefficient below
+        # the classical one in all three kr-regimes, so m enters
+        "FDM-zero": fdm(0.1, 0.01, fdm_params),
+        "FDM-intermediate": fdm(0.5, 0.01, fdm_params),
+        "FDM-dispersion": fdm(5.0, 0.01, fdm_params),
+        # the classical cutoff wins: gamma enters, m does not
+        "FDM-classical": fdm(5.0, 1.0, ("amp", "GMs", "gamma")),
+    }
+
+
+_DYNFRIC_PARAM_CASES = [
+    (spec, p) for spec, (_, _, ps) in _dynfric_specs().items() for p in ps
+]
+
+
+@pytest.fixture(scope="module")
+def dynfric_specs():
+    return _dynfric_specs()
+
+
+def _dynfric_outputs(spec, P, mode, backend):
+    from galpy.backend import use
+
+    build = spec[0]
+    coords = [_R0, _Z0, _PHI0, 0.3, *_V0]
+    if mode == "data":
+        coords = [_arr_like(backend, c) for c in coords]
+    R, z, phi, t, *v = coords
+    with use(backend, force=True) if mode == "forced" else _nullctx():
+        p = build(P)
+        return [
+            p.Rforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+            p.zforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+            p.phitorque(R, z, phi=phi, t=t, v=v, use_physical=False),
+        ]
+
+
+def _nullctx():
+    import contextlib
+
+    return contextlib.nullcontext()
+
+
+def _richardson_fd(f, x0):
+    # O(h^4) central difference of the numpy path, relative step
+    h = 1e-3 * abs(x0)
+    d = lambda h: (f(x0 + h) - f(x0 - h)) / (2.0 * h)  # noqa: E731
+    return (4.0 * d(h / 2.0) - d(h)) / 3.0
+
+
+@pytest.mark.parametrize("mode", ["data", "forced", "floatcoords"])
+@pytest.mark.parametrize("spec,param", _DYNFRIC_PARAM_CASES)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_param_grad_vs_fd_all_modes(dynfric_specs, backend, spec, param, mode):
+    S = dynfric_specs[spec]
+    P0 = S[1]
+
+    def at(x, bk, md):
+        return _dynfric_outputs(S, {**P0, param: x}, md, bk)
+
+    fd = _richardson_fd(
+        lambda x: numpy.array([float(o) for o in at(x, "numpy", "data")]), P0[param]
+    )
+    if backend == "jax":
+        f = lambda x: jnp.stack([jnp.reshape(o, ()) for o in at(x, "jax", mode)])  # noqa: E731
+        x0 = jnp.asarray(P0[param])
+        out = f(x0)
+        assert isinstance(out, jax.Array)
+        ads = [
+            numpy.asarray(jax.jacrev(f)(x0)),
+            numpy.asarray(jax.jit(jax.jacrev(f))(x0)),
+        ]
+    else:
+        x = torch.tensor(P0[param], requires_grad=True)
+        outs = at(x, "torch", mode)
+        assert all(isinstance(o, torch.Tensor) for o in outs)
+        ads = [
+            numpy.array(
+                [float(torch.autograd.grad(o, x, retain_graph=True)[0]) for o in outs]
+            )
+        ]
+    scale = numpy.amax(numpy.fabs(fd))
+    assert scale > 0.0 or param == "rhm", "parameter does not enter"
+    # measured <= 2e-11 relative to the largest component; the host's a also
+    # moves the sigma_r table, built by the backend Jeans quadrature on the
+    # backend and by scipy on numpy (measured 2.5e-8, cf. 5e-7 above)
+    tol = 1e-7 if param == "a" else 1e-9
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, fd, rtol=0.0, atol=tol * max(scale, 1e-3))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_param_namespace_follows_parameters_only(backend):
+    # The parameter namespace is cached from the PARAMETERS: a backend-coordinate
+    # evaluation (whose arrays the eager force cache keeps) must not send later
+    # plain-float calls to the backend; a GMs set to a backend array must.
+    import pickle
+
+    cdf = ChandrasekharDynamicalFrictionForce(GMs=0.05, rhm=0.1, dens=_NFW)
+    v = [_arr_like(backend, c) for c in _V0]
+    cdf.Rforce(_arr_like(backend, _R0), _arr_like(backend, _Z0), v=v)
+    ref = cdf.Rforce(_R0, _Z0, v=_V0)
+    assert isinstance(ref, float)
+    # a backend GMs without a gradient (what a forced construction leaves
+    # behind) keeps plain-float calls -- the Python integrators' steps -- on numpy
+    cdf.GMs = _arr_like(backend, numpy.float64(0.05))
+    assert cdf._param_namespace() is None
+    if backend == "torch":
+        # a differentiated one takes them to its backend
+        cdf.GMs = torch.tensor(0.05, requires_grad=True)
+        got = cdf.Rforce(_R0, _Z0, v=_V0)
+        assert isinstance(got, torch.Tensor) and got.grad_fn is not None
+        numpy.testing.assert_allclose(float(got), ref, rtol=1e-14)
+    # unpickled: the cached namespace is rebuilt
+    cdf = pickle.loads(
+        pickle.dumps(ChandrasekharDynamicalFrictionForce(GMs=0.05, dens=_NFW))
+    )
+    assert "_param_xp" not in cdf.__dict__ and cdf._param_namespace() is None
+
+
+# sigma_r beyond maxr is the given sigmar, as on numpy (not the table spline's
+# extrapolation): a backend-capable one keeps its gradient, a numpy-only one
+# gives its values. Only evaluated when a radius is beyond maxr.
+@pytest.mark.parametrize("kind", ["xp", "numpy_only"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_sigmar_beyond_maxr(backend, kind):
+    from galpy.potential import HernquistPotential
+
+    sig = (
+        (lambda r: 0.5 / (1.0 + r))
+        if kind == "xp"
+        else (lambda r: 0.5 * numpy.exp(-numpy.asarray(r) / 5.0))
+    )
+
+    def F(R):
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=HernquistPotential(a=1.0), sigmar=sig, maxr=2.0
+        )
+        return cdf.Rforce(R, _Z0, phi=_PHI0, v=[_arr_like(backend, c) for c in _V0])
+
+    Rs = [1.5, 3.0]  # inside and beyond maxr
+    for R in Rs:
+        ref = float(F(R) if backend == "numpy" else as_numpy(F(_arr_like("numpy", R))))
+        if backend == "numpy":
+            continue
+        got = F(_arr_like(backend, R))
+        numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-13)
+        if backend == "jax":
+            numpy.testing.assert_allclose(float(jax.jit(F)(R)), ref, rtol=1e-13)
+        if kind == "xp":
+            h = 1e-3
+            fd = (float(F(R + h)) - float(F(R - h))) / (2.0 * h)
+            fd = (4.0 * (float(F(R + h / 2)) - float(F(R - h / 2))) / h - fd) / 3.0
+            if backend == "jax":
+                ads = [float(jax.grad(F)(R)), float(jax.jit(jax.grad(F))(R))]
+            else:
+                x = torch.tensor(R, requires_grad=True)
+                ads = [float(torch.autograd.grad(F(x), x)[0])]
+            for ad in ads:
+                numpy.testing.assert_allclose(ad, fd, rtol=1e-8)

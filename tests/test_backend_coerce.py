@@ -151,3 +151,54 @@ def test_as_backend_constant_preserves_values_dtype_and_device(backend_name):
         assert out.dtype == ref.dtype
         assert getattr(out, "device", None) == getattr(ref, "device", None)
         assert numpy.array_equal(as_numpy(out), value)
+
+
+@pytest.mark.parametrize("backend_name", ["numpy", "jax", "torch"])
+def test_lazy_cond_takes_one_arm(backend_name):
+    # concrete predicate: only the taken arm runs (eager, and the numpy path);
+    # a jax trace takes lax.cond; a torch vmap (no truth value) selects
+    from galpy.backend import lazy_cond
+    from galpy.backend._resolver import get_namespace
+
+    if backend_name != "numpy":
+        pytest.importorskip(backend_name)
+    ran = []
+
+    def arm(name, val):
+        def f():
+            ran.append(name)
+            return val
+
+        return f
+
+    with backend.use(backend_name, force=True):
+        xp = get_namespace()
+        x = xp.asarray([1.0, 2.0])
+        assert lazy_cond(xp, xp.any(x > 1.5), arm("t", x), arm("f", -x)) is x
+        assert ran == ["t"]
+        assert lazy_cond(xp, xp.any(x > 5.0), arm("t", x), arm("f", x)) is x
+        assert ran == ["t", "f"]
+    if backend_name == "jax":
+        import jax
+        import jax.numpy as jnp
+
+        f = jax.jit(
+            lambda y: lazy_cond(jnp, jnp.any(y > 1.5), lambda: 2.0 * y, lambda: -y)
+        )
+        numpy.testing.assert_array_equal(
+            numpy.asarray(f(jnp.asarray([1.0, 2.0]))), [2.0, 4.0]
+        )
+        numpy.testing.assert_array_equal(
+            numpy.asarray(f(jnp.asarray([1.0, 1.0]))), [-1.0, -1.0]
+        )
+    elif backend_name == "torch":
+        import torch
+
+        from galpy.backend._resolver import get_namespace as _gn
+
+        y = torch.tensor([[1.0, 2.0], [1.0, 1.0]], dtype=torch.float64)
+        txp = _gn(y)
+        out = torch.func.vmap(
+            lambda r: lazy_cond(txp, txp.any(r > 1.5), lambda: 2.0 * r, lambda: -r)
+        )(y)
+        numpy.testing.assert_array_equal(out.numpy(), [[2.0, 4.0], [-1.0, -1.0]])

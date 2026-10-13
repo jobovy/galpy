@@ -69,6 +69,7 @@ from ._namespaces import (
     effective_device,
     has_concrete_truth_value,
     is_backend_array,
+    name_of_namespace,
     namespace_from_arrays,
     under_trace,
 )
@@ -331,6 +332,20 @@ def branch_where(xp, cond, if_true, if_false):
         if nc == math.prod(getattr(cond, "shape", ())):  # a Python bool: ()
             return if_true()
     return xp.where(cond, if_true(), if_false())
+
+
+def lazy_cond(xp, pred, if_true, if_false):
+    """``if_true() if pred else if_false()`` for a scalar boolean ``pred``,
+    also under a trace: jax.jit runs only the taken arm (``lax.cond``); a
+    torch.compile trace evaluates both and selects. The arms must return
+    arrays of the same shape and dtype."""
+    if has_concrete_truth_value(pred):
+        return if_true() if bool(pred) else if_false()
+    if name_of_namespace(xp) == "jax":
+        from ._jax.cond import cond
+
+        return cond(pred, if_true, if_false)
+    return xp.where(pred, if_true(), if_false())
 
 
 def power_series(xp, x, coeffs, first):

@@ -313,3 +313,130 @@ def test_force_constant_anchor_cache(backend):
         )
         fv = as_numpy(niff._force(*args, v))
         assert numpy.all(numpy.isfinite(fv))
+
+
+# --- d/d(Omega, Omegadot), in every input mode --------------------------------
+# A backend Omega died in numpy.atleast_1d (and numpy.linalg.norm / the numpy
+# cross matrices) at construction, in every mode. Modes as for the dynamical
+# friction forces: data (backend coordinates), forced (Python-float coordinates
+# under use(backend, force=True)) and floatcoords (Python floats, no forcing:
+# the backend frequency decides). Built inside the differentiated function.
+def _vec3(*comps):
+    bk = [c for c in comps if not isinstance(c, float)]
+    if not bk:
+        return numpy.array(comps)
+    if jax is not None and isinstance(bk[0], jax.Array):
+        return jnp.stack([jnp.asarray(c, dtype=jnp.float64) for c in comps])
+    return torch.stack([torch.as_tensor(c, dtype=torch.float64) for c in comps])
+
+
+_NI_PARAM_SPECS = {
+    "scalar-Omega": (lambda x: NonInertialFrameForce(Omega=x), 1.3),
+    "scalar-Omegadot": (lambda x: NonInertialFrameForce(Omega=1.3, Omegadot=x), 0.2),
+    "scalar-Omega-odot": (lambda x: NonInertialFrameForce(Omega=x, Omegadot=0.2), 1.3),
+    "vec-Omegaz": (lambda x: NonInertialFrameForce(Omega=_vec3(0.1, 0.2, x)), 1.3),
+    "vec-Omegax": (lambda x: NonInertialFrameForce(Omega=_vec3(x, 0.2, 1.3)), 0.1),
+    "vec-Omegadoty": (
+        lambda x: NonInertialFrameForce(
+            Omega=numpy.array([0.1, 0.2, 1.3]), Omegadot=_vec3(0.01, x, 0.03)
+        ),
+        0.02,
+    ),
+    "a0-Omega": (
+        lambda x: NonInertialFrameForce(
+            Omega=x,
+            a0=[0.1, 0.2, -0.1],
+            x0=[lambda t: 0.05 * t, lambda t: 0.02, lambda t: 0.01 * t],
+            v0=[lambda t: 0.05, lambda t: 0.0, lambda t: 0.01],
+        ),
+        1.3,
+    ),
+}
+
+
+def _ni_forces(name, x, backend, mode):
+    import contextlib
+
+    coords = [_R0, _Z0, _PHI0, _T0, *_V0]
+    if mode == "data":
+        coords = [_scalar(backend, c) for c in coords]
+    R, z, phi, t, *v = coords
+    with use(backend, force=True) if mode == "forced" else contextlib.nullcontext():
+        pot = _NI_PARAM_SPECS[name][0](x)
+        return [
+            pot.Rforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+            pot.phitorque(R, z, phi=phi, t=t, v=v, use_physical=False),
+            pot.zforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+        ]
+
+
+@pytest.mark.parametrize("mode", ["data", "forced", "floatcoords"])
+@pytest.mark.parametrize("name", list(_NI_PARAM_SPECS))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_frequency_grad_vs_fd_all_modes(backend_name, name, mode):
+    x0 = _NI_PARAM_SPECS[name][1]
+
+    def fnp(x):
+        return numpy.array([float(o) for o in _ni_forces(name, x, "numpy", "data")])
+
+    # Richardson central difference (the force is polynomial in Omega: exact)
+    h = 1e-3 * x0
+    d = lambda h: (fnp(x0 + h) - fnp(x0 - h)) / (2.0 * h)  # noqa: E731
+    fd = (4.0 * d(h / 2.0) - d(h)) / 3.0
+    if backend_name == "jax":
+        f = lambda x: jnp.stack(  # noqa: E731
+            [jnp.reshape(o, ()) for o in _ni_forces(name, x, "jax", mode)]
+        )
+        x = jnp.asarray(x0)
+        assert isinstance(f(x), jax.Array)
+        ads = [
+            numpy.asarray(jax.jacrev(f)(x)),
+            numpy.asarray(jax.jit(jax.jacrev(f))(x)),
+        ]
+    else:
+        x = torch.tensor(x0, requires_grad=True)
+        outs = _ni_forces(name, x, "torch", mode)
+        assert all(isinstance(o, torch.Tensor) for o in outs)
+        ads = [
+            numpy.array(
+                [
+                    float(g) if g is not None else 0.0
+                    for g in (
+                        torch.autograd.grad(o, x, retain_graph=True, allow_unused=True)[
+                            0
+                        ]
+                        for o in outs
+                    )
+                ]
+            )
+        ]
+    assert numpy.amax(numpy.fabs(fd)) > 0.1
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_force_anchor_cache_never_holds_traced_constants():
+    # Constants anchored inside a jax.jit trace are tracers: caching them leaked
+    # them into later traces (wrong orbits, "supplied 7 buffers but compiled
+    # program expected 12" under --jit). Traced calls bypass the cache.
+    pot = _build("vec_odot")
+    v = [jnp.asarray(c) for c in _V0]
+    f = jax.jit(lambda R, z: pot._force(R, z, jnp.asarray(_PHI0), jnp.asarray(_T0), v))
+    for R in (_R0, 1.3 * _R0):
+        got = numpy.asarray(f(jnp.asarray(R), jnp.asarray(_Z0)))
+        ref = _build("vec_odot")._force(R, _Z0, _PHI0, _T0, list(_V0))
+        numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
+    assert not any(
+        isinstance(a, jax.core.Tracer)
+        for c in pot._const_anchor_cache.values()
+        for a in c.values()
+    )
+    eager = numpy.asarray(
+        pot._force(
+            jnp.asarray(_R0), jnp.asarray(_Z0), jnp.asarray(_PHI0), jnp.asarray(_T0), v
+        )
+    )
+    numpy.testing.assert_allclose(
+        eager, _build("vec_odot")._force(_R0, _Z0, _PHI0, _T0, list(_V0)), rtol=1e-13
+    )

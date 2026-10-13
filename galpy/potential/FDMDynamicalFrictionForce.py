@@ -1,7 +1,6 @@
 import numpy
 import scipy.special as sp
 
-from ..backend import coerce_coords
 from ..backend import special as _backend_special
 from ..backend._namespaces import under_trace
 from ..util import conversion
@@ -140,6 +139,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             * self._ro**2
             * self._vo**3
         )
+        self._reset_param_namespace()  # m
         # hasC and hasC_dxdv3d set in ChandrasekharDynamicalFrictionForce.
         # __init__: the FDM force's rectangular Jacobian (dF/dx, dF/dv) for
         # the 3D variational equations is wired in C
@@ -240,7 +240,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         # matches frictionFactor(). The three kr-regimes are selected with
         # nested xp.where (both branches finite for kr>0, M_sigma>0) and the
         # C<C_cdm classical cutoff is an xp.minimum.
-        sr = self.sigmar(r)
+        sr = self._sigmar_backend(r, xp)
         X = vs * _INVSQRTTWO / sr
         Xfactor = _backend_special.erf(X) - 2.0 * X * _INVSQRTPI * xp.exp(-(X**2.0))
         lnLambda = self._lnLambda_backend(r, vs, xp)
@@ -290,8 +290,8 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
     def _calc_force_backend(self, R, phi, z, v, t, xp):
         # v is a caller-supplied triple, not coerced by @backend_input like R/z,
-        # so torch rejects a numpy v here. No-op when xp is numpy.
-        v = coerce_coords(xp, *v)
+        # and R/z are plain floats when only a parameter is on the backend.
+        R, z, phi, t, v = self._coerce_force_args(R, z, phi, t, v, xp)
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
         if self._const_FDMfactor:
