@@ -45,6 +45,7 @@ from ..backend._namespaces import (
     namespace_from_arrays,
     requires_backend_grad,
     set_at,
+    stop_gradient,
     under_jax_trace,
     under_trace,
     untraceable_setup,
@@ -4180,6 +4181,7 @@ class Orbit:
 
         Notes
         -----
+        - With type='staeckel' and no delta=, delta is estimated automagically at the orbit's phase-space point(s); derivatives (jax/torch) treat that estimate as a constant, i.e., they are taken at fixed delta.
         - 2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
 
         """
@@ -4278,13 +4280,14 @@ class Orbit:
                         )
                     else:  # pragma: no cover
                         raise
-            # estimateDeltaStaeckel reads the potential's second derivatives, so
-            # an automagic delta CARRIES the gradient w.r.t. the potential
-            # parameters. Cutting it to numpy (below) would not merely detach it,
-            # it raises on a tracer -- which is what made rperi/rap/zmax/e
-            # undifferentiable while an explicitly passed delta worked fine.
-            # So keep a differentiated delta on the backend and clip it
-            # functionally; everything else still goes back to a writable numpy
+                # Decision: the automagic delta is a constant in derivatives.
+                # It is a numerical choice of coordinate system, not part of the
+                # model, so d/d(IC) and d/d(potential parameter) are taken at
+                # fixed delta (and C keeps its native IC Jacobian).
+                delta = stop_gradient(delta)
+            # A delta that is still traced (jax.jit; jax.grad keeps a stopped
+            # tracer) cannot go to numpy: keep it on the backend and clip it
+            # functionally; everything else goes back to a writable numpy
             # array, because as_numpy's jax view is read-only and the clip below
             # is in place. No-op for numpy -> that path stays byte-identical.
             delta_grad = under_trace(delta) or requires_backend_grad(delta)
