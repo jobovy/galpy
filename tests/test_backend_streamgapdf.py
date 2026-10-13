@@ -524,24 +524,6 @@ _EVAL_KW = {
 }
 
 
-def _direct_tight(sdf, d, method):
-    """numpy's approx=False integrals (streamgapdf._density_par/meanOmega) at a
-    tight adaptive tolerance: scipy's default quad, which galpy uses, varies by
-    up to ~1e-5 across scipy versions for this peaked integrand"""
-    s2 = numpy.sqrt(sdf._sortedSigOEig[2])
-
-    def integrand(T, moment):
-        dO = T / (1 - T * T) * s2 + sdf._meandO
-        w = s2 * (1 + T * T) / (1 - T * T) ** 2.0 * sdf.pOparapar(dO, d)
-        return w * dO**moment
-
-    kw = dict(epsabs=0.0, epsrel=1e-12, limit=1000)
-    dens = integrate.quad(integrand, -1.0, 1.0, args=(0,), **kw)[0]
-    if method == "density":
-        return dens
-    return integrate.quad(integrand, -1.0, 1.0, args=(1,), **kw)[0] / dens
-
-
 def _gap_eval(sdf, d, kind, method):
     if method == "density":
         return sdf._density_par(d, **_EVAL_KW[kind])
@@ -595,6 +577,34 @@ def _tight_direct(sdf, d, moment):
     )[0]
 
 
+def _tight_direct_T(sdf, d, moment):
+    # an independent reference: numpy's own T-substituted integrand over (-1, 1)
+    s2 = numpy.sqrt(sdf._sortedSigOEig[2])
+
+    def integrand(T):
+        dO = T / (1 - T * T) * s2 + sdf._meandO
+        return dO**moment * s2 * (1 + T * T) / (1 - T * T) ** 2 * sdf.pOparapar(dO, d)
+
+    return integrate.quad(integrand, -1.0, 1.0, epsabs=0.0, epsrel=1e-12, limit=1000)[0]
+
+
+def _tight_refs(sdf, d, method):
+    # both tight references on the numpy kick; neither is better than their
+    # mutual difference (~1e-15 here, ~1e-7 on some CI runners' fixture builds)
+    refs = []
+    for ref in (_tight_direct, _tight_direct_T):
+        dens = ref(sdf, d, 0)
+        refs.append(dens if method == "density" else ref(sdf, d, 1) / dens)
+    return refs
+
+
+def _assert_tight(got, refs, rtol):
+    for r in refs:
+        numpy.testing.assert_allclose(
+            float(as_numpy(got)), r, rtol=rtol, atol=2.0 * abs(refs[0] - refs[1])
+        )
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("dangle", [0.3, 2.3])
 def test_gapdf_direct_matches_tight_quadrature(_gapdf_kick, backend, dangle):
@@ -602,18 +612,17 @@ def test_gapdf_direct_matches_tight_quadrature(_gapdf_kick, backend, dangle):
     # exact support boundary + the closed-form tail. It matches a tight adaptive
     # reference to round-off; numpy's own approx=False quad is good to ~1e-9 here.
     sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
-    dens = _tight_direct(sdf, dangle, 0)
-    num = _tight_direct(sdf, dangle, 1)
+    refs = {m: _tight_refs(sdf, dangle, m) for m in ("density", "meanOmega")}
     np_dens = float(sdf._density_par(dangle, approx=False))
     try:
         sdf._kick_deltav = _to_backend(backend, deltav_np)
         sdf._determine_deltaOmegaTheta_kick(3)
         got = _gap_eval(sdf, dangle, "direct", "density")
         assert is_backend_array(got)
-        numpy.testing.assert_allclose(float(as_numpy(got)), dens, rtol=1e-12)
+        _assert_tight(got, refs["density"], 1e-12)
         numpy.testing.assert_allclose(float(as_numpy(got)), np_dens, rtol=1e-8)
         got = _gap_eval(sdf, dangle, "direct", "meanOmega")
-        numpy.testing.assert_allclose(float(as_numpy(got)), num / dens, rtol=1e-12)
+        _assert_tight(got, refs["meanOmega"], 1e-12)
     finally:
         _reset_kick_numpy(sdf, deltav_np)
 
@@ -687,12 +696,7 @@ def test_gapdf_eval_forced(_gapdf_kick, backend, kind):
     dangle = 2.3
     ref = {m: float(_gap_eval(sdf, dangle, kind, m)) for m in ("density", "meanOmega")}
     if kind == "direct":
-        # numpy's own approx=False quad is only good to ~1e-5 (scipy-version
-        # dependent); compare against a tight reference instead
-        tight = {m: _direct_tight(sdf, dangle, m) for m in ("density", "meanOmega")}
-        for m in ref:
-            numpy.testing.assert_allclose(ref[m], tight[m], rtol=1e-4)
-        ref = tight
+        refs = {m: _tight_refs(sdf, dangle, m) for m in ("density", "meanOmega")}
 
     def f(d, m):
         with use(backend, force=True):
@@ -701,9 +705,12 @@ def test_gapdf_eval_forced(_gapdf_kick, backend, kind):
     for m in ("density", "meanOmega"):
         got = f(dangle, m)
         assert is_backend_array(got)
-        numpy.testing.assert_allclose(
-            float(as_numpy(got)), ref[m], rtol=1e-9 if kind == "direct" else 1e-12
-        )
+        if kind == "direct":
+            # numpy's default quad is only good to ~1e-5 for this peaked integrand
+            numpy.testing.assert_allclose(float(as_numpy(got)), ref[m], rtol=1e-4)
+            _assert_tight(got, refs[m], 1e-12)
+        else:
+            numpy.testing.assert_allclose(float(as_numpy(got)), ref[m], rtol=1e-12)
         if backend == "jax":
             g = float(jax.grad(lambda d: f(d, m))(dangle))
         else:
