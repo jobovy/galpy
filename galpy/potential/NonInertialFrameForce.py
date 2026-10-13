@@ -44,14 +44,8 @@ def _n_components(x):
 
 
 def _backend_leaves(*xs):
-    """The backend arrays among scalars, arrays and lists of them."""
-    out = []
-    for x in xs:
-        if isinstance(x, (list, tuple)):
-            out.extend(_backend_leaves(*x))
-        elif is_backend_array(x):
-            out.append(x)
-    return out
+    """The backend arrays among xs."""
+    return [x for x in xs if is_backend_array(x)]
 
 
 def _time_derivative(func, dt=1e-6):
