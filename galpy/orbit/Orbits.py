@@ -4119,7 +4119,8 @@ class Orbit:
         old_physical = kwargs.get("use_physical", None)
         kwargs["use_physical"] = False
         kwargs["dontreshape"] = True
-        if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
+        # a backend potential's pattern speed is a 0-d array, not a 3-vector
+        if getattr(OmegaP, "ndim", 0) == 1 and len(OmegaP) == 3:
             thisOmegaP = OmegaP
             # numpy.einsum below reads tL: E and tL on the host
             tL = to_host(self.L(*args, **kwargs))
