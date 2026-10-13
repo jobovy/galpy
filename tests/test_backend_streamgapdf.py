@@ -12,6 +12,7 @@
 ###############################################################################
 import numpy
 import pytest
+from scipy import integrate
 
 pytestmark = pytest.mark.backend_managed
 
@@ -507,6 +508,252 @@ def test_gapdf_eval_grad_vs_fd_torch(_gapdf_kick, method):
         fm = float(as_numpy(loss(torch.as_tensor(deltav_np - h * d))))
         fd = (fp - fm) / (2.0 * h)
         numpy.testing.assert_allclose(ad, fd, rtol=1e-4, atol=1e-9)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+# --------------------------------------------------------------------------
+# The gap DF-evaluation layer, higherorderTrack (the non-linear kick-spline
+# terms) and approx=False (direct integration over Opar) on the backend. Both
+# used to raise NotImplementedError / run scipy quad on a backend.
+# --------------------------------------------------------------------------
+_EVAL_KW = {
+    "approx": {},
+    "higherorder": {"higherorder": True},
+    "direct": {"approx": False},
+}
+
+
+def _gap_eval(sdf, d, kind, method):
+    if method == "density":
+        return sdf._density_par(d, **_EVAL_KW[kind])
+    return sdf.meanOmega(d, oned=True, use_physical=False, **_EVAL_KW[kind])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_higherorder_value_parity(_gapdf_kick, backend):
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    dangles = [0.3, 2.3, 2.6]  # the non-linear terms matter in the gap: ~4e-4
+    ref = {
+        (d, m): float(_gap_eval(sdf, d, "higherorder", m))
+        for d in dangles
+        for m in ("density", "meanOmega")
+    }
+    assert abs(ref[(2.6, "density")] / float(sdf._density_par(2.6)) - 1) > 1e-4
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        for (d, m), r in ref.items():
+            got = _gap_eval(sdf, d, "higherorder", m)
+            assert is_backend_array(got)
+            numpy.testing.assert_allclose(float(as_numpy(got)), r, rtol=1e-8)
+        got = as_numpy(
+            _gap_eval(sdf, _to_backend(backend, dangles), "higherorder", "density")
+        )
+        numpy.testing.assert_allclose(
+            got, [ref[(d, "density")] for d in dangles], rtol=1e-12
+        )
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+def _tight_direct(sdf, d, moment):
+    # the numpy integrand integrated by adaptive quad with every kick breakpoint
+    # and the regime switch as a break point, at tight tolerances
+    from scipy import integrate
+
+    sig = numpy.sqrt(sdf._sortedSigOEig[2])
+    Ob = (d - sdf._kick_interpdOpar_poly.x) / sdf._timpact
+    lo, hi = sdf.minOpar(d) - 1e-3, sdf._meandO + 14.0 * sig
+    pts = numpy.sort(Ob[(Ob > lo) & (Ob < hi)])
+    return integrate.quad(
+        lambda O: O**moment * sdf.pOparapar(numpy.atleast_1d(O), d)[0],
+        lo,
+        hi,
+        points=pts,
+        limit=5000,
+        epsabs=1e-15,
+        epsrel=1e-14,
+    )[0]
+
+
+def _tight_direct_T(sdf, d, moment):
+    # an independent reference: numpy's own T-substituted integrand over (-1, 1)
+    s2 = numpy.sqrt(sdf._sortedSigOEig[2])
+
+    def integrand(T):
+        dO = T / (1 - T * T) * s2 + sdf._meandO
+        return dO**moment * s2 * (1 + T * T) / (1 - T * T) ** 2 * sdf.pOparapar(dO, d)
+
+    return integrate.quad(integrand, -1.0, 1.0, epsabs=0.0, epsrel=1e-12, limit=1000)[0]
+
+
+def _tight_refs(sdf, d, method):
+    # both tight references on the numpy kick; neither is better than their
+    # mutual difference (~1e-15 here, ~1e-7 on some CI runners' fixture builds)
+    refs = []
+    for ref in (_tight_direct, _tight_direct_T):
+        dens = ref(sdf, d, 0)
+        refs.append(dens if method == "density" else ref(sdf, d, 1) / dens)
+    return refs
+
+
+def _assert_tight(got, refs, rtol):
+    for r in refs:
+        numpy.testing.assert_allclose(
+            float(as_numpy(got)), r, rtol=rtol, atol=2.0 * abs(refs[0] - refs[1])
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("dangle", [0.3, 2.3])
+def test_gapdf_direct_matches_tight_quadrature(_gapdf_kick, backend, dangle):
+    # approx=False on the backend: GL panels on the kick intervals ending on the
+    # exact support boundary + the closed-form tail. It matches a tight adaptive
+    # reference to round-off; numpy's own approx=False quad is good to ~1e-9 here.
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    refs = {m: _tight_refs(sdf, dangle, m) for m in ("density", "meanOmega")}
+    np_dens = float(sdf._density_par(dangle, approx=False))
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        got = _gap_eval(sdf, dangle, "direct", "density")
+        assert is_backend_array(got)
+        _assert_tight(got, refs["density"], 1e-12)
+        numpy.testing.assert_allclose(float(as_numpy(got)), np_dens, rtol=1e-8)
+        got = _gap_eval(sdf, dangle, "direct", "meanOmega")
+        _assert_tight(got, refs["meanOmega"], 1e-12)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+def _gap_grad(backend, f, kick, d):
+    """(d f / d kick, d f / d dangle) by jax.grad / torch backward."""
+    if backend == "jax":
+        gk, gd = jax.grad(f, argnums=(0, 1))(jnp.asarray(kick), jnp.asarray(d))
+        return numpy.asarray(gk), float(gd)
+    tk = torch.tensor(kick, requires_grad=True)
+    td = torch.tensor(d, requires_grad=True)
+    gk, gd = torch.autograd.grad(f(tk, td), (tk, td))
+    return gk.numpy(), float(gd)
+
+
+@pytest.mark.parametrize("method", ["density", "meanOmega"])
+@pytest.mark.parametrize("kind", ["approx", "higherorder", "direct"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_eval_grad_vs_fd(_gapdf_kick, backend, kind, method):
+    # d/d(velocity kick) (a fixed direction) and d/d(dangle) vs Richardson central
+    # FD of the backend values, in the gap (dangle=2.3)
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    dangle = 2.3
+    rng = numpy.random.RandomState(4)
+    dirn = rng.randn(*deltav_np.shape)
+    dirn /= numpy.linalg.norm(dirn)
+
+    def f(kick, d):
+        sdf._kick_deltav = kick
+        sdf._determine_deltaOmegaTheta_kick(3)
+        return _gap_eval(sdf, d, kind, method)
+
+    def val(kick, d):
+        return float(as_numpy(f(_to_backend(backend, kick), _to_backend(backend, d))))
+
+    # the direct integral's FD needs a smaller step to converge (measured)
+    h0 = 1e-5 if kind == "direct" else 1e-4
+
+    def rich(g, h):
+        return (4.0 * g(h / 2.0) - g(h)) / 3.0
+
+    try:
+        gk, gd = _gap_grad(backend, f, deltav_np, dangle)
+        fdk = rich(
+            lambda h: (
+                (val(deltav_np + h * dirn, dangle) - val(deltav_np - h * dirn, dangle))
+                / (2.0 * h)
+            ),
+            h0,
+        )
+        fdd = rich(
+            lambda h: (
+                (val(deltav_np, dangle + h) - val(deltav_np, dangle - h)) / (2.0 * h)
+            ),
+            h0,
+        )
+        # measured <= 5e-9
+        numpy.testing.assert_allclose(numpy.sum(gk * dirn), fdk, rtol=1e-7)
+        numpy.testing.assert_allclose(gd, fdd, rtol=1e-7)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+@pytest.mark.parametrize("kind", ["approx", "higherorder", "direct"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_eval_forced(_gapdf_kick, backend, kind):
+    # a numpy-built gap DF evaluated at Python-float angles under a forced backend:
+    # the boundary lifts the angle, the result is a backend array equal to numpy,
+    # and it is differentiable in the angle (vs FD of the numpy values)
+    sdf = _gapdf_kick[0]
+    dangle = 2.3
+    ref = {m: float(_gap_eval(sdf, dangle, kind, m)) for m in ("density", "meanOmega")}
+    if kind == "direct":
+        refs = {m: _tight_refs(sdf, dangle, m) for m in ("density", "meanOmega")}
+
+    def f(d, m):
+        with use(backend, force=True):
+            return _gap_eval(sdf, d, kind, m)
+
+    for m in ("density", "meanOmega"):
+        got = f(dangle, m)
+        assert is_backend_array(got)
+        if kind == "direct":
+            # numpy's default quad is only good to ~1e-5 for this peaked integrand
+            numpy.testing.assert_allclose(float(as_numpy(got)), ref[m], rtol=1e-4)
+            _assert_tight(got, refs[m], 1e-12)
+        else:
+            numpy.testing.assert_allclose(float(as_numpy(got)), ref[m], rtol=1e-12)
+        if backend == "jax":
+            g = float(jax.grad(lambda d: f(d, m))(dangle))
+        else:
+            d = torch.tensor(dangle, requires_grad=True)
+            (g,) = torch.autograd.grad(f(d, m), d)
+            g = float(g)
+
+        def fd(h):
+            return float(as_numpy(f(dangle + h, m)) - as_numpy(f(dangle - h, m))) / (
+                2.0 * h
+            )
+
+        numpy.testing.assert_allclose(g, (4.0 * fd(5e-5) - fd(1e-4)) / 3.0, rtol=1e-7)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("kind", ["higherorder", "direct"])
+def test_gapdf_eval_under_jit(_gapdf_kick, kind):
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    try:
+        sdf._kick_deltav = jnp.asarray(deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        for m in ("density", "meanOmega"):
+            f = jax.value_and_grad(lambda d: _gap_eval(sdf, d, kind, m))
+            ve, ge = f(2.3)
+            vj, gj = jax.jit(f)(2.3)
+            numpy.testing.assert_allclose(float(vj), float(ve), rtol=1e-13)
+            numpy.testing.assert_allclose(float(gj), float(ge), rtol=1e-11)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_higherorder_spline_order_1(_gapdf_kick, backend):
+    # a pw-linear kick has no non-linear terms: higherorder changes nothing
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(1)
+        for m in ("density", "meanOmega"):
+            assert float(as_numpy(_gap_eval(sdf, 2.3, "higherorder", m))) == float(
+                as_numpy(_gap_eval(sdf, 2.3, "approx", m))
+            )
     finally:
         _reset_kick_numpy(sdf, deltav_np)
 
