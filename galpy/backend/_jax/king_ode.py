@@ -46,7 +46,8 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=4096):
         diffrax.Dopri8(),
         t0=0.0,
         t1=rbreak,
-        dt0=None,
+        # explicit: the automatic initial step's backward is NaN at some W0 (9)
+        dt0=1e-3 * rbreak,
         y0=jnp.stack([W0 * 1.0, 0.0 * W0]),
         saveat=diffrax.SaveAt(ts=r1),
         stepsize_controller=controller,
@@ -66,7 +67,7 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=4096):
         diffrax.Dopri8(),
         t0=Wb,
         t1=0.0 * Wb,
-        dt0=None,
+        dt0=-1e-3 * Wb,
         y0=jnp.stack([rbreak, vb]),
         saveat=diffrax.SaveAt(ts=W2),
         stepsize_controller=controller,

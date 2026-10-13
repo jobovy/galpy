@@ -47,7 +47,7 @@ class KingPotential(interpSphericalPotential):
         # Initialize with Force just to parse (ro,vo)
         Force.__init__(self, ro=ro, vo=vo)
         newM = conversion.parse_mass(M, ro=self._ro, vo=self._vo)
-        if newM != M:
+        if newM is not M:  # a Quantity (a traced M has no truth value)
             self.turn_physical_on(ro=self._ro, vo=self._vo)
         M = newM
         rt = conversion.parse_length(rt, ro=self._ro)
