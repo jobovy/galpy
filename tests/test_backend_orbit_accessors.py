@@ -1142,3 +1142,126 @@ def test_analytic_adiabatic_grad_wrt_potential_parameter(bk, mode, acc):
 
     for g in autodiff_param_grads(f, 0.5, bk, jit=False):
         numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Analytic actions, frequencies and angles of a BACKEND orbit. They used to be
+# computed on the host and returned as numpy (an island: no gradient) while
+# rperi/rap/zmax/e stayed on the backend; and a 0-d backend delta could not be
+# indexed by the unbound mask.
+# ---------------------------------------------------------------------------
+_AFA_NAMES = ["jr", "jp", "jz", "Or", "Op", "Oz", "wr", "wp", "wz"]
+_AFA_CASES = ["staeckel-c", "staeckel-noc-delta", "adiabatic-c", "spherical"]
+
+
+def _afa(ic, case, names=_AFA_NAMES, **over):
+    typ, kw = _TP_CASES[case]
+    kw = {**kw, **over}
+    o = Orbit(ic)
+    return [
+        getattr(o, n)(
+            analytic=True, pot=MWPotential2014, type=typ, use_physical=False, **kw
+        )
+        for n in names
+    ]
+
+
+@pytest.mark.parametrize("case", _AFA_CASES)
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_actions_backend_orbit_values(case, backend_name):
+    cast = jnp.asarray if backend_name == "jax" else torch.tensor
+    names = _AFA_NAMES if case != "adiabatic-c" else ["jr", "jp", "jz"]
+    vals = _afa(cast(_TP_IC), case, names)
+    ref = _afa(numpy.array(_TP_IC), case, names)
+    # spherical: fixed-order backend quadrature vs scipy quad, measured 9e-10
+    rtol = 1e-8 if case == "spherical" else 1e-12
+    for n, v, r in zip(names, vals, ref):
+        assert is_backend_array(v), f"{case} {n} left the {backend_name} backend"
+        numpy.testing.assert_allclose(as_numpy(v), r, rtol=rtol, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_actions_unbound_backend_orbits(backend_name):
+    # the masked backend path: nan for the unbound orbit, the others as numpy
+    ics = [_TP_IC, [1.0, 0.1, 5.0, 0.1, 0.1, 0.0], [0.8, 0.3, 0.7, -0.1, 0.2, 1.0]]
+    cast = jnp.asarray if backend_name == "jax" else torch.tensor
+    o, onp = Orbit(cast(ics)), Orbit(ics)
+    for n in _AFA_NAMES:
+        got = getattr(o, n)(analytic=True, pot=MWPotential2014, use_physical=False)
+        ref = getattr(onp, n)(analytic=True, pot=MWPotential2014, use_physical=False)
+        assert is_backend_array(got)
+        assert numpy.isnan(ref[1])
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("case", ["staeckel-c-delta", "spherical"])
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_actions_grad_wrt_ic(case, backend_name):
+    # d(jr, jz, Or)/d(R, vR, vT, z, vz) vs central FD of the numpy orbit (best step)
+    names = ["jr", "jz", "Or"]
+
+    def f_np(ic):
+        return numpy.array([float(v) for v in _afa(ic, case, names)])
+
+    fds = []
+    for h in (1e-4, 1e-5, 1e-6):
+        J = numpy.empty((3, 5))
+        for k in range(5):
+            icp, icm = numpy.array(_TP_IC), numpy.array(_TP_IC)
+            icp[k] += h
+            icm[k] -= h
+            J[:, k] = (f_np(icp) - f_np(icm)) / (2.0 * h)
+        fds.append(J)
+    if backend_name == "jax":
+        ad = numpy.asarray(
+            jax.jacrev(
+                lambda x: jnp.stack([v.reshape(()) for v in _afa(x, case, names)])
+            )(jnp.asarray(_TP_IC))
+        )[:, :5]
+    else:
+        ad = (
+            torch.autograd.functional.jacobian(
+                lambda x: torch.stack([v.reshape(()) for v in _afa(x, case, names)]),
+                torch.tensor(_TP_IC),
+            )
+            .cpu()
+            .numpy()[:, :5]
+        )
+    fd = min(fds, key=lambda J: numpy.max(numpy.abs(ad - J)))
+    numpy.testing.assert_allclose(ad, fd, rtol=2e-7, atol=5e-9, err_msg=case)
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_analytic_actions_grad_wrt_delta(backend_name, mode):
+    # d(jr, jz)/d(delta) through Staeckel (c=False) with a 0-d differentiated
+    # delta, the orbit a backend array (data) or a list under a forced backend
+    names = ["jr", "jz"]
+
+    def f_np(d):
+        return numpy.array(
+            [float(v) for v in _afa(list(_TP_IC), "staeckel-noc", names, delta=d)]
+        )
+
+    def dfd(h):
+        return (f_np(0.4 + h) - f_np(0.4 - h)) / (2.0 * h)
+
+    fd = (4.0 * dfd(5e-4) - dfd(1e-3)) / 3.0
+
+    def f(d, xp):
+        if mode == "data":
+            vals = _afa(xp.asarray(_TP_IC), "staeckel-noc", names, delta=d)
+        else:
+            with use(backend_name, force=True):
+                vals = _afa(list(_TP_IC), "staeckel-noc", names, delta=d)
+        return xp.stack([xp.reshape(v, ()) for v in vals])
+
+    if backend_name == "jax":
+        ad = numpy.asarray(jax.jacrev(lambda d: f(d, jnp))(jnp.asarray(0.4)))
+    else:
+        ad = (
+            torch.autograd.functional.jacobian(lambda d: f(d, torch), torch.tensor(0.4))
+            .cpu()
+            .numpy()
+        )
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=1e-10)
