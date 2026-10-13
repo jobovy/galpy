@@ -1216,7 +1216,7 @@ class diskdf(df):
         else:
             return self._vmomentsurfacemass(*args, **kwargs)
 
-    @backend_input("R")
+    @backend_input("R", "phi")
     @_loop_array_R
     def _vmomentsurfacemass(
         self, R, n, m, romberg=False, nsigma=None, relative=False, phi=0.0, deriv=None
@@ -1373,7 +1373,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def oortA(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function A.
@@ -1418,7 +1418,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def oortB(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function B.
@@ -1463,7 +1463,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def oortC(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function C.
@@ -1508,7 +1508,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def oortK(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function K.
@@ -1553,7 +1553,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def sigma2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1585,7 +1585,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def sigmaT2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_T^2 at R by marginalizing over velocity
@@ -1622,7 +1622,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def sigmaR2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1652,7 +1652,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def meanvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the mean tangential velocity at a given radius by marginalizing over velocity.
@@ -1683,7 +1683,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
-    @backend_input("R")
+    @backend_input("R", "phi")
     def meanvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate <vR> at R by marginalizing over velocity.
@@ -1714,7 +1714,7 @@ class diskdf(df):
         ) / self.surfacemass(R, romberg=romberg, nsigma=nsigma, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R")
+    @backend_input("R", "phi")
     def skewvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate skew in vT at R by marginalizing over velocity
@@ -1755,7 +1755,7 @@ class diskdf(df):
         return (vt3 - 3.0 * vt * vt2 + 2.0 * vt**3.0) * s2 ** (-1.5)
 
     @potential_physical_input
-    @backend_input("R")
+    @backend_input("R", "phi")
     def skewvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate skew in vR at R by marginalizing over velocity.
@@ -1797,7 +1797,7 @@ class diskdf(df):
         return (vr3 - 3.0 * vr * vr2 + 2.0 * vr**3.0) * s2 ** (-1.5)
 
     @potential_physical_input
-    @backend_input("R")
+    @backend_input("R", "phi")
     def kurtosisvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate excess kurtosis in vT at R by marginalizing over velocity
@@ -1844,7 +1844,7 @@ class diskdf(df):
         ) - 3.0
 
     @potential_physical_input
-    @backend_input("R")
+    @backend_input("R", "phi")
     def kurtosisvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate excess kurtosis in vR at R by marginalizing over velocity
