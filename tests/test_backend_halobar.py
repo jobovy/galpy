@@ -788,3 +788,78 @@ def test_spiralarms_torch_float64_dens_parity(case):
         atol=0.0,
         err_msg=f"SpiralArms ({label}) _dens float64 torch/numpy parity",
     )
+
+
+# Shape parameters (gap audit R-SHAPE): SteadyLogSpiral's omegas = 0 period
+# and p (pitch angle) tangent, SpiralArms' sin/tan(alpha) and H * N * n on the
+# backend, so their gradients exist in data and forced mode, under jit/vmap and
+# on torch.
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+def _logspiral(**kw):
+    return SteadyLogSpiralPotential(
+        amp=1.0, A=-0.035, gamma=0.78, tform=-0.5, tsteady=2.0, **kw
+    )
+
+
+def _spiralarms(**kw):
+    return SpiralArmsPotential(
+        amp=1.3, N=2, r_ref=1.0, phi_ref=0.1, Rs=0.3, omega=0.2, Cs=[1.0, 0.3], **kw
+    )
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "build,params,name,method,coords",
+    [
+        (_logspiral, {"omegas": 0.65, "alpha": -7.0}, "omegas", "Phi", [0.9, 0.4, 0.3]),
+        (
+            _logspiral,
+            {"omegas": 0.65, "alpha": -7.0},
+            "omegas",
+            "Rforce",
+            [0.9, 0.4, 0.3],
+        ),
+        (_logspiral, {"omegas": 0.65, "p": 0.3}, "p", "Phi", [0.9, 0.4, 0.3]),
+        (_spiralarms, {"alpha": 0.2, "H": 0.125}, "alpha", "Phi", [0.9, 0.2, 0.4, 0.3]),
+        (
+            _spiralarms,
+            {"alpha": 0.2, "H": 0.125},
+            "alpha",
+            "dens",
+            [0.9, 0.2, 0.4, 0.3],
+        ),
+        (
+            _spiralarms,
+            {"alpha": 0.2, "H": 0.125},
+            "alpha",
+            "zforce",
+            [0.9, 0.2, 0.4, 0.3],
+        ),
+        (_spiralarms, {"alpha": 0.2, "H": 0.125}, "H", "Phi", [0.9, 0.2, 0.4, 0.3]),
+        (_spiralarms, {"alpha": 0.2, "H": 0.125}, "H", "Rforce", [0.9, 0.2, 0.4, 0.3]),
+    ],
+    ids=[
+        "logspiral-omegas-Phi",
+        "logspiral-omegas-Rforce",
+        "logspiral-p-Phi",
+        "arms-alpha-Phi",
+        "arms-alpha-zforce",
+        "arms-alpha-dens",
+        "arms-H-Phi",
+        "arms-H-Rforce",
+    ],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spiral_shape_parameter_gradient(
+    backend_name, mode, build, params, name, method, coords
+):
+    assert_param_grad(backend_name, mode, build, params, name, method, coords)
+
+
+def test_logspiral_traced_zero_pattern_speed_keeps_unit_period():
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    ts = jax.jit(lambda om: _logspiral(omegas=om, alpha=-7.0)._ts)
+    assert float(ts(jnp.asarray(0.0))) == _logspiral(omegas=0.0, alpha=-7.0)._ts == 1.0
