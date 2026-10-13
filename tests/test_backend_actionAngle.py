@@ -1476,6 +1476,71 @@ def test_isochroneapprox_grad_vs_fd_wrt_vR(backend, which, idx):
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
+# d(jr, jz, Or)/d(potential a, b) with the DEFAULT C integrator (dopr54_c): a
+# differentiated potential parameter must leave the IC-only C-STM for the
+# in-backend ODE. torch used to keep the C-STM (an eager requires_grad tensor is
+# not a trace) and the result came back DETACHED from a and b.
+_IAP_PT = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+
+
+def _iap_out(a, b, backend, mode):
+    from galpy.backend import use
+
+    pot = MiyamotoNagaiPotential(amp=2.1, a=a, b=b)
+    aA = actionAngleIsochroneApprox(pot=pot, b=0.8, tintJ=8.0, ntintJ=400)
+    if mode == "data":
+        out = aA._actionsFreqs(*[_arr(backend, [v]) for v in _IAP_PT])
+    else:  # numpy, or numpy inputs under a forced backend
+        with use(backend or "numpy", force=mode == "forced"):
+            out = aA._actionsFreqs(*[numpy.array([v]) for v in _IAP_PT])
+    return [out[0][0], out[2][0], out[3][0]]  # jr, jz, Or
+
+
+@pytest.fixture(scope="module")
+def iap_fd_ref():
+    # two-level Richardson central FD of the numpy (C) values w.r.t. MN a and b
+    # at (0.5, 0.3); jz and Or curve strongly in b (one level leaves 1.5e-5)
+    def f(a, b):
+        return numpy.array([float(x) for x in _iap_out(a, b, None, "numpy")])
+
+    def d(i, h):
+        da, db = (h, 0.0) if i == 0 else (0.0, h)
+        return (f(0.5 + da, 0.3 + db) - f(0.5 - da, 0.3 - db)) / (2.0 * h)
+
+    def rich(i, h):
+        r1 = (4.0 * d(i, h) - d(i, 2.0 * h)) / 3.0
+        r2 = (4.0 * d(i, 2.0 * h) - d(i, 4.0 * h)) / 3.0
+        return (16.0 * r1 - r2) / 15.0
+
+    return {p: rich(i, 5e-4) for i, p in enumerate(("a", "b"))}
+
+
+@pytest.mark.parametrize("param", ["a", "b"])
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_potential_param_grad_c_method(
+    iap_fd_ref, backend, mode, param
+):
+    if backend == "jax":
+        pytest.importorskip("diffrax")
+
+        def f(x):
+            a, b = (x, 0.3) if param == "a" else (0.5, x)
+            return jnp.stack([jnp.reshape(v, ()) for v in _iap_out(a, b, "jax", mode)])
+
+        g = numpy.asarray(jax.jacrev(f)(jnp.asarray(0.5 if param == "a" else 0.3)))
+    else:
+        x = torch.tensor(0.5 if param == "a" else 0.3, requires_grad=True)
+        a, b = (x, 0.3) if param == "a" else (0.5, x)
+        g = []
+        for v in _iap_out(a, b, "torch", mode):
+            assert v.grad_fn is not None, "detached from the potential parameter"
+            g.append(float(torch.autograd.grad(v, x, retain_graph=True)[0]))
+        g = numpy.array(g)
+    # measured <= 5e-7 (the FD's own floor)
+    numpy.testing.assert_allclose(g, iap_fd_ref[param], rtol=2e-6)
+
+
 # Non-axisymmetric IsochroneApprox: the same orbit-integrate-and-angle-average
 # machinery, but for a potential with _isNonAxi(pot)=True. Two extra backend
 # branches fire that the axisymmetric tests never reach: (1) Lz is itself

@@ -541,6 +541,54 @@ def test_calcaAJac_higher_order_grad_vs_fd(backend_name):
     )
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_grad_wrt_ic_through_cstm_is_loud(aA_iso, backend_name):
+    # d(Jacobian)/d(IC) is a SECOND derivative of the orbit: the first-order C-STM
+    # (the default aA) cannot give it. It used to come back silently wrong on torch
+    # (streamdf d/d(progenitor R) 45x off, streamgapdf d/dtimpact 2x off); it must
+    # raise, pointing at the in-backend integrator.
+    if backend_name == "jax":
+        with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
+            jax.grad(lambda x: jnp.sum(calcaAJac(x, aA_iso, actionsFreqsAngles=True)))(
+                jnp.asarray(_XV)
+            )
+    else:
+        x = torch.tensor(_XV, dtype=torch.float64, requires_grad=True)
+        J = calcaAJac(x, aA_iso, actionsFreqsAngles=True)
+        with pytest.raises(RuntimeError, match="integrate_method='torchdiffeq'"):
+            torch.autograd.grad(J.sum(), x)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_streamdf_progenitor_grad_with_c_aA_is_loud():
+    # the audit's case end to end: a torch streamdf built with the default C aA,
+    # differentiated w.r.t. the progenitor's R
+    from galpy.df import streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=5.0, ntintJ=250)
+    pR = torch.tensor(_STREAM_IC[0], dtype=torch.float64, requires_grad=True)
+    prog = Orbit(
+        torch.stack(
+            [pR] + [torch.tensor(c, dtype=torch.float64) for c in _STREAM_IC[1:]]
+        )
+    )
+    with use("torch", force=True):
+        sdf = streamdf(
+            0.365 / 220.0,
+            progenitor=prog,
+            pot=lp,
+            aA=aA,
+            leading=True,
+            nTrackChunks=4,
+            tdisrupt=_tdisrupt(),
+            nTrackIterations=0,
+        )
+        dens = sdf.density_par(torch.tensor(0.3, dtype=torch.float64))
+    with pytest.raises(RuntimeError, match="second derivatives through the C"):
+        torch.autograd.grad(dens.reshape(()), pR)
+
+
 @pytest.mark.skipif(not AD_BACKENDS, reason="needs a float64-capable AD backend")
 def test_calcaAJac_numpy_stays_fd(aA_iso):
     # A plain-numpy xv keeps the historical finite-difference Jacobian (byte-identical
