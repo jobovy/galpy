@@ -1542,7 +1542,7 @@ def test_dehnenbar_dxdv_inside_rb_c_vs_python():
     obase = Orbit(ic)
     obase.integrate(times, pot, method="dop853_c")
     r = numpy.sqrt(as_numpy(obase.R(times)) ** 2 + as_numpy(obase.z(times)) ** 2)
-    assert numpy.mean(r < pot._rb) > 0.1, (
+    assert numpy.mean(r < as_numpy(pot._rb)) > 0.1, (
         "test precondition: the orbit must spend time inside rb to exercise the "
         "r <= rb branch of the C Hessian"
     )

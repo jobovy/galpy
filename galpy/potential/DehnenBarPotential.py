@@ -3,7 +3,13 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace, scalar_like
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    has_concrete_truth_value,
+    promote_scalars,
+    scalar_like,
+)
 from ..util import conversion
 from .Potential import Potential
 
@@ -129,9 +135,10 @@ class DehnenBarPotential(Potential):
             self._chi = chi
             self._beta = beta
             # Calculate omegab and rb
+            xp = get_namespace(beta)  # differentiable in beta on a backend
+            (hb,) = promote_scalars(xp, (1.0 + self._beta) / 2.0)
             self._omegab = 1.0 / (
-                (self._rolr ** (1.0 - self._beta))
-                / (1.0 + numpy.sqrt((1.0 + self._beta) / 2.0))
+                (self._rolr ** (1.0 - self._beta)) / (1.0 + xp.sqrt(hb))
             )
             self._rb = self._chi * self._omegab ** (1.0 / (self._beta - 1.0))
             self._alpha = alpha
@@ -140,7 +147,13 @@ class DehnenBarPotential(Potential):
             self._omegab = omegab
             self._rb = rb
             self._af = Af
-        self._tb = 2.0 * numpy.pi / self._omegab if self._omegab != 0.0 else 1.0
+        rotating = self._omegab != 0.0
+        if has_concrete_truth_value(rotating):
+            self._tb = 2.0 * numpy.pi / self._omegab if rotating else 1.0
+        else:  # traced pattern speed: select the omegab = 0 period
+            xp = get_namespace(self._omegab)
+            safe = xp.where(rotating, self._omegab, 1.0)
+            self._tb = xp.where(rotating, 2.0 * numpy.pi / safe, 1.0)
         self._tform = tform * self._tb
         if tsteady is None:
             self._tsteady = self._tform / 2.0
