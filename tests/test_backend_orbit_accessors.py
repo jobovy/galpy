@@ -736,8 +736,9 @@ def test_scalar_time_on_a_traced_integration_grid_under_jit():
 #                      potential; then numpy.array([...]) could not collect the
 #                      backend scalars the fixed rl/rE return.
 #   rperi/rap/zmax/e -> actionAngleStaeckel with an AUTOMAGIC delta, which
-#                      reads the potential's second derivatives and so carries
-#                      the gradient; it was cut with as_numpy/atleast_1d.
+#                      Orbit holds fixed in derivatives (a deliberate choice;
+#                      see Orbit._setupaA), so the finite difference holds it
+#                      fixed too.
 # c=False throughout: the C path cannot carry potential derivatives by design.
 # ---------------------------------------------------------------------------
 _PGRAD_B0 = 0.6
@@ -745,24 +746,38 @@ _PGRAD_IC = [1.0, 0.12, 1.08, 0.06, 0.09, 0.3]
 _PGRAD_ACCESSORS = ["rguiding", "rE", "LcE", "rperi", "rap", "zmax", "e"]
 
 
-def _accessor_of_b(name, b, cast, potkind="axi"):
+def _accessor_pot(b, potkind):
+    if potkind == "sph":
+        from galpy.potential import PlummerPotential as _PP
+
+        return _PP(amp=1.0, b=b)
+    from galpy.potential import MiyamotoNagaiPotential as _MN
+
+    return _MN(amp=1.0, a=b, b=0.3)
+
+
+def _fixed_delta(pot, ic):
+    """Orbit's automagic Staeckel delta at ic, as a fixed numpy value."""
+    from galpy.actionAngle import estimateDeltaStaeckel
+
+    return estimateDeltaStaeckel(
+        pot, numpy.array([ic[0]]), numpy.array([ic[3]]), no_median=True
+    )
+
+
+def _accessor_of_b(name, b, cast, potkind="axi", delta=None):
     # Both potential classes, because they take DIFFERENT routes through
     # _setupaA: for a spherical potential estimateDeltaStaeckel returns the
     # degenerate 1e-6 and it falls back to type="spherical", so only an
     # axisymmetric one reaches the automagic-delta Staeckel path (and its
     # functional clip) that these tests exist for.
-    if potkind == "sph":
-        from galpy.potential import PlummerPotential as _PP
-
-        pot = _PP(amp=1.0, b=b)
-    else:
-        from galpy.potential import MiyamotoNagaiPotential as _MN
-
-        pot = _MN(amp=1.0, a=b, b=0.3)
+    pot = _accessor_pot(b, potkind)
     o = Orbit(cast(_PGRAD_IC))
     kw = dict(pot=pot, use_physical=False)
     if name in ("rperi", "rap", "zmax", "e"):
         kw.update(analytic=True, c=False)
+        if delta is not None:
+            kw.update(delta=delta)
     out = getattr(o, name)(**kw)
     arr = out if is_backend_array(out) else numpy.atleast_1d(out)
     return arr.reshape(()) if getattr(arr, "shape", ()) == (1,) else arr
@@ -773,10 +788,22 @@ def _accessor_of_b(name, b, cast, potkind="axi"):
 @pytest.mark.parametrize("name", _PGRAD_ACCESSORS)
 def test_accessor_grad_wrt_potential_parameter(name, potkind):
     h = 1e-6 * _PGRAD_B0
+    # the automagic delta held at its value for the unperturbed potential
+    delta = (
+        _fixed_delta(_accessor_pot(_PGRAD_B0, potkind), _PGRAD_IC)
+        if potkind == "axi" and name in ("rperi", "rap", "zmax", "e")
+        else None
+    )
     fd = (
-        float(numpy.asarray(_accessor_of_b(name, _PGRAD_B0 + h, numpy.array, potkind)))
+        float(
+            numpy.asarray(
+                _accessor_of_b(name, _PGRAD_B0 + h, numpy.array, potkind, delta)
+            )
+        )
         - float(
-            numpy.asarray(_accessor_of_b(name, _PGRAD_B0 - h, numpy.array, potkind))
+            numpy.asarray(
+                _accessor_of_b(name, _PGRAD_B0 - h, numpy.array, potkind, delta)
+            )
         )
     ) / (2.0 * h)
     assert abs(fd) > 1e-6, "finite difference is ~0: the test would prove nothing"
@@ -811,8 +838,8 @@ def test_accessor_grad_wrt_potential_parameter(name, potkind):
 # discrete selection that cannot be read off a differentiated energy, so it is
 # skipped; each actionAngle type then runs its backend EccZmaxRperiRap: the
 # C-native Jacobian (c=True) or the backend python path (c=False). The
-# automagic Staeckel delta is estimated AT the phase-space point, so it carries
-# a gradient too -- the C path adds a d/d(delta) Jacobian column for it.
+# automagic Staeckel delta is estimated AT the phase-space point but held fixed
+# in derivatives (Orbit._setupaA), so the finite difference holds it fixed too.
 # ---------------------------------------------------------------------------
 from galpy.potential import MWPotential2014  # noqa: E402
 
@@ -829,8 +856,10 @@ _TP_CASES = {
 }
 
 
-def _tp(ic, case, pot=MWPotential2014):
+def _tp(ic, case, pot=MWPotential2014, delta=None):
     typ, kw = _TP_CASES[case]
+    if delta is not None:
+        kw = dict(kw, delta=delta)
     o = Orbit(ic)
     return [
         getattr(o, n)(analytic=True, pot=pot, type=typ, use_physical=False, **kw)
@@ -844,6 +873,13 @@ _TP_FD = {}
 def _tp_fd(case):
     # (4,5) central-difference Jacobians of the numpy orbit, one per step
     if case not in _TP_FD:
+        # an automagic delta is held at its value at _TP_IC
+        typ, kw = _TP_CASES[case]
+        delta = (
+            _fixed_delta(MWPotential2014, _TP_IC)
+            if typ == "staeckel" and "delta" not in kw
+            else None
+        )
         out = {}
         for h in (1e-4, 1e-5, 1e-6):
             J = numpy.empty((4, 5))
@@ -852,8 +888,8 @@ def _tp_fd(case):
                 icp[k] += h
                 icm[k] -= h
                 J[:, k] = (
-                    numpy.array(_tp(icp, case), dtype=float)
-                    - numpy.array(_tp(icm, case), dtype=float)
+                    numpy.array(_tp(icp, case, delta=delta), dtype=float)
+                    - numpy.array(_tp(icm, case, delta=delta), dtype=float)
                 ) / (2.0 * h)
             out[h] = J
         _TP_FD[case] = out
@@ -887,20 +923,23 @@ def test_analytic_turning_points_grad_wrt_ic(case, backend_name):
     numpy.testing.assert_allclose(ad, fd, rtol=2e-7, atol=5e-9, err_msg=case)
 
 
-def test_analytic_turning_points_delta_column_is_measured():
-    # The automagic-delta c=True case above would pass at FIXED delta only if
-    # the delta term were negligible: check that it is not.
-    from galpy.actionAngle import estimateDeltaStaeckel
-    from galpy.actionAngle.actionAngleStaeckel_c import (
-        actionAngleStaeckel_EccZmaxRperiRapJac_c,
-    )
-
-    R, vR, vT, z, vz = (numpy.array([c]) for c in _TP_IC[:5])
-    delta = estimateDeltaStaeckel(MWPotential2014, R, z, no_median=True)
-    fixed = actionAngleStaeckel_EccZmaxRperiRapJac_c(
-        MWPotential2014, delta, R, vR, vT, z, vz
-    )[4][0]
-    assert numpy.max(numpy.abs(_tp_fd("staeckel-c")[1e-5] - fixed)) > 1e-3
+def test_analytic_turning_points_automagic_delta_held_fixed():
+    # The fixed-delta reference above differs measurably from one that lets
+    # the automagic delta follow the IC, so the AD Jacobian matching it shows
+    # that delta is held fixed (and not, e.g., that its derivative is small).
+    out = {}
+    for h in (1e-5,):
+        J = numpy.empty((4, 5))
+        for k in range(5):
+            icp, icm = numpy.array(_TP_IC), numpy.array(_TP_IC)
+            icp[k] += h
+            icm[k] -= h
+            J[:, k] = (
+                numpy.array(_tp(icp, "staeckel-c"), dtype=float)
+                - numpy.array(_tp(icm, "staeckel-c"), dtype=float)
+            ) / (2.0 * h)
+        out[h] = J
+    assert numpy.max(numpy.abs(out[1e-5] - _tp_fd("staeckel-c")[1e-5])) > 1e-3
 
 
 @pytest.mark.parametrize("case", list(_TP_CASES))
@@ -940,9 +979,12 @@ def test_analytic_turning_points_under_jit(potkind):
     # jit: value and IC-Jacobian as eager. For a spherical potential the
     # automagic delta is degenerate and eager falls back to type="spherical";
     # a traced delta cannot choose that, and Staeckel at the clipped delta
-    # agrees with it.
+    # agrees with it. Under jit the automagic delta is traced (held fixed, but
+    # C needs its values), so it runs the c=False path; axi passes a fixed
+    # delta to keep the C-native path.
     pot = MWPotential2014 if potkind == "axi" else _POT
-    f = lambda x: _tp_stack(jnp)(x, "staeckel-c", pot=pot)
+    case = "staeckel-c-delta" if potkind == "axi" else "staeckel-c"
+    f = lambda x: _tp_stack(jnp)(x, case, pot=pot)
     x = jnp.asarray(_TP_IC)
     # 7e-11: the Staeckel-at-1e-6 vs spherical zmax (sph)
     atol = 1e-12 if potkind == "axi" else 2e-10
@@ -954,28 +996,37 @@ def test_analytic_turning_points_under_jit(potkind):
 
 @pytest.mark.filterwarnings("ignore:.*requires_grad.*:UserWarning")
 @pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
-def test_analytic_c_rejects_potential_parameter_gradient(backend_name):
-    # The C path cannot carry d/d(potential parameter); with the automagic
-    # delta (which reads the potential) it would otherwise return the
-    # delta-mediated part of it alone.
+def test_analytic_c_potential_parameter_gradient(backend_name):
+    # C cannot carry d/d(potential parameter): the call runs the backend
+    # c=False turning points. The automagic delta is held fixed (as in the
+    # finite difference). It used to raise; before that, it returned the
+    # delta-mediated part alone.
     from galpy.potential import MiyamotoNagaiPotential
 
     cast = jnp.asarray if backend_name == "jax" else torch.tensor
 
-    def f(a):
+    def f(a, cast, **kw):
         return Orbit(cast(_TP_IC)).rap(
             analytic=True,
             pot=MiyamotoNagaiPotential(amp=1.0, a=a, b=0.3),
             use_physical=False,
             c=True,
+            **kw,
         )
 
-    with pytest.raises(NotImplementedError, match="use c=False"):
-        with use(backend_name, force=True):
-            if backend_name == "jax":
-                jax.grad(lambda a: f(a).reshape(()))(jnp.asarray(0.6))
-            else:
-                f(torch.tensor(0.6, requires_grad=True))
+    with use(backend_name, force=True):
+        if backend_name == "jax":
+            g = float(jax.grad(lambda a: f(a, cast).reshape(()))(jnp.asarray(0.6)))
+        else:
+            a = torch.tensor(0.6, requires_grad=True)
+            (g,) = torch.autograd.grad(f(a, cast).reshape(()), a)
+            g = float(g)
+    h = 1.5e-3
+    delta = _fixed_delta(MiyamotoNagaiPotential(amp=1.0, a=0.6, b=0.3), _TP_IC)
+    fk = {k: float(f(0.6 + k * h, numpy.asarray, delta=delta)) for k in (-2, -1, 1, 2)}
+    fd = (8.0 * (fk[1] - fk[-1]) - (fk[2] - fk[-2])) / (12.0 * h)
+    assert abs(fd) > 1e-3
+    numpy.testing.assert_allclose(g, fd, rtol=1e-7)
 
 
 # --- every accessor of a NUMPY-stored orbit follows a forced backend ----------
