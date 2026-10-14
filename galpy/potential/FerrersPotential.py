@@ -21,9 +21,12 @@ from ..backend import (
     zeros_like_backend,
 )
 from ..backend._namespaces import (
+    concretely_true,
     eager_memo_applies,
     eager_value_memo,
+    requires_backend_grad,
     stop_gradient,
+    under_trace,
 )
 from ..backend.optimize import newton_polish
 from ..backend.quadrature import fixed_quad_semiinfinite
@@ -123,13 +126,17 @@ class FerrersPotential(Potential):
         self._backend_compatible = True
         # Routed gamma, on a coerced n, so rho_c is computed ON the backend under
         # a force (scipy would hand back a DETACHED tensor) and stays
-        # differentiable in n. b and c are deliberately NOT coerced: the
-        # numpy.fabs(self._b - 1.0) check below rejects a tensor under -W error.
+        # differentiable in n.
         (n_,) = coerce_coords(get_namespace(n), n)
         self._rhoc_M = gamma(n_ + 2.5) / gamma(n_ + 1) / numpy.pi**1.5 / a**3 / b / c
         if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
-        if numpy.fabs(self._b - 1.0) > 10.0**-10.0:
+        # a traced or grad-tracking b is never taken as axisymmetric
+        if (
+            under_trace(b)
+            or requires_backend_grad(b)
+            or concretely_true(abs(self._b - 1.0) > 10.0**-10.0)
+        ):
             self.isNonAxi = True
         return None
 
