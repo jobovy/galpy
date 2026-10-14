@@ -32,6 +32,7 @@ from scipy import integrate, interpolate, optimize, stats
 from ..actionAngle import actionAngleAdiabatic
 from ..backend import (
     as_numpy,
+    backend_input,
     coerce_coords,
     device_of,
     float64_default_if_torch_args,
@@ -42,7 +43,12 @@ from ..backend import (
     to_host,
     use,
 )
-from ..backend._namespaces import requires_backend_grad, under_trace
+from ..backend._namespaces import (
+    has_concrete_truth_value,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
@@ -86,6 +92,42 @@ def _loop_array_R(method):
         return method(self, R, *args, **kwargs)
 
     return wrapper
+
+
+def _on_numpy(method):
+    """A scipy/numpy-RNG method: plain inputs stay on numpy under a forced backend
+    (the entry points it calls would otherwise coerce them onto it)"""
+
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        with use("numpy", force=True):
+            return method(*args, **kwargs)
+
+    return wrapper
+
+
+def _sqrt(x):
+    """numpy.sqrt, or the backend's for a backend-array (e.g. a differentiated beta)"""
+    if is_backend_array(x):
+        return namespace_from_arrays((x,)).sqrt(x)
+    return numpy.sqrt(x)
+
+
+def _beta_branch(beta, at0, other):
+    """at0() if beta == 0 else other(beta), for a beta that may be a backend
+    array. Traced, both run (other() at a masked beta) and xp.where picks. The
+    branches use different potential zero points, so AD at exactly beta == 0
+    misses the branch's own beta dependence."""
+    if not is_backend_array(beta):
+        return at0() if beta == 0.0 else other(beta)
+    zero = beta == 0.0
+    if has_concrete_truth_value(zero):
+        return at0() if bool(zero) else other(beta)
+    xp = namespace_from_arrays((beta,))
+    a, o = at0(), other(xp.where(zero, xp.ones_like(beta), beta))
+    if isinstance(a, tuple):
+        return tuple(xp.where(zero, x, y) for x, y in zip(a, o))
+    return xp.where(zero, a, o)
 
 
 class diskdf(df):
@@ -148,7 +190,7 @@ class diskdf(df):
                 profileParams = newprofileParams
             self._surfaceSigmaProfile = surfaceSigma(profileParams)
         self._beta = beta
-        self._gamma = numpy.sqrt(2.0 / (1.0 + self._beta))
+        self._gamma = _sqrt(2.0 / (1.0 + self._beta))
         if (
             correct
             or "corrections" in kwargs
@@ -166,12 +208,21 @@ class diskdf(df):
             )
         else:
             self._correct = False
-        self._psp = PowerSphericalPotential(
+        # the backend paths do not cover DFcorrection
+        self._backend_compatible = not self._correct
+        return None
+
+    @functools.cached_property
+    def _psp(self):
+        # lazy: only the numpy samplers use it (and a traced beta cannot build it)
+        return PowerSphericalPotential(
             normalize=1.0, alpha=2.0 - 2.0 * self._beta
         ).toPlanar()
-        # Setup aA objects for frequency and rap,rperi calculation
-        self._aA = actionAngleAdiabatic(pot=self._psp, gamma=0.0)
-        return None
+
+    @functools.cached_property
+    def _aA(self):
+        # aA object for frequency and rap,rperi calculation
+        return actionAngleAdiabatic(pot=self._psp, gamma=0.0)
 
     @physical_conversion("phasespacedensity2d", pop=True)
     def __call__(self, *args, **kwargs):
@@ -272,6 +323,7 @@ class diskdf(df):
         # backend arrays are already real; numpy path unwraps scimath's +i*pi
         return x if is_backend_array(x) else numpy.real(x)
 
+    @_on_numpy
     def _call_marginalizevperp(self, o, **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
         # Get l, vlos
@@ -290,7 +342,7 @@ class diskdf(df):
         else:
             nsigma = kwargs["nsigma"]
         kwargs.pop("nsigma", None)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = numpy.sqrt(sigmaR2)
         # Use the asymmetric drift equation to estimate va
         va = (
@@ -352,6 +404,7 @@ class diskdf(df):
                 * sigmaR1
             )
 
+    @_on_numpy
     def _call_marginalizevlos(self, o, **kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         # Get d, l, vperp
@@ -371,7 +424,7 @@ class diskdf(df):
         else:
             nsigma = kwargs["nsigma"]
         kwargs.pop("nsigma", None)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = numpy.sqrt(sigmaR2)
         # Use the asymmetric drift equation to estimate va
         va = (
@@ -437,6 +490,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R")
     def targetSigma2(self, R, log=False):
         """
         Evaluate the target Sigma_R^2(R)
@@ -461,6 +515,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R")
     def targetSurfacemass(self, R, log=False):
         """
         Evaluate the target surface mass at R.
@@ -523,6 +578,22 @@ class diskdf(df):
             under_trace(p) or requires_backend_grad(p)
             for p in getattr(self._surfaceSigmaProfile, "_params", ())
         )
+
+    def _backend_path(self, *xs):
+        """True when an evaluation must take the backend path: a backend input or
+        beta, or a differentiated profile parameter (DFcorrection is numpy-only)"""
+        return (
+            any(is_backend_array(x) for x in xs)
+            or is_backend_array(self._beta)
+            or self._profile_differentiated()
+        ) and not self._correct
+
+    def _backend_coerce(self, *xs):
+        """(xp, xs on xp): the namespace of the inputs, beta and the profile
+        parameters (a differentiated parameter at plain-float inputs is data)"""
+        params = (*getattr(self._surfaceSigmaProfile, "_params", ()), self._beta)
+        xp = prefer_backend_namespace(*xs, *params)
+        return xp, coerce_coords(xp, *xs, device=device_of(*xs, *params))
 
     def _ssp(self, name, R, **kwargs):
         ssp = self._surfaceSigmaProfile
@@ -620,7 +691,7 @@ class diskdf(df):
             if relative:
                 return d
             else:
-                return self.targetSurfacemass(R, use_physical=False) * d
+                return self._ssp("surfacemass", R) * d
         else:
             return (
                 self.surfacemass(
@@ -633,6 +704,7 @@ class diskdf(df):
                 * d
             )
 
+    @_on_numpy
     @float64_default_if_torch_args
     @physical_conversion("position", pop=True)
     def sampledSurfacemassLOS(self, l, n=1, maxd=None, target=True):
@@ -698,6 +770,7 @@ class diskdf(df):
                 out.append(prop)
         return numpy.array(out)
 
+    @_on_numpy
     @float64_default_if_torch_args
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
@@ -734,7 +807,7 @@ class diskdf(df):
             nsigma = _NSIGMA
         out = []
         if target:
-            sigma = numpy.sqrt(self.targetSigma2(R, use_physical=False))
+            sigma = numpy.sqrt(self._ssp("sigma2", R))
         else:
             sigma = numpy.sqrt(self.sigma2(R, use_physical=False))
         while len(out) < n:
@@ -749,6 +822,7 @@ class diskdf(df):
                 out.append(numpy.array([propvR, propvT]))
         return numpy.array(out)
 
+    @_on_numpy
     @float64_default_if_torch_args
     def sampleLOS(
         self,
@@ -818,6 +892,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
+    @backend_input("R")
     def asymmetricdrift(self, R):
         """
         Estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation.
@@ -836,7 +911,10 @@ class diskdf(df):
         -----
         - 2011-04-02 - Written - Bovy (NYU).
         """
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        return self._asymmetricdrift(R)
+
+    def _asymmetricdrift(self, R):
+        sigmaR2 = self._ssp("sigma2", R)
         return (
             sigmaR2
             / 2.0
@@ -855,13 +933,11 @@ class diskdf(df):
         velocity box, R on xp: a differentiated profile parameter at a
         Python-float R is data. All carry two trailing length-1 axes for the
         (vR, vT) GL grid; gamma is the scalar_like-anchored self._gamma."""
-        params = getattr(self._surfaceSigmaProfile, "_params", ())
-        xp = prefer_backend_namespace(R, *params)
-        (R,) = coerce_coords(xp, R, device=device_of(R, *params))
+        xp, (R,) = self._backend_coerce(R)
         R = xp.reshape(R, tuple(R.shape) + (1, 1))
         gamma = scalar_like(R, self._gamma)  # numpy.float64: see scalar_like
-        logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        logSigmaR = self._ssp("surfacemass", R, log=True)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = xp.sqrt(sigmaR2)
         logsigmaR2 = xp.log(sigmaR2)
         va = (
@@ -890,6 +966,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R")
     @_loop_array_R
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
@@ -918,9 +995,7 @@ class diskdf(df):
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if (
-            is_backend_array(R) or self._profile_differentiated()
-        ) and not self._correct:
+        if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
@@ -937,8 +1012,8 @@ class diskdf(df):
                 / numpy.pi
                 * norm
             )
-        logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        logSigmaR = self._ssp("surfacemass", R, log=True)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = numpy.sqrt(sigmaR2)
         logsigmaR2 = numpylog(sigmaR2)
         if relative:
@@ -990,6 +1065,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2surfacedensity", pop=True)
+    @backend_input("R")
     @_loop_array_R
     def sigma2surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
@@ -1019,9 +1095,7 @@ class diskdf(df):
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if (
-            is_backend_array(R) or self._profile_differentiated()
-        ) and not self._correct:
+        if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
@@ -1038,8 +1112,8 @@ class diskdf(df):
                 / numpy.pi
                 * norm
             )
-        logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        logSigmaR = self._ssp("surfacemass", R, log=True)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = numpy.sqrt(sigmaR2)
         logsigmaR2 = numpylog(sigmaR2)
         if relative:
@@ -1142,6 +1216,7 @@ class diskdf(df):
         else:
             return self._vmomentsurfacemass(*args, **kwargs)
 
+    @backend_input("R", "phi")
     @_loop_array_R
     def _vmomentsurfacemass(
         self, R, n, m, romberg=False, nsigma=None, relative=False, phi=0.0, deriv=None
@@ -1149,13 +1224,15 @@ class diskdf(df):
         """Non-physical version of vmomentsurfacemass, otherwise the same"""
         # odd moments of vR are zero
         if isinstance(n, int) and n % 2 == 1:
-            return 0.0
+            return (
+                namespace_from_arrays((R,)).zeros_like(R * 1.0)
+                if is_backend_array(R)
+                else 0.0
+            )
         if nsigma == None:
             nsigma = _NSIGMA
         # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
-        if (
-            is_backend_array(R) or self._profile_differentiated()
-        ) and not self._correct:
+        if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
             )
@@ -1189,8 +1266,8 @@ class diskdf(df):
                 * norm
                 / 2.0
             )
-        logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
-        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        logSigmaR = self._ssp("surfacemass", R, log=True)
+        sigmaR2 = self._ssp("sigma2", R)
         sigmaR1 = numpy.sqrt(sigmaR2)
         logsigmaR2 = numpylog(sigmaR2)
         if relative:
@@ -1296,6 +1373,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R", "phi")
     def oortA(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function A.
@@ -1340,6 +1418,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R", "phi")
     def oortB(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function B.
@@ -1384,6 +1463,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R", "phi")
     def oortC(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function C.
@@ -1428,6 +1508,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("frequency-kmskpc", pop=True)
+    @backend_input("R", "phi")
     def oortK(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the Oort function K.
@@ -1472,6 +1553,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R", "phi")
     def sigma2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1503,6 +1585,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R", "phi")
     def sigmaT2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_T^2 at R by marginalizing over velocity
@@ -1539,6 +1622,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity2", pop=True)
+    @backend_input("R", "phi")
     def sigmaR2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate sigma_R^2 at R by marginalizing over velocity.
@@ -1568,6 +1652,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi")
     def meanvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate the mean tangential velocity at a given radius by marginalizing over velocity.
@@ -1598,6 +1683,7 @@ class diskdf(df):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi")
     def meanvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate <vR> at R by marginalizing over velocity.
@@ -1628,6 +1714,7 @@ class diskdf(df):
         ) / self.surfacemass(R, romberg=romberg, nsigma=nsigma, use_physical=False)
 
     @potential_physical_input
+    @backend_input("R", "phi")
     def skewvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate skew in vT at R by marginalizing over velocity
@@ -1668,6 +1755,7 @@ class diskdf(df):
         return (vt3 - 3.0 * vt * vt2 + 2.0 * vt**3.0) * s2 ** (-1.5)
 
     @potential_physical_input
+    @backend_input("R", "phi")
     def skewvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate skew in vR at R by marginalizing over velocity.
@@ -1709,6 +1797,7 @@ class diskdf(df):
         return (vr3 - 3.0 * vr * vr2 + 2.0 * vr**3.0) * s2 ** (-1.5)
 
     @potential_physical_input
+    @backend_input("R", "phi")
     def kurtosisvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate excess kurtosis in vT at R by marginalizing over velocity
@@ -1755,6 +1844,7 @@ class diskdf(df):
         ) - 3.0
 
     @potential_physical_input
+    @backend_input("R", "phi")
     def kurtosisvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
         Calculate excess kurtosis in vR at R by marginalizing over velocity
@@ -1844,6 +1934,7 @@ class diskdf(df):
             )
         )
 
+    @_on_numpy
     @float64_default_if_torch_args
     def sample(
         self,
@@ -1946,7 +2037,7 @@ class diskdf(df):
         - 2010-03-28 - Written - Bovy (NYU)
 
         """
-        return R**self._beta - self.asymmetricdrift(R, use_physical=False)
+        return R**self._beta - self._asymmetricdrift(R)
 
     def _estimateSigmaR2(self, R, phi=0.0, log=False):
         """
@@ -1970,7 +2061,7 @@ class diskdf(df):
         -----
         - 2010-03-28 - Written - Bovy (NYU)
         """
-        return self.targetSigma2(R, log=log, use_physical=False)
+        return self._ssp("sigma2", R, log=log)
 
     def _estimateSigmaT2(self, R, phi=0.0, log=False):
         """
@@ -1996,11 +2087,9 @@ class diskdf(df):
 
         """
         if log:
-            return self.targetSigma2(R, log=log, use_physical=False) - 2.0 * numpylog(
-                self._gamma
-            )
+            return self._ssp("sigma2", R, log=log) - 2.0 * numpylog(self._gamma)
         else:
-            return self.targetSigma2(R, log=log, use_physical=False) / self._gamma**2.0
+            return self._ssp("sigma2", R, log=log) / self._gamma**2.0
 
 
 class dehnendf(diskdf):
@@ -2053,6 +2142,7 @@ class dehnendf(diskdf):
             **kwargs,
         )
 
+    @backend_input("E", "L")
     def eval(self, E, L, logSigmaR=0.0, logsigmaR2=0.0):
         """
         Evaluate the distribution function.
@@ -2084,7 +2174,7 @@ class dehnendf(diskdf):
             start = time.time()
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
+        if self._backend_path(E, L):
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate Re,LE, OmegaE
         if self._beta == 0.0:
@@ -2103,7 +2193,7 @@ class dehnendf(diskdf):
         if _PROFILE:  # pragma: no cover
             corr_time = time.time() - start
             start = time.time()
-        SRE2 = self.targetSigma2(xE, log=True, use_physical=False) + correction[1]
+        SRE2 = self._ssp("sigma2", xE, log=True) + correction[1]
         if _PROFILE:  # pragma: no cover
             targSigma_time = time.time() - start
             start = time.time()
@@ -2112,7 +2202,7 @@ class dehnendf(diskdf):
                 * numpy.exp(
                     logsigmaR2
                     - SRE2
-                    + self.targetSurfacemass(xE, log=True, use_physical=False)
+                    + self._ssp("surfacemass", xE, log=True)
                     - logSigmaR
                     + numpy.exp(logOLLE - SRE2)
                     + correction[0]
@@ -2136,7 +2226,7 @@ class dehnendf(diskdf):
                 * numpy.exp(
                     logsigmaR2
                     - SRE2
-                    + self.targetSurfacemass(xE, log=True, use_physical=False)
+                    + self._ssp("surfacemass", xE, log=True)
                     - logSigmaR
                     + numpy.exp(logOLLE - SRE2)
                     + correction[0]
@@ -2149,21 +2239,25 @@ class dehnendf(diskdf):
         """Backend (jax/torch) eval; byte-matches the numpy scimath real part.
         exp(numpylog(X) - SRE2) = X * exp(-SRE2), so the scimath log/real pair is
         replaced by the signed algebraic factor X (differentiable, no complex)."""
-        xp = get_namespace(E, L)
-        if self._beta == 0.0:
+        xp, (E, L) = self._backend_coerce(E, L)
+
+        def flat():
             xE = xp.exp(E - 0.5)
-            olfac = L / xE - 1.0  # Omega_E (L - L_E) numerator
-        else:  # non-flat rotation curve
-            xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
-            olfac = xE**self._beta * (L / xE - xE**self._beta)
+            return xE, L / xE - 1.0  # Omega_E (L - L_E) numerator
+
+        def nonflat(beta):
+            xE = (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
+            return xE, xE**beta * (L / xE - xE**beta)
+
+        xE, olfac = _beta_branch(self._beta, flat, nonflat)
         correction = xp.zeros(2)
-        SRE2 = self.targetSigma2(xE, log=True, use_physical=False) + correction[1]
+        SRE2 = self._ssp("sigma2", xE, log=True) + correction[1]
         return (
             scalar_like(E, self._gamma)
             * xp.exp(
                 logsigmaR2
                 - SRE2
-                + self.targetSurfacemass(xE, log=True, use_physical=False)
+                + self._ssp("surfacemass", xE, log=True)
                 - logSigmaR
                 + olfac * xp.exp(-SRE2)
                 + correction[0]
@@ -2172,6 +2266,7 @@ class dehnendf(diskdf):
             / numpy.pi
         )
 
+    @_on_numpy
     @float64_default_if_torch_args
     def sample(
         self,
@@ -2371,27 +2466,25 @@ class dehnendf(diskdf):
         # Calculate a bunch of stuff that we need
         # Data-guarded: numpy math for numpy callers (dblquad integrand) even in a
         # forced-backend context; backend math only for actual backend arrays.
-        if is_backend_array(R) or is_backend_array(vR) or is_backend_array(vT):
-            _xp = get_namespace(R, vR, vT)
+        if any(is_backend_array(x) for x in (R, vR, vT, self._beta)):
+            _xp = prefer_backend_namespace(R, vR, vT, self._beta)
             _log, _exp = _xp.log, _xp.exp
         else:
             _log, _exp = numpylog, numpy.exp
-        if self._beta == 0.0:
+
+        def flat():
             E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
             xE = _exp(E - 0.5)
-            OE = xE**-1.0
-            LCE = xE
-            dRedR = xE / R
-        else:  # non-flat rotation curve
-            E = (
-                vR**2.0 / 2.0
-                + vT**2.0 / 2.0
-                + 1.0 / 2.0 / self._beta * R ** (2.0 * self._beta)
-            )
-            xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
-            OE = xE ** (self._beta - 1.0)
-            LCE = xE ** (self._beta + 1.0)
-            dRedR = xE / 2.0 / self._beta / E * R ** (2.0 * self._beta - 1.0)
+            return E, xE, xE**-1.0, xE, xE / R
+
+        def nonflat(beta):  # non-flat rotation curve
+            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
+            xE = (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
+            OE = xE ** (beta - 1.0)
+            LCE = xE ** (beta + 1.0)
+            return E, xE, OE, LCE, xE / 2.0 / beta / E * R ** (2.0 * beta - 1.0)
+
+        E, xE, OE, LCE, dRedR = _beta_branch(self._beta, flat, nonflat)
         return (
             self._dlnfdRe(R, vR, vT, E=E, xE=xE, OE=OE, LCE=LCE) * dRedR
             + self._dlnfdl(R, vR, vT, E=E, xE=xE, OE=OE) * vT
@@ -2537,6 +2630,7 @@ class shudf(diskdf):
             **kwargs,
         )
 
+    @backend_input("E", "L")
     def eval(self, E, L, logSigmaR=0.0, logsigmaR2=0.0):
         """
         Evaluate the distribution function.
@@ -2563,7 +2657,7 @@ class shudf(diskdf):
         """
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
+        if self._backend_path(E, L):
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate RL,LL, OmegaL
         if self._beta == 0.0:
@@ -2580,13 +2674,13 @@ class shudf(diskdf):
             correction = self._corr.correct(xL, log=True)
         else:
             correction = numpy.zeros(2)
-        SRE2 = self.targetSigma2(xL, log=True, use_physical=False) + correction[1]
+        SRE2 = self._ssp("sigma2", xL, log=True) + correction[1]
         return (
             self._gamma
             * numpy.exp(
                 logsigmaR2
                 - SRE2
-                + self.targetSurfacemass(xL, log=True, use_physical=False)
+                + self._ssp("surfacemass", xL, log=True)
                 - logSigmaR
                 - numpy.exp(logECLE - SRE2)
                 + correction[0]
@@ -2599,23 +2693,26 @@ class shudf(diskdf):
         """Backend (jax/torch) eval; byte-matches the numpy scimath real part.
         exp(numpylog(X) - SRE2) = X * exp(-SRE2) recovers the signed factor X; the
         xL<0 counter-rotating cut is a data branch -> xp.where (log guarded)."""
-        xp = get_namespace(E, L)
-        if self._beta == 0.0:
-            xL = L
-            xLsafe = xp.where(xL > 0.0, xL, 1.0)  # guard log on the masked side
-            eclfac = E - 0.5 - xp.log(xLsafe)  # E - E_c(L)
-        else:  # non-flat rotation curve
-            xL = L ** (1.0 / (self._beta + 1.0))
+        xp, (E, L) = self._backend_coerce(E, L)
+
+        def flat():
+            xLsafe = xp.where(L > 0.0, L, 1.0)  # guard log on the masked side
+            return L, xLsafe, E - 0.5 - xp.log(xLsafe)  # E - E_c(L)
+
+        def nonflat(beta):
+            xL = L ** (1.0 / (beta + 1.0))
             xLsafe = xp.where(xL > 0.0, xL, 1.0)
-            eclfac = E - 0.5 * (1.0 / self._beta + 1.0) * xLsafe ** (2.0 * self._beta)
+            return xL, xLsafe, E - 0.5 * (1.0 / beta + 1.0) * xLsafe ** (2.0 * beta)
+
+        xL, xLsafe, eclfac = _beta_branch(self._beta, flat, nonflat)
         correction = xp.zeros(2)
-        SRE2 = self.targetSigma2(xLsafe, log=True, use_physical=False) + correction[1]
+        SRE2 = self._ssp("sigma2", xLsafe, log=True) + correction[1]
         value = (
             scalar_like(E, self._gamma)
             * xp.exp(
                 logsigmaR2
                 - SRE2
-                + self.targetSurfacemass(xLsafe, log=True, use_physical=False)
+                + self._ssp("surfacemass", xLsafe, log=True)
                 - logSigmaR
                 - eclfac * xp.exp(-SRE2)
                 + correction[0]
@@ -2625,6 +2722,7 @@ class shudf(diskdf):
         )
         return xp.where(xL < 0.0, 0.0, value)
 
+    @_on_numpy
     @float64_default_if_torch_args
     def sample(
         self,
@@ -3242,6 +3340,7 @@ class DFcorrection:
                 )
         return out
 
+    @_on_numpy
     def _calc_corrections(self):
         """Internal function that calculates the corrections"""
         searchIter = self._niter - 1
@@ -3332,12 +3431,9 @@ def vRvTRToEL(vR, vT, R, beta, dftype="dehnen"):
     """
     if dftype == "schwarzschild":
         # Compute E in the epicycle approximation
-        gamma = numpy.sqrt(2.0 / (1.0 + beta))
+        gamma = _sqrt(2.0 / (1.0 + beta))
         L = R * vT
-        if beta == 0.0:
-            xL = L
-        else:  # non-flat rotation curve
-            xL = L ** (1.0 / (beta + 1.0))
+        xL = _beta_branch(beta, lambda: L, lambda b: L ** (1.0 / (b + 1.0)))
         return (
             0.5 * vR**2.0
             + 0.5 * gamma**2.0 * (vT - R**beta) ** 2.0
@@ -3370,20 +3466,23 @@ def axipotential(R, beta=0.0):
     - 2010-03-01 - Written - Bovy (NYU)
 
     """
-    if beta == 0.0:
-        if is_backend_array(R):
-            xp = get_namespace(R)
-            # scimath.log real part is log|R|; floor R==0 at _RMIN (guards AD)
-            return xp.log(xp.where(R == 0.0, _RMIN, xp.abs(R)))
-        if numpy.any(R == 0.0):
-            out = numpy.empty(R.shape)
-            out[R == 0.0] = numpylog(_RMIN)
-            out[R != 0.0] = numpylog(R[R != 0.0])
-            return out
-        else:
-            return numpylog(R)
-    else:  # non-flat rotation curve
-        return R ** (2.0 * beta) / 2.0 / beta
+    return _beta_branch(
+        beta, lambda: _logpotential(R), lambda b: R ** (2.0 * b) / 2.0 / b
+    )
+
+
+def _logpotential(R):
+    if is_backend_array(R):
+        xp = get_namespace(R)
+        # scimath.log real part is log|R|; floor R==0 at _RMIN (guards AD)
+        return xp.log(xp.where(R == 0.0, _RMIN, xp.abs(R)))
+    if numpy.any(R == 0.0):
+        out = numpy.empty(R.shape)
+        out[R == 0.0] = numpylog(_RMIN)
+        out[R != 0.0] = numpylog(R[R != 0.0])
+        return out
+    else:
+        return numpylog(R)
 
 
 def _ars_hx(x, args):

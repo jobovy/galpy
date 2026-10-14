@@ -552,3 +552,65 @@ def test_merely_forced_backend_with_a_plain_potential_stays_numpy(backend, route
         got = _grad_moment(_GRAD_A, route)  # plain float a -> no gradient anywhere
     assert not is_backend_array(got), "a merely-forced backend flipped the numpy path"
     numpy.testing.assert_allclose(float(got), float(ref), rtol=0.0, atol=0.0)
+
+
+# --- the gradient in the INITIAL DF, with R a plain float ------------------
+# A differentiated initdf profile parameter (hR) with a plain-float R and a
+# plain potential: the moment gate asked only R and the potential, so the
+# numpy route met the traced initdf moments (TracerArrayConversionError in
+# numpy.linspace under a forced backend).
+_HR = 1.0 / 3.0
+
+
+@pytest.fixture
+def hr_moment():
+    import contextlib
+
+    from galpy.potential import MiyamotoNagaiPotential
+
+    def q(hr, route, backend=None):
+        ctx = (
+            use(backend, force=True)
+            if backend is not None
+            else contextlib.nullcontext()
+        )
+        with ctx:
+            edf = evolveddiskdf(
+                dehnendf(beta=0.0, profileParams=(hr, 1.0, 0.2)),
+                pot=MiyamotoNagaiPotential(normalize=1.0, a=_GRAD_A, b=0.3),
+                to=-1.0,
+            )
+            return edf.vmomentsurfacemass(
+                _R, 0, 0, phi=_PHI, nsigma=3.0, **_GRAD_ROUTES[route]
+            )
+
+    return q
+
+
+@pytest.mark.parametrize("forced", [False, True])
+@pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_grad_wrt_initdf_parameter_with_float_R(
+    backend, route, forced, hr_moment
+):
+    fbk = backend if forced else None
+    if backend == "jax":
+        f = lambda t: jnp.reshape(jnp.asarray(hr_moment(t, route, fbk)), ())
+        g = float(jax.grad(f)(jnp.asarray(_HR)))
+        jf = jax.jit(f)  # a traced hR keeps the backend route for the FD too
+        fdf = lambda x: float(jf(jnp.asarray(x)))
+    else:
+        t = torch.tensor(_HR, requires_grad=True)
+        out = hr_moment(t, route, fbk)
+        assert is_backend_array(out), "moment fell back to numpy"
+        (g,) = torch.autograd.grad(out.reshape(()), t)
+        g = float(g)
+        fdf = lambda x: float(
+            hr_moment(torch.tensor(x, requires_grad=True), route, fbk).detach()
+        )
+    # Richardson FD of the same backend route (h=1e-3)
+    d = lambda h: (fdf(_HR + h) - fdf(_HR - h)) / (2.0 * h)
+    d1, d2 = d(1e-3), d(5e-4)
+    fd = (4.0 * d2 - d1) / 3.0
+    assert abs(d2 - d1) < 1e-3 * abs(fd)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=0.0)
