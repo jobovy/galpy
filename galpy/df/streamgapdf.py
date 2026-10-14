@@ -29,11 +29,14 @@ from ..backend._namespaces import (
 )
 from ..backend.interpolate import Spline1D
 from ..backend.optimize import newton_polish
-from ..backend.quadrature import fixed_quad, simpson
+from ..backend.quadrature import fixed_quad, simpson, transformed_quad
 from ..orbit import Orbit
 from ..orbit.Orbits import _flip_velocity_columns
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _pot_grad_namespace,
+)
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
 from ..util._pickle import SplinePickleMixin
 from ..util.conversion import physical_conversion
@@ -2406,6 +2409,20 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
     )
 
 
+def _kick_namespace(arrays, pots=()):
+    """Data-first namespace of an impulse kick: that of any backend-array argument
+    or differentiated potential parameter, else numpy (a numpy streamgapdf setup
+    under a forced backend keeps the numpy kick)."""
+    bk = tuple(a for a in arrays if is_backend_array(a))
+    if bk:
+        return namespace_from_arrays(bk)
+    for pot in pots:
+        gxp = _pot_grad_namespace(pot)
+        if gxp is not None:
+            return gxp
+    return numpy
+
+
 def _a_integrand(T, y, b, w, pot, compt):
     t = T / (1 - T * T)
     X = b + w * t + y * numpy.array([0, 1, 0])
@@ -2429,13 +2446,12 @@ def _deltav_integrate(y, b, w, pot):
 _GENERAL_QUAD_N = 100
 
 
-def _impulse_deltav_general_backend(v, y, b, w, pot):
+def _impulse_deltav_general_backend(xp, v, y, b, w, pot):
     # Backend (jax/torch) twin of impulse_deltav_general: the per-component
     # scipy.integrate.quad over [-1, 1] becomes a single vectorised fixed-order
     # Gauss-Legendre pass (all stars x 3 components x nodes at once), so the kick
     # is differentiable w.r.t. v, y, b, w and the perturber's potential params.
-    xp = get_namespace(v, y, w)
-    v, y, w = coerce_coords(xp, v, y, w)
+    v, y, w, b = coerce_coords(xp, v, y, w, b)
     if v.ndim == 1:
         v = xp.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -2452,24 +2468,26 @@ def _impulse_deltav_general_backend(v, y, b, w, pot):
     b0 = b * xp.stack([-tilew[:, 2] / wmag, zeros, tilew[:, 0] / wmag], axis=-1)
     ehat = xp.asarray([0.0, 1.0, 0.0], dtype=v.dtype)
 
+    deltav = _deltav_integrate_backend(xp, b0 + y[:, None] * ehat, tilew, pot)
+    # Rotate back to the original frame
+    return xp.sum(rotinv * deltav[:, None, :], axis=-1)
+
+
+def _deltav_integrate_backend(xp, b, w, pot):
+    """Backend twin of _deltav_integrate for all stars at once (b, w: (nv, 3) with
+    y folded into b): int a(b + w t) dt over t = T/(1-T^2), by fixed-order GL."""
+
     def integrand(T):  # T: (n,) GL nodes on [-1, 1] -> (nv, 3, n)
         t = T / (1 - T * T)
-        # X[i, c, k] = b0[i, c] + tilew[i, c] * t[k] + y[i] * ehat[c]
-        X = (
-            b0[:, :, None]
-            + tilew[:, :, None] * t[None, None, :]
-            + (y[:, None] * ehat[None, :])[:, :, None]
-        )
+        X = b[:, :, None] + w[:, :, None] * t[None, None, :]
         r = xp.sqrt(xp.sum(X**2, axis=1))  # (nv, n)
         Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
         jac = (1 + T * T) / (1 - T * T) ** 2
         return jac[None, None, :] * Rf[:, None, :] * X / r[:, None, :]
 
-    deltav = fixed_quad(
-        xp, integrand, -1.0, 1.0, n=_GENERAL_QUAD_N, device=device_of(v)
+    return fixed_quad(
+        xp, integrand, -1.0, 1.0, n=_GENERAL_QUAD_N, device=device_of(b)
     )  # (nv, 3)
-    # Rotate back to the original frame
-    return xp.sum(rotinv * deltav[:, None, :], axis=-1)
 
 
 def impulse_deltav_general(v, y, b, w, pot):
@@ -2503,8 +2521,9 @@ def impulse_deltav_general(v, y, b, w, pot):
     # data-first: a jax/torch input routes to the vectorised, differentiable
     # backend twin; numpy/list inputs keep the byte-identical scipy.quad path
     # below (also when consumed by numpy streamgapdf setup under a forced backend)
-    if is_backend_array(v) or is_backend_array(y) or is_backend_array(w):
-        return _impulse_deltav_general_backend(v, y, b, w, pot)
+    xp = _kick_namespace((v, y, w, b), (pot,))
+    if xp is not numpy:
+        return _impulse_deltav_general_backend(xp, v, y, b, w, pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -2560,6 +2579,13 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     pot = _check_potential_list_and_deprecate(pot)
+    xp = _kick_namespace((v, x, b, w, x0, v0), (pot,))
+    if xp is not numpy:
+        v, x, b, w, x0, v0 = coerce_coords(xp, v, x, b, w, x0, v0)
+        v, x = xp.reshape(v, (-1, 3)), xp.reshape(x, (-1, 3))
+        b0 = xp.linalg.cross(w, v0)
+        b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
+        return _deltav_integrate_backend(xp, b0 + x - x0, w - v, pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -2826,6 +2852,60 @@ def _astream_integrand_z(t, y, v, b, w, b2, w2, wperp, wperp2, wpar, GSigma, rs2
     )
 
 
+# GL nodes per panel for the backend Plummer-stream kick integrals over [tmin, tmax]
+_PLUMMERSTREAM_QUAD_N = 100
+# grid points per direction of the backend curved-stream orbit
+_PLUMMERSTREAM_ORBIT_N = 201
+
+
+def _impulse_deltav_plummerstream_backend(xp, v, y, b, w, GSigma, rs, tmin, tmax):
+    # Backend twin of impulse_deltav_plummerstream: the three per-star scipy quads
+    # become one vectorised GL pass, split at the per-star peak t = y/|v| (clamped
+    # into [tmin, tmax]); GSigma is called on the backend array of nodes.
+    v, y, b, w, rs, tmin, tmax = coerce_coords(xp, v, y, b, w, rs, tmin, tmax)
+    v = xp.reshape(v, (-1, 3))
+    y = xp.reshape(y, (-1,))
+    vmag = xp.sqrt(xp.sum(v**2.0, axis=1))
+    rot = _rotation_vy(v)
+    rotinv = _rotation_vy(v, inv=True)
+    tilew = xp.sum(rot * w, axis=-1)
+    wperp = xp.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
+    wpar = vmag - tilew[:, 1]
+    wmag2 = wpar**2.0 + wperp**2.0
+    wmag = xp.sqrt(wmag2)
+    b2, rs2, wperp2 = b**2.0, rs**2.0, wperp**2.0
+
+    # per-star scalars as (nv, 1, 1): broadcast against the (nv, 1, n) nodes
+    yc, vc, wm2, wm, wpe, wpe2, wpa = (
+        q[:, None, None] for q in (y, vmag, wmag2, wmag, wperp, wperp2, wpar)
+    )
+    tw0, tw2 = tilew[:, 0, None, None], tilew[:, 2, None, None]
+
+    def integrand(t):  # t: (nv, 1, n) -> (nv, 3, n)
+        yy = yc - vc * t
+        gs = GSigma(t) / ((b2 + rs2) * wm2 + wpe2 * yy**2.0) / wm
+        return xp.concat(
+            [
+                gs * (b * wm2 * tw2 / wpe - yy * wpa * tw0),
+                -wpe2 * gs * yy,
+                -gs * (b * wm2 * tw0 / wpe + yy * wpa * tw2),
+            ],
+            axis=1,
+        )
+
+    # split at the per-star peak t = y/|v| (clamped into the range)
+    zero = 0.0 * y
+    out = transformed_quad(
+        xp,
+        integrand,
+        (tmin + zero)[:, None],
+        (tmax + zero)[:, None],
+        n=_PLUMMERSTREAM_QUAD_N,
+        interior_point=xp.clip(y / vmag, tmin, tmax)[:, None],
+    )  # (nv, 3)
+    return 2.0 * xp.sum(rotinv * out[:, None, :], axis=-1)
+
+
 def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     """
     Calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
@@ -2858,11 +2938,16 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     -----
     - 2015-11-14 - Written - Bovy (UofT)
     """
+    if tmax is None or tmax is None:
+        raise ValueError("tmin= and tmax= need to be set")
+    xp = _kick_namespace((v, y, b, w, rs, tmin, tmax))
+    if xp is not numpy:
+        return _impulse_deltav_plummerstream_backend(
+            xp, v, y, b, w, GSigma, rs, tmin, tmax
+        )
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
         y = numpy.atleast_1d(y)
-    if tmax is None or tmax is None:
-        raise ValueError("tmin= and tmax= need to be set")
     nv = v.shape[0]
     vmag = numpy.sqrt(numpy.sum(v**2.0, axis=1))
     # Build the rotation matrices and their inverse
@@ -2972,6 +3057,67 @@ def _astream_integrate(b_, orb, tx, w, GSigma, rs2, otmin, tmin, tmax):
     )
 
 
+def _impulse_deltav_plummerstream_curvedstream_backend(
+    xp, t, b, w, x0, v0, GSigma, rs, galpot, tmin, tmax
+):
+    # Backend twin of impulse_deltav_plummerstream_curvedstream: the per-star,
+    # per-component scipy quads over s in [tmin, tmax] become one vectorised GL
+    # pass, and the stream orbit through (x0, v0) is integrated in the backend
+    # straight to the times t_i - s the nodes need (forward and backward from the
+    # impact), instead of interpolating one stored orbit.
+    t, b, w, x0, v0, rs, tmin, tmax = coerce_coords(xp, t, b, w, x0, v0, rs, tmin, tmax)
+    t = xp.reshape(t, (-1,))
+    R, phi, z = coords.rect_to_cyl(x0[0], x0[1], x0[2])
+    vR, vT, vz = coords.rect_to_cyl_vec(v0[0], v0[1], v0[2], R, phi, z, cyl=True)
+    ic = xp.stack([R, vR, vT, z, vz, phi])
+    method = inbackend_ode_method(xp)
+    b0 = xp.linalg.cross(w, v0)
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
+
+    # the orbit forward and backward from the impact on a dense grid spanning
+    # every time t_i - s the nodes need, read through the in-backend orbit's
+    # differentiable interpolation (numpy reads one stored orbit the same way)
+    span = xp.max(xp.abs(xp.concat([t - tmin, t - tmax])))
+    grid = span * as_backend_constant(
+        xp, numpy.linspace(0.0, 1.0, _PLUMMERSTREAM_ORBIT_N), x0
+    )
+    orbs = []
+    for sgn in (1.0, -1.0):
+        o = Orbit(ic)
+        o.turn_physical_off()
+        o.integrate(sgn * grid, galpot, method=method)
+        orbs.append(o)
+
+    def _xv_at(tau):  # cartesian (x, v) of the orbit at the times tau, (..., 6)
+        flat = xp.reshape(tau, (-1,))
+        out = [
+            xp.stack(
+                [
+                    getattr(o, a)(sgn * xp.abs(flat))
+                    for a in ("x", "y", "z", "vx", "vy", "vz")
+                ],
+                axis=-1,
+            )
+            for o, sgn in zip(orbs, (1.0, -1.0))
+        ]
+        xv = xp.where((flat >= 0.0)[:, None], out[0], out[1])
+        return xp.reshape(xv, (*tau.shape, 6))
+
+    def integrand(s):  # s: (n,) GL nodes -> (nstar, 3, n)
+        xv = _xv_at(t[:, None] - s[None, :])  # (nstar, n, 6)
+        bb = b0 - x0 + xv[..., :3]
+        ww = w - xv[..., 3:]
+        wmag = xp.sqrt(xp.sum(ww**2, axis=-1, keepdims=True))
+        bdotw = xp.sum(bb * ww, axis=-1, keepdims=True) / wmag
+        denom = wmag * (xp.sum(bb**2, axis=-1, keepdims=True) + rs**2.0 - bdotw**2)
+        gs = GSigma(s)
+        gs = gs[:, None] if is_backend_array(gs) else gs
+        acc = -2.0 * gs * (bb - bdotw * ww / wmag) / denom
+        return xp.moveaxis(acc, -1, 1)
+
+    return fixed_quad(xp, integrand, tmin, tmax, n=_PLUMMERSTREAM_QUAD_N)
+
+
 def impulse_deltav_plummerstream_curvedstream(
     v, x, t, b, w, x0, v0, GSigma, rs, galpot, tmin=None, tmax=None
 ):
@@ -3015,6 +3161,11 @@ def impulse_deltav_plummerstream_curvedstream(
     - 2015-11-14 - Written - Bovy (UofT)
     """
     galpot = _check_potential_list_and_deprecate(galpot)
+    xp = _kick_namespace((v, x, t, b, w, x0, v0, rs, tmin, tmax), (galpot,))
+    if xp is not numpy:
+        return _impulse_deltav_plummerstream_curvedstream_backend(
+            xp, t, b, w, x0, v0, GSigma, rs, galpot, tmin, tmax
+        )
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
