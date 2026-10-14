@@ -69,9 +69,6 @@ def _backend_ready(target):
     It is still asked because a handful of potentials are not migrated and break
     when their coordinates arrive as jax/torch arrays -- measured, not assumed:
 
-      * ``interpRZPotential`` (scipy interpolation) diverges from the numpy path
-        at the grid edge -- at (R,z)=(0.5,0.0) the force is off by 3.3% and the
-        second derivative by 32%, in float64;
       * ``MovingObjectPotential`` interpolates the perturber's trajectory with
         ``self._orb.R(t, _stored=True)``, so a coerced ``t`` reaches a numpy lookup as a jax
         tracer under jit (``TracerArrayConversionError``).
