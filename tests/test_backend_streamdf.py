@@ -486,6 +486,27 @@ def test_offset_setup_grad_vs_fd(sdf, backend_name, forced):
     assert abs(ad - rich) < 1e-8 * abs(rich), f"AD {ad} vs FD {rich}"
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_meanangledAngle_float_dangle_backend_eigenvalues(sdf, backend_name):
+    # a Python-float dangle next to backend eigenvalues (a differentiated offset
+    # setup) is coerced onto their backend: the same value as a backend dangle,
+    # and numpy's (zero by symmetry) at t = 0
+    xp = jnp if backend_name == "jax" else torch
+    m = _offset_copy(sdf, xp, _arr(backend_name, 0.0))
+    for smallest in (False, True):
+        got = m.meanangledAngle(0.3, smallest=smallest, use_physical=False)
+        assert is_backend_array(got)
+        ref = m.meanangledAngle(
+            _arr(backend_name, 0.3), smallest=smallest, use_physical=False
+        )
+        assert float(as_numpy(got)) == float(as_numpy(ref))
+        numpy.testing.assert_allclose(
+            as_numpy(got),
+            sdf.meanangledAngle(0.3, smallest=smallest, use_physical=False),
+            atol=1e-15,
+        )
+
+
 # __call__ on a differentiated offset setup: the stored dispersions, logdet and
 # mean offset stay on the backend in _call_backend (float() dropped them)
 def _sigv_copy(sdf, sigv, t=None):
