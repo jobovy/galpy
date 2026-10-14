@@ -3284,13 +3284,16 @@ def _cjac_fd(fnp, p0, hrel=2.5e-3):
 
 def _cjac_ad(backend, mode, jit, fbk, ics, p0):
     """d(outputs)/dp: ``fbk(p, ics)`` builds everything from the scalar p.
-    mode='data': backend-array ics; 'forced': numpy ics under use(force=True)."""
+    mode='data': backend-array ics; 'forced': numpy ics under use(force=True);
+    'float': Python-float ics, no use() (the parameter decides the backend)."""
     from galpy import backend as galpy_backend
 
     def f(p):
         if mode == "data":
             cs = tuple(_arr(backend, c) for c in ics)
             return fbk(p, cs)
+        if mode == "float":
+            return fbk(p, ics)
         with galpy_backend.use(backend, force=True):
             return fbk(p, ics)
 
@@ -3307,6 +3310,7 @@ def _cjac_ad(backend, mode, jit, fbk, ics, p0):
     outs = f(t)
     rows = []
     for o in outs:
+        o = o.reshape(-1)
         rr = []
         for k in range(o.shape[0]):
             # an output that does not depend on p is disconnected: 0, which the
@@ -3554,3 +3558,142 @@ def test_staeckel_cfalse_freqs_angles_grad(bk, mode, jit, name, cjac_ics):
     vals = numpy.abs(numpy.asarray(_staeckel_afa(p0, name, cjac_ics, True)))
     tol = 1e-8 * numpy.fabs(fd) + 1e-9 * vals / p0
     assert numpy.all(numpy.fabs(ad - fd) <= tol), (ad - fd) / fd
+
+
+# --- differentiated parameters at Python-float coordinates (gap PR 21) ---------
+# The actionAngle entry points resolved the namespace from the phase-space
+# inputs alone, so a differentiated parameter (potential, b, omega, delta,
+# gamma) at float inputs reached numpy math. The inputs are now lifted onto the
+# parameter's backend, as @backend_input does for potentials.
+def _aa21_build(name):
+    from galpy.actionAngle import (
+        actionAngleAdiabatic,
+        actionAngleAdiabaticGrid,
+        actionAngleHarmonic,
+        actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckelGrid,
+        actionAngleVertical,
+        estimateDeltaStaeckel,
+    )
+    from galpy.potential import (
+        IsochronePotential,
+        MiyamotoNagaiPotential,
+        PlummerPotential,
+    )
+
+    def mn():
+        return MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.3)
+
+    if name == "isoinv-b":
+        return lambda p, cs: actionAngleIsochroneInverse(
+            ip=IsochronePotential(normalize=1.0, b=p)
+        )(*cs)[:5]
+    if name == "staeckelgrid-delta":
+        return lambda p, cs: actionAngleStaeckelGrid(
+            pot=mn(), delta=p, nE=10, npsi=10, nLz=10, c=True
+        )(*cs)
+    if name == "adiabaticgrid-gamma":
+        return lambda p, cs: actionAngleAdiabaticGrid(
+            pot=mn(), gamma=p, nR=10, nEz=10, nEr=10, nLz=10, c=True
+        )(*cs)
+    if name == "isochrone-b":
+        return lambda p, cs: actionAngleIsochrone(b=p)(*cs)
+    if name == "harmonic-omega":
+        return lambda p, cs: actionAngleHarmonic(omega=p)(*cs)
+    if name == "harmonicinverse-omega":
+        return lambda p, cs: actionAngleHarmonicInverse(omega=p)(*cs)
+    if name == "spherical-b":
+        return lambda p, cs: actionAngleSpherical(
+            pot=PlummerPotential(normalize=1.0, b=p)
+        )(*cs)
+    if name == "vertical-a":
+        return lambda p, cs: actionAngleVertical(
+            pot=MiyamotoNagaiPotential(normalize=1.0, a=p, b=0.3).toVertical(1.0)
+        )(*cs)
+    if name == "estimatedelta-a":
+        return lambda p, cs: (
+            estimateDeltaStaeckel(
+                MiyamotoNagaiPotential(normalize=1.0, a=p, b=0.3), *cs
+            ),
+        )
+    return lambda p, cs: actionAngleAdiabatic(pot=mn(), gamma=p, c=False)(*cs)
+
+
+def _aa21_reference(name):
+    """The numpy outputs the finite difference is taken of: a grid with a
+    differentiated parameter delegates to its exact class (c=True), so that,
+    not the interpolant, is what the gradient is of."""
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
+
+    def mn():
+        return MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.3)
+
+    if name == "staeckelgrid-delta":
+        return lambda p, cs: actionAngleStaeckel(pot=mn(), delta=p, c=True)(*cs)
+    if name == "adiabaticgrid-gamma":
+        return lambda p, cs: actionAngleAdiabatic(pot=mn(), gamma=p, c=True)(*cs)
+    return _aa21_build(name)
+
+
+_AA21 = {
+    # name: (p0, ics)
+    "isoinv-b": (1.2, (0.1, 1.1, 0.05, 0.1, 0.2, 0.3)),
+    # an inclined orbit: the delta/gamma dependence is O(Jz)
+    "staeckelgrid-delta": (0.4, (1.0, 0.1, 1.05, 0.2, 0.3)),
+    "adiabaticgrid-gamma": (1.0, (1.0, 0.1, 1.05, 0.2, 0.3)),
+    "adiabatic-gamma": (1.0, (1.0, 0.1, 1.05, 0.2, 0.3)),
+    "isochrone-b": (1.2, (1.0, 0.1, 1.05, 0.2, 0.3)),
+    "harmonic-omega": (1.3, (0.1, 0.2)),
+    "harmonicinverse-omega": (1.3, (0.1, 0.4)),
+    "spherical-b": (0.8, (1.0, 0.1, 1.05, 0.2, 0.3)),
+    "vertical-a": (0.5, (0.2, 0.3)),
+    "estimatedelta-a": (0.5, (1.0, 0.2)),
+}
+
+
+@pytest.mark.filterwarnings("ignore:.*carries a gradient.*")
+@pytest.mark.parametrize("name", list(_AA21))
+@pytest.mark.parametrize(
+    "bk,mode,jit",
+    [
+        (bk, mode, jit)
+        for bk in BACKENDS
+        for mode in ("float", "forced", "data")
+        for jit in ((False, True) if bk == "jax" else (False,))
+    ],
+)
+def test_aa21_param_grad_vs_fd(bk, mode, jit, name):
+    p0, ics = _AA21[name]
+    build = _aa21_build(name)
+
+    def fbk(p, cs):  # single-output classes (Harmonic) return one array
+        out = build(p, cs)
+        return out if isinstance(out, tuple) else (out,)
+
+    ref = _aa21_reference(name)
+
+    def fnp(p, cs):
+        out = ref(p, cs)
+        return out if isinstance(out, tuple) else (out,)
+
+    fd = _cjac_fd(lambda p: [numpy.asarray(o).ravel() for o in fnp(p, ics)], p0)
+    ad = _cjac_ad(bk, mode, jit, fbk, ics, p0)
+    assert numpy.amax(numpy.fabs(fd)) > 1e-4, "FD ~0: the test would prove nothing"
+    # measured <= 2e-10 relative
+    numpy.testing.assert_allclose(ad.ravel(), fd.ravel(), rtol=1e-8, atol=1e-12)
+
+
+def test_aa21_float_inputs_without_parameter_stay_numpy():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
+
+    out = actionAngleIsochrone(b=1.2)(1.0, 0.1, 1.05, 0.2, 0.3)
+    assert all(isinstance(o, numpy.ndarray) for o in out)
+    out = actionAngleStaeckel(
+        pot=MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.3), delta=0.4
+    )(1.0, 0.1, 1.05, 0.2, 0.3)
+    assert all(isinstance(o, numpy.ndarray) for o in out)

@@ -52,6 +52,7 @@ from ..potential.Potential import (
     _evaluateRforces,
     _evaluatezforces,
     _isNonAxi,
+    _pot_data_namespace,
 )
 from ..util import coords  # for prolate confocal transforms
 from ..util import (
@@ -2093,7 +2094,8 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
-    xp = get_namespace(R, z)
+    # a differentiated potential parameter counts as data at float (R, z)
+    xp = _pot_data_namespace((pot,), R, z)
     if xp is not numpy:
         # Resolved-namespace path (runs on jax/torch): under a forced backend the
         # numpy inputs are promoted UP to the backend so the whole estimate runs

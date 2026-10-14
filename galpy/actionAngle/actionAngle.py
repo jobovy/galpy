@@ -5,6 +5,8 @@ import numpy
 
 from ..backend._coerce import backend_point_1d
 from ..backend._namespaces import (
+    device_of,
+    is_backend_array,
     namespace_from_arrays,
     requires_backend_grad,
     under_trace,
@@ -71,6 +73,26 @@ class MetaActionAngle(type):
                         attrs[skey] = funccopy
                         break
         return type.__new__(meta, name, bases, attrs)
+
+
+def _lift_args(obj, args, point_1d=False):
+    """Python/numpy phase-space inputs onto the backend of a differentiated
+    parameter of ``obj`` (its potential, b, omega, ...), as ``@backend_input``
+    lifts a potential's coordinates; a forced numpy backend still wins.
+    Unchanged otherwise: on the numpy path one cached flag lookup."""
+    from ..backend._input import _coerce_one, _lift_param
+
+    if any(is_backend_array(a) for a in args) or not all(
+        isinstance(a, (int, float, numpy.number, numpy.ndarray)) for a in args
+    ):
+        return args
+    p = _lift_param(obj)
+    if p is None:
+        return args
+    xp, dev = namespace_from_arrays((p,)), device_of(p)
+    out = tuple(_coerce_one(xp, a, dev) for a in args)
+    # forward classes: a lifted scalar point as shape (1,), like numpy.array([x])
+    return backend_point_1d(*out) if point_1d else out
 
 
 def _point_1d(args):
@@ -250,7 +272,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'__call__' method not implemented for this actionAngle module"
             )
-        return method(*_point_1d(args), **kwargs)
+        return method(*_point_1d(_lift_args(self, args, point_1d=True)), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqs", pop=True)
@@ -287,7 +309,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqs' method not implemented for this actionAngle module"
             )
-        return method(*_point_1d(args), **kwargs)
+        return method(*_point_1d(_lift_args(self, args, point_1d=True)), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqsAngles", pop=True)
@@ -323,7 +345,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqsAngles' method not implemented for this actionAngle module"
             )
-        return method(*_point_1d(args), **kwargs)
+        return method(*_point_1d(_lift_args(self, args, point_1d=True)), **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("EccZmaxRperiRap", pop=True)
@@ -359,7 +381,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'EccZmaxRperiRap' method not implemented for this actionAngle module"
             )
-        return method(*_point_1d(args), **kwargs)
+        return method(*_point_1d(_lift_args(self, args, point_1d=True)), **kwargs)
 
 
 class UnboundError(Exception):  # pragma: no cover
