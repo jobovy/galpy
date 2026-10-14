@@ -284,3 +284,196 @@ def test_orbitintegration_grad_vs_fd(backend):
     hfine = min(fds)
     numpy.testing.assert_allclose(fds[hfine], ad, rtol=1e-5, atol=1e-9)
     assert abs(fds[hfine] - ad) <= abs(fds[max(fds)] - ad) + 1e-9
+
+
+# ---------------------------------------------------------------------------
+# general_curvedstream, plummerstream, plummerstream_curvedstream on the
+# backends (they ran scipy quad / a numpy Orbit: an island that raised on a
+# differentiated input), and differentiated perturber / potential parameters
+# with numpy coordinates under a forced backend (they took the numpy path).
+# ---------------------------------------------------------------------------
+from galpy.df.streamgapdf import (  # noqa: E402
+    impulse_deltav_general_curvedstream,
+    impulse_deltav_plummerstream,
+    impulse_deltav_plummerstream_curvedstream,
+)
+
+_GM, _RS = 0.0007346, 0.078125  # 1e8 Msun, 625 pc in natural units
+
+
+@pytest.fixture(scope="module")
+def kick_cases():
+    """name -> (f(param, xp_args) -> kick, param0, numpy arrays)."""
+    rng = numpy.random.RandomState(1)
+    cv = rng.normal(size=(5, 3)) * 0.1 + numpy.array([0.5, 0.1, 0.2])
+    cx = rng.normal(size=(5, 3)) * 0.05 + numpy.array([1.2, 0.0, 0.0])
+    cw = numpy.array([0.1, numpy.pi / 4.0, 0.1])
+    cx0, cv0 = numpy.array([1.2, 0.0, 0.0]), numpy.array([0.5, 0.1, 0.2])
+    gv, gy, _, gw = _general_config()
+    gv, gy = gv[:6], gy[:6]
+    phi = numpy.linspace(-numpy.pi / 2.0, numpy.pi / 2.0, 11)
+    sx, sv = 1.25 * phi, numpy.tile([1e-6, 1.0, 1e-6], (11, 1))
+    sw = numpy.array([0.0, 0.6, 0.8])
+    dt = 10.0 * _RS
+    pv = numpy.array([[0.5, 0.1, 0.2], [0.45, 0.12, 0.2]])
+    px = numpy.array([[1.2, 0.0, 0.0], [1.19, -0.05, 0.01]])
+    pt = numpy.array([0.0, -0.1])
+    pdt = _RS / (numpy.pi / 4.0)
+
+    def gs(t):  # a linearly varying Plummer-stream surface density
+        return _GM / dt * (1.0 + 0.3 * t / dt)
+
+    return {
+        "general:amp": (
+            lambda p, a: impulse_deltav_general(
+                a(gv), a(gy), 3.0, a(gw), PlummerPotential(amp=p, b=4.0)
+            ),
+            1.5,
+        ),
+        "general:b": (
+            lambda p, a: impulse_deltav_general(
+                a(gv), a(gy), p, a(gw), PlummerPotential(amp=1.5, b=4.0)
+            ),
+            3.0,
+        ),
+        "gencurved:pb": (
+            lambda p, a: impulse_deltav_general_curvedstream(
+                a(cv), a(cx), _RS, a(cw), a(cx0), a(cv0), PlummerPotential(amp=_GM, b=p)
+            ),
+            _RS,
+        ),
+        "gencurved:b": (
+            lambda p, a: impulse_deltav_general_curvedstream(
+                a(cv), a(cx), p, a(cw), a(cx0), a(cv0), PlummerPotential(amp=_GM, b=_RS)
+            ),
+            _RS,
+        ),
+        "pstream:rs": (
+            lambda p, a: impulse_deltav_plummerstream(
+                a(sv), a(sx), -_RS, a(sw), gs, p, -dt / 2.0, dt / 2.0
+            ),
+            _RS,
+        ),
+        "pstream:tmax": (
+            lambda p, a: impulse_deltav_plummerstream(
+                a(sv), a(sx), -_RS, a(sw), gs, _RS, -dt / 2.0, p
+            ),
+            dt / 2.0,
+        ),
+        "pcurved:b": (
+            lambda p, a: impulse_deltav_plummerstream_curvedstream(
+                a(pv),
+                a(px),
+                a(pt),
+                p,
+                a(cw),
+                a(cx0),
+                a(cv0),
+                lambda t: _GM / pdt,
+                _RS,
+                LogarithmicHaloPotential(normalize=1.0, q=0.9),
+                -pdt / 2.0,
+                pdt / 2.0,
+            ),
+            _RS,
+        ),
+        "pcurved:q": (
+            lambda p, a: impulse_deltav_plummerstream_curvedstream(
+                a(pv),
+                a(px),
+                a(pt),
+                _RS,
+                a(cw),
+                a(cx0),
+                a(cv0),
+                lambda t: _GM / pdt,
+                _RS,
+                LogarithmicHaloPotential(amp=1.0, q=p),
+                -pdt / 2.0,
+                pdt / 2.0,
+            ),
+            0.9,
+        ),
+    }
+
+
+_KICK_CASES = [
+    "general:amp",
+    "general:b",
+    "gencurved:pb",
+    "gencurved:b",
+    "pstream:rs",
+    "pstream:tmax",
+    "pcurved:b",
+    "pcurved:q",
+]
+
+
+@pytest.mark.parametrize("case", [c for c in _KICK_CASES if c != "general:amp"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kick_parity(kick_cases, backend, case):
+    # backend inputs: a backend array equal to the numpy kick (quadrature floors)
+    f, p0 = kick_cases[case]
+    ref = numpy.asarray(f(p0, numpy.asarray))
+    got = f(p0, lambda x: _to_backend(backend, x))
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(
+        as_numpy(got), ref, rtol=0.0, atol=1e-8 * numpy.max(numpy.abs(ref))
+    )
+
+
+@pytest.mark.parametrize("case", _KICK_CASES)
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kick_param_grad_vs_fd(kick_cases, backend, mode, case):
+    # d(sum kick^2)/d(param), the parameter built inside the differentiated
+    # function; inputs as backend arrays (data) or numpy under a forced backend
+    # (data-first like the other kicks: the differentiated parameter, not the
+    # forced default, takes it to the backend). Reference: Richardson central FD.
+    import galpy.backend
+
+    f, p0 = kick_cases[case]
+
+    def loss(p):
+        if mode == "data":
+            kick = f(p, lambda x: _to_backend(backend, x))
+        else:
+            with galpy.backend.use(backend, force=True):
+                kick = f(p, numpy.asarray)
+        assert is_backend_array(kick) == (mode == "data" or is_backend_array(p))
+        return (kick**2).sum()
+
+    if backend == "jax":
+        l0, ad = jax.value_and_grad(loss)(jnp.asarray(p0))
+    else:
+        pt = torch.tensor(p0, requires_grad=True)
+        l0 = loss(pt)
+        (ad,) = torch.autograd.grad(l0, pt)
+    l0, ad = float(l0), float(ad)
+
+    def fd(h):
+        h = h * abs(p0)
+        return float(as_numpy(loss(p0 + h)) - as_numpy(loss(p0 - h))) / (2.0 * h)
+
+    # atol: the adaptive orbit solves' floor where the kick barely depends on the
+    # galaxy potential (pcurved:q, measured 7e-14 = 1e-7 |loss| / q)
+    numpy.testing.assert_allclose(
+        ad,
+        (4.0 * fd(5e-4) - fd(1e-3)) / 3.0,
+        rtol=1e-7,
+        atol=2e-7 * abs(l0) / abs(p0),
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("case", ["gencurved:b", "pstream:rs", "pcurved:b"])
+def test_kick_param_grad_under_jit(kick_cases, case):
+    f, p0 = kick_cases[case]
+
+    def loss(p):
+        return (f(p, jnp.asarray) ** 2).sum()
+
+    ve, ge = jax.value_and_grad(loss)(p0)
+    vj, gj = jax.jit(jax.value_and_grad(loss))(p0)
+    numpy.testing.assert_allclose(float(vj), float(ve), rtol=1e-12)
+    numpy.testing.assert_allclose(float(gj), float(ge), rtol=1e-10)
