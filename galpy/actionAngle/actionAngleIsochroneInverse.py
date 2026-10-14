@@ -10,7 +10,7 @@
 import numpy
 from scipy import optimize
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, is_backend_array, promote_scalars
 from ..potential import IsochronePotential
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
@@ -60,7 +60,11 @@ class actionAngleIsochroneInverse(actionAngleInverse):
             self.amp = ip._amp
         else:
             self.b = conversion.parse_length(kwargs["b"], ro=self._ro)
-            rb = numpy.sqrt(self.b**2.0 + 1.0)
+            # a backend b (e.g. differentiated) stays on its backend
+            _sqrt = (
+                get_namespace(self.b).sqrt if is_backend_array(self.b) else numpy.sqrt
+            )
+            rb = _sqrt(self.b**2.0 + 1.0)
             self.amp = (self.b + rb) ** 2.0 * rb
         # In case we ever decide to implement this in C...
         self._c = False

@@ -21,6 +21,7 @@ from ..backend import (
     branch_where,
     device_of,
     get_namespace,
+    is_backend_array,
     promote_scalars,
     to_host,
 )
@@ -741,7 +742,10 @@ class actionAngleSpherical(actionAngle):
         )
         L = xp.sqrt(L2)
         vt = L / r
-        if self._gamma != 0.0 and not extra_Jz is None:
+        # a backend gamma (possibly traced) always applies its term
+        if not extra_Jz is None and (
+            is_backend_array(self._gamma) or self._gamma != 0.0
+        ):
             # Out-of-place (not +=): torch autograd cannot differentiate an
             # in-place add of a tensor still needed for the sqrt(L2) backward.
             L = L + self._gamma * extra_Jz
