@@ -472,3 +472,26 @@ def test_differentiated_parameter_turns_c_off():
     assert not ip.hasC and not ip._enable_c
     assert ip(0.9, 0.2).requires_grad
     assert _ip_of(0.5, "Phi", enable_c=True).hasC
+
+
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_vcirc_under_forced_backend_through_planar(backend_name):
+    # vcirc goes through planarPotentialFromRZPotential, which passes z as a
+    # Python 0.0 next to the (now coerced) backend R; the zsym wrapper used
+    # torch.abs on that float
+    import galpy.backend as gb
+    from galpy.potential import MWPotential2014, interpRZPotential, vcirc
+
+    rzpot = interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.01), numpy.log(20.0), 101),
+        logR=True,
+        zgrid=(0.0, 1.0, 51),
+        interpRforce=True,
+        zsym=True,
+    )
+    ref = float(vcirc(rzpot, 2.0))
+    with gb.use(backend_name, force=True):
+        got = vcirc(rzpot, 2.0)
+    assert gb.is_backend_array(got)
+    numpy.testing.assert_allclose(float(gb.as_numpy(got)), ref, rtol=1e-12)

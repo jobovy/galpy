@@ -74,7 +74,13 @@ def zsymDecorator(odd):
             R, z = args[1], args[2]
             backend = is_backend_array(R) or is_backend_array(z)
             if args[0]._zsym:
-                absz = get_namespace(R, z).abs(z) if backend else numpy.fabs(z)
+                if backend:
+                    # a planar caller passes a Python-float z next to backend R
+                    xp = get_namespace(R, z)
+                    R, z = promote_scalars(xp, R, z)
+                    absz = xp.abs(z)
+                else:
+                    absz = numpy.fabs(z)
                 out = func(args[0], R, absz, **kwargs)
             else:
                 out = func(*args, **kwargs)
