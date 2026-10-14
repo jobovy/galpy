@@ -91,11 +91,14 @@ def test_moment_parity(backend, dfname, df, fn):
     "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
 )
 def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
-    # diskdf's scipy-quad path calls the surface/sigma profile with PLAIN scalars
-    # ~133k times per oortA(). Under a forced backend a plain float resolves to
-    # that backend, so if _ssp lets it through, every one of those is a scalar
-    # coerced in and converted back out -- measured at an 8.7x traced slowdown
-    # (25.3 s vs 2.9 s for one oortA) when it regressed.
+    # The PUBLIC entry points coerce plain inputs under a forced backend (see
+    # test_forced_plain_inputs_return_backend); _ssp is what the numpy-only
+    # internals (the _estimate* helpers evolveddiskdf calls per gridpoint, the
+    # DFcorrection quadrature, the scipy samplers) call with PLAIN scalars,
+    # ~133k times per scipy-quad oortA(). Under a forced backend a plain float
+    # resolves to that backend, so if _ssp lets it through, every one of those
+    # is a scalar coerced in and converted back out -- measured at an 8.7x
+    # traced slowdown (25.3 s vs 2.9 s for one oortA) when it regressed.
     #
     # Asserting on the RETURN VALUE cannot see that: _ssp casts back with
     # as_numpy either way, so the round trip is invisible except as float noise
@@ -413,3 +416,198 @@ def test_moment_compiles_under_a_default_device(dfname, fn):
         R = torch.tensor(_RARR, dtype=torch.float64)
         ref, got = f(R), torch.compile(f, backend="eager")(R)
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-14, atol=0.0)
+
+
+# --------------------------------------------------------------------------
+# d/dbeta (the rotation-curve power law): gamma = sqrt(2/(1+beta)) and the
+# `if beta == 0` branches were numpy/Python, so a backend beta raised in every
+# mode. Each case builds the df INSIDE the differentiated function, in data
+# mode (backend coordinates) and FORCED mode (plain floats under use(...,
+# force=True)); the reference is a Richardson-extrapolated central FD of the
+# same backend computation at a plain-float beta.
+# --------------------------------------------------------------------------
+_BETA_CLASSES = ["dehnendf", "shudf", "schwarzschilddf"]
+_BETA_OUTS = ["f", "surfacemass", "sigmaR2", "meanvT"]
+
+
+@pytest.fixture
+def beta_quantity():
+    import contextlib
+
+    import galpy.df
+
+    def q(cls, out, beta, mode, backend):
+        vR, vT, R = 0.1, 0.9, 0.9
+        if mode == "data":
+            vR, vT, R = (_scalar(backend, x) for x in (vR, vT, R))
+        ctx = use(backend, force=True) if mode == "forced" else contextlib.nullcontext()
+        with ctx:
+            df = getattr(galpy.df, cls)(beta=beta, profileParams=(0.25, 1.0, 0.2))
+            if out == "f":
+                return df(*vRvTRToEL(vR, vT, R, beta, df._dftype))
+            return getattr(df, out)(R, use_physical=False)
+
+    return q
+
+
+def _richardson(f, x0, h=1e-3):
+    d = lambda h: (f(x0 + h) - f(x0 - h)) / (2.0 * h)
+    d1, d2 = d(h), d(h / 2.0)
+    return (4.0 * d2 - d1) / 3.0, abs(d2 - d1)
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("out", _BETA_OUTS)
+@pytest.mark.parametrize("cls", _BETA_CLASSES)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_beta_grad_vs_fd(backend, cls, out, mode, beta_quantity):
+    beta0 = 0.1
+    fd, fderr = _richardson(
+        lambda b: float(as_numpy(beta_quantity(cls, out, b, mode, backend))), beta0
+    )
+    assert fderr < 1e-4 * abs(fd)  # FD converged
+    if backend == "jax":
+        f = lambda b: jnp.reshape(beta_quantity(cls, out, b, mode, "jax"), ())
+        gs = [jax.grad(f)(jnp.asarray(beta0)), jax.jit(jax.grad(f))(jnp.asarray(beta0))]
+    else:
+        b = torch.tensor(beta0, requires_grad=True)
+        (g,) = torch.autograd.grad(beta_quantity(cls, out, b, mode, "torch"), b)
+        gs = [g]
+    # FD (Richardson, h=1e-3) truncation ~1e-12: measured AD-vs-FD <= 2e-10
+    for g in gs:
+        numpy.testing.assert_allclose(float(g), fd, rtol=1e-8, atol=1e-12)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("cls", _BETA_CLASSES)
+def test_beta_grad_vmap(cls, beta_quantity):
+    # a batched (traced) beta takes both _beta_branch arms through xp.where
+    betas = numpy.array([0.1, -0.15])
+    f = lambda b: jnp.reshape(beta_quantity(cls, "f", b, "data", "jax"), ())
+    g = numpy.asarray(jax.vmap(jax.grad(f))(jnp.asarray(betas)))
+    ref = [float(jax.grad(f)(jnp.asarray(b))) for b in betas]
+    numpy.testing.assert_allclose(g, ref, rtol=1e-12, atol=0.0)
+
+
+@pytest.mark.parametrize("out", _BETA_OUTS)
+@pytest.mark.parametrize("cls", _BETA_CLASSES)
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("beta", [0.0, 0.2])
+def test_backend_beta_value_parity(backend, beta, cls, out, beta_quantity):
+    # a backend beta (concretely 0 or not, and traced under jax.jit) matches numpy
+    ref = float(beta_quantity(cls, out, beta, "numpy", "numpy"))
+    vals = [beta_quantity(cls, out, _scalar(backend, beta), "data", backend)]
+    if backend == "jax":
+        vals.append(
+            jax.jit(lambda b: beta_quantity(cls, out, b, "data", "jax"))(
+                jnp.asarray(beta)
+            )
+        )
+    for v in vals:
+        assert is_backend_array(v)
+        numpy.testing.assert_allclose(float(as_numpy(v)), ref, rtol=1e-10)
+
+
+@pytest.mark.parametrize("cls", _BETA_CLASSES)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_forced_plain_inputs_return_backend(backend, cls, monkeypatch):
+    # CONTRACT CHANGE: under a forced backend, plain-float inputs to __call__ and
+    # the moments are coerced onto it (they used to stay on numpy by design, so
+    # a gradient through e.g. a backend profile parameter was the only way in).
+    # The moments then use the backend quadrature, never scipy's dblquad.
+    import importlib
+
+    import galpy.df
+    from galpy.orbit import Orbit
+
+    _dd = importlib.import_module("galpy.df.diskdf")  # the class shadows the module
+
+    df = getattr(galpy.df, cls)(beta=0.1, profileParams=(0.25, 1.0, 0.2))
+    E, L = vRvTRToEL(0.1, 0.9, 0.9, 0.1, df._dftype)
+    calls = {
+        "f(E,L)": lambda: df(E, L),
+        "f(Orbit)": lambda: df(Orbit([0.9, 0.1, 0.9, 0.0])),
+        "eval": lambda: df.eval(E, L),
+        "targetSigma2": lambda: df.targetSigma2(0.9, use_physical=False),
+        "targetSurfacemass": lambda: df.targetSurfacemass(0.9, use_physical=False),
+        "asymmetricdrift": lambda: df.asymmetricdrift(0.9, use_physical=False),
+        "vmomentsurfacemass": lambda: df.vmomentsurfacemass(
+            0.9, 2, 0, use_physical=False
+        ),
+        "vmomentsurfacemass_odd": lambda: df.vmomentsurfacemass(
+            0.9, 1, 0, use_physical=False
+        ),
+    }
+    for fn in ["surfacemass", "sigma2surfacemass", "sigma2", "sigmaR2", "sigmaT2"]:
+        calls[fn] = lambda fn=fn: getattr(df, fn)(0.9, use_physical=False)
+    for fn in ["meanvT", "meanvR", "oortA", "oortB", "oortC", "oortK"]:
+        calls[fn] = lambda fn=fn: getattr(df, fn)(0.9, use_physical=False)
+    for fn in ["skewvT", "skewvR", "kurtosisvT", "kurtosisvR"]:
+        calls[fn] = lambda fn=fn: getattr(df, fn)(0.9)
+    refs = {k: float(numpy.real(c())) for k, c in calls.items()}
+    used = []
+    monkeypatch.setattr(
+        _dd.integrate, "dblquad", lambda *a, **k: used.append(1) or (0.0, 0.0)
+    )
+    with use(backend, force=True):
+        for k, c in calls.items():
+            got = c()
+            assert is_backend_array(got), f"{k}: returned {type(got)}"
+            # meanvR/skewvR vanish: absolute floor
+            numpy.testing.assert_allclose(
+                float(as_numpy(got)), refs[k], rtol=1e-9, atol=1e-12, err_msg=k
+            )
+    assert not used, "a forced-backend moment fell back to scipy's dblquad"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_numpy_only_consumers_stay_on_numpy_under_force(backend, monkeypatch):
+    # the scipy/numpy-RNG methods keep their plain inputs on numpy under a forced
+    # backend (otherwise every inner df()/sigma2() call is coerced in and out)
+    import galpy.backend._input as _bi
+    from galpy.df import dehnendf
+
+    df = dehnendf(beta=0.1, profileParams=(0.25, 1.0, 0.2))
+    numpy.random.seed(3)
+    ref = df.sampleVRVT(0.9, n=2, target=False)
+    real, entered = _bi.coerce_coords, []
+
+    def spy(xp, *coords, **kwargs):
+        entered.append(getattr(xp, "__name__", str(xp)))
+        return real(xp, *coords, **kwargs)
+
+    monkeypatch.setattr(_bi, "coerce_coords", spy)
+    numpy.random.seed(3)
+    with use(backend, force=True):
+        got = df.sampleVRVT(0.9, n=2, target=False)
+    assert not [n for n in entered if n != "numpy"]
+    assert not is_backend_array(got)
+    numpy.testing.assert_array_equal(got, ref)
+
+
+@pytest.mark.parametrize("forced", [False, True])
+@pytest.mark.parametrize("cls", _BETA_CLASSES)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_grad_wrt_profile_parameter_at_plain_EL(backend, cls, forced):
+    # a differentiated profile parameter with plain-float (E, L): the backend
+    # eval used to resolve numpy from (E, L) alone and meet the traced parameter
+    import contextlib
+
+    import galpy.df
+
+    E, L = vRvTRToEL(0.1, 0.9, 0.9, 0.0, getattr(galpy.df, cls)()._dftype)
+
+    def f(hr, bk=None):
+        ctx = use(bk, force=True) if forced and bk else contextlib.nullcontext()
+        with ctx:
+            return getattr(galpy.df, cls)(profileParams=(hr, 1.0, 0.2))(E, L)
+
+    fd, _ = _richardson(lambda h: float(f(h)), 0.25)
+    if backend == "jax":
+        g = float(jax.grad(lambda h: jnp.reshape(f(h, "jax"), ()))(jnp.asarray(0.25)))
+    else:
+        t = torch.tensor(0.25, requires_grad=True)
+        (g,) = torch.autograd.grad(f(t, "torch"), t)
+        g = float(g)
+    # closed form on both sides: FD (Richardson) floor ~1e-12
+    numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=0.0)

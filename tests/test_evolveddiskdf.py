@@ -1,6 +1,7 @@
 # Tests of the evolveddiskdf module
 import numpy
 
+from galpy.backend import as_numpy
 from galpy.df import dehnendf, evolveddiskdf
 from galpy.potential import (
     EllipticalDiskPotential,
@@ -141,7 +142,7 @@ def test_mildnonaxi_meanvt_grid():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf"
     )
     mvt = edf.meanvT(
@@ -151,7 +152,7 @@ def test_mildnonaxi_meanvt_grid():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid"
     )
     global _maxi_meanvt
@@ -175,13 +176,13 @@ def test_mildnonaxi_meanvt_hierarchgrid():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid"
     )
     mvt = edf.meanvT(
         0.9, phi=0.2, integrate_method="rk6_c", grid=grid, gridpoints=_GRIDPOINTS
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid"
     )
     # Also test that the hierarchgrid is properly returned
@@ -231,7 +232,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005), (
+    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist"
     )
     mvt = edf.meanvT(
@@ -242,7 +243,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005), (
+    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist"
     )
     return None
@@ -265,13 +266,13 @@ def test_mildnonaxi_meanvt_hierarchgrid_zerolevels():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid"
     )
     mvt = edf.meanvT(
         0.9, phi=0.2, integrate_method="rk6_c", grid=grid, gridpoints=_GRIDPOINTS
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid"
     )
     return None
@@ -295,7 +296,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005), (
+    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist"
     )
     mvt = edf.meanvT(
@@ -306,7 +307,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005), (
+    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist"
     )
     return None
@@ -336,7 +337,7 @@ def test_mildnonaxi_meanvt_grid_rmEstimates():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf"
     )
     return None
@@ -349,7 +350,7 @@ def test_mildnonaxi_meanvt_direct():
     pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt = edf.meanvT(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.001, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.001, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using direct integration"
     )
     return None
@@ -370,7 +371,7 @@ def test_mildnonaxi_sigmar2_grid():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    isr2 = idf.sigmaR2(0.9)
+    isr2 = as_numpy(idf.sigmaR2(0.9))
     assert numpy.fabs(numpy.log(sr2) - numpy.log(isr2)) < 0.025, (
         "sigmar2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
@@ -404,7 +405,7 @@ def test_mildnonaxi_sigmar2_direct():
     pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     sr2 = edf.sigmaR2(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
-    isr2 = idf.sigmaR2(0.9)
+    isr2 = as_numpy(idf.sigmaR2(0.9))
     assert numpy.fabs(numpy.log(sr2) - numpy.log(isr2)) < 0.025, (
         "sigmar2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated directly"
     )
@@ -426,7 +427,7 @@ def test_mildnonaxi_sigmat2_grid():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    ist2 = idf.sigmaT2(0.9)
+    ist2 = as_numpy(idf.sigmaT2(0.9))
     assert numpy.fabs(numpy.log(st2) - numpy.log(ist2)) < 0.025, (
         "sigmat2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
@@ -460,7 +461,7 @@ def test_mildnonaxi_sigmat2_direct():
     pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     st2 = edf.sigmaT2(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
-    ist2 = idf.sigmaT2(0.9)
+    ist2 = as_numpy(idf.sigmaT2(0.9))
     assert numpy.fabs(numpy.log(st2) - numpy.log(ist2)) < 0.025, (
         "sigmat2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated directly"
     )
@@ -593,7 +594,7 @@ def test_mildnonaxi_oortA_grid():
         gridpoints=_GRIDPOINTS,
         derivGridpoints=_GRIDPOINTS,
     )
-    ioa = idf.oortA(0.9)
+    ioa = as_numpy(idf.oortA(0.9))
     assert numpy.fabs(oa - ioa) < 0.005, (
         "oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
@@ -632,7 +633,7 @@ def test_mildnonaxi_oortA_grid_tlist():
         gridpoints=_GRIDPOINTS,
         derivGridpoints=_GRIDPOINTS,
     )
-    ioa = idf.oortA(0.9)
+    ioa = as_numpy(idf.oortA(0.9))
     assert numpy.all(numpy.fabs(oa - ioa) < 0.005), (
         "oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
@@ -671,7 +672,7 @@ def test_mildnonaxi_oortB_grid():
         gridpoints=_GRIDPOINTS,
         derivGridpoints=_GRIDPOINTS,
     )
-    iob = idf.oortB(0.9)
+    iob = as_numpy(idf.oortB(0.9))
     assert numpy.fabs(ob - iob) < 0.005, (
         "oortB of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
@@ -782,7 +783,7 @@ def test_mildnonaxi_meanvt_grid_tlist_onet():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf"
     )
     mvt = edf.meanvT(
@@ -793,7 +794,7 @@ def test_mildnonaxi_meanvt_grid_tlist_onet():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005, (
+    assert numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005, (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid"
     )
     global _maxi_meanvt
@@ -1089,20 +1090,22 @@ def test_call_special():
     else:
         raise AssertionError("edf.__call__ w/o Orbit input did not raise IOError")
     # Call w/ list, but just to
-    assert numpy.fabs(numpy.log(edf(o, [-10.0])) - numpy.log(idf(o))) < 10.0**-10.0, (
-        "edf.__call__ w/ tlist set to [to] did not return initial DF"
-    )
+    assert (
+        numpy.fabs(numpy.log(edf(o, [-10.0])) - numpy.log(as_numpy(idf(o))))
+        < 10.0**-10.0
+    ), "edf.__call__ w/ tlist set to [to] did not return initial DF"
     # Call w/ just to
-    assert numpy.fabs(numpy.log(edf(o, -10.0)) - numpy.log(idf(o))) < 10.0**-10.0, (
-        "edf.__call__ w/ tlist set to [to] did not return initial DF"
-    )
+    assert (
+        numpy.fabs(numpy.log(edf(o, -10.0)) - numpy.log(as_numpy(idf(o)))) < 10.0**-10.0
+    ), "edf.__call__ w/ tlist set to [to] did not return initial DF"
     # also w/ log
-    assert numpy.fabs(edf(o, [-10.0], log=True) - numpy.log(idf(o))) < 10.0**-10.0, (
-        "edf.__call__ w/ tlist set to [to] did not return initial DF (log)"
-    )
-    assert numpy.fabs(edf(o, -10.0, log=True) - numpy.log(idf(o))) < 10.0**-10.0, (
-        "edf.__call__ w/ tlist set to [to] did not return initial DF (log)"
-    )
+    assert (
+        numpy.fabs(edf(o, [-10.0], log=True) - numpy.log(as_numpy(idf(o))))
+        < 10.0**-10.0
+    ), "edf.__call__ w/ tlist set to [to] did not return initial DF (log)"
+    assert (
+        numpy.fabs(edf(o, -10.0, log=True) - numpy.log(as_numpy(idf(o)))) < 10.0**-10.0
+    ), "edf.__call__ w/ tlist set to [to] did not return initial DF (log)"
     # Tests w/ odeint: tlist, one NaN
     codeint = edf(
         o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="odeint", log=True
@@ -1134,7 +1137,7 @@ def test_call_special():
     assert (
         numpy.fabs(
             edf(o, -10.0, deriv="R")
-            - idf(o) * idf._dlnfdR(o.vxvv[0, 0], o.vxvv[0, 1], o.vxvv[0, 2])
+            - as_numpy(idf(o)) * idf._dlnfdR(o.vxvv[0, 0], o.vxvv[0, 1], o.vxvv[0, 2])
         )
         < 10.0**-10.0
     ), "edf.__call__ w/ to did not return initial DF (deriv=R)"
