@@ -24,6 +24,7 @@ from packaging.version import Version
 from scipy import integrate, optimize
 
 from ..backend import (
+    as_numpy,
     backend_input,
     coerce_coords,
     device_of,
@@ -38,6 +39,7 @@ from ..backend import quadrature as _bquad
 from ..backend import resolve_namespace, scalar_like, to_host
 from ..backend._input import params_changed
 from ..backend._namespaces import (
+    has_concrete_truth_value,
     param_grad_namespace,
     requires_backend_grad,
     under_trace,
@@ -3643,19 +3645,21 @@ def rl(Pot, lz, t=0.0):
     ----------
     Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance or a combined potential formed using addition (pot1+pot2+…).
-    lz : float or Quantity
+    lz : float, numpy.ndarray, or Quantity
         Angular momentum (can be Quantity).
     t : float or Quantity, optional
         Time (default: 0).
 
     Returns
     -------
-    float or Quantity
+    float, numpy.ndarray, or Quantity
         Radius.
 
     Notes
     -----
     - 2012-07-30 - Written - Bovy (IAS@MPIA)
+
+    - 2026-10-14 - Array lz solved for all elements at once - Bovy (UofT)
 
     - An efficient way to call this function on many objects is provided as the Orbit method rguiding.
 
@@ -3689,6 +3693,10 @@ def rl(Pot, lz, t=0.0):
         # branch-free schedule grows/shrinks it to bracket the root.
         rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5, hi0=2.0 * alz)
         return _bk_brentq(f, rlower, rstart, maxiter=200)
+    if isinstance(lz, numpy.ndarray) and lz.ndim > 0:
+        if lz.size < 4:  # a bisection's ~50 vcirc calls cost ~4 scalar solves
+            return numpy.array([rl(Pot, x, t=t, use_physical=False) for x in lz])
+        return _rl_array(Pot, numpy.fabs(lz), t)
     # Find interval
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
     try:
@@ -3728,6 +3736,34 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
         else:
             rtry *= 2.0
     return rtry
+
+
+def _rl_array(pot, lz, t=0.0):
+    """rl for an array of |lz|: the scalar bracket, bisected for all elements at once"""
+
+    def _rlfunc_host(r, l, pot, t=0.0):  # numpy values: a forced backend's too
+        return r * as_numpy(vcirc(pot, r, t=t, use_physical=False)) - l
+
+    hi = 2.0 * lz
+    grow = _rlfunc_host(hi, lz, pot, t=t) < 0.0
+    while numpy.any(grow):
+        hi[grow] *= 2.0
+        grow[grow] = _rlfunc_host(hi[grow], lz[grow], pot, t=t) < 0.0
+    lo = numpy.full(lz.shape, 10.0**-5.0)
+    shrink = _rlfunc_host(lo, lz, pot, t=t) > 0.0
+    while numpy.any(shrink):
+        lo[shrink] /= 2.0
+        shrink[shrink] = _rlfunc_host(lo[shrink], lz[shrink], pot, t=t) > 0.0
+    # to brentq's default rtol (relative, so small radii are as precise as large
+    # ones); 1100 halvings span any finite bracket
+    for _ in range(1100):
+        if not numpy.any(hi - lo > 4.0 * numpy.finfo(float).eps * hi):
+            break
+        mid = 0.5 * (lo + hi)
+        below = _rlfunc_host(mid, lz, pot, t=t) < 0.0
+        lo = numpy.where(below, mid, lo)
+        hi = numpy.where(below, hi, mid)
+    return 0.5 * (lo + hi)
 
 
 def _pot_grad_namespace(Pot, any_backend=False):
@@ -3790,10 +3826,14 @@ def _backend_rootbracket(func, anchor, *, lower_default=1e-5, hi0=2.0, nsteps=60
     lo = one * lower_default
     hi = xp.maximum(one * hi0, one * (10.0 * lower_default))
     for _ in range(nsteps):
-        # Grow hi while func(hi) <= 0 (root still above hi).
-        hi = xp.where(func(hi) < 0.0, hi * 2.0, hi)
-        # Shrink lo while func(lo) >= 0 (root still below lo).
-        lo = xp.where(func(lo) > 0.0, lo * 0.5, lo)
+        # Grow hi while func(hi) <= 0 (root still above hi); shrink lo while
+        # func(lo) >= 0 (root still below lo).
+        grow, shrink = func(hi) < 0.0, func(lo) > 0.0
+        done = ~(xp.any(grow) | xp.any(shrink))
+        if has_concrete_truth_value(done) and bool(done):
+            break  # eager: the remaining steps would leave the bracket unchanged
+        hi = xp.where(grow, hi * 2.0, hi)
+        lo = xp.where(shrink, lo * 0.5, lo)
     return hi, lo
 
 

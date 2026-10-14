@@ -4220,6 +4220,26 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
     return None
 
 
+def test_rl_array():
+    # An array of lz is solved for all elements at once, to machine precision
+    # (relative). Kepler: rl = lz^2; the bracket has to grow (large lz) and
+    # shrink (rl < 1e-5)
+    from galpy.potential import MWPotential2014, rl
+
+    kp = potential.KeplerPotential(normalize=1.0)
+    lzs = numpy.array([1e-6, 1e-4, 2e-3, -0.5, 1.0, 3.0, -30.0, 100.0])
+    numpy.testing.assert_allclose(rl(kp, lzs), lzs**2.0, rtol=1e-14, atol=0.0)
+    # and agrees with the scalar solve to brentq's (absolute) tolerance
+    lzs = numpy.array([0.01, 0.3, -1.0, 2.5, 12.0])
+    numpy.testing.assert_allclose(
+        rl(MWPotential2014, lzs),
+        [rl(MWPotential2014, lz) for lz in lzs],
+        rtol=0.0,
+        atol=1e-11,
+    )
+    return None
+
+
 def test_vcirc_phi_axi():
     # Test that giving phi to vcirc for an axisymmetric potential doesn't
     # affect the answer

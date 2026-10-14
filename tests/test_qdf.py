@@ -857,8 +857,19 @@ def test_sampleV_physical():
 
 
 def test_sampleV_interpolate():
+    # the rg(Lz) table extends past the outlier's |Lz| (up to 16); the default
+    # (5 hr = 1.25) leaves it to rl
     qdf = quasiisothermaldf(
-        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+        1.0 / 4.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=aAS,
+        cutcounter=True,
+        _precomputergrmax=17.0,
+        _precomputergnLz=201,
     )
     vo = 225.0
     numpy.random.seed(3)
@@ -1725,7 +1736,7 @@ def test_precomputerg_false():
     lzs = numpy.array([0.5, 1.1])
     assert numpy.all(
         numpy.fabs(qdfnpc._rg(lzs) - numpy.array([rl(MWPotential, l) for l in lzs]))
-        < 1e-14
+        < 1e-11  # array rl: bisection to brentq's tolerance
     ), "qdf w/ _precomputerg=False does not compute rg exactly"
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
@@ -1827,26 +1838,29 @@ def test_rg_outofgrid_array():
     )
     lzs = numpy.array(
         [
-            -0.3,
+            -0.3,  # in the table by |lz|
             0.001,
             0.5,
             1.1,
             qdf._precomputergLzmax * 1.5,
             0.001,
-            qdf._precomputergLzmax * 3.0,
+            -qdf._precomputergLzmax * 3.0,
+            0.0,  # rl undefined, spline value kept (DF vanishes there)
         ]
     )
     rgs = qdf._rg(lzs)
+    # array rl bisects to brentq's tolerance, so the two agree to ~1e-12
     for lz, rg in zip(lzs, rgs):
-        assert numpy.fabs(rg - qdf._rg(lz)) < 1e-14, (
+        assert numpy.fabs(rg - qdf._rg(lz)) < 1e-11, (
             "qdf rg for an array of Lz does not agree with the scalar path"
         )
-        assert numpy.fabs(rg / rl(MWPotential, lz) - 1.0) < 1e-5, (
-            "qdf rg for an array of Lz does not agree with rl"
-        )
+        if lz != 0.0:
+            assert numpy.fabs(rg / rl(MWPotential, lz) - 1.0) < 1e-5, (
+                "qdf rg for an array of Lz does not agree with rl"
+            )
     # out-of-grid points are solved for exactly
-    for ii in [0, 1, 4, 5, 6]:
-        assert numpy.fabs(rgs[ii] - rl(MWPotential, lzs[ii])) < 1e-14, (
+    for ii in [1, 4, 5, 6]:
+        assert numpy.fabs(rgs[ii] - rl(MWPotential, lzs[ii])) < 1e-11, (
             "qdf rg for an out-of-grid Lz in an array does not agree with rl"
         )
     return None

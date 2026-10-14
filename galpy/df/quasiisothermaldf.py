@@ -25,13 +25,14 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, set_at, to_host, use
-from ..backend._coerce import mask_where
+from ..backend._coerce import lazy_cond, mask_where
 from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_for_name,
     namespace_from_arrays,
     requires_backend_grad,
     stop_gradient,
+    under_jax_trace,
     under_trace,
     untraceable_setup,
 )
@@ -3596,16 +3597,36 @@ class quasiisothermaldf(df):
                 return potential.rl(self._pot, lz)
             # _precomputerg=True: the spline inside the table, rl outside it
             xp = namespace_from_arrays((lz,))
-            out = self._rgInterpBackend(lz)
-            indx = ((lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)) & (
-                lz != 0.0
-            )  # see the numpy branch on lz = 0
+            alz = xp.abs(lz)  # see the numpy branch on |lz| and lz = 0
+            out = self._rgInterpBackend(alz)
+            indx = (
+                (alz > self._precomputergLzmax) | (alz < self._precomputergLzmin)
+            ) & (lz != 0.0)
             nout = xp.sum(indx)
-            if not has_concrete_truth_value(nout):  # traced: rl on every lz
+            if not has_concrete_truth_value(nout):  # traced: rl only if any is out
                 lzs = mask_where(xp, indx, lz, self._precomputergLzmin)
-                return xp.where(indx, potential.rl(self._pot, lzs), out)
+                return lazy_cond(
+                    xp,
+                    nout > 0,
+                    lambda: xp.where(indx, potential.rl(self._pot, lzs), out),
+                    lambda: out,
+                )
             if int(nout) == 0:
                 return out
+            if (
+                name_of_namespace(xp) == "jax"
+                and not under_jax_trace(lz)
+                and _pot_grad_namespace(self._pot) is None
+            ):
+                # untraced jax carries no gradient: the few out-of-table points on
+                # the host, merged with a fixed-shape where (a boolean gather or
+                # scatter recompiles for every new count). An eager jax.grad's
+                # tracer has a concrete count but needs the backend solve
+                ind = as_numpy(indx)
+                fill = numpy.zeros(ind.shape)
+                with use("numpy", force=True):
+                    fill[ind] = potential.rl(self._pot, as_numpy(lz)[ind])
+                return xp.where(indx, asarray_on_device(xp, fill, device_of(lz)), out)
             return set_at(xp, out, indx, potential.rl(self._pot, lz[indx]))
         if self._rgInterp is None:  # _precomputerg=False: rl everywhere
             # The backend branch above already had this fallback; the numpy one
@@ -3613,24 +3634,26 @@ class quasiisothermaldf(df):
             # option -- raised "'NoneType' object is not callable" here. It also
             # became reachable internally once the guard in __init__ skips the
             # table for a differentiated POTENTIAL, not just a differentiated hr.
-            if isinstance(lz, numpy.ndarray):
-                return numpy.array([potential.rl(self._pot, t) for t in lz])
             return potential.rl(self._pot, lz)
+        # rg depends on |lz|. lz == 0: rl is undefined (rg -> 0), but the DF
+        # vanishes there (Omega = |lz|/rg^2 = 0), so keep the finite spline value
+        alz = numpy.fabs(lz)
         if isinstance(lz, numpy.ndarray):
-            # rl has no root at lz = 0 (it raises for e.g. MWPotential): keep the
-            # spline value there, as before
-            indx = ((lz > self._precomputergLzmax) | (lz < self._precomputergLzmin)) & (
-                lz != 0.0
+            indx = (alz > self._precomputergLzmax) | (
+                (alz < self._precomputergLzmin) * (lz != 0.0)
             )
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
-            out[indxc] = self._rgInterp(lz[indxc])
-            out[indx] = numpy.array([potential.rl(self._pot, tlz) for tlz in lz[indx]])
+            out[indxc] = self._rgInterp(alz[indxc])
+            if numpy.any(indx):
+                out[indx] = potential.rl(self._pot, lz[indx])
             return out
         else:
-            if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
+            if alz > self._precomputergLzmax or (
+                alz < self._precomputergLzmin and lz != 0.0
+            ):
                 return potential.rl(self._pot, lz)
-            return numpy.atleast_1d(self._rgInterp(lz))
+            return numpy.atleast_1d(self._rgInterp(alz))
 
 
 def _vmomentsurfaceIntegrand(
