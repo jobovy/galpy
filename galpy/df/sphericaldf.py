@@ -1614,6 +1614,8 @@ class sphericaldf(df):
         # Check if potential at r=0 is finite; if not, start at r_a_min
         # context/forced default, else a differentiated potential parameter's
         xp = _pot_data_namespace((self._pot,))
+        if xp is numpy:  # plain backend-array parameters: numpy cannot take them
+            xp = _pot_grad_namespace(self._pot, any_backend=True) or numpy
         _probe = (
             _evaluatePotentials(self._pot, xp.asarray(1.0) * self._scale, 0)
             if xp is not numpy

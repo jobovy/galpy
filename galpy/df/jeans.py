@@ -2,7 +2,7 @@
 import numpy
 from scipy import integrate, interpolate
 
-from ..backend import get_namespace
+from ..backend import concretely_true, get_namespace, has_concrete_truth_value
 from ..backend.quadrature import fixed_quad_semiinfinite, quad
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
@@ -277,20 +277,26 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
             # z=None asks for the whole line structurally; z=inf would be a value
             # a trace cannot inspect (it returns NaN under jit).
             called_surfdens = evaluateSurfaceDensities(Pot, R, None, use_physical=False)
+
         # xp.isnan == numpy.isnan on the numpy path (byte-identical); the
         # surfdens is a scalar here (scipy.quad / the R-scalar backend path).
-        if not densPot or xp.isnan(called_surfdens):
+        def _los_integral():
             if xp is numpy:
-                called_surfdens = (
+                return (
                     2.0
                     * integrate.quad(
                         lambda x: dens(numpy.sqrt(R**2.0 + x**2.0)), 0.0, numpy.inf
                     )[0]
                 )
-            else:
-                called_surfdens = 2.0 * fixed_quad_semiinfinite(
-                    xp, lambda x: dens(xp.sqrt(R**2.0 + x**2.0)), 0.0
-                )
+            return 2.0 * fixed_quad_semiinfinite(
+                xp, lambda x: dens(xp.sqrt(R**2.0 + x**2.0)), 0.0
+            )
+
+        nan = None if not densPot else xp.isnan(called_surfdens)
+        if not densPot or concretely_true(nan):
+            called_surfdens = _los_integral()
+        elif not has_concrete_truth_value(nan):  # traced: select the fallback
+            called_surfdens = xp.where(nan, _los_integral(), called_surfdens)
     else:
         called_surfdens = surfdens
     if callable(beta):

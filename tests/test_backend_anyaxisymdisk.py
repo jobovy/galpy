@@ -593,3 +593,38 @@ def test_construction_accepts_a_surfdens_that_returns_a_backend_array(backend_na
             evaluateRforces(pot, _scalar(backend_name, R), _scalar(backend_name, z))
         )
         numpy.testing.assert_allclose(got, ref, rtol=1e-12, err_msg=f"R={R}, z={z}")
+
+
+# Under a forced backend (gap audit PR 28): the constructor's unit probes, its
+# Phi(0) quadrature and the scipy path for a plain concrete input call surfdens
+# with plain floats under numpy semantics, so an xp-agnostic surfdens works
+# (forced torch raised on torch.exp(int)) and amp is differentiable under jit
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+def _anydisk(amp):
+    return AnyAxisymmetricRazorThinDiskPotential(
+        amp=amp, surfdens=lambda R: 1.5 * get_namespace(R).exp(-3.0 * R)
+    )
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("method", ["Phi", "Rforce", "zforce"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_xp_agnostic_surfdens_amp_gradient(backend_name, mode, method):
+    assert_param_grad(
+        backend_name, mode, _anydisk, {"amp": 1.2}, "amp", method, [0.9, 0.2]
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_xp_agnostic_surfdens_forced_plain_values(backend_name):
+    import galpy.backend as gb
+
+    npot = _anydisk(1.2)
+    with gb.use(backend_name, force=True):
+        pot = _anydisk(1.2)
+        out = [pot(0.9, 0.2), pot.Rforce(0.9, 0.2), pot(0.0, 0.0)]
+    for got, ref in zip(out, [npot(0.9, 0.2), npot.Rforce(0.9, 0.2), npot(0.0, 0.0)]):
+        assert is_backend_array(got)
+        assert float(got) == ref

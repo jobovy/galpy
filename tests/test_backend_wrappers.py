@@ -336,6 +336,28 @@ def test_torch_dtype_preserved(pot):
         assert pot._Rforce(*args, **kwargs).dtype == child_dtype
 
 
+# --- the boundary flag (gap audit PR 28) -------------------------------------
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_solidbodyrotation_is_backend_compatible(backend_name):
+    # pure arithmetic on phi: flagged, so a forced backend coerces at its own
+    # boundary and differentiates d/domega at plain coordinates
+    from galpy import backend
+    from galpy.backend import is_backend_array, is_backend_compatible
+
+    pot = SolidBodyRotationWrapperPotential(pot=_SP, omega=1.1, pa=0.3)
+    assert is_backend_compatible(pot)
+    with backend.use(backend_name, force=True):
+        out = pot(1.1, 0.2, phi=0.4, t=0.7)
+    assert is_backend_array(out)
+    assert abs(float(out) / pot(1.1, 0.2, phi=0.4, t=0.7) - 1.0) < 1e-14
+    # A(t) is a user function of plain numbers: never coerced
+    from galpy.potential import TimeDependentAmplitudeWrapperPotential
+
+    assert not is_backend_compatible(
+        TimeDependentAmplitudeWrapperPotential(pot=_SP, A=lambda t: 1.0 + 0.1 * t)
+    )
+
+
 # --- traced t: the branch-free xp.where smoothing paths ----------------------------
 _TDEP_WRAPPERS = [
     ("DehnenSmooth", _WRAPPERS[0][1]),
