@@ -575,3 +575,43 @@ def test_plummer_fE_near_Emin_grad_wrt_b(backend):
         else torch.get_default_device().type == "cuda"
     )
     numpy.testing.assert_allclose(ad, 2.0 * val / 1.3, rtol=5e-8 if on_gpu else 2e-8)
+
+
+# A potential with PLAIN (not differentiated) backend-array parameters and a
+# differentiated denspot (gap audit PR 28): the constructor's radii and the r(Phi)
+# grid follow the potential's namespace, not numpy (NFW raised on ndarray < Tensor)
+from backend_param_grad import fd_reference  # noqa: E402
+
+
+def _ed_denspot(da, amp=2.3, a=1.3):
+    return eddingtondf(
+        pot=NFWPotential(amp=amp, a=a),
+        denspot=DehnenCoreSphericalPotential(amp=0.1, a=da),
+        rmin=1e-4,
+    )
+
+
+@pytest.mark.parametrize("method", ["sigmar", "vmomentdensity"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_plain_backend_potential_differentiated_denspot(backend, method):
+    args = [1.1] + ([2, 0] if method == "vmomentdensity" else [])
+    ref, err = fd_reference(lambda da: _ed_denspot(da), {"da": 0.5}, "da", method, args)
+    if backend == "jax":
+
+        def f(da):
+            df = _ed_denspot(da, amp=jnp.asarray(2.3), a=jnp.asarray(1.3))
+            return getattr(df, method)(jnp.asarray(1.1), *args[1:])
+
+        got = [
+            float(jax.grad(f)(jnp.asarray(0.5))),
+            float(jax.jit(jax.grad(f))(jnp.asarray(0.5))),
+        ]
+    else:
+        da = torch.tensor(0.5, requires_grad=True)
+        df = _ed_denspot(da, amp=torch.tensor(2.3), a=torch.tensor(1.3))
+        (g,) = torch.autograd.grad(
+            getattr(df, method)(torch.tensor(1.1), *args[1:]), da
+        )
+        got = [float(g)]
+    for g in got:
+        assert abs(g - ref) <= max(1e-8 * abs(ref), 10 * err), (got, ref, err)
