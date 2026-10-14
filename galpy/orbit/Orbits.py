@@ -371,6 +371,27 @@ def _python_number_ic(vxvv):
     return type(vxvv) in (int, float)
 
 
+def _backend_scalar_ic(vxvv):
+    """True if ``vxvv`` is a flat [R, vR, ...] list of numbers and 0-d backend
+    arrays, at least one of them a backend array that is traced/grad-requiring
+    or given outside a forced backend (a forced backend keeps concrete lists as
+    a numpy IC, as for Python numbers)."""
+    forced = get_namespace(numpy.zeros(1)) is not numpy
+    return (
+        isinstance(vxvv, (list, tuple))
+        and any(
+            is_backend_array(v)
+            and (not forced or under_trace(v) or requires_backend_grad(v))
+            for v in vxvv
+        )
+        and all(
+            (is_backend_array(v) and v.ndim == 0)
+            or isinstance(v, (int, float, numpy.number))
+            for v in vxvv
+        )
+    )
+
+
 def _pot_traced_param(pot, _depth=0):
     """A traced or grad-tracking parameter that ``pot`` -- or anything it wraps --
     STORES, else None.
@@ -570,6 +591,14 @@ class Orbit:
                 and _python_number_ic(vxvv)
             ):
                 vxvv = _dxp.asarray(numpy.asarray(vxvv, dtype=numpy.float64))
+            elif _backend_scalar_ic(vxvv):  # e.g. one differentiated coordinate
+                ref = next(v for v in vxvv if is_backend_array(v))
+                vxvv = get_namespace(ref).stack(
+                    [
+                        v if is_backend_array(v) else like(ref, numpy.float64(v))
+                        for v in vxvv
+                    ]
+                )
         if is_backend_array(vxvv):
             self._ic_backend = vxvv
             # self.vxvv (numpy) is bookkeeping only; the differentiable IC lives
@@ -7540,6 +7569,10 @@ class Orbit:
                 # Off-grid times: interpolate the backend trajectory with the
                 # in-backend differentiable cubic spline (no scipy).
                 return self._call_internal_backend_interp(t)
+            # a numpy orbit at a traced scalar/1-D time: spline in-backend (a
+            # higher-dim t raises below, as on numpy, for the caller's fallback)
+            if under_trace(t) and t.ndim <= 1:
+                return self._call_internal_backend_interp(t, like(t, self.orbit))
             if isinstance(t, (int, float, numpy.number)) or getattr(t, "ndim", 1) == 0:
                 # A 0-d backend (jax/torch) query time has __len__ but its len()
                 # raises (like a numpy 0-d array); treat it as a scalar.
@@ -7826,7 +7859,7 @@ class Orbit:
         out.reshape(self.shape)
         return out
 
-    def _call_internal_backend_interp(self, t):
+    def _call_internal_backend_interp(self, t, orbit=None):
         """Off-grid time evaluation for an in-backend (diffrax/torchdiffeq) single
         orbit: interpolate each phase-space coordinate vs the integration grid
         with the in-backend differentiable cubic spline
@@ -7846,7 +7879,10 @@ class Orbit:
         ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
         scalar) -- ``size`` 1 for a single orbit.
         """
-        xp = get_namespace(self.orbit)
+        # orbit: the trajectory to spline (default self.orbit; a numpy orbit
+        # queried at a traced time is lifted onto the time's backend)
+        orbit = self.orbit if orbit is None else orbit
+        xp = get_namespace(orbit)
         # A TRACED grid (the orbit was integrated at traced times -- streamdf's
         # track grid depends on theta) cannot be compared or reversed concretely,
         # so order it with argsort instead. The concrete path keeps the exact
@@ -7895,7 +7931,7 @@ class Orbit:
             def _ascending(a, axis):
                 return xp.flip(a, axis=axis) if descending else a
 
-        size = self.orbit.shape[0]
+        size = orbit.shape[0]
         pd = self.phasedim()
         if grid.shape[0] > 3 and size > 1:
             # Cross-orbit batching: all orbits share ONE grid, so every one of the
@@ -7905,7 +7941,7 @@ class Orbit:
             # back below for a <=3-point (k=1) grid or a single orbit.
             from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 
-            orb = _ascending(self.orbit, 1)
+            orb = _ascending(orbit, 1)
             if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
                 rr = orb[:, :, 0]
                 ph = orb[:, :, -1]
@@ -7939,7 +7975,7 @@ class Orbit:
 
             # spline each orbit on the shared grid and stack on the trailing
             # (orbit) axis; size == 1 reproduces the prior (phasedim, nt, 1) layout.
-            out = xp.stack([_interp_one(self.orbit[ii]) for ii in range(size)], axis=-1)
+            out = xp.stack([_interp_one(orbit[ii]) for ii in range(size)], axis=-1)
         if scalar:
             return out[:, 0]  # (phasedim, size)
         return out  # (phasedim, nt_query, size)
