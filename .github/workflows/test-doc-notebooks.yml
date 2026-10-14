@@ -6,6 +6,8 @@ on:
     # pull_request, so a PR branch is not built twice (push + pull_request).
     branches:
       - main
+      - feat/backends
+      - feat/backends-develop
     paths:
       - '**'
       - '!*'
