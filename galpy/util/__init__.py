@@ -166,6 +166,63 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
         return linalg.cho_solve(L, numpy.eye(A.shape[0]))
 
 
+def _zvec_pa_rotation(zvec, pa):
+    """The rotation pa_rot(pa) . zvec_rot(zvec) of the triaxial potentials and
+    RotateAndTiltWrapperPotential (either may be None). numpy unless pa or zvec
+    holds a backend array, which gives that backend's (differentiable) matrix."""
+    from ..backend import as_backend_constant, is_backend_array, promote_scalars
+    from ..backend._namespaces import namespace_from_arrays
+
+    zlist = isinstance(zvec, (list, tuple))
+    refs = [x for x in [pa] + (list(zvec) if zlist else [zvec]) if is_backend_array(x)]
+    if not refs:
+        if not pa is None:
+            pa_rot = numpy.array(
+                [
+                    [numpy.cos(pa), numpy.sin(pa), 0.0],
+                    [-numpy.sin(pa), numpy.cos(pa), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        else:
+            pa_rot = numpy.eye(3)
+        if not zvec is None:
+            if not isinstance(zvec, numpy.ndarray):
+                zvec = numpy.array(zvec)
+            zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
+            zvec_rot = _rotate_to_arbitrary_vector(
+                numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
+            )[0]
+        else:
+            zvec_rot = numpy.eye(3)
+        return numpy.dot(pa_rot, zvec_rot)
+    ref = refs[0]
+    xp = namespace_from_arrays((ref,))
+    eye = as_backend_constant(xp, numpy.eye(3), ref)
+    if pa is None:
+        pa_rot = eye
+    else:
+        if not is_backend_array(pa):  # a plain pa with a backend zvec
+            pa = as_backend_constant(xp, pa, ref)
+        c, s = xp.cos(pa), xp.sin(pa)
+        z0, one = xp.zeros_like(c), xp.ones_like(c)
+        pa_rot = xp.stack(
+            [xp.stack([c, s, z0]), xp.stack([-s, c, z0]), xp.stack([z0, z0, one])]
+        )
+    if zvec is None:
+        zvec_rot = eye
+    else:
+        if zlist and any(is_backend_array(x) for x in zvec):
+            zvec = xp.stack(promote_scalars(xp, *zvec))
+        elif not is_backend_array(zvec):
+            zvec = as_backend_constant(xp, numpy.asarray(zvec, dtype=float), ref)
+        zvec = zvec / xp.sqrt(xp.sum(zvec**2.0))
+        zvec_rot = _rotate_to_arbitrary_vector(
+            numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
+        )[0]
+    return pa_rot @ zvec_rot
+
+
 def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     r"""Return a rotation matrix that rotates v to align with unit vector a
     i.e. R . v = |v|\hat{a}"""
