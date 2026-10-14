@@ -391,7 +391,9 @@ _IP_FLAG = {
     "dens": "interpDens",
     "R2deriv": "interpR2deriv",
     "vcirc": "interpvcirc",
+    "dvcircdR": "interpdvcircdr",
     "epifreq": "interpepifreq",
+    "verticalfreq": "interpverticalfreq",
 }
 
 
@@ -415,7 +417,9 @@ _IP_QUANTITIES = {
     "dens": lambda p, R, z: p.dens(R, z),
     "R2deriv": lambda p, R, z: p.R2deriv(R, z),
     "vcirc": lambda p, R, z: p.vcirc(R),
+    "dvcircdR": lambda p, R, z: p.dvcircdR(R),
     "epifreq": lambda p, R, z: p.epifreq(R),
+    "verticalfreq": lambda p, R, z: p.verticalfreq(R),
 }
 # on the grid (incl. negative z: the zsym branch) and off it (R beyond the grid)
 _IP_POINTS = [(0.9, 0.2), (1.3, -0.35), (7.0, 0.1)]
@@ -437,8 +441,9 @@ def test_grad_wrt_original_potential_parameter(backend_name, q, point, mode):
         assert is_backend_array(out)
         return out
 
-    # the jit compiles the native 2D fit: once per backend, on the Phi row only
-    jit = q == "Phi" and mode == "float"
+    # the jit compiles the native fits: once per backend, on the Phi row (2D)
+    # and the epifreq row (1D, whose NaN-node mask is then traced)
+    jit = q in ("Phi", "epifreq") and mode == "float"
     for g in autodiff_param_grads(f, 0.5, backend_name, jit=jit):
         numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-11)
 
