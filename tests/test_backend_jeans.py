@@ -271,3 +271,35 @@ def test_sigmar_small_r_deep_inside_a_large_scale_nfw(backend):
     with use(backend, force=True):
         got = jeans.sigmar(nfw, _arr(backend, r), use_physical=False)
     numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=2e-8)
+
+
+# sigmalos under jax.jit (gap audit PR 28): the "surface density is NaN, integrate
+# the density instead" check is selected, not branched on, under a trace
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+class _Sigmalos:
+    def __init__(self, amp=1.0, a=1.3, beta=0.2, dens=None):
+        self._pot = HernquistPotential(amp=amp, a=a)
+        self._beta, self._dens = beta, dens
+
+    def sigmalos(self, R):
+        return jeans.sigmalos(
+            self._pot, R, beta=self._beta, dens=self._dens, use_physical=False
+        )
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("name", ["amp", "beta"])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sigmalos_parameter_gradient_under_jit(backend_name, mode, name):
+    assert_param_grad(
+        backend_name,
+        mode,
+        _Sigmalos,
+        {"amp": 1.0, "a": 1.3, "beta": 0.2},
+        name,
+        "sigmalos",
+        [1.1],
+        rtol=1e-8,
+    )
