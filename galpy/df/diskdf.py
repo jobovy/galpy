@@ -3229,6 +3229,8 @@ class DFcorrection:
             k=_INTERPDEGREE,
         )
         self._sigma2DerivSmallR = sigma2InterpolateSmallR.derivatives(interpRs[0])[1]
+        # Built here, not lazily: a first build inside a traced call compiles scipy
+        self._backend_tables = self._numpy_tables()
         return None
 
     def _backend_interp(self):
@@ -3271,10 +3273,7 @@ class DFcorrection:
         )
 
     def _correct_backend(self, R, log):
-        tables = getattr(self, "_backend_tables", None)
-        if tables is None:
-            tables = self._backend_tables = self._numpy_tables()
-        x, c, lc0, dsmall = tables
+        x, c, lc0, dsmall = self._backend_tables
         xp = prefer_backend_namespace(R, self._corrections)
         (R,) = coerce_coords(xp, R, device=device_of(R, self._corrections))
         lo, hi = R < _RMIN, R > 2.0 * self._rmax

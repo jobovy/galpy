@@ -705,6 +705,25 @@ def test_numpy_corrections_on_backend_inputs(backend, interp_k, tmp_path):
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_numpy_corrections_first_backend_call_compiled(tmp_path):
+    # the backend tables exist before the first backend call, so a compiled
+    # first call does not trace into scipy (dynamo fails inside splev)
+    from galpy.df.diskdf import DFcorrection
+
+    df = dehnendf(profileParams=(0.25, 1.0, 0.2), savedir=str(tmp_path), **_CORR_KW)
+    corr = DFcorrection(
+        corrections=df._corr._corrections,
+        surfaceSigmaProfile=df._surfaceSigmaProfile,
+    )
+    R = numpy.array([1e-12, 0.3, 1.1, 4.9, 7.0, 12.0])
+    torch._dynamo.reset()
+    cf = torch.compile(lambda r: corr.correct(r, log=True), backend="eager")
+    got = cf(torch.tensor(R, dtype=torch.float64))
+    ref = numpy.array([corr.correct(r, log=True) for r in R]).T
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_backend_corrections_interp_k(backend, tmp_path):
     from galpy.df.diskdf import DFcorrection
