@@ -256,3 +256,30 @@ def test_jit_retraces_when_a_wrapped_potential_changes():
         pot.normalize(0.5)
         got = float(evaluateplanarRforces(pp, R))
     assert abs(got - float(evaluateplanarRforces(pp, 1.1))) < 1e-13
+
+
+@pytest.mark.skipif("jax is None")
+def test_unit_carrying_coordinate_is_not_traced():
+    # An entry point that parses units in its body (diskdf.eval) is handed the
+    # Quantity at the boundary; tracing it would drop the unit, so the call
+    # runs eagerly. Duck-typed on .unit, as the boundary is (no astropy here).
+    from galpy.backend._jit import NOT_TRACED, traced_call
+
+    class _WithUnit:
+        unit = "kpc"
+
+    def method(self, R, z=0.0):
+        return R
+
+    slots = [("R", 1), ("z", 2)]
+    with gb.jit("jax"):
+        assert traced_call(method, (None, _WithUnit()), {}, slots, 2, jnp) is (
+            NOT_TRACED
+        )
+        assert traced_call(
+            method, (None, jnp.asarray(1.0)), {"z": _WithUnit()}, slots, 2, jnp
+        ) is (NOT_TRACED)
+        # the same call with plain coordinates is traced
+        out = traced_call(method, (None, jnp.asarray(1.0)), {}, slots, 2, jnp)
+    assert out is not NOT_TRACED
+    assert float(out) == 1.0
