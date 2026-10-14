@@ -3084,28 +3084,26 @@ class quasiisothermaldf(df):
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         if self._rgInterp is None:  # _precomputerg=False: rl everywhere
-            if isinstance(lz, numpy.ndarray):
-                return numpy.array([potential.rl(self._pot, t) for t in lz])
             return potential.rl(self._pot, lz)
+        # rg depends on |lz|. lz == 0: rl is undefined (rg -> 0), but the DF
+        # vanishes there (Omega = |lz|/rg^2 = 0), so keep the finite spline value
+        alz = numpy.fabs(lz)
         if isinstance(lz, numpy.ndarray):
-            # lz == 0: rl is undefined (rg -> 0), but the DF vanishes there
-            # (Omega = |lz|/rg^2 = 0), so keep the finite spline value
-            indx = (lz > self._precomputergLzmax) | (
-                (lz < self._precomputergLzmin) * (lz != 0.0)
+            indx = (alz > self._precomputergLzmax) | (
+                (alz < self._precomputergLzmin) * (lz != 0.0)
             )
             indxc = True ^ indx
             out = numpy.empty(lz.shape)
-            out[indxc] = self._rgInterp(lz[indxc])
-            out[indx] = numpy.array(
-                [potential.rl(self._pot, lz[indx][ii]) for ii in range(numpy.sum(indx))]
-            )
+            out[indxc] = self._rgInterp(alz[indxc])
+            if numpy.any(indx):
+                out[indx] = potential.rl(self._pot, lz[indx])
             return out
         else:
-            if lz > self._precomputergLzmax or (
-                lz < self._precomputergLzmin and lz != 0.0
+            if alz > self._precomputergLzmax or (
+                alz < self._precomputergLzmin and lz != 0.0
             ):
                 return potential.rl(self._pot, lz)
-            return numpy.atleast_1d(self._rgInterp(lz))
+            return numpy.atleast_1d(self._rgInterp(alz))
 
 
 def _vmomentsurfaceIntegrand(

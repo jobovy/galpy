@@ -3176,19 +3176,21 @@ def rl(Pot, lz, t=0.0):
     ----------
     Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance or a combined potential formed using addition (pot1+pot2+…).
-    lz : float or Quantity
+    lz : float, numpy.ndarray, or Quantity
         Angular momentum (can be Quantity).
     t : float or Quantity, optional
         Time (default: 0).
 
     Returns
     -------
-    float or Quantity
+    float, numpy.ndarray, or Quantity
         Radius.
 
     Notes
     -----
     - 2012-07-30 - Written - Bovy (IAS@MPIA)
+
+    - 2026-10-14 - Array lz solved for all elements at once - Bovy (UofT)
 
     - An efficient way to call this function on many objects is provided as the Orbit method rguiding.
 
@@ -3198,6 +3200,10 @@ def rl(Pot, lz, t=0.0):
 
     """
     lz = conversion.parse_angmom(lz, **conversion.get_physical(Pot))
+    if isinstance(lz, numpy.ndarray) and lz.ndim > 0:
+        if lz.size < 4:  # a bisection's ~50 vcirc calls cost ~4 scalar solves
+            return numpy.array([rl(Pot, x, t=t, use_physical=False) for x in lz])
+        return _rl_array(Pot, numpy.fabs(lz), t)
     # Find interval
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
     try:
@@ -3229,6 +3235,30 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
         else:
             rtry *= 2.0
     return rtry
+
+
+def _rl_array(pot, lz, t=0.0):
+    """rl for an array of |lz|: the scalar bracket, bisected for all elements at once"""
+    hi = 2.0 * lz
+    grow = _rlfunc(hi, lz, pot, t=t) < 0.0
+    while numpy.any(grow):
+        hi[grow] *= 2.0
+        grow[grow] = _rlfunc(hi[grow], lz[grow], pot, t=t) < 0.0
+    lo = numpy.full(lz.shape, 10.0**-5.0)
+    shrink = _rlfunc(lo, lz, pot, t=t) > 0.0
+    while numpy.any(shrink):
+        lo[shrink] /= 2.0
+        shrink[shrink] = _rlfunc(lo[shrink], lz[shrink], pot, t=t) > 0.0
+    # to brentq's default rtol (relative, so small radii are as precise as large
+    # ones); 1100 halvings span any finite bracket
+    for _ in range(1100):
+        if not numpy.any(hi - lo > 4.0 * numpy.finfo(float).eps * hi):
+            break
+        mid = 0.5 * (lo + hi)
+        below = _rlfunc(mid, lz, pot, t=t) < 0.0
+        lo = numpy.where(below, mid, lo)
+        hi = numpy.where(below, hi, mid)
+    return 0.5 * (lo + hi)
 
 
 @potential_positional_arg
