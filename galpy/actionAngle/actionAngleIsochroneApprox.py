@@ -30,7 +30,10 @@ from ..backend import (
 )
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _pot_data_namespace,
+)
 from ..util import conversion, galpyWarning, plot
 from ..util.conversion import physical_conversion, potential_physical_input, time_in_Gyr
 from .actionAngle import actionAngle
@@ -1316,7 +1319,11 @@ def estimateBIsochrone(pot, R, z, phi=None):
     # Namespace-swap: the scalar body runs (and differentiates) under numpy /
     # jax / torch via the backend-agnostic brentq (scipy on the numpy path, so
     # byte-identical; vectorised bisection+Newton, grad-carrying, on backends).
-    xp = get_namespace(R) if is_backend_array(R) else numpy
+    # a forced backend or a differentiated potential parameter count as data:
+    # scipy's brentq would read (and detach) the objective
+    xp = _pot_data_namespace((pot,), R, z)
+    if xp is not numpy:
+        R, z = coerce_coords(xp, R, z)
     if getattr(R, "ndim", 0) > 0:
         if is_backend_array(R):
             # Vectorised backend path: per-element b in one (array-bracketed)

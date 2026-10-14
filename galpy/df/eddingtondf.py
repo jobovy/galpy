@@ -95,9 +95,9 @@ class eddingtondf(isotropicsphericaldf):
             if not isinstance(self._denspot, CompositePotential)
             else lambda r: sum(p._d2densdr2(r) for p in self._denspot)
         )
-        # a differentiated potential parameter: the radii follow its namespace
+        # a backend potential parameter: the radii follow its namespace
         # (as in constantbetadf), not numpy
-        _gxp = _pot_grad_namespace(pot)
+        _gxp = _pot_grad_namespace(pot, any_backend=True)
         _rmax, _rmin = (
             (self._rmax, self._rmin)
             if _gxp is None

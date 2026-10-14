@@ -15018,7 +15018,11 @@ def test_estimateBIsochrone_method_value():
                 estimateBIsochrone(pot, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))[ii]
                 .to(units.kpc)
                 .value
-                - estimateBIsochrone(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))[ii]
+                - as_numpy(
+                    estimateBIsochrone(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))[
+                        ii
+                    ]
+                )
                 * ro
             )
             < 10.0**-8.0

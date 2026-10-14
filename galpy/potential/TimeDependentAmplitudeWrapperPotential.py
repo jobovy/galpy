@@ -65,6 +65,8 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
                 "A= function needs to return a number (specifically, a numbers.Number)"
             )
         self._A = A
+        # not _backend_compatible: A(t) is a user function documented to take
+        # and return plain numbers, so a forced backend must not coerce t
         self.hasC = True
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
