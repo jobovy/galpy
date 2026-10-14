@@ -14,7 +14,13 @@ from ._namespaces import (
 )
 from ._resolver import get_namespace
 
-__all__ = ["cholesky_invert", "psd_project", "real_eig", "solve_tridiagonal"]
+__all__ = [
+    "cholesky_invert",
+    "degenerate_safe_gap_inverse",
+    "psd_project",
+    "real_eig",
+    "solve_tridiagonal",
+]
 
 
 def cholesky_invert(a, tiny, logdet=False):
@@ -45,24 +51,20 @@ def cholesky_invert(a, tiny, logdet=False):
     return ainv
 
 
-def real_eig(a, freeze_vectors=True):
+def real_eig(a):
     """Real eigenvalues/eigenvectors of a symmetric ``a``, as ``(w, v)``.
 
     numpy ``a`` -> ``numpy.linalg.eig`` with the real part taken, byte-identical
     to the inline expression it replaces (numpy>=2.5 returns a complex result
     even for real eigenvalues).
 
-    A backend ``a`` -> ``eigh``, which is what these matrices (the symmetric
-    dO/dJ = d^2H/dJ^2 and the frequency covariance built from it) actually want.
-    The eigenVECTORS come from a stop-gradient copy and the eigenVALUES are
-    re-derived live as ``diag(V^T a V)``, so the gradient flows through the
-    eigenvalues only. Measured on a 3x3 with a controlled eigenvalue gap: the
-    eigenVALUE gradient stays finite even at exact degeneracy, but the
-    eigenVECTOR gradient diverges as 1/gap -- 6e2 at gap 1e-3, 6e7 at 1e-8, 1.6e14
-    at gap 0 (finite, not NaN, but useless). A frequency covariance routinely has
-    near-degenerate eigenvalues, and streamdf reads an eigenVECTOR off this
-    (``_dsigomeanProgDirection``), so that rotation is kept a frozen
-    hyperparameter -- which is what streamdf already assumes of it.
+    A backend ``a`` -> ``eigh`` with a degeneracy-safe derivative (per-backend
+    custom rule, every order): the exact ``dw = diag(V^T dA V)``,
+    ``dV = V (F o V^T dA V)``, ``F_ij = 1/(w_j - w_i)``, except ``F_ij = 0`` for
+    pairs closer than sqrt(eps) of the spectrum scale. Native ``eigh``'s
+    eigenvector derivative diverges as 1/gap (inf/NaN at a repeated eigenvalue);
+    here a rotation WITHIN a numerically degenerate subspace (whose eigenvectors
+    are arbitrary anyway) carries no gradient, every resolved pair its true one.
 
     NOTE the eigenvalue ORDER differs from ``eig``'s (``eigh`` is ascending);
     ``w`` and ``v`` stay paired, and every galpy caller sorts/argmaxes for
@@ -71,20 +73,26 @@ def real_eig(a, freeze_vectors=True):
     if not is_backend_array(a):
         w, v = numpy.linalg.eig(a)
         return numpy.real(w), numpy.real(v)
-    xp = get_namespace(a)
-    name = name_of_namespace(xp)
-    if freeze_vectors:
-        _, evecs = xp.linalg.eigh(_stop_gradient(a, name))
-        evecs = _stop_gradient(evecs, name)
+    if name_of_namespace(get_namespace(a)) == "jax":
+        from ._jax.linalg import safe_eigh
     else:
-        # The caller has established that the eigenvector it READS is separated
-        # from the rest by a large eigenvalue ratio, so the 1/gap sensitivity
-        # that motivates freezing does not bite and the rotation must carry its
-        # gradient. Freezing it silently drops d(rotation)/d(theta).
-        _, evecs = xp.linalg.eigh(a)
-    evecsT = xp.matrix_transpose(evecs)
-    evals = xp.sum(evecsT * xp.matrix_transpose(a @ evecs), axis=-1)
-    return evals, evecs
+        from ._torch.linalg import safe_eigh
+    return safe_eigh(a)
+
+
+def degenerate_safe_gap_inverse(lam):
+    """``F_ij = 1/(w_j - w_i)`` for eigenvalues ``lam`` (``(..., n)``), and 0 for
+    pairs closer than sqrt(eps) of the spectrum scale (the safe eigh derivative's
+    coefficients; see :func:`real_eig`)."""
+    xp = get_namespace(lam)
+    gap = lam[..., None, :] - lam[..., :, None]
+    tol = float(xp.finfo(lam.dtype).eps) ** 0.5 * xp.max(
+        xp.abs(lam), axis=-1, keepdims=True
+    )
+    resolved = xp.abs(gap) > tol[..., None]
+    return xp.where(
+        resolved, 1.0 / xp.where(resolved, gap, xp.ones_like(gap)), xp.zeros_like(gap)
+    )
 
 
 def psd_project(a):
