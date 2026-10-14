@@ -340,11 +340,6 @@ _UNDECORATED_BY_DESIGN = {
     ("jeans.py", "sigmalos"),
     ("actionAngleStaeckel.py", "estimateDeltaStaeckel"),
     ("actionAngleIsochroneApprox.py", "estimateBIsochrone"),
-    # scipy-interpolation island; migrating it is tracked separately.
-    ("interpRZPotential.py", "vcirc"),
-    ("interpRZPotential.py", "dvcircdR"),
-    ("interpRZPotential.py", "epifreq"),
-    ("interpRZPotential.py", "verticalfreq"),
     # scipy root-finders / quadrature over E, Lz, OmegaP, l: the coordinate-named
     # parameter is an evaluation time, and the solve itself is numpy.
     ("Potential.py", "rl"),
