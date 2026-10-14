@@ -24,6 +24,19 @@ v1.12.1 (expected around 2026-11-01)
   the DF vanishes, keeps the spline value for both arrays and single points
   (a single point with Lz = 0 previously raised an error).
 
+- ``quasiisothermaldf``: the guiding-center radius is now looked up in the
+  precomputed Lz grid at abs(Lz), so counter-rotating points inside the grid
+  use the spline like co-rotating ones instead of a root-find. Their values
+  change by the spline's own accuracy, the same as for co-rotating points
+  (relative 3e-9 typically; above 1e-5 only for abs(Lz) < 0.08, up to 4e-3 near
+  the grid's lower end Lz = 0.01). This removes most of the slowdown of the
+  change above; points outside the grid are still solved for exactly. The
+  grid's range is set by ``_precomputergrmax`` (default: 5 hr).
+
+- ``rl`` accepts a numpy array of Lz, solved for all elements at once (a
+  bracketed bisection to brentq's default tolerance); ~300x faster than a loop
+  for 75,000 points.
+
 - ``dehnendf`` and ``shudf`` moments (``surfacemass``, ``sigma2surfacemass``,
   ``vmomentsurfacemass``, ``sigmaR2``, ``sigmaT2``, ``meanvT``, ``meanvR``,
   skewness, kurtosis and the Oort functions) now accept a numpy array of
