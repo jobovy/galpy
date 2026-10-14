@@ -675,3 +675,109 @@ def test_powertriaxial_traced_alpha_three_keeps_its_amplitude():
         lambda al: PowerTriaxialPotential(amp=1.3, r1=1.5, alpha=al, b=0.9, c=0.8)._amp
     )(jnp.asarray(3.0))
     assert float(got) == npot._amp
+
+
+# Axis ratios and orientation (gap audit R-ROT): b, c, pa and zvec enter the
+# GL node factors and the rotation on the backend, so their gradients exist in
+# data and forced mode, under jit/vmap and on torch. b = 1 and pa = 0 with a
+# differentiated parameter keep the triaxial/rotated path (the aligned or
+# axisymmetric shortcut has no b or pa to differentiate).
+
+_TRIAX_COORDS = [0.9, 0.2, 0.4]
+
+
+def _tnfw(**kw):
+    return TriaxialNFWPotential(amp=1.3, a=2.0, **kw)
+
+
+def _tnfw_zvec(zx, **kw):
+    return TriaxialNFWPotential(amp=1.3, a=2.0, b=0.9, c=0.8, zvec=[zx, 0.1, 1.0], **kw)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "build,params,name,method",
+    [
+        (_tnfw, {"b": 0.9, "c": 0.8}, "b", "Phi"),
+        (_tnfw, {"b": 0.9, "c": 0.8}, "c", "Rforce"),
+        (_tnfw, {"b": 1.0, "c": 0.8}, "b", "phitorque"),
+        (_tnfw, {"b": 0.9, "c": 0.8, "pa": 0.3}, "pa", "Phi"),
+        (_tnfw, {"b": 0.9, "c": 0.8, "pa": 0.0}, "pa", "zforce"),
+        (_tnfw_zvec, {"zx": 0.2, "pa": 0.3}, "zx", "Phi"),
+        (_tnfw_zvec, {"zx": 0.2}, "zx", "Rforce"),
+        (
+            lambda **kw: PerfectEllipsoidPotential(amp=1.3, a=2.0, **kw),
+            {"b": 0.9, "c": 0.8},
+            "c",
+            "Phi",
+        ),
+        (
+            lambda **kw: TriaxialGaussianPotential(amp=1.3, sigma=2.0, **kw),
+            {"b": 0.9, "c": 0.8},
+            "b",
+            "zforce",
+        ),
+        (
+            lambda **kw: PowerTriaxialPotential(amp=1.3, alpha=1.4, **kw),
+            {"b": 0.9, "c": 0.8},
+            "c",
+            "Phi",
+        ),
+    ],
+    ids=[
+        "TNFW-db-Phi",
+        "TNFW-dc-Rforce",
+        "TNFW-b1-db-phitorque",
+        "TNFW-dpa-Phi",
+        "TNFW-pa0-dpa-zforce",
+        "TNFW-dzvec-Phi",
+        "TNFW-dzvec-Rforce",
+        "PerfectEllipsoid-dc-Phi",
+        "TriaxialGaussian-db-zforce",
+        "PowerTriaxial-dc-Phi",
+    ],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_triaxial_shape_and_orientation_gradient(
+    backend_name, mode, build, params, name, method
+):
+    assert_param_grad(
+        backend_name, mode, build, params, name, method, _TRIAX_COORDS, rtol=1e-8
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_triaxial_backend_rotation_matches_numpy(backend_name):
+    xp = jnp if backend_name == "jax" else torch
+    kw = {"b": 0.9, "c": 0.8, "zvec": [0.2, 0.1, 1.0]}
+    npot = TriaxialNFWPotential(amp=1.3, a=2.0, pa=0.3, **kw)
+    bpot = TriaxialNFWPotential(
+        amp=1.3, a=2.0, pa=xp.asarray(0.3, dtype=xp.float64), **kw
+    )
+    numpy.testing.assert_allclose(as_numpy(bpot._rot), npot._rot, rtol=0, atol=1e-15)
+    for m in ("__call__", "Rforce", "zforce", "phitorque", "dens"):
+        R, z, phi = (xp.asarray(v, dtype=xp.float64) for v in (0.9, 0.2, 0.4))
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(bpot, m)(R, z, phi)),
+            getattr(npot, m)(0.9, 0.2, 0.4),
+            rtol=1e-13,
+            err_msg=m,
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_perfectellipsoid_oblate_delta_gradient(backend_name):
+    # the oblate (b = 1) perfect ellipsoid's Staeckel delta = a sqrt(1 - c^2),
+    # differentiable in c (eagerly: under jit c < 1 is unknown, so no delta)
+    c0, a0 = 0.6, 2.0
+    ref = -a0 * c0 / numpy.sqrt(1.0 - c0**2)
+    if backend_name == "jax":
+        f = lambda c: PerfectEllipsoidPotential(a=a0, b=1.0, c=c)._delta  # noqa: E731
+        got = [float(jax.grad(f)(jnp.asarray(c0)))]
+    else:
+        c = torch.tensor(c0, dtype=torch.float64, requires_grad=True)
+        (g,) = torch.autograd.grad(
+            PerfectEllipsoidPotential(a=a0, b=1.0, c=c)._delta, c
+        )
+        got = [float(g)]
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14)

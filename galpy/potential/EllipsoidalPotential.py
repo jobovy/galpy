@@ -20,9 +20,14 @@ from ..backend import (
     get_namespace,
     is_backend_array,
 )
-from ..backend._namespaces import eager_value_memo
+from ..backend._namespaces import (
+    concretely_true,
+    eager_value_memo,
+    requires_backend_grad,
+    under_trace,
+)
 from ..backend.quadrature import quad as bquad
-from ..util import _rotate_to_arbitrary_vector, conversion
+from ..util import _zvec_pa_rotation, conversion
 from .Potential import Potential
 
 
@@ -127,37 +132,32 @@ class EllipsoidalPotential(Potential):
         self._setup_zvec_pa(zvec, pa)
         # Setup integration
         self._setup_gl(glorder)
-        if not self._aligned or numpy.fabs(self._b - 1.0) > 10.0**-10.0:
+        # a traced or grad-tracking b is never taken as axisymmetric (b = 1 would
+        # drop phi, and with it d/db)
+        if (
+            not self._aligned
+            or under_trace(b)
+            or requires_backend_grad(b)
+            or concretely_true(abs(self._b - 1.0) > 10.0**-10.0)
+        ):
             self.isNonAxi = True
         return None
 
     def _setup_zvec_pa(self, zvec, pa):
         if not pa is None:
             pa = conversion.parse_angle(pa)
-        if zvec is None and (pa is None or numpy.fabs(pa) < 10.0**-10.0):
+        # a differentiated pa keeps the rotation even at pa = 0
+        if zvec is None and (
+            pa is None
+            or (
+                not (under_trace(pa) or requires_backend_grad(pa))
+                and concretely_true(abs(pa) < 10.0**-10.0)
+            )
+        ):
             self._aligned = True
         else:
             self._aligned = False
-            if not pa is None:
-                pa_rot = numpy.array(
-                    [
-                        [numpy.cos(pa), numpy.sin(pa), 0.0],
-                        [-numpy.sin(pa), numpy.cos(pa), 0.0],
-                        [0.0, 0.0, 1.0],
-                    ]
-                )
-            else:
-                pa_rot = numpy.eye(3)
-            if not zvec is None:
-                if not isinstance(zvec, numpy.ndarray):
-                    zvec = numpy.array(zvec)
-                zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
-                zvec_rot = _rotate_to_arbitrary_vector(
-                    numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
-                )[0]
-            else:
-                zvec_rot = numpy.eye(3)
-            self._rot = numpy.dot(pa_rot, zvec_rot)
+            self._rot = _zvec_pa_rotation(zvec, pa)
         return None
 
     def _setup_gl(self, glorder):
@@ -482,6 +482,16 @@ def _gl_node_factors(xp, ref, glx, glw, b2, c2):
     # per-node factors are numpy -> as_backend_constant (a genuine array, not a
     # weak scalar, so exact backend dtype is intended).
     s2 = glx**2
+    if is_backend_array(b2) or is_backend_array(c2):  # differentiable in b, c
+        s2 = as_backend_constant(xp, s2, ref)
+        t = 1.0 / s2 - 1.0
+        denom = xp.sqrt((1.0 + (b2 - 1.0) * s2) * (1.0 + (c2 - 1.0) * s2))
+        return (
+            as_backend_constant(xp, glw, ref) / denom,
+            1.0 / (1.0 + t),
+            1.0 / (b2 + t),
+            1.0 / (c2 + t),
+        )
     t = 1.0 / s2 - 1.0
     denom = numpy.sqrt((1.0 + (b2 - 1.0) * s2) * (1.0 + (c2 - 1.0) * s2))
     return (

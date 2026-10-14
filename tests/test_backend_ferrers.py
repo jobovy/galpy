@@ -361,3 +361,26 @@ def test_array_coords_under_forced_backend(backend_name, method):
         atol=1e-11,
         err_msg=f"Ferrers.{method} array coords ({backend_name})",
     )
+
+
+# b (gap audit R-ROT): the axisymmetry test no longer takes numpy.fabs of b, and
+# a differentiated b = 1 keeps phi (d/db there is not 0)
+from backend_param_grad import MODES, assert_param_grad  # noqa: E402
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "b,method", [(0.35, "Phi"), (0.35, "Rforce"), (1.0, "phitorque")]
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_ferrers_b_gradient(backend_name, mode, b, method):
+    assert_param_grad(
+        backend_name,
+        mode,
+        lambda **kw: FerrersPotential(amp=1.3, a=1.5, c=0.2375, pa=0.1, **kw),
+        {"b": b},
+        "b",
+        method,
+        [0.9, 0.2, 0.4],
+        rtol=1e-8,
+    )
