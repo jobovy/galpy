@@ -325,3 +325,112 @@ def test_mwpot_helpers_hole_at_R0(backend_name, case):
     assert float(as_numpy(val)[0]) == 0.0
     assert float(as_numpy(val)[1]) == pytest.approx(f(1.0, 0.01), rel=1e-14)
     assert float(as_numpy(g)) == 0.0, name
+
+
+# --- d/d(Sigma and hz parameters) through the full expansions -----------------
+# DiskSCF / DiskMultipole with a backend Sigma or hz scale raised: the profile
+# closures took their namespace from R alone (numpy R at the expansion's nodes
+# met a backend scale), and the arity probe of the expansion's from_density then
+# mistook that failure for a 3-argument density. Modes: data (backend
+# coordinates) and forced (Python floats under use(force=True)).
+def _disk_expansion(name, P):
+    from galpy.potential import (
+        DiskMultipoleExpansionPotential,
+        DiskSCFPotential,
+    )
+
+    if name == "DiskSCF-exp":
+        return DiskSCFPotential(
+            amp=P["amp"],
+            dens=_dens_xp,
+            Sigma={"type": "exp", "h": P["h"], "amp": 1.0},
+            hz={"type": "exp", "h": P["hz"]},
+            a=1.0,
+            N=6,
+            L=6,
+        )
+    if name == "DiskSCF-hole-sech2":
+        return DiskSCFPotential(
+            Sigma={"type": "expwhole", "h": P["h"], "amp": 1.0, "Rhole": P["Rhole"]},
+            hz={"type": "sech2", "h": P["hz"]},
+            a=1.0,
+            N=6,
+            L=6,
+        )
+    return DiskMultipoleExpansionPotential(
+        amp=P["amp"],
+        Sigma={"type": "exp", "h": P["h"], "amp": 1.0},
+        hz={"type": "exp", "h": P["hz"]},
+        rgrid=numpy.geomspace(1e-3, 30, 201),
+        L=4,
+    )
+
+
+_DISK_EXP_P0 = {
+    "DiskSCF-exp": {"amp": 1.0, "h": 1.0 / 3.0, "hz": 1.0 / 27.0},
+    "DiskSCF-hole-sech2": {"h": 1.0 / 3.0, "hz": 1.0 / 27.0, "Rhole": 0.5},
+    "DiskMultipole-exp": {"amp": 0.9, "h": 1.0 / 3.0, "hz": 1.0 / 27.0},
+}
+_DISK_EXP_CASES = [(n, p) for n, P0 in _DISK_EXP_P0.items() for p in P0]
+
+
+def _disk_expansion_outputs(name, P, mode, backend):
+    import contextlib
+
+    from galpy.backend import use
+
+    R, z = 0.8, 0.1
+    if mode == "data":
+        R, z = _asarray(backend, R), _asarray(backend, z)
+    with use(backend, force=True) if mode == "forced" else contextlib.nullcontext():
+        pot = _disk_expansion(name, P)
+        return [
+            pot(R, z, use_physical=False),
+            pot.Rforce(R, z, use_physical=False),
+            pot.zforce(R, z, use_physical=False),
+        ]
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("name,param", _DISK_EXP_CASES)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_disk_expansion_param_grad_vs_fd(backend_name, name, param, mode):
+    P0 = _DISK_EXP_P0[name]
+
+    def at(x, bk, md):
+        return _disk_expansion_outputs(name, {**P0, param: x}, md, bk)
+
+    x0 = P0[param]
+    h = 1e-3 * x0
+
+    def d(h):
+        hi = numpy.array([float(o) for o in at(x0 + h, "numpy", "data")])
+        lo = numpy.array([float(o) for o in at(x0 - h, "numpy", "data")])
+        return (hi - lo) / (2.0 * h)
+
+    fd = (4.0 * d(h / 2.0) - d(h)) / 3.0
+    if backend_name == "jax":
+        f = lambda x: jnp.stack(  # noqa: E731
+            [jnp.reshape(o, ()) for o in at(x, "jax", mode)]
+        )
+        x = jnp.asarray(x0)
+        assert isinstance(f(x), jax.Array)
+        ads = [
+            numpy.asarray(jax.jacrev(f)(x)),
+            numpy.asarray(jax.jit(jax.jacrev(f))(x)),
+        ]
+    else:
+        x = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        outs = at(x, "torch", mode)
+        assert all(isinstance(o, torch.Tensor) for o in outs)
+        ads = [
+            numpy.array(
+                [float(torch.autograd.grad(o, x, retain_graph=True)[0]) for o in outs]
+            )
+        ]
+    scale = numpy.amax(numpy.fabs(fd))
+    # DiskSCF: measured <= 1e-10 relative. DiskMultipole: the numpy build's FD
+    # itself scatters by ~3e-8 relative between steps (h and h/3), its floor.
+    tol = 2e-7 if name.startswith("DiskMultipole") else 1e-9
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, fd, rtol=0.0, atol=tol * scale)

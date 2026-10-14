@@ -1404,3 +1404,82 @@ def test_scf_general_batched_numpy_returning_density(backend_name):
     # batched vs sequential reduction order: ~1 ulp of the array's magnitude
     numpy.testing.assert_allclose(as_numpy(got_c), ref_c, rtol=0, atol=1e-15 * scale)
     numpy.testing.assert_allclose(as_numpy(got_s), ref_s, rtol=0, atol=1e-15 * scale)
+
+
+# --- d/d(basis scale a, density parameter) of the coefficient quadratures ------
+# The (n, l) prefactor a**3 * (1+xi)**l * ... put a backend `a` against numpy
+# arrays (Tensor * ndarray is numpy's: .numpy() on a grad tensor), and the
+# scalar integrands multiplied a numpy basis by a backend density -- so outside
+# a forced backend d/da and d/d(density parameter) raised on torch, and under a
+# forced jax.jit the batched quadrature handed traced nodes to numpy. Modes:
+# data (backend coordinates) and forced (Python floats under use(force=True)).
+_SCF_COEFF_P0 = {"a": 1.2, "q": 0.8}
+
+
+def _scf_coeff_force(kind, P, mode, backend):
+    import contextlib
+
+    from galpy import backend as _b
+    from galpy.potential.SCFPotential import (
+        scf_compute_coeffs,
+        scf_compute_coeffs_axi,
+    )
+
+    R, z, phi = 0.8, 0.1, 0.3
+    if mode == "data":
+        R, z, phi = (_scalar_like(backend, c) for c in (R, z, phi))
+    with _b.use(backend, force=True) if mode == "forced" else contextlib.nullcontext():
+        if kind == "axi":
+            Acos, Asin = scf_compute_coeffs_axi(
+                lambda R, z: 1.0 / (R**2 + (z / P["q"]) ** 2 + 0.3) ** 2, 4, 2, a=P["a"]
+            )
+        else:
+            Acos, Asin = scf_compute_coeffs(
+                lambda R, z, phi: (
+                    (1.0 + 0.2 * get_namespace(phi).cos(2.0 * phi))
+                    / (R**2 + (z / P["q"]) ** 2 + 0.3) ** 2
+                ),
+                3,
+                3,
+                a=P["a"],
+                radial_order=12,
+                costheta_order=8,
+                phi_order=8,
+            )
+        pot = SCFPotential(amp=1.0, a=P["a"], Acos=Acos, Asin=Asin)
+        return pot.Rforce(R, z, phi=phi, use_physical=False)
+
+
+def _scalar_like(backend, x):
+    if backend == "numpy":
+        return x
+    if backend == "jax":
+        return jnp.asarray(x)
+    return torch.tensor(x, dtype=torch.float64)
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("param", ["a", "q"])
+@pytest.mark.parametrize("kind", ["axi", "general"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scf_coeffs_grad_wrt_scale_and_density_param(backend_name, kind, param, mode):
+    def at(x, bk, md):
+        return _scf_coeff_force(kind, {**_SCF_COEFF_P0, param: x}, md, bk)
+
+    x0 = _SCF_COEFF_P0[param]
+    h = 1e-3 * x0
+    d = lambda h: (
+        (at(x0 + h, "numpy", "data") - at(x0 - h, "numpy", "data"))
+        / (  # noqa: E731
+            2.0 * h
+        )
+    )
+    fd = (4.0 * d(h / 2.0) - d(h)) / 3.0
+    if backend_name == "jax":
+        f = lambda x: at(x, "jax", mode)  # noqa: E731
+        ads = [float(jax.grad(f)(jnp.asarray(x0))), float(jax.jit(jax.grad(f))(x0))]
+    else:
+        ads = [_scalar_grad("torch", lambda x: at(x, "torch", mode), x0)]
+    for ad in ads:
+        # measured <= 6e-12 relative
+        assert numpy.fabs(ad - fd) < 1e-9 * numpy.fabs(fd), (ad, fd)
