@@ -504,8 +504,9 @@ class sphericaldf(df):
             E = conversion.parse_energy(E, vo=vo)
             L = conversion.parse_angmom(L, ro=ro, vo=vo)
             Lz = conversion.parse_angmom(Lz, ro=ro, vo=vo)
-            _inp = (E, L, Lz)
             xp = resolve_namespace(E, L, Lz)
+            # a forced backend: plain inputs are coerced (so the output stays on it)
+            _inp = (E, L, Lz) if xp is numpy else coerce_coords(xp, E, L, Lz)
             if xp is numpy:
                 E = numpy.atleast_1d(E)
                 L = numpy.atleast_1d(L)
@@ -523,8 +524,12 @@ class sphericaldf(df):
             vT = conversion.parse_velocity(vT, vo=vo)
             z = conversion.parse_length(z, ro=ro)
             vz = conversion.parse_velocity(vz, vo=vo)
-            _inp = (R, vR, vT, z, vz)
             xp = resolve_namespace(R, vR, vT, z, vz)
+            _inp = (
+                (R, vR, vT, z, vz)
+                if xp is numpy
+                else coerce_coords(xp, R, vR, vT, z, vz)
+            )
             if xp is numpy:
                 vtotSq = vR**2.0 + vT**2.0 + vz**2.0
                 E = numpy.atleast_1d(

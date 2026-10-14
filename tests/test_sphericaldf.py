@@ -3773,9 +3773,9 @@ def test_isotropic_powerlaw_beta_directint():
 def test_isotropic_powerlaw_energyoutofbounds():
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8), (
-        "Evaluating the isotropic power-law DF at E > 0 does not give zero"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1),)))) < 1e-8
+    ), "Evaluating the isotropic power-law DF at E > 0 does not give zero"
     # Also test scalar fE input (plain float, no .shape — covers the non-array return path)
     assert dfp.fE(-1.0) > 0.0
 
@@ -3944,9 +3944,9 @@ def test_constantbeta_powerlaw_beta_directint(beta):
 def test_constantbeta_powerlaw_energyoutofbounds():
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0))) < 1e-8), (
-        "Evaluating the constant-beta power-law DF at E > 0 does not give zero"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0)))) < 1e-8
+    ), "Evaluating the constant-beta power-law DF at E > 0 does not give zero"
 
 
 def test_constantbeta_powerlaw_beta0_equals_isotropic():
@@ -4101,9 +4101,9 @@ def test_osipkovmerritt_powerlaw_beta_directint(ra):
 def test_osipkovmerritt_powerlaw_Qoutofbounds():
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     dfp = osipkovmerrittPowerLawdf(pot=pot, ra=2.0, rmax=100.0, rmin=1e-4)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0))) < 1e-8), (
-        "Evaluating the OM power-law DF at E > 0 does not give zero"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0)))) < 1e-8
+    ), "Evaluating the OM power-law DF at E > 0 does not give zero"
     # Also test scalar fQ input (plain float, no .shape — covers the non-array return path)
     assert dfp.fQ(1.0) > 0.0
 

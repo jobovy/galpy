@@ -20,7 +20,11 @@ from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend import special as _bspecial
 from ..backend import use
-from ..backend._namespaces import has_concrete_truth_value, stop_gradient
+from ..backend._namespaces import (
+    has_concrete_truth_value,
+    namespace_from_arrays,
+    stop_gradient,
+)
 from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
@@ -340,15 +344,20 @@ class _constantbetadf(anisotropicsphericaldf):
             )
         # jax/torch: fixed-order GL over v, differentiable in r through Phi(r)
         # and the vmax(r) integration limit; the node axis trails
+        gamma = _bspecial.gamma if is_backend_array(self._beta) else special.gamma
         rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
         Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
         integrand = lambda v: (
             v ** (2.0 - 2.0 * self._beta + m + n) * self.fE(Phir_b + 0.5 * v**2.0)
         )
-        if getattr(self, "_jit", False):
+        divergent = (
+            xp.isinf(self._potInf)
+            if is_backend_array(self._potInf)
+            else numpy.isinf(self._potInf)
+        )
+        if getattr(self, "_jit", False) or not has_concrete_truth_value(divergent):
             # jax.jit: whether Phi(inf) diverges has no concrete answer, so take
             # both quadratures and select (vmax guarded so neither branch NaNs)
-            divergent = xp.isinf(self._potInf)
             vmax = self._vmax_at_r(self._pot, rb)
             vmax = xp.where(divergent, xp.ones_like(vmax), vmax)
             integral = xp.where(
@@ -363,7 +372,7 @@ class _constantbetadf(anisotropicsphericaldf):
                 ),
                 fixed_quad(xp, integrand, 0.0, vmax, n=_QUAD_N_VMOM),
             )
-        elif numpy.isinf(as_numpy(self._potInf)):
+        elif bool(divergent):
             # divergent potential (Phi(inf)=inf): v_esc is infinite, so map the
             # tail [0, inf) instead of integrating to an infinite limit (NaN)
             integral = fixed_quad_semiinfinite(
@@ -378,9 +387,9 @@ class _constantbetadf(anisotropicsphericaldf):
             * numpy.pi
             * rb ** (-2.0 * self._beta)
             * integral
-            * special.gamma(m / 2.0 - self._beta + 1.0)
-            * special.gamma((n + 1) / 2.0)
-            / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
+            * gamma(m / 2.0 - self._beta + 1.0)
+            * gamma((n + 1) / 2.0)
+            / gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
         )
 
     @float64_default_if_torch_args
@@ -497,13 +506,22 @@ class constantbetadf(_constantbetadf):
         if self._halfint:
             self._m = (3 - self._twobeta) // 2
         else:
-            self._m = int(numpy.floor(1.5 - self._beta))
+            # the integer index is structural: a differentiated beta keeps it,
+            # a traced one (jax.jit) has none to keep
+            if not _has_concrete_value(self._beta):
+                raise NotImplementedError(
+                    "constantbetadf: beta selects the inversion's derivative order "
+                    "floor(1.5-beta), so it cannot be traced (jax.jit); "
+                    "differentiate w.r.t. beta eagerly (jax.grad, torch)"
+                )
+            self._m = int(numpy.floor(1.5 - as_numpy_constant(self._beta)))
             self._alpha = 1.5 - self._beta - self._m
+            gamma = _bspecial.gamma if is_backend_array(self._beta) else special.gamma
             self._fE_prefactor = (
                 2.0**self._beta
                 / (2.0 * numpy.pi) ** 1.5
-                / special.gamma(1.0 - self._alpha)
-                / special.gamma(1.0 - self._beta)
+                / gamma(1.0 - self._alpha)
+                / gamma(1.0 - self._beta)
             )
         # numpy-facing m-th (dens r^2beta)/dPsi^m derivative for the byte-identical
         # numpy fE path; the backend fE path reuses/rebuilds the raw vmapped
@@ -516,10 +534,14 @@ class constantbetadf(_constantbetadf):
         # neither operand can lift the other). For a plain numpy potential the
         # jax preference stands, keeping the numpy fE path byte-identical.
         _xp_pot = _pot_grad_namespace(self._pot, any_backend=True)
-        if _xp_pot is not None:
-            self._backend = name_of_namespace(_xp_pot)
+        # ... and so must a backend beta's (_ddenstwobetadr(r, beta=beta))
+        _xp_eng = _xp_pot
+        if _xp_eng is None and is_backend_array(self._beta):
+            _xp_eng = namespace_from_arrays((self._beta,))
+        if _xp_eng is not None:
+            self._backend = name_of_namespace(_xp_eng)
         self._gradfunc = _make_gradfunc(
-            self._raw_gradfunc(_autodiff_xp() if _xp_pot is None else _xp_pot),
+            self._raw_gradfunc(_autodiff_xp() if _xp_eng is None else _xp_eng),
             self._backend,
         )
         # Min and max energy (numpy scalars): Phi(rmax)/Phi(rmin) as numpy, robust
@@ -560,12 +582,14 @@ class constantbetadf(_constantbetadf):
             # otherwise resolves the forced default and mismatches the tracer).
             # Byte-identical to the numpy default, where dispatch is already
             # data-first.
+            # the limit calibration only: no gradient through it (see below)
+            alpha_c = as_numpy_constant(self._alpha)
             with use("numpy", force=False):
                 Es = numpy.linspace(
                     self._Emin, self._potInf + 1e-3 * (self._Emin - self._potInf), 51
                 )
                 guesspow = -17
-                guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
+                guesst = 10.0 ** (guesspow * (1.0 - alpha_c))
                 startt = numpy.ones_like(Es) * guesst
                 startval = numpy.zeros_like(Es)
                 # Boundary coercion (the _evalpot_asnumpy pattern): this
@@ -577,7 +601,7 @@ class constantbetadf(_constantbetadf):
                 rmins = as_numpy_constant(self._rphi(Es))
                 while numpy.any(startval == 0.0):
                     guesspow += 1
-                    guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
+                    guesst = 10.0 ** (guesspow * (1.0 - alpha_c))
                     indx = startval == 0.0
                     startt[indx] = guesst
                     # evaluate the FULL, fixed-shape arrays and keep the entries
@@ -586,13 +610,13 @@ class constantbetadf(_constantbetadf):
                     # recompiles every primitive per shape -- 15 s of XLA
                     # compiles. Only the ==0 decisions are kept, not the values.
                     startval[indx] = _fEintegrand_smallr(
-                        startt, self._pot, Es, self._gradfunc, self._alpha, rmins
+                        startt, self._pot, Es, self._gradfunc, alpha_c, rmins
                     )[indx]
                 # numpy queries hit the scipy spline (byte-identical); backend
                 # queries evaluate the frozen table natively, so the traced fE
                 # path can keep its integration limits on-backend
                 self._logstartt = Spline1D(
-                    Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
+                    Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - alpha_c), k=3
                 )
 
     @float64_default_if_torch_args

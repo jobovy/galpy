@@ -680,3 +680,140 @@ def test_constantbetadf_backend_fE_vs_analytic_hernquist(beta):
     rtol = 1e-9 if beta == 0.3 else 5e-11
     numpy.testing.assert_allclose(numpy.asarray(f(jnp.asarray(1.2))), ref, rtol=rtol)
     numpy.testing.assert_allclose(numpy.asarray(jax.jit(f)(1.2)), ref, rtol=rtol)
+
+
+###############################################################################
+# Parameter gradients (gap audit PR 25): beta (and the potential's parameters)
+# differentiated through constantbetaHernquistdf / constantbetaPowerLawdf /
+# the general constantbetadf, the DF built INSIDE the differentiated function.
+# Reference: a Richardson-extrapolated central FD of the numpy DF.
+###############################################################################
+_C = dict(R=0.9, vR=0.1, vT=0.3, z=0.2, vz=0.05, r=1.1)
+_GRAD_RTOL = numpy.array([1e-9, 2e-7, 2e-7])  # (f, vmomentdensity, sigmar)
+
+
+def _richardson(f, x0, h):
+    d = lambda h: (f(x0 + h) - f(x0 - h)) / (2.0 * h)
+    d1, d2 = d(h), d(h / 2.0)
+    return (4.0 * d2 - d1) / 3.0, numpy.fabs(d2 - d1)
+
+
+def _outs(df, coords, stack):
+    c = coords
+    vals = [
+        df(c["R"], c["vR"], c["vT"], c["z"], c["vz"]),
+        df.vmomentdensity(c["r"], 2, 0),
+        df.sigmar(c["r"]),
+    ]
+    return stack([v.reshape(()) if hasattr(v, "reshape") else v for v in vals])
+
+
+@pytest.fixture
+def df_outputs():
+    import contextlib
+
+    def q(build, P, backend=None, mode="numpy"):
+        """build(P) -> df; mode 'data': backend coords; 'forced': plain
+        coords under use(backend, force=True)"""
+        if mode == "numpy":
+            return numpy.array([float(as_numpy(v)) for v in _outs(build(P), _C, list)])
+        coords = (
+            _C if mode == "forced" else {k: _arr(backend, v) for k, v in _C.items()}
+        )
+        ctx = use(backend, force=True) if mode == "forced" else contextlib.nullcontext()
+        stack = jnp.stack if backend == "jax" else torch.stack
+        with ctx:
+            return _outs(build(P), coords, stack)
+
+    return q
+
+
+def _ad(backend, q, build, P, key, mode, jit=False):
+    if backend == "jax":
+        g = lambda x: q(build, {**P, key: x}, "jax", mode)
+        jac = jax.jit(jax.jacrev(g)) if jit else jax.jacrev(g)
+        return numpy.asarray(jac(jnp.asarray(P[key])))
+    t = torch.tensor(P[key], requires_grad=True)
+    out = q(build, {**P, key: t}, "torch", mode)
+    return numpy.array(
+        [float(torch.autograd.grad(o, t, retain_graph=True)[0]) for o in out]
+    )
+
+
+def _hernquist_beta(P):
+    return constantbetaHernquistdf(
+        pot=HernquistPotential(amp=P["amp"], a=P["a"]), beta=P["beta"]
+    )
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("key", ["beta", "amp", "a"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hernquist_beta_family_grad_vs_fd(backend, key, mode, df_outputs):
+    P = {"amp": 2.3, "a": 1.3, "beta": 0.2}
+    fd, err = _richardson(
+        lambda x: df_outputs(_hernquist_beta, {**P, key: x}), P[key], 1e-3
+    )
+    assert numpy.all(err < 1e-5 * numpy.fabs(fd))
+    gs = [_ad(backend, df_outputs, _hernquist_beta, P, key, mode)]
+    if backend == "jax":
+        gs.append(_ad(backend, df_outputs, _hernquist_beta, P, key, mode, jit=True))
+    # f is closed form; vmomentdensity/sigmar are a fixed-order GL over v vs
+    # numpy's adaptive quad -- the GL floor of d/dbeta (log v weights) is
+    # measured at 7e-8 for sigmar
+    for g in gs:
+        for gi, fi, rt in zip(g, fd, _GRAD_RTOL):
+            numpy.testing.assert_allclose(gi, fi, rtol=rt, atol=1e-12)
+
+
+def _powerlaw_beta(P):
+    return constantbetaPowerLawdf(
+        pot=PowerSphericalPotential(amp=P["amp"], alpha=2.5),
+        beta=P["beta"],
+        rmax=1e4,
+        rmin=1e-4,
+    )
+
+
+@pytest.mark.parametrize("key", ["beta", "amp"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_powerlaw_beta_family_grad_vs_fd(backend, key, df_outputs):
+    # FORCED mode (plain coordinates). Data mode evaluates Phi(rmax) at a plain
+    # rmax with backend parameters: the parameter-aware namespace (gap PR 1).
+    P = {"amp": 1.0, "beta": 0.2}
+    fd, err = _richardson(
+        lambda x: df_outputs(_powerlaw_beta, {**P, key: x}), P[key], 1e-3
+    )
+    assert numpy.all(err < 1e-5 * numpy.fabs(fd))
+    gs = [_ad(backend, df_outputs, _powerlaw_beta, P, key, "forced")]
+    if backend == "jax":
+        gs.append(_ad(backend, df_outputs, _powerlaw_beta, P, key, "forced", jit=True))
+    for g in gs:
+        for gi, fi, rt in zip(g, fd, _GRAD_RTOL):
+            numpy.testing.assert_allclose(gi, fi, rtol=rt, atol=1e-12)
+
+
+def _general_beta(P):
+    return constantbetadf(
+        pot=HernquistPotential(amp=P["amp"], a=P["a"]), beta=P["beta"], rmin=1e-4
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_general_constantbetadf_beta_grad_matches_hernquist(backend, df_outputs):
+    # the general (numerically inverted) DF of a Hernquist potential IS
+    # constantbetaHernquistdf: compare d/dbeta against the closed form's AD
+    # (itself pinned to FD above). f and sigmar only (no vmomentdensity: the
+    # general DF's moments are covered by the existing parity tests).
+    P = {"amp": 2.3, "a": 1.3, "beta": 0.2}
+    ref = _ad(backend, df_outputs, _hernquist_beta, P, "beta", "forced")
+    g = _ad(backend, df_outputs, _general_beta, P, "beta", "forced")
+    # the general fE inversion vs the closed form: measured <= 2e-9
+    numpy.testing.assert_allclose(g[[0, 2]], ref[[0, 2]], rtol=1e-7)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_general_constantbetadf_traced_beta_says_why():
+    # floor(1.5 - beta) picks the inversion's derivative order: no value under jit
+    with pytest.raises(NotImplementedError, match="derivative order"):
+        jax.jit(lambda b: _general_beta({"amp": 2.3, "a": 1.3, "beta": b})._m)(0.2)

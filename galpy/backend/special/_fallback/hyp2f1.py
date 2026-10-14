@@ -125,12 +125,13 @@ def _pfaff_series(xp, a, b, c, z):
         B = xp.where(swap, c - b, b)
         pref_exp = xp.where(swap, -a, -b)
     x = z / (z - 1.0)
-    term = xp.ones_like(x)
-    total = xp.ones_like(x)
-    for n in range(_SERIES_TERMS):
-        term = term * ((A + n) * (B + n) / ((c + n) * (n + 1.0))) * x
-        total = total + term
-    return (1.0 - z) ** pref_exp * total
+    # the terms as one cumulative product over a trailing axis: a Python loop
+    # unrolls into a 512-step graph (jax.jit(grad) of one call took > 10 min)
+    n = asarray_on_device(xp, numpy.arange(_SERIES_TERMS, dtype=float), device_of(x))
+    A, B, cn = (p[..., None] if numpy.ndim(p) else p for p in (A, B, c))
+    ratio = (A + n) * (B + n) / ((cn + n) * (n + 1.0))
+    terms = xp.cumulative_prod(ratio * x[..., None], axis=-1)
+    return (1.0 - z) ** pref_exp * (1.0 + xp.sum(terms, axis=-1))
 
 
 def hyp2f1_fallback(xp, a, b, c, z):
