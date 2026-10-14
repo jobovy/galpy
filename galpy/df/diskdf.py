@@ -17,6 +17,7 @@ _RMIN = 10.0**-10.0
 _MAXD_REJECTLOS = 4.0
 _PROFILE = False
 _NQUAD = 50  # fixed Gauss-Legendre order for the backend (jax/torch) moment path
+_NQUAD_CORRECTED = 100  # the correction splines' knots: 50 -> 4e-9, 100 -> 5e-10
 import copy
 import functools
 import os
@@ -32,6 +33,7 @@ from scipy import integrate, interpolate, optimize, stats
 from ..actionAngle import actionAngleAdiabatic
 from ..backend import (
     as_numpy,
+    asarray_on_device,
     backend_input,
     coerce_coords,
     device_of,
@@ -49,6 +51,7 @@ from ..backend._namespaces import (
     requires_backend_grad,
     under_trace,
 )
+from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly, spline_to_ppoly
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
@@ -133,6 +136,8 @@ def _beta_branch(beta, at0, other):
 class diskdf(df):
     """Class that represents a disk DF"""
 
+    _backend_compatible = True
+
     def __init__(
         self,
         dftype="dehnen",
@@ -208,8 +213,6 @@ class diskdf(df):
             )
         else:
             self._correct = False
-        # the backend paths do not cover DFcorrection
-        self._backend_compatible = not self._correct
         return None
 
     @functools.cached_property
@@ -581,12 +584,16 @@ class diskdf(df):
 
     def _backend_path(self, *xs):
         """True when an evaluation must take the backend path: a backend input or
-        beta, or a differentiated profile parameter (DFcorrection is numpy-only)"""
+        beta, or a differentiated profile parameter"""
         return (
             any(is_backend_array(x) for x in xs)
             or is_backend_array(self._beta)
             or self._profile_differentiated()
-        ) and not self._correct
+        )
+
+    @property
+    def _nquad(self):
+        return _NQUAD_CORRECTED if self._correct else _NQUAD
 
     def _backend_coerce(self, *xs):
         """(xp, xs on xp): the namespace of the inputs, beta and the profile
@@ -994,7 +1001,6 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
-        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
         if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
@@ -1007,7 +1013,7 @@ class diskdf(df):
                         vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, gamma
                     ),
                     [(0.0, nsigma), (vTlo, vThi)],
-                    n=_NQUAD,
+                    n=self._nquad,
                 )
                 / numpy.pi
                 * norm
@@ -1094,7 +1100,6 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
-        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
         if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
@@ -1107,7 +1112,7 @@ class diskdf(df):
                         vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, gamma
                     ),
                     [(0.0, nsigma), (vTlo, vThi)],
-                    n=_NQUAD,
+                    n=self._nquad,
                 )
                 / numpy.pi
                 * norm
@@ -1231,7 +1236,6 @@ class diskdf(df):
             )
         if nsigma == None:
             nsigma = _NSIGMA
-        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
         if self._backend_path(R):
             xp, R, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi, gamma = (
                 self._backend_moment_prep(R, nsigma)
@@ -1261,7 +1265,7 @@ class diskdf(df):
                     deriv,
                 )
             return (
-                nested_quad(xp, integ, [(-nsigma, nsigma), (vTlo, vThi)], n=_NQUAD)
+                nested_quad(xp, integ, [(-nsigma, nsigma), (vTlo, vThi)], n=self._nquad)
                 / numpy.pi
                 * norm
                 / 2.0
@@ -2250,7 +2254,7 @@ class dehnendf(diskdf):
             return xE, xE**beta * (L / xE - xE**beta)
 
         xE, olfac = _beta_branch(self._beta, flat, nonflat)
-        correction = xp.zeros(2)
+        correction = self._corr.correct(xE, log=True) if self._correct else xp.zeros(2)
         SRE2 = self._ssp("sigma2", xE, log=True) + correction[1]
         return (
             scalar_like(E, self._gamma)
@@ -2705,7 +2709,9 @@ class shudf(diskdf):
             return xL, xLsafe, E - 0.5 * (1.0 / beta + 1.0) * xLsafe ** (2.0 * beta)
 
         xL, xLsafe, eclfac = _beta_branch(self._beta, flat, nonflat)
-        correction = xp.zeros(2)
+        correction = (
+            self._corr.correct(xLsafe, log=True) if self._correct else xp.zeros(2)
+        )
         SRE2 = self._ssp("sigma2", xLsafe, log=True) + correction[1]
         value = (
             scalar_like(E, self._gamma)
@@ -3179,6 +3185,13 @@ class DFcorrection:
                 raise DFcorrectionError(
                     "Number of corrections has to be equal to the number of points npoints"
                 )
+        elif any(
+            is_backend_array(p)
+            for p in (*getattr(self._surfaceSigmaProfile, "_params", ()), self._beta)
+        ):
+            # backend parameters: the parameter-keyed save file cannot hold (or
+            # be keyed by) them, so compute on the backend, niter iterations
+            self._corrections = self._calc_corrections_backend()
         else:
             self._savedir = kwargs.get("savedir", _CORRECTIONSDIR)
             self._savefilename = self._createSavefilename(self._niter)
@@ -3188,6 +3201,9 @@ class DFcorrection:
                 savefile.close()
             else:  # Calculate the corrections
                 self._corrections = self._calc_corrections()
+        if is_backend_array(self._corrections):
+            self._backend_tables = self._backend_interp()
+            return None
         # Interpolation; smoothly go to zero
         interpRs = numpy.append(self._rs, 2.0 * self._rmax)
         self._surfaceInterpolate = interpolate.InterpolatedUnivariateSpline(
@@ -3213,7 +3229,96 @@ class DFcorrection:
             k=_INTERPDEGREE,
         )
         self._sigma2DerivSmallR = sigma2InterpolateSmallR.derivatives(interpRs[0])[1]
+        # Built here, not lazily: a first build inside a traced call compiles scipy
+        self._backend_tables = self._numpy_tables()
         return None
+
+    def _backend_interp(self):
+        """(x, c, log corrections at _RMIN, d log corrections/dR at _RMIN) of the
+        log-correction splines, for backend corrections: the not-a-knot cubic
+        is InterpolatedUnivariateSpline(k=3)'s; the small-R slope is that of
+        the least-squares cubic through the first _INTERPDEGREE+2 points, which
+        is UnivariateSpline's (default s) for corrections this smooth"""
+        xp = namespace_from_arrays((self._corrections,))
+        x = numpy.append(self._rs, 2.0 * self._rmax)
+        concat = getattr(xp, "concat", None) or xp.concatenate
+        logc = xp.log(
+            concat([self._corrections, xp.ones_like(self._corrections[:1])], axis=0)
+        )
+        if self._interp_k == 3:
+            c = cubic_spline_coeffs(xp, x, logc, bc="not-a-knot")
+        elif self._interp_k == 1:
+            dx = asarray_on_device(xp, numpy.diff(x), device_of(logc))[:, None]
+            c = xp.stack([(logc[1:] - logc[:-1]) / dx, logc[:-1]], axis=0)
+        else:
+            raise NotImplementedError(
+                "DFcorrection with backend parameters supports interp_k=1 or 3"
+            )
+        xs = x[: _INTERPDEGREE + 2]
+        V = numpy.vander(xs - xs[0], _INTERPDEGREE + 1, increasing=True)
+        w = numpy.linalg.pinv(V)[1]  # d/dR at xs[0] of the least-squares cubic
+        w = asarray_on_device(xp, w, device_of(logc))
+        dsmall = xp.sum(w[:, None] * logc[: _INTERPDEGREE + 2], axis=0)
+        return x, c, logc[0], dsmall
+
+    def _numpy_tables(self):
+        """_backend_interp's tables from the numpy splines (the same polynomials)"""
+        x, c0 = spline_to_ppoly(self._surfaceInterpolate)
+        _, c1 = spline_to_ppoly(self._sigma2Interpolate)
+        return (
+            x,
+            numpy.stack([c0, c1], axis=-1),
+            numpylog(self._corrections[0]),
+            numpy.array([self._surfaceDerivSmallR, self._sigma2DerivSmallR]),
+        )
+
+    def _correct_backend(self, R, log):
+        x, c, lc0, dsmall = self._backend_tables
+        xp = prefer_backend_namespace(R, self._corrections)
+        (R,) = coerce_coords(xp, R, device=device_of(R, self._corrections))
+        lo, hi = R < _RMIN, R > 2.0 * self._rmax
+        sp = eval_ppoly(xp, x, c, xp.where(lo | hi, self._rmax, R))
+        out = [
+            xp.where(
+                lo, lc0[ii] + dsmall[ii] * (R - _RMIN), xp.where(hi, 0.0, sp[..., ii])
+            )
+            for ii in range(2)
+        ]
+        out = xp.stack(out, axis=0)
+        return out if log else xp.exp(out)
+
+    def _calc_corrections_backend(self):
+        """_calc_corrections on the backend: niter iterations from scratch"""
+        params = (*getattr(self._surfaceSigmaProfile, "_params", ()), self._beta)
+        xp = prefer_backend_namespace(*params)
+        rs = asarray_on_device(xp, self._rs, device_of(*params))
+        corrections = None
+        for ii in range(self._niter):
+            kw = (
+                {}
+                if corrections is None
+                else dict(
+                    corrections=corrections,
+                    npoints=self._npoints,
+                    rmax=self._rmax,
+                    interp_k=self._interp_k,
+                )
+            )
+            currentDF = self._dftype(
+                surfaceSigma=self._surfaceSigmaProfile, beta=self._beta, **kw
+            )
+            thisSurface = currentDF.surfacemass(rs, use_physical=False)
+            new = xp.stack(
+                [
+                    currentDF._ssp("surfacemass", rs) / thisSurface,
+                    currentDF._ssp("sigma2", rs)
+                    * thisSurface
+                    / currentDF.sigma2surfacemass(rs, use_physical=False),
+                ],
+                axis=1,
+            )
+            corrections = new if corrections is None else corrections * new
+        return corrections
 
     def _createSavefilename(self, niter):
         # Form surfaceSigmaProfile string
@@ -3252,6 +3357,8 @@ class DFcorrection:
         -----
         - 2010-03-10 - Written - Bovy (NYU)
         """
+        if is_backend_array(R) or is_backend_array(self._corrections):
+            return self._correct_backend(R, log)
         if isinstance(R, numpy.ndarray):
             out = numpy.empty((2, len(R)))
             # R < _RMIN
