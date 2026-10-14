@@ -6,7 +6,7 @@ from ..util.conversion import (
     actionAngleInverse_physical_input,
     physical_conversion_actionAngleInverse,
 )
-from .actionAngle import actionAngle
+from .actionAngle import _lift_args, actionAngle
 
 
 class actionAngleInverse(actionAngle):
@@ -47,7 +47,7 @@ class actionAngleInverse(actionAngle):
 
         """
         try:
-            return self._evaluate(*args, **kwargs)
+            return self._evaluate(*_lift_args(self, args), **kwargs)
         except AttributeError:  # pragma: no cover
             raise NotImplementedError(
                 "'__call__' method not implemented for this actionAngle module"
@@ -85,7 +85,7 @@ class actionAngleInverse(actionAngle):
 
         """
         try:
-            return self._xvFreqs(*args, **kwargs)
+            return self._xvFreqs(*_lift_args(self, args), **kwargs)
         except AttributeError:  # pragma: no cover
             raise NotImplementedError(
                 "'xvFreqs' method not implemented for this actionAngle module"
@@ -117,7 +117,7 @@ class actionAngleInverse(actionAngle):
 
         """
         try:
-            return self._Freqs(*args, **kwargs)
+            return self._Freqs(*_lift_args(self, args), **kwargs)
         except AttributeError:  # pragma: no cover
             raise NotImplementedError(
                 "'Freqs' method not implemented for this actionAngle module"
