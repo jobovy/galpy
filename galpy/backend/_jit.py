@@ -278,6 +278,12 @@ def traced_call(method, args, kwargs, slots, nargs, xp=None):
     # them, and only a different BACKEND framework has to stay eager.
     if xp is not None and name_of_namespace(xp) not in (mode, "numpy"):
         return NOT_TRACED
+    # A Quantity coordinate (its unit is parsed in the body, e.g. diskdf.eval)
+    # is not traceable: tracing it would drop the unit.
+    for name, index in slots:
+        v = args[index] if index is not None and index < nargs else kwargs.get(name)
+        if hasattr(v, "unit"):
+            return NOT_TRACED
     if mode == "torch":
         compiled = _JITTED.get((method, "torch"))
         if compiled is None:

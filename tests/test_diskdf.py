@@ -1641,52 +1641,36 @@ def test_dehnendf_dlnfdRe_powerfall():
     return None
 
 
+def _dlnf_powerrise_chain(dfc, beta, R, vR, vT, h=1e-5):
+    # (dlnf/dRe, dlnf/dl) by the chain rule from CENTRAL differences in (R, vR,
+    # vT): forward differences at 1e-8 sat at ~1e-5 of round-off, the tolerance
+    def lnf(x):
+        return numpy.log(dfc(numpy.array(x)))
+
+    def Re(x):
+        E = (
+            x[1] ** 2.0 / 2.0
+            + x[2] ** 2.0 / 2.0
+            + 1.0 / 2.0 / beta * x[0] ** (2.0 * beta)
+        )
+        return (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
+
+    x0 = numpy.array([R, vR, vT])
+    dlnf, dRe = numpy.empty(3), numpy.empty(3)
+    for ii in range(3):
+        dx = numpy.zeros(3)
+        dx[ii] = h
+        dlnf[ii] = (lnf(x0 + dx) - lnf(x0 - dx)) / (2.0 * h)
+        dRe[ii] = (Re(x0 + dx) - Re(x0 - dx)) / (2.0 * h)
+    inv = numpy.linalg.inv(numpy.array([dRe, [vT, 0.0, R], [0.0, 1.0, 0.0]]))
+    return dlnf @ inv[:, 0], dlnf @ inv[:, 1]
+
+
 def test_dehnendf_dlnfdRe_powerrise():
     beta = 0.2
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
-    # Calculate dlndfdRe w/ the chain rule; first calculate dR
-    dR = 10**-8.0
     R, vR, vT = 0.8, 0.1, 0.9
-    Rn = R + dR
-    dR = Rn - R  # representable number
-    dlnfdR = (
-        numpy.log(dfc(numpy.array([R + dR, vR, vT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dR
-    E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    RE = (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dE = vR**2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * (R + dR) ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedR = (dRE - RE) / dR
-    # dvR
-    dvR = 10**-8.0
-    vRn = vR + dvR
-    dvR = vRn - vR  # representable number
-    dlnfdvR = (
-        numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dvR
-    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedvR = (dRE - RE) / dvR
-    # dvT
-    dvT = 10**-8.0
-    vTn = vT + dvT
-    dvT = vTn - vT  # representable number
-    dlnfdvT = (
-        numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dvT
-    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedvT = (dRE - RE) / dvT
-    # Calculate dR/dRe etc. from matrix inversion
-    dRvRvTdRe = numpy.linalg.inv(
-        numpy.array([[dRedR, dRedvR, dRedvT], [vT, 0.0, R], [0.0, 1.0, 0.0]])
-    )
-    dlnf = (
-        dlnfdR * dRvRvTdRe[0, 0] + dlnfdvR * dRvRvTdRe[1, 0] + dlnfdvT * dRvRvTdRe[2, 0]
-    )
+    dlnf = _dlnf_powerrise_chain(dfc, beta, R, vR, vT)[0]
     assert numpy.fabs(dlnf - dfc._dlnfdRe(R, vR, vT)) < 10.0**-5.0, (
         "dehnendf's dlnfdRe does not work"
     )
@@ -1795,47 +1779,8 @@ def test_dehnendf_dlnfdl_powerfall():
 def test_dehnendf_dlnfdl_powerrise():
     beta = 0.2
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
-    # Calculate dlndfdl w/ the chain rule; first calculate dR
-    dR = 10**-8.0
     R, vR, vT = 0.8, 0.1, 0.9
-    Rn = R + dR
-    dR = Rn - R  # representable number
-    dlnfdR = (
-        numpy.log(dfc(numpy.array([R + dR, vR, vT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dR
-    E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    RE = (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dE = vR**2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * (R + dR) ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedR = (dRE - RE) / dR
-    # dvR
-    dvR = 10**-8.0
-    vRn = vR + dvR
-    dvR = vRn - vR  # representable number
-    dlnfdvR = (
-        numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dvR
-    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedvR = (dRE - RE) / dvR
-    # dvT
-    dvT = 10**-8.0
-    vTn = vT + dvT
-    dvT = vTn - vT  # representable number
-    dlnfdvT = (
-        numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
-        - numpy.log(dfc(numpy.array([R, vR, vT])))
-    ) / dvT
-    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-    dRedvT = (dRE - RE) / dvT
-    # Calculate dR/dl etc. from matrix inversion
-    dRvRvTdl = numpy.linalg.inv(
-        numpy.array([[dRedR, dRedvR, dRedvT], [vT, 0.0, R], [0.0, 1.0, 0.0]])
-    )
-    dlnf = dlnfdR * dRvRvTdl[0, 1] + dlnfdvR * dRvRvTdl[1, 1] + dlnfdvT * dRvRvTdl[2, 1]
+    dlnf = _dlnf_powerrise_chain(dfc, beta, R, vR, vT)[1]
     assert numpy.fabs(dlnf - dfc._dlnfdl(R, vR, vT)) < 10.0**-5.0, (
         "dehnendf's dlnfdl does not work"
     )
@@ -2038,6 +1983,15 @@ def test_asymmetricdrift_powerrise():
     return None
 
 
+def _array_R_rtol():
+    # numpy loops the scalar path (bit-identical); a forced backend batches the
+    # quadrature over R, which XLA reduces in a different order (skew/kurtosis
+    # amplify that ~1e4 by cancellation: measured <= 1e-10)
+    from galpy.backend import get_namespace
+
+    return 1e-14 if get_namespace() is numpy else 1e-9
+
+
 @pytest.fixture(
     scope="module",
     params=["dehnendf_flat", "shudf_powerfall"],
@@ -2069,7 +2023,7 @@ def test_moments_array_R(warm_diskdf, fn):
     got = getattr(warm_diskdf, fn)(R)
     ref = numpy.array([getattr(warm_diskdf, fn)(r) for r in R.flat]).reshape(R.shape)
     assert got.shape == R.shape, f"{fn} with array R returns the wrong shape"
-    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+    numpy.testing.assert_allclose(got, ref, rtol=_array_R_rtol(), atol=0.0)
     return None
 
 
@@ -2087,7 +2041,7 @@ def test_vmomentsurfacemass_array_R(warm_diskdf, nm, deriv):
     assert numpy.shape(got) == R.shape, (
         "vmomentsurfacemass with array R returns the wrong shape"
     )
-    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+    numpy.testing.assert_allclose(got, ref, rtol=_array_R_rtol(), atol=0.0)
     return None
 
 
