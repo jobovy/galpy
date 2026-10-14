@@ -42,6 +42,7 @@ except ImportError:  # pragma: no cover
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
+
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend.jacobian import jacobian
@@ -404,6 +405,259 @@ def test_sigangled_assumezeromean_false(sdf, backend_name):
         )
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
+
+
+# --- the offset setup's eigendecomposition carries its exact gradient ---------
+# A copy of the numpy sdf whose dO/dJ, frequencies and sigv depend on a backend
+# scalar t (t = 0 reproduces sdf); _offset_setup then runs on the backend, so
+# d/dt flows through the frequency covariance's eigenvalues AND eigenvectors
+# (real_eig), sigangle (log) and the angle-spread quadratures.
+def _offset_copy(sdf, xp, t):
+    m = _copy.copy(sdf)
+    pert = numpy.random.default_rng(5).normal(size=(3, 3))
+    pert = 0.5 * (pert + pert.T)  # dO/dJ stays symmetric
+    m._dOdJp = xp.asarray(numpy.asarray(sdf._dOdJp)) * (
+        1.0 + 0.05 * t * xp.asarray(pert)
+    )
+    m._progenitor_Omega = xp.asarray(numpy.asarray(sdf._progenitor_Omega)) * (
+        1.0 + 0.02 * t
+    )
+    m._sigv = sdf._sigv * (1.0 + 0.1 * t)
+    m._offset_setup(None, sdf._leading, None)
+    return m
+
+
+def _offset_readout(m, dangle):
+    xp = get_namespace(m._meandO)
+    w = xp.asarray(numpy.array([1.0, -2.0, 3.0]))
+    return (
+        1e3 * m._meandO
+        + 1e6 * xp.sum(m._sortedSigOEig * w)
+        + 1e3 * xp.sum(m._dsigomeanProg * w)
+        + 1e3 * xp.sum(m._dsigomeanProgDirection * m._sigMeanSign * w)
+        + m._sigomatrixLogdet
+        + m._lnsigangle
+        + m._deltaAngleTrack
+        + 1e2 * m.sigangledAngle(dangle, use_physical=False)
+        + 1e2 * m.sigangledAngle(dangle, smallest=True, use_physical=False)
+        + 1e2 * m.meanangledAngle(dangle, use_physical=False)
+    )
+
+
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_offset_setup_grad_vs_fd(sdf, backend_name, forced):
+    xp = jnp if backend_name == "jax" else torch
+    import contextlib
+
+    def ctx():
+        return use(backend_name, force=True) if forced else contextlib.nullcontext()
+
+    def f(t):
+        with ctx():
+            m = _offset_copy(sdf, xp, t)
+            return _offset_readout(m, xp.asarray(0.3) + 0.0 * t)
+
+    # t = 0 reproduces the numpy setup
+    with ctx():
+        m0 = _offset_copy(sdf, xp, _arr(backend_name, 0.0))
+    assert is_backend_array(m0._sigomatrixEig[1]) and is_backend_array(m0._lnsigangle)
+    for attr in ("_meandO", "_dsigomeanProg", "_lnsigangle", "_deltaAngleTrack"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(m0, attr)), getattr(sdf, attr), rtol=1e-12, atol=1e-15
+        )
+    t0 = 0.3
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(t0)))
+        numpy.testing.assert_allclose(
+            float(jax.jit(jax.grad(f))(jnp.asarray(t0))), ad, rtol=1e-11
+        )
+    else:
+        tt = torch.tensor(t0, requires_grad=True)
+        f(tt).backward()
+        ad = float(tt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, t0 + h))) - float(f(_arr(backend_name, t0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(ad - rich) < 1e-8 * abs(rich), f"AD {ad} vs FD {rich}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_meanangledAngle_float_dangle_backend_eigenvalues(sdf, backend_name):
+    # a Python-float dangle next to backend eigenvalues (a differentiated offset
+    # setup) is coerced onto their backend: the same value as a backend dangle,
+    # and numpy's (zero by symmetry) at t = 0
+    xp = jnp if backend_name == "jax" else torch
+    m = _offset_copy(sdf, xp, _arr(backend_name, 0.0))
+    for smallest in (False, True):
+        got = m.meanangledAngle(0.3, smallest=smallest, use_physical=False)
+        assert is_backend_array(got)
+        ref = m.meanangledAngle(
+            _arr(backend_name, 0.3), smallest=smallest, use_physical=False
+        )
+        assert float(as_numpy(got)) == float(as_numpy(ref))
+        numpy.testing.assert_allclose(
+            as_numpy(got),
+            sdf.meanangledAngle(0.3, smallest=smallest, use_physical=False),
+            atol=1e-15,
+        )
+
+
+# __call__ on a differentiated offset setup: the stored dispersions, logdet and
+# mean offset stay on the backend in _call_backend (float() dropped them)
+def _sigv_copy(sdf, sigv, t=None):
+    m = _copy.copy(sdf)
+    m._sigv = sigv
+    if t is not None:  # also move dO/dJ, the offset direction and the logdet
+        xp = get_namespace(t)
+        pert = numpy.random.default_rng(5).normal(size=(3, 3))
+        pert = 0.5 * (pert + pert.T)
+        m._dOdJp = xp.asarray(numpy.asarray(sdf._dOdJp)) * (
+            1.0 + 0.05 * t * xp.asarray(pert)
+        )
+        m._logmeandetdOdJp = sdf._logmeandetdOdJp + 0.3 * t
+    m._offset_setup(None, sdf._leading, None)
+    return m
+
+
+@pytest.mark.parametrize("param", ["sigv", "dOdJ"])
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_call_grad_vs_fd_stream_parameters(sdf, backend_name, forced, param):
+    import contextlib
+
+    sigv0 = sdf._sigv
+    tp = numpy.asarray(sdf._interpolatedObsTrack[[300, 500, 700]])
+    tp = tp + 1e-4 * numpy.array([2.0, -1.0, 1.0, 1.5, -2.0, 3.0])
+
+    def ctx():
+        return use(backend_name, force=True) if forced else contextlib.nullcontext()
+
+    def f(x):
+        with ctx():
+            if param == "sigv":
+                m = _sigv_copy(sdf, sigv0 * x)
+            else:
+                m = _sigv_copy(sdf, sigv0 * (1.0 + 0.1 * x), t=x)
+            coords = (
+                [tp[:, i] for i in range(6)]  # plain numpy under the forced context
+                if forced
+                else [_arr(backend_name, tp[:, i]) for i in range(6)]
+            )
+            out = m(*coords, log=True)
+            assert is_backend_array(out)
+            return out @ (out * 0.0 + _arr(backend_name, [1.0, -0.5, 2.0]))
+
+    x0 = 1.1 if param == "sigv" else 0.3
+    # x -> its numpy value reproduces the numpy __call__ of the same setup
+    with ctx():
+        m0 = _sigv_copy(sdf, sigv0 * 1.1) if param == "sigv" else None
+    if m0 is not None:
+        mn = _copy.copy(sdf)
+        mn._sigv = sigv0 * 1.1
+        mn._offset_setup(None, sdf._leading, None)
+        want = mn(*[tp[:, i] for i in range(6)], log=True)
+        with ctx():
+            got = m0(*[_arr(backend_name, tp[:, i]) for i in range(6)], log=True)
+        numpy.testing.assert_allclose(as_numpy(got), want, rtol=1e-10)
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(x0)))
+        numpy.testing.assert_allclose(
+            float(jax.jit(jax.grad(f))(jnp.asarray(x0))), ad, rtol=1e-10
+        )
+    else:
+        xt = torch.tensor(x0, requires_grad=True)
+        f(xt).backward()
+        ad = float(xt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, x0 + h))) - float(f(_arr(backend_name, x0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(rich) > 1e-2 and abs(ad - rich) < 1e-8 * abs(rich), (ad, rich)
+
+
+# d/dsigv through a FULL construction from a numpy progenitor/potential/aA, sigv
+# the only differentiated input: the offset moments, the backend track (its AA
+# solves routed in-backend, since the track differentiates the AA Jacobian) and
+# the DF moments all carry it. Reference: Richardson FD of the numpy (data) or
+# forced-float (forced) construction. 3 chunks, no interpolation: kept small.
+def _sigv_full_sdf(sigv, forced, backend_name):
+    import contextlib
+
+    from galpy.df import streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=30.0, ntintJ=1000)
+    ctx = use(backend_name, force=True) if forced else contextlib.nullcontext()
+    with ctx:
+        return streamdf(
+            sigv,
+            progenitor=Orbit(_STREAM_IC),
+            pot=lp,
+            aA=aA,
+            leading=True,
+            nTrackChunks=3,
+            nTrackIterations=0,
+            nospreadsetup=True,
+            interpTrack=False,
+            useInterp=False,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        )
+
+
+def _sigv_full_obs(s, forced, backend_name):
+    import contextlib
+
+    ctx = use(backend_name, force=True) if forced else contextlib.nullcontext()
+    with ctx:
+        return [
+            s.density_par(0.3),
+            s.meanOmega(0.3, oned=True),
+            s.sigangledAngle(0.3),
+            (s._ObsTrack**2).sum(),
+        ]
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("forced", [False, True], ids=["data", "forced"])
+def test_full_construction_sigv_grad_vs_fd(forced):
+    s0 = 0.365 / 220.0
+
+    def f(x):
+        out = _sigv_full_obs(_sigv_full_sdf(x, forced, "jax"), forced, "jax")
+        return jnp.stack([jnp.reshape(jnp.asarray(o), ()) for o in out])
+
+    ad = numpy.asarray(jax.jacfwd(f)(jnp.asarray(s0)))
+    # release the eager construction's compiled kernels and buffers (~2 GB)
+    import gc
+
+    jax.clear_caches()
+    gc.collect()
+
+    def ev(x):
+        out = _sigv_full_obs(_sigv_full_sdf(x, forced, "jax"), forced, "jax")
+        return numpy.array([float(as_numpy(o)) for o in out])
+
+    def fd(h):
+        return (ev(s0 * (1 + h)) - ev(s0 * (1 - h))) / (2.0 * h * s0)
+
+    fd1 = fd(1e-3)
+    rich = (4.0 * fd(5e-4) - fd1) / 3.0
+    # density_par / meanOmega / sigangledAngle vs Richardson: measured <= 1.3e-8.
+    # The track's FD carries the numpy C integrator's adaptive-step noise
+    # (~1e-4 between h's, which Richardson amplifies): plain central FD there
+    # (measured 3.7e-5 data, 1.2e-5 forced).
+    rel = numpy.abs(ad - rich) / numpy.abs(rich)
+    rel[3] = abs(ad[3] - fd1[3]) / abs(fd1[3])
+    assert numpy.all(rel[:3] < 5e-8) and rel[3] < 2e-4, (ad, rich, fd1, rel)
 
 
 ###############################################################################
@@ -786,8 +1040,8 @@ def test_determine_stream_track_single_grad_vs_fd(backend_name):
 # (track AA - progenitor AA) carries the physical d(offset)/dparam cancellation.
 # Full differentiability needs an integrate_method='diffrax'/'torchdiffeq' AA (the
 # track uses the AA's 2nd derivative); the frequency-covariance moments
-# (_meandO/_sortedSigOEig/_dsigomeanProgDirection -- an eigendecomposition) stay
-# constant here (a ~10% residual vs a full numpy-rebuild FD), a Phase-C follow-up.
+# (_meandO/_sortedSigOEig/_dsigomeanProgDirection) come from the NUMPY sdf and stay
+# constant here (a full construction differentiates them, test_offset_setup_*).
 #
 # These tests build a NUMPY streamdf, then re-run the track on the backend with a
 # diffrax AA and check value parity + the differentiable pipeline. Slow (a backend
@@ -949,10 +1203,8 @@ def test_determine_stream_track_differentiable_potential():
     # d(sum(W*ObsTrack))/d(LogHalo q) flows end-to-end through the backend track
     # (auxiliary diffrax integration + AD calcaAJac + vmap assembly). The analytic
     # AD MUST equal a central FD of the SAME backend track -- here to ~1e-3 (the
-    # stringent grad-vs-FD bar; vmap with ADAPTIVE steps instead is ~7% off). [The separate
-    # ~10% gap to a full numpy-rebuild FD is the frozen frequency-covariance
-    # eigendecomposition (_meandO/_dsigomeanProgDirection), a differentiable-__init__
-    # (Phase C) follow-up -- not tested here.]
+    # stringent grad-vs-FD bar; vmap with ADAPTIVE steps instead is ~7% off). The
+    # frequency-covariance moments are the numpy sdf's, constant here.
     # tintJ=30, not 8: at tintJ=8 the isochrone-approx actions are not converged,
     # so the TRACK is not a settled function of q and this AD-vs-own-FD check
     # passes only at a sweet-spot step size. Measured central FD in h:
@@ -2826,6 +3078,46 @@ def test_misalignment_traces(flip):
     pn = numpy.asarray(pO)
     ref = numpy.arccos(pn @ d / numpy.linalg.norm(pn))
     numpy.testing.assert_allclose(eager, ref - numpy.pi if flip else ref, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_misalignment_isotropic_grad_vs_fd(sdf, backend_name):
+    # isotropic misalignment reads the top eigenVECTOR of dO/dJ (_dOdJpEig, as
+    # _progenitor_setup builds it); its rotation must carry the gradient. The
+    # numpy (finite-difference) dO/dJ is slightly asymmetric: eigh symmetrises it.
+    from types import SimpleNamespace
+
+    from galpy.df.streamdf import streamdf
+
+    xp = jnp if backend_name == "jax" else torch
+    D0 = numpy.asarray(sdf._dOdJp)
+    pert = numpy.random.default_rng(7).normal(size=(3, 3))
+    pert = 0.5 * (pert + pert.T)
+
+    def f(t):
+        D = xp.asarray(D0) * (1.0 + 0.1 * t * xp.asarray(pert))
+        fake = SimpleNamespace(
+            _dOdJpEig=_real_eig(D),
+            _progenitor_Omega=xp.asarray(numpy.asarray(sdf._progenitor_Omega)),
+        )
+        with pytest.warns(Warning):
+            return streamdf.misalignment(fake, isotropic=True)
+
+    t0 = 0.4
+    if backend_name == "jax":
+        ad = float(jax.grad(f)(jnp.asarray(t0)))
+    else:
+        tt = torch.tensor(t0, requires_grad=True)
+        f(tt).backward()
+        ad = float(tt.grad)
+
+    def fd(h):
+        return (
+            float(f(_arr(backend_name, t0 + h))) - float(f(_arr(backend_name, t0 - h)))
+        ) / (2.0 * h)
+
+    rich = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    assert abs(rich) > 1e-3 and abs(ad - rich) < 1e-8 * abs(rich), (ad, rich)
 
 
 @pytest.mark.slow

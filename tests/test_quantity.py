@@ -26,13 +26,15 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 # comparison is between two INDEPENDENTLY constructed streamgapdf objects'
 # SAMPLES, and sampled positions decorrelate over the 4.5 Gyr integration (a
 # 1-ulp change in sigv moves l by 1.2e-5 - 5.4e-5, flat from 1 to 1e6 ulp).
-# Compare on the same RELATIVE footing as the rest of the test instead, with an
-# O(1) floor so nothing gets TIGHTER than the absolute bar it replaces.
+# Compare on a RELATIVE footing instead, with an O(1) floor. The bar is 1e-5:
+# the proper motions decorrelate at ~1e-6 relative (1.25e-6 on CI's machine after
+# a last-bit change in streamdf's eigendecomposition), still far below any units
+# error.
 def _lb_close(q, ref, unit):
     ref = numpy.asarray(ref)
     return numpy.all(
         numpy.fabs(numpy.asarray(q.to(unit).value) - ref)
-        < 1e-6 * numpy.maximum(1.0, numpy.fabs(ref))
+        < 1e-5 * numpy.maximum(1.0, numpy.fabs(ref))
     )
 
 

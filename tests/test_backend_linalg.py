@@ -199,9 +199,9 @@ def test_real_eig_numpy_is_unchanged():
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 @pytest.mark.parametrize("gap", [1e-3, 1e-8, 0.0])
 def test_real_eig_eigenvalue_grad_survives_degeneracy(gap):
-    # the eigenVECTOR rotation is frozen, so d(sum w)/dA is the clean identity
-    # even at an exactly repeated eigenvalue -- a naive eigh eigenvector grad
-    # blows up like 1/gap there (1.6e14 at gap=0), which is what this avoids
+    # d(sum w)/dA is the clean identity even at an exactly repeated eigenvalue
+    # -- a naive eigh eigenvector grad blows up like 1/gap there (1.6e14 at
+    # gap=0), which the degeneracy guard avoids
     rng = numpy.random.RandomState(7)
     q, _ = numpy.linalg.qr(rng.randn(3, 3))
     a = q @ numpy.diag([1.0, 1.0 + gap, 5.0]) @ q.T
@@ -212,47 +212,152 @@ def test_real_eig_eigenvalue_grad_survives_degeneracy(gap):
     )
 
 
-@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
-def test_real_eig_freeze_vectors_controls_the_rotation_gradient():
-    # freeze_vectors=True takes the eigenVECTORS from a stop-gradient copy, so
-    # anything read off them is a constant to autodiff. That is right when the
-    # eigenvalues are near-degenerate (the eigenvector derivative goes like
-    # 1/gap), and wrong when one eigenvalue dominates -- which is the case
-    # streamdf reads, where freezing costs ~70% of d(track)/d(theta).
-    #
-    # Use a WELL-SEPARATED spectrum, like a stream frequency covariance
-    # (measured ~600x between the top two eigenvalues).
+def _eig_fixture_matrix(xp, t, spectrum):
+    # a(t) = R(t) Q diag(spectrum(t)) Q^T R(t)^T: eigenVALUES and eigenVECTORS
+    # both move with t
     q = numpy.linalg.qr(numpy.random.default_rng(3).normal(size=(3, 3)))[0]
+    k = numpy.triu(numpy.ones((3, 3)), 1) - numpy.tril(numpy.ones((3, 3)), -1)
+    eye = xp.asarray(numpy.eye(3)) + 0.0 * t
+    rot = eye + 0.1 * t * xp.asarray(k)
+    a = xp.asarray(q) @ xp.diag(spectrum(t)) @ xp.asarray(q).T
+    return rot @ a @ rot.T
 
-    def top_direction_sum(scale):
-        # a(scale) has eigenvalues (1.0*scale, 2e-3, 4e-4) in a fixed basis
-        w = jnp.stack([1.0 * scale, jnp.asarray(2e-3), jnp.asarray(4e-4)])
-        a = jnp.asarray(q) @ jnp.diag(w) @ jnp.asarray(q).T
-        # rotate a slightly with scale so the eigenVECTORS genuinely move
-        tilt = jnp.asarray(numpy.eye(3)) + 0.1 * scale * jnp.asarray(
-            numpy.triu(numpy.ones((3, 3)), 1) - numpy.tril(numpy.ones((3, 3)), -1)
+
+def _eig_readout(xp, a):
+    # sign-fixed eigenvectors (a sign flip would break an FD) times weights
+    w, v = real_eig(a)
+    order = xp.argsort(w)
+    v = v[:, order]
+    v = v * xp.sign(v[0:1, :])
+    wts = xp.asarray(numpy.arange(1.0, 10.0).reshape(3, 3))
+    return xp.sum(wts * v) + xp.sum(w[order] * xp.asarray([0.3, -0.7, 1.1]))
+
+
+def _grad_and_richardson_fd(backend, f, t0, h=1e-4):
+    if backend == "jax":
+        g = float(jax.grad(f)(jnp.asarray(t0)))
+    else:
+        t = torch.tensor(t0, requires_grad=True)
+        f(t).backward()
+        g = float(t.grad)
+    ev = lambda t: float(as_numpy(f(_arr(backend, t))))
+    fd = lambda h: (ev(t0 + h) - ev(t0 - h)) / (2.0 * h)
+    return g, (4.0 * fd(h / 2.0) - fd(h)) / 3.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_real_eig_grad_vs_fd_separated(backend):
+    # every eigenvector of a resolved spectrum carries its exact derivative
+    xp = jnp if backend == "jax" else torch
+    spec = lambda t: xp.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
+    f = lambda t: _eig_readout(xp, _eig_fixture_matrix(xp, t, spec))
+    g, fd = _grad_and_richardson_fd(backend, f, 1.0)
+    assert abs(g - fd) < 1e-9 * abs(fd), (g, fd)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_real_eig_grad_vs_fd_stream_like_spectrum(backend):
+    # the streamdf frequency covariance: ~600x between the top two eigenvalues and
+    # a near-degenerate small pair (still resolved, so still exact)
+    xp = jnp if backend == "jax" else torch
+    spec = lambda t: xp.stack([1.257e-6 * t, 2.049e-9 + 0.0 * t, 3.923e-10 * t])
+    f = lambda t: _eig_readout(xp, _eig_fixture_matrix(xp, t, spec) * 1e6)
+    # larger h: the small pair's eigenvectors carry ~eps/gap roundoff
+    g, fd = _grad_and_richardson_fd(backend, f, 1.0, h=2e-3)
+    assert abs(g - fd) < 1e-8 * abs(fd), (g, fd)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("gap", [0.0, 1e-13])
+def test_real_eig_degenerate_pair_is_finite_and_isolated_vector_exact(backend, gap):
+    # an exactly (or numerically) repeated pair: the rotation WITHIN it carries no
+    # gradient (native eigh: inf/NaN), while the separated eigenvector -- and
+    # every eigenvalue -- keep their exact derivative
+    xp = jnp if backend == "jax" else torch
+    spec = lambda t: xp.stack([2.0 * t, 0.5 + 0.0 * t, 0.5 + gap + 0.0 * t])
+
+    def top(t):
+        w, v = real_eig(_eig_fixture_matrix(xp, t, spec))
+        u = v[:, xp.argmax(w)]
+        u = u * xp.sign(u[0])
+        return xp.sum(u * xp.asarray([1.0, 2.0, 3.0])) + xp.sum(w * w)
+
+    g, fd = _grad_and_richardson_fd(backend, top, 1.0)
+    assert numpy.isfinite(g) and abs(g - fd) < 1e-9 * abs(fd), (g, fd)
+    if backend == "jax":
+        ga = jax.grad(lambda a: jnp.sum(real_eig(a)[1] ** 3))(
+            _eig_fixture_matrix(jnp, jnp.asarray(1.0), spec)
         )
-        a = tilt @ a @ tilt.T
-        return a
+        assert numpy.all(numpy.isfinite(numpy.asarray(ga)))
 
-    def frozen(scale):
-        w, v = real_eig(top_direction_sum(scale), freeze_vectors=True)
-        return jnp.sum(v[:, jnp.argmax(w)])
 
-    def live(scale):
-        w, v = real_eig(top_direction_sum(scale), freeze_vectors=False)
-        return jnp.sum(v[:, jnp.argmax(w)])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_real_eig_slightly_asymmetric_input(backend):
+    # a finite-difference dO/dJ is symmetric only to ~1e-3: both backends take
+    # the eigh of its symmetric part (torch alone would read the lower triangle)
+    xp = jnp if backend == "jax" else torch
+    skew = numpy.triu(numpy.ones((3, 3)), 1) * 2e-3
+    spec = lambda t: xp.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
 
-    g_frozen = float(jax.grad(frozen)(1.0))
-    g_live = float(jax.grad(live)(1.0))
-    h = 1e-6
-    fd = (float(live(1.0 + h)) - float(live(1.0 - h))) / (2.0 * h)
-    assert abs(g_frozen) < 1e-12, "frozen vectors must carry NO rotation gradient"
-    assert abs(g_live - fd) / max(abs(fd), 1e-12) < 1e-5, (
-        f"unfrozen vectors must match a finite difference (AD {g_live}, FD {fd})"
+    def mat(t):
+        return _eig_fixture_matrix(xp, t, spec) + t * xp.asarray(skew)
+
+    a = numpy.asarray(as_numpy(mat(_arr(backend, 1.0))))
+    w, _ = real_eig(_arr(backend, a))
+    numpy.testing.assert_allclose(
+        numpy.sort(as_numpy(w)), numpy.linalg.eigvalsh(0.5 * (a + a.T)), rtol=1e-13
     )
-    # values are identical either way -- stop_gradient is the identity forward
-    numpy.testing.assert_allclose(float(frozen(1.0)), float(live(1.0)), rtol=1e-12)
+    f = lambda t: _eig_readout(xp, mat(t))
+    g, fd = _grad_and_richardson_fd(backend, f, 1.0)
+    assert abs(g - fd) < 1e-9 * abs(fd), (g, fd)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_real_eig_second_derivative_vs_fd(backend):
+    # the custom rules are written in differentiable ops of the outputs, so the
+    # second derivative is exact too (a stop-gradient graft would drop terms)
+    xp = jnp if backend == "jax" else torch
+    spec = lambda t: xp.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
+    f = lambda t: _eig_readout(xp, _eig_fixture_matrix(xp, t, spec))
+    if backend == "jax":
+        d1 = lambda t: jax.grad(f)(t)
+        d2 = float(jax.grad(d1)(jnp.asarray(1.0)))
+    else:
+
+        def d1(t):
+            t = t.detach().requires_grad_()
+            (g,) = torch.autograd.grad(f(t), t, create_graph=True)
+            return g
+
+        t = torch.tensor(1.0, requires_grad=True)
+        (g,) = torch.autograd.grad(f(t), t, create_graph=True)
+        d2 = float(torch.autograd.grad(g, t)[0])
+    ev = lambda t: float(as_numpy(d1(_arr(backend, t))))
+    fd = lambda h: (ev(1.0 + h) - ev(1.0 - h)) / (2.0 * h)
+    rich = (4.0 * fd(5e-5) - fd(1e-4)) / 3.0
+    assert abs(d2 - rich) < 1e-8 * abs(rich), (d2, rich)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_real_eig_torch_vmap_grad_matches_eager():
+    spec = lambda t: torch.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
+    f = lambda t: _eig_readout(torch, _eig_fixture_matrix(torch, t, spec))
+    ts = torch.tensor([0.8, 1.0, 1.3])
+    eager = numpy.array([float(torch.func.grad(f)(t)) for t in ts])
+    numpy.testing.assert_allclose(
+        torch.func.vmap(torch.func.grad(f))(ts).numpy(), eager, rtol=1e-12
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_real_eig_jit_and_vmap_match_eager():
+    spec = lambda t: jnp.stack([1.0 * t, 0.3 + 0.0 * t, 0.05 + 0.2 * t])
+    f = lambda t: _eig_readout(jnp, _eig_fixture_matrix(jnp, t, spec))
+    ts = jnp.asarray([0.8, 1.0, 1.3])
+    eager = numpy.array([float(jax.grad(f)(t)) for t in ts])
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.vmap(jax.grad(f)))(ts)), eager, rtol=1e-12
+    )
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
