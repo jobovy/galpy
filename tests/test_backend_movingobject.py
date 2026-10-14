@@ -244,3 +244,93 @@ def test_numpy_query_under_forced_backend(backend_name, mop_id, mop):
                 atol=0.0,
                 err_msg=f"{mop_id} {method} numpy-under-forced-{backend_name}",
             )
+
+
+# --- gradients w.r.t. the object's orbit and the kernel ---------------------------
+# The object orbit is built from a [R, vR, vT, z, vz, phi] list holding the
+# differentiated backend scalar and integrated inside the differentiated
+# function; the field point is plain floats. Data mode: backend parameter only.
+# Forced mode: also under use(backend, force=True) (the forced boundary lifts the
+# field point).
+_MO_TS = numpy.linspace(0.0, 1.0, 101)
+_MO_P0 = {"R": 1.0, "vT": 1.1, "b": 0.1, "amp": 1.2}
+
+
+def _mo_rforce(name, x):
+    ic = [1.0, 0.1, 1.1, 0.05, 0.02, 0.3]
+    if name in ("R", "vT"):
+        ic[{"R": 0, "vT": 2}[name]] = x
+    o = Orbit(ic)
+    o.integrate(_MO_TS, _LP, method="dop853_c")
+    mo = potential.MovingObjectPotential(
+        o,
+        pot=potential.PlummerPotential(amp=0.06, b=x if name == "b" else 0.1),
+        amp=x if name == "amp" else 1.2,
+    )
+    return mo.Rforce(1.1, 0.05, phi=0.4, t=0.55, use_physical=False)
+
+
+def _mo_fd(name):
+    x0, h = _MO_P0[name], 1e-3 * _MO_P0[name]
+
+    def d(h):
+        return (float(_mo_rforce(name, x0 + h)) - float(_mo_rforce(name, x0 - h))) / (
+            2.0 * h
+        )
+
+    return (4.0 * d(h / 2.0) - d(h)) / 3.0
+
+
+@pytest.mark.parametrize("mode", ["data", "forced"])
+@pytest.mark.parametrize("name", list(_MO_P0))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_object_orbit_and_kernel_grad_vs_fd(backend_name, name, mode):
+    import contextlib
+
+    import galpy.backend
+    from galpy.backend import as_numpy, is_backend_array
+
+    def f(x):
+        with (
+            galpy.backend.use(backend_name, force=True)
+            if mode == "forced"
+            else contextlib.nullcontext()
+        ):
+            return _mo_rforce(name, x)
+
+    fd = _mo_fd(name)
+    x0 = _MO_P0[name]
+    if backend_name == "jax":
+        out = f(jnp.asarray(x0))
+        ads = [float(jax.grad(f)(jnp.asarray(x0)))]
+        if mode == "data":
+            ads.append(float(jax.jit(jax.grad(f))(jnp.asarray(x0))))
+    else:
+        x = torch.tensor(x0, requires_grad=True)
+        out = f(x)
+        ads = [float(torch.autograd.grad(out, x)[0])]
+    assert is_backend_array(out)
+    # a differentiated IC integrates on the backend: its in-backend orbit spline
+    # differs from scipy's at ~1e-11
+    numpy.testing.assert_allclose(
+        float(as_numpy(out)),
+        float(_mo_rforce(name, x0)),
+        rtol=1e-10 if name in ("R", "vT") else 1e-12,
+    )
+    assert abs(fd) > 1e-2
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_forced_float_query_returns_backend_array(backend_name):
+    # a numpy object orbit at plain-float coordinates under a forced backend: the
+    # boundary lifts the coordinates (no numpy island), same value as numpy
+    import galpy.backend
+    from galpy.backend import as_numpy, is_backend_array
+
+    ref = float(_MOP3.Rforce(1.0, 0.05, phi=0.2, t=1.7, use_physical=False))
+    with galpy.backend.use(backend_name, force=True):
+        got = _MOP3.Rforce(1.0, 0.05, phi=0.2, t=1.7, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-12)
