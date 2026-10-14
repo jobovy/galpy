@@ -3249,9 +3249,10 @@ def _rl_array(pot, lz, t=0.0):
     while numpy.any(shrink):
         lo[shrink] /= 2.0
         shrink[shrink] = _rlfunc(lo[shrink], lz[shrink], pot, t=t) > 0.0
-    # to brentq's default xtol and rtol; 1100 halvings span any finite bracket
+    # to brentq's default rtol (relative, so small radii are as precise as large
+    # ones); 1100 halvings span any finite bracket
     for _ in range(1100):
-        if not numpy.any(hi - lo > 2e-12 + 4.0 * numpy.finfo(float).eps * hi):
+        if not numpy.any(hi - lo > 4.0 * numpy.finfo(float).eps * hi):
             break
         mid = 0.5 * (lo + hi)
         below = _rlfunc(mid, lz, pot, t=t) < 0.0
