@@ -11,7 +11,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import concretely_true, get_namespace, is_backend_array
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 from .Potential import _normalize_requested
@@ -90,8 +90,13 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         # an axisymmetric oblate perfect ellipsoid is a Staeckel potential in
         # the prolate spheroidal coordinates of focal length a sqrt(1 - c^2)
         # (de Zeeuw 1985), which actionAngleStaeckel picks up from here
-        if self._aligned and numpy.fabs(self._b - 1.0) < 1e-10 and self._c < 1.0:
-            self._delta = self.a * numpy.sqrt(1.0 - self._c2)
+        if (
+            self._aligned
+            and concretely_true(abs(self._b - 1.0) < 1e-10)
+            and concretely_true(self._c < 1.0)
+        ):
+            xc = get_namespace(self._c2) if is_backend_array(self._c2) else numpy
+            self._delta = self.a * xc.sqrt(1.0 - self._c2)
         # Adjust amp
         self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
         self._backend_compatible = True

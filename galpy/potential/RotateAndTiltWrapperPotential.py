@@ -4,9 +4,22 @@
 ###############################################################################
 import numpy
 
-from ..backend import as_backend_constant, coerce_coords, get_namespace, to_host
-from ..backend._namespaces import eager_value_memo
-from ..util import _rotate_to_arbitrary_vector, conversion, coords
+from ..backend import (
+    as_backend_constant,
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+    to_host,
+)
+from ..backend._namespaces import (
+    eager_value_memo,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
+from ..util import _rotate_to_arbitrary_vector, _zvec_pa_rotation, conversion, coords
 from .Potential import (
     _evaluatephitorques,
     _evaluatePotentials,
@@ -98,13 +111,19 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         sky_pa = conversion.parse_angle(sky_pa)
         galaxy_pa = conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa = self._parse_inclination(inclination, sky_pa, zvec, galaxy_pa)
+        if isinstance(offset, list) and any(is_backend_array(o) for o in offset):
+            ref = next(o for o in offset if is_backend_array(o))
+            offset = namespace_from_arrays((ref,)).stack(
+                promote_scalars(namespace_from_arrays((ref,)), *offset)
+            )
         self._offset = conversion.parse_length(
             numpy.array(offset) if isinstance(offset, list) else offset, ro=self._ro
         )
         self._setup_zvec_pa(zvec, galaxy_pa)
-        self._norot = False
-        if (self._rot == numpy.eye(3)).all():
-            self._norot = True
+        # a traced or grad-tracking rotation is kept even when it is the identity
+        self._norot = not (
+            under_trace(self._rot) or requires_backend_grad(self._rot)
+        ) and concretely_true((self._rot == numpy.eye(3)).all())
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True
@@ -121,6 +140,11 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             return (zvec, galaxy_pa)
         if sky_pa is None:
             sky_pa = 0.0
+        refs = [x for x in (inclination, sky_pa, galaxy_pa) if is_backend_array(x)]
+        if refs:
+            return self._parse_inclination_backend(
+                refs[0], inclination, sky_pa, galaxy_pa
+            )
         zvec_rot = numpy.dot(
             numpy.array(
                 [
@@ -144,28 +168,34 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         pa = numpy.dot(int_rot, numpy.dot(zvec_rot, [1.0, 0.0, 0.0]))
         return (zvec, galaxy_pa + numpy.arctan2(pa[1], pa[0]))
 
+    @staticmethod
+    def _parse_inclination_backend(ref, inclination, sky_pa, galaxy_pa):
+        """_parse_inclination with a backend-array angle (differentiable)"""
+        xp = namespace_from_arrays((ref,))
+        inc, spa = (
+            v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+            for v in (inclination, sky_pa)
+        )
+        z0, one = xp.zeros_like(inc), xp.ones_like(inc)
+        ss, cs, si, ci = xp.sin(spa), xp.cos(spa), xp.sin(inc), xp.cos(inc)
+        zvec_rot = xp.stack(
+            [xp.stack([ss, cs, z0]), xp.stack([-cs, ss, z0]), xp.stack([z0, z0, one])]
+        ) @ xp.stack(
+            [xp.stack([one, z0, z0]), xp.stack([z0, -ci, -si]), xp.stack([z0, -si, ci])]
+        )
+        zvec = zvec_rot[:, 2]
+        int_rot = _rotate_to_arbitrary_vector(
+            numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=False
+        )[0]
+        pa = int_rot @ zvec_rot[:, 0]
+        return (zvec, galaxy_pa + xp.atan2(pa[1], pa[0]))
+
     def _setup_zvec_pa(self, zvec, pa):
-        if not pa is None:
-            pa_rot = numpy.array(
-                [
-                    [numpy.cos(pa), numpy.sin(pa), 0.0],
-                    [-numpy.sin(pa), numpy.cos(pa), 0.0],
-                    [0.0, 0.0, 1.0],
-                ]
-            )
+        self._rot = _zvec_pa_rotation(zvec, pa)
+        if is_backend_array(self._rot):
+            self._inv_rot = namespace_from_arrays((self._rot,)).linalg.inv(self._rot)
         else:
-            pa_rot = numpy.eye(3)
-        if not zvec is None:
-            if not isinstance(zvec, numpy.ndarray):
-                zvec = numpy.array(zvec)
-            zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
-            zvec_rot = _rotate_to_arbitrary_vector(
-                numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
-            )[0]
-        else:
-            zvec_rot = numpy.eye(3)
-        self._rot = numpy.dot(pa_rot, zvec_rot)
-        self._inv_rot = numpy.linalg.inv(self._rot)
+            self._inv_rot = numpy.linalg.inv(self._rot)
         return None
 
     def __getattr__(self, attribute):
@@ -194,8 +224,13 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         # __array_wrap__ deprecation (96 of them across the traced-torch
         # surfdens tests). A plain float stays a weak scalar, so it also will
         # not upcast a float32 backend array the way as_backend_constant would.
-        r22 = 1.0 if self._norot else float(self._rot[2, 2])
-        if r22 == 0.0:
+        if self._norot:
+            r22 = 1.0
+        elif is_backend_array(self._rot):  # a differentiated rotation
+            r22 = self._rot[2, 2]
+        else:
+            r22 = float(self._rot[2, 2])
+        if concretely_true(r22 == 0.0):
             return 0.0
         num = 0.0
         if not self._norot:
