@@ -1293,3 +1293,41 @@ def test_pvr_interpolator_grid_matches_scipy(backend):
     got = interp(_arr(backend, X), Y)
     assert tuple(got.shape) == ref.shape == (3, 11)
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_forced_plain_inputs_return_backend(backend):
+    # CONTRACT CHANGE (gap audit PR 25): under a forced backend, plain-float
+    # (R, vR, vT, z, vz) / (E, L) inputs to __call__ are coerced, so the DF
+    # value stays on the backend (it used to be exit-cast to numpy, dropping the
+    # gradient of a differentiated potential)
+    c = (0.9, 0.1, 0.3, 0.2, 0.05)
+    E = float(_DF._pot(0.9, 0.2, use_physical=False)) + 0.05
+    ref_c, ref_e = float(_DF(*c)), float(_DF((E, 0.3)))
+    with use(backend, force=True):
+        got_c, got_e = _DF(*c), _DF((E, 0.3))
+    for got, ref in ((got_c, ref_c), (got_e, ref_e)):
+        assert _is_backend_array(backend, got)
+        numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_forced_grad_wrt_potential_parameter(backend):
+    # d f(R, vR, vT, z, vz)/d amp at plain-float coordinates under force
+    c = (0.9, 0.1, 0.3, 0.2, 0.05)
+
+    def f(amp, bk=None):
+        ctx = use(bk, force=True) if bk else contextlib.nullcontext()
+        with ctx:
+            return isotropicHernquistdf(pot=HernquistPotential(amp=amp, a=1.3))(*c)
+
+    d = lambda h: (float(f(2.3 + h)) - float(f(2.3 - h))) / (2.0 * h)
+    fd = (4.0 * d(5e-4) - d(1e-3)) / 3.0
+    if backend == "jax":
+        g = float(jax.grad(lambda a: jnp.reshape(f(a, "jax"), ()))(jnp.asarray(2.3)))
+    else:
+        t = torch.tensor(2.3, requires_grad=True)
+        (g,) = torch.autograd.grad(f(t, "torch"), t)
+        g = float(g)
+    # closed form: Richardson truncation ~1e-12
+    numpy.testing.assert_allclose(g, fd, rtol=1e-9)
