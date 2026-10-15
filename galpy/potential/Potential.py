@@ -28,6 +28,7 @@ from ..backend import (
     backend_input,
     coerce_coords,
     device_of,
+    forced_backend,
     get_namespace,
     is_backend_array,
     is_backend_compatible,
@@ -40,6 +41,7 @@ from ..backend import resolve_namespace, scalar_like, to_host
 from ..backend._input import params_changed
 from ..backend._namespaces import (
     has_concrete_truth_value,
+    namespace_from_arrays,
     param_grad_namespace,
     requires_backend_grad,
     under_trace,
@@ -3669,13 +3671,17 @@ def rl(Pot, lz, t=0.0):
 
     """
     lz = conversion.parse_angmom(lz, **conversion.get_physical(Pot))
-    # Follow the GRADIENT, not just the argument: the root r*vc(r) - |lz| also
-    # depends on the POTENTIAL, so a plain-float lz against a traced potential
-    # still needs the backend solver. Probing vcirc is the only way to see that
+    # Follow the data, not just the argument: the root r*vc(r) - |lz| also
+    # depends on the POTENTIAL, so a plain-float lz against a backend potential
+    # takes the backend solver. Probing vcirc is the only way to see that
     # -- a differentiated potential parameter is invisible from lz alone -- and
     # it is what made Orbit.rguiding raise under d/d(potential parameter).
-    _xp_pot = _pot_grad_namespace(Pot)
-    if is_backend_array(lz) or _xp_pot is not None:
+    _xp = (
+        namespace_from_arrays((lz,))
+        if is_backend_array(lz)
+        else _pot_backend_namespace(Pot)
+    )
+    if _xp is not None:
         # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
         # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
         # is found from the PRIMAL of |lz| (no gradient needed for it); the solve
@@ -3686,7 +3692,7 @@ def rl(Pot, lz, t=0.0):
         # fed straight to vcirc, and a float radius there makes vcirc resolve
         # NUMPY and then numpy.sqrt the traced force
         if not is_backend_array(lz):
-            lz = _xp_pot.asarray(lz) * 1.0
+            (lz,) = coerce_coords(_xp, lz)
         alz = _abs_backend(lz)
         f = lambda r: _rlfunc(r, alz, Pot, t)
         # Start the upper bound at 2*|lz| (the numpy _rlFindStart seed); the
@@ -3784,14 +3790,29 @@ def _pot_grad_namespace(Pot, any_backend=False):
     return param_grad_namespace(Pot, any_backend=any_backend)
 
 
+def _pot_backend_namespace(Pot):
+    """The namespace of a backend-array parameter of ``Pot`` -- differentiated or
+    not -- else None: a backend input turns the backend on. Under a forced
+    backend, whose coercions leave backend parameters behind that are not the
+    user's, only a differentiated one counts (a forced numpy pin: none). (Whether
+    something is DIFFERENTIATED is ``_pot_grad_namespace``'s question.)"""
+    from ..backend._input import _grad_param
+
+    forced = forced_backend()
+    if forced is not None:
+        return None if forced == "numpy" else _pot_grad_namespace(Pot)
+    p = _grad_param(Pot)
+    return None if p is None else namespace_from_arrays((p,))
+
+
 def _pot_data_namespace(Pots, *xs):
-    """``resolve_namespace(*xs)`` with a differentiated parameter of any of
-    ``Pots`` counted as data: at Python-float ``xs`` it needs no use() block (a
-    forced backend still wins)."""
+    """``resolve_namespace(*xs)`` with a backend parameter of any of ``Pots``
+    counted as data: at Python-float ``xs`` it needs no use() block (a forced
+    backend still wins)."""
     xp = resolve_namespace(*xs)
     if xp is numpy:
         for Pot in Pots:
-            gxp = _pot_grad_namespace(Pot)
+            gxp = _pot_backend_namespace(Pot)
             if gxp is not None:
                 return gxp
     return xp
@@ -3871,9 +3892,13 @@ def rE(Pot, E, t=0.0):
     """
     E = conversion.parse_energy(E, **conversion.get_physical(Pot))
     # Same as rl: vc^2/2 + Phi(rE) - E depends on the potential too, so a
-    # plain-float E against a traced potential still needs the backend solver.
-    _xp_pot = _pot_grad_namespace(Pot)
-    if is_backend_array(E) or _xp_pot is not None:
+    # plain-float E against a backend potential takes the backend solver.
+    _xp = (
+        namespace_from_arrays((E,))
+        if is_backend_array(E)
+        else _pot_backend_namespace(Pot)
+    )
+    if _xp is not None:
         # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
         # which increases with r, so d rE / d E (and through theta) flows. The
         # bracket is found branch-free; the solve closes over the live E.
@@ -3882,7 +3907,7 @@ def rE(Pot, E, t=0.0):
         # as in rl: lift a plain-float E so the bracket radii reach the potential
         # in ITS namespace rather than as numpy floats
         if not is_backend_array(E):
-            E = _xp_pot.asarray(E) * 1.0
+            (E,) = coerce_coords(_xp, E)
         f = lambda r: _rEfunc(r, E, Pot, t)
         rstart, rlower = _backend_rootbracket(f, E, lower_default=1e-5, hi0=2.0)
         return _bk_brentq(f, rlower, rstart, maxiter=200)

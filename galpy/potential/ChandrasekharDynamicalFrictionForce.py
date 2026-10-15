@@ -10,6 +10,7 @@ from scipy import interpolate, special
 
 from ..backend import (
     coerce_coords,
+    concrete_backend_anchor,
     device_of,
     get_namespace,
     host_eval,
@@ -204,6 +205,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 )
             else:
                 self._sigmars_4interp = numpy.array(to_host(sigmars))
+                # ... and concrete backend ones still make this a backend force
+                _anchor = concrete_backend_anchor(sigmars)
+                if _anchor is not None:
+                    self._backend_anchor = _anchor
         if not is_backend_array(self._sigmars_4interp) and numpy.any(
             numpy.isnan(self._sigmars_4interp)
         ):

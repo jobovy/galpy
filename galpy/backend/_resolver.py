@@ -54,6 +54,12 @@ def get_namespace(*arrays, xp=None):
     return numpy
 
 
+def forced_backend():
+    """The name of a forced backend (``use(..., force=True)``), else None."""
+    ctx = _BACKEND_CTX.get()
+    return ctx[0] if ctx is not None and ctx[1] else None
+
+
 def backend():
     """Return the name of the current default backend ('numpy' if unset)."""
     ctx = _BACKEND_CTX.get()

@@ -71,6 +71,7 @@ from ._namespaces import (
     is_backend_array,
     name_of_namespace,
     namespace_from_arrays,
+    requires_backend_grad,
     under_trace,
 )
 
@@ -256,6 +257,46 @@ def scalar_like(ref, value):
         if isinstance(ref, torch.Tensor):
             return as_backend_constant(namespace_from_arrays((ref,)), value, ref)
     return value
+
+
+def data_zero(*xs):
+    """A structural zero (an axisymmetric torque, a constant's force) where a
+    kernel would compute: 0.0 on numpy, else zeros of the inputs' broadcast
+    shape on the backend of the backend arrays among ``xs``, or a forced one."""
+    from ._resolver import get_namespace
+
+    bk = [x for x in xs if is_backend_array(x)]
+    if bk:
+        return namespace_from_arrays(bk).zeros_like(sum(bk[1:], bk[0]))
+    xp = get_namespace(*xs)
+    if xp is numpy:
+        return 0.0
+    cs = coerce_coords(xp, *xs)
+    return xp.zeros_like(sum(cs[1:], cs[0]))
+
+
+def concrete_backend_anchor(*xs):
+    """A zero on the namespace/device of the first concrete (not differentiated)
+    backend array among ``xs`` (lists are searched), else None; None under a
+    forced jax/torch backend, whose values are not the user's data (a numpy pin
+    of galpy's own setup does not count). Kept on an object that fits numpy
+    tables from such an input, it marks the object as a backend one -- a backend
+    input turns the backend on -- without moving the tables (a differentiated
+    input builds backend ones)."""
+    from ._resolver import _BACKEND_CTX
+
+    ctx = _BACKEND_CTX.get()
+    if ctx is not None and ctx[1] and ctx[0] != "numpy":
+        return None
+    for x in xs:
+        if isinstance(x, (list, tuple)):
+            a = concrete_backend_anchor(*x)
+            if a is not None:
+                return a
+        elif is_backend_array(x) and not (under_trace(x) or requires_backend_grad(x)):
+            xp = namespace_from_arrays((x,))
+            return asarray_on_device(xp, 0.0, device_of(x), dtype=x.dtype)
+    return None
 
 
 def zeros_like_backend(xp, R):

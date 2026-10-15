@@ -36,7 +36,7 @@ from ..orbit.Orbits import _flip_velocity_columns
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
-    _pot_grad_namespace,
+    _pot_backend_namespace,
 )
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
 from ..util._pickle import SplinePickleMixin
@@ -2412,13 +2412,13 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
 
 def _kick_namespace(arrays, pots=()):
     """Data-first namespace of an impulse kick: that of any backend-array argument
-    or differentiated potential parameter, else numpy (a numpy streamgapdf setup
-    under a forced backend keeps the numpy kick)."""
+    or backend potential parameter, else numpy (a numpy streamgapdf setup under
+    a forced backend keeps the numpy kick)."""
     bk = tuple(a for a in arrays if is_backend_array(a))
     if bk:
         return namespace_from_arrays(bk)
     for pot in pots:
-        gxp = _pot_grad_namespace(pot)
+        gxp = _pot_backend_namespace(pot)
         if gxp is not None:
             return gxp
     return numpy

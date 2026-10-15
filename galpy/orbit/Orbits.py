@@ -29,6 +29,7 @@ from ..backend import (
     coerce_coords,
     device_of,
     float64_default_if_torch_args,
+    forced_backend,
     get_namespace,
     is_backend_array,
     like,
@@ -1979,9 +1980,16 @@ class Orbit:
         # so the differentiable routes below take it, rather than the numpy/C path
         # dropping the parameter's gradient.
         _dparam = _pot_traced_param(pot)
-        if _dparam is not None and getattr(self, "_ic_backend", None) is None:
+        # ... and so does any backend parameter (a backend input makes a backend
+        # orbit); only a differentiated one must avoid the C-STM below
+        _bparam = (
+            _dparam
+            if _dparam is not None or forced_backend() is not None
+            else param_grad_array(pot, any_backend=True)
+        )
+        if _bparam is not None and getattr(self, "_ic_backend", None) is None:
             self._ic_backend = like(
-                _dparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
+                _bparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
             )
         if method.lower() in ("diffrax", "torchdiffeq", "torchode"):
             # the same list -> CompositePotential conversion (and deprecation
@@ -2640,7 +2648,7 @@ class Orbit:
         integrate(<dxdv-C-method>)`` is differentiable w.r.t. all N ICs at once.
         """
         ic = self._ic_backend
-        xp = get_namespace(ic)
+        xp = namespace_from_arrays((ic,))  # the IC's own, not a forced one
         if is_backend_array(t):
             ts = t
         else:
@@ -4331,7 +4339,17 @@ class Orbit:
             # functionally; everything else goes back to a writable numpy
             # array, because as_numpy's jax view is read-only and the clip below
             # is in place. No-op for numpy -> that path stays byte-identical.
-            delta_grad = under_trace(delta) or requires_backend_grad(delta)
+            # ... and so does a backend delta the caller passed (a backend input
+            # turns the backend on); the automagic one is a numpy constant
+            delta_grad = (
+                under_trace(delta)
+                or requires_backend_grad(delta)
+                or (
+                    is_backend_array(delta)
+                    and not self._aA_delta_automagic
+                    and forced_backend() is None
+                )
+            )
             if is_backend_array(delta) and not delta_grad:
                 delta = numpy.array(as_numpy(delta))
             # a jit-traced delta cannot pick the spherical fallback; Staeckel at
@@ -4487,6 +4505,9 @@ class Orbit:
         # decides: a forced backend lifts the result at the accessor)
         _vals = (R, vR, vT, tz, tvz, phi, *aAkwargs.values())
         _bk = [x for x in _vals if is_backend_array(x)]
+        if not _bk and forced_backend() is None:  # ... or a backend parameter
+            _p = param_grad_array(self._aA, any_backend=True)
+            _bk = [] if _p is None else [_p]
         xp = namespace_from_arrays(_bk[:1]) if _bk else numpy
         if xp is not numpy:
             R, vR, vT, tz, tvz, phi = coerce_coords(xp, R, vR, vT, tz, tvz, phi)

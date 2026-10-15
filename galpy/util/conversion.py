@@ -416,7 +416,10 @@ def velocity_in_kpcGyr(vo, ro):
     - 2014-12-19 - Written - Bovy (IAS)
 
     """
-    return vo * _kmsInPcMyr
+    from ..backend import like
+
+    # on the backend of a backend ro too (the value does not depend on it)
+    return like(ro, vo * _kmsInPcMyr)
 
 
 def get_physical(obj: Any, include_set: bool = False) -> dict:

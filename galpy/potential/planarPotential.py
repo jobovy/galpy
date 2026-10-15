@@ -6,6 +6,7 @@ from scipy import integrate
 
 from ..backend import (
     backend_input,
+    data_zero,
     get_namespace,
     is_backend_compatible,
     scalar_like,
@@ -382,7 +383,7 @@ class planarAxiPotential(planarPotential):
         self.isNonAxi = False
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R)
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
         """

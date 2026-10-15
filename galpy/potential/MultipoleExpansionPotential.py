@@ -19,6 +19,7 @@ from scipy.interpolate import (
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    concrete_backend_anchor,
     device_of,
     get_namespace,
     is_backend_array,
@@ -2520,6 +2521,11 @@ class MultipoleExpansionPotential(
         """Replace the (numpy-built) backend tables with ones built in ``xp``
         from backend density multipoles, so evaluation is differentiable w.r.t.
         what the density depends on."""
+        # concrete multipoles: the tables (kept in a cache) do not mark the
+        # object as a backend one, so an anchor does
+        _anchor = concrete_backend_anchor(rho_cos)
+        if _anchor is not None:
+            self._backend_anchor = _anchor
         comps = self._backend_comps()
         L, M = self._L, self._M
         if self._tdep:  # (Nt, Nr, L, M) multipoles at the tgrid times
