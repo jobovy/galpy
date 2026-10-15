@@ -16,6 +16,7 @@ import warnings
 import numpy
 
 from ..backend import get_namespace, is_backend_array, promote_scalars, to_host
+from ..backend._coerce import mask_where
 from ..backend._namespaces import namespace_from_arrays
 from ..potential import IsochronePotential
 from ..util import conversion, galpyWarning
@@ -130,6 +131,7 @@ class actionAngleIsochrone(actionAngle):
             Ly = z * vR - R * vz
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
+            E, unbound = _guard_unbound(xp, E)
             L = xp.sqrt(L2)
             # Actions
             Jphi = Lz
@@ -137,6 +139,7 @@ class actionAngleIsochrone(actionAngle):
             Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (
                 L + xp.sqrt(L2 + 4.0 * self.amp * self.b)
             )
+            (Jr,) = _nan_unbound(xp, unbound, Jr)
             return (Jr, Jphi, Jz)
 
     def _actionsFreqs(self, *args, **kwargs):
@@ -188,6 +191,7 @@ class actionAngleIsochrone(actionAngle):
             Ly = z * vR - R * vz
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
+            E, unbound = _guard_unbound(xp, E)
             L = xp.sqrt(L2)
             sqrtL2p = xp.sqrt(L2 + 4.0 * self.amp * self.b)  # shared by Jr + Omegaz
             # Actions
@@ -199,6 +203,9 @@ class actionAngleIsochrone(actionAngle):
             Omegaz = 0.5 * (1.0 + L / sqrtL2p) * Omegar
             indx = Lz < 0.0
             Omegaphi = xp.where(indx, -Omegaz, Omegaz)
+            Jr, Omegar, Omegaphi, Omegaz = _nan_unbound(
+                xp, unbound, Jr, Omegar, Omegaphi, Omegaz
+            )
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz)
 
     def _actionsFreqsAngles(self, *args, **kwargs):
@@ -423,3 +430,19 @@ class actionAngleIsochrone(actionAngle):
                 rperi,
                 rap,
             )
+
+
+def _guard_unbound(xp, E):
+    """Backend E: unbound (E >= 0) entries replaced by a benign E = -1 so the
+    sqrt(-2E) dead branch stays finite under AD; numpy E is returned as is."""
+    if xp is numpy:
+        return E, None
+    unbound = ~(E < 0.0)
+    return mask_where(xp, ~unbound, E, -1.0), unbound
+
+
+def _nan_unbound(xp, unbound, *outs):
+    """NaN at the unbound entries (numpy's value there)."""
+    if unbound is None:
+        return outs
+    return tuple(xp.where(unbound, xp.nan, o) for o in outs)
