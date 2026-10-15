@@ -5,7 +5,6 @@
 #                                            component
 ###############################################################################
 import numpy
-from scipy import integrate
 
 from ..backend import to_host
 from ..backend._namespaces import (
@@ -140,9 +139,13 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
             new_rforce = numpy.concatenate(([0.0], new_rforce))
             new_rforce_func = lambda r: -numpy.interp(r, rgrid, new_rforce)
             # Potential at zero = int_0^inf dr rforce, and enc. mass constant
-            # outside of last rgrid point
+            # outside of last rgrid point; the force is piecewise linear, so its
+            # integral is the exact trapezoid sum (scipy's quad stopped at 50
+            # subintervals: Phi0 ~6e-7 off, varying with the parameters)
             Phi0 = (
-                integrate.quad(new_rforce_func, rgrid[0], rgrid[-1])[0]
+                -numpy.sum(
+                    0.5 * (new_rforce[1:] + new_rforce[:-1]) * (rgrid[1:] - rgrid[:-1])
+                )
                 - new_rforce[-1] * rgrid[-1]
             )
         else:
