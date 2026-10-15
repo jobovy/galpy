@@ -4,6 +4,12 @@ v1.12.1 (expected around 2026-11-01)
 - ``AdiabaticContractionWrapperPotential`` now applies its ``amp`` (it was
   silently ignored, so ``amp`` had no effect in Python, C, or JAX).
 
+- ``AdiabaticContractionWrapperPotential``'s potential is now offset by the
+  exact integral of its (piecewise-linear) force, rather than scipy's quad,
+  which stopped at 50 subintervals: the potential was 3e-7 to 5e-7 off
+  (relative), by an amount varying with the parameters. Forces and densities
+  are unchanged.
+
 - ``quasiisothermaldf``: ``_precomputerg=False`` no longer raises
   "'NoneType' object is not callable". When the actionAngle object raises
   ``UnboundError`` for an array of phase-space points (the Python

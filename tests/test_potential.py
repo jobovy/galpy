@@ -7646,6 +7646,33 @@ def test_AdiabaticContractionWrapper_amp():
     return None
 
 
+def test_AdiabaticContractionWrapper_Phi0_exact():
+    # Phi0 is the exact integral of the piecewise-linear contracted force (scipy's
+    # quad stopped at 50 subintervals: 3e-7 to 5e-7 off, varying with the
+    # parameters, which also made d Phi/d(parameter) ~1e-5 off)
+    for kw in (
+        dict(
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            method="cautun",
+        ),
+        dict(
+            pot=potential.NFWPotential(amp=2.0, a=2.0),
+            baryonpot=potential.HernquistPotential(amp=0.5, a=0.5),
+            f_bar=0.157,
+            method="cautun",
+        ),
+    ):
+        dm = AdiabaticContractionWrapperPotential(**kw)
+        rg, fg = dm._rgrid, dm._rforce_grid
+        exact = numpy.sum(0.5 * (fg[1:] + fg[:-1]) * numpy.diff(rg)) + fg[-1] * rg[-1]
+        assert numpy.fabs(dm._Phi0 - exact) < 1e-14 * numpy.fabs(exact), (
+            "AdiabaticContractionWrapperPotential's Phi0 is not the exact integral "
+            "of its force"
+        )
+    return None
+
+
 def test_RotateAndTiltWrapper():
     # some tests of the rotate and tilt wrapper
     zvec = numpy.array([numpy.sqrt(1 / 3.0), numpy.sqrt(1 / 3.0), numpy.sqrt(1 / 3.0)])
