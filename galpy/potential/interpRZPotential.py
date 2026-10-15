@@ -7,9 +7,23 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 
+from ..backend import (
+    backend_input,
+    branch_where,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    is_backend_compatible,
+    match_input_dtype,
+    promote_scalars,
+    to_host,
+)
+from ..backend._namespaces import has_concrete_truth_value, param_grad_array
+from ..backend.interpolate import Spline1D, Spline2D
 from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
-from .Potential import Potential
+from .Potential import Potential, _pot_grad_namespace
 
 _DEBUG = False
 
@@ -21,6 +35,10 @@ def scalarVectorDecorator(func):
 
     @wraps(func)
     def scalar_wrapper(*args, **kwargs):
+        if is_backend_array(args[1]) or is_backend_array(args[2]):
+            # backend (jax/torch) R/z: skip the numpy scalar/vector normalization;
+            # the inner function's backend branch broadcasts (R,z) natively.
+            return func(*args, **kwargs)
         if (
             numpy.array(args[1]).shape == () and numpy.array(args[2]).shape == ()
         ):  # only if both R and z are scalars
@@ -53,12 +71,27 @@ def zsymDecorator(odd):
     def wrapper(func):
         @wraps(func)
         def zsym_wrapper(*args, **kwargs):
+            R, z = args[1], args[2]
+            backend = is_backend_array(R) or is_backend_array(z)
             if args[0]._zsym:
-                out = func(args[0], args[1], numpy.fabs(args[2]), **kwargs)
+                if backend:
+                    # a planar caller passes a Python-float z next to backend R
+                    xp = get_namespace(R, z)
+                    R, z = promote_scalars(xp, R, z)
+                    absz = xp.abs(z)
+                else:
+                    absz = numpy.fabs(z)
+                out = func(args[0], R, absz, **kwargs)
             else:
                 out = func(*args, **kwargs)
             if odd and args[0]._zsym:
-                return sign(args[2]) * out
+                # out can be a backend array even for numpy R,z under a forced
+                # backend (the interpolated force resolves the forced namespace),
+                # so key the sign correction off the output, not the inputs
+                if is_backend_array(out):
+                    xp = get_namespace(out)
+                    return xp.where(xp.asarray(z) < 0.0, -1.0, 1.0) * out
+                return sign(z) * out
             else:
                 return out
 
@@ -72,6 +105,10 @@ def scalarDecorator(func):
 
     @wraps(func)
     def scalar_wrapper(*args, **kwargs):
+        if is_backend_array(args[1]):
+            # backend (jax/torch) R: skip the numpy scalar normalization; the
+            # inner function's backend branch broadcasts R natively.
+            return func(*args, **kwargs)
         if numpy.array(args[1]).shape == ():
             scalarOut = True
             args = (args[0], numpy.array([args[1]]))
@@ -109,6 +146,16 @@ def _spot_check_cells(nR, nz):
         cells.add((int(f * (nR - 1)), int(f * (nz - 1))))
         cells.add((int(f * (nR - 1)), int((1.0 - f) * (nz - 1))))
     return sorted(cells)
+
+
+def _grid_eval_backend(evaluator, pot, rgrid, zgrid, xp, dev):
+    """``evaluator(pot, R, z)`` on the tensor grid, on ``xp`` (the namespace of a
+    differentiated parameter of ``pot``): one vectorised call, so the grid --
+    and the spline fit to it -- carries the parameter's gradient. Backend
+    potentials broadcast natively, so no cell-by-cell check is needed."""
+    Rmesh, zmesh = numpy.meshgrid(rgrid, zgrid, indexing="ij")
+    Rmesh, zmesh = coerce_coords(xp, Rmesh, zmesh, device=dev)
+    return evaluator(pot, Rmesh, zmesh, use_physical=False)
 
 
 def _grid_eval(evaluator, pot, rgrid, zgrid):
@@ -167,17 +214,32 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
 
     Rmesh, zmesh = numpy.meshgrid(rgrid, zgrid, indexing="ij")
     try:
-        grid = numpy.asarray(evaluator(pot, Rmesh, zmesh, use_physical=False))
+        raw = evaluator(pot, Rmesh, zmesh, use_physical=False)
+        grid = numpy.asarray(raw)
     except Exception:  # scalar-only potentials must be driven cell by cell
         return _loop()
     if grid.shape != (nR, nz):
         return _loop()
+    # numpy compares bit for bit; jax/torch reassociate reductions differently
+    # between a whole-mesh call and a scalar one, so an exact test rejects a
+    # CORRECT vectorised result (measured: 2 of 9 cells, worst 1.6e-15) and
+    # falls back for every cell -- 1643x on a 201x201 MWPotential build. A
+    # relative tolerance still catches the failure this guards against: the
+    # disagreement it exists to catch is not in the ULPs.
+    #
+    # 1e-14, i.e. ~6x the measured 1.6e-15 reassociation, NOT 1e-12: the margin
+    # over ULP noise has to stay small enough that this is a reassociation
+    # allowance and not a correctness allowance. The bound is pinned from both
+    # sides by test_grid_eval_falls_back_when_the_vectorised_call_disagrees,
+    # which injects a 1e-13 relative error that 1e-14 catches and 1e-12 does not.
+    rtol = 0.0 if not is_backend_array(raw) else 1e-14
     for ii, jj in _spot_check_cells(nR, nz):
-        if not numpy.array_equal(
-            grid[ii, jj],
-            evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False),
-            equal_nan=True,
-        ):
+        ref = numpy.asarray(evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False))
+        got = numpy.asarray(grid[ii, jj])
+        # rtol=0 atol=0 makes allclose exactly `array_equal` (verified over nan,
+        # +-inf, -0.0 and denormals), so numpy keeps bit-for-bit through the same
+        # single expression -- no backend-only branch to leave uncovered.
+        if not numpy.allclose(got, ref, rtol=rtol, atol=0.0, equal_nan=True):
             return _loop()
     return grid
 
@@ -294,6 +356,15 @@ class interpRZPotential(Potential):
         if not voSet:
             self._voSet = False
         self._origPot = RZPot
+        # A differentiated parameter of RZPot: evaluate the grids on its backend
+        # and fit them natively (Spline2D/Spline1D from backend values), so the
+        # interpolant carries the parameter's gradient. C (use_c/enable_c)
+        # cannot take such grids.
+        _gp = param_grad_array(RZPot)
+        self._grid_xp = None if _gp is None else get_namespace(_gp)
+        if _gp is not None:
+            self._grid_dev = device_of(_gp)
+            use_c = enable_c = False
         self._rgrid = numpy.linspace(*rgrid)
         self._logR = logR
         if self._logR:
@@ -338,16 +409,14 @@ class interpRZPotential(Potential):
             else:
                 from ..potential import evaluatePotentials
 
-                self._potGrid = _grid_eval(
-                    evaluatePotentials, self._origPot, self._rgrid, self._zgrid
-                )
+                self._potGrid = self._grid(evaluatePotentials)
             if self._logR:
-                self._potInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._potGrid, kx=3, ky=3, s=0.0
+                self._potInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._potGrid, kx=3, ky=3
                 )
             else:
-                self._potInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._potGrid, kx=3, ky=3, s=0.0
+                self._potInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._potGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._potGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._potGrid)
@@ -359,16 +428,14 @@ class interpRZPotential(Potential):
             else:
                 from ..potential import evaluateRforces
 
-                self._rforceGrid = _grid_eval(
-                    evaluateRforces, self._origPot, self._rgrid, self._zgrid
-                )
+                self._rforceGrid = self._grid(evaluateRforces)
             if self._logR:
-                self._rforceInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
+                self._rforceInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._rforceGrid, kx=3, ky=3
                 )
             else:
-                self._rforceInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._rforceGrid, kx=3, ky=3, s=0.0
+                self._rforceInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._rforceGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._rforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._rforceGrid)
@@ -380,16 +447,14 @@ class interpRZPotential(Potential):
             else:
                 from ..potential import evaluatezforces
 
-                self._zforceGrid = _grid_eval(
-                    evaluatezforces, self._origPot, self._rgrid, self._zgrid
-                )
+                self._zforceGrid = self._grid(evaluatezforces)
             if self._logR:
-                self._zforceInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
+                self._zforceInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._zforceGrid, kx=3, ky=3
                 )
             else:
-                self._zforceInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._zforceGrid, kx=3, ky=3, s=0.0
+                self._zforceInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._zforceGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._zforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._zforceGrid)
@@ -404,16 +469,14 @@ class interpRZPotential(Potential):
         if interpR2deriv:
             from ..potential import evaluateR2derivs
 
-            self._r2derivGrid = _grid_eval(
-                evaluateR2derivs, self._origPot, self._rgrid, self._zgrid
-            )
+            self._r2derivGrid = self._grid(evaluateR2derivs)
             if self._logR:
-                self._r2derivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                self._r2derivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3
                 )
             else:
-                self._r2derivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                self._r2derivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._r2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -422,16 +485,14 @@ class interpRZPotential(Potential):
         if interpz2deriv:
             from ..potential import evaluatez2derivs
 
-            self._z2derivGrid = _grid_eval(
-                evaluatez2derivs, self._origPot, self._rgrid, self._zgrid
-            )
+            self._z2derivGrid = self._grid(evaluatez2derivs)
             if self._logR:
-                self._z2derivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                self._z2derivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3
                 )
             else:
-                self._z2derivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                self._z2derivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._z2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -440,16 +501,14 @@ class interpRZPotential(Potential):
         if interpRzderiv:
             from ..potential import evaluateRzderivs
 
-            self._rzderivGrid = _grid_eval(
-                evaluateRzderivs, self._origPot, self._rgrid, self._zgrid
-            )
+            self._rzderivGrid = self._grid(evaluateRzderivs)
             if self._logR:
-                self._rzderivInterp = interpolate.RectBivariateSpline(
-                    self._logrgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                self._rzderivInterp = Spline2D(
+                    self._logrgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3
                 )
             else:
-                self._rzderivInterp = interpolate.RectBivariateSpline(
-                    self._rgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                self._rzderivInterp = Spline2D(
+                    self._rgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3
                 )
             if enable_c * ext_loaded:
                 self._rzderivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
@@ -458,31 +517,29 @@ class interpRZPotential(Potential):
         if interpDens:
             from ..potential import evaluateDensities
 
-            self._densGrid = _grid_eval(
-                evaluateDensities, self._origPot, self._rgrid, self._zgrid
-            )
+            self._densGrid = self._grid(evaluateDensities)
             if self._logR:
-                self._densInterp = interpolate.RectBivariateSpline(
+                self._densInterp = Spline2D(
                     self._logrgrid,
                     self._zgrid,
-                    numpy.log(self._densGrid + 10.0**-10.0),
+                    (self._grid_xp or numpy).log(self._densGrid + 10.0**-10.0),
                     kx=3,
                     ky=3,
-                    s=0.0,
                 )
             else:
-                self._densInterp = interpolate.RectBivariateSpline(
+                self._densInterp = Spline2D(
                     self._rgrid,
                     self._zgrid,
-                    numpy.log(self._densGrid + 10.0**-10.0),
+                    (self._grid_xp or numpy).log(self._densGrid + 10.0**-10.0),
                     kx=3,
                     ky=3,
-                    s=0.0,
                 )
         if interpvcirc:
             from ..potential import vcirc
 
-            if not numcores is None:
+            if self._grid_xp is not None:
+                self._vcircGrid = self._grid1d(vcirc)
+            elif not numcores is None:
                 self._vcircGrid = multi.parallel_map(
                     (
                         lambda x: vcirc(
@@ -494,20 +551,23 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._vcircGrid = numpy.array(
-                    [vcirc(self._origPot, r, use_physical=False) for r in self._rgrid]
+                    to_host(
+                        [
+                            vcirc(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
-                self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._logrgrid, self._vcircGrid, k=3
-                )
+                self._vcircInterp = Spline1D(self._logrgrid, self._vcircGrid, k=3)
             else:
-                self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._rgrid, self._vcircGrid, k=3
-                )
+                self._vcircInterp = Spline1D(self._rgrid, self._vcircGrid, k=3)
         if interpdvcircdr:
             from ..potential import dvcircdR
 
-            if not numcores is None:
+            if self._grid_xp is not None:
+                self._dvcircdrGrid = self._grid1d(dvcircdR)
+            elif not numcores is None:
                 self._dvcircdrGrid = multi.parallel_map(
                     (
                         lambda x: dvcircdR(
@@ -519,23 +579,23 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._dvcircdrGrid = numpy.array(
-                    [
-                        dvcircdR(self._origPot, r, use_physical=False)
-                        for r in self._rgrid
-                    ]
+                    to_host(
+                        [
+                            dvcircdR(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
-                self._dvcircdrInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._logrgrid, self._dvcircdrGrid, k=3
-                )
+                self._dvcircdrInterp = Spline1D(self._logrgrid, self._dvcircdrGrid, k=3)
             else:
-                self._dvcircdrInterp = interpolate.InterpolatedUnivariateSpline(
-                    self._rgrid, self._dvcircdrGrid, k=3
-                )
+                self._dvcircdrInterp = Spline1D(self._rgrid, self._dvcircdrGrid, k=3)
         if interpepifreq:
             from ..potential import epifreq
 
-            if not numcores is None:
+            if self._grid_xp is not None:
+                self._epifreqGrid = self._grid1d(epifreq)
+            elif not numcores is None:
                 self._epifreqGrid = numpy.array(
                     multi.parallel_map(
                         (
@@ -549,31 +609,38 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._epifreqGrid = numpy.array(
-                    [epifreq(self._origPot, r, use_physical=False) for r in self._rgrid]
+                    to_host(
+                        [
+                            epifreq(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
-            indx = True ^ numpy.isnan(self._epifreqGrid)
+            indx = self._finite_nodes(self._epifreqGrid)
             if numpy.sum(indx) < 4:
                 if self._logR:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._logrgrid[indx], self._epifreqGrid[indx], k=1
                     )
                 else:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._rgrid[indx], self._epifreqGrid[indx], k=1
                     )
             else:
                 if self._logR:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._logrgrid[indx], self._epifreqGrid[indx], k=3
                     )
                 else:
-                    self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._epifreqInterp = Spline1D(
                         self._rgrid[indx], self._epifreqGrid[indx], k=3
                     )
         if interpverticalfreq:
             from ..potential import verticalfreq
 
-            if not numcores is None:
+            if self._grid_xp is not None:
+                self._verticalfreqGrid = self._grid1d(verticalfreq)
+            elif not numcores is None:
                 self._verticalfreqGrid = multi.parallel_map(
                     (
                         lambda x: verticalfreq(
@@ -585,20 +652,98 @@ class interpRZPotential(Potential):
                 )
             else:
                 self._verticalfreqGrid = numpy.array(
-                    [
-                        verticalfreq(self._origPot, r, use_physical=False)
-                        for r in self._rgrid
-                    ]
+                    to_host(
+                        [
+                            verticalfreq(self._origPot, r, use_physical=False)
+                            for r in self._rgrid
+                        ]
+                    )
                 )
             if self._logR:
-                self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+                self._verticalfreqInterp = Spline1D(
                     self._logrgrid, self._verticalfreqGrid, k=3
                 )
             else:
-                self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
+                self._verticalfreqInterp = Spline1D(
                     self._rgrid, self._verticalfreqGrid, k=3
                 )
+        # backend queries evaluate the same splines (and the original potential
+        # off the grid), so this is backend-ready iff the original potential is
+        self._backend_compatible = is_backend_compatible(RZPot)
         return None
+
+    def _grid(self, evaluator):
+        """``evaluator`` (evaluatePotentials, ...) of the original potential on
+        the (R, z) grid: numpy, or on a differentiated parameter's backend."""
+        if self._grid_xp is None:
+            return _grid_eval(evaluator, self._origPot, self._rgrid, self._zgrid)
+        return _grid_eval_backend(
+            evaluator,
+            self._origPot,
+            self._rgrid,
+            self._zgrid,
+            self._grid_xp,
+            self._grid_dev,
+        )
+
+    def _grid1d(self, func):
+        """``func`` (vcirc, ...) of the original potential on the R grid, on a
+        differentiated parameter's backend."""
+        (rs,) = coerce_coords(self._grid_xp, self._rgrid, device=self._grid_dev)
+        return self._grid_xp.stack(
+            [func(self._origPot, rs[ii], use_physical=False) for ii in range(len(rs))]
+        )
+
+    def _finite_nodes(self, grid):
+        """Mask of the non-NaN nodes of a 1D grid (numpy: byte-identical). A
+        traced grid has no concrete NaN pattern, so all of its nodes are used."""
+        if not is_backend_array(grid):
+            return True ^ numpy.isnan(grid)
+        ok = get_namespace(grid).isnan(grid) == False  # noqa: E712
+        if has_concrete_truth_value(ok[0]):
+            return numpy.asarray(to_host(ok))
+        return numpy.ones(len(self._rgrid), dtype=bool)
+
+    def _eval_grid_backend(self, which, R, z, orig, *, log_transform=False):
+        """Backend (jax/torch) evaluation of an interpolated 2D quantity: the same
+        Spline2D the numpy path calls (numpy queries are byte-identical to
+        ``RectBivariateSpline.ev``; backend queries match it to ~1 ulp and are
+        autodifferentiable). Off the grid, like the numpy path, the original
+        potential's ``orig(R, z)`` instead of the spline's extrapolation."""
+        xp = get_namespace(R, z)
+        R, z = promote_scalars(xp, R, z)
+
+        def spline():
+            Rq = xp.log(R) if self._logR else R
+            out = getattr(self, "_" + which + "Interp")(Rq, z)
+            if log_transform:
+                out = xp.exp(out) - 10.0**-10.0
+            return out
+
+        inside = (
+            (R >= self._rgrid[0])
+            & (R <= self._rgrid[-1])
+            & (z <= self._zgrid[-1])
+            & (z >= self._zgrid[0])
+        )
+        out = branch_where(
+            xp, inside, spline, lambda: orig(self._origPot, R, z, use_physical=False)
+        )
+        return match_input_dtype(out, R, z)
+
+    def _eval_grid_backend_1d(self, which, R, orig):
+        """Backend (jax/torch) evaluation of an interpolated 1D quantity: the same
+        Spline1D the numpy path calls, and the original potential off the grid."""
+        xp = get_namespace(R)
+
+        def spline():
+            return getattr(self, "_" + which + "Interp")(xp.log(R) if self._logR else R)
+
+        inside = (R >= self._rgrid[0]) & (R <= self._rgrid[-1])
+        out = branch_where(
+            xp, inside, spline, lambda: orig(self._origPot, R, use_physical=False)
+        )
+        return match_input_dtype(out, R)
 
     @scalarVectorDecorator
     @zsymDecorator(False)
@@ -606,6 +751,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluatePotentials
 
         if self._interpPot:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("pot", R, z, evaluatePotentials)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -622,8 +769,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._potInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluatePotentials(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluatePotentials(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -635,6 +787,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluateRforces
 
         if self._interpRforce:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("rforce", R, z, evaluateRforces)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -651,8 +805,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._rforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluateRforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluateRforces(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -664,6 +823,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluatezforces
 
         if self._interpzforce:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("zforce", R, z, evaluatezforces)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -682,8 +843,13 @@ class interpRZPotential(Potential):
                     else:
                         out[indx] = self._zforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluatezforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluatezforces(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
@@ -702,6 +868,8 @@ class interpRZPotential(Potential):
     def _R2deriv_interpolated(self, R, z):
         from ..potential import evaluateR2derivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("r2deriv", R, z, evaluateR2derivs)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -721,8 +889,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._r2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluateR2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluateR2derivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -739,6 +909,8 @@ class interpRZPotential(Potential):
     def _z2deriv_interpolated(self, R, z):
         from ..potential import evaluatez2derivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("z2deriv", R, z, evaluatez2derivs)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -758,8 +930,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._z2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluatez2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluatez2derivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -776,6 +950,8 @@ class interpRZPotential(Potential):
     def _Rzderiv_interpolated(self, R, z):
         from ..potential import evaluateRzderivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("rzderiv", R, z, evaluateRzderivs)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -795,8 +971,10 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._rzderivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
-            out[True ^ indx] = evaluateRzderivs(
-                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+            out[True ^ indx] = to_host(
+                evaluateRzderivs(
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                )
             )
         return out
 
@@ -806,6 +984,10 @@ class interpRZPotential(Potential):
         from ..potential import evaluateDensities
 
         if self._interpDens:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend(
+                    "dens", R, z, evaluateDensities, log_transform=True
+                )
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -824,19 +1006,27 @@ class interpRZPotential(Potential):
                         numpy.exp(self._densInterp.ev(R[indx], z[indx])) - 10.0**-10.0
                     )
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = evaluateDensities(
-                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    evaluateDensities(
+                        self._origPot,
+                        R[True ^ indx],
+                        z[True ^ indx],
+                        use_physical=False,
+                    )
                 )
             return out
         else:
             return evaluateDensities(self._origPot, R, z, use_physical=False)
 
     @physical_conversion("velocity", pop=True)
+    @backend_input("R")
     @scalarDecorator
     def vcirc(self, R):
         from ..potential import vcirc
 
         if self._interpvcirc:
+            if is_backend_array(R):
+                return self._eval_grid_backend_1d("vcirc", R, vcirc)
             indx = (R >= self._rgrid[0]) * (R <= self._rgrid[-1])
             out = numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
@@ -845,19 +1035,22 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._vcircInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = vcirc(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    vcirc(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
             return vcirc(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
+    @backend_input("R")
     @scalarDecorator
     def dvcircdR(self, R):
         from ..potential import dvcircdR
 
         if self._interpdvcircdr:
+            if is_backend_array(R):
+                return self._eval_grid_backend_1d("dvcircdr", R, dvcircdR)
             indx = (R >= self._rgrid[0]) * (R <= self._rgrid[-1])
             out = numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
@@ -866,19 +1059,22 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._dvcircdrInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = dvcircdR(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    dvcircdR(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
             return dvcircdR(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
+    @backend_input("R")
     @scalarDecorator
     def epifreq(self, R):
         from ..potential import epifreq
 
         if self._interpepifreq:
+            if is_backend_array(R):
+                return self._eval_grid_backend_1d("epifreq", R, epifreq)
             indx = (R >= self._rgrid[0]) * (R <= self._rgrid[-1])
             out = numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
@@ -887,19 +1083,22 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._epifreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = epifreq(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    epifreq(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:
             return epifreq(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
+    @backend_input("R")
     @scalarDecorator
     def verticalfreq(self, R):
         from ..potential import verticalfreq
 
         if self._interpverticalfreq:
+            if is_backend_array(R):
+                return self._eval_grid_backend_1d("verticalfreq", R, verticalfreq)
             indx = (R >= self._rgrid[0]) * (R <= self._rgrid[-1])
             out = numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
@@ -908,8 +1107,8 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._verticalfreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = verticalfreq(
-                    self._origPot, R[True ^ indx], use_physical=False
+                out[True ^ indx] = to_host(
+                    verticalfreq(self._origPot, R[True ^ indx], use_physical=False)
                 )
             return out
         else:

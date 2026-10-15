@@ -6,12 +6,23 @@
 #                          rho(r)= ---------
 #                                   r^\alpha
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
+from ..backend import (
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    has_concrete_truth_value,
+    is_backend_array,
+    radial_limits,
+    scalar_like,
+)
+from ..backend import special as _bspecial
 from ..util import conversion
-from ._smallr import radial_limits
-from .Potential import Potential
+from .Potential import Potential, _normalize_requested
 
 
 class PowerSphericalPotential(Potential):
@@ -50,11 +61,19 @@ class PowerSphericalPotential(Potential):
         r1 = conversion.parse_length(r1, ro=self._ro)
         self.alpha = alpha
         # Back to old definition
-        if self.alpha != 3.0:
-            self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if not has_concrete_truth_value(alpha != 3.0):  # traced: select
+            xp = get_namespace(alpha)
+            kepler = alpha == 3.0
+            safe = xp.where(kepler, 2.0, alpha)
+            self._amp = self._amp * xp.where(
+                kepler, 1.0, r1 ** (safe - 3.0) * 4.0 * numpy.pi / (3.0 - safe)
+            )
+        elif self.alpha != 3.0:
+            self._amp = self._amp * (
+                r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+            )
+        self._backend_compatible = True
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
@@ -85,16 +104,33 @@ class PowerSphericalPotential(Potential):
         -----
         - Started: 2010-07-10 by Bovy (NYU)
         """
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
+        if is_backend_array(self.alpha):
+            return self._evaluate_backend_alpha(xp, r2)
         if self.alpha == 2.0:
-            return numpy.log(r2) / 2.0
-        elif isinstance(r2, (float, int)) and r2 == 0 and self.alpha > 2:
-            return -numpy.inf
+            return xp.log(r2) / 2.0
+        elif self.alpha > 2:
+            # potential -> -inf at the center; use a safe r2 so the singular
+            # branch (0**negative) cannot produce a NaN/inf that poisons
+            # reverse-mode gradients, then patch in -inf where r2 == 0.
+            bad = r2 == 0.0
+            safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+            out = -(safe ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
+            return xp.where(bad, -math.inf, out)
         else:
-            out = -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
-            if isinstance(r2, numpy.ndarray) and self.alpha > 2:
-                out[r2 == 0] = -numpy.inf
-            return out
+            return -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
+
+    def _evaluate_backend_alpha(self, xp, r2):
+        """_evaluate for a backend-array alpha: its three cases selected"""
+        log = self.alpha == 2.0
+        safe_alpha = xp.where(log, 1.0, self.alpha)
+        bad = r2 == 0.0
+        safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        power = -(safe ** (1.0 - safe_alpha / 2.0)) / (safe_alpha - 2.0)
+        center = xp.where(self.alpha > 2.0, -math.inf, 0.0)
+        return xp.where(log, xp.log(r2) / 2.0, xp.where(bad, center, power))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -147,27 +183,6 @@ class PowerSphericalPotential(Potential):
         - 2010-07-10 - Written - Bovy (NYU)
         """
         return -z / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
-
-    def _rforce_jax(self, r):
-        """
-        Evaluate the spherical radial force for this potential using JAX.
-
-        Parameters
-        ----------
-        r : float
-            Galactocentric spherical radius.
-
-        Returns
-        -------
-        float
-            The radial force.
-
-        Notes
-        -----
-        - 2021-02-14 - Written - Bovy (UofT)
-        """
-        # No need for actual JAX!
-        return -self._amp / r ** (self.alpha - 1.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -273,13 +288,19 @@ class PowerSphericalPotential(Potential):
         -----
         - 2013-01-09 - Written - Bovy (IAS)
         """
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if self.alpha != 3.0:
-            return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
-        # alpha = 3 (Kepler) is 0/0 at r = 0, where the density is 0 like
-        # everywhere else (alpha < 3's divergence there is real)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # d/dalpha r**-alpha = -log(r) r**-alpha is inf*0 at r=inf. alpha = 3
+        # (Kepler) is 0/0 at r=0, where the density is 0 like everywhere else
+        # (alpha < 3's divergence there is real)
+        kepler = concretely_true(self.alpha == 3.0)
         return radial_limits(
-            r, lambda r: (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha, at0=0.0
+            r,
+            lambda r: (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha,
+            at0=0.0 if kepler else None,
+            atinf=0.0,
+            numpy_too=kepler,
         )
 
     def _ddensdr(self, r, t=0.0):
@@ -303,7 +324,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-25 - Written - Bovy (UofT)
         """
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * self.alpha
             * (3.0 - self.alpha)
             / 4.0
@@ -332,7 +353,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-25: Written by Bovy (UofT)
         """
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (self.alpha + 1.0)
             * self.alpha
             * (3.0 - self.alpha)
@@ -362,7 +383,7 @@ class PowerSphericalPotential(Potential):
         - 2021-02-14: Written by Bovy (UofT)
         """
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * (self.alpha - 2.0 * beta)
             * (3.0 - self.alpha)
             / 4.0
@@ -400,7 +421,9 @@ class PowerSphericalPotential(Potential):
             / numpy.pi
             * z
             * R**-self.alpha
-            * special.hyp2f1(0.5, self.alpha / 2.0, 1.5, -((z / R) ** 2))
+            # backend hyp2f1: scipy's cannot take a tracer (the numpy path
+            # routes straight back to scipy, so it stays byte-identical)
+            * _bspecial.hyp2f1(0.5, self.alpha / 2.0, 1.5, -((z / R) ** 2))
         )
 
 

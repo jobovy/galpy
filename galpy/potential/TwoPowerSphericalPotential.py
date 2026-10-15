@@ -6,22 +6,46 @@
 #                             rho(r)= ------------------------------------
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
-
 import functools
+import math
 
 import numpy
 from scipy import optimize, special
 
+from ..backend import (
+    asarray_on_device,
+    branch_where,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    radial_limits,
+    scalar_like,
+)
+from ..backend import special as _bspecial
+from ..backend import to_host
+from ..backend._coerce import exprel, mask_where, power_series, promote_scalars
+from ..backend._namespaces import concretely_true, has_concrete_truth_value
+from ..backend.special._fallback.hyp2f1 import hyp2f1_euler
+from ..backend.special.incomplete_beta import (
+    incomplete_beta_hi_xp,
+    incomplete_beta_lo_series_xp,
+    incomplete_beta_xp,
+)
 from ..util import conversion
-from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
+from ..util._optional_deps import _APY_LOADED
 from ..util.special import (
     hyp2f1_1,
     incomplete_beta,
     incomplete_beta_hi,
     incomplete_beta_split,
 )
-from ._smallr import power_series, radial_limits, small_r_select
-from .Potential import Potential, kms_to_kpcGyrDecorator
+from .Potential import (
+    Potential,
+    _normalize_requested,
+    _pot_grad_namespace,
+    kms_to_kpcGyrDecorator,
+)
 
 # NFW's closed forms subtract terms of order 1/r^2 that cancel to leading
 # order, losing ~eps/x^2 (force, mass) and ~eps/x^3 (second derivatives) at
@@ -36,23 +60,43 @@ _NFW_SMALL_X = 0.25
 _NFW_S = [1.0 / (2 * m + 3) for m in range(8)]
 
 
-def _nfw_S(t):
+def _nfw_tu_S(xp, x):
+    """(t, t/(1+t), S) for h and k above; S/t^3 = 1/3 + O(t^2) keeps the
+    derivative finite at t = 0"""
+    t = x / (2.0 + x)
     t2 = t * t
-    return power_series(t2, _NFW_S, 0) * t2 * t
+    S = t2 * t * (_NFW_S[0] + power_series(xp, t2, _NFW_S[1:], 1))
+    return t, t / (1.0 + t), S
 
 
-def _nfw_h(x):
-    """h(x) for x < _NFW_SMALL_X (see above)"""
-    t = x / (2.0 + x)
-    return 2.0 * (t * t / (1.0 + t) + _nfw_S(t))
+def _nfw_hx(xp, x):
+    t, u, S = _nfw_tu_S(xp, x)
+    return 2.0 * (t * u + S)
 
 
-def _nfw_hk(x):
-    """(h(x), k(x)) for x < _NFW_SMALL_X (see above)"""
-    t = x / (2.0 + x)
-    S = _nfw_S(t)
-    u = t / (1.0 + t)
-    return 2.0 * (t * u + S), -4.0 * (t * u * u + S)
+def _nfw_masked(xp, small, r, a):
+    """(r, x = r/a) on the small-x mask, 0.05 a elsewhere (keeping the dead
+    branches finite).
+
+    Masks r BEFORE dividing by a: masking x = r/a after would leave d(r/a)/da
+    = -inf (r = inf) in the dead branch's backward, 0 * inf = NaN. Use the
+    returned r, not x * a: the latter's d/da cancels only in exact arithmetic."""
+    rs = mask_where(xp, small, r, 0.05 * a)
+    return rs, rs / a
+
+
+def _nfw_h(xp, small, r, a):
+    """h(x) / r^3 on the small-x mask (dPhi/dr = h / r^2)."""
+    rs, xs = _nfw_masked(xp, small, r, a)
+    return _nfw_hx(xp, xs) / (rs * rs * rs)
+
+
+def _nfw_hk5(xp, small, r, a):
+    """(h(x), k(x)) / r^5 on the small-x mask."""
+    rs, xs = _nfw_masked(xp, small, r, a)
+    t, u, S = _nfw_tu_S(xp, xs)
+    r5 = rs * rs * rs * rs * rs
+    return 2.0 * (t * u + S) / r5, -4.0 * (t * u * u + S) / r5
 
 
 # TwoPowerSphericalPotential's potential through two incomplete beta integrals
@@ -76,6 +120,7 @@ def _nfw_hk(x):
 # those cancellations are small-x ones. No hyp2f1(..., -r/a): that was 3e-3
 # off at beta = 3 +- 1e-12 and NaN at large beta and r.
 _TP_GFORM_ALPHA = 1.5
+_TP_POW_MAX = 600.0
 
 
 def _tp_radial(alpha, beta, w, s, hess):
@@ -118,12 +163,118 @@ def _tp_radial_hi(alpha, beta, w, s, c, hess):
     return m, D - 2.0 * m, D - 3.0 * m
 
 
+def _tp_radial_xp(xp, alpha, beta, w, s, hess):
+    """_tp_radial for backend w, s (as xp.stack of its outputs)"""
+    p, q = 3.0 - alpha, beta - 3.0
+    c = incomplete_beta_split(p, q)
+    lo = w <= c
+    one = xp.ones_like(w * 1.0)
+
+    def below():
+        wl = xp.where(lo, w, 0.5 * c * one)
+        sl = xp.where(lo, s, (1.0 - 0.5 * c) * one)
+        E = wl**-alpha * sl**beta / p
+        # M = E 2F1(1, p+q; p+1; w), not E (1 + G): G -> -1 cancels
+        m = E * incomplete_beta_lo_series_xp(xp, p, q, c, wl)
+        if not hess:
+            return xp.stack([m])
+        if alpha >= _TP_GFORM_ALPHA:
+            return xp.stack([m, p * E - 2.0 * m, p * E - 3.0 * m])
+        # G = 2F1(1, p+q; p+1; w) - 1 = (p+q)/(p+1) w 2F1(1, p+q+1; p+2; w)
+        G = (p + q) / (p + 1.0) * wl
+        G = G * incomplete_beta_lo_series_xp(xp, p + 1.0, q, c, wl)
+        return xp.stack([m, E * (1.0 - alpha - 2.0 * G), -E * (alpha + 3.0 * G)])
+
+    def above():
+        sh = xp.where(lo, 0.5 * (1.0 - c) * one, s)
+        wh = xp.where(lo, (1.0 - 0.5 * (1.0 - c)) * one, w)  # 1 - sh, exactly
+        m = incomplete_beta_hi_xp(xp, p, q, sh, wh, c) * (sh / wh) ** 3
+        if not hess:
+            return xp.stack([m])
+        D = wh**-alpha * sh**beta
+        return xp.stack([m, D - 2.0 * m, D - 3.0 * m])
+
+    return branch_where(xp, lo, below, above)
+
+
+def _tp_radial_backend(xp, alpha, beta, x, hess):
+    """_tp_radial for backend-array (differentiable) exponents, as 2F1s at -x
+    on the backend's Euler route (incomplete_beta's series need concrete
+    exponents): M/x^3 = x^-alpha / p 2F1(beta-alpha, p; p+1; -x), and below
+    the split G = (p+q)/(p+1) x 2F1(1-q, 1; p+2; -x); all positive-term."""
+    p, q = 3.0 - alpha, beta - 3.0
+    m = x**-alpha / p * hyp2f1_euler(xp, beta - alpha, p, p + 1.0, -x)
+    # at large beta the grid under-resolves (1+xt)^(alpha-beta) beyond x ~ 1:
+    # B(p, q) - x^-q/q 2F1(beta-alpha, q; q+1; -1/x) there (beta > 4 keeps
+    # the subtraction to < 1 digit)
+    tail = (x > 1.0) & (beta > 4.0)
+    xt, qt = xp.where(tail, x, 2.0), xp.where(beta > 4.0, q, 2.0)  # 2F1 params: 0-d
+    Mt = _backend_beta(xp, p, qt) - xt**-qt / qt * hyp2f1_euler(
+        xp, beta - alpha, qt, qt + 1.0, -1.0 / xt
+    )
+    m = xp.where(tail, Mt / xt**3.0, m)
+    if not hess:
+        return (m,)
+    D = x**-alpha * (1.0 + x) ** (alpha - beta)
+    # as _tp_radial: the G form only below incomplete_beta_split, alpha < 1.5
+    pq2 = p + q + 2.0
+    c = (p + 1.0) / xp.where(pq2 > 0.0, pq2, 1.0)
+    c = xp.where((pq2 > 0.0) & (c < 0.9), c, 0.9)
+    gform = (alpha < _TP_GFORM_ALPHA) & (x / (1.0 + x) <= c)
+    xg = xp.where(gform, x, 0.5 * c / (1.0 - 0.5 * c))  # (1+x)^(q-1) finite
+    E = xg**-alpha * (1.0 + xg) ** (alpha - beta) / p
+    G = (p + q) / (p + 1.0) * xg * hyp2f1_euler(xp, 1.0 - q, 1.0, p + 2.0, -xg)
+    return (
+        m,
+        xp.where(gform, E * (1.0 - alpha - 2.0 * G), D - 2.0 * m),
+        xp.where(gform, -E * (alpha + 3.0 * G), D - 3.0 * m),
+    )
+
+
+def _tp_outer_backend(xp, alpha, beta, x):
+    """O(x) = int_x^inf t^(1-alpha) (1+t)^(alpha-beta) dt for backend
+    exponents: x^(2-beta)/(beta-2) 2F1(beta-alpha, beta-2; beta-1; -1/x) for
+    x^(2-beta) < e^600 (or alpha >= 2), else B(2-alpha, beta-2) - int_0^x."""
+    be2 = beta - 2.0
+    head = (be2 * xp.log(x) < -_TP_POW_MAX) & (alpha < 2.0)
+    xt = xp.where(head, 1.0, x)
+    tail = xt**-be2 / be2 * hyp2f1_euler(xp, beta - alpha, be2, be2 + 1.0, -1.0 / xt)
+    al = xp.where(alpha < 2.0, alpha, 1.0)
+    xh = xp.where(head, x, 0.5)
+    inner = xh ** (2.0 - al) / (2.0 - al)
+    inner = inner * hyp2f1_euler(xp, beta - al, 2.0 - al, 3.0 - al, -xh)
+    return xp.where(head, _backend_beta(xp, 2.0 - al, be2) - inner, tail)
+
+
+def _backend_beta(xp, p, q, finite=None):
+    """B(p, q) for backend p, q; inf where not ``finite`` (safe dead branch)"""
+    if finite is not None:
+        p, q = xp.where(finite, p, 1.0), xp.where(finite, q, 1.0)
+    B = xp.exp(_bspecial.gammaln(p) + _bspecial.gammaln(q) - _bspecial.gammaln(p + q))
+    return B if finite is None else xp.where(finite, B, math.inf)
+
+
 def _force_at_infinity(beta, a):
     """dPhi/dr (amp = 1) as r -> inf: M(x) / (x a)^2 -> 0 for beta > 1,
     1 / (2 a^2) at beta = 1 (M ~ x^2 / 2), inf for beta < 1"""
     if beta > 1.0:
         return 0.0
     return 0.5 / a**2.0 if beta == 1.0 else numpy.inf
+
+
+def _backend_limit_at_infinity(xp, component, beta, a, X, Xinf, Yinf):
+    """The limits below for a backend-array beta, selected rather than branched"""
+    if component == "Rz":
+        lim = 0.0
+    elif component == "RR":
+        lim = xp.where(beta == 0.0, 1.0 / (3.0 * a**3.0), 0.0)
+    else:
+        F = xp.where(beta > 1.0, 0.0, xp.where(beta == 1.0, 0.5 / a**2.0, math.inf))
+        along = -F * xp.sign(xp.where(Xinf, X, 1.0))
+        both = xp.where(beta > 1.0, 0.0, math.nan)
+        lim = xp.where(Xinf & Yinf, both, xp.where(Xinf, along, 0.0))
+        lim = xp.where(beta == 0.0, -X / (3.0 * a**3.0), lim)
+    return xp.where(beta < 0.0, math.nan, lim)
 
 
 def _limit_at_infinite_radius(component):
@@ -136,40 +287,49 @@ def _limit_at_infinite_radius(component):
     and Phi'' both -> 1/(3 a^3): the forces are -(R, z)/(3 a^3), R2deriv and
     z2deriv 1/(3 a^3), Rzderiv 0. At beta < 0 the density increases outward and
     the limits depend on the direction and on beta: NaN (finite radii are
-    unaffected). amp = 0 is 0 (no 0 * inf)."""
+    unaffected). amp = 0 is 0 (no 0 * inf). Finite inputs are
+    untouched; under a trace the infinite entries are masked (finite
+    stand-ins, so the unused branch cannot NaN the gradient)."""
 
     def decorator(method):
         @functools.wraps(method)
         def wrapper(self, R, z, phi=0.0, t=0.0):
-            Rinf, zinf = numpy.isinf(R), numpy.isinf(z)
+            xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
+            Rinf, zinf = xp.isinf(R), xp.isinf(z)
             inf = Rinf | zinf
-            if not numpy.any(inf):
+            anyinf = xp.any(inf)
+            if has_concrete_truth_value(anyinf) and not bool(anyinf):
                 return method(self, R, z, phi=phi, t=t)
             out = method(
-                self, numpy.where(inf, 1.0, R), numpy.where(inf, 0.0, z), phi=phi, t=t
+                self, xp.where(inf, 1.0, R), xp.where(inf, 0.0, z), phi=phi, t=t
             )
-            if self._amp == 0.0:
-                return numpy.where(inf, 0.0, out)
-            if self.beta < 0.0:
-                return numpy.where(inf, numpy.nan, out)
-            if component == "Rz":
-                return numpy.where(inf, 0.0, out)
-            if component == "RR":
-                return numpy.where(
-                    inf, 1.0 / (3.0 * self.a**3.0) if self.beta == 0.0 else 0.0, out
-                )
+            amp0 = scalar_like(R, self._amp) == 0.0  # traced for a differentiated amp
+            if has_concrete_truth_value(amp0):
+                if bool(amp0):
+                    return xp.where(inf, 0.0, out)
+                amp0 = None
             X, Xinf, Yinf = (R, Rinf, zinf) if component == "R" else (z, zinf, Rinf)
-            if self.beta == 0.0:
-                return numpy.where(inf, -X / (3.0 * self.a**3.0), out)
-            F = _force_at_infinity(self.beta, self.a)
-            with numpy.errstate(invalid="ignore"):
-                along = -F * numpy.sign(X)
-            lim = numpy.where(
-                Xinf & Yinf,
-                0.0 if F == 0.0 else numpy.nan,
-                numpy.where(Xinf, along, 0.0),
-            )
-            return numpy.where(inf, lim, out)
+            if self._backend_shape:
+                lim = _backend_limit_at_infinity(
+                    xp, component, self.beta, self.a, X, Xinf, Yinf
+                )
+            elif self.beta < 0.0:
+                lim = numpy.nan
+            elif component == "Rz":
+                lim = 0.0
+            elif component == "RR":
+                lim = 1.0 / (3.0 * self.a**3.0) if self.beta == 0.0 else 0.0
+            elif self.beta == 0.0:
+                lim = -X / (3.0 * self.a**3.0)
+            else:
+                F = _force_at_infinity(self.beta, self.a)
+                along = -F * xp.sign(xp.where(Xinf, X, 1.0))
+                both = 0.0 if self.beta > 1.0 else numpy.nan
+                lim = xp.where(Xinf & Yinf, both, xp.where(Xinf, along, 0.0))
+            if amp0 is not None:
+                lim = xp.where(amp0, 0.0, lim)
+            return xp.where(inf, lim, out)
 
         return wrapper
 
@@ -178,8 +338,6 @@ def _limit_at_infinite_radius(component):
 
 if _APY_LOADED:
     from astropy import units
-if _JAX_LOADED:
-    import jax.numpy as jnp
 
 
 class TwoPowerSphericalPotential(Potential):
@@ -220,12 +378,15 @@ class TwoPowerSphericalPotential(Potential):
         """
         # Instantiate
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
-        # _specialSelf for special cases (Dehnen class, Dehnen core, Hernquist, Jaffe, NFW)
+        # _specialSelf for special cases (Dehnen class, Dehnen core, Hernquist, Jaffe, NFW);
+        # backend-array exponents keep the general form, differentiable in them
         self._specialSelf = None
+        self._backend_shape = is_backend_array(alpha) or is_backend_array(beta)
         if (
             (self.__class__ == TwoPowerSphericalPotential)
-            & (alpha == round(alpha))
-            & (beta == round(beta))
+            and not self._backend_shape
+            and (alpha == round(alpha))
+            and (beta == round(beta))
         ):
             if int(alpha) == 0 and int(beta) == 4:
                 self._specialSelf = DehnenCoreSphericalPotential(
@@ -244,41 +405,79 @@ class TwoPowerSphericalPotential(Potential):
         self._scale = self.a
         self.alpha = alpha
         self.beta = beta
+        if self._backend_shape:  # both on the backend: they meet in xp.where
+            self.alpha, self.beta = promote_scalars(
+                get_namespace(alpha, beta), alpha, beta
+            )
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        if self._backend_shape:
+            phi0 = (
+                -_backend_beta(xp, 2.0 - self.alpha, self.beta - 2.0, self.alpha < 2.0)
+                / self.a
+            )
+            return radial_limits(
+                xp.sqrt(R**2.0 + z**2.0),
+                lambda r: self._evaluate_backend_shape(xp, r),
+                at0=phi0,
+                atinf=0.0,
+            )
         # Phi(0) = -B(2-alpha, beta-2)/a is finite for alpha < 2 only
         phi0 = (
-            -special.beta(2.0 - self.alpha, self.beta - 2.0) / self.a
+            -scalar_like(R, special.beta(2.0 - self.alpha, self.beta - 2.0)) / self.a
             if self.alpha < 2.0
             else -numpy.inf
         )
-        return radial_limits(r, self._evaluate_ibeta, at0=phi0, atinf=0.0)
+        return radial_limits(
+            xp.sqrt(R**2.0 + z**2.0),
+            lambda r: self._evaluate_ibeta(xp, r),
+            at0=phi0,
+            atinf=0.0,
+            numpy_too=True,
+        )
 
-    def _evaluate_ibeta(self, r):
+    def _evaluate_ibeta(self, xp, r):
         """Phi = -(M(x)/x + O(x))/a as incomplete beta integrals (see incomplete_beta)"""
+        ibeta = (
+            incomplete_beta
+            if xp is numpy
+            else functools.partial(incomplete_beta_xp, xp)
+        )
         x = r / self.a
         w, s = x / (1.0 + x), 1.0 / (1.0 + x)
-        M = incomplete_beta(3.0 - self.alpha, self.beta - 3.0, w, s)
-        O = incomplete_beta(self.beta - 2.0, 2.0 - self.alpha, s, w)
+        M = ibeta(3.0 - self.alpha, self.beta - 3.0, w, s)
+        O = ibeta(self.beta - 2.0, 2.0 - self.alpha, s, w)
         return -(M / x + O) / self.a
 
-    def _radial(self, r, hess):
+    def _evaluate_backend_shape(self, xp, r):
+        """_evaluate_ibeta for backend exponents (_tp_radial_backend,
+        _tp_outer_backend)"""
+        x = r / self.a
+        Mx = x**2.0 * _tp_radial_backend(xp, self.alpha, self.beta, x, False)[0]
+        O = _tp_outer_backend(xp, self.alpha, self.beta, x)
+        return -(Mx + O) / self.a
+
+    def _radial(self, xp, r, hess):
         """(dPhi/dr / r,) or (dPhi/dr / r, Phi'', Phi'' - dPhi/dr / r) at r
         (amp = 1; see _tp_radial)"""
         x = r / self.a
-        out = _tp_radial(self.alpha, self.beta, x / (1.0 + x), 1.0 / (1.0 + x), hess)
+        if self._backend_shape:
+            out = _tp_radial_backend(xp, self.alpha, self.beta, x, hess)
+        else:
+            radial = _tp_radial if xp is numpy else functools.partial(_tp_radial_xp, xp)
+            out = radial(self.alpha, self.beta, x / (1.0 + x), 1.0 / (1.0 + x), hess)
         a3 = self.a**3.0
         return [f / a3 for f in out]
 
@@ -286,27 +485,37 @@ class TwoPowerSphericalPotential(Potential):
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
-        return -R * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -R * self._radial(xp, xp.sqrt(R**2.0 + z**2.0), False)[0]
 
     @_limit_at_infinite_radius("z")
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
-        return -z * self._radial(numpy.sqrt(R**2.0 + z**2.0), False)[0]
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -z * self._radial(xp, xp.sqrt(R**2.0 + z**2.0), False)[0]
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return (
-            (self.a / r) ** self.alpha
-            / (1.0 + r / self.a) ** (self.beta - self.alpha)
-            / 4.0
-            / numpy.pi
-            / self.a**3.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return radial_limits(
+            r,
+            lambda r: (
+                (self.a / r) ** self.alpha
+                / (1.0 + r / self.a) ** (self.beta - self.alpha)
+                / 4.0
+                / math.pi
+                / self.a**3.0
+            ),
+            atinf=0.0,
         )
 
     def _ddensdr(self, r, t=0.0):
         return (
-            -self._amp
+            -scalar_like(r, self._amp)
             * (self.a / r) ** (self.alpha - 1.0)
             * (1.0 + r / self.a) ** (self.alpha - self.beta - 1.0)
             * (self.a * self.alpha + r * self.beta)
@@ -318,7 +527,7 @@ class TwoPowerSphericalPotential(Potential):
 
     def _d2densdr2(self, r, t=0.0):
         return (
-            self._amp
+            scalar_like(r, self._amp)
             * (self.a / r) ** (self.alpha - 2.0)
             * (1.0 + r / self.a) ** (self.alpha - self.beta - 2.0)
             * (
@@ -354,7 +563,7 @@ class TwoPowerSphericalPotential(Potential):
 
         """
         return (
-            self._amp
+            scalar_like(r, self._amp)
             / 4.0
             / numpy.pi
             / self.a**3.0
@@ -366,17 +575,23 @@ class TwoPowerSphericalPotential(Potential):
 
     @_limit_at_infinite_radius("RR")
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        f1, f0, _ = self._radial(numpy.sqrt(r2), True)
+        f1, f0, _ = self._radial(xp, xp.sqrt(r2), True)
         return (R**2.0 * f0 + z**2.0 * f1) / r2
 
     @_limit_at_infinite_radius("Rz")
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
-        return R * z * self._radial(numpy.sqrt(r2), True)[2] / r2
+        return R * z * self._radial(xp, xp.sqrt(r2), True)[2] / r2
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._R2deriv(numpy.fabs(z), R)  # Spherical potential
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return self._R2deriv(xp.abs(z), R)  # Spherical potential
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -384,19 +599,42 @@ class TwoPowerSphericalPotential(Potential):
         # finite total mass B(3-alpha, beta-3) for beta > 3, divergent otherwise
         # (the formula is 0 * inf = NaN at R = inf)
         # special.beta, not a ratio of gammas: those overflow for beta > ~170
+        if self._backend_shape:
+            xp = get_namespace(R)
+            (R,) = coerce_coords(xp, R)
+            return radial_limits(
+                R,
+                lambda R: (
+                    (R / self.a) ** 3.0
+                    * _tp_radial_backend(xp, self.alpha, self.beta, R / self.a, False)[
+                        0
+                    ]
+                ),
+                at0=0.0,
+                atinf=_backend_beta(
+                    xp, 3.0 - self.alpha, self.beta - 3.0, self.beta > 3.0
+                ),
+            )
         mtot = (
-            special.beta(3.0 - self.alpha, self.beta - 3.0)
+            scalar_like(R, special.beta(3.0 - self.alpha, self.beta - 3.0))
             if self.beta > 3.0
             else numpy.inf
+        )
+        xp = get_namespace(R)
+        (R,) = coerce_coords(xp, R)
+        ibeta = (
+            incomplete_beta
+            if xp is numpy
+            else functools.partial(incomplete_beta_xp, xp)
         )
 
         def M(R):
             x = R / self.a
-            return incomplete_beta(
+            return ibeta(
                 3.0 - self.alpha, self.beta - 3.0, x / (1.0 + x), 1.0 / (1.0 + x)
             )
 
-        return radial_limits(R, M, atinf=mtot)
+        return radial_limits(R, M, at0=0.0, atinf=mtot, numpy_too=True)
 
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
@@ -430,7 +668,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         -----
         - Started - Starkman (UofT) - 2019-10-07
         """
-        if (alpha < 0.0) or (alpha >= 3.0):
+        if concretely_true(alpha < 0.0) or concretely_true(alpha >= 3.0):
             raise OSError("DehnenSphericalPotential requires 0 <= alpha < 3")
         # instantiate
         TwoPowerSphericalPotential.__init__(
@@ -438,7 +676,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         )
         # make special-self and protect subclasses
         self._specialSelf = None
-        if (self.__class__ == DehnenSphericalPotential) & (alpha == round(alpha)):
+        if (
+            self.__class__ == DehnenSphericalPotential
+            and not self._backend_shape
+            and alpha == round(alpha)
+        ):
             if round(alpha) == 0:
                 self._specialSelf = DehnenCoreSphericalPotential(
                     amp=1.0, a=a, normalize=False
@@ -449,6 +691,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
                 self._specialSelf = JaffePotential(amp=1.0, a=a, normalize=False)
         # set properties
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -457,17 +700,38 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        if self._backend_shape:
+            # (1 - (1+a/r)^(alpha-2)) / (2-alpha) = L exprel((alpha-2) L),
+            # L = log(1+a/r): smooth through Jaffe's alpha = 2
+            a3 = self.a * (3.0 - self.alpha)
+
+            def phi(r):
+                L = xp.log1p(self.a / r)
+                return -L * exprel(xp, (self.alpha - 2.0) * L) / a3
+
+            inner = self.alpha < 2.0  # Phi(0) finite
+            at0 = -1.0 / (a3 * xp.where(inner, 2.0 - self.alpha, 1.0))
+            return radial_limits(r, phi, at0=xp.where(inner, at0, -math.inf))
         else:  # valid for alpha != 2, 3
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            return -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / (
-                self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
+            norm = self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
+            return radial_limits(
+                r,
+                lambda r: (
+                    -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / norm
+                ),
+                at0=-1.0 / norm,
             )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
                 / r**self.alpha
@@ -478,12 +742,14 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._R2deriv(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a, alpha = self.a, self.alpha
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        r = xp.sqrt(R**2.0 + z**2.0)
         # formula not valid for alpha=2,3, (integers?)
         return (
-            numpy.power(r, -2.0 - alpha)
-            * numpy.power(r + a, alpha - 4.0)
+            r ** (-2.0 - alpha)
+            * (r + a) ** (alpha - 4.0)
             * (-a * r**2.0 + (2.0 * R**2.0 - z**2.0) * r + a * alpha * R**2.0)
             / (alpha - 3.0)
         )
@@ -492,7 +758,9 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
                 / r**self.alpha
@@ -506,32 +774,40 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a, alpha = self.a, self.alpha
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return (
-            R
-            * z
-            * numpy.power(r, -2.0 - alpha)
-            * numpy.power(a + r, alpha - 4.0)
-            * (3 * r + a * alpha)
+            R * z * r ** (-2.0 - alpha) * (a + r) ** (alpha - 4.0) * (3 * r + a * alpha)
         ) / (alpha - 3)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return (
-            (self.a / r) ** self.alpha
-            / (1.0 + r / self.a) ** (4.0 - self.alpha)
-            / 4.0
-            / numpy.pi
-            / self.a**3.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return radial_limits(
+            r,
+            lambda r: (
+                (self.a / r) ** self.alpha
+                / (1.0 + r / self.a) ** (4.0 - self.alpha)
+                / 4.0
+                / math.pi
+                / self.a**3.0
+            ),
+            atinf=0.0,
         )
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** (3.0 - self.alpha) / (3.0 - self.alpha)
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: (
+                1.0 / (1.0 + self.a / R) ** (3.0 - self.alpha) / (3.0 - self.alpha)
+            ),
+            at0=0.0,
+        )
 
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
@@ -568,51 +844,69 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         )
         # set properties explicitly
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return radial_limits(
+            r,
+            lambda r: -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a),
+            at0=-1.0 / (6.0 * self.a),
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        return -R / numpy.power(numpy.sqrt(R**2.0 + z**2.0) + self.a, 3.0) / 3.0
-
-    def _rforce_jax(self, r):
-        # No need for actual JAX!
-        return -self._amp * r / (r + self.a) ** 3.0 / 3.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return -(
-            ((2.0 * R**2.0 - z**2.0) - self.a * r)
-            / (3.0 * r * numpy.power(r + self.a, 4.0))
+            ((2.0 * R**2.0 - z**2.0) - self.a * r) / (3.0 * r * (r + self.a) ** 4.0)
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return -z / numpy.power(self.a + r, 3.0) / 3.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return -z / (self.a + r) ** 3.0 / 3.0
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         return self._R2deriv(z, R, phi=phi, t=t)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a = self.a
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return -(R * z / r / numpy.power(a + r, 4.0))
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return -(R * z / r / (a + r) ** 4.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / numpy.pi / self.a**3.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return radial_limits(
+            r,
+            lambda r: 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0,
+            atinf=0.0,
+        )
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** 3.0 / 3.0
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: 1.0 / (1.0 + self.a / R) ** 3.0 / 3.0,
+            at0=0.0,
+        )
 
 
 class HernquistPotential(DehnenSphericalPotential):
@@ -652,28 +946,37 @@ class HernquistPotential(DehnenSphericalPotential):
         self._nemo_accname = "Dehnen"
         # set properties explicitly
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -1.0 / (1.0 + numpy.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return radial_limits(
+            xp.sqrt(R**2.0 + z**2.0),
+            lambda r: -1.0 / (1.0 + r / self.a) / 2.0 / self.a,
+            atinf=0.0,
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
-    def _rforce_jax(self, r):
-        # No need for actual JAX!
-        return -self._amp / 2.0 / (r + self.a) ** 2.0
-
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * z**2.0 + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
             / sqrtRz**3.0
@@ -682,7 +985,9 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
             * z
@@ -692,48 +997,68 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    -12.0 * self.a**3
-                    - 5.0 * self.a * z**2
-                    + numpy.sqrt(1.0 + z**2 / self.a**2)
-                    * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
-                )
-                / 30.0
-                / numpy.pi
-                * z**-5.0
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
+        # xp.where branches are evaluated, so guard the generic branch's zero
+        # denominators with a safe R^2-a^2 that is never zero at the edge.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # also guard (r^2 - a^2), which vanishes at the edge when z == 0
+        d2r = r**2.0 - self.a**2.0
+        safe_d2r = xp.where(at_edge, xp.ones_like(d2r * 1.0), d2r)
+        # The edge branch carries a z**-5 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
+        edge = (
+            (
+                -12.0 * self.a**3
+                - 5.0 * self.a * z_edge**2
+                + xp.sqrt(1.0 + z_edge**2 / self.a**2)
+                * (12.0 * self.a**3 - self.a * z_edge**2 + 2 / self.a * z_edge**4)
             )
-        else:
-            return (
-                self.a
+            / 30.0
+            / math.pi
+            * z_edge**-5.0
+        )
+        generic = (
+            self.a
+            * xp.real(
+                (2.0 * self.a**2.0 + R**2.0)
+                * Rma**-5
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + z
                 * (
-                    (2.0 * self.a**2.0 + R**2.0)
-                    * Rma**-5
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + z
-                    * (
-                        5.0 * self.a**3.0 * r
-                        - 4.0 * self.a**4
-                        + self.a**2 * (2.0 * r**2.0 + R**2)
-                        - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
-                        + R**2.0 * r**2.0
-                    )
-                    / (self.a**2.0 - R**2.0) ** 2.0
-                    / (r**2 - self.a**2.0) ** 2.0
-                ).real
-                / 4.0
-                / numpy.pi
+                    5.0 * self.a**3.0 * r
+                    - 4.0 * self.a**4
+                    + self.a**2 * (2.0 * r**2.0 + R**2)
+                    - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
+                    + R**2.0 * r**2.0
+                )
+                / safe_d2**2.0
+                / safe_d2r**2.0
             )
+            / 4.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
-            1.0 / (1.0 + self.a / R) ** 2.0 / 2.0
-        )  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R,
+            lambda R: 1.0 / (1.0 + self.a / R) ** 2.0 / 2.0,
+            at0=0.0,
+        )
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
@@ -797,9 +1122,8 @@ class JaffePotential(DehnenSphericalPotential):
         self._scale = self.a
         self.alpha = 2
         self.beta = 4
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        self._backend_compatible = True
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
@@ -808,18 +1132,26 @@ class JaffePotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -numpy.log(1.0 + self.a / numpy.sqrt(R**2.0 + z**2.0)) / self.a
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        return -xp.log(1.0 + self.a / xp.sqrt(R**2.0 + z**2.0)) / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * (z**2.0 - R**2.0) + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
             / sqrtRz**4.0
@@ -827,7 +1159,9 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
             * z
@@ -837,41 +1171,57 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    3.0 * z**2.0
-                    - 2.0 * self.a**2.0
-                    + 2.0
-                    * numpy.sqrt(1.0 + (z / self.a) ** 2.0)
-                    * (self.a**2.0 - 2.0 * z**2.0)
-                    + 3.0 * z**3.0 / self.a * numpy.arctan(z / self.a)
-                )
-                / self.a
-                / z**3.0
-                / 6.0
-                / numpy.pi
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # The edge branch carries a z**-3 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
+        edge = (
+            (
+                3.0 * z_edge**2.0
+                - 2.0 * self.a**2.0
+                + 2.0
+                * xp.sqrt(1.0 + (z_edge / self.a) ** 2.0)
+                * (self.a**2.0 - 2.0 * z_edge**2.0)
+                + 3.0 * z_edge**3.0 / self.a * xp.arctan(z_edge / self.a)
             )
-        else:
-            return (
-                (
-                    (2.0 * self.a**2.0 - R**2.0)
-                    * Rma**-3
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + numpy.arctan(z / R) / R
-                    - self.a * z / (R**2 - self.a**2) / (r + self.a)
-                ).real
-                / self.a
-                / 2.0
-                / numpy.pi
+            / self.a
+            / z_edge**3.0
+            / 6.0
+            / math.pi
+        )
+        generic = (
+            xp.real(
+                (2.0 * self.a**2.0 - R**2.0)
+                * Rma**-3
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + xp.arctan(z / R) / R
+                - self.a * z / safe_d2 / (r + self.a)
             )
+            / self.a
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return 1.0 / (1.0 + self.a / R)  # written so it works for r=numpy.inf
+        return radial_limits(  # written so it works for r=numpy.inf
+            R, lambda R: 1.0 / (1.0 + self.a / R), at0=0.0
+        )
 
 
 class NFWPotential(TwoPowerSphericalPotential):
@@ -944,11 +1294,11 @@ class NFWPotential(TwoPowerSphericalPotential):
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
+        # Flag before the (conditional) normalize() so its Rforce(1.,0.) is coerced.
+        self._backend_compatible = True
         if conc is None and rmax is None:
             self.a = a
-            if normalize or (
-                isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-            ):
+            if _normalize_requested(normalize):
                 self.normalize(normalize)
         elif not rmax is None:
             if _APY_LOADED and isinstance(rmax, units.Quantity):
@@ -969,7 +1319,9 @@ class NFWPotential(TwoPowerSphericalPotential):
             mvirNatural = mvir * 100.0 / conversion.mass_in_1010msol(self._vo, self._ro)
             rvir = (3.0 * mvirNatural / od / 4.0 / numpy.pi) ** (1.0 / 3.0)
             self.a = rvir / conc
-            self._amp = mvirNatural / (numpy.log(1.0 + conc) - conc / (1.0 + conc))
+            xp = get_namespace(conc)
+            (lc,) = promote_scalars(xp, 1.0 + conc)  # differentiable in conc
+            self._amp = mvirNatural / (xp.log(lc) - conc / (1.0 + conc))
             # Turn on physical output, because mass is given in 1e12 Msun (see #465)
             self._roSet = True
             self._voSet = True
@@ -984,166 +1336,180 @@ class NFWPotential(TwoPowerSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, (float, int)) and r == 0:
-            return -1.0 / self.a
-        elif isinstance(r, (float, int)):
-            return small_r_select(
-                r, _NFW_SMALL_X * self.a, self._phi_small, self._phi, 0.05 * self.a
-            )
-        else:
-            out = numpy.asarray(
-                small_r_select(
-                    r, _NFW_SMALL_X * self.a, self._phi_small, self._phi, 0.05 * self.a
-                )
-            ).copy()
-            out[r == 0] = -1.0 / self.a
-            return out
-
-    def _phi(self, r):
-        return -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
-
-    def _phi_small(self, r):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
+        # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
+        # at r -> infty, where the bare product is 0*inf = NaN; this is the
+        # "stable as r -> infty" behavior). Additionally Phi(0) = -1/a. Both
+        # r == 0 and r == infty are handled with NaN-safe xp.where branches.
+        at0 = r == 0.0
+        atinf = xp.isinf(r)
+        # safe r so neither dead branch divides by 0 or takes log(inf)
+        safe = xp.where(at0 | atinf, xp.ones_like(r * 1.0), r)
         # log(1 + x) loses eps/x at x << 1
-        return -numpy.log1p(r / self.a) / r
+        bulk = branch_where(
+            xp,
+            safe < _NFW_SMALL_X * self.a,
+            lambda: -(1.0 / safe) * xp.log1p(safe / self.a),
+            lambda: -(1.0 / safe) * xp.log(1.0 + safe / self.a),
+        )
+        out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
+        return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
-        return R * small_r_select(
-            sqrtRz,
-            _NFW_SMALL_X * self.a,
-            lambda r: -_nfw_h(r / self.a) / (r * r * r),
-            lambda _: (
-                1.0 / Rz / (self.a + sqrtRz)
-                - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        sqrtRz = xp.sqrt(Rz)
+        small = sqrtRz < _NFW_SMALL_X * self.a
+        return branch_where(
+            xp,
+            small,
+            lambda: -R * _nfw_h(xp, small, sqrtRz, self.a),
+            lambda: (
+                R
+                * (
+                    1.0 / Rz / (self.a + sqrtRz)
+                    - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+                )
             ),
-            0.05 * self.a,
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
-        return z * small_r_select(
-            sqrtRz,
-            _NFW_SMALL_X * self.a,
-            lambda r: -_nfw_h(r / self.a) / (r * r * r),
-            lambda _: (
-                1.0 / Rz / (self.a + sqrtRz)
-                - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+        sqrtRz = xp.sqrt(Rz)
+        small = sqrtRz < _NFW_SMALL_X * self.a
+        return branch_where(
+            xp,
+            small,
+            lambda: -z * _nfw_h(xp, small, sqrtRz, self.a),
+            lambda: (
+                z
+                * (
+                    1.0 / Rz / (self.a + sqrtRz)
+                    - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+                )
             ),
-            0.05 * self.a,
         )
-
-    def _rforce_jax(self, r):
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
-        return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-
-        def small(r):  # d2Phi/dR2 = (k R^2 + h z^2) / r^5
-            h, k = _nfw_hk(r / self.a)
-            return (k * R * R + h * z * z) / (r * r * r * r * r)
-
-        return small_r_select(
-            r,
-            _NFW_SMALL_X * self.a,
-            small,
-            lambda _: self._R2deriv_generic(R, z),
-            0.05 * self.a,
-        )
-
-    def _R2deriv_generic(self, R, z):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
-        return (
-            (
-                3.0 * R**4.0
-                + 2.0 * R**2.0 * (z**2.0 + self.a * sqrtRz)
-                - z**2.0 * (z**2.0 + self.a * sqrtRz)
-                - (2.0 * R**2.0 - z**2.0)
-                * (self.a**2.0 + R**2.0 + z**2.0 + 2.0 * self.a * sqrtRz)
-                * numpy.log(1.0 + sqrtRz / self.a)
-            )
-            / Rz**2.5
-            / (self.a + sqrtRz) ** 2.0
+        sqrtRz = xp.sqrt(Rz)
+        small = sqrtRz < _NFW_SMALL_X * self.a
+
+        def stable():  # d2Phi/dR2 = (k R^2 + h z^2) / r^5
+            h5, k5 = _nfw_hk5(xp, small, sqrtRz, self.a)
+            return k5 * R**2.0 + h5 * z**2.0
+
+        return branch_where(
+            xp,
+            small,
+            stable,
+            lambda: (
+                (
+                    3.0 * R**4.0
+                    + 2.0 * R**2.0 * (z**2.0 + self.a * sqrtRz)
+                    - z**2.0 * (z**2.0 + self.a * sqrtRz)
+                    - (2.0 * R**2.0 - z**2.0)
+                    * (self.a**2.0 + R**2.0 + z**2.0 + 2.0 * self.a * sqrtRz)
+                    * xp.log(1.0 + sqrtRz / self.a)
+                )
+                / Rz**2.5
+                / (self.a + sqrtRz) ** 2.0
+            ),
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-
-        def small(r):  # d2Phi/dRdz = (k - h) R z / r^5
-            h, k = _nfw_hk(r / self.a)
-            return (k - h) * R * z / (r * r * r * r * r)
-
-        return small_r_select(
-            r,
-            _NFW_SMALL_X * self.a,
-            small,
-            lambda _: self._Rzderiv_generic(R, z),
-            0.05 * self.a,
-        )
-
-    def _Rzderiv_generic(self, R, z):
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
-        return (
-            -R
-            * z
-            * (
-                -4.0 * Rz
-                - 3.0 * self.a * sqrtRz
-                + 3.0
-                * (self.a**2.0 + Rz + 2.0 * self.a * sqrtRz)
-                * numpy.log(1.0 + sqrtRz / self.a)
-            )
-            * Rz**-2.5
-            * (self.a + sqrtRz) ** -2.0
+        sqrtRz = xp.sqrt(Rz)
+        small = sqrtRz < _NFW_SMALL_X * self.a
+
+        def stable():  # d2Phi/dRdz = (k - h) R z / r^5
+            h5, k5 = _nfw_hk5(xp, small, sqrtRz, self.a)
+            return (k5 - h5) * R * z
+
+        return branch_where(
+            xp,
+            small,
+            stable,
+            lambda: (
+                -R
+                * z
+                * (
+                    -4.0 * Rz
+                    - 3.0 * self.a * sqrtRz
+                    + 3.0
+                    * (self.a**2.0 + Rz + 2.0 * self.a * sqrtRz)
+                    * xp.log(1.0 + sqrtRz / self.a)
+                )
+                * Rz**-2.5
+                * (self.a + sqrtRz) ** -2.0
+            ),
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            za2 = (z / self.a) ** 2
-            return (
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # The edge branch carries a z**-3 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
+        za2 = (z_edge / self.a) ** 2
+        edge = (
+            self.a
+            * (2.0 + xp.sqrt(za2 + 1.0) * (za2 - 2.0))
+            / 6.0
+            / math.pi
+            / z_edge**3
+        )
+        generic = (
+            xp.real(
                 self.a
-                * (2.0 + numpy.sqrt(za2 + 1.0) * (za2 - 2.0))
-                / 6.0
-                / numpy.pi
-                / z**3
+                * Rma**-3
+                * (xp.arctan(self.a * z / r / Rma) - xp.arctan(z / Rma))
+                + z / (r + self.a) / safe_d2
             )
-        else:
-            return (
-                (
-                    self.a
-                    * Rma**-3
-                    * (numpy.arctan(self.a * z / r / Rma) - numpy.arctan(z / Rma))
-                    + z / (r + self.a) / (R**2.0 - self.a**2.0)
-                ).real
-                / 2.0
-                / numpy.pi
-            )
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        # log-divergent: inf - inf/inf was NaN
-        return radial_limits(
-            R,
-            lambda R: small_r_select(
-                R,
-                _NFW_SMALL_X * self.a,
-                lambda r: _nfw_h(r / self.a),
-                lambda r: numpy.log(1 + r / self.a) - r / self.a / (1.0 + r / self.a),
-                0.05 * self.a,
-            ),
-            atinf=numpy.inf,
-        )
+        xp = get_namespace(R)
+        (R,) = coerce_coords(xp, R)
+
+        def mass(R):
+            small = R < _NFW_SMALL_X * self.a
+            return branch_where(
+                xp,
+                small,
+                lambda: _nfw_hx(xp, _nfw_masked(xp, small, R, self.a)[1]),
+                lambda: xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a),
+            )
+
+        # log-divergent: numpy's inf - inf/inf was NaN
+        return radial_limits(R, mass, atinf=numpy.inf, numpy_too=True)
 
     @conversion.physical_conversion("position", pop=False)
     def rvir(
@@ -1196,6 +1562,19 @@ class NFWPotential(TwoPowerSphericalPotential):
         else:
             od = overdens / conversion.dens_in_meanmatterdens(vo, ro, H=H, Om=Om)
         dc = 12.0 * self.dens(self.a, 0.0, t=t, use_physical=False) / od
+        xp = _pot_grad_namespace(self)
+        if xp is not None:  # differentiated amp/a: implicit-diff backend root
+            from ..backend.optimize import brentq as _bk_brentq
+
+            lo, hi = (
+                asarray_on_device(xp, v, device_of(dc), dtype=dc.dtype)
+                for v in (0.01, 100.0)
+            )
+            x = _bk_brentq(
+                lambda y: (xp.log(1.0 + y) - y / (1.0 + y)) / y**3.0 - 1.0 / dc, lo, hi
+            )
+            return x * self.a
+        dc = to_host(dc)
         x = optimize.brentq(
             lambda y: (numpy.log(1.0 + y) - y / (1.0 + y)) / y**3.0 - 1.0 / dc,
             0.01,

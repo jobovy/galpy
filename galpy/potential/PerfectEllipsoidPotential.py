@@ -7,10 +7,14 @@
 #                                 with m^2 = x^2+y^2/b^2+z^2/c^2
 #
 ###############################################################################
+import math
+
 import numpy
 
+from ..backend import concretely_true, get_namespace, is_backend_array
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class PerfectEllipsoidPotential(EllipsoidalPotential):
@@ -86,13 +90,17 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         # an axisymmetric oblate perfect ellipsoid is a Staeckel potential in
         # the prolate spheroidal coordinates of focal length a sqrt(1 - c^2)
         # (de Zeeuw 1985), which actionAngleStaeckel picks up from here
-        if self._aligned and numpy.fabs(self._b - 1.0) < 1e-10 and self._c < 1.0:
-            self._delta = self.a * numpy.sqrt(1.0 - self._c2)
+        if (
+            self._aligned
+            and concretely_true(abs(self._b - 1.0) < 1e-10)
+            and concretely_true(self._c < 1.0)
+        ):
+            xc = get_namespace(self._c2) if is_backend_array(self._c2) else numpy
+            self._delta = self.a * xc.sqrt(1.0 - self._c2)
         # Adjust amp
-        self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
+        self._backend_compatible = True
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
@@ -118,11 +126,12 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        xp = get_namespace(R)
         return (
             2.0
-            * numpy.pi
+            * math.pi
             * self._b
             * self._c
             / self.a
-            * (numpy.arctan(R / self.a) - R * self.a / (1.0 + R**2.0))
+            * (xp.atan(R / self.a) - R * self.a / (1.0 + R**2.0))
         )

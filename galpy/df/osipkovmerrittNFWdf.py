@@ -2,10 +2,21 @@
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
 
+from ..backend import resolve_namespace
 from ..potential import NFWPotential
 from ..util import conversion
+from .isotropicNFWdf import _COEFFS as _ISO_NFW_COEFFS
 from .isotropicNFWdf import isotropicNFWdf
 from .osipkovmerrittdf import _osipkovmerrittdf
+
+
+def _polyval_xp(xp, coeffs, x):
+    """Horner evaluation of a numpy-float polynomial on a backend array x."""
+    out = xp.zeros_like(x) + coeffs[0]
+    for c in coeffs[1:]:
+        out = out * x + c
+    return out
+
 
 _COEFFS = numpy.array(
     [
@@ -58,6 +69,9 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
         _osipkovmerrittdf.__init__(self, pot=pot, ra=ra, rmax=rmax, ro=ro, vo=vo)
         self._Qtildemax = pot._amp / pot.a
         self._Qtildemin = -pot(self._rmax, 0, use_physical=False) / self._Qtildemax
+        # fQ jumps to zero (it does not taper) at the rmax truncation, so tell
+        # _dMdE where the support starts; see _osipkovmerrittdf.__init__.
+        self._Qsupportmin = self._Qtildemin * self._Qtildemax
         self._a2overra2 = self._pot.a**2.0 / self._ra2
         self._fQnorm = self._a2overra2 / (4.0 * numpy.pi) / pot.a**1.5 / pot._amp**0.5
         # Initialize isotropic version to use as part of fQ
@@ -82,18 +96,41 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
         - 2021-02-09 - Written - Bovy (UofT)
 
         """
-        Qtilde = conversion.parse_energy(Q, vo=self._vo) / self._Qtildemax
-        out = numpy.zeros_like(Qtilde)
-        indx = (Qtilde > self._Qtildemin) * (Qtilde <= 1.0)
-        # The 'ergodic' part
-        out[indx] = self._idf.fE(-Q[indx])
-        # The other part
-        out[indx] += (
-            self._fQnorm
-            * numpy.polyval(_COEFFS, Qtilde[indx])
-            / (
-                Qtilde[indx] ** (2.0 / 3.0)
-                * (numpy.log(Qtilde[indx]) / (1 - Qtilde[indx])) ** 2.0
+        Qi = conversion.parse_energy(Q, vo=self._vo)
+        xp = resolve_namespace(Qi, self._Qtildemax)
+        if xp is numpy:
+            Qtilde = Qi / self._Qtildemax
+            out = numpy.zeros_like(Qtilde)
+            indx = (Qtilde > self._Qtildemin) * (Qtilde <= 1.0)
+            # The 'ergodic' part
+            out[indx] = self._idf.fE(-Q[indx])
+            # The other part
+            out[indx] += (
+                self._fQnorm
+                * numpy.polyval(_COEFFS, Qtilde[indx])
+                / (
+                    Qtilde[indx] ** (2.0 / 3.0)
+                    * (numpy.log(Qtilde[indx]) / (1 - Qtilde[indx])) ** 2.0
+                )
             )
+            return out
+        # jax/torch: functional masking; the ergodic part inlines the (unmigrated,
+        # non-widrow) isotropicNFWdf.fE closed form in Qtilde == idf's Etilde, and
+        # the dead branch (out of (Qtildemin, 1)) uses a safe dummy zeroed below
+        Qb = xp.asarray(Qi) * 1.0
+        Qtilde = Qb / self._Qtildemax
+        dead = (Qtilde <= self._Qtildemin) | (Qtilde >= 1.0)
+        Qs = xp.where(dead, 0.5, Qtilde)  # dummy in (0,1): log/pow stay finite
+        ergodic = (
+            self._idf._fEnorm
+            * Qs**1.5
+            * (1.0 - Qs) ** -2.5
+            * (-xp.log(Qs) / (1.0 - Qs)) ** -2.75
+            * _polyval_xp(xp, _ISO_NFW_COEFFS, Qs)
         )
-        return out
+        other = (
+            self._fQnorm
+            * _polyval_xp(xp, _COEFFS, Qs)
+            / (Qs ** (2.0 / 3.0) * (xp.log(Qs) / (1.0 - Qs)) ** 2.0)
+        )
+        return xp.where(dead, xp.zeros_like(Qb), ergodic + other)

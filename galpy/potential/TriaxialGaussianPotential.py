@@ -8,10 +8,12 @@
 #
 ###############################################################################
 import numpy
-from scipy import special
 
+from ..backend import get_namespace
+from ..backend import special as _bspecial
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+from .Potential import _normalize_requested
 
 
 class TriaxialGaussianPotential(EllipsoidalPotential):
@@ -85,10 +87,11 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         self._twosigma2 = 2.0 * self._sigma**2
         self._scale = self._sigma
         # Adjust amp
-        self._amp /= (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
+        self._amp = self._amp / (
+            (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
+        )
+        self._backend_compatible = True
+        if _normalize_requested(normalize):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
@@ -100,19 +103,23 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
 
     def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return -self._twosigma2 * numpy.exp(-(m**2.0) / self._twosigma2)
+        xp = get_namespace(m)
+        return -self._twosigma2 * xp.exp(-(m**2.0) / self._twosigma2)
 
     def _mdens(self, m):
         """Density as a function of m"""
-        return numpy.exp(-(m**2) / self._twosigma2)
+        xp = get_namespace(m)
+        return xp.exp(-(m**2) / self._twosigma2)
 
     def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -2.0 * m * numpy.exp(-(m**2) / self._twosigma2) / self._twosigma2
+        xp = get_namespace(m)
+        return -2.0 * m * xp.exp(-(m**2) / self._twosigma2) / self._twosigma2
 
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        xp = get_namespace(R)
         return (
             numpy.pi
             * self._b
@@ -121,7 +128,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
             * self._sigma
             * (
                 numpy.sqrt(2.0 * numpy.pi)
-                * special.erf(R / self._sigma / numpy.sqrt(2.0))
-                - 2.0 * R / self._sigma * numpy.exp(-(R**2.0) / self._twosigma2)
+                * _bspecial.erf(R / self._sigma / numpy.sqrt(2.0))
+                - 2.0 * R / self._sigma * xp.exp(-(R**2.0) / self._twosigma2)
             )
         )

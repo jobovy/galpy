@@ -9,6 +9,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace, promote_scalars
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
@@ -88,10 +89,13 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
-        amp = numpy.sqrt(2.0 * j / self._omega)
-        x = amp * numpy.sin(angle)
-        vx = amp * self._omega * numpy.cos(angle)
-        return (x, vx, self._omega)
+        xp = get_namespace(j, angle)
+        # omega joins the backend too: a plain-float frequency would be an island
+        j, angle, omega = promote_scalars(xp, j, angle, self._omega)
+        amp = xp.sqrt(2.0 * j / omega)
+        x = amp * xp.sin(angle)
+        vx = amp * omega * xp.cos(angle)
+        return (x, vx, omega)
 
     def _Freqs(self, j, **kwargs):
         """
@@ -112,4 +116,4 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
-        return self._omega
+        return promote_scalars(get_namespace(j), j, self._omega)[1]

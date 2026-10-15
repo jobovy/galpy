@@ -1,6 +1,7 @@
 # Class that implements isotropic spherical NFW DF
 import numpy
 
+from ..backend import resolve_namespace
 from ..potential import NFWPotential
 from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
@@ -75,28 +76,60 @@ class isotropicNFWdf(isotropicsphericaldf):
         -----
         - 2021-02-01 - Written - Bovy (UofT)
         """
-        Etilde = -conversion.parse_energy(E, vo=self._vo) / self._Etildemax
-        out = numpy.zeros_like(Etilde)
-        indx = (Etilde > self._Etildemin) * (Etilde <= 1.0)
+        Ei = conversion.parse_energy(E, vo=self._vo)
+        # resolve on _Etildemax too so backend-built potential params keep grads
+        xp = resolve_namespace(Ei, self._Etildemax)
+        if xp is numpy:
+            Etilde = -Ei / self._Etildemax
+            out = numpy.zeros_like(Etilde)
+            indx = (Etilde > self._Etildemin) * (Etilde <= 1.0)
+            if self._widrow:
+                out[indx] = (
+                    self._fEnorm
+                    * Etilde[indx] ** 1.5
+                    * (1 - Etilde[indx]) ** -2.5
+                    * (-numpy.log(Etilde[indx]) / (1.0 - Etilde[indx])) ** -2.7419
+                    * numpy.exp(
+                        0.3620 * Etilde[indx]
+                        - 0.5639 * Etilde[indx] ** 2.0
+                        - 0.0859 * Etilde[indx] ** 3.0
+                        - 0.4912 * Etilde[indx] ** 4.0
+                    )
+                )
+            else:
+                out[indx] = (
+                    self._fEnorm
+                    * Etilde[indx] ** 1.5
+                    * (1 - Etilde[indx]) ** -2.5
+                    * (-numpy.log(Etilde[indx]) / (1.0 - Etilde[indx])) ** -2.75
+                    * numpy.polyval(_COEFFS, Etilde[indx])
+                )
+            return out
+        # jax/torch: functional dead-mask (log/negative-power NaN off-domain)
+        Etilde = -xp.asarray(Ei) * 1.0 / self._Etildemax
+        dead = (Etilde <= self._Etildemin) | (Etilde > 1.0)
+        # dummy strictly inside (Etildemin, 1): keeps log/(1-Et) finite under AD
+        Es = xp.where(dead, 0.5 * (self._Etildemin + 1.0), Etilde)
         if self._widrow:
-            out[indx] = (
+            out = (
                 self._fEnorm
-                * Etilde[indx] ** 1.5
-                * (1 - Etilde[indx]) ** -2.5
-                * (-numpy.log(Etilde[indx]) / (1.0 - Etilde[indx])) ** -2.7419
-                * numpy.exp(
-                    0.3620 * Etilde[indx]
-                    - 0.5639 * Etilde[indx] ** 2.0
-                    - 0.0859 * Etilde[indx] ** 3.0
-                    - 0.4912 * Etilde[indx] ** 4.0
+                * Es**1.5
+                * (1 - Es) ** -2.5
+                * (-xp.log(Es) / (1.0 - Es)) ** -2.7419
+                * xp.exp(
+                    0.3620 * Es - 0.5639 * Es**2.0 - 0.0859 * Es**3.0 - 0.4912 * Es**4.0
                 )
             )
         else:
-            out[indx] = (
+            # Horner over the numpy-literal fit coeffs (numpy.polyval coerces off-backend)
+            poly = Es * 0.0 + _COEFFS[0]
+            for c in _COEFFS[1:]:
+                poly = poly * Es + c
+            out = (
                 self._fEnorm
-                * Etilde[indx] ** 1.5
-                * (1 - Etilde[indx]) ** -2.5
-                * (-numpy.log(Etilde[indx]) / (1.0 - Etilde[indx])) ** -2.75
-                * numpy.polyval(_COEFFS, Etilde[indx])
+                * Es**1.5
+                * (1 - Es) ** -2.5
+                * (-xp.log(Es) / (1.0 - Es)) ** -2.75
+                * poly
             )
-        return out
+        return xp.where(dead, xp.zeros_like(out), out)

@@ -4,7 +4,22 @@
 ###############################################################################
 import numpy
 
-from ..util import _rotate_to_arbitrary_vector, conversion, coords
+from ..backend import (
+    as_backend_constant,
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+    to_host,
+)
+from ..backend._namespaces import (
+    eager_value_memo,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
+from ..util import _rotate_to_arbitrary_vector, _zvec_pa_rotation, conversion, coords
 from .Potential import (
     _evaluatephitorques,
     _evaluatePotentials,
@@ -41,6 +56,13 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     A final `offset` option allows one to apply a static offset in Cartesian coordinate space to be applied to the potential following the rotation and tilt.
     """
+
+    # Evaluation broadcasts over a trailing node axis: the coordinate stack and
+    # the Hessian stack both build at a common rank, and the rotation is a
+    # matmul that carries batch axes. The scalars-only numpy contract still
+    # holds -- the guard additionally requires every argument to be a backend
+    # array.
+    _backend_accepts_arrays = True
 
     def __init__(
         self,
@@ -89,14 +111,21 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         sky_pa = conversion.parse_angle(sky_pa)
         galaxy_pa = conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa = self._parse_inclination(inclination, sky_pa, zvec, galaxy_pa)
+        if isinstance(offset, list) and any(is_backend_array(o) for o in offset):
+            ref = next(o for o in offset if is_backend_array(o))
+            offset = namespace_from_arrays((ref,)).stack(
+                promote_scalars(namespace_from_arrays((ref,)), *offset)
+            )
         self._offset = conversion.parse_length(
             numpy.array(offset) if isinstance(offset, list) else offset, ro=self._ro
         )
         self._setup_zvec_pa(zvec, galaxy_pa)
-        self._norot = False
-        if (self._rot == numpy.eye(3)).all():
-            self._norot = True
+        # a traced or grad-tracking rotation is kept even when it is the identity
+        self._norot = not (
+            under_trace(self._rot) or requires_backend_grad(self._rot)
+        ) and concretely_true((self._rot == numpy.eye(3)).all())
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
         # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
@@ -111,6 +140,11 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             return (zvec, galaxy_pa)
         if sky_pa is None:
             sky_pa = 0.0
+        refs = [x for x in (inclination, sky_pa, galaxy_pa) if is_backend_array(x)]
+        if refs:
+            return self._parse_inclination_backend(
+                refs[0], inclination, sky_pa, galaxy_pa
+            )
         zvec_rot = numpy.dot(
             numpy.array(
                 [
@@ -134,54 +168,124 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         pa = numpy.dot(int_rot, numpy.dot(zvec_rot, [1.0, 0.0, 0.0]))
         return (zvec, galaxy_pa + numpy.arctan2(pa[1], pa[0]))
 
+    @staticmethod
+    def _parse_inclination_backend(ref, inclination, sky_pa, galaxy_pa):
+        """_parse_inclination with a backend-array angle (differentiable)"""
+        xp = namespace_from_arrays((ref,))
+        inc, spa = (
+            v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+            for v in (inclination, sky_pa)
+        )
+        z0, one = xp.zeros_like(inc), xp.ones_like(inc)
+        ss, cs, si, ci = xp.sin(spa), xp.cos(spa), xp.sin(inc), xp.cos(inc)
+        zvec_rot = xp.stack(
+            [xp.stack([ss, cs, z0]), xp.stack([-cs, ss, z0]), xp.stack([z0, z0, one])]
+        ) @ xp.stack(
+            [xp.stack([one, z0, z0]), xp.stack([z0, -ci, -si]), xp.stack([z0, -si, ci])]
+        )
+        zvec = zvec_rot[:, 2]
+        int_rot = _rotate_to_arbitrary_vector(
+            numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=False
+        )[0]
+        pa = int_rot @ zvec_rot[:, 0]
+        return (zvec, galaxy_pa + xp.atan2(pa[1], pa[0]))
+
     def _setup_zvec_pa(self, zvec, pa):
-        if not pa is None:
-            pa_rot = numpy.array(
-                [
-                    [numpy.cos(pa), numpy.sin(pa), 0.0],
-                    [-numpy.sin(pa), numpy.cos(pa), 0.0],
-                    [0.0, 0.0, 1.0],
-                ]
-            )
+        self._rot = _zvec_pa_rotation(zvec, pa)
+        if is_backend_array(self._rot):
+            self._inv_rot = namespace_from_arrays((self._rot,)).linalg.inv(self._rot)
         else:
-            pa_rot = numpy.eye(3)
-        if not zvec is None:
-            if not isinstance(zvec, numpy.ndarray):
-                zvec = numpy.array(zvec)
-            zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
-            zvec_rot = _rotate_to_arbitrary_vector(
-                numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
-            )[0]
-        else:
-            zvec_rot = numpy.eye(3)
-        self._rot = numpy.dot(pa_rot, zvec_rot)
-        self._inv_rot = numpy.linalg.inv(self._rot)
+            self._inv_rot = numpy.linalg.inv(self._rot)
         return None
 
     def __getattr__(self, attribute):
         return super().__getattr__(attribute)
 
+    def _vertical_quad_split(self, R, phi=0.0, t=0.0):
+        """z where the WRAPPED potential's mid-plane crosses the vertical line
+        at (R, phi).
+
+        ``_rect_transformed`` maps (R, phi, z) to ``rot @ (x,y,z) + offset``, so
+        the wrapped z' vanishes at
+
+            z = -(rot[2,0] x + rot[2,1] y + offset[2]) / rot[2,2] .
+
+        Rotating or offsetting the potential moves its disk plane away from
+        z = 0, and the vertical quadratures cluster their nodes at the split;
+        splitting at 0 then samples a sharply-peaked density where it is flat.
+        Edge-on (rot[2,2] == 0) has no crossing -- the wrapped plane contains
+        the line of integration -- so keep 0 there.
+        """
+        if self._norot and self._offset is None:
+            return 0.0
+        xp = get_namespace(R, phi)
+        # float(), not the numpy scalar: dividing a backend array by a
+        # numpy.float64 hands the op to numpy, which emits the numpy-2.0
+        # __array_wrap__ deprecation (96 of them across the traced-torch
+        # surfdens tests). A plain float stays a weak scalar, so it also will
+        # not upcast a float32 backend array the way as_backend_constant would.
+        if self._norot:
+            r22 = 1.0
+        elif is_backend_array(self._rot):  # a differentiated rotation
+            r22 = self._rot[2, 2]
+        else:
+            r22 = float(self._rot[2, 2])
+        if concretely_true(r22 == 0.0):
+            return 0.0
+        num = 0.0
+        if not self._norot:
+            x, y, _ = coords.cyl_to_rect(R, phi, 0.0 * R)
+            rot2 = as_backend_constant(xp, self._rot[2, :2], x)
+            num = num + rot2[0] * x + rot2[1] * y
+        if self._offset is not None:
+            num = num + as_backend_constant(xp, self._offset, R)[2]
+        return -num / r22
+
+    def _rect_transformed(self, xp, R, z, phi, guard_inf=False):
+        """Rectangular coordinates in the rotated/tilted (+offset) frame.
+
+        With ``guard_inf`` (the _evaluate/_dens R == inf branch), the wrapped
+        potential is evaluated at rectangular (R, 0, z) instead; the finite-R
+        branch's input is guarded (eager backends evaluate both ``xp.where``
+        sides, and inf*cos(phi) would NaN-poison reverse-mode autodiff)."""
+        if guard_inf:
+            Rinf = xp.isinf(R)
+            x, y, z = coords.cyl_to_rect(xp.where(Rinf, 1.0, R), phi, z)
+            x = xp.where(Rinf, R, x)
+            y = xp.where(Rinf, 0.0, y)
+        else:
+            x, y, z = coords.cyl_to_rect(R, phi, z)
+        # With a trailing node axis only z carries it, so the stack would mix
+        # rank 0 and rank 1; (3,3) @ (3,N) is the same matmul as (3,3) @ (3,).
+        x, y, z = xp.broadcast_arrays(x, y, z)
+        xyzp = xp.stack([x, y, z])
+        if not self._norot:
+            xyzp = as_backend_constant(xp, self._rot, xyzp) @ xyzp
+        if self._offset is not None:
+            # Offset is (3,); give it a trailing singleton per node axis so it
+            # broadcasts down the (3, N) stack. No-op when xyzp is (3,).
+            offset = as_backend_constant(xp, self._offset, xyzp)
+            xyzp = xyzp + xp.reshape(offset, (3,) + (1,) * (xyzp.ndim - 1))
+        return xyzp
+
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi, guard_inf=True)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         return _evaluatePotentials(self._pot, Rp, zp, phi=phip, t=t)
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1]
+        return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return R * (-numpy.sin(phi) * Fxyz[0] + numpy.cos(phi) * Fxyz[1])
+        return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
@@ -189,74 +293,97 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     def _force_xyz(self, R, z, phi=0.0, t=0.0):
         """Get the rectangular forces in the transformed frame"""
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:  # eager: the methods at one point share it
+            # coerced first, so float and array calls at one point share a key
+            R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+            return eager_value_memo(
+                self,
+                "force_xyz",
+                (R, z, phi, t),
+                lambda: self._force_xyz_eval(xp, R, z, phi, t),
+            )
+        return self._force_xyz_eval(xp, R, z, phi, t)
+
+    def _force_xyz_eval(self, xp, R, z, phi, t):
+        xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xforcep = numpy.cos(phip) * Rforcep - numpy.sin(phip) * phitorquep / Rp
-        yforcep = numpy.sin(phip) * Rforcep + numpy.cos(phip) * phitorquep / Rp
-        return numpy.dot(self._inv_rot, numpy.array([xforcep, yforcep, zforcep]))
+        xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
+        yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
+        Fxyzp = [xforcep, yforcep, zforcep]
+        if xp is numpy:  # a backend-parameter potential under a forced numpy
+            Fxyzp = to_host(Fxyzp)
+        Fxyzp = xp.stack(Fxyzp)
+        return as_backend_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
-            numpy.cos(phi) ** 2.0 * phi2[0, 0]
-            + numpy.sin(phi) ** 2.0 * phi2[1, 1]
-            + 2.0 * numpy.cos(phi) * numpy.sin(phi) * phi2[0, 1]
+            xp.cos(phi) ** 2.0 * phi2[..., 0, 0]
+            + xp.sin(phi) ** 2.0 * phi2[..., 1, 1]
+            + 2.0 * xp.cos(phi) * xp.sin(phi) * phi2[..., 0, 1]
         )
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * phi2[0, 2] + numpy.sin(phi) * phi2[1, 2]
+        return xp.cos(phi) * phi2[..., 0, 2] + xp.sin(phi) * phi2[..., 1, 2]
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._2ndderiv_xyz(R, z, phi=phi, t=t)[2, 2]
+        return self._2ndderiv_xyz(R, z, phi=phi, t=t)[..., 2, 2]
 
     @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return R**2.0 * (
-            numpy.sin(phi) ** 2.0 * phi2[0, 0]
-            + numpy.cos(phi) ** 2.0 * phi2[1, 1]
-            - 2.0 * numpy.cos(phi) * numpy.sin(phi) * phi2[0, 1]
-        ) + R * (numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1])
+            xp.sin(phi) ** 2.0 * phi2[..., 0, 0]
+            + xp.cos(phi) ** 2.0 * phi2[..., 1, 1]
+            - 2.0 * xp.cos(phi) * xp.sin(phi) * phi2[..., 0, 1]
+        ) + R * (xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1])
 
     @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
-            R * numpy.cos(phi) * numpy.sin(phi) * (phi2[1, 1] - phi2[0, 0])
-            + R * numpy.cos(2.0 * phi) * phi2[0, 1]
-            + numpy.sin(phi) * Fxyz[0]
-            - numpy.cos(phi) * Fxyz[1]
+            R * xp.cos(phi) * xp.sin(phi) * (phi2[..., 1, 1] - phi2[..., 0, 0])
+            + R * xp.cos(2.0 * phi) * phi2[..., 0, 1]
+            + xp.sin(phi) * Fxyz[0]
+            - xp.cos(phi) * Fxyz[1]
         )
 
     @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
-        return R * (numpy.cos(phi) * phi2[1, 2] - numpy.sin(phi) * phi2[0, 2])
+        return R * (xp.cos(phi) * phi2[..., 1, 2] - xp.sin(phi) * phi2[..., 0, 2])
 
     def _2ndderiv_xyz(self, R, z, phi=0.0, t=0.0):
-        """Get the rectangular forces in the transformed frame"""
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        """Get the rectangular second derivatives in the transformed frame"""
+        xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:  # eager: the methods at one point share it
+            # coerced first, so float and array calls at one point share a key
+            R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+            return eager_value_memo(
+                self,
+                "2ndderiv_xyz",
+                (R, z, phi, t),
+                lambda: self._2ndderiv_xyz_eval(xp, R, z, phi, t),
+            )
+        return self._2ndderiv_xyz_eval(xp, R, z, phi, t)
+
+    def _2ndderiv_xyz_eval(self, xp, R, z, phi, t):
+        xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
@@ -278,7 +405,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         phizderivp = evaluatephizderivs(
             self._pot, Rp, zp, phi=phip, t=t, use_physical=False
         )
-        cp, sp = numpy.cos(phip), numpy.sin(phip)
+        cp, sp = xp.cos(phip), xp.sin(phip)
         cp2, sp2, cpsp = cp**2.0, sp**2.0, cp * sp
         Rp2 = Rp * Rp
         x2derivp = (
@@ -304,28 +431,25 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         )
         xzderivp = Rzderivp * cp - phizderivp * sp / Rp
         yzderivp = Rzderivp * sp + phizderivp * cp / Rp
-        return numpy.dot(
-            self._inv_rot,
-            numpy.dot(
-                numpy.array(
-                    [
-                        [x2derivp, xyderivp, xzderivp],
-                        [xyderivp, y2derivp, yzderivp],
-                        [xzderivp, yzderivp, z2derivp],
-                    ]
-                ),
-                self._inv_rot.T,
-            ),
+        # Build as (..., 3, 3) -- tensor axes LAST -- so any node axis is a
+        # leading batch axis that matmul carries through. einsum would also
+        # broadcast but picks a different contraction order and is NOT numpy
+        # byte-identical; chained matmul on (3,3) executes exactly as before.
+        deriv2p = xp.stack(
+            [
+                xp.stack([x2derivp, xyderivp, xzderivp], axis=-1),
+                xp.stack([xyderivp, y2derivp, yzderivp], axis=-1),
+                xp.stack([xzderivp, yzderivp, z2derivp], axis=-1),
+            ],
+            axis=-2,
         )
+        inv_rot = as_backend_constant(xp, self._inv_rot, deriv2p)
+        inv_rot_T = as_backend_constant(xp, self._inv_rot.T, deriv2p)
+        return inv_rot @ (deriv2p @ inv_rot_T)
 
     @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
-        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi, guard_inf=True)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         return evaluateDensities(self._pot, Rp, zp, phi=phip, t=t, use_physical=False)

@@ -166,29 +166,150 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
         return linalg.cho_solve(L, numpy.eye(A.shape[0]))
 
 
+def _zvec_pa_rotation(zvec, pa):
+    """The rotation pa_rot(pa) . zvec_rot(zvec) of the triaxial potentials and
+    RotateAndTiltWrapperPotential (either may be None). numpy unless pa or zvec
+    holds a backend array, which gives that backend's (differentiable) matrix."""
+    from ..backend import as_backend_constant, is_backend_array, promote_scalars
+    from ..backend._namespaces import namespace_from_arrays
+
+    zlist = isinstance(zvec, (list, tuple))
+    refs = [x for x in [pa] + (list(zvec) if zlist else [zvec]) if is_backend_array(x)]
+    if not refs:
+        if not pa is None:
+            pa_rot = numpy.array(
+                [
+                    [numpy.cos(pa), numpy.sin(pa), 0.0],
+                    [-numpy.sin(pa), numpy.cos(pa), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        else:
+            pa_rot = numpy.eye(3)
+        if not zvec is None:
+            if not isinstance(zvec, numpy.ndarray):
+                zvec = numpy.array(zvec)
+            zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
+            zvec_rot = _rotate_to_arbitrary_vector(
+                numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
+            )[0]
+        else:
+            zvec_rot = numpy.eye(3)
+        return numpy.dot(pa_rot, zvec_rot)
+    ref = refs[0]
+    xp = namespace_from_arrays((ref,))
+    eye = as_backend_constant(xp, numpy.eye(3), ref)
+    if pa is None:
+        pa_rot = eye
+    else:
+        if not is_backend_array(pa):  # a plain pa with a backend zvec
+            pa = as_backend_constant(xp, pa, ref)
+        c, s = xp.cos(pa), xp.sin(pa)
+        z0, one = xp.zeros_like(c), xp.ones_like(c)
+        pa_rot = xp.stack(
+            [xp.stack([c, s, z0]), xp.stack([-s, c, z0]), xp.stack([z0, z0, one])]
+        )
+    if zvec is None:
+        zvec_rot = eye
+    else:
+        if zlist and any(is_backend_array(x) for x in zvec):
+            zvec = xp.stack(promote_scalars(xp, *zvec))
+        elif not is_backend_array(zvec):
+            zvec = as_backend_constant(xp, numpy.asarray(zvec, dtype=float), ref)
+        zvec = zvec / xp.sqrt(xp.sum(zvec**2.0))
+        zvec_rot = _rotate_to_arbitrary_vector(
+            numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True
+        )[0]
+    return pa_rot @ zvec_rot
+
+
 def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     r"""Return a rotation matrix that rotates v to align with unit vector a
     i.e. R . v = |v|\hat{a}"""
-    normv = v / numpy.tile(numpy.sqrt(numpy.sum(v**2.0, axis=1)), (3, 1)).T
-    rotaxis = numpy.cross(normv, a)
-    rotaxis /= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.0, axis=1)), (3, 1)).T
-    crossmatrix = numpy.empty((len(v), 3, 3))
-    crossmatrix[:, 0, :] = numpy.cross(rotaxis, [1, 0, 0])
-    crossmatrix[:, 1, :] = numpy.cross(rotaxis, [0, 1, 0])
-    crossmatrix[:, 2, :] = numpy.cross(rotaxis, [0, 0, 1])
-    costheta = numpy.dot(normv, a)
-    sintheta = numpy.sqrt(1.0 - costheta**2.0)
-    if inv:
-        sgn = 1.0
-    else:
-        sgn = -1.0
+    from ..backend import (
+        as_backend_constant,
+        asarray_on_device,
+        device_of,
+        is_backend_array,
+        promote_scalars,
+    )
+    from ..backend._namespaces import namespace_from_arrays
+
+    # Dispatch DATA-first (not via the forced-context get_namespace): this leaf is
+    # called from numpy-context code (streamspraydf/streamgapdf/rotated potentials)
+    # that may feed it numpy data even under a forced backend, so numpy v and a
+    # take the byte-identical numpy branch regardless of the forced default. A
+    # backend a (a differentiated zvec) takes the backend branch with a numpy v.
+    if isinstance(a, (list, tuple)) and any(is_backend_array(x) for x in a):
+        ref = next(x for x in a if is_backend_array(x))
+        xp = namespace_from_arrays((ref,))
+        a = xp.stack(promote_scalars(xp, *a))
+    if not (is_backend_array(v) or is_backend_array(a)):
+        normv = v / numpy.tile(numpy.sqrt(numpy.sum(v**2.0, axis=1)), (3, 1)).T
+        rotaxis = numpy.cross(normv, a)
+        rotaxis /= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.0, axis=1)), (3, 1)).T
+        crossmatrix = numpy.empty((len(v), 3, 3))
+        crossmatrix[:, 0, :] = numpy.cross(rotaxis, [1, 0, 0])
+        crossmatrix[:, 1, :] = numpy.cross(rotaxis, [0, 1, 0])
+        crossmatrix[:, 2, :] = numpy.cross(rotaxis, [0, 0, 1])
+        costheta = numpy.dot(normv, a)
+        sintheta = numpy.sqrt(1.0 - costheta**2.0)
+        if inv:
+            sgn = 1.0
+        else:
+            sgn = -1.0
+        out = (
+            numpy.tile(costheta, (3, 3, 1)).T * numpy.tile(numpy.eye(3), (len(v), 1, 1))
+            + sgn * numpy.tile(sintheta, (3, 3, 1)).T * crossmatrix
+            + numpy.tile(1.0 - costheta, (3, 3, 1)).T
+            * (rotaxis[:, :, numpy.newaxis] * rotaxis[:, numpy.newaxis, :])
+        )
+        if not _dontcutsmall:
+            out[numpy.fabs(costheta - 1.0) < 10.0**-10.0] = numpy.eye(3)
+            out[numpy.fabs(costheta + 1.0) < 10.0**-10.0] = -numpy.eye(3)
+        return out
+    # genuine backend array (jax/torch): out-of-place, differentiable in v and a.
+    # The rotaxis-normalization denominator is guarded so a v parallel to a --
+    # whose row is degenerate and cut/masked below anyway -- does not NaN-poison
+    # AD. The namespace is the backend operand's own; the other one (a Python
+    # list axis, a numpy v) joins it as a constant.
+    ref = v if is_backend_array(v) else a
+    xp = namespace_from_arrays((ref,))
+    if not is_backend_array(v):
+        v = as_backend_constant(xp, numpy.asarray(v, dtype=float), ref)
+    if not is_backend_array(a):
+        a = as_backend_constant(xp, numpy.asarray(a, dtype=float), ref)
+    elif ref is v:  # both backend: one device
+        a = asarray_on_device(xp, a, device_of(v))
+    normv = v / xp.sqrt(xp.sum(v**2.0, axis=1))[:, None]
+    nx, ny, nz = normv[:, 0], normv[:, 1], normv[:, 2]
+    rotaxis = xp.stack(
+        [ny * a[2] - nz * a[1], nz * a[0] - nx * a[2], nx * a[1] - ny * a[0]], axis=-1
+    )
+    raxnorm = xp.sqrt(xp.sum(rotaxis**2.0, axis=1))
+    rotaxis = (
+        rotaxis / xp.where(raxnorm == 0.0, xp.ones_like(raxnorm), raxnorm)[:, None]
+    )
+    rx, ry, rz = rotaxis[:, 0], rotaxis[:, 1], rotaxis[:, 2]
+    zero = xp.zeros_like(rx)
+    crossmatrix = xp.stack(
+        [
+            xp.stack([zero, rz, -ry], axis=-1),
+            xp.stack([-rz, zero, rx], axis=-1),
+            xp.stack([ry, -rx, zero], axis=-1),
+        ],
+        axis=1,
+    )
+    costheta = xp.sum(normv * a, axis=1)
+    sintheta = xp.sqrt(1.0 - costheta**2.0)
+    sgn = 1.0 if inv else -1.0
+    eye = as_backend_constant(xp, numpy.eye(3), v)
     out = (
-        numpy.tile(costheta, (3, 3, 1)).T * numpy.tile(numpy.eye(3), (len(v), 1, 1))
-        + sgn * numpy.tile(sintheta, (3, 3, 1)).T * crossmatrix
-        + numpy.tile(1.0 - costheta, (3, 3, 1)).T
-        * (rotaxis[:, :, numpy.newaxis] * rotaxis[:, numpy.newaxis, :])
+        costheta[:, None, None] * eye
+        + sgn * sintheta[:, None, None] * crossmatrix
+        + (1.0 - costheta)[:, None, None] * (rotaxis[:, :, None] * rotaxis[:, None, :])
     )
     if not _dontcutsmall:
-        out[numpy.fabs(costheta - 1.0) < 10.0**-10.0] = numpy.eye(3)
-        out[numpy.fabs(costheta + 1.0) < 10.0**-10.0] = -numpy.eye(3)
+        out = xp.where((xp.abs(costheta - 1.0) < 1e-10)[:, None, None], eye, out)
+        out = xp.where((xp.abs(costheta + 1.0) < 1e-10)[:, None, None], -eye, out)
     return out

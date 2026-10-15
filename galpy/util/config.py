@@ -10,6 +10,7 @@ default_configuration = {
     "astropy": {"astropy-units": "False", "astropy-coords": "True"},
     "plot": {"seaborn-bovy-defaults": "False"},
     "warnings": {"verbose": "False"},
+    "backend": {"default": "numpy"},
     "version-check": {
         "do-check": "True",
         "check-non-interactive": "True",
