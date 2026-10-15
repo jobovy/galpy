@@ -161,8 +161,8 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         interpSphericalPotential.__init__(
             self, rforce=new_rforce_func, rgrid=rgrid, Phi0=Phi0, ro=ro, vo=vo
         )
-        if xp is not None:  # honour amp (the numpy path drops it: fixed separately)
-            self._amp = amp
+        # interpSphericalPotential always sets amp=1
+        self._amp = amp
 
 
 # Parameters go through fixed_point's args, not a closure: its backend
