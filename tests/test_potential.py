@@ -8035,11 +8035,18 @@ def test_AdiabaticContractionWrapper_amp():
         "AdiabaticContractionWrapperPotential amp is not used in C orbit integration"
     )
     if _JAX_LOADED:
-        rs = numpy.array([0.3, 1.0, 5.0])
-        assert numpy.all(
-            numpy.fabs(dm2._rforce_jax(rs) - 2.0 * dm1._rforce_jax(rs))
-            < 1e-14 * numpy.fabs(dm1._rforce_jax(rs))
-        ), "AdiabaticContractionWrapperPotential amp does not scale _rforce_jax"
+        # the jax backend (backend-agnostic forces; there is no _rforce_jax)
+        import jax.numpy as jnp
+
+        from galpy.backend import as_numpy, use
+
+        rs = jnp.array([0.3, 1.0, 5.0])
+        with use("jax", force=True):  # also under a forced torch test run
+            f1 = as_numpy(potential.evaluateRforces(dm1, rs, 0.0))
+            f2 = as_numpy(potential.evaluateRforces(dm2, rs, 0.0))
+        assert numpy.all(numpy.fabs(f2 - 2.0 * f1) < 1e-14 * numpy.fabs(f1)), (
+            "AdiabaticContractionWrapperPotential amp does not scale the jax forces"
+        )
     return None
 
 
