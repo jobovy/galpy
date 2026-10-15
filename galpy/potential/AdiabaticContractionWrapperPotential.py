@@ -5,7 +5,6 @@
 #                                            component
 ###############################################################################
 import numpy
-from scipy import integrate
 from scipy.interpolate import interp1d
 from scipy.optimize import fixed_point
 
@@ -118,9 +117,14 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         new_rforce = numpy.concatenate(([0.0], new_rforce))
         new_rforce_func = lambda r: -numpy.interp(r, rgrid, new_rforce)
         # Potential at zero = int_0^inf dr rforce, and enc. mass constant
-        # outside of last rgrid point
+        # outside of last rgrid point; the force is piecewise linear, so its
+        # integral is the exact trapezoid sum (scipy's quad stopped at 50
+        # subintervals: Phi0 was ~5e-7 off, by an amount varying with the
+        # parameters)
         Phi0 = (
-            integrate.quad(new_rforce_func, rgrid[0], rgrid[-1])[0]
+            -numpy.sum(
+                0.5 * (new_rforce[1:] + new_rforce[:-1]) * (rgrid[1:] - rgrid[:-1])
+            )
             - new_rforce[-1] * rgrid[-1]
         )
         interpSphericalPotential.__init__(
