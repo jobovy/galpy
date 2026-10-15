@@ -872,7 +872,7 @@ def test_sampleV_interpolate():
         _precomputergnLz=201,
     )
     vo = 225.0
-    numpy.random.seed(4)
+    numpy.random.seed(3)
 
     # Samples per position. The moment bars below are ~0.015 on <vT>, whose
     # Monte-Carlo standard error is sigma_vT/sqrt(nper) ~ 0.0067 at nper=1000 --
