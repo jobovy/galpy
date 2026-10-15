@@ -17,9 +17,10 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    resolve_namespace,
 )
 from ..backend import special as _bspecial
-from ..backend import resolve_namespace, to_host, use
+from ..backend import to_host, use
 from ..backend._namespaces import (
     concretely_true,
     has_concrete_truth_value,
@@ -2426,8 +2427,6 @@ def _kick_namespace(arrays, pots=()):
 def _gsigma_probe(GSigma, tmin, tmax):
     """``GSigma`` at the middle of [tmin, tmax]: a user GSigma closing over a
     differentiated parameter shows its backend there (one evaluation)."""
-    if tmin is None or tmax is None:
-        return ()
     return (GSigma(0.5 * (tmin + tmax)),)
 
 
@@ -2955,7 +2954,9 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     """
     if tmax is None or tmax is None:
         raise ValueError("tmin= and tmax= need to be set")
-    xp = _kick_namespace((v, y, b, w, rs, tmin, tmax) + _gsigma_probe(GSigma, tmin, tmax))
+    xp = _kick_namespace(
+        (v, y, b, w, rs, tmin, tmax) + _gsigma_probe(GSigma, tmin, tmax)
+    )
     if xp is not numpy:
         return _impulse_deltav_plummerstream_backend(
             xp, v, y, b, w, GSigma, rs, tmin, tmax
