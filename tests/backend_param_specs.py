@@ -1494,6 +1494,9 @@ for _c in (False, True):
         {**MNp, "delta": 0.4},
         afa(),
         diff_coords=["R", "vz"],
+        # c=False: the numpy quadrature's ~1e-9 noise swamps a central FD at
+        # h ~ 2e-4 (d Or/d delta drifts by 2e-4 relative); larger steps
+        **({} if _c else {"fdscale": 10.0}),
     )
     add_aa(
         f"actionAngleAdiabatic[c={_c}]",
