@@ -70,7 +70,7 @@ def _autodiff_xp():
     return torch
 
 
-def _make_gradfunc(vmapped, name):
+def _make_gradfunc(vmapped, name, engine=None):
     """Wrap a vmapped derivative closure so it takes/returns numpy arrays.
 
     jax's ``vmap(func)`` already accepts numpy input (auto-converted) and its
@@ -82,7 +82,17 @@ def _make_gradfunc(vmapped, name):
     path uses jax autodiff for byte-identity).
     """
     if name != "torch":
-        return vmapped
+        if engine != "jax":
+            return vmapped
+        import jax
+
+        def _gradfunc(r):
+            # concrete inputs evaluate eagerly even inside a user's jax.jit (a DF
+            # built there from plain parameters); traced ones stage as usual
+            with jax.ensure_compile_time_eval():
+                return vmapped(r)
+
+        return _gradfunc
     import torch
 
     def _gradfunc(r):
@@ -540,9 +550,9 @@ class constantbetadf(_constantbetadf):
             _xp_eng = namespace_from_arrays((self._beta,))
         if _xp_eng is not None:
             self._backend = name_of_namespace(_xp_eng)
+        _eng = _autodiff_xp() if _xp_eng is None else _xp_eng
         self._gradfunc = _make_gradfunc(
-            self._raw_gradfunc(_autodiff_xp() if _xp_eng is None else _xp_eng),
-            self._backend,
+            self._raw_gradfunc(_eng), self._backend, name_of_namespace(_eng)
         )
         # Min and max energy (numpy scalars): Phi(rmax)/Phi(rmin) as numpy, robust
         # under a forced non-numpy backend (see _evalpot_asnumpy -- boundary
