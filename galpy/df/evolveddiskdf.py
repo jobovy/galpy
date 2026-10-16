@@ -39,7 +39,7 @@ from ..potential.Potential import (
     _check_c,
     _check_potential_list_and_deprecate,
     _dim,
-    _pot_grad_namespace,
+    _pot_backend_namespace,
 )
 from ..util import galpyWarning, plot
 from ..util.conversion import parse_time, physical_conversion, potential_physical_input
@@ -61,7 +61,7 @@ def _on_numpy_unless_backend_data(method):
     def wrapper(self, R, *args, **kwargs):
         if (
             is_backend_array(R)
-            or _pot_grad_namespace(self._pot) is not None
+            or _pot_backend_namespace(self) is not None  # pot or initdf
             or getattr(self._initdf, "_backend_path", lambda: False)()
         ):
             return method(self, R, *args, **kwargs)
@@ -612,7 +612,7 @@ class evolveddiskdf(df):
         # exactly what keeps the merely-forced case on numpy.
         # The hierarchical grid is migrated too now (its levels build with one
         # vectorised multi-orbit integrate each), so it is no longer excluded.
-        _xp_pot = _pot_grad_namespace(self._pot)
+        _xp_pot = _pot_backend_namespace(self)  # pot or initdf
         xp = get_namespace(R) if is_backend_array(R) else numpy
         if xp is numpy and _xp_pot is not None:
             xp = _xp_pot

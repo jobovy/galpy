@@ -34,6 +34,18 @@ from ..util.conversion import (
 _BACKEND_GL_ORDER = 50
 
 
+def _concrete_param_namespace(pot, *params):
+    """The namespace of a backend parameter of ``pot`` or of ``params`` (delta,
+    gamma) -- a backend input turns the backend on -- else None."""
+    from ..potential.Potential import _pot_backend_namespace
+
+    xp = _pot_backend_namespace(pot)
+    if xp is None:
+        bk = [p for p in params if is_backend_array(p)]
+        xp = namespace_from_arrays(tuple(bk)) if bk else None
+    return xp
+
+
 def _c_cannot_carry(pot, *params):
     """True if a derivative is requested that the C-native Jacobians cannot
     carry: w.r.t. a parameter of ``pot`` or one of ``params`` (delta, gamma)."""

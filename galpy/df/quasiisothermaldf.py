@@ -42,6 +42,7 @@ from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
+    _pot_backend_namespace,
     _pot_grad_namespace,
 )
 from ..util import conversion, galpyWarning
@@ -266,15 +267,15 @@ class quasiisothermaldf(df):
         self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
 
     def _namespace(self, *xs):
-        """``get_namespace(*xs)``; at numpy/Python-float ``xs`` a differentiated
-        DF or potential parameter is the data (no use() block needed)."""
+        """``get_namespace(*xs)``; at numpy/Python-float ``xs`` a backend DF or
+        potential parameter is the data (no use() block needed)."""
         xp = get_namespace(*xs)
-        return (_pot_grad_namespace(self) or numpy) if xp is numpy else xp
+        return (_pot_backend_namespace(self) or numpy) if xp is numpy else xp
 
     def _torch_params_in_play(self):
-        """float64_default_if_torch_args hook: a differentiated torch parameter
-        gets galpy's float64 interior at Python-float coordinates too."""
-        return name_of_namespace(_pot_grad_namespace(self) or numpy) == "torch"
+        """float64_default_if_torch_args hook: a torch parameter gets galpy's
+        float64 interior at Python-float coordinates too."""
+        return name_of_namespace(_pot_backend_namespace(self) or numpy) == "torch"
 
     @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):

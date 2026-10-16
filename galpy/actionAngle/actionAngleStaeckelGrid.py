@@ -11,6 +11,7 @@
 #
 ###############################################################################
 import warnings
+from contextlib import nullcontext
 
 import numpy
 from scipy import interpolate, ndimage, optimize
@@ -23,7 +24,7 @@ from ..backend import (
     get_namespace,
 )
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array, promote_scalars, use
+from ..backend import is_backend_array, name_of_namespace, promote_scalars, use
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
@@ -32,7 +33,7 @@ from ..potential.Potential import (
 )
 from ..util import conversion, coords, galpyWarning, multi
 from . import actionAngleStaeckel, actionAngleStaeckel_c
-from .actionAngle import actionAngle
+from .actionAngle import _concrete_param_namespace, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
 _PRINTOUTSIDEGRID = False
@@ -131,12 +132,20 @@ class actionAngleStaeckelGrid(actionAngle):
         # Build grid
         self._Lzmin = 0.01
         xp = get_namespace()
-        if xp is not numpy:
+        # ... and so does a concrete backend parameter (of the potential, or
+        # delta): the grid on its backend, built as under a forced one
+        bxp = (
+            None
+            if xp is not numpy
+            else _concrete_param_namespace(self._pot, self._delta)
+        )
+        if xp is not numpy or bxp is not None:
             # Forced/default backend: build the whole grid ON the backend so the
             # frozen tables are backend arrays (GPU-resident) fit NATIVELY, and the
             # grid build differentiates through to the query. The numpy body below
             # is left byte-identical (scipy).
-            self._build_grid_backend(xp, nE, npsi, nLz, numcores, interpecc)
+            with use(name_of_namespace(bxp), force=True) if bxp else nullcontext():
+                self._build_grid_backend(bxp or xp, nE, npsi, nLz, numcores, interpecc)
             self._check_consistent_units()
             return None
         self._Lzs = numpy.linspace(

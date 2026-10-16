@@ -267,6 +267,30 @@ def test_zvc_torch(R, E, Lz):
 _ZVCR_PTS = [(-1.0, 0.5), (-0.9, 0.6), (-1.1, 0.4)]
 
 
+@pytest.mark.parametrize(
+    "backend", [b for b, h in [("jax", _HAS_JAX), ("torch", _HAS_TORCH)] if h]
+)
+def test_zvc_and_range_follow_a_backend_potential_parameter(backend):
+    # plain-float arguments and a concrete backend potential parameter take the
+    # backend solvers (a torch rl() fed zvc_range's numpy branch had its
+    # bracket halved in place)
+    from galpy.backend import as_numpy, is_backend_array
+
+    xp = jnp if backend == "jax" else torch
+    pnp = _ZVC_POTS[0]
+    pbk = MiyamotoNagaiPotential(amp=xp.asarray(pnp._amp), a=0.5, b=0.1)
+    for R, E, Lz in _ZVC_PTS:
+        out = zvc_fn(pbk, R, E, Lz, use_physical=False)
+        assert is_backend_array(out)
+        ref = zvc_fn(pnp, R, E, Lz, use_physical=False)
+        numpy.testing.assert_allclose(as_numpy(out), ref, rtol=1e-8, atol=1e-10)
+    for E, Lz in _ZVCR_PTS:
+        out = zvc_range_fn(pbk, E, Lz, use_physical=False)
+        assert is_backend_array(out)
+        ref = zvc_range_fn(pnp, E, Lz, use_physical=False)
+        numpy.testing.assert_allclose(as_numpy(out), ref, rtol=1e-8, atol=1e-10)
+
+
 @pytest.mark.parametrize("E,Lz", _ZVCR_PTS)
 def test_zvc_range_numpy_finite(E, Lz):
     for p in _ZVC_POTS:

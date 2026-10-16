@@ -59,6 +59,7 @@ except ImportError:  # pragma: no cover
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _GAPS_PATH = os.path.join(_HERE, "backend_param_known_gaps.txt")
+_VALUE_GAPS_PATH = os.path.join(_HERE, "backend_value_known_gaps.txt")
 _NODE_PREFIX = "tests/test_backend_param_sweep.py::test_param_grad"
 MODES = ("data", "forced", "floatcoords")
 COMBOS = (  # (backend, mode, eager|jit); alternating backends
@@ -183,8 +184,8 @@ def _all_cases():
                     yield (spec["name"], key, *combo)
 
 
-def _read_known_gaps(path=_GAPS_PATH):
-    """{(spec, key, backend, mode, jit): reason} from the known-gaps file."""
+def _read_known_gaps(path=_GAPS_PATH, nfields=5):
+    """{(spec, key, backend, mode[, jit]): reason} from a known-gaps file."""
     gaps = {}
     with open(path) as fh:
         for raw in fh:
@@ -192,7 +193,7 @@ def _read_known_gaps(path=_GAPS_PATH):
             if not line.strip():
                 continue
             entry = tuple(line.split())
-            assert len(entry) == 5, f"malformed known-gaps line: {raw!r}"
+            assert len(entry) == nfields, f"malformed known-gaps line: {raw!r}"
             assert entry not in gaps, f"duplicate known-gaps line: {raw!r}"
             gaps[entry] = reason.strip()
     return gaps
@@ -459,3 +460,117 @@ def test_no_slow_skips():
     for bk in ("jax", "torch"):
         entries = conftest._load_backend_nodeids(path, bk, inherit_eager=False)
         assert not [n for n in entries if n.startswith(_NODE_PREFIX)]
+
+
+# ---------------------------------------------------------------------------
+# Values: one parameter or coordinate as a CONCRETE backend array (jax, or a
+# torch tensor without a gradient), the rest plain: every output comes back on
+# that backend with numpy's value -- a backend input turns the backend on. An
+# output the input does not reach (o.Lz() next to o.E(pot)) may stay numpy.
+# VALUE_ROTATED specs run each key in one (backend, mode).
+# ---------------------------------------------------------------------------
+VALUE_MODES = ("data", "floatcoords", "forced")
+VALUE_ROTATED = {
+    "constantbetadf",
+    "evolveddiskdf",
+    "impulse_deltav_general_fullplummerintegration",
+    "impulse_deltav_general_orbitintegration",
+    "impulse_deltav_plummerstream_curvedstream",
+}
+_NUMPY_OUTPUTS = {}
+
+
+def _value_cases():
+    for spec in SPECS:
+        if spec["name"] in NOT_SWEPT:
+            continue
+        combos = [
+            (bk, mode)
+            for mode in VALUE_MODES
+            for bk in ("jax", "torch")
+            if mode != "floatcoords" or spec["coords"]
+        ]
+        start = zlib.crc32(spec["name"].encode()) % len(combos)
+        for ii, (key, _) in enumerate(_keys(spec, grad=False)):
+            if spec["name"] in VALUE_ROTATED:
+                yield (spec["name"], key, *combos[(start + ii) % len(combos)])
+            else:
+                for combo in combos:
+                    yield (spec["name"], key, *combo)
+
+
+def _numpy_outputs(spec, P, C):
+    from galpy.backend import as_numpy
+
+    out = spec["outputs"](spec["build"](P), C)
+    return {k: numpy.asarray(as_numpy(v), dtype=float) for k, v in out.items()}
+
+
+def _numpy_ref(spec):
+    if spec["name"] not in _NUMPY_OUTPUTS:
+        _NUMPY_OUTPUTS[spec["name"]] = _numpy_outputs(
+            spec, dict(spec["params"]), dict(spec["coords"])
+        )
+    return _NUMPY_OUTPUTS[spec["name"]]
+
+
+def _reaches(spec, key, isparam, out_key):
+    """Does ``key`` reach ``out_key`` at all (its numpy value moves with it)?"""
+    P, C = dict(spec["params"]), dict(spec["coords"])
+    D = P if isparam else C
+    D[key] = D[key] * (1.0 + 1e-3) + 1e-3
+    moved = _numpy_outputs(spec, P, C)[out_key]
+    return not numpy.array_equal(moved, _numpy_ref(spec)[out_key], equal_nan=True)
+
+
+def _value_params():
+    gaps = _read_known_gaps(_VALUE_GAPS_PATH, nfields=4)
+    out = []
+    for case in _value_cases():
+        marks = []
+        if case in gaps:
+            marks.append(pytest.mark.xfail(strict=True, reason=gaps[case]))
+        out.append(pytest.param(*case, id="-".join(case), marks=marks))
+    return out
+
+
+@pytest.mark.parametrize("spec_name,key,bk,mode", _value_params())
+def test_param_value_on_backend(spec_name, key, bk, mode, _clear_jax_caches):
+    if (bk == "jax" and jax is None) or (bk == "torch" and torch is None):
+        pytest.skip(f"{bk} not installed")  # pragma: no cover
+    from galpy.backend import as_numpy, is_backend_array
+
+    spec = SPECS_BY_NAME[spec_name]
+    isparam = key in spec["params"]
+    x0 = (spec["params"] if isparam else spec["coords"])[key]
+    P, C = _inputs(spec, key, isparam, _to_backend(bk, x0), bk, mode)
+    out = _evaluate(spec, P, C, bk, mode)
+    ref = _numpy_ref(spec)
+    bad = {}
+    for k, v in out.items():
+        if not is_backend_array(v):
+            if _reaches(spec, key, isparam, k):
+                bad[k] = f"NUMPY({type(v).__name__})"
+            continue
+        if spec.get("fd") == "self":  # sampled: the backends' streams differ
+            continue
+        got = numpy.asarray(as_numpy(v), dtype=float)
+        if got.shape != ref[k].shape:
+            bad[k] = f"SHAPE({got.shape} vs {ref[k].shape})"
+        elif not numpy.allclose(got, ref[k], rtol=RTOL, atol=ATOL, equal_nan=True):
+            bad[k] = f"VALUE({float(numpy.nanmax(numpy.abs(got - ref[k]))):.2g})"
+    assert not bad, f"{key}: {bad}"
+
+
+def test_value_known_gaps_file_is_sorted_and_live():
+    """One entry per line, sorted, and each names an existing value case."""
+    with open(_VALUE_GAPS_PATH) as fh:
+        entries = [
+            " ".join(raw.partition("#")[0].split())
+            for raw in fh
+            if raw.partition("#")[0].strip()
+        ]
+    assert entries == sorted(entries), "backend_value_known_gaps.txt is not sorted"
+    cases = set(_value_cases())
+    stale = [g for g in _read_known_gaps(_VALUE_GAPS_PATH, 4) if g not in cases]
+    assert not stale, f"value known gaps for cases that do not exist: {stale}"

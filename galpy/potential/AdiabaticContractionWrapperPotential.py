@@ -7,17 +7,13 @@
 import numpy
 
 from ..backend import to_host
-from ..backend._namespaces import (
-    namespace_from_arrays,
-    requires_backend_grad,
-    under_trace,
-)
+from ..backend._namespaces import is_backend_array, namespace_from_arrays
 from ..backend.interpolate import interp1d_clamped, interp_linear
 from ..backend.optimize import fixed_point
 from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
-from .Potential import _pot_grad_namespace, flatten
+from .Potential import _pot_backend_namespace, flatten
 
 
 # Note: not actually implemented as a WrapperPotential!
@@ -97,11 +93,12 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         # Compute baryon and DM enclosed masses on radial grid
         from ..potential import mass
 
-        # A differentiated parameter (of pot, baryonpot, or f_bar) builds the
-        # profile in its namespace, so the contracted halo carries d/d(param)
-        xp = _pot_grad_namespace(flatten([pot, baryonpot]))
+        # A backend parameter (of pot, baryonpot, or f_bar) builds the profile
+        # in its namespace, so the contracted halo is on it (and carries
+        # d/d(param) when differentiated)
+        xp = _pot_backend_namespace(flatten([pot, baryonpot]))
         for v in (f_bar, amp):
-            if xp is None and (under_trace(v) or requires_backend_grad(v)):
+            if xp is None and is_backend_array(v):
                 xp = namespace_from_arrays((v,))
         rgrid = numpy.geomspace(rmin, rmax, 301)
         if xp is None:

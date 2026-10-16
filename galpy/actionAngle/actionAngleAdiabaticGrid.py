@@ -11,6 +11,7 @@
 #
 ###############################################################################
 import warnings
+from contextlib import nullcontext
 
 import numpy
 from scipy import interpolate
@@ -23,7 +24,7 @@ from ..backend import (
     get_namespace,
 )
 from ..backend import interpolate as backend_interpolate
-from ..backend import promote_scalars, set_at, use
+from ..backend import name_of_namespace, promote_scalars, set_at, use
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
@@ -31,7 +32,7 @@ from ..potential.Potential import (
     _pot_grad_namespace,
 )
 from ..util import galpyWarning, multi
-from .actionAngle import UnboundError, actionAngle
+from .actionAngle import UnboundError, _concrete_param_namespace, actionAngle
 from .actionAngleAdiabatic import actionAngleAdiabatic
 
 _PRINTOUTSIDEGRID = False
@@ -124,12 +125,22 @@ class actionAngleAdiabaticGrid(actionAngle):
             self._check_consistent_units()
             return None
         xp = get_namespace()
-        if xp is not numpy:
+        # ... and so does a concrete backend parameter (of the potential, or
+        # gamma): the grid on its backend, built as under a forced one
+        bxp = (
+            None
+            if xp is not numpy
+            else _concrete_param_namespace(self._pot, self._gamma)
+        )
+        if xp is not numpy or bxp is not None:
             # Forced/default backend: build the whole grid ON the backend so the
             # frozen tables are backend arrays (GPU-resident) fit NATIVELY, and the
             # build differentiates through to the query. numpy body below is left
             # byte-identical (scipy).
-            self._build_grid_backend(xp, nR, nEz, nEr, nLz, numcores, **kwargs)
+            with use(name_of_namespace(bxp), force=True) if bxp else nullcontext():
+                self._build_grid_backend(
+                    bxp or xp, nR, nEz, nEr, nLz, numcores, **kwargs
+                )
             self._check_consistent_units()
             return None
         # Build grid for Ez, first calculate Ez(zmax;R) function
