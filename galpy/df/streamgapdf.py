@@ -17,6 +17,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    resolve_namespace,
 )
 from ..backend import special as _bspecial
 from ..backend import to_host, use
@@ -2423,6 +2424,16 @@ def _kick_namespace(arrays, pots=()):
     return numpy
 
 
+def _gsigma_probe(GSigma, tmin, tmax):
+    """``GSigma`` at the middle of [tmin, tmax]: a user GSigma closing over a
+    differentiated parameter shows its backend there (one evaluation)."""
+    return (GSigma(0.5 * (tmin + tmax)),)
+
+
+def _galpots(galpot):
+    return tuple(galpot) if isinstance(galpot, list) else (galpot,)
+
+
 def _a_integrand(T, y, b, w, pot, compt):
     t = T / (1 - T * T)
     X = b + w * t + y * numpy.array([0, 1, 0])
@@ -2599,7 +2610,7 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
 
 
 def _impulse_deltav_general_orbitintegration_backend(
-    v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+    xp, v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
 ):
     # Backend (jax/torch) twin of impulse_deltav_general_orbitintegration: the
     # per-star Orbit.integrate loop becomes ONE batched in-backend differentiable
@@ -2607,9 +2618,8 @@ def _impulse_deltav_general_orbitintegration_backend(
     # trajectory reversal / scipy.simpson become xp.flip / quadrature.simpson, so
     # the kick is differentiable w.r.t. the orbit ICs (v, x), b, w and the
     # perturber's potential params (galpot's params flow through the ODE).
-    xp = get_namespace(v, x, w)
     method = inbackend_ode_method(xp)
-    v, x, w, x0, v0 = coerce_coords(xp, v, x, w, x0, v0)
+    v, x, b, w, x0, v0 = coerce_coords(xp, v, x, b, w, x0, v0)
     if v.ndim == 1:
         v = xp.reshape(v, (1, 3))
     if x.ndim == 1:
@@ -2701,10 +2711,14 @@ def impulse_deltav_general_orbitintegration(
     galpot = _check_potential_list_and_deprecate(galpot)
     # jax/torch inputs, or numpy inputs under a forced backend, route to the
     # batched, differentiable in-backend ODE twin; otherwise the byte-identical
-    # per-orbit C-integration path below.
-    if get_namespace(v, x, w) is not numpy:
+    # per-orbit C-integration path below; so does a differentiated b, x0, v0 or
+    # potential parameter at numpy inputs.
+    xp = resolve_namespace(v, x, b, w, x0, v0)
+    if xp is numpy:
+        xp = _kick_namespace((), (pot,) + _galpots(galpot))
+    if xp is not numpy:
         return _impulse_deltav_general_orbitintegration_backend(
-            v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+            xp, v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
         )
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
@@ -2940,7 +2954,9 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     """
     if tmax is None or tmax is None:
         raise ValueError("tmin= and tmax= need to be set")
-    xp = _kick_namespace((v, y, b, w, rs, tmin, tmax))
+    xp = _kick_namespace(
+        (v, y, b, w, rs, tmin, tmax) + _gsigma_probe(GSigma, tmin, tmax)
+    )
     if xp is not numpy:
         return _impulse_deltav_plummerstream_backend(
             xp, v, y, b, w, GSigma, rs, tmin, tmax
@@ -3110,8 +3126,8 @@ def _impulse_deltav_plummerstream_curvedstream_backend(
         wmag = xp.sqrt(xp.sum(ww**2, axis=-1, keepdims=True))
         bdotw = xp.sum(bb * ww, axis=-1, keepdims=True) / wmag
         denom = wmag * (xp.sum(bb**2, axis=-1, keepdims=True) + rs**2.0 - bdotw**2)
-        gs = GSigma(s)
-        gs = gs[:, None] if is_backend_array(gs) else gs
+        gs = GSigma(s)  # a constant GSigma returns 0-d: broadcast it over s
+        gs = (gs + 0.0 * s)[:, None] if is_backend_array(gs) else gs
         acc = -2.0 * gs * (bb - bdotw * ww / wmag) / denom
         return xp.moveaxis(acc, -1, 1)
 
@@ -3161,7 +3177,10 @@ def impulse_deltav_plummerstream_curvedstream(
     - 2015-11-14 - Written - Bovy (UofT)
     """
     galpot = _check_potential_list_and_deprecate(galpot)
-    xp = _kick_namespace((v, x, t, b, w, x0, v0, rs, tmin, tmax), (galpot,))
+    xp = _kick_namespace(
+        (v, x, t, b, w, x0, v0, rs, tmin, tmax) + _gsigma_probe(GSigma, tmin, tmax),
+        _galpots(galpot),
+    )
     if xp is not numpy:
         return _impulse_deltav_plummerstream_curvedstream_backend(
             xp, t, b, w, x0, v0, GSigma, rs, galpot, tmin, tmax
