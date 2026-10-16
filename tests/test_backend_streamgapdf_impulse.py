@@ -440,7 +440,10 @@ def test_kick_param_grad_vs_fd(kick_cases, backend, mode, case):
         else:
             with galpy.backend.use(backend, force=True):
                 kick = f(p, numpy.asarray)
-        assert is_backend_array(kick) == (mode == "data" or is_backend_array(p))
+        # a backend input turns the backend on; under forcing a float p may run
+        # there too (a potential set up under it holds backend parameters)
+        if mode == "data" or is_backend_array(p):
+            assert is_backend_array(kick)
         return (kick**2).sum()
 
     if backend == "jax":

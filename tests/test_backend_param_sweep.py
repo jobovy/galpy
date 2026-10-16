@@ -59,7 +59,6 @@ except ImportError:  # pragma: no cover
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _GAPS_PATH = os.path.join(_HERE, "backend_param_known_gaps.txt")
-_VALUE_GAPS_PATH = os.path.join(_HERE, "backend_value_known_gaps.txt")
 _NODE_PREFIX = "tests/test_backend_param_sweep.py::test_param_grad"
 MODES = ("data", "forced", "floatcoords")
 COMBOS = (  # (backend, mode, eager|jit); alternating backends
@@ -184,16 +183,16 @@ def _all_cases():
                     yield (spec["name"], key, *combo)
 
 
-def _read_known_gaps(path=_GAPS_PATH, nfields=5):
-    """{(spec, key, backend, mode[, jit]): reason} from a known-gaps file."""
+def _read_known_gaps():
+    """{(spec, key, backend, mode, jit): reason} from the known-gaps file."""
     gaps = {}
-    with open(path) as fh:
+    with open(_GAPS_PATH) as fh:
         for raw in fh:
             line, _, reason = raw.partition("#")
             if not line.strip():
                 continue
             entry = tuple(line.split())
-            assert len(entry) == nfields, f"malformed known-gaps line: {raw!r}"
+            assert len(entry) == 5, f"malformed known-gaps line: {raw!r}"
             assert entry not in gaps, f"duplicate known-gaps line: {raw!r}"
             gaps[entry] = reason.strip()
     return gaps
@@ -477,6 +476,10 @@ VALUE_ROTATED = {
     "impulse_deltav_general_orbitintegration",
     "impulse_deltav_plummerstream_curvedstream",
 }
+# under a forced backend evolveddiskdf counts only a differentiated parameter
+# (_edf_param_namespace: its backend grids cost ~100x C), so a concrete one
+# keeps numpy there, at numpy's values
+FORCED_PARAM_NUMPY = {"evolveddiskdf"}
 _NUMPY_OUTPUTS = {}
 
 
@@ -524,14 +527,7 @@ def _reaches(spec, key, isparam, out_key):
 
 
 def _value_params():
-    gaps = _read_known_gaps(_VALUE_GAPS_PATH, nfields=4)
-    out = []
-    for case in _value_cases():
-        marks = []
-        if case in gaps:
-            marks.append(pytest.mark.xfail(strict=True, reason=gaps[case]))
-        out.append(pytest.param(*case, id="-".join(case), marks=marks))
-    return out
+    return [pytest.param(*case, id="-".join(case)) for case in _value_cases()]
 
 
 @pytest.mark.parametrize("spec_name,key,bk,mode", _value_params())
@@ -546,9 +542,13 @@ def test_param_value_on_backend(spec_name, key, bk, mode, _clear_jax_caches):
     P, C = _inputs(spec, key, isparam, _to_backend(bk, x0), bk, mode)
     out = _evaluate(spec, P, C, bk, mode)
     ref = _numpy_ref(spec)
+    keeps_numpy = mode == "forced" and isparam and spec_name in FORCED_PARAM_NUMPY
     bad = {}
     for k, v in out.items():
-        if not is_backend_array(v):
+        if keeps_numpy and is_backend_array(v):
+            bad[k] = "BACKEND (a forced evolveddiskdf keeps numpy)"
+            continue
+        if not is_backend_array(v) and not keeps_numpy:
             if _reaches(spec, key, isparam, k):
                 bad[k] = f"NUMPY({type(v).__name__})"
             continue
@@ -560,17 +560,3 @@ def test_param_value_on_backend(spec_name, key, bk, mode, _clear_jax_caches):
         elif not numpy.allclose(got, ref[k], rtol=RTOL, atol=ATOL, equal_nan=True):
             bad[k] = f"VALUE({float(numpy.nanmax(numpy.abs(got - ref[k]))):.2g})"
     assert not bad, f"{key}: {bad}"
-
-
-def test_value_known_gaps_file_is_sorted_and_live():
-    """One entry per line, sorted, and each names an existing value case."""
-    with open(_VALUE_GAPS_PATH) as fh:
-        entries = [
-            " ".join(raw.partition("#")[0].split())
-            for raw in fh
-            if raw.partition("#")[0].strip()
-        ]
-    assert entries == sorted(entries), "backend_value_known_gaps.txt is not sorted"
-    cases = set(_value_cases())
-    stale = [g for g in _read_known_gaps(_VALUE_GAPS_PATH, 4) if g not in cases]
-    assert not stale, f"value known gaps for cases that do not exist: {stale}"

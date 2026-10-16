@@ -1860,7 +1860,8 @@ class isotropicsphericaldf(sphericaldf):
         return xp.arccos(1.0 - 2.0 * u)
 
     def _p_v_at_r(self, v, r):
-        xp = resolve_namespace(v, r)
+        # the coordinates' namespace, or a forced or backend potential's
+        xp = _pot_data_namespace((self._pot,), v, r)
         if xp is not numpy:
             # coerce: a forced backend sees the numpy sampling grids here and
             # torch potentials reject numpy coords
