@@ -2,10 +2,16 @@
 import numpy
 from scipy import integrate, interpolate
 
-from ..backend import concretely_true, get_namespace, has_concrete_truth_value
+from ..backend import (
+    concretely_true,
+    get_namespace,
+    has_concrete_truth_value,
+    is_backend_array,
+)
 from ..backend.quadrature import fixed_quad_semiinfinite, quad
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
+    _pot_data_namespace,
     evaluateDensities,
     evaluaterforces,
     evaluateSurfaceDensities,
@@ -13,6 +19,13 @@ from ..potential.Potential import (
 from ..util.conversion import physical_conversion, potential_physical_input
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
+
+
+def _jeans_namespace(Pot, x, beta):
+    """The namespace of ``x``, or at a plain ``x`` of a differentiated parameter
+    of ``Pot`` or a backend ``beta`` (no use() block needed; forced wins)."""
+    pots = Pot if isinstance(Pot, list) else [Pot]
+    return _pot_data_namespace(pots, x, *(() if callable(beta) else (beta,)))
 
 
 @potential_physical_input
@@ -50,7 +63,7 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             phi=numpy.pi / 4.0,
             use_physical=False,
         )
-    xp = get_namespace(r)
+    xp = _jeans_namespace(Pot, r, beta)
     if xp is numpy:
         # numpy path: scipy.integrate.quad over [r, inf) -- byte-identical.
         if callable(beta):
@@ -262,7 +275,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     - 2018-08-27 - Written - Bovy (UofT)
     """
     Pot = _check_potential_list_and_deprecate(Pot)
-    xp = get_namespace(R)
+    xp = _jeans_namespace(Pot, R, beta)
     if dens is None:
         densPot = True
         dens = lambda r: evaluateDensities(
@@ -270,6 +283,11 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
         )
     else:
         densPot = False
+        # a user dens closing over a differentiated parameter: follow it
+        if xp is numpy:
+            _d = dens(R)
+            if is_backend_array(_d):
+                xp = get_namespace(_d)
     if callable(surfdens):
         called_surfdens = surfdens(R)
     elif surfdens is None:
