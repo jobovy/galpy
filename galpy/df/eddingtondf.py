@@ -10,7 +10,7 @@ from ..backend import (
     is_backend_array,
     resolve_namespace,
 )
-from ..backend._namespaces import has_concrete_truth_value
+from ..backend._namespaces import has_concrete_truth_value, param_grad_array
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
@@ -105,9 +105,12 @@ class eddingtondf(isotropicsphericaldf):
         )
         self._potInf = _evaluatePotentials(pot, _rmax, 0)
         self._Emin = _evaluatePotentials(pot, _rmin, 0)
-        # inside jax.jit the potential has no concrete value (see _rInf, _rphi)
-        self._jit = is_backend_array(self._Emin) and not has_concrete_truth_value(
-            self._Emin == self._Emin
+        # inside jax.jit the potential, or a differentiated tracer density, has
+        # no concrete value (see _rInf, _rphi)
+        _dp = param_grad_array(self._denspot)
+        self._jit = any(
+            is_backend_array(v) and not has_concrete_truth_value(v == v)
+            for v in (self._Emin, _dp)
         )
         # Current calculation of the boundary term uses r -> inf limit
         try:
