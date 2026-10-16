@@ -334,7 +334,8 @@ def _resolve_accessor_namespace(thiso):
     already a jax/torch array, so ``xp.asarray`` is a no-op there too.
     """
     xp = get_namespace(thiso)
-    return xp, xp.asarray(thiso)
+    # a backend orbit read under a numpy pin comes to the host (a CUDA one too)
+    return xp, xp.asarray(to_host(thiso) if xp is numpy else thiso)
 
 
 def _accessor_out(x, kwargs):
@@ -7607,7 +7608,7 @@ class Orbit:
                 # A 0-d backend (jax/torch) query time has __len__ but its len()
                 # raises (like a numpy 0-d array); treat it as a scalar.
                 nt = 1
-                t = numpy.atleast_1d(t)
+                t = numpy.atleast_1d(to_host(t))  # a CUDA query time too
             else:
                 nt = len(t)
             if numpy.any(t > numpy.nanmax(self.t)) or numpy.any(
