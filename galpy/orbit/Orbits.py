@@ -7753,7 +7753,14 @@ class Orbit:
         Differentiable w.r.t. ``orb``; shared by the shared-grid
         (``_call_internal_backend_interp``) and per-orbit-grid
         (``_indiv_t_backend_interp``) backend off-grid evaluators."""
-        from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
+        return self._backend_spline_orbit_eval(
+            self._backend_spline_orbit_prep(orb, grid), tq
+        )
+
+    def _backend_spline_orbit_prep(self, orb, grid):
+        """The spline of ``_backend_spline_orbit``, built once: ``(grid, k, ncols,
+        coeffs or per-column Spline1Ds)``."""
+        from ..backend.interpolate import Spline1D, cubic_spline_coeffs
 
         xp = get_namespace(orb)
         pd = self.phasedim()
@@ -7771,13 +7778,23 @@ class Orbit:
         if k == 3:
             # One multi-RHS cubic solve for ALL columns at once (the tridiagonal
             # matrix is grid-geometry only, shared across columns) -> pd-fold fewer
-            # dense factorizations than one Spline1D per column. ext=0 is the
-            # eval_ppoly default (extrapolate=True).
-            coeffs = cubic_spline_coeffs(xp, grid, xp.stack(ycols, axis=-1), bc=bc)
-            vals = eval_ppoly(xp, grid, coeffs, tq)  # (nt_q, len(ycols))
-            splined = [vals[..., j] for j in range(len(ycols))]
+            # dense factorizations than one Spline1D per column.
+            fit = cubic_spline_coeffs(xp, grid, xp.stack(ycols, axis=-1), bc=bc)
         else:
-            splined = [Spline1D(grid, y, k=k, ext=0, bc=bc)(tq) for y in ycols]
+            fit = [Spline1D(grid, y, k=k, ext=0, bc=bc) for y in ycols]
+        return grid, k, len(ycols), fit
+
+    def _backend_spline_orbit_eval(self, prep, tq):
+        from ..backend.interpolate import eval_ppoly
+
+        grid, k, ncols, fit = prep
+        pd = self.phasedim()
+        if k == 3:  # ext=0 is the eval_ppoly default (extrapolate=True)
+            vals = eval_ppoly(get_namespace(fit), grid, fit, tq)  # (nt_q, ncols)
+            splined = [vals[..., j] for j in range(ncols)]
+        else:
+            splined = [spl(tq) for spl in fit]
+        xp = get_namespace(splined[0])
 
         if pd == 4 or pd == 6:
             xv, yv = splined[0], splined[1]
@@ -7891,6 +7908,9 @@ class Orbit:
         ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
         scalar) -- ``size`` 1 for a single orbit.
         """
+        # a prebuilt interpolant of this very trajectory (_cache_backend_interp)
+        cache = getattr(self, "_backend_interp_cache", None)
+        cached = orbit is None and cache is not None and cache[0] is self.orbit
         # orbit: the trajectory to spline (default self.orbit; a numpy orbit
         # queried at a traced time is lifted onto the time's backend)
         orbit = self.orbit if orbit is None else orbit
@@ -7926,9 +7946,23 @@ class Orbit:
         # so the per-coordinate splines return a flat (nt,) each.
         tq = t if is_backend_array(t) else xp.asarray(t_np)
         tq = xp.reshape(tq, (-1,))
+        prep = (
+            cache[1]
+            if cached
+            else self._backend_interp_prep(orbit, self_t, grid_traced)
+        )
+        out = self._backend_interp_eval(prep, tq)
+        if scalar:
+            return out[:, 0]  # (phasedim, size)
+        return out  # (phasedim, nt_query, size)
+
+    def _backend_interp_prep(self, orbit, self_t, grid_traced):
+        """The splines of ``_call_internal_backend_interp`` for the trajectory
+        ``orbit`` on the grid ``self_t``, built once (arrays only, picklable)."""
+        xp = get_namespace(orbit)
         # The spline needs a strictly increasing grid; a backward integration
         # (decreasing self.t) is flipped to ascending (shared across the batch),
-        # and each orbit with it (a differentiable reversal) inside _interp_one.
+        # and each orbit with it (a differentiable reversal).
         if grid_traced:
             order = xp.argsort(self_t)
             grid = xp.take(self_t, order, axis=0)
@@ -7951,7 +7985,7 @@ class Orbit:
             # multi-RHS cubic solve for the whole batch (vs one per-orbit
             # _backend_spline_orbit -- itself one solve -- looped size times). Falls
             # back below for a <=3-point (k=1) grid or a single orbit.
-            from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
+            from ..backend.interpolate import cubic_spline_coeffs
 
             orb = _ascending(orbit, 1)
             if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
@@ -7967,30 +8001,56 @@ class Orbit:
                 (grid.shape[0], size * pd),
             )
             coeffs = cubic_spline_coeffs(xp, grid, Ycols, bc="not-a-knot")
-            vals = xp.reshape(
-                eval_ppoly(xp, grid, coeffs, tq), (tq.shape[0], size, pd)
-            )  # (nt_query, size, pd)
-            if pd == 4 or pd == 6:  # recover R, phi from the splined x, y
-                xv, yv = vals[..., 0], vals[..., 1]
-                rec = [xp.sqrt(xv * xv + yv * yv)]
-                rec += [vals[..., j] for j in range(2, pd)]
-                rec.append(xp.arctan2(yv, xv))
-                out = xp.stack(rec, axis=0)  # (phasedim, nt_query, size)
-            else:
-                out = xp.permute_dims(vals, (2, 0, 1))  # (phasedim, nt_query, size)
-        else:
+            return "batch", grid, size, coeffs
+        # spline each orbit on the shared grid (a backward integration flips orb
+        # to match the ascending grid)
+        return (
+            "orbits",
+            grid,
+            size,
+            [
+                self._backend_spline_orbit_prep(_ascending(orbit[ii], 0), grid)
+                for ii in range(size)
+            ],
+        )
 
-            def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
-                # backward integration -> flip orb to match the ascending grid
-                o = _ascending(orb, 0)
-                return self._backend_spline_orbit(o, grid, tq)
+    def _backend_interp_eval(self, prep, tq):
+        kind, grid, size, fit = prep
+        if kind == "orbits":
+            # stack on the trailing (orbit) axis; size == 1 reproduces the prior
+            # (phasedim, nt, 1) layout.
+            outs = [self._backend_spline_orbit_eval(p, tq) for p in fit]
+            return get_namespace(outs[0]).stack(outs, axis=-1)
+        from ..backend.interpolate import eval_ppoly
 
-            # spline each orbit on the shared grid and stack on the trailing
-            # (orbit) axis; size == 1 reproduces the prior (phasedim, nt, 1) layout.
-            out = xp.stack([_interp_one(orbit[ii]) for ii in range(size)], axis=-1)
-        if scalar:
-            return out[:, 0]  # (phasedim, size)
-        return out  # (phasedim, nt_query, size)
+        xp = get_namespace(fit)
+        pd = self.phasedim()
+        vals = xp.reshape(
+            eval_ppoly(xp, grid, fit, tq), (tq.shape[0], size, pd)
+        )  # (nt_query, size, pd)
+        if pd == 4 or pd == 6:  # recover R, phi from the splined x, y
+            xv, yv = vals[..., 0], vals[..., 1]
+            rec = [xp.sqrt(xv * xv + yv * yv)]
+            rec += [vals[..., j] for j in range(2, pd)]
+            rec.append(xp.arctan2(yv, xv))
+            return xp.stack(rec, axis=0)  # (phasedim, nt_query, size)
+        return xp.permute_dims(vals, (2, 0, 1))  # (phasedim, nt_query, size)
+
+    def _cache_backend_interp(self):
+        """Prebuild the off-grid interpolant of an in-backend orbit for repeated
+        queries (a MovingObjectPotential's every force evaluation). Filled only
+        here, never lazily: a fill inside an ODE solve's trace leaks its tracers."""
+        if (
+            not is_backend_array(getattr(self, "orbit", None))
+            or numpy.ndim(self.t) != 1
+        ):
+            return None
+        grid_traced = under_trace(self.t) or requires_backend_grad(self.t)
+        self_t = self.t if grid_traced else numpy.asarray(to_host(self.t))
+        self._backend_interp_cache = (
+            self.orbit,
+            self._backend_interp_prep(self.orbit, self_t, grid_traced),
+        )
 
     def _setupOrbitInterp(self):
         from ..backend.interpolate import Spline1D

@@ -477,3 +477,60 @@ def test_kick_param_grad_under_jit(kick_cases, case):
     vj, gj = jax.jit(jax.value_and_grad(loss))(p0)
     numpy.testing.assert_allclose(float(vj), float(ve), rtol=1e-12)
     numpy.testing.assert_allclose(float(gj), float(ge), rtol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# fullplummerintegration on the backends: its three orbit legs as batched
+# in-backend solves, the moving Plummer a MovingObjectPotential on the
+# in-backend Plummer orbit. Its gradients: the parameter sweep's spec.
+# ---------------------------------------------------------------------------
+from galpy.df.streamgapdf import (  # noqa: E402
+    impulse_deltav_general_fullplummerintegration,
+)
+
+
+def _fp_args():
+    # two stars (batched legs), a short close encounter (cheap solves)
+    v = numpy.array([[0.0, 1.0, 0.0], [0.05, 0.98, 0.02]])
+    x = numpy.array([[1.0, 0.0, 0.0], [1.0, 0.03, 0.0]])
+    w = numpy.array([0.0, -0.5, 0.6])
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    return v, x, 0.1, w, x[0], v[0], lp, 0.02, 0.1
+
+
+@pytest.fixture(scope="module")
+def fp_reference():
+    # C's spline of the Plummer orbit needs a dense grid (N=800) to converge
+    return impulse_deltav_general_fullplummerintegration(
+        *_fp_args(), tmaxfac=5.0, N=800, integrate_method="dop853_c"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fullplummerintegration_parity(backend, fp_reference):
+    v, x, b, w, x0, v0, lp, GM, rs = _fp_args()
+    got = impulse_deltav_general_fullplummerintegration(
+        *(_to_backend(backend, a) for a in (v, x)),
+        b,
+        *(_to_backend(backend, a) for a in (w, x0, v0)),
+        lp,
+        GM,
+        rs,
+        tmaxfac=5.0,
+        N=50,
+    )
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), fp_reference, rtol=1e-9, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fullplummerintegration_forced_numpy_inputs(backend, fp_reference):
+    # numpy inputs under a forced backend: the in-backend twin, not C
+    import galpy.backend
+
+    with galpy.backend.use(backend, force=True):
+        got = impulse_deltav_general_fullplummerintegration(
+            *_fp_args(), tmaxfac=5.0, N=50
+        )
+    assert is_backend_array(got), f"{backend}: forced numpy inputs ran on numpy"
+    numpy.testing.assert_allclose(as_numpy(got), fp_reference, rtol=1e-9, atol=1e-10)

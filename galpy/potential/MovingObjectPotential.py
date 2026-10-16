@@ -100,6 +100,8 @@ class MovingObjectPotential(Potential):
         memo = {id(v): v for v in vars(orbit).values() if is_backend_array(v)}
         self._orb = copy.deepcopy(orbit, memo)
         self._orb.turn_physical_off()
+        # every force evaluation queries the orbit: build its spline once
+        self._orb._cache_backend_interp()
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)
         # The second derivatives (for the variational equations) are the
