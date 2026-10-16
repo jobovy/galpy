@@ -24,6 +24,9 @@ from .actionAngle import _BACKEND_GL_ORDER, actionAngle
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for one-dimensional potentials (or of the vertical potential in a galactic disk in the adiabatic approximation, hence the name)"""
 
+    # a scalar point's outputs: numpy's shape for it
+    _scalar_point_ndim = 1
+
     def __init__(self, *args, **kwargs):
         """
         Initialize an actionAngleVertical object.

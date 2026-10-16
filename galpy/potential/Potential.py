@@ -3792,15 +3792,14 @@ def _pot_grad_namespace(Pot, any_backend=False):
 
 def _pot_backend_namespace(Pot):
     """The namespace of a backend-array parameter of ``Pot`` -- differentiated or
-    not -- else None: a backend input turns the backend on. Under a forced
-    backend, whose coercions leave backend parameters behind that are not the
-    user's, only a differentiated one counts (a forced numpy pin: none). (Whether
-    something is DIFFERENTIATED is ``_pot_grad_namespace``'s question.)"""
+    not -- else None: a backend input turns the backend on, under a forced
+    jax/torch backend too (forcing runs as much as possible on the backend). A
+    forced numpy pin (galpy's own host-side steps) wins. (Whether something is
+    DIFFERENTIATED is ``_pot_grad_namespace``'s question.)"""
     from ..backend._input import _grad_param
 
-    forced = forced_backend()
-    if forced is not None:
-        return None if forced == "numpy" else _pot_grad_namespace(Pot)
+    if forced_backend() == "numpy":
+        return None
     p = _grad_param(Pot)
     return None if p is None else namespace_from_arrays((p,))
 

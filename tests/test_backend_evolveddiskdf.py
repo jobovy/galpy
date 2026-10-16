@@ -528,23 +528,27 @@ def test_hierarchical_grid_grad_wrt_potential_parameter(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_hierarchical_grid_time_list_says_it_is_unsupported(backend):
-    # Only the scalar-t hierarchical build is vectorised. A time list must say
-    # so rather than fall into the numpy loop and fail obscurely on a backend
-    # velocity grid.
+@pytest.mark.parametrize("nlevels", [2, 0])
+def test_hierarchical_grid_time_list_matches_numpy_on_the_backend(backend, nlevels):
+    # a list of times: each level's one integrate returns (N, nt) and the hole
+    # mask broadcasts over the times
+    ts = [0.0, -0.5, -1.0]
+    ref = _hierarch(_GRAD_A, _R, nlevels=nlevels, t=ts)
     with use(backend, force=True):
-        with pytest.raises(NotImplementedError, match="list of times"):
-            _hierarch(_GRAD_A, _scalar(backend, _R), t=[0.0, -0.5])
+        got = _hierarch(_GRAD_A, _scalar(backend, _R), nlevels=nlevels, t=ts)
+        assert is_backend_array(got), "hierarchical grid fell back to numpy"
+    assert got.shape == (3,)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
 def test_merely_forced_backend_with_a_plain_potential_stays_numpy(backend, route):
-    # The NEGATIVE CONTROL for the widened gate, and the whole reason the guard
-    # exists: under a merely FORCED backend a plain numpy potential carries no
-    # gradient, so the fast numpy path must still be taken and the public
-    # return type must still be a float. If this ever flips, the numpy suite is
-    # silently running on diffrax/torchdiffeq.
+    # The exception to forcing running on the backend: evolveddiskdf's backend
+    # grids integrate every velocity orbit with the eager in-backend ODE, so a
+    # forced run counts only differentiated parameters (_edf_param_namespace).
+    # A DF set up under the forced backend (its normalize= amp is a backend
+    # array) keeps the numpy path, bit for bit.
     ref = _grad_edf(_GRAD_A).vmomentsurfacemass(
         _R, 0, 0, phi=_PHI, nsigma=3.0, **_GRAD_ROUTES[route]
     )

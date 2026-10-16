@@ -13,7 +13,6 @@ _NSIGMA = 4.0
 _DIRECT_GL_ORDER = 50
 _NTS = 1000
 _PROFILE = False
-import copy
 import functools
 import sys
 import time as time_module
@@ -23,8 +22,10 @@ import numpy
 from scipy import integrate
 
 from ..backend import (
+    as_numpy,
     asarray_on_device,
     device_of,
+    forced_backend,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -40,6 +41,7 @@ from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _dim,
     _pot_backend_namespace,
+    _pot_grad_namespace,
 )
 from ..util import galpyWarning, plot
 from ..util.conversion import parse_time, physical_conversion, potential_physical_input
@@ -49,6 +51,16 @@ from .df import df
 _DEGTORAD = numpy.pi / 180.0
 _RADTODEG = 180.0 / numpy.pi
 _NAN = numpy.nan
+
+
+def _edf_param_namespace(edf):
+    """The namespace of a backend potential/initdf parameter. Under a forced
+    backend only a differentiated one counts: the backend grids integrate each
+    velocity orbit with the eager in-backend ODE (~100x C), which put the forced
+    suites past CI's time limit (test_quantity 6 -> 55 min under torch)."""
+    if forced_backend() is not None:
+        return _pot_grad_namespace(edf)
+    return _pot_backend_namespace(edf)
 
 
 def _on_numpy_unless_backend_data(method):
@@ -61,7 +73,7 @@ def _on_numpy_unless_backend_data(method):
     def wrapper(self, R, *args, **kwargs):
         if (
             is_backend_array(R)
-            or _pot_backend_namespace(self) is not None  # pot or initdf
+            or _edf_param_namespace(self) is not None  # pot or initdf
             or getattr(self._initdf, "_backend_path", lambda: False)()
         ):
             return method(self, R, *args, **kwargs)
@@ -600,19 +612,11 @@ class evolveddiskdf(df):
             nsigma = _NSIGMA
         if _PROFILE:  # pragma: no cover
             start = time_module.time()
-        # TRANSITIONAL data-guard (to be lifted when the HIERARCHICAL grid is
-        # backend-migrated, task #117): xp is numpy unless something here
-        # actually carries a gradient, so a *forced* backend does NOT flip a
-        # numpy R (which would break the fast numpy suite). Two things qualify:
-        # a backend R (its gradient reaches the grid bounds), and a potential
-        # PARAMETER carrying one -- the latter is invisible to
-        # is_backend_array(R), so gating on R alone silently computed the whole
-        # moment in numpy and returned a bare float64. _pot_grad_namespace is
-        # None for a plain numpy potential even under a forced backend, which is
-        # exactly what keeps the merely-forced case on numpy.
-        # The hierarchical grid is migrated too now (its levels build with one
-        # vectorised multi-orbit integrate each), so it is no longer excluded.
-        _xp_pot = _pot_backend_namespace(self)  # pot or initdf
+        # The moment runs on the backend for a backend R or a backend
+        # potential/initdf parameter (invisible to is_backend_array(R)); a numpy
+        # setup keeps numpy (_edf_param_namespace: under a forced backend only a
+        # differentiated parameter counts)
+        _xp_pot = _edf_param_namespace(self)  # pot or initdf
         xp = get_namespace(R) if is_backend_array(R) else numpy
         if xp is numpy and _xp_pot is not None:
             xp = _xp_pot
@@ -709,13 +713,8 @@ class evolveddiskdf(df):
                     return self._vmomentsurfacemassHierarchicalGrid(n, m, grido)
         # Calculate the initdf moment and then calculate the ratio
         initvmoment = self._initdf.vmomentsurfacemass(R, n, m, nsigma=nsigma, phi=phi)
-        # TRANSITIONAL data-guard, mirroring _buildvgrid's gate (not a forced
-        # namespace): a merely FORCED backend with a plain-float R and a plain
-        # potential keeps the adaptive scipy path, so the fast numpy suite does
-        # not get flipped onto orbit integration. A genuine backend R takes the
-        # differentiable route -- and so does a gradient-carrying POTENTIAL,
-        # which is invisible to is_backend_array(R) and used to be computed in
-        # numpy and returned as a bare float64 with the gradient silently lost.
+        # as for the grid: a numpy setup with a plain-float R keeps the adaptive
+        # scipy path; a backend R or backend parameter takes the backend route
         _direct_backend = xp is not numpy
         # No second _xp_pot fix-up is needed here: when the gradient lives in
         # the potential the moments above were already lifted onto it, so
@@ -3102,13 +3101,9 @@ class evolveddiskdf(df):
         """Internal function to grid the vDF at a given location"""
         # Backend-array R: one vectorized multi-orbit integrate (differentiable
         # through the evolution) instead of the numpy per-gridpoint loop below, which
-        # stays byte-identical. TRANSITIONAL data-guard (gate on is_backend_array, not
-        # a forced backend) so a forced backend with a numpy R keeps the fast numpy
-        # loop -- no diffrax flip in the numpy suite (sigmaR1/meanvR follow R).
-        # sigmaR1 is also checked: when the gradient lives in the POTENTIAL, R
-        # stays a plain float and only the caller-lifted moments are backend
-        # arrays. Under a MERELY forced backend they stay numpy, so the fast
-        # numpy loop is still not flipped.
+        # stays byte-identical. sigmaR1 is also checked: for a backend potential
+        # parameter R stays a plain float and only the caller-lifted moments are
+        # backend arrays; a numpy setup's stay numpy.
         if is_backend_array(R) or is_backend_array(sigmaR1):
             return self._buildvgrid_backend(
                 R,
@@ -3519,9 +3514,9 @@ class evolveddiskdfGrid:
         xrange = [self.vRgrid[0], self.vRgrid[len(self.vRgrid) - 1]]
         yrange = [self.vTgrid[0], self.vTgrid[len(self.vTgrid) - 1]]
         if len(self.df.shape) == 3:
-            plotthis = self.df[:, :, tt]
+            plotthis = as_numpy(self.df)[:, :, tt]
         else:
-            plotthis = self.df
+            plotthis = as_numpy(self.df)
         plot.dens2d(
             plotthis.T,
             cmap="gist_yarg",
@@ -3636,17 +3631,7 @@ class evolveddiskdfHierarchicalGrid:
             nlevelsTotal = nlevels
         self.nlevels = nlevels
         self.nlevelsTotal = nlevelsTotal
-        if isinstance(t, (list, numpy.ndarray)) and self._backend:
-            # Only the scalar-t hierarchical build is vectorised; a time LIST
-            # would need the per-level hole mask broadcast over nt as well.
-            # Say so rather than fall into the numpy loop below, which would
-            # index a backend vRgrid with numpy machinery and fail obscurely.
-            raise NotImplementedError(
-                "evolveddiskdf: hierarchgrid=True with a list of times is not "
-                "supported on the jax/torch backend; use a scalar t, "
-                "hierarchgrid=False, or grid=False"
-            )
-        if isinstance(t, (list, numpy.ndarray)):
+        if isinstance(t, (list, numpy.ndarray)) and not self._backend:
             nt = len(t)
             self.df = numpy.zeros((gridpoints, gridpoints, nt))
             dxdy = (self.vRgrid[1] - self.vRgrid[0]) * (self.vTgrid[1] - self.vTgrid[0])
@@ -3724,12 +3709,14 @@ class evolveddiskdfHierarchicalGrid:
             dfvals = edf._df_at_velocities_backend(
                 R, phi, t, xp.reshape(VR, (-1,)), xp.reshape(VT, (-1,)), xp
             )
-            self.df = xp.reshape(dfvals, (gridpoints, gridpoints))
+            # (N,) for a scalar t, (N, nt) for a list of times
+            self.df = xp.reshape(dfvals, (gridpoints, gridpoints) + dfvals.shape[1:])
             _ii = numpy.arange(gridpoints)
             _hole = numpy.zeros((gridpoints, gridpoints), dtype=bool)
             if nlevels > 1:
                 _m = (_ii >= xsubmin) & (_ii < xsubmax)
                 _hole = _m[:, None] & _m[None, :]
+            _hole = numpy.reshape(_hole, _hole.shape + (1,) * (len(dfvals.shape) - 1))
             _hole_b = asarray_on_device(xp, _hole, device_of(self.df))
             self.df = xp.where(_hole_b, 0.0, self.df * dxdy)
             self.df = xp.where(xp.isnan(self.df), 0.0, self.df)
@@ -3828,10 +3815,11 @@ class evolveddiskdfHierarchicalGrid:
                 # We already multiplied in the area
                 out.append(mv(self.vRgrid**n, mv(self.df[:, :, ii], self.vTgrid**m)))
 
+            out = numpy.asarray(out) if xp is numpy else xp.stack(out)
             if self.subgrid is None:
-                return xp.asarray(out)
+                return out
             else:
-                return xp.asarray(out) + self.subgrid(n, m)
+                return out + self.subgrid(n, m)
         else:
             # We already multiplied in the area
             thislevel = mv(self.vRgrid**n, mv(self.df, self.vTgrid**m))
@@ -3875,9 +3863,9 @@ class evolveddiskdfHierarchicalGrid:
         nvTTot = nvT * 2**nUpperLevels
         plotthis = numpy.zeros((nvRTot, nvTTot))
         if len(self.df.shape) == 3:
-            plotdf = copy.copy(self.df[:, :, tt])
+            plotdf = numpy.array(as_numpy(self.df)[:, :, tt])
         else:
-            plotdf = copy.copy(self.df)
+            plotdf = numpy.array(as_numpy(self.df))
         plotdf[(plotdf == 0.0)] = _NAN
         # Fill up the grid
         if nUpperLevels > 0:
@@ -3936,14 +3924,16 @@ class evolveddiskdfHierarchicalGrid:
     def max(self, tt=0):
         if not self.subgrid is None:
             if len(self.df.shape) == 3:
-                return numpy.amax([numpy.amax(self.df[:, :, tt]), self.subgrid.max(tt)])
+                return numpy.amax(
+                    [numpy.amax(as_numpy(self.df)[:, :, tt]), self.subgrid.max(tt)]
+                )
             else:
-                return numpy.amax([numpy.amax(self.df[:, :]), self.subgrid.max()])
+                return numpy.amax([numpy.amax(as_numpy(self.df)), self.subgrid.max()])
         else:
             if len(self.df.shape) == 3:
-                return numpy.amax(self.df[:, :, tt])
+                return numpy.amax(as_numpy(self.df)[:, :, tt])
             else:
-                return numpy.amax(self.df[:, :])
+                return numpy.amax(as_numpy(self.df))
 
 
 def _vmomentsurfaceIntegrand(vR, vT, R, az, df, n, m, sigmaR1, sigmaT1, t, initvmoment):
