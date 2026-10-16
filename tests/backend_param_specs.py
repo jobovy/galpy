@@ -11,6 +11,8 @@ A spec is a dict:
 * ``fd``: "numpy" (Richardson FD on numpy, default), "self" (FD on the same
   backend; sampled outputs, where numpy's RNG differs from the backend key) or
   "ref:<spec>" (numpy FD of a closed-form twin with the same params/coords);
+* ``fd_params``: the same, for the parameter keys only (the coordinates keep
+  ``fd``): a grid differentiated in a parameter delegates to its exact class;
 * ``fdscale``, ``self_fd_h``: FD step controls; ``rtol`` (default 1e-6);
 * ``covers``: the public classes the spec exercises (default: the name up to
   the first "[" or "(").
@@ -1572,6 +1574,9 @@ add_aa(
     {**MNp, "delta": 0.4},
     act,
     diff_coords=["R", "vz"],
+    # a differentiated parameter delegates to the exact class (the grid is not
+    # rebuilt on the backend); coordinates differentiate the interpolant
+    fd_params="ref:actionAngleStaeckel[c=True]",
 )
 add_aa(
     "actionAngleAdiabaticGrid",
@@ -1581,6 +1586,7 @@ add_aa(
     {**MNp, "gamma": 1.0},
     act,
     diff_coords=["R", "vz"],
+    fd_params="ref:actionAngleAdiabatic[c=True]",
 )
 
 
