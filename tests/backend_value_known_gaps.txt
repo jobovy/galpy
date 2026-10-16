@@ -1,2 +1,0 @@
-# Value cases (test_param_value_on_backend) that do not yet come back on the
-# backend input's backend with numpy's values: spec key backend mode  # reason

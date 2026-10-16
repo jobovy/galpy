@@ -29,7 +29,6 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
-    prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
 from ..backend import to_host, use
@@ -653,8 +652,9 @@ class evolveddiskdf(df):
                 self._initdf.meanvT(R, phi=az, use_physical=False),
             )
         if xp is numpy and any(is_backend_array(v) for v in moms):
-            # a differentiated initdf parameter (plain R, plain potential)
-            xp = prefer_backend_namespace(*moms)
+            # a numpy route with a concrete backend initdf parameter (the forcing
+            # exception, _edf_param_namespace): its moments come to the host
+            moms = tuple(as_numpy(v) for v in moms)
         sigmaR2, sigmaT2, meanvR, meanvT = (_onbe(v) for v in moms)
         sigmaR1, sigmaT1 = xp.sqrt(sigmaR2), xp.sqrt(sigmaT2)
         if _PROFILE:  # pragma: no cover

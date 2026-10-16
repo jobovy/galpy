@@ -10372,6 +10372,5 @@
 "tests/test_backend_param_sweep.py::test_param_value_on_backend[actionAngleStaeckelGrid-vz-jax-forced]": 30.44,
 "tests/test_backend_param_sweep.py::test_param_value_on_backend[actionAngleStaeckelGrid-vz-torch-forced]": 0.19,
 "tests/test_backend_param_sweep.py::test_param_value_on_backend[actionAngleAdiabaticGrid-a-jax-data]": 27.35,
-"tests/test_backend_param_sweep.py::test_param_value_on_backend[actionAngleAdiabaticGrid-a-torch-data]": 0.01,
-"tests/test_backend_param_sweep.py::test_value_known_gaps_file_is_sorted_and_live": 0.05
+"tests/test_backend_param_sweep.py::test_param_value_on_backend[actionAngleAdiabaticGrid-a-torch-data]": 0.01
 }

@@ -591,6 +591,21 @@ def hr_moment():
     return q
 
 
+@pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_forced_backend_with_a_concrete_initdf_parameter_stays_numpy(
+    backend, route, hr_moment
+):
+    # the forcing exception covers the initdf too: a concrete hR keeps the
+    # numpy route under a forced backend, at numpy's value
+    hr = jnp.asarray(_HR) if backend == "jax" else torch.tensor(_HR)
+    got = hr_moment(hr, route, backend)
+    assert not is_backend_array(got)
+    numpy.testing.assert_allclose(
+        float(got), float(hr_moment(_HR, route)), rtol=1e-15, atol=0.0
+    )
+
+
 @pytest.mark.parametrize("forced", [False, True])
 @pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
 @pytest.mark.parametrize("backend", BACKENDS)
