@@ -2752,6 +2752,53 @@ def impulse_deltav_general_orbitintegration(
     return integrate.simpson(acc, x=times, axis=1)
 
 
+def _impulse_deltav_general_fullplummerintegration_backend(
+    xp, v, x, b, w, x0, v0, galpot, GM, rs, tmaxfac, N
+):
+    # Backend twin of impulse_deltav_general_fullplummerintegration: the same
+    # three legs (back in galpot, forward in galpot + the moving Plummer, back in
+    # galpot), each one batched in-backend ODE solve over all stars, with a
+    # MovingObjectPotential on the in-backend Plummer orbit; differentiable in the
+    # ICs, b, w, GM, rs and galpot's parameters.
+    method = inbackend_ode_method(xp)
+    v, x, b, w, x0, v0, GM, rs = coerce_coords(xp, v, x, b, w, x0, v0, GM, rs)
+    v, x = xp.reshape(v, (-1, 3)), xp.reshape(x, (-1, 3))
+    b0 = xp.linalg.cross(w, v0)
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
+    X = x0 - b0
+    R, phi, z = coords.rect_to_cyl(X[0], X[1], X[2])
+    vR, vp, vz = coords.rect_to_cyl_vec(w[0], w[1], w[2], R, phi, z, cyl=True)
+    tmax = tmaxfac * rs / xp.sqrt(xp.sum((w - v0) ** 2))
+    # scaled unit grids: the endpoints keep tmax's gradient
+    times = tmax * xp.linspace(0.0, 1.0, N)
+    dtimes = tmax * xp.linspace(-1.0, 1.0, 2 * N)
+
+    def _flipped_end(o):  # the final states, velocities reversed (Orbit.flip)
+        e = o.orbit[:, -1, :]
+        return xp.stack(
+            [e[:, 0], -e[:, 1], -e[:, 2], e[:, 3], -e[:, 4], e[:, 5]], axis=-1
+        )
+
+    o = Orbit(xp.stack([R, -vR, -vp, z, -vz, phi]))
+    o.integrate(times, galpot, method=method)
+    oplum = Orbit(_flipped_end(o)[0])
+    oplum.integrate(dtimes, galpot, method=method)
+    plumpot = MovingObjectPotential(orbit=oplum, pot=PlummerPotential(amp=GM, b=rs))
+    Rs, phis, zs = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
+    vRs, vps, vzs = coords.rect_to_cyl_vec(
+        v[:, 0], v[:, 1], v[:, 2], Rs, phis, zs, cyl=True
+    )
+    ostar = Orbit(xp.stack([Rs, -vRs, -vps, zs, -vzs, phis], axis=-1))
+    ostar.integrate(times, galpot, method=method)
+    oboth = Orbit(_flipped_end(ostar))
+    oboth.integrate(dtimes, galpot + plumpot, method=method)
+    ogal = Orbit(_flipped_end(oboth))
+    ogal.integrate(times, galpot, method=method)
+    e = ogal.orbit[:, -1, :]
+    vx, vy, vzc = coords.cyl_to_rect_vec(e[:, 1], e[:, 2], e[:, 4], e[:, 5])
+    return xp.stack([-vx - v[:, 0], -vy - v[:, 1], -vzc - v[:, 2]], axis=-1)
+
+
 def impulse_deltav_general_fullplummerintegration(
     v,
     x,
@@ -2806,6 +2853,15 @@ def impulse_deltav_general_fullplummerintegration(
     - 2015-08-18 - Written - Sanders (Cambridge)
     """
     galpot = _check_potential_list_and_deprecate(galpot)
+    # backend inputs (or a forced backend), or a differentiated b, x0, v0, GM, rs
+    # or galpot parameter: the in-backend twin
+    xp = resolve_namespace(v, x, b, w, x0, v0, GM, rs)
+    if xp is numpy:
+        xp = _kick_namespace((), _galpots(galpot))
+    if xp is not numpy:
+        return _impulse_deltav_general_fullplummerintegration_backend(
+            xp, v, x, b, w, x0, v0, galpot, GM, rs, tmaxfac, N
+        )
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
