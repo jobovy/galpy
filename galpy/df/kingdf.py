@@ -9,6 +9,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    prefer_backend_namespace,
     resolve_namespace,
     scalar_like,
 )
@@ -178,7 +179,8 @@ class kingdf(isotropicsphericaldf):
         return _dv * _dsc
 
     def fE(self, E):
-        xp = resolve_namespace(E)
+        # the DF's own backend constants (a backend W0/M/rt) are data too
+        xp = prefer_backend_namespace(E, self._potInf, self._sigma2)
         if xp is numpy:
             out = numpy.zeros(numpy.atleast_1d(E).shape)
             varE = self._potInf - E

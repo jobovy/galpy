@@ -7,6 +7,7 @@ from scipy import interpolate
 from ..backend import (
     as_numpy,
     coerce_coords,
+    concrete_backend_anchor,
     is_backend_array,
     match_input_dtype,
     prefer_backend_namespace,
@@ -119,6 +120,10 @@ class interpSphericalPotential(SphericalPotential):
             # values that the numpy Phi0 below cannot be added to
             if not (under_trace(rgrid) or requires_backend_grad(rgrid)):
                 self._rgrid = as_numpy(rgrid)
+            # ... but a concrete backend input still makes this a backend object
+            _anchor = concrete_backend_anchor(rgrid, Phi0, _farr, _fgrid)
+            if _anchor is not None:
+                self._backend_anchor = _anchor
 
             def _q(v):
                 return v

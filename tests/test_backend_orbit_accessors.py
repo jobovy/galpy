@@ -1346,3 +1346,30 @@ def test_numpy_orbit_analytic_staeckel_differentiated_delta(backend_name):
         ads = [float(torch.autograd.grad(out, x)[0])]
     for ad in ads:
         numpy.testing.assert_allclose(ad, ref, rtol=1e-7)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_backend_orbit_read_under_a_numpy_pin(backend_name):
+    # galpy's host-side steps pin numpy (use("numpy", force=True)); a backend
+    # orbit (here lifted by a concrete backend potential parameter) read there
+    # takes its data's namespace: numpy ops on a tensor only went through a
+    # deprecated conversion. Backward, so the off-grid spline flips its grid.
+    import warnings
+
+    xp = jnp if backend_name == "jax" else torch
+    o = Orbit(_IC)
+    ts = numpy.linspace(0.0, -6.0, 60)
+    o.integrate(ts, PlummerPotential(amp=xp.asarray(1.0), b=0.6))
+    calls = [
+        lambda: o.R(0.0, _stored=True),
+        lambda: o.R(ts),
+        lambda: o.R(-0.123),
+        lambda: o.getOrbit(),
+    ]
+    refs = [c() for c in calls]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with use("numpy", force=True):
+            got = [c() for c in calls]
+    for g, r in zip(got, refs):
+        numpy.testing.assert_array_equal(as_numpy(g), as_numpy(r))
