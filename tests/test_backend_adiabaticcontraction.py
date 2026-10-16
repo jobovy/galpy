@@ -10,6 +10,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     AdiabaticContractionWrapperPotential,
     HernquistPotential,
@@ -162,7 +163,7 @@ def test_torch_values_vs_numpy(method, disk, numpy_ref):
     got = _F("torch", method, disk)(p)
     assert got.requires_grad
     numpy.testing.assert_allclose(
-        got.detach().numpy(), numpy_ref(method, disk), rtol=_RTOL, atol=1e-14
+        as_numpy(got), numpy_ref(method, disk), rtol=_RTOL, atol=1e-14
     )
 
 
@@ -239,13 +240,13 @@ def test_torch_backward_vs_finite_difference(method):
     F = _F("torch", method, True)
 
     def Fnp(p):  # a grad-carrying leaf keeps the backend construction
-        return F(torch.tensor(p, requires_grad=True)).detach().numpy()
+        return as_numpy(F(torch.tensor(p, requires_grad=True)))
 
     p = torch.tensor(_P0, dtype=torch.float64, requires_grad=True)
     out = F(p)
     jac = numpy.stack(
         [
-            torch.autograd.grad(out[k], p, retain_graph=True)[0].numpy()
+            as_numpy(torch.autograd.grad(out[k], p, retain_graph=True)[0])
             for k in range(out.shape[0])
         ]
     )
@@ -263,12 +264,10 @@ def test_torch_compile_evaluation():
     f = lambda R, z: evaluateRforces(ac, R, z) + evaluatePotentials(ac, R, z)
     eager = f(R, Z)
     got = torch.compile(f, backend="aot_eager")(R, Z)
-    numpy.testing.assert_allclose(
-        got.detach().numpy(), eager.detach().numpy(), rtol=1e-13
-    )
+    numpy.testing.assert_allclose(as_numpy(got), as_numpy(eager), rtol=1e-13)
     (ge,) = torch.autograd.grad(eager.sum(), p, retain_graph=True)
     (gc,) = torch.autograd.grad(got.sum(), p)
-    numpy.testing.assert_allclose(gc.numpy(), ge.numpy(), rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(gc), as_numpy(ge), rtol=1e-12)
 
 
 @pytest.mark.parametrize(
@@ -337,7 +336,7 @@ def test_amp_honoured_on_the_backend(backend):
             F(1.0, torch.tensor(3.0, dtype=torch.float64, requires_grad=True))
         )
         v, g = v.detach(), g.detach()
-    numpy.testing.assert_allclose(numpy.asarray(g), numpy.asarray(v), rtol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(g), as_numpy(v), rtol=1e-14)
 
 
 @pytest.mark.parametrize(

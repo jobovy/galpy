@@ -825,10 +825,12 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
         pot, potforactions=True
     )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
-        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+        numpy.asarray(to_host(stop_gradient(delta)), dtype=numpy.float64)
     )
     u0_np = (
-        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+        None
+        if u0 is None
+        else numpy.asarray(to_host(stop_gradient(u0)), dtype=numpy.float64)
     )
 
     def host_jac(Rn, vRn, vTn, zn, vzn):
@@ -867,10 +869,12 @@ def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
         pot, potforactions=True
     )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
-        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+        numpy.asarray(to_host(stop_gradient(delta)), dtype=numpy.float64)
     )
     u0_np = (
-        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+        None
+        if u0 is None
+        else numpy.asarray(to_host(stop_gradient(u0)), dtype=numpy.float64)
     )
 
     def host_jac(Rn, vRn, vTn, zn, vzn):
@@ -909,10 +913,12 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
         pot, potforactions=True
     )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
-        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+        numpy.asarray(to_host(stop_gradient(delta)), dtype=numpy.float64)
     )
     u0_np = (
-        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+        None
+        if u0 is None
+        else numpy.asarray(to_host(stop_gradient(u0)), dtype=numpy.float64)
     )
 
     def host_jac(Rn, vRn, vTn, zn, vzn):
@@ -954,10 +960,12 @@ def _staeckel_c_grad_actionsfreqsangles(
         pot, potforactions=True
     )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
-        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+        numpy.asarray(to_host(stop_gradient(delta)), dtype=numpy.float64)
     )
     u0_np = (
-        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+        None
+        if u0 is None
+        else numpy.asarray(to_host(stop_gradient(u0)), dtype=numpy.float64)
     )
 
     def host_jac(Rn, vRn, vTn, zn, vzn):
@@ -1012,7 +1020,9 @@ def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
         )
     )
     return (
-        actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0],
+        actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
+            E, Rn * vTn, pot, numpy.asarray(to_host(stop_gradient(delta)))
+        )[0],
         True,
     )
 
