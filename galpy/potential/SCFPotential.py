@@ -1224,7 +1224,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         dev = device_of(R, t)
         N = len(self._Acos)
         Acos, _ = self._coeffs_at_time(t, xp, dev)
-        return R**2.0 * xp.sum(Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0])
+        dphi = self._dphiTilde(R, N, 1)[:, 0]  # (N,), or (N, P) for an array R
+        A0 = Acos[:, 0, 0] if dphi.ndim == 1 else Acos[:, 0, 0][:, None]
+        return R**2.0 * xp.sum(A0 * dphi, axis=0)
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:

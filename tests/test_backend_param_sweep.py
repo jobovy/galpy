@@ -477,6 +477,10 @@ VALUE_ROTATED = {
     "impulse_deltav_general_orbitintegration",
     "impulse_deltav_plummerstream_curvedstream",
 }
+# under a forced backend evolveddiskdf counts only a differentiated parameter
+# (_edf_param_namespace: its backend grids cost ~100x C), so a concrete one
+# keeps numpy there, at numpy's values
+FORCED_PARAM_NUMPY = {"evolveddiskdf"}
 _NUMPY_OUTPUTS = {}
 
 
@@ -546,9 +550,13 @@ def test_param_value_on_backend(spec_name, key, bk, mode, _clear_jax_caches):
     P, C = _inputs(spec, key, isparam, _to_backend(bk, x0), bk, mode)
     out = _evaluate(spec, P, C, bk, mode)
     ref = _numpy_ref(spec)
+    keeps_numpy = mode == "forced" and isparam and spec_name in FORCED_PARAM_NUMPY
     bad = {}
     for k, v in out.items():
-        if not is_backend_array(v):
+        if keeps_numpy and is_backend_array(v):
+            bad[k] = "BACKEND (a forced evolveddiskdf keeps numpy)"
+            continue
+        if not is_backend_array(v) and not keeps_numpy:
             if _reaches(spec, key, isparam, k):
                 bad[k] = f"NUMPY({type(v).__name__})"
             continue
