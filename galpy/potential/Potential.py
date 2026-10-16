@@ -5133,7 +5133,10 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
-    if is_backend_array(R) or is_backend_array(E) or is_backend_array(Lz):
+    # as for rl: a backend potential takes the backend solver too
+    _bk = [x for x in (R, E, Lz) if is_backend_array(x)]
+    _xp = namespace_from_arrays(_bk) if _bk else _pot_backend_namespace(Pot)
+    if _xp is not None:
         # jax/torch: implicit-diff bracketed root of Phi(R,z) + Lz^2/(2R^2) - E,
         # which increases with z, so d zvc / d{R,E,Lz} (and through theta) flows.
         # The numpy-only z=0 / no-solution guards (which Python-branch on the
@@ -5142,6 +5145,8 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
         # under tracing; the backend path assumes a genuine positive-z root.
         from ..backend.optimize import brentq as _bk_brentq
 
+        if not is_backend_array(R):  # anchors the bracket on the backend
+            (R,) = coerce_coords(_xp, R)
         f = lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
         zhi, _ = _backend_rootbracket(f, R, lower_default=1e-8, hi0=1.0)
         zlo = 0.0 * R  # z starts at 0 (anchored on R for device/dtype)
@@ -5211,7 +5216,9 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2 = Lz**2.0 / 2.0
-    if is_backend_array(E) or is_backend_array(Lz):
+    # as for rl (a torch rl() also met the numpy branch's in-place Rstart /= 2)
+    _bk = [x for x in (E, Lz) if is_backend_array(x)]
+    if _bk or _pot_backend_namespace(Pot) is not None:
         # jax/torch: the two roots of g(R) = Phi(R,0) + Lz^2/(2R^2) - E bracket
         # the guiding radius RLz (g(RLz) < 0 at the effective-potential minimum;
         # g rises to +inf as R->0 via the centrifugal barrier and as R->inf via
