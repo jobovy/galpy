@@ -3,6 +3,7 @@ import numpy
 from scipy import integrate, interpolate
 
 from ..backend import (
+    coerce_coords,
     concretely_true,
     get_namespace,
     has_concrete_truth_value,
@@ -288,6 +289,8 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
             _d = dens(R)
             if is_backend_array(_d):
                 xp = get_namespace(_d)
+    if xp is not numpy:  # a plain R with a backend parameter
+        (R,) = coerce_coords(xp, R)
     if callable(surfdens):
         called_surfdens = surfdens(R)
     elif surfdens is None:

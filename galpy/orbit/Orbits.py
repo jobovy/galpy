@@ -4461,6 +4461,11 @@ class Orbit:
                 use_physical=False,
                 **aAkwargs,
             )
+            # a differentiated aA parameter (delta) puts the results on its backend
+            bk = tuple(r for r in res if is_backend_array(r))
+            if xp is numpy and bk:
+                xp = namespace_from_arrays(bk)
+                out = [like(bk[0], o) for o in out]
             out = [set_at(xp, o, indx, r) for o, r in zip(out, res)]
         self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap = out
         return None
