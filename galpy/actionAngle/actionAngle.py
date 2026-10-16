@@ -76,21 +76,29 @@ class MetaActionAngle(type):
 
 
 def _lift_args(obj, args, point_1d=False):
-    """Python/numpy phase-space inputs onto the backend of a differentiated
-    parameter of ``obj`` (its potential, b, omega, ...), as ``@backend_input``
-    lifts a potential's coordinates; a forced numpy backend still wins.
-    Unchanged otherwise: on the numpy path one cached flag lookup."""
+    """Python/numpy phase-space inputs onto the backend of a backend-array
+    input (a differentiated coordinate next to plain ones) or else of a
+    differentiated parameter of ``obj`` (its potential, b, omega, ...), as
+    ``@backend_input`` lifts a potential's coordinates; a forced numpy backend
+    still wins. Unchanged otherwise: on the numpy path one cached flag lookup."""
     from ..backend._input import _coerce_one, _lift_param
 
-    if any(is_backend_array(a) for a in args) or not all(
-        isinstance(a, (int, float, numpy.number, numpy.ndarray)) for a in args
+    if not all(
+        is_backend_array(a) or isinstance(a, (int, float, numpy.number, numpy.ndarray))
+        for a in args
     ):
         return args
-    p = _lift_param(obj)
-    if p is None:
+    bk = [a for a in args if is_backend_array(a)]
+    if len(bk) == len(args):
         return args
-    xp, dev = namespace_from_arrays((p,)), device_of(p)
-    out = tuple(_coerce_one(xp, a, dev) for a in args)
+    if bk:
+        xp, dev = namespace_from_arrays(tuple(bk)), device_of(*bk)
+    else:
+        p = _lift_param(obj)
+        if p is None:
+            return args
+        xp, dev = namespace_from_arrays((p,)), device_of(p)
+    out = tuple(a if is_backend_array(a) else _coerce_one(xp, a, dev) for a in args)
     # forward classes: a lifted scalar point as shape (1,), like numpy.array([x])
     return backend_point_1d(*out) if point_1d else out
 
