@@ -583,19 +583,22 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
         GM,
         rs,
     )
-    stream_kick = impulse_deltav_plummerstream_curvedstream(
-        numpy.array([[0.5, 0.1, 0.2]]),
-        numpy.array([[1.2, 0.0, 0.0]]),
-        numpy.array([0.0]),
-        rs,
-        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.5, 0.1, 0.2]),
-        lambda t: GM / dt,
-        rs,
-        lp,
-        -dt / 2.0,
-        dt / 2.0,
+    # a backend array under a forced backend
+    stream_kick = numpy.asarray(
+        impulse_deltav_plummerstream_curvedstream(
+            numpy.array([[0.5, 0.1, 0.2]]),
+            numpy.array([[1.2, 0.0, 0.0]]),
+            numpy.array([0.0]),
+            rs,
+            numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.5, 0.1, 0.2]),
+            lambda t: GM / dt,
+            rs,
+            lp,
+            -dt / 2.0,
+            dt / 2.0,
+        )
     )
     # Should be equal
     assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
@@ -613,19 +616,22 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
         GM,
         rs,
     )
-    stream_kick = impulse_deltav_plummerstream_curvedstream(
-        numpy.array([0.5, 0.1, 0.2]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.0]),
-        rs,
-        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.5, 0.1, 0.2]),
-        lambda t: GM / dt,
-        rs,
-        lp,
-        -dt / 2.0,
-        dt / 2.0,
+    # a backend array under a forced backend
+    stream_kick = numpy.asarray(
+        impulse_deltav_plummerstream_curvedstream(
+            numpy.array([0.5, 0.1, 0.2]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.0]),
+            rs,
+            numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.5, 0.1, 0.2]),
+            lambda t: GM / dt,
+            rs,
+            lp,
+            -dt / 2.0,
+            dt / 2.0,
+        )
     )
     assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
         "Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g"

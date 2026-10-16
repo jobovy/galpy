@@ -43,14 +43,17 @@ from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
 from ._jit import NOT_TRACED, traced_call
 from ._namespaces import (
+    as_numpy,
     device_of,
     float64_default,
     name_of_namespace,
     namespace_from_arrays,
     param_grad_array,
     prefer_backend_namespace,
+    requires_backend_grad,
+    under_trace,
 )
-from ._resolver import _BACKEND_CTX
+from ._resolver import _BACKEND_CTX, use
 
 _NULLCTX = nullcontext()
 
@@ -227,6 +230,26 @@ def backend_input(*coords):
             # and _grad_param's cached lookup.
             xp = prefer_backend_namespace(*probe)
             lift = None
+            if (
+                xp is numpy
+                and args
+                and _BACKEND_CTX.get() == ("numpy", True)
+                and getattr(args[0], PARAM_CACHE_ATTR, None) is not False
+            ):
+                # a forced numpy pin (galpy's own host-side steps) on an object
+                # with CONCRETE backend parameters, which numpy cannot read: it
+                # evaluates on their backend and hands numpy values back
+                p = _grad_param(args[0])
+                if p is not None and not (under_trace(p) or requires_backend_grad(p)):
+                    with use(
+                        name_of_namespace(namespace_from_arrays((p,))), force=True
+                    ):
+                        out = wrapper(*args, **kwargs)
+                    return (
+                        type(out)(as_numpy(o) for o in out)
+                        if isinstance(out, tuple)
+                        else as_numpy(out)
+                    )
             if xp is numpy and args:
                 # Numpy/Python coordinates but a backend PARAMETER: the
                 # parameter is data too, so follow it (_lift_param; a forced

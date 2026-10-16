@@ -460,7 +460,8 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         if not z is None:  # pragma: no cover
             raise AttributeError  # Hack to fall back to general
         out = self._me.mass(R, z=None, use_physical=False)
-        r = R
+        # a backend array of radii: one row of quadrature nodes per radius
+        r = R[..., None] if is_backend_array(R) and R.ndim > 0 else R
         # Same shell quadrature as Potential.mass: numpy -> scipy (byte-identical),
         # jax/torch -> backend Gauss-Legendre, so the mass differentiates wrt R.
         from ..backend.quadrature import quad as _bk_quad

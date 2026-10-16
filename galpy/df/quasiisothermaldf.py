@@ -19,6 +19,7 @@ from ..backend import (
     float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
+    is_backend_input,
     match_input_dtype,
     name_of_namespace,
     promote_scalars,
@@ -30,10 +31,8 @@ from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_for_name,
     namespace_from_arrays,
-    requires_backend_grad,
     stop_gradient,
     under_jax_trace,
-    under_trace,
     untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_bilinear
@@ -185,13 +184,13 @@ class quasiisothermaldf(df):
                 )
         self._check_consistent_units()
         self._cutcounter = cutcounter
-        # A differentiated hr (the table extends to 5*hr) or potential (the
-        # extent is rmax*vcirc(rmax), the nodes rl(Lz)) makes the rg(Lz) table a
-        # function of the parameters: built on their namespace then, so the
-        # traced DF interpolates the SAME rg(Lz) as the numpy one
-        _txp = _pot_grad_namespace(self._pot)
-        if _txp is None and (under_trace(self._hr) or requires_backend_grad(self._hr)):
-            _txp = get_namespace(self._hr)
+        # A backend hr (the table extends to 5*hr) or potential (the extent is
+        # rmax*vcirc(rmax), the nodes rl(Lz)) makes the rg(Lz) table a function
+        # of the parameters: built on their namespace then, so the backend DF
+        # interpolates the SAME rg(Lz) as the numpy one
+        _txp = _pot_backend_namespace(self._pot)
+        if _txp is None and is_backend_input(self._hr):
+            _txp = namespace_from_arrays((self._hr,))
         if _precomputerg:
             if _precomputergrmax is None:
                 _precomputergrmax = 5 * self._hr
