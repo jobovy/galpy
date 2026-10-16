@@ -2430,10 +2430,6 @@ def _gsigma_probe(GSigma, tmin, tmax):
     return (GSigma(0.5 * (tmin + tmax)),)
 
 
-def _galpots(galpot):
-    return tuple(galpot) if isinstance(galpot, list) else (galpot,)
-
-
 def _a_integrand(T, y, b, w, pot, compt):
     t = T / (1 - T * T)
     X = b + w * t + y * numpy.array([0, 1, 0])
@@ -2715,7 +2711,7 @@ def impulse_deltav_general_orbitintegration(
     # potential parameter at numpy inputs.
     xp = resolve_namespace(v, x, b, w, x0, v0)
     if xp is numpy:
-        xp = _kick_namespace((), (pot,) + _galpots(galpot))
+        xp = _kick_namespace((), (pot, galpot))
     if xp is not numpy:
         return _impulse_deltav_general_orbitintegration_backend(
             xp, v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
@@ -2857,7 +2853,7 @@ def impulse_deltav_general_fullplummerintegration(
     # or galpot parameter: the in-backend twin
     xp = resolve_namespace(v, x, b, w, x0, v0, GM, rs)
     if xp is numpy:
-        xp = _kick_namespace((), _galpots(galpot))
+        xp = _kick_namespace((), (galpot,))
     if xp is not numpy:
         return _impulse_deltav_general_fullplummerintegration_backend(
             xp, v, x, b, w, x0, v0, galpot, GM, rs, tmaxfac, N
@@ -3235,7 +3231,7 @@ def impulse_deltav_plummerstream_curvedstream(
     galpot = _check_potential_list_and_deprecate(galpot)
     xp = _kick_namespace(
         (v, x, t, b, w, x0, v0, rs, tmin, tmax) + _gsigma_probe(GSigma, tmin, tmax),
-        _galpots(galpot),
+        (galpot,),
     )
     if xp is not numpy:
         return _impulse_deltav_plummerstream_curvedstream_backend(

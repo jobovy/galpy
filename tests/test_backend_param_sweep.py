@@ -157,8 +157,9 @@ NO_SPEC = {
 }
 
 
-def _keys(spec):
-    return [(k, True) for k in spec["params"]] + [
+def _keys(spec, grad=True):
+    params = spec.get("grad_params", spec["params"]) if grad else spec["params"]
+    return [(k, True) for k in params] + [
         (k, False) for k in spec.get("diff_coords", list(spec["coords"])[:1])
     ]
 
@@ -299,11 +300,7 @@ def _self_fd(spec, key, isparam, bk, mode):
 
 
 def _reference(spec, key, isparam, bk, mode, fd_cache):
-    fd = (
-        spec.get("fd_params", spec.get("fd", "numpy"))
-        if isparam
-        else spec.get("fd", "numpy")
-    )
+    fd = spec.get("fd", "numpy")
     if fd == "self":  # the sampling key's stream can differ between modes
         ck = (spec["name"], key, bk, mode)
         if ck not in fd_cache:
