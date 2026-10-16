@@ -7,8 +7,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
-from ..backend._namespaces import under_trace
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential, _normalize_requested, kms_to_kpcGyrDecorator
 
@@ -83,7 +82,7 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if under_trace(self._a):
+        if is_backend_array(self._a):  # a solver's trace stages self._a == 0.0
             # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
             # value. The a==0 arm below is not a different model -- it is the
             # SAME formula with the 0/0 removed, and the general one already
@@ -118,7 +117,7 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if under_trace(self._a):
+        if is_backend_array(self._a):  # a solver's trace stages self._a == 0.0
             # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
             # value. The a==0 arm below is not a different model -- it is the
             # SAME formula with the 0/0 removed, and the general one already
@@ -163,7 +162,7 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if under_trace(self._a):
+        if is_backend_array(self._a):  # a solver's trace stages self._a == 0.0
             # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
             # value. The a==0 arm below is not a different model -- it is the
             # SAME formula with the 0/0 removed, and the general one already
@@ -202,7 +201,7 @@ class MiyamotoNagaiPotential(Potential):
         R, z = coerce_coords(xp, R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if under_trace(self._a):
+        if is_backend_array(self._a):  # a solver's trace stages self._a == 0.0
             # `a` is a fit parameter here, so `self._a == 0.0` has no concrete
             # value. The a==0 arm below is not a different model -- it is the
             # SAME formula with the 0/0 removed, and the general one already

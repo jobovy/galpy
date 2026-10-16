@@ -333,7 +333,13 @@ def param_grad_array(obj, any_backend=False, _depth=0):
     elif isinstance(obj, dict):
         vals = obj.values()
     else:
-        vals = getattr(obj, "__dict__", {}).values()
+        # a cache (by name: _backend_force_cache, ...) is not a parameter: an
+        # evaluation's backend arrays must not turn the object into a backend one
+        vals = [
+            v
+            for k, v in getattr(obj, "__dict__", {}).items()
+            if not (any_backend and "cache" in k)
+        ]
     for v in vals:
         tv = type(v)
         if tv in _NOT_A_PARAMETER:  # cheap skips
@@ -341,7 +347,7 @@ def param_grad_array(obj, any_backend=False, _depth=0):
         if isinstance(v, (list, tuple, dict)) or (
             tv.__module__.startswith("galpy.") and hasattr(v, "__dict__")
         ):
-            if _depth < 3:
+            if _depth < 5:  # a df -> its composite -> list -> potential -> wrapped
                 # dicts and galpy.backend objects (splines, ...) hold caches:
                 # a forced backend's copy of a table is not a parameter there
                 sub_any = any_backend and not (

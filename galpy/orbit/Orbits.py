@@ -29,6 +29,7 @@ from ..backend import (
     coerce_coords,
     device_of,
     float64_default_if_torch_args,
+    forced_backend,
     get_namespace,
     is_backend_array,
     like,
@@ -473,7 +474,7 @@ def _backend_T(x):
     byte-identical); a torch tensor of ndim != 2 emits a deprecation warning for
     ``.T``, so reverse its axes explicitly via the namespace's ``permute_dims``."""
     if hasattr(x, "clone") and getattr(x, "ndim", 2) != 2:  # torch tensor, ndim != 2
-        xp = get_namespace(x)
+        xp = namespace_from_arrays((x,))
         return xp.permute_dims(x, tuple(range(x.ndim))[::-1])
     return x.T
 
@@ -1991,9 +1992,16 @@ class Orbit:
         # so the differentiable routes below take it, rather than the numpy/C path
         # dropping the parameter's gradient.
         _dparam = _pot_traced_param(pot)
-        if _dparam is not None and getattr(self, "_ic_backend", None) is None:
+        # ... and so does any backend parameter (a backend input makes a backend
+        # orbit); only a differentiated one must avoid the C-STM below
+        _bparam = (
+            _dparam
+            if _dparam is not None or forced_backend() is not None
+            else param_grad_array(pot, any_backend=True)
+        )
+        if _bparam is not None and getattr(self, "_ic_backend", None) is None:
             self._ic_backend = like(
-                _dparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
+                _bparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
             )
         if method.lower() in ("diffrax", "torchdiffeq", "torchode"):
             # the same list -> CompositePotential conversion (and deprecation
@@ -2652,7 +2660,7 @@ class Orbit:
         integrate(<dxdv-C-method>)`` is differentiable w.r.t. all N ICs at once.
         """
         ic = self._ic_backend
-        xp = get_namespace(ic)
+        xp = namespace_from_arrays((ic,))  # the IC's own, not a forced one
         if is_backend_array(t):
             ts = t
         else:
@@ -4344,7 +4352,17 @@ class Orbit:
             # functionally; everything else goes back to a writable numpy
             # array, because as_numpy's jax view is read-only and the clip below
             # is in place. No-op for numpy -> that path stays byte-identical.
-            delta_grad = under_trace(delta) or requires_backend_grad(delta)
+            # ... and so does a backend delta the caller passed (a backend input
+            # turns the backend on); the automagic one is a numpy constant
+            delta_grad = (
+                under_trace(delta)
+                or requires_backend_grad(delta)
+                or (
+                    is_backend_array(delta)
+                    and not self._aA_delta_automagic
+                    and forced_backend() is None
+                )
+            )
             if is_backend_array(delta) and not delta_grad:
                 delta = numpy.array(as_numpy(delta))
             # a jit-traced delta cannot pick the spherical fallback; Staeckel at
@@ -4500,6 +4518,9 @@ class Orbit:
         # decides: a forced backend lifts the result at the accessor)
         _vals = (R, vR, vT, tz, tvz, phi, *aAkwargs.values())
         _bk = [x for x in _vals if is_backend_array(x)]
+        if not _bk and forced_backend() is None:  # ... or a backend parameter
+            _p = param_grad_array(self._aA, any_backend=True)
+            _bk = [] if _p is None else [_p]
         xp = namespace_from_arrays(_bk[:1]) if _bk else numpy
         if xp is not numpy:
             R, vR, vT, tz, tvz, phi = coerce_coords(xp, R, vR, vT, tz, tvz, phi)
@@ -7481,7 +7502,7 @@ class Orbit:
             # back on the backend -- and it is what made o() launder a backend
             # orbit into a numpy one, which streamdf._progenitor_setup then
             # inherits for its whole setup (progenitor() is its first line).
-            _xp = get_namespace(ic_backend)
+            _xp = namespace_from_arrays((ic_backend,))
             return _backend_T(_xp.reshape(ic_backend, tuple(numpy.shape(self.vxvv))))
         elif not hasattr(self, "t"):
             raise ValueError(
@@ -7563,7 +7584,8 @@ class Orbit:
             if (
                 _orbit_is_backend
             ):  # keep on the backend; defensive clone, not numpy .copy()
-                xp = get_namespace(self.orbit)
+                # the data's own namespace: a forced numpy pin must not win
+                xp = namespace_from_arrays((self.orbit,))
                 return _backend_safe_copy(
                     xp.permute_dims(self.orbit, tuple(range(self.orbit.ndim))[::-1])
                 )
@@ -7576,7 +7598,7 @@ class Orbit:
         ):
             sl = self.orbit[:, list(_self_t).index(t), :]
             if _orbit_is_backend:
-                xp = get_namespace(sl)
+                xp = namespace_from_arrays((sl,))
                 return _backend_safe_copy(
                     xp.permute_dims(sl, tuple(range(sl.ndim))[::-1])
                 )
@@ -7703,7 +7725,7 @@ class Orbit:
             if is_backend_array(self.orbit):
                 # (size,nt,phasedim) -> (phasedim,nt,size), namespace-agnostic
                 # (torch has no 3-arg transpose / .copy()); stays a backend array.
-                xp = get_namespace(self.orbit)
+                xp = namespace_from_arrays((self.orbit,))
                 return _backend_safe_copy(xp.permute_dims(self.orbit, (2, 1, 0)))
             return self.orbit.transpose(2, 1, 0).copy()
         # Some orbits may have stored grids that are too short to interpolate
@@ -7767,7 +7789,7 @@ class Orbit:
         coeffs or per-column Spline1Ds)``."""
         from ..backend.interpolate import Spline1D, cubic_spline_coeffs
 
-        xp = get_namespace(orb)
+        xp = namespace_from_arrays((orb,))
         pd = self.phasedim()
         k = 3 if grid.shape[0] > 3 else 1
         bc = "not-a-knot" if k == 3 else "natural"
@@ -7795,11 +7817,13 @@ class Orbit:
         grid, k, ncols, fit = prep
         pd = self.phasedim()
         if k == 3:  # ext=0 is the eval_ppoly default (extrapolate=True)
-            vals = eval_ppoly(get_namespace(fit), grid, fit, tq)  # (nt_q, ncols)
+            vals = eval_ppoly(
+                namespace_from_arrays((fit,)), grid, fit, tq
+            )  # (nt_q, ncols)
             splined = [vals[..., j] for j in range(ncols)]
         else:
             splined = [spl(tq) for spl in fit]
-        xp = get_namespace(splined[0])
+        xp = namespace_from_arrays((splined[0],))
 
         if pd == 4 or pd == 6:
             xv, yv = splined[0], splined[1]
@@ -7815,7 +7839,7 @@ class Orbit:
         on its OWN grid and evaluated at its own query times ``t_arr[kk]``,
         differentiable w.r.t. the orbit. Returns ``(phasedim, nt_q, size)`` (or
         ``(phasedim, size)`` when the query has no trailing time axis)."""
-        xp = get_namespace(self.orbit)
+        xp = namespace_from_arrays((self.orbit,))
         self_t = numpy.asarray(to_host(self.t))  # per-orbit grids (geometry; host)
         per_orbit = []
         for kk in range(self.size):
@@ -7919,7 +7943,7 @@ class Orbit:
         # orbit: the trajectory to spline (default self.orbit; a numpy orbit
         # queried at a traced time is lifted onto the time's backend)
         orbit = self.orbit if orbit is None else orbit
-        xp = get_namespace(orbit)
+        xp = namespace_from_arrays((orbit,))
         # A TRACED grid (the orbit was integrated at traced times -- streamdf's
         # track grid depends on theta) cannot be compared or reversed concretely,
         # so order it with argsort instead. The concrete path keeps the exact
@@ -7964,7 +7988,7 @@ class Orbit:
     def _backend_interp_prep(self, orbit, self_t, grid_traced):
         """The splines of ``_call_internal_backend_interp`` for the trajectory
         ``orbit`` on the grid ``self_t``, built once (arrays only, picklable)."""
-        xp = get_namespace(orbit)
+        xp = namespace_from_arrays((orbit,))
         # The spline needs a strictly increasing grid; a backward integration
         # (decreasing self.t) is flipped to ascending (shared across the batch),
         # and each orbit with it (a differentiable reversal).
@@ -8025,10 +8049,10 @@ class Orbit:
             # stack on the trailing (orbit) axis; size == 1 reproduces the prior
             # (phasedim, nt, 1) layout.
             outs = [self._backend_spline_orbit_eval(p, tq) for p in fit]
-            return get_namespace(outs[0]).stack(outs, axis=-1)
+            return namespace_from_arrays((outs[0],)).stack(outs, axis=-1)
         from ..backend.interpolate import eval_ppoly
 
-        xp = get_namespace(fit)
+        xp = namespace_from_arrays((fit,))
         pd = self.phasedim()
         vals = xp.reshape(
             eval_ppoly(xp, grid, fit, tq), (tq.shape[0], size, pd)
