@@ -491,7 +491,7 @@ def _value_cases():
             if mode != "floatcoords" or spec["coords"]
         ]
         start = zlib.crc32(spec["name"].encode()) % len(combos)
-        for ii, (key, _) in enumerate(_keys(spec)):
+        for ii, (key, _) in enumerate(_keys(spec, grad=False)):
             if spec["name"] in VALUE_ROTATED:
                 yield (spec["name"], key, *combos[(start + ii) % len(combos)])
             else:
