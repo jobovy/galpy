@@ -820,7 +820,9 @@ def test_streamdf_progenitor_grad_with_c_aA_is_loud():
     from galpy.df import streamdf
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=5.0, ntintJ=250)
+    # tintJ=30: with tintJ=5 the track ran off (R < 0 by the third chunk), which
+    # amplified last-digit differences into an unbound point (NaN angles) on a GPU
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=30.0, ntintJ=1000)
     pR = torch.tensor(_STREAM_IC[0], dtype=torch.float64, requires_grad=True)
     prog = Orbit(
         torch.stack(
