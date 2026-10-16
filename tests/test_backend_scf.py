@@ -520,6 +520,17 @@ def test_mass_backend_parity(backend_name, name, pot, ts):
         )
 
 
+@pytest.mark.parametrize("name,pot", CASES, ids=CASE_IDS)
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_mass_backend_array_of_radii(backend_name, name, pot):
+    # an array of radii (AdiabaticContractionWrapperPotential builds its mass
+    # profiles from one) gives each radius's backend mass
+    rs = [0.3, 0.9, 2.1]
+    got = as_numpy(pot._mass(_asarray(backend_name, rs)))
+    ref = [float(as_numpy(pot._mass(_asarray(backend_name, r)))) for r in rs]
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+
+
 ###############################################################################
 # Forced-backend coercion regression tests (burndown wave: expansion family).
 # Under a forced backend (use(..., force=True)) the expwhole* DiskSCF catalogue

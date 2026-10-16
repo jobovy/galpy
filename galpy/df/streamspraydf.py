@@ -25,7 +25,10 @@ from ..df.df import df
 from ..orbit import Orbit
 from ..orbit.Orbits import _backend_T
 from ..potential import MovingObjectPotential, evaluateRforces, rtide
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _pot_backend_namespace,
+)
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from .streamTrack import StreamTrack, StreamTrackPair
@@ -796,9 +799,14 @@ class basestreamspraydf(df):
         _pargs, _pphi, _pv = self._theta_probe_point()
         with use("numpy", force=True):
             _tf = evaluateRforces(self._pot, *_pargs, phi=_pphi, v=_pv)
-        theta_backend = is_backend_array(_tf)
+        # a backend parameter (the pinned force comes back as numpy values), or
+        # one the parameter scan cannot see (the force comes back on the backend)
+        _txp = _pot_backend_namespace(self._pot) or (
+            get_namespace(_tf) if is_backend_array(_tf) else None
+        )
+        theta_backend = _txp is not None
         if theta_backend and xp is None:
-            xp = get_namespace(_tf)
+            xp = _txp
         # A backend progenitor MASS (a differentiable M or M(t)) traces the sampled
         # orbits -- via the tidal radius rtide -- but NOT the mass-independent
         # progenitor curve, so it is its own backend-sampling trigger.
@@ -921,7 +929,11 @@ class basestreamspraydf(df):
                     [_cc("vR", 1), _cc("vT", 2), _cc("vz", 4)]
                 ),  # a dynamical-friction centerpot is velocity-dependent
             )
-        centerpot_theta = is_backend_array(_cf)
+        # as for the progenitor's potential (_integrate_progenitor)
+        _cxp = _pot_backend_namespace(self._centerpot) or (
+            get_namespace(_cf) if is_backend_array(_cf) else None
+        )
+        centerpot_theta = _cxp is not None
         _forced = get_namespace(numpy.zeros(1)) is not numpy
         center_trig = ic_backend or (centerpot_theta and not _forced)
         bsamp = getattr(self, "_bsamp", None)
@@ -934,7 +946,7 @@ class basestreamspraydf(df):
         if bsamp is not None:
             xp, _, prog_method = bsamp
         else:
-            xp = get_namespace(cic_backend) if ic_backend else get_namespace(_cf)
+            xp = get_namespace(cic_backend) if ic_backend else _cxp
         inbackend = inbackend_ode_method(xp)
         if bsamp is None:
             self._promote_progenitor_backend(xp, inbackend)
@@ -1843,7 +1855,9 @@ def pericenter_stripping_pdf(
         elif is_backend_array(getattr(progenitor, "_ic_backend", None)):
             _peri_xp = get_namespace(progenitor._ic_backend)
         else:
-            # a genuine backend pot parameter survives a forced-numpy force eval
+            # a backend pot parameter (the pinned force comes back as numpy
+            # values), or one the parameter scan cannot see (it comes back on
+            # the backend)
             with use("numpy", force=True):
                 _tf = evaluateRforces(
                     pot,
@@ -1858,8 +1872,9 @@ def pericenter_stripping_pdf(
                         ]
                     ),
                 )
-            if is_backend_array(_tf):
-                _peri_xp = get_namespace(_tf)
+            _peri_xp = _pot_backend_namespace(pot) or (
+                get_namespace(_tf) if is_backend_array(_tf) else None
+            )
     if _peri_xp is not None:
         _sqrt_2pi = float(numpy.sqrt(2.0 * numpy.pi))
         peri_b = _peri_xp.asarray(peri_times)

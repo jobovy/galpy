@@ -3792,15 +3792,14 @@ def _pot_grad_namespace(Pot, any_backend=False):
 
 def _pot_backend_namespace(Pot):
     """The namespace of a backend-array parameter of ``Pot`` -- differentiated or
-    not -- else None: a backend input turns the backend on. Under a forced
-    backend, whose coercions leave backend parameters behind that are not the
-    user's, only a differentiated one counts (a forced numpy pin: none). (Whether
-    something is DIFFERENTIATED is ``_pot_grad_namespace``'s question.)"""
+    not -- else None: a backend input turns the backend on, under a forced
+    jax/torch backend too (forcing runs as much as possible on the backend). A
+    forced numpy pin (galpy's own host-side steps) wins. (Whether something is
+    DIFFERENTIATED is ``_pot_grad_namespace``'s question.)"""
     from ..backend._input import _grad_param
 
-    forced = forced_backend()
-    if forced is not None:
-        return None if forced == "numpy" else _pot_grad_namespace(Pot)
+    if forced_backend() == "numpy":
+        return None
     p = _grad_param(Pot)
     return None if p is None else namespace_from_arrays((p,))
 
@@ -5139,10 +5138,9 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of Phi(R,z) + Lz^2/(2R^2) - E,
         # which increases with z, so d zvc / d{R,E,Lz} (and through theta) flows.
-        # The numpy-only z=0 / no-solution guards (which Python-branch on the
-        # residual value) are NOT replicated -- they are plotting conveniences
-        # for degenerate inputs and would require a value-branch that breaks
-        # under tracing; the backend path assumes a genuine positive-z root.
+        # numpy's z=0 snap is mirrored branch-free below; its no-solution guard
+        # (a plotting convenience that Python-branches on the residual) is not:
+        # the backend path assumes a genuine positive-z root.
         from ..backend.optimize import brentq as _bk_brentq
 
         if not is_backend_array(R):  # anchors the bracket on the backend
@@ -5150,7 +5148,9 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
         f = lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
         zhi, _ = _backend_rootbracket(f, R, lower_default=1e-8, hi0=1.0)
         zlo = 0.0 * R  # z starts at 0 (anchored on R for device/dtype)
-        return _bk_brentq(f, zlo, zhi)
+        # numpy's z=0 snap: at Rmin/Rmax the root is ~sqrt of f(0)'s residual
+        snap = abs(f(zlo)) < 1e-8
+        return _xp.where(snap, zlo, _bk_brentq(f, zlo, zhi))
     # Check z=0 and whether a solution exists
     if (
         numpy.fabs(

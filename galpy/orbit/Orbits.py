@@ -3736,9 +3736,9 @@ class Orbit:
         # kinetic terms on the potential's (forced) namespace: a CUDA potential
         # cannot be added to a numpy thiso
         _, _tk = _resolve_accessor_namespace(thiso)
-        # ... and on a differentiated potential parameter's: a numpy thiso plus
-        # a grad-tracking torch potential term drops to numpy
-        _pp = param_grad_array(pot)
+        # ... and on a backend potential parameter's: a numpy thiso plus a torch
+        # potential term drops to numpy
+        _pp = param_grad_array(pot, any_backend=forced_backend() is None)
         if _pp is not None and not is_backend_array(_tk):
             (_tk,) = coerce_coords(
                 namespace_from_arrays((_pp,)), _tk, device=device_of(_pp)
@@ -4189,9 +4189,13 @@ class Orbit:
                 out = E - numpy.einsum("i,jki->jk", thisOmegaP, tL)
         else:
             E, Lz = self.E(*args, **kwargs), self.Lz(*args, **kwargs)
-            if requires_backend_grad(E) and not is_backend_array(Lz):
-                # a differentiated torch potential: Lz joins E (an ndarray minus
-                # a grad tensor drops to numpy)
+            if (
+                is_backend_array(E)
+                and not is_backend_array(Lz)
+                and (requires_backend_grad(E) or forced_backend() is None)
+            ):
+                # a backend potential (parameter): Lz joins E (an ndarray minus
+                # a tensor drops to numpy)
                 Lz = like(E, Lz)
             elif not is_backend_array(Lz):  # a numpy orbit: E, OmegaP on the host
                 E, OmegaP = to_host(E), to_host(OmegaP)
