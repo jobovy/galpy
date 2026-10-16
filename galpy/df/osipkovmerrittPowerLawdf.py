@@ -7,7 +7,12 @@
 # For rho_pot ~ r^{-alpha} (alpha > 2) and nu_tracer ~ r^{-gamma}
 import numpy
 
-from ..backend import coerce_coords, get_namespace, resolve_namespace
+from ..backend import (
+    coerce_coords,
+    concretely_true,
+    get_namespace,
+    resolve_namespace,
+)
 from ..backend.special import gamma as _bgamma
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
@@ -71,7 +76,9 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         assert isinstance(pot, PowerSphericalPotential), (
             "pot= must be potential.PowerSphericalPotential"
         )
-        assert pot.alpha > 2.0, "pot.alpha must be > 2 for bound orbits"
+        assert not concretely_true(pot.alpha <= 2.0), (
+            "pot.alpha must be > 2 for bound orbits"
+        )
         self._alpha_pot = pot.alpha
         # Resolve tracer density
         if denspot is not None:
@@ -81,11 +88,13 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
             self._gamma = denspot.alpha
         else:
             self._gamma = self._alpha_pot
-        assert self._gamma > self._alpha_pot / 2.0, (
+        assert not concretely_true(self._gamma <= self._alpha_pot / 2.0), (
             f"gamma={self._gamma} must be > alpha/2={self._alpha_pot / 2.0} "
             "for the Osipkov-Merritt DF to be normalizable"
         )
-        assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
+        assert not concretely_true(self._gamma >= 3.0), (
+            "gamma must be < 3 for finite enclosed mass"
+        )
         _osipkovmerrittdf.__init__(
             self, pot=pot, denspot=denspot, ra=ra, rmax=rmax, ro=ro, vo=vo
         )

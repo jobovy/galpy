@@ -38,6 +38,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
+from ..backend._input import _lift_param
 from ..backend._namespaces import (
     concretely_true,
     has_concrete_truth_value,
@@ -365,6 +366,8 @@ class _RphiRootFind:
                 if is_backend_array(_b):
                     xp = get_namespace(_b)
                     break
+        if xp is numpy:  # a differentiated potential parameter (e.g. amp)
+            xp = _pot_grad_namespace(self._pot, any_backend=True) or numpy
         E = xp.asarray(E)
 
         # in u = log r: relative accuracy at every radius (an absolute xtol is
@@ -384,6 +387,17 @@ class _RphiRootFind:
             _z = xp.zeros(E.shape, dtype=lo.dtype)
             lo, hi = lo + _z, hi + _z
         return xp.exp(brentq(f, lo, hi, args=(E,)))
+
+
+def _plain_input_namespace(df, xp):
+    """``xp``, or for plain (numpy) inputs a differentiated parameter's (the
+    DF's or its potential's) namespace and device, so a Python-float input does
+    not drop its gradient; a forced backend still wins."""
+    if xp is numpy:
+        p = _lift_param(df)
+        if p is not None:
+            return namespace_from_arrays((p,)), device_of(p)
+    return xp, None
 
 
 class sphericaldf(df):
@@ -504,9 +518,11 @@ class sphericaldf(df):
             E = conversion.parse_energy(E, vo=vo)
             L = conversion.parse_angmom(L, ro=ro, vo=vo)
             Lz = conversion.parse_angmom(Lz, ro=ro, vo=vo)
-            xp = resolve_namespace(E, L, Lz)
+            xp, _dev = _plain_input_namespace(self, resolve_namespace(E, L, Lz))
             # a forced backend: plain inputs are coerced (so the output stays on it)
-            _inp = (E, L, Lz) if xp is numpy else coerce_coords(xp, E, L, Lz)
+            _inp = (
+                (E, L, Lz) if xp is numpy else coerce_coords(xp, E, L, Lz, device=_dev)
+            )
             if xp is numpy:
                 E = numpy.atleast_1d(E)
                 L = numpy.atleast_1d(L)
@@ -524,11 +540,11 @@ class sphericaldf(df):
             vT = conversion.parse_velocity(vT, vo=vo)
             z = conversion.parse_length(z, ro=ro)
             vz = conversion.parse_velocity(vz, vo=vo)
-            xp = resolve_namespace(R, vR, vT, z, vz)
+            xp, _dev = _plain_input_namespace(self, resolve_namespace(R, vR, vT, z, vz))
             _inp = (
                 (R, vR, vT, z, vz)
                 if xp is numpy
-                else coerce_coords(xp, R, vR, vT, z, vz)
+                else coerce_coords(xp, R, vR, vT, z, vz, device=_dev)
             )
             if xp is numpy:
                 vtotSq = vR**2.0 + vT**2.0 + vz**2.0
