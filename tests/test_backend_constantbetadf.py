@@ -817,3 +817,33 @@ def test_general_constantbetadf_traced_beta_says_why():
     # floor(1.5 - beta) picks the inversion's derivative order: no value under jit
     with pytest.raises(NotImplementedError, match="derivative order"):
         jax.jit(lambda b: _general_beta({"amp": 2.3, "a": 1.3, "beta": b})._m)(0.2)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_built_inside_jit_from_plain_parameters():
+    # built inside a user's jax.jit from plain parameters, differentiated in a
+    # coordinate: the numpy-side setup must run on concrete values there (its jax
+    # derivative chain and as_numpy_constant staged them into tracers)
+    from galpy.potential import HernquistPotential
+
+    def f(R):
+        df = constantbetadf(pot=HernquistPotential(amp=2.3, a=1.3), beta=0.2, rmin=1e-4)
+        return jnp.reshape(df(R, 0.1, 0.3, 0.2, 0.05), ())
+
+    ve, ge = jax.value_and_grad(f)(jnp.asarray(0.9))
+    vj, gj = jax.jit(jax.value_and_grad(f))(jnp.asarray(0.9))
+    numpy.testing.assert_allclose(float(vj), float(ve), rtol=1e-12)
+    numpy.testing.assert_allclose(float(gj), float(ge), rtol=1e-10)
+
+    # FD of the closed-form twin (the quadrature DF's own FD is noise-limited)
+    ref = constantbetaHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3), beta=0.2)
+
+    def fd(h):
+        return (
+            float(ref(0.9 + h, 0.1, 0.3, 0.2, 0.05))
+            - float(ref(0.9 - h, 0.1, 0.3, 0.2, 0.05))
+        ) / (2.0 * h)
+
+    numpy.testing.assert_allclose(
+        float(gj), (4.0 * fd(5e-4) - fd(1e-3)) / 3.0, rtol=1e-7
+    )

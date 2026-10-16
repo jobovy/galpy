@@ -184,10 +184,15 @@ def as_backend_constant(xp, value, ref):
 
 
 def _host_eval_eager(f, a):
-    from ._namespaces import as_numpy
+    from ._namespaces import as_numpy, requires_backend_grad
 
     out = numpy.asarray(f(as_numpy(a)))
-    return as_backend_constant(namespace_from_arrays((a,)), out, a)
+    out = as_backend_constant(namespace_from_arrays((a,)), out, a)
+    if requires_backend_grad(a):
+        from ._torch.no_derivative import no_derivative
+
+        out = no_derivative(a, out)
+    return out
 
 
 def host_eval(f, a):
@@ -196,24 +201,33 @@ def host_eval(f, a):
 
     For callables galpy cannot run in the backend, e.g. a user's astropy-units
     density. Eager, ``a``'s values go through numpy. Traced, there are none:
-    ``jax.jit`` gets a ``jax.pure_callback`` (differentiating through it raises,
-    as the eager numpy conversion does) and ``torch.compile`` runs the eager
-    evaluation outside the graph.
+    ``jax.jit`` gets a ``jax.pure_callback`` and ``torch.compile`` runs the eager
+    evaluation outside the graph. It has no derivative, and never gives a silent
+    one: differentiating through it raises under eager ``jax.grad``, as the eager
+    numpy conversion does, and is NaN under ``jax.jit`` (a trace cannot raise for
+    a ``lax.cond`` arm that may not run) and under torch autograd.
     """
     import sys
 
-    from ._namespaces import under_jax_trace
+    from ._namespaces import has_concrete_truth_value, under_jax_trace
     from ._tracectx import is_compiling
 
     if under_jax_trace(a):
         import jax
 
-        return jax.pure_callback(
-            lambda v: numpy.asarray(f(numpy.asarray(v)), dtype=v.dtype),
-            jax.ShapeDtypeStruct(a.shape, a.dtype),
-            a,
-            vmap_method="expand_dims",
-        )
+        def callback(v):
+            return jax.pure_callback(
+                lambda u: numpy.asarray(f(numpy.asarray(u)), dtype=u.dtype),
+                jax.ShapeDtypeStruct(v.shape, v.dtype),
+                v,
+                vmap_method="expand_dims",
+            )
+
+        if has_concrete_truth_value(jax.numpy.all(a == a)):
+            return callback(a)
+        from ._jax.no_derivative import no_derivative
+
+        return no_derivative(callback, a)
     if is_compiling():
         return sys.modules["torch"].compiler.disable(_host_eval_eager)(f, a)
     return _host_eval_eager(f, a)

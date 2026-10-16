@@ -82,7 +82,15 @@ def _make_gradfunc(vmapped, name):
     path uses jax autodiff for byte-identity).
     """
     if name != "torch":
-        return vmapped
+        import jax
+
+        def _gradfunc(r):
+            # concrete inputs evaluate eagerly even inside a user's jax.jit (a DF
+            # built there from plain parameters); traced ones stage as usual
+            with jax.ensure_compile_time_eval():
+                return vmapped(r)
+
+        return _gradfunc
     import torch
 
     def _gradfunc(r):

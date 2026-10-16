@@ -1316,3 +1316,33 @@ def test_analytic_actions_grad_wrt_delta(backend_name, mode):
             .numpy()
         )
     numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_analytic_staeckel_differentiated_delta(backend_name):
+    # a plain-float orbit with a differentiated delta: the bound-orbit mask wrote
+    # the backend turning points into numpy arrays, which a tracer and a
+    # grad-tracking tensor refuse; they follow delta's backend now
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=2.1, a=0.5, b=0.3)
+
+    def f(delta):
+        o = Orbit([1.0, 0.1, 1.1, 0.05, 0.02, 0.3])
+        kw = dict(analytic=True, pot=pot, type="staeckel", delta=delta)
+        return o.rperi(use_physical=False, **kw).reshape(())
+
+    def fd(h):
+        return (float(f(0.4 + h)) - float(f(0.4 - h))) / (2.0 * h)
+
+    ref = (4.0 * fd(5e-4) - fd(1e-3)) / 3.0
+    if backend_name == "jax":
+        g = jax.grad(f)
+        ads = [float(g(jnp.asarray(0.4))), float(jax.jit(g)(jnp.asarray(0.4)))]
+    else:
+        x = torch.tensor(0.4, requires_grad=True)
+        out = f(x)
+        assert is_backend_array(out)
+        ads = [float(torch.autograd.grad(out, x)[0])]
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, ref, rtol=1e-7)

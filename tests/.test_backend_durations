@@ -6222,5 +6222,14 @@
 "tests/test_backend_streamgapdf_impulse.py::test_fullplummerintegration_forced_numpy_inputs[jax]": 9.67,
 "tests/test_backend_streamgapdf_impulse.py::test_fullplummerintegration_forced_numpy_inputs[torch]": 4.48,
 "tests/test_backend_movingobject.py::test_backend_object_orbit_spline_built_once[jax]": 10.5,
-"tests/test_backend_movingobject.py::test_backend_object_orbit_spline_built_once[torch]": 10.4
+"tests/test_backend_movingobject.py::test_backend_object_orbit_spline_built_once[torch]": 10.4,
+"tests/test_backend_jeans.py::test_sigmalos_beta_gradient_at_a_plain_R[jax]": 18.24,
+"tests/test_backend_constantbetadf.py::test_built_inside_jit_from_plain_parameters": 17.57,
+"tests/test_backend_orbit_accessors.py::test_numpy_orbit_analytic_staeckel_differentiated_delta[jax]": 16.52,
+"tests/test_backend_jeans.py::test_sigmalos_beta_gradient_at_a_plain_R[torch]": 8.79,
+"tests/test_backend_dynamfric.py::test_dynfric_numpy_sigmar_grad[jax]": 6.88,
+"tests/test_backend_anyspherical.py::test_backend_dens_numpy_fallback_grad_nan[jax]": 0.17,
+"tests/test_backend_orbit_accessors.py::test_numpy_orbit_analytic_staeckel_differentiated_delta[torch]": 0.13,
+"tests/test_backend_dynamfric.py::test_dynfric_numpy_sigmar_grad[torch]": 0.05,
+"tests/test_backend_anyspherical.py::test_backend_dens_numpy_fallback_grad_nan[torch]": 0.04
 }

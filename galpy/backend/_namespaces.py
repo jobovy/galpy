@@ -454,9 +454,13 @@ def as_numpy_constant(x):
     deliberately not carried. Under eager ``jax.grad`` the primal is concrete
     but ``as_numpy`` refuses a tracer -- a guard worth keeping everywhere else,
     since it catches silently dropped gradients -- so detach first. Still
-    raises under ``jit``, where no value exists.
+    raises under ``jit``, where no value exists. A concrete jax array has no
+    gradient to stop, and inside a ``jit`` (e.g. a DF built there from plain
+    parameters) ``stop_gradient`` would stage it into a tracer.
     """
-    return as_numpy(stop_gradient(x))
+    if hasattr(x, "detach") or under_jax_trace(x):
+        x = stop_gradient(x)
+    return as_numpy(x)
 
 
 def as_numpy(x):

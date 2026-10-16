@@ -765,3 +765,40 @@ def test_dynfric_sigmar_beyond_maxr(backend, kind):
                 ads = [float(torch.autograd.grad(F(x), x)[0])]
             for ad in ads:
                 numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
+
+
+# A numpy-only sigmar: its table carries the gradient inside maxr, also under
+# jax.jit, which traces the beyond-maxr arm too; beyond maxr it has no derivative,
+# and never a silent one (eager jax.grad raises; jit and torch give NaN).
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_dynfric_numpy_sigmar_grad(backend):
+    from galpy.potential import HernquistPotential
+
+    def F(R):
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05,
+            rhm=0.1,
+            dens=HernquistPotential(a=1.0),
+            sigmar=lambda r: 0.5 * numpy.exp(-numpy.asarray(r) / 5.0),
+            maxr=2.0,
+        )
+        return cdf.Rforce(R, _Z0, phi=_PHI0, v=[_arr_like(backend, c) for c in _V0])
+
+    def grads(R):
+        if backend == "jax":
+            return [jax.grad(F)(R), jax.jit(jax.grad(F))(R)]
+        x = torch.tensor(R, requires_grad=True)
+        return [torch.autograd.grad(F(x), x)[0]]
+
+    R, h = 1.5, 1e-3  # inside maxr
+    fd = (float(F(R + h)) - float(F(R - h))) / (2.0 * h)
+    fd = (4.0 * (float(F(R + h / 2)) - float(F(R - h / 2))) / h - fd) / 3.0
+    for ad in grads(R):
+        numpy.testing.assert_allclose(float(ad), fd, rtol=1e-8)
+    R = 3.0  # beyond maxr
+    if backend == "jax":
+        with pytest.raises(Exception, match="(?i)jvp|tracer"):
+            jax.grad(F)(R)
+        assert numpy.isnan(float(jax.jit(jax.grad(F))(R)))
+    else:
+        assert numpy.isnan(float(grads(R)[0]))

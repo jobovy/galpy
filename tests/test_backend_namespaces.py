@@ -162,6 +162,10 @@ def test_as_numpy_constant_reads_the_primal_but_not_under_jit():
         assert isinstance(seen[0], numpy.ndarray) and seen[0] == 3.0
         with pytest.raises(Exception):  # no value exists under jit
             jax.jit(lambda x: as_numpy_constant(x) + 0.0)(1.5)
+        # ... but a concrete array inside one has (stop_gradient staged it)
+        const = jnp.asarray([1.0, 2.0])
+        jax.jit(lambda x: seen.append(as_numpy_constant(const)) or x)(1.5)
+        assert isinstance(seen[-1], numpy.ndarray) and list(seen[-1]) == [1.0, 2.0]
     if "torch" in BACKENDS:
         t = torch.tensor(1.5, requires_grad=True)
         c = as_numpy_constant(t * 2.0)

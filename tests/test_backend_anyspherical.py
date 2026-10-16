@@ -307,3 +307,17 @@ def test_backend_dens_numpy_fallback_grad_raises():
     pot._dens_needs_numpy = True
     with pytest.raises(Exception, match="(?i)jvp|tracer"):
         jax.grad(lambda r: pot._backend_dens(r))(jnp.asarray(1.7))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_dens_numpy_fallback_grad_nan(backend_name):
+    # ... and where it cannot raise -- under jax.jit, which also traces lax.cond
+    # arms that never run, and torch autograd -- the derivative is NaN
+    pot = AnySphericalPotential(amp=1.3, dens=_dens)
+    pot._dens_needs_numpy = True
+    if backend_name == "jax":
+        g = jax.jit(jax.grad(lambda r: pot._backend_dens(r)))(jnp.asarray(1.7))
+    else:
+        x = torch.tensor(1.7, requires_grad=True)
+        (g,) = torch.autograd.grad(pot._backend_dens(x), x)
+    assert numpy.isnan(float(g))

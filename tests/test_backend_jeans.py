@@ -303,3 +303,24 @@ def test_sigmalos_parameter_gradient_under_jit(backend_name, mode, name):
         [1.1],
         rtol=1e-8,
     )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sigmalos_beta_gradient_at_a_plain_R(backend_name):
+    # a plain-float R with a backend beta and no use() block: R follows beta's
+    # backend (torch.isnan refused the plain surface density)
+    from backend_param_grad import fd_reference
+
+    params = {"amp": 1.0, "a": 1.3, "beta": 0.2}
+    ref, _ = fd_reference(_Sigmalos, params, "beta", "sigmalos", [1.1])
+
+    def f(beta):
+        return _Sigmalos(amp=1.0, a=1.3, beta=beta).sigmalos(1.1)
+
+    if backend_name == "jax":
+        ads = [jax.grad(f)(jnp.asarray(0.2)), jax.jit(jax.grad(f))(jnp.asarray(0.2))]
+    else:
+        x = torch.tensor(0.2, dtype=torch.float64, requires_grad=True)
+        ads = [torch.autograd.grad(f(x), x)[0]]
+    for ad in ads:
+        numpy.testing.assert_allclose(float(ad), ref, rtol=1e-8)
