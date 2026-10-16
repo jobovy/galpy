@@ -345,7 +345,7 @@ def test_real_eig_torch_vmap_grad_matches_eager():
     ts = torch.tensor([0.8, 1.0, 1.3])
     eager = numpy.array([float(torch.func.grad(f)(t)) for t in ts])
     numpy.testing.assert_allclose(
-        torch.func.vmap(torch.func.grad(f))(ts).numpy(), eager, rtol=1e-12
+        as_numpy(torch.func.vmap(torch.func.grad(f))(ts)), eager, rtol=1e-12
     )
 
 

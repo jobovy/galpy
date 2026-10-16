@@ -635,7 +635,7 @@ def _gap_grad(backend, f, kick, d):
     tk = torch.tensor(kick, requires_grad=True)
     td = torch.tensor(d, requires_grad=True)
     gk, gd = torch.autograd.grad(f(tk, td), (tk, td))
-    return gk.numpy(), float(gd)
+    return as_numpy(gk), float(gd)
 
 
 @pytest.mark.parametrize("method", ["density", "meanOmega"])

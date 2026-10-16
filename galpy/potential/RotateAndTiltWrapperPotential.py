@@ -15,6 +15,7 @@ from ..backend import (
 )
 from ..backend._namespaces import (
     eager_value_memo,
+    like,
     namespace_from_arrays,
     requires_backend_grad,
     under_trace,
@@ -123,7 +124,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         # a traced or grad-tracking rotation is kept even when it is the identity
         self._norot = not (
             under_trace(self._rot) or requires_backend_grad(self._rot)
-        ) and concretely_true((self._rot == numpy.eye(3)).all())
+        ) and concretely_true((self._rot == like(self._rot, numpy.eye(3))).all())
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True

@@ -201,4 +201,4 @@ def test_lazy_cond_takes_one_arm(backend_name):
         out = torch.func.vmap(
             lambda r: lazy_cond(txp, txp.any(r > 1.5), lambda: 2.0 * r, lambda: -r)
         )(y)
-        numpy.testing.assert_array_equal(out.numpy(), [[2.0, 4.0], [-1.0, -1.0]])
+        numpy.testing.assert_array_equal(as_numpy(out), [[2.0, 4.0], [-1.0, -1.0]])

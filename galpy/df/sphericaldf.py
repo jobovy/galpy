@@ -1657,6 +1657,9 @@ class sphericaldf(df):
             return _RphiRootFind(
                 self._pot, self._scale, r_a_min * self._scale, r_a_max * self._scale
             )
+        # the grid's limits on the host (a CUDA potential's scale makes a CUDA
+        # r_a_min, which numpy.geomspace cannot read)
+        r_a_min, r_a_max = float(r_a_min), float(r_a_max)
         if xp is numpy:
             phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
         else:

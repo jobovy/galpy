@@ -521,7 +521,7 @@ class actionAngleStaeckelGrid(actionAngle):
             thisLzs_np = as_numpy(thisLzs)
             if self._c:
                 mu0 = actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
-                    thisE_np, thisLzs_np, u0pot, self._delta
+                    thisE_np, thisLzs_np, u0pot, as_numpy(self._delta)
                 )[0]
             else:
                 mu0 = numpy.array(

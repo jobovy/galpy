@@ -1202,7 +1202,7 @@ def test_from_density_timedep_backend_matches_numpy(backend_name, case):
     for o, pp in zip(orbs, (p, ref)):
         o.integrate(ts, pp, method="dop853_c")
     numpy.testing.assert_allclose(
-        orbs[0].getOrbit(), orbs[1].getOrbit(), rtol=1e-10, atol=1e-12
+        as_numpy(orbs[0].getOrbit()), orbs[1].getOrbit(), rtol=1e-10, atol=1e-12
     )
 
 
