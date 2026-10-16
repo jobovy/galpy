@@ -398,8 +398,11 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     w = numpy.array([1.0, numpy.pi / 4.0 * vp, 0.0])
     plummer_kick = impulse_deltav_plummer_curvedstream(v0, x0, 3.0, w, x0, v0, GM, rs)
     galpot = constantPotential()
-    orbit_kick = impulse_deltav_general_fullplummerintegration(
-        v0, x0, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0, N=1000
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            v0, x0, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0, N=1000
+        )
     )
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
@@ -426,8 +429,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     V[:, 0] = vx
     V[:, 1] = vy
     plummer_kick = impulse_deltav_plummer_curvedstream(V, Xc, 3.0, w, x0, v0, GM, rs)
-    orbit_kick = impulse_deltav_general_fullplummerintegration(
-        V, Xc, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            V, Xc, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0
+        )
     )
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
@@ -465,8 +470,10 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
             v0, x0, 3.0, w, x0, v0, pp, 5.0 * numpy.pi, lp
         )
     )
-    full_kick = impulse_deltav_general_fullplummerintegration(
-        v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
+    full_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
+        )
     )
     # Kick should be in the X direction
     assert numpy.fabs((orbit_kick - full_kick) / full_kick)[0, 0] < 10.0**tol, (
