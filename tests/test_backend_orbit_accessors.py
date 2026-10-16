@@ -1217,6 +1217,12 @@ def _afa(ic, case, names=_AFA_NAMES, **over):
     ]
 
 
+def _on_gpu(backend_name):
+    if backend_name == "jax":
+        return jax.default_backend() == "gpu"
+    return torch.get_default_device().type == "cuda"
+
+
 @pytest.mark.parametrize("case", _AFA_CASES)
 @pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
 def test_analytic_actions_backend_orbit_values(case, backend_name):
@@ -1224,8 +1230,9 @@ def test_analytic_actions_backend_orbit_values(case, backend_name):
     names = _AFA_NAMES if case != "adiabatic-c" else ["jr", "jp", "jz"]
     vals = _afa(cast(_TP_IC), case, names)
     ref = _afa(numpy.array(_TP_IC), case, names)
-    # spherical: fixed-order backend quadrature vs scipy quad, measured 9e-10
-    rtol = 1e-8 if case == "spherical" else 1e-12
+    # spherical: fixed-order backend quadrature vs scipy quad, measured 9e-10;
+    # a GPU's arithmetic differs in the last digits (Staeckel delta: up to 6.1e-11)
+    rtol = 1e-8 if case == "spherical" else (2e-10 if _on_gpu(backend_name) else 1e-12)
     for n, v, r in zip(names, vals, ref):
         assert is_backend_array(v), f"{case} {n} left the {backend_name} backend"
         numpy.testing.assert_allclose(as_numpy(v), r, rtol=rtol, atol=1e-13)
@@ -1237,12 +1244,14 @@ def test_analytic_actions_unbound_backend_orbits(backend_name):
     ics = [_TP_IC, [1.0, 0.1, 5.0, 0.1, 0.1, 0.0], [0.8, 0.3, 0.7, -0.1, 0.2, 1.0]]
     cast = jnp.asarray if backend_name == "jax" else torch.tensor
     o, onp = Orbit(cast(ics)), Orbit(ics)
+    # a GPU's arithmetic differs in the last digits (measured 1.8e-12)
+    rtol = 5e-12 if _on_gpu(backend_name) else 1e-12
     for n in _AFA_NAMES:
         got = getattr(o, n)(analytic=True, pot=MWPotential2014, use_physical=False)
         ref = getattr(onp, n)(analytic=True, pot=MWPotential2014, use_physical=False)
         assert is_backend_array(got)
         assert numpy.isnan(ref[1])
-        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-13)
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=rtol, atol=1e-13)
 
 
 @pytest.mark.parametrize("case", ["staeckel-c-delta", "spherical"])
