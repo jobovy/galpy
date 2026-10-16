@@ -79,27 +79,28 @@ def _backend_ready(target):
     return is_backend_compatible(target)
 
 
-# per-object flag: False = "no differentiated parameter" (see _grad_param)
+# per-object flag: False = "no backend parameter" (see _grad_param)
 PARAM_CACHE_ATTR = "_backend_param_cache"
 
 
 def params_changed(obj):
-    """Drop ``obj``'s cached "no differentiated parameter" answer: call after
+    """Drop ``obj``'s cached "no backend parameter" answer: call after
     changing a parameter once the object has been evaluated (normalize())."""
     getattr(obj, "__dict__", {}).pop(PARAM_CACHE_ATTR, None)
 
 
 def _grad_param(target):
-    """A gradient-carrying parameter of ``target`` (a galpy object or a list of
+    """A backend-array parameter of ``target`` (a galpy object or a list of
     them), else None: the boundary lifts Python/numpy coordinates onto its
-    backend. "None" is cached on the object as one flag, so a plain numpy
-    object pays a dict lookup rather than a parameter scan; parameters set later
-    than the first evaluation must call ``params_changed``."""
+    backend (a backend input turns the backend on). "None" is cached on the
+    object as one flag, so a plain numpy object pays a dict lookup rather than a
+    parameter scan; parameters set later than the first evaluation must call
+    ``params_changed``."""
     d = getattr(target, "__dict__", None)
     if d is not None:
         if d.get(PARAM_CACHE_ATTR) is False:
             return None
-        p = param_grad_array(target)
+        p = param_grad_array(target, any_backend=True)
         if p is None:
             d[PARAM_CACHE_ATTR] = False
         return p
@@ -227,9 +228,9 @@ def backend_input(*coords):
             xp = prefer_backend_namespace(*probe)
             lift = None
             if xp is numpy and args:
-                # Numpy/Python coordinates but a differentiated PARAMETER (a
-                # tracer, a grad tensor): the parameter is data too, so follow
-                # it (_lift_param; a forced numpy backend still wins), without
+                # Numpy/Python coordinates but a backend PARAMETER: the
+                # parameter is data too, so follow it (_lift_param; a forced
+                # numpy backend still wins), without
                 # the _backend_ready gate: numpy cannot take the parameter. The
                 # cached "none" flag is checked inline (the numpy hot path).
                 if getattr(args[0], PARAM_CACHE_ATTR, None) is not False:

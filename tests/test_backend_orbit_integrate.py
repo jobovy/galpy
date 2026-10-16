@@ -920,15 +920,22 @@ def test_inbackend_integrate_orbit_numpy_input_raises():
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
-def test_backend_param_via_c_integrator_detaches():
-    # A backend (jax) potential PARAMETER reaches the compiled C integrator as its
-    # concrete numpy value (_finalize_pot_args detaches it), so the trajectory is
-    # byte-identical to the pure-numpy parameter (the C path carries no d/d(param)).
+def test_backend_param_via_c_integrator_follows_backend():
+    # A concrete backend (jax) potential PARAMETER makes the orbit a backend one
+    # (a backend input turns the backend on): it integrates through the C-STM --
+    # still the compiled C integrator, whose step control also sees the
+    # variational state -- and comes back as jax arrays with numpy's values.
     o = Orbit(_IC)
     o.integrate(_TS, PlummerPotential(amp=jnp.asarray(1.0), b=0.6), method="dop853_c")
     ref = Orbit(_IC)
     ref.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
-    numpy.testing.assert_array_equal(numpy.asarray(o.R(_TS)), numpy.asarray(ref.R(_TS)))
+    assert is_backend_array(o.R(_TS))
+    numpy.testing.assert_allclose(
+        as_numpy(o.R(_TS)),
+        ref.R(_TS),
+        rtol=0.0,
+        atol=5e-11,  # measured 8.7e-12
+    )
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")

@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 
-from ..backend import backend_input, get_namespace, scalar_like
+from ..backend import backend_input, data_zero, get_namespace, scalar_like
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -317,7 +317,7 @@ class Force:
                 raise PotentialError(
                     "'_phitorque' function not implemented for this DissipativeForce"
                 )
-            return 0.0
+            return data_zero(R, z)  # axisymmetric: no torque
 
     @potential_physical_input
     @physical_conversion("force", pop=True)

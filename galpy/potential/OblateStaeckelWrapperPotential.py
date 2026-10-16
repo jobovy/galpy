@@ -20,7 +20,7 @@ from .Potential import (
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
-    _pot_grad_namespace,
+    _pot_backend_namespace,
     evaluateR2derivs,
     evaluateRzderivs,
     evaluatez2derivs,
@@ -108,8 +108,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         self._v0 = numpy.pi / 2.0  # so we know when we're using this
         R0, z0 = coords.uv_to_Rz(self._u0, self._v0, delta=self._delta)
         xp = namespace_from_arrays((self._u0,)) or numpy
-        # float u0, delta but a differentiated parameter of the wrapped potential
-        R0, z0 = coerce_coords(_pot_grad_namespace(self._pot) or numpy, R0, z0)
+        # float u0, delta but a backend parameter of the wrapped potential
+        R0, z0 = coerce_coords(_pot_backend_namespace(self._pot) or numpy, R0, z0)
         self._refpot = _evaluatePotentials(self._pot, R0, z0) * xp.cosh(self._u0) ** 2.0
         self._ntab = 0 if ntab is None else int(ntab)
         # mode discriminator, mirroring spline1d != NULL in C: None = exact
