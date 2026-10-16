@@ -334,3 +334,53 @@ def test_forced_float_query_returns_backend_array(backend_name):
         got = _MOP3.Rforce(1.0, 0.05, phi=0.2, t=1.7, use_physical=False)
     assert is_backend_array(got)
     numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_object_orbit_spline_built_once(backend_name, monkeypatch):
+    # every force evaluation of an ODE step queries the object orbit: its spline
+    # is built once, at construction, equals the per-query one, survives a
+    # pickle, and a re-integrated orbit does not use the stale one
+    import pickle
+
+    import galpy.backend.interpolate as bi
+    from galpy.backend import as_numpy
+
+    xp = jnp if backend_name == "jax" else torch
+    ic = [1.0, 0.1, 1.1, 0.05, 0.02, 0.3]
+    o = Orbit(xp.asarray(ic))
+    o.integrate(_MO_TS, _LP)
+    mo = potential.MovingObjectPotential(
+        o, pot=potential.PlummerPotential(amp=0.06, b=0.1)
+    )
+
+    def rf(pot, ts):
+        return [
+            float(as_numpy(pot.Rforce(1.1, 0.05, phi=0.4, t=t, use_physical=False)))
+            for t in ts
+        ]
+
+    nbuild = [0]
+    build = bi.cubic_spline_coeffs
+
+    def counting(*args, **kwargs):
+        nbuild[0] += 1
+        return build(*args, **kwargs)
+
+    monkeypatch.setattr(bi, "cubic_spline_coeffs", counting)
+    ts = (0.123, 0.5571, 0.871)  # off the grid: interpolated
+    cached = rf(mo, ts)
+    unpickled = rf(pickle.loads(pickle.dumps(mo)), ts)
+    assert nbuild[0] == 0
+    del mo._orb._backend_interp_cache
+    assert rf(mo, ts) == cached == unpickled
+    assert nbuild[0] > 0
+    mo._orb._cache_backend_interp()
+    grid = numpy.linspace(0.0, 2.0, 201)
+    mo._orb.integrate(grid, _LP)
+    o2 = Orbit(xp.asarray(ic))
+    o2.integrate(grid, _LP)
+    fresh = potential.MovingObjectPotential(
+        o2, pot=potential.PlummerPotential(amp=0.06, b=0.1)
+    )
+    assert rf(mo, (1.537,)) == rf(fresh, (1.537,))

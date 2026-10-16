@@ -1199,8 +1199,11 @@ add_df(
 add_df(
     "impulse_deltav_general_fullplummerintegration",
     lambda P: P,
-    {"b": 0.3, "wy": 0.785, "GM": 0.5, "rs": 0.3, "lamp": 1.0},
+    {"b": 0.1, "wy": 0.785, "GM": 0.05, "rs": 0.1, "lamp": 1.0},
     _imp(
+        # the reference FD needs an accurate numpy integration (symplec4_c's
+        # fixed steps are ~1e-6 off in the derivative) and a dense Plummer-orbit
+        # grid (C's spline of it converges only by N ~ 800 to the backend's)
         lambda P, v, x, w: gdf.impulse_deltav_general_fullplummerintegration(
             v,
             x,
@@ -1211,11 +1214,14 @@ add_df(
             gp.LogarithmicHaloPotential(amp=P["lamp"]),
             P["GM"],
             P["rs"],
-            N=200,
+            tmaxfac=5.0,
+            N=800,
+            integrate_method="dop853_c",
         )
     ),
     _IV,
     covers=(),
+    fdscale=3.0,
 )
 add_df(
     "impulse_deltav_plummerstream",
