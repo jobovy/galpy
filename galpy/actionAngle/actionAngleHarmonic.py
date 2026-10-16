@@ -21,6 +21,9 @@ from .actionAngle import actionAngle
 class actionAngleHarmonic(actionAngle):
     """Action-angle formalism for the one-dimensional harmonic oscillator"""
 
+    # a scalar point's outputs: numpy's shape for it
+    _scalar_point_ndim = 0
+
     def __init__(self, *args, **kwargs):
         """
         Initialize an actionAngleHarmonic object.

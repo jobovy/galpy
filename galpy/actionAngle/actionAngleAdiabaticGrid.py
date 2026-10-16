@@ -45,6 +45,9 @@ class actionAngleAdiabaticGrid(actionAngle):
     interpolation grid only (no off-grid fallback): inputs must lie within the
     grid, whereas the numpy path falls back to a per-point solve off-grid."""
 
+    # a scalar point's outputs: numpy's shape for it
+    _scalar_point_ndim = 0
+
     def __init__(
         self,
         pot=None,

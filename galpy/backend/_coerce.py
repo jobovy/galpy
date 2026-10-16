@@ -275,6 +275,17 @@ def data_zero(*xs):
     return xp.zeros_like(sum(cs[1:], cs[0]))
 
 
+def is_backend_input(x):
+    """Is ``x`` backend data that turns the backend on: any backend array, unless
+    a forced numpy pin (galpy's own host-side steps) holds -- then only a traced
+    or grad-tracking one."""
+    from ._resolver import forced_backend
+
+    return is_backend_array(x) and (
+        forced_backend() != "numpy" or under_trace(x) or requires_backend_grad(x)
+    )
+
+
 def concrete_backend_anchor(*xs):
     """A zero on the namespace/device of the first concrete (not differentiated)
     backend array among ``xs`` (lists are searched), else None; None under a

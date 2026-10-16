@@ -440,3 +440,30 @@ def test_force_anchor_cache_never_holds_traced_constants():
     numpy.testing.assert_allclose(
         eager, _build("vec_odot")._force(_R0, _Z0, _PHI0, _T0, list(_V0)), rtol=1e-13
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_numpy_integrator_with_backend_frequencies(backend_name):
+    # a numpy integrator evaluates the frame's forces at plain-float
+    # coordinates; backend frequencies take that evaluation to their backend,
+    # and the orbit is the numpy-frequency one
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    if backend_name == "torch" and torch.get_default_device().type == "cuda":
+        pytest.skip("numpy integrators do not run on CUDA (use torchode)")
+    ts = numpy.linspace(0.0, 2.0, 21)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.02, 0.3]
+    om = 0.3
+    ref = Orbit(ic)
+    ref.integrate(ts, MWPotential2014 + NonInertialFrameForce(Omega=om), "odeint")
+    o = Orbit(ic)
+    o.integrate(
+        ts,
+        MWPotential2014 + NonInertialFrameForce(Omega=_scalar(backend_name, om)),
+        "odeint",
+    )
+    for a in ("R", "vR", "vT", "z", "vz", "phi"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(o, a)(ts)), getattr(ref, a)(ts), rtol=1e-14, atol=0.0
+        )

@@ -141,6 +141,17 @@ def test_value_parity(backend_name, pot, method):
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
+@pytest.mark.parametrize("pot", [p for _, p in _POTS], ids=_POT_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mass_backend_array_of_radii(backend_name, pot):
+    # an array of radii (AdiabaticContractionWrapperPotential builds its mass
+    # profiles from one) gives each radius's backend mass
+    rs = [0.3, 0.9, 2.1]
+    got = as_numpy(pot._mass(_asarray(backend_name, rs)))
+    ref = [float(as_numpy(pot._mass(_asarray(backend_name, r)))) for r in rs]
+    numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+
+
 # The exp vertical profile has a |z| kink (xp.sign / xp.abs): values at z == 0
 # must agree exactly across backends (cf. the KuzminDisk z-kink test).
 @pytest.mark.parametrize("method", ["_zforce", "_Rzderiv", "_z2deriv", "_dens"])
