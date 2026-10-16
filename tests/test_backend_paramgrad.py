@@ -469,8 +469,11 @@ def test_forced_numpy_beats_a_parameter_backend():
     # grad tensor and refuses it
     pot = PlummerPotential(amp=1.0, b=torch.tensor(0.7, requires_grad=True))
     assert backend.is_backend_array(pot(_R0, _Z0))
+    # on a GPU numpy refuses the CUDA tensor before it sees the grad
+    on_gpu = pot._b.device.type == "cuda"
+    exc, match = (TypeError, "cuda") if on_gpu else (RuntimeError, "requires grad")
     with backend.use("numpy", force=True):
-        with pytest.raises(RuntimeError, match="requires grad"):
+        with pytest.raises(exc, match=match):
             pot(_R0, _Z0)
 
 
