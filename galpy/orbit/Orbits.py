@@ -323,19 +323,25 @@ def _refuse_numpy_integrator_on_cuda(method):
 
 
 def _vectorized_backend_root(orb, pot, x):
-    """rguiding/rE/LcE's backend route: a differentiated value, a backend orbit or
-    potential parameter, or many points (one vectorized root). A single point of
-    a numpy orbit under a forced backend stays on the host: its root is a
-    constant, and an eager backend root costs ~1000 numpy ones."""
+    """rguiding/rE/LcE's backend route, as ``(xp, x on xp)``, else None: a backend
+    ``x`` that is differentiated, of a backend orbit or potential, or of many
+    points (one vectorized root), or a numpy ``x`` in a backend potential. A
+    single point of a numpy orbit under a forced backend stays on the host: its
+    root is a constant, and an eager backend root costs ~1000 numpy ones."""
+    pp = param_grad_array(pot, any_backend=True)
     if not is_backend_array(x):
-        return False
-    return (
+        if pp is None:
+            return None
+        return namespace_from_arrays((pp,)), like(pp, numpy.atleast_1d(x))
+    if (
         under_trace(x)
         or requires_backend_grad(x)
         or getattr(orb, "_ic_backend", None) is not None
-        or param_grad_array(pot, any_backend=True) is not None
+        or pp is not None
         or numpy.prod(tuple(x.shape)) > 1
-    )
+    ):
+        return namespace_from_arrays((x,)), x
+    return None
 
 
 def _resolve_accessor_namespace(thiso):
@@ -4294,9 +4300,7 @@ class Orbit:
                 Lz = like(E, Lz)
             elif not is_backend_array(Lz):  # a numpy orbit: E, OmegaP on the host
                 E, OmegaP = to_host(E), to_host(OmegaP)
-            else:  # numpy E (some potentials) / per-orbit OmegaP: onto Lz's backend
-                if isinstance(E, numpy.ndarray):
-                    E = like(Lz, E)
+            else:  # a per-orbit OmegaP: onto Lz's backend
                 if isinstance(OmegaP, numpy.ndarray):
                     OmegaP = like(Lz, OmegaP)
             out = E - OmegaP * Lz
@@ -4859,10 +4863,11 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _Lz = self.Lz(*args, use_physical=False, dontreshape=True)
-        if _vectorized_backend_root(self, pot, _Lz):  # one backend root over all Lz
-            xpl = namespace_from_arrays((_Lz,))
-            out = rl(pot, xpl.reshape(_Lz, (-1,)), use_physical=False)
-            return xpl.reshape(out, tuple(_Lz.shape) or (1,))
+        bk = _vectorized_backend_root(self, pot, _Lz)
+        if bk is not None:  # one backend root over all Lz
+            xpl, Lzb = bk
+            out = rl(pot, xpl.reshape(Lzb, (-1,)), use_physical=False)
+            return xpl.reshape(out, tuple(Lzb.shape) or (1,))
         Lz = numpy.atleast_1d(to_host(_Lz))
         Lz_shape = Lz.shape
         Lz = Lz.flatten()
@@ -4879,13 +4884,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             rls = [rl(pot, lz, use_physical=False) for lz in Lz]
-            # rl follows the gradient, so against a traced potential these are
-            # backend scalars that numpy.array() cannot collect; stack them in
-            # their own namespace instead. Otherwise collect on numpy and return
-            # on the accessor namespace, like every other accessor.
-            if any(under_trace(v) or requires_backend_grad(v) for v in rls):
-                xp = get_namespace(*rls)
-                return xp.reshape(xp.stack(rls), Lz_shape)
             out = numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
             return _resolve_accessor_namespace(out)[1]
 
@@ -4932,10 +4930,11 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        if _vectorized_backend_root(self, pot, _E):  # one backend root over all E
-            xpE = namespace_from_arrays((_E,))
-            out = rE(pot, xpE.reshape(_E, (-1,)), use_physical=False)
-            return xpE.reshape(out, tuple(_E.shape) or (1,))
+        bk = _vectorized_backend_root(self, pot, _E)
+        if bk is not None:  # one backend root over all E
+            xpE, Eb = bk
+            out = rE(pot, xpE.reshape(Eb, (-1,)), use_physical=False)
+            return xpE.reshape(out, tuple(Eb.shape) or (1,))
         E = numpy.atleast_1d(to_host(_E))
         E_shape = E.shape
         E = E.flatten()
@@ -4952,11 +4951,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             vals = [rE(pot, tE, use_physical=False) for tE in E]
-            # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect.
-            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
-                xp = get_namespace(*vals)
-                return xp.reshape(xp.stack(vals), E_shape)
             out = numpy.array(to_host(vals)).reshape(E_shape)
             return _resolve_accessor_namespace(out)[1]
 
@@ -5003,10 +4997,11 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        if _vectorized_backend_root(self, pot, _E):  # one backend root over all E
-            xpE = namespace_from_arrays((_E,))
-            out = LcE(pot, xpE.reshape(_E, (-1,)), use_physical=False)
-            return xpE.reshape(out, tuple(_E.shape) or (1,))
+        bk = _vectorized_backend_root(self, pot, _E)
+        if bk is not None:  # one backend root over all E
+            xpE, Eb = bk
+            out = LcE(pot, xpE.reshape(Eb, (-1,)), use_physical=False)
+            return xpE.reshape(out, tuple(Eb.shape) or (1,))
         E = numpy.atleast_1d(to_host(_E))
         E_shape = E.shape
         E = E.flatten()
@@ -5023,11 +5018,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             vals = [LcE(pot, tE, use_physical=False) for tE in E]
-            # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect.
-            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
-                xp = get_namespace(*vals)
-                return xp.reshape(xp.stack(vals), E_shape)
             out = numpy.array(to_host(vals)).reshape(E_shape)
             return _resolve_accessor_namespace(out)[1]
 

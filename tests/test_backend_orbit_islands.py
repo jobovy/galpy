@@ -211,3 +211,53 @@ def test_isochroneapprox_forced_on_backend(backend, as_orbit):
     for r, g in zip(ref, got):
         assert is_backend_array(g)
         numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("fn", ["rguiding", "rE", "LcE"])
+def test_root_characteristic_numpy_orbit_backend_potential(backend, fn):
+    # a numpy orbit in a potential with a backend parameter: one backend root
+    # over all points, numpy's values, and d/dq against a central difference
+    o = _orbit(pot=LogarithmicHaloPotential(normalize=1.0, q=0.9))
+    tq = _TS[::25]
+
+    def f(q):
+        return getattr(o, fn)(
+            tq, pot=LogarithmicHaloPotential(normalize=1.0, q=q), use_physical=False
+        )
+
+    ref = f(0.9)
+    got = f(_arr(backend, 0.9))
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10)
+    h = 1e-6
+    fd = (f(0.9 + h) - f(0.9 - h)) / (2.0 * h)
+    if backend == "jax":
+        g = jax.jacfwd(lambda q: f(q))(jnp.asarray(0.9))
+    else:
+        g = torch.autograd.functional.jacobian(f, torch.tensor(0.9))
+    numpy.testing.assert_allclose(as_numpy(g), fd, rtol=1e-6, atol=1e-10)
+
+
+def test_E_fallback_scalar_only_linear_numpy():
+    # the numpy per-point fallback for a 1D orbit in a scalar-only potential
+    from galpy.potential import linearPotential
+
+    class _ScalarOnlyLinear(linearPotential):
+        def __init__(self):
+            linearPotential.__init__(self, amp=1.0)
+
+        def _evaluate(self, x, t=0.0):
+            if numpy.ndim(x) > 0 or numpy.ndim(t) > 0:
+                raise ValueError("scalar-only")
+            return 0.5 * x**2.0
+
+        def _force(self, x, t=0.0):
+            return -x
+
+    o = Orbit([[1.0, 0.1], [0.5, -0.3]])
+    ts = numpy.linspace(0.0, 0.3, 4)
+    o.integrate(ts, _ScalarOnlyLinear())
+    E = o.E(ts, use_physical=False)
+    x, vx = o.x(ts, use_physical=False), o.vx(ts, use_physical=False)
+    numpy.testing.assert_allclose(E, 0.5 * x**2.0 + 0.5 * vx**2.0, rtol=1e-13)
