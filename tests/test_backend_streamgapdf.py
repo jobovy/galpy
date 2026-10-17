@@ -35,7 +35,7 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
-from galpy.backend import as_numpy, is_backend_array, use
+from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.df.streamgapdf import (
     HernquistX,
     _rotation_vy,
@@ -1425,3 +1425,118 @@ def test_impact_grad_timpact_q_vs_fd(_full_pair, param):
         scale = numpy.max(numpy.abs(fd))
         err = numpy.max(numpy.abs(numpy.asarray(ad[k]) - fd)) / scale
         assert err < 1e-6, f"d({k})/d({param}): AD vs FD {err:.2e}"
+
+
+# --------------------------------------------------------------------------
+# A numpy-progenitor gap DF constructed under a FORCED backend runs on it: the
+# impact coordinate transform, the kicks, the track and the DF evaluations are
+# backend arrays, equal to the numpy construction at the FD-vs-AD floor of its
+# action-angle Jacobians (as for the jax-built _full_pair above).
+# --------------------------------------------------------------------------
+def _forced_gap_build(backend):
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0, ntintJ=1000)
+    with use(backend, force=True):
+        return streamgapdf(
+            0.365 * (10.0 / 2.0) ** (1.0 / 3.0) / _FULL_V0,
+            progenitor=Orbit(numpy.array(_FULL_IC)),
+            pot=lp,
+            aA=aA,
+            **_full_kwargs(),
+        )
+
+
+# max|forced - numpy| / max|numpy|, measured (jax = torch): tracks 3e-6 .. 9e-6,
+# the near-impact Jacobians 6e-6, the kicks 6e-5 / 8e-5
+_FORCED_GAP_FLOORS = {
+    "_gap_ObsTrack": 1e-5,
+    "_gap_ObsTrackXY": 1.5e-5,
+    "_gap_alljacsTrack": 2e-5,
+    "_kick_interpolatedObsTrackXY": 1.5e-5,
+    "_kick_interpolatedObsTrackAA": 3e-6,
+    "_kick_deltav": 3e-4,
+    "_kick_dOap": 2e-4,
+    "_ObsTrack": 1.5e-5,
+    "_interpolatedObsTrackXY": 3e-5,
+    "_interpolatedObsTrackAA": 3e-6,
+    "_ObsTrackLB": 3e-5,
+}
+# DF evaluations at Python floats: (measured 3e-6 / 1.5e-6 / 2.1e-5 against the
+# numpy construction)
+_FORCED_GAP_EVALS = [
+    ("density", lambda s, d: s._density_par(d), 1e-5),
+    ("meanOmega", lambda s, d: s.meanOmega(d, oned=True, use_physical=False), 5e-6),
+    ("pOparapar", lambda s, d: s.pOparapar(0.01, d), 1e-4),
+]
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+def test_forced_streamgapdf_runs_on_the_backend():
+    # torch only: the forced-specific steps (the numpy progenitor coerced onto the
+    # backend twin, the C auxiliary orbit, the key=None kicks) are namespace-
+    # generic, and the eager-jax build is compile-bound (minutes); jax's twin is
+    # test_full_construction_on_jax_matches_numpy
+    from galpy.df.streamdf import streamdf as _smooth
+
+    backend = "torch"
+
+    ref = _forced_gap_build("numpy")
+    sdf = _forced_gap_build(backend)
+    for name, floor in _FORCED_GAP_FLOORS.items():
+        got = getattr(sdf, name)
+        assert is_backend_array(got), f"{name} was built on numpy"
+        want = numpy.asarray(getattr(ref, name), dtype=float)
+        rel = numpy.max(numpy.abs(numpy.asarray(as_numpy(got)) - want)) / numpy.max(
+            numpy.abs(want)
+        )
+        assert rel < floor, f"{name}: forced vs numpy {rel:.2e}"
+    for name, fn, floor in _FORCED_GAP_EVALS:
+        for d in (0.3, 1.0, 2.0):
+            got = fn(sdf, d)
+            assert is_backend_array(got), name
+            same = fn(sdf, _to_backend(backend, d))
+            assert float(as_numpy(got)) == pytest.approx(
+                float(as_numpy(same)), rel=1e-13, abs=0.0
+            ), name
+            assert float(as_numpy(got)) == pytest.approx(
+                float(fn(ref, d)), rel=floor, abs=0.0
+            ), name
+    # the backend kick step on the numpy DF's own pre-kick draws gives its kicked
+    # draws, the kicks themselves to their FD-vs-AD floor (measured 6e-5)
+    numpy.random.seed(5)
+    pre = _smooth._sample_aAt(ref, 300)
+    numpy.random.seed(5)
+    post = ref._sample_aAt(300)
+    got = sdf._apply_kicks_backend(*pre)
+    for g, p, q in zip(got, post, pre):
+        assert is_backend_array(g)
+        kick, kick_ref = numpy.asarray(as_numpy(g)) - q, p - q
+        if numpy.any(kick_ref != 0.0):
+            assert numpy.max(numpy.abs(kick - kick_ref)) < 3e-4 * numpy.max(
+                numpy.abs(kick_ref)
+            )
+        else:  # dt is not kicked
+            assert numpy.all(kick == 0.0)
+    # key=None: the sample is computed on the backend and handed back as numpy
+    for kw in (dict(), dict(xy=True), dict(returnaAdt=True)):
+        numpy.random.seed(6)
+        s = sdf.sample(20, **kw)
+        numpy.random.seed(6)
+        aAt = sdf._sample_aAt(20)
+        if kw.get("returnaAdt"):
+            want = aAt
+        else:
+            RvR = sdf._approxaAInv(*aAt[0], *aAt[1])
+            want = (RvR,)
+            if kw.get("xy"):
+                want = (RvR[0] * get_namespace(RvR).cos(RvR[5]),)
+                s = (s[0],)
+        s = s if isinstance(s, tuple) else (s,)
+        for a, b in zip(s, want):
+            assert type(a) is numpy.ndarray
+            numpy.testing.assert_array_equal(a, numpy.asarray(as_numpy(b)))

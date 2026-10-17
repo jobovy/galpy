@@ -1,5 +1,6 @@
 # The DF of a tidal stream
 import copy
+import math
 import multiprocessing
 import warnings
 
@@ -35,9 +36,11 @@ from ..backend import to_host
 from ..backend._namespaces import (
     inbackend_ode_method,
     namespace_from_arrays,
+    param_grad_array,
     requires_backend_grad,
     under_trace,
 )
+from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.linalg import cholesky_invert as _bk_cholesky_invert
 from ..backend.linalg import real_eig as _bk_real_eig
@@ -194,13 +197,38 @@ def _lb_track(slbd, svlbd, ref):
 
     Keyed on ``ref`` (the cartesian track this is derived from), NOT on the
     converted columns: under a FORCED backend the coords helpers return backend
-    arrays even for a numpy track, and a numpy-progenitor streamdf must keep a
-    numpy -- and hence still mutable -- LB track.
+    arrays even for a numpy track, and a numpy-built streamdf (re-run under a
+    forced backend) must keep a numpy -- and hence still mutable -- LB track.
     """
     cols = (slbd[:, 0], slbd[:, 1], slbd[:, 2], svlbd[:, 0], svlbd[:, 1], svlbd[:, 2])
     if not is_backend_array(ref):
         return numpy.stack([numpy.asarray(as_numpy(c)) for c in cols], axis=1)
     return get_namespace(ref).stack(cols, axis=1)
+
+
+def _argmin_index(d):
+    """``numpy.argmin(d)``; a backend ``d`` is reduced on its own namespace and
+    the (structural) index read off concretely."""
+    if not is_backend_array(d):
+        return numpy.argmin(d)
+    return int(get_namespace(d).argmin(d))
+
+
+def _ns_fabs(x):
+    """``numpy.fabs(x)``; on the resolved namespace under a forced backend."""
+    xp = get_namespace(x)
+    if xp is numpy:
+        return numpy.fabs(x)
+    return xp.abs(*coerce_coords(xp, x))
+
+
+def _host_knots(sdf):
+    """The concrete chunk-angle grid as numpy spline knots. A backend grid is the
+    uniform ``_span_grid(_deltaAngleTrack, n)``, so it is rebuilt from its scalar
+    extent (the same values) rather than transferred."""
+    if not is_backend_array(sdf._thetasTrack):
+        return sdf._thetasTrack
+    return _span_grid(sdf._deltaAngleTrack, sdf._thetasTrack.shape[0])
 
 
 def _sorted_eigvals(w):
@@ -357,7 +385,7 @@ class streamdf(df):
         - 2013-09-16 - Started - Bovy (IAS)
         - 2013-11-25 - Started over - Bovy (IAS)
 
-        - The stream track can be set up in a differentiable, jax/torch-native way by passing the progenitor phase-space coordinates as a jax or torch array: the action-angle Jacobian (``calcaAJac``) is then computed with exact automatic differentiation instead of finite differences, and the whole track is differentiable with respect to the potential and progenitor parameters. A plain-numpy progenitor keeps the historical (byte-identical) finite-difference setup.
+        - The stream track can be set up in a differentiable, jax/torch-native way by passing the progenitor phase-space coordinates as a jax or torch array: the action-angle Jacobian (``calcaAJac``) is then computed with exact automatic differentiation instead of finite differences, and the whole track is differentiable with respect to the potential and progenitor parameters. A plain-numpy progenitor keeps the historical (byte-identical) finite-difference setup, except under a forced backend (``galpy.backend.use(..., force=True)``), which builds the whole stream on that backend.
         """
         if custom_transform is not None:
             warnings.warn(
@@ -505,6 +533,8 @@ class streamdf(df):
             # DirectAdjoint aA, as for the track (a second derivative of the solve);
             # else forward mode (no reverse pass through the solve, ~3x faster)
             _xv = _progenitor_xv(self._progenitor)
+            # a forced backend runs the AD Jacobian on a numpy progenitor too
+            (_xv,) = coerce_coords(get_namespace(_xv), _xv)
             self._dOdJp = calcaAJac(
                 _xv,
                 (
@@ -518,37 +548,22 @@ class streamdf(df):
             )
         # shortest progenitor period (python float; None when traced): sets the
         # constant step count of the backend track's vmapped action-angle solves
+        _pxp = get_namespace(self._progenitor_Omega)
         self._progenitor_Tmin = (
             None
             if under_trace(self._progenitor_Omega)
             else 2.0
             * numpy.pi
-            / float(numpy.max(numpy.fabs(as_numpy(self._progenitor_Omega))))
+            / float(_pxp.max(_pxp.abs(*coerce_coords(_pxp, self._progenitor_Omega))))
         )
-        # get_namespace resolves the AMBIENT namespace, so under a forced backend
-        # it is the backend even for a numpy dO/dJ -- COERCE onto it rather than
-        # data-guarding back to numpy, so the forced suite exercises the backend
-        # (numpy is a strict coerce_coords pass-through -> byte-identical).
-        # RUN on the ambient namespace (a forced backend must exercise the backend
-        # leaves: cholesky/eigh/matmul), then hand the results back in the kind the
-        # caller gave us. Casting back is safe EXACTLY when the input was not a
-        # backend array: numpy carries no autodiff tape, so there is no gradient to
-        # lose. A backend IC (or a backend potential parameter) makes calcaAJac
-        # return a genuine backend dO/dJ, `_native` is True, and nothing is cast.
-        _native = is_backend_array(self._dOdJp)
+        # RUN on the resolved namespace (a forced backend coerces a numpy dO/dJ;
+        # numpy is a strict coerce_coords pass-through -> byte-identical)
         _ixp = get_namespace(self._dOdJp)
         (_dodj,) = coerce_coords(_ixp, self._dOdJp)
-        _inv = _ixp.linalg.inv(_dodj)
+        self._dOdJp = _dodj
+        self._dOdJpInv = _ixp.linalg.inv(_dodj)
         _eig = _real_eig(_dodj)
-        if _native:
-            self._dOdJp, self._dOdJpInv, self._dOdJpEig = _dodj, _inv, _eig
-        else:
-            self._dOdJpInv = numpy.asarray(as_numpy(_inv))
-            self._dOdJpEig = (
-                numpy.asarray(as_numpy(_eig[0])),
-                numpy.asarray(as_numpy(_eig[1])),
-            )
-
+        self._dOdJpEig = (_eig[0], _eig[1])
         return None
 
     def _offset_setup(self, sigangle, leading, deltaAngleTrack):
@@ -560,18 +575,16 @@ class streamdf(df):
         self._siglz = self._progenitor.rperi() * self._sigv
         self._sigjz = 2.0 * self._progenitor.zmax() / numpy.pi * self._sigv
         # Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
-        # Same contract as _progenitor_setup: RUN on the ambient namespace, then
-        # hand the derived moments back in the caller's kind. _native says whether
-        # dO/dJ arrived carrying a gradient; if it did not, casting back loses
-        # nothing and keeps the (27) numpy consumers of these moments working.
-        # A backend sigv/sigangle with a numpy dO/dJ carries a gradient too.
+        # RUN on the resolved namespace: backend data (dO/dJ, a backend sigv/
+        # sigangle) or a forced backend keeps the moments on the backend; plain
+        # numpy stays numpy (byte-identical).
         _lift = [a for a in (self._sigv, sigangle) if is_backend_array(a)]
-        _native = is_backend_array(self._dOdJp) or bool(_lift)
         _xp = get_namespace(self._dOdJp)
         if _xp is numpy and _lift:
             _xp = get_namespace(*_lift)
-        self._dOdJp, self._progenitor_Omega = coerce_coords(
-            _xp, self._dOdJp, self._progenitor_Omega
+        _native = _xp is not numpy
+        self._dOdJp, self._progenitor_Omega, self._progenitor_angle = coerce_coords(
+            _xp, self._dOdJp, self._progenitor_Omega, self._progenitor_angle
         )
 
         self._sigjmatrix = _xp.diag(
@@ -625,12 +638,7 @@ class streamdf(df):
             self._sigomatrix / self._sigomatrixNorm, 10.0**-15.0, logdet=True
         )
         self._sigomatrixinv /= self._sigomatrixNorm
-        # Hand the derived moments back in the caller's kind. Safe EXACTLY when
-        # dO/dJ was not a backend array: numpy carries no autodiff tape, so there
-        # is no gradient to lose, and the many numpy consumers of these moments
-        # (meanOmega, sigOmega, ptdAngle, streamgapdf's kick arrays, ...) keep
-        # working. A backend IC -- or a backend potential parameter -- makes
-        # calcaAJac return a genuine backend dO/dJ, and then nothing is cast.
+        # numpy: the stored types the numpy consumers have always seen
         if not _native:
             for _nm in (
                 "_dOdJp",
@@ -645,9 +653,7 @@ class streamdf(df):
                 "_sigomatrixNorm",
                 "_sigomatrixinv",
                 "_sigomatrixLogdet",
-                # the acfs are backend under a forced context even for a numpy
-                # progenitor; cast them HERE, after _offset_setup's backend math
-                # has used them, or the object is left MIXED
+                # backend acfs (a backend potential parameter) with a numpy dO/dJ
                 "_progenitor_Omega",
                 "_progenitor_angle",
             ):
@@ -829,8 +835,15 @@ class streamdf(df):
 
         """
         if isotropic:
-            sortedEig = sorted(numpy.fabs(self._dOdJpEig[0]))
+            if is_backend_array(self._dOdJpEig[0]):
+                _fxp = get_namespace(self._dOdJpEig[0])
+                sortedEig = _fxp.sort(_fxp.abs(self._dOdJpEig[0]))
+            else:
+                sortedEig = sorted(numpy.fabs(self._dOdJpEig[0]))
             return sortedEig[2] / sortedEig[1]
+        elif is_backend_array(self._sortedSigOEig):
+            _fxp = get_namespace(self._sortedSigOEig)
+            return _fxp.sqrt(self._sortedSigOEig[2]) / _fxp.sqrt(self._sortedSigOEig[1])
         else:
             return (
                 numpy.sqrt(self._sortedSigOEig)[2] / numpy.sqrt(self._sortedSigOEig)[1]
@@ -1508,7 +1521,7 @@ class streamdf(df):
                 "no concrete value here). Pass nTrackIterations=... explicitly "
                 "when constructing a streamdf inside jax.grad/jit."
             )
-        _mis = numpy.fabs(float(as_numpy(_mis_val)))
+        _mis = numpy.fabs(float(_mis_val))
         if _mis < 1.0 / 180.0 * numpy.pi:
             self.nTrackIterations = 0
         elif _mis >= 1.0 / 180.0 * numpy.pi and _mis < 3.0 / 180.0 * numpy.pi:
@@ -1522,7 +1535,10 @@ class streamdf(df):
         # Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         if nTrackChunks is None:
             # default is floor(self._deltaAngleTrack/0.15)+1
-            self._nTrackChunks = int(numpy.floor(self._deltaAngleTrack / 0.15)) + 1
+            # a structural integer: read off concretely (backend under forcing)
+            self._nTrackChunks = (
+                int(math.floor(float(self._deltaAngleTrack) / 0.15)) + 1
+            )
             self._nTrackChunks = self._nTrackChunks if self._nTrackChunks >= 4 else 4
         else:
             self._nTrackChunks = nTrackChunks
@@ -1538,11 +1554,9 @@ class streamdf(df):
             return self._determine_stream_track_TM()
         # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
         # numpy body below stays byte-identical (dispatched away).
-        # _ic_backend is the PRECONDITION, not just a trigger: the backend track
-        # dereferences it. A numpy progenitor under a forced backend has backend
-        # acfs (so _progenitor_angle is a backend array) but no _ic_backend.
-        # A differentiated sigv/sigangle (numpy progenitor) leaves the offset
-        # moments on the backend: the track must carry their gradient too.
+        # a backend progenitor (_ic_backend), or backend offset moments -- a
+        # forced backend, or a differentiated sigv/sigangle -- with a numpy one
+        # (whose IC the backend track coerces)
         if getattr(
             self._progenitor, "_ic_backend", None
         ) is not None or is_backend_array(self._dsigomeanProgDirection):
@@ -1759,22 +1773,35 @@ class streamdf(df):
         _dt_neg = bool(dt < 0.0) if not under_trace(dt) else False
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         baseaA = self._aA
-        if xv0_prog is None:  # numpy progenitor, differentiated moments
+        _moms = (
+            self._dsigomeanProgDirection,
+            self._meandO,
+            self._deltaAngleTrack,
+            self._progenitor_Omega_along_dOmega,
+        )
+        _dmoms = under_trace(*_moms) or requires_backend_grad(*_moms)
+        if xv0_prog is None:  # numpy progenitor: forced backend / backend moments
             (xv0_prog,) = coerce_coords(
                 get_namespace(self._dsigomeanProgDirection),
                 numpy.asarray(self._progenitor.vxvv[0], dtype=float),
             )
-            # the track's AA Jacobians are differentiated (a 2nd derivative of
-            # the orbit solves), which the first-order C-STM cannot supply
-            if str(getattr(baseaA, "_integrate_method", "diffrax")).lower() not in (
-                "diffrax",
-                "torchdiffeq",
-                "torchode",
-            ):
+            # differentiated moments: the track's AA Jacobians are differentiated
+            # (a 2nd derivative of the orbit solves), which the C-STM cannot supply
+            if _dmoms and str(
+                getattr(baseaA, "_integrate_method", "diffrax")
+            ).lower() not in ("diffrax", "torchdiffeq", "torchode"):
                 baseaA = copy.copy(baseaA)
                 baseaA._integrate_method = inbackend_ode_method(get_namespace(xv0_prog))
         xp = get_namespace(xv0_prog)
-        method = inbackend_ode_method(xp)
+        # nothing differentiated: the auxiliary orbit takes the C integrator (the
+        # in-backend solve only matters for a gradient)
+        _diff = (
+            _dmoms
+            or under_trace(xv0_prog)
+            or requires_backend_grad(xv0_prog)
+            or param_grad_array(self._pot) is not None
+        )
+        method = inbackend_ode_method(xp) if _diff else "dop853_c"
         # every action-angle evaluation below uses shared constant steps (jax), so
         # the vmapped chunk loop differentiates exactly (see _vmap_track_chunks)
         Tmin = getattr(self, "_progenitor_Tmin", None)
@@ -2263,7 +2290,7 @@ class streamdf(df):
         thetas_np = (
             thetas
             if under_trace(thetas) or requires_backend_grad(thetas)
-            else as_numpy(thetas)
+            else _host_knots(self)
         )
         interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
         nInterp = len(interpThetas_np)
@@ -2559,7 +2586,7 @@ class streamdf(df):
             self._thetasTrack
             if under_trace(self._thetasTrack)
             or requires_backend_grad(self._thetasTrack)
-            else as_numpy(self._thetasTrack)
+            else _host_knots(self)
         )
         phi = ObsTrack[:, 5]
         TrackX = ObsTrack[:, 0] * xp.cos(phi)
@@ -2674,6 +2701,14 @@ class streamdf(df):
         concat = getattr(xp, "concat", None) or xp.concatenate
         self._interpolatedObsTrackAA = concat([Omega_block, angle_block], axis=1)
         return None
+
+    def _track_coerce(self, x):
+        """Lift a query onto the track's namespace: a backend track's splines
+        evaluate a numpy query through numpy (dropping namespace and gradient)."""
+        trk = self._ObsTrack
+        if not is_backend_array(trk) or is_backend_array(x):
+            return x
+        return as_backend_constant(namespace_from_arrays((trk,)), x, trk)
 
     def calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):
         """
@@ -2876,7 +2911,7 @@ class streamdf(df):
                     + present[4] * (vY - self._ObsTrackXY[:, 4]) ** 2.0
                     + present[5] * (vZ - self._ObsTrackXY[:, 5]) ** 2.0
                 )
-        return numpy.argmin(to_host(dist2))
+        return _argmin_index(dist2)
 
     def _find_closest_trackpointLB(
         self, l, b, D, vlos, pmll, pmbb, interp=True, usev=False
@@ -2924,23 +2959,27 @@ class streamdf(df):
             nTrackPoints = len(self._interpolatedThetasTrack)
         else:
             nTrackPoints = len(self._thetasTrack)
+
+        def _fill(v):  # a missing coordinate's track column, on the track's namespace
+            return self._track_coerce(v(nTrackPoints))
+
         if l is None:
             l = 0.0
-            trackL = numpy.zeros(nTrackPoints)
+            trackL = _fill(numpy.zeros)
         elif interp:
             trackL = self._interpolatedObsTrackLB[:, 0]
         else:
             trackL = self._ObsTrackLB[:, 0]
         if b is None:
             b = 0.0
-            trackB = numpy.zeros(nTrackPoints)
+            trackB = _fill(numpy.zeros)
         elif interp:
             trackB = self._interpolatedObsTrackLB[:, 1]
         else:
             trackB = self._ObsTrackLB[:, 1]
         if D is None:
             D = 1.0
-            trackD = numpy.ones(nTrackPoints)
+            trackD = _fill(numpy.ones)
         elif interp:
             trackD = self._interpolatedObsTrackLB[:, 2]
         else:
@@ -2948,21 +2987,21 @@ class streamdf(df):
         if usev:
             if vlos is None:
                 vlos = 0.0
-                trackVlos = numpy.zeros(nTrackPoints)
+                trackVlos = _fill(numpy.zeros)
             elif interp:
                 trackVlos = self._interpolatedObsTrackLB[:, 3]
             else:
                 trackVlos = self._ObsTrackLB[:, 3]
             if pmll is None:
                 pmll = 0.0
-                trackPmll = numpy.zeros(nTrackPoints)
+                trackPmll = _fill(numpy.zeros)
             elif interp:
                 trackPmll = self._interpolatedObsTrackLB[:, 4]
             else:
                 trackPmll = self._ObsTrackLB[:, 4]
             if pmbb is None:
                 pmbb = 0.0
-                trackPmbb = numpy.zeros(nTrackPoints)
+                trackPmbb = _fill(numpy.zeros)
             elif interp:
                 trackPmbb = self._interpolatedObsTrackLB[:, 5]
             else:
@@ -2995,7 +3034,7 @@ class streamdf(df):
                 + (vxvyvz[1] - trackvxvyvz[:, 1]) ** 2.0
                 + (vxvyvz[2] - trackvxvyvz[:, 2]) ** 2.0
             )
-        return numpy.argmin(to_host(dist2))
+        return _argmin_index(dist2)
 
     def _find_closest_trackpointaA(self, Or, Op, Oz, ar, ap, az, interp=True):
         """
@@ -3088,11 +3127,15 @@ class streamdf(df):
         # write is not jit/grad-safe); the Gaussian value depends on Opar smoothly so
         # d/d(Opar) flows, while the ts=apar/Opar cut only feeds the (non-differentiated)
         # where-condition. numpy stays byte-identical.
-        if is_backend_array(Opar) or is_backend_array(apar):
-            xp = get_namespace(Opar, apar)
+        # (a backend-built stream's moments route here too)
+        if (
+            is_backend_array(Opar)
+            or is_backend_array(apar)
+            or is_backend_array(self._meandO)
+        ):
+            xp, Opar, apar = _ns_coerce(Opar, apar, self._meandO)[:3]
             meandO = as_backend_constant(xp, self._meandO, Opar)
             sig = as_backend_constant(xp, self._sortedSigOEig[2], Opar)
-            Opar = xp.asarray(Opar)
             ts = apar / Opar
             dens = xp.exp(-0.5 * (Opar - meandO) ** 2.0 / sig) / xp.sqrt(sig)
             return xp.where((ts < tdisrupt) & (ts >= 0.0), dens, xp.zeros_like(dens))
@@ -3138,18 +3181,20 @@ class streamdf(df):
             # Need to compute the Jacobian for this coordinate value
             ddangle = dangle + 10.0**-7.0
             ddangle -= dangle
+            # the track splines take a query on the track's own namespace
+            _q = self._track_coerce
             if coord.lower() == "phi":
                 phi_h = coords.rect_to_cyl(
-                    self._interpTrackX(dangle + ddangle),
-                    self._interpTrackY(dangle + ddangle),
-                    self._interpTrackZ(dangle + ddangle),
+                    self._interpTrackX(_q(dangle + ddangle)),
+                    self._interpTrackY(_q(dangle + ddangle)),
+                    self._interpTrackZ(_q(dangle + ddangle)),
                 )
                 phi = coords.rect_to_cyl(
-                    self._interpTrackX(dangle),
-                    self._interpTrackY(dangle),
-                    self._interpTrackZ(dangle),
+                    self._interpTrackX(_q(dangle)),
+                    self._interpTrackY(_q(dangle)),
+                    self._interpTrackZ(_q(dangle)),
                 )
-                jac = numpy.fabs(to_host(phi_h[1] - phi[1])) / ddangle
+                jac = _ns_fabs(phi_h[1] - phi[1]) / ddangle
             elif (
                 coord.lower() == "ll"
                 or coord.lower() == "ra"
@@ -3157,30 +3202,28 @@ class streamdf(df):
                 or coord.lower() == "customra"  # back-compat alias for phi1
             ):
                 XYZ_h = coords.galcenrect_to_XYZ(
-                    self._interpTrackX(dangle + ddangle) * self._ro,
-                    self._interpTrackY(dangle + ddangle) * self._ro,
-                    self._interpTrackZ(dangle + ddangle) * self._ro,
+                    self._interpTrackX(_q(dangle + ddangle)) * self._ro,
+                    self._interpTrackY(_q(dangle + ddangle)) * self._ro,
+                    self._interpTrackZ(_q(dangle + ddangle)) * self._ro,
                     Xsun=self._R0,
                     Zsun=self._Zsun,
                 )
-                lbd_h = to_host(
-                    coords.XYZ_to_lbd(XYZ_h[0], XYZ_h[1], XYZ_h[2], degree=True)
-                )
+                lbd_h = coords.XYZ_to_lbd(XYZ_h[0], XYZ_h[1], XYZ_h[2], degree=True)
                 XYZ = coords.galcenrect_to_XYZ(
-                    self._interpTrackX(dangle) * self._ro,
-                    self._interpTrackY(dangle) * self._ro,
-                    self._interpTrackZ(dangle) * self._ro,
+                    self._interpTrackX(_q(dangle)) * self._ro,
+                    self._interpTrackY(_q(dangle)) * self._ro,
+                    self._interpTrackZ(_q(dangle)) * self._ro,
                     Xsun=self._R0,
                     Zsun=self._Zsun,
                 )
-                lbd = to_host(coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True))
+                lbd = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
                 if coord.lower() == "ll":
-                    jac = numpy.fabs(lbd_h[0] - lbd[0]) / ddangle
+                    jac = _ns_fabs(lbd_h[0] - lbd[0]) / ddangle
                 else:
                     radec_h = coords.lb_to_radec(lbd_h[0], lbd_h[1], degree=True)
                     radec = coords.lb_to_radec(lbd[0], lbd[1], degree=True)
                     if coord.lower() == "ra":
-                        jac = numpy.fabs(radec_h[0] - radec[0]) / ddangle
+                        jac = _ns_fabs(radec_h[0] - radec[0]) / ddangle
                     else:  # phi1 (or customra back-compat alias)
                         xieta_h = coords.radec_to_custom(
                             radec_h[0],
@@ -3194,7 +3237,7 @@ class streamdf(df):
                             T=self._custom_sky_transform,
                             degree=True,
                         )
-                        jac = numpy.fabs(xieta_h[0] - xieta[0]) / ddangle
+                        jac = _ns_fabs(xieta_h[0] - xieta[0]) / ddangle
             else:
                 raise ValueError(
                     "Coordinate input %s not supported by density_par" % coord
@@ -3459,8 +3502,9 @@ class streamdf(df):
 
         """
         dOmin = dangle / self._tdisrupt
-        if is_backend_array(dangle):
-            xp = get_namespace(dangle)
+        # a backend dangle or a backend-built stream's moments
+        if is_backend_array(dangle) or is_backend_array(self._meandO):
+            xp, dangle, dOmin = _ns_coerce(dangle, dOmin, self._meandO)[:3]
             meandO = as_backend_constant(xp, self._meandO, dangle)
             sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
             sO1D2 = (
@@ -3576,8 +3620,9 @@ class streamdf(df):
         # backend (jax/torch) dangle -> in-backend GL quad (the numpy branch's
         # scipy adaptive quad is kept byte-identical). The denom==0 progenitor /
         # far-field control flow becomes xp.where; num/denom is dead-branch guarded.
-        if is_backend_array(dangle):
-            xp = get_namespace(dangle)
+        # (a backend-built stream's moments route here too)
+        if is_backend_array(dangle) or is_backend_array(self._meandO):
+            xp, dangle = _ns_coerce(dangle, self._meandO)[:2]
             meandO = as_backend_constant(xp, self._meandO, dangle)
             sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
             tdis = as_backend_constant(xp, self._tdisrupt, dangle)
@@ -3637,8 +3682,8 @@ class streamdf(df):
         # backend (jax/torch) dangle -> in-backend GL quad; numpy keeps scipy's
         # adaptive quad byte-identical. sqrt(var) is dead-branch guarded so a
         # round-off-negative var or denom==0 does not NaN-poison AD.
-        if is_backend_array(dangle):
-            xp = get_namespace(dangle)
+        if is_backend_array(dangle) or is_backend_array(self._meandO):
+            xp, dangle = _ns_coerce(dangle, self._meandO)[:2]
             meandO = as_backend_constant(xp, self._meandO, dangle)
             sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
             tdis = as_backend_constant(xp, self._tdisrupt, dangle)
@@ -3703,9 +3748,12 @@ class streamdf(df):
         # backend (jax/torch): one batched inner GL quad over t in [0, tdisrupt]
         # for every angleperp at once (angleperp on a leading axis, the t nodes on
         # the trailing one), replacing the numpy per-angleperp scipy-quad loop.
-        if is_backend_array(angleperp) or is_backend_array(dangle):
-            xp = get_namespace(angleperp, dangle)
-            ap = xp.asarray(angleperp)
+        if (
+            is_backend_array(angleperp)
+            or is_backend_array(dangle)
+            or is_backend_array(self._meandO)
+        ):
+            xp, ap, dangle = _ns_coerce(angleperp, dangle, self._meandO)[:3]
             tdis = as_backend_constant(xp, self._tdisrupt, ap)
             out = _backend_fixed_quad(
                 xp,
@@ -4981,7 +5029,11 @@ class streamdf(df):
         """
         # First sample frequencies
         Om, angle, dt = self._sample_aAt(n, key=key)
+        # key=None draws from the global numpy.random: the sample comes back as
+        # numpy (computed on the stream's own namespace)
+        _out = as_numpy if key is None else (lambda v: v)
         if returnaAdt:
+            Om, angle, dt = _out(Om), _out(angle), _out(dt)
             if _APY_UNITS and self._voSet and self._roSet:
                 Om = units.Quantity(
                     Om * conversion.freq_in_Gyr(self._vo, self._ro), unit=1 / units.Gyr
@@ -5003,6 +5055,9 @@ class streamdf(df):
             angle[2, :],
             interp=interp,
         )
+        dt = _out(dt)
+        if not xy and not lb:
+            RvR = _out(RvR)
         if returndt and not xy and not lb:
             if _APY_UNITS and self._voSet and self._roSet:
                 return (
@@ -5028,20 +5083,15 @@ class streamdf(df):
                     units.Quantity(RvR[5], unit=units.rad),
                 )
             return RvR
+        # the conversions run on the resolved namespace (forced: backend)
+        xp = get_namespace(RvR)
+        (RvR,) = coerce_coords(xp, RvR)
         if xy:
-            sX = RvR[0] * numpy.cos(RvR[5])
-            sY = RvR[0] * numpy.sin(RvR[5])
+            sX = RvR[0] * xp.cos(RvR[5])
+            sY = RvR[0] * xp.sin(RvR[5])
             sZ = RvR[3]
-            svX, svY, svZ = to_host(
-                coords.cyl_to_rect_vec(RvR[1], RvR[2], RvR[4], RvR[5])
-            )
-            out = numpy.empty((6, n))
-            out[0] = sX
-            out[1] = sY
-            out[2] = sZ
-            out[3] = svX
-            out[4] = svY
-            out[5] = svZ
+            svX, svY, svZ = coords.cyl_to_rect_vec(RvR[1], RvR[2], RvR[4], RvR[5])
+            out = _out(xp.stack([sX, sY, sZ, svX, svY, svZ]))
             if returndt:
                 if _APY_UNITS and self._voSet and self._roSet:
                     return (
@@ -5096,14 +5146,18 @@ class streamdf(df):
                 slbd[:, 2],
                 degree=True,
             )
-            slbd, svlbd = to_host((slbd, svlbd))  # into the numpy sample table
-            out = numpy.empty((6, n))
-            out[0] = slbd[:, 0]
-            out[1] = slbd[:, 1]
-            out[2] = slbd[:, 2]
-            out[3] = svlbd[:, 0]
-            out[4] = svlbd[:, 1]
-            out[5] = svlbd[:, 2]
+            out = _out(
+                xp.stack(
+                    [
+                        slbd[:, 0],
+                        slbd[:, 1],
+                        slbd[:, 2],
+                        svlbd[:, 0],
+                        svlbd[:, 1],
+                        svlbd[:, 2],
+                    ]
+                )
+            )
             if returndt:
                 if _APY_UNITS and self._voSet and self._roSet:
                     return (
@@ -5192,20 +5246,32 @@ class streamdf(df):
         # da (normal), dt (uniform). numpy key None -> (None,)*5 (global draws).
         k_dO1, k_dO2, k_dO3, k_da, k_dt = grandom.split(key, 5)
         u1 = grandom.uniform(k_dO1, (n,))
-        # dispatch the namespace on the key, NOT get_namespace(u1): key=None stays
-        # numpy even under a forced-backend context (so the numpy _approxaAInv
-        # downstream is fed numpy), a backend key follows its own draws.
+        # dispatch the namespace on the key, NOT get_namespace(u1): key=None
+        # follows the stream (numpy draws lifted onto a backend-built stream; a
+        # numpy stream stays numpy under a forced backend), a backend key its own
+        # draws.
         xp = numpy if key is None else get_namespace(u1)
+        if key is None and is_backend_array(self._meandO):
+            xp = get_namespace(self._meandO)
+            u1 = as_backend_constant(xp, u1, self._meandO)
+
+        def _lift(v):  # a global numpy draw onto xp
+            return (
+                v
+                if xp is numpy or is_backend_array(v)
+                else as_backend_constant(xp, v, u1)
+            )
+
         mO = as_backend_constant(xp, self._meandO, u1)
         sig2 = as_backend_constant(xp, self._sortedSigOEig[2], u1)
         # Sample frequency along the largest eigenvalue via linear inverse-CDF
         # (monotone-robust, no cubic overshoot; matches sphericaldf #1181).
         og, cg = self._dOmega_inverse_cdf_grid(xp, mO, sig2, u1)
         dO1s = linear_inverse_cdf_sample(xp, og, cg, u1) * self._sigMeanSign
-        dO2s = grandom.normal(k_dO2, (n,)) * xp.sqrt(
+        dO2s = _lift(grandom.normal(k_dO2, (n,))) * xp.sqrt(
             as_backend_constant(xp, self._sortedSigOEig[1], u1)
         )
-        dO3s = grandom.normal(k_dO3, (n,)) * xp.sqrt(
+        dO3s = _lift(grandom.normal(k_dO3, (n,))) * xp.sqrt(
             as_backend_constant(xp, self._sortedSigOEig[0], u1)
         )
         # Rotate into dOs in R,phi,z coordinates (stack matches vstack layout)
@@ -5217,9 +5283,11 @@ class streamdf(df):
         progOmega = as_backend_constant(xp, self._progenitor_Omega, u1)
         Om = dO + progOmega[:, None]
         # Also generate angles
-        da = grandom.normal(k_da, (3, n)) * as_backend_constant(xp, self._sigangle, u1)
+        da = _lift(grandom.normal(k_da, (3, n))) * as_backend_constant(
+            xp, self._sigangle, u1
+        )
         # And a random time
-        dt = self.sample_t(n, key=k_dt)
+        dt = _lift(self.sample_t(n, key=k_dt))
         # Integrate the orbits relative to the progenitor
         da = da + dO * dt[None, :]
         progAngle = as_backend_constant(xp, self._progenitor_angle, u1)
@@ -5368,11 +5436,17 @@ def _determine_stream_track_single(
     meanOmega,
     thetasTrack,
 ):
-    # Backend (jax/torch) orbit -> pure, differentiable, vmap-ready path; numpy below is byte-identical.
-    if is_backend_array(progenitorTrack(trackt).vxvv[0]):
+    # Backend (jax/torch) orbit or a backend stream (forced) -> pure, differentiable,
+    # vmap-ready path; numpy below is byte-identical.
+    _xv = progenitorTrack(trackt).vxvv[0]
+    if is_backend_array(_xv) or is_backend_array(dsigomeanProgDirection):
+        (_xv,) = coerce_coords(
+            get_namespace(_xv if is_backend_array(_xv) else dsigomeanProgDirection),
+            _xv,
+        )
         return _determine_stream_track_single_backend(
             aA,
-            progenitorTrack(trackt).vxvv[0],
+            _xv,
             progenitor_angle,
             sigMeanSign,
             dsigomeanProgDirection,
@@ -5791,6 +5865,12 @@ def calcaAJac(
     # and take the finite-difference path -- which is exactly what happened
     # before, rather than raising at the user.
     _is_backend = is_backend_array(xv) or is_backend_array(xv[0])
+    if not (_is_backend or lb or coordFunc is not None):
+        # a forced backend takes the AD Jacobian for numpy/Python input too
+        _fxp = get_namespace(numpy.asarray(xv, dtype=float))
+        if _fxp is not numpy:
+            (xv,) = coerce_coords(_fxp, numpy.asarray(xv, dtype=float))
+            _is_backend = True
     if _is_backend and (lb or coordFunc is not None):
         # numpy.array (not as_numpy alone): jax's cast is read-only and the
         # finite-difference path below writes into xv in place.
@@ -5913,8 +5993,21 @@ def _calcaAJac_backend(
         acfs = aA.actionsFreqsAngles(v[0], v[1], v[2], v[3], v[4], v[5])
         return xp.stack([xp.reshape(o, ()) for o in acfs])
 
-    # 9x6, exact AD Jacobian; forward mode where the solves support it
-    A = jacobian(_map, xv, xp=xp, forward=_aA_supports_jacfwd(aA))
+    _diff = (
+        under_trace(xv) or requires_backend_grad(xv) or param_grad_array(aA) is not None
+    )
+    if not _diff and not _aA_differentiable(aA):
+        # a python orbit integrator cannot be differentiated: the numpy FD on xp
+        A = _fd_jacobian(_map, xv, xp)
+    elif not _diff and name_of_namespace(xp) == "torch":
+        # nothing upstream is differentiated: keep no graph (torch would hand back
+        # a grad-requiring Jacobian holding every orbit's double backward)
+        import torch
+
+        with torch.no_grad():
+            A = jacobian(_map, xv, xp=xp)
+    else:  # 9x6, exact AD Jacobian; forward mode where the solves support it
+        A = jacobian(_map, xv, xp=xp, forward=_aA_supports_jacfwd(aA))
     if actionsFreqsAngles:
         return A
     # 6x6: (freqs|actions) rows over angle rows, mirroring the numpy construction.
@@ -5924,6 +6017,31 @@ def _calcaAJac_backend(
         jac2 = xp.concat([A[3:6], A[6:9]], axis=0)  # freqs over angles
         jac = (jac2 @ xp.linalg.inv(jac))[0:3, 0:3]
     return jac
+
+
+def _aA_differentiable(aA):
+    """False for an aA whose orbit solves use a python (numpy) integrator."""
+    m = getattr(aA, "_integrate_method", None)
+    return m is None or str(m).lower() in _C_DXDV_METHODS + (
+        "diffrax",
+        "torchdiffeq",
+        "torchode",
+    )
+
+
+def _fd_jacobian(f, xv, xp):
+    """calcaAJac's forward difference (dxv=1e-8, angles wrapped) on ``xp``."""
+    h = (xv + 1e-8) - xv  # representable steps
+    eye = as_backend_constant(xp, numpy.eye(6), xv)
+    f0 = f(xv)
+    cols = []
+    for ii in range(6):
+        d = f(xv + h * eye[ii]) - f0
+        d = xp.concat(
+            [d[:6], xp.remainder(d[6:] + numpy.pi, 2.0 * numpy.pi) - numpy.pi]
+        )
+        cols.append(d / h[ii])
+    return xp.stack(cols, axis=1)
 
 
 def lbCoordFunc(xv, vo, ro, R0, Zsun, vsun):
