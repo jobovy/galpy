@@ -614,6 +614,7 @@ class diskdf(df):
             return as_numpy(bound(R, **kwargs))
 
     @physical_conversion("surfacedensitydistance", pop=True)
+    @backend_input("d", "l")
     def targetSurfacemassLOS(self, d, l, log=False, deg=True):
         """
         Evaluate the target surface mass along the line of sight given Galactic longitude and distance.
@@ -648,11 +649,14 @@ class diskdf(df):
         d = conversion.parse_length(d, ro=self._ro)
         R, phi = _dlToRphi(d, lrad)
         if log:
-            return self._ssp("surfacemass", R, log=log) + numpylog(d)
+            return self._ssp("surfacemass", R, log=log) + (
+                get_namespace(d).log(d) if is_backend_array(d) else numpylog(d)
+            )
         else:
             return self._ssp("surfacemass", R, log=log) * d
 
     @physical_conversion("surfacedensitydistance", pop=True)
+    @backend_input("d", "l")
     def surfacemassLOS(
         self, d, l, deg=True, target=True, romberg=False, nsigma=None, relative=None
     ):
@@ -3662,6 +3666,16 @@ def _kappa(R, beta):
 
 def _dlToRphi(d, l):
     """Convert d and l to R and phi, l is in radians"""
+    if is_backend_array(d) or is_backend_array(l):
+        xp = prefer_backend_namespace(d, l)
+        d, l = coerce_coords(xp, d, l, device=device_of(d, l))
+        R2 = 1.0 + d**2.0 - 2.0 * d * xp.cos(l)
+        at0 = R2 == 0.0  # numpy's nudge; a guarded sqrt keeps d/dd finite there
+        R = xp.where(at0, 0.0001, xp.sqrt(xp.where(at0, 1.0, R2)))
+        d = xp.where(at0, d + 0.0001, d)
+        theta = xp.arcsin(d / R * xp.sin(l))
+        far = (1.0 / xp.cos(l) < d) & (xp.cos(l) > 0.0)
+        return (R, xp.where(far, numpy.pi - theta, theta))
     R = numpy.sqrt(1.0 + d**2.0 - 2.0 * d * numpy.cos(l))
     if R == 0.0:
         R += 0.0001
