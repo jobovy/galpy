@@ -327,25 +327,15 @@ def _refuse_numpy_integrator_on_cuda(method):
 
 
 def _vectorized_backend_root(orb, pot, x):
-    """rguiding/rE/LcE's backend route, as ``(xp, x on xp)``, else None: a backend
-    ``x`` that is differentiated, of a backend orbit or potential, or of many
-    points (one vectorized root), or a numpy ``x`` in a backend potential. A
-    single point of a numpy orbit under a forced backend stays on the host: its
-    root is a constant, and an eager backend root costs ~1000 numpy ones."""
-    pp = param_grad_array(pot, any_backend=True)
-    if not is_backend_array(x):
-        if pp is None:
-            return None
-        return namespace_from_arrays((pp,)), like(pp, numpy.atleast_1d(x))
-    if (
-        under_trace(x)
-        or requires_backend_grad(x)
-        or getattr(orb, "_ic_backend", None) is not None
-        or pp is not None
-        or numpy.prod(tuple(x.shape)) > 1
-    ):
+    """rguiding/rE/LcE's backend route, as ``(xp, x on xp)``, else None: one
+    vectorized root for a backend ``x`` (a forced backend's included), or for a
+    numpy ``x`` in a backend potential (``x`` lifted onto its backend)."""
+    if is_backend_array(x):
         return namespace_from_arrays((x,)), x
-    return None
+    pp = param_grad_array(pot, any_backend=True)
+    if pp is None:
+        return None
+    return namespace_from_arrays((pp,)), like(pp, numpy.atleast_1d(x))
 
 
 def _resolve_accessor_namespace(thiso):
@@ -2038,6 +2028,7 @@ class Orbit:
         # in-backend ODE solver (still differentiable). numpy/list ICs have
         # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
         ic_backend = getattr(self, "_ic_backend", None)
+        _plain_c = False  # a C-STM-eligible concrete IC: the plain C path below
         if ic_backend is not None:
             from ..backend._reference.inbackend_stm import (
                 _C_RK_METHODS,
@@ -2055,15 +2046,17 @@ class Orbit:
                     "or method='diffrax' (jax) / 'torchdiffeq' (torch)"
                 )
 
-            # Runge-Kutta dxdv methods auto-route for ANY backend IC. Symplectic
-            # dxdv methods (incl. galpy's DEFAULT symplec4_c) route ONLY for a
-            # grad-tracking IC: a CONCRETE backend IC has real values in self.vxvv
-            # and keeps the numpy/C path below, so a forced-backend internal
-            # default-method integration is never silently rerouted to the C-STM
-            # (bit #1094). A grad-tracking IC has no concrete values to integrate on
-            # numpy, so it needs the differentiable C-STM -- which supports the
-            # symplectic dxdv integrators via the per-column drift/kick tangent maps
-            # (the alternative for these was to raise below).
+            # Runge-Kutta dxdv methods auto-route for ANY backend IC; a CONCRETE one
+            # that the C-STM would take integrates with the plain C integrator
+            # below instead (nothing can differentiate it, so its STM would go
+            # unused). Symplectic dxdv methods (incl. galpy's DEFAULT symplec4_c)
+            # route ONLY for a grad-tracking IC: a CONCRETE backend IC has real
+            # values in self.vxvv and keeps the numpy/C path below, so a
+            # forced-backend internal default-method integration is never silently
+            # rerouted to the C-STM (bit #1094). A grad-tracking IC has no concrete
+            # values to integrate on numpy, so it needs the differentiable C-STM --
+            # which supports the symplectic dxdv integrators via the per-column
+            # drift/kick tangent maps (the alternative for these was to raise below).
             _ml = method.lower()
             _concrete = getattr(self, "_ic_backend_concrete", True)
             # A differentiated parameter or t routes every dxdv method: the numpy/C
@@ -2097,21 +2090,25 @@ class Orbit:
                         else False
                     )
                 ):
-                    return self._integrate_backend_continued(
-                        lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
-                        t,
-                        _potl,
-                    )
+                    if _concrete:
+                        _plain_c = True
+                    else:
+                        return self._integrate_backend_continued(
+                            lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
+                            t,
+                            _potl,
+                        )
                 # Pass the deprecation-checked/composed potential (_potl), matching
                 # the C-STM and numpy paths, so a legacy list reaches the in-backend
                 # integrator as a composite rather than a raw list.
-                return self._integrate_backend_continued(
-                    lambda: self._integrate_inbackend(
-                        t, _potl, _inbk, rtol, atol, inbackend_kwargs
-                    ),
-                    t,
-                    _potl,
-                )
+                if not _plain_c:
+                    return self._integrate_backend_continued(
+                        lambda: self._integrate_inbackend(
+                            t, _potl, _inbk, rtol, atol, inbackend_kwargs
+                        ),
+                        t,
+                        _potl,
+                    )
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
         ):
@@ -2126,7 +2123,7 @@ class Orbit:
                 "differentiable integrator; use method='diffrax' (jax) or "
                 f"method='torchdiffeq' (torch), not method='{method}'"
             )
-        if ic_backend is not None:
+        if ic_backend is not None and not _plain_c:
             # Reaching here means every differentiable route above declined this
             # method (in-backend solver, C-STM), so the trajectory is COMPUTED in
             # numpy/C. It is handed back on the IC's backend (the exit cast at the
@@ -2664,8 +2661,9 @@ class Orbit:
         a jax.custom_vjp / torch.autograd.Function (galpy.backend._jax|_torch.
         orbit_stm): it returns the trajectory plus the STM M(t)=dx(t)/dx(0), and
         the IC gradient is M(t)^T applied to the output cotangent (no backward C
-        call). Routed here from integrate() for a 6D orbit built from a jax/torch
-        IC with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
+        call). Routed here from integrate() for a 6D orbit built from a traced or
+        grad-tracking jax/torch IC (a concrete one takes the plain C integrator)
+        with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
         potential has the full C 3D Hessian. The trajectory is stored as a backend
         array in self.orbit, so getOrbit()/the accessors are backend arrays
         differentiable w.r.t. the initial conditions (gradients w.r.t. potential

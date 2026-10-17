@@ -271,12 +271,12 @@ def test_E_fallback_scalar_only_linear(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_root_route_single_point_stays_on_host(backend):
-    # rguiding/rE/LcE's route: one concrete point of a numpy orbit in a numpy
-    # potential keeps the host root; many points take one backend root
-    from galpy.orbit.Orbits import _vectorized_backend_root
-
+@pytest.mark.parametrize("fn", ["rguiding", "rE", "LcE"])
+def test_root_characteristic_forced_single_point_on_backend(backend, fn):
+    # one point of a numpy orbit under a forced backend: the backend root too
     o = Orbit(_IC[0])
-    assert _vectorized_backend_root(o, MWPotential2014, _arr(backend, [1.1])) is None
-    xp, x = _vectorized_backend_root(o, MWPotential2014, _arr(backend, [1.1, 0.9]))
-    assert is_backend_array(x)
+    ref = getattr(o, fn)(pot=MWPotential2014, use_physical=False)
+    with use(backend, force=True):
+        got = getattr(o, fn)(pot=MWPotential2014, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
