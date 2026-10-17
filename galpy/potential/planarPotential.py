@@ -6,12 +6,13 @@ from scipy import integrate
 
 from ..backend import (
     backend_input,
+    coerce_coords,
     data_zero,
     get_namespace,
     is_backend_compatible,
-    scalar_like,
-    to_host,
 )
+from ..backend import quadrature as _bquad
+from ..backend import scalar_like, to_host
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -30,6 +31,7 @@ from .Potential import (
     _evaluatephitorques,
     _evaluatePotentials,
     _evaluateRforces,
+    _pot_data_namespace,
     lindbladR,
     plotEscapecurve,
     plotRotcurve,
@@ -1291,7 +1293,23 @@ def LinShuReductionFactor(
         OmegaP = nonaxiPot.OmegaP()
         k = nonaxiPot.wavenumber(R)
         m = nonaxiPot.m()
-    # a scipy quadrature below: host the (forced-backend) inputs and frequencies
+    xp = _pot_data_namespace((axiPot,), R, sigmar, OmegaP, k, m)
+    if xp is not numpy:
+        # the backend's Gauss-Legendre quadrature, differentiable in everything
+        (R,) = coerce_coords(xp, R)
+        tepif = epifreq(axiPot, R)
+        s = m * (OmegaP - omegac(axiPot, R)) / tepif
+        chi = sigmar**2.0 * k**2.0 / tepif**2.0
+        integral = _bquad.quad(
+            lambda t, chi, s: (
+                xp.exp(-chi * (1.0 + xp.cos(t))) * xp.sin(s * t) * xp.sin(t)
+            ),
+            0.0,
+            numpy.pi,
+            args=(chi, s),
+        )
+        return (1.0 - s**2.0) / xp.sin(numpy.pi * s) * integral
+    # a scipy quadrature below: host the inputs and frequencies
     OmegaP, k, m, sigmar = to_host([OmegaP, k, m, sigmar])
     tepif = to_host(epifreq(axiPot, R))
     # We define omega = m x OmegaP in the usual Lin-Shu formula

@@ -37,7 +37,7 @@ from ..backend import (
     prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend import resolve_namespace, scalar_like, to_host
+from ..backend import resolve_namespace, scalar_like, to_host, use
 from ..backend._input import params_changed
 from ..backend._namespaces import (
     has_concrete_truth_value,
@@ -3676,11 +3676,7 @@ def rl(Pot, lz, t=0.0):
     # takes the backend solver. Probing vcirc is the only way to see that
     # -- a differentiated potential parameter is invisible from lz alone -- and
     # it is what made Orbit.rguiding raise under d/d(potential parameter).
-    _xp = (
-        namespace_from_arrays((lz,))
-        if is_backend_array(lz)
-        else _pot_backend_namespace(Pot)
-    )
+    _xp = _pot_solve_namespace(Pot, lz)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
         # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
@@ -3698,7 +3694,7 @@ def rl(Pot, lz, t=0.0):
         # Start the upper bound at 2*|lz| (the numpy _rlFindStart seed); the
         # branch-free schedule grows/shrinks it to bracket the root.
         rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5, hi0=2.0 * alz)
-        return _bk_brentq(f, rlower, rstart, maxiter=200)
+        return _bk_brentq(f, rlower, rstart, maxiter=200, elementwise=True)
     if isinstance(lz, numpy.ndarray) and lz.ndim > 0:
         if lz.size < 4:  # a bisection's ~50 vcirc calls cost ~4 scalar solves
             return numpy.array([rl(Pot, x, t=t, use_physical=False) for x in lz])
@@ -3817,6 +3813,20 @@ def _pot_data_namespace(Pots, *xs):
     return xp
 
 
+def _pot_solve_namespace(Pot, *xs):
+    """The backend namespace of a root solve over ``Pot``: the backend ``xs``
+    (followed), else a backend parameter of ``Pot``, else a forced/context
+    jax/torch default; None for numpy."""
+    bk = [x for x in xs if is_backend_array(x)]
+    if bk:
+        return namespace_from_arrays(bk)
+    xp = _pot_backend_namespace(Pot)
+    if xp is not None:
+        return xp
+    xp = resolve_namespace()
+    return None if xp is numpy else xp
+
+
 def _abs_backend(x):
     """``|x|`` in the namespace of ``x`` (xp.abs; torch has no fabs)."""
     return get_namespace(x).abs(x)
@@ -3892,11 +3902,7 @@ def rE(Pot, E, t=0.0):
     E = conversion.parse_energy(E, **conversion.get_physical(Pot))
     # Same as rl: vc^2/2 + Phi(rE) - E depends on the potential too, so a
     # plain-float E against a backend potential takes the backend solver.
-    _xp = (
-        namespace_from_arrays((E,))
-        if is_backend_array(E)
-        else _pot_backend_namespace(Pot)
-    )
+    _xp = _pot_solve_namespace(Pot, E)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
         # which increases with r, so d rE / d E (and through theta) flows. The
@@ -3909,7 +3915,7 @@ def rE(Pot, E, t=0.0):
             (E,) = coerce_coords(_xp, E)
         f = lambda r: _rEfunc(r, E, Pot, t)
         rstart, rlower = _backend_rootbracket(f, E, lower_default=1e-5, hi0=2.0)
-        return _bk_brentq(f, rlower, rstart, maxiter=200)
+        return _bk_brentq(f, rlower, rstart, maxiter=200, elementwise=True)
     # Find interval
     rstart = _rEFindStart(1.0, E, Pot, t=t)
     try:
@@ -4023,6 +4029,9 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
             )
     else:
         corotation = False
+    _xp = _pot_solve_namespace(Pot, OmegaP)
+    if _xp is not None:
+        return _lindbladR_backend(_xp, Pot, OmegaP, m, t, corotation, kwargs)
     if corotation:
         try:
             out = optimize.brentq(
@@ -4061,6 +4070,30 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
         except RuntimeError:  # pragma: no cover
             raise
         return out
+
+
+def _lindbladR_backend(xp, Pot, OmegaP, m, t, corotation, kwargs):
+    """lindbladR on the backend: the numpy brackets, an implicit-diff root. A
+    bracket without a sign change means no resonance (None), as in numpy; a
+    traced residual cannot be tested, so its bracket is taken as given."""
+    from ..backend.optimize import brentq as _bk_brentq
+
+    if not is_backend_array(OmegaP):
+        (OmegaP,) = coerce_coords(xp, OmegaP)
+    if corotation:
+        f = lambda R: _corotationR_eq(R, Pot, OmegaP, t)
+        lows = (0.0000001, 0.01)  # numpy retries from 0.01
+    else:
+        f = lambda R: _lindbladR_eq(R, Pot, OmegaP, m, t)
+        lows = (0.0000001,)
+    hi = 1000.0 + 0.0 * OmegaP
+    bkw = {k: kwargs[k] for k in ("xtol", "rtol", "maxiter") if k in kwargs}
+    for lo in lows:
+        lo = lo + 0.0 * OmegaP
+        sign = f(lo) * f(hi)
+        if under_trace(sign) or not bool(sign > 0.0):
+            return _bk_brentq(f, lo, hi, elementwise=True, **bkw)
+    return None
 
 
 def _corotationR_eq(R, Pot, OmegaP, t=0.0):
@@ -5131,26 +5164,30 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     R = conversion.parse_length(R, **get_physical(Pot))
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
-    Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
     # as for rl: a backend potential takes the backend solver too
-    _bk = [x for x in (R, E, Lz) if is_backend_array(x)]
-    _xp = namespace_from_arrays(_bk) if _bk else _pot_backend_namespace(Pot)
+    _xp = _pot_solve_namespace(Pot, R, E, Lz)
+    if _xp is not None:
+        R, E, Lz = coerce_coords(_xp, R, E, Lz)
+    Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of Phi(R,z) + Lz^2/(2R^2) - E,
         # which increases with z, so d zvc / d{R,E,Lz} (and through theta) flows.
-        # numpy's z=0 snap is mirrored branch-free below; its no-solution guard
-        # (a plotting convenience that Python-branches on the residual) is not:
-        # the backend path assumes a genuine positive-z root.
+        # numpy's z=0 snap and no-solution nan are mirrored branch-free below.
         from ..backend.optimize import brentq as _bk_brentq
 
-        if not is_backend_array(R):  # anchors the bracket on the backend
-            (R,) = coerce_coords(_xp, R)
         f = lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
         zhi, _ = _backend_rootbracket(f, R, lower_default=1e-8, hi0=1.0)
         zlo = 0.0 * R  # z starts at 0 (anchored on R for device/dtype)
         # numpy's z=0 snap: at Rmin/Rmax the root is ~sqrt of f(0)'s residual
-        snap = abs(f(zlo)) < 1e-8
-        return _xp.where(snap, zlo, _bk_brentq(f, zlo, zhi))
+        f0 = f(zlo)
+        unbound = (f(zhi) < 0.0) & (f0 < 1e-8)  # E above Phi at every z
+        if not under_trace(unbound) and bool(_xp.any(unbound)):
+            raise ValueError(
+                "No solution for the zero-velocity curve found for this combination of parameters"
+            )
+        out = _xp.where(abs(f0) < 1e-8, zlo, _bk_brentq(f, zlo, zhi, elementwise=True))
+        # a constant nan (not zlo * nan), so d/d(...) of a solution is not poisoned
+        return _xp.where(f0 >= 1e-8, _xp.full_like(zlo, _xp.nan), out)
     # Check z=0 and whether a solution exists
     if (
         numpy.fabs(
@@ -5217,8 +5254,8 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2 = Lz**2.0 / 2.0
     # as for rl (a torch rl() also met the numpy branch's in-place Rstart /= 2)
-    _bk = [x for x in (E, Lz) if is_backend_array(x)]
-    if _bk or _pot_backend_namespace(Pot) is not None:
+    _xp = _pot_solve_namespace(Pot, E, Lz)
+    if _xp is not None:
         # jax/torch: the two roots of g(R) = Phi(R,0) + Lz^2/(2R^2) - E bracket
         # the guiding radius RLz (g(RLz) < 0 at the effective-potential minimum;
         # g rises to +inf as R->0 via the centrifugal barrier and as R->inf via
@@ -5235,10 +5272,10 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
         )
         # Left root in (0, RLz]: g(small R) > 0 (barrier), g(RLz) < 0.
         Rmin_lo = 1e-8 + 0.0 * RLz  # tiny lower bound anchored on RLz
-        Rmin = _bk_brentq(g, Rmin_lo, RLz)
+        Rmin = _bk_brentq(g, Rmin_lo, RLz, elementwise=True)
         # Right root in [RLz, inf): grow the upper bound until g > 0.
         Rmax_hi, _ = _backend_rootbracket(g, RLz, lower_default=1e-8, hi0=2.0 * RLz)
-        Rmax = _bk_brentq(g, RLz, Rmax_hi)
+        Rmax = _bk_brentq(g, RLz, Rmax_hi, elementwise=True)
         xp = get_namespace(RLz)
         # No-solution guard, mirroring the numpy branch: when the effective
         # potential at the guiding radius exceeds E (g(RLz) > 0) there are no
@@ -5319,6 +5356,15 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
     - 2021-03-18 - Written - Bovy (UofT)
 
     """
+    _xp = _pot_solve_namespace(Pot)
+    if _xp is not None:
+        # jax/torch: implicit-diff bracketed root of the increasing M(r)/M - 1/2
+        from ..backend.optimize import brentq as _bk_brentq
+
+        tot_mass = mass(Pot, INF, t=t, use_physical=False)
+        f = lambda r: mass(Pot, r, t=t, use_physical=False) / tot_mass - 0.5
+        rhi, rlo = _backend_rootbracket(f, tot_mass, lower_default=1e-5, hi0=2.0)
+        return _bk_brentq(f, rlo, rhi, maxiter=200, elementwise=True)
     tot_mass = mass(Pot, INF, t=t)
     # Find interval
     rhi = _rhalfFindStart(1.0, Pot, tot_mass, t=t)
