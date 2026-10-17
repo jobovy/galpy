@@ -713,13 +713,13 @@ class SpiralArmsPotential(Potential):
     def _K(self, R, ns=None):
         """Return numpy array from K1 up to and including Kn. (eqn. 5)"""
         if ns is None:
-            ns = self._ns0
+            ns = asarray_on_device(get_namespace(R), self._ns0, device_of(R))
         return ns * self._N / R / self._sin_alpha
 
     def _dK_dR(self, R, ns=None):
         """Return numpy array of dK/dR from K1 up to and including Kn."""
         if ns is None:
-            ns = self._ns0
+            ns = asarray_on_device(get_namespace(R), self._ns0, device_of(R))
         return -ns * self._N / R**2 / self._sin_alpha
 
     def _B(self, R, HNn=None):
