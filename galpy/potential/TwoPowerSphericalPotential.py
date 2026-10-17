@@ -1571,7 +1571,10 @@ class NFWPotential(TwoPowerSphericalPotential):
                 for v in (0.01, 100.0)
             )
             x = _bk_brentq(
-                lambda y: (xp.log(1.0 + y) - y / (1.0 + y)) / y**3.0 - 1.0 / dc, lo, hi
+                lambda y: (xp.log(1.0 + y) - y / (1.0 + y)) / y**3.0 - 1.0 / dc,
+                lo,
+                hi,
+                elementwise=True,
             )
             return x * self.a
         dc = to_host(dc)

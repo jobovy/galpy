@@ -89,14 +89,13 @@ _SCALARS = [
 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("name,call", _SCALARS, ids=[n for n, _ in _SCALARS])
-def test_forced_plain_scalars_stay_on_the_host(backend, name, call):
-    # a forced default with plain scalar inputs: a constant root, solved on the
-    # host (an eager backend root costs ~1000 numpy ones), exactly numpy's
+def test_forced_plain_scalars_solve_on_the_backend(backend, name, call):
+    # a forced default with plain scalar inputs: the backend root, numpy's value
     ref = call()
     with use(backend, force=True):
         got = call()
-    assert not is_backend_array(got), f"{name}: {type(got)}"
-    numpy.testing.assert_array_equal(got, ref)
+    assert is_backend_array(got), f"{name}: {type(got)}"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
 
 
 def _bk_param(backend, x):

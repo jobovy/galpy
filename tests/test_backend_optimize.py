@@ -494,3 +494,59 @@ def test_fixed_point_value_and_gradient(mode):
 def test_fixed_point_backend_raises_without_convergence(backend):
     with pytest.raises(RuntimeError, match="Failed to converge"):
         _fp(_xp(backend), _xp(backend).asarray(_FP_A), maxiter=1)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("shape", [(), (1,)])
+def test_elementwise_concrete_root_is_machine_level(backend, shape):
+    # elementwise=True, a concrete single root: 512-sections (one f call each)
+    # and a secant finish -- a few-ulp root in ~6 calls instead of ~43 halvings
+    xp = _xp(backend)
+    a = xp.reshape(xp.asarray(0.0), shape)
+    b = xp.reshape(xp.asarray(numpy.pi / 2.0), shape)
+    calls = []
+
+    def f(x):
+        calls.append(x.shape)
+        return xp.cos(x) - 0.3
+
+    root = brentq(f, a, b, elementwise=True)
+    assert tuple(root.shape) == shape
+    root = float(_to_np(root).reshape(()))
+    eps = numpy.finfo(float).eps
+    exact = float(numpy.arccos(0.3))
+    assert abs(root - exact) < 4.0 * eps * abs(exact)
+    assert abs(numpy.cos(root) - 0.3) < 4.0 * eps
+    assert len(calls) <= 6, calls
+    assert tuple(calls[0]) == (513,) + shape
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("theta0", [0.2, 0.8])
+def test_elementwise_root_gradient_vs_exact(backend, theta0):
+    # a differentiated parameter: the section root is then Newton-polished
+    # through the backend's autodiff for the implicit-function gradient
+    xp = _xp(backend)
+    a, b = xp.asarray(0.0), xp.asarray(numpy.pi / 2.0)
+
+    def root_of(theta):
+        return brentq(lambda x: xp.cos(x) - theta, a, b, elementwise=True)
+
+    if backend == "jax":
+        g = float(jax.grad(root_of)(jnp.asarray(theta0)))
+    else:
+        tt = torch.tensor(theta0, requires_grad=True)
+        root_of(tt).backward()
+        g = float(tt.grad)
+    numpy.testing.assert_allclose(g, _exact_dxstar_dtheta(theta0), rtol=1e-12)
+
+
+def test_elementwise_root_under_jit_bisects():
+    # a traced bracket keeps the rolled bisection: same root as eager
+    a, b = jnp.asarray(0.0), jnp.asarray(numpy.pi / 2.0)
+    f = lambda x, t: jnp.cos(x) - t
+    eager = brentq(f, a, b, args=(jnp.asarray(0.3),), elementwise=True)
+    jitted = jax.jit(lambda t, a, b: brentq(f, a, b, args=(t,), elementwise=True))(
+        jnp.asarray(0.3), a, b
+    )
+    numpy.testing.assert_allclose(float(jitted), float(eager), rtol=4e-16)

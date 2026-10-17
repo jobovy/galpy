@@ -3677,9 +3677,6 @@ def rl(Pot, lz, t=0.0):
     # -- a differentiated potential parameter is invisible from lz alone -- and
     # it is what made Orbit.rguiding raise under d/d(potential parameter).
     _xp = _pot_solve_namespace(Pot, lz)
-    if _xp is None and resolve_namespace() is not numpy:
-        with use("numpy", force=True):  # the host solve, on numpy
-            return rl(Pot, lz, t=t, use_physical=False)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
         # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
@@ -3697,7 +3694,7 @@ def rl(Pot, lz, t=0.0):
         # Start the upper bound at 2*|lz| (the numpy _rlFindStart seed); the
         # branch-free schedule grows/shrinks it to bracket the root.
         rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5, hi0=2.0 * alz)
-        return _bk_brentq(f, rlower, rstart, maxiter=200)
+        return _bk_brentq(f, rlower, rstart, maxiter=200, elementwise=True)
     if isinstance(lz, numpy.ndarray) and lz.ndim > 0:
         if lz.size < 4:  # a bisection's ~50 vcirc calls cost ~4 scalar solves
             return numpy.array([rl(Pot, x, t=t, use_physical=False) for x in lz])
@@ -3819,9 +3816,7 @@ def _pot_data_namespace(Pots, *xs):
 def _pot_solve_namespace(Pot, *xs):
     """The backend namespace of a root solve over ``Pot``: the backend ``xs``
     (followed), else a backend parameter of ``Pot``, else a forced/context
-    jax/torch default for array inputs; None for numpy. A plain scalar solve
-    under a forced/context default stays on the host: its root is a constant,
-    and an eager backend root costs ~1000 numpy ones (arrays solve at once)."""
+    jax/torch default; None for numpy."""
     bk = [x for x in xs if is_backend_array(x)]
     if bk:
         return namespace_from_arrays(bk)
@@ -3829,9 +3824,7 @@ def _pot_solve_namespace(Pot, *xs):
     if xp is not None:
         return xp
     xp = resolve_namespace()
-    if xp is numpy or all(numpy.ndim(x) == 0 for x in xs if x is not None):
-        return None
-    return xp
+    return None if xp is numpy else xp
 
 
 def _abs_backend(x):
@@ -3910,9 +3903,6 @@ def rE(Pot, E, t=0.0):
     # Same as rl: vc^2/2 + Phi(rE) - E depends on the potential too, so a
     # plain-float E against a backend potential takes the backend solver.
     _xp = _pot_solve_namespace(Pot, E)
-    if _xp is None and resolve_namespace() is not numpy:
-        with use("numpy", force=True):  # the host solve, on numpy
-            return rE(Pot, E, t=t, use_physical=False)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
         # which increases with r, so d rE / d E (and through theta) flows. The
@@ -3925,7 +3915,7 @@ def rE(Pot, E, t=0.0):
             (E,) = coerce_coords(_xp, E)
         f = lambda r: _rEfunc(r, E, Pot, t)
         rstart, rlower = _backend_rootbracket(f, E, lower_default=1e-5, hi0=2.0)
-        return _bk_brentq(f, rlower, rstart, maxiter=200)
+        return _bk_brentq(f, rlower, rstart, maxiter=200, elementwise=True)
     # Find interval
     rstart = _rEFindStart(1.0, E, Pot, t=t)
     try:
@@ -4102,7 +4092,7 @@ def _lindbladR_backend(xp, Pot, OmegaP, m, t, corotation, kwargs):
         lo = lo + 0.0 * OmegaP
         sign = f(lo) * f(hi)
         if under_trace(sign) or not bool(sign > 0.0):
-            return _bk_brentq(f, lo, hi, **bkw)
+            return _bk_brentq(f, lo, hi, elementwise=True, **bkw)
     return None
 
 
@@ -5176,9 +5166,6 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     # as for rl: a backend potential takes the backend solver too
     _xp = _pot_solve_namespace(Pot, R, E, Lz)
-    if _xp is None and resolve_namespace() is not numpy:
-        with use("numpy", force=True):  # the host solve, on numpy
-            return zvc(Pot, R, E, Lz, phi=phi, t=t, use_physical=False)
     if _xp is not None:
         R, E, Lz = coerce_coords(_xp, R, E, Lz)
     Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
@@ -5198,7 +5185,7 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
             raise ValueError(
                 "No solution for the zero-velocity curve found for this combination of parameters"
             )
-        out = _xp.where(abs(f0) < 1e-8, zlo, _bk_brentq(f, zlo, zhi))
+        out = _xp.where(abs(f0) < 1e-8, zlo, _bk_brentq(f, zlo, zhi, elementwise=True))
         # a constant nan (not zlo * nan), so d/d(...) of a solution is not poisoned
         return _xp.where(f0 >= 1e-8, _xp.full_like(zlo, _xp.nan), out)
     # Check z=0 and whether a solution exists
@@ -5268,9 +5255,6 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     Lz2over2 = Lz**2.0 / 2.0
     # as for rl (a torch rl() also met the numpy branch's in-place Rstart /= 2)
     _xp = _pot_solve_namespace(Pot, E, Lz)
-    if _xp is None and resolve_namespace() is not numpy:
-        with use("numpy", force=True):  # the host solve, on numpy
-            return zvc_range(Pot, E, Lz, phi=phi, t=t, use_physical=False)
     if _xp is not None:
         # jax/torch: the two roots of g(R) = Phi(R,0) + Lz^2/(2R^2) - E bracket
         # the guiding radius RLz (g(RLz) < 0 at the effective-potential minimum;
@@ -5288,10 +5272,10 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
         )
         # Left root in (0, RLz]: g(small R) > 0 (barrier), g(RLz) < 0.
         Rmin_lo = 1e-8 + 0.0 * RLz  # tiny lower bound anchored on RLz
-        Rmin = _bk_brentq(g, Rmin_lo, RLz)
+        Rmin = _bk_brentq(g, Rmin_lo, RLz, elementwise=True)
         # Right root in [RLz, inf): grow the upper bound until g > 0.
         Rmax_hi, _ = _backend_rootbracket(g, RLz, lower_default=1e-8, hi0=2.0 * RLz)
-        Rmax = _bk_brentq(g, RLz, Rmax_hi)
+        Rmax = _bk_brentq(g, RLz, Rmax_hi, elementwise=True)
         xp = get_namespace(RLz)
         # No-solution guard, mirroring the numpy branch: when the effective
         # potential at the guiding radius exceeds E (g(RLz) > 0) there are no
@@ -5380,7 +5364,7 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
         tot_mass = mass(Pot, INF, t=t, use_physical=False)
         f = lambda r: mass(Pot, r, t=t, use_physical=False) / tot_mass - 0.5
         rhi, rlo = _backend_rootbracket(f, tot_mass, lower_default=1e-5, hi0=2.0)
-        return _bk_brentq(f, rlo, rhi, maxiter=200)
+        return _bk_brentq(f, rlo, rhi, maxiter=200, elementwise=True)
     tot_mass = mass(Pot, INF, t=t)
     # Find interval
     rhi = _rhalfFindStart(1.0, Pot, tot_mass, t=t)
