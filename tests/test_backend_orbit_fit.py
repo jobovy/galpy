@@ -279,3 +279,39 @@ def test_fit_derivative_wrt_potential_parameter(backend):
         of = Orbit.from_fit(_INIT, data, pot=_pot(q), **fit)
         (g,) = torch.autograd.grad(of.Lz(use_physical=False).reshape(()), q)
     numpy.testing.assert_allclose(float(g), fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_disp_prints_the_optimizer_message(backend, capsys):
+    with use(backend, force=True):
+        Orbit.from_fit(_INIT, _DATA, pot=_pot(), disp=True, **_FIT)
+    assert "CONVERGENCE" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_host_copy_of_a_backend_potential(backend):
+    # host_copy: every backend-array attribute of the (nested) object becomes
+    # its host value; the original keeps its backend parameters
+    from galpy.backend import host_copy
+    from galpy.potential import DehnenSmoothWrapperPotential
+
+    b = _arr(backend, 0.6)
+    pots = [
+        potential.PlummerPotential(amp=1.0, b=b),
+        DehnenSmoothWrapperPotential(
+            pot=potential.MiyamotoNagaiPotential(a=b, b=0.3), tform=-1.0, tsteady=1.0
+        ),
+    ]
+    ref = [float(as_numpy(p(1.0, 0.1))) for p in pots]  # also fills parameter caches
+    hpots = host_copy(pots)
+    assert isinstance(hpots, list) and len(hpots) == 2
+    for hp, p, r in zip(hpots, pots, ref):
+        assert hp is not p
+        assert not any(is_backend_array(v) for v in vars(hp).values())
+        assert any(is_backend_array(v) for v in vars(p).values()) or any(
+            is_backend_array(v) for v in vars(p._pot).values()
+        )
+        got = hp(1.0, 0.1)
+        assert not is_backend_array(got)
+        numpy.testing.assert_allclose(got, r, rtol=1e-14)
+    assert not any(is_backend_array(v) for v in vars(hpots[1]._pot).values())
