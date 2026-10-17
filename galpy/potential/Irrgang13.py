@@ -1,6 +1,7 @@
 # Milky-Way mass models from Irrgang et al. (2013)
 import numpy
 
+from ..backend import get_namespace
 from ..potential import (
     MiyamotoNagaiPotential,
     NFWPotential,
@@ -41,6 +42,7 @@ def Irrgang13I_halo_dens(
     gamma=2.0,
     Lambda=200.0 / ro,
 ):
+    xp = get_namespace(r)
     r_over_ah_gamma = (r / ah) ** (gamma - 1.0)
     return (
         amp
@@ -51,7 +53,7 @@ def Irrgang13I_halo_dens(
         * (r_over_ah_gamma + gamma)
         / r**2
         / (1.0 + r_over_ah_gamma) ** 2.0
-        * ((1.0 - numpy.tanh((r - Lambda) / (Lambda / 20.0))) / 2.0)
+        * ((1.0 - xp.tanh((r - Lambda) / (Lambda / 20.0))) / 2.0)
     )
 
 

@@ -9,7 +9,17 @@
 
 
 def brentq_backend(
-    f, a, b, xp, *, xtol, maxiter, width=None, guess=None, newton_steps=10
+    f,
+    a,
+    b,
+    xp,
+    *,
+    xtol,
+    maxiter,
+    width=None,
+    guess=None,
+    newton_steps=10,
+    sections=None,
 ):
     """jax bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
@@ -28,9 +38,15 @@ def brentq_backend(
     import jax
     import jax.numpy as jnp
 
-    from ..optimize import newton_polish
+    from ..optimize import newton_polish, section_root, sectionable
 
-    if guess is None:
+    if guess is None and sectionable(a, b, sections):
+        x0, flo = section_root(
+            f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width, sections=sections
+        )
+        if not isinstance(flo, jax.core.Tracer):
+            return x0  # nothing to differentiate; the secant value is polished
+    elif guess is None:
         x0 = _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     else:
         x0 = _newton_root(f, a, b, guess, xp, newton_steps)

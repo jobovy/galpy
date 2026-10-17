@@ -308,6 +308,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         - 2018-03-18 - Started - Bovy (UofT)
 
         """
+        xp = resolve_namespace(r, v)
+        if xp is not numpy:
+            return self._lnLambda_backend(*coerce_coords(xp, r, v), xp)
         if self._lnLambda:
             lnLambda = self._lnLambda
         else:
