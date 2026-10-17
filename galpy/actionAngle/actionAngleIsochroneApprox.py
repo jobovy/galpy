@@ -914,10 +914,15 @@ class actionAngleIsochroneApprox(actionAngle):
             # load orbits
             _sgn = 1.0 if _firstFlip else -1.0
             # a concrete, non-differentiated backend IC integrates as numpy (no
-            # state-transition matrix that nothing would use)
-            if is_backend_array(R) and any(
-                under_trace(c) or requires_backend_grad(c)
-                for c in (R, vR, vT, z, vz, phi)
+            # state-transition matrix that nothing would use), unless the
+            # integrator is an in-backend solver, which needs a backend IC
+            if is_backend_array(R) and (
+                str(self._integrate_method).lower()
+                in ("diffrax", "torchdiffeq", "torchode")
+                or any(
+                    under_trace(c) or requires_backend_grad(c)
+                    for c in (R, vR, vT, z, vz, phi)
+                )
             ):
                 # Orbit(<list of traced scalars>) dies in __init__'s numpy.asarray;
                 # hand it ONE stacked backend IC so the vxvv stays grad-connected.
