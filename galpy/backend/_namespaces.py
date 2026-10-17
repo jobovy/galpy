@@ -442,9 +442,7 @@ def host_copy(obj, _depth=0):
         return obj
     out = copy.copy(obj)
     for name, attr in list(vars(obj).items()):
-        if name == "_backend_param_cache":
-            delattr(out, name)
-        elif is_backend_array(attr):
+        if is_backend_array(attr):
             setattr(out, name, as_numpy(stop_gradient(attr)))
         elif _depth < 8 and (
             isinstance(attr, (list, tuple))

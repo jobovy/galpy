@@ -305,6 +305,8 @@ def test_host_copy_of_a_backend_potential(backend):
     ref = [float(as_numpy(p(1.0, 0.1))) for p in pots]  # also fills parameter caches
     hpots = host_copy(pots)
     assert isinstance(hpots, list) and len(hpots) == 2
+    # anything but a galpy object passes through
+    assert host_copy((1.5, "x")) == (1.5, "x")
     for hp, p, r in zip(hpots, pots, ref):
         assert hp is not p
         assert not any(is_backend_array(v) for v in vars(hp).values())
