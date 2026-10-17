@@ -544,6 +544,16 @@ def test_forced_plain_inputs_return_backend(backend, cls, monkeypatch):
         calls[fn] = lambda fn=fn: getattr(df, fn)(0.9, use_physical=False)
     for fn in ["skewvT", "skewvR", "kurtosisvT", "kurtosisvR"]:
         calls[fn] = lambda fn=fn: getattr(df, fn)(0.9)
+    calls["targetSurfacemassLOS"] = lambda: df.targetSurfacemassLOS(
+        0.3, 20.0, use_physical=False
+    )
+    calls["targetSurfacemassLOS_log"] = lambda: df.targetSurfacemassLOS(
+        0.3, 20.0, log=True, use_physical=False
+    )
+    calls["surfacemassLOS"] = lambda: df.surfacemassLOS(0.3, 20.0, use_physical=False)
+    calls["surfacemassLOS_df"] = lambda: df.surfacemassLOS(
+        0.3, 20.0, target=False, use_physical=False
+    )
     refs = {k: float(numpy.real(c())) for k, c in calls.items()}
     used = []
     monkeypatch.setattr(
@@ -806,3 +816,35 @@ def test_corrected_grad_vs_fd(backend, param, mode, corr_outputs):
     assert numpy.all(numpy.fabs(d2 - d1) < 1e-3 * numpy.fabs(fd) + 1e-10)
     # Richardson truncation ~1e-12; measured AD-vs-FD <= 2e-10
     numpy.testing.assert_allclose(g, fd, rtol=1e-8, atol=1e-11)
+
+
+# (d, l in degrees): the near side, the far side (theta = pi - arcsin), and the
+# Sun's position (R = 0 is nudged by 1e-4)
+_LOSPTS = [(0.3, 20.0), (1.5, 10.0), (1.0, 0.0)]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("d,l", _LOSPTS)
+def test_targetSurfacemassLOS_backend_value_and_grad(backend, d, l):
+    # the LOS geometry (_dlToRphi) on the backend: numpy's value at every
+    # branch, and d/dd against a central finite difference of numpy
+    df = _dehnen
+    ref = df.targetSurfacemassLOS(d, l, use_physical=False)
+    dd = 1e-6
+    fd = (
+        df.targetSurfacemassLOS(d + dd, l, use_physical=False)
+        - df.targetSurfacemassLOS(d - dd, l, use_physical=False)
+    ) / (2.0 * dd)
+    if backend == "jax":
+        f = lambda x: df.targetSurfacemassLOS(x, l, use_physical=False)
+        got, grad = f(jnp.asarray(d)), jax.grad(f)(jnp.asarray(d))
+    else:
+        x = torch.tensor(d, requires_grad=True)
+        got = df.targetSurfacemassLOS(x, l, use_physical=False)
+        (grad,) = torch.autograd.grad(got, x)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-14)
+    if d == 1.0 and l == 0.0:  # R = |1 - d|: a kink, so only a finite slope
+        assert numpy.isfinite(float(as_numpy(grad)))
+    else:
+        numpy.testing.assert_allclose(float(as_numpy(grad)), fd, rtol=1e-8)

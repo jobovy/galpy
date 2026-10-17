@@ -1382,3 +1382,18 @@ def _shift_cloud_cartesian(xv, axis, delta):
     Rn = jnp.sqrt(x**2 + y**2)
     phin = jnp.arctan2(y, x)
     return jnp.stack([Rn, vR, vT, z, vz, phin])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_stacks_on_the_backend(backend):
+    # __call__'s (R, vR, vT, z, vz, phi) stack: on the backend for a backend
+    # track (scalar tp -> (6,), array tp -> (6, n)), numpy's values
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    tr_bk = _wrap_backend_track(tr_np, backend)
+    q = _class_query(tr_np)
+    for tp in (q[3], q):
+        ref, got = tr_np(tp), tr_bk(tp)
+        assert is_backend_array(got)
+        assert tuple(got.shape) == ref.shape
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)

@@ -9,13 +9,18 @@ from scipy.spatial import cKDTree
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    co_like,
     device_of,
     get_namespace,
     is_backend_array,
     name_of_namespace,
     to_host,
 )
-from ..backend._namespaces import stop_gradient, under_trace
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    stop_gradient,
+    under_trace,
+)
 from ..backend.interpolate import (
     Spline1D,
     _apply_frozen_smoother,
@@ -1728,8 +1733,12 @@ class StreamTrack:
             ``tp``. Always in galpy internal units (no per-call physical
             override on ``__call__``)."""
         tp = self._parse_tp(tp)
-        R, vR, vT, zcyl, vzc, phi = self._cyl_at(tp)
-        out = numpy.array(to_host([R, vR, vT, zcyl, vzc, phi]))
+        cols = self._cyl_at(tp)
+        bk = tuple(c for c in cols if is_backend_array(c))
+        if bk:  # stacked on the backend
+            out = namespace_from_arrays(bk).stack(co_like(*cols), axis=0)
+        else:
+            out = numpy.array(cols)
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[:, 0]
         return out
