@@ -19385,7 +19385,10 @@ def test_streamgapdf_setup_impactparamsAsQuantity():
     ), "subhalovel specified as Quantity for streamgapdf does not work as expected"
     # GM and rs are not currently stored in streamgapdf, so just check kick
     assert numpy.all(
-        numpy.fabs(sdf_sanders15._kick_deltav - sdf_sanders15_nou._kick_deltav)
+        numpy.fabs(
+            as_numpy(sdf_sanders15._kick_deltav)
+            - as_numpy(sdf_sanders15_nou._kick_deltav)
+        )
         < 10.0**-8.0
     ), (
         "Calculated kick from parameters specified as Quantity for streamgapdf does not work as expected"
