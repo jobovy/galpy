@@ -5415,10 +5415,13 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     ``_shared_step_aA`` (identical constant steps across the batch -> exact). A
     C-STM aA batches through a sequential host callback (first-order only).
 
+    Concrete chunks (nothing traced): a Python loop, as for torch; eager jax
+    compiles every op anew at vmap's batched shapes.
+
     torch: a Python stack of per-chunk calls (torch.func.vmap cannot trace the
     torchdiffeq custom-autograd orbit). Returns a 6-tuple of stacked arrays.
     """
-    if name_of_namespace(xp) == "jax":
+    if name_of_namespace(xp) == "jax" and under_trace(xv0_all, thetasTrack):
         import jax
 
         return jax.vmap(single)(xv0_all, thetasTrack)
@@ -5534,8 +5537,11 @@ def _determine_stream_track_single_backend(
     # actions/freqs/angles at the progenitor point (9,)
     tacfs = aA.actionsFreqsAngles(xv0[0], xv0[1], xv0[2], xv0[3], xv0[4], xv0[5])
     allAcfsTrack = xp.stack([xp.reshape(v, ()) for v in tacfs])
-    # exact AD Jacobian d(J,Omega,theta)/d(x,v) (9x6)
-    tjac = calcaAJac(xv0, aA, actionsFreqsAngles=True, _initacfs=tacfs)
+    # d(J,Omega,theta)/d(x,v) (9x6): exact AD, or numpy's FD when nothing is
+    # differentiated (eager jax, C orbits)
+    tjac = _calcaAJac_backend(
+        xv0, aA, actionsFreqsAngles=True, _concrete_fd=True, _f0=allAcfsTrack
+    )
     alljacsTrack = tjac[3:, :]  # freqs+angles rows (6x6)
     tinvjac = xp.linalg.inv(alljacsTrack)
     allinvjacsTrack = tinvjac
@@ -5966,7 +5972,15 @@ def calcaAJac(
 
 
 def _calcaAJac_backend(
-    xv, aA, freqs=False, dOdJ=False, actionsFreqsAngles=False, lb=False, coordFunc=None
+    xv,
+    aA,
+    freqs=False,
+    dOdJ=False,
+    actionsFreqsAngles=False,
+    lb=False,
+    coordFunc=None,
+    _concrete_fd=False,
+    _f0=None,
 ):
     """Backend (jax/torch) AD path for calcaAJac: exact d(J,Omega,theta)/d(x,v).
 
@@ -5996,9 +6010,13 @@ def _calcaAJac_backend(
     _diff = (
         under_trace(xv) or requires_backend_grad(xv) or param_grad_array(aA) is not None
     )
-    if not _diff and not _aA_differentiable(aA):
-        # a python orbit integrator cannot be differentiated: the numpy FD on xp
-        A = _fd_jacobian(_map, xv, xp)
+    if not _diff and (
+        not _aA_differentiable(aA)
+        or (_concrete_fd and name_of_namespace(xp) == "jax" and not _is_diffrax_aA(aA))
+    ):
+        # a python orbit integrator cannot be differentiated; eager jax compiles
+        # every op anew at the Jacobian's batched shapes: the numpy FD on xp
+        A = _fd_jacobian(_map, xv, xp, f0=_f0)
     elif not _diff and name_of_namespace(xp) == "torch":
         # nothing upstream is differentiated: keep no graph (torch would hand back
         # a grad-requiring Jacobian holding every orbit's double backward)
@@ -6029,11 +6047,13 @@ def _aA_differentiable(aA):
     )
 
 
-def _fd_jacobian(f, xv, xp):
-    """calcaAJac's forward difference (dxv=1e-8, angles wrapped) on ``xp``."""
+def _fd_jacobian(f, xv, xp, f0=None):
+    """calcaAJac's forward difference (dxv=1e-8, angles wrapped) on ``xp``;
+    ``f0``: ``f(xv)`` if already known."""
     h = (xv + 1e-8) - xv  # representable steps
     eye = as_backend_constant(xp, numpy.eye(6), xv)
-    f0 = f(xv)
+    if f0 is None:
+        f0 = f(xv)
     cols = []
     for ii in range(6):
         d = f(xv + h * eye[ii]) - f0
