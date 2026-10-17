@@ -6,7 +6,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import to_host
+from ..backend import as_numpy, to_host
 from ..backend._namespaces import is_backend_array, namespace_from_arrays
 from ..backend.interpolate import interp1d_clamped, interp_linear
 from ..backend.optimize import fixed_point
@@ -119,11 +119,12 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         if method.lower() == "cautun":
             new_rforce = _contraction_Cautun2020(rgrid, dm_mass, baryon_mass, f_bar)
         elif method.lower() == "gnedin":
+            Rvir = pot.rvir(overdens=180.0, wrtcrit=False)
             new_rforce = _contraction_Gnedin2004(
                 rgrid,
                 dm_mass,
                 baryon_mass,
-                pot.rvir(overdens=180.0, wrtcrit=False),
+                Rvir if xp is not None else as_numpy(Rvir),  # the host build
                 f_bar,
             )
         elif method.lower() == "blumenthal":
