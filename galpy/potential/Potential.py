@@ -5378,8 +5378,6 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
         from ..backend.optimize import brentq as _bk_brentq
 
         tot_mass = mass(Pot, INF, t=t, use_physical=False)
-        if not is_backend_array(tot_mass):
-            (tot_mass,) = coerce_coords(_xp, tot_mass)
         f = lambda r: mass(Pot, r, t=t, use_physical=False) / tot_mass - 0.5
         rhi, rlo = _backend_rootbracket(f, tot_mass, lower_default=1e-5, hi0=2.0)
         return _bk_brentq(f, rlo, rhi, maxiter=200)

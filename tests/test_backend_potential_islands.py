@@ -79,15 +79,24 @@ def test_forced_array_inputs_solve_on_the_backend(backend, name, call, ref):
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10)
 
 
+_SCALARS = [
+    ("rl", lambda: potential.rl(_MW, 1.1)),
+    ("rE", lambda: potential.rE(_MW, -1.2)),
+    ("zvc", lambda: potential.zvc(_MW, 0.7, -1.25, 0.6)),
+    ("zvc_range", lambda: potential.zvc_range(_MW, -1.25, 0.6)),
+]
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_forced_plain_scalars_stay_on_the_host(backend):
+@pytest.mark.parametrize("name,call", _SCALARS, ids=[n for n, _ in _SCALARS])
+def test_forced_plain_scalars_stay_on_the_host(backend, name, call):
     # a forced default with plain scalar inputs: a constant root, solved on the
-    # host (an eager backend root costs ~1000 numpy ones)
-    ref = potential.rl(_MW, 1.1)
+    # host (an eager backend root costs ~1000 numpy ones), exactly numpy's
+    ref = call()
     with use(backend, force=True):
-        got = potential.rl(_MW, 1.1)
-    assert not is_backend_array(got)
-    assert got == ref
+        got = call()
+    assert not is_backend_array(got), f"{name}: {type(got)}"
+    numpy.testing.assert_array_equal(got, ref)
 
 
 def _bk_param(backend, x):
