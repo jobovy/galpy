@@ -48,24 +48,31 @@ def _grad(backend, f, x0):
 
 _MW = potential.MWPotential2014
 _LP = potential.LogarithmicHaloPotential(normalize=1.0)
-_FORCED = [
-    ("rl", lambda: potential.rl(_MW, 1.1)),
-    ("rE", lambda: potential.rE(_MW, -1.2)),
-    ("LcE", lambda: potential.LcE(_MW, -1.2)),
-    ("zvc", lambda: potential.zvc(_MW, 0.7, -1.25, 0.6)),
-    ("zvc_range", lambda: potential.zvc_range(_MW, -1.25, 0.6)),
-    ("rhalf", lambda: potential.rhalf(potential.HernquistPotential(a=2.0))),
-    ("rvir", lambda: potential.NFWPotential(a=2.0, normalize=0.35).rvir()),
-    ("lindbladR", lambda: potential.lindbladR(_LP, 0.5, m=2)),
-    ("corotation", lambda: potential.lindbladR(_LP, 0.5, m="corotation")),
-    ("outerlindblad", lambda: potential.lindbladR(_LP, 0.5, m=-2)),
+_LZ = numpy.array([0.3, 0.8, 1.1, 1.6])
+_E = numpy.array([-1.5, -1.3, -1.2, -1.0])
+# forced, array inputs: one vectorized backend solve
+_FORCED_ARRAYS = [
+    ("rl", lambda: potential.rl(_MW, _LZ), lambda: [potential.rl(_MW, x) for x in _LZ]),
+    ("rE", lambda: potential.rE(_MW, _E), lambda: [potential.rE(_MW, x) for x in _E]),
+    (
+        "LcE",
+        lambda: potential.LcE(_MW, _E),
+        lambda: [potential.LcE(_MW, x) for x in _E],
+    ),
+    (
+        "zvc",
+        lambda: potential.zvc(_MW, numpy.array([0.6, 0.7, 0.8]), -1.25, 0.6),
+        lambda: [potential.zvc(_MW, R, -1.25, 0.6) for R in (0.6, 0.7, 0.8)],
+    ),
 ]
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("name,call", _FORCED, ids=[n for n, _ in _FORCED])
-def test_forced_plain_inputs_solve_on_the_backend(backend, name, call):
-    ref = call()
+@pytest.mark.parametrize(
+    "name,call,ref", _FORCED_ARRAYS, ids=[n for n, _, _ in _FORCED_ARRAYS]
+)
+def test_forced_array_inputs_solve_on_the_backend(backend, name, call, ref):
+    ref = numpy.array(ref())
     with use(backend, force=True):
         got = call()
     assert is_backend_array(got), f"{name}: {type(got)}"
@@ -73,14 +80,127 @@ def test_forced_plain_inputs_solve_on_the_backend(backend, name, call):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_forced_plain_scalars_stay_on_the_host(backend):
+    # a forced default with plain scalar inputs: a constant root, solved on the
+    # host (an eager backend root costs ~1000 numpy ones)
+    ref = potential.rl(_MW, 1.1)
+    with use(backend, force=True):
+        got = potential.rl(_MW, 1.1)
+    assert not is_backend_array(got)
+    assert got == ref
+
+
+def _bk_param(backend, x):
+    return _arr(backend, x)
+
+
+_PARAM = [
+    (
+        "rl",
+        lambda b: potential.rl(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)), 1.1
+        ),
+        lambda: potential.rl(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9), 1.1
+        ),
+    ),
+    (
+        "rE",
+        lambda b: potential.rE(
+            potential.HernquistPotential(a=_bk_param(b, 2.0), normalize=1.0), -0.8
+        ),
+        lambda: potential.rE(potential.HernquistPotential(a=2.0, normalize=1.0), -0.8),
+    ),
+    (
+        "zvc",
+        lambda b: potential.zvc(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)),
+            0.7,
+            -0.4,
+            0.6,
+        ),
+        lambda: potential.zvc(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9), 0.7, -0.4, 0.6
+        ),
+    ),
+    (
+        "zvc_range",
+        lambda b: potential.zvc_range(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)),
+            -0.4,
+            0.6,
+        ),
+        lambda: potential.zvc_range(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9), -0.4, 0.6
+        ),
+    ),
+    (
+        "rhalf",
+        lambda b: potential.rhalf(potential.HernquistPotential(a=_bk_param(b, 2.0))),
+        lambda: potential.rhalf(potential.HernquistPotential(a=2.0)),
+    ),
+    (
+        "rvir",
+        lambda b: potential.NFWPotential(a=_bk_param(b, 2.0), normalize=0.35).rvir(),
+        lambda: potential.NFWPotential(a=2.0, normalize=0.35).rvir(),
+    ),
+    (
+        "lindbladR",
+        lambda b: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)),
+            0.5,
+            m=2,
+        ),
+        lambda: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9), 0.5, m=2
+        ),
+    ),
+    (
+        "corotation",
+        lambda b: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)),
+            0.5,
+            m="corotation",
+        ),
+        lambda: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9),
+            0.5,
+            m="corotation",
+        ),
+    ),
+    (
+        "outerlindblad",
+        lambda b: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=_bk_param(b, 0.9)),
+            0.5,
+            m=-2,
+        ),
+        lambda: potential.lindbladR(
+            potential.LogarithmicHaloPotential(normalize=1.0, q=0.9), 0.5, m=-2
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name,call,ref", _PARAM, ids=[n for n, _, _ in _PARAM])
+def test_backend_parameter_solves_on_the_backend(backend, name, call, ref):
+    # a backend parameter turns the backend on, also at plain scalar inputs
+    got = call(backend)
+    assert is_backend_array(got), f"{name}: {type(got)}"
+    numpy.testing.assert_allclose(as_numpy(got), ref(), rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_zvc_backend_no_solution_and_unbound(backend):
     # no solution at R (Phi + Lz^2/2R^2 > E at z=0): nan, as numpy
     assert numpy.isnan(potential.zvc(_MW, 0.1, -1.25, 0.6))
-    with use(backend, force=True):
-        assert numpy.isnan(float(as_numpy(potential.zvc(_MW, 0.1, -1.25, 0.6))))
-        # E above Phi at every z: no curve, a ValueError as numpy's
-        with pytest.raises(ValueError, match="No solution for the zero-velocity"):
-            potential.zvc(_MW, 0.7, 198.75, 0.6)
+    assert numpy.isnan(
+        float(as_numpy(potential.zvc(_MW, _arr(backend, 0.1), -1.25, 0.6)))
+    )
+    # E above Phi at every z: no curve, a ValueError as numpy's
+    with pytest.raises(ValueError, match="No solution for the zero-velocity"):
+        potential.zvc(_MW, _arr(backend, 0.7), 198.75, 0.6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -88,8 +208,7 @@ def test_lindbladR_backend_no_resonance_is_none(backend):
     # corotation beyond the bracket (R = 1/OmegaP = 1e4 > 1000): None, after
     # numpy's retry from 0.01 found no sign change either
     assert potential.lindbladR(_LP, 1e-4, m="corotation") is None
-    with use(backend, force=True):
-        assert potential.lindbladR(_LP, 1e-4, m="corotation") is None
+    assert potential.lindbladR(_LP, _arr(backend, 1e-4), m="corotation") is None
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

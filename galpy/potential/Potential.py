@@ -37,7 +37,7 @@ from ..backend import (
     prefer_backend_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend import resolve_namespace, scalar_like, to_host
+from ..backend import resolve_namespace, scalar_like, to_host, use
 from ..backend._input import params_changed
 from ..backend._namespaces import (
     has_concrete_truth_value,
@@ -3677,6 +3677,9 @@ def rl(Pot, lz, t=0.0):
     # -- a differentiated potential parameter is invisible from lz alone -- and
     # it is what made Orbit.rguiding raise under d/d(potential parameter).
     _xp = _pot_solve_namespace(Pot, lz)
+    if _xp is None and resolve_namespace() is not numpy:
+        with use("numpy", force=True):  # the host solve, on numpy
+            return rl(Pot, lz, t=t, use_physical=False)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
         # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
@@ -3815,13 +3818,20 @@ def _pot_data_namespace(Pots, *xs):
 
 def _pot_solve_namespace(Pot, *xs):
     """The backend namespace of a root solve over ``Pot``: the backend ``xs``
-    (followed), else a backend parameter of ``Pot`` or a forced/context
-    jax/torch default; None for numpy."""
+    (followed), else a backend parameter of ``Pot``, else a forced/context
+    jax/torch default for array inputs; None for numpy. A plain scalar solve
+    under a forced/context default stays on the host: its root is a constant,
+    and an eager backend root costs ~1000 numpy ones (arrays solve at once)."""
     bk = [x for x in xs if is_backend_array(x)]
     if bk:
         return namespace_from_arrays(bk)
-    xp = _pot_data_namespace((Pot,), *xs)
-    return None if xp is numpy else xp
+    xp = _pot_backend_namespace(Pot)
+    if xp is not None:
+        return xp
+    xp = resolve_namespace()
+    if xp is numpy or all(numpy.ndim(x) == 0 for x in xs if x is not None):
+        return None
+    return xp
 
 
 def _abs_backend(x):
@@ -3900,6 +3910,9 @@ def rE(Pot, E, t=0.0):
     # Same as rl: vc^2/2 + Phi(rE) - E depends on the potential too, so a
     # plain-float E against a backend potential takes the backend solver.
     _xp = _pot_solve_namespace(Pot, E)
+    if _xp is None and resolve_namespace() is not numpy:
+        with use("numpy", force=True):  # the host solve, on numpy
+            return rE(Pot, E, t=t, use_physical=False)
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
         # which increases with r, so d rE / d E (and through theta) flows. The
@@ -5161,17 +5174,20 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     R = conversion.parse_length(R, **get_physical(Pot))
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
-    Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
     # as for rl: a backend potential takes the backend solver too
     _xp = _pot_solve_namespace(Pot, R, E, Lz)
+    if _xp is None and resolve_namespace() is not numpy:
+        with use("numpy", force=True):  # the host solve, on numpy
+            return zvc(Pot, R, E, Lz, phi=phi, t=t, use_physical=False)
+    if _xp is not None:
+        R, E, Lz = coerce_coords(_xp, R, E, Lz)
+    Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
     if _xp is not None:
         # jax/torch: implicit-diff bracketed root of Phi(R,z) + Lz^2/(2R^2) - E,
         # which increases with z, so d zvc / d{R,E,Lz} (and through theta) flows.
         # numpy's z=0 snap and no-solution nan are mirrored branch-free below.
         from ..backend.optimize import brentq as _bk_brentq
 
-        if not is_backend_array(R):  # anchors the bracket on the backend
-            (R,) = coerce_coords(_xp, R)
         f = lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
         zhi, _ = _backend_rootbracket(f, R, lower_default=1e-8, hi0=1.0)
         zlo = 0.0 * R  # z starts at 0 (anchored on R for device/dtype)
@@ -5251,7 +5267,11 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2 = Lz**2.0 / 2.0
     # as for rl (a torch rl() also met the numpy branch's in-place Rstart /= 2)
-    if _pot_solve_namespace(Pot, E, Lz) is not None:
+    _xp = _pot_solve_namespace(Pot, E, Lz)
+    if _xp is None and resolve_namespace() is not numpy:
+        with use("numpy", force=True):  # the host solve, on numpy
+            return zvc_range(Pot, E, Lz, phi=phi, t=t, use_physical=False)
+    if _xp is not None:
         # jax/torch: the two roots of g(R) = Phi(R,0) + Lz^2/(2R^2) - E bracket
         # the guiding radius RLz (g(RLz) < 0 at the effective-potential minimum;
         # g rises to +inf as R->0 via the centrifugal barrier and as R->inf via
