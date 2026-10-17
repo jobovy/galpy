@@ -13,6 +13,7 @@ from ..backend import (
     asarray_on_device,
     at_least_float64,
     bucket_size,
+    co_like,
     coerce_coords,
     concretely_true,
     device_of,
@@ -541,16 +542,10 @@ class quasiisothermaldf(df):
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
         if z is None:
-            sf = numpy.array(
-                to_host(
-                    [self.surfacemass_z(r, use_physical=False, **kwargs) for r in Rs]
-                )
-            )
+            sf = [self.surfacemass_z(r, use_physical=False, **kwargs) for r in Rs]
         else:
-            sf = numpy.array(
-                to_host([self.density(r, z, use_physical=False, **kwargs) for r in Rs])
-            )
-        lsf = numpy.log(sf)
+            sf = [self.density(r, z, use_physical=False, **kwargs) for r in Rs]
+        lsf = _log_pair(sf)
         return -dR / (lsf[1] - lsf[0])
 
     @potential_physical_input
@@ -584,10 +579,9 @@ class quasiisothermaldf(df):
             zs = [z, z + dz]
         else:
             zs = [z - dz / 2.0, z + dz / 2.0]
-        sf = numpy.array(
-            to_host([self.density(R, zz, use_physical=False, **kwargs) for zz in zs])
+        lsf = _log_pair(
+            [self.density(R, zz, use_physical=False, **kwargs) for zz in zs]
         )
-        lsf = numpy.log(sf)
         return -dz / (lsf[1] - lsf[0])
 
     @potential_physical_input
@@ -618,10 +612,8 @@ class quasiisothermaldf(df):
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
-        sf = numpy.array(
-            to_host([self.sigmaR2(r, z, use_physical=False, **kwargs) for r in Rs])
-        )
-        lsf = numpy.log(sf) / 2.0
+        lsf = _log_pair([self.sigmaR2(r, z, use_physical=False, **kwargs) for r in Rs])
+        lsf = (lsf[0] / 2.0, lsf[1] / 2.0)
         return -dR / (lsf[1] - lsf[0])
 
     @potential_physical_input
@@ -652,10 +644,8 @@ class quasiisothermaldf(df):
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
-        sf = numpy.array(
-            to_host([self.sigmaz2(r, z, use_physical=False, **kwargs) for r in Rs])
-        )
-        lsf = numpy.log(sf) / 2.0
+        lsf = _log_pair([self.sigmaz2(r, z, use_physical=False, **kwargs) for r in Rs])
+        lsf = (lsf[0] / 2.0, lsf[1] / 2.0)
         return -dR / (lsf[1] - lsf[0])
 
     @potential_physical_input
@@ -3634,7 +3624,7 @@ class quasiisothermaldf(df):
             # option -- raised "'NoneType' object is not callable" here. It also
             # became reachable internally once the guard in __init__ skips the
             # table for a differentiated POTENTIAL, not just a differentiated hr.
-            return potential.rl(self._pot, lz)
+            return _rl_host(self._pot, lz)
         # rg depends on |lz|. lz == 0: rl is undefined (rg -> 0), but the DF
         # vanishes there (Omega = |lz|/rg^2 = 0), so keep the finite spline value
         alz = numpy.fabs(lz)
@@ -3646,14 +3636,33 @@ class quasiisothermaldf(df):
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(alz[indxc])
             if numpy.any(indx):
-                out[indx] = potential.rl(self._pot, lz[indx])
+                out[indx] = _rl_host(self._pot, lz[indx])
             return out
         else:
             if alz > self._precomputergLzmax or (
                 alz < self._precomputergLzmin and lz != 0.0
             ):
-                return potential.rl(self._pot, lz)
+                return _rl_host(self._pot, lz)
             return numpy.atleast_1d(self._rgInterp(alz))
+
+
+def _log_pair(vals):
+    """log of two values: on their backend (a finite-difference scale stays
+    differentiable), else numpy as before"""
+    bk = tuple(v for v in vals if is_backend_array(v))
+    if not bk:
+        return numpy.log(numpy.array(vals))
+    xp = namespace_from_arrays(bk)
+    return tuple(xp.log(v) for v in co_like(*vals))
+
+
+def _rl_host(pot, lz):
+    """rl for _rg's numpy branch: solved where rl solves (the backend under a
+    forced one), returned to its numpy caller on the host"""
+    out = potential.rl(pot, lz)
+    if not is_backend_array(out):
+        return out
+    return float(as_numpy(out)) if out.ndim == 0 else as_numpy(out)
 
 
 def _vmomentsurfaceIntegrand(
