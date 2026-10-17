@@ -429,6 +429,33 @@ def eager_value_memo(owner, slot, args, compute):
     return out
 
 
+def host_copy(obj, _depth=0):
+    """A copy of a galpy object (a potential, a list of them, a wrapper) with
+    every backend-array attribute replaced by its concrete host value: the
+    object then computes on numpy (and in C), for host-side work that needs no
+    derivative, e.g. an optimizer's iterations. Sub-objects are copied too."""
+    import copy
+
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(host_copy(o, _depth) for o in obj)
+    if not (type(obj).__module__.startswith("galpy.") and hasattr(obj, "__dict__")):
+        return obj
+    out = copy.copy(obj)
+    for name, attr in list(vars(obj).items()):
+        if name == "_backend_param_cache":
+            delattr(out, name)
+        elif is_backend_array(attr):
+            setattr(out, name, as_numpy(stop_gradient(attr)))
+        elif _depth < 8 and (
+            isinstance(attr, (list, tuple))
+            or (
+                type(attr).__module__.startswith("galpy.") and hasattr(attr, "__dict__")
+            )
+        ):
+            setattr(out, name, host_copy(attr, _depth + 1))
+    return out
+
+
 def stop_gradient(x):
     """Backend stop-gradient: identity (numpy), ``jax.lax.stop_gradient`` / ``.detach``.
 
