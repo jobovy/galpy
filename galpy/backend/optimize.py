@@ -46,6 +46,8 @@
 #   first-order sensitivity; a Hessian through x* would require a true
 #   custom_jvp differentiating the implicit relation a second time.
 ###############################################################################
+import math
+
 import numpy
 
 from ._namespaces import (
@@ -62,6 +64,9 @@ from ._resolver import get_namespace
 # the backend path converges to the same neighbourhood as the numpy path).
 _XTOL = 2e-12
 _MAXITER = 100
+# sections per step of a concrete single-root bracket (eager cost is per dispatch,
+# not per point: 513 points cost about one, and shrink the bracket 512x)
+_SECTIONS = 512
 
 
 def brentq(
@@ -75,6 +80,7 @@ def brentq(
     bracket_width=None,
     guess=None,
     newton_steps=10,
+    elementwise=False,
 ):
     """Find a root of ``func`` in the bracket ``[a, b]`` (backend-agnostic).
 
@@ -123,6 +129,10 @@ def brentq(
         guess is good. The final implicit-function step is unchanged.
     newton_steps : int, optional
         Number of safeguarded Newton steps from ``guess`` (default 10).
+    elementwise : bool, optional
+        ``func`` acts elementwise on ``x`` (an array of ``x`` gives the array of
+        residuals). A concrete single-root bracket then takes 512-sections, each
+        one ``func`` call, instead of ~43 halvings (see ``section_root``).
 
     Returns
     -------
@@ -156,6 +166,7 @@ def brentq(
         width=bracket_width,
         guess=guess,
         newton_steps=newton_steps,
+        sections=_SECTIONS if elementwise else None,
     )
 
 
@@ -308,6 +319,48 @@ def iterate_bracket(step, x0, n):
             return x1
         x0 = x1
     return x0
+
+
+def sectionable(a, b, sections):
+    """``section_root`` applies: sections asked for, a concrete single root."""
+    return (
+        bool(sections)
+        and math.prod(numpy.shape(a)) == 1
+        and numpy.shape(a) == numpy.shape(b)
+        and not under_trace(a, b)
+    )
+
+
+def section_root(f, a, b, xp, *, xtol, maxiter, width=None, sections=_SECTIONS):
+    """A concrete single root of an elementwise ``f`` on ``[a, b]`` by
+    ``sections``-sections: each step is ONE ``f`` call on the bracket's
+    ``sections + 1`` points (eager cost is per call, not per point), keeping the
+    first sub-interval with the sign change, as ``bisect_step`` does; a secant
+    step on the final ~1e-14-wide bracket then gives a machine-level root.
+
+    Returns ``(root, f at the final bracket's low end)``; the latter says whether
+    ``f`` is traced (it closes over a differentiated parameter)."""
+    from ._namespaces import like
+
+    shape = numpy.shape(a)
+    lo = xp.reshape(xp.asarray(a) * 1.0, ())
+    hi = xp.reshape(xp.asarray(b) * 1.0, ())
+    frac = like(lo, numpy.arange(sections + 1, dtype=float) / sections)
+    n = n_bisect_steps(a, b, xtol, maxiter, width=width)
+    slo = None
+    for _ in range(-(-n // int(math.log2(sections)))):
+        pts = lo + (hi - lo) * frac
+        fv = xp.reshape(f(xp.reshape(pts, (-1,) + shape)), (-1,))
+        if slo is None:
+            slo = xp.sign(fv[0])
+        same = xp.astype(xp.sign(fv) == slo, xp.int64)
+        # the first point past the sign change (the last point if none is)
+        j = xp.clip(xp.sum(xp.cumprod(same, axis=0)), 1, sections)
+        lo, hi, flo, fhi = pts[j - 1], pts[j], fv[j - 1], fv[j]
+    df = fhi - flo
+    x = lo - flo * (hi - lo) / xp.where(df != 0.0, df, 1.0)
+    x = xp.where(df != 0.0, xp.clip(x, lo, hi), 0.5 * (lo + hi))
+    return xp.reshape(x, shape), flo
 
 
 def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):

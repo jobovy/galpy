@@ -9,7 +9,17 @@
 
 
 def brentq_backend(
-    f, a, b, xp, *, xtol, maxiter, width=None, guess=None, newton_steps=10
+    f,
+    a,
+    b,
+    xp,
+    *,
+    xtol,
+    maxiter,
+    width=None,
+    guess=None,
+    newton_steps=10,
+    sections=None,
 ):
     """torch bracketed root of ``f`` on ``[a, b]``, differentiable in f's params.
 
@@ -27,12 +37,18 @@ def brentq_backend(
     """
     import torch
 
-    from ..optimize import bisect_root, newton_polish
+    from ..optimize import bisect_root, newton_polish, section_root, sectionable
 
     # Bisection root, detached: its branchy comparisons carry no useful gradient,
     # so x0 is a constant w.r.t. the parameters; the Newton step restores the
     # parameter sensitivity via the implicit-function theorem.
-    if guess is None:
+    polished = guess is None and sectionable(a, b, sections)
+    if polished:  # the secant value is machine-level already
+        with torch.no_grad():
+            x0, _ = section_root(
+                f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width, sections=sections
+            )
+    elif guess is None:
         with torch.no_grad():
             x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     else:
@@ -60,6 +76,8 @@ def brentq_backend(
         torch.is_grad_enabled()
         and (fx0.requires_grad or _needs_grad(a) or _needs_grad(b))
     ):
+        if polished:
+            return x0
         # Still take the Newton step, for the VALUE. Bisection alone stops at
         # the final bracket half-width (~1e-14 here), and callers that go on to
         # form sqrt(f(x0)) amplify that residual -- actionAngleVertical's Omega
