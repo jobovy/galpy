@@ -26,6 +26,7 @@ else:
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    co_like,
     coerce_coords,
     device_of,
     float64_default_if_torch_args,
@@ -42,6 +43,7 @@ from ..backend._namespaces import (
     compilable_singledispatchmethod,
     concretely_true,
     has_concrete_truth_value,
+    host_copy,
     inbackend_ode_method,
     namespace_from_arrays,
     param_grad_array,
@@ -52,6 +54,7 @@ from ..backend._namespaces import (
     under_trace,
     untraceable_setup,
 )
+from ..backend.special import logsumexp as _backend_logsumexp
 from ..potential import (
     _INF,
     CompositePotential,
@@ -73,6 +76,8 @@ from ..potential.Potential import (
     Potential,
     _check_c,
     _check_potential_list_and_deprecate,
+    _pot_data_namespace,
+    _pot_grad_namespace,
 )
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (
@@ -10318,6 +10323,24 @@ def _fit_orbit(
     tmockAA = mockActionAngleIsochroneApprox(
         tintJ, ntintJ, pot, integrate_method=integrate_method
     )
+    xp = _fit_namespace(orb, vxvv, vxvv_err, pot, obs)
+    if xp is not numpy:
+        try:
+            return _fit_orbit_backend(
+                xp,
+                orb,
+                vxvv,
+                vxvv_err,
+                pot,
+                (radec, lb, customsky, lb_to_customsky, pmllpmbb_to_customsky),
+                tmockAA,
+                ro,
+                vo,
+                obs,
+                disp,
+            )
+        finally:
+            coords._APY_COORDS = coords._APY_COORDS_ORIG
     opt_vxvv = optimize.fmin_powell(
         _fit_orbit_mlogl,
         orb.vxvv,
@@ -10354,6 +10377,124 @@ def _fit_orbit(
     )
     coords._APY_COORDS = coords._APY_COORDS_ORIG
     return (opt_vxvv, maxLogL)
+
+
+def _fit_namespace(orb, vxvv, vxvv_err, pot, obs):
+    """from_fit's namespace: a backend initial guess, data, errors, observer, or
+    potential parameter, else the forced/context default (numpy otherwise)"""
+    bk = [
+        x
+        for x in (getattr(orb, "_ic_backend", None), vxvv, vxvv_err, obs)
+        if is_backend_array(x)
+    ]
+    if pot is None:  # the numpy path raises the PotentialError
+        return numpy
+    if bk:
+        return namespace_from_arrays(bk)
+    return _pot_data_namespace((pot,))
+
+
+def _fit_orbit_backend(xp, orb, vxvv, vxvv_err, pot, sky, tmockAA, ro, vo, obs, disp):
+    """from_fit on the backend: the likelihood and its gradient in xp, scipy's
+    L-BFGS on their concrete values, then one Newton step in xp from the optimum
+    (the Hessian a finite difference of the gradient, held constant), which
+    carries the implicit-function derivative of the fit with respect to the
+    data, their errors, and the potential's parameters"""
+
+    def mlogl(p, data, err, pot=pot, aA=tmockAA):
+        return _fit_orbit_mlogl(p, data, err, pot, *sky, aA, ro, vo, obs)
+
+    # the optimizer's iterations need no derivative with respect to the
+    # potential: run them with its concrete values (C integration)
+    pot_live = _pot_grad_namespace(pot) is not None
+    if pot_live:
+        pot_host = host_copy(pot)
+        aA_host = copy.copy(tmockAA)
+        aA_host._pot = pot_host
+    else:
+        pot_host, aA_host = pot, tmockAA
+
+    host = lambda a: None if a is None else as_numpy(stop_gradient(a))  # noqa: E731
+    data0, err0 = host(vxvv), host(vxvv_err)
+    ins = [
+        x
+        for x in (getattr(orb, "_ic_backend", None), vxvv, vxvv_err, obs)
+        if x is not None
+    ]
+    anchor = next(
+        (x for x in ins if is_backend_array(x)), param_grad_array(pot, any_backend=True)
+    )
+
+    def on_xp(a):
+        return like(anchor, a) if anchor is not None else xp.asarray(a)
+
+    aA_live = tmockAA
+    if pot_live and name_of_namespace(xp) == "jax":
+        # the Newton step differentiates the gradient once more, through the
+        # in-backend solve: diffrax's direct adjoint (reverse over reverse)
+        aA_live = copy.copy(tmockAA)
+        aA_live._integrate_kwargs = {"adjoint": "direct", "max_steps": 4096}
+
+    def value_and_grad(p, data, err, live=False):
+        f = (
+            (lambda p, d, e: mlogl(p, d, e, pot, aA_live))
+            if live
+            else (lambda p, d, e: mlogl(p, d, e, pot_host, aA_host))
+        )
+        if name_of_namespace(xp) == "jax":
+            import jax
+
+            return jax.value_and_grad(f)(p, data, err)
+        import torch
+
+        p = p if p.requires_grad else p.detach().requires_grad_(True)
+        v = f(p, data, err)
+        (g,) = torch.autograd.grad(v, p, create_graph=live)
+        return v, g
+
+    def fun(pnp):
+        v, g = value_and_grad(on_xp(numpy.asarray(pnp, dtype=float)), data0, err0)
+        return float(host(v)), numpy.asarray(host(g), dtype=float)
+
+    if getattr(orb, "_ic_backend_concrete", True):
+        p0 = numpy.asarray(orb.vxvv[0], dtype=float)
+    else:  # a traced guess: its values through the accessors
+        p0 = numpy.array(
+            [
+                float(host(getattr(orb, c)(use_physical=False)))
+                for c in "R vR vT z vz phi".split()
+            ]
+        )
+    res = optimize.minimize(
+        fun,
+        p0,
+        jac=True,
+        method="L-BFGS-B",
+        options={"ftol": 1e-11, "gtol": 1e-8, "maxiter": 1000},
+    )
+    if disp:
+        print(res.message)
+    popt = numpy.asarray(res.x, dtype=float)
+    maxLogL = -float(res.fun)
+    live = pot_live or under_trace(*ins) or requires_backend_grad(*ins)
+    if not live:
+        return on_xp(popt), maxLogL
+    # one Newton step from the optimum with the live inputs: its value is the
+    # optimum (the gradient vanishes there), its derivative the implicit one
+    h = 1e-6 * numpy.maximum(numpy.fabs(popt), 1.0)
+    H = numpy.empty((6, 6))
+    for ii in range(6):
+        e = numpy.zeros(6)
+        e[ii] = h[ii]
+        H[:, ii] = (fun(popt + e)[1] - fun(popt - e)[1]) / (2.0 * h[ii])
+    # the likelihood is flat along the orbit (the data constrain the orbit, not
+    # the phase of its initial condition): a pseudo-inverse sets the fit's
+    # derivative along that direction to zero
+    w, V = numpy.linalg.eigh(0.5 * (H + H.T))
+    winv = numpy.where(w > 1e-8 * numpy.max(numpy.fabs(w)), 1.0 / w, 0.0)
+    Hinv = on_xp((V * winv) @ V.T)
+    _, g = value_and_grad(on_xp(popt), vxvv, vxvv_err, live=True)
+    return on_xp(popt) - Hinv @ g, maxLogL
 
 
 def _fit_orbit_mlogl(
@@ -10411,18 +10552,14 @@ def _fit_orbit_mlogl(
             X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
         )
         if lb:
-            orb_vxvv = numpy.array(
-                to_host(
-                    [
-                        lbdvrpmllpmbb[:, 0],
-                        lbdvrpmllpmbb[:, 1],
-                        lbdvrpmllpmbb[:, 2],
-                        lbdvrpmllpmbb[:, 4],
-                        lbdvrpmllpmbb[:, 5],
-                        lbdvrpmllpmbb[:, 3],
-                    ]
-                )
-            ).T
+            orb_vxvv = _stack_cols(
+                lbdvrpmllpmbb[:, 0],
+                lbdvrpmllpmbb[:, 1],
+                lbdvrpmllpmbb[:, 2],
+                lbdvrpmllpmbb[:, 4],
+                lbdvrpmllpmbb[:, 5],
+                lbdvrpmllpmbb[:, 3],
+            )
         elif radec:
             # Further transform to ra,dec,pmra,pmdec
             radec = coords.lb_to_radec(
@@ -10436,18 +10573,14 @@ def _fit_orbit_mlogl(
                 degree=True,
                 epoch=None,
             )
-            orb_vxvv = numpy.array(
-                to_host(
-                    [
-                        radec[:, 0],
-                        radec[:, 1],
-                        lbdvrpmllpmbb[:, 2],
-                        pmrapmdec[:, 0],
-                        pmrapmdec[:, 1],
-                        lbdvrpmllpmbb[:, 3],
-                    ]
-                )
-            ).T
+            orb_vxvv = _stack_cols(
+                radec[:, 0],
+                radec[:, 1],
+                lbdvrpmllpmbb[:, 2],
+                pmrapmdec[:, 0],
+                pmrapmdec[:, 1],
+                lbdvrpmllpmbb[:, 3],
+            )
         elif customsky:
             # Further transform to ra,dec,pmra,pmdec
             customradec = lb_to_customsky(
@@ -10460,30 +10593,31 @@ def _fit_orbit_mlogl(
                 lbdvrpmllpmbb[:, 1],
                 degree=True,
             )
-            orb_vxvv = numpy.array(
-                to_host(
-                    [
-                        customradec[:, 0],
-                        customradec[:, 1],
-                        lbdvrpmllpmbb[:, 2],
-                        custompmrapmdec[:, 0],
-                        custompmrapmdec[:, 1],
-                        lbdvrpmllpmbb[:, 3],
-                    ]
-                )
-            ).T
+            orb_vxvv = _stack_cols(
+                customradec[:, 0],
+                customradec[:, 1],
+                lbdvrpmllpmbb[:, 2],
+                custompmrapmdec[:, 0],
+                custompmrapmdec[:, 1],
+                lbdvrpmllpmbb[:, 3],
+            )
     else:
         # shape=(2tintJ-1,6)
-        orb_vxvv = numpy.array(
-            [
-                iR.flatten(),
-                ivR.flatten(),
-                ivT.flatten(),
-                iz.flatten(),
-                ivz.flatten(),
-                iphi.flatten(),
-            ]
-        ).T
+        orb_vxvv = _stack_cols(
+            iR.flatten(),
+            ivR.flatten(),
+            ivT.flatten(),
+            iz.flatten(),
+            ivz.flatten(),
+            iphi.flatten(),
+        )
+    if is_backend_array(orb_vxvv):
+        # all data points at once: (ndata, ntrack, 6)
+        xp = namespace_from_arrays((orb_vxvv,))
+        vxvv = like(orb_vxvv, vxvv)
+        err = 0.01 if vxvv_err is None else like(orb_vxvv, vxvv_err)[:, None, :]
+        chi2 = xp.sum(((orb_vxvv[None, :, :] - vxvv[:, None, :]) / err) ** 2.0, axis=2)
+        return -xp.sum(_backend_logsumexp(-0.5 * chi2, axis=1))
     out = 0.0
     for ii in range(vxvv.shape[0]):
         sub_vxvv = (orb_vxvv - vxvv[ii, :].flatten()) ** 2.0
@@ -10494,6 +10628,14 @@ def _fit_orbit_mlogl(
             sub_vxvv /= 0.01**2.0
         out += logsumexp(-0.5 * numpy.sum(sub_vxvv, axis=1))
     return -out
+
+
+def _stack_cols(*cols):
+    """(n, len(cols)) from columns: numpy's array(...).T, or a backend stack"""
+    bk = tuple(c for c in cols if is_backend_array(c))
+    if not bk:
+        return numpy.array(cols).T
+    return namespace_from_arrays(bk).stack(co_like(*cols), axis=1)
 
 
 def _check_roSet(orb, kwargs, funcName):
