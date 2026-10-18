@@ -326,6 +326,18 @@ def _refuse_numpy_integrator_on_cuda(method):
     )
 
 
+def _vectorized_backend_root(orb, pot, x):
+    """rguiding/rE/LcE's backend route, as ``(xp, x on xp)``, else None: one
+    vectorized root for a backend ``x`` (a forced backend's included), or for a
+    numpy ``x`` in a backend potential (``x`` lifted onto its backend)."""
+    if is_backend_array(x):
+        return namespace_from_arrays((x,)), x
+    pp = param_grad_array(pot, any_backend=True)
+    if pp is None:
+        return None
+    return namespace_from_arrays((pp,)), like(pp, numpy.atleast_1d(x))
+
+
 def _resolve_accessor_namespace(thiso):
     """Resolve the array namespace for a derived time-evaluation accessor.
 
@@ -2028,6 +2040,7 @@ class Orbit:
         # in-backend ODE solver (still differentiable). numpy/list ICs have
         # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
         ic_backend = getattr(self, "_ic_backend", None)
+        _plain_c = False  # a C-STM-eligible concrete IC: the plain C path below
         if ic_backend is not None:
             from ..backend._reference.inbackend_stm import (
                 _C_RK_METHODS,
@@ -2045,15 +2058,17 @@ class Orbit:
                     "or method='diffrax' (jax) / 'torchdiffeq' (torch)"
                 )
 
-            # Runge-Kutta dxdv methods auto-route for ANY backend IC. Symplectic
-            # dxdv methods (incl. galpy's DEFAULT symplec4_c) route ONLY for a
-            # grad-tracking IC: a CONCRETE backend IC has real values in self.vxvv
-            # and keeps the numpy/C path below, so a forced-backend internal
-            # default-method integration is never silently rerouted to the C-STM
-            # (bit #1094). A grad-tracking IC has no concrete values to integrate on
-            # numpy, so it needs the differentiable C-STM -- which supports the
-            # symplectic dxdv integrators via the per-column drift/kick tangent maps
-            # (the alternative for these was to raise below).
+            # Runge-Kutta dxdv methods auto-route for ANY backend IC; a CONCRETE one
+            # that the C-STM would take integrates with the plain C integrator
+            # below instead (nothing can differentiate it, so its STM would go
+            # unused). Symplectic dxdv methods (incl. galpy's DEFAULT symplec4_c)
+            # route ONLY for a grad-tracking IC: a CONCRETE backend IC has real
+            # values in self.vxvv and keeps the numpy/C path below, so a
+            # forced-backend internal default-method integration is never silently
+            # rerouted to the C-STM (bit #1094). A grad-tracking IC has no concrete
+            # values to integrate on numpy, so it needs the differentiable C-STM --
+            # which supports the symplectic dxdv integrators via the per-column
+            # drift/kick tangent maps (the alternative for these was to raise below).
             _ml = method.lower()
             _concrete = getattr(self, "_ic_backend_concrete", True)
             # A differentiated parameter or t routes every dxdv method: the numpy/C
@@ -2087,21 +2102,25 @@ class Orbit:
                         else False
                     )
                 ):
-                    return self._integrate_backend_continued(
-                        lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
-                        t,
-                        _potl,
-                    )
+                    if _concrete:
+                        _plain_c = True
+                    else:
+                        return self._integrate_backend_continued(
+                            lambda: self._integrate_cstm(t, _potl, _ml, rtol, atol),
+                            t,
+                            _potl,
+                        )
                 # Pass the deprecation-checked/composed potential (_potl), matching
                 # the C-STM and numpy paths, so a legacy list reaches the in-backend
                 # integrator as a composite rather than a raw list.
-                return self._integrate_backend_continued(
-                    lambda: self._integrate_inbackend(
-                        t, _potl, _inbk, rtol, atol, inbackend_kwargs
-                    ),
-                    t,
-                    _potl,
-                )
+                if not _plain_c:
+                    return self._integrate_backend_continued(
+                        lambda: self._integrate_inbackend(
+                            t, _potl, _inbk, rtol, atol, inbackend_kwargs
+                        ),
+                        t,
+                        _potl,
+                    )
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
         ):
@@ -2116,7 +2135,7 @@ class Orbit:
                 "differentiable integrator; use method='diffrax' (jax) or "
                 f"method='torchdiffeq' (torch), not method='{method}'"
             )
-        if ic_backend is not None:
+        if ic_backend is not None and not _plain_c:
             # Reaching here means every differentiable route above declined this
             # method (in-backend solver, C-STM), so the trajectory is COMPUTED in
             # numpy/C. It is handed back on the IC's backend (the exit cast at the
@@ -2654,8 +2673,9 @@ class Orbit:
         a jax.custom_vjp / torch.autograd.Function (galpy.backend._jax|_torch.
         orbit_stm): it returns the trajectory plus the STM M(t)=dx(t)/dx(0), and
         the IC gradient is M(t)^T applied to the output cotangent (no backward C
-        call). Routed here from integrate() for a 6D orbit built from a jax/torch
-        IC with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
+        call). Routed here from integrate() for a 6D orbit built from a traced or
+        grad-tracking jax/torch IC (a concrete one takes the plain C integrator)
+        with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
         potential has the full C 3D Hessian. The trajectory is stored as a backend
         array in self.orbit, so getOrbit()/the accessors are backend arrays
         differentiable w.r.t. the initial conditions (gradients w.r.t. potential
@@ -3762,6 +3782,34 @@ class Orbit:
             (_tk,) = coerce_coords(
                 namespace_from_arrays((_pp,)), _tk, device=device_of(_pp)
             )
+
+        def _E_flat(evaluator, coords, phi=None):
+            # the fallback on a backend: one call on the flattened (time, orbit)
+            # grid (a potential may refuse 2D arrays), not a per-point numpy loop
+            xpk = namespace_from_arrays((_tk,))
+            shape = tuple(coords[0].shape)
+            tt = xpk.broadcast_to(xpk.reshape(like(_tk, t), (-1, 1)), shape)
+            kw = {} if phi is None else {"phi": xpk.reshape(phi, (-1,))}
+            flat = [xpk.reshape(c, (-1,)) for c in coords]
+            tt = xpk.reshape(tt, (-1,))
+            try:
+                out = evaluator(pot, *flat, t=tt, use_physical=False, **kw)
+            except (ValueError, TypeError, IndexError, RuntimeError):
+                # a scalar-only potential: per point, stacked on the backend
+                out = xpk.stack(
+                    [
+                        evaluator(
+                            pot,
+                            *[c[ii] for c in flat],
+                            t=tt[ii],
+                            use_physical=False,
+                            **{k: v[ii] for k, v in kw.items()},
+                        )
+                        for ii in range(flat[0].shape[0])
+                    ]
+                )
+            return xpk.reshape(out, shape).T
+
         if self.phasedim() == 2:
             try:
                 out = (
@@ -3774,25 +3822,31 @@ class Orbit:
                     + _tk[1] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
-                out = (
-                    numpy.array(
-                        to_host(
-                            [
-                                [
-                                    evaluatelinearPotentials(
-                                        pot,
-                                        thiso[0][ii][jj],
-                                        t=t[ii],
-                                        use_physical=False,
-                                    )
-                                    for ii in range(len(thiso[0]))
-                                ]
-                                for jj in range(self.size)
-                            ]
-                        )
+                if is_backend_array(_tk):
+                    out = (
+                        _E_flat(evaluatelinearPotentials, (_tk[0],))
+                        + (_tk[1] ** 2.0 / 2.0).T
                     )
-                    + (thiso[1] ** 2.0 / 2.0).T
-                )
+                else:
+                    out = (
+                        numpy.array(
+                            to_host(
+                                [
+                                    [
+                                        evaluatelinearPotentials(
+                                            pot,
+                                            thiso[0][ii][jj],
+                                            t=t[ii],
+                                            use_physical=False,
+                                        )
+                                        for ii in range(len(thiso[0]))
+                                    ]
+                                    for jj in range(self.size)
+                                ]
+                            )
+                        )
+                        + (thiso[1] ** 2.0 / 2.0).T
+                    )
         elif self.phasedim() == 3:
             try:
                 out = (
@@ -3806,25 +3860,31 @@ class Orbit:
                     + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
-                out = (
-                    numpy.array(
-                        to_host(
-                            [
-                                [
-                                    evaluateplanarPotentials(
-                                        pot,
-                                        thiso[0][ii][jj],
-                                        t=t[ii],
-                                        use_physical=False,
-                                    )
-                                    for ii in range(len(thiso[0]))
-                                ]
-                                for jj in range(self.size)
-                            ]
-                        )
+                if is_backend_array(_tk):
+                    out = (
+                        _E_flat(evaluateplanarPotentials, (_tk[0],))
+                        + (_tk[1] ** 2.0 / 2.0 + _tk[2] ** 2.0 / 2.0).T
                     )
-                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
-                )
+                else:
+                    out = (
+                        numpy.array(
+                            to_host(
+                                [
+                                    [
+                                        evaluateplanarPotentials(
+                                            pot,
+                                            thiso[0][ii][jj],
+                                            t=t[ii],
+                                            use_physical=False,
+                                        )
+                                        for ii in range(len(thiso[0]))
+                                    ]
+                                    for jj in range(self.size)
+                                ]
+                            )
+                        )
+                        + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
+                    )
         elif self.phasedim() == 4:
             try:
                 out = (
@@ -3839,29 +3899,37 @@ class Orbit:
                     + _tk[2] ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
-                out = (
-                    numpy.array(
-                        to_host(
-                            [
-                                [
-                                    evaluateplanarPotentials(
-                                        pot,
-                                        thiso[0][ii][jj],
-                                        t=t[ii],
-                                        phi=thiso[-1][ii][jj],
-                                        use_physical=False,
-                                    )
-                                    for ii in range(len(thiso[0]))
-                                ]
-                                for jj in range(self.size)
-                            ]
-                        )
+                if is_backend_array(_tk):
+                    out = (
+                        _E_flat(evaluateplanarPotentials, (_tk[0],), phi=_tk[-1])
+                        + (_tk[1] ** 2.0 / 2.0 + _tk[2] ** 2.0 / 2.0).T
                     )
-                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
-                )
+                else:
+                    out = (
+                        numpy.array(
+                            to_host(
+                                [
+                                    [
+                                        evaluateplanarPotentials(
+                                            pot,
+                                            thiso[0][ii][jj],
+                                            t=t[ii],
+                                            phi=thiso[-1][ii][jj],
+                                            use_physical=False,
+                                        )
+                                        for ii in range(len(thiso[0]))
+                                    ]
+                                    for jj in range(self.size)
+                                ]
+                            )
+                        )
+                        + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
+                    )
         elif self.phasedim() == 5:
             z = kwargs.get("_z", 1.0) * thiso[3]  # For ER and Ez
             vz = kwargs.get("_vz", 1.0) * thiso[4]  # For ER and Ez
+            _zk = kwargs.get("_z", 1.0) * _tk[3]
+            _vzk = kwargs.get("_vz", 1.0) * _tk[4]
             try:
                 out = (
                     evaluatePotentials(
@@ -3876,29 +3944,43 @@ class Orbit:
                     + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
-                out = (
-                    numpy.array(
-                        to_host(
-                            [
-                                [
-                                    evaluatePotentials(
-                                        pot,
-                                        thiso[0][ii][jj],
-                                        z[ii][jj],
-                                        t=t[ii],
-                                        use_physical=False,
-                                    )
-                                    for ii in range(len(thiso[0]))
-                                ]
-                                for jj in range(self.size)
-                            ]
-                        )
+                if is_backend_array(_tk):
+                    out = (
+                        _E_flat(evaluatePotentials, (_tk[0], _zk))
+                        + (
+                            _tk[1] ** 2.0 / 2.0 + _tk[2] ** 2.0 / 2.0 + _vzk**2.0 / 2.0
+                        ).T
                     )
-                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
-                )
+                else:
+                    out = (
+                        numpy.array(
+                            to_host(
+                                [
+                                    [
+                                        evaluatePotentials(
+                                            pot,
+                                            thiso[0][ii][jj],
+                                            z[ii][jj],
+                                            t=t[ii],
+                                            use_physical=False,
+                                        )
+                                        for ii in range(len(thiso[0]))
+                                    ]
+                                    for jj in range(self.size)
+                                ]
+                            )
+                        )
+                        + (
+                            thiso[1] ** 2.0 / 2.0
+                            + thiso[2] ** 2.0 / 2.0
+                            + vz**2.0 / 2.0
+                        ).T
+                    )
         elif self.phasedim() == 6:
             z = kwargs.get("_z", 1.0) * thiso[3]  # For ER and Ez
             vz = kwargs.get("_vz", 1.0) * thiso[4]  # For ER and Ez
+            _zk = kwargs.get("_z", 1.0) * _tk[3]
+            _vzk = kwargs.get("_vz", 1.0) * _tk[4]
             try:
                 out = (
                     evaluatePotentials(
@@ -3914,27 +3996,39 @@ class Orbit:
                     + (kwargs.get("_vz", 1.0) * _tk[4]) ** 2.0 / 2.0
                 ).T
             except (ValueError, TypeError, IndexError, RuntimeError):
-                out = (
-                    numpy.array(
-                        to_host(
-                            [
-                                [
-                                    evaluatePotentials(
-                                        pot,
-                                        thiso[0][ii][jj],
-                                        z[ii][jj],
-                                        t=t[ii],
-                                        phi=thiso[-1][ii][jj],
-                                        use_physical=False,
-                                    )
-                                    for ii in range(len(thiso[0]))
-                                ]
-                                for jj in range(self.size)
-                            ]
-                        )
+                if is_backend_array(_tk):
+                    out = (
+                        _E_flat(evaluatePotentials, (_tk[0], _zk), phi=_tk[-1])
+                        + (
+                            _tk[1] ** 2.0 / 2.0 + _tk[2] ** 2.0 / 2.0 + _vzk**2.0 / 2.0
+                        ).T
                     )
-                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
-                )
+                else:
+                    out = (
+                        numpy.array(
+                            to_host(
+                                [
+                                    [
+                                        evaluatePotentials(
+                                            pot,
+                                            thiso[0][ii][jj],
+                                            z[ii][jj],
+                                            t=t[ii],
+                                            phi=thiso[-1][ii][jj],
+                                            use_physical=False,
+                                        )
+                                        for ii in range(len(thiso[0]))
+                                    ]
+                                    for jj in range(self.size)
+                                ]
+                            )
+                        )
+                        + (
+                            thiso[1] ** 2.0 / 2.0
+                            + thiso[2] ** 2.0 / 2.0
+                            + vz**2.0 / 2.0
+                        ).T
+                    )
         if onet:
             return out[:, 0]
         else:
@@ -4199,10 +4293,13 @@ class Orbit:
         # a backend potential's pattern speed is a 0-d array, not a 3-vector
         if getattr(OmegaP, "ndim", 0) == 1 and len(OmegaP) == 3:
             thisOmegaP = OmegaP
-            # numpy.einsum below reads tL: E and tL on the host
-            tL = to_host(self.L(*args, **kwargs))
-            E = to_host(self.E(*args, **kwargs))
-            if len(tL.shape) == 2:  # 1 time
+            tL = self.L(*args, **kwargs)
+            E = self.E(*args, **kwargs)
+            _bk = tuple(a for a in (E, tL) if is_backend_array(a))
+            if _bk:  # Omega . L on the backend (matmul over the last axis)
+                E, tL = co_like(E, tL)
+                out = E - namespace_from_arrays(_bk).matmul(tL, like(tL, thisOmegaP))
+            elif len(tL.shape) == 2:  # 1 time
                 out = E - numpy.einsum("i,ji->j", thisOmegaP, tL)
             else:
                 out = E - numpy.einsum("i,jki->jk", thisOmegaP, tL)
@@ -4218,9 +4315,7 @@ class Orbit:
                 Lz = like(E, Lz)
             elif not is_backend_array(Lz):  # a numpy orbit: E, OmegaP on the host
                 E, OmegaP = to_host(E), to_host(OmegaP)
-            else:  # numpy E (some potentials) / per-orbit OmegaP: onto Lz's backend
-                if isinstance(E, numpy.ndarray):
-                    E = like(Lz, E)
+            else:  # a per-orbit OmegaP: onto Lz's backend
                 if isinstance(OmegaP, numpy.ndarray):
                     OmegaP = like(Lz, OmegaP)
             out = E - OmegaP * Lz
@@ -4782,9 +4877,13 @@ class Orbit:
                 "Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential"
             )
         _check_consistent_units(self, pot)
-        Lz = numpy.atleast_1d(
-            to_host(self.Lz(*args, use_physical=False, dontreshape=True))
-        )
+        _Lz = self.Lz(*args, use_physical=False, dontreshape=True)
+        bk = _vectorized_backend_root(self, pot, _Lz)
+        if bk is not None:  # one backend root over all Lz
+            xpl, Lzb = bk
+            out = rl(pot, xpl.reshape(Lzb, (-1,)), use_physical=False)
+            return xpl.reshape(out, tuple(Lzb.shape) or (1,))
+        Lz = numpy.atleast_1d(to_host(_Lz))
         Lz_shape = Lz.shape
         Lz = Lz.flatten()
         if len(Lz) > 500:
@@ -4800,13 +4899,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             rls = [rl(pot, lz, use_physical=False) for lz in Lz]
-            # rl follows the gradient, so against a traced potential these are
-            # backend scalars that numpy.array() cannot collect; stack them in
-            # their own namespace instead. Otherwise collect on numpy and return
-            # on the accessor namespace, like every other accessor.
-            if any(under_trace(v) or requires_backend_grad(v) for v in rls):
-                xp = get_namespace(*rls)
-                return xp.reshape(xp.stack(rls), Lz_shape)
             out = numpy.array([to_host(v) for v in rls]).reshape(Lz_shape)
             return _resolve_accessor_namespace(out)[1]
 
@@ -4853,14 +4945,14 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. A merely forced backend computes on numpy and lifts
-        # the result onto the accessor namespace at the return.
-        _E_grad = under_trace(_E) or requires_backend_grad(_E)
-        _xpE = get_namespace(_E) if _E_grad else numpy
-        E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
+        bk = _vectorized_backend_root(self, pot, _E)
+        if bk is not None:  # one backend root over all E
+            xpE, Eb = bk
+            out = rE(pot, xpE.reshape(Eb, (-1,)), use_physical=False)
+            return xpE.reshape(out, tuple(Eb.shape) or (1,))
+        E = numpy.atleast_1d(to_host(_E))
         E_shape = E.shape
-        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
+        E = E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4874,11 +4966,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             vals = [rE(pot, tE, use_physical=False) for tE in E]
-            # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect.
-            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
-                xp = get_namespace(*vals)
-                return xp.reshape(xp.stack(vals), E_shape)
             out = numpy.array(to_host(vals)).reshape(E_shape)
             return _resolve_accessor_namespace(out)[1]
 
@@ -4925,14 +5012,14 @@ class Orbit:
             )
         _check_consistent_units(self, pot)
         _E = self.E(*args, pot=pot, use_physical=False, dontreshape=True)
-        # Only a DIFFERENTIATED E needs its own namespace: numpy.atleast_1d
-        # refuses a tracer. A merely forced backend computes on numpy and lifts
-        # the result onto the accessor namespace at the return.
-        _E_grad = under_trace(_E) or requires_backend_grad(_E)
-        _xpE = get_namespace(_E) if _E_grad else numpy
-        E = _xpE.atleast_1d(_E if _E_grad else to_host(_E))
+        bk = _vectorized_backend_root(self, pot, _E)
+        if bk is not None:  # one backend root over all E
+            xpE, Eb = bk
+            out = LcE(pot, xpE.reshape(Eb, (-1,)), use_physical=False)
+            return xpE.reshape(out, tuple(Eb.shape) or (1,))
+        E = numpy.atleast_1d(to_host(_E))
         E_shape = E.shape
-        E = _xpE.reshape(E, (-1,)) if _E_grad else E.flatten()
+        E = E.flatten()
         if len(E) > 500:
             # Build interpolation grid
             precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
@@ -4946,11 +5033,6 @@ class Orbit:
             return _resolve_accessor_namespace(out)[1]
         else:
             vals = [LcE(pot, tE, use_physical=False) for tE in E]
-            # as in rguiding: against a traced potential these are backend
-            # scalars, which numpy.array() cannot collect.
-            if any(under_trace(v) or requires_backend_grad(v) for v in vals):
-                xp = get_namespace(*vals)
-                return xp.reshape(xp.stack(vals), E_shape)
             out = numpy.array(to_host(vals)).reshape(E_shape)
             return _resolve_accessor_namespace(out)[1]
 
@@ -7618,9 +7700,12 @@ class Orbit:
                 # Off-grid times: interpolate the backend trajectory with the
                 # in-backend differentiable cubic spline (no scipy).
                 return self._call_internal_backend_interp(t)
-            # a numpy orbit at a traced scalar/1-D time: spline in-backend (a
-            # higher-dim t raises below, as on numpy, for the caller's fallback)
-            if under_trace(t) and t.ndim <= 1:
+            # a numpy orbit at a traced scalar/1-D time, or a concrete 1-D backend
+            # time: spline in-backend (a higher-dim t raises below, as on numpy,
+            # for the caller's fallback)
+            if (under_trace(t) and t.ndim <= 1) or (
+                is_backend_array(t) and t.ndim == 1
+            ):
                 return self._call_internal_backend_interp(t, like(t, self.orbit))
             if isinstance(t, (int, float, numpy.number)) or getattr(t, "ndim", 1) == 0:
                 # A 0-d backend (jax/torch) query time has __len__ but its len()
