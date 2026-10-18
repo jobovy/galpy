@@ -569,6 +569,18 @@ def test_augmented_stm_matches_loop(ic):
     numpy.testing.assert_allclose(Ma[0], numpy.eye(6), atol=1e-13)  # identity at t0
 
 
+def test_cyl_to_rect_jac_stack_is_coords_jac():
+    # the stacked fold Jacobians are coords.cyl_to_rect_jac at every sample,
+    # bit for bit (same per-element arithmetic, built once per orbit)
+    from galpy.backend._reference.inbackend_stm import _cyl_to_rect_jac_stack
+    from galpy.util import coords
+
+    pts = numpy.random.default_rng(2).normal(size=(50, 6))
+    got = _cyl_to_rect_jac_stack(*(pts[:, i] for i in (0, 1, 2, 4, 5)))
+    want = numpy.array([coords.cyl_to_rect_jac(*p) for p in pts])
+    assert got.tobytes() == want.tobytes()
+
+
 def test_augmented_stm_fd_of_flow():
     # the real correctness check (catches an a/b axis swap that parity alone can't,
     # since both paths would share it): M[:, :, b] == d base / d ic[b] by central
