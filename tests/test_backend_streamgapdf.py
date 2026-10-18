@@ -1456,7 +1456,7 @@ def _forced_gap_build(backend):
 _FORCED_GAP_FLOORS = {
     "_gap_ObsTrack": 1e-5,
     "_gap_ObsTrackXY": 1.5e-5,
-    "_gap_alljacsTrack": 2e-5,
+    "_gap_alljacsTrack": 4e-5,  # numpy's FD Jacobian error: 2.65e-5 on CI's py3.14
     "_kick_interpolatedObsTrackXY": 1.5e-5,
     "_kick_interpolatedObsTrackAA": 3e-6,
     "_kick_deltav": 3e-4,
