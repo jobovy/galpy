@@ -1216,24 +1216,41 @@ def test_orbit_integrate_cstm_continuation_jacobian_vs_fd(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_orbit_integrate_cstm_continuation_warns_on_changed_potential(backend):
+@pytest.mark.parametrize("ic_kind", ["concrete", "grad"])
+def test_orbit_integrate_cstm_continuation_warns_on_changed_potential(backend, ic_kind):
     # The numpy path warns when a continuation switches potential mid-orbit
     # (test_orbit.py::test_orbit_continuation_different_potential_warning); the
     # backend routes go through their own prologue, so the warning has to be
     # raised there too or it silently disappears for exactly the callers most
-    # likely to be composing integrations.
+    # likely to be composing integrations. A concrete IC integrates in plain C
+    # (the numpy path); a grad-tracking one takes the C-STM route.
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
 
     other = LogarithmicHaloPotential(normalize=1.0)
-    o = Orbit(_arr(backend, _IC))
-    o.integrate(_CONT_T1, MWPotential2014, method="dop853_c")
-    with warnings.catch_warnings(record=True) as rec:
-        warnings.simplefilter("always")
-        o.integrate(_CONT_T2["forward"], other, method="dop853_c")
+    rec = []
+
+    def run(v):
+        o = Orbit(v)
+        o.integrate(_CONT_T1, MWPotential2014, method="dop853_c")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            o.integrate(_CONT_T2["forward"], other, method="dop853_c")
+        rec.extend(w)
+        return o
+
+    if ic_kind == "concrete":
+        o = run(_arr(backend, _IC))
+    elif backend == "jax":  # a traced IC: inside a (reverse-mode) grad
+        jax.grad(lambda v: jnp.sum(run(v).getOrbit()[-1]))(jnp.asarray(_IC))
+        o = None
+    else:
+        o = run(torch.tensor(_IC, requires_grad=True))
     assert [w for w in rec if "different potential" in str(w.message)], (
         "continuing a backend orbit with a different potential did not warn"
     )
+    if o is None:
+        return
     # and it still MERGES -- the warning is advisory, not a bail-out
     ref = Orbit(list(_IC))
     ref.integrate(_CONT_T1, MWPotential2014, method="dop853_c")

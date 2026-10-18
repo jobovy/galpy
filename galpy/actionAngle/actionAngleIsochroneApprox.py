@@ -24,10 +24,12 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    like,
     name_of_namespace,
     promote_scalars,
     to_host,
 )
+from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import (
@@ -838,10 +840,11 @@ class actionAngleIsochroneApprox(actionAngle):
             ntJ = os[0].getOrbit().shape[0]
             no = len(os)
             _orbs = [o.getOrbit() for o in os]
-            if any(is_backend_array(_o) for _o in _orbs):
+            _oxp = get_namespace(*_orbs)  # a forced backend too
+            if _oxp is not numpy:
                 # same reason as the assembly below: a traced trajectory cannot be
                 # written into numpy.empty, so stack the per-orbit rows instead
-                _oxp = get_namespace(_orbs[0])
+                _orbs = list(coerce_coords(_oxp, *_orbs))
                 _t7 = 10.0**-7.0
                 _six = _orbs[0].shape[1] == 6
                 R = _oxp.stack([_o[:, 0] for _o in _orbs], axis=0)
@@ -910,7 +913,17 @@ class actionAngleIsochroneApprox(actionAngle):
                     ophi[:, nt - 1 :] = phi
             # load orbits
             _sgn = 1.0 if _firstFlip else -1.0
-            if is_backend_array(R):
+            # a concrete, non-differentiated backend IC integrates as numpy (no
+            # state-transition matrix that nothing would use), unless the
+            # integrator is an in-backend solver, which needs a backend IC
+            if is_backend_array(R) and (
+                str(self._integrate_method).lower()
+                in ("diffrax", "torchdiffeq", "torchode")
+                or any(
+                    under_trace(c) or requires_backend_grad(c)
+                    for c in (R, vR, vT, z, vz, phi)
+                )
+            ):
                 # Orbit(<list of traced scalars>) dies in __init__'s numpy.asarray;
                 # hand it ONE stacked backend IC so the vxvv stays grad-connected.
                 _lxp = get_namespace(R)
@@ -930,15 +943,16 @@ class actionAngleIsochroneApprox(actionAngle):
                     for ii in range(R.shape[0])
                 ]
             else:
+                _ic = [as_numpy(c) for c in (R, vR, vT, z, vz, phi)]
                 os = [
                     Orbit(
                         [
-                            R[ii, 0],
-                            _sgn * vR[ii, 0],
-                            _sgn * vT[ii, 0],
-                            z[ii, 0],
-                            _sgn * vz[ii, 0],
-                            phi[ii, 0],
+                            _ic[0][ii, 0],
+                            _sgn * _ic[1][ii, 0],
+                            _sgn * _ic[2][ii, 0],
+                            _ic[3][ii, 0],
+                            _sgn * _ic[4][ii, 0],
+                            _ic[5][ii, 0],
                         ]
                     )
                     for ii in range(R.shape[0])
@@ -968,7 +982,8 @@ class actionAngleIsochroneApprox(actionAngle):
 
                 def _back(acc):
                     return _xp.stack(
-                        [getattr(os[ii], acc)(ts[1:]) for ii in range(no)], axis=0
+                        [like(R, getattr(os[ii], acc)(ts[1:])) for ii in range(no)],
+                        axis=0,
                     )
 
                 bR, bvR, bvT, bphi = (
