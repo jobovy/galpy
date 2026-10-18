@@ -138,12 +138,9 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
         # STM: fold each rect deviation column back to cyl,
         # M_cyl[t] = jac_t^{-1} . rect_cols[t]  (column b = cyl deviation of e_b).
         dev = out[:, 6:].reshape(nt, 6, 6)  # [t, k, :] = rect dev column k
-        M = numpy.empty((nt, 6, 6))
-        for it in range(nt):
-            jac_t = coords.cyl_to_rect_jac(
-                Rout[it], vRout[it], vTout[it], Zout[it], vzout[it], phiout[it]
-            )
-            M[it] = numpy.linalg.solve(jac_t, dev[it].T)  # (6,6), column b = cyl dev
+        jac_t = _cyl_to_rect_jac_stack(Rout, vRout, vTout, vzout, phiout)
+        # (nt,6,6), column b = cyl dev; a stacked solve, one LAPACK call per t
+        M = numpy.linalg.solve(jac_t, numpy.swapaxes(dev, 1, 2))
         M[0] = eye6  # exact identity at ts[0] (matches the per-column reference)
         xts.append(base)
         Ms.append(M)
@@ -152,6 +149,26 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
     if single:
         return xt[0], M[0]
     return xt, M
+
+
+def _cyl_to_rect_jac_stack(R, vR, vT, vz, phi):
+    """``coords.cyl_to_rect_jac`` (6-arg) at every sample, ``(nt, 6, 6)``: the same
+    per-element arithmetic, built once instead of per time step."""
+    cp, sp = numpy.cos(phi), numpy.sin(phi)
+    out = numpy.zeros((len(R), 6, 6))
+    out[:, 0, 0] = cp
+    out[:, 0, 5] = -R * sp
+    out[:, 1, 0] = sp
+    out[:, 1, 5] = R * cp
+    out[:, 2, 3] = 1.0
+    out[:, 3, 1] = cp
+    out[:, 3, 2] = -sp
+    out[:, 3, 5] = -vT * cp - vR * sp
+    out[:, 4, 1] = sp
+    out[:, 4, 2] = cp
+    out[:, 4, 5] = -vT * sp + vR * cp
+    out[:, 5, 4] = 1.0
+    return out
 
 
 def _c_stm_forward_loop(pot, vxvv, ts, method, rtol, atol):

@@ -26,6 +26,8 @@ from ..backend._namespaces import (
     has_concrete_truth_value,
     inbackend_ode_method,
     namespace_from_arrays,
+    param_grad_array,
+    requires_backend_grad,
     under_trace,
 )
 from ..backend.interpolate import Spline1D
@@ -1634,18 +1636,38 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         # the adaptive solver exhausted max_steps.
         _gp = self._gap_progenitor
         _ti = self._timpact
-        xv0_prog = get_namespace(_gp._ic_backend).stack(
+        # a numpy progenitor (forced backend / backend moments) is coerced
+        _ic = getattr(_gp, "_ic_backend", None)
+        xp = get_namespace(self._dsigomeanProgDirection if _ic is None else _ic)
+        xv0_prog = xp.stack(
             [
-                _gp.R(_ti, _stored=True),
-                _gp.vR(_ti, _stored=True),
-                _gp.vT(_ti, _stored=True),
-                _gp.z(_ti, _stored=True),
-                _gp.vz(_ti, _stored=True),
-                _gp.phi(_ti, _stored=True),
+                xp.reshape(c, ())
+                for c in coerce_coords(
+                    xp,
+                    _gp.R(_ti, _stored=True),
+                    _gp.vR(_ti, _stored=True),
+                    _gp.vT(_ti, _stored=True),
+                    _gp.z(_ti, _stored=True),
+                    _gp.vz(_ti, _stored=True),
+                    _gp.phi(_ti, _stored=True),
+                )
             ]
         )
-        xp = get_namespace(xv0_prog)
-        method = inbackend_ode_method(xp)
+        # nothing differentiated: the auxiliary orbit takes the C integrator (the
+        # in-backend solve only matters for a gradient), as in streamdf
+        _moms = (
+            xv0_prog,
+            self._dsigomeanProgDirection,
+            self._meandO,
+            self._deltaAngleTrackImpact,
+            self._progenitor_Omega_along_dOmega,
+        )
+        _diff = (
+            under_trace(*_moms)
+            or requires_backend_grad(*_moms)
+            or param_grad_array(self._pot) is not None
+        )
+        method = inbackend_ode_method(xp) if _diff else "dop853_c"
         ikw = getattr(self._aA, "_integrate_kwargs", None)
         # shared constant steps for every AA evaluation: the vmapped chunk loop
         # then differentiates exactly; forward mode where the solve inputs are
@@ -1817,10 +1839,12 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             )
         else:
             self._nTrackChunksImpact = nTrackChunksImpact
-        # _ic_backend is the PRECONDITION for the backend twin (it dereferences
-        # it), as in streamdf._determine_stream_track. Everything above is
-        # structural bookkeeping and concrete either way.
-        if getattr(self._gap_progenitor, "_ic_backend", None) is not None:
+        # a backend progenitor or backend moments (a forced backend) take the
+        # backend twin, as in streamdf._determine_stream_track. Everything above
+        # is structural bookkeeping and concrete either way.
+        if getattr(
+            self._gap_progenitor, "_ic_backend", None
+        ) is not None or is_backend_array(self._dsigomeanProgDirection):
             return self._determine_impact_coordtransform_backend()
         dt = (
             self._deltaAngleTrackImpact
@@ -2067,6 +2091,8 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         # angles (the gap kicks below are numpy-only, so a backend key is not
         # supported for the gap DF; key is threaded for the numpy path/signature).
         Om, angle, dt = super()._sample_aAt(n, key=key)
+        if is_backend_array(self._kick_dOap):
+            return self._apply_kicks_backend(Om, angle, dt)
         # Now rewind angles by timpact, apply the kicks, and run forward again
         dangle_at_impact = (
             angle
@@ -2088,6 +2114,43 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
         angle[1, :] += self._kick_interpdap(dangle_par_at_impact) + dOp * self._timpact
         angle[2, :] += self._kick_interpdaz(dangle_par_at_impact) + dOz * self._timpact
         return (Om, angle, dt)
+
+    def _apply_kicks_backend(self, Om, angle, dt):
+        """Backend twin of the kick step of :meth:`_sample_aAt` (backend kick
+        splines): functional, on the kick tables' namespace."""
+        ref = self._kick_dOap
+        xp = get_namespace(ref)
+        Om, angle, dt = (
+            v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+            for v in (Om, angle, dt)
+        )
+        progAngle, progOmega, dsig = (
+            v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+            for v in (
+                self._progenitor_angle,
+                self._progenitor_Omega,
+                self._dsigomeanProgDirection,
+            )
+        )
+        dangle_at_impact = (
+            angle - progAngle[:, None] - (Om - progOmega[:, None]) * self._timpact
+        )
+        dangle_par_at_impact = (dangle_at_impact.T @ dsig) * self._gap_sigMeanSign
+        dO = xp.stack(
+            [
+                self._kick_interpdOr(dangle_par_at_impact),
+                self._kick_interpdOp(dangle_par_at_impact),
+                self._kick_interpdOz(dangle_par_at_impact),
+            ]
+        )
+        da = xp.stack(
+            [
+                self._kick_interpdar(dangle_par_at_impact),
+                self._kick_interpdap(dangle_par_at_impact),
+                self._kick_interpdaz(dangle_par_at_impact),
+            ]
+        )
+        return (Om + dO, angle + da + dO * self._timpact, dt)
 
 
 def impulse_deltav_plummer(v, y, b, w, GM, rs):

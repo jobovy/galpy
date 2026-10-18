@@ -3311,3 +3311,177 @@ def test_track_jacobian_potential_derivative_near_turning_points(xv):
         - numpy.asarray(jac(jnp.asarray(0.9 - h)))
     ) / (2.0 * h)
     assert numpy.max(numpy.abs(ad - fd)) < 1e-6 * numpy.max(numpy.abs(fd))
+
+
+###############################################################################
+# A numpy-progenitor streamdf constructed under a FORCED backend runs on that
+# backend: the AD calcaAJac, the backend track / interpolation / spread, and the
+# DF evaluations then follow the backend moments even at Python-float arguments.
+# The reference is the numpy construction, which differs only by numpy's
+# finite-difference action-angle Jacobians (floors measured on both backends).
+###############################################################################
+def _forced_ctor():
+    from galpy.df import streamdf as _streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0, ntintJ=1000)
+    return _streamdf(
+        0.365 / 220.0,
+        progenitor=Orbit(numpy.array(_STREAM_IC)),
+        pot=lp,
+        aA=aA,
+        leading=True,
+        nTrackChunks=6,
+        nTrackIterations=0,
+        tdisrupt=_tdisrupt(),
+    )
+
+
+# max|forced - numpy| / max|numpy|; measured 1e-7 (tracks, moments) to 8e-6
+# (inverse Jacobians, covariances) on jax and torch alike
+_FORCED_FLOORS = {
+    "_dOdJp": 1e-6,
+    "_sigomatrix": 1e-6,
+    "_dsigomeanProgDirection": 6e-7,
+    "_meandO": 3e-7,
+    "_ObsTrack": 2e-7,
+    "_ObsTrackAA": 2e-7,
+    "_ObsTrackXY": 5e-7,
+    "_alljacsTrack": 3e-6,
+    "_allinvjacsTrack": 2e-5,
+    "_detdOdJps": 2e-5,
+    "_interpolatedObsTrack": 2e-7,
+    "_interpolatedObsTrackXY": 5e-7,
+    "_interpolatedObsTrackAA": 2e-7,
+    "_ObsTrackLB": 2e-7,
+    "_interpolatedObsTrackLB": 2e-7,
+    "_allErrCovs": 3e-5,
+    "_allErrCovsXY": 2e-5,
+    "_interpolatedAllErrCovsXY": 3e-5,
+    "_interpolatedAllErrCovsLocalXY": 2e-5,
+}
+# DF evaluations at Python floats, with the FD-vs-AD floor of each against the
+# numpy stream (measured 2e-11 .. 3e-7)
+_FORCED_EVALS = [
+    ("_density_par", lambda s, d: s._density_par(d), 1e-10),
+    ("meanOmega", lambda s, d: s.meanOmega(d, oned=True, use_physical=False), 3e-7),
+    ("sigOmega", lambda s, d: s.sigOmega(d, use_physical=False), 3e-7),
+    ("meantdAngle", lambda s, d: s.meantdAngle(d, use_physical=False), 3e-7),
+    ("sigtdAngle", lambda s, d: s.sigtdAngle(d, use_physical=False), 3e-7),
+    ("pangledAngle", lambda s, d: s.pangledAngle(0.001, d), 1e-6),
+    ("pOparapar", lambda s, d: s.pOparapar(0.0071, d), 1e-5),
+    ("density_par_ll", lambda s, d: s.density_par(d, coord="ll"), 1e-6),
+    ("density_par_ra", lambda s, d: s.density_par(d, coord="ra"), 1e-6),
+    ("density_par_phi", lambda s, d: s.density_par(d, coord="phi"), 1e-6),
+]
+
+
+def _rel(got, want):
+    want = numpy.asarray(want, dtype=float)
+    return numpy.max(numpy.abs(numpy.asarray(as_numpy(got)) - want)) / numpy.max(
+        numpy.abs(want)
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_forced_streamdf_runs_on_the_backend(backend_name):
+    # one construction per backend (the eager-jax build is compile-bound)
+    ref = _forced_ctor()
+    with use(backend_name, force=True):
+        sdf = _forced_ctor()
+    for name, floor in _FORCED_FLOORS.items():
+        got = getattr(sdf, name)
+        assert is_backend_array(got), f"{name} was built on numpy"
+        rel = _rel(got, getattr(ref, name))
+        assert rel < floor, f"{name}: forced vs numpy {rel:.2e}"
+    # no forcing from here: the stream's own backend moments/splines pick the
+    # path -- the one a backend argument takes
+    for name, fn, floor in _FORCED_EVALS:
+        for d in (0.1, 0.3):
+            got = fn(sdf, d)
+            assert is_backend_array(got), f"{name}({d}) ran on numpy"
+            same = fn(sdf, _arr(backend_name, d))
+            assert float(as_numpy(got)) == pytest.approx(
+                float(as_numpy(same)), rel=1e-13, abs=0.0
+            ), name
+            assert float(as_numpy(got)) == pytest.approx(
+                float(fn(ref, d)), rel=floor, abs=0.0
+            ), name
+    # the isotropic ratio divides by dO/dJ's small eigenvalue, where numpy's FD
+    # is coarsest (measured 1.2e-6 / 1.3e-4)
+    for iso, floor in ((False, 4e-6), (True, 4e-4)):
+        got = sdf.freqEigvalRatio(isotropic=iso)
+        assert is_backend_array(got)
+        assert _rel(got, ref.freqEigvalRatio(isotropic=iso)) < floor
+    # key=None draws from the global numpy.random: the sample is computed on the
+    # backend and comes back as numpy, the numpy stream's points to the FD-vs-AD
+    # floor (measured 1.3e-7)
+    for kw in (dict(), dict(xy=True), dict(lb=True), dict(returnaAdt=True)):
+        numpy.random.seed(4)
+        got = sdf.sample(40, returndt=True, **kw)
+        numpy.random.seed(4)
+        want = ref.sample(40, returndt=True, **kw)
+        for g, w in zip(got, want):
+            assert type(g) is numpy.ndarray
+            assert _rel(g, w) < 5e-7, kw
+    # the closest track point: a Python int, the numpy stream's
+    for ii in (3, 100, 700):
+        lb = [float(v) for v in ref._interpolatedObsTrackLB[ii]]
+        for usev in (False, True):
+            got = sdf.find_closest_trackpointLB(*lb, usev=usev)
+            assert type(got) is int
+            assert got == ref.find_closest_trackpointLB(*lb, usev=usev)
+        # missing coordinates: their track columns are filled on the backend
+        for miss in range(6):
+            lbm = list(lb)
+            lbm[miss] = None
+            assert sdf.find_closest_trackpointLB(
+                *lbm, usev=True
+            ) == ref.find_closest_trackpointLB(*lbm, usev=True)
+
+
+def test_fd_jacobian_is_the_numpy_forward_difference():
+    # a linear map with known Jacobian whose angle rows wrap across 2 pi: the
+    # forward difference recovers the Jacobian to its rounding floor, and the
+    # wrap makes the angle rows continuous (an unwrapped difference is ~2 pi / h)
+    from galpy.df.streamdf import _fd_jacobian
+
+    rng = numpy.random.default_rng(7)
+    A = rng.normal(size=(9, 6))
+    v0 = numpy.array([1.0, 0.3, -0.7, 0.2, 0.5, 0.1])
+    # put the angles a hair below 2 pi, so the +h step wraps them to ~0
+    off = 2.0 * numpy.pi - 1e-9 - (A[6:] @ v0)
+
+    for backend_name in AD_BACKENDS:
+        xp = jnp if backend_name == "jax" else torch
+        Ab, offb = _arr(backend_name, A), _arr(backend_name, off)
+
+        def f(v):
+            lin = Ab @ v
+            return xp.concat([lin[:6], xp.remainder(lin[6:] + offb, 2.0 * numpy.pi)])
+
+        J = as_numpy(_fd_jacobian(f, _arr(backend_name, v0), xp))
+        assert numpy.max(numpy.abs(J - A)) < 1e-6, backend_name
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_forced_calcaAJac_python_integrator():
+    # an aA on a python orbit integrator cannot be differentiated: under a forced
+    # backend calcaAJac takes the numpy forward difference on the backend (the
+    # same Jacobian as numpy's, to the FD noise of the two AA evaluations:
+    # measured 4e-7 / 1e-6 relative), not the host FD. torch only: the eager-jax
+    # odeint aA is slow, and _fd_jacobian is checked on both backends above.
+    backend_name = "torch"
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(
+        pot=lp, b=0.8, tintJ=20.0, ntintJ=1000, integrate_method="odeint"
+    )
+    for kw, tol in ((dict(actionsFreqsAngles=True), 2e-6), (dict(dOdJ=True), 4e-6)):
+        ref = calcaAJac(_XV.copy(), aA, **kw)
+        with use(backend_name, force=True):
+            got = calcaAJac(_XV.copy(), aA, **kw)
+        assert is_backend_array(got)
+        assert numpy.max(numpy.abs(as_numpy(got) - ref)) < tol * numpy.max(
+            numpy.abs(ref)
+        )
