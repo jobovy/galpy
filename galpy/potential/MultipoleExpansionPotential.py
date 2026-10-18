@@ -2186,6 +2186,9 @@ class MultipoleExpansionPotential(
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:
+            return self._backend_spher_at_point(xp, 1, R, z, phi, t)
         cache_key = (float(R), float(z), float(phi), float(t))
         if cache_key == self._force_cache_key:
             return (
@@ -2311,6 +2314,9 @@ class MultipoleExpansionPotential(
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
+        if xp is not numpy:
+            return self._backend_spher_at_point(xp, 2, R, z, phi, t)
         cache_key = (float(R), float(z), float(phi), float(t))
         if cache_key == self._2nd_deriv_cache_key:
             return self._cached_2nd_derivs
@@ -3080,6 +3086,27 @@ class MultipoleExpansionPotential(
         dPhi_dtheta = xp.sum(dPP * (-stheta) * trig * Rlm, axis=0)
         dPhi_dphi = xp.sum(PP * dtrig * Rlm, axis=0)
         return -dPhi_dr, -dPhi_dtheta, -dPhi_dphi
+
+    def _backend_spher_at_point(self, xp, order, R, z, phi, t):
+        """_compute_spher_forces_at_point (order 1) or
+        _compute_spher_2nd_derivs_at_point (order 2) on a backend: zero where r
+        is 0 or not finite, as on numpy"""
+        Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
+        r = xp.sqrt(Rf * Rf + zf * zf)
+        ok = (r > 0.0) & xp.isfinite(r)
+        theta = xp.arctan2(Rf, zf)
+        ctheta, stheta = xp.cos(theta), xp.sin(theta)
+        r = xp.where(ok, r, 1.0)
+        if order == 1:
+            out = self._backend_spher_forces(xp, r, ctheta, stheta, phif, tf)
+        else:
+            if self._M > 1:  # the numpy path's pole clamp
+                polemask = xp.abs(1.0 - ctheta * ctheta) < 1e-14
+                ctclamp = xp.sign(ctheta) * (1.0 - 1e-7)
+                ctheta = xp.where(polemask, ctclamp, ctheta)
+                stheta = xp.where(polemask, xp.sqrt(1.0 - ctclamp**2), stheta)
+            out = self._backend_spher_2nd_derivs(xp, r, ctheta, stheta, phif, tf)
+        return tuple(xp.reshape(xp.where(ok, v, 0.0), shape) for v in out)
 
     def _backend_cyl_force(self, xp, which, R, z, phi, t):
         """Backend-array version of the mixin's _Rforce/_zforce/_phitorque."""

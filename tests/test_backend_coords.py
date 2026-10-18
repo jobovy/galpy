@@ -919,14 +919,38 @@ def test_pupv_transforms_are_backend_native(backend_name, oblate):
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_align_to_orbit_under_forced_backend(backend_name):
-    # a host-side numpy matrix builder; its internal coords calls return backend
-    # arrays under a forced backend and are read back on the host
+    # plain inputs under a forced backend: the rotation is built on the backend
     xv = (1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596)
-    ref = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
-    with use(backend_name, force=True):
-        got = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
-    assert isinstance(got, numpy.ndarray)
-    assert numpy.max(numpy.abs(got - ref)) < 1e-13
+    for center_phi1 in (180.0, 30.0):
+        ref = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026, center_phi1=center_phi1)
+        with use(backend_name, force=True):
+            got = coords.align_to_orbit(
+                *xv, Xsun=1.0, Zsun=0.0026, center_phi1=center_phi1
+            )
+        assert is_backend_array(got)
+        assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 3e-15
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_align_to_orbit_grad_vs_fd(backend_name):
+    # dT/d(x, v) through the backend rotation vs numpy central differences
+    kw = dict(Xsun=1.0, Zsun=0.0026, center_phi1=30.0)
+
+    def f(xv):
+        return coords.align_to_orbit(*(xv[ii] for ii in range(6)), **kw)
+
+    x0 = numpy.array([1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334])
+    x0 = numpy.append(x0, 0.12019596)
+    if backend_name == "jax":
+        jac = numpy.asarray(jax.jacfwd(f)(jnp.asarray(x0)))
+    else:
+        jac = torch.autograd.functional.jacobian(f, torch.tensor(x0)).numpy()
+    h = 1e-6
+    for ii in range(6):
+        e = numpy.zeros(6)
+        e[ii] = h
+        fd = (f(x0 + e) - f(x0 - e)) / (2.0 * h)
+        assert numpy.max(numpy.abs(jac[:, :, ii] - fd)) < 1e-9
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)

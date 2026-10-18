@@ -3338,9 +3338,13 @@ def radec_to_custom(ra, dec, T=None, degree=False):
     """
     if T is None:
         raise ValueError("Must set T= for radec_to_custom")
-    xp = get_namespace(ra, dec)
-    ra, dec = promote_scalars(xp, ra, dec)
-    T = asarray_on_device(xp, numpy.asarray(T), device_of(ra))
+    if is_backend_array(T):  # a backend T (e.g., align_to_orbit's) stays on it
+        xp = prefer_backend_namespace(ra, dec, T)
+        ra, dec = promote_scalars(xp, ra, dec)
+    else:
+        xp = get_namespace(ra, dec)
+        ra, dec = promote_scalars(xp, ra, dec)
+        T = asarray_on_device(xp, numpy.asarray(T), device_of(ra))
     # Whether to use degrees and scalar input is handled by decorators
     XYZ = xp.stack([xp.cos(dec) * xp.cos(ra), xp.cos(dec) * xp.sin(ra), xp.sin(dec)])
     galXYZ = T @ XYZ
@@ -3455,7 +3459,7 @@ def custom_to_radec(phi1, phi2, T=None, degree=False):
     return radec_to_custom(
         phi1,
         phi2,
-        T=numpy.transpose(T),
+        T=T.T if is_backend_array(T) else numpy.transpose(T),
         degree=degree,  # T.T = inv(T)
     )
 
@@ -3495,7 +3499,7 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
         pmphi2,
         phi1,
         phi2,
-        T=numpy.transpose(T),
+        T=T.T if is_backend_array(T) else numpy.transpose(T),
         degree=degree,  # T.T = inv(T)
     )
 
@@ -3553,6 +3557,9 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     trajectory (heliocentric ``L`` with Sun-motion subtracted gives a
     slightly different plane and a less horizontal stream).
     """
+    xp = get_namespace(x, y, z, vx, vy, vz)
+    if xp is not numpy:
+        return _align_to_orbit_backend(xp, x, y, z, vx, vy, vz, Xsun, Zsun, center_phi1)
     dx = x - Xsun
     dy = y
     dz = z - Zsun
@@ -3601,6 +3608,51 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     dphi = numpy.radians(center_phi1 - phi1_prog)
     c, s = numpy.cos(dphi), numpy.sin(dphi)
     R_z = numpy.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    return R_z @ R_base
+
+
+def _align_to_orbit_backend(xp, x, y, z, vx, vy, vz, Xsun, Zsun, center_phi1):
+    """align_to_orbit on a backend (differentiable in the progenitor's coordinates)"""
+    x, y, z, vx, vy, vz = (
+        xp.reshape(c, ()) for c in coerce_coords(xp, x, y, z, vx, vy, vz)
+    )
+    deg = 180.0 / numpy.pi
+
+    def vec(out):  # scalarDecorator returns a tuple at scalar inputs
+        return xp.stack(out) if isinstance(out, tuple) else xp.reshape(out, (-1,))
+
+    dx, dy, dz = x - Xsun, y, z - Zsun
+    Lh = vec(
+        galcenrect_to_vxvyvz(
+            dy * vz - dz * vy,
+            dz * vx - dx * vz,
+            dx * vy - dy * vx,
+            vsun=[0.0, 0.0, 0.0],
+            Xsun=Xsun,
+            Zsun=Zsun,
+        )
+    )
+    l_pole = xp.atan2(Lh[1], Lh[0]) * deg
+    b_pole = xp.atan2(Lh[2], xp.sqrt(Lh[0] ** 2 + Lh[1] ** 2)) * deg
+    radec = vec(lb_to_radec(l_pole, b_pole, degree=True)) / deg
+    L_eq = xp.stack(
+        [
+            xp.cos(radec[1]) * xp.cos(radec[0]),
+            xp.cos(radec[1]) * xp.sin(radec[0]),
+            xp.sin(radec[1]),
+        ]
+    )
+    R_base = _rotate_to_arbitrary_vector(xp.reshape(L_eq, (1, 3)), [0.0, 0.0, 1.0])[0]
+    XYZ_h = vec(galcenrect_to_XYZ(x, y, z, Xsun=Xsun, Zsun=Zsun))
+    lbd = vec(XYZ_to_lbd(XYZ_h[0], XYZ_h[1], XYZ_h[2], degree=True))
+    radec_p = vec(lb_to_radec(lbd[0], lbd[1], degree=True))
+    phi12 = radec_to_custom(radec_p[0:1], radec_p[1:2], T=R_base, degree=True)
+    dphi = (center_phi1 - phi12[0, 0]) / deg
+    c, s = xp.cos(dphi), xp.sin(dphi)
+    zero, one = xp.zeros_like(c), xp.ones_like(c)
+    R_z = xp.stack(
+        [xp.stack([c, -s, zero]), xp.stack([s, c, zero]), xp.stack([zero, zero, one])]
+    )
     return R_z @ R_base
 
 
