@@ -41,6 +41,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     prefer_backend_namespace,
+    resolve_namespace,
     scalar_like,
     to_host,
     use,
@@ -564,11 +565,8 @@ class diskdf(df):
     #     wrapper via __wrapped__: it can only be a no-op here (coerce_coords
     #     returns numpy coords object-identical), and at this call count even a
     #     no-op wrapper is worth ~12%.
-    #   * plain R, a backend FORCED -> a plain float resolves to that backend,
-    #     so leaving it alone coerces a scalar in and converts it back out on
-    #     every call. Pin numpy for the duration instead. The profile stays
-    #     island-free: it is the CONSUMER choosing numpy for its own numpy-only
-    #     quadrature, not the leaf dispatching on dtype.
+    #   * plain R, a backend FORCED -> evaluate on that backend (the scipy
+    #     paths pin numpy with _on_numpy, so they never get here).
     def _profile_differentiated(self):
         """True when the surfaceSigmaProfile's parameters carry a gradient.
 
@@ -591,6 +589,20 @@ class diskdf(df):
             or self._profile_differentiated()
         )
 
+    def _forced_coerce(self, *xs):
+        """(xp, xs) for a private evaluation: numpy and xs as given on numpy,
+        else the backend's, with plain xs coerced onto a forced backend"""
+        if self._backend_path(*xs) or resolve_namespace() is not numpy:
+            return self._backend_coerce(*xs)
+        return numpy, xs
+
+    def _forced_logexp(self, *xs):
+        """(xs, log, exp) on _forced_coerce's namespace (numpy's scimath log)"""
+        xp, xs = self._forced_coerce(*xs)
+        if xp is numpy:
+            return xs, numpylog, numpy.exp
+        return xs, xp.log, xp.exp
+
     @property
     def _nquad(self):
         return _NQUAD_CORRECTED if self._correct else _NQUAD
@@ -610,8 +622,7 @@ class diskdf(df):
         if get_namespace(R) is numpy:
             inner = getattr(bound, "__wrapped__", None)
             return inner(ssp, R, **kwargs) if inner is not None else bound(R, **kwargs)
-        with use("numpy", force=True):
-            return as_numpy(bound(R, **kwargs))
+        return bound(R, **kwargs)
 
     @physical_conversion("surfacedensitydistance", pop=True)
     @backend_input("d", "l")
@@ -925,6 +936,7 @@ class diskdf(df):
         return self._asymmetricdrift(R)
 
     def _asymmetricdrift(self, R):
+        _, (R,) = self._forced_coerce(R)
         sigmaR2 = self._ssp("sigma2", R)
         return (
             sigmaR2
@@ -2182,7 +2194,7 @@ class dehnendf(diskdf):
             start = time.time()
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if self._backend_path(E, L):
+        if self._backend_path(E, L) or resolve_namespace() is not numpy:
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate Re,LE, OmegaE
         if self._beta == 0.0:
@@ -2472,13 +2484,7 @@ class dehnendf(diskdf):
 
     def _dlnfdR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
-        # Data-guarded: numpy math for numpy callers (dblquad integrand) even in a
-        # forced-backend context; backend math only for actual backend arrays.
-        if any(is_backend_array(x) for x in (R, vR, vT, self._beta)):
-            _xp = prefer_backend_namespace(R, vR, vT, self._beta)
-            _log, _exp = _xp.log, _xp.exp
-        else:
-            _log, _exp = numpylog, numpy.exp
+        (R, vR, vT), _log, _exp = self._forced_logexp(R, vR, vT)
 
         def flat():
             E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
@@ -2500,9 +2506,10 @@ class dehnendf(diskdf):
 
     def _dlnfdvR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _log, _exp = self._forced_logexp(R, vR, vT)
         if self._beta == 0.0:
-            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + numpylog(R)
-            xE = numpy.exp(E - 0.5)
+            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
+            xE = _exp(E - 0.5)
             OE = xE**-1.0
             LCE = xE
             dRedvR = xE * vR
@@ -2520,9 +2527,10 @@ class dehnendf(diskdf):
 
     def _dlnfdvT(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _log, _exp = self._forced_logexp(R, vR, vT)
         if self._beta == 0.0:
-            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + numpylog(R)
-            xE = numpy.exp(E - 0.5)
+            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
+            xE = _exp(E - 0.5)
             OE = xE**-1.0
             LCE = xE
             dRedvT = xE * vT
@@ -2544,10 +2552,11 @@ class dehnendf(diskdf):
     def _dlnfdRe(self, R, vR, vT, E=None, xE=None, OE=None, LCE=None):
         """d ln f(x,v) / d R_e"""
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _log, _exp = self._forced_logexp(R, vR, vT)
         if E is None or xE is None or OE is None or LCE is None:
             if self._beta == 0.0:
-                E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + numpylog(R)
-                xE = numpy.exp(E - 0.5)
+                E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
+                xE = _exp(E - 0.5)
                 OE = xE**-1.0
                 LCE = xE
             else:  # non-flat rotation curve
@@ -2571,10 +2580,11 @@ class dehnendf(diskdf):
 
     def _dlnfdl(self, R, vR, vT, E=None, xE=None, OE=None):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _log, _exp = self._forced_logexp(R, vR, vT)
         if E is None or xE is None or OE is None:
             if self._beta == 0.0:
-                E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + numpylog(R)
-                xE = numpy.exp(E - 0.5)
+                E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
+                xE = _exp(E - 0.5)
                 OE = xE**-1.0
             else:  # non-flat rotation curve
                 E = (
@@ -2665,7 +2675,7 @@ class shudf(diskdf):
         """
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if self._backend_path(E, L):
+        if self._backend_path(E, L) or resolve_namespace() is not numpy:
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate RL,LL, OmegaL
         if self._beta == 0.0:
@@ -2923,6 +2933,7 @@ class shudf(diskdf):
 
     def _dlnfdR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _, _ = self._forced_logexp(R, vR, vT)
         E, L = vRvTRToEL(vR, vT, R, self._beta, self._dftype)
         if self._beta == 0.0:
             xL = L
@@ -2948,6 +2959,7 @@ class shudf(diskdf):
 
     def _dlnfdvR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _, _ = self._forced_logexp(R, vR, vT)
         E, L = vRvTRToEL(vR, vT, R, self._beta, self._dftype)
         if self._beta == 0.0:
             xL = L
@@ -2958,11 +2970,12 @@ class shudf(diskdf):
 
     def _dlnfdvT(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        (R, vR, vT), _log, _ = self._forced_logexp(R, vR, vT)
         E, L = vRvTRToEL(vR, vT, R, self._beta, self._dftype)
         if self._beta == 0.0:
             xL = L
             dRldvT = R
-            ECL = numpylog(xL) + 0.5
+            ECL = _log(xL) + 0.5
             dECLEdvT = 1.0 / vT - vT
         else:  # non-flat rotation curve
             xL = L ** (1.0 / (self._beta + 1.0))
