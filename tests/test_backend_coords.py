@@ -1216,3 +1216,24 @@ def test_vxvyvz_to_galcencyl_Zsun_grad(mode, scalar, forced):
 
     # was "Multiple namespaces" (rect_to_cyl_vec) in data mode; measured <= 1.6e-12
     numpy.testing.assert_allclose(_ad(mode, f, 0.02), fd, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_custom_transforms_keep_a_backend_T(backend_name):
+    # align_to_orbit's backend T with numpy inputs: the proper-motion rotation and
+    # the sky -> custom-sky Jacobian are on the backend, with numpy-T values
+    xv = (1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596)
+    T = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    with use(backend_name, force=True):
+        Tb = coords.align_to_orbit(*xv, Xsun=1.0, Zsun=0.0026)
+    ra, dec = numpy.array([10.0, 200.0, 300.0]), numpy.array([-20.0, 45.0, 80.0])
+    pmra, pmdec = numpy.array([1.0, -2.0, 0.5]), numpy.array([0.3, 0.7, -1.2])
+    ref = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T, degree=True)
+    got = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=Tb, degree=True)
+    assert is_backend_array(got)
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13
+    args = (0.3, -0.4, 1.2, -0.7)
+    ref = coords.sky_to_customsky_jac(*args, T=T)
+    got = coords.sky_to_customsky_jac(*args, T=Tb)
+    assert is_backend_array(got)
+    assert numpy.max(numpy.abs(as_numpy(got) - ref)) < 1e-13

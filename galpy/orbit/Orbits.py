@@ -6431,7 +6431,7 @@ class Orbit:
                 "call self.align_to_orbit() first to stash one, or pass "
                 "T=<3x3 matrix> explicitly."
             )
-        return numpy.asarray(T)
+        return T if is_backend_array(T) else numpy.asarray(T)
 
     @physical_conversion("angle_deg")
     @shapeDecorator

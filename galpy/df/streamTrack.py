@@ -1137,11 +1137,7 @@ class StreamTrack:
                 else numpy.asarray(to_host(cov_xyz), dtype=float).copy()
             )
         self._ninterp = len(self._tp_grid)
-        self._custom_sky_transform = (
-            None
-            if custom_sky_transform is None
-            else numpy.asarray(custom_sky_transform, dtype=float)
-        )
+        self.custom_sky_transform = custom_sky_transform
         if parameter_kind not in ("time", "angle", None):
             raise ValueError(
                 f"parameter_kind must be 'time', 'angle', or None; "
@@ -2051,9 +2047,10 @@ class StreamTrack:
 
     @custom_sky_transform.setter
     def custom_sky_transform(self, T):
-        self._custom_sky_transform = (
-            None if T is None else numpy.asarray(T, dtype=float)
-        )
+        if T is None or is_backend_array(T):  # a backend T stays on it
+            self._custom_sky_transform = T
+        else:
+            self._custom_sky_transform = numpy.asarray(T, dtype=float)
 
     def _require_custom(self):
         if self._custom_sky_transform is None:

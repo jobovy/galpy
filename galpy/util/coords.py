@@ -2691,7 +2691,10 @@ def sky_to_customsky_jac(*args, **kwargs):
     T = kwargs.get("T", None)
     if T is None:
         raise ValueError("sky_to_customsky_jac requires T= rotation matrix")
-    xp = get_namespace(ra, dec, pmra, pmdec, xp=kwargs.get("xp", None))
+    if is_backend_array(T):  # a backend T (align_to_orbit's) stays on it
+        xp = prefer_backend_namespace(ra, dec, pmra, pmdec, T)
+    else:
+        xp = get_namespace(ra, dec, pmra, pmdec, xp=kwargs.get("xp", None))
     # Batched over a leading axis, like galsky_to_sky_jac: scalar in -> (6,6),
     # (N,) in -> (N,6,6), so a per-track-point caller needs one call, not N.
     scalar_in = numpy.ndim(args[0]) == 0
@@ -2701,15 +2704,19 @@ def sky_to_customsky_jac(*args, **kwargs):
         dec = dec * _DEGTORAD
     sindec = xp.sin(dec)
     cosdec = xp.cos(dec)
-    # The pole depends only on T, never on the traced inputs, so pinning it to
-    # host floats costs no gradient and keeps it out of the graph.
     ra_pole, dec_pole = custom_to_radec(0.0, numpy.pi / 2.0, T=T)
-    ra_pole = float(ra_pole)
-    dec_pole = float(dec_pole)
+    if is_backend_array(T):  # the pole of a backend T: on it (differentiable)
+        ra_pole, dec_pole = promote_scalars(xp, ra_pole, dec_pole)
+        sindec_p, cosdec_p = xp.sin(dec_pole), xp.cos(dec_pole)
+    else:
+        # The pole depends only on T, never on the traced inputs, so pinning it
+        # to host floats costs no gradient and keeps it out of the graph.
+        ra_pole = float(ra_pole)
+        dec_pole = float(dec_pole)
+        sindec_p = numpy.sin(dec_pole)
+        cosdec_p = numpy.cos(dec_pole)
     sinr_rp = xp.sin(ra - ra_pole)
     cosr_rp = xp.cos(ra - ra_pole)
-    sindec_p = numpy.sin(dec_pole)
-    cosdec_p = numpy.cos(dec_pole)
     kappa2 = sindec_p * cosdec - cosdec_p * sindec * cosr_rp
     sigma2 = sinr_rp * cosdec_p
     nrm2_2 = kappa2 * kappa2 + sigma2 * sigma2
@@ -3392,20 +3399,25 @@ def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
         raise ValueError("Must set T= for pmrapmdec_to_custom")
     # Need to figure out ra_ngp and dec_ngp for this custom set of sky coords
     ra_ngp, dec_ngp = custom_to_radec(0.0, numpy.pi / 2, T=T)
-    # The pole depends only on T, never on the inputs, so pin it to host floats:
-    # radec_to_custom is backend-native now and would otherwise hand back a
-    # backend scalar that collides with numpy inputs here.
-    ra_ngp = float(ra_ngp)
-    dec_ngp = float(dec_ngp)
-    # Whether to use degrees and scalar input is handled by decorators
-    xp = prefer_backend_namespace(pmra, pmdec, ra, dec)
+    if is_backend_array(T):  # a backend T (align_to_orbit's): its pole on it
+        xp = prefer_backend_namespace(pmra, pmdec, ra, dec, T)
+    else:
+        # The pole depends only on T, never on the inputs, so pin it to host
+        # floats: radec_to_custom is backend-native now and would otherwise hand
+        # back a backend scalar that collides with numpy inputs here.
+        ra_ngp = float(ra_ngp)
+        dec_ngp = float(dec_ngp)
+        # Whether to use degrees and scalar input is handled by decorators
+        xp = prefer_backend_namespace(pmra, pmdec, ra, dec)
     if xp is not numpy:
-        pmra, pmdec, ra, dec = promote_scalars(xp, pmra, pmdec, ra, dec)
+        pmra, pmdec, ra, dec, ra_ngp, dec_ngp = promote_scalars(
+            xp, pmra, pmdec, ra, dec, ra_ngp, dec_ngp
+        )
         dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)  # deal w/ pole.
-        cosphi = numpy.sin(dec_ngp) * xp.cos(dec) - numpy.cos(dec_ngp) * xp.sin(
-            dec
-        ) * xp.cos(ra - ra_ngp)
-        sinphi = xp.sin(ra - ra_ngp) * numpy.cos(dec_ngp)
+        cosphi = xp.sin(dec_ngp) * xp.cos(dec) - xp.cos(dec_ngp) * xp.sin(dec) * xp.cos(
+            ra - ra_ngp
+        )
+        sinphi = xp.sin(ra - ra_ngp) * xp.cos(dec_ngp)
         norm = xp.sqrt(cosphi**2.0 + sinphi**2.0)
         cosphi, sinphi = cosphi / norm, sinphi / norm
         # the numpy contraction below, as a per-point rotation of (pmra, pmdec)
