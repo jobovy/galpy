@@ -10,7 +10,7 @@ import numpy
 import pytest
 
 from galpy import potential
-from galpy.backend import as_numpy, is_backend_array, use
+from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 
 pytestmark = pytest.mark.backend_managed
 
@@ -337,9 +337,10 @@ def test_qdf_estimates_on_backend(backend, _qdf, fn, kw):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_qdf_rg_numpy_branch_returns_host(backend):
-    # _rg's numpy branch (numpy callers) solves through rl, which runs on the
-    # forced backend, and hands its caller host values
+@pytest.mark.parametrize("precompute", [False, True])
+def test_qdf_rg_forced_on_backend(backend, precompute):
+    # _rg at numpy Lz under a forced backend solves (and interpolates) on it:
+    # rl everywhere without the table, the table plus rl outside it with one
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
 
@@ -353,13 +354,54 @@ def test_qdf_rg_numpy_branch_returns_host(backend):
         pot=_MW,
         aA=aA,
         cutcounter=True,
-        _precomputerg=False,
+        _precomputerg=precompute,
     )
+    # with the table, one Lz outside it
+    lzs = numpy.array([0.5, 1.1, qdf._precomputergLzmax * 1.5 if precompute else 2.0])
+    ref_s, ref_a = qdf._rg(1.1), qdf._rg(lzs)
     with use(backend, force=True):
-        rl_bk = potential.rl(_MW, 1.1)
         s = qdf._rg(1.1)
-        a = qdf._rg(numpy.array([0.5, 1.1]))
-    assert isinstance(s, float)
-    assert isinstance(a, numpy.ndarray)
-    numpy.testing.assert_allclose(s, float(as_numpy(rl_bk)), rtol=1e-15)
-    numpy.testing.assert_allclose(a[1], s, rtol=1e-12)
+        a = qdf._rg(lzs)
+    assert is_backend_array(s) and is_backend_array(a)
+    numpy.testing.assert_allclose(as_numpy(s), ref_s, rtol=1e-11)
+    numpy.testing.assert_allclose(as_numpy(a), ref_a, rtol=1e-11)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_qdf_surfacemass_z_adaptive_on_backend(backend, _qdf):
+    # fixed_quad=False: the least-squares cubic that scipy's smoothing spline is
+    # here (no interior knots), integrated on the backend; d/dR vs a central
+    # difference of numpy
+    ref = _qdf.surfacemass_z(0.9, fixed_quad=False, use_physical=False)
+    with use(backend, force=True):
+        got = _qdf.surfacemass_z(0.9, fixed_quad=False, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-12)
+    h = 1e-4
+    fd = (
+        _qdf.surfacemass_z(0.9 + h, fixed_quad=False, use_physical=False)
+        - _qdf.surfacemass_z(0.9 - h, fixed_quad=False, use_physical=False)
+    ) / (2.0 * h)
+    grad = _grad(
+        backend,
+        lambda R: _qdf.surfacemass_z(R, fixed_quad=False, use_physical=False),
+        0.9,
+    )
+    numpy.testing.assert_allclose(grad, fd, rtol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_qdf_smoothing_cubic_misfit_takes_scipy(backend):
+    # a log-density the cubic misfits by more than the smoothing: scipy's spline
+    from scipy import integrate, interpolate
+
+    from galpy.df.quasiisothermaldf import _int_exp_smoothing_cubic
+
+    zs = numpy.linspace(0.0, 1.0, 7)
+    lsf = 10.0 * numpy.sin(12.0 * zs)
+    spline = interpolate.UnivariateSpline(zs, lsf, k=3)
+    ref = integrate.quad(lambda x: numpy.exp(spline(x)), 0.0, 1.0)[0]
+    lsf_bk = _arr(backend, lsf)
+    got = _int_exp_smoothing_cubic(get_namespace(lsf_bk), zs, lsf_bk)
+    assert is_backend_array(got)
+    assert float(as_numpy(got)) == ref

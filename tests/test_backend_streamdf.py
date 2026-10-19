@@ -56,10 +56,11 @@ from galpy.df.streamdf import (
     _sig_mean_sign,
     _vmap_track_chunks,
     calcaAJac,
+    lbCoordFunc,
 )
 from galpy.orbit import Orbit
 from galpy.potential import IsochronePotential, LogarithmicHaloPotential
-from galpy.util import conversion
+from galpy.util import conversion, coords
 
 
 @pytest.fixture(scope="module")
@@ -709,21 +710,63 @@ def test_calcaAJac_ad_equals_fd(aA_iso, backend_name, flags, shape):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_calcaAJac_backend_lb_coordfunc_falls_back_to_numpy(aA_iso, backend_name):
-    # lb / coordFunc have no backend implementation. They used to be unreachable
-    # with a backend xv, so the guard raised; now that the coords chain is
-    # backend-native the stream track reaches here with lb=True, so the call
-    # lands on numpy and takes the finite-difference path -- exactly what it did
-    # before. Assert it MATCHES numpy rather than merely not raising: the
-    # fallback silently gives up AD, so a wrong value would otherwise be
-    # invisible (jax's as_numpy cast is read-only, and the FD path writes in
-    # place -- that bug passed a "does not raise" check on torch).
-    for kw in (dict(lb=True), dict(coordFunc=lambda x: x)):
-        got = as_numpy(
-            calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True, **kw)
-        )
-        ref = calcaAJac(numpy.array(_XV), aA_iso, actionsFreqsAngles=True, **kw)
-        numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
+def test_calcaAJac_backend_coordfunc_falls_back_to_numpy(aA_iso, backend_name):
+    # A user coordFunc (numpy) has no backend implementation: the call lands on
+    # numpy and takes the finite-difference path. Assert it MATCHES numpy rather
+    # than merely not raising (jax's as_numpy cast is read-only, and the FD path
+    # writes in place -- that bug passed a "does not raise" check on torch).
+    kw = dict(coordFunc=lambda x: x)
+    got = as_numpy(
+        calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True, **kw)
+    )
+    ref = calcaAJac(numpy.array(_XV), aA_iso, actionsFreqsAngles=True, **kw)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
+
+
+def _lb_point():
+    """(l, b, D, vlos, pmll, pmbb) of test_streamdf's test_calcaAJacLB point"""
+    R, vR, vT, z, vz, phi = (1.56148083, 0.35081535, -1.15481504) + (
+        0.88719443,
+        -0.47713334,
+        0.12019596,
+    )
+    XYZ = coords.galcencyl_to_XYZ(R * 8.0, phi, z * 8.0, Xsun=8.0, Zsun=0.02)
+    l, b, d = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
+    vXYZ = coords.galcencyl_to_vxvyvz(
+        vR * 220.0, vT * 220.0, vz * 220.0, phi=phi, vsun=[10.0, 240.0, -10.0]
+    )
+    vlos, pmll, pmbb = coords.vxvyvz_to_vrpmllpmbb(
+        vXYZ[0], vXYZ[1], vXYZ[2], l, b, d, degree=True
+    )
+    return numpy.array([l, b, d, vlos, pmll, pmbb])
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_backend_lb_vs_central_difference(aA_iso, backend_name):
+    # lb=True on the backend: the exact AD Jacobian of the actions/frequencies/
+    # angles w.r.t. (l, b, D, vlos, pmll, pmbb). Reference: central differences
+    # (numpy's forward difference is 5e-6 off; AD vs central difference 5.3e-8)
+    lbargs = (220.0, 8.0, 8.0, 0.02, [10.0, 240.0, -10.0])
+    kw = dict(lb=True, vo=220.0, ro=8.0, R0=8.0, Zsun=0.02, vsun=[10.0, 240.0, -10.0])
+    xv = _lb_point()
+    got = calcaAJac(_arr(backend_name, xv), aA_iso, actionsFreqsAngles=True, **kw)
+    assert is_backend_array(got)
+
+    def f(v):
+        acfs = aA_iso.actionsFreqsAngles(*lbCoordFunc(v, *lbargs))
+        return numpy.array([numpy.atleast_1d(o)[0] for o in acfs])
+
+    scale = numpy.array([180.0 / numpy.pi, 180.0 / numpy.pi, 8.0, 220.0, 1.0, 1.0])
+    scale[4:] = 220.0 / 4.74047 / xv[2]
+    ref = numpy.zeros((9, 6))
+    for ii in range(6):
+        e = numpy.zeros(6)
+        e[ii] = 1e-5 * scale[ii]
+        d = f(xv + e) - f(xv - e)
+        d[6:] = (d[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        ref[:, ii] = d / 2.0 / e[ii]
+    err = numpy.amax(numpy.fabs(as_numpy(got) - ref)) / numpy.amax(numpy.fabs(ref))
+    assert err < 2e-7, err
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -3463,6 +3506,26 @@ def test_fd_jacobian_is_the_numpy_forward_difference():
 
         J = as_numpy(_fd_jacobian(f, _arr(backend_name, v0), xp))
         assert numpy.max(numpy.abs(J - A)) < 1e-6, backend_name
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_forced_calcaAJac_python_integrator_lb():
+    # lb=True with a python-integrator aA: numpy's lb-rescaled forward difference
+    # on the backend
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(
+        pot=lp, b=0.8, tintJ=20.0, ntintJ=1000, integrate_method="odeint"
+    )
+    kw = dict(lb=True, vo=220.0, ro=8.0, R0=8.0, Zsun=0.02, vsun=[10.0, 240.0, -10.0])
+    xv = _lb_point()
+    ref = calcaAJac(xv.copy(), aA, actionsFreqsAngles=True, **kw)
+    with use("torch", force=True):
+        got = calcaAJac(xv.copy(), aA, actionsFreqsAngles=True, **kw)
+    assert is_backend_array(got)
+    err = numpy.max(numpy.abs(as_numpy(got) - ref)) / numpy.max(numpy.abs(ref))
+    # both forward differences are 1.2e-4 from a central difference (the small
+    # relative steps in l, b); they differ from each other by 6.1e-5
+    assert err < 2e-4, err
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")

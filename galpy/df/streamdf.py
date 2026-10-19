@@ -5868,13 +5868,13 @@ def calcaAJac(
     # and take the finite-difference path -- which is exactly what happened
     # before, rather than raising at the user.
     _is_backend = is_backend_array(xv) or is_backend_array(xv[0])
-    if not (_is_backend or lb or coordFunc is not None):
+    if not (_is_backend or coordFunc is not None):
         # a forced backend takes the AD Jacobian for numpy/Python input too
         _fxp = get_namespace(numpy.asarray(xv, dtype=float))
         if _fxp is not numpy:
             (xv,) = coerce_coords(_fxp, numpy.asarray(xv, dtype=float))
             _is_backend = True
-    if _is_backend and (lb or coordFunc is not None):
+    if _is_backend and coordFunc is not None:
         # numpy.array (not as_numpy alone): jax's cast is read-only and the
         # finite-difference path below writes into xv in place.
         xv = numpy.array(as_numpy(to_host(xv)))
@@ -5886,7 +5886,7 @@ def calcaAJac(
             freqs=freqs,
             dOdJ=dOdJ,
             actionsFreqsAngles=actionsFreqsAngles,
-            lb=lb,
+            lb=(vo, ro, R0, Zsun, vsun) if lb else None,
             coordFunc=coordFunc,
         )
     if lb:
@@ -5969,20 +5969,20 @@ def calcaAJac(
 
 
 def _calcaAJac_backend(
-    xv, aA, freqs=False, dOdJ=False, actionsFreqsAngles=False, lb=False, coordFunc=None
+    xv, aA, freqs=False, dOdJ=False, actionsFreqsAngles=False, lb=None, coordFunc=None
 ):
     """Backend (jax/torch) AD path for calcaAJac: exact d(J,Omega,theta)/d(x,v).
 
     Differentiates ``aA.actionsFreqsAngles`` (itself backend-differentiable) with
     ``galpy.backend.jacobian`` -- exact (no finite-difference truncation) and
     itself differentiable, so d(Jacobian)/d(potential/progenitor params) flows
-    (higher-order AD). The numpy finite-difference path is untouched. ``coordFunc``
-    and ``lb`` are unsupported here (the stream track never uses them on the
-    backend) and raise NotImplementedError.
+    (higher-order AD). The numpy finite-difference path is untouched. ``lb`` is
+    calcaAJac's (vo, ro, R0, Zsun, vsun) for (l, b, D, vlos, pmll, pmbb) input; a
+    user ``coordFunc`` (numpy) is unsupported here and raises NotImplementedError.
     """
-    if lb or coordFunc is not None:
+    if coordFunc is not None:
         raise NotImplementedError(
-            "calcaAJac backend (jax/torch) path supports only coordFunc=None, lb=False"
+            "calcaAJac backend (jax/torch) path does not support coordFunc"
         )
     from ..backend.jacobian import jacobian
 
@@ -5993,6 +5993,8 @@ def _calcaAJac_backend(
     xp = get_namespace(xv)
 
     def _map(v):  # (6,) -> (9,): actions(0:3), freqs(3:6), angles(6:9)
+        if lb is not None:
+            v = lbCoordFunc(v, *lb)
         acfs = aA.actionsFreqsAngles(v[0], v[1], v[2], v[3], v[4], v[5])
         return xp.stack([xp.reshape(o, ()) for o in acfs])
 
@@ -6001,7 +6003,7 @@ def _calcaAJac_backend(
     )
     if not _diff and not _aA_differentiable(aA):
         # a python orbit integrator cannot be differentiated: the numpy FD on xp
-        A = _fd_jacobian(_map, xv, xp)
+        A = _fd_jacobian(_map, xv, xp, lb=lb)
     elif not _diff and name_of_namespace(xp) == "torch":
         # nothing upstream is differentiated: keep no graph (torch would hand back
         # a grad-requiring Jacobian holding every orbit's double backward)
@@ -6032,9 +6034,18 @@ def _aA_differentiable(aA):
     )
 
 
-def _fd_jacobian(f, xv, xp):
-    """calcaAJac's forward difference (dxv=1e-8, angles wrapped) on ``xp``."""
-    h = (xv + 1e-8) - xv  # representable steps
+def _fd_jacobian(f, xv, xp, lb=None):
+    """calcaAJac's forward difference (dxv=1e-8, rescaled for lb, angles
+    wrapped) on ``xp``."""
+    dxv = 1e-8
+    if lb is not None:
+        vo, ro = lb[0], lb[1]
+        dxv = 1e-8 * numpy.array(
+            [180.0 / numpy.pi, 180.0 / numpy.pi, ro, vo, vo / 4.74047, vo / 4.74047]
+        )
+        dxv = as_backend_constant(xp, dxv, xv)
+        dxv = xp.concat([dxv[:4], dxv[4:] / xv[2]])
+    h = (xv + dxv) - xv  # representable steps
     eye = as_backend_constant(xp, numpy.eye(6), xv)
     f0 = f(xv)
     cols = []
@@ -6055,9 +6066,9 @@ def lbCoordFunc(xv, vo, ro, R0, Zsun, vsun):
     vR, vT, vZ = coords.vxvyvz_to_galcencyl(
         vx, vy, vz, R, phi, Z, galcen=True, vsun=vsun, Xsun=R0, Zsun=Zsun
     )
-    R /= ro
-    Z /= ro
-    vR /= vo
-    vT /= vo
-    vZ /= vo
+    R = R / ro  # out of place: backend arrays
+    Z = Z / ro
+    vR = vR / vo
+    vT = vT / vo
+    vZ = vZ / vo
     return (R, vR, vT, Z, vZ, phi)

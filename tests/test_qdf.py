@@ -1735,7 +1735,9 @@ def test_precomputerg_false():
     )
     lzs = numpy.array([0.5, 1.1])
     assert numpy.all(
-        numpy.fabs(qdfnpc._rg(lzs) - numpy.array([rl(MWPotential, l) for l in lzs]))
+        numpy.fabs(
+            as_numpy(qdfnpc._rg(lzs)) - numpy.array([rl(MWPotential, l) for l in lzs])
+        )
         < 1e-11  # array rl: bisection to brentq's tolerance
     ), "qdf w/ _precomputerg=False does not compute rg exactly"
     qdf = quasiisothermaldf(
