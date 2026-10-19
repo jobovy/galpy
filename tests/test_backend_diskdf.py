@@ -90,20 +90,14 @@ def test_moment_parity(backend, dfname, df, fn):
 @pytest.mark.parametrize(
     "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
 )
-def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
-    # The PUBLIC entry points coerce plain inputs under a forced backend (see
-    # test_forced_plain_inputs_return_backend); _ssp is what the numpy-only
-    # internals (the _estimate* helpers evolveddiskdf calls per gridpoint, the
-    # DFcorrection quadrature, the scipy samplers) call with PLAIN scalars,
-    # ~133k times per scipy-quad oortA(). Under a forced backend a plain float
-    # resolves to that backend, so if _ssp lets it through, every one of those
-    # is a scalar coerced in and converted back out -- measured at an 8.7x
-    # traced slowdown (25.3 s vs 2.9 s for one oortA) when it regressed.
-    #
-    # Asserting on the RETURN VALUE cannot see that: _ssp casts back with
-    # as_numpy either way, so the round trip is invisible except as float noise
-    # -- which jax happens to show and torch does not. Watch the coercion itself
-    # instead, so the guard works the same on both backends.
+def test_ssp_plain_scalar_under_numpy_pin_stays_on_numpy(backend, fn, monkeypatch):
+    # _ssp's hot numpy callers -- the scipy quadratures and samplers (_on_numpy),
+    # evolveddiskdf's numpy grids, the DFcorrection quadrature -- call it with
+    # PLAIN scalars inside a numpy pin within a forced backend, ~133k times per
+    # scipy-quad oortA(). There a plain scalar must not be coerced onto the
+    # backend: that round trip was an 8.7x slowdown (25.3 s vs 2.9 s for one
+    # oortA) when it regressed. A value check cannot see the round trip, so
+    # watch the coercion itself.
     import galpy.backend._input as _bi
 
     real, entered = _bi.coerce_coords, []
@@ -117,7 +111,7 @@ def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
     monkeypatch.setattr(_bi, "coerce_coords", spy)
 
     ref = getattr(_dehnen._surfaceSigmaProfile, fn)(0.8)
-    with use(backend, force=True):
+    with use(backend, force=True), use("numpy", force=True):
         got = _dehnen._ssp(fn, 0.8)
     on_backend = [n for n in entered if "numpy" != n]
     assert not on_backend, f"{fn}: plain scalar coerced onto {on_backend}"
@@ -129,10 +123,21 @@ def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
 @pytest.mark.parametrize(
     "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
 )
+def test_ssp_plain_scalar_forced_on_backend(backend, fn):
+    # outside those pins, a forced backend evaluates a plain scalar on it
+    ref = getattr(_dehnen._surfaceSigmaProfile, fn)(0.8)
+    with use(backend, force=True):
+        got = _dehnen._ssp(fn, 0.8)
+    assert is_backend_array(got), f"{fn}: plain scalar stayed on numpy"
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
+)
 def test_ssp_backend_array_uses_backend(backend, fn):
-    # The other half of the same contract: pinning numpy for plain scalars must
-    # not undo the migration, so a real backend array still gets the backend
-    # path (and stays differentiable there).
+    # and a backend array gets the backend path (and stays differentiable there)
     ref = float(getattr(_dehnen._surfaceSigmaProfile, fn)(0.8))
     with use(backend, force=True):
         got = _dehnen._ssp(fn, _scalar(backend, 0.8))
@@ -848,3 +853,40 @@ def test_targetSurfacemassLOS_backend_value_and_grad(backend, d, l):
         assert numpy.isfinite(float(as_numpy(grad)))
     else:
         numpy.testing.assert_allclose(float(as_numpy(grad)), fd, rtol=1e-8)
+
+
+_PRIVATE = [
+    ("_dlnfdR", (0.8, 0.1, 0.9)),
+    ("_dlnfdvR", (0.8, 0.1, 0.9)),
+    ("_dlnfdvT", (0.8, 0.1, 0.9)),
+    ("_dlnfdRe", (0.8, 0.1, 0.9)),
+    ("_dlnfdl", (0.8, 0.1, 0.9)),
+    ("_asymmetricdrift", (0.8,)),
+    ("_estimatemeanvT", (0.8,)),
+    ("_estimateSigmaR2", (0.8,)),
+    ("_estimateSigmaT2", (0.8,)),
+]
+_PRIVATE_DFS = [
+    ("dehnen-flat", dehnendf, 0.0),
+    ("dehnen-rise", dehnendf, 0.2),
+    ("shu-flat", shudf, 0.0),
+    ("shu-fall", shudf, -0.2),
+]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "cls,beta", [d[1:] for d in _PRIVATE_DFS], ids=[d[0] for d in _PRIVATE_DFS]
+)
+@pytest.mark.parametrize("name,args", _PRIVATE, ids=[p[0] for p in _PRIVATE])
+def test_forced_private_profile_helpers_on_backend(backend, cls, beta, name, args):
+    # the derivative/estimate helpers at plain floats under a forced backend: on
+    # it (they read the surface-density/dispersion profiles), numpy's values
+    df = cls(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    if not hasattr(df, name):  # shudf has no _dlnfdRe/_dlnfdl
+        pytest.skip(f"{cls.__name__} has no {name}")
+    ref = getattr(df, name)(*args)
+    with use(backend, force=True):
+        got = getattr(df, name)(*args)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-14)
