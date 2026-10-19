@@ -24,6 +24,7 @@ import numpy
 import pytest
 
 from galpy import potential
+from galpy.backend import as_numpy, is_backend_array
 from galpy.orbit import Orbit
 from galpy.potential import evaluatephitorques, evaluateRforces
 
@@ -225,18 +226,20 @@ def test_grad_vs_fd_phi(backend_name):
 @pytest.mark.parametrize("mop_id,mop", _MOPS, ids=[m[0] for m in _MOPS])
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_numpy_query_under_forced_backend(backend_name, mop_id, mop):
-    # A bare numpy/python query made UNDER a forced backend -- what the C/Python
-    # orbit integrator (and any consumer that skips the input-coercion gate)
-    # does -- must be pinned to numpy by the _numpy_ctx_for_numpy_inputs
-    # decorator: no torch.cos/sqrt(numpy) crash, no jax/torch array leaking back
-    # into the numpy integrator, and the value equals the plain-numpy result.
+    # A bare numpy/python query made UNDER a forced backend -- what the Python
+    # orbit integrators (and any consumer that skips the input-coercion gate)
+    # do -- computes on that backend: the coordinates are coerced at the method
+    # boundary, so the object's orbit position, the shift and the kernel are one
+    # namespace (no torch.cos/sqrt(numpy) crash), with the plain-numpy value.
     import galpy.backend
 
     for method in _METHODS:
         for R, z, phi, t in _POINTS:
             ref = float(getattr(mop, method)(R, z, phi=phi, t=t))
             with galpy.backend.use(backend_name, force=True):
-                got = float(getattr(mop, method)(R, z, phi=phi, t=t))  # numpy inputs
+                out = getattr(mop, method)(R, z, phi=phi, t=t)  # numpy inputs
+            assert is_backend_array(out), f"{mop_id} {method} stayed on numpy"
+            got = float(as_numpy(out))
             numpy.testing.assert_allclose(
                 got,
                 ref,
