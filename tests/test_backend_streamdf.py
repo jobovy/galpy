@@ -3509,6 +3509,26 @@ def test_fd_jacobian_is_the_numpy_forward_difference():
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_forced_calcaAJac_python_integrator_lb():
+    # lb=True with a python-integrator aA: numpy's lb-rescaled forward difference
+    # on the backend
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(
+        pot=lp, b=0.8, tintJ=20.0, ntintJ=1000, integrate_method="odeint"
+    )
+    kw = dict(lb=True, vo=220.0, ro=8.0, R0=8.0, Zsun=0.02, vsun=[10.0, 240.0, -10.0])
+    xv = _lb_point()
+    ref = calcaAJac(xv.copy(), aA, actionsFreqsAngles=True, **kw)
+    with use("torch", force=True):
+        got = calcaAJac(xv.copy(), aA, actionsFreqsAngles=True, **kw)
+    assert is_backend_array(got)
+    err = numpy.max(numpy.abs(as_numpy(got) - ref)) / numpy.max(numpy.abs(ref))
+    # both forward differences are 1.2e-4 from a central difference (the small
+    # relative steps in l, b); they differ from each other by 6.1e-5
+    assert err < 2e-4, err
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_forced_calcaAJac_python_integrator():
     # an aA on a python orbit integrator cannot be differentiated: under a forced
     # backend calcaAJac takes the numpy forward difference on the backend (the
