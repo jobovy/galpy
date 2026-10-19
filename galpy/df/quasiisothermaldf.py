@@ -18,6 +18,7 @@ from ..backend import (
     concretely_true,
     device_of,
     float64_default_if_torch_args,
+    forced_backend,
     get_namespace,
     is_backend_array,
     is_backend_input,
@@ -33,7 +34,6 @@ from ..backend._namespaces import (
     namespace_for_name,
     namespace_from_arrays,
     stop_gradient,
-    under_jax_trace,
     untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_bilinear
@@ -43,7 +43,6 @@ from ..potential import IsochronePotential
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _pot_backend_namespace,
-    _pot_grad_namespace,
 )
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
@@ -706,6 +705,11 @@ class quasiisothermaldf(df):
                 )[0]
             )
         zs = numpy.linspace(0.0, zmax, nz)
+        xp = get_namespace(R)
+        if xp is not numpy:  # the densities, fit and integral on the backend
+            sf = [self.density(R, z, use_physical=False, **kwargs) for z in zs]
+            lsf = xp.log(xp.stack([xp.reshape(s, ()) for s in sf]))
+            return 2.0 * _int_exp_smoothing_cubic(xp, zs, lsf)
         sf = numpy.array(
             to_host([self.density(R, z, use_physical=False, **kwargs) for z in zs])
         )
@@ -3582,6 +3586,8 @@ class quasiisothermaldf(df):
         if self._rgInterp is None and self._rgInterpBackend is not None:
             # backend-built table (differentiated parameters): lz onto its namespace
             (lz,) = coerce_coords(namespace_from_arrays((self._rls,)), lz)
+        elif not is_backend_array(lz) and forced_backend() not in (None, "numpy"):
+            (lz,) = coerce_coords(resolve_namespace(), lz)  # forcing: on the backend
         if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
             if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
                 return potential.rl(self._pot, lz)
@@ -3603,20 +3609,11 @@ class quasiisothermaldf(df):
                 )
             if int(nout) == 0:
                 return out
-            if (
-                name_of_namespace(xp) == "jax"
-                and not under_jax_trace(lz)
-                and _pot_grad_namespace(self._pot) is None
-            ):
-                # untraced jax carries no gradient: the few out-of-table points on
-                # the host, merged with a fixed-shape where (a boolean gather or
-                # scatter recompiles for every new count). An eager jax.grad's
-                # tracer has a concrete count but needs the backend solve
-                ind = as_numpy(indx)
-                fill = numpy.zeros(ind.shape)
-                with use("numpy", force=True):
-                    fill[ind] = potential.rl(self._pot, as_numpy(lz)[ind])
-                return xp.where(indx, asarray_on_device(xp, fill, device_of(lz)), out)
+            if name_of_namespace(xp) == "jax":
+                # a fixed-shape where: a boolean gather or scatter recompiles for
+                # every new count of out-of-table points
+                lzs = mask_where(xp, indx, lz, self._precomputergLzmin)
+                return xp.where(indx, potential.rl(self._pot, lzs), out)
             return set_at(xp, out, indx, potential.rl(self._pot, lz[indx]))
         if self._rgInterp is None:  # _precomputerg=False: rl everywhere
             # The backend branch above already had this fallback; the numpy one
@@ -3624,7 +3621,7 @@ class quasiisothermaldf(df):
             # option -- raised "'NoneType' object is not callable" here. It also
             # became reachable internally once the guard in __init__ skips the
             # table for a differentiated POTENTIAL, not just a differentiated hr.
-            return _rl_host(self._pot, lz)
+            return potential.rl(self._pot, lz)
         # rg depends on |lz|. lz == 0: rl is undefined (rg -> 0), but the DF
         # vanishes there (Omega = |lz|/rg^2 = 0), so keep the finite spline value
         alz = numpy.fabs(lz)
@@ -3636,14 +3633,39 @@ class quasiisothermaldf(df):
             out = numpy.empty(lz.shape)
             out[indxc] = self._rgInterp(alz[indxc])
             if numpy.any(indx):
-                out[indx] = _rl_host(self._pot, lz[indx])
+                out[indx] = potential.rl(self._pot, lz[indx])
             return out
         else:
             if alz > self._precomputergLzmax or (
                 alz < self._precomputergLzmin and lz != 0.0
             ):
-                return _rl_host(self._pot, lz)
+                return potential.rl(self._pot, lz)
             return numpy.atleast_1d(self._rgInterp(alz))
+
+
+def _int_exp_smoothing_cubic(xp, zs, lsf):
+    """int_0^1 exp(s(z)) dz for s = scipy's UnivariateSpline(zs, lsf, k=3), on xp.
+
+    At its default smoothing (s = len(zs)) FITPACK returns the least-squares
+    cubic whenever that fits within s (no interior knots; surfacemass_z's
+    log-densities misfit by ~1 at 7 heights): linear in lsf, so differentiable.
+    A worse fit gets scipy's spline on the host"""
+    dev = device_of(lsf)
+    vander = numpy.vander(zs, 4)
+    coef = asarray_on_device(xp, numpy.linalg.pinv(vander), dev) @ lsf
+    misfit = xp.sum((asarray_on_device(xp, vander, dev) @ coef - lsf) ** 2)
+    if concretely_true(misfit > len(zs)):
+        spline = interpolate.UnivariateSpline(zs, as_numpy(lsf), k=3)
+        out = integrate.quad(lambda x: numpy.exp(spline(x)), 0.0, 1.0)[0]
+        return asarray_on_device(xp, numpy.asarray(out), dev)
+    return _backend_fixed_quad(
+        xp,
+        lambda x: xp.exp(((coef[0] * x + coef[1]) * x + coef[2]) * x + coef[3]),
+        0.0,
+        1.0,
+        n=50,
+        device=dev,
+    )
 
 
 def _log_pair(vals):
@@ -3654,15 +3676,6 @@ def _log_pair(vals):
         return numpy.log(numpy.array(vals))
     xp = namespace_from_arrays(bk)
     return tuple(xp.log(v) for v in co_like(*vals))
-
-
-def _rl_host(pot, lz):
-    """rl for _rg's numpy branch: solved where rl solves (the backend under a
-    forced one), returned to its numpy caller on the host"""
-    out = potential.rl(pot, lz)
-    if not is_backend_array(out):
-        return out
-    return float(as_numpy(out)) if out.ndim == 0 else as_numpy(out)
 
 
 def _vmomentsurfaceIntegrand(

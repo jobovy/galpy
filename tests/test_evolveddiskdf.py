@@ -1137,7 +1137,8 @@ def test_call_special():
     assert (
         numpy.fabs(
             edf(o, -10.0, deriv="R")
-            - as_numpy(idf(o)) * idf._dlnfdR(o.vxvv[0, 0], o.vxvv[0, 1], o.vxvv[0, 2])
+            - as_numpy(idf(o))
+            * as_numpy(idf._dlnfdR(o.vxvv[0, 0], o.vxvv[0, 1], o.vxvv[0, 2]))
         )
         < 10.0**-10.0
     ), "edf.__call__ w/ to did not return initial DF (deriv=R)"
