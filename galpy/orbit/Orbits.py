@@ -6152,13 +6152,14 @@ class Orbit:
         # Use internal units (Sun at Xsun=1, Zsun=zo/ro). The rotation
         # matrix is scale-invariant since L = r x v only matters up to
         # overall magnitude.
+        xv = [
+            getattr(self, c)(use_physical=False)
+            for c in ("x", "y", "z", "vx", "vy", "vz")
+        ]
+        if not any(is_backend_array(c) for c in xv):
+            xv = [float(c) for c in xv]
         T = coords.align_to_orbit(
-            float(self.x(use_physical=False)),
-            float(self.y(use_physical=False)),
-            float(self.z(use_physical=False)),
-            float(self.vx(use_physical=False)),
-            float(self.vy(use_physical=False)),
-            float(self.vz(use_physical=False)),
+            *xv,
             Xsun=1.0,
             Zsun=self._zo / self._ro,
             center_phi1=center_phi1,
@@ -6430,7 +6431,7 @@ class Orbit:
                 "call self.align_to_orbit() first to stash one, or pass "
                 "T=<3x3 matrix> explicitly."
             )
-        return numpy.asarray(T)
+        return T if is_backend_array(T) else numpy.asarray(T)
 
     @physical_conversion("angle_deg")
     @shapeDecorator
