@@ -844,3 +844,28 @@ def test_from_density_scalar_only_density(backend_name):
         numpy.testing.assert_allclose(
             as_numpy(p(R, z)), as_numpy(ref(R, z)), rtol=1e-13
         )
+
+
+_AT_POINTS = [(0.5, 0.1, 1.1), (2.0, -0.3, 4.0), (12.0, 3.0, 5.5), (0.0, 0.0, 0.0)]
+_AT_POINTS += [(numpy.inf, 0.0, 0.0)]
+
+
+@pytest.mark.parametrize("pot", CASES, ids=CASE_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_forced_spher_at_point_helpers_on_backend(backend_name, pot):
+    # the scalar at-point helpers (called directly) under a forced backend: on
+    # it, with numpy's values, and zero at r = 0 and r = inf as on numpy
+    from galpy.backend import is_backend_array, use
+
+    for R, z, phi in _AT_POINTS:
+        ref1 = pot._compute_spher_forces_at_point(R, z, phi)
+        ref2 = pot._compute_spher_2nd_derivs_at_point(R, z, phi)
+        with use(backend_name, force=True):
+            got1 = pot._compute_spher_forces_at_point(R, z, phi)
+            got2 = pot._compute_spher_2nd_derivs_at_point(R, z, phi)
+        assert all(is_backend_array(g) for g in got1 + got2)
+        # second derivatives: the same 1e-9 as test_value_parity's
+        for got, ref, rtol in ((got1, ref1, 1e-12), (got2, ref2, 1e-9)):
+            numpy.testing.assert_allclose(
+                [float(as_numpy(g)) for g in got], ref, rtol=rtol, atol=1e-13
+            )

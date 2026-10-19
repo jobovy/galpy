@@ -2,7 +2,8 @@
 # test_backend_orbit_islands.py: Orbit methods that computed on numpy under a
 # forced backend now run on the backend -- rguiding/rE/LcE (one vectorized root
 # over all points), E's fallback for potentials that refuse 2D arrays, Jacobi's
-# Omega.L, and a numpy orbit read at a 1-D backend time. Values match numpy;
+# Omega.L, a numpy orbit read at a 1-D backend time, and a backend Orbit's
+# align_to_orbit. Values match numpy;
 # derivatives match finite differences or closed forms.
 ###############################################################################
 import numpy
@@ -280,3 +281,27 @@ def test_root_characteristic_forced_single_point_on_backend(backend, fn):
         got = getattr(o, fn)(pot=MWPotential2014, use_physical=False)
     assert is_backend_array(got)
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
+
+
+_ALIGN = [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_align_to_orbit_backend_orbit(backend):
+    # a backend Orbit keeps its rotation (and phi1/phi2) on the backend
+    from galpy.util import coords
+
+    o = Orbit(_ALIGN)
+    ob = Orbit(_arr(backend, _ALIGN))
+    ref = o.align_to_orbit()
+    got = ob.align_to_orbit()
+    assert is_backend_array(got) and is_backend_array(ob.phi1())
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=3e-15)
+    numpy.testing.assert_allclose(as_numpy(ob.phi1()), o.phi1(), rtol=1e-13)
+    # radec_to_custom: a backend T with numpy (ra, dec) is on the backend
+    ra, dec = numpy.array([10.0, 200.0]), numpy.array([-30.0, 45.0])
+    out = coords.radec_to_custom(ra, dec, T=got, degree=True)
+    assert is_backend_array(out)
+    numpy.testing.assert_allclose(
+        as_numpy(out), coords.radec_to_custom(ra, dec, T=ref, degree=True), rtol=1e-13
+    )
