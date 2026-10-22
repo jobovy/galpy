@@ -614,7 +614,8 @@ def test_streamtrack_jit_grad_fd():
     # potential parameter AND the progenitor. Read like data -- the track and its
     # spread at FIXED tp -- the result is smooth: central differences at two steps
     # agree with the forward-mode gradient (to 1e-5 of each quantity's largest
-    # derivative: the adaptive ODE steps leave ~1e-10 absolute between AD and FD).
+    # derivative). Steps 3e-4 and 1e-4: truncation is <~6e-7 there, while at 1e-5
+    # the value's rounding (~2e-7 absolute on jax 0.12 CPU) already shows.
     jnp = jax.numpy
     key = grandom.key(_SEED, backend="jax")
     dic = jnp.asarray([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])  # the progenitor's vT
@@ -643,7 +644,7 @@ def test_streamtrack_jit_grad_fd():
     assert numpy.all(numpy.isfinite(numpy.asarray(f(th0))))
     g = numpy.asarray(jax.jit(jax.jacfwd(readout))(th0))
     scale = numpy.max(numpy.abs(g), axis=1, keepdims=True)
-    for h in (1e-4, 1e-5):
+    for h in (3e-4, 1e-4):
         fd = (numpy.asarray(f(th0 + h)) - numpy.asarray(f(th0 - h))) / (2 * h)
         assert numpy.all(numpy.abs(fd - g) < 1e-5 * scale), (h, fd, g)
 
