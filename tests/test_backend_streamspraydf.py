@@ -1032,13 +1032,12 @@ def _stripping_track_xyz(t0, key):
 def test_streamtrack_jit_grad_fd_stripping():
     # jax.jit(streamTrack()) is differentiable in the center t0 of a Gaussian stripping
     # burst: t0 -> the inverse-CDF -> the stripping times -> the sampled particles -> the
-    # track. Reassignment-invariant functional (mean track radius) -> grad-vs-FD.
-    jnp = jax.numpy
+    # track. Reassignment-invariant functional (the summed track) -> grad-vs-FD; not
+    # the mean radius, whose derivative nearly cancels here (-5e-4)
     key = grandom.key(_SEED, backend="jax")
 
     def loss(t0):
-        xyz = _stripping_track_xyz(t0, key)
-        return jnp.mean(jnp.sqrt(jnp.sum(xyz**2, axis=1)))
+        return _stripping_track_xyz(t0, key).sum()
 
     g, best = _jit_grad_hconv(loss, -0.4 * _JIT_TD)
     assert numpy.isfinite(g) and abs(g) > 0

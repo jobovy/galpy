@@ -1404,3 +1404,32 @@ def test_call_stacks_on_the_backend(backend):
         assert is_backend_array(got)
         assert tuple(got.shape) == ref.shape
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pspline_smooth_quantile_grad_far_outlier(backend):
+    # one value ~100 rms past the bulk: the smoothed CDF's logistic must not
+    # overflow (exp((v - u) / h) = inf gives 0 * inf = NaN in the gradient)
+    from galpy.df.streamTrack import _smooth_quantile
+
+    rng = numpy.random.default_rng(0)
+    v = numpy.concatenate([0.01 * rng.random(10000), [1.0]])
+    eps = 1e-7
+    for q in (0.5, 0.99):
+        if backend == "jax":
+            g = as_numpy(
+                jax.grad(lambda x: _smooth_quantile(jnp, x, q))(jnp.asarray(v))
+            )
+        else:
+            vt = torch.tensor(v, requires_grad=True)
+            _smooth_quantile(get_namespace(vt), vt, q).backward()
+            g = as_numpy(vt.grad)
+        assert numpy.all(numpy.isfinite(g))
+        # AD vs central differences: the outlier, a bulk value and the largest entry
+        for j in (0, 10000, int(numpy.argmax(numpy.abs(g[:-1])))):
+            e = numpy.zeros_like(v)
+            e[j] = eps
+            fd = (
+                _smooth_quantile(numpy, v + e, q) - _smooth_quantile(numpy, v - e, q)
+            ) / (2 * eps)
+            assert abs(g[j] - fd) < 1e-7 * numpy.max(numpy.abs(g))
