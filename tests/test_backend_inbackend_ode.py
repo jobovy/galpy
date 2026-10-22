@@ -432,6 +432,77 @@ def test_inbackend_hessian_direct_adjoint_jax():
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_direct_adjoint_reverse_mode_adaptive_jax():
+    # galpy's DirectAdjoint: reverse mode through an adaptive solve of more than 16
+    # steps (with rejections) equals forward mode. diffrax's own DirectAdjoint is
+    # 3e-2 (jax 0.10) to 5e-2 (jax 0.12) off here.
+    import diffrax
+
+    from galpy.backend._jax.diffrax_adjoint import direct_adjoint
+
+    def rhs(t, y, args):
+        r = jnp.sqrt(jnp.sum(y[:2] ** 2) + 0.36)
+        return jnp.concatenate([y[2:], -y[:2] / r**3])
+
+    def final_x(v0):
+        return diffrax.diffeqsolve(
+            diffrax.ODETerm(rhs),
+            diffrax.Dopri8(),
+            0.0,
+            6.0,
+            1e-3,
+            jnp.stack([1.0, 0.0, v0, 0.9]),
+            saveat=diffrax.SaveAt(t1=True),
+            stepsize_controller=diffrax.PIDController(rtol=1e-10, atol=1e-10),
+            max_steps=2048,
+            adjoint=direct_adjoint(),
+        ).ys[-1, 0]
+
+    v0 = jnp.asarray(0.1)
+    numpy.testing.assert_allclose(
+        float(jax.grad(final_x)(v0)), float(jax.jacfwd(final_x)(v0)), rtol=1e-13
+    )
+    numpy.testing.assert_allclose(
+        float(jax.hessian(final_x)(v0)),
+        float(jax.jacfwd(jax.jacfwd(final_x))(v0)),
+        rtol=1e-12,
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("adjoint", [None, "recursive"])
+def test_constant_step_reverse_mode_dense_output_jax(adjoint):
+    # constant steps with an output at every step: reverse mode equals forward
+    # mode. With the checkpoint schedule implied by max_steps = nsteps + 1,
+    # diffrax's reverse pass was 12% off here.
+    ts = numpy.linspace(0.0, 6.0, 201)
+    w = jnp.asarray(numpy.random.default_rng(0).normal(size=(3, 201)))
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def loss(ic, extra):
+        o = Orbit(ic)
+        o.integrate(
+            ts,
+            pot,
+            method="diffrax",
+            inbackend_kwargs={"nsteps": 200, **extra},
+        )
+        return jnp.sum(w * jnp.stack([o.x(ts), o.y(ts), o.z(ts)]))
+
+    ic = jnp.asarray(_IC)
+    kw = {} if adjoint is None else {"adjoint": adjoint}
+    # (jitted: eager jax.grad was right before the fix)
+    g = jax.jit(jax.grad(lambda y: loss(y, kw)))(ic)
+    f = jax.jacfwd(lambda y: loss(y, {"adjoint": "direct"}))(ic)
+    numpy.testing.assert_allclose(
+        numpy.asarray(g),
+        numpy.asarray(f),
+        rtol=0.0,
+        atol=1e-11 * float(jnp.max(jnp.abs(f))),
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize("mode", ["jvp", "jit_jvp", "jacfwd"])
 def test_orbit_forward_mode_without_adjoint_kwarg(mode):
     # Forward mode (jax.jvp/jacfwd) through Orbit.integrate(method='diffrax')
