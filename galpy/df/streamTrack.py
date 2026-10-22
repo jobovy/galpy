@@ -326,6 +326,13 @@ _PSPLINE_REML_STEPS = 8
 # the tp=0 end's taper of the particles' weights, as a fraction of the arc span
 _PSPLINE_NEAR_TAPER = 1e-3
 _PSPLINE_WEIGHT_FLOOR = 1e-6
+# the smooth quantiles' kernel width (relative to the rms) and Newton steps
+_PSPLINE_QUANTILE_BANDWIDTH = 0.05
+_PSPLINE_QUANTILE_STEPS = 20
+# smooth walls on the REML criterion at the ends of the penalty grid, instead of
+# hard limits (whose clamping kinks the track): height in d REML / d ln lambda,
+# width in ln lambda
+_PSPLINE_WALL = (10.0, 0.25)
 
 
 def _cubic_bspline_kernel(u, nu=0):
@@ -358,6 +365,24 @@ def _sorted_quantile(v, q):
     hi = min(lo + 1, v.shape[0] - 1)
     vs = numpy.sort(v)
     return vs[lo] * (1.0 - (pos - lo)) + vs[hi] * (pos - lo)
+
+
+def _smooth_quantile(v, q):
+    """The ``q``-quantile of a 1D ``v`` from its kernel-smoothed empirical CDF: the
+    root ``u`` of ``mean(sigmoid((u - v) / h)) = q``, with ``h`` 5% of the rms of
+    ``v``. Smooth in ``v``, unlike an order statistic, whose slope jumps whenever
+    two values swap at its rank. Newton steps (each at most ``h``) from
+    :func:`_sorted_quantile`."""
+    h = _PSPLINE_QUANTILE_BANDWIDTH * numpy.sqrt(numpy.mean(v * v))
+    h = numpy.where(h > 0.0, h, 1.0)
+    u = _sorted_quantile(v, q)
+    for _ in range(_PSPLINE_QUANTILE_STEPS):
+        # 1 / (1 + exp((v - u) / h)), whose exp overflows far out
+        s = 0.5 - 0.5 * numpy.tanh(0.5 * (v - u) / h)
+        fp = numpy.mean(s * (1.0 - s)) / h
+        step = (numpy.mean(s) - q) / numpy.where(fp > 0.0, fp, 1.0)
+        u = u - numpy.clip(step, -h, h)
+    return u
 
 
 def _project_onto_curve(pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt):
@@ -439,12 +464,30 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
         fp = 0.5 * nm2 * (r1 - 2.0 * lam * lam * uPs / D - r1 * r1) + 0.5 * (
             lam * trR - lam * lam * trRR
         )
+        # the walls' slopes (see wall below)
+        sh = 1.0 / (1.0 + numpy.exp((hi_g - ell) / wall_w))
+        sl = 1.0 / (1.0 + numpy.exp((ell - lo_g) / wall_w))
+        f = f + wall_k * (sh - sl)
+        fp = fp + wall_k / wall_w * (sh * (1.0 - sh) + sl * (1.0 - sl))
         return f, fp
+
+    lo_g, hi_g = float(_PSPLINE_LOG_LAMBDA[0]), float(_PSPLINE_LOG_LAMBDA[-1])
+    wall_k, wall_w = _PSPLINE_WALL
+
+    def wall(ell):
+        # REML's smooth walls beyond the grid's ends: softplus ramps
+        return (
+            wall_k
+            * wall_w
+            * (
+                numpy.log1p(numpy.exp((ell - hi_g) / wall_w))
+                + numpy.log1p(numpy.exp((lo_g - ell) / wall_w))
+            )
+        )
 
     d = data(B, w, y)
     if lam_rel is None:
         grid = _PSPLINE_LOG_LAMBDA
-        lo_g, hi_g = float(grid[0]), float(grid[-1])
         dl = float(grid[1] - grid[0])
         # coarse grid: the bracketing node of each coordinate, with the residuals
         # as quadratic forms in the coefficients (no N-sized work)
@@ -458,9 +501,10 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
             0.5 * (numpy.sum(d[1]) - 2.0) * numpy.log(numpy.clip(D_g, 1e-300, None))
             - 0.5 * (K - 2) * numpy.log(lam_g)
             + 0.5 * numpy.linalg.slogdet(A_g)[1]
+            + wall(grid)[:, None]
         )
         ell0 = grid[numpy.argmin(reml, axis=0)]  # (6,)
-        lo, hi = numpy.clip(ell0 - dl, lo_g, None), numpy.clip(ell0 + dl, None, hi_g)
+        lo, hi = ell0 - dl, ell0 + dl
         ell = ell0
         for _ in range(_PSPLINE_REML_STEPS):
             f, fp = dreml(d, ell)
@@ -543,7 +587,7 @@ def _fit_track_pspline(
             )
             off = pts - prog_at(tpr)
             a = numpy.abs(tpr)
-            med = _sorted_quantile(a, 0.5)
+            med = _smooth_quantile(a, 0.5)
             u = 0.5 * (1.0 + numpy.tanh((med - a) / (0.2 * med + 1e-300)))
             sp2 = numpy.sum(u * numpy.sum(off[:, :3] ** 2, axis=-1))
             sv2 = numpy.sum(u * numpy.sum(off[:, 3:] ** 2, axis=-1))
@@ -609,7 +653,7 @@ def _fit_track_pspline(
                 tp_unit / (ninterp - 1),
             )
         # trim to the 99th percentile of |tp| (tapered particles count at tp=0)
-        tp_unit = _sorted_quantile(arm_sign * t * wts, 0.99)
+        tp_unit = _smooth_quantile(arm_sign * t * wts, 0.99)
         tp_unit = numpy.where(tp_unit > 1e-12, tp_unit, abs(far))
         pos = (t / tp_unit - g_lo) * (ntp - 1)
         B = _cubic_bspline_kernel(pos[:, None] - centers[None, :])  # (N, K)

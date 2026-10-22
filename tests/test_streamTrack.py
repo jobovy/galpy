@@ -1288,7 +1288,8 @@ def test_streamTrack_pspline_agrees_with_binned(_simple_spdf, _pspline_xv):
         )
         tr = _pspline(_simple_spdf, _pspline_xv, velocity_weight=vw)
         gb, gp = numpy.asarray(tb.tp_grid()), numpy.asarray(tr.tp_grid())
-        assert gp[0] == 0.0 and abs(gp[-1] - gb[-1]) < 0.01 * gb[-1]
+        # (pspline trims at a kernel-smoothed 99th percentile, a little further out)
+        assert gp[0] == 0.0 and abs(gp[-1] - gb[-1]) < 0.03 * gb[-1]
         tps = numpy.linspace(0.1 * gp[-1], 0.9 * gp[-1], 9)
         cov = numpy.asarray(tr.cov(tps, use_physical=False))
         for k, m in enumerate(_CART):
@@ -1409,3 +1410,67 @@ def test_streamTrack_pspline_bspline_kernel():
         )
     with pytest.raises(ValueError, match="nu must be 0, 1 or 2"):
         _cubic_bspline_kernel(v, nu=3)
+
+
+def test_streamTrack_pspline_smooth_quantile():
+    # the range trim and the auto velocity weight use a kernel-smoothed
+    # quantile: smooth as values move past each other, where the order
+    # statistic kinks (its slope jumps whenever two values swap at its rank)
+    from galpy.df.streamTrack import _smooth_quantile, _sorted_quantile
+
+    rng = numpy.random.default_rng(5)
+    base, rate = rng.exponential(size=500), rng.normal(size=500)
+    s = numpy.linspace(-0.05, 0.05, 201)
+    for q in (0.5, 0.99):
+        us = numpy.array([_smooth_quantile(base + x * rate, q) for x in s])
+        uo = numpy.array([_sorted_quantile(base + x * rate, q) for x in s])
+        d2s, d2o = numpy.abs(numpy.diff(us, n=2)), numpy.abs(numpy.diff(uo, n=2))
+        assert numpy.max(d2s) < 1e-2 * numpy.max(d2o)
+        # the root of the smoothed CDF, within a few kernel widths h of the order
+        # statistic (the logistic kernel's tails push it out in a sparse tail)
+        v = base + 0.03 * rate
+        u = _smooth_quantile(v, q)
+        h = 0.05 * numpy.sqrt(numpy.mean(v * v))
+        assert abs(numpy.mean(1.0 / (1.0 + numpy.exp((v - u) / h))) - q) < 1e-12
+        assert abs(u - _sorted_quantile(v, q)) < 6.0 * h
+
+
+def test_streamTrack_pspline_penalty_smooth_past_grid():
+    # offsets linear in tp plus a growing curvature a sin(tp): at small a,
+    # REML's optimum lies beyond the penalty grid; smooth walls there keep the
+    # selected penalty a smooth function of the data (a hard limit kinks it)
+    M = 2001
+    tg = numpy.linspace(-10.0, 10.0, M)
+    prog = numpy.zeros((M, 6))
+    prog[:, 0] = tg
+    prog[:, 3] = 1.0
+    rng = numpy.random.default_rng(0)
+    n = 300
+    tp = rng.uniform(0.0, 8.0, n)
+    e = rng.normal(size=(5, n))
+
+    def lam_y(a):
+        x = tp
+        y = 0.3 + 0.02 * tp + a * numpy.sin(tp) + 0.05 * e[0]
+        z = -0.1 + 0.01 * tp + 0.05 * e[1]
+        vx, vy, vz = 1.0 + 0.005 * e[2], 0.002 * tp + 0.005 * e[3], 0.005 * e[4]
+        R, phi = numpy.sqrt(x**2 + y**2), numpy.arctan2(y, x)
+        vR = vx * numpy.cos(phi) + vy * numpy.sin(phi)
+        vT = -vx * numpy.sin(phi) + vy * numpy.cos(phi)
+        fit = _fit_track_from_particles(
+            numpy.array([R, vR, vT, z, vz, phi]),
+            prog,
+            tg,
+            arm_sign=1,
+            ninterp=101,
+            order=1,
+            velocity_weight=1.0,
+            method="pspline",
+        )
+        return float(numpy.asarray(fit["smoothing_s"])[1])
+
+    ll = numpy.log([lam_y(a) for a in numpy.linspace(0.0, 0.01, 21)])
+    assert numpy.all(ll < numpy.log(1e4))
+    assert numpy.max(numpy.abs(numpy.diff(ll, n=2))) < 0.3 * numpy.max(
+        numpy.abs(numpy.diff(ll))
+    )
