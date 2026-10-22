@@ -857,14 +857,22 @@ def test_exp1_nested_grad(backend):
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_jax_native_exp1_second_deriv_unreliable():
-    # Tripwire / justification for routing jax's exp1 through -expi(-x): jax's
-    # native exp1 is implemented as expn(1, x), whose SECOND derivative (needed by
-    # the half-integer constant-beta DFs) fails to trace. If this ever stops
-    # raising, jax's native exp1 could be routed directly in the router.
+    # Tripwire / justification for routing jax's exp1 through -expi(-x): before
+    # jax 0.12, jax's native exp1 is implemented as expn(1, x), whose SECOND
+    # derivative (needed by the half-integer constant-beta DFs) fails to trace.
+    # Once the oldest supported jax is >= 0.12, it could be routed directly.
     import jax.scipy.special as jsp
 
-    with pytest.raises(Exception):
-        jax.grad(jax.grad(lambda x: jsp.exp1(x)))(jnp.asarray(2.5))
+    d2 = jax.grad(jax.grad(lambda x: jsp.exp1(x)))
+    if jax.__version_info__ < (0, 12):
+        with pytest.raises(Exception):
+            d2(jnp.asarray(2.5))
+    else:
+        numpy.testing.assert_allclose(
+            float(d2(jnp.asarray(2.5))),
+            numpy.exp(-2.5) * (1.0 / 2.5 + 1.0 / 2.5**2),
+            rtol=1e-14,
+        )
 
 
 # --- Tier 4a: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------

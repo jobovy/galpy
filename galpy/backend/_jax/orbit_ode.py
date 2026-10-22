@@ -5,6 +5,7 @@
 #   the shared backend-agnostic EOM (_eom_rhs) with diffrax. The torch counterpart
 #   is galpy.backend._torch.orbit_ode.
 ###############################################################################
+from .diffrax_adjoint import direct_adjoint
 
 
 def _resolve_solver(diffrax, solver):
@@ -40,7 +41,7 @@ def _resolve_adjoint(diffrax, adjoint):
     if key in ("recursive", "recursivecheckpoint", "default"):
         return diffrax.RecursiveCheckpointAdjoint()
     if key == "direct":
-        return diffrax.DirectAdjoint()
+        return direct_adjoint()
     if key == "forward":
         return diffrax.ForwardMode()
     raise ValueError(
@@ -117,7 +118,16 @@ def integrate(
     if _adjoint is None and _carries_jvp_tangent(
         y0, ts, term.vf(jnp.reshape(ts, (-1,))[0], y0, None)
     ):
-        _adjoint = diffrax.DirectAdjoint()
+        _adjoint = direct_adjoint()
+    if (
+        nsteps is not None
+        and (adjoint is None or isinstance(adjoint, str))
+        and (_adjoint is None or type(_adjoint) is diffrax.RecursiveCheckpointAdjoint)
+    ):
+        # constant steps: checkpoint every step. The schedule that max_steps =
+        # nsteps + 1 implies is sparser, and its reverse pass is wrong when
+        # several outputs fall within a step (diffrax 0.7)
+        _adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=nsteps + 1)
     # only pass adjoint when explicitly chosen, so the default call is byte-for-byte
     # the prior diffeqsolve (diffrax's own RecursiveCheckpointAdjoint default).
     _extra = {} if _adjoint is None else {"adjoint": _adjoint}
