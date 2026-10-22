@@ -10,6 +10,8 @@
 ###############################################################################
 import math
 
+from .diffrax_adjoint import direct_adjoint
+
 _FOURPI = 4.0 * math.pi
 
 
@@ -27,7 +29,7 @@ def solve(dens_W, W0, npt, rtol=1e-10, atol=1e-12, max_steps=4096):
     rbreak = jnp.where(W0 < 2.0, r0 / 100.0, r0)
     n1 = npt // 2
     controller = diffrax.PIDController(rtol=rtol, atol=atol)
-    adjoint = diffrax.DirectAdjoint()
+    adjoint = direct_adjoint()
 
     def rhs1(t, y, args):
         # r^2 W'' = -4 pi rho r^2 - 2 r W': the 2 W'/r term is 0 at r=0 (W'(0)=0);

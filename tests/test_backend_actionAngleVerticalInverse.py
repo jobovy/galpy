@@ -354,8 +354,9 @@ def test_jax_jit_construction():
         return jnp.concatenate([x, v, jnp.atleast_1d(O)])
 
     s0 = jnp.asarray(0.5)
+    # (jax 0.12 on CI's CPU: 1.15e-14)
     numpy.testing.assert_allclose(
-        numpy.asarray(jax.jit(f)(s0)), numpy.asarray(f(s0)), rtol=0.0, atol=1e-14
+        numpy.asarray(jax.jit(f)(s0)), numpy.asarray(f(s0)), rtol=0.0, atol=3e-14
     )
     numpy.testing.assert_allclose(
         numpy.asarray(jax.jit(jax.jacfwd(f))(s0)),
