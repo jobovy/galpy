@@ -1336,37 +1336,35 @@ def test_accessor_out_of_range_still_nan_for_traced_tp():
 
 
 # --- the point of the accessors: read a value OFF the track and differentiate --
-# it w.r.t. the theory inputs. Only STATISTICAL quantities of the whole particle
-# cloud are meaningful here: the fit freezes its STRUCTURE (closest-point
-# assignment, spline basis, GCV lambda are stop_gradient'd) and lets the offset
-# VALUES flow, so individual particles crossing an assignment boundary is exactly
-# the thing that is meant to average out over the cloud. A single-particle FD is
-# NOT a fair check of this gradient; a coherent whole-cloud perturbation is.
+# it w.r.t. the theory inputs. The traced (pspline) fit is smooth in the particles,
+# so the gradient is that of the value read off the track, and central differences
+# of a coherent whole-cloud perturbation converge onto it.
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 @pytest.mark.parametrize("acc,axis", (("x", 0), ("y", 1), ("z", 2)))
-def test_accessor_grad_wrt_rigid_cloud_translation_is_one(acc, axis):
-    # Translate EVERY particle along one Cartesian axis: the offsets all shift by
-    # the same amount, so the fitted track must shift with them and
-    # d(track coord)/d(shift) is analytically 1 -- no finite differences needed.
+def test_accessor_grad_wrt_rigid_cloud_translation(acc, axis):
+    # Translate EVERY particle along one Cartesian axis and read the track at a
+    # fixed tp. The part of the shift along the stream relabels tp rather than
+    # moving the track (the derivative is not simply 1): check it against central
+    # differences at two steps.
     import jax
     import jax.numpy as jnp
 
     xv, prog_cart, tg = _track_case()
-    tp0 = 0.5 * (float(tg[0]) + float(tg[-1]))
+    kw = {**_TRACK_KW, "method": "pspline"}
+    tp0 = 0.5 * StreamTrack.from_particles(xv, prog_cart, tg, **kw).tp_grid()[-1]
 
-    # xv rows are (R, vR, vT, z, vz, phi); shift in CARTESIAN x/y/z via phi=0 rows
-    # is not direct, so shift the cartesian track input instead: use the particle
-    # cloud's own cartesian representation through a small helper perturbation.
     def f(delta):
         xvb = _shift_cloud_cartesian(_arr("jax", xv), axis, delta)
         tr = StreamTrack.from_particles(
-            xvb, _arr("jax", prog_cart), tg, **_TRACK_KW, **_SOLAR_FRAME
+            xvb, _arr("jax", prog_cart), tg, **kw, **_SOLAR_FRAME
         )
-        tr.turn_physical_off()
         return jnp.reshape(jnp.asarray(getattr(tr, acc)(tp0, use_physical=False)), ())
 
-    g = float(jax.grad(f)(0.0))
-    assert abs(g - 1.0) < 2e-3, f"{acc}: d/d(rigid {acc}-shift) = {g}, expected 1"
+    g = float(jax.jit(jax.grad(f))(0.0))
+    fj = jax.jit(f)
+    fd = [(float(fj(h)) - float(fj(-h))) / (2.0 * h) for h in (1e-4, 1e-5)]
+    print(acc, g, fd)
+    numpy.testing.assert_allclose(fd, g, rtol=1e-6)
 
 
 def _shift_cloud_cartesian(xv, axis, delta):

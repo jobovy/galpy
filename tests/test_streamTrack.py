@@ -1253,3 +1253,126 @@ def test_streamTrack_with_progpot():
     # track at tp=0 must match the progenitor's present-day position.
     prog_x0 = float(spdf._progenitor.x(0.0))
     assert abs(float(track.x(0.0)) - prog_x0) < 0.05
+
+
+# --------------------------------------------------------------------------
+# method='pspline': every particle is projected continuously onto the progenitor
+# orbit and its offset fit with a weighted cubic P-spline in tp, so the track is
+# a smooth function of the particles and the progenitor (the binned method's
+# closest-sample assignment, bins and fitpack knots are not).
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def _pspline_xv(_simple_spdf):
+    numpy.random.seed(61)
+    return _simple_spdf.streamTrack(n=1000, tail="leading", order=1).particles
+
+
+_CART = ("x", "y", "z", "vx", "vy", "vz")
+
+
+def _pspline(spdf, xv, **kw):
+    return spdf.streamTrack(particles=xv, tail="leading", method="pspline", **kw)
+
+
+def test_streamTrack_pspline_agrees_with_binned(_simple_spdf, _pspline_xv):
+    # the two reconstructions estimate the same track: they agree to well within
+    # the stream's width over the interior, with similar widths
+    for vw in ("auto", 1.0):
+        tb = _simple_spdf.streamTrack(
+            particles=_pspline_xv, tail="leading", velocity_weight=vw
+        )
+        tr = _pspline(_simple_spdf, _pspline_xv, velocity_weight=vw)
+        gb, gp = as_numpy(tb.tp_grid()), as_numpy(tr.tp_grid())
+        assert gp[0] == 0.0 and abs(gp[-1] - gb[-1]) < 0.01 * gb[-1]
+        tps = numpy.linspace(0.1 * gp[-1], 0.9 * gp[-1], 9)
+        cov = as_numpy(tr.cov(tps, use_physical=False))
+        for k, m in enumerate(_CART):
+            d = as_numpy(getattr(tr, m)(tps, use_physical=False)) - as_numpy(
+                getattr(tb, m)(tps, use_physical=False)
+            )
+            assert numpy.all(numpy.abs(d) < 0.7 * numpy.sqrt(cov[:, k, k])), m
+        ratio = numpy.einsum("nii->ni", cov) / numpy.einsum(
+            "nii->ni", as_numpy(tb.cov(tps, use_physical=False))
+        )
+        assert 0.8 < numpy.median(ratio) < 1.25
+        assert numpy.linalg.eigvalsh(cov).min() > 0.0
+        assert len(tr.smoothing_s) == 6
+
+
+def test_streamTrack_pspline_smooth_in_the_particles(_simple_spdf, _pspline_xv):
+    # central differences of the track (and its spread) in a perturbation of
+    # the particles converge as the step shrinks: no assignment jumps
+    dxv = numpy.random.default_rng(2).normal(size=_pspline_xv.shape) * 1e-2
+    tps = numpy.linspace(0.2, 1.2, 6)
+
+    def f(h):
+        tr = _pspline(_simple_spdf, _pspline_xv + h * dxv)
+        return numpy.concatenate(
+            [
+                tr.x(tps, use_physical=False),
+                tr.vz(tps, use_physical=False),
+                tr.cov(tps, use_physical=False)[:, 1, 4],
+            ]
+        )
+
+    fd = [(f(h) - f(-h)) / (2 * h) for h in (1e-3, 1e-4, 1e-5)]
+    # (atol: the rounding error of the step-1e-5 difference on small entries)
+    atol = 1e-6 * numpy.max(numpy.abs(fd[1]))
+    numpy.testing.assert_allclose(fd[2], fd[1], rtol=1e-6, atol=atol)
+    numpy.testing.assert_allclose(fd[0], fd[1], rtol=1e-4, atol=atol)
+
+
+def test_streamTrack_pspline_smoothing(_simple_spdf, _pspline_xv):
+    tr = _pspline(_simple_spdf, _pspline_xv)
+    tps = numpy.linspace(0.2, 1.2, 6)
+    s = tr.smoothing_s
+    assert s.shape == (6,) and numpy.all(s > 0.0)
+    # the GCV penalties passed back reproduce the track
+    tr2 = _pspline(_simple_spdf, _pspline_xv, smoothing=s)
+    numpy.testing.assert_allclose(tr2.x(tps), tr.x(tps), rtol=1e-12)
+    numpy.testing.assert_allclose(tr2.smoothing_s, s, rtol=1e-15)
+    # smoothing_factor multiplies the GCV penalties; a larger one is smoother
+    tr4 = _pspline(_simple_spdf, _pspline_xv, smoothing_factor=100.0)
+    numpy.testing.assert_allclose(tr4.smoothing_s, 100.0 * s, rtol=1e-12)
+    grid = tr.tp_grid()[1:-1]
+    rough = [
+        numpy.sum(numpy.diff(t.vx(grid, use_physical=False), n=2) ** 2)
+        for t in (tr, tr4)
+    ]
+    assert rough[1] < 0.5 * rough[0]
+    # a single value applies to all six coordinates
+    numpy.testing.assert_array_equal(
+        _pspline(_simple_spdf, _pspline_xv, smoothing=0.5).smoothing_s, 0.5
+    )
+    with pytest.raises(ValueError, match="6 relative penalty weights"):
+        _pspline(_simple_spdf, _pspline_xv, smoothing=numpy.ones(27))
+
+
+def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
+    tps = numpy.linspace(0.2, 1.2, 6)
+    base = _pspline(_simple_spdf, _pspline_xv, velocity_weight=1.0)
+    for kw in ({"niter": 1}, {"ntp": 25}, {"velocity_weight": 3.0}):
+        tr = _pspline(_simple_spdf, _pspline_xv, **{"velocity_weight": 1.0, **kw})
+        d = numpy.abs(tr.x(tps) - base.x(tps))
+        assert numpy.all(numpy.isfinite(d)) and numpy.max(d) > 1e-6, kw
+    tr = _pspline(_simple_spdf, _pspline_xv, order=1)
+    assert tr.smoothing_s.shape == (6,)
+    with pytest.raises(RuntimeError):
+        tr.cov(0.5)
+    # 'auto' needs 20 particles for its probe and is 1 below that
+    few = _pspline_xv[:, :19]
+    numpy.testing.assert_array_equal(
+        _pspline(_simple_spdf, few).x(tps),
+        _pspline(_simple_spdf, few, velocity_weight=1.0).x(tps),
+    )
+    with pytest.raises(ValueError, match="velocity_weight"):
+        _pspline(_simple_spdf, _pspline_xv, velocity_weight="bogus")
+    with pytest.raises(ValueError, match="method="):
+        _simple_spdf.streamTrack(particles=_pspline_xv, tail="leading", method="bogus")
+    # both arms, sampled
+    numpy.random.seed(62)
+    pair = _simple_spdf.streamTrack(n=400, tail="both", method="pspline")
+    prog_x0 = float(_simple_spdf._progenitor.x(0.0))
+    assert abs(float(pair.leading.x(0.0)) - prog_x0) < 0.05
+    assert abs(float(pair.trailing.x(0.0)) - prog_x0) < 0.05
+    assert pair.trailing.tp_grid()[-1] == 0.0

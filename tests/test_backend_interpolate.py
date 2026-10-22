@@ -16,6 +16,7 @@ from galpy.backend.interpolate import (
     MapCoordinates,
     Spline1D,
     Spline2D,
+    cubic_bspline_kernel,
     cubic_spline_coeffs,
     eval_cubic,
     eval_ppoly,
@@ -2186,3 +2187,30 @@ def test_interp1d_clamped(backend):
             lambda y: interp1d_clamped(jnp.asarray(_XG), y)(jnp.asarray(rq)).sum()
         )(jnp.asarray(_YG))
         numpy.testing.assert_allclose(numpy.asarray(g)[[0, -1]], 2.0, rtol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cubic_bspline_kernel(backend):
+    # beta3 against its closed form, its integer translates summing to one, and
+    # its first and second derivatives against central differences
+    xp = _xp(backend)
+
+    def k(u, nu=0):
+        return as_numpy(cubic_bspline_kernel(xp, _asarray(backend, u), nu=nu))
+
+    u = numpy.linspace(-2.5, 2.5, 1000)  # no point within 1e-3 of a knot
+    a = numpy.abs(u)
+    ref = numpy.where(
+        a < 1, 2 / 3 - a**2 + a**3 / 2, numpy.where(a < 2, (2 - a) ** 3 / 6, 0.0)
+    )
+    numpy.testing.assert_allclose(k(u), ref, rtol=0.0, atol=1e-15)
+    v = numpy.linspace(0.0, 1.0, 11)
+    numpy.testing.assert_allclose(
+        sum(k(v - j) for j in range(-2, 4)), 1.0, rtol=0.0, atol=1e-14
+    )
+    h = 1e-5
+    for nu in (1, 2):
+        fd = (k(u + h, nu - 1) - k(u - h, nu - 1)) / (2.0 * h)
+        numpy.testing.assert_allclose(k(u, nu), fd, rtol=0.0, atol=1e-9)
+    with pytest.raises(ValueError, match="nu must be"):
+        cubic_bspline_kernel(xp, _asarray(backend, u), nu=3)

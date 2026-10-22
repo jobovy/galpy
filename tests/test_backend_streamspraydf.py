@@ -558,8 +558,8 @@ def test_streamtrack_nonaxi_probe_numpy():
 # --------------------------------------------------------------------------
 # FULLY JITTABLE differentiable streamspray: jax.jit(sample()) and
 # jax.jit(streamTrack()) sample INTERNALLY (no particles=) and reconstruct with the
-# jax-native path (static-shape argmin closest-point + GCV P-spline + PSD covariance),
-# so the spray sample xv(theta) FLOWS -- the generative d(track)/d(theta). The
+# pspline method (continuous projection + GCV P-spline + PSD covariance), so the
+# spray sample xv(theta) FLOWS -- the generative d(track)/d(theta). The
 # track_time_range is auto-estimated (the TRUE traced particle-extent). Streams are
 # sensitive probes, so grad-vs-FD is h-CONVERGED (a single-h central difference is
 # nonlinear at h~1e-3; the linear regime is ~1e-5). jax-only (jit).
@@ -609,26 +609,43 @@ def test_sample_jit_grad_fd():
 
 @pytest.mark.skipif(jax is None, reason="jax required for jit tests")
 def test_streamtrack_jit_grad_fd():
-    # jax.jit(streamTrack()) samples INTERNALLY + reconstructs jax-natively (auto
-    # track_time_range + GCV P-spline + PSD covariance), differentiable in a backend
-    # potential parameter -- mean track AND covariance flow.
+    # jax.jit(streamTrack()) samples INTERNALLY + reconstructs with the pspline method
+    # (auto track_time_range and velocity_weight), along a direction that moves a
+    # potential parameter AND the progenitor. Read like data -- the track and its
+    # spread at FIXED tp -- the result is smooth: central differences at two steps
+    # agree with the forward-mode gradient (to 1e-5 of each quantity's largest
+    # derivative: the adaptive ODE steps leave ~1e-10 absolute between AD and FD).
+    jnp = jax.numpy
     key = grandom.key(_SEED, backend="jax")
+    dic = jnp.asarray([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])  # the progenitor's vT
+    tq = jnp.asarray([0.035, 0.07, 0.105])  # inside the track's [0, 0.139]
 
-    def loss(amp):
+    def readout(th):
         spdf = fardal15spraydf(
             _JIT_MASS,
-            progenitor=Orbit(_JIT_IC),
-            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            progenitor=Orbit(jnp.asarray(_JIT_IC) + th * dic),
+            pot=LogarithmicHaloPotential(amp=1.1 + th, q=0.9),
             tdisrupt=_JIT_TD,
         )
-        tr = spdf.streamTrack(
-            n=_JIT_N, tail="leading", velocity_weight=1.0, order=2, key=key
+        tr = spdf.streamTrack(n=_JIT_N, tail="leading", order=2, key=key)
+        cov = tr.cov(tq, use_physical=False)
+        return jnp.stack(
+            [
+                tr.x(tq, use_physical=False),
+                tr.vy(tq, use_physical=False),
+                cov[:, 0, 0],
+                cov[:, 1, 4],
+            ]
         )
-        return tr._track_xyz.sum() + tr._cov_xyz.sum()
 
-    g, best = _jit_grad_hconv(loss, 1.1)
-    assert numpy.isfinite(g)
-    assert best < 1e-3, f"jit streamTrack grad-vs-FD best REL={best:.2e}"
+    th0 = jnp.asarray(0.0)
+    f = jax.jit(readout)
+    assert numpy.all(numpy.isfinite(numpy.asarray(f(th0))))
+    g = numpy.asarray(jax.jit(jax.jacfwd(readout))(th0))
+    scale = numpy.max(numpy.abs(g), axis=1, keepdims=True)
+    for h in (1e-4, 1e-5):
+        fd = (numpy.asarray(f(th0 + h)) - numpy.asarray(f(th0 - h))) / (2 * h)
+        assert numpy.all(numpy.abs(fd - g) < 1e-5 * scale), (h, fd, g)
 
     # covariance is PSD (checked inside jit so cov_xyz stays a traced backend array)
     def min_eig(amp):
@@ -678,6 +695,129 @@ def test_streamtrack_tp_scale_jit():
     numpy.testing.assert_allclose(as_numpy(tr.tp_grid())[-1], 3.0, rtol=1e-9)
 
 
+# --------------------------------------------------------------------------
+# method='pspline' at the fit level: the same reconstruction on numpy and on a
+# backend, eagerly and jitted, and smooth in the particles and the progenitor
+# curve, so autodiff matches central differences of the numpy fit.
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def _pspline_case():
+    spdf = _spdf_prog(Orbit(_PROG_IC))
+    numpy.random.seed(_SEED)
+    xv = numpy.asarray(spdf._sample_tail(300, True, leading=True)[0], dtype=float)
+    t_fwd, t_back = numpy.linspace(0.0, 3.0, 801), numpy.linspace(0.0, -3.0, 801)
+    tg = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+    curve = []
+    for ts in (t_back, t_fwd):
+        o = Orbit(_PROG_IC)
+        o.turn_physical_off()
+        o.integrate(ts, spdf._pot, method="dop853_c")
+        curve.append(numpy.stack([getattr(o, m)(ts) for m in _PS_CART], axis=-1))
+    pc = numpy.concatenate([curve[0][::-1], curve[1][1:]])
+    dxv = numpy.random.default_rng(3).normal(size=xv.shape) * 1e-2
+    return xv, pc, tg, dxv
+
+
+_PS_CART = ("x", "y", "z", "vx", "vy", "vz")
+_PS_KW = {"arm_sign": 1, "method": "pspline", "order": 2, "niter": 1}
+
+
+def _pspline_readout(xp, case, th, tq, **kw):
+    # track and spread at fixed tp for particles xv + th*dxv on the curve
+    # pc*(1+0.01*th): th moves both
+    from galpy.df.streamTrack import StreamTrack
+
+    xv, pc, tg, dxv = case
+    cat = numpy.concatenate if xp is numpy else xp.concat
+    tr = StreamTrack.from_particles(
+        xp.asarray(xv) + th * xp.asarray(dxv),
+        xp.asarray(pc) * (1.0 + 0.01 * th),
+        tg,
+        **{**_PS_KW, **kw},
+    )
+    cov = tr.cov(tq, use_physical=False)
+    out = [getattr(tr, m)(tq, use_physical=False) for m in ("x", "vy", "z")]
+    return cat(out + [cov[:, 0, 0], cov[:, 2, 5]]), tr
+
+
+_PS_TQ = numpy.array([0.2, 0.5, 0.9])
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_pspline_backend_parity_and_grad(backend_name, _pspline_case):
+    xp = jax.numpy if backend_name == "jax" else torch
+    ref = _pspline_readout(numpy, _pspline_case, 0.0, _PS_TQ)[0]
+    val, tr = _pspline_readout(xp, _pspline_case, xp.asarray(0.0), _PS_TQ)
+    assert is_backend_array(tr._track_xyz) and is_backend_array(tr.smoothing_s)
+    numpy.testing.assert_allclose(as_numpy(val), ref, rtol=1e-11, atol=0.0)
+    # autodiff of the backend fit vs central differences of the numpy one
+    if backend_name == "jax":
+        g = numpy.asarray(
+            jax.jacfwd(lambda th: _pspline_readout(xp, _pspline_case, th, _PS_TQ)[0])(
+                xp.asarray(0.0)
+            )
+        )
+    else:
+        g = as_numpy(
+            torch.autograd.functional.jacobian(
+                lambda th: _pspline_readout(xp, _pspline_case, th, _PS_TQ)[0],
+                torch.tensor(0.0),
+            )
+        )
+    h = 1e-4
+    fd = (
+        _pspline_readout(numpy, _pspline_case, h, _PS_TQ)[0]
+        - _pspline_readout(numpy, _pspline_case, -h, _PS_TQ)[0]
+    ) / (2 * h)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6, atol=1e-6 * numpy.max(numpy.abs(g)))
+    # a concrete fit range gives a numpy tp axis, as for the binned method; a
+    # differentiated one keeps it normalized (tp_scale), which plot() maps back
+    ref_grid = _pspline_readout(numpy, _pspline_case, 0.0, _PS_TQ)[1].tp_grid()
+    assert tr._tp_scale is None and not is_backend_array(tr.tp_grid())
+    numpy.testing.assert_allclose(tr.tp_grid(), ref_grid, rtol=1e-12)
+    if backend_name == "torch":
+        trg = _pspline_readout(
+            xp, _pspline_case, torch.tensor(0.0, requires_grad=True), _PS_TQ
+        )[1]
+        assert trg._tp_scale is not None
+        numpy.testing.assert_allclose(as_numpy(trg.tp_grid()), ref_grid, rtol=1e-12)
+        import matplotlib
+
+        matplotlib.use("Agg")
+        trg.plot(d1="x", d2="y", spread=1.0)
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_pspline_jit_matches_eager(_pspline_case):
+    jnp = jax.numpy
+
+    def f(th, **kw):
+        return _pspline_readout(jnp, _pspline_case, th, _PS_TQ, **kw)[0]
+
+    th0 = jnp.asarray(0.0)
+    eager, tr = _pspline_readout(jnp, _pspline_case, th0, _PS_TQ)
+    # (1e-11: the cross-covariance entries are ~1e-6 sums of signed terms)
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(f)(th0)), numpy.asarray(eager), rtol=1e-11, atol=0.0
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.jacrev(f))(th0)),
+        numpy.asarray(jax.jit(jax.jacfwd(f))(th0)),
+        rtol=1e-10,
+        atol=0.0,
+    )
+    # an eager call's penalties freeze the smoothing of a jitted one (niter=0: with
+    # iterations, smoothing_s holds the last pass's penalties)
+    eager, tr = _pspline_readout(jnp, _pspline_case, th0, _PS_TQ, niter=0)
+    s = tr.smoothing_s
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(lambda th: f(th, smoothing=s, niter=0))(th0)),
+        numpy.asarray(eager),
+        rtol=1e-11,
+        atol=0.0,
+    )
+
+
 @pytest.mark.skipif(jax is None, reason="jax required for jit tests")
 def test_sample_jit_grad_fd_prog_ic():
     # jax.jit over a BACKEND progenitor IC: the traced IC makes the C path
@@ -707,9 +847,7 @@ def test_sample_jit_grad_fd_prog_ic():
 # rtide -> the spray SCALE, so the sampled particles (and the fitted track) carry
 # d(track)/d(mass) even though the progenitor CURVE is mass-independent (it is
 # integrated in-backend so the jittable reconstruction stays on the backend). This
-# is the mass-loss-history gradient the potential/IC gradients cannot give. Grad-vs-FD
-# uses reassignment-INVARIANT functionals (the frozen-assignment AD equals the true
-# gradient there; an index-wise loss is dominated by the discrete-assignment jitter).
+# is the mass-loss-history gradient the potential/IC gradients cannot give.
 # --------------------------------------------------------------------------
 def _mass_track_xyz(m, key=None):
     spdf = fardal15spraydf(
@@ -752,8 +890,7 @@ def _jit_grad_hconv_rel(loss, x0):
 @pytest.mark.skipif(jax is None, reason="jax required for jit tests")
 def test_streamtrack_jit_grad_fd_mass():
     # jax.jit(streamTrack()) is differentiable in a CONSTANT backend progenitor mass:
-    # M scales rtide -> the spray offsets -> the track. A reassignment-invariant
-    # functional (sum over the track) makes the frozen-assignment AD match the true FD.
+    # M scales rtide -> the spray offsets -> the track.
     key = grandom.key(_SEED, backend="jax")
 
     def loss(m):
@@ -770,7 +907,7 @@ def test_streamtrack_jit_grad_fd_mass():
 def test_streamtrack_jit_grad_fd_mass_evolving():
     # A time-varying M(t)=M0*exp(rate*t) makes the mass-LOSS HISTORY differentiable:
     # d(track)/d(rate) flows through rtide at each stripping time. Uses a
-    # reassignment-invariant smooth functional (mean track radius) where AD == FD.
+    # smooth functional (mean track radius).
     jnp = jax.numpy
     key = grandom.key(_SEED, backend="jax")
     M0 = _JIT_MASS
@@ -789,7 +926,7 @@ def test_streamtrack_backend_mass_grad_fd_eager():
     # EAGER (non-jit) d(track)/d(mass): jax.grad traces the particles (mass -> rtide ->
     # spray), so the generative reconstruction stays on the backend and the mass
     # gradient flows without jit. FD reuses the same key (reparameterized noise) with
-    # RELATIVE steps (the mass is O(1e-5)); reassignment-invariant sum-of-squares.
+    # RELATIVE steps (the mass is O(1e-5)); sum-of-squares.
     # (torch takes the same namespace-generic path -- validated locally; its eager
     # generative reconstruction is minutes-slow, as for every jit-only generative test.)
     jnp = jax.numpy
@@ -799,8 +936,8 @@ def test_streamtrack_backend_mass_grad_fd_eager():
     def loss(m):
         return jnp.sum(_mass_track_xyz(m, key=key) ** 2)
 
-    # FD is jitted so it takes the SAME jax-native reconstruction as the (traced) AD; a
-    # concrete non-jit forward would fall to the numpy reconstruction and not match.
+    # FD is jitted so it takes the SAME pspline reconstruction as the (traced) AD; a
+    # concrete non-jit forward would default to the binned one and not match.
     lj = jax.jit(loss)
 
     def val(m):

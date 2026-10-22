@@ -303,6 +303,7 @@ class basestreamspraydf(df):
         velocity_weight="auto",
         custom_sky_transform=None,
         key=None,
+        method="binned",
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -379,6 +380,26 @@ class basestreamspraydf(df):
             strongly-perturbed potentials with a massive LMC). Pass
             ``1.0`` for the legacy unweighted natural-units
             metric.
+        custom_sky_transform : array, shape (3, 3), optional
+            Rotation from equatorial to a custom ``(phi1, phi2)`` sky frame
+            for the track's ``phi1``/``phi2`` accessors.
+        key : optional
+            Random key for the particle sample (see :meth:`sample`).
+        method : {'binned', 'pspline'}, optional
+            ``'binned'`` (default) assigns particles to the closest point of
+            the sampled progenitor orbit, bins their offsets in ``tp`` and
+            smooths the binned means. ``'pspline'`` projects each particle
+            continuously onto the orbit and fits its offsets with a weighted
+            cubic P-spline in ``tp`` (a GCV penalty per coordinate; the
+            velocity weight, far-end filter and range trim are smooth
+            versions of the binned ones), so the track is a smooth function
+            of the progenitor, the potential and the particles: its value is
+            the same eagerly and under ``jax.jit`` / ``torch.compile``, and
+            its gradient matches finite differences. Under a trace
+            (``jax.jit``, ``jax.grad``, ``torch.compile``) the track is
+            always ``'pspline'``. Its ``smoothing`` (and the track's
+            ``smoothing_s``) are the 6 penalty weights relative to the data
+            term.
 
         Returns
         -------
@@ -586,6 +607,7 @@ class basestreamspraydf(df):
                 order=order,
                 velocity_weight=velocity_weight,
                 prog_orbit=prog,
+                method=method,
                 custom_sky_transform=custom_sky_transform,
                 ro=prog_ro,
                 vo=prog_vo,
