@@ -174,9 +174,10 @@ def test_streamTrack_covariance_psd(_simple_spdf):
         assert numpy.all(evs >= -1e-10), f"Covariance not PSD (min eigval={evs.min()})"
 
 
-def test_streamTrack_both_tails(_simple_spdf):
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_both_tails(_simple_spdf, method):
     numpy.random.seed(4)
-    pair = _simple_spdf.streamTrack(n=1500, ntp=41, tail="both")
+    pair = _simple_spdf.streamTrack(n=1500, ntp=41, tail="both", method=method)
     # Near tp=0 both arms should sit near the progenitor
     prog = _simple_spdf._progenitor
     px, py = prog.x(0.0), prog.y(0.0)
@@ -193,13 +194,18 @@ def test_streamTrack_both_tails(_simple_spdf):
     assert d_lead > 0.01, "Leading and trailing arms do not diverge at large |tp|"
 
 
-def test_streamTrack_iteration_changes_track(_simple_spdf):
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_iteration_changes_track(_simple_spdf, method):
     # Iteration should move the track by a small amount; we don't require
     # strict convergence (closest-point reassignment introduces some noise).
     numpy.random.seed(5)
-    tr0 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=0, tail="leading")
+    tr0 = _simple_spdf.streamTrack(
+        n=2000, ntp=41, niter=0, tail="leading", method=method
+    )
     numpy.random.seed(5)
-    tr1 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=1, tail="leading")
+    tr1 = _simple_spdf.streamTrack(
+        n=2000, ntp=41, niter=1, tail="leading", method=method
+    )
     # Compare on the in-range grid common to both tracks.
     lo = max(tr0.tp_grid()[0], tr1.tp_grid()[0])
     hi = min(tr0.tp_grid()[-1], tr1.tp_grid()[-1])
@@ -589,20 +595,24 @@ def test_streamTrack_custom_track_time_range(_simple_spdf):
 
 
 def test_streamTrack_smoothing_variants(_simple_spdf):
+    # the binned method's smoothing= (spline s values); pspline's is
+    # test_streamTrack_pspline_smoothing
     numpy.random.seed(18)
     # Default ntp (auto from n) is exercised here
-    tr_f = _simple_spdf.streamTrack(n=800, tail="leading", smoothing=20.0)
+    tr_f = _simple_spdf.streamTrack(
+        n=800, tail="leading", smoothing=20.0, method="binned"
+    )
     # Aggressive smoothing collapses the offset toward zero; the track at
     # tp=0 still reproduces the progenitor present-day position.
     prog_x0 = float(_simple_spdf._progenitor.x(0.0))
     assert abs(float(tr_f.x(0.0)) - prog_x0) < 0.1
     # Array-like smoothing: reuse smoothing_s from a previous fit
     numpy.random.seed(18)
-    tr_gcv = _simple_spdf.streamTrack(n=800, tail="leading", order=2)
+    tr_gcv = _simple_spdf.streamTrack(n=800, tail="leading", order=2, method="binned")
     assert len(tr_gcv.smoothing_s) == 27  # 6 mean + 21 cov
     numpy.random.seed(18)
     tr_reuse = _simple_spdf.streamTrack(
-        n=800, tail="leading", order=2, smoothing=tr_gcv.smoothing_s
+        n=800, tail="leading", order=2, smoothing=tr_gcv.smoothing_s, method="binned"
     )
     # Reuse must reproduce the GCV fit closely along the overlap of the two
     # tp grids (modulo small FITPACK iteration noise).
@@ -613,13 +623,13 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     )
     # order=1 returns only 6 s values
     numpy.random.seed(18)
-    tr_o1 = _simple_spdf.streamTrack(n=800, tail="leading", order=1)
+    tr_o1 = _simple_spdf.streamTrack(n=800, tail="leading", order=1, method="binned")
     assert len(tr_o1.smoothing_s) == 6
 
 
 def test_streamTrack_smoothing_factor(_simple_spdf):
-    # smoothing_factor>1 must produce a smoother fit (larger effective s)
-    # than smoothing_factor=1; <1 must produce a rougher fit. Sample once
+    # binned: smoothing_factor>1 must produce a smoother fit (larger effective
+    # s) than smoothing_factor=1; <1 must produce a rougher fit. Sample once
     # and reuse via particles= so we isolate the smoothing step.
     numpy.random.seed(33)
     # Pin velocity_weight=1.0 so this test is specifically about the
@@ -627,7 +637,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
     # default (which slightly shifts the per-bin variances that GCV uses
     # to pick s, changing the absolute scale of smoothing_s).
     tr_default = _simple_spdf.streamTrack(
-        n=800, ntp=21, tail="leading", velocity_weight=1.0
+        n=800, ntp=21, tail="leading", velocity_weight=1.0, method="binned"
     )
     xv = tr_default.particles
     tr_smoother = _simple_spdf.streamTrack(
@@ -636,6 +646,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         tail="leading",
         smoothing_factor=2.0,
         velocity_weight=1.0,
+        method="binned",
     )
     tr_rougher = _simple_spdf.streamTrack(
         particles=xv,
@@ -643,6 +654,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         tail="leading",
         smoothing_factor=0.5,
         velocity_weight=1.0,
+        method="binned",
     )
     # Ratio of effective s over the six mean splines (skip entries where
     # the default s is so small the rerun underflows). The cov splines
@@ -675,6 +687,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         tail="leading",
         smoothing_factor=1.0,
         velocity_weight=1.0,
+        method="binned",
     )
     tps = tr_default.tp_grid()
     assert (
@@ -692,6 +705,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         smoothing=tr_smoother.smoothing_s,
         smoothing_factor=1.0,
         velocity_weight=1.0,
+        method="binned",
     )
     assert (
         numpy.max(numpy.abs(as_numpy(tr_smoother.x(tps)) - as_numpy(tr_reuse.x(tps))))
@@ -746,7 +760,8 @@ def test_smooth_series_constant_y_falls_back_to_unit_yscale():
     numpy.testing.assert_allclose(spl(numpy.array([0.0, 0.5, 1.0])), 3.14, atol=1e-10)
 
 
-def test_streamTrack_trim_grid_degenerate_tp():
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_trim_grid_degenerate_tp(method):
     """If every particle's tp_assign collapses onto a single value (so
     tp_hi - tp_lo < 1e-12), _trim_grid falls back to the full track grid
     instead of producing an empty range."""
@@ -780,6 +795,7 @@ def test_streamTrack_trim_grid_degenerate_tp():
             niter=0,
             order=2,
             velocity_weight=1.0,
+            method=method,
         )
     except ValueError:
         # Degenerate spline fit downstream is fine; we just need the
@@ -787,16 +803,22 @@ def test_streamTrack_trim_grid_degenerate_tp():
         pass
 
 
-def test_streamTrack_velocity_weight_invalid_string(_simple_spdf):
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_velocity_weight_invalid_string(_simple_spdf, method):
     """velocity_weight= must be a float or 'auto'; any other string raises."""
 
     with pytest.raises(ValueError, match="velocity_weight="):
         _simple_spdf.streamTrack(
-            n=200, ntp=21, tail="leading", velocity_weight="not_auto"
+            n=200,
+            ntp=21,
+            tail="leading",
+            velocity_weight="not_auto",
+            method=method,
         )
 
 
-def test_streamTrack_velocity_weight_auto_smallN():
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_velocity_weight_auto_smallN(method):
     """velocity_weight='auto' falls back to 1.0 when fewer than 20 particles
     are passed in (probe sample too small to estimate σ_pos / σ_vel)."""
 
@@ -829,6 +851,7 @@ def test_streamTrack_velocity_weight_auto_smallN():
             niter=0,
             order=2,
             velocity_weight="auto",
+            method=method,
         )
     except ValueError:
         # A degenerate downstream spline fit can ill-pose itself on this
@@ -837,7 +860,8 @@ def test_streamTrack_velocity_weight_auto_smallN():
         pass
 
 
-def test_streamTrack_velocity_weight_auto_zero_sigma_vel():
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_velocity_weight_auto_zero_sigma_vel(method):
     """velocity_weight='auto' falls back to 1.0 when the inner-half particle
     velocity dispersion is zero (degenerate spread)."""
 
@@ -866,12 +890,14 @@ def test_streamTrack_velocity_weight_auto_zero_sigma_vel():
             niter=0,
             order=2,
             velocity_weight="auto",
+            method=method,
         )
     except ValueError:
         pass
 
 
-def test_streamTrack_gap_warning():
+@pytest.mark.parametrize("method", ["binned", "pspline"])
+def test_streamTrack_gap_warning(method):
     """When tp_assign has a structural gap (the orbit-revisit kink
     signature), streamTrack should emit a galpyWarning recommending
     velocity_weight or higher niter.
@@ -918,6 +944,7 @@ def test_streamTrack_gap_warning():
                 niter=0,
                 order=2,
                 velocity_weight=1.0,
+                method=method,
             )
         except ValueError:
             pass
@@ -1279,7 +1306,7 @@ def test_streamTrack_pspline_agrees_with_binned(_simple_spdf, _pspline_xv):
     # the stream's width over the interior, with similar widths
     for vw in ("auto", 1.0):
         tb = _simple_spdf.streamTrack(
-            particles=_pspline_xv, tail="leading", velocity_weight=vw
+            particles=_pspline_xv, tail="leading", velocity_weight=vw, method="binned"
         )
         tr = _pspline(_simple_spdf, _pspline_xv, velocity_weight=vw)
         gb, gp = as_numpy(tb.tp_grid()), as_numpy(tr.tp_grid())
@@ -1327,19 +1354,19 @@ def test_streamTrack_pspline_smoothing(_simple_spdf, _pspline_xv):
     tps = numpy.linspace(0.2, 1.2, 6)
     s = tr.smoothing_s
     assert s.shape == (6,) and numpy.all(s > 0.0)
-    # the GCV penalties passed back reproduce the track
+    # the selected penalties passed back reproduce the track
     tr2 = _pspline(_simple_spdf, _pspline_xv, smoothing=s)
     numpy.testing.assert_allclose(tr2.x(tps), tr.x(tps), rtol=1e-12)
     numpy.testing.assert_allclose(tr2.smoothing_s, s, rtol=1e-15)
-    # smoothing_factor multiplies the GCV penalties; a larger one is smoother
-    tr4 = _pspline(_simple_spdf, _pspline_xv, smoothing_factor=100.0)
-    numpy.testing.assert_allclose(tr4.smoothing_s, 100.0 * s, rtol=1e-12)
+    # smoothing_factor multiplies the selected penalties; a smaller one is rougher
+    tr4 = _pspline(_simple_spdf, _pspline_xv, smoothing_factor=1e-4)
+    numpy.testing.assert_allclose(tr4.smoothing_s, 1e-4 * s, rtol=1e-12)
     grid = tr.tp_grid()[1:-1]
     rough = [
         numpy.sum(numpy.diff(t.vx(grid, use_physical=False), n=2) ** 2)
         for t in (tr, tr4)
     ]
-    assert rough[1] < 0.5 * rough[0]
+    assert rough[1] > 2.0 * rough[0]
     # a single value applies to all six coordinates
     numpy.testing.assert_array_equal(
         _pspline(_simple_spdf, _pspline_xv, smoothing=0.5).smoothing_s, 0.5
@@ -1367,6 +1394,11 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
     )
     with pytest.raises(ValueError, match="velocity_weight"):
         _pspline(_simple_spdf, _pspline_xv, velocity_weight="bogus")
+    # leading particles fit as the trailing arm all land at tp=0: still defined
+    tr = _simple_spdf.streamTrack(
+        particles=_pspline_xv, tail="trailing", method="pspline"
+    )
+    assert numpy.all(numpy.isfinite(tr.x(tr.tp_grid())))
     with pytest.raises(ValueError, match="method="):
         _simple_spdf.streamTrack(particles=_pspline_xv, tail="leading", method="bogus")
     # both arms, sampled
@@ -1376,3 +1408,29 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
     assert abs(float(pair.leading.x(0.0)) - prog_x0) < 0.05
     assert abs(float(pair.trailing.x(0.0)) - prog_x0) < 0.05
     assert pair.trailing.tp_grid()[-1] == 0.0
+
+
+def test_streamTrack_pspline_bspline_kernel():
+    # the cubic B-spline basis: its integer translates sum to one, and its
+    # derivatives are those of the kernel
+    from galpy.backend.interpolate import cubic_bspline_kernel
+
+    def _cubic_bspline_kernel(u, nu=0):
+        return cubic_bspline_kernel(numpy, u, nu=nu)
+
+    u = numpy.linspace(-0.9, 0.9, 13)
+    k = numpy.arange(-3, 4)
+    total = numpy.sum(_cubic_bspline_kernel(u[:, None] - k[None, :]), axis=1)
+    numpy.testing.assert_allclose(total, 1.0, rtol=1e-15)
+    v = numpy.linspace(-2.3, 2.3, 47) + 0.013  # off the knots
+    h = 1e-6
+    for nu in (1, 2):
+        fd = (
+            _cubic_bspline_kernel(v + h, nu=nu - 1)
+            - _cubic_bspline_kernel(v - h, nu=nu - 1)
+        ) / (2 * h)
+        numpy.testing.assert_allclose(
+            _cubic_bspline_kernel(v, nu=nu), fd, rtol=1e-6, atol=1e-8
+        )
+    with pytest.raises(ValueError, match="nu must be 0, 1 or 2"):
+        _cubic_bspline_kernel(v, nu=3)

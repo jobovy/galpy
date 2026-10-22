@@ -801,11 +801,13 @@ def test_streamtrack_pspline_jit_matches_eager(_pspline_case):
     numpy.testing.assert_allclose(
         numpy.asarray(jax.jit(f)(th0)), numpy.asarray(eager), rtol=1e-11, atol=0.0
     )
+    # (atol: the rounding error of the largest entry, for the small ones)
+    jf = numpy.asarray(jax.jit(jax.jacfwd(f))(th0))
     numpy.testing.assert_allclose(
         numpy.asarray(jax.jit(jax.jacrev(f))(th0)),
-        numpy.asarray(jax.jit(jax.jacfwd(f))(th0)),
+        jf,
         rtol=1e-10,
-        atol=0.0,
+        atol=1e-11 * numpy.max(numpy.abs(jf)),
     )
     # an eager call's penalties freeze the smoothing of a jitted one (niter=0: with
     # iterations, smoothing_s holds the last pass's penalties)

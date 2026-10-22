@@ -369,7 +369,16 @@ def _track_case(seed=7, N=200, M=400, noise=0.02):
     return numpy.array([R, vR, vT, z, vz, phi]), prog_cart, tg
 
 
-_TRACK_KW = dict(arm_sign=1, ninterp=101, ntp=21, order=2, niter=0, velocity_weight=1.0)
+# the binned reconstruction's backend path (method='pspline' has its own tests)
+_TRACK_KW = dict(
+    arm_sign=1,
+    ninterp=101,
+    ntp=21,
+    order=2,
+    niter=0,
+    velocity_weight=1.0,
+    method="binned",
+)
 
 
 def _relerr(a, b, floor=1e-12):

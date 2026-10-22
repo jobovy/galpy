@@ -310,6 +310,51 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_val, k=3), s_val
 
 
+def _warn_tp_gap(tp_assign):
+    """Warn when the particles' ``tp`` leave a large gap.
+
+    A histogram gap in ``tp_assign`` is a hallmark of closest-point
+    assignments that landed on a far-away revisit of the progenitor orbit
+    (e.g., particles projected past an apocentric kink in a perturbed
+    potential). Histogram into ~30 bins between min(|tp|) and max(|tp|); look
+    for a contiguous run of empty bins whose total span exceeds 25% of the
+    populated range. If found, warn.
+    """
+    abs_tp = numpy.abs(tp_assign)
+    if abs_tp.size >= 30 and abs_tp.max() > 0:
+        nb = 30
+        edges = numpy.linspace(abs_tp.min(), abs_tp.max(), nb + 1)
+        counts, _ = numpy.histogram(abs_tp, bins=edges)
+        # Find the longest run of zero-count bins
+        zero = counts == 0
+        max_run = 0
+        run = 0
+        for z in zero:
+            if z:
+                run += 1
+                if run > max_run:
+                    max_run = run
+            else:
+                run = 0
+        gap_span = max_run * (edges[1] - edges[0])
+        populated_span = abs_tp.max() - abs_tp.min()
+        n_far = int((abs_tp > abs_tp.max() - gap_span).sum())
+        # Require BOTH a substantial gap AND substantial mass past it.
+        # 0.35% would be normal stragglers; 1% indicates a structural issue.
+        if (
+            populated_span > 0
+            and gap_span / populated_span > 0.25
+            and n_far / abs_tp.size > 0.01
+        ):
+            warnings.warn(
+                f"streamTrack: tp_assign histogram has a "
+                f"{gap_span / populated_span:.0%} gap with "
+                f"{n_far / abs_tp.size:.1%} of particles past it; the track "
+                "is likely to kink. Try a larger velocity_weight or niter.",
+                galpyWarning,
+            )
+
+
 def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1.0):
     """For each point in ``points`` (N, D), find the index of the closest
     entry in ``curve`` (M, D) and return the corresponding time
@@ -566,12 +611,16 @@ def _fit_one_pass(
     return track_fine[:, 0:3], track_fine[:, 3:6], cov_xyz, eff_s_mean + eff_s_cov
 
 
-# ln(lambda') grid of the coarse GCV search of the P-spline penalty; lambda' is
+# ln(lambda') grid of the coarse REML search of the P-spline penalty; lambda' is
 # the penalty weight relative to tr(B'WB)/tr(D'D), so the grid is scale-free. At
 # 1e4 the fit is already a straight line; larger penalties only cost conditioning.
 _PSPLINE_LOG_LAMBDA = numpy.linspace(-8.0, 4.0, 37) * numpy.log(10.0)
 _PSPLINE_PROJECT_STEPS = 5
-_PSPLINE_GCV_STEPS = 8
+_PSPLINE_REML_STEPS = 8
+# the tp=0 end's taper of the particles' weights, as a fraction of the arc span
+_PSPLINE_NEAR_TAPER = 1e-3
+_PSPLINE_WEIGHT_FLOOR = 1e-6
+_PSPLINE_SEARCH_BLOCK = 2**23  # (particle, curve sample) pairs per traced search block
 
 
 def _sorted_quantile(xp, v, q):
@@ -584,6 +633,27 @@ def _sorted_quantile(xp, v, q):
     return vs[lo] * (1.0 - (pos - lo)) + vs[hi] * (pos - lo)
 
 
+def _closest_sample(xp, pts, metric, c_nodes):
+    """Index of the closest of the curve samples ``c_nodes`` (M, D) to each of
+    ``pts`` (N, D), with per-coordinate weights ``metric``: a k-d tree on concrete
+    values, else a dense search over blocks of particles (bounded memory under a
+    trace). Structural: nothing differentiates through it."""
+    m, p, c = stop_gradient(metric), stop_gradient(pts), stop_gradient(c_nodes)
+    if not under_trace(m, p, c):
+        sq = numpy.sqrt(as_numpy(m))
+        idx = cKDTree(as_numpy(c) * sq).query(as_numpy(p) * sq, k=1)[1]
+        return asarray_on_device(xp, idx, device_of(c) if xp is not numpy else None)
+    # |p - c|^2 without the per-particle |p|^2, which does not change the argmin
+    cm, cc = c * m, xp.sum(m * c * c, axis=-1)
+    nb = max(1, _PSPLINE_SEARCH_BLOCK // c.shape[0])
+    idx = [
+        xp.argmin(cc[None, :] - 2.0 * xp.einsum("ni,mi->nm", p[i : i + nb], cm), axis=1)
+        for i in range(0, p.shape[0], nb)
+    ]
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    return idx[0] if len(idx) == 1 else concat(idx)
+
+
 def _project_onto_curve(xp, pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt):
     """Closest point ``t_i = argmin_t |p_i - c(t)|`` (per-coordinate weights
     ``metric``) on the smooth curve ``curve(t, nu)``, sampled as ``c_nodes`` at
@@ -592,14 +662,7 @@ def _project_onto_curve(xp, pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt
     ``[t_lo, t_hi]``. The minimizer does not depend on which sample the search
     starts from, so ``t_i`` is smooth in the particle and the curve, and the
     unrolled steps differentiate to the implicit-function derivative."""
-    m = stop_gradient(metric)
-    p, c = stop_gradient(pts), stop_gradient(c_nodes)
-    d2 = (
-        xp.sum(m * p * p, axis=-1)[:, None]
-        - 2.0 * xp.einsum("ni,mi->nm", p * m, c)
-        + xp.sum(m * c * c, axis=-1)[None, :]
-    )
-    t = xp.take(t_nodes, xp.argmin(d2, axis=1), axis=0)
+    t = xp.take(t_nodes, _closest_sample(xp, pts, metric, c_nodes), axis=0)
     for _ in range(_PSPLINE_PROJECT_STEPS):
         r = curve(t, 0) - pts
         c1 = curve(t, 1)
@@ -612,11 +675,13 @@ def _project_onto_curve(xp, pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt
 
 def _pspline_fit(xp, B, w, y, P, lam_rel, smoothing_factor):
     """Weighted cubic P-spline fit of the offsets ``y`` (N, 6) on the basis ``B``
-    (N, K) with the difference penalty ``P`` (K, K), one penalty per coordinate.
+    (N, K) with the second-difference penalty ``P`` (K, K), one penalty per
+    coordinate.
 
     ``lam_rel`` (6,) fixes the penalties relative to ``tr(B'WB)/tr(P)``; ``None``
-    minimizes each coordinate's GCV score: a coarse grid, then Newton steps on the
-    closed-form ``d log GCV / d log lambda`` (and its derivative), both on
+    maximizes each coordinate's restricted likelihood (REML; GCV undersmooths
+    where the particles are sparse): a coarse grid, then Newton steps on the
+    closed-form ``d REML / d log lambda`` (and its derivative), both on
     stop-gradient data, then one more step on the live data, which leaves the
     converged value in place and carries the implicit derivative of the chosen
     penalty. Returns ``(coefficients (6, K), lam_rel used (6,))``.
@@ -627,52 +692,45 @@ def _pspline_fit(xp, B, w, y, P, lam_rel, smoothing_factor):
 
     def data(B, w, y):
         Bw = B * w[:, None]
-        BtWB = xp.einsum("nk,nl->kl", Bw, B)
+        BtWB = xp.matmul(Bw.T, B)
+        # a 1e-12 ridge keeps the system invertible when the particles do not
+        # fix the penalty's null space (e.g., all at one tp)
+        BtWB = BtWB + (1e-12 * xp.sum(BtWB * eye) / K) * eye
         scale = xp.sum(BtWB * eye) / xp.sum(P * eye)
-        return B, w, xp.einsum("nc->cn", y), BtWB, xp.einsum("nk,nc->ck", Bw, y), scale
+        return B, w, y.T, BtWB, xp.matmul(y.T, Bw), scale
 
     def solve(d, lam, extra):
-        # A = B'WB + lam P for each lam (..., 6); rhs columns [B'WB | extra | B'Wy]
-        BtWB, BtWy = d[3], d[4]
-        A = BtWB + lam[..., None, None] * P
+        # A = B'WB + lam P for each lam (..., 6), and A^-1 [extra | B'Wy]
+        A = d[3] + lam[..., None, None] * P
         shp = tuple(A.shape[:-2])
         rhs = concat(
-            [xp.broadcast_to(c, shp + (K, K)) for c in [BtWB] + extra]
-            + [xp.broadcast_to(BtWy[..., None], shp + (K, 1))],
+            [xp.broadcast_to(c, shp + (K, K)) for c in extra]
+            + [xp.broadcast_to(d[4][..., None], shp + (K, 1))],
             axis=-1,
         )
-        return xp.linalg.solve(A, rhs)
+        return A, xp.linalg.solve(A, rhs)
 
-    def fit_stats(d, X):
-        s = X[..., -1]
-        resid = d[2] - xp.einsum("...k,nk->...n", s, d[0])
-        tr = xp.sum(X[..., :K] * eye, axis=(-2, -1))
-        return s, xp.sum(d[1] * resid * resid, axis=-1), tr
-
-    def dlog_gcv(d, ell):
-        # F = d log GCV / d log lam = RSS'/RSS + 2 tr'/(neff - tr) and dF/d log lam,
-        # in closed form from A^-1 [B'WB | P | B'Wy] = [Q | R | s], with u = R s:
-        # RSS' = 2 lam^2 u.Ps, RSS'' = 4 lam^2 u.Ps - 6 lam^3 u.Pu,
-        # tr' = -lam tr(RQ), tr'' = -lam tr(RQ) + 2 lam^2 tr(RRQ)
+    def dreml(d, ell):
+        # F = d REML / d log lam and dF/d log lam, in closed form from
+        # A^-1 [P | B'Wy] = [R | s], with u = R s and D = RSS + lam s.Ps:
+        # F = (n-2)/2 lam s.Ps / D - (K-2)/2 + lam tr(R) / 2,
+        # F' = (n-2)/2 [(lam s.Ps - 2 lam^2 u.Ps) / D - (lam s.Ps / D)^2]
+        #      + (lam tr(R) - lam^2 tr(RR)) / 2
         lam = xp.exp(ell) * d[5]
-        X = solve(d, lam, [P])
-        s, rss, tr = fit_stats(d, X)
-        Q, R = X[..., :K], X[..., K : 2 * K]
-        u = xp.einsum("...kl,...l->...k", R, s)
-        uPs = xp.sum(u * xp.einsum("kl,...l->...k", P, s), axis=-1)
-        uPu = xp.sum(u * xp.einsum("kl,...l->...k", P, u), axis=-1)
-        trRQ = xp.einsum("...kl,...lk->...", R, Q)
-        trRRQ = xp.einsum("...kl,...lk->...", xp.matmul(R, R), Q)
-        rss = xp.clip(rss, 1e-300, None)
-        dof = xp.sum(d[1]) - tr
-        r1 = 2.0 * lam * lam * uPs / rss
-        t1 = -lam * trRQ / dof
-        f = r1 + 2.0 * t1
-        fp = (
-            (4.0 * lam * lam * uPs - 6.0 * lam**3 * uPu) / rss
-            - r1 * r1
-            + 2.0 * (-lam * trRQ + 2.0 * lam * lam * trRRQ) / dof
-            + 2.0 * t1 * t1
+        _, X = solve(d, lam, [P])
+        R, s = X[..., :K], X[..., -1]
+        resid = d[2] - xp.matmul(s, d[0].T)
+        Ps = xp.einsum("kl,...l->...k", P, s)
+        sPs = xp.sum(s * Ps, axis=-1)
+        uPs = xp.sum(xp.einsum("...kl,...l->...k", R, s) * Ps, axis=-1)
+        D = xp.clip(xp.sum(d[1] * resid * resid, axis=-1) + lam * sPs, 1e-300, None)
+        trR = xp.sum(R * eye, axis=(-2, -1))
+        trRR = xp.einsum("...kl,...lk->...", R, R)
+        nm2 = xp.sum(d[1]) - 2.0
+        r1 = lam * sPs / D
+        f = 0.5 * nm2 * r1 - 0.5 * (K - 2) + 0.5 * lam * trR
+        fp = 0.5 * nm2 * (r1 - 2.0 * lam * lam * uPs / D - r1 * r1) + 0.5 * (
+            lam * trR - lam * lam * trRR
         )
         return f, fp
 
@@ -682,28 +740,36 @@ def _pspline_fit(xp, B, w, y, P, lam_rel, smoothing_factor):
         grid = asarray_on_device(xp, _PSPLINE_LOG_LAMBDA, device_of(B))
         lo_g, hi_g = float(_PSPLINE_LOG_LAMBDA[0]), float(_PSPLINE_LOG_LAMBDA[-1])
         dl = float(_PSPLINE_LOG_LAMBDA[1] - _PSPLINE_LOG_LAMBDA[0])
-        # coarse grid: the bracketing node of each coordinate
+        # coarse grid: the bracketing node of each coordinate, with the residuals
+        # as quadratic forms in the coefficients (no N-sized work)
         lam_g = xp.broadcast_to(xp.exp(grid)[:, None] * sg[5], (grid.shape[0], 6))
-        _, rss_g, tr_g = fit_stats(sg, solve(sg, lam_g, []))
-        neff = xp.sum(sg[1])
-        gcv = neff * rss_g / xp.clip((neff - tr_g) ** 2, 1e-300, None)
-        ell0 = xp.take(grid, xp.argmin(gcv, axis=0), axis=0)  # (6,)
+        A_g, X_g = solve(sg, lam_g, [])
+        # D = RSS + lam s.Ps = y'Wy - s.B'Wy at the solution of A s = B'Wy
+        D_g = xp.sum(sg[1] * sg[2] * sg[2], axis=-1) - xp.sum(
+            X_g[..., -1] * sg[4], axis=-1
+        )
+        reml = (
+            0.5 * (xp.sum(sg[1]) - 2.0) * xp.log(xp.clip(D_g, 1e-300, None))
+            - 0.5 * (K - 2) * xp.log(lam_g)
+            + 0.5 * xp.linalg.slogdet(A_g)[1]
+        )
+        ell0 = xp.take(grid, xp.argmin(reml, axis=0), axis=0)  # (6,)
         lo, hi = xp.clip(ell0 - dl, lo_g, None), xp.clip(ell0 + dl, None, hi_g)
         ell = ell0
-        for _ in range(_PSPLINE_GCV_STEPS):
-            f, fp = dlog_gcv(sg, ell)
+        for _ in range(_PSPLINE_REML_STEPS):
+            f, fp = dreml(sg, ell)
             step = xp.where(fp > 0.0, f / xp.where(fp > 0.0, fp, 1.0), xp.sign(f) * dl)
             ell = xp.clip(ell - xp.clip(step, -0.5 * dl, 0.5 * dl), lo, hi)
         # one more step on the live data: the value stays at the converged root, and
         # the derivative is the implicit one, d ell = -(dF/d data) / F'
-        _, fp = dlog_gcv(sg, ell)
+        _, fp = dreml(sg, ell)
         interior = (ell > lo) & (ell < hi) & (fp > 0.0)
         ell = xp.where(
-            interior, ell - dlog_gcv(live, ell)[0] / xp.where(interior, fp, 1.0), ell
+            interior, ell - dreml(live, ell)[0] / xp.where(interior, fp, 1.0), ell
         )
         lam_rel = xp.exp(ell)
     lam_rel = lam_rel * float(smoothing_factor)
-    return solve(live, lam_rel * live[5], [])[..., -1], lam_rel
+    return solve(live, lam_rel * live[5], [])[1][..., -1], lam_rel
 
 
 def _fit_track_pspline(
@@ -724,15 +790,16 @@ def _fit_track_pspline(
 
     Every particle is projected onto the progenitor's orbit continuously
     (:func:`_project_onto_curve`), its offset from that point is fit with a
-    weighted cubic P-spline in ``tp`` (:func:`_pspline_fit`, GCV penalty per
+    weighted cubic P-spline in ``tp`` (:func:`_pspline_fit`, REML penalty per
     coordinate), and the covariance is the basis-weighted residual scatter
     (PSD by construction). The binned method's discrete steps have smooth
     counterparts: ``velocity_weight='auto'`` weights the inner half of the
     probe projection with a smooth step at the median ``|tp|``, particles
     projected onto the far end of the searched arc are tapered out over
-    ``1-2e-3`` of its span, and the fit range is trimmed to the 99th
+    ``1-2e-3`` of its span (and those clamped at ``tp=0`` over ``1e-3`` of it),
+    and the fit range is trimmed to the 99th
     percentile of ``|tp|``. Only the starting sample of each projection and
-    the coarse GCV node are structural. Shapes are static: the default
+    the coarse REML node are structural. Shapes are static: the default
     ``ntp`` is computed from all ``N`` particles.
 
     The fit range is data-dependent, so the track is returned on the
@@ -757,7 +824,11 @@ def _fit_track_pspline(
     c_nodes = xp.take(prog_cart, asarray_on_device(xp, arm, dev), axis=0)
     t_arm_lo, t_arm_hi = float(track_t_grid[arm[0]]), float(track_t_grid[arm[-1]])
     dt_curve = float(numpy.max(numpy.diff(track_t_grid)))
-    prog_spline = Spline1D(track_t_grid, prog_cart, k=3)
+    if xp is numpy:
+        # the six coordinates as one spline: one evaluation per call
+        prog_spline = interpolate.make_interp_spline(track_t_grid, prog_cart, k=3)
+    else:
+        prog_spline = Spline1D(track_t_grid, prog_cart, k=3)
 
     def prog_at(t, nu=0):
         return prog_spline(t, nu=nu)
@@ -793,12 +864,20 @@ def _fit_track_pspline(
     metric = concat([ones3, ones3 * (vw * vw)])
 
     t = project(metric, prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve)
-    # taper out particles projected onto the far end of the searched arc (the
-    # binned method drops those within 1e-3 of its span)
+    # taper out particles projected onto either end of the searched arc: the far
+    # end (the binned method drops those within 1e-3 of its span) and tp=0, where
+    # the particles whose closest point is on the other arm are clamped
     span = float(track_t_grid[-1] - track_t_grid[0])
     far = t_arm_hi if arm_sign > 0 else t_arm_lo
-    x = xp.clip(xp.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
-    wts = x * x * x * (10.0 - 15.0 * x + 6.0 * x * x)
+    x_far = xp.clip(xp.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
+    x_near = xp.clip(xp.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
+    taper = 1.0
+    for x in (x_far, x_near):
+        taper = taper * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
+    if not under_trace(t):
+        _warn_tp_gap(as_numpy(stop_gradient(t))[as_numpy(stop_gradient(taper)) > 0.0])
+    # (the floor keeps the fit defined when every particle is tapered out)
+    wts = _PSPLINE_WEIGHT_FLOOR + (1.0 - _PSPLINE_WEIGHT_FLOOR) * taper
 
     if ntp is None:
         max_ntp = max(201, int(abs(t_arm_hi - t_arm_lo) / 0.1))
@@ -858,24 +937,25 @@ def _fit_track_pspline(
             xp, B, wts, pts - prog_at(t), P, lam_user, smoothing_factor
         )
         tp_out = asarray_on_device(xp, g_grid, dev) * tp_unit
-        track = prog_at(tp_out) + xp.einsum("gk,ck->gc", Bg, coef)
+        track = prog_at(tp_out) + xp.matmul(Bg, coef.T)
         if it < niter:
             scale_k = (ntp - 1) / tp_unit
 
             def curve(tq, nu=0, coef=coef, tp_unit=tp_unit, scale_k=scale_k):
                 pq = (tq / tp_unit - g_lo) * (ntp - 1)
                 Bq = cubic_bspline_kernel(xp, pq[:, None] - centers[None, :], nu=nu)
-                return prog_at(tq, nu) + xp.einsum("nk,ck->nc", Bq, coef) * scale_k**nu
+                return prog_at(tq, nu) + xp.matmul(Bq, coef.T) * scale_k**nu
 
             curve_t, curve_c = tp_out, track
     cov = None
     if order >= 2:
         # basis-weighted residual scatter at the nodes, then the basis-weighted
         # mean at tp: non-negative weights, so PSD by construction
-        resid = pts - prog_at(t) - xp.einsum("nk,ck->nc", B, coef)
+        resid = pts - prog_at(t) - xp.matmul(B, coef.T)
         Bw = B * wts[:, None]
+        outer = xp.reshape(resid[:, :, None] * resid[:, None, :], (-1, 36))
         cov_node = (
-            xp.einsum("nk,ni,nj->kij", Bw, resid, resid)
+            xp.reshape(xp.matmul(Bw.T, outer), (-1, 6, 6))
             / xp.clip(xp.sum(Bw, axis=0), 1.0, None)[:, None, None]
         )
         cov = xp.einsum("gk,kij->gij", Bg, cov_node)
@@ -904,7 +984,7 @@ def _fit_track_from_particles(
     order=2,
     velocity_weight="auto",
     prog_orbit=None,
-    method="binned",
+    method="pspline",
 ):
     """Run the full closest-point projection + offset smoothing fit.
 
@@ -926,7 +1006,7 @@ def _fit_track_from_particles(
     typically lands at ~2–3 for both clean and perturbed streams. Pass
     ``1.0`` for the legacy unweighted natural-units metric.
 
-    ``method`` (``'binned'``, default, or ``'pspline'``): ``'pspline'`` is
+    ``method`` (``'pspline'``, default, or ``'binned'``): ``'pspline'`` is
     :func:`_fit_track_pspline`, smooth in its inputs and the same eagerly and
     traced; a traced fit always uses it. Its dict also has ``tp_unit``.
     """
@@ -1103,45 +1183,7 @@ def _fit_track_from_particles(
     particles_cart = particles_cart[interior]  # backend gather (numpy bool mask)
     pc_np = pc_np[interior]
 
-    # Sanity check: detect a histogram gap in tp_assign — a hallmark of
-    # closest-point assignments that landed on a far-away revisit of the
-    # progenitor orbit (e.g., particles projected past an apocentric kink in
-    # a perturbed potential). Histogram into ~30 bins between
-    # min(|tp|) and max(|tp|); look for a contiguous run of empty bins
-    # whose total span exceeds 25% of the populated range. If found, warn.
-    abs_tp = numpy.abs(tp_assign)
-    if abs_tp.size >= 30 and abs_tp.max() > 0:
-        nb = 30
-        edges = numpy.linspace(abs_tp.min(), abs_tp.max(), nb + 1)
-        counts, _ = numpy.histogram(abs_tp, bins=edges)
-        # Find the longest run of zero-count bins
-        zero = counts == 0
-        max_run = 0
-        run = 0
-        for z in zero:
-            if z:
-                run += 1
-                if run > max_run:
-                    max_run = run
-            else:
-                run = 0
-        gap_span = max_run * (edges[1] - edges[0])
-        populated_span = abs_tp.max() - abs_tp.min()
-        n_far = int((abs_tp > abs_tp.max() - gap_span).sum())
-        # Require BOTH a substantial gap AND substantial mass past it.
-        # 0.35% would be normal stragglers; 1% indicates a structural issue.
-        if (
-            populated_span > 0
-            and gap_span / populated_span > 0.25
-            and n_far / abs_tp.size > 0.01
-        ):
-            warnings.warn(
-                f"streamTrack: tp_assign histogram has a "
-                f"{gap_span / populated_span:.0%} gap with "
-                f"{n_far / abs_tp.size:.1%} of particles past it; the track "
-                "is likely to kink. Try a larger velocity_weight or niter.",
-                galpyWarning,
-            )
+    _warn_tp_gap(tp_assign)
 
     # Trim the public tp grid to the percentile range where the binned data
     # supports a fit (outliers at extreme |tp| produce sparse boundary bins).
@@ -1417,23 +1459,22 @@ class StreamTrack:
         zo=None,
         solarmotion=None,
         tp_scale=None,
-        method="binned",
+        method="pspline",
     ):
         """Build a StreamTrack by fitting a smooth curve to stream particles.
 
-        Runs the closest-point projection of each particle onto a
-        finely-sampled progenitor orbit, bins the resulting offsets by
-        progenitor time, smooths each coordinate (and optionally each
-        covariance entry) through GCV or user-specified ``s``, and
-        reconstructs the dense track by adding the smoothed offsets back
-        to the progenitor orbit. The ``tp`` parameter is interpreted as
-        a galpy time, suitable for spraydf models.
+        Projects each particle onto the closest point of a finely-sampled
+        progenitor orbit, fits the offsets from those points as smooth
+        functions of the progenitor time ``tp`` (and, for ``order=2``, the
+        scatter about them), and reconstructs the dense track by adding the
+        smoothed offsets back to the progenitor orbit. The ``tp`` parameter
+        is interpreted as a galpy time, suitable for spraydf models.
 
         After the fit, ``inst.particles`` holds the raw ``xv`` array the
-        fit saw and ``inst.smoothing_s`` holds the effective per-spline
-        ``s`` values (length 6 for ``order=1``, 27 for ``order>=2``) which
-        can be passed back as ``smoothing`` in a subsequent call to
-        reproduce the same smoothness without re-running GCV.
+        fit saw and ``inst.smoothing_s`` holds the smoothing it used (see
+        ``method``), which can be passed back as ``smoothing`` in a
+        subsequent call to reproduce the same smoothness without re-running
+        the selection.
 
         Parameters
         ----------
@@ -1450,20 +1491,24 @@ class StreamTrack:
             ``+1`` for leading arm (``tp >= 0``), ``-1`` for trailing
             (``tp <= 0``).
         ntp : int, optional
-            Number of binning nodes. Default ``sqrt(N)`` with a floor of
-            21 and a ceiling that scales with the arc span (at least 201;
-            larger for long streams).
+            Number of spline nodes (``'pspline'``) or bins (``'binned'``).
+            Default ``sqrt(N)`` with a floor of 21 and a ceiling that scales
+            with the arc span (at least 201; larger for long streams).
         ninterp : int, optional
             Resolution of the fine ``tp`` grid. Default 1001.
         smoothing : None, float, or array-like, optional
-            Smoothing parameter(s); see class docstring. ``None`` (default)
-            uses GCV via ``make_smoothing_spline``.
+            ``None`` (default) chooses the smoothing from the data, by
+            restricted maximum likelihood (``'pspline'``) or generalized
+            cross-validation (``'binned'``). Otherwise, for ``'pspline'``: a
+            float or 6 per-coordinate penalty weights relative to the data
+            term; for ``'binned'``: a float ``s`` for the 6 mean splines, or
+            6 (mean) or 27 (mean + covariance) per-spline ``s`` values.
+            A previous track's ``smoothing_s`` reproduces its smoothness.
         smoothing_factor : float, optional
-            Multiplier applied to every spline's effective ``s`` after
-            GCV (or explicit-``s``) selection. Values > 1 force a smoother
-            fit, values < 1 a rougher one. Useful when GCV undersmooths
-            in finite samples (a common failure mode of
-            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            Multiplier applied to the smoothing after automatic (or explicit)
+            selection: the penalty weights for ``'pspline'``, every spline's
+            effective ``s`` for ``'binned'``. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Default 1.0.
             For an interactive smoothing sweep, save ``track.particles``
             from the first call and pass it back as ``particles=`` to
             subsequent ``streamspraydf.streamTrack`` calls — only the
@@ -1498,15 +1543,16 @@ class StreamTrack:
         solarmotion : str, numpy.ndarray or Quantity, optional
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
             in km/s. Default ``None`` — falls back to the progenitor's.
-        method : {'binned', 'pspline'}, optional
-            ``'binned'`` (default) is the reconstruction described above.
-            ``'pspline'`` projects each particle continuously onto the
-            progenitor orbit and fits its offsets with a weighted cubic
-            P-spline in ``tp`` (a GCV penalty per coordinate), so the track
+        method : {'pspline', 'binned'}, optional
+            ``'pspline'`` (default) projects each particle continuously onto
+            the progenitor orbit and fits its offsets with a weighted cubic
+            P-spline in ``tp`` (a REML penalty per coordinate), so the track
             is a smooth function of the particles and the progenitor, and is
-            the same eagerly and under ``jax.jit`` / ``torch.compile``; a
-            traced fit always uses it. Its ``smoothing`` (and
-            ``smoothing_s``) are the 6 relative penalty weights.
+            the same eagerly and under ``jax.jit`` / ``torch.compile``.
+            ``'binned'`` assigns each particle to the closest sample of the
+            progenitor orbit, bins the offsets in ``tp`` and smooths the bin
+            means; it is not smooth in its inputs, so a traced fit always
+            uses ``'pspline'``.
         """
         fit = _fit_track_from_particles(
             xv_particles,
