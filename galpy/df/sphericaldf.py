@@ -235,7 +235,7 @@ class sphericaldf(df):
                 E, L, Lz = (args[0] + (None, None))[:3]
             else:  # Orbit
                 E = args[0].E(pot=self._pot, use_physical=False)
-                L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0))
+                L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0, axis=-1))
                 Lz = args[0].Lz(use_physical=False)
             E = numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
             L = numpy.atleast_1d(conversion.parse_angmom(L, ro=ro, vo=vo))
