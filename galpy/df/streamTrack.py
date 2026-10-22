@@ -325,6 +325,7 @@ _PSPLINE_PROJECT_STEPS = 5
 _PSPLINE_REML_STEPS = 8
 # the tp=0 end's taper of the particles' weights, as a fraction of the arc span
 _PSPLINE_NEAR_TAPER = 1e-3
+_PSPLINE_WEIGHT_FLOOR = 1e-6
 
 
 def _cubic_bspline_kernel(u, nu=0):
@@ -397,6 +398,9 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
     def data(B, w, y):
         Bw = B * w[:, None]
         BtWB = numpy.matmul(Bw.T, B)
+        # a 1e-12 ridge keeps the system invertible when the particles do not
+        # fix the penalty's null space (e.g., all at one tp)
+        BtWB = BtWB + (1e-12 * numpy.sum(BtWB * eye) / K) * eye
         scale = numpy.sum(BtWB * eye) / numpy.sum(P * eye)
         return B, w, y.T, BtWB, numpy.matmul(y.T, Bw), scale
 
@@ -557,10 +561,12 @@ def _fit_track_pspline(
     far = t_arm_hi if arm_sign > 0 else t_arm_lo
     x_far = numpy.clip(numpy.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
     x_near = numpy.clip(numpy.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
-    wts = 1.0
+    taper = 1.0
     for x in (x_far, x_near):
-        wts = wts * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
-    _warn_tp_gap(t[wts > 0.0])
+        taper = taper * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
+    _warn_tp_gap(t[taper > 0.0])
+    # (the floor keeps the fit defined when every particle is tapered out)
+    wts = _PSPLINE_WEIGHT_FLOOR + (1.0 - _PSPLINE_WEIGHT_FLOOR) * taper
 
     if ntp is None:
         max_ntp = max(201, int(abs(t_arm_hi - t_arm_lo) / 0.1))

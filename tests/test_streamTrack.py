@@ -1372,6 +1372,11 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
     )
     with pytest.raises(ValueError, match="velocity_weight"):
         _pspline(_simple_spdf, _pspline_xv, velocity_weight="bogus")
+    # leading particles fit as the trailing arm all land at tp=0: still defined
+    tr = _simple_spdf.streamTrack(
+        particles=_pspline_xv, tail="trailing", method="pspline"
+    )
+    assert numpy.all(numpy.isfinite(tr.x(tr.tp_grid())))
     with pytest.raises(ValueError, match="method="):
         _simple_spdf.streamTrack(particles=_pspline_xv, tail="leading", method="bogus")
     # both arms, sampled
