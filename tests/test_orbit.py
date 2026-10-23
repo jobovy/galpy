@@ -14764,9 +14764,9 @@ def test_MovingObjectPotential_static_object_dop853():
         (o.vy(ts), os.vy(ts)),
         (o.vz(ts), os.vz(ts)),
     ):
-        assert numpy.amax(numpy.fabs(got - want)) < 1e-9, (
-            "dop853 orbit around a static object differs from the shifted orbit"
-        )
+        assert (
+            numpy.amax(numpy.fabs(numpy.asarray(got) - numpy.asarray(want))) < 1e-9
+        ), "dop853 orbit around a static object differs from the shifted orbit"
     return None
 
 
