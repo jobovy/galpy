@@ -1,6 +1,14 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Spherical DFs evaluated on an ``Orbit`` instance holding several orbits now
+  use each orbit's own angular momentum L. Before, every orbit was assigned
+  the norm of all orbits' L combined, so anisotropic DFs
+  (``constantbetadf``, ``osipkovmerrittdf`` and their Hernquist, NFW, and
+  power-law versions) returned wrong values for such ``Orbit`` instances.
+  Isotropic DFs, single orbits, and the ``(E,L)`` and ``R,vR,...`` inputs were
+  not affected.
+
 - ``AdiabaticContractionWrapperPotential`` now applies its ``amp`` (it was
   silently ignored, so ``amp`` had no effect in Python, C, or JAX).
 
