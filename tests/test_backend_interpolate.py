@@ -11,7 +11,7 @@ import scipy.interpolate as si
 import scipy.ndimage as sndi
 from backend_jit_helpers import assert_jit_matches_eager
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.backend.interpolate import (
     MapCoordinates,
     Spline1D,
@@ -739,6 +739,19 @@ def test_interp_linear_nu_branches(backend):
     numpy.testing.assert_allclose(dval, slope, atol=1e-12)
     numpy.testing.assert_allclose(
         as_numpy(interp_linear(xp, x, y, q, nu=2)), 0.0, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_interp_linear_numpy_query_on_backend(backend):
+    # A numpy grid and query with a backend table: the query is moved onto the
+    # backend (torch's searchsorted takes no ndarray) and the result stays there
+    xp = _xp(backend)
+    y = _asarray(backend, _YG)
+    out = interp_linear(xp, _XG, y, _RQ)
+    assert is_backend_array(out)
+    numpy.testing.assert_allclose(
+        as_numpy(out), numpy.interp(_RQ, _XG, _YG), rtol=1e-14, atol=0.0
     )
 
 
