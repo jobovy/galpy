@@ -3854,8 +3854,14 @@ def test_movingobject_dxdv_3d_c_vs_python():
     )
     canonical = numpy.eye(6)
     maxdiff = 0.0
-    for integrator in ("dopr54_c", "dop853_c"):
-        for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        # one Python reference per deviation: it dominates the test's cost
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        for integrator in ("dopr54_c", "dop853_c"):
             oc = Orbit(ic)
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
@@ -3868,11 +3874,6 @@ def test_movingobject_dxdv_3d_c_vs_python():
                     "C 3D variational integration fell back to odeint for the "
                     "host+moving-object potential"
                 )
-            op = Orbit(ic)
-            op.integrate_dxdv(
-                canonical[ii], times, pot, method="dop853",
-                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
-            )  # fmt: skip
             diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
             maxdiff = max(maxdiff, diff)
     # C-vs-Python agree to ~6e-11 (the dense object track makes the GSL-vs-Orbit
