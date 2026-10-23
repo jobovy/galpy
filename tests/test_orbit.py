@@ -14318,6 +14318,27 @@ def test_orbit_call_single_time_as_int():
     return None
 
 
+def test_orbit_call_single_time_as_0d_array():
+    # A 0-d array time (the pure-Python dop853 integrator passes its current
+    # time to the potential as one) evaluates exactly like the scalar, on and off
+    # the integration grid, for one orbit and for several
+    from galpy import orbit, potential
+
+    times = numpy.linspace(0.0, 3.0, 31)
+    for vxvv in (
+        [1.0, 0.1, 1.1, 0.1, 0.2, 0.3],
+        [[1.0, 0.1, 1.1, 0.1, 0.2, 0.3], [0.8, -0.1, 0.9, 0.0, 0.1, 1.3]],
+    ):
+        o = orbit.Orbit(vxvv)
+        o.integrate(times, potential.MWPotential2014)
+        for t in (times[7], 1.234):
+            for f in ("R", "vR", "vT", "z", "vz", "phi", "x", "vx", "E"):
+                numpy.testing.assert_array_equal(
+                    getattr(o, f)(numpy.array(t)), getattr(o, f)(t)
+                )
+    return None
+
+
 # Test related to issue #415: calling an Orbit with a single Quantity time
 # does not work properly
 # Test from @jamesmlane
@@ -14664,6 +14685,88 @@ def test_MovingObjectPotential_orbit():
     assert numpy.fabs(oc.vz(tmax) - op.vz(tmax)) < 10.0**-3.0, (
         "Final orbit velocity between C and Python integration in a MovingObjectPotential is too large"
     )
+    return None
+
+
+def test_MovingObjectPotential_orbit_dop853():
+    # The pure-Python dop853 integrator passes its current time to the potential
+    # as a 0-d array, which MovingObjectPotential's lookup of its object's orbit
+    # used to reject (TypeError: len() of unsized object). It now agrees with
+    # odeint and with dop853_c (which interpolates the object's track with its
+    # own spline, hence the looser agreement)
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MovingObjectPotential,
+        PlummerPotential,
+    )
+
+    host = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    sat = Orbit([1.5, 0.0, 0.9, 0.2, 0.1, 0.0])
+    sat.integrate(numpy.linspace(0.0, 3.5, 801), host, method="dop853_c")
+    pot = host + MovingObjectPotential(sat, pot=PlummerPotential(amp=0.05, b=0.1))
+    ts = numpy.linspace(0.0, 3.0, 301)
+    res = {}
+    for method in ("dop853", "dop853_c", "odeint"):
+        o = Orbit([1.2, 0.1, 1.0, 0.1, 0.0, 0.3])
+        o.integrate(ts, pot, method=method, rtol=1e-12, atol=1e-12)
+        res[method] = numpy.array(
+            [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)]
+        )
+    assert numpy.amax(numpy.fabs(res["dop853"] - res["odeint"])) < 1e-9, (
+        "dop853 and odeint orbits in a MovingObjectPotential disagree"
+    )
+    assert numpy.amax(numpy.fabs(res["dop853"] - res["dop853_c"])) < 1e-8, (
+        "dop853 and dop853_c orbits in a MovingObjectPotential disagree"
+    )
+    return None
+
+
+def test_MovingObjectPotential_static_object_dop853():
+    # An object that stays put: the dop853 orbit in MovingObjectPotential(obj,
+    # pot) is the orbit in pot shifted to the object's position
+    from galpy.orbit import Orbit
+    from galpy.potential import MovingObjectPotential, NullPotential, PlummerPotential
+
+    R0, z0, phi0 = 0.8, 0.3, 0.6
+    x0, y0 = R0 * numpy.cos(phi0), R0 * numpy.sin(phi0)
+    obj = Orbit([R0, 0.0, 0.0, z0, 0.0, phi0])
+    obj.integrate(numpy.linspace(0.0, 3.5, 351), NullPotential(), method="dop853_c")
+    kern = PlummerPotential(amp=0.5, b=0.3)
+    ts = numpy.linspace(0.0, 3.0, 301)
+    o = Orbit([1.2, 0.1, 0.6, 0.1, 0.05, 0.3])
+    o.integrate(
+        ts,
+        MovingObjectPotential(obj, pot=kern),
+        method="dop853",
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    # the same initial condition relative to the object, in the bare potential
+    xs, ys = o.x() - x0, o.y() - y0
+    Rs = numpy.hypot(xs, ys)
+    os = Orbit(
+        [
+            Rs,
+            (o.vx() * xs + o.vy() * ys) / Rs,
+            (-o.vx() * ys + o.vy() * xs) / Rs,
+            o.z() - z0,
+            o.vz(),
+            numpy.arctan2(ys, xs),
+        ]
+    )
+    os.integrate(ts, kern, method="dop853", rtol=1e-12, atol=1e-12)
+    for got, want in (
+        (o.x(ts), os.x(ts) + x0),
+        (o.y(ts), os.y(ts) + y0),
+        (o.z(ts), os.z(ts) + z0),
+        (o.vx(ts), os.vx(ts)),
+        (o.vy(ts), os.vy(ts)),
+        (o.vz(ts), os.vz(ts)),
+    ):
+        assert (
+            numpy.amax(numpy.fabs(numpy.asarray(got) - numpy.asarray(want))) < 1e-9
+        ), "dop853 orbit around a static object differs from the shifted orbit"
     return None
 
 
