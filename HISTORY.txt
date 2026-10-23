@@ -1,6 +1,19 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``streamspraydf.streamTrack`` and ``StreamTrack.from_particles`` have a new
+  default reconstruction, ``method='pspline'``: each particle is projected
+  continuously onto the progenitor's orbit and its offset is fit with a
+  weighted cubic penalized spline in ``tp``, with each coordinate's penalty
+  chosen by restricted maximum likelihood. The track is now a smooth function
+  of the particles and the progenitor (the previous reconstruction jumped
+  whenever a particle changed its closest orbit sample or its bin), and for
+  large samples the fit takes about half the time and a quarter of the peak
+  memory (1e5 particles: ~5 s and 1.7 GB). It agrees with the previous
+  reconstruction to well within the stream's width. ``smoothing=`` and
+  ``smoothing_s`` are now the 6 per-coordinate penalty weights; the previous
+  reconstruction remains available as ``method='binned'``.
+
 - Spherical DFs evaluated on an ``Orbit`` instance holding several orbits now
   use each orbit's own angular momentum L. Before, every orbit was assigned
   the norm of all orbits' L combined, so anisotropic DFs
