@@ -479,6 +479,12 @@ def _parse_pot(pot, t=None):
             pot_type.append(46)
             pot_args.extend([p._Pot._amp, p._Pot.a, p._Pot.rc])
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
+            p._Pot,
+            (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential),
+        ):
+            pot_type.append(48)
+            pot_args.extend(p._Pot._c_args())
+        elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.TwoPowerSphericalPotential
         ):
             pot_type.append(42)

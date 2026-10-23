@@ -166,6 +166,8 @@ _SIMPLE = {
     "TriaxialHernquistPotential": {"a": 2.0, "b": 0.9, "c": 0.8},
     "TriaxialJaffePotential": {"a": 2.0, "b": 0.9, "c": 0.8},
     "TriaxialNFWPotential": {"a": 2.0, "b": 0.9, "c": 0.8},
+    "TruncatedHernquistPotential": {"a": 1.0, "rt": 3.0},
+    "TruncatedNFWPotential": {"a": 1.0, "rt": 3.0},
     "TwoPowerSphericalPotential": {"a": 5.0, "alpha": 1.5, "beta": 3.5},
     "TwoPowerTriaxialPotential": {
         "a": 5.0,
@@ -250,6 +252,25 @@ add_pot(
     "ExpTruncNFWPotential[mass]",
     lambda P: gp.ExpTruncNFWPotential(mass=P["mass"], a=P["a"], rc=P["rc"]),
     {"mass": 1.2, "a": 1.0, "rc": 2.0},
+)
+add_pot(
+    "TruncatedNFWPotential[n2]",
+    lambda P: gp.TruncatedNFWPotential(amp=P["amp"], a=P["a"], rt=P["rt"], n=2),
+    {"amp": 1.0, "a": 1.0, "rt": 3.0},
+)
+_TRUNC_TGRID = np.linspace(-1.0, 2.0, 7)
+add_pot(
+    "TruncatedHernquistPotential[tgrid]",
+    # rt(t) linear in the table's two parameters (built in their namespace:
+    # a torch scalar times a numpy array goes through numpy); at t=0 both matter
+    lambda P: gp.TruncatedHernquistPotential(
+        amp=P["amp"],
+        a=P["a"],
+        rt=P["rt0"] + P["drt"] * _xp(P["rt0"], P["drt"]).asarray(_TRUNC_TGRID - 0.5),
+        n=1,
+        tgrid=_TRUNC_TGRID,
+    ),
+    {"amp": 1.0, "a": 1.0, "rt0": 3.0, "drt": 0.4},
 )
 add_pot(
     "PlummerPotential[normalize]",
