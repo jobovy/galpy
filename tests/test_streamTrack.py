@@ -219,6 +219,37 @@ def test_streamTrack_iteration_changes_track(_simple_spdf, method):
     )
 
 
+def test_streamTrack_pspline_iteration_within_width(_simple_spdf):
+    # Reassigning the particles to the current track moves the pspline track by
+    # a small fraction of the stream's width, and further iterations converge.
+    # The reassignment used to clamp the particles beyond the track's end onto
+    # it, which pulled the ends out by 1-3 widths per iteration (5-18 by niter=3)
+    numpy.random.seed(2)
+    xv = _simple_spdf.streamTrack(n=2000, tail="both", order=1).particles
+    tracks = {
+        k: _simple_spdf.streamTrack(particles=xv, tail="both", niter=k)
+        for k in (0, 1, 3)
+    }
+    for arm in ("leading", "trailing"):
+        a = {k: getattr(tracks[k], arm) for k in tracks}
+        lo = max(float(tr.tp_grid()[0]) for tr in a.values())
+        hi = min(float(tr.tp_grid()[-1]) for tr in a.values())
+        tps = numpy.linspace(lo, hi, 101)
+        width = numpy.sqrt([numpy.trace(as_numpy(a[0].cov(t))[:3, :3]) for t in tps])
+        pos = {
+            k: numpy.stack(
+                [as_numpy(a[k].x(tps)), as_numpy(a[k].y(tps)), as_numpy(a[k].z(tps))]
+            )
+            for k in a
+        }
+        for i, j in ((0, 1), (1, 3)):
+            d = numpy.sqrt(numpy.sum((pos[i] - pos[j]) ** 2, axis=0)) / width
+            assert numpy.max(d) < 0.25, (
+                f"{arm} arm: niter={j} moved the track by {numpy.max(d):.2f} "
+                f"widths from niter={i}"
+            )
+
+
 def test_streamTrack_chen24_works():
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     obs = Orbit(

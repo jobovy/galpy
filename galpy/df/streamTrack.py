@@ -907,21 +907,25 @@ def _fit_track_pspline(
     concat = getattr(xp, "concat", None) or xp.concatenate
     metric = concat([ones3, ones3 * (vw * vw)])
 
-    t = project(metric, prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve)
-    # taper out particles projected onto either end of the searched arc: the far
-    # end (the binned method drops those within 1e-3 of its span) and tp=0, where
-    # the particles whose closest point is on the other arm are clamped
     span = float(track_t_grid[-1] - track_t_grid[0])
     far = t_arm_hi if arm_sign > 0 else t_arm_lo
-    x_far = xp.clip(xp.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
-    x_near = xp.clip(xp.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
-    taper = 1.0
-    for x in (x_far, x_near):
-        taper = taper * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
+
+    def weights(t):
+        # taper out particles projected onto either end of the searched arc: the
+        # far end (the binned method drops those within 1e-3 of its span) and
+        # tp=0, where the particles whose closest point is on the other arm are
+        # clamped; the floor keeps the fit defined when every one is tapered out
+        x_far = xp.clip(xp.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
+        x_near = xp.clip(xp.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
+        taper = 1.0
+        for x in (x_far, x_near):
+            taper = taper * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
+        return taper, _PSPLINE_WEIGHT_FLOOR + (1.0 - _PSPLINE_WEIGHT_FLOOR) * taper
+
+    t = project(metric, prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve)
+    taper, wts = weights(t)
     if not under_trace(t):
         _warn_tp_gap(as_numpy(stop_gradient(t))[as_numpy(stop_gradient(taper)) > 0.0])
-    # (the floor keeps the fit defined when every particle is tapered out)
-    wts = _PSPLINE_WEIGHT_FLOOR + (1.0 - _PSPLINE_WEIGHT_FLOOR) * taper
 
     if ntp is None:
         max_ntp = max(201, int(abs(t_arm_hi - t_arm_lo) / 0.1))
@@ -958,20 +962,15 @@ def _fit_track_pspline(
                 f"{lam_user.shape[0]} values"
             )
 
-    curve, curve_t, curve_c, tp_unit = prog_at, t_nodes, c_nodes, None
     for it in range(niter + 1):
         if it > 0:
-            # reassign to the closest point on the current track, within its range
-            t_lo_r, t_hi_r = (0.0, 1.0) if arm_sign > 0 else (-1.0, 0.0)
+            # reassign to the closest point on the current track, continued past
+            # its fitted range by the orbit (where its offset spline has decayed
+            # to zero), so particles beyond its end are not clamped onto it
             t = project(
-                metric,
-                curve,
-                curve_t,
-                curve_c,
-                t_lo_r * tp_unit,
-                t_hi_r * tp_unit,
-                tp_unit / (ninterp - 1),
+                metric, curve, t_nodes, curve(t_nodes), t_arm_lo, t_arm_hi, dt_curve
             )
+            wts = weights(t)[1]
         # trim to the 99th percentile of |tp| (tapered particles count at tp=0)
         tp_unit = _smooth_quantile(xp, arm_sign * t * wts, 0.99)
         tp_unit = xp.where(tp_unit > 1e-12, tp_unit, abs(far))
@@ -990,7 +989,6 @@ def _fit_track_pspline(
                 Bq = cubic_bspline_kernel(xp, pq[:, None] - centers[None, :], nu=nu)
                 return prog_at(tq, nu) + xp.matmul(Bq, coef.T) * scale_k**nu
 
-            curve_t, curve_c = tp_out, track
     cov = None
     if order >= 2:
         # basis-weighted residual scatter at the nodes, then the basis-weighted
