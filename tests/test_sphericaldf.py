@@ -907,21 +907,21 @@ def test_anisotropic_diffcalls_multiorbit(norb):
         ]
     )
     o = Orbit(vxvv)
-    E = o.E(pot=pot)
-    L = numpy.linalg.norm(o.L(), axis=-1)
+    E = as_numpy(o.E(pot=pot))
+    L = numpy.linalg.norm(as_numpy(o.L()), axis=-1)
     # the numerical osipkovmerrittdf's f(Q) spline amplifies L's last-bit rounding
     for dfh, rtol in (
         (constantbetaHernquistdf(pot=pot, beta=0.3), 1e-13),
         (osipkovmerrittHernquistdf(pot=pot, ra=2.3), 1e-13),
         (osipkovmerrittdf(pot=pot, ra=2.3), 1e-11),
     ):
-        ref = dfh(*vxvv.T)
+        ref = as_numpy(dfh(*vxvv.T))
         assert numpy.all(ref > 0.0)
-        numpy.testing.assert_allclose(dfh(o), ref, rtol=rtol)
-        numpy.testing.assert_allclose(dfh((E, L)), ref, rtol=rtol)
+        numpy.testing.assert_allclose(as_numpy(dfh(o)), ref, rtol=rtol)
+        numpy.testing.assert_allclose(as_numpy(dfh((E, L))), ref, rtol=rtol)
         # a multi-dimensional Orbit keeps its shape
         numpy.testing.assert_allclose(
-            dfh(Orbit(vxvv.reshape((2, norb // 2, 6)))),
+            as_numpy(dfh(Orbit(vxvv.reshape((2, norb // 2, 6))))),
             ref.reshape((2, norb // 2)),
             rtol=rtol,
         )

@@ -366,6 +366,29 @@ def test_call_orbit_forced(backend):
     numpy.testing.assert_allclose(as_numpy(got_a), ref_a, rtol=1e-12)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_multiorbit_forced(backend):
+    # an Orbit of several orbits: each orbit gets its own |L| (L is (N, 3))
+    from galpy.df import constantbetaHernquistdf
+    from galpy.orbit import Orbit
+
+    ics = [
+        [0.6, 0.05, 0.2, 0.02, 0.03, 1.0],
+        [1.4, -0.1, 0.3, 0.4, 0.1, 2.0],
+        [0.9, 0.2, -0.1, -0.3, 0.05, 0.3],
+    ]
+    ani = constantbetaHernquistdf(pot=_HP, beta=0.3)
+    ref = ani(*numpy.array(ics).T)
+    assert numpy.all(ref > 0.0)
+    with galpy.backend.use(backend, force=True):
+        got = ani(Orbit(ics))
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13)
+
+
 ###############################################################################
 # Backend-native, differentiable radial + analytic-angle sampling via a backend
 # ``key`` (interp_linear inverse-CDF). The numpy path (key=None) is byte-
