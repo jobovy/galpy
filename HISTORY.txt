@@ -1,6 +1,12 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``Orbit`` instances can now be evaluated at a time given as a 0-d numpy
+  array (e.g., ``o.x(numpy.array(1.0))``), which previously raised
+  "TypeError: len() of unsized object". The pure-Python ``dop853`` integrator
+  passes its current time as one, so integrating any orbit in a
+  ``MovingObjectPotential`` with ``method='dop853'`` failed with this error.
+
 - ``streamspraydf.streamTrack`` and ``StreamTrack.from_particles`` have a new
   default reconstruction, ``method='pspline'``: each particle is projected
   continuously onto the progenitor's orbit and its offset is fit with a

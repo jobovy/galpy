@@ -6491,6 +6491,15 @@ class Orbit:
             )
         else:
             t = args[0]
+        # A 0-d array is a scalar time (the pure-Python dop853 integrator, for
+        # one, passes the current time as one), but it has __len__ and len()
+        # raises for it, so take its value
+        if (
+            isinstance(t, numpy.ndarray)
+            and not (_APY_LOADED and isinstance(t, units.Quantity))
+            and t.ndim == 0
+        ):
+            t = t[()]
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
         if numpy.asarray(self.t).ndim > 1:
             return self._call_internal_indiv_t(t)
