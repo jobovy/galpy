@@ -511,9 +511,9 @@ class sphericaldf(df):
                 Lval = args[0].L(use_physical=False)
                 if is_backend_array(Lval):  # forced backend: |L| in-namespace
                     xp = get_namespace(Lval)
-                    L = xp.sqrt(xp.sum(Lval**2.0))
+                    L = xp.sqrt(xp.sum(Lval**2.0, axis=-1))
                 else:
-                    L = numpy.sqrt(numpy.sum(Lval**2.0))
+                    L = numpy.sqrt(numpy.sum(Lval**2.0, axis=-1))
                 Lz = args[0].Lz(use_physical=False, _stored=True)
             E = conversion.parse_energy(E, vo=vo)
             L = conversion.parse_angmom(L, ro=ro, vo=vo)

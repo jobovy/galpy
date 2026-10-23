@@ -889,6 +889,45 @@ def test_osipkovmerritt_hernquist_diffcalls():
     return None
 
 
+@pytest.mark.parametrize("norb", [2, 100])
+def test_anisotropic_diffcalls_multiorbit(norb):
+    # An Orbit of many orbits: each orbit gets its own L, not one L from all orbits
+    from galpy.orbit import Orbit
+
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rng = numpy.random.default_rng(11)
+    vxvv = numpy.column_stack(
+        [
+            rng.uniform(0.5, 2.0, norb),
+            rng.normal(0.0, 0.2, norb),
+            rng.normal(0.2, 0.2, norb),
+            rng.normal(0.0, 0.3, norb),
+            rng.normal(0.0, 0.2, norb),
+            rng.uniform(0.0, 2.0 * numpy.pi, norb),
+        ]
+    )
+    o = Orbit(vxvv)
+    E = as_numpy(o.E(pot=pot))
+    L = numpy.linalg.norm(as_numpy(o.L()), axis=-1)
+    # the numerical osipkovmerrittdf's f(Q) spline amplifies L's last-bit rounding
+    for dfh, rtol in (
+        (constantbetaHernquistdf(pot=pot, beta=0.3), 1e-13),
+        (osipkovmerrittHernquistdf(pot=pot, ra=2.3), 1e-13),
+        (osipkovmerrittdf(pot=pot, ra=2.3), 1e-11),
+    ):
+        ref = as_numpy(dfh(*vxvv.T))
+        assert numpy.all(ref > 0.0)
+        numpy.testing.assert_allclose(as_numpy(dfh(o)), ref, rtol=rtol)
+        numpy.testing.assert_allclose(as_numpy(dfh((E, L))), ref, rtol=rtol)
+        # a multi-dimensional Orbit keeps its shape
+        numpy.testing.assert_allclose(
+            as_numpy(dfh(Orbit(vxvv.reshape((2, norb // 2, 6))))),
+            ref.reshape((2, norb // 2)),
+            rtol=rtol,
+        )
+    return None
+
+
 ############################## OSIPKOV-MERRITT NFW DF #########################
 def test_osipkovmerritt_nfw_dens_spherically_symmetric():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
