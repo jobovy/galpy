@@ -7860,9 +7860,8 @@ class Orbit:
         the ascending host grid ``grid`` with the in-backend differentiable cubic
         and evaluate at backend times ``tq`` -> ``(phasedim, nt_q)``. For phasedim
         4/6 the Cartesian x,y (not R,phi) are interpolated to dodge the 2pi wrap.
-        Differentiable w.r.t. ``orb``; shared by the shared-grid
-        (``_call_internal_backend_interp``) and per-orbit-grid
-        (``_indiv_t_backend_interp``) backend off-grid evaluators."""
+        Differentiable w.r.t. ``orb``; the per-orbit-grid backend off-grid
+        evaluator (``_indiv_t_backend_interp``)."""
         return self._backend_spline_orbit_eval(
             self._backend_spline_orbit_prep(orb, grid), tq
         )
@@ -8012,8 +8011,8 @@ class Orbit:
         the 2pi wrap, with R, phi recovered at the query points; the other
         coordinates are interpolated directly. Works for a single orbit and for a
         multi-orbit (in-backend ODE batch or C-STM batch) Orbit: every orbit shares
-        ONE integration grid (the batch is one solve), so each orbit is splined on
-        that grid and the results are stacked on the orbit axis.
+        ONE integration grid (the batch is one solve), so all orbits are splined
+        on that grid in one batched fit.
         Returns the same layout as ``_call_internal``'s off-grid branch:
         ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
         scalar) -- ``size`` 1 for a single orbit.
@@ -8087,52 +8086,36 @@ class Orbit:
             def _ascending(a, axis):
                 return xp.flip(a, axis=axis) if descending else a
 
+        from ..backend.interpolate import cubic_spline_coeffs, linear_spline_coeffs
+
         size = orbit.shape[0]
         pd = self.phasedim()
-        if grid.shape[0] > 3 and size > 1:
-            # Cross-orbit batching: all orbits share ONE grid, so every one of the
-            # size*pd spline columns shares the SAME tridiagonal matrix -> a single
-            # multi-RHS cubic solve for the whole batch (vs one per-orbit
-            # _backend_spline_orbit -- itself one solve -- looped size times). Falls
-            # back below for a <=3-point (k=1) grid or a single orbit.
-            from ..backend.interpolate import cubic_spline_coeffs
-
-            orb = _ascending(orbit, 1)
-            if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
-                rr = orb[:, :, 0]
-                ph = orb[:, :, -1]
-                cols = [rr * xp.cos(ph), rr * xp.sin(ph)]
-                cols += [orb[:, :, ii] for ii in range(1, pd - 1)]
-            else:
-                cols = [orb[:, :, ii] for ii in range(pd)]
-            # (size, nt_grid, pd) -> (nt_grid, size*pd): one RHS matrix.
-            Ycols = xp.reshape(
-                xp.permute_dims(xp.stack(cols, axis=-1), (1, 0, 2)),
-                (grid.shape[0], size * pd),
-            )
-            coeffs = cubic_spline_coeffs(xp, grid, Ycols, bc="not-a-knot")
-            return "batch", grid, size, coeffs
-        # spline each orbit on the shared grid (a backward integration flips orb
-        # to match the ascending grid)
-        return (
-            "orbits",
-            grid,
-            size,
-            [
-                self._backend_spline_orbit_prep(_ascending(orbit[ii], 0), grid)
-                for ii in range(size)
-            ],
+        # All orbits share ONE grid, so all size*pd spline columns are fit at once
+        # (one multi-RHS cubic solve; a line for a <=3-point grid), never in a
+        # per-orbit loop, which a trace unrolls into a jaxpr growing with size.
+        orb = _ascending(orbit, 1)
+        if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
+            rr = orb[:, :, 0]
+            ph = orb[:, :, -1]
+            cols = [rr * xp.cos(ph), rr * xp.sin(ph)]
+            cols += [orb[:, :, ii] for ii in range(1, pd - 1)]
+        else:
+            cols = [orb[:, :, ii] for ii in range(pd)]
+        # (size, nt_grid, pd) -> (nt_grid, size*pd): one RHS matrix.
+        Ycols = xp.reshape(
+            xp.permute_dims(xp.stack(cols, axis=-1), (1, 0, 2)),
+            (grid.shape[0], size * pd),
         )
+        if grid.shape[0] > 3:
+            coeffs = cubic_spline_coeffs(xp, grid, Ycols, bc="not-a-knot")
+        else:
+            coeffs = linear_spline_coeffs(xp, grid, Ycols)
+        return grid, size, coeffs
 
     def _backend_interp_eval(self, prep, tq):
-        kind, grid, size, fit = prep
-        if kind == "orbits":
-            # stack on the trailing (orbit) axis; size == 1 reproduces the prior
-            # (phasedim, nt, 1) layout.
-            outs = [self._backend_spline_orbit_eval(p, tq) for p in fit]
-            return namespace_from_arrays((outs[0],)).stack(outs, axis=-1)
         from ..backend.interpolate import eval_ppoly
 
+        grid, size, fit = prep
         xp = namespace_from_arrays((fit,))
         pd = self.phasedim()
         vals = xp.reshape(
