@@ -5988,6 +5988,31 @@ def test_TruncatedTwoPower_untruncated_limit():
                         f"for {f} at (R,z)=({R},{z})"
                     )
             assert numpy.fabs(p.mass(2.0) / q.mass(2.0) - 1.0) < 1e-13
+        # normalize= sets amp so that the radial force at R = 1 is -normalize
+        p = cls(a=0.8, rc=2.0, n=2, normalize=0.6)
+        assert numpy.fabs(p.Rforce(1.0, 0.0) + 0.6) < 1e-15
+    return None
+
+
+def test_TruncatedTwoPower_mass_z():
+    # mass(R, z) falls through to the general implementation, which matches
+    # the density integrated over the slab |z'| < z inside the sphere r < R
+    from scipy import integrate
+
+    p = potential.TruncatedNFWPotential(amp=2.0, rc=3.0, n=2)
+    R, z = 4.2, 1.3
+    want = (
+        4.0
+        * numpy.pi
+        * integrate.dblquad(
+            lambda rp, zp: rp * p.dens(rp, 0.0),
+            0.0,
+            z,
+            lambda zp: zp,
+            lambda zp: numpy.sqrt(R**2.0 + zp**2.0),
+        )[0]
+    )
+    assert numpy.fabs(p.mass(R, z) - want) < 1e-10
     return None
 
 
@@ -6092,6 +6117,53 @@ def test_TruncatedTwoPower_c_vs_python():
             fd = (ics[0] - ics[1]) / (2.0 * eps)
             assert numpy.amax(numpy.fabs(o.getOrbit_dxdv() - fd)) < 1e-6, (
                 f"{cls.__name__} n={n}: integrate_dxdv disagrees with central differences"
+            )
+    return None
+
+
+def test_TruncatedTwoPower_c_evaluation():
+    # The C potential, forces and second derivatives match Python in the
+    # small-r series (r < 0.1 a), the closed form and the outer series (r > 10
+    # rc), for a static rc and for an rc(t) before tgrid starts (held at its
+    # first value); a planar C orbit in a time-dependent potential matches the
+    # full C orbit in z = 0
+    from galpy.orbit import Orbit
+    from galpy.potential.interpRZPotential import (
+        eval_2ndderiv_c,
+        eval_force_c,
+        eval_potential_c,
+    )
+
+    R = numpy.array([0.005, 0.03, 0.5, 2.0, 15.0, 40.0])
+    z = numpy.array([0.002, -0.01, 0.3, -1.0, 5.0, 20.0])
+    tgrid = numpy.array([1.0, 2.0, 3.0, 4.0])
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n in (1, 2):
+            for p in (
+                cls(amp=1.5, a=0.8, rc=1.0, n=n),
+                cls(amp=1.5, a=0.8, rc=[1.0, 2.0, 1.5, 1.2], tgrid=tgrid, n=n),
+            ):
+                for got, want in (
+                    (eval_potential_c(p, R, z)[0], p(R, z)),
+                    (eval_force_c(p, R, z)[0], p.Rforce(R, z)),
+                    (eval_force_c(p, R, z, zforce=True)[0], p.zforce(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="R2deriv")[0], p.R2deriv(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="z2deriv")[0], p.z2deriv(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="Rzderiv")[0], p.Rzderiv(R, z)),
+                ):
+                    assert numpy.all(numpy.fabs(got / want - 1.0) < 1e-12), (
+                        f"{cls.__name__} n={n}: C and Python disagree: {got}, {want}"
+                    )
+        p = cls(amp=1.5, a=0.8, rc=[1.0, 2.0, 1.5, 1.2], tgrid=tgrid - 1.0, n=2)
+        ts = numpy.linspace(0.0, 3.0, 31)
+        o3 = Orbit([1.0, 0.1, 0.9, 0.0, 0.0, 0.3])
+        o3.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+        o2 = Orbit([1.0, 0.1, 0.9, 0.3])
+        o2.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+        for f in ("x", "y", "vx", "vy"):
+            d = getattr(o2, f)(ts) - getattr(o3, f)(ts)
+            assert numpy.amax(numpy.fabs(d)) < 1e-10, (
+                f"{cls.__name__}: planar and full C orbits disagree in {f}"
             )
     return None
 
