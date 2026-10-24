@@ -8441,6 +8441,97 @@ def test_integrate_Cfallback_nonsymplec():
     return None
 
 
+# Test C integration of orbits whose (nobj,nt,6) output has more than INT_MAX
+# elements (offsets into it used to overflow int and segfault)
+def test_integrate_c_more_than_intmax_elements():
+    import os
+    import subprocess
+    import sys
+    import textwrap
+
+    import galpy
+
+    if not sys.platform.startswith("linux"):
+        pytest.skip("Aliases the 17 GB output array with Linux mmap")
+    # The output takes 17 GB, more than CI has, so map it as virtual memory
+    # backed by one 64 MB buffer, except for the checked orbits, which get
+    # their own memory; run in a subprocess, because the overflow segfaults
+    script = textwrap.dedent(
+        """
+        import ctypes, mmap, os, tempfile
+        import numpy
+        from galpy.orbit.integrateFullOrbit import integrateFullOrbit_c
+        from galpy.potential import HernquistPotential
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl(4, 0, 0, 0, 0)  # PR_SET_DUMPABLE=0: no core dump if it crashes
+        libc.mmap.restype = ctypes.c_void_p
+        libc.mmap.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int,
+                              ctypes.c_int, ctypes.c_int, ctypes.c_long]
+        MAP_FIXED, RW = 0x10, mmap.PROT_READ | mmap.PROT_WRITE
+
+        def mmap_at(addr, size, prot, flags, fd=-1):
+            out = libc.mmap(addr, size, prot, flags, fd, 0)
+            assert out == addr or (addr is None and out != ctypes.c_void_p(-1).value), (
+                os.strerror(ctypes.get_errno()))
+            return out
+
+        nt = 3600
+        ii_cross = (2**31 - 1) // (6 * nt)  # this orbit's rows straddle INT_MAX
+        nobj = ii_cross + 2  # and the last orbit's are all beyond it
+        check = [0, ii_cross, nobj - 1]
+        chunk = 2**26
+        nchunk = -(-nobj * nt * 6 * 8 // chunk)
+        base = mmap_at(None, nchunk * chunk, 0, mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS)
+        buf = tempfile.TemporaryFile(dir="/dev/shm" if os.path.isdir("/dev/shm") else None)
+        buf.truncate(chunk)
+        for kk in range(nchunk):
+            mmap_at(base + kk * chunk, chunk, RW, mmap.MAP_SHARED | MAP_FIXED, buf.fileno())
+        for ii in check:
+            start = 48 * nt * ii // mmap.PAGESIZE * mmap.PAGESIZE
+            stop = -(-48 * nt * (ii + 1) // mmap.PAGESIZE) * mmap.PAGESIZE
+            mmap_at(base + start, stop - start, RW,
+                    mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS | MAP_FIXED)
+
+        class Buffer:
+            __array_interface__ = {"shape": (nobj, nt, 6), "typestr": "<f8",
+                                   "data": (base, False), "version": 3}
+
+        result = numpy.asarray(Buffer())
+        empty = numpy.empty
+        numpy.empty = lambda shape, *args, **kwargs: (
+            result if shape == (nobj, nt, 6) else empty(shape, *args, **kwargs))
+        numpy.random.seed(1)
+        yo = numpy.column_stack([numpy.random.uniform(0.5, 2.0, nobj),
+                                 numpy.random.normal(0.0, 0.2, nobj),
+                                 numpy.random.uniform(0.8, 1.2, nobj),
+                                 numpy.random.uniform(-0.2, 0.2, nobj),
+                                 numpy.random.normal(0.0, 0.2, nobj),
+                                 numpy.random.uniform(0.0, 2.0 * numpy.pi, nobj)])
+        ts = numpy.linspace(0.0, 0.01, nt)
+        pot = HernquistPotential(amp=2.0, a=30.0 / 8.0)
+        out, err = integrateFullOrbit_c(pot, yo.copy(), ts, "dop853_c", progressbar=False)
+        numpy.empty = empty
+        assert out is result
+        assert numpy.all(err == 0)
+        alone, _ = integrateFullOrbit_c(pot, yo[check], ts, "dop853_c", progressbar=False)
+        assert numpy.all(out[check] == alone), "Orbits beyond INT_MAX elements are wrong"
+        """
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        # -c imports from the cwd first: make that the galpy under test
+        cwd=os.path.dirname(os.path.dirname(galpy.__file__)),
+        capture_output=True,
+        text=True,
+        timeout=3600,
+    )
+    assert proc.returncode == 0, (
+        f"C integration of orbits with more than INT_MAX output elements failed (return code {proc.returncode}):\n{proc.stderr}"
+    )
+    return None
+
+
 # Test flippingg an orbit
 def setup_orbits_flip(tp, ro, vo, zo, solarmotion, axi=False):
     from galpy.orbit import Orbit
