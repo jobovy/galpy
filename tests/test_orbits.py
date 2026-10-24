@@ -8490,6 +8490,70 @@ def test_toLinear():
     return None
 
 
+@pytest.mark.parametrize("shape", [(), (1,), (2,), (2, 3), (1, 2, 1)])
+@pytest.mark.parametrize("phasedim", [5, 6])
+@pytest.mark.parametrize("physical", [False, True, "array"])
+def test_toPlanar_toLinear_preserve_shape(shape, phasedim, physical):
+    from galpy.orbit import Orbit
+
+    vxvv = numpy.broadcast_to(
+        [1.0, 0.1, 1.1, 0.2, -0.05, 0.7][:phasedim], shape + (phasedim,)
+    ).copy()
+    parameters = {}
+    if physical:
+        parameters = {"ro": 8.0, "vo": 220.0, "zo": 0.02}
+        if physical == "array" and shape:
+            parameters = {
+                name: numpy.full(shape, value) for name, value in parameters.items()
+            }
+    original = Orbit(vxvv, **parameters)
+    for converted, coordinates in [
+        (original.toPlanar(), [("R", "R"), ("vR", "vR"), ("vT", "vT")]),
+        (original.toLinear(), [("x", "z"), ("vx", "vz")]),
+    ]:
+        assert converted.shape == shape
+        assert converted._roSet == original._roSet
+        assert converted._voSet == original._voSet
+        for name, source_name in coordinates:
+            actual = getattr(converted, name)()
+            assert numpy.shape(actual) == shape
+            numpy.testing.assert_array_equal(actual, getattr(original, source_name)())
+
+
+@pytest.mark.parametrize("shape", [(2,), (2, 3), (1, 2, 1)])
+@pytest.mark.parametrize("quantity", [False, True])
+@pytest.mark.parametrize("dontreshape", [False, True])
+def test_array_physical_output_shape(shape, quantity, dontreshape):
+    from galpy.orbit import Orbit
+
+    size = numpy.prod(shape)
+    vxvv = numpy.broadcast_to([1.0, 0.1, 1.1, 0.2, -0.05, 0.7], shape + (6,)).copy()
+    ro = numpy.linspace(8.0, 9.0, size).reshape(shape)
+    vo = numpy.linspace(220.0, 240.0, size).reshape(shape)
+    orbits = Orbit(vxvv, ro=ro, vo=vo)
+    ts = numpy.linspace(0.0, 0.1, 5)
+    pot = potential.LogarithmicHaloPotential(normalize=True)
+    orbits.integrate(ts, pot)
+    for time in [ts[0], ts, ts[1:3]]:
+        for name in ["R", "vR", "vT", "z", "vz", "E", "L"]:
+            actual = getattr(orbits, name)(
+                time, quantity=quantity, dontreshape=dontreshape
+            )
+            expected = []
+            for i, state in enumerate(vxvv.reshape(-1, 6)):
+                single = Orbit(state, ro=ro.ravel()[i], vo=vo.ravel()[i])
+                single.integrate(ts, pot)
+                expected.append(getattr(single, name)(time, quantity=quantity))
+            expected = u.Quantity(expected) if quantity else numpy.array(expected)
+            output_shape = (size,) if dontreshape else shape
+            expected = expected.reshape(output_shape + expected.shape[1:])
+            assert actual.shape == expected.shape
+            if quantity:
+                assert actual.unit == expected.unit
+                actual, expected = actual.value, expected.value
+            numpy.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-10)
+
+
 # Check that the routines that should return physical coordinates are turned off by turn_physical_off
 def test_physical_output_off():
     from galpy.orbit import Orbit
