@@ -581,7 +581,11 @@ class sphericaldf(df):
             # For finite rmax, add the endpoint to ensure r <= rmax
             xis = numpy.append(xis, ximax)
             ms = numpy.append(ms, 1)
-        return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
+        # a mass that converges well inside rmax (a truncated profile) reaches 1
+        # to round-off and stays flat: the inverse needs the strictly increasing
+        # part
+        keep = ms > numpy.concatenate(([-numpy.inf], numpy.maximum.accumulate(ms)[:-1]))
+        return scipy.interpolate.InterpolatedUnivariateSpline(ms[keep], xis[keep], k=1)
 
     def _sample_position_angles(self, n=1):
         """Generate spherical angle samples"""
