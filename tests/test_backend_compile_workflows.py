@@ -197,7 +197,10 @@ _CASES = [
 # compiled with torchode, both at rtol=1e-10; they agree to that floor (measured
 # 8.0e-12 value, 8.5e-9 grad, dynamo-only and inductor alike; compiled vs the
 # same torchode recipe run eagerly is round-off, test_backend_kingdf).
-_RTOL = {"kingdf_W0": (1e-10, 3e-8)}
+# spray_track: inductor's gradient differs from eager by 2.1e-9 (local CPU): the
+# pspline fit's gradient includes the projection's and the GCV penalty's response,
+# which carry ~1e3x the round-off of the compiled particle integration
+_RTOL = {"kingdf_W0": (1e-10, 3e-8), "spray_track": (1e-11, 5e-8)}
 
 
 # GCC 13 crashes (ICE in gimple_duplicate_bb) compiling one of this workflow's
