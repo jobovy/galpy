@@ -270,16 +270,19 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
                 raise ValueError("rc= must have one value per tgrid time")
         else:
             rc = conversion.parse_length(rc, ro=self._ro)
+        if numpy.any(numpy.asarray(rc) <= 0.0):
+            raise ValueError("rc= must be positive")
         self.a = a
         self._scale = self.a
         if self._tdep:
             self._tgrid = tgrid
             self._rc_grid = rc
-            # only the not-a-knot spline's power-basis coefficients are kept
-            # (scipy splines do not pickle), evaluated with the same Horner
-            # arithmetic as the C implementation
+            # log rc(t) is the not-a-knot spline through log rc, so rc stays
+            # positive; only its power-basis coefficients are kept (scipy
+            # splines do not pickle), evaluated with the same Horner arithmetic
+            # as the C implementation
             self._rc_c = _scipy_interpolate.CubicSpline(
-                tgrid, rc, bc_type="not-a-knot"
+                tgrid, numpy.log(rc), bc_type="not-a-knot"
             ).c
             self.rc = None
         else:
@@ -308,7 +311,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         out = self._rc_c[0, i]
         for j in range(1, self._rc_c.shape[0]):
             out = out * dt + self._rc_c[j, i]
-        return out
+        return numpy.exp(out)
 
     def _x_tau(self, r, t):
         """(x, tau, mu, nu): x = r/a, tau = rc(t)/a on x's shape, mu = min(1, tau)
@@ -387,7 +390,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
 
     def _c_args(self):
         """The arguments of the C implementation: amp, a, k, n, Nt, then rc
-        (static) or tgrid and the not-a-knot spline's coefficients"""
+        (static) or tgrid and the coefficients of the log rc spline"""
         args = [self._amp, self.a, self._k, self._n]
         if not self._tdep:
             return args + [0, self.rc]
@@ -442,7 +445,7 @@ class TruncatedNFWPotential(TruncatedTwoPowerSphericalPotential):
         n : int, optional
             Exponent of the truncation (a positive integer; default: 1).
         tgrid : numpy.ndarray or Quantity, optional
-            Times at which ``rc`` is given, for a time-dependent truncation radius. ``rc(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
+            Times at which ``rc`` is given, for a time-dependent truncation radius. ``log rc(t)`` is the not-a-knot cubic spline through the logarithms of the given values, so that ``rc`` stays positive (a spline through ``rc`` itself can dip below zero); like any spline it can overshoot between the given values (e.g., a radius that drops quickly and then levels off can rebound by a few percent before the last value). ``rc`` is held at its end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. (at t=0).
         ro : float or Quantity, optional
@@ -515,7 +518,7 @@ class TruncatedHernquistPotential(TruncatedTwoPowerSphericalPotential):
         n : int, optional
             Exponent of the truncation (a positive integer; default: 1).
         tgrid : numpy.ndarray or Quantity, optional
-            Times at which ``rc`` is given, for a time-dependent truncation radius. ``rc(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
+            Times at which ``rc`` is given, for a time-dependent truncation radius. ``log rc(t)`` is the not-a-knot cubic spline through the logarithms of the given values, so that ``rc`` stays positive (a spline through ``rc`` itself can dip below zero); like any spline it can overshoot between the given values (e.g., a radius that drops quickly and then levels off can rebound by a few percent before the last value). ``rc`` is held at its end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. (at t=0).
         ro : float or Quantity, optional

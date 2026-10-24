@@ -7,7 +7,7 @@
 //with the Baltz, Marshall & Oguri (2009) truncation (rc^2/(rc^2+r^2))^n.
 //Mirrors TruncatedTwoPowerSphericalPotential.py, which has the derivation.
 //Arguments: amp, a, k, n, Nt, then either rc (Nt = 0) or tgrid[Nt] followed
-//by the power-basis coefficients of rc(t)'s not-a-knot cubic spline, four per
+//by the power-basis coefficients of log rc(t)'s not-a-knot cubic spline, four per
 //interval (highest power first).
 #define TTPS_SMALL_X 0.1
 #define TTPS_LARGE_X 10.0
@@ -175,7 +175,7 @@ static double ttps_H(double x, double tau, int k, int n) {
     return ttps_H_series(x, tau, k, n);
   return ttps_H_closed(x, tau, k, n);
 }
-// rc(t): the spline held at its end values outside tgrid
+// rc(t): exp of the log rc spline, held at its end values outside tgrid
 static double ttps_rc(double t, double *args) {
   int Nt = (int) *(args + 4);
   double *tgrid, *c, dt;
@@ -199,7 +199,7 @@ static double ttps_rc(double t, double *args) {
   }
   c += 4 * lo;
   dt = t - tgrid[lo];
-  return ((c[0] * dt + c[1]) * dt + c[2]) * dt + c[3];
+  return exp(((c[0] * dt + c[1]) * dt + c[2]) * dt + c[3]);
 }
 double TruncatedTwoPowerSphericalPotentialrdens(
     double r, double t, struct potentialArg *potentialArgs) {
