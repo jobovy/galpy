@@ -186,6 +186,8 @@ ellipsoidal triaxial potentials below.
    potentialpowerspherwcut.rst
    potentialpseudoiso.rst
    potentialsphericalshell.rst
+   potentialtruncatedhernquist.rst
+   potentialtruncatednfw.rst
 
 Axisymmetric potentials
 ***********************

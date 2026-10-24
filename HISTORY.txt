@@ -1,6 +1,17 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Added ``TruncatedNFWPotential`` and ``TruncatedHernquistPotential``: the NFW
+  and Hernquist profiles times the truncation of Baltz, Marshall & Oguri
+  (2009), ``(rc^2 / (rc^2 + r^2))^n`` for any positive integer ``n``. The
+  enclosed mass, potential, forces and second derivatives are closed-form,
+  with series where the closed forms lose precision, and are accurate to
+  ~1e-14 throughout. The truncation radius can depend on time (``tgrid=``,
+  with ``rc`` sampled on it: a not-a-knot cubic spline, held at its end values
+  outside the grid), for example for a satellite that is stripped from the
+  outside in, used as the ``pot`` of a ``MovingObjectPotential``. Both have
+  C implementations (orbits and ``integrate_dxdv``).
+
 - Integrating many orbits in C no longer crashes with a segmentation fault
   when the output has more than 2^31-1 elements, i.e., when the number of
   orbits times the number of times times the phase-space dimension exceeds
