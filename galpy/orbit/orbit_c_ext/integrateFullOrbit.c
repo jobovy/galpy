@@ -834,7 +834,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->rforce= &TruncatedTwoPowerSphericalPotentialrforce;
       potentialArgs->r2deriv= &TruncatedTwoPowerSphericalPotentialr2deriv;
       potentialArgs->rdens= &TruncatedTwoPowerSphericalPotentialrdens;
-      // amp, a, k, n, Nt, then rt (Nt = 0) or tgrid and 4 (Nt-1) spline coefficients
+      // amp, a, k, n, Nt, then rc (Nt = 0) or tgrid and 4 (Nt-1) spline coefficients
       potentialArgs->nargs= (int) ( *(*pot_args+4) == 0 ? 6
         : 5 + *(*pot_args+4) + 4 * ( *(*pot_args+4) - 1 ) );
       potentialArgs->ntfuncs= 0;

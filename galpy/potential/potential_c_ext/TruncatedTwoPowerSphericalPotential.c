@@ -4,10 +4,10 @@
 #define M_PI 3.14159265358979323846
 #endif
 //TruncatedTwoPowerSphericalPotential: NFW (k=2) and Hernquist (k=3) profiles
-//with the Baltz, Marshall & Oguri (2009) truncation (rt^2/(rt^2+r^2))^n.
+//with the Baltz, Marshall & Oguri (2009) truncation (rc^2/(rc^2+r^2))^n.
 //Mirrors TruncatedTwoPowerSphericalPotential.py, which has the derivation.
-//Arguments: amp, a, k, n, Nt, then either rt (Nt = 0) or tgrid[Nt] followed
-//by the power-basis coefficients of rt(t)'s not-a-knot cubic spline, four per
+//Arguments: amp, a, k, n, Nt, then either rc (Nt = 0) or tgrid[Nt] followed
+//by the power-basis coefficients of rc(t)'s not-a-knot cubic spline, four per
 //interval (highest power first).
 #define TTPS_SMALL_X 0.1
 #define TTPS_LARGE_X 10.0
@@ -175,8 +175,8 @@ static double ttps_H(double x, double tau, int k, int n) {
     return ttps_H_series(x, tau, k, n);
   return ttps_H_closed(x, tau, k, n);
 }
-// rt(t): the spline held at its end values outside tgrid
-static double ttps_rt(double t, double *args) {
+// rc(t): the spline held at its end values outside tgrid
+static double ttps_rc(double t, double *args) {
   int Nt = (int) *(args + 4);
   double *tgrid, *c, dt;
   int lo, hi, mid;
@@ -206,7 +206,7 @@ double TruncatedTwoPowerSphericalPotentialrdens(
   double *args = potentialArgs->args;
   double a = *(args + 1);
   int k = (int) *(args + 2), n = (int) *(args + 3);
-  double tau = ttps_rt(t, args) / a, x = r / a;
+  double tau = ttps_rc(t, args) / a, x = r / a;
   return pow(1.0 + (x / tau) * (x / tau), -n) / (x * pow(1.0 + x, k)) /
          (4.0 * M_PI * a * a * a);
 }
@@ -215,7 +215,7 @@ double TruncatedTwoPowerSphericalPotentialrevaluate(
   double *args = potentialArgs->args;
   double a = *(args + 1);
   int k = (int) *(args + 2), n = (int) *(args + 3);
-  double tau = ttps_rt(t, args) / a, x = r / a;
+  double tau = ttps_rc(t, args) / a, x = r / a;
   return -(ttps_Fx(x, tau, k, n, 1) + ttps_H(x, tau, k, n)) / a;
 }
 double TruncatedTwoPowerSphericalPotentialrforce(
@@ -223,7 +223,7 @@ double TruncatedTwoPowerSphericalPotentialrforce(
   double *args = potentialArgs->args;
   double a = *(args + 1);
   int k = (int) *(args + 2), n = (int) *(args + 3);
-  double tau = ttps_rt(t, args) / a, x = r / a;
+  double tau = ttps_rc(t, args) / a, x = r / a;
   return -ttps_Fx(x, tau, k, n, 2) / (a * a);
 }
 double TruncatedTwoPowerSphericalPotentialr2deriv(
@@ -231,7 +231,7 @@ double TruncatedTwoPowerSphericalPotentialr2deriv(
   double *args = potentialArgs->args;
   double a = *(args + 1);
   int k = (int) *(args + 2), n = (int) *(args + 3);
-  double tau = ttps_rt(t, args) / a, x = r / a;
+  double tau = ttps_rc(t, args) / a, x = r / a;
   double mu = tau < 1.0 ? tau : 1.0, D[TTPS_NSERIES + 1], u, P;
   int m;
   if (x < TTPS_SMALL_X * mu) {

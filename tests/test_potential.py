@@ -6146,7 +6146,7 @@ def test_ExpTruncNFW_from_nfw():
 # (F, H, d2Phi/dr2) for a = amp = 1 from 40-digit mpmath quadratures of the
 # density: the enclosed mass / amp, the outer-potential integral
 # int_x^inf 4 pi r rho dr / (amp/a), and w(x)/(x(1+x)^k) - 2F/x^3, keyed by
-# (k, n, rt/a), at x = r/a in _TRUNC_GOLD_X
+# (k, n, rc/a), at x = r/a in _TRUNC_GOLD_X
 _TRUNC_GOLD_X = (1e-6, 0.03, 0.4, 2.0, 50.0, 1e4)
 _TRUNC_GOLD = {
     (2, 1, 0.5): [
@@ -6302,13 +6302,13 @@ _TRUNC_GOLD = {
 )
 def test_TruncatedTwoPower_vs_quadrature(cls, k):
     # The enclosed mass against quadrature of the density, and the potential
-    # against -G M(<r)/r - G int_r^inf 4 pi r' rho dr', for r << a, r ~ a, r << rt
-    # and r >> rt, and truncations well inside and well outside a: both series
+    # against -G M(<r)/r - G int_r^inf 4 pi r' rho dr', for r << a, r ~ a, r << rc
+    # and r >> rc, and truncations well inside and well outside a: both series
     # regimes and the closed form in between
     amp, a = 1.7, 0.6
     for n in (1, 2, 3):
         for tau in (0.5, 3.0, 100.0):
-            p = cls(amp=amp, a=a, rt=tau * a, n=n)
+            p = cls(amp=amp, a=a, rc=tau * a, n=n)
             for x, (F, H, r2) in zip(_TRUNC_GOLD_X, _TRUNC_GOLD[(k, n, tau)]):
                 r = x * a
                 for got, want, what in (
@@ -6319,22 +6319,22 @@ def test_TruncatedTwoPower_vs_quadrature(cls, k):
                 ):
                     tol = 1e-12 if what == "r2deriv" else 1e-13
                     assert numpy.fabs(got / want - 1.0) < tol, (
-                        f"{cls.__name__} n={n} rt/a={tau} r/a={x}: {what} off by "
+                        f"{cls.__name__} n={n} rc/a={tau} r/a={x}: {what} off by "
                         f"{numpy.fabs(got / want - 1.0):g}"
                     )
     return None
 
 
 def test_TruncatedTwoPower_untruncated_limit():
-    # rt -> infinity recovers NFWPotential and HernquistPotential with the same
-    # amp convention (the NFW potential differs by O(a/rt): 1e-16 here)
+    # rc -> infinity recovers NFWPotential and HernquistPotential with the same
+    # amp convention (the NFW potential differs by O(a/rc): 1e-16 here)
     for cls, ref in (
         (potential.TruncatedNFWPotential, potential.NFWPotential),
         (potential.TruncatedHernquistPotential, potential.HernquistPotential),
     ):
         q = ref(amp=1.3, a=0.8)
         for n in (1, 2):
-            p = cls(amp=1.3, a=0.8, rt=1e16, n=n)
+            p = cls(amp=1.3, a=0.8, rc=1e16, n=n)
             for R, z in ((1e-4, 0.0), (0.5, 0.3), (3.0, -1.0), (40.0, 5.0)):
                 for f in (
                     "__call__",
@@ -6390,7 +6390,7 @@ def test_TruncatedTwoPower_series_switches():
 
 def test_TruncatedTwoPower_c_vs_python():
     # C orbits match the Python ones inside the small-r series (r < 0.1 a) and
-    # across the outer integral's series switch (r = 10 max(a, rt) = 10); C
+    # across the outer integral's series switch (r = 10 max(a, rc) = 10); C
     # conserves energy through a near-radial plunge to r < 0.01 a and out past
     # r = 10; integrate_dxdv in C matches central differences of the C orbits.
     # The Python orbits are short: under a forced backend they step eagerly
@@ -6398,7 +6398,7 @@ def test_TruncatedTwoPower_c_vs_python():
 
     for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
         for n in (1, 2):
-            p = cls(amp=1.5, a=0.8, rt=1.0, n=n)
+            p = cls(amp=1.5, a=0.8, rc=1.0, n=n)
             for ic, tmax, in_regime in (
                 ([0.06, 0.05, 0.2, 0.02, 0.1, 0.0], 1.5, lambda r: r.max() < 0.08),
                 (
@@ -6422,7 +6422,7 @@ def test_TruncatedTwoPower_c_vs_python():
             ts = numpy.linspace(0.0, 10.0, 1001)
             for ic in (
                 [1.0, -0.8, 1e-4, 0.0, 0.0, 0.0],  # plunges to r < 0.01 a
-                [3.0, 1.4, 0.3, 0.5, 0.4, 1.0],  # out to r > 10 rt
+                [3.0, 1.4, 0.3, 0.5, 0.4, 1.0],  # out to r > 10 rc
             ):
                 oc = Orbit(ic)
                 oc.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
@@ -6464,40 +6464,40 @@ def test_TruncatedTwoPower_c_vs_python():
     return None
 
 
-def test_TruncatedTwoPower_timedep():
-    # A time-dependent rt equals the static potential with that rt at each node,
+def test_TruncatedTwoPower_cimedep():
+    # A time-dependent rc equals the static potential with that rc at each node,
     # is held at its end values outside tgrid, and follows the not-a-knot cubic
-    # spline in between; mass(r, t) follows rt(t)
+    # spline in between; mass(r, t) follows rc(t)
     from scipy.interpolate import CubicSpline
 
     tgrid = numpy.linspace(0.0, 4.0, 9)
-    rts = 2.0 + numpy.sin(tgrid)
-    spl = CubicSpline(tgrid, rts, bc_type="not-a-knot")
+    rcs = 2.0 + numpy.sin(tgrid)
+    spl = CubicSpline(tgrid, rcs, bc_type="not-a-knot")
     for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
-        p = cls(amp=1.3, a=0.7, rt=rts, n=2, tgrid=tgrid)
-        for t, rt in list(zip(tgrid, rts)) + [
-            (-3.0, rts[0]),
-            (7.0, rts[-1]),
+        p = cls(amp=1.3, a=0.7, rc=rcs, n=2, tgrid=tgrid)
+        for t, rc in list(zip(tgrid, rcs)) + [
+            (-3.0, rcs[0]),
+            (7.0, rcs[-1]),
             (1.37, spl(1.37)),
             (3.9, spl(3.9)),
         ]:
-            q = cls(amp=1.3, a=0.7, rt=rt, n=2)
+            q = cls(amp=1.3, a=0.7, rc=rc, n=2)
             for R, z in ((0.01, 0.0), (0.5, 0.3), (3.0, -1.0), (40.0, 5.0)):
                 for f in ("__call__", "Rforce", "zforce", "dens", "R2deriv", "Rzderiv"):
                     got, want = getattr(p, f)(R, z, t=t), getattr(q, f)(R, z)
                     assert numpy.fabs(got - want) <= 1e-14 * numpy.fabs(want), (
                         f"{cls.__name__}: time-dependent {f} at t={t} does not "
-                        "match the static potential with rt(t)"
+                        "match the static potential with rc(t)"
                     )
             assert numpy.fabs(p.mass(2.5, t=t) / q.mass(2.5) - 1.0) < 1e-14
     return None
 
 
-def test_TruncatedTwoPower_timedep_movingobject():
+def test_TruncatedTwoPower_cimedep_movingobject():
     # A time-dependent kernel as the pot of a MovingObjectPotential: C and Python
-    # (odeint) orbits agree (rt linear in t, so the spline has no knots for the
+    # (odeint) orbits agree (rc linear in t, so the spline has no knots for the
     # adaptive step control to trip over), and the orbit converges (at second order) to
-    # one integrated through a piecewise-static construction with rt evaluated at
+    # one integrated through a piecewise-static construction with rc evaluated at
     # each segment's midpoint
     from galpy.orbit import Orbit
 
@@ -6506,9 +6506,9 @@ def test_TruncatedTwoPower_timedep_movingobject():
     tsat = numpy.linspace(-0.5, 3.5, 801)
     sat.integrate(tsat, host, method="dop853_c")
     tgrid = numpy.linspace(0.0, 3.0, 13)
-    rt0 = lambda t: 0.6 - 0.12 * t
+    rc0 = lambda t: 0.6 - 0.12 * t
     kern = potential.TruncatedHernquistPotential(
-        amp=0.05, a=0.1, rt=rt0(tgrid), n=1, tgrid=tgrid
+        amp=0.05, a=0.1, rc=rc0(tgrid), n=1, tgrid=tgrid
     )
     pot = host + potential.MovingObjectPotential(sat, pot=kern)
     ic = [1.2, 0.1, 1.0, 0.1, 0.0, 0.3]
@@ -6525,7 +6525,7 @@ def test_TruncatedTwoPower_timedep_movingobject():
         vxvv = ic
         for t0, t1 in zip(tb[:-1], tb[1:]):
             k = potential.TruncatedHernquistPotential(
-                amp=0.05, a=0.1, rt=rt0(0.5 * (t0 + t1)), n=1
+                amp=0.05, a=0.1, rc=rc0(0.5 * (t0 + t1)), n=1
             )
             o = Orbit(vxvv)
             o.integrate(
@@ -6549,7 +6549,7 @@ def test_TruncatedTwoPower_pickle_and_errors():
 
     tgrid = numpy.linspace(0.0, 2.0, 5)
     p = potential.TruncatedNFWPotential(
-        amp=1.1, a=0.5, rt=1.0 + tgrid, n=2, tgrid=tgrid
+        amp=1.1, a=0.5, rc=1.0 + tgrid, n=2, tgrid=tgrid
     )
     q = pickle.loads(pickle.dumps(p))
     assert q.Rforce(0.8, 0.1, t=0.7) == p.Rforce(0.8, 0.1, t=0.7)
@@ -6558,9 +6558,9 @@ def test_TruncatedTwoPower_pickle_and_errors():
     with pytest.raises(ValueError, match="positive integer"):
         potential.TruncatedHernquistPotential(n=0)
     with pytest.raises(ValueError, match="one value per tgrid time"):
-        potential.TruncatedNFWPotential(rt=[1.0, 2.0], tgrid=tgrid)
+        potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=tgrid)
     with pytest.raises(ValueError, match="strictly increasing"):
-        potential.TruncatedNFWPotential(rt=[1.0, 2.0], tgrid=[1.0, 0.0])
+        potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=[1.0, 0.0])
     return None
 
 
@@ -16272,7 +16272,7 @@ def test_special_pow_or_inf():
 
 class mockTruncatedNFWPotentialn2(potential.TruncatedNFWPotential):
     def __init__(self):
-        potential.TruncatedNFWPotential.__init__(self, amp=1.3, a=0.7, rt=1.5, n=2)
+        potential.TruncatedNFWPotential.__init__(self, amp=1.3, a=0.7, rc=1.5, n=2)
 
 
 class mockTimeDependentTruncatedHernquistPotential(
@@ -16281,5 +16281,5 @@ class mockTimeDependentTruncatedHernquistPotential(
     def __init__(self):
         tgrid = numpy.linspace(-1.0, 3.0, 9)
         potential.TruncatedHernquistPotential.__init__(
-            self, amp=1.3, a=0.7, rt=1.5 + 0.5 * numpy.sin(tgrid), n=1, tgrid=tgrid
+            self, amp=1.3, a=0.7, rc=1.5 + 0.5 * numpy.sin(tgrid), n=1, tgrid=tgrid
         )

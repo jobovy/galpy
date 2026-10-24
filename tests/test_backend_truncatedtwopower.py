@@ -5,10 +5,10 @@
 #
 # numpy / jax / torch value parity in every regime (the small-r Taylor series,
 # the closed form, the outer integral's asymptotic series); derivatives with
-# respect to a, rt and the tabulated rt(t) values against finite differences,
+# respect to a, rc and the tabulated rc(t) values against finite differences,
 # jit-clean (jitted == eager, finite on both sides of every switch); and the
 # gradient of an orbit through a MovingObjectPotential driven by a
-# time-dependent kernel with respect to its rt table.
+# time-dependent kernel with respect to its rc table.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -43,11 +43,11 @@ except ImportError:  # pragma: no cover
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 CLASSES = [TruncatedNFWPotential, TruncatedHernquistPotential]
 
-# a = 0.6, rt = 1.7: the series below r = 0.06 and the outer series beyond
+# a = 0.6, rc = 1.7: the series below r = 0.06 and the outer series beyond
 # r = 17, so these points cover all three regimes
 _PTS = [(1e-6, 1e-6), (0.03, 0.02), (0.7, 0.3), (3.0, -1.0), (80.0, 20.0)]
 _TGRID = numpy.linspace(0.0, 4.0, 9)
-_RTS = 2.0 + numpy.sin(_TGRID)
+_RCS = 2.0 + numpy.sin(_TGRID)
 _METHODS = ["__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv", "dens"]
 
 
@@ -61,8 +61,8 @@ def _asarray(backend_name, x):
 
 def _kwargs(tdep, backend_name="numpy"):
     if tdep:
-        return dict(rt=_asarray(backend_name, _RTS), n=1, tgrid=_TGRID)
-    return dict(rt=1.7, n=2)
+        return dict(rc=_asarray(backend_name, _RCS), n=1, tgrid=_TGRID)
+    return dict(rc=1.7, n=2)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -108,12 +108,12 @@ def _grad(backend_name, f, *args):
 @pytest.mark.parametrize("cls", CLASSES)
 @pytest.mark.parametrize("n", [1, 2])
 def test_param_grad_vs_fd(backend_name, cls, n):
-    # d/da and d/drt of the potential and the radial force, in every regime,
+    # d/da and d/drc of the potential and the radial force, in every regime,
     # against central differences
     h = 1e-6
     for R, z in _PTS:
         for m in ("__call__", "Rforce", "R2deriv"):
-            f = lambda a, rt: getattr(cls(amp=1.2, a=a, rt=rt, n=n), m)(R, z)
+            f = lambda a, rc: getattr(cls(amp=1.2, a=a, rc=rc, n=n), m)(R, z)
             ga, grt = _grad(backend_name, f, 0.6, 1.7)
             fd_a = (f(0.6 + h, 1.7) - f(0.6 - h, 1.7)) / (2 * h)
             fd_rt = (f(0.6, 1.7 + h) - f(0.6, 1.7 - h)) / (2 * h)
@@ -122,7 +122,7 @@ def test_param_grad_vs_fd(backend_name, cls, n):
                 f"{cls.__name__} n={n} d{m}/da at R={R}: AD {ga} FD {fd_a}"
             )
             assert numpy.fabs(grt - fd_rt) < 1e-7 * scale, (
-                f"{cls.__name__} n={n} d{m}/drt at R={R}: AD {grt} FD {fd_rt}"
+                f"{cls.__name__} n={n} d{m}/drc at R={R}: AD {grt} FD {fd_rt}"
             )
     return None
 
@@ -138,16 +138,16 @@ def test_jit_grad_matches_eager(cls):
         _SMALL_X,
     )
 
-    a, rt = 0.6, 1.7
+    a, rc = 0.6, 1.7
     xs = [_SMALL_X * a * (1 - 1e-9), _SMALL_X * a * (1 + 1e-9)]
-    xs += [_LARGE_X * rt * (1 - 1e-9), _LARGE_X * rt * (1 + 1e-9), 1e-9, 1e6]
+    xs += [_LARGE_X * rc * (1 - 1e-9), _LARGE_X * rc * (1 + 1e-9), 1e-9, 1e6]
     for r in xs:
-        f = lambda a, rt: (
-            cls(amp=1.2, a=a, rt=rt, n=2).Rforce(r, 0.0)
-            + cls(amp=1.2, a=a, rt=rt, n=2)(r, 0.0)
+        f = lambda a, rc: (
+            cls(amp=1.2, a=a, rc=rc, n=2).Rforce(r, 0.0)
+            + cls(amp=1.2, a=a, rc=rc, n=2)(r, 0.0)
         )
-        eager = jax.grad(f, argnums=(0, 1))(jnp.float64(a), jnp.float64(rt))
-        jitted = jax.jit(jax.grad(f, argnums=(0, 1)))(jnp.float64(a), jnp.float64(rt))
+        eager = jax.grad(f, argnums=(0, 1))(jnp.float64(a), jnp.float64(rc))
+        jitted = jax.jit(jax.grad(f, argnums=(0, 1)))(jnp.float64(a), jnp.float64(rc))
         for e, j in zip(eager, jitted):
             assert numpy.isfinite(float(e))
             # XLA reorders the arithmetic under jit: tens of ulps
@@ -158,22 +158,22 @@ def test_jit_grad_matches_eager(cls):
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 @pytest.mark.parametrize("cls", CLASSES)
 def test_timedep_table_grad_vs_fd(backend_name, cls):
-    # the derivative with respect to the tabulated rt values (through the
+    # the derivative with respect to the tabulated rc values (through the
     # backend's not-a-knot spline solve) against central differences
     h = 1e-6
     for t in (0.0, 1.3, 3.9, 6.0):
-        f = lambda rv: cls(amp=1.2, a=0.6, rt=rv, n=1, tgrid=_TGRID).Rforce(
+        f = lambda rv: cls(amp=1.2, a=0.6, rc=rv, n=1, tgrid=_TGRID).Rforce(
             0.7, 0.3, t=t
         )
-        (g,) = _grad(backend_name, f, _RTS)
+        (g,) = _grad(backend_name, f, _RCS)
         fd = numpy.array(
             [
-                (f(_RTS + h * e) - f(_RTS - h * e)) / (2 * h)
-                for e in numpy.eye(len(_RTS))
+                (f(_RCS + h * e) - f(_RCS - h * e)) / (2 * h)
+                for e in numpy.eye(len(_RCS))
             ]
         )
         assert numpy.amax(numpy.fabs(g - fd)) < 1e-7 * numpy.amax(numpy.fabs(fd)), (
-            f"{cls.__name__}: d Rforce / d rt-table at t={t} on {backend_name}"
+            f"{cls.__name__}: d Rforce / d rc-table at t={t} on {backend_name}"
         )
         if t > _TGRID[-1]:  # held at the last value: only it matters (the
             # last interval's polynomial reproduces it to round-off)
@@ -184,7 +184,7 @@ def test_timedep_table_grad_vs_fd(backend_name, cls):
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_movingobject_timedep_orbit_grad():
     # jax.grad of an orbit's final position through a MovingObjectPotential whose
-    # kernel has a time-dependent rt, with respect to the rt table and to a,
+    # kernel has a time-dependent rc, with respect to the rc table and to a,
     # against central differences of C orbits
     from galpy import potential
     from galpy.orbit import Orbit
@@ -193,12 +193,12 @@ def test_movingobject_timedep_orbit_grad():
     sat = Orbit([1.5, 0.0, 0.9, 0.2, 0.1, 0.0])
     sat.integrate(numpy.linspace(-0.5, 1.5, 401), host, method="dop853_c")
     tg = numpy.linspace(0.0, 1.0, 4)
-    rts = 0.6 - 0.1 * tg
+    rcs = 0.6 - 0.1 * tg
     ts = numpy.linspace(0.0, 1.0, 11)
     ic = numpy.array([1.2, 0.1, 1.0, 0.1, 0.0, 0.3])
 
     def final_x(rv, a=0.1, method="diffrax"):
-        kern = TruncatedHernquistPotential(amp=0.05, a=a, rt=rv, n=1, tgrid=tg)
+        kern = TruncatedHernquistPotential(amp=0.05, a=a, rc=rv, n=1, tgrid=tg)
         o = Orbit(jnp.asarray(ic) if method == "diffrax" else ic)
         o.integrate(
             ts,
@@ -209,21 +209,21 @@ def test_movingobject_timedep_orbit_grad():
         )
         return o.x(ts[-1])
 
-    g_rt, g_a = jax.grad(final_x, argnums=(0, 1))(jnp.asarray(rts), jnp.float64(0.1))
+    g_rt, g_a = jax.grad(final_x, argnums=(0, 1))(jnp.asarray(rcs), jnp.float64(0.1))
     h = 1e-5
     fd_rt = numpy.array(
         [
             (
-                final_x(rts + h * e, method="dop853_c")
-                - final_x(rts - h * e, method="dop853_c")
+                final_x(rcs + h * e, method="dop853_c")
+                - final_x(rcs - h * e, method="dop853_c")
             )
             / (2 * h)
-            for e in numpy.eye(len(rts))
+            for e in numpy.eye(len(rcs))
         ]
     )
     fd_a = (
-        final_x(rts, a=0.1 + h, method="dop853_c")
-        - final_x(rts, a=0.1 - h, method="dop853_c")
+        final_x(rcs, a=0.1 + h, method="dop853_c")
+        - final_x(rcs, a=0.1 - h, method="dop853_c")
     ) / (2 * h)
     scale = max(numpy.amax(numpy.fabs(fd_rt)), numpy.fabs(fd_a))
     assert numpy.amax(numpy.fabs(as_numpy(g_rt) - fd_rt)) < 1e-5 * scale

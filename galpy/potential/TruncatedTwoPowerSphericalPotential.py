@@ -25,8 +25,8 @@ from ..util import conversion
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
 
-# x = r/a below _SMALL_X min(1, rt/a): Taylor series (the closed form cancels);
-# x above _LARGE_X max(1, rt/a): asymptotic series for the outer integral
+# x = r/a below _SMALL_X min(1, rc/a): Taylor series (the closed form cancels);
+# x above _LARGE_X max(1, rc/a): asymptotic series for the outer integral
 _SMALL_X = 0.1
 _LARGE_X = 10.0
 # orders kept in both series: < 1e-15 relative at the switches
@@ -235,7 +235,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
 
     .. math::
 
-        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{k}}\,\left(\frac{r_t^2}{r_t^2+r^2}\right)^n\,,
+        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{k}}\,\left(\frac{r_c^2}{r_c^2+r^2}\right)^n\,,
 
     with :math:`k = 2` (NFW) or :math:`k = 3` (Hernquist). Use
     :class:`TruncatedNFWPotential` or :class:`TruncatedHernquistPotential`.
@@ -253,7 +253,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         self,
         amp=1.0,
         a=1.0,
-        rt=10.0,
+        rc=10.0,
         n=1,
         tgrid=None,
         normalize=False,
@@ -269,8 +269,8 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         if self._tdep:
             if isinstance(tgrid, (list, tuple)):
                 tgrid = numpy.asarray(tgrid, dtype=float)
-            if isinstance(rt, (list, tuple)):
-                rt = numpy.asarray(rt, dtype=float)
+            if isinstance(rc, (list, tuple)):
+                rc = numpy.asarray(rc, dtype=float)
             tgrid = numpy.asarray(
                 conversion.parse_time(tgrid, ro=self._ro, vo=self._vo)
             )
@@ -278,46 +278,46 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
                 raise ValueError(
                     "tgrid= must be a strictly increasing 1D array of >= 2 times"
                 )
-            rt = conversion.parse_length(rt, ro=self._ro)
-            if is_backend_array(rt):
-                if rt.shape != tgrid.shape:
-                    raise ValueError("rt= must have one value per tgrid time")
+            rc = conversion.parse_length(rc, ro=self._ro)
+            if is_backend_array(rc):
+                if rc.shape != tgrid.shape:
+                    raise ValueError("rc= must have one value per tgrid time")
             else:
-                rt = numpy.asarray(rt, dtype=float)
-                if rt.shape != tgrid.shape:
-                    raise ValueError("rt= must have one value per tgrid time")
+                rc = numpy.asarray(rc, dtype=float)
+                if rc.shape != tgrid.shape:
+                    raise ValueError("rc= must have one value per tgrid time")
         else:
-            rt = conversion.parse_length(rt, ro=self._ro)
+            rc = conversion.parse_length(rc, ro=self._ro)
         # Under a forced backend these arrive as plain floats; coerce them so the
         # potential is built ON the forced backend (a strict pass-through on
-        # numpy). A backend a with a numpy rt table (or the reverse) takes the
+        # numpy). A backend a with a numpy rc table (or the reverse) takes the
         # backend's namespace, which get_namespace refuses to mix.
-        backend_pars = [v for v in (a, rt) if is_backend_array(v)]
+        backend_pars = [v for v in (a, rc) if is_backend_array(v)]
         xp = (
             namespace_from_arrays(backend_pars)
             if backend_pars
-            else get_namespace(a, rt)
+            else get_namespace(a, rc)
         )
-        a, rt = coerce_coords(xp, a, rt)
+        a, rc = coerce_coords(xp, a, rc)
         self.a = a
         self._scale = self.a
         if self._tdep:
             self._tgrid = tgrid
-            self._rt_grid = rt
+            self._rc_grid = rc
             # only the not-a-knot spline's power-basis coefficients are kept
             # (scipy splines do not pickle), evaluated by eval_ppoly on every
             # path -- the same Horner arithmetic as the C implementation
-            if is_backend_array(rt):
-                self._rt_c = cubic_spline_coeffs(
-                    get_namespace(rt), tgrid, rt, bc="not-a-knot"
+            if is_backend_array(rc):
+                self._rc_c = cubic_spline_coeffs(
+                    get_namespace(rc), tgrid, rc, bc="not-a-knot"
                 )
             else:
-                self._rt_c = _scipy_interpolate.CubicSpline(
-                    tgrid, rt, bc_type="not-a-knot"
+                self._rc_c = _scipy_interpolate.CubicSpline(
+                    tgrid, rc, bc_type="not-a-knot"
                 ).c
-            self.rt = None
+            self.rc = None
         else:
-            self.rt = rt
+            self.rc = rc
         if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
@@ -327,37 +327,37 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         self._backend_compatible = True
         return None
 
-    def _rt(self, t):
+    def _rc(self, t):
         """The truncation radius at time t (held constant outside tgrid)"""
         if not self._tdep:
-            return self.rt
-        arrs = [v for v in (self._rt_c, t) if is_backend_array(v)]
+            return self.rc
+        arrs = [v for v in (self._rc_c, t) if is_backend_array(v)]
         if not arrs:
             return eval_ppoly(
                 numpy,
                 self._tgrid,
-                self._rt_c,
+                self._rc_c,
                 numpy.asarray(t, dtype=float),
                 extrapolate="clip",
             )
         xp = namespace_from_arrays(arrs)
         if not is_backend_array(t):
             t = asarray_on_device(xp, numpy.asarray(t, dtype=float), device_of(arrs[0]))
-        return eval_ppoly(xp, self._tgrid, self._rt_c, t * 1.0, extrapolate="clip")
+        return eval_ppoly(xp, self._tgrid, self._rc_c, t * 1.0, extrapolate="clip")
 
     def _xp_x_tau(self, r, t):
-        """(xp, x, tau, mu, nu): x = r/a and tau = rt(t)/a in one namespace,
+        """(xp, x, tau, mu, nu): x = r/a and tau = rc(t)/a in one namespace,
         mu = min(1, tau) and nu = max(1, tau)"""
-        rt = self._rt(t)
-        arrs = [v for v in (r, self.a, rt) if is_backend_array(v)]
+        rc = self._rc(t)
+        arrs = [v for v in (r, self.a, rc) if is_backend_array(v)]
         xp = namespace_from_arrays(arrs) if arrs else numpy
         if xp is not numpy and not is_backend_array(r):
             r = asarray_on_device(xp, numpy.asarray(r, dtype=float), device_of(arrs[0]))
         r = xp.asarray(r) * 1.0
         a = scalar_like(r, self.a)
-        # tau on r's shape, namespace and dtype (a plain-float rt otherwise stays
+        # tau on r's shape, namespace and dtype (a plain-float rc otherwise stays
         # a Python float, which torch's elementwise ops reject)
-        tau = (xp.zeros_like(r) + scalar_like(r, rt)) / a
+        tau = (xp.zeros_like(r) + scalar_like(r, rc)) / a
         return xp, r / a, tau, xp.clip(tau, None, 1.0), xp.clip(tau, 1.0, None)
 
     def _Fx(self, xp, x, tau, mu, p):
@@ -430,12 +430,12 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         )
 
     def _c_args(self):
-        """The arguments of the C implementation: amp, a, k, n, Nt, then rt
+        """The arguments of the C implementation: amp, a, k, n, Nt, then rc
         (static) or tgrid and the not-a-knot spline's coefficients"""
         args = [self._amp, self.a, self._k, self._n]
         if not self._tdep:
-            return args + [0, self.rt]
-        c = as_numpy(self._rt_c)
+            return args + [0, self.rc]
+        c = as_numpy(self._rc_c)
         return (
             args
             + [len(self._tgrid)]
@@ -450,10 +450,10 @@ class TruncatedNFWPotential(TruncatedTwoPowerSphericalPotential):
 
     .. math::
 
-        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{2}}\,\left(\frac{r_t^2}{r_t^2+r^2}\right)^n\,,
+        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{2}}\,\left(\frac{r_c^2}{r_c^2+r^2}\right)^n\,,
 
     the :ref:`NFW <nfw>` profile with an outer fall-off steeper by
-    :math:`r^{-2n}` beyond the truncation radius :math:`r_t`, which can depend
+    :math:`r^{-2n}` beyond the truncation radius :math:`r_c`, which can depend
     on time. The enclosed mass and the potential are closed-form (logarithms,
     arctangents and rational functions) for any integer :math:`n \geq 1`,
     with series expansions where the closed forms lose precision (small
@@ -469,7 +469,7 @@ class TruncatedNFWPotential(TruncatedTwoPowerSphericalPotential):
         self,
         amp=1.0,
         a=1.0,
-        rt=10.0,
+        rc=10.0,
         n=1,
         tgrid=None,
         normalize=False,
@@ -482,15 +482,15 @@ class TruncatedNFWPotential(TruncatedTwoPowerSphericalPotential):
         Parameters
         ----------
         amp : float or Quantity, optional
-            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass. This is the NFW mass-scale :math:`4\\pi\\,\\rho_s\\,a^3`, matching the ``amp`` convention of :ref:`NFWPotential <nfw>` (as :math:`r_t \\to \\infty` the two potentials coincide for equal ``amp`` and ``a``).
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass. This is the NFW mass-scale :math:`4\\pi\\,\\rho_s\\,a^3`, matching the ``amp`` convention of :ref:`NFWPotential <nfw>` (as :math:`r_c \\to \\infty` the two potentials coincide for equal ``amp`` and ``a``).
         a : float or Quantity, optional
             Scale radius.
-        rt : float, Quantity, or array, optional
+        rc : float, Quantity, or array, optional
             Truncation radius; with ``tgrid``, its values at the ``tgrid`` times.
         n : int, optional
             Exponent of the truncation (a positive integer; default: 1).
         tgrid : numpy.ndarray or Quantity, optional
-            Times at which ``rt`` is given, for a time-dependent truncation radius. ``rt(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_t` changes.
+            Times at which ``rc`` is given, for a time-dependent truncation radius. ``rc(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. (at t=0).
         ro : float or Quantity, optional
@@ -508,7 +508,7 @@ class TruncatedNFWPotential(TruncatedTwoPowerSphericalPotential):
             self,
             amp=amp,
             a=a,
-            rt=rt,
+            rc=rc,
             n=n,
             tgrid=tgrid,
             normalize=normalize,
@@ -523,10 +523,10 @@ class TruncatedHernquistPotential(TruncatedTwoPowerSphericalPotential):
 
     .. math::
 
-        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{3}}\,\left(\frac{r_t^2}{r_t^2+r^2}\right)^n\,,
+        \rho(r) = \frac{\mathrm{amp}}{4\,\pi\,a^3}\,\frac{1}{(r/a)\,(1+r/a)^{3}}\,\left(\frac{r_c^2}{r_c^2+r^2}\right)^n\,,
 
     the :ref:`Hernquist <hernquist>` profile with an outer fall-off steeper by
-    :math:`r^{-2n}` beyond the truncation radius :math:`r_t`, which can depend
+    :math:`r^{-2n}` beyond the truncation radius :math:`r_c`, which can depend
     on time. The enclosed mass and the potential are closed-form (logarithms,
     arctangents and rational functions) for any integer :math:`n \geq 1`,
     with series expansions where the closed forms lose precision (small
@@ -542,7 +542,7 @@ class TruncatedHernquistPotential(TruncatedTwoPowerSphericalPotential):
         self,
         amp=1.0,
         a=1.0,
-        rt=10.0,
+        rc=10.0,
         n=1,
         tgrid=None,
         normalize=False,
@@ -555,15 +555,15 @@ class TruncatedHernquistPotential(TruncatedTwoPowerSphericalPotential):
         Parameters
         ----------
         amp : float or Quantity, optional
-            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass. This matches the ``amp`` convention of :ref:`HernquistPotential <hernquist>` (as :math:`r_t \\to \\infty` the two potentials coincide for equal ``amp`` and ``a``; the untruncated total mass is amp/2).
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass. This matches the ``amp`` convention of :ref:`HernquistPotential <hernquist>` (as :math:`r_c \\to \\infty` the two potentials coincide for equal ``amp`` and ``a``; the untruncated total mass is amp/2).
         a : float or Quantity, optional
             Scale radius.
-        rt : float, Quantity, or array, optional
+        rc : float, Quantity, or array, optional
             Truncation radius; with ``tgrid``, its values at the ``tgrid`` times.
         n : int, optional
             Exponent of the truncation (a positive integer; default: 1).
         tgrid : numpy.ndarray or Quantity, optional
-            Times at which ``rt`` is given, for a time-dependent truncation radius. ``rt(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_t` changes.
+            Times at which ``rc`` is given, for a time-dependent truncation radius. ``rc(t)`` is a not-a-knot cubic spline through the given values and is held at the end values outside ``tgrid``; ``amp`` and ``a`` do not change, so the inner profile stays fixed while the mass beyond :math:`r_c` changes.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. (at t=0).
         ro : float or Quantity, optional
@@ -581,7 +581,7 @@ class TruncatedHernquistPotential(TruncatedTwoPowerSphericalPotential):
             self,
             amp=amp,
             a=a,
-            rt=rt,
+            rc=rc,
             n=n,
             tgrid=tgrid,
             normalize=normalize,
