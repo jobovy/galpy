@@ -2013,7 +2013,8 @@ class Orbit:
             "diffrax",
             "torchdiffeq",
             "torchode",
-            "leapfrog_inbackend",
+            "leapfrog_jax",
+            "leapfrog_torch",
         ):
             # the same list -> CompositePotential conversion (and deprecation
             # warning) every other method gets below
@@ -2493,9 +2494,9 @@ class Orbit:
         in-backend solver (``max_steps``, ``solver``, ``adjoint`` -- see
         ``galpy.backend._reference.integrate_orbit``); e.g.
         ``{"adjoint": "direct", "max_steps": 4096}`` enables jax second derivatives.
-        method='leapfrog_inbackend' instead integrates with the constant-step
-        leapfrog (``galpy.backend._reference.integrate_orbit_leapfrog``), which
-        takes ``nsteps`` and ``nblock`` (or ``dt``) and ignores rtol/atol.
+        method='leapfrog_jax'/'leapfrog_torch' instead integrates with the
+        constant-step leapfrog (``galpy.backend._reference.integrate_orbit_leapfrog``),
+        which takes ``nsteps`` and ``nblock`` (or ``dt``) and ignores rtol/atol.
 
         Autodiff-friendly counterpart of the C/scipy integrators, selected by
         method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
@@ -2537,6 +2538,16 @@ class Orbit:
                 f"method='{method.lower()}' requires a torch initial condition; "
                 "use method='diffrax' for a jax initial condition"
             )
+        if method.lower() == "leapfrog_jax" and "jax" not in name:
+            raise ValueError(
+                "method='leapfrog_jax' requires a jax initial condition; use "
+                "method='leapfrog_torch' for a torch initial condition"
+            )
+        if method.lower() == "leapfrog_torch" and "torch" not in name:
+            raise ValueError(
+                "method='leapfrog_torch' requires a torch initial condition; use "
+                "method='leapfrog_jax' for a jax initial condition"
+            )
         if method.lower() == "torchode":
             _engine = {"engine": "torchode"}
         else:
@@ -2547,7 +2558,7 @@ class Orbit:
         # when differentiating w.r.t. the integration times or under jax.jit, so
         # the solver call stays inside the trace -- or a list/numpy array moved
         # onto the IC's backend.
-        _leapfrog = method.lower() == "leapfrog_inbackend"
+        _leapfrog = method.lower() in ("leapfrog_jax", "leapfrog_torch")
         if is_backend_array(t):
             ts = t
         else:
@@ -2570,7 +2581,7 @@ class Orbit:
             _lf = {k: _ibk.pop(k) for k in ("nsteps", "nblock") if k in _ibk}
             if _ibk:
                 raise ValueError(
-                    "method='leapfrog_inbackend' takes inbackend_kwargs 'nsteps' "
+                    f"method='{method.lower()}' takes inbackend_kwargs 'nsteps' "
                     f"and 'nblock', not {sorted(_ibk)}"
                 )
 
@@ -2603,7 +2614,8 @@ class Orbit:
             # each orbit its own saveat (vmap on jax, loop on torch). Either way the
             # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
             ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
-            ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
+            # (method reshape: the leapfrog keeps numpy times numpy)
+            ts_int = ts.reshape(-1, ts.shape[-1]) if per_orbit_t else ts
             result = integrate_orbit(
                 pot, ic2d, ts_int, rtol=_rtol, atol=_atol, **_engine, **_ibk
             )
@@ -2799,7 +2811,7 @@ class Orbit:
         progressbar : bool, optional
             If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
         dt : int or Quantity, optional
-            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize and for method='leapfrog_inbackend'). Can be Quantity.
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize and for method='leapfrog_jax'/'leapfrog_torch'). Can be Quantity.
         numcores : int, optional
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
         force_map : bool, optional
@@ -2809,7 +2821,7 @@ class Orbit:
         atol : float, optional
             Absolute tolerance. Default is None.
         inbackend_kwargs : dict, optional
-            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only, and forward mode (jax.jvp/jacfwd/hessian) switches to 'direct' automatically -- except for the jvp of a jax.jit-compiled function, where 'direct' must be passed. On a GPU, the 'recursive' adjoint recomputes the adaptive steps and needs that recomputation to round exactly as the forward solve did, which XLA's per-process autotuning does not guarantee: it can compile the forward solve's and the recompute's Runge-Kutta stage reduction with different fusion emitters, which round differently (gradients through an integration varied by ~6e-4 between runs on an H100). To make it deterministic, set the environment variable XLA_FLAGS=--xla_gpu_deterministic_ops=true before jax is first imported: either in the shell before starting Python (export XLA_FLAGS=--xla_gpu_deterministic_ops=true) or at the top of the script with os.environ['XLA_FLAGS'] = os.environ.get('XLA_FLAGS', '') + ' --xla_gpu_deterministic_ops=true' (appending keeps any flags already set). Setting it after jax has been imported has no effect. For method='leapfrog_inbackend': 'nsteps', the number of constant steps from t[0] to t[-1] (a multiple of len(t)-1, so every output time is a step; or give the step as dt), and 'nblock', the number of jax.checkpoint blocks the steps are split into (a divisor of nsteps that is a divisor or a multiple of len(t)-1; default: the largest such divisor not above max(sqrt(nsteps), len(t)-1)), so that reverse-mode derivatives store about nblock + nsteps/nblock steps instead of nsteps. Ignored by all other (C/scipy) methods.
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq'/'torchode', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only, and forward mode (jax.jvp/jacfwd/hessian) switches to 'direct' automatically -- except for the jvp of a jax.jit-compiled function, where 'direct' must be passed. On a GPU, the 'recursive' adjoint recomputes the adaptive steps and needs that recomputation to round exactly as the forward solve did, which XLA's per-process autotuning does not guarantee: it can compile the forward solve's and the recompute's Runge-Kutta stage reduction with different fusion emitters, which round differently (gradients through an integration varied by ~6e-4 between runs on an H100). To make it deterministic, set the environment variable XLA_FLAGS=--xla_gpu_deterministic_ops=true before jax is first imported: either in the shell before starting Python (export XLA_FLAGS=--xla_gpu_deterministic_ops=true) or at the top of the script with os.environ['XLA_FLAGS'] = os.environ.get('XLA_FLAGS', '') + ' --xla_gpu_deterministic_ops=true' (appending keeps any flags already set). Setting it after jax has been imported has no effect. For method='leapfrog_jax'/'leapfrog_torch': 'nsteps', the number of constant steps from t[0] to t[-1] (a multiple of len(t)-1, so every output time is a step; or give the step as dt), and 'nblock', the number of checkpointed blocks the steps are split into (a divisor of nsteps that is a divisor or a multiple of len(t)-1; default: the largest such divisor not above max(sqrt(nsteps), len(t)-1)), so that reverse-mode derivatives store about nblock + nsteps/nblock steps instead of nsteps. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
@@ -2832,7 +2844,7 @@ class Orbit:
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
           -  'diffrax' (jax), 'torchdiffeq' or 'torchode' (torch) for the in-backend differentiable ODE integrators; these require a jax/torch initial condition, and 'torchode' can be compiled with torch.compile
-          -  'leapfrog_inbackend' (jax) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for velocity-independent forces (a NonInertialFrameForce without rotation is allowed); requires a jax initial condition and equally-spaced times, and ignores rtol/atol
+          -  'leapfrog_jax' (jax) or 'leapfrog_torch' (torch) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for velocity-independent forces (a NonInertialFrameForce without rotation is allowed); requires a jax or torch initial condition, respectively, and equally-spaced times, and ignores rtol/atol
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
 

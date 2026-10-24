@@ -2153,34 +2153,40 @@ def test_integrate_timeAsQuantity_Myr():
 
 
 @pytest.mark.backend_managed
-@pytest.mark.skipif("jax" not in _BACKENDS, reason="jax not installed")
-def test_integrate_dtimeAsQuantity_leapfrog_inbackend():
-    # method='leapfrog_inbackend' (jax) takes a Quantity dt like the C
+@pytest.mark.parametrize("backend", _BACKENDS)
+def test_integrate_dtimeAsQuantity_leapfrog_inbackend(backend):
+    # method='leapfrog_jax'/'leapfrog_torch' take a Quantity dt like the C
     # integrators; here because tests/test_backend*.py runs without astropy
-    import jax
-
-    jax.config.update("jax_enable_x64", True)
-    import jax.numpy as jnp
-
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.util import conversion
 
     ro, vo = 8.0, 200.0
-    ic = jnp.asarray([[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.2, -0.1, 0.9, 0.0, 0.1, 1.0]])
+    ic = [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.2, -0.1, 0.9, 0.0, 0.1, 1.0]]
+    if backend == "jax":
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+        import jax.numpy as jnp
+
+        ic = jnp.asarray(ic)
+    else:
+        import torch
+
+        ic = torch.tensor(ic, dtype=torch.float64)
     ts = numpy.linspace(0.0, 1.0, 3)
     o = Orbit(ic, ro=ro, vo=vo)
     o.integrate(
         ts,
         MWPotential2014,
-        method="leapfrog_inbackend",
+        method=f"leapfrog_{backend}",
         dt=0.01 * conversion.time_in_Gyr(vo, ro) * units.Gyr,
     )
     on = Orbit(ic, ro=ro, vo=vo)
     on.integrate(
         ts,
         MWPotential2014,
-        method="leapfrog_inbackend",
+        method=f"leapfrog_{backend}",
         inbackend_kwargs={"nsteps": 100},
     )
     numpy.testing.assert_allclose(

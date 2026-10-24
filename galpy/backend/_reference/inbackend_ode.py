@@ -22,7 +22,7 @@
 #   transformed to/from ``Orbit`` order so they match ``Orbit``.
 #
 #   integrate_orbit_leapfrog: a constant-step kick-drift-kick leapfrog for
-#   velocity-independent forces (jax: galpy.backend._jax.orbit_leapfrog).
+#   velocity-independent forces (galpy.backend._jax|_torch.orbit_leapfrog).
 ###############################################################################
 import math
 
@@ -329,15 +329,16 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
     ----------
     pot : Potential, force or composite with only velocity-independent forces
         (a NonInertialFrameForce without rotation is allowed); backend-migrated.
-    vxvv : jax array of shape (phasedim,) or (N, phasedim), Orbit order (as for
-        ``integrate_orbit``). A float32 vxvv integrates in float32 throughout
+    vxvv : jax or torch array of shape (phasedim,) or (N, phasedim), Orbit order
+        (as for ``integrate_orbit``). A float32 vxvv integrates in float32 throughout
         (the times are cast to float32); any other dtype in float64.
     ts : output times, shape (nt,) with nt >= 2, equally spaced (checked when
         concrete; under a trace only ts[0] and ts[-1] are used).
     nsteps : int, the number of steps from ts[0] to ts[-1]: a multiple of
         nt - 1, so that every output time is a step.
     nblock : int, optional; the number of blocks of nsteps // nblock steps, each
-        under jax.checkpoint, so reverse mode stores ~nblock + nsteps // nblock
+        checkpointed (jax.checkpoint, torch.utils.checkpoint), so reverse mode
+        stores ~nblock + nsteps // nblock
         steps instead of nsteps. Must divide nsteps and be a divisor or a
         multiple of nt - 1. Default: the largest such divisor not above
         max(sqrt(nsteps), nt - 1).
@@ -346,14 +347,15 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
 
     Returns
     -------
-    jax array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
+    backend array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
     for a batch, the orbit(s) in Orbit order at ts.
     """
     xp = get_namespace(vxvv)
-    if name_of_namespace(xp) != "jax":
+    name = name_of_namespace(xp)
+    if name not in ("jax", "torch"):
         raise NotImplementedError(
-            "the in-backend leapfrog requires a jax initial condition; for torch "
-            "use method='torchode' or method='torchdiffeq'"
+            "the in-backend leapfrog requires a jax or torch initial condition; "
+            "for numpy use Orbit.integrate(method='leapfrog_c')"
         )
     if _velocity_dependent(pot):
         raise ValueError(
@@ -423,11 +425,16 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
     ts = (
         xp.astype(ts, vxvv.dtype)
         if is_backend_array(ts)
-        else numpy.asarray(ts, dtype=vxvv.dtype)
+        else numpy.asarray(
+            ts, dtype=numpy.float32 if vxvv.dtype == xp.float32 else numpy.float64
+        )
     )
     phasedim = vxvv.shape[-1]
     dim = 2 if phasedim == 2 else 6
-    from .._jax.orbit_leapfrog import integrate
+    if name == "jax":
+        from .._jax.orbit_leapfrog import integrate
+    else:
+        from .._torch.orbit_leapfrog import integrate
 
     ys = integrate(
         pot,
