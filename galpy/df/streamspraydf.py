@@ -303,6 +303,7 @@ class basestreamspraydf(df):
         velocity_weight="auto",
         custom_sky_transform=None,
         key=None,
+        method="pspline",
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -383,14 +384,20 @@ class basestreamspraydf(df):
         custom_sky_transform : array, shape (3, 3), optional
             Rotation from equatorial to a custom ``(phi1, phi2)`` sky frame
             for the track's ``phi1``/``phi2`` accessors.
+        key : optional
+            Random key for the particle sample (see :meth:`sample`).
         method : {'pspline', 'binned'}, optional
             ``'pspline'`` (default) projects each particle continuously onto
             the progenitor's orbit and fits its offsets with a weighted cubic
             P-spline in ``tp`` (a REML penalty per coordinate), so the track
             is a smooth function of the progenitor, the potential and the
-            particles. ``'binned'`` assigns particles to the closest sample
-            of the progenitor's orbit, bins their offsets in ``tp`` and
-            smooths the bin means.
+            particles: its value is the same eagerly and under ``jax.jit`` /
+            ``torch.compile``, and its gradient matches finite differences.
+            ``'binned'`` assigns particles to the closest sample of the
+            progenitor's orbit, bins their offsets in ``tp`` and smooths the
+            bin means; it is not smooth in its inputs, so under a trace
+            (``jax.jit``, ``jax.grad``, ``torch.compile``) the track is
+            always ``'pspline'``.
 
         Returns
         -------
