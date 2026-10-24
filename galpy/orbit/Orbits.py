@@ -1207,6 +1207,16 @@ class Orbit:
         physical_kwargs["_vo"] = self._vo
         physical_kwargs["_zo"] = self._zo
         physical_kwargs["_solarmotion"] = self._solarmotion
+        physical_indx = (
+            flat_indx_array[0] if indx_array.shape == () else flat_indx_array
+        )
+        for attr in ["_ro", "_vo", "_zo"]:
+            if numpy.ndim(physical_kwargs[attr]) > 0:
+                physical_kwargs[attr] = physical_kwargs[attr][physical_indx]
+        if numpy.ndim(self._solarmotion) > 1:
+            physical_kwargs["_solarmotion"] = numpy.take(
+                self._solarmotion, physical_indx, axis=1
+            )
         # Also transfer all attributes related to integration
         if hasattr(self, "orbit"):
             integrate_kwargs = {}

@@ -3009,6 +3009,62 @@ def test_slice_physical_issue385():
     return None
 
 
+@pytest.mark.parametrize("key", [(1, 2), (slice(None), 1), ([1, 0, 1], [2, 0, 1])])
+@pytest.mark.parametrize("parameter", ["ro", "vo", "zo", "solarmotion", "all"])
+def test_slice_array_physical_parameters(key, parameter):
+    from galpy.orbit import Orbit
+
+    shape = (2, 3)
+    vxvv = numpy.broadcast_to([1.1, 0.2, 0.9, 0.15, -0.1, 0.7], shape + (6,)).copy()
+    varying = {
+        "ro": numpy.arange(6).reshape(shape) * 0.2 + 8.0,
+        "vo": numpy.arange(6).reshape(shape) * 5.0 + 220.0,
+        "zo": numpy.arange(6).reshape(shape) * 0.001 + 0.02,
+        "solarmotion": numpy.arange(18).reshape((3,) + shape) + 1.0,
+    }
+    parameters = varying if parameter == "all" else {parameter: varying[parameter]}
+    orbits = Orbit(vxvv, **parameters)
+    selected = orbits[key]
+    reference = Orbit(
+        vxvv[key],
+        **{
+            name: value[(slice(None),) + key] if name == "solarmotion" else value[key]
+            for name, value in parameters.items()
+        },
+    )
+    assert selected.shape == reference.shape
+    for name in [
+        "R",
+        "vR",
+        "vT",
+        "z",
+        "vz",
+        "ra",
+        "dec",
+        "dist",
+        "pmra",
+        "pmdec",
+        "vlos",
+    ]:
+        actual = getattr(selected, name)()
+        expected = getattr(reference, name)()
+        assert numpy.shape(actual) == numpy.shape(expected)
+        numpy.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    assert selected._roSet == orbits._roSet
+    assert selected._voSet == orbits._voSet
+    # Selecting array metadata must not let the result change the parent.
+    for name in parameters:
+        value = getattr(selected, "_" + name)
+        if numpy.ndim(value):
+            value[...] = 0.0
+        numpy.testing.assert_array_equal(
+            getattr(orbits, "_" + name),
+            parameters[name].reshape((3, -1))
+            if name == "solarmotion"
+            else parameters[name].ravel(),
+        )
+
+
 # Test that slicing in the case of individual time arrays works as expected
 # Currently, the only way individual time arrays occur is through SOS integration
 # so we implementing this test using SOS integration
