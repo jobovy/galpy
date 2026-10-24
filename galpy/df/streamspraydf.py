@@ -303,6 +303,7 @@ class basestreamspraydf(df):
         velocity_weight="auto",
         custom_sky_transform=None,
         key=None,
+        method="pspline",
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -342,22 +343,23 @@ class basestreamspraydf(df):
             tdisrupt]``, where ``d_max`` is the farthest particle's
             distance from the progenitor.
         ntp : int, optional
-            Number of binning nodes. Default ``sqrt(N)`` with a floor of
-            21 and a ceiling that scales with the arc span (at least 201;
-            larger for long streams).
+            Number of spline nodes (``'pspline'``) or bins (``'binned'``).
+            Default ``sqrt(N)`` with a floor of 21 and a ceiling that scales
+            with the arc span (at least 201; larger for long streams).
         smoothing : None, float, or array-like, optional
-            Smoothing parameter(s). ``None`` (default) uses GCV
-            auto-tuning. A float sets a single ``s`` for all coords. An
-            array-like of length 6 (mean only) or 27 (mean + covariance)
-            sets per-spline ``s`` values — pass a previous call's
-            ``track.smoothing_s`` to reproduce the same smoothness
-            without re-running GCV.
+            ``None`` (default) chooses the smoothing from the data, by
+            restricted maximum likelihood (``'pspline'``) or generalized
+            cross-validation (``'binned'``). Otherwise, for ``'pspline'``: a
+            float or 6 per-coordinate penalty weights relative to the data
+            term; for ``'binned'``: a float ``s`` for the 6 mean splines, or
+            6 (mean) or 27 (mean + covariance) per-spline ``s`` values.
+            Pass a previous call's ``track.smoothing_s`` to reproduce the
+            same smoothness without re-running the selection.
         smoothing_factor : float, optional
-            Multiplier applied to every spline's effective ``s`` after
-            GCV (or explicit-``s``) selection. Values > 1 force a smoother
-            fit, values < 1 a rougher one. Useful when GCV undersmooths
-            in finite samples (a common failure mode of
-            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            Multiplier applied to the smoothing after automatic (or explicit)
+            selection: the penalty weights for ``'pspline'``, every spline's
+            effective ``s`` for ``'binned'``. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Default 1.0.
             For an interactive smoothing sweep, save ``track.particles``
             from the first call and pass it back as ``particles=`` —
             only the cheap re-fit step runs, the orbit-integration sample
@@ -379,6 +381,23 @@ class basestreamspraydf(df):
             strongly-perturbed potentials with a massive LMC). Pass
             ``1.0`` for the legacy unweighted natural-units
             metric.
+        custom_sky_transform : array, shape (3, 3), optional
+            Rotation from equatorial to a custom ``(phi1, phi2)`` sky frame
+            for the track's ``phi1``/``phi2`` accessors.
+        key : optional
+            Random key for the particle sample (see :meth:`sample`).
+        method : {'pspline', 'binned'}, optional
+            ``'pspline'`` (default) projects each particle continuously onto
+            the progenitor's orbit and fits its offsets with a weighted cubic
+            P-spline in ``tp`` (a REML penalty per coordinate), so the track
+            is a smooth function of the progenitor, the potential and the
+            particles: its value is the same eagerly and under ``jax.jit`` /
+            ``torch.compile``, and its gradient matches finite differences.
+            ``'binned'`` assigns particles to the closest sample of the
+            progenitor's orbit, bins their offsets in ``tp`` and smooths the
+            bin means; it is not smooth in its inputs, so under a trace
+            (``jax.jit``, ``jax.grad``, ``torch.compile``) the track is
+            always ``'pspline'``.
 
         Returns
         -------
@@ -586,6 +605,7 @@ class basestreamspraydf(df):
                 order=order,
                 velocity_weight=velocity_weight,
                 prog_orbit=prog,
+                method=method,
                 custom_sky_transform=custom_sky_transform,
                 ro=prog_ro,
                 vo=prog_vo,
