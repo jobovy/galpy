@@ -1,12 +1,13 @@
 # backend skip list -- tests SKIPPED under a backend for a PERMANENT reason, i.e.
-# one that no amount of porting work will change. Two kinds qualify:
+# one that no amount of porting work will change. Three kinds qualify:
 #
 #   (a) the test belongs to a family that is out of scope for the backend goal and
 #       stays _reject_backend-guarded (actionAngleTorus, via streamdf's useTM), so
-#       it fails by design and always will; or
+#       it fails by design and always will;
 #   (b) ONE potential in a per-potential walk whose eager-jax cost was thought a
 #       floor no port removes. RETIRED 2026-10-09 (backend/ledger-zero): the four
-#       entries were redundant work, not a floor -- see the note at the bottom.
+#       entries were redundant work, not a floor -- see the note at the bottom; or
+#   (c) the test runs numpy/C code in a subprocess, which --backend never reaches.
 #
 # conftest.py marks each matching nodeid pytest.mark.skip with a
 # "backend-skip: not backend-meaningful ..." reason, in BOTH normal and regen mode.
@@ -19,6 +20,13 @@
 #
 # format: <backend> <nodeid>   (same as the other ledger files)
 #
+# --- (c) C orbit integration past INT_MAX output elements (subprocess) ---
+# Integrates ~1e5 orbits with integrateFullOrbit_c in a subprocess (an int offset
+# overflow segfaults), so the forced backend never applies: every backend shard
+# would rerun the same ~1 min numpy/C integration. numpy runs it.
+jax tests/test_orbits.py::test_integrate_c_more_than_intmax_elements
+torch tests/test_orbits.py::test_integrate_c_more_than_intmax_elements
+
 # --- streamdf's useTM tests reach actionAngleTorus ---
 # "NotImplementedError: actionAngleTorus wraps the external Torus C++ library
 # and is not jax-..." -- the same standing decision that excludes

@@ -325,7 +325,7 @@ void actionAngleAdiabatic_actionsJac(int ndata,
     double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99
 	 || *(zmax+ii) == -9999.99 ){
-      for (kk=0;kk<10;kk++) *(jac+ii*10+kk)= 0.;
+      for (kk=0;kk<10;kk++) *(jac+(size_t) ii*10+kk)= 0.;
       continue;
     }
     double tLz= *(Lz+ii), tER= *(ER+ii);
@@ -353,8 +353,8 @@ void actionAngleAdiabatic_actionsJac(int ndata,
     // dJr/dcoord = dJr/dER * dER/dcoord + dJr/dLz * dLz/dcoord
     double aE= *(djrdER+ii), aL= *(djrdLz+ii);
     for (kk=0;kk<5;kk++){
-      *(jac+ii*10+0*5+kk)= aE*dER[kk] + aL*dLz[kk];  // jr row
-      *(jac+ii*10+1*5+kk)= dJz[kk];                  // jz row
+      *(jac+(size_t) ii*10+0*5+kk)= aE*dER[kk] + aL*dLz[kk];  // jr row
+      *(jac+(size_t) ii*10+1*5+kk)= dJz[kk];                  // jz row
     }
     (void) tER;
   }
@@ -450,7 +450,7 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
     *(ecc+ii)= (trap-trperi)/(trap+trperi);
     *(zmaxout+ii)= tzmax; *(rperiout+ii)= trperi; *(rapout+ii)= trap;
     if ( trperi == -9999.99 || tRap == -9999.99 || tzmax == -9999.99 ){
-      for (kk=0;kk<20;kk++) *(jac+ii*20+kk)= 0.;  // unbound -> zeroed Jacobian
+      for (kk=0;kk<20;kk++) *(jac+(size_t) ii*20+kk)= 0.;  // unbound -> zeroed Jacobian
       continue;
     }
     double tLz= *(Lz+ii);
@@ -508,10 +508,10 @@ void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
     double de_drperi= -2.*trap/rr, de_drap= 2.*trperi/rr;
     for (kk=0;kk<5;kk++){
       double drapk= ( tRap*dRapc[kk] + tzmax*dzmaxc[kk] ) / trap;
-      *(jac+ii*20+ 0*5+kk)= de_drperi*drperi[kk] + de_drap*drapk;  // ecc
-      *(jac+ii*20+ 1*5+kk)= dzmaxc[kk];                            // zmax
-      *(jac+ii*20+ 2*5+kk)= drperi[kk];                            // rperi
-      *(jac+ii*20+ 3*5+kk)= drapk;                                 // rap
+      *(jac+(size_t) ii*20+ 0*5+kk)= de_drperi*drperi[kk] + de_drap*drapk;  // ecc
+      *(jac+(size_t) ii*20+ 1*5+kk)= dzmaxc[kk];                            // zmax
+      *(jac+(size_t) ii*20+ 2*5+kk)= drperi[kk];                            // rperi
+      *(jac+(size_t) ii*20+ 3*5+kk)= drapk;                                 // rap
     }
   }
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);

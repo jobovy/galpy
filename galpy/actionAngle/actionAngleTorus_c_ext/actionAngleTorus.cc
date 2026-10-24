@@ -259,7 +259,7 @@ extern "C"
 	// get phase-space point
 	QdQ= T->Map3D(AdA);
 	for (kk=0;kk < 6;kk++)
-	  *(dxvOdJaT+ii*36+(jj+3)*6+kk)= (QdQ(kk)-Q(kk)) / dA;
+	  *(dxvOdJaT+36*(size_t) ii+(jj+3)*6+kk)= (QdQ(kk)-Q(kk)) / dA;
       }
     }
     // Now compute the Jacobian: dJ changes
@@ -278,7 +278,7 @@ extern "C"
 	A[2]= *(anglephi+ii);
 	QdQ= T->Map3D(A);
 	for (kk=0;kk < 6;kk++)
-	  *(dxvOdJaT+ii*36+jj*6+kk)= (QdQ(kk)-(*(Qs+ii))(kk)) / dJ;
+	  *(dxvOdJaT+36*(size_t) ii+jj*6+kk)= (QdQ(kk)-(*(Qs+ii))(kk)) / dJ;
       }
       // and frequencies
       omdom=T->omega();

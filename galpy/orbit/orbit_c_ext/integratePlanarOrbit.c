@@ -859,12 +859,14 @@ EXPORT void integratePlanarOrbit(int nobj,
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
-    polar_to_rect_galpy(yo+4*ii);
-    odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t+nt*ii*indiv_t,
+    // offsets in size_t, because nobj*nt*4 can exceed INT_MAX
+    polar_to_rect_galpy(yo+4*(size_t) ii);
+    odeint_func(odeint_deriv_func,dim,yo+4*(size_t) ii,nt,dt,
+		t+(size_t) nt*ii*indiv_t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
-		result+4*nt*ii,err+ii);
+		result+4*(size_t) nt*ii,err+ii);
     for (jj= 0; jj < nt; jj++)
-      rect_to_polar_galpy(result+4*jj+4*nt*ii);
+      rect_to_polar_galpy(result+4*((size_t) nt*ii+jj));
     if ( cb ) // Callback if not void
       cb();
   }
@@ -951,12 +953,14 @@ EXPORT void integratePlanarOrbit_sos(
 
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
-    polar_to_sos_galpy(yo+dim*ii,surface);
-    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi+npsi*ii*indiv_psi,
+    // offsets in size_t, because nobj*npsi*dim can exceed INT_MAX
+    polar_to_sos_galpy(yo+dim*(size_t) ii,surface);
+    odeint_func(odeint_deriv_func,dim,yo+dim*(size_t) ii,npsi,dpsi,
+		psi+(size_t) npsi*ii*indiv_psi,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
-		result+dim*npsi*ii,err+ii);
+		result+dim*(size_t) npsi*ii,err+ii);
     for (jj=0; jj < npsi; jj++)
-      sos_to_polar_galpy(result+dim*jj+dim*npsi*ii,surface);
+      sos_to_polar_galpy(result+dim*((size_t) npsi*ii+jj),surface);
     if ( cb ) // Callback if not void
       cb();
   }
