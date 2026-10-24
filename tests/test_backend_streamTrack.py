@@ -369,7 +369,16 @@ def _track_case(seed=7, N=200, M=400, noise=0.02):
     return numpy.array([R, vR, vT, z, vz, phi]), prog_cart, tg
 
 
-_TRACK_KW = dict(arm_sign=1, ninterp=101, ntp=21, order=2, niter=0, velocity_weight=1.0)
+# the binned reconstruction's backend path (method='pspline' has its own tests)
+_TRACK_KW = dict(
+    arm_sign=1,
+    ninterp=101,
+    ntp=21,
+    order=2,
+    niter=0,
+    velocity_weight=1.0,
+    method="binned",
+)
 
 
 def _relerr(a, b, floor=1e-12):
@@ -1336,37 +1345,35 @@ def test_accessor_out_of_range_still_nan_for_traced_tp():
 
 
 # --- the point of the accessors: read a value OFF the track and differentiate --
-# it w.r.t. the theory inputs. Only STATISTICAL quantities of the whole particle
-# cloud are meaningful here: the fit freezes its STRUCTURE (closest-point
-# assignment, spline basis, GCV lambda are stop_gradient'd) and lets the offset
-# VALUES flow, so individual particles crossing an assignment boundary is exactly
-# the thing that is meant to average out over the cloud. A single-particle FD is
-# NOT a fair check of this gradient; a coherent whole-cloud perturbation is.
+# it w.r.t. the theory inputs. The traced (pspline) fit is smooth in the particles,
+# so the gradient is that of the value read off the track, and central differences
+# of a coherent whole-cloud perturbation converge onto it.
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 @pytest.mark.parametrize("acc,axis", (("x", 0), ("y", 1), ("z", 2)))
-def test_accessor_grad_wrt_rigid_cloud_translation_is_one(acc, axis):
-    # Translate EVERY particle along one Cartesian axis: the offsets all shift by
-    # the same amount, so the fitted track must shift with them and
-    # d(track coord)/d(shift) is analytically 1 -- no finite differences needed.
+def test_accessor_grad_wrt_rigid_cloud_translation(acc, axis):
+    # Translate EVERY particle along one Cartesian axis and read the track at a
+    # fixed tp. The part of the shift along the stream relabels tp rather than
+    # moving the track (the derivative is not simply 1): check it against central
+    # differences at two steps.
     import jax
     import jax.numpy as jnp
 
     xv, prog_cart, tg = _track_case()
-    tp0 = 0.5 * (float(tg[0]) + float(tg[-1]))
+    kw = {**_TRACK_KW, "method": "pspline"}
+    tp0 = 0.5 * StreamTrack.from_particles(xv, prog_cart, tg, **kw).tp_grid()[-1]
 
-    # xv rows are (R, vR, vT, z, vz, phi); shift in CARTESIAN x/y/z via phi=0 rows
-    # is not direct, so shift the cartesian track input instead: use the particle
-    # cloud's own cartesian representation through a small helper perturbation.
     def f(delta):
         xvb = _shift_cloud_cartesian(_arr("jax", xv), axis, delta)
         tr = StreamTrack.from_particles(
-            xvb, _arr("jax", prog_cart), tg, **_TRACK_KW, **_SOLAR_FRAME
+            xvb, _arr("jax", prog_cart), tg, **kw, **_SOLAR_FRAME
         )
-        tr.turn_physical_off()
         return jnp.reshape(jnp.asarray(getattr(tr, acc)(tp0, use_physical=False)), ())
 
-    g = float(jax.grad(f)(0.0))
-    assert abs(g - 1.0) < 2e-3, f"{acc}: d/d(rigid {acc}-shift) = {g}, expected 1"
+    g = float(jax.jit(jax.grad(f))(0.0))
+    fj = jax.jit(f)
+    fd = [(float(fj(h)) - float(fj(-h))) / (2.0 * h) for h in (1e-4, 1e-5)]
+    print(acc, g, fd)
+    numpy.testing.assert_allclose(fd, g, rtol=1e-6)
 
 
 def _shift_cloud_cartesian(xv, axis, delta):
@@ -1397,3 +1404,32 @@ def test_call_stacks_on_the_backend(backend):
         assert is_backend_array(got)
         assert tuple(got.shape) == ref.shape
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pspline_smooth_quantile_grad_far_outlier(backend):
+    # one value ~100 rms past the bulk: the smoothed CDF's logistic must not
+    # overflow (exp((v - u) / h) = inf gives 0 * inf = NaN in the gradient)
+    from galpy.df.streamTrack import _smooth_quantile
+
+    rng = numpy.random.default_rng(0)
+    v = numpy.concatenate([0.01 * rng.random(10000), [1.0]])
+    eps = 1e-7
+    for q in (0.5, 0.99):
+        if backend == "jax":
+            g = as_numpy(
+                jax.grad(lambda x: _smooth_quantile(jnp, x, q))(jnp.asarray(v))
+            )
+        else:
+            vt = torch.tensor(v, requires_grad=True)
+            _smooth_quantile(get_namespace(vt), vt, q).backward()
+            g = as_numpy(vt.grad)
+        assert numpy.all(numpy.isfinite(g))
+        # AD vs central differences: the outlier, a bulk value and the largest entry
+        for j in (0, 10000, int(numpy.argmax(numpy.abs(g[:-1])))):
+            e = numpy.zeros_like(v)
+            e[j] = eps
+            fd = (
+                _smooth_quantile(numpy, v + e, q) - _smooth_quantile(numpy, v - e, q)
+            ) / (2 * eps)
+            assert abs(g[j] - fd) < 1e-7 * numpy.max(numpy.abs(g))

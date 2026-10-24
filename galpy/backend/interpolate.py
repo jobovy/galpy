@@ -56,6 +56,7 @@ __all__ = [
     "cubic_spline_coeffs",
     "eval_cubic",
     "interp_linear",
+    "cubic_bspline_kernel",
     "interp1d_clamped",
     "interp_bilinear",
     "rect_bivariate_to_ppoly",
@@ -936,16 +937,32 @@ def _cubic_bspline_weights(xp, f):
     coordinate. The two ``xp.where`` branches are dead-branch-safe (pure
     polynomials, no division/log), so neither poisons reverse-mode AD.
     """
-    out = []
-    for o in (-1.0, 0.0, 1.0, 2.0):
-        t = xp.abs(o - f)
+    return [cubic_bspline_kernel(xp, o - f) for o in (-1.0, 0.0, 1.0, 2.0)]
+
+
+def cubic_bspline_kernel(xp, u, nu=0):
+    """The centred cubic B-spline ``beta3(u)`` (see :func:`_cubic_bspline_weights`)
+    or its ``nu``-th derivative (``nu`` = 0, 1, 2), elementwise in ``xp``.
+
+    C2, supported on ``|u| < 2``; the integer translates ``beta3(u - k)`` sum to
+    one. Pure polynomials in both ``xp.where`` branches, so AD-safe.
+    """
+    t = xp.abs(u)
+    if nu == 0:
         t2 = t * t
         t3 = t2 * t
         inner = 2.0 / 3.0 - t2 + t3 / 2.0  # |t| < 1
         outer = (2.0 - t) ** 3 / 6.0  # 1 <= |t| < 2 (negative/0 beyond, masked)
-        w = xp.where(t < 1.0, inner, xp.where(t < 2.0, outer, t * 0.0))
-        out.append(w)
-    return out  # list of 4 weight arrays
+    elif nu == 1:
+        sgn = xp.sign(u)
+        inner = sgn * (1.5 * t * t - 2.0 * t)
+        outer = -0.5 * sgn * (2.0 - t) ** 2
+    elif nu == 2:
+        inner = 3.0 * t - 2.0
+        outer = 2.0 - t
+    else:
+        raise ValueError(f"cubic_bspline_kernel: nu must be 0, 1 or 2, got {nu}")
+    return xp.where(t < 1.0, inner, xp.where(t < 2.0, outer, t * 0.0))
 
 
 def _quintic_bspline_weights(xp, f):

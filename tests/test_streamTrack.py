@@ -232,11 +232,16 @@ def test_streamTrack_pspline_iteration_within_width(_simple_spdf):
     }
     for arm in ("leading", "trailing"):
         a = {k: getattr(tracks[k], arm) for k in tracks}
-        lo = max(tr.tp_grid()[0] for tr in a.values())
-        hi = min(tr.tp_grid()[-1] for tr in a.values())
+        lo = max(float(tr.tp_grid()[0]) for tr in a.values())
+        hi = min(float(tr.tp_grid()[-1]) for tr in a.values())
         tps = numpy.linspace(lo, hi, 101)
-        width = numpy.sqrt([numpy.trace(a[0].cov(t)[:3, :3]) for t in tps])
-        pos = {k: numpy.stack([a[k].x(tps), a[k].y(tps), a[k].z(tps)]) for k in a}
+        width = numpy.sqrt([numpy.trace(as_numpy(a[0].cov(t))[:3, :3]) for t in tps])
+        pos = {
+            k: numpy.stack(
+                [as_numpy(a[k].x(tps)), as_numpy(a[k].y(tps)), as_numpy(a[k].z(tps))]
+            )
+            for k in a
+        }
         for i, j in ((0, 1), (1, 3)):
             d = numpy.sqrt(numpy.sum((pos[i] - pos[j]) ** 2, axis=0)) / width
             assert numpy.max(d) < 0.25, (
@@ -1098,7 +1103,11 @@ def test_streamTrack_particles_attr(_simple_spdf):
     # Round-trip: pass track.particles back in, should get same track.
     track2 = _simple_spdf.streamTrack(particles=track.particles, tail="leading")
     tps = track.tp_grid()
-    assert numpy.allclose(track.x(tps), track2.x(tps))
+    # under a forced backend, xv is a backend array and track.particles numpy: the
+    # ranges can differ in the last bit (a backend vs a numpy mean), and NaN is
+    # returned outside a range, so compare the tracks inside it
+    numpy.testing.assert_allclose(track2.tp_grid(), tps, rtol=1e-13, atol=0.0)
+    assert numpy.allclose(track.x(tps[:-1]), track2.x(tps[:-1]))
 
 
 def test_streamTrack_custom_sky_transform(_simple_spdf):
@@ -1335,18 +1344,18 @@ def test_streamTrack_pspline_agrees_with_binned(_simple_spdf, _pspline_xv):
             particles=_pspline_xv, tail="leading", velocity_weight=vw, method="binned"
         )
         tr = _pspline(_simple_spdf, _pspline_xv, velocity_weight=vw)
-        gb, gp = numpy.asarray(tb.tp_grid()), numpy.asarray(tr.tp_grid())
+        gb, gp = as_numpy(tb.tp_grid()), as_numpy(tr.tp_grid())
         # (pspline trims at a kernel-smoothed 99th percentile, a little further out)
         assert gp[0] == 0.0 and abs(gp[-1] - gb[-1]) < 0.03 * gb[-1]
         tps = numpy.linspace(0.1 * gp[-1], 0.9 * gp[-1], 9)
-        cov = numpy.asarray(tr.cov(tps, use_physical=False))
+        cov = as_numpy(tr.cov(tps, use_physical=False))
         for k, m in enumerate(_CART):
-            d = numpy.asarray(getattr(tr, m)(tps, use_physical=False)) - numpy.asarray(
+            d = as_numpy(getattr(tr, m)(tps, use_physical=False)) - as_numpy(
                 getattr(tb, m)(tps, use_physical=False)
             )
             assert numpy.all(numpy.abs(d) < 0.7 * numpy.sqrt(cov[:, k, k])), m
         ratio = numpy.einsum("nii->ni", cov) / numpy.einsum(
-            "nii->ni", numpy.asarray(tb.cov(tps, use_physical=False))
+            "nii->ni", as_numpy(tb.cov(tps, use_physical=False))
         )
         assert 0.8 < numpy.median(ratio) < 1.25
         assert numpy.linalg.eigvalsh(cov).min() > 0.0
@@ -1440,7 +1449,10 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
 def test_streamTrack_pspline_bspline_kernel():
     # the cubic B-spline basis: its integer translates sum to one, and its
     # derivatives are those of the kernel
-    from galpy.df.streamTrack import _cubic_bspline_kernel
+    from galpy.backend.interpolate import cubic_bspline_kernel
+
+    def _cubic_bspline_kernel(u, nu=0):
+        return cubic_bspline_kernel(numpy, u, nu=nu)
 
     u = numpy.linspace(-0.9, 0.9, 13)
     k = numpy.arange(-3, 4)
@@ -1470,17 +1482,17 @@ def test_streamTrack_pspline_smooth_quantile():
     base, rate = rng.exponential(size=500), rng.normal(size=500)
     s = numpy.linspace(-0.05, 0.05, 201)
     for q in (0.5, 0.99):
-        us = numpy.array([_smooth_quantile(base + x * rate, q) for x in s])
-        uo = numpy.array([_sorted_quantile(base + x * rate, q) for x in s])
+        us = numpy.array([_smooth_quantile(numpy, base + x * rate, q) for x in s])
+        uo = numpy.array([_sorted_quantile(numpy, base + x * rate, q) for x in s])
         d2s, d2o = numpy.abs(numpy.diff(us, n=2)), numpy.abs(numpy.diff(uo, n=2))
         assert numpy.max(d2s) < 1e-2 * numpy.max(d2o)
         # the root of the smoothed CDF, within a few kernel widths h of the order
         # statistic (the logistic kernel's tails push it out in a sparse tail)
         v = base + 0.03 * rate
-        u = _smooth_quantile(v, q)
+        u = _smooth_quantile(numpy, v, q)
         h = 0.05 * numpy.sqrt(numpy.mean(v * v))
         assert abs(numpy.mean(1.0 / (1.0 + numpy.exp((v - u) / h))) - q) < 1e-12
-        assert abs(u - _sorted_quantile(v, q)) < 6.0 * h
+        assert abs(u - _sorted_quantile(numpy, v, q)) < 6.0 * h
 
 
 def test_streamTrack_pspline_penalty_smooth_past_grid():
