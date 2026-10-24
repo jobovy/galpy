@@ -6464,15 +6464,15 @@ def test_TruncatedTwoPower_c_vs_python():
     return None
 
 
-def test_TruncatedTwoPower_cimedep():
+def test_TruncatedTwoPower_timedep():
     # A time-dependent rc equals the static potential with that rc at each node,
     # is held at its end values outside tgrid, and follows the not-a-knot cubic
-    # spline in between; mass(r, t) follows rc(t)
+    # spline in log rc in between; mass(r, t) follows rc(t)
     from scipy.interpolate import CubicSpline
 
     tgrid = numpy.linspace(0.0, 4.0, 9)
     rcs = 2.0 + numpy.sin(tgrid)
-    spl = CubicSpline(tgrid, rcs, bc_type="not-a-knot")
+    spl = lambda t: numpy.exp(CubicSpline(tgrid, numpy.log(rcs))(t))
     for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
         p = cls(amp=1.3, a=0.7, rc=rcs, n=2, tgrid=tgrid)
         for t, rc in list(zip(tgrid, rcs)) + [
@@ -6490,13 +6490,22 @@ def test_TruncatedTwoPower_cimedep():
                         "match the static potential with rc(t)"
                     )
             assert numpy.fabs(p.mass(2.5, t=t) / q.mass(2.5) - 1.0) < 1e-14
+    # A radius that drops by 10x per unit time stays positive in between (a
+    # spline through rc itself reaches -7e-4 at t=1.5); the spline in log rc
+    # reproduces the exponential exactly
+    p = potential.TruncatedNFWPotential(
+        a=0.5, rc=[1.0, 0.1, 0.01, 0.001], tgrid=[0.0, 1.0, 2.0, 3.0]
+    )
+    for t in (0.5, 1.5, 2.25):
+        q = potential.TruncatedNFWPotential(a=0.5, rc=10.0**-t)
+        assert numpy.fabs(p.Rforce(1.0, 0.0, t=t) / q.Rforce(1.0, 0.0) - 1.0) < 1e-13
     return None
 
 
-def test_TruncatedTwoPower_cimedep_movingobject():
+def test_TruncatedTwoPower_timedep_movingobject():
     # A time-dependent kernel as the pot of a MovingObjectPotential: C and Python
-    # (odeint) orbits agree (rc linear in t, so the spline has no knots for the
-    # adaptive step control to trip over), and the orbit converges (at second order) to
+    # (odeint) orbits agree (log rc linear in t, so the spline has no knots for
+    # the adaptive step control to trip over), and the orbit converges (at second order) to
     # one integrated through a piecewise-static construction with rc evaluated at
     # each segment's midpoint
     from galpy.orbit import Orbit
@@ -6506,7 +6515,7 @@ def test_TruncatedTwoPower_cimedep_movingobject():
     tsat = numpy.linspace(-0.5, 3.5, 801)
     sat.integrate(tsat, host, method="dop853_c")
     tgrid = numpy.linspace(0.0, 3.0, 13)
-    rc0 = lambda t: 0.6 - 0.12 * t
+    rc0 = lambda t: 0.6 * numpy.exp(-0.3 * t)
     kern = potential.TruncatedHernquistPotential(
         amp=0.05, a=0.1, rc=rc0(tgrid), n=1, tgrid=tgrid
     )
@@ -6561,6 +6570,10 @@ def test_TruncatedTwoPower_pickle_and_errors():
         potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=tgrid)
     with pytest.raises(ValueError, match="strictly increasing"):
         potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=[1.0, 0.0])
+    with pytest.raises(ValueError, match="rc= must be positive"):
+        potential.TruncatedNFWPotential(rc=0.0)
+    with pytest.raises(ValueError, match="rc= must be positive"):
+        potential.TruncatedHernquistPotential(rc=[1.0, -0.1], tgrid=[0.0, 1.0])
     return None
 
 

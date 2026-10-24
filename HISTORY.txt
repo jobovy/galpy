@@ -7,9 +7,10 @@ v1.12.1 (expected around 2026-11-01)
   enclosed mass, potential, forces and second derivatives are closed-form,
   with series where the closed forms lose precision, and are accurate to
   ~1e-14 throughout. The truncation radius can depend on time (``tgrid=``,
-  with ``rc`` sampled on it: a not-a-knot cubic spline, held at its end values
-  outside the grid), for example for a satellite that is stripped from the
-  outside in, used as the ``pot`` of a ``MovingObjectPotential``. Both have
+  with ``rc`` sampled on it: a not-a-knot cubic spline in ``log rc``, so the
+  radius stays positive, held at its end values outside the grid), for
+  example for a satellite that is stripped from the outside in, used as the
+  ``pot`` of a ``MovingObjectPotential``. Both have
   C implementations (orbits and ``integrate_dxdv``) and run on the JAX and
   PyTorch backends, differentiable with respect to ``a``, ``rc`` and the
   tabulated ``rc(t)`` values.
