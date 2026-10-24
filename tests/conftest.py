@@ -1159,3 +1159,21 @@ def pytest_generate_tests(metafunc):
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         metafunc.parametrize("p,ttol", list(zip(pots, tols)), ids=pots)
     return None
+
+
+def pytest_collection_modifyitems(config, items):
+    # galpy.util.multi.parallel_map deliberately forks (spawn fails with pickling
+    # issues, #457), while the process typically has other libraries' threads
+    # alive (e.g., numexpr's thread pool). Python >= 3.12 warns about this on every
+    # fork and from Python 3.15 on, the warning propagates such that running the
+    # tests with -W error::DeprecationWarning makes the fork itself raise. Ignore
+    # just this warning in the tests; added as a mark, because marks take
+    # precedence over -W command-line filters
+    import pytest
+
+    fork_warning = pytest.mark.filterwarnings(
+        r"ignore:.*is multi-threaded, use of fork\(\) may lead to deadlocks"
+        ":DeprecationWarning"
+    )
+    for item in items:
+        item.add_marker(fork_warning)
