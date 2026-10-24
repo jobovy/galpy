@@ -6731,6 +6731,7 @@ class Orbit:
         out = Orbit(vxvv=vxvv, **orbSetupKwargs)
         out._roSet = self._roSet
         out._voSet = self._voSet
+        out.reshape(self.shape)
         return out
 
     def toLinear(self):
@@ -6757,6 +6758,7 @@ class Orbit:
         out = Orbit(vxvv=vxvv, **orbSetupKwargs)
         out._roSet = self._roSet
         out._voSet = self._voSet
+        out.reshape(self.shape)
         return out
 
     def _setupOrbitInterp(self):

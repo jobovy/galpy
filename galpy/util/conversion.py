@@ -1012,6 +1012,28 @@ def physical_conversion(quantity, pop=False):
                 out = method(*args, **kwargs)
                 if out is None:
                     return out
+                if (
+                    isinstance(args[0], Orbit)
+                    and numpy.ndim(fac) > 0
+                    and numpy.size(fac) == args[0].size
+                ):
+                    # Orbit outputs keep their input shape, followed by any time
+                    # or component axes; physical scales are stored flattened.
+                    shape = (
+                        (args[0].size,)
+                        if kwargs.get("dontreshape", False)
+                        else args[0].shape
+                    )
+                    out_shape = numpy.shape(out)
+                    if out_shape[: len(shape)] == shape:
+                        fac = numpy.reshape(
+                            fac, shape + (1,) * (len(out_shape) - len(shape))
+                        )
+                        return (
+                            units.Quantity(out * fac, unit=u)
+                            if _apy_units
+                            else out * fac
+                        )
                 if _apy_units:
                     return units.Quantity(out * fac, unit=u)
                 else:
