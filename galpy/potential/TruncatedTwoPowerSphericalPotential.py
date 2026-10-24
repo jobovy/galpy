@@ -345,8 +345,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
                 )
             )
         xp = namespace_from_arrays(arrs)
-        if not is_backend_array(t):
-            t = asarray_on_device(xp, numpy.asarray(t, dtype=float), device_of(arrs[0]))
+        t = asarray_on_device(xp, t, device_of(arrs[0]))
         return xp.exp(
             eval_ppoly(xp, self._tgrid, self._rc_c, t * 1.0, extrapolate="clip")
         )
@@ -357,8 +356,8 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         rc = self._rc(t)
         arrs = [v for v in (r, self.a, rc) if is_backend_array(v)]
         xp = namespace_from_arrays(arrs) if arrs else numpy
-        if xp is not numpy and not is_backend_array(r):
-            r = asarray_on_device(xp, numpy.asarray(r, dtype=float), device_of(arrs[0]))
+        if xp is not numpy:
+            r = asarray_on_device(xp, r, device_of(arrs[0]))
         r = xp.asarray(r) * 1.0
         a = scalar_like(r, self.a)
         # tau on r's shape, namespace and dtype (a plain-float rc otherwise stays
