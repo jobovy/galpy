@@ -8554,6 +8554,21 @@ def test_array_physical_output_shape(shape, quantity, dontreshape):
             numpy.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-10)
 
 
+@pytest.mark.parametrize("shape", [(1,), (2, 3)])
+def test_array_physical_time_before_integration(shape):
+    from galpy.orbit import Orbit
+
+    orbits = Orbit(
+        numpy.ones(shape + (6,)),
+        ro=numpy.full(shape, 8.0),
+        vo=numpy.full(shape, 220.0),
+    )
+    # time() returns a Python scalar before integration; keep quantity support.
+    actual = orbits.time(quantity=True)
+    assert actual.unit == u.Gyr
+    numpy.testing.assert_array_equal(actual.value, numpy.zeros(orbits.size))
+
+
 # Check that the routines that should return physical coordinates are turned off by turn_physical_off
 def test_physical_output_off():
     from galpy.orbit import Orbit

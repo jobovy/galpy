@@ -1024,8 +1024,11 @@ def physical_conversion(quantity, pop=False):
                         if kwargs.get("dontreshape", False)
                         else args[0].shape
                     )
-                    if out.shape[: len(shape)] == shape:
-                        fac = numpy.reshape(fac, shape + (1,) * (out.ndim - len(shape)))
+                    out_shape = numpy.shape(out)
+                    if out_shape[: len(shape)] == shape:
+                        fac = numpy.reshape(
+                            fac, shape + (1,) * (len(out_shape) - len(shape))
+                        )
                         return (
                             units.Quantity(out * fac, unit=u)
                             if _apy_units
