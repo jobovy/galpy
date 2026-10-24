@@ -181,6 +181,14 @@ def test_timedep_table_grad_vs_fd(backend_name, cls):
     return None
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_timedep_table_shape_error(backend_name):
+    # a backend rc table needs one value per tgrid time, like a numpy one
+    with pytest.raises(ValueError, match="one value per tgrid time"):
+        TruncatedNFWPotential(rc=_asarray(backend_name, [1.0, 2.0]), tgrid=_TGRID)
+    return None
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_movingobject_timedep_orbit_grad():
     # jax.grad of an orbit's final position through a MovingObjectPotential whose
