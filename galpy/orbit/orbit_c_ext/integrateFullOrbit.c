@@ -1168,12 +1168,14 @@ EXPORT void integrateFullOrbit(int nobj,
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
-    cyl_to_rect_galpy(yo+6*ii);
-    odeint_func(odeint_deriv_func,dim,yo+6*ii,nt,dt,t+nt*ii*indiv_t,
+    // offsets in size_t, because nobj*nt*6 can exceed INT_MAX
+    cyl_to_rect_galpy(yo+6*(size_t) ii);
+    odeint_func(odeint_deriv_func,dim,yo+6*(size_t) ii,nt,dt,
+		t+(size_t) nt*ii*indiv_t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
-		result+6*nt*ii,err+ii);
+		result+6*(size_t) nt*ii,err+ii);
     for (jj=0; jj < nt; jj++)
-      rect_to_cyl_galpy(result+6*jj+6*nt*ii);
+      rect_to_cyl_galpy(result+6*((size_t) nt*ii+jj));
     if ( cb ) // Callback if not void
       cb();
   }
@@ -1251,12 +1253,14 @@ EXPORT void integrateFullOrbit_sos(
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
-    cyl_to_sos_galpy(yo+dim*ii);
-    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi+npsi*ii*indiv_psi,
+    // offsets in size_t, because nobj*npsi*dim can exceed INT_MAX
+    cyl_to_sos_galpy(yo+dim*(size_t) ii);
+    odeint_func(odeint_deriv_func,dim,yo+dim*(size_t) ii,npsi,dpsi,
+		psi+(size_t) npsi*ii*indiv_psi,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
-		result+dim*npsi*ii,err+ii);
+		result+dim*(size_t) npsi*ii,err+ii);
     for (jj=0; jj < npsi; jj++)
-      sos_to_cyl_galpy(result+dim*jj+dim*npsi*ii);
+      sos_to_cyl_galpy(result+dim*((size_t) npsi*ii+jj));
     if ( cb ) // Callback if not void
       cb();
   }
@@ -1348,7 +1352,7 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
   //plain path); the 12D row is (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz) for
   //both the symplectic and the RK dxdv steppers
   for (jj=0; jj < nt; jj++)
-    rect_to_cyl_galpy(result+12*jj);
+    rect_to_cyl_galpy(result+12*(size_t) jj);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
