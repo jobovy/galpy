@@ -213,9 +213,11 @@ EXPORT void integrateLinearOrbit(int nobj,
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
-    odeint_func(odeint_deriv_func,dim,yo+2*ii,nt,dt,t+nt*ii*indiv_t,
+    // offsets in size_t, because nobj*nt*2 can exceed INT_MAX
+    odeint_func(odeint_deriv_func,dim,yo+2*(size_t) ii,nt,dt,
+		t+(size_t) nt*ii*indiv_t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
-		result+2*nt*ii,err+ii);
+		result+2*(size_t) nt*ii,err+ii);
     if ( cb ) // Callback if not void
       cb();
   }
