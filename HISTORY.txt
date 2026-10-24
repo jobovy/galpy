@@ -13,7 +13,13 @@ v1.12.1 (expected around 2026-11-01)
   ``pot`` of a ``MovingObjectPotential``. Both have
   C implementations (orbits and ``integrate_dxdv``) and run on the JAX and
   PyTorch backends, differentiable with respect to ``a``, ``rc`` and the
-  tabulated ``rc(t)`` values.
+  tabulated ``rc(t)`` values. They can be used with the spherical
+  distribution functions (``eddingtondf``, ``osipkovmerrittdf`` and
+  ``constantbetadf``).
+
+- Sampling from a spherical distribution function no longer raises
+  ``ValueError: x must be increasing`` when the mass converges well inside
+  ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
 
 - ``AdiabaticContractionWrapperPotential`` now applies its ``amp`` (it was
   silently ignored, so ``amp`` had no effect in Python, C, or JAX).

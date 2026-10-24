@@ -398,6 +398,31 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
             / (4.0 * numpy.pi * a**3)
         )
 
+    def _rho_g(self, r, t):
+        """(x, a, amp rho, g, dg/dx) with g = -dln rho/dx, for the density
+        derivatives (galpy's spherical DFs call these with amp applied)"""
+        xp, x, tau, _, _ = self._xp_x_tau(r, t)
+        k, n = self._k, self._n
+        a = scalar_like(x, self.a)
+        rho = scalar_like(x, self._amp) * self._rdens(r, t=t)
+        s = tau**2 + x**2
+        g = 1.0 / x + k / (1.0 + x) + 2.0 * n * x / s
+        gp = -1.0 / x**2 - k / (1.0 + x) ** 2 + 2.0 * n * (tau**2 - x**2) / s**2
+        return x, a, rho, g, gp
+
+    def _ddensdr(self, r, t=0.0):
+        _, a, rho, g, _ = self._rho_g(r, t)
+        return -rho * g / a
+
+    def _d2densdr2(self, r, t=0.0):
+        _, a, rho, g, gp = self._rho_g(r, t)
+        return rho * (g * g - gp) / a**2
+
+    def _ddenstwobetadr(self, r, beta=0):
+        """d/dr [rho r^(2 beta)], with amp applied"""
+        x, a, rho, g, _ = self._rho_g(r, 0.0)
+        return rho * (a * x) ** (2.0 * beta) * (2.0 * beta / x - g) / a
+
     def _revaluate(self, r, t=0.0):
         xp, x, tau, mu, nu = self._xp_x_tau(r, t)
         a = scalar_like(x, self.a)

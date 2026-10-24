@@ -1099,9 +1099,14 @@ class sphericaldf(df):
             # numpy path: byte-identical scipy k=1 inverse-CMF spline
             if not hasattr(self, "_xi_cmf_spline"):
                 cdf_grid, xi_grid = self._get_cmf_grids()
-                self._xi_cmf_spline = Spline1D(
-                    as_numpy(cdf_grid), as_numpy(xi_grid), k=1
+                cdf, xi = as_numpy(cdf_grid), as_numpy(xi_grid)
+                # a mass that converges well inside rmax (a truncated profile)
+                # reaches 1 to round-off and stays flat: the inverse needs the
+                # strictly increasing part
+                keep = cdf > numpy.concatenate(
+                    ([-numpy.inf], numpy.maximum.accumulate(cdf)[:-1])
                 )
+                self._xi_cmf_spline = Spline1D(cdf[keep], xi[keep], k=1)
             xi_samples = self._xi_cmf_spline(rand_mass_frac)
             # numpy branch: the scale must be numpy too. The BACKEND branch
             # above keeps self._scale so r_samples stays differentiable; here
