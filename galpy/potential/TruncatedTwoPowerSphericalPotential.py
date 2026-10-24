@@ -4,6 +4,7 @@
 #                                           truncation, optionally with a
 #                                           time-dependent truncation radius
 ###############################################################################
+import functools
 import math
 
 import numpy
@@ -163,65 +164,69 @@ def _H_closed(xp, x, tau, k, n):
     return out
 
 
-def _H_series(x, tau, k, n):
+def _powers(xp, x, m):
+    """1, x, ..., x^m along a new last axis (products, so AD-safe at x = 0)"""
+    p = [xp.ones_like(x)]
+    for _ in range(m):
+        p.append(p[-1] * x)
+    return xp.stack(p, axis=-1)
+
+
+def _poly2(xp, T, x, s):
+    """sum_ij T[i, j] x^i s^j for a static table T: one matrix product rather
+    than a loop of eager ops per term"""
+    T = asarray_on_device(xp, T, device_of(x), dtype=x.dtype)
+    X = _powers(xp, x, T.shape[0] - 1)
+    return xp.sum((X @ T) * _powers(xp, s, T.shape[1] - 1), axis=-1)
+
+
+@functools.lru_cache(maxsize=None)
+def _series_tables(k, n):
+    """Coefficients of the series, as tables T[i, j] of x^i s^j, i + 2j <= _NSERIES:
+    the enclosed-mass integrand s (1+s)^-k (1+s^2/tau^2)^-n expanded about 0
+    gives F(x) / x^2 with s = (x/tau)^2 (F) and its r2deriv sum_{m>=1} d_m
+    m/(m+2) x^(m-1), m = i+2j (R1 for i >= 1 on x^(i-1); R0 for i = 0 on
+    s^(j-1), times x/tau^2); the outer-potential integrand expanded in v = 1/x
+    gives H / [v^(k-1) w^n] with w = (tau v)^2 (H). In the series regimes x, v
+    <= 0.1 and s, w <= 0.01 for any tau, so every term is bounded"""
+    N = _NSERIES
+    F = numpy.zeros((N + 1, N // 2 + 1))
+    R1 = numpy.zeros((N, N // 2 + 1))
+    R0 = numpy.zeros((1, N // 2))
+    H = numpy.zeros((N + 1, N // 2 + 1))
+    for i in range(N + 1):
+        for j in range((N - i) // 2 + 1):
+            m = i + 2 * j
+            c = _binom_neg(k, i) * _binom_neg(n, j)
+            F[i, j] = c / (m + 2)
+            if i > 0:
+                R1[i - 1, j] = c * m / (m + 2)
+            elif j > 0:
+                R0[0, j - 1] = c * m / (m + 2)
+            H[i, j] = c / (k + 2 * n - 1 + m)
+    return F, R1, R0, H
+
+
+def _H_series(xp, x, tau, k, n):
     """Asymptotic series of _H_closed for x > max(1, tau): the integrand
     tau^(2n) s^(-k-2n) (1+1/s)^-k (1+tau^2/s^2)^-n expanded in 1/s"""
     v = 1.0 / x
     w2 = (tau * v) ** 2
-    out = 0.0
-    w2j = 1.0
-    for j in range(_NSERIES // 2 + 1):
-        inner = 0.0
-        for i in range(_NSERIES - 2 * j, -1, -1):  # Horner in v
-            inner = inner * v + _binom_neg(k, i) / (k + 2 * n - 1 + i + 2 * j)
-        out = out + _binom_neg(n, j) * w2j * inner
-        w2j = w2j * w2
-    return v ** (k - 1) * w2**n * out
+    return v ** (k - 1) * w2**n * _poly2(xp, _series_tables(k, n)[3], v, w2)
 
 
-def _series_coeffs(tau, mu, k, n):
-    """D_m = d_m mu^m, where F(x) = sum_m d_m x^(m+2) / (m+2) is the Taylor
-    series of the enclosed mass (the integrand s (1+s)^-k (1+s^2/tau^2)^-n
-    expanded about 0) and mu = min(1, tau) its radius of convergence; scaled
-    so that every term is bounded for any tau"""
-    rho2 = (mu / tau) ** 2
-    mu_p = [1.0]
-    rho2_p = [1.0]
-    for _ in range(_NSERIES):
-        mu_p.append(mu_p[-1] * mu)
-    for _ in range(_NSERIES // 2):
-        rho2_p.append(rho2_p[-1] * rho2)
-    D = []
-    for m in range(_NSERIES + 1):
-        acc = 0.0
-        for j in range(m // 2 + 1):
-            acc = acc + (
-                _binom_neg(k, m - 2 * j)
-                * _binom_neg(n, j)
-                * mu_p[m - 2 * j]
-                * rho2_p[j]
-            )
-        D.append(acc)
-    return D
-
-
-def _F_series(x, mu, D, p):
+def _F_series(xp, x, tau, k, n, p):
     """F(x) / x^p from the Taylor series, p = 0, 1, 2 (no division at x=0)"""
-    u = x / mu
-    P = 0.0
-    for m in range(_NSERIES, -1, -1):
-        P = P * u + D[m] / (m + 2)
+    P = _poly2(xp, _series_tables(k, n)[0], x, (x / tau) ** 2)
     return x ** (2 - p) * P if p < 2 else P
 
 
-def _r2deriv_series(x, mu, D):
+def _r2deriv_series(xp, x, tau, k, n):
     """a^3 d^2Phi/dr^2 / amp from the Taylor series: the 1/x terms of 4 pi rho
-    and -2 M/r^3 cancel analytically, leaving sum_{m>=1} d_m m/(m+2) x^(m-1)"""
-    u = x / mu
-    P = 0.0
-    for m in range(_NSERIES, 0, -1):
-        P = P * u + D[m] * m / (m + 2)
-    return P / mu
+    and -2 M/r^3 cancel analytically"""
+    _, R1, R0, _ = _series_tables(k, n)
+    s = (x / tau) ** 2
+    return _poly2(xp, R1, x, s) + x / (tau * tau) * _poly2(xp, R0, x, s)
 
 
 class TruncatedTwoPowerSphericalPotential(SphericalPotential):
@@ -363,7 +368,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         small = x < _SMALL_X * mu
         xs = xp.where(small, x, xp.zeros_like(x))
         xc = xp.where(small, _SMALL_X * mu + xp.zeros_like(x), x)
-        series = _F_series(xs, mu, _series_coeffs(tau, mu, k, n), p)
+        series = _F_series(xp, xs, tau, k, n, p)
         closed = _F_closed(xp, xc, tau, k, n)
         if p > 0:
             closed = closed / xc**p
@@ -375,7 +380,9 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         large = x > _LARGE_X * nu
         xl = xp.where(large, x, 2.0 * _LARGE_X * nu + xp.zeros_like(x))
         xc = xp.where(large, _LARGE_X * nu + xp.zeros_like(x), x)
-        return xp.where(large, _H_series(xl, tau, k, n), _H_closed(xp, xc, tau, k, n))
+        return xp.where(
+            large, _H_series(xp, xl, tau, k, n), _H_closed(xp, xc, tau, k, n)
+        )
 
     def _rdens(self, r, t=0.0):
         xp, x, tau, _, _ = self._xp_x_tau(r, t)
@@ -403,7 +410,7 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         small = x < _SMALL_X * mu
         xs = xp.where(small, x, xp.zeros_like(x))
         xc = xp.where(small, _SMALL_X * mu + xp.zeros_like(x), x)
-        series = _r2deriv_series(xs, mu, _series_coeffs(tau, mu, k, n))
+        series = _r2deriv_series(xp, xs, tau, k, n)
         # 4 pi rho - 2 M / r^3
         closed = (1.0 + (xc / tau) ** 2) ** (-n) / (
             xc * (1.0 + xc) ** k

@@ -6194,6 +6194,7 @@ def test_eccentricity():
     tol["NFWPotential"] = -12.0  # these are more difficult
     tol["TriaxialNFWPotential"] = -12.0  # these are more difficult
     tol["ExpTruncNFWPotential"] = -12.0  # these are more difficult, like NFW
+    tol["TruncatedNFWPotential"] = -12.0  # these are more difficult, like NFW
     tol["MultipoleExpansionPotential"] = -15.0  # slightly more difficult
     tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
     # Tolerances that apply only under a TRACE. AnyAxisymmetricRazorThinDisk
