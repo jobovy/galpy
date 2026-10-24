@@ -19,7 +19,8 @@
 #       differentiable w.r.t. the y-VALUES (interpax / jax-cosmo style). This is
 #       what lets d(orbit)/d(param) flow through a parameter-dependent table
 #       (e.g. the dynamical-friction sigma_r(r) table). ``interp_linear`` is the
-#       trivially-differentiable degree-1 option.
+#       trivially-differentiable degree-1 option (``linear_spline_coeffs`` its
+#       coefficient table).
 #
 #   Every ``xp.where`` here dead-branch-guards both sides (the namespaces
 #   evaluate both branches eagerly): the unused branch's argument is clamped
@@ -54,6 +55,7 @@ __all__ = [
     "spline_to_ppoly",
     "eval_ppoly",
     "cubic_spline_coeffs",
+    "linear_spline_coeffs",
     "eval_cubic",
     "interp_linear",
     "cubic_bspline_kernel",
@@ -391,6 +393,22 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
         Mn = ((hm2 + hm1) * Mi[-1:] - hm1 * Mi[-2:-1]) / hm2
         M = concat([M0, Mi, Mn])
     return _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb)
+
+
+def linear_spline_coeffs(xp, x, y):
+    """Piecewise-linear power-basis coefficients ``(2, n-1)`` from ``(x, y)`` in
+    ``xp``: :func:`interp_linear`'s interpolant in the layout of
+    :func:`cubic_spline_coeffs`, so :func:`eval_ppoly` evaluates it. A 2-D ``y``
+    of shape ``(n, m)`` gives ``(2, n-1, m)``: ``m`` lines on the same grid,
+    evaluated in one call. Differentiable in ``y`` and in a backend ``x``.
+    """
+    dev = device_of(y, x)
+    xb = (
+        asarray_on_device(xp, x if is_backend_array(x) else numpy.asarray(x), dev) * 1.0
+    )
+    h = xb[1:] - xb[:-1]
+    slope = (y[1:] - y[:-1]) / (h[:, None] if y.ndim == 2 else h)
+    return xp.stack([slope, y[:-1]], axis=0)
 
 
 def _cubic_coeffs_from_M(xp, M, h, hh, dslope, yb):
