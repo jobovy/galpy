@@ -868,8 +868,8 @@ void actionAngleStaeckel_actionsJac(int ndata,
 	+ dI3Ut_dpux*dpux[kk] + dI3Ut_dux*dux[kk];
       double dI3V= dI3V_dE*dE[kk] + dI3V_dLz*dLz[kk] + dI3V_dpvx*dpvx[kk]
 	+ dI3V_dvx*dvx[kk] + dI3V_du0*du0[kk];
-      *(jac+ii*10+kk)= tdjrdE*dE[kk] + tdjrdLz*dLz[kk] + tdjrdI3*dI3Ut;
-      *(jac+ii*10+5+kk)= tdjzdE*dE[kk] + tdjzdLz*dLz[kk] + tdjzdI3*dI3V
+      *(jac+(size_t) ii*10+kk)= tdjrdE*dE[kk] + tdjrdLz*dLz[kk] + tdjrdI3*dI3Ut;
+      *(jac+(size_t) ii*10+5+kk)= tdjzdE*dE[kk] + tdjzdLz*dLz[kk] + tdjzdI3*dI3V
 	+ tdjzdU0*du0[kk];
     }
   }
@@ -989,7 +989,7 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
     if ( tumin == -9999.99 || tumax == -9999.99 || tvmin == -9999.99 ){
       *(ecc+ii)= 9999.99; *(zmaxout+ii)= 9999.99;
       *(rperiout+ii)= 9999.99; *(rapout+ii)= 9999.99;
-      for (kk=0;kk<20;kk++) *(jac+ii*20+kk)= 0.;
+      for (kk=0;kk<20;kk++) *(jac+(size_t) ii*20+kk)= 0.;
       continue;
     }
     double shx= *(sinhux+ii), chx= *(coshux+ii);
@@ -1118,10 +1118,10 @@ EXPORT void actionAngleStaeckel_EccZmaxRperiRapJac(int ndata,
       double drperik= drperi_dumin*dumin[kk];
       double dzmaxk= dzmax_dumax*dumax[kk] + dzmax_dvmin*dvminc[kk];
       double drapk= drap_dumax*dumax[kk] + drap_dvmin*dvminc[kk];
-      *(jac+ii*20+ 0*5+kk)= de_drperi*drperik + de_drap*drapk;  // ecc
-      *(jac+ii*20+ 1*5+kk)= dzmaxk;                             // zmax
-      *(jac+ii*20+ 2*5+kk)= drperik;                            // rperi
-      *(jac+ii*20+ 3*5+kk)= drapk;                              // rap
+      *(jac+(size_t) ii*20+ 0*5+kk)= de_drperi*drperik + de_drap*drapk;  // ecc
+      *(jac+(size_t) ii*20+ 1*5+kk)= dzmaxk;                             // zmax
+      *(jac+(size_t) ii*20+ 2*5+kk)= drperik;                            // rperi
+      *(jac+(size_t) ii*20+ 3*5+kk)= drapk;                              // rap
     }
   }
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
@@ -1204,7 +1204,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
   calcdJzStaeckel(ndata,djzdE,djzdLz,djzdI3,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
   calcdJzdU0Staeckel(ndata,djzdU0,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
   calcFreqsFromDerivsStaeckel(ndata,Or,Op,Oz,detA,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3);
-  double *d2jr=malloc(ndata*9*sizeof(double)),*d2jz=malloc(ndata*12*sizeof(double));
+  double *d2jr=malloc((size_t) ndata*9*sizeof(double)),*d2jz=malloc((size_t) ndata*12*sizeof(double));
   calcd2JRStaeckel(ndata,d2jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
   calcd2JzStaeckel(ndata,d2jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
   for (ii=0;ii<ndata;ii++){
@@ -1254,19 +1254,19 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
     // fused (5x5) rows: 0=jr,1=jz (action Jacobian, always differentiable, as
     // #1051 actionsJac), 2=Or,3=Op,4=Oz (freq Jacobian via the action Hessians).
     for (kk=0;kk<5;kk++){
-      ojac[ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
-      ojac[ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V[kk]+djzdU0[ii]*du0[kk];
+      ojac[(size_t) ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
+      ojac[(size_t) ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V[kk]+djzdU0[ii]*du0[kk];
     }
     double a=djrdE[ii],b=djrdLz[ii],cJR=djrdI3[ii],dJZ=djzdE[ii],eJZ=djzdLz[ii],fJZ=djzdI3[ii];
     if ( a==9999.99 || dJZ==9999.99 || detA[ii]==0. ){
-      for (kk=0;kk<15;kk++) ojac[ii*25+10+kk]=0.; continue; // zero freq rows (2,3,4)
+      for (kk=0;kk<15;kk++) ojac[(size_t) ii*25+10+kk]=0.; continue; // zero freq rows (2,3,4)
     }
     double id=1./detA[ii],id2=id*id,N=cJR*eJZ-fJZ*b;
     double gOr[6]={-fJZ*fJZ*id2,0.,fJZ*dJZ*id2,fJZ*cJR*id2,0.,id-fJZ*a*id2};
     double gOp[6]={-N*fJZ*id2,-fJZ*id,eJZ*id+N*dJZ*id2,N*cJR*id2,cJR*id,-b*id-N*a*id2};
     double gOz[6]={cJR*fJZ*id2,0.,-id-cJR*dJZ*id2,-cJR*cJR*id2,0.,cJR*a*id2};
     double *gg[3]={gOr,gOp,gOz};
-    double *D2R=d2jr+ii*9,*D2Z=d2jz+ii*12;
+    double *D2R=d2jr+(size_t) ii*9,*D2Z=d2jz+(size_t) ii*12;
     for (int oi=0;oi<3;oi++){
       double *g=gg[oi];
       double dOdE=g[0]*D2R[0]+g[1]*D2R[3]+g[2]*D2R[6]+g[3]*D2Z[0]+g[4]*D2Z[4]+g[5]*D2Z[8];
@@ -1275,7 +1275,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
       double dOdI3V=g[3]*D2Z[2]+g[4]*D2Z[6]+g[5]*D2Z[10];
       double dOdu0=g[3]*D2Z[3]+g[4]*D2Z[7]+g[5]*D2Z[11];
       for (kk=0;kk<5;kk++)
-        ojac[ii*25+(oi+2)*5+kk]=dOdE*dE[kk]+dOdLz*dLz[kk]+dOdI3U*dI3Ut[kk]+dOdI3V*dI3V[kk]+dOdu0*du0[kk];
+        ojac[(size_t) ii*25+(oi+2)*5+kk]=dOdE*dE[kk]+dOdLz*dLz[kk]+dOdI3U*dI3Ut[kk]+dOdI3V*dI3V[kk]+dOdu0*du0[kk];
     }
   }
   free_potentialArgs(aa_nthreads*npot,aaArgs); free(aaArgs);
@@ -1464,7 +1464,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
   calcFreqsFromDerivsStaeckel(ndata,Or,Op,Oz,detA,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3);
   double *dI3dJR=malloc(ndata*sizeof(double)),*dI3dJz=malloc(ndata*sizeof(double)),*dI3dLz=malloc(ndata*sizeof(double));
   calcdI3dJFromDerivsStaeckel(ndata,dI3dJR,dI3dJz,dI3dLz,detA,djrdE,djzdE,djrdLz,djzdLz);
-  double *d2jr=malloc(ndata*9*sizeof(double)),*d2jz=malloc(ndata*12*sizeof(double));
+  double *d2jr=malloc((size_t) ndata*9*sizeof(double)),*d2jz=malloc((size_t) ndata*12*sizeof(double));
   calcd2JRStaeckel(ndata,d2jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
   calcd2JzStaeckel(ndata,d2jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
   // angle VALUES (reused value path -> byte-identical to actionsFreqsAngles_c)
@@ -1523,13 +1523,13 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     }
     // ojac action rows (0,1) -- byte-identical to actionsFreqsJac
     for (kk=0;kk<5;kk++){
-      ojac[ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
-      ojac[ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V_[kk]+djzdU0[ii]*du0[kk];
+      ojac[(size_t) ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
+      ojac[(size_t) ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V_[kk]+djzdU0[ii]*du0[kk];
     }
     double a=djrdE[ii],b=djrdLz[ii],cJR=djrdI3[ii],dJZ=djzdE[ii],eJZ=djzdLz[ii],fJZ=djzdI3[ii];
     if ( a==9999.99 || dJZ==9999.99 || detA[ii]==0. ){
-      for (kk=0;kk<15;kk++) ojac[ii*25+10+kk]=0.;
-      for (kk=0;kk<15;kk++) ajac[ii*15+kk]=0.;
+      for (kk=0;kk<15;kk++) ojac[(size_t) ii*25+10+kk]=0.;
+      for (kk=0;kk<15;kk++) ajac[(size_t) ii*15+kk]=0.;
       continue; // zero freq + angle rows
     }
     double id=1./detA[ii],id2=id*id,N=cJR*eJZ-fJZ*b,Mm=a*eJZ-dJZ*b;
@@ -1542,7 +1542,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     double gI3z[6]={id-a*fJZ*id2,0.,a*dJZ*id2,a*cJR*id2,0.,-a*a*id2};
     double gI3Lz[6]={-eJZ*id+Mm*fJZ*id2,dJZ*id,-Mm*dJZ*id2,b*id-Mm*cJR*id2,-a*id,Mm*a*id2};
     double *gall[6]={gOr,gOp,gOz,gI3R,gI3z,gI3Lz};
-    double *D2R=d2jr+ii*9,*D2Z=d2jz+ii*12;
+    double *D2R=d2jr+(size_t) ii*9,*D2Z=d2jz+(size_t) ii*12;
     double drow[6][5];
     for (int oi=0;oi<6;oi++){
       double *g=gall[oi];
@@ -1556,7 +1556,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     }
     // ojac freq rows (2,3,4) -- byte-identical to actionsFreqsJac
     for (int oi=0;oi<3;oi++)
-      for (kk=0;kk<5;kk++) ojac[ii*25+(oi+2)*5+kk]=drow[oi][kk];
+      for (kk=0;kk<5;kk++) ojac[(size_t) ii*25+(oi+2)*5+kk]=drow[oi][kk];
     // ----- angle Jacobian rows (ajac) -----
     double tumin=umin[ii],tumax=umax[ii],tux=ux[ii];
     double midpt_u= tumin+0.5*(tumax-tumin);
@@ -1582,7 +1582,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     }
     // near-turning-point guard (z=0 -> mid_v=0; position at a panel base) -> zero
     if ( mid_u<1.e-7 || mid_v<1.e-7 ){
-      for (kk=0;kk<15;kk++) ajac[ii*15+kk]=0.;
+      for (kk=0;kk<15;kk++) ajac[(size_t) ii*15+kk]=0.;
       continue;
     }
     double Ld2= tLz/(tdelta*tdelta);
@@ -1620,10 +1620,10 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
     double Omr=Or[ii],Omp=Op[ii],Omz=Oz[ii];
     double dI3JR=dI3dJR[ii],dI3Jz=dI3dJz[ii],dI3Lz2=dI3dLz[ii];
     for (kk=0;kk<5;kk++){
-      ajac[ii*15+0*5+kk]= drow[0][kk]*Or_sum+Omr*dOr_sum[kk]+drow[3][kk]*I3_sum+dI3JR*dI3_sum[kk];
-      ajac[ii*15+1*5+kk]= daphi_u[kk]+dphitmp[kk]+drow[1][kk]*Or_sum+Omp*dOr_sum[kk]
+      ajac[(size_t) ii*15+0*5+kk]= drow[0][kk]*Or_sum+Omr*dOr_sum[kk]+drow[3][kk]*I3_sum+dI3JR*dI3_sum[kk];
+      ajac[(size_t) ii*15+1*5+kk]= daphi_u[kk]+dphitmp[kk]+drow[1][kk]*Or_sum+Omp*dOr_sum[kk]
 	+drow[5][kk]*I3_sum+dI3Lz2*dI3_sum[kk];
-      ajac[ii*15+2*5+kk]= drow[2][kk]*Or_sum+Omz*dOr_sum[kk]+drow[4][kk]*I3_sum+dI3Jz*dI3_sum[kk];
+      ajac[(size_t) ii*15+2*5+kk]= drow[2][kk]*Or_sum+Omz*dOr_sum[kk]+drow[4][kk]*I3_sum+dI3Jz*dI3_sum[kk];
     }
   }
   gsl_integration_glfixed_table_free(Tang);
@@ -2529,7 +2529,7 @@ void calcd2JRStaeckel(int ndata,
     tid = 0;
 #endif
     int jj, P0, Pk, gi;
-    for (jj=0; jj < 9; jj++) *(d2jr+ii*9+jj)= 0.;
+    for (jj=0; jj < 9; jj++) *(d2jr+(size_t) ii*9+jj)= 0.;
     if ( *(umin+ii) == -9999.99 || *(umax+ii) == -9999.99 ) continue;
     if ( (*(umax+ii) - *(umin+ii)) / *(umax+ii) < 0.000001 ) continue; //circular
     double dlt= *(delta+ii*delta_stride);
@@ -2585,9 +2585,9 @@ void calcd2JRStaeckel(int ndata,
     double pref[3]= { prefr, - *(Lz+ii) / M_PI / sqrt(2.) / dlt, -prefr };
     for (P0=0; P0 < 3; P0++)
       for (Pk=0; Pk < 3; Pk++)
-	*(d2jr+ii*9+P0*3+Pk)= H[P0*3+Pk]*pref[P0];
+	*(d2jr+(size_t) ii*9+P0*3+Pk)= H[P0*3+Pk]*pref[P0];
     // pref(Lz) depends on Lz -> product-rule term on d(djrdLz)/dLz
-    *(d2jr+ii*9+1*3+1)+= (-1. / M_PI / sqrt(2.) / dlt)*Ifirst[1];
+    *(d2jr+(size_t) ii*9+1*3+1)+= (-1. / M_PI / sqrt(2.) / dlt)*Ifirst[1];
   }
   free(params);
   gsl_integration_glfixed_table_free ( T );
@@ -2622,7 +2622,7 @@ void calcd2JzStaeckel(int ndata,
     tid = 0;
 #endif
     int jj, P0, Pk, gi;
-    for (jj=0; jj < 12; jj++) *(d2jz+ii*12+jj)= 0.;
+    for (jj=0; jj < 12; jj++) *(d2jz+(size_t) ii*12+jj)= 0.;
     if ( *(vmin+ii) == -9999.99 ) continue;
     if ( (M_PI/2. - *(vmin+ii)) < 0.0000001 ) continue; //planar (J_z=0)
     double dlt= *(delta+ii*delta_stride);
@@ -2676,9 +2676,9 @@ void calcd2JzStaeckel(int ndata,
     double pref[3]= { prefz, - *(Lz+ii) * sqrt(2.) / M_PI / dlt, prefz };
     for (P0=0; P0 < 3; P0++)
       for (Pk=0; Pk < 4; Pk++)
-	*(d2jz+ii*12+P0*4+Pk)= H[P0*4+Pk]*pref[P0];
+	*(d2jz+(size_t) ii*12+P0*4+Pk)= H[P0*4+Pk]*pref[P0];
     // pref(Lz) depends on Lz -> product-rule term on d(djzdLz)/dLz
-    *(d2jz+ii*12+1*4+1)+= (-sqrt(2.) / M_PI / dlt)*Ifirst[1];
+    *(d2jz+(size_t) ii*12+1*4+1)+= (-sqrt(2.) / M_PI / dlt)*Ifirst[1];
   }
   free(params);
   gsl_integration_glfixed_table_free ( T );
