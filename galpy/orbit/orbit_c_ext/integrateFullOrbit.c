@@ -820,6 +820,26 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 48: //TruncatedTwoPowerSphericalPotential (truncated NFW and Hernquist)
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->Rforce = &SphericalPotentialRforce;
+      potentialArgs->zforce = &SphericalPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
+      potentialArgs->revaluate= &TruncatedTwoPowerSphericalPotentialrevaluate;
+      potentialArgs->rforce= &TruncatedTwoPowerSphericalPotentialrforce;
+      potentialArgs->r2deriv= &TruncatedTwoPowerSphericalPotentialr2deriv;
+      potentialArgs->rdens= &TruncatedTwoPowerSphericalPotentialrdens;
+      // amp, a, k, n, Nt, then rc (Nt = 0) or tgrid and 4 (Nt-1) spline coefficients
+      potentialArgs->nargs= (int) ( *(*pot_args+4) == 0 ? 6
+        : 5 + *(*pot_args+4) + 4 * ( *(*pot_args+4) - 1 ) );
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
     case 47: //OblateStaeckelWrapperPotential, tabulated (no wrapped pot in C)
       // Six natural cubic splines (house GSL style): stream is
       // [ntab, ugrid, Uy, dUy, d2Uy, vgrid, Vy, dVy, d2Vy] then the 5 scalars
