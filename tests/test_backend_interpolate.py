@@ -22,6 +22,7 @@ from galpy.backend.interpolate import (
     eval_ppoly,
     eval_rect_ppoly,
     interp_linear,
+    linear_spline_coeffs,
     make_smoothing_spline,
     map_coordinates,
     native_rect_cubic_coeffs,
@@ -740,6 +741,56 @@ def test_interp_linear_nu_branches(backend):
     numpy.testing.assert_allclose(
         as_numpy(interp_linear(xp, x, y, q, nu=2)), 0.0, atol=1e-12
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_linear_spline_coeffs_is_interp_linear(backend):
+    # linear_spline_coeffs is interp_linear's interpolant as a power-basis table:
+    # eval_ppoly of it gives interp_linear's values -- at the knots, between them
+    # and extrapolated -- for a 1-D y and column by column for an (n, m) y (m
+    # lines on one grid, one evaluation). Bit for bit, except that XLA turns
+    # jax's division by the broadcast spacings into a product with their
+    # reciprocal (the last bit of a slope).
+    rs = numpy.random.RandomState(3)
+    x = numpy.sort(rs.rand(7)) * 4.0 - 1.0
+    Y = rs.randn(7, 5)
+    rq = numpy.concatenate([x, [x[0] - 0.3, 0.17, 1.9, x[-1] + 0.4]])
+    xp = _xp(backend)
+    r = _asarray(backend, rq)
+    c = linear_spline_coeffs(xp, x, _asarray(backend, Y))
+    assert c.shape == (2, 6, 5) and _is_backend(backend, c)
+    got = as_numpy(eval_ppoly(xp, x, c, r))
+    tol = dict(rtol=1e-15, atol=1e-15) if backend == "jax" else dict(rtol=0, atol=0)
+    for j in range(5):
+        want = as_numpy(interp_linear(xp, x, _asarray(backend, Y[:, j]), r))
+        numpy.testing.assert_allclose(got[:, j], want, **tol)
+    c1 = linear_spline_coeffs(xp, x, _asarray(backend, Y[:, 2]))
+    assert c1.shape == (2, 6)
+    numpy.testing.assert_allclose(as_numpy(eval_ppoly(xp, x, c1, r)), got[:, 2], **tol)
+
+
+@pytest.mark.skipif(not jax, reason="jax not installed")
+def test_linear_spline_coeffs_gradients_are_interp_linears():
+    # d/d(y), d/d(knots) (a backend x) and d/d(query) through the table equal
+    # interp_linear's, so the batched lines differentiate like the per-column ones
+    rs = numpy.random.RandomState(4)
+    x0 = jnp.asarray(numpy.sort(rs.rand(6)) * 3.0)
+    y0 = jnp.asarray(rs.randn(6))
+    r0 = jnp.asarray([0.2, 1.1, 2.5, 2.9])
+
+    def table(x, y, r):
+        return jnp.sum(eval_ppoly(jnp, x, linear_spline_coeffs(jnp, x, y), r) ** 2)
+
+    def direct(x, y, r):
+        return jnp.sum(interp_linear(jnp, x, y, r) ** 2)
+
+    for argnum in range(3):
+        numpy.testing.assert_allclose(
+            jax.grad(table, argnums=argnum)(x0, y0, r0),
+            jax.grad(direct, argnums=argnum)(x0, y0, r0),
+            rtol=1e-14,
+            atol=1e-14,
+        )
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

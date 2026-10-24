@@ -545,6 +545,204 @@ def test_integrate_multiorbit_inbackend_offgrid_phasedim5():
         )
 
 
+# ------------------------- a batch Orbit read at a traced time (e.g. under jit)
+def _count_eqns(jaxpr):
+    """Equations of a jaxpr, those of its sub-jaxprs (loops, solves) included."""
+    n = 0
+    for eqn in jaxpr.eqns:
+        n += 1
+        for p in eqn.params.values():
+            for sub in p if isinstance(p, (list, tuple)) else (p,):
+                sub = getattr(sub, "jaxpr", sub)  # ClosedJaxpr -> Jaxpr
+                if hasattr(sub, "eqns"):
+                    n += _count_eqns(sub)
+    return n
+
+
+def _final_state_ic(n):
+    rs = numpy.random.RandomState(0)
+    return numpy.column_stack(
+        [
+            rs.uniform(0.6, 1.4, n),
+            rs.normal(0.0, 0.1, n),
+            rs.uniform(0.7, 1.1, n),
+            rs.normal(0.0, 0.1, n),
+            rs.normal(0.0, 0.1, n),
+            rs.uniform(0.0, 2.0 * numpy.pi, n),
+        ]
+    )
+
+
+_FINAL_TS = (0.0, 4.0)
+_FINAL_NSTEPS = 20
+
+
+def _final_state_orbit(ic, b):
+    # x, y, z, vx, vy, vz at the end of a constant-step batch integration, read
+    # through the accessors at a TRACED time (ts[-1] under jit)
+    ts = jnp.asarray(_FINAL_TS)
+    o = Orbit(ic)
+    o.integrate(
+        ts,
+        PlummerPotential(amp=1.0, b=b),
+        method="diffrax",
+        inbackend_kwargs={"nsteps": _FINAL_NSTEPS},
+    )
+    return jnp.stack(
+        [
+            getattr(o, a)(ts[-1], use_physical=False)
+            for a in ("x", "y", "z", "vx", "vy", "vz")
+        ]
+    )
+
+
+def _final_state_direct(ic, b):
+    # the same solve with diffrax directly on galpy's backend EOM, no Orbit
+    from galpy.backend._reference.inbackend_ode import _eom_rhs
+
+    pot = PlummerPotential(amp=1.0, b=b)
+    R, vR, vT, z, vz, phi = (ic[:, i] for i in range(6))
+    c, s = jnp.cos(phi), jnp.sin(phi)
+    y0 = jnp.stack([R * c, vR * c - vT * s, R * s, vR * s + vT * c, z, vz], axis=-1)
+    term = diffrax.ODETerm(
+        lambda t, y, args: jnp.stack(_eom_rhs(y, pot, t, jnp, 6), axis=-1)
+    )
+    t0, t1 = _FINAL_TS
+    yf = diffrax.diffeqsolve(
+        term,
+        diffrax.Dopri8(),
+        t0=t0,
+        t1=t1,
+        dt0=(t1 - t0) / _FINAL_NSTEPS,
+        y0=y0,
+        saveat=diffrax.SaveAt(t1=True),
+        stepsize_controller=diffrax.ConstantStepSize(),
+        max_steps=_FINAL_NSTEPS + 1,
+    ).ys[-1]
+    return jnp.stack([yf[:, 0], yf[:, 2], yf[:, 4], yf[:, 1], yf[:, 3], yf[:, 5]])
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_batch_orbit_final_state_under_jit_matches_the_bare_solve():
+    # A batch Orbit integrated and read at ts[-1] inside jax.jit gives the bare
+    # diffrax solve's final state, and the same gradient w.r.t. a potential
+    # parameter
+    ic = jnp.asarray(_final_state_ic(8))
+    via = jax.jit(_final_state_orbit)(ic, 0.6)
+    ref = jax.jit(_final_state_direct)(ic, 0.6)
+    numpy.testing.assert_allclose(via, ref, rtol=1e-12, atol=1e-12)
+
+    def loss(f):
+        return lambda b: jnp.sum(f(ic, b) ** 2)
+
+    gvia = float(jax.jit(jax.grad(loss(_final_state_orbit)))(0.6))
+    gref = float(jax.jit(jax.grad(loss(_final_state_direct)))(0.6))
+    assert abs(gvia - gref) < 1e-12 * abs(gref)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_batch_orbit_under_jit_jaxpr_does_not_grow_with_the_orbit_count():
+    # Reading a batch Orbit at a traced time splines all of its orbits at once.
+    # A spline per orbit, unrolled by the trace, made the jaxpr (and the compile
+    # time) grow by ~430 equations per orbit and accessor (here 6533 -> 42737
+    # from 2 to 16 orbits). Now its size does not depend on the number of
+    # orbits and stays close to the bare solve's.
+    def neqns(f, n):
+        return _count_eqns(
+            jax.make_jaxpr(f)(jnp.asarray(_final_state_ic(n)), 0.6).jaxpr
+        )
+
+    via = [neqns(_final_state_orbit, n) for n in (2, 16)]
+    assert via[0] == via[1], f"jaxpr grows with the orbit count: {via}"
+    direct = neqns(_final_state_direct, 2)
+    # (~2x: the six accessors, and a probe of the EOM that the compiler drops)
+    assert via[0] < 3 * direct, f"jaxpr {via[0]} eqns vs {direct} for the bare solve"
+
+
+def _per_orbit_splines(o, tq):
+    # the shared-grid off-grid evaluation as it was: one spline per orbit
+    xp = jnp if "jax" in type(o.orbit).__module__ else _torch_ns()
+    grid = numpy.asarray(as_numpy(o.t))
+    orbit = o.orbit
+    if grid[1] < grid[0]:
+        grid = grid[::-1].copy()
+        orbit = xp.flip(orbit, axis=1)
+    return xp.stack(
+        [o._backend_spline_orbit(orbit[ii], grid, tq) for ii in range(orbit.shape[0])],
+        axis=-1,
+    )
+
+
+def _grad_wrt_t(f, backend, tq):
+    if backend == "jax":
+        return as_numpy(jax.grad(lambda t: jnp.sum(f(t) ** 2))(jnp.asarray(tq)))
+    t = torch.as_tensor(tq).requires_grad_(True)
+    (f(t) ** 2).sum().backward()
+    return as_numpy(t.grad)
+
+
+def _torch_ns():
+    import array_api_compat.torch as txp
+
+    return txp
+
+
+@pytest.mark.parametrize("nt", [2, 3, 12])
+@pytest.mark.parametrize("pd", [6, 5])
+@pytest.mark.parametrize("backend", ["jax", "torch"])
+def test_backend_orbit_offgrid_matches_per_orbit_splines(backend, pd, nt):
+    # All orbits of an in-backend Orbit share its grid, so the off-grid accessors
+    # fit them in one batched spline (a line for a <=3-point grid): it gives what
+    # one spline per orbit gives, for one orbit and a batch, both directions, at
+    # and between the stored times, eagerly and (jax) under jit, physical or not
+    if backend == "jax" and not HAVE_JAX:
+        pytest.skip("jax/diffrax not installed")
+    if backend == "torch" and not HAVE_TORCH:
+        pytest.skip("torch/torchdiffeq not installed")
+    arr = jnp.asarray if backend == "jax" else torch.as_tensor
+    for direction in (1.0, -1.0):
+        ts = direction * numpy.linspace(0.0, 3.0, nt)
+        tq = direction * numpy.array([0.0, 0.41, 1.77, 3.0])
+        for ic in (_MULTI_IC[0], _MULTI_IC):
+            o = Orbit(arr(ic[..., :pd]), ro=8.0, vo=220.0)  # pd 5: no phi
+            o.integrate(
+                arr(ts),
+                _PLUMMER,
+                method="diffrax" if backend == "jax" else "torchdiffeq",
+            )
+            got = as_numpy(o._call_internal(arr(tq)))
+            ref = as_numpy(_per_orbit_splines(o, arr(tq)))
+            # bit for bit, but for the last bit of jax's batched lines (XLA
+            # multiplies by the reciprocal of the broadcast grid spacing)
+            tol = 1e-15 if backend == "jax" and nt <= 3 else 0.0
+            numpy.testing.assert_allclose(got, ref, rtol=tol, atol=tol)
+            # at a stored time (t=0, an end of the grid): the stored state
+            numpy.testing.assert_allclose(
+                got[:, 0], as_numpy(o.orbit[:, 0, :]).T, rtol=1e-14, atol=1e-14
+            )
+            # and the same derivative w.r.t. the query times
+            numpy.testing.assert_allclose(
+                _grad_wrt_t(lambda t, o=o: o._call_internal(t), backend, tq),
+                _grad_wrt_t(lambda t, o=o: _per_orbit_splines(o, t), backend, tq),
+                rtol=1e-13,
+                atol=1e-13,
+            )
+            if backend != "jax":
+                continue
+            # an accessor, eagerly and jitted, in natural and physical units
+            acc = "R" if pd == 5 else "x"
+            nat = as_numpy(getattr(o, acc)(arr(tq), use_physical=False))
+            numpy.testing.assert_allclose(
+                nat, as_numpy(getattr(o, acc)(arr(tq), use_physical=True)) / 8.0
+            )
+            for phys in (False, True):
+                eager = as_numpy(getattr(o, acc)(arr(tq), use_physical=phys))
+                jitted = jax.jit(
+                    lambda t, o=o, phys=phys: getattr(o, acc)(t, use_physical=phys)
+                )(arr(tq))
+                numpy.testing.assert_allclose(jitted, eager, rtol=1e-14, atol=1e-14)
+
+
 # ----------------------------------------- all phase-space dimensions (not just 6)
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize(
