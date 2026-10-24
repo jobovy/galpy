@@ -998,6 +998,34 @@ def test_osipkovmerritt_exptruncnfw_dens_directint():
     return None
 
 
+_TRUNCATED_TWOPOWER = {
+    "TruncatedNFW": lambda: potential.TruncatedNFWPotential(
+        amp=1.3, a=1.5, rc=8.0, n=1
+    ),
+    "TruncatedHernquist": lambda: potential.TruncatedHernquistPotential(
+        amp=1.3, a=0.8, rc=2.0, n=2
+    ),
+}
+
+
+def test_osipkovmerritt_truncatedtwopower_dens_directint():
+    # as for ExpTruncNFW: the generic osipkovmerrittdf uses _ddensdr and
+    # _d2densdr2 (the default rmax: these power-law tails hold ~1% of the mass
+    # beyond 10 rc, so cutting the DF there lowers the density at a few rc)
+    for pot in [mk() for mk in _TRUNCATED_TWOPOWER.values()]:
+        dfh = osipkovmerrittdf(pot=pot, ra=2.3)
+        check_dens_directint(
+            dfh,
+            pot,
+            1e-3,
+            lambda r: pot.dens(r, 0),
+            rmin=pot._scale / 10.0,
+            rmax=pot._scale * 10.0,
+            bins=6,
+        )
+    return None
+
+
 def test_osipkovmerritt_nfw_meanvr_directint():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     ras = [2.3, 5.7]
@@ -1657,6 +1685,52 @@ def test_eddington_differentpotentials_dMdE_integral():
     for pot, tol in zip(pots, tols):
         dfh = eddingtondf(pot=pot)
         check_dMdE_integral(dfh, tol)
+    return None
+
+
+@pytest.mark.parametrize("name", list(_TRUNCATED_TWOPOWER))
+def test_eddington_truncatedtwopower_dens_directint(name):
+    pot = _TRUNCATED_TWOPOWER[name]()
+    dfh = eddingtondf(pot=pot)
+    check_dens_directint(
+        dfh,
+        pot,
+        1e-3,
+        lambda r: pot.dens(r, 0),
+        rmin=pot._scale / 10.0,
+        rmax=pot._scale * 10.0,
+        bins=11,
+    )
+    return None
+
+
+@pytest.mark.parametrize("name", list(_TRUNCATED_TWOPOWER))
+def test_eddington_truncatedtwopower_sample(name):
+    # sampled radii follow the mass profile, and sigma_r the Jeans equation
+    pot = _TRUNCATED_TWOPOWER[name]()
+    numpy.random.seed(10)
+    samp = eddingtondf(pot=pot).sample(n=100000)
+    check_spherical_massprofile(
+        samp,
+        lambda r: potential.mass(pot, r) / potential.mass(pot, numpy.inf),
+        5e-3,
+        skip=1000,
+    )
+    # where the bins hold enough stars (the worst bin is at <=4.3% over 8 seeds)
+    check_sigmar_against_jeans(
+        samp,
+        pot,
+        0.06,
+        rmin=pot._scale / 3.0,
+        rmax=min(10.0 * pot._scale, 2.0 * pot.rc),
+        bins=11,
+    )
+    return None
+
+
+@pytest.mark.parametrize("name", list(_TRUNCATED_TWOPOWER))
+def test_eddington_truncatedtwopower_dMdE_integral(name):
+    check_dMdE_integral(eddingtondf(pot=_TRUNCATED_TWOPOWER[name]()), 1e-6)
     return None
 
 
@@ -2731,6 +2805,91 @@ def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
         assert numpy.fabs(float(pot._rforce_jax(r)) - py) < 1e-4 * numpy.fabs(py), (
             "ExpTruncNFW _rforce_jax does not match amp * _rforce"
         )
+    return None
+
+
+def test_constantbeta_truncatedtwopower_dens_directint():
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    # as for ExpTruncNFW: constant-beta uses _ddenstwobetadr and _rforce_jax
+    for pot in [mk() for mk in _TRUNCATED_TWOPOWER.values()]:
+        dfh = constantbetadf(pot=pot, twobeta=-1)
+        check_dens_directint(
+            dfh,
+            pot,
+            1e-3,
+            lambda r: pot.dens(r, 0),
+            rmin=pot._scale / 10.0,
+            rmax=pot._scale * 10.0,
+            bins=11,
+        )
+    return None
+
+
+def test_truncatedtwopower_density_derivatives():
+    # _ddensdr, _d2densdr2 and _ddenstwobetadr (the derivatives the spherical
+    # DFs use) against complex-step derivatives (exact to round-off) of the
+    # density and of _ddensdr, from inside the core to far beyond the
+    # truncation, for both profiles and several n and rc
+    betas = (0.0, 0.5, -0.5, 1.0)
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n, rc in ((1, 0.3), (3, 7.0)):
+            pot = cls(amp=1.7, a=1.3, rc=rc, n=n)
+            dens = lambda r: pot._amp * pot._rdens(r)
+            for r in (1e-4, 0.05, 0.9, 4.0, 60.0, 1e3):
+                h = 1e-30 * r
+                cstep = lambda f: f(r + 1j * h).imag / h
+                scale = dens(r) / r  # the derivatives can pass through zero
+                checks = [
+                    (pot._ddensdr(r), cstep(dens), scale),
+                    (pot._d2densdr2(r), cstep(pot._ddensdr), scale / r),
+                ] + [
+                    (
+                        pot._ddenstwobetadr(r, beta=beta),
+                        cstep(lambda x: dens(x) * x ** (2.0 * beta)),
+                        scale * r ** (2.0 * beta),
+                    )
+                    for beta in betas
+                ]
+                for got, want, sc in checks:
+                    assert numpy.fabs(got - want) < 1e-12 * sc, (
+                        f"{cls.__name__} n={n} rc={rc} r={r}: {got} vs {want}"
+                    )
+    # with a time-dependent rc, the derivatives use rc(t)
+    pt = potential.TruncatedNFWPotential(rc=[2.0, 3.0, 5.0], tgrid=[0.0, 1.0, 2.0])
+    ps = potential.TruncatedNFWPotential(rc=3.0)
+    for m in ("_ddensdr", "_d2densdr2"):
+        assert numpy.fabs(getattr(pt, m)(1.1, t=1.0) / getattr(ps, m)(1.1) - 1) < 1e-14
+    return None
+
+
+def test_truncatedtwopower_rforce_jax():
+    # the jax radial force that constantbetadf differentiates, in every regime
+    # (the small-r series included), and its jax derivatives
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    import jax
+    import jax.numpy as jnp
+
+    rs = numpy.array([1e-6, 1e-3, 0.05, 0.13, 0.9, 4.0, 60.0, 1e3, 1e5])
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n, rc in ((1, 0.3), (3, 7.0)):
+            pot = cls(amp=1.7, a=1.3, rc=rc, n=n)
+            fj = numpy.asarray(jax.vmap(pot._rforce_jax)(jnp.asarray(rs)))
+            # (XLA orders the arithmetic differently: a few ulps)
+            numpy.testing.assert_allclose(fj, pot._amp * pot._rforce(rs), rtol=1e-14)
+            # d F_r / dr = -d^2 Phi / dr^2
+            gj = numpy.asarray(jax.vmap(jax.grad(pot._rforce_jax))(jnp.asarray(rs)))
+            numpy.testing.assert_allclose(gj, -pot._amp * pot._r2deriv(rs), rtol=1e-13)
+            # constantbetadf differentiates _ddenstwobetadr with jax
+            for beta in (0.0, -0.5):
+                gd = jax.vmap(jax.grad(lambda r: pot._ddenstwobetadr(r, beta=beta)))
+                h = 1e-30 * rs
+                numpy.testing.assert_allclose(
+                    numpy.asarray(gd(jnp.asarray(rs))),
+                    pot._ddenstwobetadr(rs + 1j * h, beta=beta).imag / h,
+                    rtol=1e-12,
+                )
     return None
 
 
@@ -3994,6 +4153,22 @@ def check_dMdE_integral(dfi, tol, Emax=None):
         < tol
     ), (
         f"Integral of dMdE over all energies does not equal total mass for potential {dfi._pot.__class__.__name__}"
+    )
+    return None
+
+
+def test_eddington_sample_converged_mass_default_rmax():
+    # the mass of an exponentially truncated NFW converges well inside the
+    # default rmax, so the sampling CMF reaches 1 to round-off and stays flat;
+    # building its inverse used to raise "x must be increasing"
+    pot = potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0)
+    numpy.random.seed(10)
+    samp = eddingtondf(pot=pot).sample(n=100000)
+    check_spherical_massprofile(
+        samp,
+        lambda r: potential.mass(pot, r) / potential.mass(pot, numpy.inf),
+        5e-3,
+        skip=1000,
     )
     return None
 

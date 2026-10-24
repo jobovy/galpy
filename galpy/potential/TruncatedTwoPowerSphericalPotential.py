@@ -11,7 +11,11 @@ import numpy
 from scipy import interpolate as _scipy_interpolate
 
 from ..util import conversion
+from ..util._optional_deps import _JAX_LOADED
 from .SphericalPotential import SphericalPotential
+
+if _JAX_LOADED:
+    import jax.numpy as jnp
 
 # x = r/a below _SMALL_X min(1, rc/a): Taylor series (the closed form cancels);
 # x above _LARGE_X max(1, rc/a): asymptotic series for the outer integral
@@ -72,40 +76,40 @@ def _pf_coeffs(k, n, which, tau):
     return A, B, C
 
 
-def _log_ratio(x, tau):
+def _log_ratio(x, tau, xp=numpy):
     """log[(1+x) / sqrt(1+x^2/tau^2)]: directly for x <= max(1, tau), and as
     log(tau) + log1p(1/x) - log1p(tau^2/x^2)/2 beyond, where the two logarithms
     would each grow (and overflow at x ~ 1e154) while their difference does not"""
-    nu = numpy.clip(tau, 1.0, None)
+    nu = xp.clip(tau, 1.0, None)
     far = x > nu
-    xn = numpy.where(far, numpy.zeros_like(x), x)
-    xf = numpy.where(far, x, 2.0 * nu)
-    near = numpy.log1p(xn) - 0.5 * numpy.log1p((xn / tau) ** 2)
+    xn = xp.where(far, xp.zeros_like(x), x)
+    xf = xp.where(far, x, 2.0 * nu)
+    near = xp.log1p(xn) - 0.5 * xp.log1p((xn / tau) ** 2)
     v = 1.0 / xf
-    return numpy.where(
-        far, numpy.log(tau) + numpy.log1p(v) - 0.5 * numpy.log1p((tau * v) ** 2), near
+    return xp.where(
+        far, xp.log(tau) + xp.log1p(v) - 0.5 * xp.log1p((tau * v) ** 2), near
     )
 
 
-def _F_closed(x, tau, k, n):
+def _F_closed(x, tau, k, n, xp=numpy):
     """int_0^x s / [(1+s)^k (1+s^2/tau^2)^n] ds, closed form"""
     A, B, C = _pf_coeffs(k, n, "F", tau)
     # the terms below are 0 (or their limits) to double precision long before
     # x^2 overflows; clamping keeps the warnings and infs out
-    xq = numpy.clip(x, None, 1e100)
+    xq = xp.clip(x, None, 1e100)
     r = xq / tau
-    L = numpy.log1p(r * r)
-    lx = numpy.log1p(x)
-    out = A[0] * _log_ratio(x, tau)
+    L = xp.log1p(r * r)
+    lx = xp.log1p(x)
+    out = A[0] * _log_ratio(x, tau, xp)
     for j in range(2, k + 1):  # A_j int (1+s)^-j = A_j [1 - (1+x)^(1-j)]/(j-1)
-        out = out - A[j - 1] / (j - 1) * numpy.expm1(-(j - 1) * lx)
+        out = out - A[j - 1] / (j - 1) * xp.expm1(-(j - 1) * lx)
     for j in range(2, n + 1):  # B_j int s (s^2+tau^2)^-j
-        out = out - B[j - 1] / (2 * (j - 1) * tau ** (2 * (j - 1))) * numpy.expm1(
+        out = out - B[j - 1] / (2 * (j - 1) * tau ** (2 * (j - 1))) * xp.expm1(
             -(j - 1) * L
         )
     # C_j int_0^x (s^2+tau^2)^-j ds by the recursion
     # J_{j+1} = x / [2j tau^2 (x^2+tau^2)^j] + (2j-1) / (2j tau^2) J_j
-    J = numpy.arctan(r) / tau
+    J = xp.arctan(r) / tau
     out = out + C[0] * J
     q = xq * xq + tau * tau
     for j in range(1, n):
@@ -152,19 +156,19 @@ def _H_closed(x, tau, k, n):
     return out
 
 
-def _powers(x, m):
+def _powers(x, m, xp=numpy):
     """1, x, ..., x^m along a new last axis, by repeated products"""
-    p = [numpy.ones_like(x)]
+    p = [xp.ones_like(x)]
     for _ in range(m):
         p.append(p[-1] * x)
-    return numpy.stack(p, axis=-1)
+    return xp.stack(p, axis=-1)
 
 
-def _poly2(T, x, s):
+def _poly2(T, x, s, xp=numpy):
     """sum_ij T[i, j] x^i s^j for a static table T, as one matrix product"""
-    T = numpy.asarray(T, dtype=x.dtype)
-    X = _powers(x, T.shape[0] - 1)
-    return numpy.sum((X @ T) * _powers(s, T.shape[1] - 1), axis=-1)
+    T = xp.asarray(T, dtype=x.dtype)
+    X = _powers(x, T.shape[0] - 1, xp)
+    return xp.sum((X @ T) * _powers(s, T.shape[1] - 1, xp), axis=-1)
 
 
 @functools.lru_cache(maxsize=None)
@@ -202,9 +206,9 @@ def _H_series(x, tau, k, n):
     return v ** (k - 1) * w2**n * _poly2(_series_tables(k, n)[3], v, w2)
 
 
-def _F_series(x, tau, k, n, p):
+def _F_series(x, tau, k, n, p, xp=numpy):
     """F(x) / x^p from the Taylor series, p = 0, 1, 2 (no division at x=0)"""
-    P = _poly2(_series_tables(k, n)[0], x, (x / tau) ** 2)
+    P = _poly2(_series_tables(k, n)[0], x, (x / tau) ** 2, xp)
     return x ** (2 - p) * P if p < 2 else P
 
 
@@ -320,20 +324,20 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         tau = (numpy.zeros_like(r) + self._rc(t)) / self.a
         return r / self.a, tau, numpy.clip(tau, None, 1.0), numpy.clip(tau, 1.0, None)
 
-    def _Fx(self, x, tau, mu, p):
+    def _Fx(self, x, tau, mu, p, xp=numpy):
         """F(x) / x^p, F the enclosed mass in units of amp: the Taylor series
         below the switch, the closed form above it; each evaluated only where
         it is used (the other at a safe point, so neither overflows or divides
         by zero)"""
         k, n = self._k, self._n
         small = x < _SMALL_X * mu
-        xs = numpy.where(small, x, numpy.zeros_like(x))
-        xc = numpy.where(small, _SMALL_X * mu + numpy.zeros_like(x), x)
-        series = _F_series(xs, tau, k, n, p)
-        closed = _F_closed(xc, tau, k, n)
+        xs = xp.where(small, x, xp.zeros_like(x))
+        xc = xp.where(small, _SMALL_X * mu + xp.zeros_like(x), x)
+        series = _F_series(xs, tau, k, n, p, xp)
+        closed = _F_closed(xc, tau, k, n, xp)
         if p > 0:
             closed = closed / xc**p
-        return numpy.where(small, series, closed)
+        return xp.where(small, series, closed)
 
     def _H(self, x, tau, nu):
         """int_x^inf 4 pi r rho dr in units of amp/a"""
@@ -351,6 +355,48 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
             / (x * (1.0 + x) ** self._k)
             / (4.0 * numpy.pi * a**3)
         )
+
+    def _rho_g(self, r, t):
+        """(x, amp rho, g, dg/dx) with g = -dln rho/dx, for the density
+        derivatives (galpy's spherical DFs call these with amp applied). Plain
+        arithmetic, so constantbetadf can differentiate them with jax"""
+        x = r / self.a
+        tau = self._rc(t) / self.a
+        k, n = self._k, self._n
+        rho = (
+            self._amp
+            * (1.0 + (x / tau) ** 2) ** (-n)
+            / (x * (1.0 + x) ** k)
+            / (4.0 * numpy.pi * self.a**3)
+        )
+        s = tau**2 + x**2
+        g = 1.0 / x + k / (1.0 + x) + 2.0 * n * x / s
+        gp = -1.0 / x**2 - k / (1.0 + x) ** 2 + 2.0 * n * (tau**2 - x**2) / s**2
+        return x, rho, g, gp
+
+    def _ddensdr(self, r, t=0.0):
+        _, rho, g, _ = self._rho_g(r, t)
+        return -rho * g / self.a
+
+    def _d2densdr2(self, r, t=0.0):
+        _, rho, g, gp = self._rho_g(r, t)
+        return rho * (g * g - gp) / self.a**2
+
+    def _ddenstwobetadr(self, r, beta=0):
+        """d/dr [rho r^(2 beta)], with amp applied"""
+        x, rho, g, _ = self._rho_g(r, 0.0)
+        return rho * (self.a * x) ** (2.0 * beta) * (2.0 * beta / x - g) / self.a
+
+    def _rforce_jax(self, r):
+        """The radial force with amp applied, in jax: constantbetadf
+        differentiates it"""
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        tau = self._rc(0.0) / self.a
+        x = r / self.a
+        return -self._amp * self._Fx(x, tau, min(1.0, tau), 2, xp=jnp) / self.a**2
 
     def _revaluate(self, r, t=0.0):
         x, tau, mu, nu = self._x_tau(r, t)

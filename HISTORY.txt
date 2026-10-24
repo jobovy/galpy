@@ -11,7 +11,13 @@ v1.12.1 (expected around 2026-11-01)
   radius stays positive, held at its end values outside the grid), for
   example for a satellite that is stripped from the outside in, used as the
   ``pot`` of a ``MovingObjectPotential``. Both have
-  C implementations (orbits and ``integrate_dxdv``).
+  C implementations (orbits and ``integrate_dxdv``) and can be used with the
+  spherical distribution functions (``eddingtondf``, ``osipkovmerrittdf`` and
+  ``constantbetadf``).
+
+- Sampling from a spherical distribution function no longer raises
+  ``ValueError: x must be increasing`` when the mass converges well inside
+  ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
 
 - Integrating many orbits in C no longer crashes with a segmentation fault
   when the output has more than 2^31-1 elements, i.e., when the number of
