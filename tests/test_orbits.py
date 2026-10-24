@@ -6803,14 +6803,10 @@ def test_integrate_c_more_than_intmax_elements():
         assert numpy.all(out[check] == alone), "Orbits beyond INT_MAX elements are wrong"
         """
     )
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join(
-        [os.path.dirname(os.path.dirname(galpy.__file__))]
-        + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
-    )
     proc = subprocess.run(
         [sys.executable, "-c", script],
-        env=env,
+        # -c imports from the cwd first: make that the galpy under test
+        cwd=os.path.dirname(os.path.dirname(galpy.__file__)),
         capture_output=True,
         text=True,
         timeout=3600,
