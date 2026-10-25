@@ -1,6 +1,6 @@
 ###############################################################################
 #   galpy.backend._jax.orbit_leapfrog: jax constant-step kick-drift-kick
-#   (Stormer-Verlet) leapfrog for velocity-independent forces.
+#   (Stormer-Verlet) leapfrog for forces that derive from a potential.
 #
 #   The jax-specific half of galpy.backend._reference.integrate_orbit_leapfrog.
 #   One force evaluation per step (the end-of-step acceleration is carried into
