@@ -22,12 +22,13 @@
 #   transformed to/from ``Orbit`` order so they match ``Orbit``.
 #
 #   integrate_orbit_leapfrog: a constant-step kick-drift-kick leapfrog for
-#   velocity-independent forces (galpy.backend._jax|_torch.orbit_leapfrog).
+#   forces that derive from a potential (galpy.backend._jax|_torch.orbit_leapfrog).
 ###############################################################################
 import math
 
 import numpy
 
+from ...potential.DissipativeForce import _isConservative
 from .. import (
     as_numpy,
     at_least_float64,
@@ -290,24 +291,6 @@ def integrate_orbit(
     return match_input_dtype(_from_eom(xp, ys, phasedim), vxvv_in)
 
 
-def _velocity_dependent(pot):
-    """Whether any force in ``pot`` depends on the velocity: every dissipative
-    force except a NonInertialFrameForce that does not rotate (its fictitious
-    force is then -a0, velocity-independent)."""
-    from ...potential.NonInertialFrameForce import NonInertialFrameForce
-    from ...potential.planarDissipativeForce import (
-        planarDissipativeForceFromFullDissipativeForce,
-    )
-
-    if isinstance(pot, (list, tuple)) or hasattr(pot, "_potlist"):
-        return any(_velocity_dependent(p) for p in pot)
-    if not pot.isDissipative:
-        return False
-    if isinstance(pot, planarDissipativeForceFromFullDissipativeForce):
-        return _velocity_dependent(pot._Pot)
-    return not (isinstance(pot, NonInertialFrameForce) and not pot._rot_acc)
-
-
 def _default_nblock(nsteps, nint):
     """The largest divisor of ``nsteps`` commensurate with the ``nint`` output
     intervals (a divisor or multiple of nint) that is not above
@@ -327,8 +310,9 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
 
     Parameters
     ----------
-    pot : Potential, force or composite with only velocity-independent forces
-        (a NonInertialFrameForce without rotation is allowed); backend-migrated.
+    pot : Potential, force or composite whose forces all derive from a potential
+        (isConservative; e.g., a NonInertialFrameForce without rotation);
+        backend-migrated.
     vxvv : jax or torch array of shape (phasedim,) or (N, phasedim), Orbit order
         (as for ``integrate_orbit``). A float32 vxvv integrates in float32 throughout
         (the times are cast to float32); any other dtype in float64.
@@ -357,11 +341,12 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
             "the in-backend leapfrog requires a jax or torch initial condition; "
             "for numpy use Orbit.integrate(method='leapfrog_c')"
         )
-    if _velocity_dependent(pot):
+    if not _isConservative(pot):
         raise ValueError(
-            "the leapfrog requires velocity-independent forces, but the potential "
-            "includes a velocity-dependent (dissipative) force (e.g., dynamical "
-            "friction or a rotating NonInertialFrameForce); use method='diffrax'"
+            "the leapfrog requires forces that derive from a potential, but the "
+            "potential includes one that does not (e.g., dynamical friction or a "
+            "rotating NonInertialFrameForce); use method='diffrax' (jax) or "
+            "'torchode' (torch)"
         )
     if getattr(ts, "ndim", numpy.ndim(ts)) != 1:
         raise NotImplementedError(

@@ -2856,7 +2856,7 @@ class Orbit:
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
           -  'diffrax' (jax), 'torchdiffeq' or 'torchode' (torch) for the in-backend differentiable ODE integrators; these require a jax/torch initial condition, and 'torchode' can be compiled with torch.compile
-          -  'leapfrog_jax' (jax) or 'leapfrog_torch' (torch) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for velocity-independent forces (a NonInertialFrameForce without rotation is allowed); requires a jax or torch initial condition, respectively, and equally-spaced times, and ignores rtol/atol
+          -  'leapfrog_jax' (jax) or 'leapfrog_torch' (torch) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for forces that derive from a potential (including a NonInertialFrameForce without rotation); requires a jax or torch initial condition, respectively, and equally-spaced times, and ignores rtol/atol
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
 
