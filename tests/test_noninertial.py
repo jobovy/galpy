@@ -4,7 +4,7 @@ import pytest
 
 from galpy import potential
 from galpy.orbit import Orbit
-from galpy.util import coords
+from galpy.util import coords, galpyWarning
 
 
 def test_lsrframe_scalaromegaz():
@@ -3368,4 +3368,106 @@ def test_cinterp_table_caching():
     o3.turn_physical_off()
     o3.integrate(ts[: len(ts) // 2], lp + nip, method="dop853_c")
     assert nip._cinterp_table_cache[0] != key1, "table should rebuild for a new range"
+    return None
+
+
+def _frame_acc():
+    # a time-dependent frame acceleration, without rotation
+    return [
+        lambda t: 0.02 * numpy.cos(0.4 * t),
+        lambda t: -0.015 * numpy.sin(0.3 * t + 0.2),
+        lambda t: 0.01 * numpy.cos(0.5 * t + 1.0),
+    ]
+
+
+def test_isConservative():
+    # potentials are conservative and dissipative forces are not, except a frame
+    # that only accelerates: its force -a0(t) is minus the gradient of a0(t).r
+    from galpy.potential import PotentialError
+    from galpy.potential.DissipativeForce import _isConservative
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    cdf = potential.ChandrasekharDynamicalFrictionForce(GMs=0.01, dens=lp)
+    acc = potential.NonInertialFrameForce(a0=_frame_acc())
+    rot = potential.NonInertialFrameForce(Omega=0.5)
+    zero = [lambda t: 0.0] * 3
+    accrot = potential.NonInertialFrameForce(
+        a0=_frame_acc(), Omega=0.5, x0=zero, v0=zero
+    )
+    for pot, expected in [
+        (lp, True),
+        (potential.toPlanarPotential(lp), True),
+        (potential.toVerticalPotential(lp, 1.0), True),
+        (cdf, False),
+        (acc, True),
+        (rot, False),
+        (accrot, False),
+    ]:
+        assert pot.isConservative is expected, pot
+        assert _isConservative(pot) is expected, pot
+        assert _isConservative([lp, pot]) is expected, pot
+        if pot.dim == 3:
+            assert (lp + pot).isConservative is expected, pot
+            assert potential.toPlanarPotential(pot).isConservative is expected
+            assert potential.toPlanarPotential(lp + pot).isConservative is expected
+    assert not (lp + acc + rot).isConservative
+    # replacing an element updates a composite
+    comp = lp + acc
+    comp[1] = cdf
+    assert not comp.isConservative
+    comp[1] = acc
+    assert comp.isConservative
+    with pytest.raises(PotentialError, match="'isConservative' attribute"):
+        _isConservative(object())
+    return None
+
+
+@pytest.mark.parametrize("planar", [False, True])
+def test_accelerating_frame_symplectic(planar):
+    # symplectic integration takes a frame that only accelerates (its force -a0(t)
+    # derives from a potential), instead of falling back to a non-symplectic
+    # integrator, and converges to the dop853_c orbit at the method's order
+    import warnings
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    pot = lp + potential.NonInertialFrameForce(a0=_frame_acc())
+    ic = [1.0, 0.1, 1.1, 0.1, 0.05, 0.3]
+    if planar:
+        pot = potential.toPlanarPotential(pot)
+        ic = [ic[0], ic[1], ic[2], ic[5]]
+    ts = numpy.linspace(0.0, 10.0, 11)
+    oc = Orbit(ic)
+    oc.integrate(ts, pot, method="dop853_c")
+
+    def err(method, **kw):
+        o = Orbit(ic)
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            o.integrate(ts, pot, method=method, **kw)
+        assert not any("symplectic" in str(r.message) for r in record), method
+        return numpy.amax(
+            numpy.fabs(numpy.array([o.x(ts) - oc.x(ts), o.y(ts) - oc.y(ts)]))
+        )
+
+    for method, order in (("leapfrog_c", 2), ("symplec4_c", 4)):
+        e1, e2 = err(method, dt=1.0 / 40.0), err(method, dt=1.0 / 80.0)
+        assert abs(numpy.log2(e1 / e2) - order) < 0.1, (method, e1, e2)
+    assert err("symplec6_c") < 1e-9
+    assert err("leapfrog") < 1e-4
+    return None
+
+
+def test_rotating_frame_symplectic_fallback():
+    # a rotating frame's force does not derive from a potential (its Coriolis
+    # term depends on the velocity): symplectic integration falls back to a
+    # non-symplectic integrator
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    pot = lp + potential.NonInertialFrameForce(Omega=0.5)
+    ts = numpy.linspace(0.0, 1.0, 11)
+    for method, fallback in (("leapfrog", "odeint"), ("symplec4_c", "dopr54_c")):
+        with pytest.warns(
+            galpyWarning,
+            match=f"do not derive from a potential \\(using non-symplectic integrator {fallback} instead\\)",
+        ):
+            Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3]).integrate(ts, pot, method=method)
     return None

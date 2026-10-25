@@ -63,6 +63,10 @@ class NonInertialFrameForce(DissipativeForce):
 
         \\mathbf{F} = -\\mathbf{a}_0\\quad (\\boldsymbol{\\Omega} = 0)
 
+    This force derives from the potential :math:`\\mathbf{a}_0\\cdot\\mathbf{r}`
+    (``isConservative`` is True), so orbits in such a frame can be integrated
+    with the symplectic integrators.
+
     If the non-inertial frame only rotates without any motion of the origin, the
     fictitious force is the familiar combination of the centrifugal force
     and the Coriolis force (plus an additional term if :math:`\\dot{\\boldsymbol{\\Omega}}`
@@ -137,6 +141,8 @@ class NonInertialFrameForce(DissipativeForce):
         # integration time range; see _parse_noninertial_frame_force.
         self._cinterp_table_cache = None
         self._rot_acc = not Omega is None
+        # without rotation, the force -a0(t) is -grad(a0(t).r)
+        self.isConservative = not self._rot_acc
         self._omegaz_only = len(numpy.atleast_1d(Omega)) == 1
         self._const_freq = Omegadot is None
         # Omega and Omegadot must be the same kind: both functions of time or

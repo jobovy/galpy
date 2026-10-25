@@ -3,7 +3,7 @@
 ###############################################################################
 from ..util.conversion import physical_compatible
 from .baseCompositePotential import baseCompositePotential
-from .DissipativeForce import DissipativeForce, _isDissipative
+from .DissipativeForce import DissipativeForce, _isConservative, _isDissipative
 from .Force import Force
 from .Potential import Potential, _check_c, _isNonAxi, flatten
 
@@ -79,6 +79,7 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
 
         # Set properties based on constituent potentials using existing functions
         self.isNonAxi = _isNonAxi(self._potlist)
+        self.isConservative = _isConservative(self._potlist)
         # Set dimensionality to 3 (already checked above)
         self.dim = 3
         # Use _check_c to determine C support based on constituent potentials

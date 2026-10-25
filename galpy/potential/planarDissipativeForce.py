@@ -31,6 +31,7 @@ class planarDissipativeForce(planarForce):
         """
         planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
         self.isDissipative = True
+        self.isConservative = False
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
@@ -117,6 +118,7 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
+        self.isConservative = Pot.isConservative
         # Only advertise C support when the wrapped force's C
         # implementation extends to its planar version (hasC_planar)
         _hasC_planar = getattr(Pot, "hasC_planar", True)

@@ -1,5 +1,5 @@
 ###############################################################################
-#   DissipativeForce.py: top-level class for non-conservative forces
+#   DissipativeForce.py: top-level class for forces evaluated without a potential
 ###############################################################################
 import numpy
 
@@ -8,7 +8,10 @@ from .Force import Force
 
 
 class DissipativeForce(Force):
-    """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
+    """Top-level class for forces that galpy evaluates directly, with the velocity, rather than from a potential: dynamical friction and the fictitious forces of non-inertial frames.
+
+    Most of these forces are not conservative: they do not derive from a potential, and they need non-symplectic orbit integrators. The exception is a ``NonInertialFrameForce`` in a frame that only accelerates, whose force :math:`-\\mathbf{a}_0(t)` is minus the gradient of :math:`\\mathbf{a}_0(t)\\cdot\\mathbf{r}` (galpy does not implement that potential). The ``isConservative`` attribute says whether a force derives from a potential; ``isDissipative`` is True for every ``DissipativeForce``.
+    """
 
     def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
@@ -38,6 +41,7 @@ class DissipativeForce(Force):
         self.dim = 3
         self.isNonAxi = True  # Default: are non-axisymmetric
         self.isDissipative = True
+        self.isConservative = False  # a subclass can derive from a potential
         self.hasC = False
         self.hasC_dxdv = False
         # Whether the force's rectangular Jacobian (dF/dx, dF/dv) is wired in C
@@ -147,7 +151,9 @@ class DissipativeForce(Force):
 
 def _isDissipative(obj):
     """
-    Determine whether this combination of potentials and forces is Dissipative
+    Determine whether this combination of potentials and forces includes a DissipativeForce
+
+    In galpy, a dissipative force is one that is evaluated directly, with the velocity, rather than from a potential; this does not mean that it does not derive from a potential (see _isConservative).
 
     Parameters
     ----------
@@ -180,3 +186,36 @@ def _isDissipative(obj):
         )
 
     return nonCons
+
+
+def _isConservative(obj):
+    """
+    Determine whether all forces in this combination of potentials and forces derive from a potential
+
+    Parameters
+    ----------
+    obj : Potential/DissipativeForce instance or list of such instances
+
+    Returns
+    -------
+    bool
+        True if every force is minus the gradient of a (possibly time-dependent) potential, False otherwise
+
+    Notes
+    -----
+    - Every potential is conservative, and dissipative forces are not, except a NonInertialFrameForce without rotation, whose force -a0(t) is minus the gradient of a0(t).r (galpy does not implement that potential, so the force is still dissipative in galpy's sense: it is evaluated as a force, with the velocity).
+    - Symplectic integrators require conservative forces.
+    - 2026-10-25 - Written - Bovy (UofT)
+
+    """
+    from .Potential import PotentialError, flatten
+
+    obj = flatten(obj)
+    try:
+        if isinstance(obj, list):
+            return all(p.isConservative for p in obj)
+        return obj.isConservative
+    except AttributeError:
+        raise PotentialError(
+            "'isConservative' attribute has not been set for this potential/force"
+        )

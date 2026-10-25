@@ -1,11 +1,13 @@
 import ctypes
 import ctypes.util
+import functools
 
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
+from ..potential.DissipativeForce import _isDissipative
 from ..potential.planarDissipativeForce import (
     planarDissipativeForceFromFullDissipativeForce,
 )
@@ -1310,9 +1312,16 @@ def integratePlanarOrbit(
                     vxvv[2] * numpy.cos(vxvv[3]) + vxvv[1] * numpy.sin(vxvv[3]),
                 ]
             )
+            # a dissipative force that derives from a potential (a
+            # NonInertialFrameForce without rotation) still takes a velocity
+            force = (
+                functools.partial(_planarRectForce, vx=numpy.zeros(2))
+                if _isDissipative(pot)
+                else _planarRectForce
+            )
             # integrate
             tmp_out = symplecticode.leapfrog(
-                _planarRectForce, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
+                force, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(tmp_out[:, 0] ** 2.0 + tmp_out[:, 1] ** 2.0)

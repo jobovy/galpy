@@ -168,6 +168,7 @@ class Potential(Force):
         self.isRZ = True
         self.isNonAxi = False
         self.isDissipative = False
+        self.isConservative = True
         self.hasC = False
         self.hasC_dxdv = False
         # hasC_dxdv3d: the FULL 3D Hessian (R2deriv/z2deriv/Rzderiv and, for

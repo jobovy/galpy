@@ -4,7 +4,7 @@
 ###############################################################################
 from ..util.conversion import physical_compatible
 from .baseCompositePotential import baseCompositePotential
-from .DissipativeForce import _isDissipative
+from .DissipativeForce import _isConservative, _isDissipative
 from .planarDissipativeForce import planarDissipativeForce
 from .planarForce import planarForce
 from .planarPotential import planarPotential
@@ -89,6 +89,7 @@ class planarCompositePotential(
         # Set properties based on constituent potentials using existing
         # functions
         self.isNonAxi = _isNonAxi(self._potlist)
+        self.isConservative = _isConservative(self._potlist)
         # Set dimensionality to 2 (already checked above)
         self.dim = 2
         # Use _check_c to determine C support based on constituent potentials
