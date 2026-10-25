@@ -1,6 +1,15 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Added an ``isConservative`` attribute to all potentials and forces, True
+  when the force derives from a (possibly time-dependent) potential: True for
+  potentials, False for dissipative forces, except a ``NonInertialFrameForce``
+  that does not rotate (its force -a0(t) is minus the gradient of a0(t).r).
+  The symplectic integrators (``leapfrog``, ``leapfrog_c``, ``symplec4_c``,
+  ``symplec6_c``) now fall back to a non-symplectic integrator only for forces
+  that are not conservative, so they can integrate orbits in a frame that
+  accelerates without rotating.
+
 - Added ``TruncatedNFWPotential`` and ``TruncatedHernquistPotential``: the NFW
   and Hernquist profiles times the truncation of Baltz, Marshall & Oguri
   (2009), ``(rc^2 / (rc^2 + r^2))^n`` for any positive integer ``n``. The
