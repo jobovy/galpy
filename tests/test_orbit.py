@@ -14990,15 +14990,17 @@ def test_MovingObjectPotential_static_object_dop853():
         atol=1e-12,
     )
     # the same initial condition relative to the object, in the bare potential
-    xs, ys = o.x() - x0, o.y() - y0
+    # (in numpy: the accessors return backend arrays under a forced backend)
+    x, y, z, vx, vy, vz = (as_numpy(f()) for f in (o.x, o.y, o.z, o.vx, o.vy, o.vz))
+    xs, ys = x - x0, y - y0
     Rs = numpy.hypot(xs, ys)
     os = Orbit(
         [
             Rs,
-            (o.vx() * xs + o.vy() * ys) / Rs,
-            (-o.vx() * ys + o.vy() * xs) / Rs,
-            o.z() - z0,
-            o.vz(),
+            (vx * xs + vy * ys) / Rs,
+            (-vx * ys + vy * xs) / Rs,
+            z - z0,
+            vz,
             numpy.arctan2(ys, xs),
         ]
     )
