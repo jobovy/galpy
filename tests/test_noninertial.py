@@ -3656,11 +3656,12 @@ def test_cinterp_table_caching():
 
 
 def _frame_acc():
-    # a time-dependent frame acceleration, without rotation
+    # a time-dependent frame acceleration, without rotation (in t's namespace:
+    # traced under --jit)
     return [
-        lambda t: 0.02 * numpy.cos(0.4 * t),
-        lambda t: -0.015 * numpy.sin(0.3 * t + 0.2),
-        lambda t: 0.01 * numpy.cos(0.5 * t + 1.0),
+        lambda t: 0.02 * _xp(t).cos(0.4 * t),
+        lambda t: -0.015 * _xp(t).sin(0.3 * t + 0.2),
+        lambda t: 0.01 * _xp(t).cos(0.5 * t + 1.0),
     ]
 
 

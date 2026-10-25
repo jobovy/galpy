@@ -165,6 +165,8 @@ class NonInertialFrameForce(DissipativeForce):
         self._cinterp_table_cache = None
         self._rot_acc = not Omega is None
         self._const_anchor_cache = {}
+        # without rotation, the force -a0(t) is -grad(a0(t).r)
+        self.isConservative = not self._rot_acc
         self._omegaz_only = _n_components(Omega) == 1
         self._const_freq = Omegadot is None
         # Omega and Omegadot must be the same kind: both functions of time or

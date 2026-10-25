@@ -28,10 +28,7 @@ import pytest
 
 from galpy.backend import as_numpy, get_namespace
 from galpy.backend._reference import integrate_orbit_leapfrog
-from galpy.backend._reference.inbackend_ode import (
-    _default_nblock,
-    _velocity_dependent,
-)
+from galpy.backend._reference.inbackend_ode import _default_nblock
 from galpy.orbit import Orbit
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -95,7 +92,7 @@ def _mnh(amp_halo=None):
 
 
 def _frame_force():
-    # a time-dependent frame acceleration (velocity-independent: no rotation)
+    # a time-dependent frame acceleration (no rotation: derives from a potential)
     return NonInertialFrameForce(
         a0=[
             lambda t: 0.02 * get_namespace(t).cos(0.4 * t),
@@ -697,11 +694,13 @@ def test_leapfrog_continuation(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_leapfrog_velocity_dependent_raises(backend):
+def test_leapfrog_nonconservative_raises(backend):
+    # forces that do not derive from a potential (dynamical friction, a rotating
+    # frame) make kick-drift-kick first order
     cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=_mnh()[1])
     rot = NonInertialFrameForce(Omega=0.5)
     for force in (cdf, rot):
-        with pytest.raises(ValueError, match="velocity-independent forces"):
+        with pytest.raises(ValueError, match="forces that derive from a potential"):
             _integrate(
                 backend,
                 _arr(backend, _ics(2)),
@@ -709,10 +708,14 @@ def test_leapfrog_velocity_dependent_raises(backend):
                 _mnh() + force,
                 inbackend_kwargs={"nsteps": 10},
             )
-    # planar versions of 3D forces are judged by the wrapped force
-    assert _velocity_dependent(toPlanarPotential(cdf))
-    assert not _velocity_dependent(toPlanarPotential(_frame_force()))
-    assert not _velocity_dependent([_mnh(), _frame_force()])
+    # a planar wrapper is judged by the wrapped force
+    with pytest.raises(ValueError, match="forces that derive from a potential"):
+        integrate_orbit_leapfrog(
+            toPlanarPotential(_mnh() + cdf),
+            _arr(backend, _ics(2)[:, [0, 1, 2, 5]]),
+            numpy.array([0.0, 1.0]),
+            nsteps=10,
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

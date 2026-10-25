@@ -1,6 +1,6 @@
 ###############################################################################
 #   galpy.backend._torch.orbit_leapfrog: torch constant-step kick-drift-kick
-#   (Stormer-Verlet) leapfrog for velocity-independent forces.
+#   (Stormer-Verlet) leapfrog for forces that derive from a potential.
 #
 #   The torch-specific half of galpy.backend._reference.integrate_orbit_leapfrog
 #   (the jax counterpart is galpy.backend._jax.orbit_leapfrog). One force
