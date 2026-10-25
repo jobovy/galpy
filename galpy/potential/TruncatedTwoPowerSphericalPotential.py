@@ -10,12 +10,20 @@ import math
 import numpy
 from scipy import interpolate as _scipy_interpolate
 
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    scalar_like,
+)
+from ..backend._namespaces import namespace_from_arrays, under_trace
+from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 from ..util import conversion
-from ..util._optional_deps import _JAX_LOADED
+from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
-
-if _JAX_LOADED:
-    import jax.numpy as jnp
 
 # x = r/a below _SMALL_X min(1, rc/a): Taylor series (the closed form cancels);
 # x above _LARGE_X max(1, rc/a): asymptotic series for the outer integral
@@ -76,7 +84,7 @@ def _pf_coeffs(k, n, which, tau):
     return A, B, C
 
 
-def _log_ratio(x, tau, xp=numpy):
+def _log_ratio(xp, x, tau):
     """log[(1+x) / sqrt(1+x^2/tau^2)]: directly for x <= max(1, tau), and as
     log(tau) + log1p(1/x) - log1p(tau^2/x^2)/2 beyond, where the two logarithms
     would each grow (and overflow at x ~ 1e154) while their difference does not"""
@@ -91,7 +99,7 @@ def _log_ratio(x, tau, xp=numpy):
     )
 
 
-def _F_closed(x, tau, k, n, xp=numpy):
+def _F_closed(xp, x, tau, k, n):
     """int_0^x s / [(1+s)^k (1+s^2/tau^2)^n] ds, closed form"""
     A, B, C = _pf_coeffs(k, n, "F", tau)
     # the terms below are 0 (or their limits) to double precision long before
@@ -100,7 +108,7 @@ def _F_closed(x, tau, k, n, xp=numpy):
     r = xq / tau
     L = xp.log1p(r * r)
     lx = xp.log1p(x)
-    out = A[0] * _log_ratio(x, tau, xp)
+    out = A[0] * _log_ratio(xp, x, tau)
     for j in range(2, k + 1):  # A_j int (1+s)^-j = A_j [1 - (1+x)^(1-j)]/(j-1)
         out = out - A[j - 1] / (j - 1) * xp.expm1(-(j - 1) * lx)
     for j in range(2, n + 1):  # B_j int s (s^2+tau^2)^-j
@@ -121,10 +129,10 @@ def _F_closed(x, tau, k, n, xp=numpy):
     return out
 
 
-def _F_total(tau, k, n):
+def _F_total(xp, tau, k, n):
     """_F_closed at x = infinity: the total mass in units of amp"""
     A, B, C = _pf_coeffs(k, n, "F", tau)
-    out = A[0] * numpy.log(tau)
+    out = A[0] * xp.log(tau)
     for j in range(2, k + 1):
         out = out + A[j - 1] / (j - 1)
     for j in range(2, n + 1):
@@ -137,10 +145,10 @@ def _F_total(tau, k, n):
     return out
 
 
-def _H_closed(x, tau, k, n):
+def _H_closed(xp, x, tau, k, n):
     """int_x^inf 1 / [(1+s)^k (1+s^2/tau^2)^n] ds, closed form"""
     A, B, C = _pf_coeffs(k, n, "H", tau)
-    out = A[0] * (numpy.log(tau) - _log_ratio(x, tau))
+    out = A[0] * (xp.log(tau) - _log_ratio(xp, x, tau))
     for j in range(2, k + 1):
         out = out + A[j - 1] / ((j - 1) * (1.0 + x) ** (j - 1))
     q = x * x + tau * tau
@@ -148,7 +156,7 @@ def _H_closed(x, tau, k, n):
         out = out + B[j - 1] / (2 * (j - 1) * q ** (j - 1))
     # C_j int_x^inf (s^2+tau^2)^-j ds by the recursion
     # K_{j+1} = (2j-1) / (2j tau^2) K_j - x / [2j tau^2 (x^2+tau^2)^j]
-    K = numpy.arctan2(tau, x) / tau
+    K = xp.arctan2(tau, x) / tau
     out = out + C[0] * K
     for j in range(1, n):
         K = (2 * j - 1) / (2 * j * tau * tau) * K - x / (2 * j * tau * tau * q**j)
@@ -156,19 +164,20 @@ def _H_closed(x, tau, k, n):
     return out
 
 
-def _powers(x, m, xp=numpy):
-    """1, x, ..., x^m along a new last axis, by repeated products"""
+def _powers(xp, x, m):
+    """1, x, ..., x^m along a new last axis (products, so AD-safe at x = 0)"""
     p = [xp.ones_like(x)]
     for _ in range(m):
         p.append(p[-1] * x)
     return xp.stack(p, axis=-1)
 
 
-def _poly2(T, x, s, xp=numpy):
-    """sum_ij T[i, j] x^i s^j for a static table T, as one matrix product"""
-    T = xp.asarray(T, dtype=x.dtype)
-    X = _powers(x, T.shape[0] - 1, xp)
-    return xp.sum((X @ T) * _powers(s, T.shape[1] - 1, xp), axis=-1)
+def _poly2(xp, T, x, s):
+    """sum_ij T[i, j] x^i s^j for a static table T: one matrix product rather
+    than a loop of eager ops per term"""
+    T = asarray_on_device(xp, T, device_of(x), dtype=x.dtype)
+    X = _powers(xp, x, T.shape[0] - 1)
+    return xp.sum((X @ T) * _powers(xp, s, T.shape[1] - 1), axis=-1)
 
 
 @functools.lru_cache(maxsize=None)
@@ -198,26 +207,26 @@ def _series_tables(k, n):
     return F, R1, R0, H
 
 
-def _H_series(x, tau, k, n):
+def _H_series(xp, x, tau, k, n):
     """Asymptotic series of _H_closed for x > max(1, tau): the integrand
     tau^(2n) s^(-k-2n) (1+1/s)^-k (1+tau^2/s^2)^-n expanded in 1/s"""
     v = 1.0 / x
     w2 = (tau * v) ** 2
-    return v ** (k - 1) * w2**n * _poly2(_series_tables(k, n)[3], v, w2)
+    return v ** (k - 1) * w2**n * _poly2(xp, _series_tables(k, n)[3], v, w2)
 
 
-def _F_series(x, tau, k, n, p, xp=numpy):
+def _F_series(xp, x, tau, k, n, p):
     """F(x) / x^p from the Taylor series, p = 0, 1, 2 (no division at x=0)"""
-    P = _poly2(_series_tables(k, n)[0], x, (x / tau) ** 2, xp)
+    P = _poly2(xp, _series_tables(k, n)[0], x, (x / tau) ** 2)
     return x ** (2 - p) * P if p < 2 else P
 
 
-def _r2deriv_series(x, tau, k, n):
+def _r2deriv_series(xp, x, tau, k, n):
     """a^3 d^2Phi/dr^2 / amp from the Taylor series: the 1/x terms of 4 pi rho
     and -2 M/r^3 cancel analytically"""
     _, R1, R0, _ = _series_tables(k, n)
     s = (x / tau) ** 2
-    return _poly2(R1, x, s) + x / (tau * tau) * _poly2(R0, x, s)
+    return _poly2(xp, R1, x, s) + x / (tau * tau) * _poly2(xp, R0, x, s)
 
 
 class TruncatedTwoPowerSphericalPotential(SphericalPotential):
@@ -269,12 +278,28 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
                 raise ValueError(
                     "tgrid= must be a strictly increasing 1D array of >= 2 times"
                 )
-            rc = numpy.asarray(conversion.parse_length(rc, ro=self._ro), dtype=float)
-            if rc.shape != tgrid.shape:
-                raise ValueError("rc= must have one value per tgrid time")
+            rc = conversion.parse_length(rc, ro=self._ro)
+            if is_backend_array(rc):
+                if rc.shape != tgrid.shape:
+                    raise ValueError("rc= must have one value per tgrid time")
+            else:
+                rc = numpy.asarray(rc, dtype=float)
+                if rc.shape != tgrid.shape:
+                    raise ValueError("rc= must have one value per tgrid time")
         else:
             rc = conversion.parse_length(rc, ro=self._ro)
-        if numpy.any(numpy.asarray(rc) <= 0.0):
+        # Under a forced backend these arrive as plain floats; coerce them so the
+        # potential is built ON the forced backend (a strict pass-through on
+        # numpy). A backend a with a numpy rc table (or the reverse) takes the
+        # backend's namespace, which get_namespace refuses to mix.
+        backend_pars = [v for v in (a, rc) if is_backend_array(v)]
+        xp = (
+            namespace_from_arrays(backend_pars)
+            if backend_pars
+            else get_namespace(a, rc)
+        )
+        a, rc = coerce_coords(xp, a, rc)
+        if not under_trace(rc) and bool(xp.any(xp.asarray(rc) <= 0.0)):
             raise ValueError("rc= must be positive")
         self.a = a
         self._scale = self.a
@@ -283,73 +308,90 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
             self._rc_grid = rc
             # log rc(t) is the not-a-knot spline through log rc, so rc stays
             # positive; only its power-basis coefficients are kept (scipy
-            # splines do not pickle), evaluated with the same Horner arithmetic
-            # as the C implementation
-            self._rc_c = _scipy_interpolate.CubicSpline(
-                tgrid, numpy.log(rc), bc_type="not-a-knot"
-            ).c
+            # splines do not pickle), evaluated by eval_ppoly on every path --
+            # the same Horner arithmetic as the C implementation
+            if is_backend_array(rc):
+                xr = get_namespace(rc)
+                self._rc_c = cubic_spline_coeffs(xr, tgrid, xr.log(rc), bc="not-a-knot")
+            else:
+                self._rc_c = _scipy_interpolate.CubicSpline(
+                    tgrid, numpy.log(rc), bc_type="not-a-knot"
+                ).c
             self.rc = None
         else:
             self.rc = rc
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):
+        if _normalize_requested(normalize):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True
         self.hasC_dens = True
+        self._backend_compatible = True
         return None
 
     def _rc(self, t):
         """The truncation radius at time t (held constant outside tgrid)"""
         if not self._tdep:
             return self.rc
-        t = numpy.clip(numpy.asarray(t, dtype=float), self._tgrid[0], self._tgrid[-1])
-        i = numpy.clip(
-            numpy.searchsorted(self._tgrid, t, side="right") - 1,
-            0,
-            self._rc_c.shape[1] - 1,
+        arrs = [v for v in (self._rc_c, t) if is_backend_array(v)]
+        if not arrs:
+            return numpy.exp(
+                eval_ppoly(
+                    numpy,
+                    self._tgrid,
+                    self._rc_c,
+                    numpy.asarray(t, dtype=float),
+                    extrapolate="clip",
+                )
+            )
+        xp = namespace_from_arrays(arrs)
+        t = asarray_on_device(xp, t, device_of(arrs[0]))
+        return xp.exp(
+            eval_ppoly(xp, self._tgrid, self._rc_c, t * 1.0, extrapolate="clip")
         )
-        dt = t - self._tgrid[i]
-        out = self._rc_c[0, i]
-        for j in range(1, self._rc_c.shape[0]):
-            out = out * dt + self._rc_c[j, i]
-        return numpy.exp(out)
 
-    def _x_tau(self, r, t):
-        """(x, tau, mu, nu): x = r/a, tau = rc(t)/a on x's shape, mu = min(1, tau)
-        and nu = max(1, tau)"""
-        r = numpy.asarray(r) * 1.0
-        tau = (numpy.zeros_like(r) + self._rc(t)) / self.a
-        return r / self.a, tau, numpy.clip(tau, None, 1.0), numpy.clip(tau, 1.0, None)
+    def _xp_x_tau(self, r, t):
+        """(xp, x, tau, mu, nu): x = r/a and tau = rc(t)/a in one namespace,
+        mu = min(1, tau) and nu = max(1, tau)"""
+        rc = self._rc(t)
+        arrs = [v for v in (r, self.a, rc) if is_backend_array(v)]
+        xp = namespace_from_arrays(arrs) if arrs else numpy
+        if xp is not numpy:
+            r = asarray_on_device(xp, r, device_of(arrs[0]))
+        r = xp.asarray(r) * 1.0
+        a = scalar_like(r, self.a)
+        # tau on r's shape, namespace and dtype (a plain-float rc otherwise stays
+        # a Python float, which torch's elementwise ops reject)
+        tau = (xp.zeros_like(r) + scalar_like(r, rc)) / a
+        return xp, r / a, tau, xp.clip(tau, None, 1.0), xp.clip(tau, 1.0, None)
 
-    def _Fx(self, x, tau, mu, p, xp=numpy):
+    def _Fx(self, xp, x, tau, mu, p):
         """F(x) / x^p, F the enclosed mass in units of amp: the Taylor series
         below the switch, the closed form above it; each evaluated only where
-        it is used (the other at a safe point, so neither overflows or divides
-        by zero)"""
+        it is used (the other at a safe point), so neither can NaN-poison AD"""
         k, n = self._k, self._n
         small = x < _SMALL_X * mu
         xs = xp.where(small, x, xp.zeros_like(x))
         xc = xp.where(small, _SMALL_X * mu + xp.zeros_like(x), x)
-        series = _F_series(xs, tau, k, n, p, xp)
-        closed = _F_closed(xc, tau, k, n, xp)
+        series = _F_series(xp, xs, tau, k, n, p)
+        closed = _F_closed(xp, xc, tau, k, n)
         if p > 0:
             closed = closed / xc**p
         return xp.where(small, series, closed)
 
-    def _H(self, x, tau, nu):
+    def _H(self, xp, x, tau, nu):
         """int_x^inf 4 pi r rho dr in units of amp/a"""
         k, n = self._k, self._n
         large = x > _LARGE_X * nu
-        xl = numpy.where(large, x, 2.0 * _LARGE_X * nu + numpy.zeros_like(x))
-        xc = numpy.where(large, _LARGE_X * nu + numpy.zeros_like(x), x)
-        return numpy.where(large, _H_series(xl, tau, k, n), _H_closed(xc, tau, k, n))
+        xl = xp.where(large, x, 2.0 * _LARGE_X * nu + xp.zeros_like(x))
+        xc = xp.where(large, _LARGE_X * nu + xp.zeros_like(x), x)
+        return xp.where(
+            large, _H_series(xp, xl, tau, k, n), _H_closed(xp, xc, tau, k, n)
+        )
 
     def _rdens(self, r, t=0.0):
-        x, tau, _, _ = self._x_tau(r, t)
-        a = self.a
+        xp, x, tau, _, _ = self._xp_x_tau(r, t)
+        a = scalar_like(x, self.a)
         return (
             (1.0 + (x / tau) ** 2) ** (-self._n)
             / (x * (1.0 + x) ** self._k)
@@ -357,81 +399,64 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         )
 
     def _rho_g(self, r, t):
-        """(x, amp rho, g, dg/dx) with g = -dln rho/dx, for the density
-        derivatives (galpy's spherical DFs call these with amp applied). Plain
-        arithmetic, so constantbetadf can differentiate them with jax"""
-        x = r / self.a
-        tau = self._rc(t) / self.a
+        """(x, a, amp rho, g, dg/dx) with g = -dln rho/dx, for the density
+        derivatives (galpy's spherical DFs call these with amp applied)"""
+        xp, x, tau, _, _ = self._xp_x_tau(r, t)
         k, n = self._k, self._n
-        rho = (
-            self._amp
-            * (1.0 + (x / tau) ** 2) ** (-n)
-            / (x * (1.0 + x) ** k)
-            / (4.0 * numpy.pi * self.a**3)
-        )
+        a = scalar_like(x, self.a)
+        rho = scalar_like(x, self._amp) * self._rdens(r, t=t)
         s = tau**2 + x**2
         g = 1.0 / x + k / (1.0 + x) + 2.0 * n * x / s
         gp = -1.0 / x**2 - k / (1.0 + x) ** 2 + 2.0 * n * (tau**2 - x**2) / s**2
-        return x, rho, g, gp
+        return x, a, rho, g, gp
 
     def _ddensdr(self, r, t=0.0):
-        _, rho, g, _ = self._rho_g(r, t)
-        return -rho * g / self.a
+        _, a, rho, g, _ = self._rho_g(r, t)
+        return -rho * g / a
 
     def _d2densdr2(self, r, t=0.0):
-        _, rho, g, gp = self._rho_g(r, t)
-        return rho * (g * g - gp) / self.a**2
+        _, a, rho, g, gp = self._rho_g(r, t)
+        return rho * (g * g - gp) / a**2
 
     def _ddenstwobetadr(self, r, beta=0):
         """d/dr [rho r^(2 beta)], with amp applied"""
-        x, rho, g, _ = self._rho_g(r, 0.0)
-        return rho * (self.a * x) ** (2.0 * beta) * (2.0 * beta / x - g) / self.a
-
-    def _rforce_jax(self, r):
-        """The radial force with amp applied, in jax: constantbetadf
-        differentiates it"""
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
-        tau = self._rc(0.0) / self.a
-        x = r / self.a
-        return -self._amp * self._Fx(x, tau, min(1.0, tau), 2, xp=jnp) / self.a**2
+        x, a, rho, g, _ = self._rho_g(r, 0.0)
+        return rho * (a * x) ** (2.0 * beta) * (2.0 * beta / x - g) / a
 
     def _revaluate(self, r, t=0.0):
-        x, tau, mu, nu = self._x_tau(r, t)
-        a = self.a
-        return -(self._Fx(x, tau, mu, 1) + self._H(x, tau, nu)) / a
+        xp, x, tau, mu, nu = self._xp_x_tau(r, t)
+        a = scalar_like(x, self.a)
+        return -(self._Fx(xp, x, tau, mu, 1) + self._H(xp, x, tau, nu)) / a
 
     def _rforce(self, r, t=0.0):
-        x, tau, mu, _ = self._x_tau(r, t)
-        a = self.a
-        return -self._Fx(x, tau, mu, 2) / (a * a)
+        xp, x, tau, mu, _ = self._xp_x_tau(r, t)
+        a = scalar_like(x, self.a)
+        return -self._Fx(xp, x, tau, mu, 2) / (a * a)
 
     def _r2deriv(self, r, t=0.0):
-        x, tau, mu, _ = self._x_tau(r, t)
+        xp, x, tau, mu, _ = self._xp_x_tau(r, t)
         k, n = self._k, self._n
-        a = self.a
+        a = scalar_like(x, self.a)
         small = x < _SMALL_X * mu
-        xs = numpy.where(small, x, numpy.zeros_like(x))
-        xc = numpy.where(small, _SMALL_X * mu + numpy.zeros_like(x), x)
-        series = _r2deriv_series(xs, tau, k, n)
+        xs = xp.where(small, x, xp.zeros_like(x))
+        xc = xp.where(small, _SMALL_X * mu + xp.zeros_like(x), x)
+        series = _r2deriv_series(xp, xs, tau, k, n)
         # 4 pi rho - 2 M / r^3
         closed = (1.0 + (xc / tau) ** 2) ** (-n) / (
             xc * (1.0 + xc) ** k
-        ) - 2.0 * _F_closed(xc, tau, k, n) / xc**3
-        return numpy.where(small, series, closed) / a**3
+        ) - 2.0 * _F_closed(xp, xc, tau, k, n) / xc**3
+        return xp.where(small, series, closed) / a**3
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use the general implementation
-        x, tau, mu, _ = self._x_tau(R, t)
-        fin = numpy.isfinite(x)
-        xf = numpy.where(fin, x, numpy.zeros_like(x))
-        return numpy.where(
+        xp, x, tau, mu, _ = self._xp_x_tau(R, t)
+        fin = xp.isfinite(x)
+        xf = xp.where(fin, x, xp.zeros_like(x))
+        return xp.where(
             fin,
-            self._Fx(xf, tau, mu, 0),
-            _F_total(tau, self._k, self._n) + numpy.zeros_like(xf),
+            self._Fx(xp, xf, tau, mu, 0),
+            _F_total(xp, tau, self._k, self._n) + xp.zeros_like(xf),
         )
 
     def _c_args(self):
@@ -440,8 +465,12 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         args = [self._amp, self.a, self._k, self._n]
         if not self._tdep:
             return args + [0, self.rc]
+        c = as_numpy(self._rc_c)
         return (
-            args + [len(self._tgrid)] + list(self._tgrid) + list(self._rc_c.T.flatten())
+            args
+            + [len(self._tgrid)]
+            + list(self._tgrid)
+            + list(numpy.asarray(c, dtype=float).T.flatten())
         )
 
 
