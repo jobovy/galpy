@@ -9589,3 +9589,30 @@ def test_jacobi_with_quantity_pattern_and_array_scales(size, vector, integrated)
     )
     actual = orbit.Jacobi(times, pot=MWPotential2014, OmegaP=omega)
     numpy.testing.assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("size", [1, 2, 4])
+@pytest.mark.parametrize("physical_pattern", [False, True])
+def test_jacobi_with_time_indexed_pattern(size, physical_pattern):
+    units = pytest.importorskip("astropy.units")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    initial = [1.0, 0.1, 1.0, 0.1, 0.1, 0.0]
+    orbit = Orbit(initial if size == 1 else [initial] * size, ro=8.0, vo=220.0)
+    times = numpy.linspace(0.0, 0.1, 4)
+    orbit.integrate(
+        times, MWPotential2014, method="odeint", numcores=1, progressbar=False
+    )
+    omega = numpy.array([0.1, 0.2, 0.3, 0.4])
+    supplied = (
+        omega * 220.0 / 8.0 * units.km / units.s / units.kpc
+        if physical_pattern
+        else omega
+    )
+    expected = orbit.E(times, use_physical=False) - omega * orbit.Lz(
+        times, use_physical=False
+    )
+    actual = orbit.Jacobi(times, OmegaP=supplied, use_physical=False)
+    assert actual.shape == expected.shape
+    numpy.testing.assert_allclose(actual, expected)

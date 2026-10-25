@@ -3360,7 +3360,8 @@ class Orbit:
             OmegaP = kwargs.pop("OmegaP")
         OmegaP = numpy.array(OmegaP) if isinstance(OmegaP, list) else OmegaP
         # Classify the input before a physical scalar becomes one value per orbit.
-        vector_pattern = numpy.ndim(OmegaP) > 0 and len(OmegaP) == 3
+        scalar_pattern = numpy.ndim(OmegaP) == 0
+        vector_pattern = not scalar_pattern and len(OmegaP) == 3
         OmegaP = conversion.parse_frequency(
             OmegaP,
             ro=numpy.asarray(self._ro)[..., None] if vector_pattern else self._ro,
@@ -3383,7 +3384,11 @@ class Orbit:
                 )
         else:
             tLz = self.Lz(*args, **kwargs)
-            if numpy.ndim(OmegaP) > 0 and tLz.ndim > numpy.ndim(OmegaP):
+            if (
+                scalar_pattern
+                and numpy.ndim(OmegaP) > 0
+                and tLz.ndim > numpy.ndim(OmegaP)
+            ):
                 OmegaP = numpy.reshape(OmegaP, (-1, 1))
             out = self.E(*args, **kwargs) - OmegaP * tLz
         if not old_physical is None:
