@@ -19,7 +19,7 @@ name: All-backend tests
 #     workflow fires on pull_request, the suite ONLY runs for PRs whose BASE is
 #     feat/backends (and only on push/schedule/dispatch otherwise).
 #
-# The `report` job (needs backend-suite, if: always()) downloads every shard's
+# The `report` job (needs backend-suite, if: !cancelled()) downloads every shard's
 # JUnit XML artifact, renders a per-file x backend markdown status table via
 # tests/backend_status_report.py, writes it to the run's step-summary, uploads
 # it as the `backend-status-report` artifact, and -- on a pull_request -- posts
@@ -477,14 +477,16 @@ jobs:
   # on a pull_request -- posted as a STICKY PR comment (overwritten on each
   # re-run via the fixed `header: backend-status` marker).
   #
-  # needs backend-suite + if: always() so the report renders even when some
+  # needs backend-suite + if: !cancelled() so the report renders even when some
   # shards FAIL or crash; a shard that produced no XML shows as "(no result)"
   # rather than failing this job (the report script is robust to missing XML).
+  # Not always(): that also runs it on a CANCELLED run, so cancelling a run
+  # left the report queued, uncancellable until a runner had picked it up.
   report:
     name: backend status report
     needs: [backend-suite]
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     permissions:
       contents: read
       pull-requests: write
