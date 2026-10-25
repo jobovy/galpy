@@ -3313,8 +3313,9 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the Jacobi integral. Default is the initial time.
-        OmegaP : numeric or Quantity, optional
-            Pattern speed.
+        OmegaP : numeric, numpy.ndarray or Quantity, optional
+            Pattern speed. A scalar specifies rotation about the z axis; a
+            three-component vector specifies the Cartesian rotation vector.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravity potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         vo : float or Quantity, optional
@@ -3357,26 +3358,34 @@ class Orbit:
             kwargs.pop("OmegaP", None)
         else:
             OmegaP = kwargs.pop("OmegaP")
+        OmegaP = numpy.array(OmegaP) if isinstance(OmegaP, list) else OmegaP
+        # Classify the input before a physical scalar becomes one value per orbit.
+        vector_pattern = numpy.ndim(OmegaP) > 0 and len(OmegaP) == 3
         OmegaP = conversion.parse_frequency(
-            numpy.array(OmegaP) if isinstance(OmegaP, list) else OmegaP,
-            ro=self._ro,
-            vo=self._vo,
+            OmegaP,
+            ro=numpy.asarray(self._ro)[..., None] if vector_pattern else self._ro,
+            vo=numpy.asarray(self._vo)[..., None] if vector_pattern else self._vo,
         )
         # Make sure you are not using physical coordinates
         old_physical = kwargs.get("use_physical", None)
         kwargs["use_physical"] = False
         kwargs["dontreshape"] = True
-        if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
+        if vector_pattern:
             thisOmegaP = OmegaP
             tL = self.L(*args, **kwargs)
             if len(tL.shape) == 2:  # 1 time
-                out = self.E(*args, **kwargs) - numpy.einsum("i,ji->j", thisOmegaP, tL)
+                out = self.E(*args, **kwargs) - numpy.einsum(
+                    "...i,...i->...", thisOmegaP, tL
+                )
             else:
                 out = self.E(*args, **kwargs) - numpy.einsum(
-                    "i,jki->jk", thisOmegaP, tL
+                    "...i,...ki->...k", thisOmegaP, tL
                 )
         else:
-            out = self.E(*args, **kwargs) - OmegaP * self.Lz(*args, **kwargs)
+            tLz = self.Lz(*args, **kwargs)
+            if numpy.ndim(OmegaP) > 0 and tLz.ndim > numpy.ndim(OmegaP):
+                OmegaP = numpy.reshape(OmegaP, (-1, 1))
+            out = self.E(*args, **kwargs) - OmegaP * tLz
         if not old_physical is None:
             kwargs["use_physical"] = old_physical
         else:

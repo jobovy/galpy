@@ -556,6 +556,13 @@ def check_parser_input_type(func):
             if (
                 not kwargs["ro"] is None
                 and not isinstance(kwargs["ro"], numbers.Number)
+                and not (
+                    isinstance(kwargs["ro"], numpy.ndarray)
+                    and (
+                        kwargs["ro"].size == 0
+                        or isinstance(kwargs["ro"].flat[0], numbers.Number)
+                    )
+                )
                 and not (_APY_LOADED and isinstance(kwargs["ro"], units.Quantity))
             ):
                 raise RuntimeError(
@@ -571,6 +578,13 @@ def check_parser_input_type(func):
             if (
                 not kwargs["vo"] is None
                 and not isinstance(kwargs["vo"], numbers.Number)
+                and not (
+                    isinstance(kwargs["vo"], numpy.ndarray)
+                    and (
+                        kwargs["vo"].size == 0
+                        or isinstance(kwargs["vo"].flat[0], numbers.Number)
+                    )
+                )
                 and not (_APY_LOADED and isinstance(kwargs["vo"], units.Quantity))
             ):
                 raise RuntimeError(
