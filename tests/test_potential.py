@@ -90,6 +90,7 @@ def _make_pots_normalize():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -114,6 +115,8 @@ def _make_pots_pickle():
 
 def _make_pots_forceAsDeriv():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -227,6 +230,7 @@ def _make_pots_forceAsDeriv():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -243,6 +247,8 @@ def _make_pots_forceAsDeriv():
 
 def _make_pots_2ndDeriv():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -339,6 +345,7 @@ def _make_pots_2ndDeriv():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -355,6 +362,8 @@ def _make_pots_2ndDeriv():
 
 def _make_pots_poisson():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -421,6 +430,7 @@ def _make_pots_poisson():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -505,6 +515,7 @@ def _make_pots_poisson_surfdens():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -524,6 +535,8 @@ def _make_pots_poisson_surfdens():
 
 def _make_pots_evaluateAndDerivs():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -618,6 +631,7 @@ def _make_pots_evaluateAndDerivs():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -634,6 +648,8 @@ def _make_pots_evaluateAndDerivs():
 
 def _make_pots_amp_mult_divide():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -742,6 +758,7 @@ def _make_pots_amp_mult_divide():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -777,6 +794,7 @@ def _make_pots_potential_array_input():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -825,6 +843,7 @@ def _make_pots_toVertical_array():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -849,6 +868,8 @@ def _make_pots_toVertical_array():
 
 def _make_pots_potential_at_zero():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -924,6 +945,7 @@ def _make_pots_potential_at_zero():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -958,6 +980,8 @@ def _make_pots_potential_at_zero():
 
 def _make_pots_potential_at_infinity():
     pots = _discover_base_pots()
+    pots.append("mockTruncatedNFWPotentialn2")
+    pots.append("mockTimeDependentTruncatedHernquistPotential")
     # pots.append('specialTwoPowerSphericalPotential')
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -1033,6 +1057,7 @@ def _make_pots_potential_at_infinity():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -1083,6 +1108,7 @@ def _make_pots_toVertical_toPlanar():
         "NumericalPotentialDerivativesMixin",
         "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
+        "TruncatedTwoPowerSphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
@@ -6114,6 +6140,512 @@ def test_ExpTruncNFW_from_nfw():
     #      total mass overflows there)
     with pytest.raises(ValueError):
         potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e-8)
+    return None
+
+
+# (F, H, d2Phi/dr2) for a = amp = 1 from 40-digit mpmath quadratures of the
+# density: the enclosed mass / amp, the outer-potential integral
+# int_x^inf 4 pi r rho dr / (amp/a), and w(x)/(x(1+x)^k) - 2F/x^3, keyed by
+# (k, n, rc/a), at x = r/a in _TRUNC_GOLD_X
+_TRUNC_GOLD_X = (1e-6, 0.03, 0.4, 2.0, 50.0, 1e4)
+_TRUNC_GOLD = {
+    (2, 1, 0.5): [
+        (4.999993333330833e-13, 0.35518302065259266, -0.6666671666642666),
+        (0.00043181796256914145, 0.32609216966838284, -0.6793578764005821),
+        (0.04012079972853216, 0.10758362035007189, -0.4760248670766099),
+        (0.11695681885675166, 0.005412650713131037, -0.025971230857978766),
+        (0.13445638033643986, 6.47097526458727e-07, -2.1505332272438616e-06),
+        (0.13450507270454354, 8.332083470818751e-14, -2.6901014290958704e-13),
+    ],
+    (2, 1, 3.0): [
+        (4.999993333340555e-13, 0.7207580935304846, -0.6666652222244889),
+        (0.00043256719158149884, 0.6916338364478265, -0.6252922256268854),
+        (0.05035120417868512, 0.4364495456674946, -0.3202445807220436),
+        (0.3761413329116112, 0.09722473663191959, -0.05557379476636434),
+        (0.7374809382379628, 2.3246877038886517e-05, -1.1772112647419548e-05),
+        (0.7392308193162845, 2.9995498920210078e-12, -1.4784615486505744e-12),
+    ],
+    (2, 1, 100.0): [
+        (4.999993333340833e-13, 0.9851166081937608, -0.6666651667190665),
+        (0.00043258862999815415, 0.9559913954614386, -0.6237414120811542),
+        (0.050757580668314546, 0.6994045994481357, -0.3106845996399367),
+        (0.4318827199079014, 0.31849787634865967, -0.05243733775830726),
+        (2.8480849423137866, 0.008694668137555497, -3.941787887709748e-05),
+        (3.635248508617865, 3.3326334409378192e-09, -7.270397047229731e-12),
+    ],
+    (2, 2, 0.5): [
+        (4.999993333320833e-13, 0.2562318736206164, -0.6666691666594666),
+        (0.00043104911373415076, 0.22717531160668095, -0.7347075938370115),
+        (0.0323716757042176, 0.03757553550725922, -0.5373769850006904),
+        (0.05539787409738349, 0.00018040075376250025, -0.013657234768098277),
+        (0.05586420823892374, 3.869465093204981e-11, -8.938272549446537e-07),
+        (0.05586421066055684, 1.2497916889857517e-22, -1.1172842132111368e-13),
+    ],
+    (2, 2, 3.0): [
+        (4.999993333340277e-13, 0.6329848173733067, -0.6666652777799111),
+        (0.00043254573527718137, 0.6038615167441199, -0.6268442278122732),
+        (0.04994903154591149, 0.35006704922400905, -0.32956717590178686),
+        (0.33119243225879547, 0.04550050750147769, -0.05617088912978762),
+        (0.4666214698205837, 4.9898978813027925e-08, -7.465844576802719e-06),
+        (0.4666245937027167, 1.6197298264609888e-19, -9.332491874054254e-13),
+    ],
+    (2, 2, 100.0): [
+        (4.999993333340833e-13, 0.9779903988806081, -0.6666651667690664),
+        (0.0004325886106849164, 0.9488651870091969, -0.6237428092581718),
+        (0.05075721043350409, 0.6922796670930571, -0.3106934373123298),
+        (0.43181983273653085, 0.3114185924741785, -0.052443820420570046),
+        (2.755700157733004, 0.0052382815261249145, -3.917001836378958e-05),
+        (3.1498659021700206, 1.9993810785501289e-13, -6.29973179434404e-12),
+    ],
+    (2, 3, 0.5): [
+        (4.999993333310833e-13, 0.2124883111061194, -0.6666711666546666),
+        (0.0004302820978693362, 0.1834659646119885, -0.7897902517097497),
+        (0.02664140493290516, 0.01620871542719694, -0.5433744646678534),
+        (0.035531997659765585, 7.378749368292458e-06, -0.008871691546926833),
+        (0.03554955476998867, 2.7591037466407537e-15, -5.687928763121316e-07),
+        (0.035549554770149726, 2.231752271201451e-31, -7.109910954029945e-14),
+    ],
+    (2, 3, 3.0): [
+        (4.99999333334e-13, 0.5812444402180399, -0.6666653333353333),
+        (0.000432524280398334, 0.5521220959852249, -0.6283960214836374),
+        (0.04955137419554562, 0.2997036634006058, -0.33864850702002275),
+        (0.29465154515317304, 0.024208913903562005, -0.05522865779489317),
+        (0.36011850905913534, 1.276845760792388e-10, -5.761895790038656e-06),
+        (0.36011851651490884, 1.0412461270650486e-26, -7.202370330298177e-13),
+    ],
+    (2, 3, 100.0): [
+        (4.999993333340832e-13, 0.9727793065152417, -0.6666651668190663),
+        (0.00043258859137167984, 0.9436540955047411, -0.6237442064350205),
+        (0.05075684020249581, 0.6870698516741784, -0.3107022747770258),
+        (0.4317569604831117, 0.3062544161660623, -0.05245029793408994),
+        (2.672781811071234, 0.0034343767393197108, -3.8827561649188955e-05),
+        (2.9105791473145852, 1.427988243087014e-17, -5.821158294628171e-12),
+    ],
+    (3, 1, 0.5): [
+        (4.999990000004999e-13, 0.2765421573592726, -0.9999989999988),
+        (0.00042341548007272426, 0.2478747218546355, -0.9688107326265658),
+        (0.03263712800639519, 0.06157988506264703, -0.4643744470284068),
+        (0.07463084018420477, 0.0014026276035157535, -0.01756838542731481),
+        (0.07864022573121467, 9.534921066570123e-09, -1.2582285360496468e-06),
+        (0.07864086329373673, 6.248500239550302e-18, -1.5728172658722356e-13),
+    ],
+    (3, 1, 3.0): [
+        (4.999990000014722e-13, 0.44815182292342015, -0.9999970555613555),
+        (0.0004241472028398533, 0.41945171304310197, -0.9166395102130913),
+        (0.040505550228353344, 0.20434882528828352, -0.3706337661632804),
+        (0.1987950544989696, 0.023413520523324766, -0.03687825080422958),
+        (0.2725833661916202, 3.424610946946328e-07, -4.3607930283916515e-06),
+        (0.2726062706045651, 2.249459955021862e-16, -5.452125412001329e-13),
+    ],
+    (3, 1, 100.0): [
+        (4.999990000014999e-13, 0.4996840134110331, -0.9999970000559998),
+        (0.00042416814024829626, 0.47098296881845925, -0.9151430076006184),
+        (0.040816043714647025, 0.254788048379555, -0.36443722590779604),
+        (0.2221962560460429, 0.055261537611474815, -0.03703794993862136),
+        (0.4768522970759767, 0.00011437043030444936, -7.509019494393605e-06),
+        (0.4854325914508442, 2.499233488664361e-13, -9.708651729056875e-13),
+    ],
+    (3, 2, 0.5): [
+        (4.999989999995e-13, 0.2156025618403022, -1.0000009999916),
+        (0.0004226645929469802, 0.1869686644188137, -1.0222200300638986),
+        (0.026636153726820398, 0.023582377453265392, -0.4936384605659162),
+        (0.0405006879002262, 5.1776873174471516e-05, -0.01006109405630735),
+        (0.04062931174275303, 6.334514913355346e-13, -6.500689863766342e-07),
+        (0.04062931178081423, 1.0413988524866576e-26, -8.125862356162845e-14),
+    ],
+    (3, 2, 3.0): [
+        (4.999990000014444e-13, 0.4199726629981869, -0.9999971111167111),
+        (0.00042412624795941053, 0.3912734886164596, -0.918137159041866),
+        (0.04019819661778606, 0.17725309146617535, -0.3766650300858519),
+        (0.1795906499508898, 0.01207900307674773, -0.03602192284275204),
+        (0.21301210529331055, 8.166696048437591e-10, -3.4081917446865646e-06),
+        (0.21301215437561977, 1.3496527356824693e-23, -4.2602430875123953e-13),
+    ],
+    (3, 2, 100.0): [
+        (4.999990000014999e-13, 0.49941688417203706, -0.9999970001059997),
+        (0.00042416812138640423, 0.47071584042151215, -0.9151443558479135),
+        (0.0408157609015261, 0.25452191328551216, -0.3644429647907813),
+        (0.22217029556108894, 0.05501537332619633, -0.037038861302418014),
+        (0.4734107033196959, 7.547013674975856e-05, -7.478077446057518e-06),
+        (0.47857351470887116, 1.6659882668701416e-17, -9.57147029416743e-13),
+    ],
+    (3, 3, 0.5): [
+        (4.999989999984999e-13, 0.18467151743723617, -1.0000029999844),
+        (0.0004219154929239611, 0.15607108643552922, -1.0753706034106671),
+        (0.022165006204801267, 0.010556927962614978, -0.48610684426758755),
+        (0.027811627605837153, 2.2126858222157135e-06, -0.0069491376121211005),
+        (0.02781679366938052, 4.7415135381550723e-17, -4.450686987099376e-07),
+        (0.02781679366938323, 1.9526042486869094e-35, -5.563358733876646e-14),
+    ],
+    (3, 3, 3.0): [
+        (4.999990000014166e-13, 0.40008798906873133, -0.9999971666720666),
+        (0.00042410529446875714, 0.37138975012988507, -0.9196346058622797),
+        (0.03989422217688487, 0.15844143442768208, -0.3825287740342393),
+        (0.16369283426950215, 0.006745297023255576, -0.03477846573624217),
+        (0.18115645102431774, 2.19374966689049e-12, -2.898503209430113e-06),
+        (0.18115645114980858, 9.110068469570743e-31, -3.6231290229961714e-13),
+    ],
+    (3, 3, 100.0): [
+        (4.999990000014999e-13, 0.4991731868692702, -0.9999970001559995),
+        (0.0004241681025245133, 0.4704721439607942, -0.915145704095045),
+        (0.04081547809124945, 0.25427921011895643, -0.3644487035294249),
+        (0.22214434076581038, 0.054792637285401236, -0.03703977112922326),
+        (0.47022377154508727, 5.2028637935545207e-05, -7.446385299075303e-06),
+        (0.4736061196464714, 1.2493668584397776e-21, -9.472122392929427e-13),
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    "cls,k",
+    [(potential.TruncatedNFWPotential, 2), (potential.TruncatedHernquistPotential, 3)],
+)
+def test_TruncatedTwoPower_vs_quadrature(cls, k):
+    # The enclosed mass against quadrature of the density, and the potential
+    # against -G M(<r)/r - G int_r^inf 4 pi r' rho dr', for r << a, r ~ a, r << rc
+    # and r >> rc, and truncations well inside and well outside a: both series
+    # regimes and the closed form in between
+    amp, a = 1.7, 0.6
+    for n in (1, 2, 3):
+        for tau in (0.5, 3.0, 100.0):
+            p = cls(amp=amp, a=a, rc=tau * a, n=n)
+            for x, (F, H, r2) in zip(_TRUNC_GOLD_X, _TRUNC_GOLD[(k, n, tau)]):
+                r = x * a
+                for got, want, what in (
+                    (p.mass(r), amp * F, "mass"),
+                    (p(r, 0.0), -amp * (F / x + H) / a, "potential"),
+                    (p.rforce(r, 0.0), -amp * F / x**2 / a**2, "rforce"),
+                    (p.r2deriv(r, 0.0), amp * r2 / a**3, "r2deriv"),
+                ):
+                    tol = 1e-12 if what == "r2deriv" else 1e-13
+                    assert numpy.fabs(got / want - 1.0) < tol, (
+                        f"{cls.__name__} n={n} rc/a={tau} r/a={x}: {what} off by "
+                        f"{numpy.fabs(got / want - 1.0):g}"
+                    )
+    return None
+
+
+def test_TruncatedTwoPower_untruncated_limit():
+    # rc -> infinity recovers NFWPotential and HernquistPotential with the same
+    # amp convention (the NFW potential differs by O(a/rc): 1e-16 here)
+    for cls, ref in (
+        (potential.TruncatedNFWPotential, potential.NFWPotential),
+        (potential.TruncatedHernquistPotential, potential.HernquistPotential),
+    ):
+        q = ref(amp=1.3, a=0.8)
+        for n in (1, 2):
+            p = cls(amp=1.3, a=0.8, rc=1e16, n=n)
+            for R, z in ((1e-4, 0.0), (0.5, 0.3), (3.0, -1.0), (40.0, 5.0)):
+                for f in (
+                    "__call__",
+                    "Rforce",
+                    "zforce",
+                    "dens",
+                    "R2deriv",
+                    "z2deriv",
+                    "Rzderiv",
+                ):
+                    got, want = getattr(p, f)(R, z), getattr(q, f)(R, z)
+                    assert numpy.fabs(got - want) <= 1e-13 * numpy.fabs(want), (
+                        f"{cls.__name__} n={n} does not reduce to {ref.__name__} "
+                        f"for {f} at (R,z)=({R},{z})"
+                    )
+            assert numpy.fabs(p.mass(2.0) / q.mass(2.0) - 1.0) < 1e-13
+        # normalize= sets amp so that the radial force at R = 1 is -normalize
+        p = cls(a=0.8, rc=2.0, n=2, normalize=0.6)
+        assert numpy.fabs(as_numpy(p.Rforce(1.0, 0.0)) + 0.6) < 1e-15
+    return None
+
+
+def test_TruncatedTwoPower_mass_z():
+    # mass(R, z) falls through to the general implementation, which matches
+    # the density integrated over the slab |z'| < z inside the sphere r < R
+    from scipy import integrate
+
+    p = potential.TruncatedNFWPotential(amp=2.0, rc=3.0, n=2)
+    R, z = 4.2, 1.3
+    want = (
+        4.0
+        * numpy.pi
+        * integrate.dblquad(
+            lambda rp, zp: rp * as_numpy(p.dens(rp, 0.0)),
+            0.0,
+            z,
+            lambda zp: zp,
+            lambda zp: numpy.sqrt(R**2.0 + zp**2.0),
+        )[0]
+    )
+    assert numpy.fabs(as_numpy(p.mass(R, z)) - want) < 1e-10
+    return None
+
+
+def test_TruncatedTwoPower_series_switches():
+    # The small-r Taylor series and the closed form agree at the switch (to
+    # round-off), and so do the outer integral's asymptotic series and closed
+    # form in the potential; checked for truncations inside, at and outside a
+    from galpy.potential.TruncatedTwoPowerSphericalPotential import (
+        _LARGE_X,
+        _SMALL_X,
+        _F_closed,
+        _F_series,
+        _H_closed,
+        _H_series,
+        _r2deriv_series,
+    )
+
+    for k in (2, 3):
+        for n in (1, 2, 3):
+            for tau in (0.05, 1.0, 20.0):
+                mu, nu = min(1.0, tau), max(1.0, tau)
+                x = numpy.asarray(_SMALL_X * mu)
+                F = _F_closed(numpy, x, tau, k, n)
+                assert numpy.fabs(_F_series(numpy, x, tau, k, n, 0) / F - 1.0) < 1e-13
+                r2c = (1.0 + (x / tau) ** 2) ** (-n) / (
+                    x * (1.0 + x) ** k
+                ) - 2.0 * F / x**3
+                r2s = _r2deriv_series(numpy, x, tau, k, n)
+                assert numpy.fabs(r2s / r2c - 1.0) < 1e-12
+                x = numpy.asarray(_LARGE_X * nu)
+                F = _F_closed(numpy, x, tau, k, n)
+                phi_c = F / x + _H_closed(numpy, x, tau, k, n)
+                phi_s = F / x + _H_series(numpy, x, tau, k, n)
+                assert numpy.fabs(phi_s / phi_c - 1.0) < 1e-14
+    return None
+
+
+def test_TruncatedTwoPower_c_vs_python():
+    # C orbits match the Python ones inside the small-r series (r < 0.1 a) and
+    # across the outer integral's series switch (r = 10 max(a, rc) = 10); C
+    # conserves energy through a near-radial plunge to r < 0.01 a and out past
+    # r = 10; integrate_dxdv in C matches central differences of the C orbits.
+    # The Python orbits are short: under a forced backend they step eagerly
+    from galpy.orbit import Orbit
+
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n in (1, 2):
+            p = cls(amp=1.5, a=0.8, rc=1.0, n=n)
+            for ic, tmax, in_regime in (
+                ([0.06, 0.05, 0.2, 0.02, 0.1, 0.0], 1.5, lambda r: r.max() < 0.08),
+                (
+                    [11.0, -1.2, 0.3, 1.0, 0.0, 1.0],
+                    2.0,
+                    lambda r: r.min() < 10 < r.max(),
+                ),
+            ):
+                ts = numpy.linspace(0.0, tmax, 121)
+                oc = Orbit(ic)
+                oc.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+                op = Orbit(ic)
+                op.integrate(ts, p, method="dop853", rtol=1e-12, atol=1e-12)
+                xyz = lambda o: numpy.array(
+                    [as_numpy(o.x(ts)), as_numpy(o.y(ts)), as_numpy(o.z(ts))]
+                )
+                assert numpy.amax(numpy.fabs(xyz(oc) - xyz(op))) < 1e-9, (
+                    f"{cls.__name__} n={n}: C and Python orbits disagree"
+                )
+                assert in_regime(as_numpy(oc.r(ts))), "orbit misses its regime"
+            ts = numpy.linspace(0.0, 10.0, 1001)
+            for ic in (
+                [1.0, -0.8, 1e-4, 0.0, 0.0, 0.0],  # plunges to r < 0.01 a
+                [3.0, 1.4, 0.3, 0.5, 0.4, 1.0],  # out to r > 10 rc
+            ):
+                oc = Orbit(ic)
+                oc.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+                E = as_numpy(oc.E(ts))
+                assert numpy.amax(numpy.fabs(E / E[0] - 1.0)) < 1e-10, (
+                    f"{cls.__name__} n={n}: energy not conserved in C"
+                )
+            assert numpy.amax(as_numpy(oc.r(ts))) > 10.0
+            # integrate_dxdv in C against central differences
+            ic = numpy.array([1.0, 0.1, 0.9, 0.05, 0.2, 0.3])
+            ts2 = numpy.linspace(0.0, 3.0, 31)
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                numpy.eye(6)[0], ts2, p, method="dop853_c", rectIn=True,
+                rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            eps = 1e-6
+            rect = lambda o: (
+                numpy.array(
+                    [as_numpy(f(ts2)) for f in (o.x, o.y, o.z, o.vx, o.vy, o.vz)]
+                ).T
+            )
+            ics = []
+            for s in (1.0, -1.0):
+                x, y, z = ic[0] * numpy.cos(ic[5]), ic[0] * numpy.sin(ic[5]), ic[3]
+                vx = ic[1] * numpy.cos(ic[5]) - ic[2] * numpy.sin(ic[5])
+                vy = ic[1] * numpy.sin(ic[5]) + ic[2] * numpy.cos(ic[5])
+                R = numpy.sqrt((x + s * eps) ** 2 + y**2)
+                phi = numpy.arctan2(y, x + s * eps)
+                vR = vx * numpy.cos(phi) + vy * numpy.sin(phi)
+                vT = -vx * numpy.sin(phi) + vy * numpy.cos(phi)
+                oo = Orbit([R, vR, vT, z, ic[4], phi])
+                oo.integrate(ts2, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+                ics.append(rect(oo))
+            fd = (ics[0] - ics[1]) / (2.0 * eps)
+            assert numpy.amax(numpy.fabs(as_numpy(o.getOrbit_dxdv()) - fd)) < 1e-6, (
+                f"{cls.__name__} n={n}: integrate_dxdv disagrees with central differences"
+            )
+    return None
+
+
+def test_TruncatedTwoPower_c_evaluation():
+    # The C potential, forces and second derivatives match Python in the
+    # small-r series (r < 0.1 a), the closed form and the outer series (r > 10
+    # rc), for a static rc and for an rc(t) before tgrid starts (held at its
+    # first value); a planar C orbit in a time-dependent potential matches the
+    # full C orbit in z = 0
+    from galpy.orbit import Orbit
+    from galpy.potential.interpRZPotential import (
+        eval_2ndderiv_c,
+        eval_force_c,
+        eval_potential_c,
+    )
+
+    R = numpy.array([0.005, 0.03, 0.5, 2.0, 15.0, 40.0])
+    z = numpy.array([0.002, -0.01, 0.3, -1.0, 5.0, 20.0])
+    tgrid = numpy.array([1.0, 2.0, 3.0, 4.0])
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n in (1, 2):
+            for p in (
+                cls(amp=1.5, a=0.8, rc=1.0, n=n),
+                cls(amp=1.5, a=0.8, rc=[1.0, 2.0, 1.5, 1.2], tgrid=tgrid, n=n),
+            ):
+                for got, want in (
+                    (eval_potential_c(p, R, z)[0], p(R, z)),
+                    (eval_force_c(p, R, z)[0], p.Rforce(R, z)),
+                    (eval_force_c(p, R, z, zforce=True)[0], p.zforce(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="R2deriv")[0], p.R2deriv(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="z2deriv")[0], p.z2deriv(R, z)),
+                    (eval_2ndderiv_c(p, R, z, deriv="Rzderiv")[0], p.Rzderiv(R, z)),
+                ):
+                    assert numpy.all(numpy.fabs(got / as_numpy(want) - 1.0) < 1e-12), (
+                        f"{cls.__name__} n={n}: C and Python disagree: {got}, {want}"
+                    )
+        p = cls(amp=1.5, a=0.8, rc=[1.0, 2.0, 1.5, 1.2], tgrid=tgrid - 1.0, n=2)
+        ts = numpy.linspace(0.0, 3.0, 31)
+        o3 = Orbit([1.0, 0.1, 0.9, 0.0, 0.0, 0.3])
+        o3.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+        o2 = Orbit([1.0, 0.1, 0.9, 0.3])
+        o2.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
+        for f in ("x", "y", "vx", "vy"):
+            d = as_numpy(getattr(o2, f)(ts)) - as_numpy(getattr(o3, f)(ts))
+            assert numpy.amax(numpy.fabs(d)) < 1e-10, (
+                f"{cls.__name__}: planar and full C orbits disagree in {f}"
+            )
+    return None
+
+
+def test_TruncatedTwoPower_timedep():
+    # A time-dependent rc equals the static potential with that rc at each node,
+    # is held at its end values outside tgrid, and follows the not-a-knot cubic
+    # spline in log rc in between; mass(r, t) follows rc(t)
+    from scipy.interpolate import CubicSpline
+
+    tgrid = numpy.linspace(0.0, 4.0, 9)
+    rcs = 2.0 + numpy.sin(tgrid)
+    spl = lambda t: numpy.exp(CubicSpline(tgrid, numpy.log(rcs))(t))
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        p = cls(amp=1.3, a=0.7, rc=rcs, n=2, tgrid=tgrid)
+        for t, rc in list(zip(tgrid, rcs)) + [
+            (-3.0, rcs[0]),
+            (7.0, rcs[-1]),
+            (1.37, spl(1.37)),
+            (3.9, spl(3.9)),
+        ]:
+            q = cls(amp=1.3, a=0.7, rc=rc, n=2)
+            for R, z in ((0.01, 0.0), (0.5, 0.3), (3.0, -1.0), (40.0, 5.0)):
+                for f in ("__call__", "Rforce", "zforce", "dens", "R2deriv", "Rzderiv"):
+                    got, want = getattr(p, f)(R, z, t=t), getattr(q, f)(R, z)
+                    assert numpy.fabs(got - want) <= 1e-14 * numpy.fabs(want), (
+                        f"{cls.__name__}: time-dependent {f} at t={t} does not "
+                        "match the static potential with rc(t)"
+                    )
+            assert numpy.fabs(p.mass(2.5, t=t) / q.mass(2.5) - 1.0) < 1e-14
+    # A radius that drops by 10x per unit time stays positive in between (a
+    # spline through rc itself reaches -7e-4 at t=1.5); the spline in log rc
+    # reproduces the exponential exactly
+    p = potential.TruncatedNFWPotential(
+        a=0.5, rc=[1.0, 0.1, 0.01, 0.001], tgrid=[0.0, 1.0, 2.0, 3.0]
+    )
+    for t in (0.5, 1.5, 2.25):
+        q = potential.TruncatedNFWPotential(a=0.5, rc=10.0**-t)
+        assert numpy.fabs(p.Rforce(1.0, 0.0, t=t) / q.Rforce(1.0, 0.0) - 1.0) < 1e-13
+    return None
+
+
+def test_TruncatedTwoPower_timedep_movingobject():
+    # A time-dependent kernel as the pot of a MovingObjectPotential: C and Python
+    # (odeint) orbits agree (log rc linear in t, so the spline has no knots for
+    # the adaptive step control to trip over), and the orbit converges (at second order) to
+    # one integrated through a piecewise-static construction with rc evaluated at
+    # each segment's midpoint
+    from galpy.orbit import Orbit
+
+    host = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    sat = Orbit([1.5, 0.0, 0.9, 0.2, 0.1, 0.0])
+    tsat = numpy.linspace(-0.5, 3.5, 801)
+    sat.integrate(tsat, host, method="dop853_c")
+    tgrid = numpy.linspace(0.0, 3.0, 13)
+    rc0 = lambda t: 0.6 * numpy.exp(-0.3 * t)
+    kern = potential.TruncatedHernquistPotential(
+        amp=0.05, a=0.1, rc=rc0(tgrid), n=1, tgrid=tgrid
+    )
+    pot = host + potential.MovingObjectPotential(sat, pot=kern)
+    ic = [1.2, 0.1, 1.0, 0.1, 0.0, 0.3]
+    ts = numpy.linspace(0.0, 3.0, 301)
+    oc = Orbit(ic)
+    oc.integrate(ts, pot, method="dop853_c", rtol=1e-12, atol=1e-12)
+    op = Orbit(ic)
+    op.integrate(ts, pot, method="odeint", rtol=1e-12, atol=1e-12)
+    xyz = lambda o, t: numpy.array([o.x(t), o.y(t), o.z(t)])
+    assert numpy.amax(numpy.fabs(xyz(oc, ts) - xyz(op, ts))) < 1e-8
+    errs = []
+    for nseg in (15, 30):
+        tb = numpy.linspace(0.0, 3.0, nseg + 1)
+        vxvv = ic
+        for t0, t1 in zip(tb[:-1], tb[1:]):
+            k = potential.TruncatedHernquistPotential(
+                amp=0.05, a=0.1, rc=rc0(0.5 * (t0 + t1)), n=1
+            )
+            o = Orbit(vxvv)
+            o.integrate(
+                numpy.linspace(t0, t1, 3),
+                host + potential.MovingObjectPotential(sat, pot=k),
+                method="dop853_c",
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            vxvv = o.getOrbit()[-1]
+        o_end = Orbit(vxvv)
+        errs.append(numpy.amax(numpy.fabs(xyz(o_end, 0.0) - xyz(oc, 3.0))))
+    assert errs[1] < 0.35 * errs[0] and errs[1] < 1e-4, (
+        f"piecewise-static orbits do not converge to the time-dependent one: {errs}"
+    )
+    return None
+
+
+def test_TruncatedTwoPower_pickle_and_errors():
+    import pickle
+
+    tgrid = numpy.linspace(0.0, 2.0, 5)
+    p = potential.TruncatedNFWPotential(
+        amp=1.1, a=0.5, rc=1.0 + tgrid, n=2, tgrid=tgrid
+    )
+    q = pickle.loads(pickle.dumps(p))
+    assert q.Rforce(0.8, 0.1, t=0.7) == p.Rforce(0.8, 0.1, t=0.7)
+    with pytest.raises(ValueError, match="positive integer"):
+        potential.TruncatedNFWPotential(n=1.5)
+    with pytest.raises(ValueError, match="positive integer"):
+        potential.TruncatedHernquistPotential(n=0)
+    with pytest.raises(ValueError, match="one value per tgrid time"):
+        potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=tgrid)
+    with pytest.raises(ValueError, match="strictly increasing"):
+        potential.TruncatedNFWPotential(rc=[1.0, 2.0], tgrid=[1.0, 0.0])
+    with pytest.raises(ValueError, match="rc= must be positive"):
+        potential.TruncatedNFWPotential(rc=0.0)
+    with pytest.raises(ValueError, match="rc= must be positive"):
+        potential.TruncatedHernquistPotential(rc=[1.0, -0.1], tgrid=[0.0, 1.0])
     return None
 
 
@@ -15821,3 +16353,18 @@ def test_special_pow_or_inf():
     assert special.pow_or_inf(3.0, 2.5) == 3.0**2.5
     x = numpy.array([0.5, 2.0])
     numpy.testing.assert_array_equal(special.pow_or_inf(x, 3.0), x**3.0)
+
+
+class mockTruncatedNFWPotentialn2(potential.TruncatedNFWPotential):
+    def __init__(self):
+        potential.TruncatedNFWPotential.__init__(self, amp=1.3, a=0.7, rc=1.5, n=2)
+
+
+class mockTimeDependentTruncatedHernquistPotential(
+    potential.TruncatedHernquistPotential
+):
+    def __init__(self):
+        tgrid = numpy.linspace(-1.0, 3.0, 9)
+        potential.TruncatedHernquistPotential.__init__(
+            self, amp=1.3, a=0.7, rc=1.5 + 0.5 * numpy.sin(tgrid), n=1, tgrid=tgrid
+        )

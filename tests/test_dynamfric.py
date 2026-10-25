@@ -269,6 +269,12 @@ _DYNAMFRIC_POTS = {
     "ExpTruncNFWPotential": lambda: potential.ExpTruncNFWPotential(
         normalize=1.0, a=1.5, rc=10.0
     ),
+    "TruncatedNFWPotential": lambda: potential.TruncatedNFWPotential(
+        normalize=1.0, a=1.5, rc=10.0, n=2
+    ),
+    "TruncatedHernquistPotential": lambda: potential.TruncatedHernquistPotential(
+        normalize=1.0, a=3.5, rc=10.0
+    ),
     "MiyamotoNagaiPotential": lambda: potential.MiyamotoNagaiPotential(
         normalize=0.02, a=10.0, b=10.0
     ),
