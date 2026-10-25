@@ -1054,8 +1054,19 @@ def physical_conversion(quantity, pop=False):
                         fac = numpy.reshape(
                             fac, shape + (1,) * (len(out_shape) - len(shape))
                         )
+                        from ..backend import (
+                            as_backend_constant,
+                            is_backend_array,
+                            to_host,
+                        )
+                        from ..backend._namespaces import namespace_from_arrays
+
+                        if is_backend_array(out):  # the scales on out's backend
+                            fac = as_backend_constant(
+                                namespace_from_arrays((out,)), fac, out
+                            )
                         return (
-                            units.Quantity(out * fac, unit=u)
+                            units.Quantity(numpy.asarray(to_host(out * fac)), unit=u)
                             if _apy_units
                             else out * fac
                         )
