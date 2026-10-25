@@ -1775,13 +1775,9 @@ def test_eddington_truncatedtwopower_sample(name):
         skip=1000,
     )
     # where the bins hold enough stars (the worst bin is at <=4.3% over 8 seeds)
+    scale, rc = float(as_numpy(pot._scale)), float(as_numpy(pot.rc))
     check_sigmar_against_jeans(
-        samp,
-        pot,
-        0.06,
-        rmin=pot._scale / 3.0,
-        rmax=min(10.0 * pot._scale, 2.0 * pot.rc),
-        bins=11,
+        samp, pot, 0.06, rmin=scale / 3.0, rmax=min(10.0 * scale, 2.0 * rc), bins=11
     )
     return None
 
@@ -2879,6 +2875,70 @@ def test_constantbeta_exptruncnfw_dens_directint():
         rmax=pot._scale * 10.0,
         bins=11,
     )
+    return None
+
+
+def test_constantbeta_truncatedtwopower_dens_directint():
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    # as for ExpTruncNFW: constant-beta uses _ddenstwobetadr
+    for pot in [mk() for mk in _TRUNCATED_TWOPOWER.values()]:
+        dfh = constantbetadf(pot=pot, twobeta=-1)
+        check_dens_directint(
+            dfh,
+            pot,
+            1e-3,
+            lambda r: pot.dens(r, 0),
+            rmin=pot._scale / 10.0,
+            rmax=pot._scale * 10.0,
+            bins=11,
+        )
+    return None
+
+
+def test_truncatedtwopower_density_derivatives():
+    # _ddensdr, _d2densdr2 and _ddenstwobetadr (the derivatives the spherical
+    # DFs use) against complex-step derivatives (exact to round-off; evaluated
+    # in numpy, also under a forced backend) of the density and of _ddensdr,
+    # from inside the core to far beyond the truncation, for both profiles and
+    # several n and rc
+    from galpy.backend import use
+
+    betas = (0.0, 0.5, -0.5, 1.0)
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n, rc in ((1, 0.3), (3, 7.0)):
+            pot = cls(amp=1.7, a=1.3, rc=rc, n=n)
+            with use("numpy", force=True):  # numpy parameters too
+                potn = cls(amp=1.7, a=1.3, rc=rc, n=n)
+            dens = lambda r: potn._amp * potn._rdens(r)
+            for r in (1e-4, 0.05, 0.9, 4.0, 60.0, 1e3):
+                h = 1e-30 * r
+                cstep = lambda f: f(r + 1j * h).imag / h
+                with use("numpy", force=True):
+                    scale = dens(r) / r  # the derivatives can pass through zero
+                    want = [cstep(dens), cstep(potn._ddensdr)] + [
+                        cstep(lambda x: dens(x) * x ** (2.0 * beta)) for beta in betas
+                    ]
+                got = [pot._ddensdr(r), pot._d2densdr2(r)] + [
+                    pot._ddenstwobetadr(r, beta=beta) for beta in betas
+                ]
+                scales = [scale, scale / r] + [scale * r ** (2.0 * b) for b in betas]
+                for g, w, sc in zip(got, want, scales):
+                    assert numpy.fabs(float(as_numpy(g)) - w) < 1e-12 * sc, (
+                        f"{cls.__name__} n={n} rc={rc} r={r}: {g} vs {w}"
+                    )
+    # with a time-dependent rc, the derivatives use rc(t)
+    pt = potential.TruncatedNFWPotential(rc=[2.0, 3.0, 5.0], tgrid=[0.0, 1.0, 2.0])
+    ps = potential.TruncatedNFWPotential(rc=3.0)
+    for m in ("_ddensdr", "_d2densdr2"):
+        assert (
+            numpy.fabs(
+                float(as_numpy(getattr(pt, m)(1.1, t=1.0)))
+                / float(as_numpy(getattr(ps, m)(1.1)))
+                - 1
+            )
+            < 1e-14
+        )
     return None
 
 

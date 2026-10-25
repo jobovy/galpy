@@ -6353,7 +6353,7 @@ def test_TruncatedTwoPower_untruncated_limit():
             assert numpy.fabs(p.mass(2.0) / q.mass(2.0) - 1.0) < 1e-13
         # normalize= sets amp so that the radial force at R = 1 is -normalize
         p = cls(a=0.8, rc=2.0, n=2, normalize=0.6)
-        assert numpy.fabs(p.Rforce(1.0, 0.0) + 0.6) < 1e-15
+        assert numpy.fabs(as_numpy(p.Rforce(1.0, 0.0)) + 0.6) < 1e-15
     return None
 
 
@@ -6368,14 +6368,14 @@ def test_TruncatedTwoPower_mass_z():
         4.0
         * numpy.pi
         * integrate.dblquad(
-            lambda rp, zp: rp * p.dens(rp, 0.0),
+            lambda rp, zp: rp * as_numpy(p.dens(rp, 0.0)),
             0.0,
             z,
             lambda zp: zp,
             lambda zp: numpy.sqrt(R**2.0 + zp**2.0),
         )[0]
     )
-    assert numpy.fabs(p.mass(R, z) - want) < 1e-10
+    assert numpy.fabs(as_numpy(p.mass(R, z)) - want) < 1e-10
     return None
 
 
@@ -6398,17 +6398,17 @@ def test_TruncatedTwoPower_series_switches():
             for tau in (0.05, 1.0, 20.0):
                 mu, nu = min(1.0, tau), max(1.0, tau)
                 x = numpy.asarray(_SMALL_X * mu)
-                F = _F_closed(x, tau, k, n)
-                assert numpy.fabs(_F_series(x, tau, k, n, 0) / F - 1.0) < 1e-13
+                F = _F_closed(numpy, x, tau, k, n)
+                assert numpy.fabs(_F_series(numpy, x, tau, k, n, 0) / F - 1.0) < 1e-13
                 r2c = (1.0 + (x / tau) ** 2) ** (-n) / (
                     x * (1.0 + x) ** k
                 ) - 2.0 * F / x**3
-                r2s = _r2deriv_series(x, tau, k, n)
+                r2s = _r2deriv_series(numpy, x, tau, k, n)
                 assert numpy.fabs(r2s / r2c - 1.0) < 1e-12
                 x = numpy.asarray(_LARGE_X * nu)
-                F = _F_closed(x, tau, k, n)
-                phi_c = F / x + _H_closed(x, tau, k, n)
-                phi_s = F / x + _H_series(x, tau, k, n)
+                F = _F_closed(numpy, x, tau, k, n)
+                phi_c = F / x + _H_closed(numpy, x, tau, k, n)
+                phi_s = F / x + _H_series(numpy, x, tau, k, n)
                 assert numpy.fabs(phi_s / phi_c - 1.0) < 1e-14
     return None
 
@@ -6417,7 +6417,8 @@ def test_TruncatedTwoPower_c_vs_python():
     # C orbits match the Python ones inside the small-r series (r < 0.1 a) and
     # across the outer integral's series switch (r = 10 max(a, rc) = 10); C
     # conserves energy through a near-radial plunge to r < 0.01 a and out past
-    # r = 10; integrate_dxdv in C matches central differences of the C orbits
+    # r = 10; integrate_dxdv in C matches central differences of the C orbits.
+    # The Python orbits are short: under a forced backend they step eagerly
     from galpy.orbit import Orbit
 
     for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
@@ -6436,11 +6437,13 @@ def test_TruncatedTwoPower_c_vs_python():
                 oc.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
                 op = Orbit(ic)
                 op.integrate(ts, p, method="dop853", rtol=1e-12, atol=1e-12)
-                xyz = lambda o: numpy.array([o.x(ts), o.y(ts), o.z(ts)])
+                xyz = lambda o: numpy.array(
+                    [as_numpy(o.x(ts)), as_numpy(o.y(ts)), as_numpy(o.z(ts))]
+                )
                 assert numpy.amax(numpy.fabs(xyz(oc) - xyz(op))) < 1e-9, (
                     f"{cls.__name__} n={n}: C and Python orbits disagree"
                 )
-                assert in_regime(oc.r(ts)), "orbit misses its regime"
+                assert in_regime(as_numpy(oc.r(ts))), "orbit misses its regime"
             ts = numpy.linspace(0.0, 10.0, 1001)
             for ic in (
                 [1.0, -0.8, 1e-4, 0.0, 0.0, 0.0],  # plunges to r < 0.01 a
@@ -6448,11 +6451,11 @@ def test_TruncatedTwoPower_c_vs_python():
             ):
                 oc = Orbit(ic)
                 oc.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
-                E = oc.E(ts)
+                E = as_numpy(oc.E(ts))
                 assert numpy.amax(numpy.fabs(E / E[0] - 1.0)) < 1e-10, (
                     f"{cls.__name__} n={n}: energy not conserved in C"
                 )
-            assert numpy.amax(oc.r(ts)) > 10.0
+            assert numpy.amax(as_numpy(oc.r(ts))) > 10.0
             # integrate_dxdv in C against central differences
             ic = numpy.array([1.0, 0.1, 0.9, 0.05, 0.2, 0.3])
             ts2 = numpy.linspace(0.0, 3.0, 31)
@@ -6463,7 +6466,9 @@ def test_TruncatedTwoPower_c_vs_python():
             )  # fmt: skip
             eps = 1e-6
             rect = lambda o: (
-                numpy.array([f(ts2) for f in (o.x, o.y, o.z, o.vx, o.vy, o.vz)]).T
+                numpy.array(
+                    [as_numpy(f(ts2)) for f in (o.x, o.y, o.z, o.vx, o.vy, o.vz)]
+                ).T
             )
             ics = []
             for s in (1.0, -1.0):
@@ -6478,7 +6483,7 @@ def test_TruncatedTwoPower_c_vs_python():
                 oo.integrate(ts2, p, method="dop853_c", rtol=1e-12, atol=1e-12)
                 ics.append(rect(oo))
             fd = (ics[0] - ics[1]) / (2.0 * eps)
-            assert numpy.amax(numpy.fabs(o.getOrbit_dxdv() - fd)) < 1e-6, (
+            assert numpy.amax(numpy.fabs(as_numpy(o.getOrbit_dxdv()) - fd)) < 1e-6, (
                 f"{cls.__name__} n={n}: integrate_dxdv disagrees with central differences"
             )
     return None
@@ -6514,7 +6519,7 @@ def test_TruncatedTwoPower_c_evaluation():
                     (eval_2ndderiv_c(p, R, z, deriv="z2deriv")[0], p.z2deriv(R, z)),
                     (eval_2ndderiv_c(p, R, z, deriv="Rzderiv")[0], p.Rzderiv(R, z)),
                 ):
-                    assert numpy.all(numpy.fabs(got / want - 1.0) < 1e-12), (
+                    assert numpy.all(numpy.fabs(got / as_numpy(want) - 1.0) < 1e-12), (
                         f"{cls.__name__} n={n}: C and Python disagree: {got}, {want}"
                     )
         p = cls(amp=1.5, a=0.8, rc=[1.0, 2.0, 1.5, 1.2], tgrid=tgrid - 1.0, n=2)
@@ -6524,7 +6529,7 @@ def test_TruncatedTwoPower_c_evaluation():
         o2 = Orbit([1.0, 0.1, 0.9, 0.3])
         o2.integrate(ts, p, method="dop853_c", rtol=1e-12, atol=1e-12)
         for f in ("x", "y", "vx", "vy"):
-            d = getattr(o2, f)(ts) - getattr(o3, f)(ts)
+            d = as_numpy(getattr(o2, f)(ts)) - as_numpy(getattr(o3, f)(ts))
             assert numpy.amax(numpy.fabs(d)) < 1e-10, (
                 f"{cls.__name__}: planar and full C orbits disagree in {f}"
             )
@@ -16377,3 +16382,18 @@ def test_special_pow_or_inf():
     assert special.pow_or_inf(3.0, 2.5) == 3.0**2.5
     x = numpy.array([0.5, 2.0])
     numpy.testing.assert_array_equal(special.pow_or_inf(x, 3.0), x**3.0)
+
+
+class mockTruncatedNFWPotentialn2(potential.TruncatedNFWPotential):
+    def __init__(self):
+        potential.TruncatedNFWPotential.__init__(self, amp=1.3, a=0.7, rc=1.5, n=2)
+
+
+class mockTimeDependentTruncatedHernquistPotential(
+    potential.TruncatedHernquistPotential
+):
+    def __init__(self):
+        tgrid = numpy.linspace(-1.0, 3.0, 9)
+        potential.TruncatedHernquistPotential.__init__(
+            self, amp=1.3, a=0.7, rc=1.5 + 0.5 * numpy.sin(tgrid), n=1, tgrid=tgrid
+        )
