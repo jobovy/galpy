@@ -9562,3 +9562,30 @@ def test_orbits_interpSphericalPotential_outside_interpolation_range_warning_wit
         "composite potential also contains an FDMDynamicalFrictionForce"
     )
     return None
+
+
+@pytest.mark.parametrize("size", [2, 3])
+@pytest.mark.parametrize("vector", [False, True])
+@pytest.mark.parametrize("integrated", [False, True])
+def test_jacobi_with_quantity_pattern_and_array_scales(size, vector, integrated):
+    units = pytest.importorskip("astropy.units")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    orbit = Orbit(
+        [[1.0, 0.1, 1.0, 0.1, 0.1, 0.0]] * size,
+        ro=numpy.linspace(8.0, 9.0, size),
+        vo=numpy.linspace(200.0, 230.0, size),
+    )
+    omega = numpy.array([10.0, -5.0, 30.0]) if vector else 30.0
+    omega = omega * units.km / units.s / units.kpc
+    times = numpy.linspace(0.0, 0.1, 5) if integrated else 0.0
+    if integrated:
+        orbit.integrate(
+            times, MWPotential2014, method="odeint", numcores=1, progressbar=False
+        )
+    expected = numpy.array(
+        [orbit[i].Jacobi(times, pot=MWPotential2014, OmegaP=omega) for i in range(size)]
+    )
+    actual = orbit.Jacobi(times, pot=MWPotential2014, OmegaP=omega)
+    numpy.testing.assert_allclose(actual, expected)
