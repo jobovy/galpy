@@ -8,6 +8,7 @@ from scipy import integrate
 
 from .. import potential
 from ..backend import to_host
+from ..potential.DissipativeForce import _isDissipative
 from ..potential.planarDissipativeForce import (
     planarDissipativeForceFromFullDissipativeForce,
 )
