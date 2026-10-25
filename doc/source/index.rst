@@ -260,9 +260,10 @@ Orbits
       :link: tutorials/orbits/backends
       :link-type: doc
 
-      Integrate orbits with diffrax, torchode, and torchdiffeq,
-      differentiate them with respect to initial conditions and
-      potential parameters, and use the C state-transition matrix.
+      Integrate orbits with diffrax, torchode, torchdiffeq, and a
+      leapfrog for many orbits, differentiate them with respect to
+      initial conditions and potential parameters, and use the C
+      state-transition matrix.
 
 Action-Angle Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^

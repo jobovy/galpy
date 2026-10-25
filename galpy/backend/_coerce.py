@@ -57,6 +57,7 @@ torch (cross-device / mixed-dtype ops raise) and correct for jax.
 """
 
 import math
+import sys
 
 import numpy
 
@@ -245,17 +246,24 @@ def scalar_like(ref, value):
     keeps eager's weak-scalar promotion (``like`` would make a strong 0-d
     float64 tensor). ``.item()``/``float()`` would avoid the dispatch but break
     on a scalar dynamo has lifted into the graph. jax takes numpy scalars
-    natively.
+    natively, but as strongly typed: for a narrower floating jax ``ref``
+    (float32) the value becomes the (weak) Python scalar, as on torch.
     """
-    if (
-        _TORCH_LOADED
-        and isinstance(value, (numpy.ndarray, numpy.generic))  # dynamo: 0-d ndarray
-        and value.ndim == 0
-    ):
-        import torch
+    if isinstance(value, (numpy.ndarray, numpy.generic)) and value.ndim == 0:
+        if _TORCH_LOADED:  # dynamo: 0-d ndarray
+            import torch
 
-        if isinstance(ref, torch.Tensor):
-            return as_backend_constant(namespace_from_arrays((ref,)), value, ref)
+            if isinstance(ref, torch.Tensor):
+                return as_backend_constant(namespace_from_arrays((ref,)), value, ref)
+        if "jax" in sys.modules:
+            import jax
+
+            if (
+                isinstance(ref, jax.Array)
+                and numpy.issubdtype(ref.dtype, numpy.floating)
+                and ref.dtype.itemsize < value.dtype.itemsize
+            ):
+                return value.item()
     return value
 
 

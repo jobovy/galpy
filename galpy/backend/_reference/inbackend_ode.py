@@ -20,8 +20,23 @@
 #   which avoids the 1/R centrifugal term and the coordinate singularity at the
 #   axis, and is naturally well-behaved for autodiff. The public input/output are
 #   transformed to/from ``Orbit`` order so they match ``Orbit``.
+#
+#   integrate_orbit_leapfrog: a constant-step kick-drift-kick leapfrog for
+#   velocity-independent forces (galpy.backend._jax|_torch.orbit_leapfrog).
 ###############################################################################
-from .. import at_least_float64, get_namespace, is_backend_array, match_input_dtype
+import math
+
+import numpy
+
+from .. import (
+    as_numpy,
+    at_least_float64,
+    get_namespace,
+    is_backend_array,
+    match_input_dtype,
+    name_of_namespace,
+)
+from .._namespaces import under_trace
 
 
 def _eom_rhs(y, pot, t, xp, dim=6):
@@ -272,4 +287,162 @@ def integrate_orbit(
             "in-backend ODE integration requires a jax or torch input array; "
             "for numpy use Orbit.integrate (C / scipy integrators)"
         )
+    return match_input_dtype(_from_eom(xp, ys, phasedim), vxvv_in)
+
+
+def _velocity_dependent(pot):
+    """Whether any force in ``pot`` depends on the velocity: every dissipative
+    force except a NonInertialFrameForce that does not rotate (its fictitious
+    force is then -a0, velocity-independent)."""
+    from ...potential.NonInertialFrameForce import NonInertialFrameForce
+    from ...potential.planarDissipativeForce import (
+        planarDissipativeForceFromFullDissipativeForce,
+    )
+
+    if isinstance(pot, (list, tuple)) or hasattr(pot, "_potlist"):
+        return any(_velocity_dependent(p) for p in pot)
+    if not pot.isDissipative:
+        return False
+    if isinstance(pot, planarDissipativeForceFromFullDissipativeForce):
+        return _velocity_dependent(pot._Pot)
+    return not (isinstance(pot, NonInertialFrameForce) and not pot._rot_acc)
+
+
+def _default_nblock(nsteps, nint):
+    """The largest divisor of ``nsteps`` commensurate with the ``nint`` output
+    intervals (a divisor or multiple of nint) that is not above
+    max(sqrt(nsteps), nint): checkpointing at every output costs no more than
+    storing the outputs."""
+    limit = max(math.isqrt(nsteps), nint)
+    return max(
+        d
+        for d in range(1, limit + 1)
+        if nsteps % d == 0 and (d % nint == 0 or nint % d == 0)
+    )
+
+
+def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None):
+    """Integrate orbits with a constant-step kick-drift-kick (Stormer-Verlet)
+    leapfrog in the backend.
+
+    Parameters
+    ----------
+    pot : Potential, force or composite with only velocity-independent forces
+        (a NonInertialFrameForce without rotation is allowed); backend-migrated.
+    vxvv : jax or torch array of shape (phasedim,) or (N, phasedim), Orbit order
+        (as for ``integrate_orbit``). A float32 vxvv integrates in float32 throughout
+        (the times are cast to float32); any other dtype in float64.
+    ts : output times, shape (nt,) with nt >= 2, equally spaced (checked when
+        concrete; under a trace only ts[0] and ts[-1] are used).
+    nsteps : int, the number of steps from ts[0] to ts[-1]: a multiple of
+        nt - 1, so that every output time is a step.
+    nblock : int, optional; the number of blocks of nsteps // nblock steps, each
+        checkpointed (jax.checkpoint, torch.utils.checkpoint), so reverse mode
+        stores ~nblock + nsteps // nblock
+        steps instead of nsteps. Must divide nsteps and be a divisor or a
+        multiple of nt - 1. Default: the largest such divisor not above
+        max(sqrt(nsteps), nt - 1).
+    dt : float, optional; the step instead of nsteps (concrete ts only):
+        (ts[-1] - ts[0]) / dt must be an integer multiple of nt - 1.
+
+    Returns
+    -------
+    backend array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
+    for a batch, the orbit(s) in Orbit order at ts.
+    """
+    xp = get_namespace(vxvv)
+    name = name_of_namespace(xp)
+    if name not in ("jax", "torch"):
+        raise NotImplementedError(
+            "the in-backend leapfrog requires a jax or torch initial condition; "
+            "for numpy use Orbit.integrate(method='leapfrog_c')"
+        )
+    if _velocity_dependent(pot):
+        raise ValueError(
+            "the leapfrog requires velocity-independent forces, but the potential "
+            "includes a velocity-dependent (dissipative) force (e.g., dynamical "
+            "friction or a rotating NonInertialFrameForce); use method='diffrax'"
+        )
+    if getattr(ts, "ndim", numpy.ndim(ts)) != 1:
+        raise NotImplementedError(
+            "the in-backend leapfrog takes one time array shared by all orbits"
+        )
+    nint = ts.shape[-1] - 1  # output intervals
+    if nint < 1:
+        raise ValueError("the in-backend leapfrog needs at least two times")
+    tsn = None if under_trace(ts) else numpy.asarray(as_numpy(ts), dtype=float)
+    if dt is not None:
+        if nsteps is not None:
+            raise ValueError("give either dt or nsteps, not both")
+        if tsn is None:
+            raise ValueError(
+                "dt needs concrete integration times; under a trace, set the "
+                "number of steps with inbackend_kwargs={'nsteps': ...}"
+            )
+        nsteps = round((tsn[-1] - tsn[0]) / dt)
+        if nsteps < 1 or abs(nsteps * dt - (tsn[-1] - tsn[0])) > 1e-8 * abs(dt):
+            raise ValueError(
+                f"dt={dt} does not divide the integration interval "
+                f"[{tsn[0]}, {tsn[-1]}] into an integer number of steps"
+            )
+    if nsteps is None:
+        raise ValueError(
+            "the in-backend leapfrog takes constant steps: set their number with "
+            "inbackend_kwargs={'nsteps': ...} (or the step with dt=...)"
+        )
+    if isinstance(nsteps, bool) or not isinstance(nsteps, (int, numpy.integer)):
+        raise TypeError(f"nsteps must be an integer, not {nsteps!r}")
+    nsteps = int(nsteps)
+    if nsteps < 1 or nsteps % nint:
+        raise ValueError(
+            f"nsteps={nsteps} must be a positive multiple of the number of output "
+            f"intervals, len(t) - 1 = {nint}, so that every output time is a step"
+        )
+    if tsn is not None and nint > 1:
+        dtout = (tsn[-1] - tsn[0]) / nint
+        if numpy.any(numpy.fabs(numpy.diff(tsn) - dtout) > 1e-8 * numpy.fabs(dtout)):
+            raise ValueError(
+                "the in-backend leapfrog requires equally-spaced output times"
+            )
+    if nblock is None:
+        nblock = _default_nblock(nsteps, nint)
+    elif (
+        isinstance(nblock, bool)
+        or not isinstance(nblock, (int, numpy.integer))
+        or nblock < 1
+        or nsteps % nblock
+        or (nblock % nint and nint % nblock)
+    ):
+        raise ValueError(
+            f"nblock={nblock!r} must be a positive divisor of nsteps={nsteps} that "
+            f"is a divisor or a multiple of the number of output intervals {nint}"
+        )
+    # float32 initial conditions integrate in float32 throughout (times and
+    # forces too: the GPU's single-precision rate); anything else in float64
+    vxvv_in = vxvv
+    if vxvv.dtype != xp.float32:
+        vxvv = at_least_float64(vxvv)
+    ts = (
+        xp.astype(ts, vxvv.dtype)
+        if is_backend_array(ts)
+        else numpy.asarray(
+            ts, dtype=numpy.float32 if vxvv.dtype == xp.float32 else numpy.float64
+        )
+    )
+    phasedim = vxvv.shape[-1]
+    dim = 2 if phasedim == 2 else 6
+    if name == "jax":
+        from .._jax.orbit_leapfrog import integrate
+    else:
+        from .._torch.orbit_leapfrog import integrate
+
+    ys = integrate(
+        pot,
+        _to_eom(xp, vxvv),
+        ts,
+        dim=dim,
+        nsteps=nsteps,
+        nblock=int(nblock),
+        nint=nint,
+    )
     return match_input_dtype(_from_eom(xp, ys, phasedim), vxvv_in)
