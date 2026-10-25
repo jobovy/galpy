@@ -339,6 +339,12 @@ def test_scalar_like_anchors_a_numpy_scalar_on_torch():
     assert scalar_like(2.0, a) is a
     if jax is not None:  # jax takes numpy scalars natively: untouched
         assert scalar_like(jnp.ones(3), a) is a
+        # ... but as strongly typed: for a float32 ref, the weak Python scalar
+        # (as on torch below), so float32 data stays float32
+        j32 = jnp.ones(3, dtype=jnp.float32)
+        out = scalar_like(j32, a)
+        assert type(out) is float and out == 1.25
+        assert (out * j32).dtype == jnp.float32 and (a * j32).dtype == jnp.float64
     if torch is None:
         return
     t = torch.ones(3, dtype=torch.float64)
