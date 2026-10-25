@@ -1,5 +1,6 @@
 import ctypes
 import ctypes.util
+import functools
 import warnings
 
 import numpy
@@ -7,6 +8,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
+from ..potential.DissipativeForce import _isDissipative
 from ..potential.Potential import (
     _evaluatephitorques,
     _evaluateRforces,
@@ -1235,9 +1237,16 @@ def integrateFullOrbit(
                     vxvv[4],
                 ]
             )
+            # a dissipative force that derives from a potential (a
+            # NonInertialFrameForce without rotation) still takes a velocity
+            force = (
+                functools.partial(_rectForce, vx=numpy.zeros(3))
+                if _isDissipative(pot)
+                else _rectForce
+            )
             # integrate
             out = symplecticode.leapfrog(
-                _rectForce, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
+                force, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(out[:, 0] ** 2.0 + out[:, 1] ** 2.0)

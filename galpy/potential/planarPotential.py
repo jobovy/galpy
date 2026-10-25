@@ -46,6 +46,7 @@ class planarPotential(planarForce):
     def __init__(self, amp=1.0, ro=None, vo=None):
         planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
         self.isDissipative = False
+        self.isConservative = True
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)

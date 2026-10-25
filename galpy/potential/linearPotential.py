@@ -50,6 +50,7 @@ class linearPotential:
         self._amp = amp
         self.dim = 1
         self.isDissipative = False
+        self.isConservative = True
         self.isRZ = False
         self.hasC = False
         self.hasC_dxdv = False

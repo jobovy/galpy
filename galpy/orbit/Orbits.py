@@ -70,7 +70,7 @@ from ..potential import (
     rl,
     toPlanarPotential,
 )
-from ..potential.DissipativeForce import _isDissipative
+from ..potential.DissipativeForce import _isConservative
 from ..potential.planarPotential import planarPotential
 from ..potential.Potential import (
     Potential,
@@ -1711,13 +1711,15 @@ class Orbit:
 
     @staticmethod
     def _check_method_dissipative_compatible(method, pot):
-        if _isDissipative(pot) and ("leapfrog" in method or "symplec" in method):
+        # symplectic integration needs forces that derive from a potential, which
+        # some dissipative forces do (NonInertialFrameForce without rotation)
+        if not _isConservative(pot) and ("leapfrog" in method or "symplec" in method):
             if "_c" in method:
                 method = "dopr54_c"
             else:
                 method = "odeint"
             warnings.warn(
-                "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)"
+                "Cannot use symplectic integration because some of the included forces do not derive from a potential (using non-symplectic integrator %s instead)"
                 % (method),
                 galpyWarning,
             )
@@ -3208,8 +3210,9 @@ class Orbit:
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
-        # The symplectic kick is conservative-only, so (as for plain integration)
-        # reroute symplectic+dissipative to a non-symplectic C/Python integrator.
+        # The symplectic kick needs forces that derive from a potential, so (as
+        # for plain integration) reroute symplectic + non-conservative forces to
+        # a non-symplectic C/Python integrator.
         method = self._check_method_dissipative_compatible(method, pot)
         # Parse t
         if _APY_LOADED and isinstance(t, units.Quantity):

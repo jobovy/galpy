@@ -4,7 +4,7 @@ from ._repr_utils import (
     _build_physical_output_string,
     _strip_physical_output_info,
 )
-from .DissipativeForce import _isDissipative
+from .DissipativeForce import _isConservative, _isDissipative
 from .Potential import _check_c, _isNonAxi
 
 
@@ -73,6 +73,7 @@ class baseCompositePotential:
         # Recalculate properties based on updated potential list
         self.isNonAxi = _isNonAxi(self._potlist)
         self.isDissipative = _isDissipative(self._potlist)
+        self.isConservative = _isConservative(self._potlist)
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
         self.hasC_dxdv3d = _check_c(self._potlist, dxdv3d=True)

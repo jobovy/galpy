@@ -367,6 +367,7 @@ class Potential(Force):
         self.isRZ = True
         self.isNonAxi = False
         self.isDissipative = False
+        self.isConservative = True
         self.hasC = False
         # Backend-aware compute methods (jax/torch)? Set True on migrated
         # potentials; gates coercion in potential_physical_input.

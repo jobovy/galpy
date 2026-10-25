@@ -12608,7 +12608,7 @@ def test_orbitint_dissipativefallback():
             # check that the message matches
             raisedWarning += (
                 str(rec.message.args[0])
-                == "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator odeint instead)"
+                == "Cannot use symplectic integration because some of the included forces do not derive from a potential (using non-symplectic integrator odeint instead)"
             )
         assert raisedWarning, (
             "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
