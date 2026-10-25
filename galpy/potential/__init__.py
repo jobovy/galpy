@@ -59,6 +59,7 @@ from . import (
     TimeDependentAmplitudeWrapperPotential,
     TransientLogSpiralPotential,
     TriaxialGaussianPotential,
+    TruncatedTwoPowerSphericalPotential,
     TwoPowerSphericalPotential,
     TwoPowerTriaxialPotential,
     interpRZPotential,
@@ -173,6 +174,13 @@ ExpTruncNFWPotential = ExpTruncNFWPotential.ExpTruncNFWPotential
 NFWPotential = TwoPowerSphericalPotential.NFWPotential
 JaffePotential = TwoPowerSphericalPotential.JaffePotential
 HernquistPotential = TwoPowerSphericalPotential.HernquistPotential
+TruncatedNFWPotential = TruncatedTwoPowerSphericalPotential.TruncatedNFWPotential
+TruncatedHernquistPotential = (
+    TruncatedTwoPowerSphericalPotential.TruncatedHernquistPotential
+)
+TruncatedTwoPowerSphericalPotential = (
+    TruncatedTwoPowerSphericalPotential.TruncatedTwoPowerSphericalPotential
+)
 TwoPowerSphericalPotential = TwoPowerSphericalPotential.TwoPowerSphericalPotential
 KGPotential = KGPotential.KGPotential
 interpRZPotential = interpRZPotential.interpRZPotential

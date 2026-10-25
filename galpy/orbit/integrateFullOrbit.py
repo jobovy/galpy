@@ -388,6 +388,11 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
         elif isinstance(p, potential.ExpTruncNFWPotential):
             pot_type.append(46)
             pot_args.extend([p._amp, p.a, p.rc])
+        elif isinstance(
+            p, (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential)
+        ):
+            pot_type.append(48)
+            pot_args.extend(p._c_args())
         elif isinstance(p, potential.TwoPowerSphericalPotential):
             pot_type.append(42)
             pot_args.extend([p._amp, p.a, p.alpha, p.beta])
