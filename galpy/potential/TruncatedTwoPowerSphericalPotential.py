@@ -22,8 +22,12 @@ from ..backend import (
 from ..backend._namespaces import namespace_from_arrays, under_trace
 from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 from ..util import conversion
+from ..util._optional_deps import _JAX_LOADED
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
+
+if _JAX_LOADED:
+    import jax.numpy as jnp
 
 # x = r/a below _SMALL_X min(1, rc/a): Taylor series (the closed form cancels);
 # x above _LARGE_X max(1, rc/a): asymptotic series for the outer integral
@@ -400,11 +404,19 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
 
     def _rho_g(self, r, t):
         """(x, a, amp rho, g, dg/dx) with g = -dln rho/dx, for the density
-        derivatives (galpy's spherical DFs call these with amp applied)"""
-        xp, x, tau, _, _ = self._xp_x_tau(r, t)
+        derivatives (galpy's spherical DFs call these with amp applied). Plain
+        arithmetic (tau a scalar), so constantbetadf's eager jax derivative
+        chain stays as short as main's"""
+        a = self.a
+        x = r / a
+        tau = self._rc(t) / a
         k, n = self._k, self._n
-        a = scalar_like(x, self.a)
-        rho = scalar_like(x, self._amp) * self._rdens(r, t=t)
+        rho = (
+            self._amp
+            * (1.0 + (x / tau) ** 2) ** (-n)
+            / (x * (1.0 + x) ** k)
+            / (4.0 * numpy.pi * a**3)
+        )
         s = tau**2 + x**2
         g = 1.0 / x + k / (1.0 + x) + 2.0 * n * x / s
         gp = -1.0 / x**2 - k / (1.0 + x) ** 2 + 2.0 * n * (tau**2 - x**2) / s**2
@@ -422,6 +434,17 @@ class TruncatedTwoPowerSphericalPotential(SphericalPotential):
         """d/dr [rho r^(2 beta)], with amp applied"""
         x, a, rho, g, _ = self._rho_g(r, 0.0)
         return rho * (a * x) ** (2.0 * beta) * (2.0 * beta / x - g) / a
+
+    def _rforce_jax(self, r):
+        """The radial force with amp applied, in jax: constantbetadf
+        differentiates it"""
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        tau = self._rc(0.0) / self.a
+        x = r / self.a
+        return -self._amp * self._Fx(jnp, x, tau, min(1.0, tau), 2) / self.a**2
 
     def _revaluate(self, r, t=0.0):
         xp, x, tau, mu, nu = self._xp_x_tau(r, t)

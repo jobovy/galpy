@@ -10,6 +10,7 @@ from ..backend import (
     as_numpy_constant,
     asarray_on_device,
     autodiff_ops,
+    bucket_size,
     device_of,
     float64_default_if_torch_args,
     get_namespace,
@@ -87,6 +88,19 @@ def _make_gradfunc(vmapped, name):
         def _gradfunc(r):
             # concrete inputs evaluate eagerly even inside a user's jax.jit (a DF
             # built there from plain parameters); traced ones stage as usual
+            if isinstance(r, numpy.ndarray) and r.ndim == 1 and r.size > 0:
+                # the numpy quadratures' sizes vary call to call and eager jax
+                # compiles every op per new shape: pad to a bucket (edge copies)
+                n = r.size
+                rp = numpy.pad(r, (0, bucket_size(n) - n), mode="edge")
+                with jax.ensure_compile_time_eval():
+                    out = vmapped(rp)
+                # (traced when the potential's parameters are)
+                return (
+                    out[:n]
+                    if isinstance(out, jax.core.Tracer)
+                    else numpy.asarray(out)[:n]
+                )
             with jax.ensure_compile_time_eval():
                 return vmapped(r)
 
@@ -549,7 +563,9 @@ class constantbetadf(_constantbetadf):
         if _xp_eng is not None:
             self._backend = name_of_namespace(_xp_eng)
         self._gradfunc = _make_gradfunc(
-            self._raw_gradfunc(_autodiff_xp() if _xp_eng is None else _xp_eng),
+            self._numpy_gradfunc()
+            if _xp_eng is None and _JAX_LOADED
+            else self._raw_gradfunc(_autodiff_xp() if _xp_eng is None else _xp_eng),
             self._backend,
         )
         # Min and max energy (numpy scalars): Phi(rmax)/Phi(rmin) as numpy, robust
@@ -643,17 +659,19 @@ class constantbetadf(_constantbetadf):
             R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
-    def _make_func(self, grad):
+    def _make_func(self, grad, rforce=None):
         """Build the m-th (dens r^2beta)/dPsi^m derivative closure using ``grad``.
 
         d/dPsi = (d/dr)/F_r, applied m times; composed purely from the
         backend-agnostic ``_ddenstwobetadr`` / ``evaluateRforces`` (the radial
         force F_r = evaluateRforces(pot, r, 0)), so it differentiates natively
-        under jax.grad or torch.func.grad. For a non-halfint DF the final 1/F_r
-        is omitted (the fE integral is over Psi).
+        under jax.grad or torch.func.grad. ``rforce`` replaces the latter (the
+        potential's hand-written ``_rforce_jax``, see _numpy_gradfunc). For a
+        non-halfint DF the final 1/F_r is omitted (the fE integral is over Psi).
         """
         ddens = lambda r: self._denspot._ddenstwobetadr(r, beta=self._beta)
-        rforce = lambda r: evaluateRforces(self._pot, r, 0.0, use_physical=False)
+        if rforce is None:
+            rforce = lambda r: evaluateRforces(self._pot, r, 0.0, use_physical=False)
         if self._halfint:
             func = lambda r: ddens(r) / rforce(r)
             ii = self._m - 1
@@ -684,6 +702,17 @@ class constantbetadf(_constantbetadf):
             grad, vmap = autodiff_ops(xp)
             cache[name] = vmap(self._make_func(grad))
         return cache[name]
+
+    def _numpy_gradfunc(self):
+        """The numpy fE path's m-th derivative: jax on a numpy-parameter
+        potential, with its hand-written ``_rforce_jax`` if it has one, and the
+        elementwise derivative grad(sum(f)) instead of vmap(grad(f)) (the same
+        per-radius values; both cut the primitives eager jax dispatches)"""
+        import jax
+        import jax.numpy as jnp
+
+        egrad = lambda f: lambda r: jax.grad(lambda rr: jnp.sum(f(rr)))(r)
+        return self._make_func(egrad, getattr(self._pot, "_rforce_jax", None))
 
     def _deriv(self, xp, r):
         """m-th (dens r^2beta)/dPsi^m derivative at radii ``r`` (any shape),
