@@ -20,8 +20,18 @@ def is_compiling():
     ``_namespaces.under_trace`` composes this with an is-it-a-tensor test; a
     ContextVar read has no array to test, so it needs the bare predicate.
     """
-    torch = sys.modules.get("torch")
-    return torch is not None and torch.compiler.is_compiling()
+    global _torch_is_compiling
+    f = _torch_is_compiling
+    if f is None:
+        torch = sys.modules.get("torch")
+        if torch is None:
+            return False
+        f = _torch_is_compiling = torch.compiler.is_compiling
+    return f()
+
+
+# torch.compiler.is_compiling once torch is imported (dynamo folds the call)
+_torch_is_compiling = None
 
 
 class TracedContextVar:
