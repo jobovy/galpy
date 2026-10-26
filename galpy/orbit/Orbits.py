@@ -3362,17 +3362,16 @@ class Orbit:
         # Classify the input before a physical scalar becomes one value per orbit.
         scalar_pattern = numpy.ndim(OmegaP) == 0
         vector_pattern = not scalar_pattern and len(OmegaP) == 3
-        OmegaP = conversion.parse_frequency(
-            OmegaP,
-            ro=numpy.asarray(self._ro)[..., None] if vector_pattern else self._ro,
-            vo=numpy.asarray(self._vo)[..., None] if vector_pattern else self._vo,
-        )
         # Make sure you are not using physical coordinates
         old_physical = kwargs.get("use_physical", None)
         kwargs["use_physical"] = False
         kwargs["dontreshape"] = True
         if vector_pattern:
-            thisOmegaP = OmegaP
+            thisOmegaP = conversion.parse_frequency(
+                OmegaP,
+                ro=numpy.asarray(self._ro)[..., None],
+                vo=numpy.asarray(self._vo)[..., None],
+            )
             tL = self.L(*args, **kwargs)
             if len(tL.shape) == 2:  # 1 time
                 out = self.E(*args, **kwargs) - numpy.einsum(
@@ -3384,12 +3383,11 @@ class Orbit:
                 )
         else:
             tLz = self.Lz(*args, **kwargs)
-            if (
-                scalar_pattern
-                and numpy.ndim(OmegaP) > 0
-                and tLz.ndim > numpy.ndim(OmegaP)
-            ):
-                OmegaP = numpy.reshape(OmegaP, (-1, 1))
+            # Keep per-orbit conversion scales separate from the time axis.
+            ro, vo = numpy.asarray(self._ro), numpy.asarray(self._vo)
+            if tLz.ndim > 1:
+                ro, vo = ro[..., None], vo[..., None]
+            OmegaP = conversion.parse_frequency(OmegaP, ro=ro, vo=vo)
             out = self.E(*args, **kwargs) - OmegaP * tLz
         if not old_physical is None:
             kwargs["use_physical"] = old_physical

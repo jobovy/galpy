@@ -9616,3 +9616,48 @@ def test_jacobi_with_time_indexed_pattern(size, physical_pattern):
     actual = orbit.Jacobi(times, OmegaP=supplied, use_physical=False)
     assert actual.shape == expected.shape
     numpy.testing.assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("shape", [(4,), (2, 2)])
+@pytest.mark.parametrize("nt", [4, 5])
+@pytest.mark.parametrize("scale", ["ro", "vo", "both"])
+def test_jacobi_with_physical_time_pattern_and_array_scales(shape, nt, scale):
+    units = pytest.importorskip("astropy.units")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    initial = numpy.tile([1.0, 0.1, 1.0, 0.1, 0.1, 0.0], (4, 1))
+    orbit = Orbit(
+        initial.reshape(shape + (6,)),
+        ro=numpy.linspace(8.0, 11.0, 4).reshape(shape) if scale != "vo" else 8.0,
+        vo=numpy.linspace(200.0, 230.0, 4).reshape(shape) if scale != "ro" else 220.0,
+    )
+    times = numpy.linspace(0.0, 0.1, nt)
+    orbit.integrate(
+        times, MWPotential2014, method="odeint", numcores=1, progressbar=False
+    )
+    omega = numpy.linspace(10.0, 40.0, nt) * units.km / units.s / units.kpc
+    # Time samples must share each orbit's scale, even when nt equals its size.
+    expected = orbit.E(times, quantity=True) - omega * orbit.Lz(times, quantity=True)
+    actual = orbit.Jacobi(times, OmegaP=omega, quantity=True)
+    assert actual.shape == expected.shape
+    numpy.testing.assert_allclose(actual.value, expected.to(actual.unit).value)
+
+
+def test_jacobi_with_physical_per_orbit_pattern_at_single_time():
+    units = pytest.importorskip("astropy.units")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    orbit = Orbit(
+        [[1.0, 0.1, 1.0, 0.1, 0.1, 0.0]] * 4,
+        ro=numpy.linspace(8.0, 11.0, 4),
+        vo=numpy.linspace(200.0, 230.0, 4),
+    )
+    omega = numpy.linspace(10.0, 40.0, 4) * units.km / units.s / units.kpc
+    expected = orbit.E(pot=MWPotential2014, quantity=True) - omega * orbit.Lz(
+        quantity=True
+    )
+    actual = orbit.Jacobi(pot=MWPotential2014, OmegaP=omega, quantity=True)
+    assert actual.shape == expected.shape
+    numpy.testing.assert_allclose(actual.value, expected.to(actual.unit).value)
