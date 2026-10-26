@@ -24,7 +24,13 @@ from ..backend import (
 )
 from ..backend import special as _bspecial
 from ..backend import to_host
-from ..backend._coerce import exprel, mask_where, power_series, promote_scalars
+from ..backend._coerce import (
+    exprel,
+    fill_where,
+    mask_where,
+    power_series,
+    promote_scalars,
+)
 from ..backend._namespaces import concretely_true, has_concrete_truth_value
 from ..backend.special._fallback.hyp2f1 import hyp2f1_euler
 from ..backend.special.incomplete_beta import (
@@ -1347,7 +1353,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         at0 = r == 0.0
         atinf = xp.isinf(r)
         # safe r so neither dead branch divides by 0 or takes log(inf)
-        safe = xp.where(at0 | atinf, xp.ones_like(r * 1.0), r)
+        safe = fill_where(xp, at0 | atinf, r, 1.0)
         # log(1 + x) loses eps/x at x << 1
         bulk = branch_where(
             xp,
@@ -1355,8 +1361,8 @@ class NFWPotential(TwoPowerSphericalPotential):
             lambda: -(1.0 / safe) * xp.log1p(safe / self.a),
             lambda: -(1.0 / safe) * xp.log(1.0 + safe / self.a),
         )
-        out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
-        return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
+        out = fill_where(xp, atinf, bulk, 0.0)
+        return fill_where(xp, at0, out, -1.0 / self.a)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)

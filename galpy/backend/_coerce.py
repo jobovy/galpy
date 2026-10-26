@@ -387,6 +387,23 @@ def mask_where(xp, cond, r, fill):
     return xp.where(cond, r, fill * xp.ones_like(r * 1.0))
 
 
+def where(xp, cond, a, b):
+    """``xp.where(cond, a, b)``; ``a`` or ``b`` itself for a numpy scalar ``cond``
+    (numpy.where makes a 0-d array, and every op on one costs ~1 us more)."""
+    if xp is numpy and isinstance(cond, (bool, numpy.bool_)):
+        return a if cond else b
+    return xp.where(cond, a, b)
+
+
+def fill_where(xp, cond, x, fill):
+    """``x`` with ``fill`` where ``cond``, ``xp.where(cond, fill * xp.ones_like(x *
+    1.0), x)``: e.g. a stand-in of 1 that keeps a dead branch finite. Without the
+    arrays for a numpy scalar ``cond``."""
+    if xp is numpy and isinstance(cond, (bool, numpy.bool_)):
+        return fill if cond else x
+    return xp.where(cond, fill * xp.ones_like(x * 1.0), x)
+
+
 def branch_where(xp, cond, if_true, if_false):
     """``xp.where(cond, if_true(), if_false())``, evaluating only what is used.
 

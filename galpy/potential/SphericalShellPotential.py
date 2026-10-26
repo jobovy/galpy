@@ -5,6 +5,7 @@
 import math
 
 from ..backend import get_namespace
+from ..backend._coerce import fill_where
 from ..util import conversion
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
@@ -62,22 +63,22 @@ class SphericalShellPotential(SphericalPotential):
         xp = get_namespace(r)
         inside = r <= self.a
         # safe r so the (dead) outside branch cannot produce -1/0 at r == 0
-        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
-        return xp.where(inside, -1.0 / self.a * xp.ones_like(r * 1.0), -1.0 / safe)
+        safe = fill_where(xp, inside, r, 1.0)
+        return fill_where(xp, inside, -1.0 / safe, -1.0 / self.a)
 
     def _rforce(self, r, t=0.0):
         """The force as a function of r"""
         xp = get_namespace(r)
         inside = r <= self.a
-        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
-        return xp.where(inside, xp.zeros_like(r * 1.0), -1 / safe**2.0)
+        safe = fill_where(xp, inside, r, 1.0)
+        return fill_where(xp, inside, -1 / safe**2.0, 0.0)
 
     def _r2deriv(self, r, t=0.0):
         """The second radial derivative as a function of r"""
         xp = get_namespace(r)
         inside = r <= self.a
-        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
-        return xp.where(inside, xp.zeros_like(r * 1.0), -2.0 / safe**3.0)
+        safe = fill_where(xp, inside, r, 1.0)
+        return fill_where(xp, inside, -2.0 / safe**3.0, 0.0)
 
     def _rdens(self, r, t=0.0):
         """The density as a function of r"""

@@ -2,7 +2,10 @@
 #   galpy.backend.special._router: dispatch each special function to the
 #   backend's native implementation, falling back to a pure-backend version.
 ###############################################################################
+import importlib
+
 import numpy
+import scipy.special as _scipy_special
 
 from .._namespaces import (
     is_backend_array,
@@ -82,13 +85,14 @@ def _backend_special(xp):
         import torch.special as _sp
 
         return "torch", _sp
-    import scipy.special as _sp
-
-    return "numpy", _sp
+    return "numpy", _scipy_special
 
 
 def _dispatch(fnname, args, fallback, ns_args=None):
     """Route ``fnname(*args)`` to native or fallback by the arrays' namespace.
+
+    ``fallback`` is a function or ``"module.name"`` in ``._fallback``, imported
+    only when used (numpy, the per-call hot path, never needs it).
 
     ns_args (default: all of args) selects which arguments determine the
     backend; pass only the array arguments when some of ``args`` are plain
@@ -97,9 +101,7 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     """
     xp = get_namespace(*(args if ns_args is None else ns_args))
     if xp is numpy:  # scipy.special is complete
-        import scipy.special
-
-        return getattr(scipy.special, fnname)(*args)
+        return getattr(_scipy_special, fnname)(*args)
     name, sp = _backend_special(xp)
     if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
         if name == "torch":
@@ -128,6 +130,11 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     # result back to the input dtype at exit (float32 in -> float32 out at
     # float64 quality; a strict no-op for float64 inputs, and the numpy
     # backend never reaches the fallbacks since scipy.special is complete).
+    if isinstance(fallback, str):  # "module.name" in ._fallback, imported here
+        mod, fn = fallback.rsplit(".", 1)
+        fallback = getattr(
+            importlib.import_module(f"._fallback.{mod}", __package__), fn
+        )
     return match_input_dtype(
         fallback(xp, *args), *(args if ns_args is None else ns_args)
     )
@@ -149,23 +156,17 @@ def gammaln(x):
 
 
 def gamma(x):
-    from ._fallback.gamma import gamma_fallback
-
-    return _dispatch("gamma", (x,), gamma_fallback)
+    return _dispatch("gamma", (x,), "gamma.gamma_fallback")
 
 
 def gammainc(a, x):
     # Regularized lower incomplete gamma P(a, x).
-    from ._fallback.gammainc import gammainc_fallback
-
-    return _dispatch("gammainc", (a, x), gammainc_fallback)
+    return _dispatch("gammainc", (a, x), "gammainc.gammainc_fallback")
 
 
 def gammaincc(a, x):
     # Regularized upper incomplete gamma Q(a, x) = 1 - P(a, x).
-    from ._fallback.gammainc import gammaincc_fallback
-
-    return _dispatch("gammaincc", (a, x), gammaincc_fallback)
+    return _dispatch("gammaincc", (a, x), "gammainc.gammaincc_fallback")
 
 
 def erf(x):
@@ -187,50 +188,36 @@ def i1(x):
 # --- Tier 2: pure-backend fallbacks (jax/torch); high force-unblock impact ----
 def hyp2f1(a, b, c, z):
     # Gauss 2F1; only the array arg z carries the backend namespace.
-    from ._fallback.hyp2f1 import hyp2f1_fallback
-
-    return _dispatch("hyp2f1", (a, b, c, z), hyp2f1_fallback, ns_args=(z,))
+    return _dispatch("hyp2f1", (a, b, c, z), "hyp2f1.hyp2f1_fallback", ns_args=(z,))
 
 
 def hyp1f1(a, b, z):
     # Confluent 1F1 (Kummer); only z carries the backend namespace.
-    from ._fallback.hyp1f1 import hyp1f1_fallback
-
-    return _dispatch("hyp1f1", (a, b, z), hyp1f1_fallback, ns_args=(z,))
+    return _dispatch("hyp1f1", (a, b, z), "hyp1f1.hyp1f1_fallback", ns_args=(z,))
 
 
 def ellipk(m):
     # Complete elliptic integral K(m) (scipy parameter-m convention).
-    from ._fallback.elliptic import ellipk_fallback
-
-    return _dispatch("ellipk", (m,), ellipk_fallback)
+    return _dispatch("ellipk", (m,), "elliptic.ellipk_fallback")
 
 
 def ellipkm1(m1):
     # K(1-m1) from the complement, for callers that know 1-m exactly.
-    from ._fallback.elliptic import ellipkm1_fallback
-
-    return _dispatch("ellipkm1", (m1,), ellipkm1_fallback)
+    return _dispatch("ellipkm1", (m1,), "elliptic.ellipkm1_fallback")
 
 
 def ellipe(m):
     # Complete elliptic integral E(m) (scipy parameter-m convention).
-    from ._fallback.elliptic import ellipe_fallback
-
-    return _dispatch("ellipe", (m,), ellipe_fallback)
+    return _dispatch("ellipe", (m,), "elliptic.ellipe_fallback")
 
 
 # --- Tier 3: modified Bessel functions of the second kind (disk force paths) --
 def k0(x):
-    from ._fallback.bessel_k import k0_fallback
-
-    return _dispatch("k0", (x,), k0_fallback)
+    return _dispatch("k0", (x,), "bessel_k.k0_fallback")
 
 
 def k1(x):
-    from ._fallback.bessel_k import k1_fallback
-
-    return _dispatch("k1", (x,), k1_fallback)
+    return _dispatch("k1", (x,), "bessel_k.k1_fallback")
 
 
 def k0k1(x):
@@ -249,17 +236,13 @@ def k0k1(x):
 
 def kn(n, x):
     # Integer-order modified Bessel K_n; only the array arg x carries the namespace.
-    from ._fallback.bessel_k import kn_fallback
-
-    return _dispatch("kn", (n, x), kn_fallback, ns_args=(x,))
+    return _dispatch("kn", (n, x), "bessel_k.kn_fallback", ns_args=(x,))
 
 
 def iv(n, x):
     # Integer-order modified Bessel I_n; only the array arg x carries the namespace.
     # jax/torch expose only i0/i1, so the fallback recurs from native i0/i1.
-    from ._fallback.bessel_i import iv_fallback
-
-    return _dispatch("iv", (n, x), iv_fallback, ns_args=(x,))
+    return _dispatch("iv", (n, x), "bessel_i.iv_fallback", ns_args=(x,))
 
 
 def sici(x):
@@ -288,6 +271,8 @@ def exp1(x):
     outside :func:`_dispatch` because jax's native override is not ``sp.exp1``.
     """
     xp = get_namespace(x)
+    if xp is numpy:
+        return _scipy_special.exp1(x)
     name, sp = _backend_special(xp)
     if name == "jax":
         # E_1(x) = -Ei(-x); differentiable (unlike jax's exp1). expi(-inf) is NaN
@@ -342,9 +327,7 @@ def gegenbauer(N, alpha, x):
 
 def xlogy(x, y):
     # x * log(y), with the scipy/native convention 0 * log(0) = 0.
-    from ._fallback.xlogy import xlogy_fallback
-
-    return _dispatch("xlogy", (x, y), xlogy_fallback)
+    return _dispatch("xlogy", (x, y), "xlogy.xlogy_fallback")
 
 
 def logsumexp(a, axis=None):
