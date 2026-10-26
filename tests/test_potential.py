@@ -9548,16 +9548,19 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
     mp_nonaxi = mockMultipoleExpansionPotential()
     mp_nonaxi.normalize(1.0)
     dscf = DiskSCFPotential(normalize=1.0)
-    # (label, planar potential, tolerance): SCF and the axisymmetric Multipole
-    # are analytic/near-exact (~1e-6); the non-axisymmetric Multipole is
-    # grid-spline interpolated, so it agrees only to grid accuracy (~1e-4) -- far
-    # tighter than the O(1) shift a sign/factor error would produce.
+    # (label, planar potential, tolerance): the FD of the flow is central with
+    # eps = 1e-4, where the adaptive integrator's error over eps (~2e-8 here,
+    # ~1e-5 for the grid-spline non-axisymmetric Multipole, which integrates
+    # less accurately) still dominates the eps^2 truncation; forward FD with
+    # eps = 1e-6 amplified that error 100x more, to as much as 5.5e-4 for the
+    # Multipole depending on the machine's rounding. Far tighter than the O(1)
+    # shift a sign/factor error would produce.
     pots = [
-        ("SCF (axi)", scf_axi.toPlanar(), 1e-5),
-        ("SCF (non-axi)", scf_nonaxi.toPlanar(), 1e-5),
-        ("Multipole (axi)", mp_axi.toPlanar(), 1e-5),
-        ("Multipole (non-axi)", mp_nonaxi.toPlanar(), 5e-4),
-        ("DiskSCF", dscf.toPlanar(), 1e-5),
+        ("SCF (axi)", scf_axi.toPlanar(), 5e-7),
+        ("SCF (non-axi)", scf_nonaxi.toPlanar(), 5e-7),
+        ("Multipole (axi)", mp_axi.toPlanar(), 5e-7),
+        ("Multipole (non-axi)", mp_nonaxi.toPlanar(), 5e-5),
+        ("DiskSCF", dscf.toPlanar(), 5e-7),
     ]
     times = numpy.linspace(0.0, 2.0, 101)
     R0, vR0, vT0, phi0 = 1.0, 0.1, 1.1, 0.3
@@ -9571,7 +9574,7 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
         c, s = x / R, y / R
         return [R, vx * c + vy * s, -vx * s + vy * c, numpy.arctan2(y, x)]
 
-    eps = 1e-6
+    eps = 1e-4
     for name, ptp, tol in pots:
 
         def flow(rect0):
@@ -9581,11 +9584,10 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
             return cyl2rect(of[0], of[1], of[2], of[3])
 
         rect0 = cyl2rect(R0, vR0, vT0, phi0)
-        base = flow(rect0)
         for ii in range(4):
             pert = numpy.zeros(4)
             pert[ii] = eps
-            fd = (flow(rect0 + pert) - base) / eps
+            fd = (flow(rect0 + pert) - flow(rect0 - pert)) / (2.0 * eps)
             o = Orbit([R0, vR0, vT0, phi0])
             dxdv = numpy.zeros(4)
             dxdv[ii] = 1.0
