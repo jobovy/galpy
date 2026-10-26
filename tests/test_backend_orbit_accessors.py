@@ -1129,6 +1129,42 @@ def test_numpy_orbit_accessor_quantity_output_under_forced_backend(backend_name)
             numpy.testing.assert_allclose(got.value, ref.value, rtol=1e-13, atol=1e-13)
 
 
+@pytest.mark.parametrize("quantity", [False, True])
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numpy_orbit_per_orbit_scales_under_forced_backend(backend_name, quantity):
+    # per-orbit ro/vo arrays: the scales are reshaped to the orbit shape and
+    # moved onto the output's backend (or the output to the host for a Quantity)
+    if quantity:
+        units = pytest.importorskip("astropy.units")
+    ts = numpy.linspace(0.0, 0.1, 5)
+    for shape in [(2,), (2, 3), (1, 2, 1)]:
+        size = int(numpy.prod(shape))
+        vxvv = numpy.broadcast_to(_IC_E, shape + (6,)).copy()
+        o = Orbit(
+            vxvv,
+            ro=numpy.linspace(8.0, 9.0, size).reshape(shape),
+            vo=numpy.linspace(220.0, 240.0, size).reshape(shape),
+        )
+        o.integrate(ts, _LP, method="dop853_c")
+        for dontreshape in [False, True]:
+            for time in [ts[0], ts, ts[1:3]]:
+                for acc in ("R", "vR", "vT", "z", "vz", "E", "L"):
+                    kw = dict(quantity=quantity, dontreshape=dontreshape)
+                    ref = getattr(o, acc)(time, **kw)
+                    with use(backend_name, force=True):
+                        got = getattr(o, acc)(time, **kw)
+                    if quantity:
+                        assert isinstance(got, units.Quantity), acc
+                        assert got.unit == ref.unit
+                        got, ref = got.value, ref.value
+                    else:
+                        assert is_backend_array(got), f"{acc} left the forced backend"
+                    assert tuple(got.shape) == numpy.shape(ref), acc
+                    numpy.testing.assert_allclose(
+                        as_numpy(got), ref, rtol=1e-13, atol=1e-13, err_msg=acc
+                    )
+
+
 @pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
 def test_orbit_from_forced_accessor_outputs(backend_name):
     # Orbit([o.R(), o.vR(), ...]) from a one-object orbit's accessors: under a
