@@ -54,18 +54,11 @@ _QUAD_N_FE = 100
 
 
 def _autodiff_xp():
-    """Namespace whose autodiff builds the fE derivative chain.
-
-    Prefer jax whenever it is available (``_JAX_LOADED``), so the numpy-eval fE
-    path reproduces the historical jax-grad-fed-into-scipy computation
-    bit-for-bit; fall back to torch on a torch-only install. The nested-grad
-    closures differentiate correctly under either engine because they only call
-    the backend-agnostic ``evaluateRforces``/``_ddenstwobetadr``.
+    """Namespace whose autodiff builds the numpy-eval fE derivative chain on a
+    torch-only install (with jax, ``_numpy_gradfunc`` builds it). The nested-grad
+    closures differentiate correctly under torch because they only call the
+    backend-agnostic ``evaluateRforces``/``_ddenstwobetadr``.
     """
-    if _JAX_LOADED:
-        import jax.numpy as jnp
-
-        return jnp
     import torch
 
     return torch
