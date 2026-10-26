@@ -49,6 +49,12 @@ void handle_sigint(int);
 #include "windows.h"
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 #endif
+#ifdef USING_COVERAGE
+// gcov's runtime, flushed when an integration is interrupted (GCC >= 14
+// rejects calling them undeclared)
+void __gcov_dump(void);
+void __gcov_reset(void);
+#endif
 void leapfrog(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,
