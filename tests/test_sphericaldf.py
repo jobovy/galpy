@@ -2370,23 +2370,31 @@ def test_rforce_jax_matches_forces():
 
     rs = numpy.geomspace(1e-6, 1e2, 61)
     with use("numpy", force=True):
-        # (potential, rtol of dF_r/dr): differentiating NFW's -h(x)/r^2 cancels
-        # at r << a (as the generic chain's AD of evaluateRforces does), and
-        # ExpTruncNFW's closed form loses ~eps (a/r)^3 above its series switch
-        for pot, dtol in (
-            (potential.DehnenCoreSphericalPotential(amp=1.3, a=0.8), 3e-13),
-            (potential.HernquistPotential(amp=1.7, a=1.3), 3e-15),
-            (potential.NFWPotential(amp=2.0, a=1.6), 2e-9),
-            (potential.PlummerPotential(amp=1.1, b=0.7), 1e-14),
-            (potential.PowerSphericalPotential(amp=1.4, alpha=1.7), 3e-14),
+        # (potential, rtol of F_r, rtol of dF_r/dr): differentiating NFW's
+        # -h(x)/r^2 cancels at r << a (as the generic chain's AD of
+        # evaluateRforces does), and ExpTruncNFW's closed form cancels above its
+        # series switch, in F_r by an amount that depends on the machine's libm
+        # (1e-13 on CI's runners, 1e-14 locally) and in dF_r/dr by ~eps (a/r)^3
+        for pot, ftol, dtol in (
+            (potential.DehnenCoreSphericalPotential(amp=1.3, a=0.8), 5e-14, 3e-13),
+            (potential.HernquistPotential(amp=1.7, a=1.3), 5e-14, 3e-15),
+            (potential.NFWPotential(amp=2.0, a=1.6), 5e-14, 2e-9),
+            (potential.PlummerPotential(amp=1.1, b=0.7), 5e-14, 1e-14),
+            (potential.PowerSphericalPotential(amp=1.4, alpha=1.7), 5e-14, 3e-14),
             (
                 potential.PowerSphericalPotentialwCutoff(amp=1.2, alpha=1.8, rc=1.9),
                 5e-14,
+                5e-14,
             ),
-            (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 2e-8),
-            (potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2), 2e-13),
+            (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 3e-13, 2e-8),
+            (
+                potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2),
+                5e-14,
+                2e-13,
+            ),
             (
                 potential.TruncatedHernquistPotential(amp=1.7, a=1.3, rc=0.5, n=1),
+                5e-14,
                 2e-13,
             ),
         ):
@@ -2395,7 +2403,7 @@ def test_rforce_jax_matches_forces():
             numpy.testing.assert_allclose(
                 fj,
                 potential.evaluateRforces(pot, rs, 0.0, use_physical=False),
-                rtol=5e-14,
+                rtol=ftol,
                 err_msg=f"{name}._rforce_jax does not match its radial force",
             )
             gj = numpy.asarray(jax.vmap(jax.grad(pot._rforce_jax))(jnp.asarray(rs)))
