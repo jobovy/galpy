@@ -272,16 +272,17 @@ def exp1(x):
     """
     xp = get_namespace(x)
     if xp is numpy:
-        return _scipy_special.exp1(x)
-    name, sp = _backend_special(xp)
-    if name == "jax":
-        # E_1(x) = -Ei(-x); differentiable (unlike jax's exp1). expi(-inf) is NaN
-        # in jax, so guard the E_1(inf) = 0 limit (r=inf: potential-at-infinity).
-        return xp.where(xp.isinf(x), xp.zeros_like(x), -sp.expi(-x))
-    if "exp1" in _NEEDS_FALLBACK.get(name, frozenset()) or not hasattr(sp, "exp1"):
-        from ._fallback.exp1 import exp1_fallback
+        sp = _scipy_special
+    else:
+        name, sp = _backend_special(xp)
+        if name == "jax":
+            # E_1(x) = -Ei(-x); differentiable (unlike jax's exp1). expi(-inf) is
+            # NaN in jax, so guard the E_1(inf) = 0 limit (potential-at-infinity).
+            return xp.where(xp.isinf(x), xp.zeros_like(x), -sp.expi(-x))
+        if "exp1" in _NEEDS_FALLBACK.get(name, frozenset()) or not hasattr(sp, "exp1"):
+            from ._fallback.exp1 import exp1_fallback
 
-        return match_input_dtype(exp1_fallback(xp, x), x)
+            return match_input_dtype(exp1_fallback(xp, x), x)
     return sp.exp1(x)
 
 
