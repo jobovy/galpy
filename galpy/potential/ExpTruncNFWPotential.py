@@ -16,6 +16,7 @@ from ..backend import (
     is_backend_array,
     scalar_like,
 )
+from ..backend._coerce import fill_where
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -301,18 +302,16 @@ class ExpTruncNFWPotential(SphericalPotential):
         # amp-units). For r << a, rc the two E1 terms cancel; use a Taylor
         # series in r there instead. Both branches are finite and smooth on the
         # whole domain (the split is for precision only), so the masked-out side
-        # cannot NaN-poison AD -- a plain xp.where suffices.
+        # cannot NaN-poison AD; only the branch in use runs when it is uniform.
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         small = r < scalar_like(r, self._small_r_thresh)
-        if xp is not numpy:  # eager: only the branch in use
-            return branch_where(
-                xp,
-                small,
-                lambda: self._F_series(r),
-                lambda: self._F_closed(r, e1, ex),
-            )
-        return xp.where(small, self._F_series(r), self._F_closed(r, e1, ex))
+        return branch_where(
+            xp,
+            small,
+            lambda: self._F_series(r),
+            lambda: self._F_closed(r, e1, ex),
+        )
 
     def _F_closed(self, r, e1=None, ex=None):
         # F(r) = exp(alpha)(1+alpha)[E1(alpha) - E1(beta)] - 1
@@ -406,11 +405,11 @@ class ExpTruncNFWPotential(SphericalPotential):
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         at0 = r == 0.0
-        safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
+        safe = fill_where(xp, at0, r, 1.0)  # avoid 0/0 at the origin
         # E1 and the exponential once for _F and _G: they differ only at r=0,
         # where _F's value is masked
         e1, ex = self._e1_ex(xp, r)
-        FoverR = xp.where(at0, xp.zeros_like(r), self._F(safe, e1, ex) / safe)
+        FoverR = fill_where(xp, at0, self._F(safe, e1, ex) / safe, 0.0)
         return -(FoverR + self._G(r, e1, ex))
 
     def _rforce(self, r, t=0.0):
@@ -419,12 +418,12 @@ class ExpTruncNFWPotential(SphericalPotential):
         r = xp.asarray(r) * 1.0
         zero_limit = -0.5 / (self.a * self.a)
         at0 = r == 0.0
-        safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
+        safe = fill_where(xp, at0, r, 1.0)  # avoid 0/0 at the origin
         force = -self._F(safe) / (safe * safe)
-        # zero_limit * ones_like (not full_like): keeps it an array-broadcast of a
-        # possibly-Tensor limit when a is a differentiable backend parameter
-        # (torch.full_like rejects a Tensor fill); byte-identical for numpy.
-        return xp.where(at0, zero_limit * xp.ones_like(r), force)
+        # fill_where's fill * ones_like (not full_like) keeps the limit an
+        # array-broadcast when a is a differentiable backend parameter (torch's
+        # full_like rejects a Tensor fill)
+        return fill_where(xp, at0, force, zero_limit)
 
     def _r2deriv(self, r, t=0.0):
         return 4.0 * numpy.pi * self._rdens(r) - 2.0 * self._F(r) / r**3

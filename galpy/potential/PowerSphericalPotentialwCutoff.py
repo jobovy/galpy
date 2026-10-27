@@ -9,6 +9,7 @@ import numpy
 from scipy import special
 
 from ..backend import coerce_coords, get_namespace, radial_limits, scalar_like
+from ..backend._coerce import where
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
@@ -93,7 +94,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         xp = get_namespace(r)
         # guard r=0 in the dead branch (the 1/r term -> 0/0=NaN there) so the
         # xp.where stays finite under autodiff/jit; the value at r=0 is 0.
-        rsafe = xp.where(r == 0, 1.0, r)
+        rsafe = where(xp, r == 0, 1.0, r)
         out = (
             2.0
             * numpy.pi
@@ -108,7 +109,7 @@ class PowerSphericalPotentialwCutoff(Potential):
                 / rsafe
             )
         )
-        return xp.where(r == 0, 0.0, out)
+        return where(xp, r == 0, 0.0, out)
 
     def _rforce(self, r):
         # Radial force (amp-free): -M(<r)/r^2. The enclosed mass is written with

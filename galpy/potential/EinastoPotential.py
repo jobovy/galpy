@@ -14,7 +14,7 @@ from ..backend import (
     radial_limits,
     scalar_like,
 )
-from ..backend._coerce import mask_where, power_series
+from ..backend._coerce import mask_where, power_series, where
 from ..backend.optimize import brentq
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
@@ -139,7 +139,7 @@ class EinastoPotential(SphericalPotential):
         # NaN-free there: its (1-Q)/s term is 0/0 at s == 0 and, for n > 1,
         # d(s**(1/n))/ds is infinite at s == 0 (which would NaN-poison reverse-
         # mode autodiff). Evaluate the dead branch at the safe s == 1 instead.
-        ssafe = xp.where(r == 0, 1.0, s)
+        ssafe = where(xp, r == 0, 1.0, s)
         gamma_3n = scalar_like(r, _gamma(3 * self.n))
         gamma_2n = scalar_like(r, _gamma(2 * self.n))
         # the regularized LOWER gamma directly: 1 - gammaincc loses everything
@@ -151,7 +151,7 @@ class EinastoPotential(SphericalPotential):
             gamma_lower_3n / ssafe + gamma_upper_2n * (gamma_2n / gamma_3n)
         )
         core = -(4 * numpy.pi * (self.h**2) * self.n) * gamma_2n
-        return xp.where(r == 0, core, out)
+        return where(xp, r == 0, core, out)
 
     def _rforce(self, r, t=0.0):
         xp = get_namespace(r)

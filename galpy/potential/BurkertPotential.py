@@ -6,7 +6,7 @@ import math
 import numpy
 
 from ..backend import branch_where, coerce_coords, get_namespace, radial_limits
-from ..backend._coerce import mask_where, power_series
+from ..backend._coerce import fill_where, mask_where, power_series
 from ..util import conversion
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
@@ -107,12 +107,8 @@ class BurkertPotential(SphericalPotential):
         # prefactor 2/x only vanishes at x == infty, so guard exactly that point.
         pref = 2.0 / x
         # safe argument so the (dead) finite branch cannot make log(inf) at x==inf
-        safe_x2 = xp.where(xp.isinf(x), xp.ones_like(x * 1.0), x**2.0)
-        xlogy_term = xp.where(
-            xp.isinf(x),
-            xp.zeros_like(x * 1.0),
-            pref * xp.log(1.0 + safe_x2),
-        )
+        safe_x2 = fill_where(xp, xp.isinf(x), x**2.0, 1.0)
+        xlogy_term = fill_where(xp, xp.isinf(x), pref * xp.log(1.0 + safe_x2), 0.0)
         return (
             -(self.a**2.0)
             * math.pi

@@ -13,6 +13,7 @@ from ..backend import (
     promote_scalars,
     to_host,
 )
+from ..backend._coerce import where
 from ..backend._namespaces import (
     eager_value_memo,
     like,
@@ -251,9 +252,9 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         sides, and inf*cos(phi) would NaN-poison reverse-mode autodiff)."""
         if guard_inf:
             Rinf = xp.isinf(R)
-            x, y, z = coords.cyl_to_rect(xp.where(Rinf, 1.0, R), phi, z)
-            x = xp.where(Rinf, R, x)
-            y = xp.where(Rinf, 0.0, y)
+            x, y, z = coords.cyl_to_rect(where(xp, Rinf, 1.0, R), phi, z)
+            x = where(xp, Rinf, R, x)
+            y = where(xp, Rinf, 0.0, y)
         else:
             x, y, z = coords.cyl_to_rect(R, phi, z)
         # With a trailing node axis only z carries it, so the stack would mix

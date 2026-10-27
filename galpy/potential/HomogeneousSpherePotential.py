@@ -4,6 +4,7 @@
 import math
 
 from ..backend import coerce_coords, get_namespace
+from ..backend._coerce import fill_where, where
 from ..util import conversion
 from .Potential import Potential, _normalize_requested
 
@@ -62,35 +63,36 @@ class HomogeneousSpherePotential(Potential):
         inside = r2 < self._R2
         # safe denominator so the (dead) outside branch cannot produce a
         # 0/0 NaN at r2 == 0 that would poison reverse-mode gradients
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(inside, r2 - 3.0 * self._R2, -2.0 * self._R3 / xp.sqrt(safe))
+        safe = fill_where(xp, inside, r2, 1.0)
+        return where(xp, inside, r2 - 3.0 * self._R2, -2.0 * self._R3 / xp.sqrt(safe))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(inside, -2.0 * R, -2.0 * self._R3 * R / safe**1.5)
+        safe = fill_where(xp, inside, r2, 1.0)
+        return where(xp, inside, -2.0 * R, -2.0 * self._R3 * R / safe**1.5)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(inside, -2.0 * z, -2.0 * self._R3 * z / safe**1.5)
+        safe = fill_where(xp, inside, r2, 1.0)
+        return where(xp, inside, -2.0 * z, -2.0 * self._R3 * z / safe**1.5)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(
+        safe = fill_where(xp, inside, r2, 1.0)
+        return fill_where(
+            xp,
             inside,
-            2.0 * xp.ones_like(r2 * 1.0),
             2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * R**2.0 / safe**2.5,
+            2.0,
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
@@ -98,11 +100,12 @@ class HomogeneousSpherePotential(Potential):
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(
+        safe = fill_where(xp, inside, r2, 1.0)
+        return fill_where(
+            xp,
             inside,
-            2.0 * xp.ones_like(r2 * 1.0),
             2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * z**2.0 / safe**2.5,
+            2.0,
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -110,12 +113,8 @@ class HomogeneousSpherePotential(Potential):
         R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
-        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
-        return xp.where(
-            inside,
-            xp.zeros_like(r2 * 1.0),
-            -6.0 * self._R3 * R * z / safe**2.5,
-        )
+        safe = fill_where(xp, inside, r2, 1.0)
+        return fill_where(xp, inside, -6.0 * self._R3 * R * z / safe**2.5, 0.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
