@@ -19,8 +19,13 @@ from ..backend import (
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
+from ..util._optional_deps import _JAX_LOADED
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
+
+if _JAX_LOADED:
+    import jax.numpy as jnp
+    import jax.scipy.special as jspecial
 
 
 class ExpTruncNFWPotential(SphericalPotential):
@@ -342,6 +347,10 @@ class ExpTruncNFWPotential(SphericalPotential):
         #                         + 3/(rc a^2) + 4/a^3) + ... ]
         xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # match _F_closed's namespace (direct-call parity)
+        return self._F_taylor(r)
+
+    def _F_taylor(self, r):
+        # _F_series' arithmetic, in r's own namespace (also a jax tracer's)
         a, rc = self.a, self.rc
         c2 = 0.5
         c3 = -(1.0 / rc + 2.0 / a) / 3.0
@@ -481,3 +490,28 @@ class ExpTruncNFWPotential(SphericalPotential):
             * r ** (2.0 * beta)
             * ((2.0 * beta - 1.0) / r - 2.0 / (a + r) - 1.0 / rc)
         )
+
+    def _rforce_jax(self, r):
+        # JAX (differentiable) radial force amp*(-F(r)/r^2), needed by the
+        # constantbetadf machinery: _F's split, the closed form (_F_closed's
+        # expression) above the small-r series threshold, where it cancels.
+        # jax.scipy.special.exp1 is not differentiable in jax (it routes through
+        # expn), so use E_1(x) = -Ei(-x) via the differentiable expi instead.
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        a, rc = self.a, self.rc
+        alpha = a / rc
+        e1 = lambda x: -jspecial.expi(-x)
+        F = branch_where(
+            jnp,
+            r < self._small_r_thresh,
+            lambda: self._F_taylor(r),
+            lambda: (
+                jnp.exp(alpha) * (1.0 + alpha) * (e1(alpha) - e1((a + r) / rc))
+                - 1.0
+                + a * jnp.exp(-r / rc) / (a + r)
+            ),
+        )
+        return -self._amp * F / r**2

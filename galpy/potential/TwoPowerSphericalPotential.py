@@ -33,7 +33,7 @@ from ..backend.special.incomplete_beta import (
     incomplete_beta_xp,
 )
 from ..util import conversion
-from ..util._optional_deps import _APY_LOADED
+from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
 from ..util.special import (
     hyp2f1_1,
     incomplete_beta,
@@ -338,6 +338,8 @@ def _limit_at_infinite_radius(component):
 
 if _APY_LOADED:
     from astropy import units
+if _JAX_LOADED:
+    import jax.numpy as jnp
 
 
 class TwoPowerSphericalPotential(Potential):
@@ -865,6 +867,10 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
+    def _rforce_jax(self, r):
+        # No need for actual JAX!
+        return -self._amp * r / (r + self.a) ** 3.0 / 3.0
+
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
@@ -972,6 +978,10 @@ class HernquistPotential(DehnenSphericalPotential):
         R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
+
+    def _rforce_jax(self, r):
+        # No need for actual JAX!
+        return -self._amp / 2.0 / (r + self.a) ** 2.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
@@ -1394,6 +1404,20 @@ class NFWPotential(TwoPowerSphericalPotential):
                     - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
                 )
             ),
+        )
+
+    def _rforce_jax(self, r):
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        # the closed form alone cancels at r << a: the series there, as _Rforce
+        small = r < _NFW_SMALL_X * self.a
+        return self._amp * branch_where(
+            jnp,
+            small,
+            lambda: -r * _nfw_h(jnp, small, r, self.a),
+            lambda: 1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0,
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):

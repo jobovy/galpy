@@ -72,6 +72,10 @@ class PlummerPotential(Potential):
         dPhidrr = -((R**2.0 + z**2.0 + self._b2) ** -1.5)
         return dPhidrr * z
 
+    def _rforce_jax(self, r):
+        # No need for actual JAX!
+        return -self._amp * r * (r**2.0 + self._b2) ** -1.5
+
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
