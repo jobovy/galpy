@@ -96,6 +96,10 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     the resolver.
     """
     xp = get_namespace(*(args if ns_args is None else ns_args))
+    if xp is numpy:  # scipy.special is complete
+        import scipy.special
+
+        return getattr(scipy.special, fnname)(*args)
     name, sp = _backend_special(xp)
     if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
         if name == "torch":

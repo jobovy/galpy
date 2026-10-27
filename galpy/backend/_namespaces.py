@@ -32,9 +32,13 @@ _JAX_NAMES = frozenset(("jax", "jnp", "jax.numpy"))
 _TORCH_NAMES = frozenset(("torch", "pytorch"))
 
 
+_PY_SCALARS = (bool, int, float, complex)
+_HOST = (bool, int, float, complex, numpy.ndarray, numpy.generic)
+
+
 def _is_python_scalar(x):
     """True for plain Python scalars (and None), which carry no backend info."""
-    return x is None or isinstance(x, (bool, int, float, complex))
+    return x is None or isinstance(x, _PY_SCALARS)
 
 
 def has_concrete_truth_value(x):
@@ -92,7 +96,7 @@ def is_backend_array(x):
     ``fullgraph=True`` compile in an install that merely *has* jax. Nothing under
     a torch trace can be a jax array, so the branch is dead there anyway.
     """
-    if _is_python_scalar(x) or isinstance(x, (numpy.ndarray, numpy.generic)):
+    if x is None or isinstance(x, _HOST):
         return False
     if _TORCH_LOADED:
         import torch
@@ -990,11 +994,16 @@ def namespace_from_arrays(arrays):
     a tracked array is present, or None when there is nothing array-like to
     dispatch on (so the caller can fall through to the context/global default).
     """
+    host = None  # the numpy path, without building lists
+    for a in arrays:
+        if a is None or isinstance(a, _PY_SCALARS):
+            continue
+        if not isinstance(a, (numpy.ndarray, numpy.generic)):
+            break
+        host = numpy
+    else:
+        return host
     arrs = [a for a in arrays if not _is_python_scalar(a)]
-    if not arrs:
-        return None
-    if all(isinstance(a, (numpy.ndarray, numpy.generic)) for a in arrs):
-        return numpy
     if not _ARRAY_API_COMPAT_LOADED:  # pragma: no cover - backend extra installs it
         raise ImportError(
             "galpy's non-numpy backends require array-api-compat "

@@ -63,6 +63,7 @@ import numpy
 
 from ..util._optional_deps import _TORCH_LOADED
 from ._namespaces import (
+    _HOST,
     _backend_dtype,
     _is_floating_dtype,
     asarray_on_device,
@@ -249,6 +250,8 @@ def scalar_like(ref, value):
     natively, but as strongly typed: for a narrower floating jax ``ref``
     (float32) the value becomes the (weak) Python scalar, as on torch.
     """
+    if ref is None or isinstance(ref, _HOST):
+        return value
     if isinstance(value, (numpy.ndarray, numpy.generic)) and value.ndim == 0:
         if _TORCH_LOADED:  # dynamo: 0-d ndarray
             import torch
