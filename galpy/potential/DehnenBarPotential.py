@@ -10,6 +10,7 @@ from ..backend import (
     promote_scalars,
     scalar_like,
 )
+from ..backend._coerce import fill_where, where
 from ..util import conversion
 from .Potential import Potential
 
@@ -172,7 +173,7 @@ class DehnenBarPotential(Potential):
         deltat = t - tform
         xi = 2.0 * deltat / (tsteady - tform) - 1.0
         growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-        return xp.where(t < tform, 0.0, xp.where(t < tsteady, growth, 1.0))
+        return where(xp, t < tform, 0.0, where(xp, t < tsteady, growth, 1.0))
 
     def _bar_consts(self, ref):
         # numpy scalars (numpy.sqrt in __init__): see scalar_like
@@ -191,16 +192,17 @@ class DehnenBarPotential(Potential):
         r = xp.sqrt(r2)
         bad = r2 == 0.0
         # Safe r/r2 so the dead branch's 1/0 cannot poison reverse-mode gradients
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r2safe = fill_where(xp, bad, r2, 1.0)
         # R^2/r^2 (== 1/(1+z^2/R^2)); at r=0, define it as 1 (matches the r==0
         # limit of the inner branch, which then gives the -2 special case). As
         # R -> inf with z fixed the naive R^2/r2 would be inf/inf = NaN, while
         # the true limit z^2/R^2 -> 0 gives 1, so substitute 1 there (using a
         # safe r2 to keep the dead branch finite under tracing).
         Rinf = xp.isinf(R)
-        R2_over_r2 = xp.where(bad | Rinf, xp.ones_like(r2 * 1.0), R**2.0 / r2safe)
-        factor = xp.where(
+        R2_over_r2 = fill_where(xp, bad | Rinf, R**2.0 / r2safe, 1.0)
+        factor = where(
+            xp,
             r <= rb,
             (r / rb) ** 3.0 - 2.0,
             -((rb / rsafe) ** 3.0),
@@ -222,8 +224,8 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r4safe = fill_where(xp, bad, r**4.0, 1.0)
         inner = (
             -((r / rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0)
             / r4safe
@@ -233,7 +235,7 @@ class DehnenBarPotential(Potential):
             af
             * smooth
             * xp.cos(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
@@ -245,10 +247,11 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r2safe = fill_where(xp, bad, r2, 1.0)
         R2_over_r2 = R**2.0 / r2safe
-        factor = xp.where(
+        factor = where(
+            xp,
             r <= rb,
             (r / rb) ** 3.0 - 2.0,
             -((rb / rsafe) ** 3.0),
@@ -271,15 +274,15 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r4safe = fill_where(xp, bad, r**4.0, 1.0)
         inner = -((r / rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
         outer = -5.0 * (rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
         return (
             af
             * smooth
             * xp.cos(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -291,9 +294,9 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
-        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r4safe = fill_where(xp, bad, r**4.0, 1.0)
+        r6safe = fill_where(xp, bad, r**6.0, 1.0)
         inner = (r / rb) ** 3.0 * (
             (9.0 * R**2.0 + 2.0 * z**2.0) / r4safe
             - R**2.0 / r6safe * (3.0 * R**2.0 + 2.0 * z**2.0)
@@ -307,7 +310,7 @@ class DehnenBarPotential(Potential):
             af
             * smooth
             * xp.cos(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
@@ -319,10 +322,11 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r2safe = fill_where(xp, bad, r2, 1.0)
         R2_over_r2 = R**2.0 / r2safe
-        factor = xp.where(
+        factor = where(
+            xp,
             r <= rb,
             -((r / rb) ** 3.0 - 2.0),
             (rb / rsafe) ** 3.0,
@@ -345,8 +349,8 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r4safe = fill_where(xp, bad, r**4.0, 1.0)
         inner = (
             (r / rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0
         ) / r4safe
@@ -356,7 +360,7 @@ class DehnenBarPotential(Potential):
             * af
             * smooth
             * xp.sin(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
@@ -368,8 +372,8 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r6safe = fill_where(xp, bad, r**6.0, 1.0)
         inner = (
             R**2.0
             / r6safe
@@ -380,7 +384,7 @@ class DehnenBarPotential(Potential):
             af
             * smooth
             * xp.cos(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -392,8 +396,8 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r6safe = fill_where(xp, bad, r**6.0, 1.0)
         inner = (
             R
             * z
@@ -405,7 +409,7 @@ class DehnenBarPotential(Potential):
             af
             * smooth
             * xp.cos(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
@@ -417,8 +421,8 @@ class DehnenBarPotential(Potential):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
-        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
-        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        rsafe = fill_where(xp, bad, r, 1.0)
+        r4safe = fill_where(xp, bad, r**4.0, 1.0)
         inner = -((r / rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
         outer = -5.0 * (rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
         return (
@@ -426,7 +430,7 @@ class DehnenBarPotential(Potential):
             * af
             * smooth
             * xp.sin(2.0 * (phi - omegab * t - barphi))
-            * xp.where(r <= rb, inner, outer)
+            * where(xp, r <= rb, inner, outer)
         )
 
     def tform(self):  # pragma: no cover

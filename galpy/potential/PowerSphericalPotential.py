@@ -21,6 +21,7 @@ from ..backend import (
     scalar_like,
 )
 from ..backend import special as _bspecial
+from ..backend._coerce import fill_where, where
 from ..util import conversion
 from .Potential import Potential, _normalize_requested
 
@@ -116,9 +117,9 @@ class PowerSphericalPotential(Potential):
             # branch (0**negative) cannot produce a NaN/inf that poisons
             # reverse-mode gradients, then patch in -inf where r2 == 0.
             bad = r2 == 0.0
-            safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+            safe = fill_where(xp, bad, r2, 1.0)
             out = -(safe ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
-            return xp.where(bad, -math.inf, out)
+            return where(xp, bad, -math.inf, out)
         else:
             return -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
 
