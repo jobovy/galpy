@@ -11,7 +11,14 @@ from ..util._optional_deps import _JAX_LOADED
 from .sphericaldf import _handle_rmin, anisotropicsphericaldf, sphericaldf
 
 if _JAX_LOADED:
+    import jax
     from jax import grad, vmap
+
+    # float64 for galpy's own jax calls, leaving the user's default alone
+    # (jax < 0.8: jax.experimental's)
+    _enable_x64 = (
+        jax.enable_x64 if hasattr(jax, "enable_x64") else jax.experimental.enable_x64
+    )
 
 
 # This is the general constantbeta superclass, implementation of general
@@ -263,7 +270,13 @@ class constantbetadf(_constantbetadf):
                 else:
                     func = lambda r, func=func: grad(func)(r) / self._pot._rforce_jax(r)
                 ii -= 1
-        self._gradfunc = vmap(func)
+        vgradfunc = vmap(func)
+
+        def gradfunc(r):  # numpy out, so no jax arithmetic follows outside x64
+            with _enable_x64(True):
+                return numpy.asarray(vgradfunc(r))
+
+        self._gradfunc = gradfunc
         # Min and max energy
         self._potInf = _evaluatePotentials(self._pot, self._rmax, 0)
         self._Emin = _evaluatePotentials(self._pot, self._rmin, 0)
