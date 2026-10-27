@@ -1040,7 +1040,14 @@ class NFWPotential(TwoPowerSphericalPotential):
             raise ImportError(
                 "Making use of _rforce_jax function requires the google/jax library"
             )
-        return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
+        # the closed form cancels at r << a: the series there, as _Rforce
+        small = r < _NFW_SMALL_X * self.a
+        rs = jnp.where(small, r, 0.05 * self.a)  # keeps the dead branch finite
+        return self._amp * jnp.where(
+            small,
+            -_nfw_h(rs / self.a) / (rs * rs),
+            1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0,
+        )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
