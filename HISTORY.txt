@@ -37,6 +37,13 @@ v1.12.1 (expected around 2026-11-01)
   ``ValueError: x must be increasing`` when the mass converges well inside
   ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
 
+- ``constantbetadf`` with an ``NFWPotential`` or ``ExpTruncNFWPotential`` now
+  uses the small-radius series of the radial force in its JAX derivative
+  chain, like the potentials' own forces. The closed forms cancel at
+  ``r << a``: at ``r ~ 1e-6 a`` the force was 1e-4 to 1e-3 off and its
+  derivative by a factor of 300 to 2,000, changing the distribution function
+  at the most bound energies by up to ~5e-5.
+
 - Integrating many orbits in C no longer crashes with a segmentation fault
   when the output has more than 2^31-1 elements, i.e., when the number of
   orbits times the number of times times the phase-space dimension exceeds
