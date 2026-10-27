@@ -13,7 +13,7 @@ import pytest
 from scipy import integrate, special
 
 from galpy import potential
-from galpy.backend import as_numpy, get_namespace
+from galpy.backend import as_numpy, get_namespace, use
 from galpy.df import (
     constantbetadf,
     constantbetaHernquistdf,
@@ -2357,6 +2357,128 @@ def test_constantbetadf_potential_without_rforce_jax():
     return None
 
 
+def test_rforce_jax_matches_forces():
+    # The hand-written jax radial forces that the numpy-path constantbetadf
+    # differentiates equal the potentials' radial force, and their jax
+    # derivatives minus the second derivative, down to r = 1e-6 (NFW and
+    # ExpTruncNFW switch to their small-r series there, where the closed forms
+    # cancel). Numpy potentials, as on that path, whatever backend is forced
+    if WIN32 or not _JAX_LOADED:
+        return None  # skip on Windows and without jax (torch-only installs)
+    import jax
+    import jax.numpy as jnp
+
+    rs = numpy.geomspace(1e-6, 1e2, 61)
+    with use("numpy", force=True):
+        # (potential, rtol of F_r, rtol of dF_r/dr): differentiating NFW's
+        # -h(x)/r^2 cancels at r << a (as the generic chain's AD of
+        # evaluateRforces does), and ExpTruncNFW's closed form cancels above its
+        # series switch, in F_r by an amount that depends on the machine's libm
+        # (1e-13 on CI's runners, 1e-14 locally) and in dF_r/dr by ~eps (a/r)^3
+        for pot, ftol, dtol in (
+            (potential.DehnenCoreSphericalPotential(amp=1.3, a=0.8), 5e-14, 3e-13),
+            (potential.HernquistPotential(amp=1.7, a=1.3), 5e-14, 3e-15),
+            (potential.NFWPotential(amp=2.0, a=1.6), 5e-14, 2e-9),
+            (potential.PlummerPotential(amp=1.1, b=0.7), 5e-14, 1e-14),
+            (potential.PowerSphericalPotential(amp=1.4, alpha=1.7), 5e-14, 3e-14),
+            (
+                potential.PowerSphericalPotentialwCutoff(amp=1.2, alpha=1.8, rc=1.9),
+                5e-14,
+                5e-14,
+            ),
+            (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 3e-13, 2e-8),
+            (
+                potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2),
+                5e-14,
+                2e-13,
+            ),
+            (
+                potential.TruncatedHernquistPotential(amp=1.7, a=1.3, rc=0.5, n=1),
+                5e-14,
+                2e-13,
+            ),
+        ):
+            name = type(pot).__name__
+            fj = numpy.asarray(jax.vmap(pot._rforce_jax)(jnp.asarray(rs)))
+            numpy.testing.assert_allclose(
+                fj,
+                potential.evaluateRforces(pot, rs, 0.0, use_physical=False),
+                rtol=ftol,
+                err_msg=f"{name}._rforce_jax does not match its radial force",
+            )
+            gj = numpy.asarray(jax.vmap(jax.grad(pot._rforce_jax))(jnp.asarray(rs)))
+            numpy.testing.assert_allclose(
+                gj,
+                -potential.evaluateR2derivs(pot, rs, 0.0, use_physical=False),
+                rtol=dtol,
+                err_msg=f"jax.grad of {name}._rforce_jax does not match -R2deriv",
+            )
+    return None
+
+
+def test_constantbetadf_numpy_chain(monkeypatch):
+    # The numpy fE path's derivative chain uses the potential's hand-written
+    # _rforce_jax (never evaluateRforces, whose extra primitives eager jax
+    # dispatches, and compiles per array size, in every quadrature call); its
+    # bucket padding changes no bit, its elementwise grad(sum(f)) reproduces
+    # vmap(grad(f)) with the same force to an ulp, and the generic chain to
+    # rounding. Numpy potentials (a forced backend's would take its own path)
+    if WIN32 or not _JAX_LOADED:
+        return None  # skip on Windows and without jax (torch-only installs)
+    import importlib
+
+    import jax
+
+    cbmod = importlib.import_module("galpy.df.constantbetadf")
+
+    def _no_generic(*args, **kwargs):
+        raise AssertionError("the numpy fE path evaluated evaluateRforces")
+
+    rs = numpy.geomspace(1e-3, 30.0, 37)
+    with use("numpy", force=True):
+        for pot, kw, gtol in (
+            (potential.HernquistPotential(amp=1.7, a=1.3), {"beta": -0.3}, 3e-15),
+            (potential.NFWPotential(amp=2.0, a=1.6), {"beta": -0.6}, 1e-14),
+            (
+                potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2),
+                {"beta": 0.25},
+                1e-14,
+            ),
+            # half-integer beta: the nested-grad chain without the fE integral
+            (
+                potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0),
+                {"twobeta": -1},
+                5e-13,
+            ),
+        ):
+            name = type(pot).__name__
+            monkeypatch.setattr(cbmod, "evaluateRforces", _no_generic)
+            df = constantbetadf(pot=pot, **kw)
+            got = numpy.asarray(df._gradfunc(rs))
+            monkeypatch.undo()
+            numpy.testing.assert_array_equal(
+                got,
+                numpy.asarray(df._numpy_gradfunc()(rs)),
+                err_msg=f"{name}: padding changes the derivative chain",
+            )
+            numpy.testing.assert_allclose(
+                got,
+                numpy.asarray(jax.vmap(df._make_func(jax.grad, pot._rforce_jax))(rs)),
+                rtol=3e-16,
+                err_msg=f"{name}: elementwise grad != vmap(grad)",
+            )
+            # the generic chain traces jax data-first
+            with use("numpy", force=False):
+                gen = numpy.asarray(jax.vmap(df._make_func(jax.grad))(rs))
+            numpy.testing.assert_allclose(
+                got,
+                gen,
+                rtol=gtol,
+                err_msg=f"{name}: hand-written chain != the evaluateRforces chain",
+            )
+    return None
+
+
 # For the following tests, we use a DehnenCoreSphericalPotential
 
 
@@ -2942,12 +3064,41 @@ def test_truncatedtwopower_density_derivatives():
     return None
 
 
-def test_exptruncnfw_ddenstwobetadr():
-    # Direct checks of the density derivative that the anisotropic (OM /
-    # constant-beta) DFs use for ExpTruncNFWPotential (the radial force divisor
-    # now comes from the backend-agnostic evaluateRforces, no _rforce_jax).
-    if WIN32:
-        return None  # skip on Windows, because no JAX
+def test_truncatedtwopower_rforce_jax():
+    # the jax radial force that constantbetadf differentiates, in every regime
+    # (the small-r series included), and its jax derivatives
+    if WIN32 or not _JAX_LOADED:
+        return None  # skip on Windows and without jax (torch-only installs)
+    import jax
+    import jax.numpy as jnp
+
+    rs = numpy.array([1e-6, 1e-3, 0.05, 0.13, 0.9, 4.0, 60.0, 1e3, 1e5])
+    for cls in (potential.TruncatedNFWPotential, potential.TruncatedHernquistPotential):
+        for n, rc in ((1, 0.3), (3, 7.0)):
+            pot = cls(amp=1.7, a=1.3, rc=rc, n=n)
+            fj = numpy.asarray(jax.vmap(pot._rforce_jax)(jnp.asarray(rs)))
+            # (XLA orders the arithmetic differently: a few ulps)
+            numpy.testing.assert_allclose(fj, pot._amp * pot._rforce(rs), rtol=1e-14)
+            # d F_r / dr = -d^2 Phi / dr^2
+            gj = numpy.asarray(jax.vmap(jax.grad(pot._rforce_jax))(jnp.asarray(rs)))
+            numpy.testing.assert_allclose(gj, -pot._amp * pot._r2deriv(rs), rtol=1e-13)
+            # constantbetadf differentiates _ddenstwobetadr with jax
+            for beta in (0.0, -0.5):
+                gd = jax.vmap(jax.grad(lambda r: pot._ddenstwobetadr(r, beta=beta)))
+                h = 1e-30 * rs
+                numpy.testing.assert_allclose(
+                    numpy.asarray(gd(jnp.asarray(rs))),
+                    pot._ddenstwobetadr(rs + 1j * h, beta=beta).imag / h,
+                    rtol=1e-12,
+                )
+    return None
+
+
+def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
+    # Direct checks of the two JAX functions that the anisotropic (OM /
+    # constant-beta) DFs use for ExpTruncNFWPotential.
+    if WIN32 or not _JAX_LOADED:
+        return None  # skip on Windows and without jax (torch-only installs)
     pot = potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0)
     # _ddenstwobetadr(r, beta) == d/dr[rho(r) r^(2beta)] (finite differences)
     h = 1e-6
@@ -2966,6 +3117,13 @@ def test_exptruncnfw_ddenstwobetadr():
             float(pot._ddenstwobetadr(r, beta=0)) - pot._ddensdr(r)
         ) < 1e-5 * numpy.fabs(pot._ddensdr(r)), (
             "ExpTruncNFW _ddenstwobetadr(beta=0) does not reduce to _ddensdr"
+        )
+    # _rforce_jax(r) == amp * _rforce(r) (the internal Python radial force);
+    # JAX defaults to float32, so this is the looser float32-limited check
+    for r in [0.5, 1.3, 8.0]:
+        py = pot._amp * float(pot._rforce(numpy.asarray(r)))
+        assert numpy.fabs(float(pot._rforce_jax(r)) - py) < 1e-4 * numpy.fabs(py), (
+            "ExpTruncNFW _rforce_jax does not match amp * _rforce"
         )
     return None
 
