@@ -2808,6 +2808,36 @@ def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
     return None
 
 
+def test_constantbetadf_float64_without_jax_x64():
+    # constantbetadf's jax derivatives run in float64 even when jax's 64-bit
+    # mode is off (the user's default; this file turns it on): the same DF
+    # with it off, for the fE integral and the half-integer beta derivative
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    import importlib
+
+    import jax.numpy as jnp
+
+    enable_x64 = importlib.import_module("galpy.df.constantbetadf")._enable_x64
+    rE = numpy.array([1e-3, 1e-2, 0.1, 1.0, 10.0])
+    for pot, kw in (
+        (potential.NFWPotential(amp=2.0, a=1.6), {"beta": -0.6}),
+        (
+            potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0),
+            {"twobeta": -1, "rmax": 80.0},
+        ),
+    ):
+        E = potential.evaluatePotentials(pot, rE, 0.0, use_physical=False)
+        want = constantbetadf(pot=pot, **kw).fE(E)
+        with enable_x64(False):
+            got = constantbetadf(pot=pot, **kw).fE(E)
+            assert jnp.asarray(1.0).dtype == jnp.float32, "x64 not restored"
+        numpy.testing.assert_array_equal(
+            got, want, err_msg=f"{type(pot).__name__}: fE differs without x64"
+        )
+    return None
+
+
 def test_constantbeta_truncatedtwopower_dens_directint():
     if WIN32:
         return None  # skip on Windows, because no JAX

@@ -24,6 +24,13 @@ v1.12.1 (expected around 2026-11-01)
   spherical distribution functions (``eddingtondf``, ``osipkovmerrittdf`` and
   ``constantbetadf``).
 
+- ``constantbetadf`` now computes its JAX derivatives in 64-bit precision
+  even when JAX's 64-bit mode is off (JAX's default), enabling it only for
+  its own calls. In 32-bit precision the distribution function was badly
+  wrong at the most bound energies (e.g., eight times too small for an
+  ``NFWPotential`` and negative for an ``ExpTruncNFWPotential`` at
+  ``r ~ 1e-3 a``).
+
 - Sampling from a spherical distribution function no longer raises
   ``ValueError: x must be increasing`` when the mass converges well inside
   ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
