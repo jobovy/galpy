@@ -394,9 +394,8 @@ class ExpTruncNFWPotential(SphericalPotential):
 
     def _rforce_jax(self, r):
         # JAX (differentiable) radial force amp*(-F(r)/r^2), needed by the
-        # constantbetadf machinery. Uses the closed form for F(r); this is the
-        # same expression as _F_closed (the DFs evaluate it at r >= rmin >> the
-        # small-r series threshold, so the series branch is not needed here).
+        # constantbetadf machinery: _F's split, the closed form (_F_closed's
+        # expression) above the small-r series threshold, where it cancels.
         # jax.scipy.special.exp1 is not differentiable in jax (it routes through
         # expn), so use E_1(x) = -Ei(-x) via the differentiable expi instead.
         if not _JAX_LOADED:  # pragma: no cover
@@ -407,9 +406,12 @@ class ExpTruncNFWPotential(SphericalPotential):
         alpha = a / rc
         beta = (a + r) / rc
         e1 = lambda x: -jspecial.expi(-x)
-        F = (
+        small = r < self._small_r_thresh
+        F = jnp.where(
+            small,
+            self._F_series(jnp.where(small, r, 0.0)),  # dead branch kept finite
             jnp.exp(alpha) * (1.0 + alpha) * (e1(alpha) - e1(beta))
             - 1.0
-            + a * jnp.exp(-r / rc) / (a + r)
+            + a * jnp.exp(-r / rc) / (a + r),
         )
         return -self._amp * F / r**2

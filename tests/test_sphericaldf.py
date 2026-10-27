@@ -2893,6 +2893,62 @@ def test_truncatedtwopower_rforce_jax():
     return None
 
 
+def test_rforce_jax_matches_forces():
+    # The hand-written jax radial forces that constantbetadf differentiates
+    # equal the potentials' radial force, and their jax derivatives minus the
+    # second derivative, down to r = 1e-6 (NFW and ExpTruncNFW switch to their
+    # small-r series there, where the closed forms cancel)
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    import jax
+    import jax.numpy as jnp
+
+    rs = numpy.geomspace(1e-6, 1e2, 61)
+    # (potential, rtol of F_r, rtol of dF_r/dr): differentiating NFW's
+    # -h(x)/r^2 cancels at r << a, and ExpTruncNFW's closed form cancels above
+    # its series switch, in F_r by an amount that depends on the machine's libm
+    # (1e-13 on CI's runners, 1e-14 locally) and in dF_r/dr by ~eps (a/r)^3
+    for pot, ftol, dtol in (
+        (potential.DehnenCoreSphericalPotential(amp=1.3, a=0.8), 5e-14, 3e-13),
+        (potential.HernquistPotential(amp=1.7, a=1.3), 5e-14, 3e-15),
+        (potential.NFWPotential(amp=2.0, a=1.6), 5e-14, 2e-9),
+        (potential.PlummerPotential(amp=1.1, b=0.7), 5e-14, 1e-14),
+        (potential.PowerSphericalPotential(amp=1.4, alpha=1.7), 5e-14, 3e-14),
+        (
+            potential.PowerSphericalPotentialwCutoff(amp=1.2, alpha=1.8, rc=1.9),
+            5e-14,
+            5e-14,
+        ),
+        (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 3e-13, 2e-8),
+        (
+            potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2),
+            5e-14,
+            2e-13,
+        ),
+        (
+            potential.TruncatedHernquistPotential(amp=1.7, a=1.3, rc=0.5, n=1),
+            5e-14,
+            2e-13,
+        ),
+    ):
+        name = type(pot).__name__
+        fj = numpy.asarray(jax.vmap(pot._rforce_jax)(jnp.asarray(rs)))
+        numpy.testing.assert_allclose(
+            fj,
+            potential.evaluateRforces(pot, rs, 0.0, use_physical=False),
+            rtol=ftol,
+            err_msg=f"{name}._rforce_jax does not match its radial force",
+        )
+        gj = numpy.asarray(jax.vmap(jax.grad(pot._rforce_jax))(jnp.asarray(rs)))
+        numpy.testing.assert_allclose(
+            gj,
+            -potential.evaluateR2derivs(pot, rs, 0.0, use_physical=False),
+            rtol=dtol,
+            err_msg=f"jax.grad of {name}._rforce_jax does not match -R2deriv",
+        )
+    return None
+
+
 ################# INTERPOLATED POTENTIALS IN DFS ##############################
 
 
