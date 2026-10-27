@@ -43,6 +43,7 @@ from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
 from ._jit import NOT_TRACED, traced_call
 from ._namespaces import (
+    _HOST,
     as_numpy,
     device_of,
     float64_default,
@@ -206,6 +207,17 @@ def backend_input(*coords):
         @wraps(method)
         def wrapper(*args, **kwargs):
             nargs = len(args)
+            # numpy fast path: host coordinates, no backend parameter (the cached
+            # flag) and no non-numpy default backend, so nothing below would act
+            if nargs and getattr(args[0], PARAM_CACHE_ATTR, None) is False:
+                for c, ii in slots:
+                    val = args[ii] if ii is not None and ii < nargs else kwargs.get(c)
+                    if val is not None and not isinstance(val, _HOST):
+                        break
+                else:
+                    ctx = _BACKEND_CTX.get()
+                    if ctx is None or ctx[0] == "numpy":
+                        return method(*args, **kwargs)
             probe = []
             for c, ii in slots:
                 if ii is not None and ii < nargs:
