@@ -42,6 +42,15 @@ from .sphericaldf import (
     sphericaldf,
 )
 
+if _JAX_LOADED:
+    import jax
+
+    # float64 for galpy's own jax calls, leaving the user's default alone
+    # (jax < 0.8: jax.experimental's)
+    _enable_x64 = (
+        jax.enable_x64 if hasattr(jax, "enable_x64") else jax.experimental.enable_x64
+    )
+
 # cos(eta) inverse-CDF grid size. 20001 is what the numpy path has always used;
 # shared so the backend rebuild inverts the same grid.
 _NCOSETA = 20001
@@ -700,12 +709,18 @@ class constantbetadf(_constantbetadf):
         """The numpy fE path's m-th derivative: jax on a numpy-parameter
         potential, with its hand-written ``_rforce_jax`` if it has one, and the
         elementwise derivative grad(sum(f)) instead of vmap(grad(f)) (the same
-        per-radius values; both cut the primitives eager jax dispatches)"""
-        import jax
+        per-radius values; both cut the primitives eager jax dispatches), in
+        float64 whatever the user's jax default"""
         import jax.numpy as jnp
 
         egrad = lambda f: lambda r: jax.grad(lambda rr: jnp.sum(f(rr)))(r)
-        return self._make_func(egrad, getattr(self._pot, "_rforce_jax", None))
+        func = self._make_func(egrad, getattr(self._pot, "_rforce_jax", None))
+
+        def func64(r):
+            with _enable_x64(True):
+                return func(r)
+
+        return func64
 
     def _deriv(self, xp, r):
         """m-th (dens r^2beta)/dPsi^m derivative at radii ``r`` (any shape),
