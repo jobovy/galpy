@@ -5,6 +5,7 @@ import numpy
 import pytest
 from scipy import integrate, interpolate
 
+from galpy.backend import as_numpy
 from galpy.util import coords
 
 
@@ -1118,7 +1119,9 @@ def test_density_ll_wsampling(bovy14_setup):
             X, Y, Z, Xsun=sdf_bovy14._R0, Zsun=sdf_bovy14._Zsun
         )
         l, b, d = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        return l
+        # coords preserves the framework under a forced backend; this local
+        # helper is compared against a numpy sample below
+        return as_numpy(l)
 
     LB = sdf_bovy14.sample(n=10000, lb=True)
     apar1, apar2 = 0.1, 0.6
@@ -2875,8 +2878,11 @@ def test_fardalpot_trackaa():
         "misalignment in Fardal test is not large"
     )
     # Now run the test
-    aastream = sdf_fardal._ObsTrackAA  # freqs and angles that the track is based on
-    RvR = sdf_fardal._ObsTrack  # the track in R,vR,...
+    # numpy.asarray(as_numpy()): a backend array under a forced backend
+    aastream = numpy.asarray(
+        as_numpy(sdf_fardal._ObsTrackAA)
+    )  # freqs and angles that the track is based on
+    RvR = numpy.asarray(as_numpy(sdf_fardal._ObsTrack))  # the track in R,vR,...
     aastream_expl = numpy.reshape(
         numpy.array(
             [sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]
@@ -2889,7 +2895,7 @@ def test_fardalpot_trackaa():
     assert numpy.all(
         numpy.fabs(
             (aastream[:, :3] - aastream_expl[:, :3])
-            / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
+            / (aastream[0, :3] - numpy.asarray(as_numpy(sdf_fardal._progenitor_Omega)))
         )
         < 0.05
     ), (
@@ -2931,8 +2937,11 @@ def test_fardalwmwpot_trackaa():
         "misalignment in Fardal test is not large enough"
     )
     # Now run the test
-    aastream = sdf_fardal._ObsTrackAA  # freqs and angles that the track is based on
-    RvR = sdf_fardal._ObsTrack  # the track in R,vR,...
+    # numpy.asarray(as_numpy()): a backend array under a forced backend
+    aastream = numpy.asarray(
+        as_numpy(sdf_fardal._ObsTrackAA)
+    )  # freqs and angles that the track is based on
+    RvR = numpy.asarray(as_numpy(sdf_fardal._ObsTrack))  # the track in R,vR,...
     aastream_expl = numpy.reshape(
         numpy.array(
             [sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]
@@ -2945,7 +2954,7 @@ def test_fardalwmwpot_trackaa():
     assert numpy.all(
         numpy.fabs(
             (aastream[:, :3] - aastream_expl[:, :3])
-            / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
+            / (aastream[0, :3] - numpy.asarray(as_numpy(sdf_fardal._progenitor_Omega)))
         )
         < 0.05
     ), (
@@ -2987,15 +2996,18 @@ def test_setup_progIsTrack():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         progIsTrack=True,
     )
-    assert numpy.all(numpy.fabs(obs.vxvv[0] - sdfp._ObsTrack[0, :]) < 10.0**-3.0), (
+    # numpy.asarray(as_numpy()): a backend array under a forced backend
+    ObsTrack = numpy.asarray(as_numpy(sdfp._ObsTrack))
+    interpolatedObsTrack = numpy.asarray(as_numpy(sdfp._interpolatedObsTrack))
+    assert numpy.all(numpy.fabs(obs.vxvv[0] - ObsTrack[0, :]) < 10.0**-3.0), (
         "streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start"
     )
     # Integrate the orbit a little bit and test at a further point
     obs.integrate(numpy.linspace(0.0, 2.0, 10001), lp)
-    indx = numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:, 0] - 1.75))
+    indx = numpy.argmin(numpy.fabs(interpolatedObsTrack[:, 0] - 1.75))
     oindx = numpy.argmin(numpy.fabs(obs.orbit[0, :, 0] - 1.75))
     assert numpy.all(
-        numpy.fabs(sdfp._interpolatedObsTrack[indx, :5] - obs.orbit[0, oindx, :5])
+        numpy.fabs(interpolatedObsTrack[indx, :5] - obs.orbit[0, oindx, :5])
         < 10.0**-2.0
     ), (
         "streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start"

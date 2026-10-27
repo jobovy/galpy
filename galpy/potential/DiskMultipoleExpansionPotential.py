@@ -6,6 +6,7 @@ import numpy
 
 from .KuijkenDubinskiDiskExpansionPotential import (
     KuijkenDubinskiDiskExpansionPotential,
+    _default_dens,
 )
 from .MultipoleExpansionPotential import MultipoleExpansionPotential
 
@@ -33,7 +34,7 @@ class DiskMultipoleExpansionPotential(KuijkenDubinskiDiskExpansionPotential):
         self,
         amp=1.0,
         normalize=False,
-        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        dens=_default_dens,
         Sigma={"type": "exp", "h": 1.0 / 3.0, "amp": 1.0},
         hz={"type": "exp", "h": 1.0 / 27.0},
         Sigma_amp=None,
@@ -59,7 +60,7 @@ class DiskMultipoleExpansionPotential(KuijkenDubinskiDiskExpansionPotential):
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         dens : callable
-            Function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently].
+            Function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently]. Under a forced backend (``galpy.backend.use(..., force=True)``) it is called with that backend's arrays and must accept them (e.g., be written with ``galpy.backend.get_namespace``).
         L : int, optional
             Maximum spherical harmonic degree + 1 (l goes from 0 to L-1).
         rgrid : numpy.ndarray, optional
@@ -92,6 +93,7 @@ class DiskMultipoleExpansionPotential(KuijkenDubinskiDiskExpansionPotential):
         Notes
         -----
         - Either specify (Sigma,hz) or (Sigma_amp,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz)
+        - The built-in dict-specified Sigma/hz profiles are backend-agnostic (numpy/jax/torch); for jax/torch evaluation, any *user-provided* dens/Sigma/dSigmadR/d2SigmadR2/hz/Hz/dHzdz callables must accept backend arrays (e.g., be written with ``galpy.backend.get_namespace``)
         - 2026-02-22 - Written - Bovy (UofT)
 
         """

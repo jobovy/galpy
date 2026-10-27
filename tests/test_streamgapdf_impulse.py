@@ -348,8 +348,11 @@ def test_impulse_deltav_general_orbit_zeroforce():
     angrange = numpy.pi
     maxt = 5.0 * angrange / vang
     galpot = constantPotential()
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        v0, x0, 3.0, w, x0, v0, pp, maxt, galpot
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(
+            v0, x0, 3.0, w, x0, v0, pp, maxt, galpot
+        )
     )
     assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
         "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
@@ -369,8 +372,8 @@ def test_impulse_deltav_general_orbit_zeroforce():
     plummer_kick = impulse_deltav_plummer_curvedstream(
         V, Xc, 3.0, w, x0, v0, numpy.pi, numpy.exp(1.0)
     )
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        V, Xc, 3.0, w, x0, v0, pp, maxt, galpot
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(V, Xc, 3.0, w, x0, v0, pp, maxt, galpot)
     )
     assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
         "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
@@ -395,8 +398,11 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     w = numpy.array([1.0, numpy.pi / 4.0 * vp, 0.0])
     plummer_kick = impulse_deltav_plummer_curvedstream(v0, x0, 3.0, w, x0, v0, GM, rs)
     galpot = constantPotential()
-    orbit_kick = impulse_deltav_general_fullplummerintegration(
-        v0, x0, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0, N=1000
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            v0, x0, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0, N=1000
+        )
     )
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
@@ -423,8 +429,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     V[:, 0] = vx
     V[:, 1] = vy
     plummer_kick = impulse_deltav_plummer_curvedstream(V, Xc, 3.0, w, x0, v0, GM, rs)
-    orbit_kick = impulse_deltav_general_fullplummerintegration(
-        V, Xc, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            V, Xc, 3.0, w, x0, v0, galpot, GM, rs, tmaxfac=100.0
+        )
     )
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
@@ -456,11 +464,16 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
     w = numpy.array([0.0, 0.0, 100.0])  # very fast compared to v=1
     lp = LogarithmicHaloPotential(normalize=1.0)
     pp = PlummerPotential(amp=GM, b=rs)
-    orbit_kick = impulse_deltav_general_orbitintegration(
-        v0, x0, 3.0, w, x0, v0, pp, 5.0 * numpy.pi, lp
+    # a backend array under a forced backend
+    orbit_kick = numpy.asarray(
+        impulse_deltav_general_orbitintegration(
+            v0, x0, 3.0, w, x0, v0, pp, 5.0 * numpy.pi, lp
+        )
     )
-    full_kick = impulse_deltav_general_fullplummerintegration(
-        v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
+    full_kick = numpy.asarray(
+        impulse_deltav_general_fullplummerintegration(
+            v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
+        )
     )
     # Kick should be in the X direction
     assert numpy.fabs((orbit_kick - full_kick) / full_kick)[0, 0] < 10.0**tol, (
@@ -570,19 +583,22 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
         GM,
         rs,
     )
-    stream_kick = impulse_deltav_plummerstream_curvedstream(
-        numpy.array([[0.5, 0.1, 0.2]]),
-        numpy.array([[1.2, 0.0, 0.0]]),
-        numpy.array([0.0]),
-        rs,
-        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.5, 0.1, 0.2]),
-        lambda t: GM / dt,
-        rs,
-        lp,
-        -dt / 2.0,
-        dt / 2.0,
+    # a backend array under a forced backend
+    stream_kick = numpy.asarray(
+        impulse_deltav_plummerstream_curvedstream(
+            numpy.array([[0.5, 0.1, 0.2]]),
+            numpy.array([[1.2, 0.0, 0.0]]),
+            numpy.array([0.0]),
+            rs,
+            numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.5, 0.1, 0.2]),
+            lambda t: GM / dt,
+            rs,
+            lp,
+            -dt / 2.0,
+            dt / 2.0,
+        )
     )
     # Should be equal
     assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
@@ -600,19 +616,22 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
         GM,
         rs,
     )
-    stream_kick = impulse_deltav_plummerstream_curvedstream(
-        numpy.array([0.5, 0.1, 0.2]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.0]),
-        rs,
-        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
-        numpy.array([1.2, 0.0, 0.0]),
-        numpy.array([0.5, 0.1, 0.2]),
-        lambda t: GM / dt,
-        rs,
-        lp,
-        -dt / 2.0,
-        dt / 2.0,
+    # a backend array under a forced backend
+    stream_kick = numpy.asarray(
+        impulse_deltav_plummerstream_curvedstream(
+            numpy.array([0.5, 0.1, 0.2]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.0]),
+            rs,
+            numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+            numpy.array([1.2, 0.0, 0.0]),
+            numpy.array([0.5, 0.1, 0.2]),
+            lambda t: GM / dt,
+            rs,
+            lp,
+            -dt / 2.0,
+            dt / 2.0,
+        )
     )
     assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
         "Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g"

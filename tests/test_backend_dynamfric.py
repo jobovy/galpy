@@ -1,0 +1,804 @@
+###############################################################################
+# test_backend_dynamfric.py: multi-backend (jax/torch) coverage for the
+# dynamical-friction forces whose OWN _Rforce/_zforce/_phitorque compute path
+# was migrated to the galpy.backend namespace layer:
+#
+#   * ChandrasekharDynamicalFrictionForce -- classical Chandrasekhar friction.
+#     The scipy sigma_r(r) spline is now a backend-agnostic Spline1D (numpy
+#     hits scipy byte-identically, jax/torch evaluate the frozen ppoly), the
+#     scipy.special.erf + numpy.exp/log are on galpy.backend.special / xp, and
+#     the r<minr / rhm-vs-GM-over-v^2 python branches are xp.where.
+#   * FDMDynamicalFrictionForce -- fuzzy-dark-matter friction, sharing the
+#     Chandrasekhar internals. Its three kr-regimes (zero-velocity Cin/sici,
+#     dispersion log, and the intermediate linear interp) plus the C<C_cdm
+#     classical cutoff are nested xp.where / xp.minimum.
+#
+# Before this migration, evaluateRforces on a jax array COERCED back to numpy
+# (hashlib.md5(numpy.array([...tracers...]))) and jax.grad/jit died with a
+# TracerArrayConversionError. This module proves, per backend:
+#   1. eager jax returns a jax array, eager torch a torch tensor,
+#   2. the value matches the numpy path (which is byte-identical -- see
+#      test_dynamfric / test_FDMdynamfric, unchanged),
+#   3. jax.jit / jax.jacfwd over evaluateRforces (with v=) return finite (the
+#      exact gap that defined this migration),
+#   4. the force gradient w.r.t. R h-converges to a central finite difference
+#      of the numpy path (grad-vs-FD, not a finite-and-nonzero check).
+#
+# The velocity-dependent forces require v=; a background density potential
+# (NFW / default LogarithmicHalo) supplies rho, both already backend-native.
+# Run under -W error::DeprecationWarning to catch the numpy-2.0 __array_wrap__
+# coercion trap that a lingering scipy/numpy op on a backend array would raise.
+###############################################################################
+import numpy
+import pytest
+
+pytestmark = pytest.mark.backend_managed
+
+BACKENDS = []
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    BACKENDS.append("jax")
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+
+    BACKENDS.append("torch")
+except ImportError:  # pragma: no cover
+    torch = None
+
+from backend_jit_helpers import assert_jit_matches_eager
+
+from galpy.backend import as_numpy
+from galpy.potential import (
+    ChandrasekharDynamicalFrictionForce,
+    FDMDynamicalFrictionForce,
+    NFWPotential,
+    evaluatephitorques,
+    evaluateRforces,
+    evaluatezforces,
+)
+
+_NFW = NFWPotential(normalize=1.0, a=1.5)
+_SIGMAR = lambda r: 1.0 / numpy.sqrt(2.0)  # noqa: E731 (analytic, pickle-safe stand-in)
+
+_R0, _Z0, _PHI0, _T0 = 1.3, 0.4, 0.5, 0.0
+_V0 = [0.15, 0.25, 0.08]  # cylindrical velocity (vR, vT, vz)
+
+
+def _mhbar_per_m():
+    # backend-independent conversion so an m can be chosen to land kr in a
+    # specific FDM regime for _R0,_Z0,_V0.
+    ref = FDMDynamicalFrictionForce(
+        GMs=0.05, rhm=0.1, dens=_NFW, m=1e-99, sigmar=_SIGMAR
+    )
+    return ref._mhbar / 1e-99
+
+
+def _m_for_kr(target):
+    r = numpy.sqrt(_R0**2 + _Z0**2)
+    vs = numpy.sqrt(sum(x**2 for x in _V0))
+    return target / (vs * r) / _mhbar_per_m()
+
+
+# (label, force). Covers: classical friction with a finite half-mass radius,
+# the rhm=0 black-hole default (r/gamma/rhm dead branch = division by zero,
+# guarded in Python on the static attr), the GMvs<rhm Coulomb-log branch, the
+# constant-Coulomb-log / constant-FDM-factor shortcuts (const_lnLambda /
+# const_FDMfactor -- the backend const branch that skips the r/v computation),
+# and the three FDM kr-regimes (zero-velocity Cin, intermediate interp, dispersion).
+_CASES = [
+    ("CDF", ChandrasekharDynamicalFrictionForce(GMs=0.05, rhm=0.1, dens=_NFW)),
+    (
+        "CDF-blackhole",
+        ChandrasekharDynamicalFrictionForce(GMs=0.05, rhm=0.0, dens=_NFW),
+    ),
+    (
+        "CDF-rhmbranch",
+        ChandrasekharDynamicalFrictionForce(GMs=0.001, rhm=2.0, dens=_NFW),
+    ),
+    (
+        "CDF-constlnLambda",
+        ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=_NFW, const_lnLambda=3.0
+        ),
+    ),
+    (
+        "FDM-constfactor",
+        FDMDynamicalFrictionForce(
+            GMs=0.05,
+            rhm=0.1,
+            dens=_NFW,
+            m=_m_for_kr(0.5),
+            sigmar=_SIGMAR,
+            const_FDMfactor=2.0,
+        ),
+    ),
+    (
+        "FDM-zero",
+        FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=_NFW, m=_m_for_kr(0.1), sigmar=_SIGMAR
+        ),
+    ),
+    (
+        "FDM-intermediate",
+        FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=_NFW, m=_m_for_kr(0.5), sigmar=_SIGMAR
+        ),
+    ),
+    (
+        "FDM-dispersion",
+        FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=_NFW, m=_m_for_kr(5.0), sigmar=_SIGMAR
+        ),
+    ),
+]
+_CASE_IDS = [c[0] for c in _CASES]
+
+
+def _arr(backend, x):
+    if backend == "jax":
+        return jnp.asarray(x, dtype=jnp.float64)
+    return torch.tensor(x, dtype=torch.float64)
+
+
+def _module_of(x):
+    return type(x).__module__
+
+
+def _np_forces(obj, R):
+    vn = numpy.array(_V0, dtype=float)
+    return numpy.array(
+        [
+            float(
+                evaluateRforces(obj, R, _Z0, phi=_PHI0, t=_T0, v=vn, use_physical=False)
+            ),
+            float(
+                evaluatezforces(obj, R, _Z0, phi=_PHI0, t=_T0, v=vn, use_physical=False)
+            ),
+            float(
+                evaluatephitorques(
+                    obj, R, _Z0, phi=_PHI0, t=_T0, v=vn, use_physical=False
+                )
+            ),
+        ]
+    )
+
+
+def _backend_forces(backend, obj, R):
+    Rb, zb = _arr(backend, R), _arr(backend, _Z0)
+    pb, tb = _arr(backend, _PHI0), _arr(backend, _T0)
+    vb = _arr(backend, _V0)
+    fr = evaluateRforces(obj, Rb, zb, phi=pb, t=tb, v=vb, use_physical=False)
+    fz = evaluatezforces(obj, Rb, zb, phi=pb, t=tb, v=vb, use_physical=False)
+    fp = evaluatephitorques(obj, Rb, zb, phi=pb, t=tb, v=vb, use_physical=False)
+    return fr, fz, fp
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+@pytest.mark.filterwarnings("error::FutureWarning")
+@pytest.mark.parametrize("label,obj", _CASES, ids=_CASE_IDS)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynamfric_value_and_backend_array(backend, label, obj):
+    # eager backend eval must (a) return a native backend array (a lingering
+    # scipy/numpy op would silently DETACH to numpy) and (b) match the numpy
+    # value the class produces (numpy path is byte-identical -- pinned in
+    # test_dynamfric/test_FDMdynamfric).
+    ref = _np_forces(obj, _R0)
+    fr, fz, fp = _backend_forces(backend, obj, _R0)
+    for f in (fr, fz, fp):
+        assert backend in _module_of(f), (
+            f"{label}: force left the {backend} namespace ({_module_of(f)})"
+        )
+    got = numpy.array([float(as_numpy(fr)), float(as_numpy(fz)), float(as_numpy(fp))])
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13, err_msg=label)
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+@pytest.mark.filterwarnings("error::FutureWarning")
+@pytest.mark.parametrize("label,obj", _CASES, ids=_CASE_IDS)
+def test_dynamfric_jax_jit_jacfwd_finite(label, obj):
+    # The exact gap: jax.jit / jax.jacfwd over evaluateRforces (velocity-dep,
+    # so v= is passed) must trace to a finite result. Pre-migration this died
+    # with a TracerArrayConversionError from hashlib.md5(numpy.array([tracers])).
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+
+    def fR(R):
+        return evaluateRforces(
+            obj,
+            R,
+            jnp.asarray(_Z0),
+            phi=jnp.asarray(_PHI0),
+            t=jnp.asarray(_T0),
+            v=jnp.asarray(_V0),
+            use_physical=False,
+        )
+
+    # jit value must equal the eager numpy Rforce, supplied via ref=; the helper
+    # additionally rejects a trace that folded R0 away into a constant.
+    assert_jit_matches_eager(
+        fR,
+        jnp.asarray(_R0),
+        rtol=1e-10,
+        atol=1e-13,
+        ref=_np_forces(obj, _R0)[0],
+        err_msg=label,
+    )
+    jac = float(jax.jacfwd(fR)(jnp.asarray(_R0)))
+    assert numpy.isfinite(jac), f"{label}: jacfwd not finite"
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+@pytest.mark.filterwarnings("error::FutureWarning")
+@pytest.mark.parametrize("label,obj", _CASES, ids=_CASE_IDS)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynamfric_grad_vs_finite_difference(backend, label, obj):
+    # d(Rforce)/dR from AD must h-CONVERGE to a central finite difference of the
+    # numpy path (checked at two h; the tighter h must match to ~1e-5), not just
+    # be finite-and-nonzero.
+    if backend == "jax":
+        ad = float(
+            jax.grad(
+                lambda R: evaluateRforces(
+                    obj,
+                    R,
+                    jnp.asarray(_Z0),
+                    phi=jnp.asarray(_PHI0),
+                    t=jnp.asarray(_T0),
+                    v=jnp.asarray(_V0),
+                    use_physical=False,
+                )
+            )(jnp.asarray(_R0))
+        )
+    else:
+        R = torch.tensor(_R0, dtype=torch.float64, requires_grad=True)
+        out = evaluateRforces(
+            obj,
+            R,
+            torch.tensor(_Z0),
+            phi=torch.tensor(_PHI0),
+            t=torch.tensor(_T0),
+            v=torch.tensor(_V0),
+            use_physical=False,
+        )
+        (g,) = torch.autograd.grad(out, R)
+        ad = float(g)
+    assert numpy.isfinite(ad), f"{label}: grad not finite"
+
+    def fd(h):
+        return (_np_forces(obj, _R0 + h)[0] - _np_forces(obj, _R0 - h)[0]) / (2 * h)
+
+    fd_coarse, fd_fine = fd(1e-4), fd(1e-6)
+    # central FD converges O(h^2): the finer step must be at least as close.
+    assert abs(ad - fd_fine) <= abs(ad - fd_coarse) + 1e-9, (
+        f"{label}: grad does not h-converge (ad={ad}, fd(1e-4)={fd_coarse}, "
+        f"fd(1e-6)={fd_fine})"
+    )
+    numpy.testing.assert_allclose(
+        ad, fd_fine, rtol=1e-5, atol=1e-9, err_msg=f"{backend} {label}"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynamfric_inbackend_integration_matches_analytic(backend):
+    # The in-backend ODE solvers (diffrax / torchdiffeq) are the sensible arm to
+    # integrate dynamical friction with under a backend -- the pure-Python
+    # integrators step in Python and pay eager per-step dispatch. Before relying
+    # on them, validate one against the ANALYTIC result rather than against
+    # another integrator: for a mass on a circular orbit in an isothermal halo
+    # with velocity dispersion sigma and constant Lambda,
+    #
+    #     r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM / sigma * t
+    #
+    # (B&T08 p. 648) -- the same reference test_orbits.py checks the C/odeint
+    # path against, so an integrator that merely agrees with another integrator
+    # cannot satisfy it.
+    import importlib
+
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    xp = importlib.import_module("jax.numpy" if backend == "jax" else "torch")
+    method = "diffrax" if backend == "jax" else "torchdiffeq"
+
+    # Same parameters as test_orbits.py::test_ChandrasekharDynamicalFrictionForce
+    # _constLambda, so the 0.015 bar it established for this approximation's
+    # regime carries over instead of being re-invented here.
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)  # isothermal
+    GMs = 10.0**9.0 / conversion.mass_in_msol(vo, ro)
+    const_lnLambda = 7.0
+    dt = 2.0 / conversion.time_in_Gyr(vo, ro)
+    cdfc = ChandrasekharDynamicalFrictionForce(
+        GMs=GMs, const_lnLambda=const_lnLambda, dens=lp
+    )
+    r_init = 2.0
+    # in-backend solvers require a backend initial condition
+    ic = xp.asarray([r_init, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=float)
+    o = Orbit(ic)
+    ts = numpy.linspace(0.0, dt, 1001)
+    o.integrate(ts, lp + cdfc, method=method)
+    r_end = float(numpy.asarray(as_numpy(o.r(ts[-1])), dtype=float))
+    r_pred = numpy.sqrt(
+        r_init**2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
+    )
+    assert numpy.fabs(r_end - r_pred) < 0.015, (
+        f"{method}: dynamical friction with constant lnLambda does not match the "
+        f"analytic circular-orbit prediction (got {r_end}, expected {r_pred})"
+    )
+
+
+# --------------------------------------------------------------------------
+# d/d(amp) with the velocity supplied as NUMPY.
+#
+# v is a velocity triple the caller passes in; unlike R/z it is not coerced by
+# the @backend_input decorator, so a numpy v reaching a backend xp made
+# xp.sqrt(v[0]**2 + ...) raise -- torch rejects a numpy scalar (jax tolerated
+# it). Both spellings must work, and give the same gradient.
+# --------------------------------------------------------------------------
+_DF_V = numpy.array([0.1, 1.0, 0.05])
+
+
+@pytest.mark.parametrize("vkind", ["numpy", "backend"])
+@pytest.mark.parametrize(
+    "cls", ["ChandrasekharDynamicalFrictionForce", "FDMDynamicalFrictionForce"]
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_grad_wrt_amp_numpy_velocity(backend, cls, vkind):
+    from galpy import potential as _pot
+
+    ctor = getattr(_pot, cls)
+
+    from galpy.backend import use as _use
+
+    def val(amp, bk, cast, vmk):
+        with _use(bk, force=True):
+            return ctor(amp=amp).Rforce(
+                cast(1.1), cast(0.2), v=vmk(), use_physical=False
+            )
+
+    h = 1e-6
+    fd = (
+        float(val(1.0 + h, "numpy", lambda v: v, lambda: _DF_V))
+        - float(val(1.0 - h, "numpy", lambda v: v, lambda: _DF_V))
+    ) / (2.0 * h)
+    if backend == "jax":
+        vmk = (lambda: _DF_V) if vkind == "numpy" else (lambda: jnp.asarray(_DF_V))
+        ad = float(
+            jax.grad(lambda t: val(t, "jax", jnp.asarray, vmk))(jnp.asarray(1.0))
+        )
+    else:
+        vmk = (lambda: _DF_V) if vkind == "numpy" else (lambda: torch.as_tensor(_DF_V))
+        t = torch.tensor(1.0, dtype=torch.float64, requires_grad=True)
+        val(t, "torch", lambda v: torch.as_tensor(float(v)), vmk).backward()
+        ad = float(t.grad)
+    assert numpy.isfinite(ad) and abs(ad) > 0.0
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-12)
+
+
+# --- d/d(host-potential parameter) --------------------------------------------
+# The sigma_r(r) table is the Jeans solution of the HOST potential. Its numpy
+# builders (the spline grid, the per-radius loop) both run through scipy, so a
+# host parameter under a gradient used to die there (ConcretizationTypeError /
+# numpy() on a grad tensor). The table now comes from the backend Jeans
+# quadrature, differentiable and as accurate (see test_backend_jeans).
+_HOST_A = 1.2
+
+
+def _dynfric_host_quantity(a, which, backend):
+    from galpy.backend import use
+    from galpy.potential import HernquistPotential
+
+    with use(backend, force=True):
+        host = HernquistPotential(amp=2.0, a=a)
+        cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=host)
+        if which == "sigmar":
+            return cdf.sigmar(_arr_like(backend, 0.7))
+        return evaluateRforces(
+            cdf,
+            _arr_like(backend, _R0),
+            _arr_like(backend, _Z0),
+            phi=_arr_like(backend, _PHI0),
+            v=_arr_like(backend, _V0),
+            use_physical=False,
+        )
+
+
+def _arr_like(backend, x):
+    if backend == "numpy":
+        return numpy.asarray(x) if isinstance(x, list) else x
+    return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
+
+
+@pytest.mark.parametrize("which", ["sigmar", "Rforce"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_grad_wrt_host_potential_parameter(backend, which):
+    if backend == "jax":
+        ad = float(jax.grad(lambda a: _dynfric_host_quantity(a, which, "jax"))(_HOST_A))
+    else:
+        a = torch.tensor(_HOST_A, requires_grad=True)
+        (g,) = torch.autograd.grad(_dynfric_host_quantity(a, which, "torch"), a)
+        ad = float(g)
+    # FD of the NUMPY path (float a: the scipy-built table)
+    h = 1e-4
+    fd = (
+        float(as_numpy(_dynfric_host_quantity(_HOST_A + h, which, "numpy")))
+        - float(as_numpy(_dynfric_host_quantity(_HOST_A - h, which, "numpy")))
+    ) / (2.0 * h)
+    assert abs(ad) > 1e-6, "host-parameter gradient disconnected"
+    # measured 9.0e-9 (sigmar) and 1.4e-7 (Rforce, FD-limited at h=1e-4)
+    numpy.testing.assert_allclose(ad, fd, rtol=5e-7)
+
+
+# --- sigma_r: C's natural spline on the log-r grid, on every path -------------
+# numpy, C and the backends interpolate the SAME natural cubic spline of the
+# log-r table (C: GSL cspline). Small r is where the old linear grid was ~20-60%
+# off and where natural vs not-a-knot end conditions differ.
+_SIGMAR_RS = numpy.geomspace(2e-4, 20.0, 31)
+
+
+def _sigmar_reference(cdf, host):
+    from scipy.interpolate import CubicSpline
+
+    from galpy.df import jeans
+
+    nat = CubicSpline(
+        cdf._sigmar_rs_4interp, as_numpy(cdf._sigmars_4interp), bc_type="natural"
+    )(_SIGMAR_RS)
+    exact = numpy.array(
+        [jeans.sigmar(host, r, beta=0.0, use_physical=False) for r in _SIGMAR_RS]
+    )
+    return nat, exact
+
+
+@pytest.mark.parametrize("host_params", ["float", "backend"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_sigmar_is_the_c_natural_spline(backend, host_params):
+    from galpy.backend import use
+    from galpy.potential import HernquistPotential
+
+    host = HernquistPotential(amp=2.0, a=_HOST_A)
+    if host_params == "float":  # frozen table, evaluated on backend arrays
+        cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=host)
+        val = as_numpy(cdf.sigmar(_arr(backend, _SIGMAR_RS)))
+    else:  # table built in-backend (differentiable in the host's parameters)
+        with use(backend, force=True):
+            bhost = HernquistPotential(amp=_arr(backend, 2.0), a=_arr(backend, _HOST_A))
+            cdf = ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=bhost)
+            val = as_numpy(cdf.sigmar(_arr(backend, _SIGMAR_RS)))
+    nat, exact = _sigmar_reference(cdf, host)
+    # measured 2.2e-16 (spline) and 1.4e-8 (exact) on every path
+    numpy.testing.assert_allclose(val, nat, rtol=1e-14)
+    numpy.testing.assert_allclose(val, exact, rtol=1e-7)
+
+
+###############################################################################
+# Eager per-step cost: the three force components of one EOM evaluation share
+# ONE backend force-factor computation (identity cache, the twin of the numpy
+# path's hash cache), and FDM computes only the friction regime every point is
+# in. Both are eager-only and value-preserving.
+###############################################################################
+
+
+def _fdm():
+    from galpy.potential import FDMDynamicalFrictionForce, LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    GMs = 10.0**6.0 / conversion.mass_in_msol(220.0, 8.0)
+    return FDMDynamicalFrictionForce(
+        GMs=GMs, dens=LogarithmicHaloPotential(normalize=1.0), m=1e-99
+    )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_backend_force_factor_cache_is_identity_keyed():
+    import galpy.backend as gb
+
+    f = _fdm()
+    T = lambda v: torch.tensor(v, dtype=torch.float64)  # noqa: E731
+    R, z, phi, t = T([0.5, 1.0]), T([0.1, 0.0]), T([0.0, 0.2]), T(0.0)
+    v = [T([0.1, 0.0]), T([1.0, 0.9]), T([0.0, 0.1])]
+    xp = gb.get_namespace(R)
+    first = f._backend_force_factor(R, phi, z, v, t, xp)
+    assert f._backend_force_factor(R, phi, z, v, t, xp) is first  # same step: hit
+    # fresh tensors with the same values: recomputed, equal
+    again = f._backend_force_factor(R.clone(), phi, z, [c.clone() for c in v], t, xp)
+    assert again is not first and torch.equal(again, first)
+    # an in-place change to an input: recomputed (version counter), different
+    v[1].mul_(1.1)
+    changed = f._backend_force_factor(R, phi, z, v, t, xp)
+    assert changed is not first and not torch.equal(changed, first)
+    assert torch.equal(changed, f._calc_force_backend(R, phi, z, v, t, xp))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_fdm_single_regime_shortcut_equals_full_selection(monkeypatch):
+    # points in the zero-velocity, intermediate and dispersion regimes, alone
+    # (shortcut) and mixed (full selection): the shortcut is the value the
+    # traced three-regime xp.where selects
+    import importlib
+
+    import galpy.backend as gb
+
+    mod = importlib.import_module("galpy.potential.FDMDynamicalFrictionForce")
+    f = _fdm()
+    T = lambda v: torch.tensor(v, dtype=torch.float64)  # noqa: E731
+    for r, vs in (
+        ([0.001, 0.002], [1.0, 0.9]),  # kr < M_sigma / 2: zero-velocity
+        ([0.012, 0.02], [1.0, 1.0]),  # in between: intermediate
+        ([5.0, 8.0], [5.0, 6.0]),  # kr > 2 M_sigma: dispersion
+        ([0.001, 0.015, 8.0], [1.0, 1.0, 6.0]),  # all three: full selection
+    ):
+        r, vs = T(r), T(vs)
+        xp = gb.get_namespace(r)
+        eager = f._frictionFactor_backend(r, vs, xp)
+        monkeypatch.setattr(mod, "under_trace", lambda *a: True)
+        full = f._frictionFactor_backend(r, vs, xp)
+        monkeypatch.undo()
+        assert torch.equal(eager, full), (r, eager, full)
+
+
+# --- d/d(every constructor parameter), in every input mode ---------------------
+# The forces used to leave _backend_compatible unset, so under a forced backend
+# Python-float coordinates were never coerced and the numpy lnLambda path met
+# backend parameters (amp, GMs, gamma, the host's a, m: RAISE). A user sigmar
+# built from a backend parameter died in to_host, and under jax.jit the scipy
+# sigma_r table could not be built from traced host evaluations. Modes:
+#   data        -- backend coordinates, plain-float other parameters;
+#   forced      -- Python-float coordinates under use(backend, force=True);
+#   floatcoords -- Python-float coordinates, no forcing: the parameter decides.
+# The object is built inside the differentiated function.
+def _dynfric_specs():
+    from galpy.potential import HernquistPotential
+
+    def cdf(P):
+        return ChandrasekharDynamicalFrictionForce(
+            amp=P["amp"],
+            GMs=P["GMs"],
+            gamma=P["gamma"],
+            rhm=P["rhm"],
+            dens=HernquistPotential(amp=1.0, a=P["a"]),
+        )
+
+    def cdf_rhm(P):  # GM/v^2 < rhm: the rhm arm of the Coulomb logarithm
+        return ChandrasekharDynamicalFrictionForce(
+            GMs=0.001, gamma=P["gamma"], rhm=P["rhm"], dens=_NFW
+        )
+
+    def cdf_sigmar(P):  # a user sigma_r carrying the parameter
+        return ChandrasekharDynamicalFrictionForce(
+            GMs=P["GMs"],
+            dens=HernquistPotential(amp=1.0, a=1.0),
+            sigmar=lambda r: P["s0"] * numpy.exp(-r / 5.0),
+        )
+
+    def fdm(kr, gamma, params):
+        def build(P):
+            return FDMDynamicalFrictionForce(
+                amp=P["amp"],
+                GMs=P["GMs"],
+                gamma=P["gamma"],
+                rhm=0.1,
+                m=P["m"],
+                dens=_NFW,
+                sigmar=_SIGMAR,
+            )
+
+        P0 = {"amp": 1.0, "GMs": 0.05, "gamma": gamma, "m": _m_for_kr(kr)}
+        return build, P0, params
+
+    fdm_params = ("amp", "GMs", "m")
+    return {
+        "CDF": (
+            cdf,
+            {"amp": 1.0, "GMs": 0.1, "gamma": 1.0, "rhm": 0.05, "a": 1.0},
+            ("amp", "GMs", "gamma", "rhm", "a"),
+        ),
+        "CDF-rhmbranch": (cdf_rhm, {"gamma": 0.8, "rhm": 2.0}, ("gamma", "rhm")),
+        "CDF-sigmar": (cdf_sigmar, {"GMs": 0.1, "s0": 0.5}, ("GMs", "s0")),
+        # a small gamma (large Coulomb logarithm) puts the FDM coefficient below
+        # the classical one in all three kr-regimes, so m enters
+        "FDM-zero": fdm(0.1, 0.01, fdm_params),
+        "FDM-intermediate": fdm(0.5, 0.01, fdm_params),
+        "FDM-dispersion": fdm(5.0, 0.01, fdm_params),
+        # the classical cutoff wins: gamma enters, m does not
+        "FDM-classical": fdm(5.0, 1.0, ("amp", "GMs", "gamma")),
+    }
+
+
+_DYNFRIC_PARAM_CASES = [
+    (spec, p) for spec, (_, _, ps) in _dynfric_specs().items() for p in ps
+]
+
+
+@pytest.fixture(scope="module")
+def dynfric_specs():
+    return _dynfric_specs()
+
+
+def _dynfric_outputs(spec, P, mode, backend):
+    from galpy.backend import use
+
+    build = spec[0]
+    coords = [_R0, _Z0, _PHI0, 0.3, *_V0]
+    if mode == "data":
+        coords = [_arr_like(backend, c) for c in coords]
+    R, z, phi, t, *v = coords
+    with use(backend, force=True) if mode == "forced" else _nullctx():
+        p = build(P)
+        return [
+            p.Rforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+            p.zforce(R, z, phi=phi, t=t, v=v, use_physical=False),
+            p.phitorque(R, z, phi=phi, t=t, v=v, use_physical=False),
+        ]
+
+
+def _nullctx():
+    import contextlib
+
+    return contextlib.nullcontext()
+
+
+def _richardson_fd(f, x0):
+    # O(h^4) central difference of the numpy path, relative step
+    h = 1e-3 * abs(x0)
+    d = lambda h: (f(x0 + h) - f(x0 - h)) / (2.0 * h)  # noqa: E731
+    return (4.0 * d(h / 2.0) - d(h)) / 3.0
+
+
+@pytest.mark.parametrize("mode", ["data", "forced", "floatcoords"])
+@pytest.mark.parametrize("spec,param", _DYNFRIC_PARAM_CASES)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_param_grad_vs_fd_all_modes(dynfric_specs, backend, spec, param, mode):
+    S = dynfric_specs[spec]
+    P0 = S[1]
+
+    def at(x, bk, md):
+        return _dynfric_outputs(S, {**P0, param: x}, md, bk)
+
+    fd = _richardson_fd(
+        lambda x: numpy.array([float(o) for o in at(x, "numpy", "data")]), P0[param]
+    )
+    if backend == "jax":
+        f = lambda x: jnp.stack([jnp.reshape(o, ()) for o in at(x, "jax", mode)])  # noqa: E731
+        x0 = jnp.asarray(P0[param])
+        out = f(x0)
+        assert isinstance(out, jax.Array)
+        ads = [
+            numpy.asarray(jax.jacrev(f)(x0)),
+            numpy.asarray(jax.jit(jax.jacrev(f))(x0)),
+        ]
+    else:
+        x = torch.tensor(P0[param], requires_grad=True)
+        outs = at(x, "torch", mode)
+        assert all(isinstance(o, torch.Tensor) for o in outs)
+        ads = [
+            numpy.array(
+                [float(torch.autograd.grad(o, x, retain_graph=True)[0]) for o in outs]
+            )
+        ]
+    scale = numpy.amax(numpy.fabs(fd))
+    assert scale > 0.0 or param == "rhm", "parameter does not enter"
+    # measured <= 2e-11 relative to the largest component; the host's a also
+    # moves the sigma_r table, built by the backend Jeans quadrature on the
+    # backend and by scipy on numpy (measured 2.5e-8, cf. 5e-7 above)
+    tol = 1e-7 if param == "a" else 1e-9
+    for ad in ads:
+        numpy.testing.assert_allclose(ad, fd, rtol=0.0, atol=tol * max(scale, 1e-3))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_param_namespace_follows_parameters_only(backend):
+    # The parameter namespace is cached from the PARAMETERS: a backend-coordinate
+    # evaluation (whose arrays the eager force cache keeps) must not send later
+    # plain-float calls to the backend; a GMs set to a backend array must.
+    import pickle
+
+    cdf = ChandrasekharDynamicalFrictionForce(GMs=0.05, rhm=0.1, dens=_NFW)
+    v = [_arr_like(backend, c) for c in _V0]
+    cdf.Rforce(_arr_like(backend, _R0), _arr_like(backend, _Z0), v=v)
+    ref = cdf.Rforce(_R0, _Z0, v=_V0)
+    assert isinstance(ref, float)
+    # a backend GMs without a gradient (what a forced construction leaves
+    # behind) keeps plain-float calls -- the Python integrators' steps -- on numpy
+    cdf.GMs = _arr_like(backend, numpy.float64(0.05))
+    assert cdf._param_namespace() is None
+    if backend == "torch":
+        # a differentiated one takes them to its backend
+        cdf.GMs = torch.tensor(0.05, requires_grad=True)
+        got = cdf.Rforce(_R0, _Z0, v=_V0)
+        assert isinstance(got, torch.Tensor) and got.grad_fn is not None
+        numpy.testing.assert_allclose(float(got), ref, rtol=1e-14)
+    # unpickled: the cached namespace is rebuilt
+    cdf = pickle.loads(
+        pickle.dumps(ChandrasekharDynamicalFrictionForce(GMs=0.05, dens=_NFW))
+    )
+    assert "_param_xp" not in cdf.__dict__ and cdf._param_namespace() is None
+
+
+# sigma_r beyond maxr is the given sigmar, as on numpy (not the table spline's
+# extrapolation): a backend-capable one keeps its gradient, a numpy-only one
+# gives its values. Only evaluated when a radius is beyond maxr.
+@pytest.mark.parametrize("kind", ["xp", "numpy_only"])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dynfric_sigmar_beyond_maxr(backend, kind):
+    from galpy.potential import HernquistPotential
+
+    sig = (
+        (lambda r: 0.5 / (1.0 + r))
+        if kind == "xp"
+        else (lambda r: 0.5 * numpy.exp(-numpy.asarray(r) / 5.0))
+    )
+
+    def F(R):
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=HernquistPotential(a=1.0), sigmar=sig, maxr=2.0
+        )
+        return cdf.Rforce(R, _Z0, phi=_PHI0, v=[_arr_like(backend, c) for c in _V0])
+
+    Rs = [1.5, 3.0]  # inside and beyond maxr
+    for R in Rs:
+        ref = float(F(R) if backend == "numpy" else as_numpy(F(_arr_like("numpy", R))))
+        if backend == "numpy":
+            continue
+        got = F(_arr_like(backend, R))
+        numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-13)
+        if backend == "jax":
+            numpy.testing.assert_allclose(float(jax.jit(F)(R)), ref, rtol=1e-13)
+        if kind == "xp":
+            h = 1e-3
+            fd = (float(F(R + h)) - float(F(R - h))) / (2.0 * h)
+            fd = (4.0 * (float(F(R + h / 2)) - float(F(R - h / 2))) / h - fd) / 3.0
+            if backend == "jax":
+                ads = [float(jax.grad(F)(R)), float(jax.jit(jax.grad(F))(R))]
+            else:
+                x = torch.tensor(R, requires_grad=True)
+                ads = [float(torch.autograd.grad(F(x), x)[0])]
+            for ad in ads:
+                numpy.testing.assert_allclose(ad, fd, rtol=1e-8)
+
+
+# A numpy-only sigmar: its table carries the gradient inside maxr, also under
+# jax.jit, which traces the beyond-maxr arm too; beyond maxr it has no derivative,
+# and never a silent one (eager jax.grad raises; jit and torch give NaN).
+@pytest.mark.parametrize("backend", [b for b in BACKENDS if b != "numpy"])
+def test_dynfric_numpy_sigmar_grad(backend):
+    from galpy.potential import HernquistPotential
+
+    def F(R):
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05,
+            rhm=0.1,
+            dens=HernquistPotential(a=1.0),
+            sigmar=lambda r: 0.5 * numpy.exp(-numpy.asarray(r) / 5.0),
+            maxr=2.0,
+        )
+        return cdf.Rforce(R, _Z0, phi=_PHI0, v=[_arr_like(backend, c) for c in _V0])
+
+    def grads(R):
+        if backend == "jax":
+            return [jax.grad(F)(R), jax.jit(jax.grad(F))(R)]
+        x = torch.tensor(R, requires_grad=True)
+        return [torch.autograd.grad(F(x), x)[0]]
+
+    R, h = 1.5, 1e-3  # inside maxr
+    fd = (float(F(R + h)) - float(F(R - h))) / (2.0 * h)
+    fd = (4.0 * (float(F(R + h / 2)) - float(F(R - h / 2))) / h - fd) / 3.0
+    for ad in grads(R):
+        numpy.testing.assert_allclose(float(ad), fd, rtol=1e-8)
+    R = 3.0  # beyond maxr
+    if backend == "jax":
+        with pytest.raises(Exception, match="(?i)jvp|tracer"):
+            jax.grad(F)(R)
+        assert numpy.isnan(float(jax.jit(jax.grad(F))(R)))
+    else:
+        assert numpy.isnan(float(grads(R)[0]))

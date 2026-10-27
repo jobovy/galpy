@@ -6,6 +6,12 @@ import copy
 
 import numpy
 
+from ..backend import (
+    as_backend_constant,
+    backend_input,
+    get_namespace,
+    is_backend_array,
+)
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
@@ -62,8 +68,13 @@ class MovingObjectPotential(Potential):
                     "MovingObjectPotential for non-axisymmetric potentials is not currently supported"
                 )
             self._pot = pot
-        self._orb = copy.deepcopy(orbit)
+        # backend arrays are shared, not copied: a non-leaf torch tensor (a
+        # differentiated orbit) cannot be deep-copied, and none is mutated here
+        memo = {id(v): v for v in vars(orbit).values() if is_backend_array(v)}
+        self._orb = copy.deepcopy(orbit, memo)
         self._orb.turn_physical_off()
+        # every force evaluation queries the orbit: build its spline once
+        self._orb._cache_backend_interp()
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)
         # The second derivatives (for the variational equations) are the
@@ -73,46 +84,59 @@ class MovingObjectPotential(Potential):
         # available in C exactly when the kernel's are (same gating as hasC).
         self.hasC_dxdv = _check_c(self._pot, dxdv=True)
         self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
+        self._backend_compatible = True
         return None
 
+    def _orb_pos(self, t):
+        """The object's (R, phi, z) at t (z = 0 for a planar orbit)"""
+        oR = self._orb.R(t, _stored=True)
+        ophi = self._orb.phi(t, _stored=True)
+        return oR, ophi, (self._orb.z(t, _stored=True) if self._orb.dim() == 3 else 0)
+
+    @backend_input("R", "z", "phi", "t")
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Evaluate potential
         return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
+    @backend_input("R", "z", "phi", "t")
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd, zd) = _cyldiff(oR, ophi, orbz, R, phi, z)
         # Evaluate cylindrical radial force
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
-        return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
+        xp = get_namespace(R, z, phi)
+        return -RF * (xp.cos(phi) * xd + xp.sin(phi) * yd) / Rdist
 
+    @backend_input("R", "z", "phi", "t")
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd, zd) = _cyldiff(oR, ophi, orbz, R, phi, z)
         # Evaluate and return z force
         return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
+    @backend_input("R", "z", "phi", "t")
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd, zd) = _cyldiff(oR, ophi, orbz, R, phi, z)
         # Evaluate cylindrical radial force.
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
-        return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
+        xp = get_namespace(R, z, phi)
+        return -RF * R * (xp.cos(phi) * yd - xp.sin(phi) * xd) / Rdist
 
     def _xyzHess(self, R, z, phi, t):
         """Cartesian first (phix, phiy; phiz is never needed) and second
@@ -128,10 +152,10 @@ class MovingObjectPotential(Potential):
         be axisymmetric (enforced in __init__), so its phi derivatives vanish.
         """
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd, zd) = _cyldiff(oR, ophi, orbz, R, phi, z)
         # Kernel cylindrical derivatives at the shifted point (R',z')=(Rdist,zd)
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         R2d = evaluateR2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
@@ -149,71 +173,114 @@ class MovingObjectPotential(Potential):
         phizz = z2d
         return (phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz)
 
+    @backend_input("R", "z", "phi", "t")
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return cp**2.0 * phixx + 2.0 * cp * sp * phixy + sp**2.0 * phiyy
 
+    @backend_input("R", "z", "phi", "t")
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
         return phizz
 
+    @backend_input("R", "z", "phi", "t")
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return cp * phixz + sp * phiyz
 
+    @backend_input("R", "z", "phi", "t")
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return R**2.0 * (
             sp**2.0 * phixx - 2.0 * cp * sp * phixy + cp**2.0 * phiyy
         ) - R * (cp * phix + sp * phiy)
 
+    @backend_input("R", "z", "phi", "t")
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return (
             R * (cp * sp * (phiyy - phixx) + (cp**2.0 - sp**2.0) * phixy)
             - sp * phix
             + cp * phiy
         )
 
+    @backend_input("R", "z", "phi", "t")
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return R * (cp * phiyz - sp * phixz)
 
+    @backend_input("R", "z", "phi", "t")
     def _dens(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
-        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        oR, ophi, orbz = self._orb_pos(t)
+        Rdist = _cylR(R, phi, oR, ophi)
         # Difference vector
-        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd, zd) = _cyldiff(oR, ophi, orbz, R, phi, z)
         # Return the density
         return evaluateDensities(self._pot, Rdist, zd, t=t, use_physical=False)
 
 
+def _backend_ref(*vals):
+    """First backend array among vals (the device/dtype anchor), or None."""
+    for v in vals:
+        if is_backend_array(v):
+            return v
+    return None
+
+
+def _onto_backend(xp, ref, *vals):
+    """Bring numpy/python scalars onto the backend anchored on ref, so the whole
+    calculation is single-namespace. numpy path (ref is None) is a pass-through
+    -> byte-identical. Needed because the moving object's orbit position is a
+    numpy scalar while the field coords may be jax/torch, and torch rejects
+    mixed numpy-scalar / torch-tensor arithmetic (jax tolerates it)."""
+    if ref is None:
+        return vals
+    return tuple(
+        v if is_backend_array(v) else as_backend_constant(xp, v, ref) for v in vals
+    )
+
+
 def _cylR(R1, phi1, R2, phi2):
-    return numpy.sqrt(
-        R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * numpy.cos(phi1 - phi2)
+    xp = get_namespace(R1, phi1, R2, phi2)
+    R1, phi1, R2, phi2 = _onto_backend(
+        xp, _backend_ref(R1, phi1, R2, phi2), R1, phi1, R2, phi2
+    )
+    return xp.sqrt(
+        R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * xp.cos(phi1 - phi2)
     )  # Cosine law
 
 
 def _cyldiff(R1, phi1, z1, R2, phi2, z2):
-    dx = R1 * numpy.cos(phi1) - R2 * numpy.cos(phi2)
-    dy = R1 * numpy.sin(phi1) - R2 * numpy.sin(phi2)
+    # The orbit position (subscript 1) is a numpy scalar; the field coords
+    # (subscript 2) may be jax/torch. Bring everything onto the field backend so
+    # the arithmetic is single-namespace (torch rejects mixed numpy/torch ops).
+    xp = get_namespace(R1, phi1, z1, R2, phi2, z2)
+    ref = _backend_ref(R1, phi1, z1, R2, phi2, z2)
+    R1, phi1, z1, R2, phi2, z2 = _onto_backend(xp, ref, R1, phi1, z1, R2, phi2, z2)
+    dx = R1 * xp.cos(phi1) - R2 * xp.cos(phi2)
+    dy = R1 * xp.sin(phi1) - R2 * xp.sin(phi2)
     dz = z1 - z2
     return (dx, dy, dz)

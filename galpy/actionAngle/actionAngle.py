@@ -1,14 +1,60 @@
 import copy
+import math
 import types
 
 import numpy
 
+from ..backend._coerce import backend_point_1d
+from ..backend._namespaces import (
+    device_of,
+    is_backend_array,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
 from ..util import config, conversion
 from ..util.conversion import (
     actionAngle_physical_input,
     physical_compatible,
     physical_conversion_actionAngle,
 )
+
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures,
+# shared by the action-angle classes so the choice is made in one place.
+#
+# For ACTIONS, 50 matches scipy's adaptive quadrature to <1e-7 over the physical
+# orbit range (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only
+# at pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5.
+#
+# For ANGLES the floor is ~2e-6, i.e. ~20x looser, because the angle integrand
+# keeps the sqrt turning-point behaviour on a partial interval. Measured on
+# test_actionAngleSpherical_linear_angles: the deviation is 3.3e-6 at n=50,
+# 1.8e-6 at n=200, and 3.5e-6 at n=400 -- it does NOT converge, and round-off in
+# the larger node sum eventually makes it worse. Raising this constant is
+# therefore not a way to close a backend-vs-numpy angle gap.
+_BACKEND_GL_ORDER = 50
+
+
+def _concrete_param_namespace(pot, *params):
+    """The namespace of a backend parameter of ``pot`` or of ``params`` (delta,
+    gamma) -- a backend input turns the backend on -- else None."""
+    from ..potential.Potential import _pot_backend_namespace
+
+    xp = _pot_backend_namespace(pot)
+    if xp is None:
+        bk = [p for p in params if is_backend_array(p)]
+        xp = namespace_from_arrays(tuple(bk)) if bk else None
+    return xp
+
+
+def _c_cannot_carry(pot, *params):
+    """True if a derivative is requested that the C-native Jacobians cannot
+    carry: w.r.t. a parameter of ``pot`` or one of ``params`` (delta, gamma)."""
+    from ..potential.Potential import _pot_grad_namespace
+
+    return _pot_grad_namespace(pot) is not None or any(
+        under_trace(p) or requires_backend_grad(p) for p in params
+    )
 
 
 # Metaclass for copying docstrings from subclass methods, first func
@@ -40,6 +86,68 @@ class MetaActionAngle(type):
                         attrs[skey] = funccopy
                         break
         return type.__new__(meta, name, bases, attrs)
+
+
+def _lift_args(obj, args, point_1d=False):
+    """Python/numpy phase-space inputs onto the backend of a backend-array
+    input (a differentiated coordinate next to plain ones) or else of a
+    differentiated parameter of ``obj`` (its potential, b, omega, ...), as
+    ``@backend_input`` lifts a potential's coordinates; a forced numpy backend
+    still wins. Unchanged otherwise: on the numpy path one cached flag lookup."""
+    from ..backend._input import _coerce_one, _lift_param
+
+    if not all(
+        is_backend_array(a) or isinstance(a, (int, float, numpy.number, numpy.ndarray))
+        for a in args
+    ):
+        return args
+    bk = [a for a in args if is_backend_array(a)]
+    if len(bk) == len(args):
+        return args
+    if bk:
+        xp, dev = namespace_from_arrays(tuple(bk)), device_of(*bk)
+    else:
+        p = _lift_param(obj)
+        if p is None:
+            return args
+        xp, dev = namespace_from_arrays((p,)), device_of(p)
+    out = tuple(a if is_backend_array(a) else _coerce_one(xp, a, dev) for a in args)
+    # forward classes: a lifted scalar point as shape (1,), like numpy.array([x])
+    return backend_point_1d(*out) if point_1d else out
+
+
+def _is_scalar_point(args):
+    """A single phase-space point of Python/0-d scalars (not an Orbit)."""
+    return len(args) in (2, 5, 6) and all(
+        isinstance(a, (int, float, numpy.number)) or getattr(a, "ndim", None) == 0
+        for a in args
+    )
+
+
+def _forward(obj, method, args, kwargs):
+    """``method`` at ``args`` lifted onto the backend; a scalar point's backend
+    outputs take the shape numpy gives it (the class's ``_scalar_point_ndim``:
+    0 or 1; unset -- the lifted (1,) -- for most)."""
+    out = method(*_point_1d(_lift_args(obj, args, point_1d=True)), **kwargs)
+    ndim = getattr(obj, "_scalar_point_ndim", None)
+    if ndim is None or not _is_scalar_point(args):
+        return out
+    shape = () if ndim == 0 else (1,)
+
+    def fix(o):
+        if is_backend_array(o) and o.ndim != ndim and math.prod(o.shape) == 1:
+            return o.reshape(shape)
+        return o
+
+    return tuple(fix(o) for o in out) if isinstance(out, tuple) else fix(out)
+
+
+def _point_1d(args):
+    """A (R,vR,vT,z,vz[,phi]) point of 0-d backend arrays (e.g., a single orbit's
+    accessors under a forced backend) -> shape (1,), as for float input."""
+    if len(args) in (5, 6):
+        return backend_point_1d(*args)
+    return args
 
 
 # Python 2 & 3 compatible way to have a metaclass
@@ -155,21 +263,26 @@ class actionAngle(metaclass=MetaActionAngle):
                 raise RuntimeError(
                     "Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not supported"
                 )
-            self._eval_R = orb.R(use_physical=False)
-            self._eval_vR = orb.vR(use_physical=False)
-            self._eval_vT = orb.vT(use_physical=False)
+            # the orbit's own storage (numpy for a numpy orbit, whatever the
+            # forced backend; the backend for a backend orbit)
+            kw = dict(use_physical=False, _stored=True)
+            self._eval_R = orb.R(**kw)
+            self._eval_vR = orb.vR(**kw)
+            self._eval_vT = orb.vT(**kw)
             if args[0].phasedim() > 4:
-                self._eval_z = orb.z(use_physical=False)
-                self._eval_vz = orb.vz(use_physical=False)
+                self._eval_z = orb.z(**kw)
+                self._eval_vz = orb.vz(**kw)
                 if args[0].phasedim() > 5:
-                    self._eval_phi = orb.phi(use_physical=False)
+                    self._eval_phi = orb.phi(**kw)
             else:
                 if args[0].phasedim() > 3:
-                    self._eval_phi = orb.phi(use_physical=False)
-                self._eval_z = numpy.zeros_like(self._eval_R)
-                self._eval_vz = numpy.zeros_like(self._eval_R)
+                    self._eval_phi = orb.phi(**kw)
+                xp = namespace_from_arrays([self._eval_R]) or numpy
+                self._eval_z = xp.zeros_like(self._eval_R)
+                self._eval_vz = xp.zeros_like(self._eval_R)
         if hasattr(self, "_eval_z"):  # calculate the polar angle
-            self._eval_theta = numpy.arctan2(self._eval_R, self._eval_z)
+            xp = namespace_from_arrays([self._eval_R, self._eval_z]) or numpy
+            self._eval_theta = xp.arctan2(self._eval_R, self._eval_z)
         return None
 
     @actionAngle_physical_input
@@ -206,7 +319,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'__call__' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return _forward(self, method, args, kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqs", pop=True)
@@ -243,7 +356,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqs' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return _forward(self, method, args, kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqsAngles", pop=True)
@@ -279,7 +392,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'actionsFreqsAngles' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return _forward(self, method, args, kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("EccZmaxRperiRap", pop=True)
@@ -315,7 +428,7 @@ class actionAngle(metaclass=MetaActionAngle):
             raise NotImplementedError(
                 "'EccZmaxRperiRap' method not implemented for this actionAngle module"
             )
-        return method(*args, **kwargs)
+        return _forward(self, method, args, kwargs)
 
 
 class UnboundError(Exception):  # pragma: no cover

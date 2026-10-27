@@ -11,9 +11,26 @@
 ###############################################################################
 import numpy
 
+from ..backend import (
+    coerce_coords,
+    device_of,
+    prefer_backend_namespace,
+    scalar_like,
+)
+from ..backend._input import backend_input
+from ..backend._namespaces import namespace_from_arrays
+
 
 class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
+
+    def _namespace_and_R(self, R):
+        # R AND the parameters are data: a differentiated parameter at a
+        # Python-float R evaluates on its backend (R brought onto its device)
+        params = getattr(self, "_params", ())
+        xp = prefer_backend_namespace(R, *params)
+        (R,) = coerce_coords(xp, R, device=device_of(R, *params))
+        return xp, R
 
     def __init__(self):
         """Place holder for implementations of this class"""
@@ -107,6 +124,12 @@ class surfaceSigmaProfile:
 class expSurfaceSigmaProfile(surfaceSigmaProfile):
     """Exponential surface density and sigma_R^2 class"""
 
+    # The R-based evaluators below are backend-native, so @backend_input may
+    # coerce R. Declared on THIS class, not the base: a user subclass of
+    # surfaceSigmaProfile may still be numpy-only. Without this flag the
+    # decorator is inert -- _input.py gates coercion on _backend_ready(self).
+    _backend_compatible = True
+
     def __init__(self, params=(1.0 / 3.0, 1.0, 0.2)):
         """
         Initialize an exponential surface density and sigma_R^2 profile.
@@ -124,6 +147,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         surfaceSigmaProfile.__init__(self)
         self._params = params
 
+    @backend_input("R")
     def surfacemass(self, R, log=False):
         """
         Return the surface density profile at this R.
@@ -147,8 +171,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -R / self._params[0]
         else:
-            return numpy.exp(-R / self._params[0])
+            xp, R = self._namespace_and_R(R)
+            return xp.exp(-R / self._params[0])
 
+    @backend_input("R")
     def surfacemassDerivative(self, R, log=False):
         """
         Return the derivative wrt R of the surface density profile at this R.
@@ -172,8 +198,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -1.0 / self._params[0]
         else:
-            return -numpy.exp(-R / self._params[0]) / self._params[0]
+            xp, R = self._namespace_and_R(R)
+            return -xp.exp(-R / self._params[0]) / self._params[0]
 
+    @backend_input("R")
     def sigma2(self, R, log=False):
         """
         Return the radial velocity variance at this R.
@@ -195,12 +223,16 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         - 2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return 2.0 * numpy.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
+            # the parameter's own namespace: a traced sigma_R stays differentiable
+            lxp = namespace_from_arrays((self._params[2],)) or numpy
+            # numpy.float64 log: see scalar_like
+            logsigma = scalar_like(R, lxp.log(self._params[2]))
+            return 2.0 * logsigma - 2.0 * (R - 1.0) / self._params[1]
         else:
-            return self._params[2] ** 2.0 * numpy.exp(
-                -2.0 * (R - 1.0) / self._params[1]
-            )
+            xp, R = self._namespace_and_R(R)
+            return self._params[2] ** 2.0 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
 
+    @backend_input("R")
     def sigma2Derivative(self, R, log=False):
         """
         Return the derivative wrt R of the sigma_R^2 profile at this R
@@ -225,8 +257,9 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -2.0 / self._params[1]
         else:
+            xp, R = self._namespace_and_R(R)
             return (
                 self._params[2] ** 2.0
-                * numpy.exp(-2.0 * (R - 1.0) / self._params[1])
+                * xp.exp(-2.0 * (R - 1.0) / self._params[1])
                 * (-2.0 / self._params[1])
             )

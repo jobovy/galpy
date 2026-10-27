@@ -1,0 +1,474 @@
+###############################################################################
+#   galpy.backend._coerce: backend DATA-coercion helpers.
+###############################################################################
+"""Backend data-coercion helpers: the single home for bringing numpy/Python
+data onto the active jax/torch backend.
+
+PURPOSE
+-------
+This module does two related jobs:
+
+  * it brings numpy/Python *coordinate* data onto the active backend's array
+    type (so e.g. ``torch.sqrt`` -- which rejects ``numpy.float64`` -- and
+    ``Tensor`` arithmetic see real backend arrays), and
+  * it anchors *stored numpy constants* (rotation matrices, lookup tables, a
+    zero reference coordinate) onto the dtype/device of an input array, so the
+    constant joins the computation as a same-dtype/same-device backend array.
+
+It is the single home for data-coercion. Namespace *resolution* (which backend
+a call dispatches to) and the dtype/device *primitives* it builds on live in
+``_namespaces.py`` (``is_backend_array``, ``device_of``, ``asarray_on_device``,
+``match_input_dtype``); this module only consumes those primitives.
+
+THE CORE INVARIANT
+------------------
+Every function here is a STRICT PASS-THROUGH when ``xp is numpy``: it returns
+its inputs OBJECT-IDENTICALLY (no asarray, no copy, no dtype touch). This is
+what keeps the numpy code path BYTE-IDENTICAL to galpy's historical behaviour.
+Any new coercion helper added to this module MUST preserve this invariant --
+guard the work behind ``if xp is numpy: return <inputs unchanged>`` first.
+
+WHEN TO USE EACH
+----------------
+  * ``coerce_coords(xp, *coords)`` -- at the PUBLIC INPUT BOUNDARY (the
+    ``@potential_physical_input`` decorator) to bring coordinate arguments onto
+    the backend: plain Python/int scalars become float64 (galpy's interior
+    precision), float arrays keep their dtype (so the float32 exit-cast policy
+    still applies), and ``None`` passes through.
+  * ``promote_scalars(xp, *vals)`` -- INSIDE coordinate transforms to promote
+    plain Python scalars sitting alongside array arguments, anchored on the
+    dtype/device of the first array, so mixed scalar/array inputs work on a
+    backend whose functions require arrays.
+  * ``as_backend_constant(xp, value, ref)`` -- to anchor a single STORED numpy
+    constant (a rotation matrix, an offset, a table) on a backend ``ref`` array
+    derived from the coordinate inputs.
+  * ``zeros_like_backend(xp, R)`` -- for a backend ZERO reference coordinate
+    (e.g. the ``z = 0`` plane a spherical-in-disguise wrapper feeds its wrapped
+    potential).
+
+WHY float64-INTERIOR / DEVICE-ANCHORING
+---------------------------------------
+galpy computes in float64 internally: a bare ``asarray`` of a Python float
+yields torch float32 and silently misses galpy's tolerances, so plain scalars
+are lifted to ``xp.float64`` while genuine float arrays keep their own dtype.
+Anchoring constants and promoted scalars on an input array's dtype/device keeps
+the whole computation on one device and at one precision, which is required for
+torch (cross-device / mixed-dtype ops raise) and correct for jax.
+"""
+
+import math
+import sys
+
+import numpy
+
+from ..util._optional_deps import _TORCH_LOADED
+from ._namespaces import (
+    _HOST,
+    _backend_dtype,
+    _is_floating_dtype,
+    asarray_on_device,
+    device_of,
+    effective_device,
+    has_concrete_truth_value,
+    is_backend_array,
+    name_of_namespace,
+    namespace_from_arrays,
+    requires_backend_grad,
+    under_trace,
+)
+
+
+def coerce_coords(xp, *coords, device=None):
+    """Bring coordinate inputs onto the active backend's array type.
+
+    The dominant non-numpy failure mode is "the namespace resolved to a backend
+    (forced harness, or a user mixing a backend tensor with a numpy/python arg)
+    but a coordinate is still numpy/python", which torch rejects strictly
+    (``torch.sqrt(numpy.float64)`` raises; ``numpy.ndarray * Tensor`` raises).
+    Coercing the coordinates to backend arrays once, at the public input
+    boundary, fixes it for every potential at once.
+
+    Rules (applied only when the backend is NOT numpy):
+      * ``None`` is passed through (axisymmetric ``phi=None`` etc.).
+      * a coordinate that already carries a *floating* dtype (a numpy/backend
+        float32/float64 array or scalar) is moved onto the backend with its
+        dtype PRESERVED, so the float32/exit-cast policy (``match_input_dtype``)
+        still applies.
+      * a plain Python scalar (``1.0``/``1``) or an integer array is brought to
+        the backend's float64 -- galpy's interior precision; a bare ``asarray``
+        of a Python float would give torch float32 and miss the tolerances.
+
+    ``device`` overrides the device the coerced coordinates land on. Without it
+    the anchor is derived from ``coords`` alone, which is only right when the
+    caller passes every coordinate of a call at once: coercing them one at a
+    time gives each its own anchor, so a numpy coordinate anchors to None (the
+    backend default device, i.e. CPU for torch) while its CUDA siblings stay on
+    the GPU, and the evaluator is handed a split-device coordinate set. Callers
+    that coerce coordinate-by-coordinate pass the shared anchor explicitly.
+
+    The numpy backend is a strict pass-through (``coords`` returned object-
+    identical) -> the numpy path stays byte-identical.
+    """
+    if xp is numpy:
+        return coords
+    # Only a NON-default anchor (a CUDA sibling on a CPU-default run) is worth
+    # naming; effective_device drops the rest.
+    dev = effective_device(xp, device_of(*coords) if device is None else device)
+    out = []
+    for c in coords:
+        if c is None:
+            out.append(c)
+            continue
+        dt = getattr(c, "dtype", None)
+        if dt is not None and _is_floating_dtype(dt):
+            out.append(asarray_on_device(xp, c, dev))  # preserve float dtype
+        else:
+            out.append(asarray_on_device(xp, c, dev, dtype=xp.float64))
+    return tuple(out)
+
+
+def backend_point_1d(*coords):
+    """A single phase-space point given as 0-d backend arrays (what a forced
+    backend's accessors return for one object) as shape-(1,) arrays on that
+    backend and device -- the backend twin of the ``numpy.array([R])`` scalar
+    promotion. Anything else (arrays, Python/numpy scalars) passes through."""
+    if not (coords and is_backend_array(coords[0]) and coords[0].ndim == 0):
+        return coords
+    xp = namespace_from_arrays(coords[:1])
+    out = coerce_coords(xp, *coords, device=device_of(coords[0]))
+    return tuple(c if c is None else xp.reshape(c, (1,)) for c in out)
+
+
+def promote_scalars(xp, *vals):
+    """Promote plain Python scalars among ``vals`` to the active non-numpy
+    namespace, anchored on the dtype/device of the first array argument, so
+    that e.g. torch functions -- which require Tensors -- accept the mixed
+    scalar/array inputs that the numpy path has always supported. The numpy
+    path passes everything through untouched (byte-identical)."""
+    if xp is numpy:
+        return vals
+    # "Leave it" only for genuine backend (jax/torch) arrays: a numpy.float64
+    # (or numpy.ndarray) HAS .ndim but torch rejects it, so it must be PROMOTED.
+    ref = next((v for v in vals if is_backend_array(v)), None)
+    if ref is None:
+        # No backend array to anchor on, but xp is non-numpy (a forced default,
+        # or an array-API call). torch's functions REJECT numpy.float64/python
+        # floats, so coerce the operands onto the backend (python/int -> float64,
+        # numpy float arrays dtype-preserved) instead of passing through -- jax
+        # tolerates raw scalars but the coerced values are identical under x64.
+        return coerce_coords(xp, *vals)
+    dtype = getattr(ref, "dtype", None)
+    device = getattr(ref, "device", None)
+
+    def _promote(v):
+        if is_backend_array(v):
+            return v
+        # Delegate to the same helper coerce_coords uses: it places the value on
+        # the device and translates a numpy dtype to the backend dtype.
+        return asarray_on_device(xp, v, device, dtype=dtype)
+
+    return tuple(_promote(v) for v in vals)
+
+
+def as_backend_constant(xp, value, ref):
+    """Bring a stored numpy constant (rotation matrix / offset) into the active
+    namespace, anchored on the dtype/device of ``ref`` (a backend array derived
+    from the coordinate inputs). The numpy path passes the stored array through
+    untouched (byte-identical)."""
+    if xp is numpy:
+        return value
+    # a numpy ref: backend dtype, default device (numpy's .device is 'cpu')
+    dtype = _backend_dtype(xp, getattr(ref, "dtype", None))
+    device = effective_device(xp, device_of(ref))
+    try:
+        return xp.asarray(value, dtype=dtype, device=device)
+    except TypeError:  # pragma: no cover - namespace without device= kwarg
+        return xp.asarray(value, dtype=dtype)
+
+
+def _host_eval_eager(f, a):
+    from ._namespaces import as_numpy, requires_backend_grad
+
+    out = numpy.asarray(f(as_numpy(a)))
+    out = as_backend_constant(namespace_from_arrays((a,)), out, a)
+    if requires_backend_grad(a):
+        from ._torch.no_derivative import no_derivative
+
+        out = no_derivative(a, out)
+    return out
+
+
+def host_eval(f, a):
+    """The numpy-only, elementwise function ``f`` evaluated on the backend array
+    ``a``, anchored back on ``a``'s backend/dtype/device (no gradient).
+
+    For callables galpy cannot run in the backend, e.g. a user's astropy-units
+    density. Eager, ``a``'s values go through numpy. Traced, there are none:
+    ``jax.jit`` gets a ``jax.pure_callback`` and ``torch.compile`` runs the eager
+    evaluation outside the graph. It has no derivative, and never gives a silent
+    one: differentiating through it raises under eager ``jax.grad``, as the eager
+    numpy conversion does, and is NaN under ``jax.jit`` (a trace cannot raise for
+    a ``lax.cond`` arm that may not run) and under torch autograd.
+    """
+    import sys
+
+    from ._namespaces import has_concrete_truth_value, under_jax_trace
+    from ._tracectx import is_compiling
+
+    if under_jax_trace(a):
+        import jax
+
+        def callback(v):
+            return jax.pure_callback(
+                lambda u: numpy.asarray(f(numpy.asarray(u)), dtype=u.dtype),
+                jax.ShapeDtypeStruct(v.shape, v.dtype),
+                v,
+                vmap_method="expand_dims",
+            )
+
+        if has_concrete_truth_value(jax.numpy.all(a == a)):
+            return callback(a)
+        from ._jax.no_derivative import no_derivative
+
+        return no_derivative(callback, a)
+    if is_compiling():
+        return sys.modules["torch"].compiler.disable(_host_eval_eager)(f, a)
+    return _host_eval_eager(f, a)
+
+
+def scalar_like(ref, value):
+    """``as_backend_constant`` for a numpy SCALAR ``value`` when ``ref`` is a torch
+    tensor; anything else (Python scalars, numpy/jax ``ref``) is returned
+    untouched, object-identical.
+
+    torch.compile under a default device (``torch.set_default_device``, what
+    --device cuda runs) cannot take a numpy scalar on the left of an op
+    ("'ndarray' object has no attribute 'mul'"). Anchoring on ``ref``'s dtype
+    keeps eager's weak-scalar promotion (``like`` would make a strong 0-d
+    float64 tensor). ``.item()``/``float()`` would avoid the dispatch but break
+    on a scalar dynamo has lifted into the graph. jax takes numpy scalars
+    natively, but as strongly typed: for a narrower floating jax ``ref``
+    (float32) the value becomes the (weak) Python scalar, as on torch.
+    """
+    if ref is None or isinstance(ref, _HOST):
+        return value
+    if isinstance(value, (numpy.ndarray, numpy.generic)) and value.ndim == 0:
+        if _TORCH_LOADED:  # dynamo: 0-d ndarray
+            import torch
+
+            if isinstance(ref, torch.Tensor):
+                return as_backend_constant(namespace_from_arrays((ref,)), value, ref)
+        if "jax" in sys.modules:
+            import jax
+
+            if (
+                isinstance(ref, jax.Array)
+                and numpy.issubdtype(ref.dtype, numpy.floating)
+                and ref.dtype.itemsize < value.dtype.itemsize
+            ):
+                return value.item()
+    return value
+
+
+def data_zero(*xs):
+    """A structural zero (an axisymmetric torque, a constant's force) where a
+    kernel would compute: 0.0 on numpy, else zeros of the inputs' broadcast
+    shape on the backend of the backend arrays among ``xs``, or a forced one."""
+    from ._resolver import get_namespace
+
+    bk = [x for x in xs if is_backend_array(x)]
+    if bk:
+        return namespace_from_arrays(bk).zeros_like(sum(bk[1:], bk[0]))
+    xp = get_namespace(*xs)
+    if xp is numpy:
+        return 0.0
+    cs = coerce_coords(xp, *xs)
+    return xp.zeros_like(sum(cs[1:], cs[0]))
+
+
+def is_backend_input(x):
+    """Is ``x`` backend data that turns the backend on: any backend array, unless
+    a forced numpy pin (galpy's own host-side steps) holds -- then only a traced
+    or grad-tracking one."""
+    from ._resolver import forced_backend
+
+    return is_backend_array(x) and (
+        forced_backend() != "numpy" or under_trace(x) or requires_backend_grad(x)
+    )
+
+
+def concrete_backend_anchor(*xs):
+    """A zero on the namespace/device of the first concrete (not differentiated)
+    backend array among ``xs`` (lists are searched), else None; None under a
+    forced jax/torch backend, whose values are not the user's data (a numpy pin
+    of galpy's own setup does not count). Kept on an object that fits numpy
+    tables from such an input, it marks the object as a backend one -- a backend
+    input turns the backend on -- without moving the tables (a differentiated
+    input builds backend ones)."""
+    from ._resolver import _BACKEND_CTX
+
+    ctx = _BACKEND_CTX.get()
+    if ctx is not None and ctx[1] and ctx[0] != "numpy":
+        return None
+    for x in xs:
+        if isinstance(x, (list, tuple)):
+            a = concrete_backend_anchor(*x)
+            if a is not None:
+                return a
+        elif is_backend_array(x) and not (under_trace(x) or requires_backend_grad(x)):
+            xp = namespace_from_arrays((x,))
+            return asarray_on_device(xp, 0.0, device_of(x), dtype=x.dtype)
+    return None
+
+
+def zeros_like_backend(xp, R):
+    """The numpy path passes the plain scalar through untouched
+    (byte-identical); on a non-numpy backend the z = 0 reference
+    coordinate is anchored on the inputs so the wrapped potential sees a
+    backend array (torch functions require Tensors) on the right
+    device/dtype."""
+    return 0.0 if xp is numpy else xp.zeros_like(R)
+
+
+def radial_limits(r, fn, at0=None, atinf=None, numpy_too=False):
+    """``fn(r)``, with ``r == 0`` / ``r == inf`` given by their known limits.
+
+    Closed forms written in ``a/r`` or ``r/a`` evaluate FINITE at the edge where
+    that ratio is infinite, but their backward is ``0 * inf = NaN`` there. For a
+    backend ``r``, evaluate ``fn`` at a benign radius where ``r`` is an edge and
+    select the limit (``xp.where``'s dead branch then stays finite). Anything
+    else -- numpy, or a plain scalar under a forced backend -- gets ``fn(r)``
+    untouched (byte-identical). ``at0`` / ``atinf``: the limit value, or None to
+    leave that edge alone. ``numpy_too``: apply the limits to numpy input as
+    well, for a quantity whose numpy formula is itself NaN at the edge (only
+    edge entries change; without an edge present it is ``fn(r)`` untouched).
+    """
+    if not is_backend_array(r):
+        if not numpy_too:
+            return fn(r)
+        if numpy.ndim(r) == 0:  # numpy scalar fast path
+            if at0 is not None and r == 0.0:
+                return at0
+            if atinf is not None and r == numpy.inf:
+                return atinf
+            return fn(r)
+        ra = numpy.asarray(r, dtype=float)
+        edges = [
+            (m, v)
+            for m, v in ((ra == 0.0, at0), (numpy.isinf(ra), atinf))
+            if v is not None and numpy.any(m)
+        ]
+        if not edges:
+            return fn(r)
+        bad = numpy.zeros(ra.shape, dtype=bool)
+        for m, _ in edges:
+            bad |= m
+        out = numpy.asarray(fn(numpy.where(bad, 1.0, ra)), dtype=float)
+        for m, v in edges:
+            out = numpy.where(m, v, out)
+        return out[()]
+    xp = namespace_from_arrays((r,))
+    edges = [
+        (m, v) for m, v in ((r == 0.0, at0), (xp.isinf(r), atinf)) if v is not None
+    ]
+    bad = edges[0][0] if len(edges) == 1 else edges[0][0] | edges[1][0]
+    out = fn(xp.where(bad, xp.ones_like(r), r))
+    for mask, val in edges:
+        out = xp.where(mask, val * xp.ones_like(out), out)
+    return out
+
+
+def mask_where(xp, cond, r, fill):
+    """``xp.where(cond, r, fill)``: ``r`` where ``cond``, a benign ``fill``
+    elsewhere, to keep a dead branch finite. A numpy scalar is returned as is:
+    ``branch_where`` only runs the branch that uses it where ``cond`` holds."""
+    if xp is numpy and numpy.ndim(r) == 0:
+        return r
+    return xp.where(cond, r, fill * xp.ones_like(r * 1.0))
+
+
+def where(xp, cond, a, b):
+    """``xp.where(cond, a, b)``; ``a`` or ``b`` itself for a numpy scalar ``cond``
+    (numpy.where makes a 0-d array, and every op on one costs ~1 us more)."""
+    if xp is numpy and isinstance(cond, (bool, numpy.bool_)):
+        return a if cond else b
+    return xp.where(cond, a, b)
+
+
+def fill_where(xp, cond, x, fill):
+    """``x`` with ``fill`` where ``cond``, ``xp.where(cond, fill * xp.ones_like(x *
+    1.0), x)``: e.g. a stand-in of 1 that keeps a dead branch finite. Without the
+    arrays for a numpy scalar ``cond``."""
+    if xp is numpy and isinstance(cond, (bool, numpy.bool_)):
+        return fill if cond else x
+    return xp.where(cond, fill * xp.ones_like(x * 1.0), x)
+
+
+def branch_where(xp, cond, if_true, if_false):
+    """``xp.where(cond, if_true(), if_false())``, evaluating only what is used.
+
+    Eager ``xp.where`` computes both branches; for a closed form with a
+    cancellation-free branch near an edge that doubles (or worse) the dispatch
+    cost of every call, which is the whole cost on an eager backend. When
+    ``cond`` is concrete (numpy, eager jax/torch -- also under eager autodiff)
+    and uniform, only the needed branch runs; under a trace, or when mixed,
+    both do. The branch functions must be safe on every element (mask their
+    inputs as for any ``xp.where``).
+    """
+    if xp is numpy and numpy.ndim(cond) == 0:  # numpy scalar fast path
+        return if_true() if cond else if_false()
+    # one host sync: the count of True entries
+    nc = xp.sum(cond)
+    if has_concrete_truth_value(nc):
+        nc = int(nc)
+        if nc == 0:
+            return if_false()
+        if nc == math.prod(getattr(cond, "shape", ())):  # a Python bool: ()
+            return if_true()
+    return xp.where(cond, if_true(), if_false())
+
+
+def lazy_cond(xp, pred, if_true, if_false):
+    """``if_true() if pred else if_false()`` for a scalar boolean ``pred``,
+    also under a trace: jax.jit runs only the taken arm (``lax.cond``); a
+    torch.compile trace evaluates both and selects. The arms must return
+    arrays of the same shape and dtype."""
+    if has_concrete_truth_value(pred):
+        return if_true() if bool(pred) else if_false()
+    if name_of_namespace(xp) == "jax":
+        from ._jax.cond import cond
+
+        return cond(pred, if_true, if_false)
+    return xp.where(pred, if_true(), if_false())
+
+
+def power_series(xp, x, coeffs, first):
+    """``sum_i coeffs[i] x^(first + i)``; ``first >= 1`` keeps the derivative
+    finite at x = 0. numpy: Horner (a broadcast float power is ~12x slower).
+    Backends: the powers x^1..x^k as one cumulative product (a few dispatches,
+    rather than Horner's two per term, and no float power: ~3x faster eager)."""
+    if xp is numpy:
+        out = coeffs[-1]
+        for c in coeffs[-2::-1]:
+            out = out * x + c
+        return out * x**first
+    k = first + len(coeffs) - 1
+    c = numpy.array([0.0] * (first - 1) + list(coeffs), dtype=float)
+    c = asarray_on_device(xp, c, device_of(x), dtype=x.dtype)
+    powers = xp.cumprod(xp.stack([x] * k, axis=-1), axis=-1)
+    return xp.sum(c * powers, axis=-1)
+
+
+_EXPREL_SMALL = 1e-2
+_EXPREL_COEFFS = [1.0 / math.factorial(k + 1) for k in range(1, 7)]
+
+
+def exprel(xp, t):
+    """``expm1(t) / t``, 1 at t = 0, with a finite derivative there: a Taylor
+    series below |t| = 1e-2 (truncation < 1e-16), else expm1(t) / t."""
+    small = xp.abs(t) < _EXPREL_SMALL
+    ts = xp.where(small, t, 0.0)
+    tl = xp.where(small, 1.0, t)
+    return xp.where(
+        small, 1.0 + power_series(xp, ts, _EXPREL_COEFFS, 1), xp.expm1(tl) / tl
+    )

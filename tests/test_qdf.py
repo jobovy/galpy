@@ -2,6 +2,7 @@
 import numpy
 
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
+from galpy.backend import as_numpy
 from galpy.df import quasiisothermaldf
 
 # fiducial setup uses these
@@ -790,9 +791,9 @@ def test_sampleV():
         < 0.05
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
-    assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-        "sampleV vT mean is not equal to meanvT"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1)))) < 0.015
+    ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 1])) - 0.5 * numpy.log(qdf.sigmaT2(0.8, 0.1))
@@ -831,7 +832,8 @@ def test_sampleV_physical():
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
     assert (
-        numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1, vo=vo))) < 0.015 * vo
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1, vo=vo))))
+        < 0.015 * vo
     ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
@@ -870,11 +872,18 @@ def test_sampleV_interpolate():
         _precomputergnLz=201,
     )
     vo = 225.0
-    numpy.random.seed(4)
+    numpy.random.seed(3)
+
+    # Samples per position. The moment bars below are ~0.015 on <vT>, whose
+    # Monte-Carlo standard error is sigma_vT/sqrt(nper) ~ 0.0067 at nper=1000 --
+    # only 2.3 sigma, so the test is a few-percent coin flip for ANY correct
+    # sampler. nper=4000 puts the bars at ~4.5 sigma, which is what makes this a
+    # test of the sampler rather than of the seed.
+    nper = 4000
 
     def Rz_array(R_array, z_array, num_std=3, R_min=None, R_max=None, z_max=None):
-        R = numpy.hstack([i * numpy.ones(1000) for i in R_array])
-        z = numpy.hstack([i * numpy.ones(1000) for i in z_array])
+        R = numpy.hstack([i * numpy.ones(nper) for i in R_array])
+        z = numpy.hstack([i * numpy.ones(nper) for i in z_array])
         # add outlier
         R = numpy.append(R, 8.0)
         z = numpy.append(z, 5.0)
@@ -889,7 +898,7 @@ def test_sampleV_interpolate():
             R_max=R_max,
             z_max=z_max,
         )
-        samples = samples[1000:2000, :]
+        samples = samples[nper : 2 * nper, :]
         # test vR
         assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02, (
             "sampleV interpolate vR mean is not zero"
@@ -902,9 +911,10 @@ def test_sampleV_interpolate():
             < 0.05
         ), "sampleV interpolate vR stddev is not equal to sigmaR"
         # test vT
-        assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-            "sampleV interpolate vT mean is not equal to meanvT"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1))))
+            < 0.015
+        ), "sampleV interpolate vT mean is not equal to meanvT"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 1]))
@@ -931,23 +941,18 @@ def test_sampleV_interpolate():
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=4, z_number=4
     Rz_array([0.8, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3])  # R_number=2, z_number=4
     Rz_array([0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.2])  # R_number=4, z_number=2
-    # test saved hash and interpolation object
+    # The maxVT grid is cached on the grid-defining parameters and reused across
+    # calls, then rebuilt when they change.
     Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash1 = qdf._maxVT_hash
-    ip1 = qdf._maxVT_ip
-    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash2 = qdf._maxVT_hash
-    ip2 = qdf._maxVT_ip
-    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])
-    hash3 = qdf._maxVT_hash
-    ip3 = qdf._maxVT_ip
-    assert hash1 == hash2, "sampleV interpolate hash is changed unexpectedly"
-    assert ip1 == ip2, (
-        "sampleV interpolate interpolation object is changed unexpectedly"
+    key1, cached1 = qdf._maxVT_hash, qdf._maxVT_ip
+    assert key1 is not None, "sampleV_interpolate cached no maxVT grid"
+    Rz_array([0.7, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # same grid -> reuse
+    assert qdf._maxVT_hash == key1 and qdf._maxVT_ip is cached1, (
+        "sampleV_interpolate rebuilt the maxVT grid for unchanged parameters"
     )
-    assert hash3 != hash2, "sampleV interpolate hash did not changed as expected"
-    assert ip3 != ip2, (
-        "sampleV interpolate interpolation object did not changed as expected"
+    Rz_array([0.6, 0.8, 0.9, 1.0], [-0.3, 0.1, 0.2, 0.3])  # new R=0.6 -> new grid
+    assert qdf._maxVT_hash != key1, (
+        "sampleV_interpolate did not rebuild the maxVT grid for new parameters"
     )
     # test user-specified grid edges
     # since num_std is set so high, the extra outlier of (8,5) is not covered
@@ -1226,9 +1231,10 @@ def test_pvz_staeckel_arrayin():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     R, z = 0.8, 0.1
-    pvz = qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2))
+    pvz = as_numpy(qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2)))
     assert numpy.all(
-        numpy.fabs(numpy.log(pvz) - numpy.log(qdf.pvz(0.05, R, z))) < 10.0**-10.0
+        numpy.fabs(numpy.log(pvz) - numpy.log(as_numpy(qdf.pvz(0.05, R, z))))
+        < 10.0**-10.0
     ), (
         "pvz calculated with R and z array input does not equal to calculated with scalar input"
     )
@@ -1337,6 +1343,18 @@ def test_setup_diffsetups():
     assert numpy.fabs(qdf._rg(1.1) - qdfnpc._rg(1.1)) < 10.0**-5.0, (
         "rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set"
     )
+    # ... and the SCALAR out-of-table branch of _rg. lz=1.1 above sits inside
+    # [_precomputergLzmin, _precomputergLzmax], so it only exercises the spline.
+    # Beyond the table the spline must NOT be extrapolated: _rg falls back to
+    # the exact potential.rl. (Before the _precomputerg=False early return was
+    # added, this branch happened to be covered by the no-table instance, whose
+    # sentinel bounds are inverted so every scalar took it.)
+    from galpy.potential import rl
+
+    for lz in (qdf._precomputergLzmax * 1.5, qdf._precomputergLzmin * 0.5):
+        assert numpy.fabs(qdf._rg(lz) - rl(MWPotential, lz)) < 10.0**-10.0, (
+            "rg outside the precomputed table does not fall back to potential.rl"
+        )
 
 
 def test_call_diffinoutputs():
@@ -1717,7 +1735,9 @@ def test_precomputerg_false():
     )
     lzs = numpy.array([0.5, 1.1])
     assert numpy.all(
-        numpy.fabs(qdfnpc._rg(lzs) - numpy.array([rl(MWPotential, l) for l in lzs]))
+        numpy.fabs(
+            as_numpy(qdfnpc._rg(lzs)) - numpy.array([rl(MWPotential, l) for l in lzs])
+        )
         < 1e-11  # array rl: bisection to brentq's tolerance
     ), "qdf w/ _precomputerg=False does not compute rg exactly"
     qdf = quasiisothermaldf(
@@ -1780,7 +1800,9 @@ def test_unbound_in_array_adiabatic_python():
     assert numpy.fabs(f[0] / qdfs[1](R[0], vR[0], vT[0], z[0], vz[0]) - 1.0) < 1e-8, (
         "qdf array call with an unbound point does not agree with C"
     )
-    out, jr, lz, jz = qdf(R, vR, vT, z, vz, log=True, _return_actions=True)
+    out, jr, lz, jz = (
+        as_numpy(x) for x in qdf(R, vR, vT, z, vz, log=True, _return_actions=True)
+    )
     assert out[1] == -numpy.finfo(numpy.dtype(numpy.float64)).max, (
         "unbound point in qdf array call does not return log(0)"
     )
@@ -1788,10 +1810,13 @@ def test_unbound_in_array_adiabatic_python():
         "unbound point in qdf array call does not return NaN actions"
     )
     assert numpy.all(
-        numpy.fabs(jr[[0, 2]] - qdfs[1]._aA(R, vR, vT, z, vz)[0][[0, 2]]) < 1e-8
+        numpy.fabs(jr[[0, 2]] - as_numpy(qdfs[1]._aA(R, vR, vT, z, vz)[0])[[0, 2]])
+        < 1e-8
     ), "qdf array call with an unbound point does not return the correct actions"
-    out, rg, kappa, nu, Omega = qdf(R, vR, vT, z, vz, _return_freqs=True)
-    assert numpy.isnan(rg[1]) and numpy.all(numpy.fabs(out - f) < 1e-14), (
+    out, rg, kappa, nu, Omega = (
+        as_numpy(x) for x in qdf(R, vR, vT, z, vz, _return_freqs=True)
+    )
+    assert numpy.isnan(rg[1]) and numpy.all(numpy.fabs(out - as_numpy(f)) < 1e-14), (
         "qdf array call with an unbound point and _return_freqs fails"
     )
     # moments: the GL grid contains unbound nodes; Python and C must agree

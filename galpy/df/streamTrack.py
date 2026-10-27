@@ -6,6 +6,35 @@ from matplotlib import pyplot
 from scipy import interpolate
 from scipy.spatial import cKDTree
 
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    co_like,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+    to_host,
+)
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    requires_backend_grad,
+    stop_gradient,
+    under_trace,
+)
+from ..backend.interpolate import (
+    Spline1D,
+    _apply_frozen_smoother,
+    _fitpack_operator,
+    _gcv_operator,
+    _linear_operator_at,
+    _smoothing_design,
+    cubic_bspline_kernel,
+    cubic_spline_coeffs,
+    eval_cubic,
+    interp_linear,
+)
+from ..backend.linalg import psd_project
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
@@ -29,21 +58,162 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
             [tp_nodes[-1] + 0.5 * dt_node],
         )
     )
-    idx = numpy.clip(numpy.searchsorted(edges, tp_assign) - 1, 0, M - 1)
+    # The bin ASSIGNMENT (which node each particle falls in) is a non-differentiable
+    # structural index -> numpy. The binned mean/cov VALUES follow ``values``.
+    idx = numpy.clip(numpy.searchsorted(edges, as_numpy(tp_assign)) - 1, 0, M - 1)
     D = values.shape[1]
-    means = numpy.full((M, D), numpy.nan)
-    covs = numpy.zeros((M, D, D))
-    counts = numpy.zeros(M, dtype=int)
-    for m in range(M):
-        sel = idx == m
-        k = int(sel.sum())
-        counts[m] = k
-        if k < 2:
-            continue
-        group = values[sel]
-        means[m] = group.mean(axis=0)
-        covs[m] = numpy.cov(group, rowvar=False)
+    counts = numpy.array([int((idx == m).sum()) for m in range(M)])
+    if is_backend_array(values):
+        # Backend-agnostic segment mean/cov, gathered by the numpy idx one-hot.
+        # ddof=1 (numpy.cov); k<2 bins -> NaN mean / zero cov, as in the loop.
+        xp = get_namespace(values)
+        dev = device_of(values)  # anchor the numpy index/one-hot on values' device
+        onehot = numpy.zeros((len(idx), M))
+        onehot[numpy.arange(len(idx)), idx] = 1.0
+        onehot_b = asarray_on_device(xp, onehot, dev)
+        counts_b = asarray_on_device(xp, counts.astype(float), dev)
+        sums = xp.einsum("nm,nd->md", onehot_b, values)  # (M, D)
+        raw_means = sums / xp.where(counts_b > 0, counts_b, 1.0)[:, None]
+        centered = values - raw_means[asarray_on_device(xp, idx, dev)]  # (N, D)
+        outer = centered[:, :, None] * centered[:, None, :]  # (N, D, D)
+        cov_sums = xp.einsum("nm,nij->mij", onehot_b, outer)  # (M, D, D)
+        raw_covs = cov_sums / xp.where(counts_b > 1, counts_b - 1.0, 1.0)[:, None, None]
+        valid = counts_b > 1
+        means = xp.where(valid[:, None], raw_means, float("nan"))
+        covs = xp.where(valid[:, None, None], raw_covs, 0.0)
+    else:
+        means = numpy.full((M, D), numpy.nan)
+        covs = numpy.zeros((M, D, D))
+        for m in range(M):
+            sel = idx == m
+            if counts[m] < 2:
+                continue
+            group = values[sel]
+            means[m] = group.mean(axis=0)
+            covs[m] = numpy.cov(group, rowvar=False)
     return means, covs, counts
+
+
+def _prep_valid(x_full, y_full, sigma_full):
+    """Masked+ordered valid points and safe weights, matching _smooth_series."""
+    mask = numpy.isfinite(y_full) & numpy.isfinite(x_full)
+    idx = numpy.where(mask)[0]
+    idx = idx[numpy.argsort(x_full[idx])]
+    sig_safe = numpy.where(
+        numpy.isfinite(sigma_full) & (sigma_full > 0), sigma_full, numpy.nan
+    )
+    with numpy.errstate(invalid="ignore"):
+        sig_med = (
+            numpy.nanmedian(sig_safe)
+            if numpy.any(numpy.isfinite(sig_safe))
+            else numpy.nan
+        )
+    if not numpy.isfinite(sig_med) or sig_med == 0:
+        sig_med = 1.0
+    sv = numpy.maximum(
+        numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[idx], 1e-12
+    )
+    return idx, x_full[idx], y_full[idx], sv
+
+
+def _smoother_operator(xv, yv, sv, s_user, smoothing_factor):
+    """streamTrack POLICY: (t, S) for the spline paths (>=5 valid points),
+    matching the numpy _smooth_series fit. Applies the O(1) y-rescaling before
+    GCV (``make_smoothing_spline`` collapses to interpolation at galpy's small
+    internal-unit scale) and the effective-s/smoothing_factor refit choice, then
+    delegates the actual reconstruction to the backend ``_gcv_operator`` /
+    ``_fitpack_operator``. ``S @ yv`` are the (unscaled) fitted B-spline coeffs
+    (the operator is scale-agnostic; the rescaling only sets the frozen GCV
+    ``lambda`` / ``s`` hyperparameters)."""
+    if s_user is None:
+        yscale = float(numpy.nanstd(yv))  # O(1) rescale for GCV (see numpy path)
+        if not numpy.isfinite(yscale) or yscale == 0:
+            yscale = 1.0
+        w = 1.0 / ((sv / yscale) ** 2)
+        t, S = _gcv_operator(xv, yv / yscale, w)
+        if smoothing_factor == 1.0:
+            return t, S
+        # refit at s = s_gcv * smoothing_factor (s_gcv = achieved GCV SSR)
+        fit_xv = interpolate.BSpline.design_matrix(xv, t, 3).toarray() @ (S @ yv)
+        s_gcv = float(numpy.sum(((yv - fit_xv) / sv) ** 2))
+        return _fitpack_operator(xv, yv, 1.0 / sv, s_gcv * float(smoothing_factor))
+    s_val = float(s_user) * float(smoothing_factor)
+    return _fitpack_operator(xv, yv, 1.0 / sv, s_val)
+
+
+class _DiffSpline:
+    """Callable differentiable spline: ``__call__(q) = frozen_operator(y) @ y``,
+    reproducing the numpy _smooth_series fit but differentiable w.r.t. y. The
+    streamTrack POLICY (masking/safe-sigma via :func:`_prep_valid`, the GCV
+    y-rescaling and smoothing_factor choice via :func:`_smoother_operator`) is
+    computed inside ``build`` on the concrete y, so the whole thing stays
+    jit-traceable; the generic reconstruction lives in
+    :mod:`galpy.backend.interpolate`."""
+
+    def __init__(self, y, x_full, sigma_full, s_user, smoothing_factor, name):
+        self._y = y
+        self._x = numpy.asarray(x_full, dtype=float)
+        self._sigma = numpy.asarray(sigma_full, dtype=float)
+        self._s_user = s_user
+        self._sf = float(smoothing_factor)
+        self._name = name
+
+    def _build(self, q):
+        x_full, sigma_full = self._x, self._sigma
+        s_user, sf = self._s_user, self._sf
+
+        def build(y_full):
+            y_full = numpy.asarray(y_full, dtype=float)
+            Gq = numpy.zeros((len(q), y_full.shape[0]))
+            idx, xv, yv, sv = _prep_valid(x_full, y_full, sigma_full)
+            nval = len(xv)
+            if nval < 5:
+                if nval < 2:
+                    if nval == 1:
+                        Gq[:, idx[0]] = 1.0  # constant fit = yv[0]
+                    return Gq  # nval==0 -> fit 0 everywhere
+                Gq[:, idx] = _linear_operator_at(xv, q)
+                return Gq
+            t, S = _smoother_operator(xv, yv, sv, s_user, sf)
+            Gq[:, idx] = _smoothing_design(q, t) @ S
+            return Gq
+
+        return build
+
+    def __call__(self, q):
+        q = numpy.atleast_1d(numpy.asarray(q, dtype=float))
+        return _apply_frozen_smoother(self._build(q), self._y, q, self._name)
+
+
+def _smooth_series_backend(x, y, sigma, s_user, smoothing_factor):
+    """Differentiable backend counterpart of _smooth_series. The fit matches
+    scipy; the smoothing structure (lambda / knots / p / weights) is frozen from
+    the concrete y (a stop-gradient hyperparameter), so the gradient is
+    d(fit)/d(y) at fixed smoothing. ``effective_s`` is reused byte-for-byte from
+    the numpy _smooth_series path (trace-safe under jit)."""
+    x_np = numpy.asarray(x, dtype=float)
+    sigma_np = as_numpy(sigma).astype(float)
+    name = name_of_namespace(get_namespace(y))
+    spl = _DiffSpline(y, x_np, sigma_np, s_user, smoothing_factor, name)
+    if name == "jax":
+        import jax
+
+        Tracer = getattr(jax, "Tracer", None) or jax.core.Tracer
+        if isinstance(y, Tracer):
+            fdtype = jax.dtypes.canonicalize_dtype(numpy.float64)
+            eff_s = jax.pure_callback(
+                lambda yc: numpy.asarray(
+                    _smooth_series(
+                        x_np, numpy.asarray(yc), sigma_np, s_user, smoothing_factor
+                    )[1],
+                    dtype=fdtype,
+                ),
+                jax.ShapeDtypeStruct((), fdtype),
+                jax.lax.stop_gradient(y),
+            )
+            return spl, eff_s
+    eff_s = _smooth_series(x_np, as_numpy(y), sigma_np, s_user, smoothing_factor)[1]
+    return spl, eff_s
 
 
 def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
@@ -68,7 +238,14 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
 
     Falls back to linear interpolation (effective_s=0) for fewer than 5
     valid bins.
+
+    For a backend-array ``y`` (jax/torch) the same fit is expressed as a frozen
+    linear operator ``y -> fit`` (:func:`_smooth_series_backend`), differentiable
+    in ``y`` with the smoothing structure held fixed; the numpy path below is
+    byte-identical.
     """
+    if is_backend_array(y):
+        return _smooth_series_backend(x, y, sigma, s_user, smoothing_factor)
     mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
     order = numpy.argsort(x[mask])
@@ -192,6 +369,11 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
     components (last 3 columns) by this factor before computing distances.
     See :func:`_fit_track_from_particles` for usage and ``'auto'`` mode.
     """
+    # The closest-node assignment is a non-differentiable structural index
+    # (cKDTree needs numpy); the returned times route the differentiable binning.
+    points = as_numpy(points)
+    curve = as_numpy(curve)
+    curve_t = as_numpy(curve_t)
     if velocity_weight != 1.0 and curve.shape[1] == 6:
         sc = numpy.array(
             [1.0, 1.0, 1.0, velocity_weight, velocity_weight, velocity_weight]
@@ -228,6 +410,106 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
     return tp_out
 
 
+def _fit_one_pass_backend(
+    particles_cart,
+    tp_assign,
+    tp_nodes,
+    tp_grid,
+    prog_at_fn,
+    order,
+    s_user_mean,
+    s_user_cov,
+    smoothing_factor=1.0,
+):
+    """Backend (jax/torch) counterpart of :func:`_fit_one_pass`.
+
+    Mirrors the numpy body but keeps the track/covariance as backend arrays,
+    differentiable in the particle values: the offsets, binned mean/cov, the
+    per-coordinate smoothing splines and the PSD-projected covariance all flow
+    from the backend ``particles_cart``. The structural inputs (``tp_assign``,
+    the bin ``counts``, the progenitor curve) stay numpy and enter as frozen
+    constants. Tiny-negative variances the numpy path lets go NaN (then masks)
+    are clamped at zero here (a no-op on every real >=2-count bin) so reverse-
+    mode AD is not NaN-poisoned.
+    """
+    xp = get_namespace(particles_cart)
+    dev = device_of(particles_cart)
+
+    prog_at_particles = prog_at_fn(tp_assign)  # backend curve stays differentiable
+    if not is_backend_array(prog_at_particles):
+        prog_at_particles = asarray_on_device(xp, prog_at_particles, dev)
+    offsets = particles_cart - prog_at_particles
+
+    means, covs, counts = _bin_by_tp(tp_assign, offsets, tp_nodes)
+    counts_b = asarray_on_device(xp, counts.astype(float), dev)
+    per_coord_sigma = xp.sqrt(xp.clip(xp.einsum("mii->mi", covs), 0.0, None))
+    sigma_of_mean = per_coord_sigma / xp.sqrt(xp.clip(counts_b[:, None], 1.0, None))
+    sigma_of_mean = xp.where(counts_b[:, None] > 1.0, sigma_of_mean, float("nan"))
+
+    eff_s_mean = []
+    offset_splines = []
+    for i in range(6):
+        spl, es = _smooth_series(
+            tp_nodes,
+            means[:, i],
+            sigma_of_mean[:, i],
+            s_user=s_user_mean[i],
+            smoothing_factor=smoothing_factor,
+        )
+        offset_splines.append(spl)
+        eff_s_mean.append(es)
+    offset_fine = xp.stack([spl(tp_grid) for spl in offset_splines], axis=-1)
+
+    prog_on_grid = prog_at_fn(tp_grid)  # backend curve stays differentiable
+    if not is_backend_array(prog_on_grid):
+        prog_on_grid = asarray_on_device(xp, prog_on_grid, dev)
+    track_fine = prog_on_grid + offset_fine
+
+    eff_s_cov = []
+    cov_xyz = None
+    if order >= 2:
+        entries = {}
+        cov_idx = 0
+        for a in range(6):
+            for b in range(a, 6):
+                vals = covs[:, a, b]
+                diag_a = per_coord_sigma[:, a] ** 2
+                diag_b = per_coord_sigma[:, b] ** 2
+                sigma_c = xp.sqrt(
+                    xp.clip(
+                        (diag_a * diag_b + vals**2) / xp.clip(counts_b, 2.0, None),
+                        0.0,
+                        None,
+                    )
+                )
+                sigma_c = xp.where(counts_b > 1.0, sigma_c, float("nan"))
+                spl, es = _smooth_series(
+                    tp_nodes,
+                    vals,
+                    sigma_c,
+                    s_user=s_user_cov[cov_idx],
+                    smoothing_factor=smoothing_factor,
+                )
+                eff_s_cov.append(es)
+                cov_idx += 1
+                entries[(a, b)] = spl(tp_grid)
+        # Symmetric (ninterp, 6, 6) built functionally (no in-place assignment).
+        rows = [
+            xp.stack([entries[(min(a, b), max(a, b))] for b in range(6)], axis=-1)
+            for a in range(6)
+        ]
+        cov_fine = xp.stack(rows, axis=-2)
+        cov_fine = xp.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
+        cov_xyz = psd_project(cov_fine)
+
+    return (
+        track_fine[:, 0:3],
+        track_fine[:, 3:6],
+        cov_xyz,
+        eff_s_mean + eff_s_cov,
+    )
+
+
 def _fit_one_pass(
     particles_cart,
     tp_assign,
@@ -253,6 +535,18 @@ def _fit_one_pass(
 
     Returns ``(track_xyz, track_vxvyvz, cov_xyz_or_None, smoothing_s)``.
     """
+    if is_backend_array(particles_cart):
+        return _fit_one_pass_backend(
+            particles_cart,
+            tp_assign,
+            tp_nodes,
+            tp_grid,
+            prog_at_fn,
+            order,
+            s_user_mean,
+            s_user_cov,
+            smoothing_factor=smoothing_factor,
+        )
     prog_at_particles = prog_at_fn(tp_assign)
     offsets = particles_cart - prog_at_particles
 
@@ -333,80 +627,78 @@ _PSPLINE_QUANTILE_STEPS = 20
 # hard limits (whose clamping kinks the track): height in d REML / d ln lambda,
 # width in ln lambda
 _PSPLINE_WALL = (10.0, 0.25)
+_PSPLINE_SEARCH_BLOCK = 2**23  # (particle, curve sample) pairs per traced search block
 
 
-def _cubic_bspline_kernel(u, nu=0):
-    """The centred cubic B-spline ``beta3(u)`` or its ``nu``-th derivative
-    (``nu`` = 0, 1, 2), elementwise. C2, supported on ``|u| < 2``; the integer
-    translates ``beta3(u - k)`` sum to one."""
-    t = numpy.abs(u)
-    if nu == 0:
-        t2 = t * t
-        t3 = t2 * t
-        inner = 2.0 / 3.0 - t2 + t3 / 2.0  # |t| < 1
-        outer = (2.0 - t) ** 3 / 6.0  # 1 <= |t| < 2 (negative/0 beyond, masked)
-    elif nu == 1:
-        sgn = numpy.sign(u)
-        inner = sgn * (1.5 * t * t - 2.0 * t)
-        outer = -0.5 * sgn * (2.0 - t) ** 2
-    elif nu == 2:
-        inner = 3.0 * t - 2.0
-        outer = 2.0 - t
-    else:
-        raise ValueError(f"_cubic_bspline_kernel: nu must be 0, 1 or 2, got {nu}")
-    return numpy.where(t < 1.0, inner, numpy.where(t < 2.0, outer, t * 0.0))
-
-
-def _sorted_quantile(v, q):
-    """``numpy.percentile(v, 100 * q)`` (linear) of a 1D ``v``, from the sorted
-    values: continuous in ``v``."""
+def _sorted_quantile(xp, v, q):
+    """``numpy.percentile(v, 100 * q)`` (linear) of a 1D ``v`` at a concrete ``q``:
+    a static index into ``xp.sort(v)``, so it traces and differentiates."""
     pos = q * (v.shape[0] - 1)
     lo = int(math.floor(pos))
     hi = min(lo + 1, v.shape[0] - 1)
-    vs = numpy.sort(v)
+    vs = xp.sort(v)
     return vs[lo] * (1.0 - (pos - lo)) + vs[hi] * (pos - lo)
 
 
-def _smooth_quantile(v, q):
+def _smooth_quantile(xp, v, q):
     """The ``q``-quantile of a 1D ``v`` from its kernel-smoothed empirical CDF: the
     root ``u`` of ``mean(sigmoid((u - v) / h)) = q``, with ``h`` 5% of the rms of
     ``v``. Smooth in ``v``, unlike an order statistic, whose slope jumps whenever
     two values swap at its rank. Newton steps (each at most ``h``) from
     :func:`_sorted_quantile`."""
-    h = _PSPLINE_QUANTILE_BANDWIDTH * numpy.sqrt(numpy.mean(v * v))
-    h = numpy.where(h > 0.0, h, 1.0)
-    u = _sorted_quantile(v, q)
+    h = _PSPLINE_QUANTILE_BANDWIDTH * xp.sqrt(xp.mean(v * v))
+    h = xp.where(h > 0.0, h, 1.0)
+    u = stop_gradient(_sorted_quantile(xp, v, q))
     for _ in range(_PSPLINE_QUANTILE_STEPS):
-        # 1 / (1 + exp((v - u) / h)), whose exp overflows far out
-        s = 0.5 - 0.5 * numpy.tanh(0.5 * (v - u) / h)
-        fp = numpy.mean(s * (1.0 - s)) / h
-        step = (numpy.mean(s) - q) / numpy.where(fp > 0.0, fp, 1.0)
-        u = u - numpy.clip(step, -h, h)
+        # 1 / (1 + exp((v - u) / h)), whose exp overflows (NaN gradient) far out
+        s = 0.5 - 0.5 * xp.tanh(0.5 * (v - u) / h)
+        fp = xp.mean(s * (1.0 - s)) / h
+        step = (xp.mean(s) - q) / xp.where(fp > 0.0, fp, 1.0)
+        u = u - xp.clip(step, -h, h)
     return u
 
 
-def _project_onto_curve(pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt):
+def _closest_sample(xp, pts, metric, c_nodes):
+    """Index of the closest of the curve samples ``c_nodes`` (M, D) to each of
+    ``pts`` (N, D), with per-coordinate weights ``metric``: a k-d tree on concrete
+    values, else a dense search over blocks of particles (bounded memory under a
+    trace). Structural: nothing differentiates through it."""
+    m, p, c = stop_gradient(metric), stop_gradient(pts), stop_gradient(c_nodes)
+    if not under_trace(m, p, c):
+        sq = numpy.sqrt(as_numpy(m))
+        idx = cKDTree(as_numpy(c) * sq).query(as_numpy(p) * sq, k=1)[1]
+        return asarray_on_device(xp, idx, device_of(c) if xp is not numpy else None)
+    # |p - c|^2 without the per-particle |p|^2, which does not change the argmin
+    cm, cc = c * m, xp.sum(m * c * c, axis=-1)
+    nb = max(1, _PSPLINE_SEARCH_BLOCK // c.shape[0])
+    idx = [
+        xp.argmin(cc[None, :] - 2.0 * xp.einsum("ni,mi->nm", p[i : i + nb], cm), axis=1)
+        for i in range(0, p.shape[0], nb)
+    ]
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    return idx[0] if len(idx) == 1 else concat(idx)
+
+
+def _project_onto_curve(xp, pts, metric, curve, t_nodes, c_nodes, t_lo, t_hi, dt):
     """Closest point ``t_i = argmin_t |p_i - c(t)|`` (per-coordinate weights
     ``metric``) on the smooth curve ``curve(t, nu)``, sampled as ``c_nodes`` at
-    ``t_nodes``: start at the closest sample, then Newton steps on the curve,
-    each capped at the sample spacing ``dt``, with ``t`` clamped to
+    ``t_nodes``: start at the closest sample (structural), then Newton steps on
+    the curve, each capped at the sample spacing ``dt``, with ``t`` clamped to
     ``[t_lo, t_hi]``. The minimizer does not depend on which sample the search
-    starts from, so ``t_i`` is smooth in the particle and the curve."""
-    sq = numpy.sqrt(metric)
-    t = t_nodes[cKDTree(c_nodes * sq).query(pts * sq, k=1)[1]]
+    starts from, so ``t_i`` is smooth in the particle and the curve, and the
+    unrolled steps differentiate to the implicit-function derivative."""
+    t = xp.take(t_nodes, _closest_sample(xp, pts, metric, c_nodes), axis=0)
     for _ in range(_PSPLINE_PROJECT_STEPS):
         r = curve(t, 0) - pts
         c1 = curve(t, 1)
-        g1 = numpy.sum(metric * r * c1, axis=-1)
-        g2 = numpy.sum(metric * (c1 * c1 + r * curve(t, 2)), axis=-1)
-        step = numpy.where(
-            g2 > 0.0, g1 / numpy.where(g2 > 0.0, g2, 1.0), numpy.sign(g1) * dt
-        )
-        t = numpy.clip(t - numpy.clip(step, -dt, dt), t_lo, t_hi)
+        g1 = xp.sum(metric * r * c1, axis=-1)
+        g2 = xp.sum(metric * (c1 * c1 + r * curve(t, 2)), axis=-1)
+        step = xp.where(g2 > 0.0, g1 / xp.where(g2 > 0.0, g2, 1.0), xp.sign(g1) * dt)
+        t = xp.clip(t - xp.clip(step, -dt, dt), t_lo, t_hi)
     return t
 
 
-def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
+def _pspline_fit(xp, B, w, y, P, lam_rel, smoothing_factor):
     """Weighted cubic P-spline fit of the offsets ``y`` (N, 6) on the basis ``B``
     (N, K) with the second-difference penalty ``P`` (K, K), one penalty per
     coordinate.
@@ -414,31 +706,34 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
     ``lam_rel`` (6,) fixes the penalties relative to ``tr(B'WB)/tr(P)``; ``None``
     maximizes each coordinate's restricted likelihood (REML; GCV undersmooths
     where the particles are sparse): a coarse grid, then Newton steps on the
-    closed-form ``d REML / d log lambda`` (and its derivative). Returns
-    ``(coefficients (6, K), lam_rel used (6,))``.
+    closed-form ``d REML / d log lambda`` (and its derivative), both on
+    stop-gradient data, then one more step on the live data, which leaves the
+    converged value in place and carries the implicit derivative of the chosen
+    penalty. Returns ``(coefficients (6, K), lam_rel used (6,))``.
     """
     K = B.shape[1]
-    eye = numpy.eye(K)
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    eye = asarray_on_device(xp, numpy.eye(K), device_of(B))
 
     def data(B, w, y):
         Bw = B * w[:, None]
-        BtWB = numpy.matmul(Bw.T, B)
+        BtWB = xp.matmul(Bw.T, B)
         # a 1e-12 ridge keeps the system invertible when the particles do not
         # fix the penalty's null space (e.g., all at one tp)
-        BtWB = BtWB + (1e-12 * numpy.sum(BtWB * eye) / K) * eye
-        scale = numpy.sum(BtWB * eye) / numpy.sum(P * eye)
-        return B, w, y.T, BtWB, numpy.matmul(y.T, Bw), scale
+        BtWB = BtWB + (1e-12 * xp.sum(BtWB * eye) / K) * eye
+        scale = xp.sum(BtWB * eye) / xp.sum(P * eye)
+        return B, w, y.T, BtWB, xp.matmul(y.T, Bw), scale
 
     def solve(d, lam, extra):
         # A = B'WB + lam P for each lam (..., 6), and A^-1 [extra | B'Wy]
         A = d[3] + lam[..., None, None] * P
         shp = tuple(A.shape[:-2])
-        rhs = numpy.concatenate(
-            [numpy.broadcast_to(c, shp + (K, K)) for c in extra]
-            + [numpy.broadcast_to(d[4][..., None], shp + (K, 1))],
+        rhs = concat(
+            [xp.broadcast_to(c, shp + (K, K)) for c in extra]
+            + [xp.broadcast_to(d[4][..., None], shp + (K, 1))],
             axis=-1,
         )
-        return A, numpy.linalg.solve(A, rhs)
+        return A, xp.linalg.solve(A, rhs)
 
     def dreml(d, ell):
         # F = d REML / d log lam and dF/d log lam, in closed form from
@@ -446,27 +741,25 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
         # F = (n-2)/2 lam s.Ps / D - (K-2)/2 + lam tr(R) / 2,
         # F' = (n-2)/2 [(lam s.Ps - 2 lam^2 u.Ps) / D - (lam s.Ps / D)^2]
         #      + (lam tr(R) - lam^2 tr(RR)) / 2
-        lam = numpy.exp(ell) * d[5]
+        lam = xp.exp(ell) * d[5]
         _, X = solve(d, lam, [P])
         R, s = X[..., :K], X[..., -1]
-        resid = d[2] - numpy.matmul(s, d[0].T)
-        Ps = numpy.einsum("kl,...l->...k", P, s)
-        sPs = numpy.sum(s * Ps, axis=-1)
-        uPs = numpy.sum(numpy.einsum("...kl,...l->...k", R, s) * Ps, axis=-1)
-        D = numpy.clip(
-            numpy.sum(d[1] * resid * resid, axis=-1) + lam * sPs, 1e-300, None
-        )
-        trR = numpy.sum(R * eye, axis=(-2, -1))
-        trRR = numpy.einsum("...kl,...lk->...", R, R)
-        nm2 = numpy.sum(d[1]) - 2.0
+        resid = d[2] - xp.matmul(s, d[0].T)
+        Ps = xp.einsum("kl,...l->...k", P, s)
+        sPs = xp.sum(s * Ps, axis=-1)
+        uPs = xp.sum(xp.einsum("...kl,...l->...k", R, s) * Ps, axis=-1)
+        D = xp.clip(xp.sum(d[1] * resid * resid, axis=-1) + lam * sPs, 1e-300, None)
+        trR = xp.sum(R * eye, axis=(-2, -1))
+        trRR = xp.einsum("...kl,...lk->...", R, R)
+        nm2 = xp.sum(d[1]) - 2.0
         r1 = lam * sPs / D
         f = 0.5 * nm2 * r1 - 0.5 * (K - 2) + 0.5 * lam * trR
         fp = 0.5 * nm2 * (r1 - 2.0 * lam * lam * uPs / D - r1 * r1) + 0.5 * (
             lam * trR - lam * lam * trRR
         )
         # the walls' slopes (see wall below)
-        sh = 1.0 / (1.0 + numpy.exp((hi_g - ell) / wall_w))
-        sl = 1.0 / (1.0 + numpy.exp((ell - lo_g) / wall_w))
+        sh = 1.0 / (1.0 + xp.exp((hi_g - ell) / wall_w))
+        sl = 1.0 / (1.0 + xp.exp((ell - lo_g) / wall_w))
         f = f + wall_k * (sh - sl)
         fp = fp + wall_k / wall_w * (sh * (1.0 - sh) + sl * (1.0 - sl))
         return f, fp
@@ -480,45 +773,47 @@ def _pspline_fit(B, w, y, P, lam_rel, smoothing_factor):
             wall_k
             * wall_w
             * (
-                numpy.log1p(numpy.exp((ell - hi_g) / wall_w))
-                + numpy.log1p(numpy.exp((lo_g - ell) / wall_w))
+                xp.log1p(xp.exp((ell - hi_g) / wall_w))
+                + xp.log1p(xp.exp((lo_g - ell) / wall_w))
             )
         )
 
-    d = data(B, w, y)
+    live = data(B, w, y)
     if lam_rel is None:
-        grid = _PSPLINE_LOG_LAMBDA
-        dl = float(grid[1] - grid[0])
+        sg = data(stop_gradient(B), stop_gradient(w), stop_gradient(y))
+        grid = asarray_on_device(xp, _PSPLINE_LOG_LAMBDA, device_of(B))
+        dl = float(_PSPLINE_LOG_LAMBDA[1] - _PSPLINE_LOG_LAMBDA[0])
         # coarse grid: the bracketing node of each coordinate, with the residuals
         # as quadratic forms in the coefficients (no N-sized work)
-        lam_g = numpy.broadcast_to(numpy.exp(grid)[:, None] * d[5], (grid.shape[0], 6))
-        A_g, X_g = solve(d, lam_g, [])
+        lam_g = xp.broadcast_to(xp.exp(grid)[:, None] * sg[5], (grid.shape[0], 6))
+        A_g, X_g = solve(sg, lam_g, [])
         # D = RSS + lam s.Ps = y'Wy - s.B'Wy at the solution of A s = B'Wy
-        D_g = numpy.sum(d[1] * d[2] * d[2], axis=-1) - numpy.sum(
-            X_g[..., -1] * d[4], axis=-1
+        D_g = xp.sum(sg[1] * sg[2] * sg[2], axis=-1) - xp.sum(
+            X_g[..., -1] * sg[4], axis=-1
         )
         reml = (
-            0.5 * (numpy.sum(d[1]) - 2.0) * numpy.log(numpy.clip(D_g, 1e-300, None))
-            - 0.5 * (K - 2) * numpy.log(lam_g)
-            + 0.5 * numpy.linalg.slogdet(A_g)[1]
+            0.5 * (xp.sum(sg[1]) - 2.0) * xp.log(xp.clip(D_g, 1e-300, None))
+            - 0.5 * (K - 2) * xp.log(lam_g)
+            + 0.5 * xp.linalg.slogdet(A_g)[1]
             + wall(grid)[:, None]
         )
-        ell0 = grid[numpy.argmin(reml, axis=0)]  # (6,)
+        ell0 = xp.take(grid, xp.argmin(reml, axis=0), axis=0)  # (6,)
         lo, hi = ell0 - dl, ell0 + dl
         ell = ell0
         for _ in range(_PSPLINE_REML_STEPS):
-            f, fp = dreml(d, ell)
-            step = numpy.where(
-                fp > 0.0, f / numpy.where(fp > 0.0, fp, 1.0), numpy.sign(f) * dl
-            )
-            ell = numpy.clip(ell - numpy.clip(step, -0.5 * dl, 0.5 * dl), lo, hi)
-        # one more Newton step, unclipped, where the root is interior
-        f, fp = dreml(d, ell)
+            f, fp = dreml(sg, ell)
+            step = xp.where(fp > 0.0, f / xp.where(fp > 0.0, fp, 1.0), xp.sign(f) * dl)
+            ell = xp.clip(ell - xp.clip(step, -0.5 * dl, 0.5 * dl), lo, hi)
+        # one more step on the live data: the value stays at the converged root, and
+        # the derivative is the implicit one, d ell = -(dF/d data) / F'
+        _, fp = dreml(sg, ell)
         interior = (ell > lo) & (ell < hi) & (fp > 0.0)
-        ell = numpy.where(interior, ell - f / numpy.where(interior, fp, 1.0), ell)
-        lam_rel = numpy.exp(ell)
+        ell = xp.where(
+            interior, ell - dreml(live, ell)[0] / xp.where(interior, fp, 1.0), ell
+        )
+        lam_rel = xp.exp(ell)
     lam_rel = lam_rel * float(smoothing_factor)
-    return solve(d, lam_rel * d[5], [])[1][..., -1], lam_rel
+    return solve(live, lam_rel * live[5], [])[1][..., -1], lam_rel
 
 
 def _fit_track_pspline(
@@ -534,7 +829,8 @@ def _fit_track_pspline(
     order,
     velocity_weight,
 ):
-    """The ``method='pspline'`` reconstruction, a smooth function of its inputs.
+    """The ``method='pspline'`` reconstruction: smooth in its inputs, the same
+    eagerly (numpy, jax, torch) and traced (``jax.jit``, ``torch.compile``).
 
     Every particle is projected onto the progenitor's orbit continuously
     (:func:`_project_onto_curve`), its offset from that point is fit with a
@@ -544,35 +840,47 @@ def _fit_track_pspline(
     counterparts: ``velocity_weight='auto'`` weights the inner half of the
     probe projection with a smooth step at the median ``|tp|``, particles
     projected onto the far end of the searched arc are tapered out over
-    ``1-2e-3`` of its span, and the fit range is trimmed to the 99th
+    ``1-2e-3`` of its span (and those clamped at ``tp=0`` over ``1e-3`` of it),
+    and the fit range is trimmed to the 99th
     percentile of ``|tp|``. Only the starting sample of each projection and
-    the coarse REML node are discrete choices, and neither changes the result.
+    the coarse REML node are structural. Shapes are static: the default
+    ``ntp`` is computed from all ``N`` particles.
+
+    The fit range is data-dependent, so the track is returned on the
+    normalized grid ``[0, 1]`` (leading) or ``[-1, 0]`` (trailing) together
+    with ``tp_unit``: ``tp = grid * tp_unit``.
     """
+    ref = xv_particles if is_backend_array(xv_particles) else prog_cart
+    xp = get_namespace(ref) if is_backend_array(ref) else numpy
+    dev = device_of(ref) if xp is not numpy else None
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
-    prog_cart = numpy.asarray(prog_cart, dtype=float)
-    xv_particles = numpy.asarray(xv_particles, dtype=float)
+    prog_cart = asarray_on_device(xp, prog_cart, dev)
+    xv_particles = asarray_on_device(xp, xv_particles, dev)
     n_part = xv_particles.shape[1]
-    R_p, vR_p, vT_p, z_p, vz_p, phi_p = xv_particles
+    R_p, vR_p, vT_p, z_p, vz_p, phi_p = (xv_particles[k] for k in range(6))
     x_p, y_p, z_pc = coords.cyl_to_rect(R_p, phi_p, z_p)
     vx_p, vy_p, vz_pc = coords.cyl_to_rect_vec(vR_p, vT_p, vz_p, phi_p)
-    pts = numpy.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)  # (N, 6)
+    pts = xp.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)  # (N, 6)
 
     # the arm of the progenitor's orbit, and the smooth curve through it
     arm = numpy.flatnonzero((track_t_grid * arm_sign) >= 0)
-    t_nodes = track_t_grid[arm]
-    c_nodes = prog_cart[arm]
+    t_nodes = asarray_on_device(xp, track_t_grid[arm], dev)
+    c_nodes = xp.take(prog_cart, asarray_on_device(xp, arm, dev), axis=0)
     t_arm_lo, t_arm_hi = float(track_t_grid[arm[0]]), float(track_t_grid[arm[-1]])
     dt_curve = float(numpy.max(numpy.diff(track_t_grid)))
-    # the six coordinates as one spline: one evaluation per call
-    prog_spline = interpolate.make_interp_spline(track_t_grid, prog_cart, k=3)
+    if xp is numpy:
+        # the six coordinates as one spline: one evaluation per call
+        prog_spline = interpolate.make_interp_spline(track_t_grid, prog_cart, k=3)
+    else:
+        prog_spline = Spline1D(track_t_grid, prog_cart, k=3)
 
     def prog_at(t, nu=0):
         return prog_spline(t, nu=nu)
 
     def project(metric, curve, t_nd, c_nd, t_lo, t_hi, dt):
-        return _project_onto_curve(pts, metric, curve, t_nd, c_nd, t_lo, t_hi, dt)
+        return _project_onto_curve(xp, pts, metric, curve, t_nd, c_nd, t_lo, t_hi, dt)
 
-    ones3 = numpy.ones(3)
+    ones3 = asarray_on_device(xp, numpy.ones(3), dev)
     if isinstance(velocity_weight, str):
         if velocity_weight != "auto":
             raise ValueError(
@@ -582,20 +890,22 @@ def _fit_track_pspline(
         if n_part >= 20:
             # sigma_pos / sigma_vel of the inner half of a weight-1 probe projection
             # (a smooth step at the median |tp|), clipped to [0.1, 10]
+            metric1 = asarray_on_device(xp, numpy.ones(6), dev)
             tpr = project(
-                numpy.ones(6), prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve
+                metric1, prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve
             )
             off = pts - prog_at(tpr)
-            a = numpy.abs(tpr)
-            med = _smooth_quantile(a, 0.5)
-            u = 0.5 * (1.0 + numpy.tanh((med - a) / (0.2 * med + 1e-300)))
-            sp2 = numpy.sum(u * numpy.sum(off[:, :3] ** 2, axis=-1))
-            sv2 = numpy.sum(u * numpy.sum(off[:, 3:] ** 2, axis=-1))
-            ratio = numpy.sqrt(sp2 / numpy.where(sv2 > 0.0, sv2, 1.0))
-            vw = numpy.where(sv2 > 0.0, numpy.clip(ratio, 0.1, 10.0), 1.0)
+            a = xp.abs(tpr)
+            med = _smooth_quantile(xp, a, 0.5)
+            u = 0.5 * (1.0 + xp.tanh((med - a) / (0.2 * med + 1e-300)))
+            sp2 = xp.sum(u * xp.sum(off[:, :3] ** 2, axis=-1))
+            sv2 = xp.sum(u * xp.sum(off[:, 3:] ** 2, axis=-1))
+            ratio = xp.sqrt(sp2 / xp.where(sv2 > 0.0, sv2, 1.0))
+            vw = xp.where(sv2 > 0.0, xp.clip(ratio, 0.1, 10.0), 1.0)
     else:
         vw = float(velocity_weight)
-    metric = numpy.concatenate([ones3, ones3 * (vw * vw)])
+    concat = getattr(xp, "concat", None) or xp.concatenate
+    metric = concat([ones3, ones3 * (vw * vw)])
 
     span = float(track_t_grid[-1] - track_t_grid[0])
     far = t_arm_hi if arm_sign > 0 else t_arm_lo
@@ -605,8 +915,8 @@ def _fit_track_pspline(
         # far end (the binned method drops those within 1e-3 of its span) and
         # tp=0, where the particles whose closest point is on the other arm are
         # clamped; the floor keeps the fit defined when every one is tapered out
-        x_far = numpy.clip(numpy.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
-        x_near = numpy.clip(numpy.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
+        x_far = xp.clip(xp.abs(t - far) / (1e-3 * span) - 1.0, 0.0, 1.0)
+        x_near = xp.clip(xp.abs(t) / (_PSPLINE_NEAR_TAPER * span), 0.0, 1.0)
         taper = 1.0
         for x in (x_far, x_near):
             taper = taper * (x * x * x * (10.0 - 15.0 * x + 6.0 * x * x))
@@ -614,27 +924,37 @@ def _fit_track_pspline(
 
     t = project(metric, prog_at, t_nodes, c_nodes, t_arm_lo, t_arm_hi, dt_curve)
     taper, wts = weights(t)
-    _warn_tp_gap(t[taper > 0.0])
+    if not under_trace(t):
+        _warn_tp_gap(as_numpy(stop_gradient(t))[as_numpy(stop_gradient(taper)) > 0.0])
 
     if ntp is None:
         max_ntp = max(201, int(abs(t_arm_hi - t_arm_lo) / 0.1))
         ntp = int(max(21, min(max_ntp, round(math.sqrt(n_part)))))
     ntp = int(ntp)
     K = ntp + 2  # cubic B-splines centred on nodes -1 .. ntp: a partition of unity
-    centers = numpy.arange(-1.0, ntp + 1.0)
+    centers = asarray_on_device(xp, numpy.arange(-1.0, ntp + 1.0), dev)
     D2 = numpy.diff(numpy.eye(K), n=2, axis=0)
-    P = D2.T @ D2
+    P = asarray_on_device(xp, D2.T @ D2, dev)
     g_lo = 0.0 if arm_sign > 0 else -1.0
     g_grid = numpy.linspace(g_lo, g_lo + 1.0, ninterp)
-    pos_grid = (g_grid - g_lo) * (ntp - 1)
-    Bg = _cubic_bspline_kernel(pos_grid[:, None] - centers[None, :])  # (ninterp, K)
+    pos_grid = asarray_on_device(xp, (g_grid - g_lo) * (ntp - 1), dev)
+    Bg = cubic_bspline_kernel(xp, pos_grid[:, None] - centers[None, :])  # (ninterp, K)
 
     if smoothing is None:
         lam_user = None
     else:
-        lam_user = numpy.reshape(numpy.asarray(smoothing, dtype=float), (-1,))
+        lam_user = xp.reshape(
+            asarray_on_device(
+                xp,
+                smoothing
+                if is_backend_array(smoothing)
+                else numpy.asarray(smoothing, dtype=float),
+                dev,
+            ),
+            (-1,),
+        )
         if lam_user.shape[0] == 1:
-            lam_user = lam_user * numpy.ones(6)
+            lam_user = lam_user * asarray_on_device(xp, numpy.ones(6), dev)
         elif lam_user.shape[0] != 6:
             raise ValueError(
                 "smoothing= for method='pspline' is a float or the 6 relative "
@@ -652,42 +972,44 @@ def _fit_track_pspline(
             )
             wts = weights(t)[1]
         # trim to the 99th percentile of |tp| (tapered particles count at tp=0)
-        tp_unit = _smooth_quantile(arm_sign * t * wts, 0.99)
-        tp_unit = numpy.where(tp_unit > 1e-12, tp_unit, abs(far))
+        tp_unit = _smooth_quantile(xp, arm_sign * t * wts, 0.99)
+        tp_unit = xp.where(tp_unit > 1e-12, tp_unit, abs(far))
         pos = (t / tp_unit - g_lo) * (ntp - 1)
-        B = _cubic_bspline_kernel(pos[:, None] - centers[None, :])  # (N, K)
+        B = cubic_bspline_kernel(xp, pos[:, None] - centers[None, :])  # (N, K)
         coef, lam_used = _pspline_fit(
-            B, wts, pts - prog_at(t), P, lam_user, smoothing_factor
+            xp, B, wts, pts - prog_at(t), P, lam_user, smoothing_factor
         )
-        tp_out = g_grid * tp_unit
-        track = prog_at(tp_out) + numpy.matmul(Bg, coef.T)
+        tp_out = asarray_on_device(xp, g_grid, dev) * tp_unit
+        track = prog_at(tp_out) + xp.matmul(Bg, coef.T)
         if it < niter:
             scale_k = (ntp - 1) / tp_unit
 
             def curve(tq, nu=0, coef=coef, tp_unit=tp_unit, scale_k=scale_k):
                 pq = (tq / tp_unit - g_lo) * (ntp - 1)
-                Bq = _cubic_bspline_kernel(pq[:, None] - centers[None, :], nu=nu)
-                return prog_at(tq, nu) + numpy.matmul(Bq, coef.T) * scale_k**nu
+                Bq = cubic_bspline_kernel(xp, pq[:, None] - centers[None, :], nu=nu)
+                return prog_at(tq, nu) + xp.matmul(Bq, coef.T) * scale_k**nu
 
     cov = None
     if order >= 2:
         # basis-weighted residual scatter at the nodes, then the basis-weighted
         # mean at tp: non-negative weights, so PSD by construction
-        resid = pts - prog_at(t) - numpy.matmul(B, coef.T)
+        resid = pts - prog_at(t) - xp.matmul(B, coef.T)
         Bw = B * wts[:, None]
-        outer = numpy.reshape(resid[:, :, None] * resid[:, None, :], (-1, 36))
+        outer = xp.reshape(resid[:, :, None] * resid[:, None, :], (-1, 36))
         cov_node = (
-            numpy.reshape(numpy.matmul(Bw.T, outer), (-1, 6, 6))
-            / numpy.clip(numpy.sum(Bw, axis=0), 1.0, None)[:, None, None]
+            xp.reshape(xp.matmul(Bw.T, outer), (-1, 6, 6))
+            / xp.clip(xp.sum(Bw, axis=0), 1.0, None)[:, None, None]
         )
-        cov = numpy.einsum("gk,kij->gij", Bg, cov_node)
+        cov = xp.einsum("gk,kij->gij", Bg, cov_node)
+    particles = None if under_trace(xv_particles) else as_numpy(xv_particles).copy()
     return {
-        "tp_grid": g_grid * float(tp_unit),
+        "tp_grid": g_grid,
+        "tp_unit": tp_unit,
         "track_xyz": track[:, :3],
         "track_vxvyvz": track[:, 3:],
         "cov_xyz": cov,
         "smoothing_s": lam_used,
-        "particles": xv_particles.copy(),
+        "particles": particles,
     }
 
 
@@ -727,17 +1049,29 @@ def _fit_track_from_particles(
     ``1.0`` for the legacy unweighted natural-units metric.
 
     ``method`` (``'pspline'``, default, or ``'binned'``): ``'pspline'`` is
-    :func:`_fit_track_pspline`, a smooth function of its inputs.
+    :func:`_fit_track_pspline`, smooth in its inputs and the same eagerly and
+    traced; a traced fit always uses it. Its dict also has ``tp_unit``.
     """
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
-    prog_cart = numpy.asarray(track_prog_cart, dtype=float)
+    # A backend progenitor curve stays a differentiable backend array (track =
+    # prog + offset flows d(track)/d(progenitor)); a numpy view drives the
+    # structural closest-point / velocity-weight probe.
+    if is_backend_array(track_prog_cart):
+        prog_cart = track_prog_cart
+    else:
+        prog_cart = numpy.asarray(track_prog_cart, dtype=float)
     arm_sign = int(numpy.sign(arm_sign)) or 1
     ninterp = int(ninterp)
     order = int(order)
 
     if method not in ("binned", "pspline"):
         raise ValueError(f"method= must be 'binned' or 'pspline', got {method!r}")
-    if method == "pspline":
+    # The binned reconstruction (cKDTree, make_smoothing_spline, boolean masks,
+    # percentiles) needs concrete values, so a traced fit (jax.jit, jax.grad,
+    # torch.compile) is always the pspline one. EITHER input may carry the trace:
+    # a potential-parameter gradient traces the curve, a progenitor-mass gradient
+    # only the particles.
+    if method == "pspline" or under_trace(prog_cart, xv_particles):
         return _fit_track_pspline(
             xv_particles,
             prog_cart,
@@ -751,37 +1085,68 @@ def _fit_track_from_particles(
             order,
             velocity_weight,
         )
+    prog_cart_np = as_numpy(prog_cart)
 
-    if prog_orbit is not None:
+    if is_backend_array(prog_cart):
+        # Backend progenitor curve: differentiable cubic interpolation so the
+        # fitted track carries d(track)/d(progenitor). not-a-knot BC matches
+        # InterpolatedUnivariateSpline (natural diverges ~1e-6 at the ends).
+        # A backend prog_cart is an explicit differentiability request, so it
+        # takes precedence over the prog_orbit numpy-interpolation reuse.
+        xpp = get_namespace(prog_cart)
+        devp = device_of(prog_cart)
+        prog_spline = Spline1D(track_t_grid, prog_cart, k=3)
+
+        def _prog_at(tp):
+            return prog_spline(asarray_on_device(xpp, numpy.atleast_1d(tp), devp))
+    elif prog_orbit is not None:
         # Reuse the Orbit's internal interpolation directly — the orbit
         # has already been integrated densely on track_t_grid.
         def _prog_at(tp):
             tp = numpy.atleast_1d(tp)
             return numpy.column_stack(
-                [
-                    prog_orbit.x(tp),
-                    prog_orbit.y(tp),
-                    prog_orbit.z(tp),
-                    prog_orbit.vx(tp),
-                    prog_orbit.vy(tp),
-                    prog_orbit.vz(tp),
-                ]
+                to_host(
+                    [
+                        prog_orbit.x(tp),
+                        prog_orbit.y(tp),
+                        prog_orbit.z(tp, _stored=True),
+                        prog_orbit.vx(tp),
+                        prog_orbit.vy(tp),
+                        prog_orbit.vz(tp, _stored=True),
+                    ]
+                )
             )
     else:
-        prog_splines = [
-            interpolate.InterpolatedUnivariateSpline(track_t_grid, prog_cart[:, i], k=3)
-            for i in range(6)
-        ]
+        prog_spline = Spline1D(track_t_grid, prog_cart_np, k=3)
 
         def _prog_at(tp):
-            tp = numpy.atleast_1d(tp)
-            return numpy.column_stack([spl(tp) for spl in prog_splines])
+            return prog_spline(numpy.atleast_1d(tp))
 
     # Raw xv snapshot the user can pass back via ``particles=`` to refit
     # at different smoothing without re-sampling the spray DF.
-    xv_particles = numpy.asarray(xv_particles, dtype=float)
-    particles = xv_particles.copy()
-    particles_cart = coords.galcencyl_to_galcenrect(*xv_particles)
+    if not is_backend_array(xv_particles):
+        xv_particles = numpy.asarray(xv_particles, dtype=float)
+    particles = as_numpy(xv_particles).copy()
+    if is_backend_array(xv_particles):
+        # Backend (6, N) input: build particles_cart natively so it stays a
+        # differentiable backend array (galcencyl_to_galcenrect re-stacks via
+        # numpy.column_stack -> numpy; cyl_to_rect(_vec) are backend-agnostic).
+        xp = get_namespace(xv_particles)
+        R_p, vR_p, vT_p, z_p, vz_p, phi_p = xv_particles
+        x_p, y_p, z_pc = coords.cyl_to_rect(R_p, phi_p, z_p)
+        vx_p, vy_p, vz_pc = coords.cyl_to_rect_vec(vR_p, vT_p, vz_p, phi_p)
+        particles_cart = xp.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)
+    else:
+        particles_cart = coords.galcencyl_to_galcenrect(*xv_particles)
+    # A backend progenitor curve with numpy particles still fits differentiably:
+    # promote particles onto the progenitor's backend so d(track)/d(progenitor)
+    # flows (numpy particles + numpy prog stays pure numpy -> byte-identical).
+    if is_backend_array(prog_cart) and not is_backend_array(particles_cart):
+        xpp = get_namespace(prog_cart)
+        particles_cart = asarray_on_device(xpp, particles_cart, device_of(prog_cart))
+    # Structural steps (closest-point, velocity-weight probe, filters) run on a
+    # numpy view; the differentiable track flows from the backend particles_cart.
+    pc_np = as_numpy(particles_cart)
 
     # Normalize smoothing argument into per-spline s values.
     # Length 6 = mean only; length 27 = mean (6) + covariance (21).
@@ -802,9 +1167,7 @@ def _fit_track_from_particles(
     # Initial assignment: 6D closest point on the progenitor orbit,
     # restricted to the relevant arm (tp >=0 leading, <=0 trailing).
     sign_mask = (track_t_grid * arm_sign) >= 0
-    mask = numpy.broadcast_to(
-        sign_mask[None, :], (particles_cart.shape[0], sign_mask.size)
-    )
+    mask = numpy.broadcast_to(sign_mask[None, :], (pc_np.shape[0], sign_mask.size))
 
     # Resolve velocity_weight='auto' from a probe pass. Use the inner-half
     # of particles (smaller |tp_assign|) where the assignment is unambiguous,
@@ -815,9 +1178,7 @@ def _fit_track_from_particles(
             raise ValueError(
                 f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
             )
-        probe_tp = _closest_point_on_curve(
-            particles_cart, prog_cart, track_t_grid, mask=mask
-        )
+        probe_tp = _closest_point_on_curve(pc_np, prog_cart_np, track_t_grid, mask=mask)
         abs_probe = numpy.abs(probe_tp)
         # With size >= 20 the inner-half (median split) always has at least
         # 10 entries, so we don't need a separate inner_n < 10 fallback.
@@ -827,9 +1188,9 @@ def _fit_track_from_particles(
             idx_inner = numpy.argmin(
                 numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
             )
-            prog_at_inner = prog_cart[idx_inner]
-            dpos = particles_cart[inner, :3] - prog_at_inner[:, :3]
-            dvel = particles_cart[inner, 3:] - prog_at_inner[:, 3:]
+            prog_at_inner = prog_cart_np[idx_inner]
+            dpos = pc_np[inner, :3] - prog_at_inner[:, :3]
+            dvel = pc_np[inner, 3:] - prog_at_inner[:, 3:]
             sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
             sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
             if sigma_vel > 0:
@@ -845,8 +1206,8 @@ def _fit_track_from_particles(
             velocity_weight = 1.0
 
     tp_assign = _closest_point_on_curve(
-        particles_cart,
-        prog_cart,
+        pc_np,
+        prog_cart_np,
         track_t_grid,
         mask=mask,
         velocity_weight=velocity_weight,
@@ -861,7 +1222,8 @@ def _fit_track_from_particles(
     arc_span = abs(track_t_grid[-1] - track_t_grid[0])
     interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
     tp_assign = tp_assign[interior]
-    particles_cart = particles_cart[interior]
+    particles_cart = particles_cart[interior]  # backend gather (numpy bool mask)
+    pc_np = pc_np[interior]
 
     _warn_tp_gap(tp_assign)
 
@@ -888,7 +1250,7 @@ def _fit_track_from_particles(
     # The ceiling scales with the arc span so longer streams can afford
     # finer binning — one knot every ~0.1 internal time units (≈3.6 Myr
     # at the galpy reference scale), with a floor of 201.
-    n_part = particles_cart.shape[0]
+    n_part = pc_np.shape[0]
     if ntp is None:
         max_ntp = max(201, int(abs(tp_hi - tp_lo) / 0.1))
         ntp = int(max(21, min(max_ntp, round(numpy.sqrt(n_part)))))
@@ -912,9 +1274,11 @@ def _fit_track_from_particles(
             smoothing_factor=smoothing_factor,
         )
         if it < niter:
-            track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
+            track_cart = numpy.column_stack(
+                [as_numpy(track_xyz), as_numpy(track_vxvyvz)]
+            )
             tp_assign = _closest_point_on_curve(
-                particles_cart,
+                pc_np,
                 track_cart,
                 tp_grid,
                 velocity_weight=velocity_weight,
@@ -991,6 +1355,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
     ):
         """Build a StreamTrack from a precomputed smooth track.
 
@@ -1029,18 +1394,37 @@ class StreamTrack:
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
             in km/s. Default None.
         """
+        # The parameter axis (tp_grid) is structural geometry and always stays
+        # numpy; the track/cov values are stored natively so a backend (jax/torch)
+        # track flows through the accessors differentiably. The numpy branch is
+        # byte-identical to the pre-backend body.
+        self._backend = is_backend_array(track_xyz)
+        # tp_scale (jit): tp_grid is a CONCRETE NORMALIZED axis (e.g. [0,1]) and the
+        # physical parameter is tp = tp_grid * tp_scale, with tp_scale a (traced)
+        # scalar. This keeps the cubic-spline geometry concrete under jax.jit (the
+        # spline matrix is assembled in numpy) while the physical extent stays
+        # data-dependent + differentiable. tp_scale=None -> tp_grid IS physical
+        # (eager, byte-identical).
+        self._tp_scale = tp_scale
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
-        self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
-        self._track_vxvyvz = numpy.asarray(track_vxvyvz, dtype=float).copy()
-        self._cov_xyz = (
-            None if cov_xyz is None else numpy.asarray(cov_xyz, dtype=float).copy()
-        )
+        if self._backend:
+            self._name = name_of_namespace(get_namespace(track_xyz))
+            self._track_xyz = track_xyz
+            self._track_vxvyvz = track_vxvyvz
+            self._cov_xyz = cov_xyz
+        else:
+            # a numpy track: read any (forced-backend) inputs on the host
+            self._track_xyz = numpy.asarray(to_host(track_xyz), dtype=float).copy()
+            self._track_vxvyvz = numpy.asarray(
+                to_host(track_vxvyvz), dtype=float
+            ).copy()
+            self._cov_xyz = (
+                None
+                if cov_xyz is None
+                else numpy.asarray(to_host(cov_xyz), dtype=float).copy()
+            )
         self._ninterp = len(self._tp_grid)
-        self._custom_sky_transform = (
-            None
-            if custom_sky_transform is None
-            else numpy.asarray(custom_sky_transform, dtype=float)
-        )
+        self.custom_sky_transform = custom_sky_transform
         if parameter_kind not in ("time", "angle", None):
             raise ValueError(
                 f"parameter_kind must be 'time', 'angle', or None; "
@@ -1067,14 +1451,31 @@ class StreamTrack:
         self._solarmotion = solarmotion
 
         # Cubic-spline interpolators on the 6D track (mean only — cov() is
-        # interpolated linearly entry-by-entry for cheap PSD enforcement).
-        track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
-        self._cart_splines = [
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_fine[:, i], k=3
-            )
-            for i in range(6)
-        ]
+        # interpolated linearly entry-by-entry for cheap PSD enforcement). The
+        # backend path builds in-backend cubic coefficient tables (differentiable
+        # in the track values); the numpy path keeps the scipy splines verbatim.
+        if self._backend:
+            xp = get_namespace(track_xyz)
+            track6 = xp.stack(
+                [
+                    track_xyz[:, 0],
+                    track_xyz[:, 1],
+                    track_xyz[:, 2],
+                    track_vxvyvz[:, 0],
+                    track_vxvyvz[:, 1],
+                    track_vxvyvz[:, 2],
+                ],
+                axis=-1,
+            )  # (N, 6)
+            # One VECTOR-VALUED spline over the shared tp grid rather than six
+            # per-column ones, so the numpy and backend paths are the same
+            # object and the same call below. Spline1D defaults to not-a-knot,
+            # which is what numpy's InterpolatedUnivariateSpline uses (natural
+            # diverges by ~1e-6 in the end intervals).
+            self._cart_spline = Spline1D(self._tp_grid, track6, k=3)
+        else:
+            track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
+            self._cart_spline = Spline1D(self._tp_grid, track_fine, k=3)
 
     # -----------------------------------------------------------------
     # Particle-fit constructor (the streamspraydf pipeline)
@@ -1099,6 +1500,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
         method="pspline",
     ):
         """Build a StreamTrack by fitting a smooth curve to stream particles.
@@ -1187,10 +1589,12 @@ class StreamTrack:
             ``'pspline'`` (default) projects each particle continuously onto
             the progenitor orbit and fits its offsets with a weighted cubic
             P-spline in ``tp`` (a REML penalty per coordinate), so the track
-            is a smooth function of the particles and the progenitor.
+            is a smooth function of the particles and the progenitor, and is
+            the same eagerly and under ``jax.jit`` / ``torch.compile``.
             ``'binned'`` assigns each particle to the closest sample of the
             progenitor orbit, bins the offsets in ``tp`` and smooths the bin
-            means.
+            means; it is not smooth in its inputs, so a traced fit always
+            uses ``'pspline'``.
         """
         fit = _fit_track_from_particles(
             xv_particles,
@@ -1207,8 +1611,17 @@ class StreamTrack:
             prog_orbit=prog_orbit,
             method=method,
         )
+        tp_grid = fit["tp_grid"]
+        if fit.get("tp_unit") is not None:
+            # pspline: a normalized grid and its data-dependent unit, which stays a
+            # scale only when traced or differentiated (else the axis is numpy)
+            unit = fit["tp_unit"] if tp_scale is None else fit["tp_unit"] * tp_scale
+            if under_trace(unit) or requires_backend_grad(unit):
+                tp_scale = unit
+            else:
+                tp_grid, tp_scale = tp_grid * float(as_numpy(unit)), None
         inst = cls(
-            tp_grid=fit["tp_grid"],
+            tp_grid=tp_grid,
             track_xyz=fit["track_xyz"],
             track_vxvyvz=fit["track_vxvyvz"],
             cov_xyz=fit["cov_xyz"],
@@ -1218,6 +1631,7 @@ class StreamTrack:
             vo=vo,
             zo=zo,
             solarmotion=solarmotion,
+            tp_scale=tp_scale,
         )
         # Fitter outputs callers may want: the raw (xv, dt) sample the fit
         # saw, and the effective per-spline ``s`` values for reuse.
@@ -1230,7 +1644,33 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def tp_grid(self):
         """Return the fine tp grid on which the track is stored."""
-        return self._tp_grid.copy()
+        if self._tp_scale is None:
+            return self._tp_grid.copy()
+        grid = self._tp_grid
+        if is_backend_array(self._tp_scale):  # torch: ndarray * Tensor raises
+            grid = asarray_on_device(
+                get_namespace(self._tp_scale), grid, device_of(self._tp_scale)
+            )
+        return grid * self._tp_scale  # normalized axis -> physical
+
+    def _tp_query_axis(self, tp, xp, dev):
+        """``(tp_b, in_range, tp_physical)`` for an accessor's backend query axis.
+
+        A backend ``tp`` stays ON the backend: ``numpy.asarray`` drops a tracer,
+        so the accessors could not be differentiated w.r.t. the query point. The
+        range mask is a plain comparison, so it needs no numpy round-trip either.
+        """
+        if is_backend_array(tp):
+            tp_b = xp.reshape(tp, (-1,))
+        else:
+            tp_b = asarray_on_device(
+                xp, numpy.atleast_1d(numpy.asarray(tp, dtype=float)), dev
+            )
+        tp_phys = tp_b  # pre-normalization, for the cov Jacobian
+        if self._tp_scale is not None:
+            tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+        in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
+        return tp_b, in_range, tp_phys
 
     def _in_range(self, tp_arr):
         """Boolean mask over ``tp_arr`` for entries inside the track's
@@ -1239,10 +1679,16 @@ class StreamTrack:
         return (tp_arr >= self._tp_grid[0]) & (tp_arr <= self._tp_grid[-1])
 
     def _eval_cart(self, tp):
+        # (6, len); out-of-range tps are NaN, not silent cubic extrapolation
+        if self._backend:
+            xp = get_namespace(self._track_xyz)
+            dev = device_of(self._track_xyz)
+            tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
+            vals = self._cart_spline(tp_b)  # (len, 6)
+            return xp.where(in_range[None, :], xp.matrix_transpose(vals), float("nan"))
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
-        out = numpy.array([spl(tp_arr) for spl in self._cart_splines])  # (6, len)
-        return numpy.where(in_range[None, :], out, numpy.nan)
+        return numpy.where(in_range[None, :], self._cart_spline(tp_arr).T, numpy.nan)
 
     def _maybe_scalar(self, tp, arr):
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
@@ -1260,9 +1706,15 @@ class StreamTrack:
     def _cart_eval(self, idx, tp):
         # Out-of-range tps return NaN (not silent cubic-spline extrapolation).
         # Array tps get NaNs only at the offending entries.
+        if self._backend:
+            xp = get_namespace(self._track_xyz)
+            dev = device_of(self._track_xyz)
+            tp_b, in_range, _ = self._tp_query_axis(tp, xp, dev)
+            val = xp.where(in_range, self._cart_spline(tp_b)[..., idx], float("nan"))
+            return self._maybe_scalar(tp, val)
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
-        val = numpy.where(in_range, self._cart_splines[idx](tp_arr), numpy.nan)
+        val = numpy.where(in_range, self._cart_spline(tp_arr)[..., idx], numpy.nan)
         return self._maybe_scalar(tp, val)
 
     @physical_conversion("position", pop=True)
@@ -1429,7 +1881,8 @@ class StreamTrack:
 
     def _cyl_at(self, tp):
         """Return (R, vR, vT, z, vz, phi) along the track (internal units)."""
-        tp = numpy.atleast_1d(tp)
+        # no numpy.atleast_1d here: _eval_cart normalises the query axis itself,
+        # and converting first would drop a traced tp
         xyz = self._eval_cart(tp)  # (6, len)
         x, y, zc, vxc, vyc, vzc = xyz
         R, phi, zcyl = coords.rect_to_cyl(x, y, zc)
@@ -1564,8 +2017,12 @@ class StreamTrack:
             ``tp``. Always in galpy internal units (no per-call physical
             override on ``__call__``)."""
         tp = self._parse_tp(tp)
-        R, vR, vT, zcyl, vzc, phi = self._cyl_at(tp)
-        out = numpy.array([R, vR, vT, zcyl, vzc, phi])
+        cols = self._cyl_at(tp)
+        bk = tuple(c for c in cols if is_backend_array(c))
+        if bk:  # stacked on the backend
+            out = namespace_from_arrays(bk).stack(co_like(*cols), axis=0)
+        else:
+            out = numpy.array(cols)
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[:, 0]
         return out
@@ -1575,7 +2032,7 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _helio_xv(self, tp):
         """Compute heliocentric XYZ, vxvyvz at tp using ro/vo/zo/solarmotion."""
-        xyzvxyz = self._eval_cart(numpy.atleast_1d(tp))  # (6, len)
+        xyzvxyz = self._eval_cart(tp)  # (6, len); _eval_cart normalises the axis
         zo_kpc = self._zo if self._zo is not None else 0.0
         xyz_helio = coords.galcenrect_to_XYZ(
             xyzvxyz[0] * self._ro,
@@ -1901,9 +2358,10 @@ class StreamTrack:
 
     @custom_sky_transform.setter
     def custom_sky_transform(self, T):
-        self._custom_sky_transform = (
-            None if T is None else numpy.asarray(T, dtype=float)
-        )
+        if T is None or is_backend_array(T):  # a backend T stays on it
+            self._custom_sky_transform = T
+        else:
+            self._custom_sky_transform = numpy.asarray(T, dtype=float)
 
     def _require_custom(self):
         if self._custom_sky_transform is None:
@@ -2173,16 +2631,46 @@ class StreamTrack:
             vo_use = self._vo if vo is None else conversion.parse_velocity_kms(vo)
 
         tp = self._parse_tp(tp)
-        tp_arr = numpy.atleast_1d(tp)
-        in_range = self._in_range(tp_arr)
-        out = numpy.empty((len(tp_arr), 6, 6))
-        for a in range(6):
-            for b in range(6):
-                vals = numpy.interp(tp_arr, self._tp_grid, self._cov_xyz[:, a, b])
-                out[:, a, b] = numpy.where(in_range, vals, numpy.nan)
-        if use_phys:
-            scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
-            out = out * numpy.outer(scale, scale)  # NaN · scale = NaN
+        if self._backend:
+            # Backend track: build the (len, 6, 6) covariance functionally with xp
+            # ops (differentiable in the stored cov values), entrywise linear
+            # interp mirroring the numpy numpy.interp path. Sky-frame bases (which
+            # go through the per-point analytical Jacobian on numpy means) are a
+            # numpy-only follow-up; only galcenrect is supported here.
+            xp = get_namespace(self._cov_xyz)
+            dev = device_of(self._cov_xyz)
+            tp_b, in_range, tp_for_jac = self._tp_query_axis(tp, xp, dev)
+            rows = []
+            for a in range(6):
+                cols = [
+                    xp.where(
+                        in_range,
+                        interp_linear(xp, self._tp_grid, self._cov_xyz[:, a, b], tp_b),
+                        float("nan"),
+                    )
+                    for b in range(6)
+                ]
+                rows.append(xp.stack(cols, axis=-1))  # (len, 6)
+            out = xp.stack(rows, axis=-2)  # (len, 6, 6)
+            if use_phys:
+                scale = asarray_on_device(
+                    xp,
+                    numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use]),
+                    dev,
+                )
+                out = out * (scale[:, None] * scale[None, :])  # NaN · scale = NaN
+        else:
+            tp_arr = numpy.atleast_1d(tp)
+            tp_for_jac = tp_arr
+            in_range = self._in_range(tp_arr)
+            out = numpy.empty((len(tp_arr), 6, 6))
+            for a in range(6):
+                for b in range(6):
+                    vals = numpy.interp(tp_arr, self._tp_grid, self._cov_xyz[:, a, b])
+                    out[:, a, b] = numpy.where(in_range, vals, numpy.nan)
+            if use_phys:
+                scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
+                out = out * numpy.outer(scale, scale)  # NaN · scale = NaN
 
         if basis != "galcenrect":
             # When use_phys=True we thread the resolved ro/vo through the
@@ -2194,17 +2682,39 @@ class StreamTrack:
             jac_ro = ro_use if use_phys else None
             jac_vo = vo_use if use_phys else None
             jac_use_phys = True if use_phys else None
-            for k, tp_k in enumerate(tp_arr):
-                if not in_range[k]:
-                    continue  # out[k] already NaN; skip the Jacobian
+            # ONE batched (len, 6, 6) Jacobian, applied as a single matmul.
+            # Every link of the chain broadcasts over the leading tp axis now
+            # that galsky_to_sky_jac/sky_to_customsky_jac do (they were the
+            # scalar-only pair that used to force a comprehension here -- 834
+            # scalar chains per plot(spread=), which is most of the cost of that
+            # call under a backend). Out-of-range tp carry NaN in both out and J,
+            # and NaN survives the matmul.
+            xpJ = get_namespace(out) if self._backend else numpy
+            if self._backend:
+                # ONE batched (len, 6, 6) Jacobian. Every link of the chain
+                # broadcasts over the leading tp axis now that
+                # galsky_to_sky_jac/sky_to_customsky_jac do -- they were the
+                # scalar-only pair that forced the comprehension below, at 834
+                # scalar chains per plot(spread=), which is most of what that
+                # call costs under a backend.
                 J = self._analytical_jacobian(
-                    tp_k,
-                    basis,
-                    ro=jac_ro,
-                    vo=jac_vo,
-                    use_physical=jac_use_phys,
+                    tp_for_jac, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
                 )
-                out[k] = J @ out[k] @ J.T
+            else:
+                # numpy keeps the per-tp assembly: vectorizing the chain changes
+                # the last bits (up to 32 ulps, ~5e-15 relative, from vectorized
+                # trig/spline accumulation), and the numpy path stays
+                # byte-identical. It also has nothing to gain -- a numpy scalar
+                # op is ~0.5 us against jax's ~17 us.
+                J = numpy.stack(
+                    [
+                        self._analytical_jacobian(
+                            tp_k, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
+                        )
+                        for tp_k in tp_for_jac
+                    ]
+                )
+            out = J @ out @ xpJ.swapaxes(J, -1, -2)
 
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[0]
@@ -2216,9 +2726,9 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _cart_mean_at(self, tp, ro=None, vo=None, use_physical=None):
         """Mean (x, y, z, vx, vy, vz) at ``tp`` in the track's physical
-        state (kpc, km/s when physical is on, else internal). The optional
-        ``ro``/``vo``/``use_physical`` kwargs are forwarded to the mean
-        accessors so callers can request a specific unit choice."""
+        state (kpc, km/s when physical is on, else internal), shape (6,).
+        The optional ``ro``/``vo``/``use_physical`` kwargs are forwarded to
+        the mean accessors so callers can request a specific unit choice."""
         kw = {"quantity": False}
         if use_physical is not None:
             kw["use_physical"] = use_physical
@@ -2226,16 +2736,30 @@ class StreamTrack:
             kw["ro"] = ro
         if vo is not None:
             kw["vo"] = vo
-        return numpy.array(
-            [
-                float(self.x(tp, **kw)),
-                float(self.y(tp, **kw)),
-                float(self.z(tp, **kw)),
-                float(self.vx(tp, **kw)),
-                float(self.vy(tp, **kw)),
-                float(self.vz(tp, **kw)),
-            ]
-        )
+        comps = [
+            self.x(tp, **kw),
+            self.y(tp, **kw),
+            self.z(tp, **kw),
+            self.vx(tp, **kw),
+            self.vy(tp, **kw),
+            self.vz(tp, **kw),
+        ]
+        # No float(): casting here would sever the trace and the gradient.
+        xp = get_namespace(*comps) if self._backend else numpy
+        return xp.stack([xp.asarray(c) for c in comps])
+
+    @staticmethod
+    def _components(v):
+        """Split a coords.* return into components, scalar OR batched.
+
+        Those helpers hand back a tuple (or a (k,) array) for a single point and
+        a (N, k) array for a batch of them, and this Jacobian chain runs both
+        ways: one point at a time on numpy, all track points at once under a
+        backend.
+        """
+        if isinstance(v, tuple):
+            return v
+        return tuple(v[..., k] for k in range(numpy.shape(v)[-1]))
 
     def _analytical_jacobian(self, tp, basis, ro=None, vo=None, use_physical=None):
         """6x6 analytical Jacobian d(basis)/d(galcenrect) at the track mean.
@@ -2277,53 +2801,44 @@ class StreamTrack:
         # Evaluate the mean in heliocentric Cartesian for downstream chains.
         XYZ_mean = coords.galcenrect_to_XYZ(x, y, z, Xsun=ro, Zsun=zo)
         vxyz_mean = coords.galcenrect_to_vxvyvz(vx, vy, vz, Xsun=ro, Zsun=zo)
-        X, Y, Z = float(XYZ_mean[0]), float(XYZ_mean[1]), float(XYZ_mean[2])
-        vX, vY, vZ = float(vxyz_mean[0]), float(vxyz_mean[1]), float(vxyz_mean[2])
+        # NOT float(): these are the traced state, and casting severs both the
+        # trace and the gradient. ro/zo above stay floats -- they are config.
+        X, Y, Z = self._components(XYZ_mean)
+        vX, vY, vZ = self._components(vxyz_mean)
         # (2) helio_XYZ → galsky. Note: lbd_to_XYZ_jac uses the order
         # (l, b, d, vlos, pmll, pmbb); XYZ_to_lbd_jac inherits that order,
         # so we permute its output to match our galsky basis ordering
         # (l, b, d, pmll, pmbb, vlos).
         J_xyz_to_lbd = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=False)
+        xp = get_namespace(J_xyz_to_lbd, J1)
         perm = numpy.array([0, 1, 2, 4, 5, 3])
-        J_galsky = numpy.eye(6)[perm] @ J_xyz_to_lbd @ J1  # l, b in radians
+        P = asarray_on_device(xp, numpy.eye(6)[perm], device_of(J_xyz_to_lbd))
+        J_galsky = P @ J_xyz_to_lbd @ J1  # l, b in radians
         if basis == "galsky":
-            J_galsky = J_galsky.copy()
-            J_galsky[0] *= 1.0 / coords._DEGTORAD
-            J_galsky[1] *= 1.0 / coords._DEGTORAD
-            return J_galsky
+            return coords._scale_angle_rows(xp, J_galsky)
 
         # (3) galsky → sky. Need (l, b, pmll, pmbb) for the position-vs-PM
         # cross block; recover them from the heliocentric Cartesian state.
         lbd_mean = coords.XYZ_to_lbd(X, Y, Z, degree=False)
-        l = float(lbd_mean[0])
-        b = float(lbd_mean[1])
+        l, b = self._components(lbd_mean)[:2]
         vrpm = coords.vxvyvz_to_vrpmllpmbb(vX, vY, vZ, X, Y, Z, XYZ=True, degree=False)
-        pmll = float(vrpm[1])
-        pmbb = float(vrpm[2])
+        pmll, pmbb = self._components(vrpm)[1:3]
         J_galsky_to_sky = coords.galsky_to_sky_jac(l, b, pmll, pmbb, degree=False)
         J_sky = J_galsky_to_sky @ J_galsky  # ra, dec in radians
         if basis == "sky":
-            J_sky = J_sky.copy()
-            J_sky[0] *= 1.0 / coords._DEGTORAD
-            J_sky[1] *= 1.0 / coords._DEGTORAD
-            return J_sky
+            return coords._scale_angle_rows(xp, J_sky)
 
         # (4) sky → customsky. Need (ra, dec, pmra, pmdec) at the mean for
         # the PM-vs-position cross block.
         radec = coords.lb_to_radec(l, b, degree=False)
-        ra = float(radec[0])
-        dec_val = float(radec[1])
+        ra, dec_val = self._components(radec)[:2]
         pmrd = coords.pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False)
-        pmra = float(pmrd[0])
-        pmdec = float(pmrd[1])
+        pmra, pmdec = self._components(pmrd)[:2]
         J_sky_to_cs = coords.sky_to_customsky_jac(
             ra, dec_val, pmra, pmdec, T=self._custom_sky_transform, degree=False
         )
         J_cs = J_sky_to_cs @ J_sky  # phi1, phi2 in radians
-        J_cs = J_cs.copy()
-        J_cs[0] *= 1.0 / coords._DEGTORAD
-        J_cs[1] *= 1.0 / coords._DEGTORAD
-        return J_cs
+        return coords._scale_angle_rows(xp, J_cs)
 
     # -----------------------------------------------------------------
     # Unit toggles
@@ -2412,18 +2927,24 @@ class StreamTrack:
         if vo is not None:
             access_kw["vo"] = vo
 
-        tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], self._ninterp)
-        v1 = numpy.asarray(getattr(self, d1)(tp, **access_kw))
-        v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
+        tp_lo, tp_hi = self._tp_grid[0], self._tp_grid[-1]
+        if self._tp_scale is not None:
+            tp_lo, tp_hi = as_numpy(self.tp_grid())[[0, -1]]
+        tp = numpy.linspace(tp_lo, tp_hi, self._ninterp)
+        # as_numpy: a track carrying a torch graph plots too (detached)
+        v1 = numpy.asarray(as_numpy(getattr(self, d1)(tp, **access_kw)))
+        v2 = numpy.asarray(as_numpy(getattr(self, d2)(tp, **access_kw)))
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
             basis, idx = self._COORD_BASIS[d2]
-            cov = self.cov(
-                tp,
-                basis=basis,
-                ro=ro,
-                vo=vo,
-                use_physical=use_physical,
+            cov = as_numpy(  # plot spread band feeds matplotlib -> numpy
+                self.cov(
+                    tp,
+                    basis=basis,
+                    ro=ro,
+                    vo=vo,
+                    use_physical=use_physical,
+                )
             )
             s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
             color = line[0].get_color() if line else None

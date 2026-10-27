@@ -1,6 +1,7 @@
 ###############################################################################
 #   NullPotential.py: class that implements a constant potential
 ###############################################################################
+from ..backend import data_zero
 from .Potential import Potential
 
 
@@ -40,22 +41,22 @@ class NullPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return 1.0
+        return 1.0 + data_zero(R, z)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R, z)

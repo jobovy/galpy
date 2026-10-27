@@ -12,6 +12,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 SYMPLECTIC = ["leapfrog_c", "symplec4_c", "symplec6_c"]
 ORDER = {"leapfrog_c": 2, "symplec4_c": 4, "symplec6_c": 6}
 # Fixed-step methods whose 1D dxdv base is byte-identical to plain integrate
@@ -163,7 +165,9 @@ def test_linear_dxdv_closed_form_harmonic():
             o = Orbit(ic)
             tpre = numpy.linspace(0.0, T, 51)
             o.integrate(tpre, pot, method="dop853_c")
-            assert numpy.amax(numpy.fabs(o.x(tpre))) < 0.9 * hs.R
+            # as_numpy: o.x() is a backend array under a forced backend, and
+            # numpy.amax dispatches to Tensor.max(axis=, out=), which torch rejects.
+            assert numpy.amax(numpy.fabs(as_numpy(o.x(tpre)))) < 0.9 * float(hs.R)
         # RK / pure-Python: high-order/adaptive -> tight
         for method in RK:
             dt = 0.005

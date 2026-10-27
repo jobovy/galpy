@@ -4,6 +4,15 @@ import pickle
 import numpy
 from scipy import integrate
 
+from ..backend import (
+    backend_input,
+    coerce_coords,
+    data_zero,
+    get_namespace,
+    is_backend_compatible,
+)
+from ..backend import quadrature as _bquad
+from ..backend import scalar_like, to_host
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -19,6 +28,10 @@ from .Potential import (
     Potential,
     PotentialError,
     _check_potential_list_and_deprecate,
+    _evaluatephitorques,
+    _evaluatePotentials,
+    _evaluateRforces,
+    _pot_data_namespace,
     lindbladR,
     plotEscapecurve,
     plotRotcurve,
@@ -37,6 +50,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def __call__(self, R, phi=0.0, t=0.0, dR=0, dphi=0):
         """
         Evaluate the potential.
@@ -70,7 +84,8 @@ class planarPotential(planarForce):
         # Separate, so it can be used during orbit integration
         if dR == 0 and dphi == 0:
             try:
-                return self._amp * self._evaluate(R, phi=phi, t=t)
+                out = self._evaluate(R, phi=phi, t=t)
+                return scalar_like(out, self._amp) * out
             except AttributeError:  # pragma: no cover
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
@@ -92,6 +107,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t")
     def Rforce(self, R, phi=0.0, t=0.0):
         r"""
         Evaluate the radial force.
@@ -119,6 +135,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def phitorque(self, R, phi=0.0, t=0.0):
         """
         Evaluate the azimuthal torque = - d Phi / d phi.
@@ -146,6 +163,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "phi", "t")
     def R2deriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the second radial derivative.
@@ -169,7 +187,8 @@ class planarPotential(planarForce):
         - 2011-10-09 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._R2deriv(R, phi=phi, t=t)
+            out = self._R2deriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_R2deriv' function not implemented for this potential"
@@ -177,6 +196,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def phi2deriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the second azimuthal derivative.
@@ -201,7 +221,8 @@ class planarPotential(planarForce):
 
         """
         try:
-            return self._amp * self._phi2deriv(R, phi=phi, t=t)
+            out = self._phi2deriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_phi2deriv' function not implemented for this potential"
@@ -209,6 +230,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t")
     def Rphideriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the mixed radial and azimuthal derivative.
@@ -233,7 +255,8 @@ class planarPotential(planarForce):
 
         """
         try:
-            return self._amp * self._Rphideriv(R, phi=phi, t=t)
+            out = self._Rphideriv(R, phi=phi, t=t)
+            return scalar_like(out, self._amp) * out
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_Rphideriv' function not implemented for this potential"
@@ -241,6 +264,7 @@ class planarPotential(planarForce):
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def epifreq(self, R, t=0.0):
         """
         Calculate the epicycle frequency at R in this potential.
@@ -262,13 +286,15 @@ class planarPotential(planarForce):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             self.R2deriv(R, 0.0, t=t, use_physical=False)
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi", "t")
     def vcirc(self, R, phi=None, t=0.0):
         """
         Calculate the circular velocity at R in potential Pot.
@@ -293,10 +319,12 @@ class planarPotential(planarForce):
         - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
+        xp = get_namespace(R)
+        return xp.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def omegac(self, R, t=0.0):
         """
         Calculate the circular angular speed at R in potential Pot.
@@ -318,7 +346,8 @@ class planarPotential(planarForce):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
+        xp = get_namespace(R)
+        return xp.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
 
     def plot(self, *args, **kwargs):
         """
@@ -357,7 +386,7 @@ class planarAxiPotential(planarPotential):
         self.isNonAxi = False
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        return 0.0
+        return data_zero(R)
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
         """
@@ -441,6 +470,7 @@ class planarAxiPotential(planarPotential):
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "t")
     def vesc(self, R, t=0.0):
         """
         Calculate the escape velocity at R for the potential.
@@ -462,7 +492,8 @@ class planarAxiPotential(planarPotential):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             2.0
             * (self(_INF, t=t, use_physical=False) - self(R, t=t, use_physical=False))
         )
@@ -555,6 +586,13 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC = RZPot.hasC and _hasC_planar
         self.hasC_dxdv = RZPot.hasC_dxdv and _hasC_planar
         self.hasC_dens = RZPot.hasC_dens
+        # Capability flags are derived from the wrapped potential, exactly as
+        # hasC is above: an adapter is only as backend-aware as what it adapts.
+        # Without this the object falls through to the leaf branch of
+        # is_backend_compatible and reads its own (absent) flag, so the
+        # coercion boundary rejects it even when the wrapped potential is
+        # migrated.
+        self._backend_compatible = is_backend_compatible(RZPot)
         return None
 
     def __repr__(self):
@@ -600,7 +638,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         -----
         - 2010-07-13 - Written - Bovy (NYU)
         """
-        return self._Pot(R, 0.0, t=t, use_physical=False)
+        return _evaluatePotentials(self._Pot, R, 0.0, t=t)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         """
@@ -624,7 +662,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         -----
         - Written on 2010-07-13 by Bovy (NYU).
         """
-        return self._Pot.Rforce(R, 0.0, t=t, use_physical=False)
+        return _evaluateRforces(self._Pot, R, 0.0, t=t)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
@@ -734,6 +772,13 @@ class planarPotentialFromFullPotential(planarPotential):
         self.hasC = Pot.hasC and _hasC_planar
         self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
         self.hasC_dens = Pot.hasC_dens
+        # Capability flags are derived from the wrapped potential, exactly as
+        # hasC is above: an adapter is only as backend-aware as what it adapts.
+        # Without this the object falls through to the leaf branch of
+        # is_backend_compatible and reads its own (absent) flag, so the
+        # coercion boundary rejects it even when the wrapped potential is
+        # migrated.
+        self._backend_compatible = is_backend_compatible(Pot)
         return None
 
     def __repr__(self):
@@ -780,7 +825,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - 2016-06-02: Written - Bovy (UofT)
 
         """
-        return self._Pot(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluatePotentials(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         """
@@ -805,7 +850,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - Written on 2016-06-02 by Bovy (UofT)
 
         """
-        return self._Pot.Rforce(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluateRforces(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         """
@@ -830,7 +875,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - 2016-06-02: Written - Bovy (UofT)
 
         """
-        return self._Pot.phitorque(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluatephitorques(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
@@ -982,6 +1027,7 @@ def toPlanarPotential(Pot):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
@@ -1035,6 +1081,7 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("force", pop=True)
+@backend_input("R", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
@@ -1098,6 +1145,7 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
+@backend_input("R", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
@@ -1160,6 +1208,7 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
@@ -1245,9 +1294,27 @@ def LinShuReductionFactor(
         OmegaP = nonaxiPot.OmegaP()
         k = nonaxiPot.wavenumber(R)
         m = nonaxiPot.m()
-    tepif = epifreq(axiPot, R)
+    xp = _pot_data_namespace((axiPot,), R, sigmar, OmegaP, k, m)
+    if xp is not numpy:
+        # the backend's Gauss-Legendre quadrature, differentiable in everything
+        (R,) = coerce_coords(xp, R)
+        tepif = epifreq(axiPot, R)
+        s = m * (OmegaP - omegac(axiPot, R)) / tepif
+        chi = sigmar**2.0 * k**2.0 / tepif**2.0
+        integral = _bquad.quad(
+            lambda t, chi, s: (
+                xp.exp(-chi * (1.0 + xp.cos(t))) * xp.sin(s * t) * xp.sin(t)
+            ),
+            0.0,
+            numpy.pi,
+            args=(chi, s),
+        )
+        return (1.0 - s**2.0) / xp.sin(numpy.pi * s) * integral
+    # a scipy quadrature below: host the inputs and frequencies
+    OmegaP, k, m, sigmar = to_host([OmegaP, k, m, sigmar])
+    tepif = to_host(epifreq(axiPot, R))
     # We define omega = m x OmegaP in the usual Lin-Shu formula
-    s = m * (OmegaP - omegac(axiPot, R)) / tepif
+    s = m * (OmegaP - to_host(omegac(axiPot, R))) / tepif
     chi = sigmar**2.0 * k**2.0 / tepif**2.0
     return (
         (1.0 - s**2.0)

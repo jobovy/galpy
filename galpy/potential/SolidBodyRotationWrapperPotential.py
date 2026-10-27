@@ -46,6 +46,7 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         self._omega = omega
         self._pa = pa
         self.hasC = True
+        self._backend_compatible = True  # phi - omega t - pa: pure arithmetic
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
         # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own

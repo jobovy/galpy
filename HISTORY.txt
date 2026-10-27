@@ -20,8 +20,10 @@ v1.12.1 (expected around 2026-11-01)
   radius stays positive, held at its end values outside the grid), for
   example for a satellite that is stripped from the outside in, used as the
   ``pot`` of a ``MovingObjectPotential``. Both have
-  C implementations (orbits and ``integrate_dxdv``) and can be used with the
-  spherical distribution functions (``eddingtondf``, ``osipkovmerrittdf`` and
+  C implementations (orbits and ``integrate_dxdv``) and run on the JAX and
+  PyTorch backends, differentiable with respect to ``a``, ``rc`` and the
+  tabulated ``rc(t)`` values. They can be used with the spherical
+  distribution functions (``eddingtondf``, ``osipkovmerrittdf`` and
   ``constantbetadf``).
 
 - ``constantbetadf`` now computes its JAX derivatives in 64-bit precision

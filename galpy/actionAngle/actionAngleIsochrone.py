@@ -11,11 +11,13 @@
 #             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
-import copy
 import warnings
 
 import numpy
 
+from ..backend import get_namespace, is_backend_array, promote_scalars, to_host
+from ..backend._coerce import mask_where
+from ..backend._namespaces import namespace_from_arrays
 from ..potential import IsochronePotential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -61,7 +63,8 @@ class actionAngleIsochrone(actionAngle):
             self.amp = ip._amp
         else:
             self.b = conversion.parse_length(kwargs["b"], ro=self._ro)
-            rb = numpy.sqrt(self.b**2.0 + 1.0)
+            # b's own namespace: a traced / grad-tracking b stays differentiable
+            rb = (namespace_from_arrays((self.b,)) or numpy).sqrt(self.b**2.0 + 1.0)
             self.amp = (self.b + rb) ** 2.0 * rb
         self._c = False
         ext_loaded = False
@@ -112,12 +115,14 @@ class actionAngleIsochrone(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+        R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass
         else:
@@ -126,13 +131,15 @@ class actionAngleIsochrone(actionAngle):
             Ly = z * vR - R * vz
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
-            L = numpy.sqrt(L2)
+            E, unbound = _guard_unbound(xp, E)
+            L = xp.sqrt(L2)
             # Actions
             Jphi = Lz
-            Jz = L - numpy.fabs(Lz)
-            Jr = self.amp / numpy.sqrt(-2.0 * E) - 0.5 * (
-                L + numpy.sqrt(L2 + 4.0 * self.amp * self.b)
+            Jz = L - xp.abs(Lz)
+            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (
+                L + xp.sqrt(L2 + 4.0 * self.amp * self.b)
             )
+            (Jr,) = _nan_unbound(xp, unbound, Jr)
             return (Jr, Jphi, Jz)
 
     def _actionsFreqs(self, *args, **kwargs):
@@ -168,12 +175,14 @@ class actionAngleIsochrone(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+        R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass
         else:
@@ -182,19 +191,21 @@ class actionAngleIsochrone(actionAngle):
             Ly = z * vR - R * vz
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
-            L = numpy.sqrt(L2)
+            E, unbound = _guard_unbound(xp, E)
+            L = xp.sqrt(L2)
+            sqrtL2p = xp.sqrt(L2 + 4.0 * self.amp * self.b)  # shared by Jr + Omegaz
             # Actions
             Jphi = Lz
-            Jz = L - numpy.fabs(Lz)
-            Jr = self.amp / numpy.sqrt(-2.0 * E) - 0.5 * (
-                L + numpy.sqrt(L2 + 4.0 * self.amp * self.b)
-            )
+            Jz = L - xp.abs(Lz)
+            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (L + sqrtL2p)
             # Frequencies
             Omegar = (-2.0 * E) ** 1.5 / self.amp
-            Omegaz = 0.5 * (1.0 + L / numpy.sqrt(L2 + 4.0 * self.amp * self.b)) * Omegar
-            Omegaphi = copy.copy(Omegaz)
+            Omegaz = 0.5 * (1.0 + L / sqrtL2p) * Omegar
             indx = Lz < 0.0
-            Omegaphi[indx] *= -1.0
+            Omegaphi = xp.where(indx, -Omegaz, Omegaz)
+            Jr, Omegar, Omegaphi, Omegaz = _nan_unbound(
+                xp, unbound, Jr, Omegar, Omegaphi, Omegaz
+            )
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz)
 
     def _actionsFreqsAngles(self, *args, **kwargs):
@@ -231,13 +242,15 @@ class actionAngleIsochrone(actionAngle):
             z = self._eval_z
             vz = self._eval_vz
             phi = self._eval_phi
+        xp = get_namespace(R, vR, vT, z, vz, phi)
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
-            phi = numpy.array([phi])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+            phi = numpy.array([to_host(phi)])
+        R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
         if self._c:  # pragma: no cover
             pass
         else:
@@ -246,87 +259,117 @@ class actionAngleIsochrone(actionAngle):
             Ly = z * vR - R * vz
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
-            L = numpy.sqrt(L2)
+            L = xp.sqrt(L2)
+            sqrtL2p = xp.sqrt(L2 + 4.0 * self.amp * self.b)  # shared by Jr + Omegaz
             # Actions
-            Jphi = Lz
-            Jz = L - numpy.fabs(Lz)
-            Jr = self.amp / numpy.sqrt(-2.0 * E) - 0.5 * (
-                L + numpy.sqrt(L2 + 4.0 * self.amp * self.b)
-            )
+            Jz = L - xp.abs(Lz)
+            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (L + sqrtL2p)
             # Frequencies
             Omegar = (-2.0 * E) ** 1.5 / self.amp
-            Omegaz = 0.5 * (1.0 + L / numpy.sqrt(L2 + 4.0 * self.amp * self.b)) * Omegar
-            Omegaphi = copy.copy(Omegaz)
+            Omegaz = 0.5 * (1.0 + L / sqrtL2p) * Omegar
             indx = Lz < 0.0
-            Omegaphi[indx] *= -1.0
+            Omegaphi = xp.where(indx, -Omegaz, Omegaz)
             # Angles
             c = -self.amp / 2.0 / E - self.b
             e2 = 1.0 - L2 / self.amp / c * (1.0 + self.b / c)
-            e = numpy.sqrt(e2)
+            e = xp.sqrt(e2)
+            if is_backend_array(R):
+                Jphi = xp.where(Lz / L > 1.0, L, Lz)
+                Jphi = xp.where(Jphi / L < -1.0, -L, Jphi)
+                return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz) + self._backend_angles(
+                    xp, R, vR, z, vz, phi, Lx, Ly, Jphi, L, L2, c, e, Omegar, Omegaz
+                )
+            rsph = xp.sqrt(R**2.0 + z**2.0)  # shared by coseta(b==0) + cos/sintheta
             if self.b == 0.0:
-                coseta = 1 / e * (1.0 - numpy.sqrt(R**2.0 + z**2.0) / c)
+                coseta = 1 / e * (1.0 - rsph / c)
             else:
-                s = 1.0 + numpy.sqrt(1.0 + (R**2.0 + z**2.0) / self.b**2.0)
+                s = 1.0 + xp.sqrt(1.0 + (R**2.0 + z**2.0) / self.b**2.0)
                 coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
-            pindx = coseta > 1.0
-            coseta[pindx] = 1.0
-            pindx = coseta < -1.0
-            coseta[pindx] = -1.0
-            eta = numpy.arccos(coseta)
-            costheta = z / numpy.sqrt(R**2.0 + z**2.0)
-            sintheta = R / numpy.sqrt(R**2.0 + z**2.0)
+            coseta = xp.clip(coseta, -1.0, 1.0)
+            eta = xp.arccos(coseta)
+            costheta = z / rsph
+            sintheta = R / rsph
             vrindx = (vR * sintheta + vz * costheta) < 0.0
-            eta[vrindx] = 2.0 * numpy.pi - eta[vrindx]
-            angler = eta - e * c / (c + self.b) * numpy.sin(eta)
-            tan11 = numpy.arctan(
-                numpy.sqrt((1.0 + e) / (1.0 - e)) * numpy.tan(0.5 * eta)
-            )
-            tan12 = numpy.arctan(
-                numpy.sqrt((1.0 + e + 2.0 * self.b / c) / (1.0 - e + 2.0 * self.b / c))
-                * numpy.tan(0.5 * eta)
+            eta = xp.where(vrindx, 2.0 * numpy.pi - eta, eta)
+            angler = eta - e * c / (c + self.b) * xp.sin(eta)
+            tan11 = xp.arctan(xp.sqrt((1.0 + e) / (1.0 - e)) * xp.tan(0.5 * eta))
+            tan12 = xp.arctan(
+                xp.sqrt((1.0 + e + 2.0 * self.b / c) / (1.0 - e + 2.0 * self.b / c))
+                * xp.tan(0.5 * eta)
             )
             vzindx = (-vz * sintheta + vR * costheta) > 0.0
-            tan11[tan11 < 0.0] += numpy.pi
-            tan12[tan12 < 0.0] += numpy.pi
-            pindx = Lz / L > 1.0
-            Lz[pindx] = L[pindx]
-            pindx = Lz / L < -1.0
-            Lz[pindx] = -L[pindx]
-            sini = numpy.sqrt(L**2.0 - Lz**2.0) / L
-            tani = numpy.sqrt(L**2.0 - Lz**2.0) / Lz
+            tan11 = xp.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
+            tan12 = xp.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
+            Lz = xp.where(Lz / L > 1.0, L, Lz)
+            Lz = xp.where(Lz / L < -1.0, -L, Lz)
+            Jphi = Lz
+            sqrtL2mLz2 = xp.sqrt(L**2.0 - Lz**2.0)  # shared by sini + tani
+            sini = sqrtL2mLz2 / L
+            tani = sqrtL2mLz2 / Lz
             sinpsi = costheta / sini
-            pindx = (sinpsi > 1.0) * numpy.isfinite(sinpsi)
-            sinpsi[pindx] = 1.0
-            pindx = (sinpsi < -1.0) * numpy.isfinite(sinpsi)
-            sinpsi[pindx] = -1.0
-            psi = numpy.arcsin(sinpsi)
-            psi[vzindx] = numpy.pi - psi[vzindx]
+            sinpsi = xp.where((sinpsi > 1.0) & xp.isfinite(sinpsi), 1.0, sinpsi)
+            sinpsi = xp.where((sinpsi < -1.0) & xp.isfinite(sinpsi), -1.0, sinpsi)
+            psi = xp.arcsin(sinpsi)
+            psi = xp.where(vzindx, numpy.pi - psi, psi)
             # For non-inclined orbits, we set Omega=0 by convention
-            psi[True ^ numpy.isfinite(psi)] = phi[True ^ numpy.isfinite(psi)]
+            psi = xp.where(~xp.isfinite(psi), phi, psi)
             psi = psi % (2.0 * numpy.pi)
             anglez = (
                 psi
                 + Omegaz / Omegar * angler
                 - tan11
-                - 1.0 / numpy.sqrt(1.0 + 4 * self.amp * self.b / L2) * tan12
+                - 1.0 / xp.sqrt(1.0 + 4 * self.amp * self.b / L2) * tan12
             )
             sinu = z / R / tani
-            pindx = (sinu > 1.0) * numpy.isfinite(sinu)
-            sinu[pindx] = 1.0
-            pindx = (sinu < -1.0) * numpy.isfinite(sinu)
-            sinu[pindx] = -1.0
-            u = numpy.arcsin(sinu)
-            u[vzindx] = numpy.pi - u[vzindx]
+            sinu = xp.where((sinu > 1.0) & xp.isfinite(sinu), 1.0, sinu)
+            sinu = xp.where((sinu < -1.0) & xp.isfinite(sinu), -1.0, sinu)
+            u = xp.arcsin(sinu)
+            u = xp.where(vzindx, numpy.pi - u, u)
             # For non-inclined orbits, we set Omega=0 by convention
-            u[True ^ numpy.isfinite(u)] = phi[True ^ numpy.isfinite(u)]
+            u = xp.where(~xp.isfinite(u), phi, u)
             Omega = phi - u
-            anglephi = Omega
-            anglephi[indx] -= anglez[indx]
-            anglephi[True ^ indx] += anglez[True ^ indx]
+            anglephi = xp.where(indx, Omega - anglez, Omega + anglez)
             angler = angler % (2.0 * numpy.pi)
             anglephi = anglephi % (2.0 * numpy.pi)
             anglez = anglez % (2.0 * numpy.pi)
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
+
+    def _backend_angles(
+        self, xp, R, vR, z, vz, phi, Lx, Ly, Lz, L, L2, c, e, Omegar, Omegaz
+    ):
+        """(angler, anglephi, anglez) with atan2 in place of the numpy path's
+        arccos/arcsin/tan: those are singular at the radial and vertical turning
+        points, where AD second derivatives lose all precision (a sample ~1e-5 rad
+        from apocenter gets a Hessian ~60% off). Same angles to rounding."""
+        twopi = 2.0 * numpy.pi
+        # e cos(eta), e sin(eta) from s = 1 + sqrt(1 + r^2/b^2) and its time
+        # derivative (valid for b = 0 too); r v_r = R vR + z vz
+        sq = xp.sqrt(self.b**2.0 + R**2.0 + z**2.0)
+        ecoseta = 1.0 - (sq - self.b) / c
+        cb = c / (c + self.b)
+        esineta = (R * vR + z * vz) * (1.0 - cb * ecoseta) / (c * sq * Omegar)
+        eta = xp.atan2(esineta, ecoseta) % twopi
+        angler = eta - cb * esineta
+        hs, hc = xp.sin(0.5 * eta), xp.cos(0.5 * eta)  # hs >= 0: atan2 in [0, pi]
+        tan11 = xp.atan2(xp.sqrt(1.0 + e) * hs, xp.sqrt(1.0 - e) * hc)
+        k2 = 2.0 * self.b / c
+        tan12 = xp.atan2(xp.sqrt(1.0 + e + k2) * hs, xp.sqrt(1.0 - e + k2) * hc)
+        # in-plane angle from the ascending node and the node's offset from phi,
+        # in the frame where the point sits at phi = 0 (Lx, Ly there); an orbit
+        # the numpy path finds planar (sin i == 0) keeps its Omega = 0 convention
+        inclined = L**2.0 - Lz**2.0 > 0.0
+        ly = xp.where(inclined, -Ly, 1.0)
+        psi = xp.where(inclined, xp.atan2(z * L, R * ly), phi) % twopi
+        u = xp.where(inclined, xp.atan2(-Lx, ly), phi)
+        anglez = (
+            psi
+            + Omegaz / Omegar * angler
+            - tan11
+            - 1.0 / xp.sqrt(1.0 + 4 * self.amp * self.b / L2) * tan12
+        )
+        Omega = phi - u
+        anglephi = xp.where(Lz < 0.0, Omega - anglez, Omega + anglez)
+        return (angler % twopi, anglephi % twopi, anglez % twopi)
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
@@ -340,12 +383,14 @@ class actionAngleIsochrone(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
         if isinstance(R, float):
             R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
+            vR = numpy.array([to_host(vR)])
+            vT = numpy.array([to_host(vT)])
+            z = numpy.array([to_host(z)])
+            vz = numpy.array([to_host(vz)])
+        R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
         if self._c:  # pragma: no cover
             pass
         else:
@@ -361,7 +406,7 @@ class actionAngleIsochrone(actionAngle):
                 )
                 a = -self.amp / 2.0 / E
                 me2 = L2 / self.amp / a
-                e = numpy.sqrt(1.0 - me2)
+                e = xp.sqrt(1.0 - me2)
                 rperi = a * (1.0 - e)
                 rap = a * (1.0 + e)
             else:
@@ -369,7 +414,7 @@ class actionAngleIsochrone(actionAngle):
                     0.5
                     * (
                         (2.0 * E - self.amp / self.b)
-                        + numpy.sqrt(
+                        + xp.sqrt(
                             (2.0 * E - self.amp / self.b) ** 2.0
                             + 2.0 * E * (4.0 * self.amp / self.b + L2 / self.b**2.0)
                         )
@@ -377,11 +422,27 @@ class actionAngleIsochrone(actionAngle):
                     / E
                 )
                 smax = 2.0 - self.amp / E / self.b - smin
-                rperi = smin * numpy.sqrt(1.0 - 2.0 / smin) * self.b
-                rap = smax * numpy.sqrt(1.0 - 2.0 / smax) * self.b
+                rperi = smin * xp.sqrt(1.0 - 2.0 / smin) * self.b
+                rap = smax * xp.sqrt(1.0 - 2.0 / smax) * self.b
             return (
                 (rap - rperi) / (rap + rperi),
-                rap * numpy.sqrt(1.0 - Lz**2.0 / L2),
+                rap * xp.sqrt(1.0 - Lz**2.0 / L2),
                 rperi,
                 rap,
             )
+
+
+def _guard_unbound(xp, E):
+    """Backend E: unbound (E >= 0) entries replaced by a benign E = -1 so the
+    sqrt(-2E) dead branch stays finite under AD; numpy E is returned as is."""
+    if xp is numpy:
+        return E, None
+    unbound = ~(E < 0.0)
+    return mask_where(xp, ~unbound, E, -1.0), unbound
+
+
+def _nan_unbound(xp, unbound, *outs):
+    """NaN at the unbound entries (numpy's value there)."""
+    if unbound is None:
+        return outs
+    return tuple(xp.where(unbound, xp.nan, o) for o in outs)
