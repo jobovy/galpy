@@ -14119,9 +14119,8 @@ def test_from_name_errors():
 
 
 def test_from_name_simbad_mirror_fallback(monkeypatch):
-    # When the SIMBAD mirror tried first cannot be reached, from_name falls
-    # back on the next one with a single warning and then keeps using the one
-    # that answered
+    # When the SIMBAD mirror tried first cannot be reached, from_name silently
+    # falls back on the next one and then keeps using the one that answered
     from astroquery.simbad import conf
 
     import galpy.orbit.Orbits as Orbits
@@ -14130,35 +14129,38 @@ def test_from_name_simbad_mirror_fallback(monkeypatch):
     unreachable = "127.0.0.1:1"  # nothing listens on port 1: refused at once
     monkeypatch.setattr(conf, "servers_list", [unreachable, *conf.servers_list])
     monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", unreachable)
-    with warnings.catch_warnings(record=True) as record:
+    # Record the mirrors tried
+    tried = []
+    lookup = Orbits._from_name_simbad
+
+    def recording_lookup(name, server):
+        tried.append(server)
+        return lookup(name, server)
+
+    monkeypatch.setattr(Orbits, "_from_name_simbad", recording_lookup)
+    with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         o = Orbit.from_name("Vega")
-    fallback = [
-        w
-        for w in record
-        if issubclass(w.category, galpyWarning) and "SIMBAD mirror" in str(w.message)
-    ]
-    assert len(fallback) == 1, (
-        "from_name did not warn exactly once about the unreachable SIMBAD mirror"
+    assert tried[0] == unreachable, (
+        "from_name did not try the remembered SIMBAD mirror first"
     )
-    assert unreachable in str(fallback[0].message), (
-        "from_name's warning does not name the unreachable SIMBAD mirror"
-    )
-    assert Orbits._SIMBAD_SERVER in conf.servers_list[1:], (
+    assert tried[-1] == Orbits._SIMBAD_SERVER and tried[-1] in conf.servers_list[1:], (
         "from_name did not remember the SIMBAD mirror that answered"
     )
+    assert not any(
+        issubclass(w.category, galpyWarning) and "SIMBAD" in str(w.message)
+        for w in caught
+    ), "from_name warned when falling back on another SIMBAD mirror"
     assert numpy.isclose(o.ra(), 279.23473479), "RA of Vega does not match SIMBAD value"
     assert numpy.isclose(o.dist(), 1 / 130.23), (
         "Parallax of Vega does not match SIMBAD value"
     )
-    # The mirror that answered is tried first from now on: no warning
-    with warnings.catch_warnings(record=True) as record:
-        warnings.simplefilter("always")
-        o = Orbit.from_name("Lacaille 8760")
-    assert not any(
-        issubclass(w.category, galpyWarning) and "SIMBAD mirror" in str(w.message)
-        for w in record
-    ), "from_name warned again although the SIMBAD mirror that answered is tried first"
+    # The mirror that answered is the only one tried from now on
+    del tried[:]
+    o = Orbit.from_name("Lacaille 8760")
+    assert tried == [Orbits._SIMBAD_SERVER], (
+        "from_name did not go straight to the SIMBAD mirror that answered before"
+    )
     assert numpy.isclose(o.pmra(), -3258.996), (
         "PMRA of Lacaille 8760 does not match SIMBAD value"
     )

@@ -1173,7 +1173,7 @@ class Orbit:
         """
         Construct an orbit from the name of an object or a list of names.
 
-        Objects that are not in galpy's list of known objects are looked up in SIMBAD through astroquery, on the mirror configured there (``astroquery.simbad.conf.server``) or, when that one cannot be reached, on the other SIMBAD mirrors that astroquery knows (with a warning).
+        Objects that are not in galpy's list of known objects are looked up in SIMBAD through astroquery, on the mirror configured there (``astroquery.simbad.conf.server``) or, when that one cannot be reached, on the other SIMBAD mirrors that astroquery knows.
 
         Parameters
         ----------
@@ -10366,22 +10366,14 @@ def _from_name_oneobject(name, obs):
             "Orbit.from_name when not using a known "
             "object (i.e., when querying Simbad)"
         )
-    # Look the object up on the first SIMBAD mirror that can be reached
+    # Look the object up on the first SIMBAD mirror that can be reached; the
+    # mirrors hold the same data, so falling back on another one is silent
     servers = _simbad_servers()
-    unreachable = []
     for server in servers:
         try:
             vxvv = _from_name_simbad(name, server)
         except _SIMBAD_CONNECTION_ERRORS:
-            unreachable.append(server)
             continue
-        if unreachable:
-            warnings.warn(
-                f"SIMBAD mirror{'s' if len(unreachable) > 1 else ''} "
-                f"{', '.join(unreachable)} could not be reached; "
-                f"using SIMBAD mirror {server} instead",
-                galpyWarning,
-            )
         _SIMBAD_SERVER = server
         return vxvv
     raise OSError(f"failed to connect to SIMBAD (tried {', '.join(servers)})")
