@@ -1,6 +1,12 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- The ``numpy`` results of ``NFWPotential`` and ``BurkertPotential`` at small
+  radii and the second derivatives of the ellipsoidal potentials
+  (``TriaxialNFWPotential`` etc.) are again bitwise identical to v1.12.0: the
+  backend-agnostic formulas evaluate in the same floating-point operation
+  order as before (they had drifted by a few units in the last place).
+
 - Added an ``isConservative`` attribute to all potentials and forces, True
   when the force derives from a (possibly time-dependent) potential: True for
   potentials, False for dissipative forces, except a ``NonInertialFrameForce``
