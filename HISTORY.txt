@@ -1,6 +1,13 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``Orbit.from_name`` now falls back on the other SIMBAD mirrors that
+  astroquery knows (currently the CDS in Strasbourg and Harvard) when the
+  configured one (``astroquery.simbad.conf.server``) cannot be reached, with a
+  warning, and keeps using the mirror that answered for the rest of the
+  session. Previously, every lookup failed with a pyvo ``DALServiceError``
+  whenever the CDS service was down.
+
 - Added an ``isConservative`` attribute to all potentials and forces, True
   when the force derives from a (possibly time-dependent) potential: True for
   potentials, False for dissipative forces, except a ``NonInertialFrameForce``

@@ -13887,6 +13887,73 @@ def test_from_name_errors():
     )
 
 
+def test_from_name_simbad_mirror_fallback(monkeypatch):
+    # When the SIMBAD mirror tried first cannot be reached, from_name falls
+    # back on the next one with a single warning and then keeps using the one
+    # that answered
+    from astroquery.simbad import conf
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    unreachable = "127.0.0.1:1"  # nothing listens on port 1: refused at once
+    monkeypatch.setattr(conf, "servers_list", [unreachable, *conf.servers_list])
+    monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", unreachable)
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        o = Orbit.from_name("Vega")
+    fallback = [
+        w
+        for w in record
+        if issubclass(w.category, galpyWarning) and "SIMBAD mirror" in str(w.message)
+    ]
+    assert len(fallback) == 1, (
+        "from_name did not warn exactly once about the unreachable SIMBAD mirror"
+    )
+    assert unreachable in str(fallback[0].message), (
+        "from_name's warning does not name the unreachable SIMBAD mirror"
+    )
+    assert Orbits._SIMBAD_SERVER in conf.servers_list[1:], (
+        "from_name did not remember the SIMBAD mirror that answered"
+    )
+    assert numpy.isclose(o.ra(), 279.23473479), "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1 / 130.23), (
+        "Parallax of Vega does not match SIMBAD value"
+    )
+    # The mirror that answered is tried first from now on: no warning
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        o = Orbit.from_name("Lacaille 8760")
+    assert not any(
+        issubclass(w.category, galpyWarning) and "SIMBAD mirror" in str(w.message)
+        for w in record
+    ), "from_name warned again although the SIMBAD mirror that answered is tried first"
+    assert numpy.isclose(o.pmra(), -3258.996), (
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    )
+    return None
+
+
+def test_from_name_simbad_unreachable(monkeypatch):
+    # When no SIMBAD mirror can be reached, from_name raises an OSError that
+    # names the mirrors it tried
+    from astroquery.simbad import conf
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    unreachable = ["127.0.0.1:1", "127.0.0.1:2"]
+    monkeypatch.setattr(conf, "servers_list", unreachable)
+    monkeypatch.setattr(Orbits, "_simbad_servers", lambda: unreachable)
+    with pytest.raises(OSError) as excinfo:
+        Orbit.from_name("Vega")
+    msg = "failed to connect to SIMBAD (tried 127.0.0.1:1, 127.0.0.1:2)"
+    assert str(excinfo.value) == msg, (
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
+    )
+    return None
+
+
 def test_from_name_named():
     # Test that the values from the JSON file are correctly transferred
     import json

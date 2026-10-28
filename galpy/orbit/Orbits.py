@@ -55,6 +55,7 @@ from ..util._optional_deps import (
     _AQ_GT_47,
     _ASTROQUERY_LOADED,
     _NUMEXPR_LOADED,
+    _SIMBAD_CONNECTION_ERRORS,
 )
 from ..util.conversion import (
     physical_compatible,
@@ -850,6 +851,8 @@ class Orbit:
         """
         Construct an orbit from the name of an object or a list of names.
 
+        Objects that are not in galpy's list of known objects are looked up in SIMBAD through astroquery, on the mirror configured there (``astroquery.simbad.conf.server``) or, when that one cannot be reached, on the other SIMBAD mirrors that astroquery knows (with a warning).
+
         Parameters
         ----------
         name : str or list
@@ -872,6 +875,7 @@ class Orbit:
         -----
         - 2018-07-15: Written - Mathew Bub (UofT)
         - 2019-05-21: Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
+        - 2026-10-28: Fall back on the other SIMBAD mirrors when the configured one cannot be reached - Bovy (UofT)
 
         """
         if not _APY_LOADED:  # pragma: no cover
@@ -8804,6 +8808,40 @@ class _1DInterp:
         return self._ip(t)[:, None]
 
 
+# The SIMBAD mirror that answered the last lookup in this process; it is tried
+# first, so that a process does not wait for an unreachable mirror's connection
+# timeout at every lookup
+_SIMBAD_SERVER = None
+# The mirrors when astroquery does not list any (astroquery <= 0.4.7)
+_SIMBAD_MIRRORS = ("simbad.cds.unistra.fr", "simbad.harvard.edu")
+
+
+def _simbad_servers():
+    """
+    List the SIMBAD mirrors in the order in which Orbit.from_name tries them.
+
+    Returns
+    -------
+    list
+        The mirror that answered the last lookup, astroquery's configured mirror (astroquery.simbad.conf.server) and then the other mirrors that astroquery knows (astroquery.simbad.conf.servers_list), without repeats.
+
+    Notes
+    -----
+    - 2026-10-28 - Written - Bovy (UofT)
+
+    """
+    from astroquery.simbad import conf
+
+    servers = [
+        _SIMBAD_SERVER,
+        conf.server,
+        *getattr(conf, "servers_list", _SIMBAD_MIRRORS),
+    ]
+    return [
+        s for ii, s in enumerate(servers) if s is not None and s not in servers[:ii]
+    ]
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
@@ -8824,8 +8862,10 @@ def _from_name_oneobject(name, obs):
     -----
     - 2018-07-15 - Written - Mathew Bub (UofT)
     - 2019-06-16 - Added named_objects - Bovy (UofT)
+    - 2026-10-28 - Fall back on the other SIMBAD mirrors when one cannot be reached - Bovy (UofT)
 
     """
+    global _SIMBAD_SERVER
     # First check whether this is a named_object
     this_name = _named_objects_key_formatting(name)
     # Find the object in the file?
@@ -8856,10 +8896,64 @@ def _from_name_oneobject(name, obs):
             "Orbit.from_name when not using a known "
             "object (i.e., when querying Simbad)"
         )
+    # Look the object up on the first SIMBAD mirror that can be reached
+    servers = _simbad_servers()
+    unreachable = []
+    for server in servers:
+        try:
+            vxvv = _from_name_simbad(name, server)
+        except _SIMBAD_CONNECTION_ERRORS:
+            unreachable.append(server)
+            continue
+        if unreachable:
+            warnings.warn(
+                f"SIMBAD mirror{'s' if len(unreachable) > 1 else ''} "
+                f"{', '.join(unreachable)} could not be reached; "
+                f"using SIMBAD mirror {server} instead",
+                galpyWarning,
+            )
+        _SIMBAD_SERVER = server
+        return vxvv
+    raise OSError(f"failed to connect to SIMBAD (tried {', '.join(servers)})")
+
+
+def _from_name_simbad(name, server):
+    """
+    Look up the phase-space coordinates of one object on one SIMBAD mirror.
+
+    Parameters
+    ----------
+    name : str
+        Name of the object.
+    server : str
+        Host name of the SIMBAD mirror (one of astroquery.simbad.conf.servers_list).
+
+    Returns
+    -------
+    list
+        A list of [ra, dec, dist, pmra, pmdec, vlos].
+
+    Raises
+    ------
+    ValueError
+        When the object or some of its coordinates are not in SIMBAD.
+    OSError or pyvo.dal.exceptions.DALServiceError
+        When the mirror cannot be reached.
+
+    Notes
+    -----
+    - 2026-10-28 - Split off from _from_name_oneobject - Bovy (UofT)
+
+    """
     # setup a SIMBAD query with the appropriate fields
     simbad = Simbad()
     # Make sure to make an HTTPS request so this code works in the browser
     simbad.SIMBAD_URL = simbad.SIMBAD_URL.replace("http://", "https://")
+    if _AQ_GT_47:
+        if simbad.server != server:
+            simbad.server = server
+    else:  # pragma: no cover
+        simbad.SIMBAD_URL = f"https://{server}/simbad/sim-script"
     simbad.add_votable_fields(
         "ra" if _AQ_GT_47 else "ra(d)",
         "dec" if _AQ_GT_47 else "dec(d)",
@@ -8870,10 +8964,7 @@ def _from_name_oneobject(name, obs):
     if not _AQ_GT_47:  # pragma: no cover
         simbad.add_votable_fields("plx", "distance")
     # query SIMBAD for the named object
-    try:
-        simbad_table = simbad.query_object(name)
-    except OSError:  # pragma: no cover
-        raise OSError("failed to connect to SIMBAD")
+    simbad_table = simbad.query_object(name)
     if not simbad_table:
         raise ValueError(f"failed to find {name} in SIMBAD")
     if _AQ_GT_47:
