@@ -29,6 +29,8 @@ except ImportError:
 # astroquery
 _ASTROQUERY_LOADED = True
 _AQ_GT_47 = None
+# Errors raised when a SIMBAD mirror cannot be reached (pyvo's for astroquery > 0.4.7)
+_SIMBAD_CONNECTION_ERRORS = (OSError,)
 try:
     from astroquery.simbad import Simbad
 except ImportError:
@@ -37,6 +39,10 @@ else:
     import astroquery
 
     _AQ_GT_47 = parse_version(astroquery.__version__) > parse_version("0.4.7")
+    if _AQ_GT_47:
+        from pyvo.dal.exceptions import DALServiceError
+
+        _SIMBAD_CONNECTION_ERRORS = (OSError, DALServiceError)
 
 # numexpr
 _NUMEXPR_LOADED = True
