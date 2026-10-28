@@ -90,6 +90,7 @@ from ..util._optional_deps import (
     _ASTROQUERY_LOADED,
     _NUMEXPR_LOADED,
     _SIMBAD_CONNECTION_ERRORS,
+    _SIMBAD_WRAPPER_ERRORS,
 )
 from ..util.conversion import (
     physical_compatible,
@@ -10324,31 +10325,18 @@ def _simbad_connection_error(exc):
     Returns
     -------
     bool
-        True for requests' errors (OSError) and pyvo's DALServiceError, also when one of those is the cause of the exception, as for the DALFormatError that pyvo raises when the connection is lost after the mirror's capabilities were read.
+        True for requests' errors (OSError), pyvo's DALServiceError and urllib3's ProtocolError and TimeoutError (a response cut short), also when pyvo wraps one of those in a DALFormatError, as it does for any error of a TAP query (sent after the mirror's capabilities were read). Only pyvo's wrapper is looked through: Python attaches any exception that the caller is handling to a new exception as its context, which says nothing about SIMBAD.
 
     Notes
     -----
     - 2026-10-28 - Written - Bovy (UofT)
 
     """
-    seen = set()
-    while isinstance(exc, BaseException) and id(exc) not in seen:
-        if isinstance(exc, _SIMBAD_CONNECTION_ERRORS):
-            return True
-        seen.add(id(exc))
-        exc = next(
-            (
-                cause
-                for cause in (
-                    getattr(exc, "cause", None),
-                    exc.__cause__,
-                    exc.__context__,
-                )
-                if isinstance(cause, BaseException)
-            ),
-            None,
-        )
-    return False
+    while not isinstance(exc, _SIMBAD_CONNECTION_ERRORS):
+        if not isinstance(exc, _SIMBAD_WRAPPER_ERRORS):
+            return False
+        exc = exc.cause
+    return True
 
 
 def _from_name_oneobject(name, obs):
@@ -10412,9 +10400,11 @@ def _from_name_oneobject(name, obs):
         try:
             vxvv = _from_name_simbad(name, server)
         except Exception as exc:
-            if not _simbad_connection_error(exc):
-                raise
-            continue
+            if _simbad_connection_error(exc):
+                continue
+            # The mirror answered: remember it, then report the problem
+            _SIMBAD_SERVER = server
+            raise
         _SIMBAD_SERVER = server
         return vxvv
     raise OSError(f"failed to connect to SIMBAD (tried {', '.join(servers)})")
