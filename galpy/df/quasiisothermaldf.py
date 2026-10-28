@@ -33,7 +33,6 @@ from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_for_name,
     namespace_from_arrays,
-    stop_gradient,
     untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_bilinear
@@ -2382,46 +2381,19 @@ class quasiisothermaldf(df):
             batched_inverse_cdf_sample,
             ensure_strictly_increasing,
             linear_inverse_cdf_sample,
+            trapezoid_cdf,
+            trapezoid_sum,
         )
 
-        def _seg(p, g, axis):
-            d = g[1] - g[0]
-            lo = [slice(None)] * p.ndim
-            lo[axis] = slice(0, -1)
-            hi = [slice(None)] * p.ndim
-            hi[axis] = slice(1, None)
-            return 0.5 * (p[tuple(lo)] + p[tuple(hi)]) * d
-
         def _trapz(p, g, axis):
-            return xp.sum(_seg(p, g, axis), axis=axis)
+            return trapezoid_sum(xp, p, g, axis)
 
         def _cumcdf(p, g, axis):
-            c = xp.cumulative_sum(_seg(p, g, axis), axis=axis)
-            zsh = list(p.shape)
-            zsh[axis] = 1
-            c = xp.concatenate([xp.zeros(tuple(zsh), dtype=c.dtype), c], axis=axis)
-            last = [slice(None)] * p.ndim
-            last[axis] = slice(c.shape[axis] - 1, c.shape[axis])
-            tot = c[tuple(last)]
-            # A slice with no probability at all (the vT=0 node: Lz = R*vT = 0,
-            # so the DF vanishes there) would normalise 0/0 -> NaN, and the
-            # conditional blend below mixes that row in whenever a sampled vT
-            # lands in the first cell, turning the whole draw into NaN (rare --
-            # ~1 in 2e5 -- and silent). Give such a slice a uniform CDF instead:
-            # it carries no weight in the marginal, so the choice is immaterial,
-            # but it keeps every CDF finite and non-decreasing.
-            ramp = xp.reshape(
-                xp.linspace(0.0, 1.0, c.shape[axis]),
-                tuple(-1 if k == axis else 1 for k in range(p.ndim)),
-            )
-            good = tot > 0.0
-            tot = xp.where(good, tot, xp.ones_like(tot))
-            # Divide by a gradient-free copy of tot first: c/tot's derivative has
-            # a 1/tot**2 that overflows for a far-tail row (tot ~ 1e-177 at
-            # 5 sigma_R and small vT) and NaN-poisons the sample's gradient. The
-            # value is bit-identical: tot/s == 1.0 exactly.
-            s = stop_gradient(tot)
-            return xp.where(good, (c / s) / (tot / s), ramp)
+            # the vT=0 node (Lz = R*vT = 0, the DF vanishes there) is the empty
+            # slice that trapezoid_cdf gives a uniform CDF; the conditional
+            # blend below mixes that row in whenever a sampled vT lands in the
+            # first cell (rare, ~1 in 2e5)
+            return trapezoid_cdf(xp, p, g, axis)
 
         # The local dispersions set the velocity-grid extents. Scale a UNIT
         # linspace by them rather than passing them as linspace limits: torch

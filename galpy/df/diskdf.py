@@ -28,7 +28,7 @@ import numpy
 import scipy
 
 numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
-from scipy import integrate, interpolate, optimize, stats
+from scipy import integrate, interpolate
 
 from ..actionAngle import actionAngleAdiabatic
 from ..backend import (
@@ -41,23 +41,28 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     prefer_backend_namespace,
-    resolve_namespace,
-    scalar_like,
-    to_host,
-    use,
 )
+from ..backend import random as grandom
+from ..backend import resolve_namespace, scalar_like, to_host, use
 from ..backend._namespaces import (
     has_concrete_truth_value,
+    namespace_for_name,
     namespace_from_arrays,
     requires_backend_grad,
     under_trace,
 )
 from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly, spline_to_ppoly
 from ..backend.quadrature import nested_quad
+from ..backend.sampling import (
+    batched_inverse_cdf_sample,
+    ensure_strictly_increasing,
+    linear_inverse_cdf_sample,
+    trapezoid_cdf,
+    trapezoid_sum,
+)
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
 from ..util import conversion, quadpack, save_pickles
-from ..util.ars import ars
 from ..util.conversion import (
     _APY_LOADED,
     _APY_UNITS,
@@ -726,77 +731,206 @@ class diskdf(df):
                 * d
             )
 
-    @_on_numpy
+    # --- inverse-CDF samplers ---------------------------------------------------
+    # Every sampler draws by inverting a tabulated CDF: the distance along a
+    # line of sight from Sigma(R(d)) d, the velocities at a radius from the DF
+    # on a velocity mesh (the marginal in vT, then vR given vT), the
+    # guiding-centre radius from x Sigma(x) and the orbital phase from the
+    # radial angle of the spherical action-angle quadrature (rejection
+    # sampling, adaptive rejection sampling and an orbit integration per sample
+    # before 2026-10). One path for numpy, jax and torch: ``key=None`` draws the
+    # uniforms from numpy's global generator and returns the historical numpy
+    # objects; a backend key draws them in that namespace, returns backend
+    # arrays (one Orbit holding every sample) and makes the samples
+    # differentiable in the DF's parameters through the tables.
+    _SAMPLE_ND = 1001  # nodes of the line-of-sight distance table
+    _SAMPLE_ND_ACTUAL = (
+        201  # ... for the actual surface density (a quadrature per node)
+    )
+    _SAMPLE_NVT = 241  # velocity-mesh nodes in vT
+    _SAMPLE_NVR = 121  # ... in vR (61: sigma_R 0.5% high)
+    _SAMPLE_VNSIGMA = 5.0  # the mesh's half-width in dispersions
+    _SAMPLE_NX = 1001  # nodes of the x Sigma(x) table
+    _SAMPLE_XMAX = 40.0  # its extent in scale lengths (x Sigma(x) ~ 40 e^-40)
+    _SAMPLE_NPHASE = 48  # radial-angle nodes per half orbit
+
+    def _sample_namespace(self, key):
+        """The namespace a sampler computes in: a backend key's, else that of a
+        differentiated profile parameter or beta, else the active one"""
+        xp = get_namespace()
+        if xp is numpy and key is not None:
+            xp = namespace_for_name(grandom._backend_of_key(key))
+        if xp is numpy and self._backend_path():
+            xp, _ = self._backend_coerce()
+        return xp
+
+    @staticmethod
+    def _sample_uniform(xp, key, shape, like):
+        """Uniform draws of ``like``'s dtype; numpy's global stream for key=None"""
+        return xp.astype(xp.asarray(grandom.uniform(key, shape)), like.dtype)
+
+    @staticmethod
+    def _sample_rows_increasing(xp, rows):
+        """Rows strictly increasing along the last axis
+        (ensure_strictly_increasing works along the first)"""
+        return xp.permute_dims(
+            ensure_strictly_increasing(xp, xp.permute_dims(rows, (1, 0))), (1, 0)
+        )
+
+    @staticmethod
+    def _sample_lerp_rows(xp, table, row, q):
+        """``table[row]`` at the fractional index ``q``: the inverse-CDF helpers
+        invert on the shared index axis, the per-row grid is interpolated here.
+        Returns (value, cell index, fraction)."""
+        n = table.shape[-1]
+        i0 = xp.astype(xp.clip(xp.floor(q), 0, n - 2), xp.int64)
+        frac = q - xp.astype(i0, q.dtype)
+        return table[row, i0] * (1.0 - frac) + table[row, i0 + 1] * frac, i0, frac
+
+    def _sample_orbits(self, vxvv, key, physical):
+        """The sampled points as Orbits: a list of single Orbits for key=None
+        (the historical contract), one Orbit holding every sample for a key"""
+        kw = {"ro": self._ro, "vo": self._vo} if physical else {}
+        if key is None:
+            return [Orbit(vxvv=row, **kw) for row in as_numpy(vxvv)]
+        return Orbit(vxvv=vxvv, **kw)
+
+    def _sample_los_distances(self, l, n, maxd, target, key, xp):
+        """n distances along the line of sight l (rad) from the inverse CDF of
+        Sigma(R(d)) d tabulated up to maxd"""
+        nnodes = self._SAMPLE_ND if target else self._SAMPLE_ND_ACTUAL
+        dg = xp.linspace(0.0, 1.0, nnodes) * maxd
+        Rg = xp.sqrt(1.0 + dg**2.0 - 2.0 * dg * xp.cos(xp.asarray(l)))
+        if target:
+            dens = self._ssp("surfacemass", Rg) * dg
+        else:
+            dens = self.surfacemass(Rg, use_physical=False) * dg
+        F = ensure_strictly_increasing(xp, trapezoid_cdf(xp, dens, dg, 0))
+        u = self._sample_uniform(xp, key, (n,), dg)
+        return linear_inverse_cdf_sample(xp, dg, F, u)
+
+    def _sample_velocities(self, R, n, nsigma, target, key, xp):
+        """n (vR, vT) at the radii R ((1,) for every draw or (n,), one each)
+        from the inverse CDF of the DF on a velocity mesh: the marginal in vT,
+        then vR given vT (the vR CDF interpolated to the drawn vT). The mesh
+        follows the DF: a coarse pass over a box of a few circular velocities
+        finds the support in vT, and every vT row's extent in vR is nsigma
+        dispersions at that row's guiding radius -- the inner, hotter
+        populations reach large radii on eccentric orbits (the Shu DF at
+        R = 2 has 6 per cent of its mass beyond five local dispersions).
+        ``target`` is accepted for compatibility; the mesh is the DF's own."""
+        nvT, nvR = self._SAMPLE_NVT, self._SAMPLE_NVR
+        ns = self._SAMPLE_VNSIGMA if nsigma is None else nsigma
+        nR = R.shape[0]
+        vc = R**self._beta
+        vTc = vc - self.asymmetricdrift(R, use_physical=False)
+        unitT = xp.linspace(-1.0, 1.0, nvT)
+        unitR = xp.linspace(-1.0, 1.0, nvR)
+
+        def halfwidth(vTg):  # ns dispersions at the row's guiding radius
+            xrow = (R[:, None] * xp.where(vTg > 0.0, vTg, 1e-8)) ** (
+                1.0 / (self._beta + 1.0)
+            )
+            return ns * xp.sqrt(self._ssp("sigma2", xrow))
+
+        def density(vTg, vRh, unitR=unitR):  # f: vT rows, vR columns (nR, nvT, nvR)
+            VT = vTg[:, :, None] + 0.0 * unitR[None, None, :]
+            VR = vRh[:, :, None] * unitR[None, None, :] + 0.0 * VT
+            RR = R[:, None, None] + 0.0 * VT
+            E, L = vRvTRToEL(
+                xp.reshape(VR, (-1,)),
+                xp.reshape(VT, (-1,)),
+                xp.reshape(RR, (-1,)),
+                self._beta,
+                self._dftype,
+            )
+            return xp.reshape(self._eval_backend(E, L, 0.0, 0.0), VT.shape)
+
+        # pass 1: the support in vT (the mass below 1e-7 on either side) on a
+        # box of ns circular velocities, or dispersions when hotter, at half
+        # the resolution
+        W = ns * xp.maximum(vc, xp.sqrt(self._ssp("sigma2", R)))
+        coarseT = xp.linspace(-1.0, 1.0, nvT // 2 + 1)
+        vTg = vTc[:, None] + W[:, None] * coarseT[None, :]
+        vRh = halfwidth(vTg)
+        m = trapezoid_sum(xp, density(vTg, vRh, unitR[::2]), unitR[::2], 2) * vRh
+        below = xp.cumulative_sum(m, axis=1) / xp.sum(m, axis=1, keepdims=True)
+        keep = (below > 1e-7) & (below < 1.0 - 1e-7)
+        d = 2.0 * W / (nvT // 2)
+        vTlo = xp.min(xp.where(keep, vTg, xp.inf), axis=1) - d
+        vThi = xp.max(xp.where(keep, vTg, -xp.inf), axis=1) + d
+        # pass 2: the mesh on the support
+        vTg = vTlo[:, None] + 0.5 * (vThi - vTlo)[:, None] * (unitT[None, :] + 1.0)
+        vRh = halfwidth(vTg)
+        f = density(vTg, vRh)
+        FvT = self._sample_rows_increasing(
+            xp, trapezoid_cdf(xp, trapezoid_sum(xp, f, unitR, 2) * vRh, unitT, 1)
+        )
+        FvR = trapezoid_cdf(xp, f, unitR, 2)
+        u = self._sample_uniform(xp, key, (2, n), unitT)
+        row = xp.arange(n) if nR == n else xp.zeros(n, dtype=xp.int64)
+        qT = batched_inverse_cdf_sample(
+            xp, xp.astype(xp.arange(nvT), unitT.dtype), FvT[row], u[0]
+        )
+        vT, iT, wT = self._sample_lerp_rows(xp, vTg, row, qT)
+        # vR given vT: the conditional CDF and the row's extent, both
+        # interpolated between the neighbouring vT rows
+        FvRj = self._sample_rows_increasing(
+            xp, (1.0 - wT)[:, None] * FvR[row, iT] + wT[:, None] * FvR[row, iT + 1]
+        )
+        vRhj = (1.0 - wT) * vRh[row, iT] + wT * vRh[row, iT + 1]
+        qR = batched_inverse_cdf_sample(
+            xp, xp.astype(xp.arange(nvR), unitR.dtype), FvRj, u[1]
+        )
+        vRu, _, _ = self._sample_lerp_rows(
+            xp, unitR[None, :] + 0.0 * vRhj[:, None], xp.arange(n), qR
+        )
+        return xp.stack([vRu * vRhj, vT], axis=1)
+
     @float64_default_if_torch_args
     @physical_conversion("position", pop=True)
-    def sampledSurfacemassLOS(self, l, n=1, maxd=None, target=True):
+    def sampledSurfacemassLOS(self, l, n=1, maxd=None, target=True, key=None):
         """
         Sample a distance along the line of sight
 
         Parameters
         ----------
         l : float or Quantity
-            Galactic longitude.
+            Galactic longitude (rad).
         n : int, optional
             Number of distances to sample.
         maxd : float or Quantity, optional
-            Maximum distance to consider (for the rejection sampling).
+            Maximum distance to consider (the distance table's extent).
         target : bool, optional
             If True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True).
+        key : backend random key, optional
+            Draw the uniforms with this key (``galpy.backend.random.key``) and
+            return a backend array; ``None`` uses numpy's global generator and
+            returns a numpy array.
 
         Returns
         -------
-        list
-            List of samples.
+        numpy.ndarray or backend array
+            The sampled distances.
 
         Notes
         -----
         - 2011-03-24 - Written - Bovy (NYU)
+        - 2026-10-28 - Inverse-CDF sampling on every backend - Bovy (UofT)
 
         """
-        # First calculate where the maximum is
-        if target:
-            minR = optimize.fmin_bfgs(
-                lambda x: (
-                    -self.targetSurfacemassLOS(x, l, use_physical=False, deg=False)
-                ),
-                0.0,
-                disp=False,
-            )[0]
-            maxSM = self.targetSurfacemassLOS(minR, l, deg=False, use_physical=False)
-        else:
-            minR = optimize.fmin_bfgs(
-                lambda x: -self.surfacemassLOS(x, l, deg=False, use_physical=False),
-                0.0,
-                disp=False,
-            )[0]
-            maxSM = self.surfacemassLOS(minR, l, deg=False, use_physical=False)
-        # Now rejection-sample
+        xp = self._sample_namespace(key)
         l = conversion.parse_angle(l)
         maxd = conversion.parse_length(maxd, ro=self._ro)
         if maxd is None:
             maxd = _MAXD_REJECTLOS
-        out = []
-        while len(out) < n:
-            # sample
-            prop = numpy.random.random() * maxd
-            if target:
-                surfmassatprop = self.targetSurfacemassLOS(
-                    prop, l, deg=False, use_physical=False
-                )
-            else:
-                surfmassatprop = self.surfacemassLOS(
-                    prop, l, deg=False, use_physical=False
-                )
-            if surfmassatprop / maxSM > numpy.random.random():  # accept
-                out.append(prop)
-        return numpy.array(out)
+        out = self._sample_los_distances(l, n, maxd, target, key, xp)
+        return out if key is not None else as_numpy(out)
 
-    @_on_numpy
     @float64_default_if_torch_args
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
-    def sampleVRVT(self, R, n=1, nsigma=None, target=True):
+    def sampleVRVT(self, R, n=1, nsigma=None, target=True, key=None):
         """
         Sample a radial and azimuthal velocity at R
 
@@ -805,46 +939,33 @@ class diskdf(df):
         R : float or Quantity
             Galactocentric distance.
         n : int, optional
-            Number of distances to sample.
+            Number of velocities to sample.
         nsigma : float, optional
-            Number of sigma to rejection-sample on.
+            Half-width of the velocity mesh in dispersions (default: 5).
         target : bool, optional
-            If True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True).
+            If True, use the 'target' sigma_R rather than the actual sigma_R to size the velocity mesh (default=True).
+        key : backend random key, optional
+            Draw the uniforms with this key (``galpy.backend.random.key``) and
+            return a backend array; ``None`` uses numpy's global generator and
+            returns a numpy array.
 
         Returns
         -------
-        list
-            List of samples.
+        numpy.ndarray or backend array
+            [vR, vT] samples, shape (n, 2).
 
         Notes
         -----
         - 2011-03-24 - Written - Bovy (NYU)
+        - 2026-10-28 - Inverse-CDF sampling on every backend - Bovy (UofT)
         """
-        # Determine where the max of the v-distribution is using asymmetric drift
-        maxVR = 0.0
-        maxVT = optimize.brentq(_vtmaxEq, 0.0, R**self._beta + 0.2, (R, self))
-        maxVD = self(Orbit([R, maxVR, maxVT]))
-        # Now rejection-sample
-        if nsigma == None:
-            nsigma = _NSIGMA
-        out = []
-        if target:
-            sigma = numpy.sqrt(self._ssp("sigma2", R))
-        else:
-            sigma = numpy.sqrt(self.sigma2(R, use_physical=False))
-        while len(out) < n:
-            # sample
-            vrg, vtg = numpy.random.normal(), numpy.random.normal()
-            propvR = vrg * nsigma * sigma
-            propvT = vtg * nsigma * sigma / self._gamma + maxVT
-            VDatprop = self(Orbit([R, propvR, propvT]))
-            if VDatprop / maxVD > numpy.random.uniform() * numpy.exp(
-                -0.5 * (vrg**2.0 + vtg**2.0)
-            ):  # accept
-                out.append(numpy.array([propvR, propvT]))
-        return numpy.array(out)
+        xp = self._sample_namespace(key)
+        (R,) = coerce_coords(xp, R)
+        out = self._sample_velocities(
+            xp.reshape(xp.asarray(R), (-1,)), n, nsigma, target, key, xp
+        )
+        return out if key is not None else as_numpy(out)
 
-    @_on_numpy
     @float64_default_if_torch_args
     def sampleLOS(
         self,
@@ -855,6 +976,7 @@ class diskdf(df):
         nsigma=None,
         targetSurfmass=True,
         targetSigma2=True,
+        key=None,
     ):
         """
         Sample along a given LOS
@@ -864,53 +986,49 @@ class diskdf(df):
         los : float or Quantity
             Line of sight Galactic longitude.
         n : int, optional
-            Number of distances to sample.
+            Number of points to sample.
         deg : bool, optional
             If False, los is in radians.
         maxd : float or Quantity, optional
-            Maximum distance to consider (for the rejection sampling).
+            Maximum distance to consider (the distance table's extent).
         nsigma : float, optional
-            Number of sigma to integrate the velocities over.
+            Half-width of the velocity mesh in dispersions (default: 5).
         targetSurfmass : bool, optional
             If True, use target surface mass (default=True).
         targetSigma2 : bool, optional
             If True, use target sigma_R^2 (default=True).
+        key : backend random key, optional
+            Draw the uniforms with this key (``galpy.backend.random.key``) and
+            return one Orbit instance holding every sample; ``None`` uses
+            numpy's global generator and returns a list of Orbits.
 
         Returns
         -------
-        list
-            List of Orbits sampled.
+        list of Orbit, or Orbit
+            The sampled [R, vR, vT, phi] points.
 
         Notes
         -----
         - target=False uses target distribution for derivatives (this is a detail)
         - 2011-03-24 - Written - Bovy (NYU)
+        - 2026-10-28 - Inverse-CDF sampling on every backend - Bovy (UofT)
         """
+        xp = self._sample_namespace(key)
         if _APY_LOADED and isinstance(los, units.Quantity):
             l = conversion.parse_angle(los)
         elif deg:
             l = los * _DEGTORAD
         else:
             l = los
-        out = []
-        # sample distances
-        ds = self.sampledSurfacemassLOS(
-            l, n=n, maxd=maxd, target=targetSurfmass, use_physical=False
-        )
-        for ii in range(int(n)):
-            # Calculate R and phi
-            thisR, thisphi = _dlToRphi(ds[ii], l)
-            # sample velocities
-            vv = self.sampleVRVT(
-                thisR, n=1, nsigma=nsigma, target=targetSigma2, use_physical=False
-            )[0]
-            if self._roSet and self._voSet:
-                out.append(
-                    Orbit([thisR, vv[0], vv[1], thisphi], ro=self._ro, vo=self._vo)
-                )
-            else:
-                out.append(Orbit([thisR, vv[0], vv[1], thisphi]))
-        return out
+        maxd = conversion.parse_length(maxd, ro=self._ro)
+        if maxd is None:
+            maxd = _MAXD_REJECTLOS
+        k1, k2 = grandom.split(key, 2)
+        ds = self._sample_los_distances(l, n, maxd, targetSurfmass, k1, xp)
+        R, phi = _dlToRphi(ds, l)
+        vv = self._sample_velocities(R, n, nsigma, targetSigma2, k2, xp)
+        vxvv = xp.stack([R, vv[:, 0], vv[:, 1], phi], axis=1)
+        return self._sample_orbits(vxvv, key, self._roSet and self._voSet)
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
@@ -1954,7 +2072,6 @@ class diskdf(df):
             )
         )
 
-    @_on_numpy
     @float64_default_if_torch_args
     def sample(
         self,
@@ -1967,47 +2084,245 @@ class diskdf(df):
         losdeg=True,
         nsigma=None,
         maxd=None,
-        target=True,
+        targetSurfmass=True,
+        targetSigma2=True,
+        **kwargs,
     ):
         """
-        Sample n*nphi points from this disk DF.
+        Sample n*nphi points from this DF.
 
         Parameters
         ----------
         n : int, optional
-            Number of desired samples. Default is 1.
-        rrange : list, optional
-            If you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit).
+            Number of desired samples (specifying this rather than calling
+            this routine n times is more efficient). Default is 1.
+        rrange : list or tuple, optional
+            If you only want samples in this rrange, set this keyword
+            (only works when asking for an (RZ)Orbit). Default is None.
         returnROrbit : bool, optional
             If True, return a planarROrbit instance: [R,vR,vT] (default).
+            Default is True.
         returnOrbit : bool, optional
             If True, return a planarOrbit instance (including phi).
+            Default is False.
         nphi : float, optional
-            Number of azimuths to sample for each E,L.
-        los : float, optional
-            Line of sight sampling along this line of sight.
+            Number of azimuths to sample for each E,L. Default is 1.0.
+        los : float or Quantity, optional
+            If set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0).
+            Default is None.
         losdeg : bool, optional
-            If True, los is in degrees (default).
-        nsigma : int, optional
-            Number of sigma to rejection-sample on.
-        maxd : float, optional
-            Maximum distance to consider (for the rejection sampling).
-        target : bool, optional
-            If True, use target surface mass and sigma2 profiles (default).
+            If False, los is in radians (default=True). Default is True.
+        nsigma : float, optional
+            Half-width of the velocity mesh in dispersions, for los sampling (default: 5).
+        maxd : float or Quantity, optional
+            Maximum distance to consider, for los sampling. Default is None.
+        targetSurfmass : bool, optional
+            If True, use target surface mass profile. Default is True.
+        targetSigma2 : bool, optional
+            If True, use target sigma2 profile. Default is True.
+        key : backend random key, optional
+            Draw the uniforms with this key (``galpy.backend.random.key``) and
+            return backend arrays: one Orbit instance holding every sample, or
+            an (n*nphi, 2) array of [E, Lz]. ``None`` uses numpy's global
+            generator and returns a list of Orbits, or of [E, Lz] pairs.
+        **kwargs : dict, optional
+            Additional keyword arguments (``use_physical``).
 
         Returns
         -------
-        list
-            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
+        out : list, Orbit, or array
+            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits (key=None);
+            one Orbit or an array with a key.
             CAUTION: lists of EL need to be post-processed to account for the
-                    \\kappa/\\omega_R discrepancy
+            \\kappa/\\omega_R discrepancy; EL not returned in physical units.
 
         Notes
         -----
+        - The guiding-centre radius is drawn from the inverse CDF of x Sigma(x),
+          the angular momentum (dehnendf) or energy (shudf) by its analytic
+          inverse transform, the orbital phase from the inverse of the radial
+          angle-radius relation of the action-angle quadrature, and each orbit
+          is replicated by the ratio of the epicycle frequency at its guiding
+          radius to its radial frequency; the points' R, vR and vT are
+          differentiable in the DF's parameters, the sample count is not.
         - 2010-07-10 - Started  - Bovy (NYU)
-
+        - 2026-10-28 - Inverse-CDF sampling on every backend - Bovy (UofT)
         """
+        key = kwargs.pop("key", None)
+        if not los is None:
+            return self.sampleLOS(
+                los,
+                deg=losdeg,
+                n=n,
+                maxd=maxd,
+                nsigma=nsigma,
+                targetSurfmass=targetSurfmass,
+                targetSigma2=targetSigma2,
+                key=key,
+            )
+        xp = self._sample_namespace(key)
+        if not rrange is None:
+            rrange = [
+                conversion.parse_length(rrange[0], ro=self._ro),
+                conversion.parse_length(rrange[1], ro=self._ro),
+            ]
+        EL_only = not returnROrbit and not returnOrbit
+        physical = kwargs.get("use_physical", True) and self._roSet and self._voSet
+        target = int(n * nphi)
+        chunks, total, need, k = [], 0, int(n), key
+        while total < target:  # draw again when the weighting leaves too few
+            k, k1, k2 = grandom.split(k, 3)
+            chunk = self._sample_chunk(
+                need, nphi, rrange, returnOrbit, EL_only, k1, k2, xp
+            )
+            chunks.append(chunk)
+            total += int(chunk.shape[0])
+            need = max(1, int(n - total / nphi))
+        concat = getattr(xp, "concat", None) or xp.concatenate
+        out = concat(chunks, axis=0)[:target]
+        if EL_only:
+            return [list(el) for el in as_numpy(out)] if key is None else out
+        return self._sample_orbits(out, key, physical)
+
+    def _sample_chunk(self, n, nphi, rrange, want_phi, EL_only, key, key_phi, xp):
+        """n draws of (E, Lz), or the weighted [R, vR, vT(, phi)] points of
+        their orbits"""
+        xg, F = self._sample_x_table(xp)
+        u = self._sample_uniform(xp, key, (4, n), xg)
+        x = linear_inverse_cdf_sample(xp, xg, F, u[0])
+        E, L = self._sample_EL(x, u[1], xp)
+        if EL_only:
+            return xp.stack([E, L], axis=1)
+        R, vR, vT, Or = self._sample_phase(E, L, x, u[2], xp)
+        # a draw with |L| above the circular orbit's at E is no orbit (the
+        # rare far tail of the Lz transform): dropped, as the old sampler did
+        valid = 2.0 * (E - self._psp(x, use_physical=False)) - L**2.0 / x**2.0 >= 0.0
+        idx = self._sample_multiplicity(x, R, Or, nphi, u[3], rrange, valid, xp)
+        cols = [R[idx], vR[idx], vT[idx]]
+        if want_phi:
+            cols.append(
+                2.0 * numpy.pi * self._sample_uniform(xp, key_phi, (idx.shape[0],), xg)
+            )
+        return xp.stack(cols, axis=1)
+
+    def _sample_x_table(self, xp):
+        """(x grid, CDF of x Sigma(x) c_Sigma(x)): the guiding-centre radius of
+        a circular orbit's energy (dehnendf) or angular momentum (shudf)"""
+        # a unit grid scaled by the extent (torch rejects tensor limits, and a
+        # differentiated scale length keeps the grid differentiable)
+        xmax = self._SAMPLE_XMAX * self._surfaceSigmaProfile._params[0]
+        xg = xp.linspace(0.0, 1.0, self._SAMPLE_NX) * xmax
+        logp = self._ssp("surfacemass", xg, log=True)
+        if self._correct:
+            logp = logp + self._corr.correct(xg, log=True)[0]
+        F = trapezoid_cdf(xp, xg * xp.exp(logp), xg, 0)
+        return xg, ensure_strictly_increasing(xp, F)
+
+    def _sample_EL(self, x, u, xp):  # pragma: no cover
         raise NotImplementedError("'sample' method for this disk df is not implemented")
+
+    def _sample_phase(self, E, L, x, u, xp):
+        """(R, vR, vT, omega_R) of the orbits (E, L) at the uniform phase u of
+        their radial oscillation, in the DF's power-law potential: the turning
+        points by bracketed root-finding of the radial kinetic energy rad(r) =
+        2 [E - Phi(r)] - L^2 / r^2 (then anchored to vanish exactly at both),
+        the radial period and the angle-radius table from the panels of the
+        spherical action-angle quadrature (r = rperi + s^2 from the
+        pericentre, r = rap - s^2 from the apocentre, the turning points'
+        square roots absorbed), the radius at the angle 2 pi u by inverting
+        the table, vR from rad with the angle's sign. x is the circular
+        radius of E (dehnendf) or of L (shudf), a point on the orbit."""
+        from ..backend.optimize import brentq, iterate_bracket
+
+        aAS = self._aA._aAS
+        K = self._SAMPLE_NPHASE
+        beta = self._beta
+
+        def _b(p, r):  # the per-orbit parameters against r's trailing axes
+            return xp.reshape(p, tuple(p.shape) + (1,) * (r.ndim - 1))
+
+        def rad(r):
+            Phi = _beta_branch(
+                beta, lambda: xp.log(r), lambda b: r ** (2.0 * b) / (2.0 * b)
+            )
+            return 2.0 * (_b(E, r) - Phi) - _b(L, r) ** 2.0 / r**2.0
+
+        # brackets: halve from x down to the centrifugal barrier, double up to
+        # the potential's wall (the draws are bound)
+        rlo = iterate_bracket(lambda r: xp.where(rad(r) > 0.0, r / 2.0, r), x / 2.0, 80)
+        rhi = iterate_bracket(lambda r: xp.where(rad(r) > 0.0, r * 2.0, r), 2.0 * x, 80)
+        rperi = brentq(rad, rlo, x, xtol=1e-14)
+        rap = brentq(rad, x, rhi, xtol=1e-14)
+        dp, da = rad(rperi), rad(rap)
+        span = rap - rperi
+        span_s = xp.where(span > 0.0, span, xp.ones_like(span))
+
+        def rad_a(r):  # anchored: zero at the turning points to round-off
+            return rad(r) - (
+                _b(dp, r) * (_b(rap, r) - r) + _b(da, r) * (r - _b(rperi, r))
+            ) / _b(span_s, r)
+
+        Rmean = aAS._rmean_backend(xp, rperi, rap)
+        sin_ = aAS._sqrt_pos(xp, Rmean - rperi)
+        sout = aAS._sqrt_pos(xp, rap - Rmean)
+        T = 2.0 * (
+            aAS._panel_backend(xp, lambda s: rperi[:, None] + s**2.0, sin_, rad_a)
+            + aAS._panel_backend(xp, lambda s: rap[:, None] - s**2.0, sout, rad_a)
+        )
+        # a circular draw (no libration): the epicycle frequency
+        kappa = _sqrt(2.0 * (1.0 + beta)) * x ** (beta - 1.0)
+        Or = xp.where(T > 0.0, 2.0 * numpy.pi / xp.where(T > 0.0, T, 1.0), kappa)
+        # the angle-radius table in the panels' variable: the inner panel from
+        # the pericentre up to Rmean, the outer one from the apocentre down to it
+        fin = xp.astype(xp.arange(K), sin_.dtype) / K  # 0 .. (K-1)/K
+        fout = 1.0 - xp.astype(xp.arange(K + 1), sin_.dtype) / K  # 1 .. 0
+        lin = sin_[:, None] * fin[None, :]  # (N, K) panel limits
+        lout = sout[:, None] * fout[None, :]  # (N, K+1)
+        th_in = Or[:, None] * aAS._panel_backend(
+            xp, lambda s: rperi[:, None, None] + s**2.0, lin, rad_a
+        )
+        th_out = numpy.pi - Or[:, None] * aAS._panel_backend(
+            xp, lambda s: rap[:, None, None] - s**2.0, lout, rad_a
+        )
+        concat = getattr(xp, "concat", None) or xp.concatenate
+        theta = concat([th_in, th_out], axis=1) / numpy.pi
+        rr = concat([rperi[:, None] + lin**2.0, rap[:, None] - lout**2.0], axis=1)
+        # a circular draw's table is degenerate: keep every row finite and
+        # increasing so that it cannot poison a gradient
+        qgrid = xp.astype(xp.arange(2 * K + 1), theta.dtype)
+        theta = xp.where(xp.isfinite(theta), theta, qgrid[None, :] / (2.0 * K))
+        rr = xp.where(xp.isfinite(rr), rr, xp.ones_like(rr))
+        theta = self._sample_rows_increasing(xp, theta)
+        # the half orbit: outgoing (vR > 0) from the pericentre for u > 1/2,
+        # ingoing from the apocentre otherwise, mirrored onto the same table
+        out = u > 0.5
+        up = xp.where(out, 2.0 * u - 1.0, 1.0 - 2.0 * u)
+        q = batched_inverse_cdf_sample(xp, qgrid, theta, up)
+        r, _, _ = self._sample_lerp_rows(xp, rr, xp.arange(q.shape[0]), q)
+        vr = xp.where(out, 1.0, -1.0) * aAS._sqrt_pos(xp, rad_a(r))
+        return r, vr, L / r, Or
+
+    def _sample_multiplicity(self, x, R, Or, nphi, u, rrange, valid, xp):
+        """The index of every returned point: each orbit replicated
+        kappa(x)/omega_R nphi times on average (the integer part, plus one
+        with the fractional probability), none outside rrange or invalid.
+
+        The DF's measure is f(E, L) T_R dE dL; the draws of x and L (or E)
+        carry x Sigma(x) dx times the DF's exponential, and dE (or dL) along
+        the circular orbits is x kappa^2 / 2 (or x kappa^2 / 2 Omega) dx, so
+        the weight is T_R kappa^2 / Omega, i.e. kappa(x) / omega_R for a
+        power-law rotation curve (kappa / Omega constant). The sampler before
+        2026-10 took kappa at the sampled radius and omega_R of the orbit with
+        vR = 0 at x, which biased the mean azimuthal velocity by a few per
+        cent."""
+        kappa = _sqrt(2.0 * (1.0 + self._beta)) * x ** (self._beta - 1.0)
+        ratio = kappa / Or * nphi
+        mult = xp.ceil(ratio) - 1.0
+        counts = xp.astype(mult + xp.astype(u < ratio - mult, mult.dtype), xp.int64)
+        counts = xp.where(valid, counts, 0)
+        if not rrange is None:
+            counts = xp.where((R >= rrange[0]) & (R <= rrange[1]), counts, 0)
+        return xp.repeat(xp.arange(R.shape[0]), counts)
 
     def _estimatemeanvR(self, R, phi=0.0, log=False):
         """
@@ -2263,16 +2578,22 @@ class dehnendf(diskdf):
 
         def flat():
             xE = xp.exp(E - 0.5)
-            return xE, L / xE - 1.0  # Omega_E (L - L_E) numerator
+            return xE, L / xE - 1.0, E == E  # Omega_E (L - L_E) numerator
 
         def nonflat(beta):
-            xE = (2.0 * E / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
-            return xE, xE**beta * (L / xE - xE**beta)
+            # a falling rotation curve has unbound energies (E >= 0, no
+            # circular radius): the DF vanishes there (the numpy path's NaN
+            # was what the rejection samplers silently rejected); the guard
+            # keeps the dead branch finite for AD
+            base = 2.0 * E / (1.0 + 1.0 / beta)
+            bound = base > 0.0
+            xE = xp.where(bound, base, 1.0) ** (1.0 / 2.0 / beta)
+            return xE, xE**beta * (L / xE - xE**beta), bound
 
-        xE, olfac = _beta_branch(self._beta, flat, nonflat)
+        xE, olfac, bound = _beta_branch(self._beta, flat, nonflat)
         correction = self._corr.correct(xE, log=True) if self._correct else xp.zeros(2)
         SRE2 = self._ssp("sigma2", xE, log=True) + correction[1]
-        return (
+        value = (
             scalar_like(E, self._gamma)
             * xp.exp(
                 logsigmaR2
@@ -2285,202 +2606,23 @@ class dehnendf(diskdf):
             / 2.0
             / numpy.pi
         )
+        return xp.where(bound, value, 0.0)
 
-    @_on_numpy
-    @float64_default_if_torch_args
-    def sample(
-        self,
-        n=1,
-        rrange=None,
-        returnROrbit=True,
-        returnOrbit=False,
-        nphi=1.0,
-        los=None,
-        losdeg=True,
-        nsigma=None,
-        targetSurfmass=True,
-        targetSigma2=True,
-        maxd=None,
-        **kwargs,
-    ):
-        """
-        Sample n*nphi points from this DF.
-
-        Parameters
-        ----------
-        n : int, optional
-            Number of desired samples (specifying this rather than calling
-            this routine n times is more efficient). Default is 1.
-        rrange : list or tuple, optional
-            If you only want samples in this rrange, set this keyword
-            (only works when asking for an (RZ)Orbit). Default is None.
-        returnROrbit : bool, optional
-            If True, return a planarROrbit instance: [R,vR,vT] (default).
-            Default is True.
-        returnOrbit : bool, optional
-            If True, return a planarOrbit instance (including phi).
-            Default is False.
-        nphi : float, optional
-            Number of azimuths to sample for each E,L. Default is 1.0.
-        los : float or Quantity, optional
-            If set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0).
-            Default is None.
-        losdeg : bool, optional
-            If False, los is in radians (default=True). Default is True.
-        nsigma : int, optional
-            Number of sigma to rejection-sample on. Default is None.
-        targetSurfmass : bool, optional
-            If True, use target surface mass profile. Default is True.
-        targetSigma2 : bool, optional
-            If True, use target sigma2 profile. Default is True.
-        maxd : float or Quantity, optional
-            Maximum distance to consider (for the rejection sampling). Default is None.
-        **kwargs : dict, optional
-            Additional keyword arguments.
-
-        Returns
-        -------
-        out : list
-            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
-            CAUTION: lists of EL need to be post-processed to account for the
-            \\kappa/\\omega_R discrepancy; EL not returned in physical units.
-
-        Notes
-        -----
-        - 2010-07-10 - Started  - Bovy (NYU)
-        """
-        if not los is None:
-            return self.sampleLOS(
-                los,
-                deg=losdeg,
-                n=n,
-                maxd=maxd,
-                nsigma=nsigma,
-                targetSurfmass=targetSurfmass,
-                targetSigma2=targetSigma2,
-            )
-        # First sample xE
-        if self._correct:
-            xE = numpy.array(
-                ars(
-                    [0.0, 0.0],
-                    [True, False],
-                    [0.05, 2.0],
-                    _ars_hx,
-                    _ars_hpx,
-                    nsamples=n,
-                    hxparams=(self._surfaceSigmaProfile, self._corr),
-                )
-            )
-        else:
-            xE = numpy.array(
-                ars(
-                    [0.0, 0.0],
-                    [True, False],
-                    [0.05, 2.0],
-                    _ars_hx,
-                    _ars_hpx,
-                    nsamples=n,
-                    hxparams=(self._surfaceSigmaProfile, None),
-                )
-            )
-        # Calculate E
-        if self._beta == 0.0:
-            E = numpylog(xE) + 0.5
-        else:  # non-flat rotation curve
-            E = 0.5 * xE ** (2.0 * self._beta) * (1.0 + 1.0 / self._beta)
-        # Then sample Lz
+    def _sample_EL(self, xE, u, xp):
+        """(E, Lz) at the guiding-centre radii xE: E the circular energy, Lz
+        exponential below the circular angular momentum (the DF's L
+        dependence), u uniform"""
+        E = _beta_branch(
+            self._beta,
+            lambda: xp.log(xE) + 0.5,
+            lambda beta: 0.5 * xE ** (2.0 * beta) * (1.0 + 1.0 / beta),
+        )
         LCE = xE ** (self._beta + 1.0)
         OR = xE ** (self._beta - 1.0)
-        Lz = self._ssp("sigma2", xE) * numpylog(stats.uniform.rvs(size=n)) / OR
+        Lz = self._ssp("sigma2", xE) * xp.log(u) / OR
         if self._correct:
-            Lz *= self._corr.correct(xE, log=False)[1, :]
-        Lz += LCE
-        if not returnROrbit and not returnOrbit:
-            out = [[e, l] for e, l in zip(E, Lz)]
-        else:
-            if not rrange is None:
-                rrange[0] = conversion.parse_length(rrange[0], ro=self._ro)
-                rrange[1] = conversion.parse_length(rrange[1], ro=self._ro)
-            out = []
-            for ii in range(int(n)):
-                try:
-                    wR, rap, rperi = self._ELtowRRapRperi(E[ii], Lz[ii])
-                except ValueError:  # pragma: no cover
-                    # Tests don't get here anymore, because of improvements
-                    # in the rperi/rap calculation, but leaving the try/except
-                    # in because it can do no harm
-                    continue
-                TR = 2.0 * numpy.pi / wR
-                tr = stats.uniform.rvs() * TR
-                if tr > TR / 2.0:
-                    tr -= TR / 2.0
-                    thisOrbit = Orbit([rperi, 0.0, Lz[ii] / rperi])
-                else:
-                    thisOrbit = Orbit([rap, 0.0, Lz[ii] / rap])
-                thisOrbit.integrate(numpy.array([0.0, tr]), self._psp)
-                if returnOrbit:
-                    vxvv = thisOrbit(tr).vxvv[0]
-                    thisOrbit = Orbit(
-                        vxvv=numpy.array(
-                            [
-                                vxvv[0],
-                                vxvv[1],
-                                vxvv[2],
-                                stats.uniform.rvs() * numpy.pi * 2.0,
-                            ]
-                        ).reshape(4)
-                    )
-                else:
-                    thisOrbit = thisOrbit(tr)
-                kappa = _kappa(thisOrbit.vxvv[0, 0], self._beta)
-                if not rrange == None:
-                    if (
-                        thisOrbit.vxvv[0, 0] < rrange[0]
-                        or thisOrbit.vxvv[0, 0] > rrange[1]
-                    ):
-                        continue
-                mult = numpy.ceil(kappa / wR * nphi) - 1.0
-                kappawR = kappa / wR * nphi - mult
-                while mult > 0:
-                    if returnOrbit:
-                        out.append(
-                            Orbit(
-                                vxvv=numpy.array(
-                                    [
-                                        vxvv[0],
-                                        vxvv[1],
-                                        vxvv[2],
-                                        stats.uniform.rvs() * numpy.pi * 2.0,
-                                    ]
-                                ).reshape(4)
-                            )
-                        )
-                    else:
-                        out.append(thisOrbit)
-                    mult -= 1
-                if stats.uniform.rvs() > kappawR:
-                    continue
-                out.append(thisOrbit)
-        # Recurse to get enough
-        if len(out) < n * nphi:
-            out.extend(
-                self.sample(
-                    n=int(n - len(out) / nphi),
-                    rrange=rrange,
-                    returnROrbit=returnROrbit,
-                    returnOrbit=returnOrbit,
-                    nphi=int(nphi),
-                    los=los,
-                    losdeg=losdeg,
-                )
-            )
-        # Trim to make sure output has the right size
-        out = out[0 : int(n * nphi)]
-        if kwargs.get("use_physical", True) and self._roSet and self._voSet:
-            if isinstance(out[0], Orbit):
-                dumb = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
-        return out
+            Lz = Lz * self._corr.correct(xE, log=False)[1]
+        return E, Lz + LCE
 
     def _dlnfdR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
@@ -2713,14 +2855,17 @@ class shudf(diskdf):
         xL<0 counter-rotating cut is a data branch -> xp.where (log guarded)."""
         xp, (E, L) = self._backend_coerce(E, L)
 
+        # counter-rotating (L <= 0): no mass; the guards keep the dead branch
+        # finite (a fractional power of a negative L is NaN, which the mask on
+        # xL used to let through as a finite wrong value)
+        Lsafe = xp.where(L > 0.0, L, 1.0)
+
         def flat():
-            xLsafe = xp.where(L > 0.0, L, 1.0)  # guard log on the masked side
-            return L, xLsafe, E - 0.5 - xp.log(xLsafe)  # E - E_c(L)
+            return L, Lsafe, E - 0.5 - xp.log(Lsafe)  # E - E_c(L)
 
         def nonflat(beta):
-            xL = L ** (1.0 / (beta + 1.0))
-            xLsafe = xp.where(xL > 0.0, xL, 1.0)
-            return xL, xLsafe, E - 0.5 * (1.0 / beta + 1.0) * xLsafe ** (2.0 * beta)
+            xL = Lsafe ** (1.0 / (beta + 1.0))
+            return xL, xL, E - 0.5 * (1.0 / beta + 1.0) * xL ** (2.0 * beta)
 
         xL, xLsafe, eclfac = _beta_branch(self._beta, flat, nonflat)
         correction = (
@@ -2740,196 +2885,22 @@ class shudf(diskdf):
             / 2.0
             / numpy.pi
         )
-        return xp.where(xL < 0.0, 0.0, value)
+        return xp.where(L <= 0.0, 0.0, value)
 
-    @_on_numpy
-    @float64_default_if_torch_args
-    def sample(
-        self,
-        n=1,
-        rrange=None,
-        returnROrbit=True,
-        returnOrbit=False,
-        nphi=1.0,
-        los=None,
-        losdeg=True,
-        nsigma=None,
-        maxd=None,
-        targetSurfmass=True,
-        targetSigma2=True,
-        **kwargs,
-    ):
-        """
-        Sample n*nphi points from this DF.
-
-        Parameters
-        ----------
-        n : int, optional
-            Number of desired samples (specifying this rather than calling
-            this routine n times is more efficient). Default is 1.
-        rrange : list or tuple, optional
-            If you only want samples in this rrange, set this keyword
-            (only works when asking for an (RZ)Orbit). Default is None.
-        returnROrbit : bool, optional
-            If True, return a planarROrbit instance: [R,vR,vT] (default).
-            Default is True.
-        returnOrbit : bool, optional
-            If True, return a planarOrbit instance (including phi).
-            Default is False.
-        nphi : float, optional
-            Number of azimuths to sample for each E,L. Default is 1.0.
-        los : float or Quantity, optional
-            If set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0).
-            Default is None.
-        losdeg : bool, optional
-            If False, los is in radians (default=True). Default is True.
-        nsigma : int, optional
-            Number of sigma to rejection-sample on. Default is None.
-        targetSurfmass : bool, optional
-            If True, use target surface mass profile. Default is True.
-        targetSigma2 : bool, optional
-            If True, use target sigma2 profile. Default is True.
-        maxd : float or Quantity, optional
-            Maximum distance to consider (for the rejection sampling). Default is None.
-        **kwargs : dict, optional
-            Additional keyword arguments.
-
-        Returns
-        -------
-        out : list
-            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
-            CAUTION: lists of EL need to be post-processed to account for the
-            \\kappa/\\omega_R discrepancy; EL not returned in physical units.
-
-        Notes
-        -----
-        - 2010-07-10 - Started  - Bovy (NYU)
-        """
-        if not los is None:
-            return self.sampleLOS(
-                los,
-                n=n,
-                maxd=maxd,
-                nsigma=nsigma,
-                targetSurfmass=targetSurfmass,
-                targetSigma2=targetSigma2,
-            )
-        # First sample xL
-        if self._correct:
-            xL = numpy.array(
-                ars(
-                    [0.0, 0.0],
-                    [True, False],
-                    [0.05, 2.0],
-                    _ars_hx,
-                    _ars_hpx,
-                    nsamples=n,
-                    hxparams=(self._surfaceSigmaProfile, self._corr),
-                )
-            )
-        else:
-            xL = numpy.array(
-                ars(
-                    [0.0, 0.0],
-                    [True, False],
-                    [0.05, 2.0],
-                    _ars_hx,
-                    _ars_hpx,
-                    nsamples=n,
-                    hxparams=(self._surfaceSigmaProfile, None),
-                )
-            )
-        # Calculate Lz
+    def _sample_EL(self, xL, u, xp):
+        """(E, Lz) at the guiding-centre radii xL: Lz the circular angular
+        momentum, E exponential above the circular energy (the DF's E
+        dependence), u uniform"""
         Lz = xL ** (self._beta + 1.0)
-        # Then sample E
-        if self._beta == 0.0:
-            ECL = numpylog(xL) + 0.5
-        else:
-            ECL = 0.5 * (1.0 / self._beta + 1.0) * xL ** (2.0 * self._beta)
-        E = -self._ssp("sigma2", xL) * numpylog(stats.uniform.rvs(size=n))
+        ECL = _beta_branch(
+            self._beta,
+            lambda: xp.log(xL) + 0.5,
+            lambda beta: 0.5 * (1.0 / beta + 1.0) * xL ** (2.0 * beta),
+        )
+        E = -self._ssp("sigma2", xL) * xp.log(u)
         if self._correct:
-            E *= self._corr.correct(xL, log=False)[1, :]
-        E += ECL
-        if not returnROrbit and not returnOrbit:
-            out = [[e, l] for e, l in zip(E, Lz)]
-        else:
-            if not rrange is None:
-                rrange[0] = conversion.parse_length(rrange[0], ro=self._ro)
-                rrange[1] = conversion.parse_length(rrange[1], ro=self._ro)
-            out = []
-            for ii in range(n):
-                try:
-                    wR, rap, rperi = self._ELtowRRapRperi(E[ii], Lz[ii])
-                except ValueError:  # pragma: no cover
-                    continue
-                TR = 2.0 * numpy.pi / wR
-                tr = stats.uniform.rvs() * TR
-                if tr > TR / 2.0:
-                    tr -= TR / 2.0
-                    thisOrbit = Orbit([rperi, 0.0, Lz[ii] / rperi])
-                else:
-                    thisOrbit = Orbit([rap, 0.0, Lz[ii] / rap])
-                thisOrbit.integrate(numpy.array([0.0, tr]), self._psp)
-                if returnOrbit:
-                    vxvv = thisOrbit(tr).vxvv[0]
-                    thisOrbit = Orbit(
-                        vxvv=numpy.array(
-                            [
-                                vxvv[0],
-                                vxvv[1],
-                                vxvv[2],
-                                stats.uniform.rvs() * numpy.pi * 2.0,
-                            ]
-                        ).reshape(4)
-                    )
-                else:
-                    thisOrbit = thisOrbit(tr)
-                kappa = _kappa(thisOrbit.vxvv[0, 0], self._beta)
-                if not rrange == None:
-                    if (
-                        thisOrbit.vxvv[0, 0] < rrange[0]
-                        or thisOrbit.vxvv[0, 0] > rrange[1]
-                    ):
-                        continue
-                mult = numpy.ceil(kappa / wR * nphi) - 1.0
-                kappawR = kappa / wR * nphi - mult
-                while mult > 0:
-                    if returnOrbit:
-                        out.append(
-                            Orbit(
-                                vxvv=numpy.array(
-                                    [
-                                        vxvv[0],
-                                        vxvv[1],
-                                        vxvv[2],
-                                        stats.uniform.rvs() * numpy.pi * 2.0,
-                                    ]
-                                ).reshape(4)
-                            )
-                        )
-                    else:
-                        out.append(thisOrbit)
-                    mult -= 1
-                if stats.uniform.rvs() > kappawR:
-                    continue
-                out.append(thisOrbit)
-        # Recurse to get enough
-        if len(out) < n * nphi:
-            out.extend(
-                self.sample(
-                    n=int(n - len(out) / nphi),
-                    rrange=rrange,
-                    returnROrbit=returnROrbit,
-                    returnOrbit=returnOrbit,
-                    nphi=nphi,
-                )
-            )
-        # Trim to make sure output has the right size
-        out = out[0 : int(n * nphi)]
-        if kwargs.get("use_physical", True) and self._roSet and self._voSet:
-            if isinstance(out[0], Orbit):
-                dumb = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
-        return out
+            E = E * self._corr.correct(xL, log=False)[1]
+        return E + ECL, Lz
 
     def _dlnfdR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
@@ -3609,69 +3580,6 @@ def _logpotential(R):
         return numpylog(R)
 
 
-def _ars_hx(x, args):
-    """
-    h(x) for ARS sampling of the input surfacemass profile
-
-    Parameters
-    ----------
-    x : float
-        R(/ro)
-    args : tuple
-        surfaceSigma - surfaceSigmaProfile instance
-        dfcorr - DFcorrection instance
-
-    Returns
-    -------
-    float
-        log(x)+log surface(x) + log(correction)
-
-    Notes
-    -----
-    - 2010-07-11 - Written - Bovy (NYU)
-    """
-
-    surfaceSigma, dfcorr = args
-    if dfcorr is None:
-        return numpylog(x) + surfaceSigma.surfacemass(x, log=True)
-    else:
-        return (
-            numpylog(x) + surfaceSigma.surfacemass(x, log=True) + dfcorr.correct(x)[0]
-        )
-
-
-def _ars_hpx(x, args):
-    """
-    h'(x) for ARS sampling of the input surfacemass profile
-
-    Parameters
-    ----------
-    x : float
-        R(/ro)
-    args : tuple
-        surfaceSigma - surfaceSigmaProfile instance
-        dfcorr - DFcorrection instance
-
-    Returns
-    -------
-    float
-        derivative of log(x)+log surface(x) + log(correction) wrt x
-
-    Notes
-    -----
-    - 2010-07-11 - Written - Bovy (NYU)
-    """
-    surfaceSigma, dfcorr = args
-    if dfcorr is None:
-        return 1.0 / x + surfaceSigma.surfacemassDerivative(x, log=True)
-    else:
-        return (
-            1.0 / x
-            + surfaceSigma.surfacemassDerivative(x, log=True)
-            + dfcorr.derivLogcorrect(x)[0]
-        )
-
-
 def _kappa(R, beta):
     """Internal function to give kappa(r)"""
     return numpy.sqrt(2.0 * (1.0 + beta)) * R ** (beta - 1)
@@ -3679,7 +3587,11 @@ def _kappa(R, beta):
 
 def _dlToRphi(d, l):
     """Convert d and l to R and phi, l is in radians"""
-    if is_backend_array(d) or is_backend_array(l):
+    if (
+        is_backend_array(d)
+        or is_backend_array(l)
+        or (isinstance(d, numpy.ndarray) and d.ndim > 0)  # the samplers' arrays
+    ):
         xp = prefer_backend_namespace(d, l)
         d, l = coerce_coords(xp, d, l, device=device_of(d, l))
         R2 = 1.0 + d**2.0 - 2.0 * d * xp.cos(l)

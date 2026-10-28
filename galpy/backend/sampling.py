@@ -14,13 +14,63 @@
 #   (``y = omega_grid`` is the sample axis), so the sampled value carries the
 #   gradient w.r.t. BOTH grids and traces under jit.
 ###############################################################################
+from ._namespaces import stop_gradient
 from .interpolate import interp_linear
 
 __all__ = [
     "linear_inverse_cdf_sample",
     "batched_inverse_cdf_sample",
     "ensure_strictly_increasing",
+    "trapezoid_sum",
+    "trapezoid_cdf",
 ]
+
+
+def _segments(p, grid, axis):
+    # the trapezoid segments 0.5 (p_k + p_k+1) dx of a UNIFORM grid along axis
+    d = grid[1] - grid[0]
+    lo = [slice(None)] * p.ndim
+    lo[axis] = slice(0, -1)
+    hi = [slice(None)] * p.ndim
+    hi[axis] = slice(1, None)
+    return 0.5 * (p[tuple(lo)] + p[tuple(hi)]) * d
+
+
+def trapezoid_sum(xp, p, grid, axis):
+    """Trapezoid integral of ``p`` along ``axis`` over the uniform ``grid``."""
+    return xp.sum(_segments(p, grid, axis), axis=axis)
+
+
+def trapezoid_cdf(xp, p, grid, axis):
+    """Normalized cumulative-trapezoid CDF of the density ``p`` along ``axis``.
+
+    ``p`` is tabulated on the uniform ``grid`` (same length as ``p`` along
+    ``axis``); the result has the same shape as ``p``, starts at 0 and ends at
+    1 along ``axis``, and is differentiable in ``p``. A slice with no
+    probability at all (``p == 0`` throughout) would normalize 0/0 -> NaN, and
+    a conditional sampler that blends neighbouring slices would turn a whole
+    draw into NaN; such a slice gets a uniform CDF instead -- it carries no
+    weight in the marginal, so the choice is immaterial, but every CDF stays
+    finite and non-decreasing. The division goes through a gradient-free copy
+    of the total first: ``c/tot``'s derivative has a ``1/tot**2`` that
+    overflows for a far-tail slice (``tot ~ 1e-177``) and NaN-poisons the
+    sample's gradient, while the value is bit-identical (``tot/s == 1.0``).
+    """
+    c = xp.cumulative_sum(_segments(p, grid, axis), axis=axis)
+    zsh = list(p.shape)
+    zsh[axis] = 1
+    c = xp.concatenate([xp.zeros(tuple(zsh), dtype=c.dtype), c], axis=axis)
+    last = [slice(None)] * p.ndim
+    last[axis] = slice(c.shape[axis] - 1, c.shape[axis])
+    tot = c[tuple(last)]
+    ramp = xp.reshape(
+        xp.linspace(0.0, 1.0, c.shape[axis]),
+        tuple(-1 if k == axis else 1 for k in range(p.ndim)),
+    )
+    good = tot > 0.0
+    tot = xp.where(good, tot, xp.ones_like(tot))
+    s = stop_gradient(tot)
+    return xp.where(good, (c / s) / (tot / s), ramp)
 
 
 def ensure_strictly_increasing(xp, cdf_grid, floor=1e-12):

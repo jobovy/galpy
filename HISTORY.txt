@@ -1,6 +1,32 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- The disk DF samplers (``dehnendf``/``shudf``/``schwarzschilddf`` ``sample``,
+  ``sampleVRVT``, ``sampleLOS`` and ``sampledSurfacemassLOS``) draw by inverting
+  tabulated CDFs instead of (adaptive) rejection sampling and an orbit
+  integration per sample: the guiding-centre radius from x Sigma(x), the orbital
+  phase from the radial angle-radius relation of the action-angle quadrature,
+  the velocities at a radius from the DF on a velocity mesh, and the distance
+  along a line of sight from Sigma(d) d. They take a ``key=`` (see
+  ``galpy.backend.random``): with a key they draw on that backend and return
+  backend arrays (one ``Orbit`` holding every sample), differentiable in the
+  DF's parameters; ``key=None`` keeps the numpy objects of before (a list of
+  ``Orbit`` instances), drawn from numpy's global generator. The particular
+  draws for a given seed changed, and so did the sampled distribution of
+  ``sample``, which is now the DF's: the old sampler replicated each orbit by
+  the epicycle frequency at the sampled radius over the radial frequency of a
+  different orbit (the one with vR = 0 at the guiding radius), which biased
+  the samples' mean azimuthal velocity by a few per cent and their radial
+  profile; the weight is now the epicycle frequency at the guiding radius
+  over the orbit's own radial frequency, and the samples reproduce the DF's
+  surface density and velocity moments. The samplers are several times
+  faster on numpy. ``sampledSurfacemassLOS`` and ``sampleLOS`` with
+  ``target=False`` now sample the actual surface density (before, the flag
+  only changed the rejection envelope and the target density was sampled);
+  this costs a quadrature per node of the distance table. The Shu DF's
+  backend evaluation now vanishes for non-positive angular momentum and the
+  Dehnen DF's for unbound energies, as the numpy ones do.
+
 - Added an ``isConservative`` attribute to all potentials and forces, True
   when the force derives from a (possibly time-dependent) potential: True for
   potentials, False for dissipative forces, except a ``NonInertialFrameForce``
