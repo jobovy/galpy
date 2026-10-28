@@ -33,13 +33,6 @@ v1.12.1 (expected around 2026-11-01)
   ``NFWPotential`` and negative for an ``ExpTruncNFWPotential`` at
   ``r ~ 1e-3 a``).
 
-- Differentiating a batch of orbits through the adaptive in-backend solve
-  (``method='diffrax'`` without a fixed number of steps) now warns: the
-  adaptive steps of the orbits depend on each other, under ``jax.vmap`` and
-  in a batched solve alike, and the derivative can be wrong by several
-  percent; a fixed number of steps (``inbackend_kwargs={'nsteps': ...}``)
-  makes it exact.
-
 - Sampling from a spherical distribution function no longer raises
   ``ValueError: x must be increasing`` when the mass converges well inside
   ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
