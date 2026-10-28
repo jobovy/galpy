@@ -33,16 +33,6 @@ v1.12.1 (expected around 2026-11-01)
   ``NFWPotential`` and negative for an ``ExpTruncNFWPotential`` at
   ``r ~ 1e-3 a``).
 
-- Added in-backend fourth- and sixth-order symplectic orbit integrators,
-  ``method='symplec4_jax'``/``'symplec4_torch'`` and
-  ``'symplec6_jax'``/``'symplec6_torch'``, the higher-order siblings of the
-  in-backend leapfrog: the same constant-step drift/kick compositions as the
-  C integrators ``symplec4_c`` and ``symplec6_c`` (with which they agree to
-  round-off at the same step), differentiable with respect to the initial
-  conditions, the potential's parameters and the integration time, with the
-  leapfrog's checkpointing of the reverse pass and its ``nsteps``/``nblock``
-  options.
-
 - Sampling from a spherical distribution function no longer raises
   ``ValueError: x must be increasing`` when the mass converges well inside
   ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
