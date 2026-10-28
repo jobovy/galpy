@@ -33,6 +33,12 @@ v1.12.1 (expected around 2026-11-01)
   ``NFWPotential`` and negative for an ``ExpTruncNFWPotential`` at
   ``r ~ 1e-3 a``).
 
+- ``interpSphericalPotential`` built from a galpy potential (rather than a
+  function) that carries a JAX or PyTorch parameter now evaluates its force
+  grid on that backend, such that the interpolated potential is
+  differentiable with respect to the parameters of the potential that it
+  interpolates, as it already was for a function input.
+
 - Sampling from a spherical distribution function no longer raises
   ``ValueError: x must be increasing`` when the mass converges well inside
   ``rmax`` (e.g., for ``ExpTruncNFWPotential`` with the default ``rmax``).
