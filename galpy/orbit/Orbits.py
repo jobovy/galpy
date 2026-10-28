@@ -10312,6 +10312,45 @@ def _simbad_servers():
     ]
 
 
+def _simbad_connection_error(exc):
+    """
+    Decide whether an exception raised by astroquery means that the SIMBAD mirror could not be reached.
+
+    Parameters
+    ----------
+    exc : Exception
+        The exception.
+
+    Returns
+    -------
+    bool
+        True for requests' errors (OSError) and pyvo's DALServiceError, also when one of those is the cause of the exception, as for the DALFormatError that pyvo raises when the connection is lost after the mirror's capabilities were read.
+
+    Notes
+    -----
+    - 2026-10-28 - Written - Bovy (UofT)
+
+    """
+    seen = set()
+    while isinstance(exc, BaseException) and id(exc) not in seen:
+        if isinstance(exc, _SIMBAD_CONNECTION_ERRORS):
+            return True
+        seen.add(id(exc))
+        exc = next(
+            (
+                cause
+                for cause in (
+                    getattr(exc, "cause", None),
+                    exc.__cause__,
+                    exc.__context__,
+                )
+                if isinstance(cause, BaseException)
+            ),
+            None,
+        )
+    return False
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
@@ -10372,7 +10411,9 @@ def _from_name_oneobject(name, obs):
     for server in servers:
         try:
             vxvv = _from_name_simbad(name, server)
-        except _SIMBAD_CONNECTION_ERRORS:
+        except Exception as exc:
+            if not _simbad_connection_error(exc):
+                raise
             continue
         _SIMBAD_SERVER = server
         return vxvv

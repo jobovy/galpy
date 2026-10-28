@@ -14167,6 +14167,60 @@ def test_from_name_simbad_mirror_fallback(monkeypatch):
     return None
 
 
+def test_from_name_simbad_connection_lost(monkeypatch):
+    # A connection lost after a mirror's capabilities were read reaches
+    # from_name wrapped in pyvo's DALFormatError; from_name must still fall
+    # back (Codex review of #1770)
+    import pyvo.dal.exceptions
+    import pyvo.dal.tap
+    import requests
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    # Find a mirror that answers and then make its TAP queries drop the
+    # connection, once or always
+    Orbit.from_name("Vega")
+    answering = Orbits._SIMBAD_SERVER
+    monkeypatch.setattr(Orbits, "_simbad_servers", lambda: [answering, answering])
+    execute_stream = pyvo.dal.tap.TAPQuery.execute_stream
+    dropped = []
+
+    def drop_once(self, *args, **kwargs):
+        if not dropped:
+            dropped.append(self.queryurl)
+            raise requests.ConnectionError("connection lost")
+        return execute_stream(self, *args, **kwargs)
+
+    def drop_always(self, *args, **kwargs):
+        dropped.append(self.queryurl)
+        raise requests.ConnectionError("connection lost")
+
+    # The wrapped error is recognized as a connection failure...
+    monkeypatch.setattr(pyvo.dal.tap.TAPQuery, "execute_stream", drop_always)
+    with pytest.raises(pyvo.dal.exceptions.DALFormatError) as excinfo:
+        Orbits._from_name_simbad("Vega", answering)
+    assert Orbits._simbad_connection_error(excinfo.value), (
+        "pyvo's DALFormatError wrapping a lost connection is not recognized as a connection failure"
+    )
+    assert len(dropped) == 1 and answering in dropped[0], (
+        "the connection was not dropped on the mirror's TAP query"
+    )
+    # ... so from_name falls back on the next mirror...
+    del dropped[:]
+    monkeypatch.setattr(pyvo.dal.tap.TAPQuery, "execute_stream", drop_once)
+    o = Orbit.from_name("Lacaille 8760")
+    assert len(dropped) == 1, "the connection was not dropped exactly once"
+    assert numpy.isclose(o.pmra(), -3258.996), (
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    )
+    # ... and reports a connection failure when it happens on every mirror
+    monkeypatch.setattr(pyvo.dal.tap.TAPQuery, "execute_stream", drop_always)
+    with pytest.raises(OSError, match="failed to connect to SIMBAD"):
+        Orbit.from_name("Vega")
+    return None
+
+
 def test_from_name_simbad_unreachable(monkeypatch):
     # When no SIMBAD mirror can be reached, from_name raises an OSError that
     # names the mirrors it tried
