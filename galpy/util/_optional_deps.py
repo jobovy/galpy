@@ -86,10 +86,15 @@ except ImportError:
 
 # torch
 _TORCH_LOADED = True
+_TORCH_GE_215 = None
 try:
-    import torch  # noqa: F401
+    import torch
 except ImportError:
     _TORCH_LOADED = False
+else:
+    _TORCH_GE_215 = Version(parse_version(torch.__version__).base_version) >= Version(
+        "2.15.0"
+    )
 
 # array-api-compat: the dispatch engine for galpy.backend.get_namespace
 # (data-first backend resolution). Required for the non-numpy backends — it is
