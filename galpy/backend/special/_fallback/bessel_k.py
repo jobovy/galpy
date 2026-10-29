@@ -2,9 +2,8 @@
 #   Fallbacks for the modified Bessel functions of the second kind K0, K1, Kn
 #   on real x > 0. Needed on BOTH jax and torch:
 #     - jax.scipy.special has no k0/k1/kn at all;
-#     - torch.special has modified_bessel_k0/k1 but they are NOT differentiable
-#       (no autograd backward) and lack kn entirely, so we use the fallback there
-#       too (the router sees no torch.special.k0 attribute -> treats it missing).
+#     - torch.special's modified_bessel_k0/k1 have no autograd backward before
+#       torch 2.15 (from 2.15 the router uses them) and torch has no kn.
 #
 #   K0, K1 (``_k01``) use two regimes, each ~1e-15 vs scipy and AD-friendly:
 #     - x <= 2: the Abramowitz & Stegun ascending series (9.6.13/9.6.11), built

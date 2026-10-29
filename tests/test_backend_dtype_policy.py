@@ -481,6 +481,7 @@ def test_special_fallback_f32_exit_cast():
     # ellipk/ellipe/gamma) keep float64 quadrature tables and cast to the
     # input dtype at exit: float32 in -> float32 out at float64 quality.
     import galpy.backend.special as gsp
+    from galpy.backend.special._router import _NEEDS_FALLBACK
 
     cases = [
         ("hyp2f1", lambda d: gsp.hyp2f1(1.5, 0.5, 2.5, torch.tensor(-0.7, dtype=d))),
@@ -493,6 +494,8 @@ def test_special_fallback_f32_exit_cast():
         ("gamma", lambda d: gsp.gamma(torch.tensor(1.5, dtype=d))),
     ]
     for name, call in cases:
+        if name not in _NEEDS_FALLBACK["torch"]:  # k0, k1: native on torch >= 2.15
+            continue
         out32 = call(torch.float32)
         out64 = call(torch.float64)
         assert out32.dtype == torch.float32, f"{name}: float32 in gave {out32.dtype}"

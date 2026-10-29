@@ -7,6 +7,7 @@ import importlib
 import numpy
 import scipy.special as _scipy_special
 
+from ...util._optional_deps import _TORCH_GE_215
 from .._namespaces import (
     is_backend_array,
     match_input_dtype,
@@ -23,10 +24,10 @@ from .._resolver import get_namespace
 _NATIVE_MISSING = {
     # jax.scipy.special has i0/i1 and sici but no general-order iv.
     "jax": frozenset(("ellipk", "ellipkm1", "ellipe", "k0", "k1", "kn", "iv")),
-    # torch.special lacks all of these. (It does have modified_bessel_k0/k1, but
-    # they are NOT differentiable -- no autograd backward -- and there is no kn,
-    # so the k0/k1/kn fallbacks are used; the router sees no torch.special.k0.)
-    # torch also has no general-order iv and no sici (sine/cosine integral).
+    # torch.special lacks all of these. (Its modified_bessel_k0/k1 have no
+    # autograd backward before torch 2.15, so k0/k1 use the fallback there; from
+    # 2.15 they are native, see _NATIVE_ALIASES.) torch has no kn, no
+    # general-order iv and no sici (sine/cosine integral).
     "torch": frozenset(
         (
             "gamma",
@@ -35,13 +36,21 @@ _NATIVE_MISSING = {
             "ellipe",
             "hyp2f1",
             "hyp1f1",
-            "k0",
-            "k1",
             "kn",
             "iv",
             "sici",
             "exp1",
         )
+        + (() if _TORCH_GE_215 else ("k0", "k1"))
+    ),
+}
+
+# Native functions that the backend's special module names differently.
+_NATIVE_ALIASES = {
+    "torch": (
+        {"k0": "modified_bessel_k0", "k1": "modified_bessel_k1"}
+        if _TORCH_GE_215
+        else {}
     ),
 }
 
@@ -103,7 +112,8 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     if xp is numpy:  # scipy.special is complete
         return getattr(_scipy_special, fnname)(*args)
     name, sp = _backend_special(xp)
-    if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
+    native = _NATIVE_ALIASES.get(name, {}).get(fnname, fnname)
+    if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, native):
         if name == "torch":
             # torch.special.* require every argument to be a Tensor (they don't
             # broadcast Python scalars like scipy/jax do), so promote any non-
@@ -123,7 +133,7 @@ def _dispatch(fnname, args, fallback, ns_args=None):
                     )
                     for a in args
                 )
-        return getattr(sp, fnname)(*args)
+        return getattr(sp, native)(*args)
     # The fallbacks' constant tables (Gauss-Legendre / trapezoid quadrature
     # nodes and weights) are deliberately float64 -- precision is the point --
     # which under torch/jax promotes float32 inputs to float64. Cast the
@@ -227,7 +237,8 @@ def k0k1(x):
     name, sp = _backend_special(xp)
     if name == "numpy":
         return sp.k0(x), sp.k1(x)
-    # jax and torch both take k0/k1 from the fallback (_NATIVE_MISSING)
+    if "k0" not in _NEEDS_FALLBACK[name]:  # torch >= 2.15: native k0, k1
+        return k0(x), k1(x)
     from ._fallback.bessel_k import _k01
 
     K0, K1 = _k01(xp, x)
