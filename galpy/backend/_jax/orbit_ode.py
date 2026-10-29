@@ -5,6 +5,9 @@
 #   the shared backend-agnostic EOM (_eom_rhs) with diffrax. The torch counterpart
 #   is galpy.backend._torch.orbit_ode.
 ###############################################################################
+import warnings
+
+from ...util import galpyWarning
 from .diffrax_adjoint import direct_adjoint
 
 
@@ -49,6 +52,34 @@ def _resolve_adjoint(diffrax, adjoint):
         "order), 'direct' (higher-order / hessian-capable) or 'forward' "
         "(forward-mode only)"
     )
+
+
+def _is_differentiated(*xs):
+    """True if one of ``xs`` is being differentiated, in forward or reverse mode:
+    its tracer chain holds a JVP tracer (jax.jvp/jacfwd, and jax.grad on older
+    jax) or a linearize tracer (jax.grad/jacrev with ``jax_use_direct_linearize``).
+    A jit or vmap tracer alone is not differentiation. Private API by class
+    name, so it can only miss a derivative, never invent one."""
+    import jax
+
+    for x in xs:
+        while isinstance(x, jax.core.Tracer):
+            if type(x).__name__ in ("JVPTracer", "LinearizeTracer"):
+                return True
+            x = getattr(x, "primal", getattr(x, "val", None))
+    return False
+
+
+def _is_vmapped(*xs):
+    """True if one of ``xs`` is batched by jax.vmap (a BatchTracer in its chain)."""
+    import jax
+
+    for x in xs:
+        while isinstance(x, jax.core.Tracer):
+            if type(x).__name__ == "BatchTracer":
+                return True
+            x = getattr(x, "primal", getattr(x, "val", None))
+    return False
 
 
 def _carries_jvp_tangent(*xs):
@@ -115,10 +146,28 @@ def integrate(
     # the default adjoint is a custom_vjp, which forward mode cannot go through;
     # a tangent can enter via y0, ts or a potential parameter, so probe the EOM
     # at the initial state (unused: dead code under jit)
-    if _adjoint is None and _carries_jvp_tangent(
-        y0, ts, term.vf(jnp.reshape(ts, (-1,))[0], y0, None)
-    ):
+    _probe = term.vf(jnp.reshape(ts, (-1,))[0], y0, None)
+    if _adjoint is None and _carries_jvp_tangent(y0, ts, _probe):
         _adjoint = direct_adjoint()
+    # The derivative of a BATCH of orbits through ADAPTIVE steps is unreliable:
+    # under jax.vmap the step acceptance of one orbit depends on the others and
+    # the derivative is wrong by several percent (galpy's own batched solves,
+    # the stream models, use constant steps). Say so when a batch (native or
+    # vmapped) is differentiated with adaptive steps; the fix is constant steps.
+    if (
+        nsteps is None
+        and (jnp.ndim(y0) == 2 and y0.shape[0] > 1 or _is_vmapped(y0, ts, _probe))
+        and _is_differentiated(y0, ts, _probe)
+    ):
+        warnings.warn(
+            "differentiating a batch of orbits through an adaptive in-backend "
+            "solve: the adaptive steps of the orbits depend on each other and the "
+            "derivative can be wrong by several percent; integrate with a fixed "
+            "number of steps when differentiating a batch, e.g. "
+            "inbackend_kwargs={'nsteps': 4000} (or integrate_kwargs= for a "
+            "stream DF)",
+            galpyWarning,
+        )
     if (
         nsteps is not None
         and (adjoint is None or isinstance(adjoint, str))
