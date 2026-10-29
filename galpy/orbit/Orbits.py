@@ -71,6 +71,16 @@ from ..potential import (
     toPlanarPotential,
 )
 from ..potential.DissipativeForce import _isConservative
+
+# the in-backend constant-step symplectic integrators (method name -> order)
+_INBACKEND_SYMPLECTIC = {
+    "leapfrog_jax": 2,
+    "leapfrog_torch": 2,
+    "symplec4_jax": 4,
+    "symplec4_torch": 4,
+    "symplec6_jax": 6,
+    "symplec6_torch": 6,
+}
 from ..potential.planarPotential import planarPotential
 from ..potential.Potential import (
     Potential,
@@ -2026,12 +2036,8 @@ class Orbit:
             self._ic_backend = like(
                 _bparam, self.vxvv.reshape(self.shape + self.vxvv.shape[-1:])
             )
-        if method.lower() in (
-            "diffrax",
-            "torchdiffeq",
-            "torchode",
-            "leapfrog_jax",
-            "leapfrog_torch",
+        if method.lower() in ("diffrax", "torchdiffeq", "torchode") or (
+            method.lower() in _INBACKEND_SYMPLECTIC
         ):
             # the same list -> CompositePotential conversion (and deprecation
             # warning) every other method gets below
@@ -2512,8 +2518,10 @@ class Orbit:
         ``galpy.backend._reference.integrate_orbit``); e.g.
         ``{"adjoint": "direct", "max_steps": 4096}`` enables jax second derivatives.
         method='leapfrog_jax'/'leapfrog_torch' instead integrates with the
-        constant-step leapfrog (``galpy.backend._reference.integrate_orbit_leapfrog``),
-        which takes ``nsteps`` and ``nblock`` (or ``dt``) and ignores rtol/atol.
+        constant-step leapfrog, and 'symplec4_jax'/'symplec4_torch' and
+        'symplec6_jax'/'symplec6_torch' with the fourth- and sixth-order
+        symplectic integrators (``galpy.backend._reference.integrate_orbit_symplectic``),
+        which take ``nsteps`` and ``nblock`` (or ``dt``) and ignore rtol/atol.
 
         Autodiff-friendly counterpart of the C/scipy integrators, selected by
         method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
@@ -2555,16 +2563,14 @@ class Orbit:
                 f"method='{method.lower()}' requires a torch initial condition; "
                 "use method='diffrax' for a jax initial condition"
             )
-        if method.lower() == "leapfrog_jax" and "jax" not in name:
-            raise ValueError(
-                "method='leapfrog_jax' requires a jax initial condition; use "
-                "method='leapfrog_torch' for a torch initial condition"
-            )
-        if method.lower() == "leapfrog_torch" and "torch" not in name:
-            raise ValueError(
-                "method='leapfrog_torch' requires a torch initial condition; use "
-                "method='leapfrog_jax' for a jax initial condition"
-            )
+        if method.lower() in _INBACKEND_SYMPLECTIC:
+            _base, _want = method.lower().rsplit("_", 1)
+            if _want not in name:
+                _other = "torch" if _want == "jax" else "jax"
+                raise ValueError(
+                    f"method='{_base}_{_want}' requires a {_want} initial condition; "
+                    f"use method='{_base}_{_other}' for a {_other} initial condition"
+                )
         if method.lower() == "torchode":
             _engine = {"engine": "torchode"}
         else:
@@ -2575,14 +2581,14 @@ class Orbit:
         # when differentiating w.r.t. the integration times or under jax.jit, so
         # the solver call stays inside the trace -- or a list/numpy array moved
         # onto the IC's backend.
-        _leapfrog = method.lower() in ("leapfrog_jax", "leapfrog_torch")
+        _leapfrog = method.lower() in _INBACKEND_SYMPLECTIC
         if is_backend_array(t):
             ts = t
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
             # the leapfrog keeps numpy times numpy: concrete (checkable) under jit
             ts = t if _leapfrog else xp.asarray(t)
-        from ..backend._reference import integrate_orbit, integrate_orbit_leapfrog
+        from ..backend._reference import integrate_orbit, integrate_orbit_symplectic
 
         _rtol = 1e-12 if rtol is None else rtol
         _atol = 1e-12 if atol is None else atol
@@ -2602,8 +2608,12 @@ class Orbit:
                     f"and 'nblock', not {sorted(_ibk)}"
                 )
 
+            _order = _INBACKEND_SYMPLECTIC[method.lower()]
+
             def integrate_orbit(pot, ic, ts, **_):  # the solve calls below
-                return integrate_orbit_leapfrog(pot, ic, ts, dt=dt, **_lf)
+                return integrate_orbit_symplectic(
+                    pot, ic, ts, order=_order, dt=dt, **_lf
+                )
 
         # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
         # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
@@ -2861,7 +2871,8 @@ class Orbit:
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
           -  'diffrax' (jax), 'torchdiffeq' or 'torchode' (torch) for the in-backend differentiable ODE integrators; these require a jax/torch initial condition, and 'torchode' can be compiled with torch.compile
-          -  'leapfrog_jax' (jax) or 'leapfrog_torch' (torch) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for forces that derive from a potential (including a NonInertialFrameForce without rotation); requires a jax or torch initial condition, respectively, and equally-spaced times, and ignores rtol/atol
+          -  'leapfrog_jax' (jax) or 'leapfrog_torch' (torch) for an in-backend, differentiable kick-drift-kick leapfrog with a constant step (set by inbackend_kwargs={'nsteps': ...} or dt) and one force evaluation per step, for forces that derive from a potential (including a NonInertialFrameForce without rotation); requires a jax or torch initial condition, respectively, and equally-spaced times
+          -  'symplec4_jax'/'symplec6_jax' (jax) or 'symplec4_torch'/'symplec6_torch' (torch) for the in-backend, differentiable fourth- and sixth-order symplectic integrators with a constant step (the same options and requirements as the leapfrog; three and seven force evaluations per step), and ignores rtol/atol
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
 

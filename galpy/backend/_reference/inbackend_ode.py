@@ -306,10 +306,25 @@ def _default_nblock(nsteps, nint):
 
 def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None):
     """Integrate orbits with a constant-step kick-drift-kick (Stormer-Verlet)
-    leapfrog in the backend.
+    leapfrog in the backend: ``integrate_orbit_symplectic`` of order 2 (see
+    there for the parameters)."""
+    return integrate_orbit_symplectic(
+        pot, vxvv, ts, order=2, nsteps=nsteps, nblock=nblock, dt=dt
+    )
+
+
+def integrate_orbit_symplectic(
+    pot, vxvv, ts, *, order=2, nsteps=None, nblock=None, dt=None
+):
+    """Integrate orbits with a constant-step symplectic integrator in the
+    backend: the kick-drift-kick (Stormer-Verlet) leapfrog (order 2) or galpy's
+    fourth- and sixth-order symplectic integrators (symplec4, symplec6: the
+    drift/kick compositions of ``symplectic_coeffs``, with three and seven force
+    evaluations per step against the leapfrog's one).
 
     Parameters
     ----------
+    order : int, 2, 4 or 6; the order of the method.
     pot : Potential, force or composite whose forces all derive from a potential
         (isConservative; e.g., a NonInertialFrameForce without rotation);
         backend-migrated.
@@ -334,27 +349,30 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
     backend array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
     for a batch, the orbit(s) in Orbit order at ts.
     """
+    if order not in (2, 4, 6):
+        raise ValueError(f"order must be 2, 4 or 6, not {order!r}")
+    _name = {2: "leapfrog", 4: "symplec4", 6: "symplec6"}[order]
     xp = get_namespace(vxvv)
     name = name_of_namespace(xp)
     if name not in ("jax", "torch"):
         raise NotImplementedError(
-            "the in-backend leapfrog requires a jax or torch initial condition; "
-            "for numpy use Orbit.integrate(method='leapfrog_c')"
+            f"the in-backend {_name} requires a jax or torch initial condition; "
+            f"for numpy use Orbit.integrate(method='{_name}_c')"
         )
     if not _isConservative(pot):
         raise ValueError(
-            "the leapfrog requires forces that derive from a potential, but the "
+            f"the {_name} requires forces that derive from a potential, but the "
             "potential includes one that does not (e.g., dynamical friction or a "
             "rotating NonInertialFrameForce); use method='diffrax' (jax) or "
             "'torchode' (torch)"
         )
     if getattr(ts, "ndim", numpy.ndim(ts)) != 1:
         raise NotImplementedError(
-            "the in-backend leapfrog takes one time array shared by all orbits"
+            f"the in-backend {_name} takes one time array shared by all orbits"
         )
     nint = ts.shape[-1] - 1  # output intervals
     if nint < 1:
-        raise ValueError("the in-backend leapfrog needs at least two times")
+        raise ValueError(f"the in-backend {_name} needs at least two times")
     tsn = None if under_trace(ts) else numpy.asarray(as_numpy(ts), dtype=float)
     if dt is not None:
         if nsteps is not None:
@@ -372,7 +390,7 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
             )
     if nsteps is None:
         raise ValueError(
-            "the in-backend leapfrog takes constant steps: set their number with "
+            f"the in-backend {_name} takes constant steps: set their number with "
             "inbackend_kwargs={'nsteps': ...} (or the step with dt=...)"
         )
     if isinstance(nsteps, bool) or not isinstance(nsteps, (int, numpy.integer)):
@@ -387,7 +405,7 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
         dtout = (tsn[-1] - tsn[0]) / nint
         if numpy.any(numpy.fabs(numpy.diff(tsn) - dtout) > 1e-8 * numpy.fabs(dtout)):
             raise ValueError(
-                "the in-backend leapfrog requires equally-spaced output times"
+                f"the in-backend {_name} requires equally-spaced output times"
             )
     if nblock is None:
         nblock = _default_nblock(nsteps, nint)
@@ -416,10 +434,18 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
     )
     phasedim = vxvv.shape[-1]
     dim = 2 if phasedim == 2 else 6
-    if name == "jax":
-        from .._jax.orbit_leapfrog import integrate
+    if order == 2:
+        if name == "jax":
+            from .._jax.orbit_leapfrog import integrate
+        else:
+            from .._torch.orbit_leapfrog import integrate
+        _order = {}
     else:
-        from .._torch.orbit_leapfrog import integrate
+        if name == "jax":
+            from .._jax.orbit_symplec import integrate
+        else:
+            from .._torch.orbit_symplec import integrate
+        _order = {"order": order}
 
     ys = integrate(
         pot,
@@ -429,5 +455,6 @@ def integrate_orbit_leapfrog(pot, vxvv, ts, *, nsteps=None, nblock=None, dt=None
         nsteps=nsteps,
         nblock=int(nblock),
         nint=nint,
+        **_order,
     )
     return match_input_dtype(_from_eom(xp, ys, phasedim), vxvv_in)

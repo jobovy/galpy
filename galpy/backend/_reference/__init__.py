@@ -6,6 +6,10 @@
 #   and the independent correctness reference for the fast C state-transition-
 #   matrix path.
 ###############################################################################
-from .inbackend_ode import integrate_orbit, integrate_orbit_leapfrog
+from .inbackend_ode import (
+    integrate_orbit,
+    integrate_orbit_leapfrog,
+    integrate_orbit_symplectic,
+)
 
-__all__ = ["integrate_orbit", "integrate_orbit_leapfrog"]
+__all__ = ["integrate_orbit", "integrate_orbit_leapfrog", "integrate_orbit_symplectic"]
