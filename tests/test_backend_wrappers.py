@@ -904,6 +904,47 @@ def test_oblatestaeckel_ntab_folds_v_elementwise(backend_name):
     return None
 
 
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_oblatestaeckel_ntab_tables_built_on_every_backend(backend_name, monkeypatch):
+    # A backend builds each table in one array call: per knot, eager jax took
+    # 343 s for MWPotential2014 at ntab=3000 (9 s as arrays). numpy keeps the
+    # per-knot loop, so its tables stay byte-identical.
+    from galpy.backend import use
+
+    _, ref = _ntab_pair()
+    ncalls = []
+    _U = OblateStaeckelWrapperPotential._U
+    monkeypatch.setattr(
+        OblateStaeckelWrapperPotential,
+        "_U",
+        lambda self, u: ncalls.append(1) or _U(self, u),
+    )
+    with use(backend_name, force=True):
+        tab = OblateStaeckelWrapperPotential(
+            pot=MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05),
+            delta=0.5,
+            ntab=101,
+        )
+    assert len(ncalls) == (101 if backend_name == "numpy" else 1), (
+        f"{backend_name}: U(u) tabulated in {len(ncalls)} calls"
+    )
+    got, exp = numpy.array(tab._tabargs), numpy.array(ref._tabargs)
+    if backend_name == "numpy":
+        assert numpy.array_equal(got, exp), "numpy tables are not byte-identical"
+        return None
+    # measured <= 1.5e-15 of each table's scale (jax), 7.6e-16 (torch)
+    for i in range(8):
+        s = slice(1 + 101 * i, 1 + 101 * (i + 1))
+        numpy.testing.assert_allclose(
+            got[s],
+            exp[s],
+            rtol=0.0,
+            atol=1e-14 * numpy.amax(numpy.fabs(exp[s])),
+            err_msg=f"{backend_name}: table {i} differs from the numpy table",
+        )
+    return None
+
+
 # --- a differentiated parameter of the WRAPPED potential -----------------------
 # The OblateStaeckel/CylindricallySeparable constructors evaluate the wrapped
 # potential at Python-float reference points; with a traced parameter that hit
