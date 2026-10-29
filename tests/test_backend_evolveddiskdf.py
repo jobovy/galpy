@@ -823,6 +823,44 @@ def test_call_marginalize_matches_numpy(backend, marg, phi):
     )
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("marg", ["marginalizeVperp", "marginalizeVlos"])
+@pytest.mark.parametrize("phi", [0.2, 1.5])  # both branches of |sin(alpha)|
+def test_call_marginalize_grad_vs_fd(backend, marg, phi):
+    # d/d(R, vR, vT, phi) of a marginalized DF through a differentiated orbit
+    # (its observed velocity and local circular speed) vs central FD on the
+    # backend; AD runs through the C state-transition matrix, FD through plain
+    # C, which agree to the integrator's tolerance
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()
+    x0 = numpy.array([_R, 0.1, 1.05, phi])
+
+    def f(x):
+        return edf(Orbit([x[0], x[1], x[2], x[3]]), **{marg: True})
+
+    with use(backend, force=True):
+        if backend == "jax":
+            g = numpy.asarray(
+                jax.grad(lambda x: jnp.reshape(f(x), ()))(jnp.asarray(x0))
+            )
+            val = lambda x: float(f(jnp.asarray(x)))
+        else:
+            xt = torch.tensor(x0, requires_grad=True)
+            out = f(xt)
+            assert is_backend_array(out) and out.requires_grad
+            (g,) = torch.autograd.grad(out.reshape(()), xt)
+            g = g.numpy()
+            val = lambda x: float(f(torch.tensor(x)))
+        h = 1e-5
+        fd = numpy.array(
+            [(val(x0 + h * e) - val(x0 - h * e)) / (2.0 * h) for e in numpy.eye(4)]
+        )
+    assert numpy.all(g != 0.0)
+    # worst 2.1e-7 over both backends and branches
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6)
+
+
 @pytest.mark.parametrize("forced", [False, True])
 @pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
 @pytest.mark.parametrize("backend", BACKENDS)

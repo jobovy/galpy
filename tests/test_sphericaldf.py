@@ -3064,6 +3064,8 @@ def test_truncatedtwopower_density_derivatives():
     return None
 
 
+# calls the jax internals directly; a forced torch would route their helpers to torch
+@pytest.mark.backend_managed
 def test_truncatedtwopower_rforce_jax():
     # the jax radial force that constantbetadf differentiates, in every regime
     # (the small-r series included), and its jax derivatives
@@ -3094,6 +3096,8 @@ def test_truncatedtwopower_rforce_jax():
     return None
 
 
+# calls the jax internals directly; a forced torch would route their helpers to torch
+@pytest.mark.backend_managed
 def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
     # Direct checks of the two JAX functions that the anisotropic (OM /
     # constant-beta) DFs use for ExpTruncNFWPotential.

@@ -1388,7 +1388,7 @@ def test_streamTrack_pspline_smooth_in_the_particles(_simple_spdf, _pspline_xv):
 def test_streamTrack_pspline_smoothing(_simple_spdf, _pspline_xv):
     tr = _pspline(_simple_spdf, _pspline_xv)
     tps = numpy.linspace(0.2, 1.2, 6)
-    s = tr.smoothing_s
+    s = as_numpy(tr.smoothing_s)
     assert s.shape == (6,) and numpy.all(s > 0.0)
     # the selected penalties passed back reproduce the track
     tr2 = _pspline(_simple_spdf, _pspline_xv, smoothing=s)
@@ -1416,7 +1416,7 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
     base = _pspline(_simple_spdf, _pspline_xv, velocity_weight=1.0)
     for kw in ({"niter": 1}, {"ntp": 25}, {"velocity_weight": 3.0}):
         tr = _pspline(_simple_spdf, _pspline_xv, **{"velocity_weight": 1.0, **kw})
-        d = numpy.abs(tr.x(tps) - base.x(tps))
+        d = numpy.abs(as_numpy(tr.x(tps)) - as_numpy(base.x(tps)))
         assert numpy.all(numpy.isfinite(d)) and numpy.max(d) > 1e-6, kw
     tr = _pspline(_simple_spdf, _pspline_xv, order=1)
     assert tr.smoothing_s.shape == (6,)
@@ -1434,7 +1434,7 @@ def test_streamTrack_pspline_options(_simple_spdf, _pspline_xv):
     tr = _simple_spdf.streamTrack(
         particles=_pspline_xv, tail="trailing", method="pspline"
     )
-    assert numpy.all(numpy.isfinite(tr.x(tr.tp_grid())))
+    assert numpy.all(numpy.isfinite(as_numpy(tr.x(tr.tp_grid()))))
     with pytest.raises(ValueError, match="method="):
         _simple_spdf.streamTrack(particles=_pspline_xv, tail="leading", method="bogus")
     # both arms, sampled
