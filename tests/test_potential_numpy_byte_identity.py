@@ -5,6 +5,7 @@
 # Each test writes the pre-backend formula out in full and compares with ==.
 ###############################################################################
 import numpy
+import pytest
 
 from galpy.potential import (
     BurkertPotential,
@@ -14,6 +15,9 @@ from galpy.potential import (
 )
 from galpy.potential.BurkertPotential import _BURKERT_NTERMS
 from galpy.potential.TwoPowerSphericalPotential import _NFW_S
+
+# the numpy path's own contract: exempt from --backend
+pytestmark = pytest.mark.backend_managed
 
 _R = numpy.geomspace(0.003, 20.0, 60)
 _z = numpy.linspace(-2.0, 2.0, 7)
