@@ -71,13 +71,14 @@ def _nfw_tu_S(xp, x):
     derivative finite at t = 0"""
     t = x / (2.0 + x)
     t2 = t * t
-    S = t2 * t * (_NFW_S[0] + power_series(xp, t2, _NFW_S[1:], 1))
+    # Horner over all coefficients, then * t2 * t: the numpy formula's order
+    S = (_NFW_S[0] + power_series(xp, t2, _NFW_S[1:], 1)) * t2 * t
     return t, t / (1.0 + t), S
 
 
 def _nfw_hx(xp, x):
     t, u, S = _nfw_tu_S(xp, x)
-    return 2.0 * (t * u + S)
+    return 2.0 * (t * t / (1.0 + t) + S)  # t*t/(1+t), as the numpy formula
 
 
 def _nfw_masked(xp, small, r, a):
@@ -97,12 +98,12 @@ def _nfw_h(xp, small, r, a):
     return _nfw_hx(xp, xs) / (rs * rs * rs)
 
 
-def _nfw_hk5(xp, small, r, a):
-    """(h(x), k(x)) / r^5 on the small-x mask."""
+def _nfw_hk(xp, small, r, a):
+    """(r, h(x), k(x)) on the small-x mask; the callers divide by r^5 last,
+    as the numpy formula does."""
     rs, xs = _nfw_masked(xp, small, r, a)
     t, u, S = _nfw_tu_S(xp, xs)
-    r5 = rs * rs * rs * rs * rs
-    return 2.0 * (t * u + S) / r5, -4.0 * (t * u * u + S) / r5
+    return rs, 2.0 * (t * u + S), -4.0 * (t * u * u + S)
 
 
 # TwoPowerSphericalPotential's potential through two incomplete beta integrals
@@ -1368,7 +1369,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         bulk = branch_where(
             xp,
             safe < _NFW_SMALL_X * self.a,
-            lambda: -(1.0 / safe) * xp.log1p(safe / self.a),
+            lambda: -xp.log1p(safe / self.a) / safe,
             lambda: -(1.0 / safe) * xp.log(1.0 + safe / self.a),
         )
         out = fill_where(xp, atinf, bulk, 0.0)
@@ -1434,8 +1435,8 @@ class NFWPotential(TwoPowerSphericalPotential):
         small = sqrtRz < _NFW_SMALL_X * self.a
 
         def stable():  # d2Phi/dR2 = (k R^2 + h z^2) / r^5
-            h5, k5 = _nfw_hk5(xp, small, sqrtRz, self.a)
-            return k5 * R**2.0 + h5 * z**2.0
+            rs, h, k = _nfw_hk(xp, small, sqrtRz, self.a)
+            return (k * R * R + h * z * z) / (rs * rs * rs * rs * rs)
 
         return branch_where(
             xp,
@@ -1463,8 +1464,8 @@ class NFWPotential(TwoPowerSphericalPotential):
         small = sqrtRz < _NFW_SMALL_X * self.a
 
         def stable():  # d2Phi/dRdz = (k - h) R z / r^5
-            h5, k5 = _nfw_hk5(xp, small, sqrtRz, self.a)
-            return (k5 - h5) * R * z
+            rs, h, k = _nfw_hk(xp, small, sqrtRz, self.a)
+            return (k - h) * R * z / (rs * rs * rs * rs * rs)
 
         return branch_where(
             xp,

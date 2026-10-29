@@ -668,6 +668,8 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=N
             xp.sum(dd_yi * zi, axis=-1),
             xp.sum(dd_zi * zi + wfac * dens_val * invc2t, axis=-1),
         )
+    # the two-term sums are parenthesized: `xx += a + b` is `xx + (a + b)`,
+    # which keeps the numpy result byte-identical to the pre-backend loop
     xx = xy = xz = yy = yz = zz = 0.0
     x2 = x**2
     y2 = y**2
@@ -690,10 +692,10 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=N
         dd_xi = w_over_denom * dderiv_over_m * xi
         dd_yi = w_over_denom * dderiv_over_m * yi
         dd_zi = w_over_denom * dderiv_over_m * zi
-        xx = xx + dd_xi * xi + w_over_denom * dens_val * inv1t
+        xx = xx + (dd_xi * xi + w_over_denom * dens_val * inv1t)
         xy = xy + dd_xi * yi
         xz = xz + dd_xi * zi
-        yy = yy + dd_yi * yi + w_over_denom * dens_val * invb2t
+        yy = yy + (dd_yi * yi + w_over_denom * dens_val * invb2t)
         yz = yz + dd_yi * zi
-        zz = zz + dd_zi * zi + w_over_denom * dens_val * invc2t
+        zz = zz + (dd_zi * zi + w_over_denom * dens_val * invc2t)
     return xx, xy, xz, yy, yz, zz

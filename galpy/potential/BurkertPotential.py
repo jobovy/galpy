@@ -6,7 +6,7 @@ import math
 import numpy
 
 from ..backend import branch_where, coerce_coords, get_namespace, radial_limits
-from ..backend._coerce import fill_where, mask_where, power_series
+from ..backend._coerce import fill_where, mask_where
 from ..util import conversion
 from .Potential import _normalize_requested
 from .SphericalPotential import SphericalPotential
@@ -16,21 +16,6 @@ from .SphericalPotential import SphericalPotential
 # reach ~1e-24 at x = 0.25. Above it the original formulas.
 _BURKERT_SMALL_X = 0.25
 _BURKERT_NTERMS = 10
-# the force series S(x) = sum_j [-4/(4j+3) x^(4j) + x^(4j+1)/(j+1)] as
-# -4/3 + sum_{q>=1} _BURKERT_S[q-1] x^q
-_BURKERT_S = [0.0] * (4 * (_BURKERT_NTERMS - 1) + 1)
-for _j in range(_BURKERT_NTERMS):
-    if _j:
-        _BURKERT_S[4 * _j - 1] = -4.0 / (4 * _j + 3)
-    _BURKERT_S[4 * _j] = 1.0 / (_j + 1)
-# Phi'' - Phi'/r = 4 pi rho - 3 M/r^3 cancels to O(x) at x << 1; with
-# rho = (1-x)/(1-x^4) = sum_n d_n x^n it is 4 pi sum_n d_n n/(n+3) x^n
-# (n >= 1: d_{4j} = 1, d_{4j+1} = -1), _BURKERT_RZ[n-1] = d_n n/(n+3)
-_BURKERT_RZ = [0.0] * (4 * _BURKERT_NTERMS - 3)
-for _j in range(_BURKERT_NTERMS):
-    if _j:
-        _BURKERT_RZ[4 * _j - 1] = 4.0 * _j / (4 * _j + 3)
-    _BURKERT_RZ[4 * _j] = -(4.0 * _j + 1) / (4 * _j + 4)
 
 
 class BurkertPotential(SphericalPotential):
@@ -168,10 +153,16 @@ class BurkertPotential(SphericalPotential):
 
     def _rforce_small(self, xp, r, small):
         # the generic bracket cancels to O(x^3) (eps/x^3 lost at x << 1): its
-        # series 2 atan(x) - 2 log1p(x) - log1p(x^2) = x^3 S(x) (_BURKERT_S),
+        # series 2 atan(x) - 2 log1p(x) - log1p(x^2) = x^3 sum_j (x^4)^j [-4/(4j+3) + x/(j+1)],
         # divided by x^2. r masked before dividing by a (see _phi_small)
         rs = mask_where(xp, small, r, 0.05 * self.a)
-        series = -4.0 / 3.0 + power_series(xp, rs / self.a, _BURKERT_S, 1)
+        x = rs / self.a
+        y = x**4.0
+        # Horner in y = x^4 with x-dependent coefficients, in the order of the
+        # numpy formula (byte-identical to it)
+        series = -4.0 / (4 * _BURKERT_NTERMS - 1) + x / _BURKERT_NTERMS
+        for j in range(_BURKERT_NTERMS - 2, -1, -1):
+            series = series * y + (-4.0 / (4 * j + 3) + x / (j + 1))
         # pi r S(r/a), not a pi x S: that form's d/da cancels (a * x) in fp
         return math.pi * rs * series
 
@@ -181,16 +172,9 @@ class BurkertPotential(SphericalPotential):
         r = xp.sqrt(R**2.0 + z**2.0)
         small = r < _BURKERT_SMALL_X * self.a
 
-        def series():  # R z (Phi'' - Phi'/r) / r^2, summed directly
+        def series():  # R z (Phi'' - Phi'/r) / r^2
             rs = mask_where(xp, small, r, 0.05 * self.a)
-            return (
-                R
-                * z
-                / (rs * rs)
-                * 4.0
-                * math.pi
-                * power_series(xp, rs / self.a, _BURKERT_RZ, 1)
-            )
+            return R * z / rs**2.0 * self._r2deriv_minus_rforce_small(rs)
 
         return branch_where(
             xp,
@@ -198,6 +182,21 @@ class BurkertPotential(SphericalPotential):
             series,
             lambda: SphericalPotential._Rzderiv(self, R, z, phi=phi, t=t),
         )
+
+    def _r2deriv_minus_rforce_small(self, r):
+        # Phi'' - Phi'/r = 4 pi rho - 3 M/r^3 cancels to O(x) at x << 1; with
+        # rho = (1-x)/(1-x^4) = sum_n d_n x^n it is 4 pi sum_n d_n n/(n+3) x^n
+        # (Horner in y = x^4, in the order of the numpy formula)
+        x = r / self.a
+        y = x**4.0
+        out = 4.0 * (_BURKERT_NTERMS - 1) / (4.0 * _BURKERT_NTERMS - 1.0) - x * (
+            4.0 * _BURKERT_NTERMS - 3.0
+        ) / (4.0 * _BURKERT_NTERMS)
+        for j in range(_BURKERT_NTERMS - 2, -1, -1):
+            out = out * y + (
+                4.0 * j / (4.0 * j + 3.0) - x * (4.0 * j + 1.0) / (4.0 * j + 4.0)
+            )
+        return 4.0 * math.pi * out
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
