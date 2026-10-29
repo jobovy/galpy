@@ -5,24 +5,20 @@
 # This potential integrates an arbitrary surface density Sigma(R) against the
 # razor-thin-disk Green's function (complete elliptic integrals K/E). The numpy
 # path keeps scipy's adaptive quad + scipy.special.ellipk/ellipe and is
-# byte-identical; a jax/torch input routes to the backend split Gauss-Legendre
-# quadrature (galpy.backend.quadrature) with the backend elliptic fallback
-# (galpy.backend.special.ellipk/ellipe), so the FORCES are jit/grad-safe.
+# byte-identical; a jax/torch input -- concrete, traced or grad-tracking --
+# routes to backend Gauss-Legendre quadrature (galpy.backend.quadrature) with the
+# backend elliptic fallback (galpy.backend.special.ellipk/ellipe).
 #
 # The eager-only gap this closes: before migration the forces returned a bare
 # python float under a forced backend, so downstream ``xp.sqrt`` (e.g. vcirc)
 # crashed ("sqrt(): argument must be Tensor, not float") and jax.jacfwd could
 # not trace them.
 #
-# Design note: a PLAIN concrete backend scalar reuses scipy's accurate value
-# (wrapped as a backend array); native GL runs only when a gradient is actually
-# taken (a tracer, or a grad-tracking torch tensor), which keeps a concrete
-# backend value bit-for-bit equal to the numpy one.
-#
-# That split is NOT because GL is the less accurate of the two: with panels
-# graded geometrically to dmin, GL tracks scipy to ~1e-15 wherever scipy is
-# trustworthy and stays correct at |z| = 1e-12, where scipy's own quad steps
-# over the a=R peak and returns nan.
+# Design note: the backend integrands are written in the exact offset u = a - R
+# and folded about a = R (finite_part_quad), R2deriv is -dRforce/dR by autodiff
+# and z2deriv follows from Laplace's equation, so the backend path matches an
+# mpmath Hankel reference to ~1e-11 at and near the plane, where scipy's quad
+# itself is good to 1e-8..1e-13 (test_backend_values_match_the_hankel_reference).
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -95,6 +91,150 @@ def _scalar(backend_name, x):
     return torch.tensor(x, dtype=torch.float64)
 
 
+# Gold values: the Hankel-transform form of each quantity, evaluated with
+# mpmath.quadosc at 25 dps (mpmath.quad for |z| >= 1), for Sigma(R) = exp(-R/0.3):
+#     Phi    = -2 pi Int J0(kR) e^{-k|z|} St(k) dk
+#     Rforce = -2 pi Int k J1(kR) e^{-k|z|} St(k) dk
+#     zforce = -2 pi sgn(z) Int k J0(kR) e^{-k|z|} St(k) dk
+#     R2deriv = 2 pi Int k^2 (J0(kR) - J1(kR)/(kR)) e^{-k|z|} St(k) dk
+#     z2deriv = -2 pi Int k^2 J0(kR) e^{-k|z|} St(k) dk
+#     Rzderiv = -2 pi sgn(z) Int k^2 J1(kR) e^{-k|z|} St(k) dk
+# with St(k) = 0.09 (1 + 0.09 k^2)^(-3/2); at z = 0 the limits z -> 0+.
+_HANKEL_GOLD = {
+    "pot": {
+        (0.2, 0.0): -1.6138577225030613,
+        (0.2, 1e-08): -1.6138576902441126,
+        (0.2, 1e-06): -1.613854496612939,
+        (0.2, 0.01): -1.5820733448601418,
+        (0.2, 1.0): -0.47652243083731066,
+        (1.0, 0.0): -0.6286545960773888,
+        (1.0, 1e-08): -0.6286545938359257,
+        (1.0, 1e-06): -0.6286543719308844,
+        (1.0, 0.01): -0.6263940553131371,
+        (1.0, 1.0): -0.3810925503468679,
+        (5.0, 0.0): -0.11373622112612981,
+        (5.0, 1e-08): -0.11373622112612619,
+        (5.0, 1e-06): -0.1137362211257644,
+        (5.0, 0.01): -0.11373597865925376,
+        (5.0, 1.0): -0.11142506885430359,
+    },
+    "Rforce": {
+        (0.2, 0.0): -1.7898186952604456,
+        (0.2, 1e-08): -1.7898185877306192,
+        (0.2, 1e-06): -1.7898079423123356,
+        (0.2, 0.01): -1.6857222206172744,
+        (0.2, 1.0): -0.05366341989303102,
+        (1.0, 0.0): -0.6398089000397701,
+        (1.0, 1e-08): -0.6398088925682264,
+        (1.0, 1e-06): -0.6398081528853387,
+        (1.0, 0.01): -0.6323319963719337,
+        (1.0, 1.0): -0.1483001842572871,
+        (5.0, 0.0): -0.02301590950453551,
+        (5.0, 1e-08): -0.02301590950452341,
+        (5.0, 1e-06): -0.02301590950332393,
+        (5.0, 0.01): -0.023015748148129966,
+        (5.0, 1.0): -0.021605737586217724,
+    },
+    "zforce": {
+        (0.2, 1e-08): -3.2258948032317742,
+        (0.2, 1e-06): -3.225885345940858,
+        (0.2, 0.01): -3.131295694966348,
+        (0.2, 1.0): -0.3632586641804715,
+        (1.0, 1e-08): -0.2241463147212866,
+        (1.0, 1e-06): -0.22414669818781774,
+        (1.0, 0.01): -0.22793302168526636,
+        (1.0, 1.0): -0.19417544520871455,
+        (5.0, 1e-08): -3.6307441366694755e-07,
+        (5.0, 1e-06): -3.6780340695785897e-07,
+        (5.0, 0.01): -4.813012465947153e-05,
+        (5.0, 1.0): -0.004473541768393179,
+    },
+    "R2deriv": {
+        (0.2, 0.0): 0.6037346813750064,
+        (0.2, 1e-08): 0.6037350398077452,
+        (0.2, 1e-06): 0.6037705243744419,
+        (0.2, 0.01): 0.9352286829508506,
+        (0.2, 1.0): 0.25226630538857053,
+        (1.0, 0.0): -1.0271497108832743,
+        (1.0, 1e-08): -1.0271496859781288,
+        (1.0, 1e-06): -1.02714722037005,
+        (1.0, 0.01): -1.0023807416394712,
+        (1.0, 1.0): -0.005649784918531225,
+        (5.0, 0.0): -0.009379942802732731,
+        (5.0, 1e-08): -0.009379942802692396,
+        (5.0, 1e-06): -0.00937994279869784,
+        (5.0, 0.01): -0.009379776190087423,
+        (5.0, 1.0): -0.008224481940673708,
+    },
+    "z2deriv": {
+        (0.2, 0.0): -9.552828157677235,
+        (0.2, 1e-08): -9.55282797846084,
+        (0.2, 1e-06): -9.55281023593612,
+        (0.2, 0.01): -9.363839786037222,
+        (0.2, 1.0): -0.5205834048537257,
+        (1.0, 0.0): 0.3873408108435042,
+        (1.0, 1e-08): 0.38734079340990235,
+        (1.0, 1e-06): 0.3873390674847113,
+        (1.0, 0.01): 0.3700487452675374,
+        (1.0, 1.0): -0.14265039933875587,
+        (5.0, 0.0): 0.0047767609018256295,
+        (5.0, 1e-08): 0.004776760901787713,
+        (5.0, 1e-06): 0.004776760898033053,
+        (5.0, 0.01): 0.004776626560461429,
+        (5.0, 1.0): 0.0039033344234301634,
+    },
+    "Rzderiv": {
+        (0.2, 1e-08): -10.752982298147986,
+        (0.2, 1e-06): -10.752913224143162,
+        (0.2, 0.01): -10.071879929275749,
+        (0.2, 1.0): -0.11323144468734216,
+        (1.0, 1e-08): -0.7471543707322954,
+        (1.0, 1e-06): -0.7471544934271073,
+        (1.0, 0.01): -0.7481433924238021,
+        (1.0, 1.0): -0.21543894536387256,
+        (5.0, 1e-08): -1.2101186718907986e-06,
+        (5.0, 1e-06): -1.2130739899569089e-06,
+        (5.0, 0.01): -3.106080790624548e-05,
+        (5.0, 1.0): -0.00266372514039345,
+    },
+}
+# measured worst over the grid, both backends, with ~3x headroom
+_HANKEL_RTOL = {
+    "pot": 3e-11,
+    "Rforce": 2e-11,
+    "zforce": 1.5e-13,
+    "R2deriv": 3e-10,
+    "z2deriv": 8e-11,
+    "Rzderiv": 4e-9,
+}
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("quantity", list(_HANKEL_GOLD))
+def test_backend_values_match_the_hankel_reference(backend_name, quantity):
+    # a concrete backend input takes the backend quadrature (not scipy), which
+    # must be accurate on and near the plane: z = 0, 1e-8, 1e-6 straddle the
+    # a = R singularity, where the old graded-panel rule was 2e-4 (Rforce) to
+    # 1e2 (Rzderiv) off
+    p = AnyAxisymmetricRazorThinDiskPotential(
+        surfdens=lambda R: get_namespace(R).exp(-R / 0.3)
+    )
+    fn = {
+        "pot": lambda R, z: evaluatePotentials(p, R, z),
+        "Rforce": p.Rforce,
+        "zforce": p.zforce,
+        "R2deriv": p.R2deriv,
+        "z2deriv": p.z2deriv,
+        "Rzderiv": p.Rzderiv,
+    }[quantity]
+    for (R, z), gold in _HANKEL_GOLD[quantity].items():
+        got = fn(_scalar(backend_name, R), _scalar(backend_name, z))
+        assert is_backend_array(got)
+        assert abs(float(got) / gold - 1.0) < _HANKEL_RTOL[quantity], (
+            f"{quantity}({R}, {z}) on {backend_name}: {float(got)!r}, gold {gold!r}"
+        )
+
+
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_eager_force_returns_backend_array_matching_numpy(backend_name):
     # Eager backend force is a backend array (the eager-only-gap fix) whose value
@@ -114,13 +254,8 @@ def test_eager_force_returns_backend_array_matching_numpy(backend_name):
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_traced_potential_and_2ndderivs_backend(backend_name):
-    # The backend GL path for the POTENTIAL and the three SECOND derivatives
-    # (_evaluate_gl / _R2deriv_gl / _z2deriv_gl / _Rzderiv_gl) is taken only for a TRACER
-    # (jax) or a requires_grad tensor (torch) -- a CONCRETE backend scalar reuses scipy
-    # via _bk_dispatch. #1121 landed these ~36 GL lines with NO traced backend test (only
-    # the forces were traced), so feat/backends coverage jumped 15->51. Trace over each
-    # (jit for jax, requires_grad for torch) so the GL branch runs, and check the value
-    # matches the numpy/scipy reference (z != 0: the 2nd derivs are singular in the plane).
+    # The backend path for the POTENTIAL and the three SECOND derivatives, traced
+    # (jit for jax, requires_grad for torch), against the numpy/scipy reference.
     R0, z0 = 1.3, 0.25
     for fn in (
         evaluatePotentials,
@@ -256,7 +391,7 @@ def test_torch_compile_takes_the_backend_gl_path():
     # the 3-panel/100-node GL graph and add no coverage.
     R0 = torch.tensor(1.1, dtype=torch.float64)
     z0 = torch.tensor(0.2, dtype=torch.float64)
-    ref = float(evaluatePotentials(_POT, R0, z0))  # eager (scipy) value
+    ref = float(evaluatePotentials(_POT, R0, z0))  # eager value
     with no_torch_compile_deprecations():
         torch._dynamo.reset()
         got = float(
@@ -266,7 +401,6 @@ def test_torch_compile_takes_the_backend_gl_path():
                 dynamic=False,
             )(R0, z0)
         )
-    # GL vs scipy adaptive quad differ only at the quadrature floor
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
 
 
@@ -274,17 +408,16 @@ def test_torch_compile_takes_the_backend_gl_path():
 # The a=R split makes R=0 and R=inf special: at R=0 the [0,R] and [R,2R] panels
 # have zero width while the integrand is 0/0 there, so they evaluate to 0*nan;
 # at R=inf every panel spans an infinite range. Both returned NaN under a trace
-# while the concrete scipy path was finite. Guarded in _bk_split_quad.
+# while the concrete scipy path was finite. Guarded in _bk_offset_quad.
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_degenerate_radii_traced_match_numpy_jax():
     """Phi(0) and Phi(inf) trace to the concrete values, not NaN.
 
-    Must jit: eagerly the input is concrete and the scipy branch is taken, so an
-    eager run would never touch the guarded quadrature. Compared by VALUE
-    against the numpy path -- asserting merely 'not NaN' would pass on any
-    finite garbage, and Phi(0) is a real number (~-2.79) worth pinning.
+    Traced, so the guards must hold without data-dependent branches. Compared
+    by VALUE against the numpy path -- asserting merely 'not NaN' would pass on
+    any finite garbage, and Phi(0) is a real number (~-2.79) worth pinning.
     """
     import galpy.backend as gb
 
@@ -500,24 +633,15 @@ def test_zforce_at_tiny_z_reaches_sheet_limit(backend_name, R, z, tol):
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_traced_second_derivs_match_numpy_through_the_midplane(backend_name):
-    # MUST be traced. _bk_dispatch deliberately routes concrete eager input back
-    # to scipy, so an eager version of this test would compare scipy against
-    # scipy and pass no matter how wrong the GL path is -- which is exactly why
-    # the defect below survived: the suite asserted z == 0 only in the eager
-    # test.
+    # Traced (concrete input takes the same backend path; the eager comparison
+    # is test_backend_values_match_the_hankel_reference). The backend path used
+    # to run ONE generic graded-panel rule for all six methods, while numpy
+    # handles the a=R singularity analytically: at z == 0 traced R2deriv came out
+    # ~3.8e+03 relative error, reachable from user code, since traced epifreq()
+    # evaluates R2deriv at z=0.
     #
-    # The backend path used to run ONE generic graded-panel rule for all six
-    # methods, while numpy handles the a=R singularity analytically. At z == 0
-    # that integral is a non-integrable c/d^2 divergence, so no amount of panel
-    # grading converges it and traced R2deriv came out ~3.8e+03 relative error --
-    # four orders of magnitude wrong, and reachable from user code, since traced
-    # epifreq() evaluates R2deriv at z=0. Both second derivatives now go through
-    # the same Hadamard finite part numpy uses.
-    #
-    # The tolerances are MEASURED accuracy with modest headroom, not round
-    # numbers: at z == 0 the finite-part integrand is a difference of two
-    # ~1/u**2 quantities, so ~1e-5 is its floor there, tightening rapidly as |z|
-    # lifts off the plane.
+    # The tolerances are those of the numpy reference this compares against
+    # (scipy's finite-part quad, ~1e-5 at z == 0 and tightening off the plane).
     import warnings
 
     import galpy.backend
@@ -586,19 +710,19 @@ def test_construction_accepts_a_surfdens_that_returns_a_backend_array(backend_na
     # Constructing is most of the point, but not all of it: if the units probe
     # had gone the OTHER way and decided this surfdens was unit-carrying, the
     # amplitude would be silently rescaled. Pin the value against the
-    # equivalent numpy-dispatching surface density instead of just smoke-testing.
+    # equivalent namespace-agnostic surface density on the same backend path
+    # instead of just smoke-testing.
     for R, z in ((0.9, 0.3), (1.3, 0.0)):
-        ref = float(evaluateRforces(_POT, numpy.float64(R), numpy.float64(z)))
-        got = float(
-            evaluateRforces(pot, _scalar(backend_name, R), _scalar(backend_name, z))
-        )
-        numpy.testing.assert_allclose(got, ref, rtol=1e-12, err_msg=f"R={R}, z={z}")
+        Rb, zb = _scalar(backend_name, R), _scalar(backend_name, z)
+        ref = float(evaluateRforces(_POT, Rb, zb))
+        got = float(evaluateRforces(pot, Rb, zb))
+        numpy.testing.assert_allclose(got, ref, rtol=1e-14, err_msg=f"R={R}, z={z}")
 
 
-# Under a forced backend (gap audit PR 28): the constructor's unit probes, its
-# Phi(0) quadrature and the scipy path for a plain concrete input call surfdens
-# with plain floats under numpy semantics, so an xp-agnostic surfdens works
-# (forced torch raised on torch.exp(int)) and amp is differentiable under jit
+# Under a forced backend (gap audit PR 28): the constructor's unit probes and its
+# Phi(0) quadrature call surfdens with plain floats under numpy semantics, so an
+# xp-agnostic surfdens works (forced torch raised on torch.exp(int)) and amp is
+# differentiable under jit
 from backend_param_grad import MODES, assert_param_grad  # noqa: E402
 
 
@@ -625,6 +749,8 @@ def test_xp_agnostic_surfdens_forced_plain_values(backend_name):
     with gb.use(backend_name, force=True):
         pot = _anydisk(1.2)
         out = [pot(0.9, 0.2), pot.Rforce(0.9, 0.2), pot(0.0, 0.0)]
+    # forced plain values take the backend quadrature, numpy's scipy: both are
+    # within ~1e-12 of the truth here
     for got, ref in zip(out, [npot(0.9, 0.2), npot.Rforce(0.9, 0.2), npot(0.0, 0.0)]):
         assert is_backend_array(got)
-        assert float(got) == ref
+        numpy.testing.assert_allclose(float(got), ref, rtol=1e-11)
