@@ -17,7 +17,11 @@ from ..backend import (
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..backend.interpolate import Spline1D
 from ..util.conversion import get_physical, physical_compatible
-from .Potential import _evaluatePotentials, _evaluateRforces
+from .Potential import (
+    _evaluatePotentials,
+    _evaluateRforces,
+    _pot_backend_namespace,
+)
 from .SphericalPotential import SphericalPotential
 
 
@@ -57,16 +61,27 @@ class interpSphericalPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
         self._rgrid = rgrid
+        # A Potential with a backend parameter computes on that backend, and its
+        # private force routine takes backend coordinates only: the probe below,
+        # the grid and rgrid[0] go onto that namespace (a function or a numpy
+        # potential: untouched). A differentiated parameter then makes the force
+        # grid traced, so the spline is fitted in-backend and carries
+        # d/d(parameter), as it already did for a function input
+        _pxp = _pot_backend_namespace(rforce)
+
+        def _lift(*xs):
+            return xs if _pxp is None else coerce_coords(_pxp, *xs)
+
         # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
         try:
-            _evaluateRforces(rforce, 1.0, 0.0)
+            _evaluateRforces(rforce, *_lift(1.0, 0.0))
         except:
             _rforce = rforce
             Phi0 = 0.0 if Phi0 is None else Phi0
         else:
-            _rforce = lambda r: _evaluateRforces(rforce, r, 0.0)
+            _rforce = lambda r: _evaluateRforces(rforce, *_lift(r, 0.0))
             # Determine Phi0
-            Phi0 = _evaluatePotentials(rforce, rgrid[0], 0.0)
+            Phi0 = _evaluatePotentials(rforce, *_lift(rgrid[0], 0.0))
             # Also check that unit systems are compatible
             if not physical_compatible(self, rforce):
                 raise RuntimeError(
@@ -80,9 +95,10 @@ class interpSphericalPotential(SphericalPotential):
                 self.turn_physical_on(vo=phys["vo"])
         _fgrid = None
         _farr = None  # the vectorized force grid, kept whole
-        if is_backend_array(rgrid):
+        if is_backend_array(rgrid) or _pxp is not None:
             # one vectorized force evaluation: the per-radius loop is 1001 scalar
-            # calls, which under a jax trace alone took ~380 s to trace
+            # calls, which under a jax trace alone took ~380 s to trace (a
+            # backend-parameter potential returns the whole grid at once too)
             try:
                 _fv = _rforce(rgrid)
                 if getattr(_fv, "shape", None) == rgrid.shape:

@@ -394,3 +394,91 @@ def test_backend_grid_force_falls_back_to_the_per_radius_loop(rforce):
     numpy.testing.assert_allclose(
         as_numpy(got._rforce_grid), as_numpy(ref._rforce_grid), rtol=1e-15
     )
+
+
+# A galpy Potential with a backend parameter as the rforce= input. Its private
+# force routine takes backend coordinates only, so the Potential-or-function
+# probe, the grid and Phi0's radius are lifted onto the parameter's namespace;
+# a traced parameter then makes the force grid traced, the spline is fitted
+# in-backend and d/d(parameter) flows through the tabulated values, as it
+# already did for the function-input form (KingPotential's). Before, the probe
+# raised on the traced parameter and the bare except took the potential for a
+# plain function of r, which it is not.
+_ISP_R, _ISP_Z = 0.9, 0.3
+_ISP_EPS = 1e-4
+_ISP_RGRID = numpy.geomspace(0.05, 20.0, 101)
+
+
+def _isp_value(a, method, R, z):
+    from galpy.potential import NFWPotential
+
+    pot = interpSphericalPotential(rforce=NFWPotential(amp=1.3, a=a), rgrid=_ISP_RGRID)
+    if method == "Phi":
+        return pot(R, z, use_physical=False)
+    if method == "Rforce":
+        return pot.Rforce(R, z, use_physical=False)
+    return pot.dens(R, z, use_physical=False)
+
+
+def _isp_fd(a0, method):
+    def f(a):
+        return float(_isp_value(a, method, _ISP_R, _ISP_Z))
+
+    d1 = (f(a0 + _ISP_EPS) - f(a0 - _ISP_EPS)) / (2 * _ISP_EPS)
+    d2 = (f(a0 + _ISP_EPS / 2) - f(a0 - _ISP_EPS / 2)) / _ISP_EPS
+    return (4 * d2 - d1) / 3  # Richardson: O(eps^4)
+
+
+def _isp_ad(backend_name, a0, method, jit=False):
+    if backend_name == "jax":
+        R, z = jnp.asarray(_ISP_R), jnp.asarray(_ISP_Z)
+        g = jax.grad(lambda a: _isp_value(a, method, R, z))
+        if jit:
+            g = jax.jit(g)
+        return float(g(jnp.asarray(a0)))
+    R = torch.as_tensor(_ISP_R, dtype=torch.float64)
+    z = torch.as_tensor(_ISP_Z, dtype=torch.float64)
+    a = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
+    _isp_value(a, method, R, z).backward()
+    return float(a.grad)
+
+
+@pytest.mark.parametrize("method", ["Phi", "Rforce", "dens"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_potential_input_param_grad_vs_finite_difference(backend_name, method):
+    ad = _isp_ad(backend_name, 2.0, method)
+    fd = _isp_fd(2.0, method)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6, atol=1e-11)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("method", ["Phi", "Rforce", "dens"])
+def test_potential_input_param_grad_under_jit(method):
+    numpy.testing.assert_allclose(
+        _isp_ad("jax", 2.0, method, jit=True), _isp_ad("jax", 2.0, method), rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_potential_input_concrete_backend_parameter_matches_numpy(backend_name):
+    # a concrete (undifferentiated) backend parameter: the grid is evaluated on
+    # the backend in one call, hosted, and fitted by scipy as for a numpy
+    # potential, so the object is a backend one with the numpy spline
+    from galpy.potential import NFWPotential
+
+    a = (
+        jnp.asarray(2.0)
+        if backend_name == "jax"
+        else torch.tensor(2.0, dtype=torch.float64)
+    )
+    got = interpSphericalPotential(rforce=NFWPotential(amp=1.3, a=a), rgrid=_ISP_RGRID)
+    ref = interpSphericalPotential(
+        rforce=NFWPotential(amp=1.3, a=2.0), rgrid=_ISP_RGRID
+    )
+    assert isinstance(got._rforce_grid, numpy.ndarray)
+    numpy.testing.assert_allclose(got._rforce_grid, ref._rforce_grid, rtol=1e-15)
+    numpy.testing.assert_allclose(
+        float(as_numpy(got.Rforce(_ISP_R, _ISP_Z, use_physical=False))),
+        float(ref.Rforce(_ISP_R, _ISP_Z, use_physical=False)),
+        rtol=1e-14,
+    )
