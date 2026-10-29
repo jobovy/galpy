@@ -315,12 +315,13 @@ def test_decorated_entry_points_are_registered():
 # df, so it never fired; with the gate gone, decorating them would route real
 # calls onto an incomplete backend path.)
 _UNDECORATED_MODULES = {
-    # evolveddiskdf raises NotImplementedError for grid deriv= on jax/torch;
+    # evolveddiskdf picks its namespace itself (_edf_namespace) and raises
+    # NotImplementedError for deriv= of a differentiated moment;
     # quasiisothermaldf's sampling and adiabatic action-Jacobian path take 0-d
     # backend arrays through a C callback that expects sized numpy input;
     # sphericaldf.sigmar returns NaN for a coerced radius (kingdf).
     "diskdf.py": "backend evaluation path incomplete",
-    "evolveddiskdf.py": "grid deriv= unsupported on jax/torch",
+    "evolveddiskdf.py": "own namespace; deriv= of a differentiated moment",
     "quasiisothermaldf.py": "sampling + adiabatic action-Jacobian C callback",
     "streamdf.py": "not yet migrated to the coercion boundary",
     "streamgapdf.py": "not yet migrated to the coercion boundary",
