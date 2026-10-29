@@ -11,12 +11,15 @@ _NSIGMA = 4.0
 # In polar coordinates the integrand is smooth, so 50^2 nodes is ample and
 # costs FEWER orbit integrations than the default grid path's 101^2.
 _DIRECT_GL_ORDER = 50
+# GL nodes for the backend marginalizations over one velocity component: as
+# accurate as scipy's quad (5e-14 at 200 nodes, 1e-5 at 50)
+_MARGINALIZE_GL_ORDER = 200
 _NTS = 1000
 _PROFILE = False
-import functools
 import sys
 import time as time_module
 import warnings
+from contextlib import nullcontext
 
 import numpy
 from scipy import integrate
@@ -24,15 +27,19 @@ from scipy import integrate
 from ..backend import (
     as_numpy,
     asarray_on_device,
+    coerce_coords,
     device_of,
-    forced_backend,
     get_namespace,
     is_backend_array,
     name_of_namespace,
 )
 from ..backend import quadrature as _bquad
-from ..backend import to_host, use
-from ..backend._namespaces import inbackend_ode_method
+from ..backend import resolve_namespace, to_host, use
+from ..backend._namespaces import (
+    inbackend_ode_method,
+    requires_backend_grad,
+    under_trace,
+)
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import (
@@ -47,39 +54,21 @@ from ..util.conversion import parse_time, physical_conversion, potential_physica
 from ..util.quadpack import dblquad
 from .df import df
 
+_EPS = numpy.finfo(numpy.float64).eps
+_FMAX = numpy.finfo(numpy.float64).max
 _DEGTORAD = numpy.pi / 180.0
 _RADTODEG = 180.0 / numpy.pi
 _NAN = numpy.nan
 
 
-def _edf_param_namespace(edf):
-    """The namespace of a backend potential/initdf parameter. Under a forced
-    backend only a differentiated one counts: the backend grids integrate each
-    velocity orbit with the eager in-backend ODE (~100x C), which put the forced
-    suites past CI's time limit (test_quantity 6 -> 55 min under torch)."""
-    if forced_backend() is not None:
-        return _pot_grad_namespace(edf)
-    return _pot_backend_namespace(edf)
-
-
-def _on_numpy_unless_backend_data(method):
-    """TRANSITIONAL (task #117): with no backend data -- a plain R, a potential
-    and an initdf without a gradient -- run on numpy even under a forced backend,
-    so the scipy/C paths and the initdf calls inside them (whose public entry
-    points coerce under force) stay numpy."""
-
-    @functools.wraps(method)
-    def wrapper(self, R, *args, **kwargs):
-        if (
-            is_backend_array(R)
-            or _edf_param_namespace(self) is not None  # pot or initdf
-            or getattr(self._initdf, "_backend_path", lambda: False)()
-        ):
-            return method(self, R, *args, **kwargs)
-        with use("numpy", force=True):
-            return method(self, R, *args, **kwargs)
-
-    return wrapper
+def _edf_namespace(edf, *xs):
+    """The namespace an evaluation runs on: that of a backend ``xs``, else of a
+    backend potential/initdf parameter, else the active (forced) backend."""
+    for x in xs:
+        if is_backend_array(x):
+            return get_namespace(x)
+    xp = _pot_backend_namespace(edf)  # pot or initdf
+    return xp if xp is not None else resolve_namespace()
 
 
 class evolveddiskdf(df):
@@ -153,11 +142,60 @@ class evolveddiskdf(df):
         - 2011-03-30 - Written - Bovy (NYU)
         - 2011-04-15 - Added list of times option - Bovy (NYU)
         """
-        # TRANSITIONAL (task #117), like the moments: numpy orbits and a numpy
-        # initdf, so stay on numpy under a merely forced backend (the initdf's
-        # own entry points would coerce onto it)
-        with use("numpy", force=True):
-            return self._call_numpy(*args, **kwargs)
+        if isinstance(args[0], Orbit):
+            xp = _edf_namespace(self, getattr(args[0], "_ic_backend", None))
+            if xp is not numpy:
+                return self._call_backend(xp, *args, **kwargs)
+        return self._call_numpy(*args, **kwargs)
+
+    def _call_backend(self, xp, o, t=0.0, **kwargs):
+        """__call__ on a backend: the batched evaluator of the grids, at the
+        orbit's initial condition (the orbit itself is not integrated)."""
+        if len(o) > 1:
+            raise RuntimeError(
+                "Only single-object Orbit instances can be passed to DF instances at this point"
+            )
+        integrate_method = kwargs.pop("integrate_method", "dopr54_c")
+        deriv = kwargs.pop("deriv", None)
+        log = kwargs.pop("log", False)
+        if isinstance(t, list):
+            t = numpy.array(t)
+        tlist = isinstance(t, numpy.ndarray) and not (
+            hasattr(t, "isscalar") and t.isscalar
+        )
+        t = parse_time(t, ro=self._ro, vo=self._vo)
+        R, vR, vT, phi = (
+            xp.reshape(c, (-1,))[0]
+            for c in coerce_coords(
+                xp,
+                o.R(use_physical=False),
+                o.vR(use_physical=False),
+                o.vT(use_physical=False),
+                o.phi(use_physical=False),
+            )
+        )
+        for marg in ("marginalizeVperp", "marginalizeVlos"):
+            if kwargs.pop(marg, False):
+                if tlist:
+                    raise RuntimeError(
+                        f"Input times to __call__ is a list; this is not supported in conjunction with {marg}"
+                    )
+                out = self._call_marginalize_backend(
+                    xp, o, R, phi, marg == "marginalizeVlos", kwargs.get("nsigma")
+                )
+                return xp.log(out) if log else out
+        out = self._df_at_velocities_backend(
+            R,
+            phi,
+            t,
+            xp.reshape(vR, (1,)),
+            xp.reshape(vT, (1,)),
+            xp,
+            integrate_method=integrate_method,
+            deriv=deriv,
+            log=log and deriv is None,
+        )[0]
+        return out
 
     def _call_numpy(self, *args, **kwargs):
         integrate_method = kwargs.pop("integrate_method", "dopr54_c")
@@ -520,7 +558,6 @@ class evolveddiskdf(df):
         else:
             return retval
 
-    @_on_numpy_unless_backend_data
     def vmomentsurfacemass(
         self,
         R,
@@ -611,20 +648,17 @@ class evolveddiskdf(df):
             nsigma = _NSIGMA
         if _PROFILE:  # pragma: no cover
             start = time_module.time()
-        # The moment runs on the backend for a backend R or a backend
-        # potential/initdf parameter (invisible to is_backend_array(R)); a numpy
-        # setup keeps numpy (_edf_param_namespace: under a forced backend only a
-        # differentiated parameter counts)
-        _xp_pot = _edf_param_namespace(self)  # pot or initdf
-        xp = get_namespace(R) if is_backend_array(R) else numpy
-        if xp is numpy and _xp_pot is not None:
-            xp = _xp_pot
+        # The moment runs on the backend for a backend R, a backend
+        # potential/initdf parameter (invisible to is_backend_array(R)), or a
+        # forced backend
+        xp = _edf_namespace(self, R)
 
         def _onbe(v):
             # The initdf is numpy and does not depend on the potential, so these
             # are plain numpy scalars carrying NO gradient -- but when the
-            # gradient lives in the POTENTIAL, R stays a float while xp is a
-            # backend, and torch's ops reject a numpy scalar (jax accepts one).
+            # backend comes from the POTENTIAL or a forced context, R stays a
+            # float while xp is a backend, and torch's ops reject a numpy scalar
+            # (jax accepts one).
             # Lifting them is therefore type-plumbing, not a semantic change.
             return v if xp is numpy else asarray_on_device(xp, v, device_of(R))
 
@@ -651,10 +685,6 @@ class evolveddiskdf(df):
                 self._initdf.meanvR(R, phi=az, use_physical=False),
                 self._initdf.meanvT(R, phi=az, use_physical=False),
             )
-        if xp is numpy and any(is_backend_array(v) for v in moms):
-            # a numpy route with a concrete backend initdf parameter (the forcing
-            # exception, _edf_param_namespace): its moments come to the host
-            moms = tuple(as_numpy(v) for v in moms)
         sigmaR2, sigmaT2, meanvR, meanvT = (_onbe(v) for v in moms)
         sigmaR1, sigmaT1 = xp.sqrt(sigmaR2), xp.sqrt(sigmaT2)
         if _PROFILE:  # pragma: no cover
@@ -3195,20 +3225,14 @@ class evolveddiskdf(df):
         deriv,
     ):
         """Backend (jax/torch) build of the velocity grid: ONE vectorized
-        multi-orbit integrate of all gridpoints (each orbit's backward evolution is
-        differentiable via the in-backend ODE solver) instead of the per-gridpoint
-        Python loop in _buildvgrid, so grid.df is a backend array and the moments
-        that reduce it (_vmomentsurfacemassGrid) are differentiable through the
-        orbit evolution -- d<v^n v^m>/dR (and /dparam). Mirrors __call__'s
-        non-deriv, non-marginalize path (scalar t and t-list). The numpy path
-        (_buildvgrid) is byte-identical; this runs only for backend inputs / under
-        a forced backend. deriv= (the finite-difference moment derivative) is
-        unsupported here -- differentiate the moment with autodiff instead."""
-        if deriv is not None:
-            raise NotImplementedError(
-                "evolveddiskdf grid deriv= is not supported on the jax/torch "
-                "backend; differentiate the moment with jax.grad / torch.autograd"
-            )
+        multi-orbit integrate of all gridpoints (differentiable through each
+        orbit's backward evolution) instead of the per-gridpoint Python loop in
+        _buildvgrid, so grid.df is a backend array and the moments that reduce it
+        (_vmomentsurfacemassGrid) are differentiable through the orbit evolution
+        -- d<v^n v^m>/dR (and /dparam). Mirrors __call__'s non-marginalize path
+        (scalar t and t-list, deriv=). The numpy path (_buildvgrid) is
+        byte-identical; this runs only for backend inputs / under a forced
+        backend."""
         xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
         out = evolveddiskdfGrid()
         out.sigmaR1 = sigmaR1
@@ -3230,7 +3254,9 @@ class evolveddiskdf(df):
         VR, VT = xp.meshgrid(out.vRgrid, out.vTgrid, indexing="ij")
         vRf = xp.reshape(VR, (-1,))
         vTf = xp.reshape(VT, (-1,))
-        dfvals = self._df_at_velocities_backend(R, phi, t, vRf, vTf, xp)
+        dfvals = self._df_at_velocities_backend(
+            R, phi, t, vRf, vTf, xp, integrate_method=integrate_method, deriv=deriv
+        )
         if isinstance(t, (list, numpy.ndarray)):
             nt = len(numpy.atleast_1d(numpy.asarray(t)))
             out.df = xp.reshape(dfvals, (gridpoints, gridpoints, nt))
@@ -3238,63 +3264,147 @@ class evolveddiskdf(df):
             out.df = xp.reshape(dfvals, (gridpoints, gridpoints))
         return out
 
-    def _df_at_velocities_backend(self, R, phi, t, vRf, vTf, xp):
+    def _df_at_velocities_backend(
+        self,
+        R,
+        phi,
+        t,
+        vRf,
+        vTf,
+        xp,
+        integrate_method="dopr54_c",
+        deriv=None,
+        log=False,
+    ):
         """Evolved DF at arbitrary backend velocity POINTS ``(vRf, vTf)``, flat.
 
-        Shared by the grid build (``_buildvgrid_backend``, which reshapes this to
-        its meshgrid) and by the direct moment integral (which contracts it
-        against quadrature weights), so the batched multi-orbit integrate and the
-        gradient plumbing around it live in ONE place rather than being copied
-        per caller. ``R`` carries its gradient into every orbit's IC.
+        Shared by the grid builds (which reshape this to their meshgrid), the
+        direct moment integral (which contracts it against quadrature weights)
+        and ``__call__``: numpy's ``__call__``, batched over the orbits, so the
+        multi-orbit integrate and the gradient plumbing around it live in ONE
+        place. ``R`` carries its gradient into every orbit's IC.
+
+        ``deriv='R'`` or ``'phi'``: the derivative w.r.t. the orbits' initial R
+        or phi, from the variational equations as in numpy (for concrete input
+        only). ``log=True`` (without ``deriv``): the log of the DF, with
+        ``__call__``'s -max for a vanishing DF or an orbit that reaches R <= 0.
 
         Returns ``(N,)`` for a scalar ``t`` and ``(N, nt)`` for a list of times.
         """
+        from ..backend._reference.inbackend_stm import _C_RK_METHODS
         from .diskdf import vRvTRToEL
 
         ones = xp.ones_like(vRf)
         ic = xp.stack([R * ones, vRf, vTf, phi * ones], axis=-1)  # (N, 4)
+        dev = device_of(ic)
+        differentiated = bool(
+            under_trace(ic)
+            or requires_backend_grad(ic)
+            or _pot_grad_namespace(self) is not None
+        )
+        if deriv is not None and differentiated:
+            raise NotImplementedError(
+                "evolveddiskdf deriv= of a differentiated moment is not supported "
+                "on the jax/torch backend; differentiate the moment with jax.grad "
+                "/ torch.autograd instead"
+            )
+        # numpy's fallback for a potential without C
+        if "_c" in integrate_method and not _check_c(self._pot):
+            if "leapfrog" in integrate_method or "symplec" in integrate_method:
+                integrate_method = "leapfrog"
+            else:
+                integrate_method = "odeint"
+        # A C Runge-Kutta method: Orbit integrates a concrete orbit with the plain
+        # C integrator, a differentiated one with the C state-transition matrix,
+        # and one in a differentiated potential with the in-backend ODE. Any
+        # other method integrates a concrete orbit on the host, as numpy does,
+        # and a differentiated one with the backend's own solver.
+        if integrate_method in _C_RK_METHODS:
+            method, host = integrate_method, False
+        elif differentiated:
+            method, host = inbackend_ode_method(xp), False
+        else:
+            method, host = integrate_method, True
+        lift = lambda x: asarray_on_device(xp, numpy.asarray(x), dev)
 
         def _idf(vR, vT, Rr):  # initdf.__call__'s array path, backend-array-callable
             E, L = vRvTRToEL(vR, vT, Rr, self._initdf._beta, self._initdf._dftype)
             return self._initdf._real(self._initdf.eval(E, L))
 
-        def _nan0(x):
-            return xp.where(xp.isnan(x), 0.0, x)
+        def _out(Rr, vR, vT, d=None, rneg=None):
+            """the DF at (Rr, vR, vT), or with d = (dR, dvR, dvT) its derivative;
+            rneg: the orbits that reach R <= 0, whose DF is eps (log: -max)"""
+            f = _idf(vR, vT, Rr)
+            if d is not None:
+                f = f * (
+                    self._initdf._dlnfdR(Rr, vR, vT) * d[0]
+                    + self._initdf._dlnfdvR(Rr, vR, vT) * d[1]
+                    + self._initdf._dlnfdvT(Rr, vR, vT) * d[2]
+                )
+            f = xp.where(xp.isnan(f), 0.0, f)
+            if not log:
+                return f if rneg is None else xp.where(rneg, _EPS, f)
+            bad = f <= 0.0 if rneg is None else rneg | (f <= 0.0)
+            return xp.where(bad, -_FMAX, xp.log(xp.where(bad, 1.0, f)))
 
-        # backend orbits integrate with the backend's own solver; a C-method NAME
-        # would route there anyway, but pick it explicitly so a non-C
-        # integrate_method (odeint/leapfrog) works too.
-        bmethod = inbackend_ode_method(xp)
-        if isinstance(t, (list, numpy.ndarray)):
+        tlist = isinstance(t, (list, numpy.ndarray))
+        if tlist:
             t = numpy.atleast_1d(numpy.asarray(t))
-            nt = len(t)
-            if self._to == t[0]:  # no evolution: DF at the ICs, one per output time
-                df1 = _nan0(_idf(vRf, vTf, R * ones))
-                return xp.broadcast_to(df1[:, None], (df1.shape[0], nt))
-            # C-style output times (one per requested t) so the trajectory is
-            # sampled exactly at them; the backend solver saves at these times.
-            ts = xp.asarray(self._create_ts_tlist(t, "dopr54_c"))
-            o = Orbit(ic)
-            o.integrate(ts, self._pot, method=bmethod)
+        if self._to == (t[0] if tlist else t):  # no evolution: the initial DF
+            d = None
+            if deriv is not None:
+                d = (ones, 0.0, 0.0) if deriv.lower() == "r" else (0.0, 0.0, 0.0)
+            f = _out(R * ones, vRf, vTf, d)
+            return xp.broadcast_to(f[:, None], f.shape + (len(t),)) if tlist else f
+        if tlist:
+            # C-style output times, one per requested t (odeint adds a finer grid)
+            ts = self._create_ts_tlist(t, method if host else "dopr54_c")
+        else:
+            nts = _NTS if (deriv is not None or method == "odeint") else 2
+            ts = numpy.linspace(float(t), float(self._to), nts)
+        # a host integrator steps on numpy (galpy's host-side pin), so its force
+        # calls are not each coerced onto the forced backend
+        with use("numpy", force=True) if host else nullcontext():
+            o = Orbit(as_numpy(ic) if host else ic)
+            if deriv is None:
+                o.integrate(
+                    ts if host or method == integrate_method else xp.asarray(ts),
+                    self._pot,
+                    method=method,
+                    progressbar=False,
+                )
+            else:
+                # numpy's offset, rounded through the coordinate it perturbs
+                k = 0 if deriv.lower() == "r" else 3
+                dd = as_numpy(ic[:, k] + 10.0**-10.0) - as_numpy(ic[:, k])
+                dxdv = numpy.zeros((len(dd), 4))
+                dxdv[:, k] = dd
+                o.integrate_dxdv(dxdv, ts, self._pot, method=method, progressbar=False)
+                dd = lift(dd)[:, None, None]
             traj = o.getOrbit()  # (N, len(ts), 4)
-            if nt == 1:  # single time: the evolved endpoint (t -> self._to)
-                end = traj[:, 1, :]
-                return _nan0(_idf(end[:, 1], end[:, 2], end[:, 0]))[:, None]
-            # DF along the trajectory, reversed to ascending-lag t order
-            dfvals = _nan0(_idf(traj[..., 1], traj[..., 2], traj[..., 0]))
-            return xp.flip(dfvals, axis=1)  # torch has no negative-step slice
-        # scalar t: DF at the single evolved endpoint (t -> self._to)
-        if self._to == t:  # no evolution
-            return _nan0(_idf(vRf, vTf, R * ones))
-        ts = xp.asarray(numpy.linspace(float(t), float(self._to), 2))
-        o = Orbit(ic)
-        o.integrate(ts, self._pot, method=bmethod)
-        end = o.getOrbit()[:, -1, :]  # at self._to
-        Ro, vRo, vTo = end[:, 0], end[:, 1], end[:, 2]
-        eps = numpy.finfo(numpy.float64).eps
-        # R<=0 -> eps; this guard is deliberately absent from the t-list branch
-        # above, matching the pre-extraction behaviour exactly.
-        return _nan0(xp.where(Ro <= 0.0, eps, _idf(vRo, vTo, Ro)))
+        # numpy from a host or variational integration
+        traj = traj if is_backend_array(traj) else lift(traj)
+        if tlist:
+            if method == "odeint":  # numpy's evaluation times, in t's order
+                idx = [list(ts).index(self._to + t[0] - ti) for ti in t]
+            else:  # one per t, in ascending-lag (reversed) order
+                idx = list(range(len(ts)))[::-1] if len(t) > 1 else [1]
+        else:
+            idx = [len(ts) - 1]  # at self._to
+        end = traj[:, idx, :]
+        d = None
+        if deriv is not None:
+            dx = lift(o.getOrbit_dxdv())[:, idx, :] / dd
+            d = (dx[..., 0], dx[..., 1], dx[..., 2])
+        # R<=0 -> eps: numpy guards the scalar-t endpoint only
+        out = _out(
+            end[..., 0],
+            end[..., 1],
+            end[..., 2],
+            d,
+            None if tlist else end[..., 0] <= 0.0,
+        )
+        return out if tlist else out[:, 0]
 
     def _create_ts_tlist(self, t, integrate_method):
         # Check input
@@ -3317,6 +3427,51 @@ class evolveddiskdf(df):
         ts = list(ts)
         ts.sort(reverse=True)
         return numpy.array(ts)
+
+    def _call_marginalize_backend(self, xp, o, R, phi, los, nsigma):
+        """_call_marginalizevperp (los=False) and _call_marginalizevlos (los=True)
+        on a backend: the same velocity integral, by Gauss-Legendre quadrature
+        over the batched evaluator (scipy.integrate.quad's keywords do not
+        apply). Like numpy's, the integrand is the DF at t=0 with dopr54_c."""
+        if nsigma is None:
+            nsigma = _NSIGMA
+        obs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        l, vobs = coerce_coords(
+            xp,
+            o.ll(obs=obs[:3], ro=1.0) * _DEGTORAD,
+            (o.vll if los else o.vlos)(ro=1.0, vo=1.0, obs=obs),
+        )
+        l, vobs = xp.reshape(l, (-1,))[0], xp.reshape(vobs, (-1,))[0]
+        # local circular velocity; its projection on the observed direction is
+        # vcirc sin(alpha), as in numpy's vcirclos = vcirc sin(phi+l) and
+        # vcircperp = vcirc cos(phi+l)
+        vcirc = calcRotcurve(
+            planarCompositePotential([p for p in self._pot if not p.isNonAxi]), R
+        )[0]
+        alpha = phi + l + (numpy.pi / 2.0 if los else 0.0)
+        v = vobs - vcirc * xp.sin(alpha)
+        lo, hi = -nsigma, nsigma
+        if bool(xp.abs(xp.sin(alpha)) < numpy.sqrt(1.0 / 2.0)):
+            sigma = xp.sqrt(self._initdf.sigmaT2(R, phi=phi, use_physical=False))
+            cosa, tana = xp.cos(alpha), xp.tan(alpha)
+            if los:
+                va = vcirc - self._initdf.meanvT(R, phi=phi, use_physical=False)
+                lo, hi = -va / sigma - nsigma, -va / sigma + nsigma
+            vel = lambda x: (tana * x * sigma - v / cosa, x * sigma + vcirc)
+            jac = sigma / xp.abs(cosa)
+        else:
+            sigma = xp.sqrt(self._initdf.sigmaR2(R, phi=phi, use_physical=False))
+            sina, cota = xp.sin(alpha), 1.0 / xp.tan(alpha)
+            vel = lambda x: (x * sigma, cota * x * sigma + v / sina + vcirc)
+            jac = sigma / xp.abs(sina)
+        return jac * _bquad.fixed_quad(
+            xp,
+            lambda x: self._df_at_velocities_backend(R, phi, 0.0, *vel(x), xp),
+            lo,
+            hi,
+            n=_MARGINALIZE_GL_ORDER,
+            device=device_of(R),
+        )
 
     def _call_marginalizevperp(self, o, integrate_method="dopr54_c", **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
@@ -3707,7 +3862,13 @@ class evolveddiskdfHierarchicalGrid:
             ysubmin, ysubmax = xsubmin, xsubmax
             VR, VT = xp.meshgrid(self.vRgrid, self.vTgrid, indexing="ij")
             dfvals = edf._df_at_velocities_backend(
-                R, phi, t, xp.reshape(VR, (-1,)), xp.reshape(VT, (-1,)), xp
+                R,
+                phi,
+                t,
+                xp.reshape(VR, (-1,)),
+                xp.reshape(VT, (-1,)),
+                xp,
+                deriv=deriv,
             )
             # (N,) for a scalar t, (N, nt) for a list of times
             self.df = xp.reshape(dfvals, (gridpoints, gridpoints) + dfvals.shape[1:])

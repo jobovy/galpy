@@ -111,7 +111,7 @@ def test_mildnonaxi_meanvr_grid_tlist():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvr) < 0.003), (
+    assert numpy.all(numpy.fabs(as_numpy(mvr)) < 0.003), (
         "meanvR of evolveddiskdf for axisymmetric potential is not equal to zero for list of times"
     )
     mvr = edf.meanvR(
@@ -121,7 +121,7 @@ def test_mildnonaxi_meanvr_grid_tlist():
         integrate_method="rk6_c",
         grid=grid,
     )
-    assert numpy.all(numpy.fabs(mvr) < 0.003), (
+    assert numpy.all(numpy.fabs(as_numpy(mvr)) < 0.003), (
         "meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid for list of times"
     )
     return None
@@ -232,7 +232,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(mvt - as_numpy(idf.meanvT(0.9)))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist"
     )
     mvt = edf.meanvT(
@@ -243,7 +243,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(mvt - as_numpy(idf.meanvT(0.9)))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist"
     )
     return None
@@ -296,7 +296,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(mvt - as_numpy(idf.meanvT(0.9)))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist"
     )
     mvt = edf.meanvT(
@@ -307,7 +307,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
         grid=grid,
         gridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(mvt - as_numpy(idf.meanvT(0.9))) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(mvt - as_numpy(idf.meanvT(0.9)))) < 0.005), (
         "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist"
     )
     return None
@@ -634,7 +634,7 @@ def test_mildnonaxi_oortA_grid_tlist():
         derivGridpoints=_GRIDPOINTS,
     )
     ioa = as_numpy(idf.oortA(0.9))
-    assert numpy.all(numpy.fabs(oa - ioa) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(oa - ioa)) < 0.005), (
         "oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF"
     )
     oa = edf.oortA(
@@ -648,7 +648,7 @@ def test_mildnonaxi_oortA_grid_tlist():
         gridpoints=_GRIDPOINTS,
         derivGridpoints=_GRIDPOINTS,
     )
-    assert numpy.all(numpy.fabs(oa - ioa) < 0.005), (
+    assert numpy.all(numpy.fabs(as_numpy(oa - ioa)) < 0.005), (
         "oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid"
     )
     return None
@@ -1111,7 +1111,7 @@ def test_call_special():
         o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="odeint", log=True
     )
     crk6c = edf(o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="rk6_c", log=True)
-    assert numpy.all(numpy.fabs(codeint - crk6c) < 10.0**-4.0), (
+    assert numpy.all(numpy.fabs(as_numpy(codeint - crk6c)) < 10.0**-4.0), (
         "edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c"
     )
     # Crazy orbit w/ tlist
@@ -1124,13 +1124,13 @@ def test_call_special():
         o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="odeint", deriv="R"
     )
     crk6c = edf(o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="rk6_c", deriv="R")
-    assert numpy.all(numpy.fabs(codeint - crk6c) < 10.0**-4.0), (
+    assert numpy.all(numpy.fabs(as_numpy(codeint - crk6c)) < 10.0**-4.0), (
         "edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c (deriv=R)"
     )
     # deriv w/ len(tlist)=1
     crk6c = edf(o, [0.0], integrate_method="rk6_c", deriv="R")
     crk6c2 = edf(o, 0.0, integrate_method="rk6_c", deriv="R")
-    assert numpy.all(numpy.fabs(crk6c - crk6c2) < 10.0**-4.0), (
+    assert numpy.all(numpy.fabs(as_numpy(crk6c - crk6c2)) < 10.0**-4.0), (
         "edf.__call__ w/ tlist consisting of one time and just a scalar time do not agree"
     )
     # Call w/ just to and deriv
