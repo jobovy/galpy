@@ -29,6 +29,12 @@ except ImportError:
 # astroquery
 _ASTROQUERY_LOADED = True
 _AQ_GT_47 = None
+# Errors raised when a SIMBAD mirror cannot be reached or its response is cut
+# short (for astroquery > 0.4.7, pyvo's and those of urllib3, whose raw response
+# pyvo reads) and pyvo's wrapper of the errors of a TAP query (the original is
+# its .cause)
+_SIMBAD_CONNECTION_ERRORS = (OSError,)
+_SIMBAD_WRAPPER_ERRORS = ()
 try:
     from astroquery.simbad import Simbad
 except ImportError:
@@ -37,6 +43,18 @@ else:
     import astroquery
 
     _AQ_GT_47 = parse_version(astroquery.__version__) > parse_version("0.4.7")
+    if _AQ_GT_47:
+        from pyvo.dal.exceptions import DALFormatError, DALServiceError
+        from urllib3.exceptions import ProtocolError
+        from urllib3.exceptions import TimeoutError as Urllib3TimeoutError
+
+        _SIMBAD_CONNECTION_ERRORS = (
+            OSError,
+            DALServiceError,
+            ProtocolError,
+            Urllib3TimeoutError,
+        )
+        _SIMBAD_WRAPPER_ERRORS = (DALFormatError,)
 
 # numexpr
 _NUMEXPR_LOADED = True

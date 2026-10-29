@@ -14118,6 +14118,214 @@ def test_from_name_errors():
     )
 
 
+def test_from_name_simbad_mirror_fallback(monkeypatch):
+    # When the SIMBAD mirror tried first cannot be reached, from_name silently
+    # falls back on the next one and then keeps using the one that answered
+    from astroquery.simbad import conf
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    unreachable = "127.0.0.1:1"  # nothing listens on port 1: refused at once
+    monkeypatch.setattr(conf, "servers_list", [unreachable, *conf.servers_list])
+    monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", unreachable)
+    # Record the mirrors tried
+    tried = []
+    lookup = Orbits._from_name_simbad
+
+    def recording_lookup(name, server):
+        tried.append(server)
+        return lookup(name, server)
+
+    monkeypatch.setattr(Orbits, "_from_name_simbad", recording_lookup)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        o = Orbit.from_name("Vega")
+    assert tried[0] == unreachable, (
+        "from_name did not try the remembered SIMBAD mirror first"
+    )
+    assert tried[-1] == Orbits._SIMBAD_SERVER and tried[-1] in conf.servers_list[1:], (
+        "from_name did not remember the SIMBAD mirror that answered"
+    )
+    assert not any(
+        issubclass(w.category, galpyWarning) and "SIMBAD" in str(w.message)
+        for w in caught
+    ), "from_name warned when falling back on another SIMBAD mirror"
+    assert numpy.isclose(o.ra(), 279.23473479), "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1 / 130.23), (
+        "Parallax of Vega does not match SIMBAD value"
+    )
+    # The mirror that answered is the only one tried from now on
+    del tried[:]
+    o = Orbit.from_name("Lacaille 8760")
+    assert tried == [Orbits._SIMBAD_SERVER], (
+        "from_name did not go straight to the SIMBAD mirror that answered before"
+    )
+    assert numpy.isclose(o.pmra(), -3258.996), (
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    )
+    # A mirror that answers is remembered also when the object is not in
+    # SIMBAD (Codex review of #1770; the configured mirror is the one that
+    # answered, so no other mirror is contacted)
+    answering = Orbits._SIMBAD_SERVER
+    monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", unreachable)
+    with conf.set_temp("server", answering):
+        del tried[:]
+        with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
+            Orbit.from_name("abc123")
+        assert tried == [unreachable, answering], (
+            "from_name did not fall back on the next SIMBAD mirror for a missing object"
+        )
+        assert Orbits._SIMBAD_SERVER == answering, (
+            "from_name did not remember the SIMBAD mirror that answered for a missing object"
+        )
+        del tried[:]
+        with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
+            Orbit.from_name("abc123")
+        assert tried == [answering], (
+            "from_name did not go straight to the SIMBAD mirror that answered before"
+        )
+    return None
+
+
+@pytest.mark.parametrize("failure", ["refused", "truncated"])
+def test_from_name_simbad_connection_lost(monkeypatch, failure):
+    # A connection lost after a mirror's capabilities were read reaches
+    # from_name wrapped in pyvo's DALFormatError: requests' ConnectionError
+    # when the TAP query cannot be sent, urllib3's ProtocolError when its
+    # response is cut short; from_name must still fall back (Codex reviews of
+    # #1770)
+    from galpy.util._optional_deps import _AQ_GT_47
+
+    if not _AQ_GT_47:
+        pytest.skip("astroquery <= 0.4.7 does not query SIMBAD through pyvo's TAP")
+    import http.server
+    import threading
+
+    import pyvo.dal.exceptions
+    import requests
+    import urllib3.exceptions
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    # pyvo's wrapper only means a connection failure when it wraps one
+    assert not Orbits._simbad_connection_error(
+        pyvo.dal.exceptions.DALFormatError(ValueError("malformed VOTable"))
+    ), "pyvo's DALFormatError wrapping a parse error is taken as a connection failure"
+
+    # Where the lost TAP queries go: a port that refuses connections, or a
+    # local server whose responses end before their declared length
+    class Truncating(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            body = b'<?xml version="1.0"?><VOTABLE version="1.4"><RESOURCE>'
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml")
+            self.send_header("Content-Length", str(len(body) + 1000))
+            self.end_headers()
+            self.wfile.write(body)
+            self.close_connection = True
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Truncating)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    if failure == "refused":
+        lost, cause = "http://127.0.0.1:1/sync", requests.ConnectionError
+    else:
+        lost = f"http://127.0.0.1:{server.server_address[1]}/sync"
+        cause = urllib3.exceptions.ProtocolError
+    try:
+        # Find a mirror that answers, then lose the connection of its next
+        # `times` TAP queries
+        Orbit.from_name("Vega")
+        answering = Orbits._SIMBAD_SERVER
+        monkeypatch.setattr(Orbits, "_simbad_servers", lambda: [answering, answering])
+        post = requests.Session.post
+        redirected = []
+
+        def lose_connection(times):
+            def lossy_post(self, url, *args, **kwargs):
+                if "/sim-tap/sync" in url and len(redirected) < times:
+                    redirected.append(url)
+                    url = lost
+                return post(self, url, *args, **kwargs)
+
+            return lossy_post
+
+        # The wrapped error is recognized as a connection failure...
+        monkeypatch.setattr(requests.Session, "post", lose_connection(1))
+        with pytest.raises(pyvo.dal.exceptions.DALFormatError) as excinfo:
+            Orbits._from_name_simbad("Vega", answering)
+        assert isinstance(excinfo.value.cause, cause), (
+            f"pyvo did not wrap the lost connection's {cause.__name__}"
+        )
+        assert Orbits._simbad_connection_error(excinfo.value), (
+            "pyvo's DALFormatError wrapping a lost connection is not recognized as a connection failure"
+        )
+        assert len(redirected) == 1 and answering in redirected[0], (
+            "the connection of the mirror's TAP query was not lost"
+        )
+        # ... so from_name falls back on the next mirror...
+        del redirected[:]
+        o = Orbit.from_name("Lacaille 8760")
+        assert len(redirected) == 1, "the connection was not lost exactly once"
+        assert numpy.isclose(o.pmra(), -3258.996), (
+            "PMRA of Lacaille 8760 does not match SIMBAD value"
+        )
+        # ... and reports a connection failure when it happens on every mirror
+        monkeypatch.setattr(requests.Session, "post", lose_connection(float("inf")))
+        with pytest.raises(OSError, match="failed to connect to SIMBAD"):
+            Orbit.from_name("Vega")
+    finally:
+        server.shutdown()
+        server.server_close()
+    return None
+
+
+def test_from_name_simbad_not_found_inside_handler():
+    # An object that is not in SIMBAD raises the "not found" ValueError also
+    # when from_name runs while the caller handles an OSError, which Python
+    # attaches to the ValueError as its context (Codex review of #1770)
+    from galpy.orbit import Orbit
+
+    try:
+        raise OSError("an unrelated error that the caller is handling")
+    except OSError:
+        with pytest.raises(ValueError) as excinfo:
+            Orbit.from_name("abc123")
+    assert isinstance(excinfo.value.__context__, OSError), (
+        "the test does not reproduce an exception context from the caller"
+    )
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, (
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
+    )
+    return None
+
+
+def test_from_name_simbad_unreachable(monkeypatch):
+    # When no SIMBAD mirror can be reached, from_name raises an OSError that
+    # names the mirrors it tried
+    from astroquery.simbad import conf
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    unreachable = ["127.0.0.1:1", "127.0.0.1:2"]
+    monkeypatch.setattr(conf, "servers_list", unreachable)
+    monkeypatch.setattr(Orbits, "_simbad_servers", lambda: unreachable)
+    with pytest.raises(OSError) as excinfo:
+        Orbit.from_name("Vega")
+    msg = "failed to connect to SIMBAD (tried 127.0.0.1:1, 127.0.0.1:2)"
+    assert str(excinfo.value) == msg, (
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
+    )
+    return None
+
+
 def test_from_name_named():
     # Test that the values from the JSON file are correctly transferred
     import json
