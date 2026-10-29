@@ -45,6 +45,7 @@ import numpy
 from ._namespaces import (
     asarray_on_device,
     device_of,
+    has_concrete_truth_value,
     is_backend_array,
     match_input_dtype,
     under_trace,
@@ -677,35 +678,48 @@ def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None)
     # feed it), and it has to hold for an arbitrary caller. This is plain
     # arithmetic on integrand samples, so it stays traceable and
     # differentiable. Costs 10 extra integrand evaluations against 2n.
-    lam = xp.sum(
-        asarray_on_device(xp, _LOG_W, dev)
-        * residual(node_axis(b) * asarray_on_device(xp, _LOG_U, dev)),
-        axis=-1,
-    )
-    finite_part = (
-        fixed_quad(
+    def finite_part():
+        lam = xp.sum(
+            asarray_on_device(xp, _LOG_W, dev)
+            * residual(node_axis(b) * asarray_on_device(xp, _LOG_U, dev)),
+            axis=-1,
+        )
+        return (
+            fixed_quad(
+                xp,
+                lambda u: residual(u) + node_axis(lam) * xp.log(u / node_axis(b)),
+                zero,
+                b,
+                n=n,
+                device=device,
+            )
+            + lam * b
+            - 2.0 * c / b
+        )
+
+    wide = peak_width > 0.0
+
+    def peaked():
+        w = xp.where(wide, peak_width, xp.ones_like(peak_width))
+        w_n = node_axis(w)
+        return fixed_quad(
             xp,
-            lambda u: residual(u) + node_axis(lam) * xp.log(u / node_axis(b)),
+            lambda t: sym(w_n * xp.sinh(t)) * w_n * xp.cosh(t),
             zero,
-            b,
+            xp.asinh(b / w),
             n=n,
             device=device,
         )
-        + lam * b
-        - 2.0 * c / b
-    )
-    wide = peak_width > 0.0
-    w = xp.where(wide, peak_width, xp.ones_like(peak_width))
-    w_n = node_axis(w)
-    peaked = fixed_quad(
-        xp,
-        lambda t: sym(w_n * xp.sinh(t)) * w_n * xp.cosh(t),
-        zero,
-        xp.asinh(b / w),
-        n=n,
-        device=device,
-    )
-    return xp.where(wide, peaked, finite_part)
+
+    # a concrete peak_width that selects one branch everywhere computes only that
+    # one (each costs its own integrand evaluations); otherwise both, selected
+    all_wide, any_wide = xp.all(wide), xp.any(wide)
+    if has_concrete_truth_value(all_wide):
+        if bool(all_wide):
+            return peaked()
+        if not bool(any_wide):
+            return finite_part()
+    return xp.where(wide, peaked(), finite_part())
 
 
 def nested_quad(xp, integrand, bounds, *, n=50, device=None):
