@@ -58,7 +58,9 @@ requires_torch = pytest.mark.skipif(torch is None, reason="torch not installed")
 
 
 def _central_diff(f, x, h=1e-5):
-    return (f(x + h) - f(x - h)) / (2.0 * h)
+    # a float: pytest >= 9.2 inspects the expected value of ``approx`` through
+    # ``.flat``, which jax arrays do not implement
+    return float((f(x + h) - f(x - h)) / (2.0 * h))
 
 
 def _jit_grad(f, x):
