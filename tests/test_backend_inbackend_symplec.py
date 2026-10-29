@@ -424,6 +424,20 @@ def test_grad_under_jit_matches_eager(order):
     numpy.testing.assert_allclose(float(gj), float(g), rtol=1e-12)
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize("order", ORDERS)
+def test_torch_no_grad_matches_grad_enabled(order):
+    # without autograd the integrator neither checkpoints nor stores the steps:
+    # the same orbit as with autograd enabled
+    ic0, ts = _grad_setup()
+    pot = _mnh()
+    kw = dict(inbackend_kwargs={"nsteps": 500})
+    want = _integrate("torch", order, _arr("torch", ic0), ts, pot, **kw).getOrbit()
+    with torch.no_grad():
+        got = _integrate("torch", order, _arr("torch", ic0), ts, pot, **kw).getOrbit()
+    numpy.testing.assert_array_equal(as_numpy(got), as_numpy(want))
+
+
 # --- 5. error paths -----------------------------------------------------------------
 @pytest.mark.parametrize("order", ORDERS)
 @pytest.mark.parametrize("backend", BACKENDS)
