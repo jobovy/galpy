@@ -10279,6 +10279,66 @@ def _obs_asnumpy(obs):
     return [as_numpy(o) if is_backend_array(o) else o for o in obs]
 
 
+# The SIMBAD mirror that answered the last lookup in this process; it is tried
+# first, so that a process does not wait for an unreachable mirror's connection
+# timeout at every lookup
+_SIMBAD_SERVER = None
+# The mirrors when astroquery does not list any (astroquery <= 0.4.7)
+_SIMBAD_MIRRORS = ("simbad.cds.unistra.fr", "simbad.harvard.edu")
+
+
+def _simbad_servers():
+    """
+    List the SIMBAD mirrors in the order in which Orbit.from_name tries them.
+
+    Returns
+    -------
+    list
+        The mirror that answered the last lookup, astroquery's configured mirror (astroquery.simbad.conf.server) and then the other mirrors that astroquery knows (astroquery.simbad.conf.servers_list), without repeats.
+
+    Notes
+    -----
+    - 2026-10-28 - Written - Bovy (UofT)
+
+    """
+    from astroquery.simbad import conf
+
+    servers = [
+        _SIMBAD_SERVER,
+        conf.server,
+        *getattr(conf, "servers_list", _SIMBAD_MIRRORS),
+    ]
+    return [
+        s for ii, s in enumerate(servers) if s is not None and s not in servers[:ii]
+    ]
+
+
+def _simbad_connection_error(exc):
+    """
+    Decide whether an exception raised by astroquery means that the SIMBAD mirror could not be reached.
+
+    Parameters
+    ----------
+    exc : Exception
+        The exception.
+
+    Returns
+    -------
+    bool
+        True for requests' errors (OSError), pyvo's DALServiceError and urllib3's ProtocolError and TimeoutError (a response cut short), also when pyvo wraps one of those in a DALFormatError, as it does for any error of a TAP query (sent after the mirror's capabilities were read). Only pyvo's wrapper is looked through: Python attaches any exception that the caller is handling to a new exception as its context, which says nothing about SIMBAD.
+
+    Notes
+    -----
+    - 2026-10-28 - Written - Bovy (UofT)
+
+    """
+    while not isinstance(exc, _SIMBAD_CONNECTION_ERRORS):
+        if not isinstance(exc, _SIMBAD_WRAPPER_ERRORS):
+            return False
+        exc = exc.cause
+    return True
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
