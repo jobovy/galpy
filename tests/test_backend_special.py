@@ -17,10 +17,12 @@ from galpy.backend import as_numpy
 from galpy.backend import special as gsp
 from galpy.backend import use
 from galpy.backend.special._router import (
+    _NATIVE_ALIASES,
     _NATIVE_MISSING,
     _NATIVE_UNRELIABLE,
     _backend_special,
 )
+from galpy.util._optional_deps import _TORCH_GE_215
 
 pytestmark = pytest.mark.backend_managed
 
@@ -163,8 +165,8 @@ def test_unary_grad_vs_fd(backend, name, fn, sp_fn, pts):
 
 def test_fallback_table_matches_installed_backends():
     # _NATIVE_MISSING must list exactly the functions the backend's special
-    # module lacks (hasattr); the UNRELIABLE set is the opposite (must be
-    # present, else there is nothing to override).
+    # module lacks (hasattr, under the _NATIVE_ALIASES name); the UNRELIABLE set
+    # is the opposite (must be present, else there is nothing to override).
     tier12 = [
         "gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1",
         "hyp2f1", "hyp1f1", "ellipk", "ellipe", "k0", "k1", "kn", "iv", "sici",
@@ -177,7 +179,7 @@ def test_fallback_table_matches_installed_backends():
         _name, sp = _backend_special(get_namespace(xp))
         for fn in tier12:
             missing = fn in _NATIVE_MISSING.get(backend, frozenset())
-            native = hasattr(sp, fn)
+            native = hasattr(sp, _NATIVE_ALIASES.get(backend, {}).get(fn, fn))
             assert missing == (not native), (
                 f"{backend}: {fn} native={native} but listed-as-missing={missing}; "
                 f"update _NATIVE_MISSING"
@@ -782,15 +784,76 @@ def test_bessel_k_grad_vs_fd(backend):
 
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
-def test_torch_native_bessel_k_is_nondifferentiable():
-    # Tripwire / justification for using the fallback on torch: torch.special has
-    # modified_bessel_k0/k1 (accurate) but they have no autograd backward.
+def test_torch_bessel_k_native_iff_differentiable(monkeypatch):
+    # torch.special.modified_bessel_k0/k1 (accurate) gained an autograd backward
+    # in torch 2.15: k0, k1 and k0k1 use them from then on, the fallback before.
     xt = torch.tensor(2.5, dtype=torch.float64, requires_grad=True)
-    out = torch.special.modified_bessel_k0(xt)
-    assert not out.requires_grad, (
-        "torch.special.modified_bessel_k0 is now differentiable; it can be routed "
-        "natively (with a k0/k1 name alias) instead of via the fallback"
-    )
+    names = ("modified_bessel_k0", "modified_bessel_k1")
+    for fn in names:
+        assert getattr(torch.special, fn)(xt).requires_grad == _TORCH_GE_215, (
+            f"torch.special.{fn} differentiability does not match _TORCH_GE_215 on "
+            f"torch {torch.__version__}; fix the version in galpy.util._optional_deps"
+        )
+    calls = []
+
+    def spy(fn):
+        native = getattr(torch.special, fn)
+
+        def wrapped(x):
+            calls.append(fn)
+            return native(x)
+
+        return wrapped
+
+    for fn in names:
+        monkeypatch.setattr(torch.special, fn, spy(fn))
+    x = torch.tensor(_BESSEL_X)
+    gsp.k0(x), gsp.k1(x), gsp.k0k1(x)
+    assert calls == (list(names) * 2 if _TORCH_GE_215 else [])
+
+
+def _bessel_k_autodiff(impl, name, x):
+    # (K, K', K'') of K0 or K1 at the points x by autodiff
+    if impl == "jax":
+        f = getattr(gsp, name)
+        xj = jnp.asarray(x)
+        return tuple(
+            numpy.asarray(jax.vmap(g)(xj))
+            for g in (f, jax.grad(f), jax.grad(jax.grad(f)))
+        )
+    if impl == "torch":
+        f = getattr(gsp, name)
+    else:  # the fallback, which torch < 2.15 uses
+        from galpy.backend import get_namespace
+        from galpy.backend.special._fallback.bessel_k import _k01
+
+        def f(t):
+            return _k01(get_namespace(t), t)[name == "k1"]
+
+    xt = torch.tensor(x, requires_grad=True)
+    K = f(xt)
+    (d1,) = torch.autograd.grad(K.sum(), xt, create_graph=True)
+    (d2,) = torch.autograd.grad(d1.sum(), xt)
+    return K.detach().numpy(), d1.detach().numpy(), d2.numpy()
+
+
+@pytest.mark.parametrize(
+    "impl", AD_BACKENDS + (["torch-fallback"] if "torch" in BACKENDS else [])
+)
+def test_bessel_k_autodiff_derivatives(impl):
+    # K0' = -K1, K0'' = K0 + K1/x; K1' = -K0 - K1/x, K1'' = K1 + K0/x + 2 K1/x^2
+    x = _BESSEL_X
+    K0, K1 = scipy_special.k0(x), scipy_special.k1(x)
+    exact = {
+        "k0": (K0, -K1, K0 + K1 / x),
+        "k1": (K1, -K0 - K1 / x, K1 + K0 / x + 2.0 * K1 / x**2),
+    }
+    for name, refs in exact.items():
+        derivs = _bessel_k_autodiff(impl, name, x)
+        for order, (got, ref) in enumerate(zip(derivs, refs)):
+            numpy.testing.assert_allclose(
+                got, ref, rtol=1e-13, err_msg=f"{name} derivative {order} ({impl})"
+            )
 
 
 # --- Tier 3b: exponential integral E_1 (ExpTruncNFWPotential closed forms) -----
