@@ -1104,6 +1104,31 @@ def test_sample_chain_grad_torch(name, df):
     _grad_vs_fd(ad, fd)
 
 
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_unkeyed_sample_with_a_differentiated_profile_parameter():
+    # no key and no forced backend: a backend profile parameter alone puts the
+    # sampler on its backend (numpy's random numbers), so the samples carry its
+    # gradient; the finite difference takes the same path at concrete tensors
+    def vT(sR):
+        numpy.random.seed(5)
+        df = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, sR))
+        return df.sampleVRVT(0.7, n=200, use_physical=False)[:, 1]
+
+    sR0, h = torch.tensor(0.2, dtype=torch.float64), 1e-5
+    out = vT(sR0.clone().requires_grad_(True))
+    assert is_backend_array(out) and out.requires_grad
+    ad = torch.autograd.functional.jacobian(vT, sR0).numpy()
+    fd = ((vT(sR0 + h) - vT(sR0 - h)) / (2.0 * h)).numpy()
+    _grad_vs_fd(ad, fd)
+    # at a plain float: numpy's draws for the same seed, and numpy objects
+    numpy.random.seed(5)
+    ref = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2)).sampleVRVT(
+        0.7, n=200, use_physical=False
+    )
+    assert isinstance(ref, numpy.ndarray)
+    numpy.testing.assert_allclose(out.detach().numpy(), ref[:, 1], rtol=1e-12)
+
+
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_velocity_and_los_grad_jax():
     # continuous end to end: the mean sampled vT w.r.t. the dispersion scale,

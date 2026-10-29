@@ -756,13 +756,18 @@ class diskdf(df):
 
     def _sample_namespace(self, key):
         """The namespace a sampler computes in: a backend key's, else that of a
-        differentiated profile parameter or beta, else the active one"""
+        backend profile parameter or beta, else the active one"""
         xp = get_namespace()
         if xp is numpy and key is not None:
             xp = namespace_for_name(grandom._backend_of_key(key))
-        if xp is numpy and self._backend_path():
+        if xp is numpy and self._has_backend_param():
             xp, _ = self._backend_coerce()
         return xp
+
+    def _has_backend_param(self):
+        """True when a profile parameter or beta is a backend array"""
+        params = (*getattr(self._surfaceSigmaProfile, "_params", ()), self._beta)
+        return any(is_backend_array(p) for p in params)
 
     @staticmethod
     def _sample_uniform(xp, key, shape, like):
@@ -787,11 +792,17 @@ class diskdf(df):
         frac = q - xp.astype(i0, q.dtype)
         return table[row, i0] * (1.0 - frac) + table[row, i0 + 1] * frac, i0, frac
 
+    def _sample_on_backend(self, key):
+        """Whether the draws are returned as backend objects: for a key or a
+        backend DF parameter (whose gradient they carry); else numpy's objects of
+        before (key=None)"""
+        return key is not None or self._has_backend_param()
+
     def _sample_orbits(self, vxvv, key, physical):
         """The sampled points as Orbits: a list of single Orbits for key=None
-        (the historical contract), one Orbit holding every sample for a key"""
+        (the historical contract), one Orbit holding every sample otherwise"""
         kw = {"ro": self._ro, "vo": self._vo} if physical else {}
-        if key is None:
+        if not self._sample_on_backend(key):
             return [Orbit(vxvv=row, **kw) for row in as_numpy(vxvv)]
         return Orbit(vxvv=vxvv, **kw)
 
@@ -925,7 +936,7 @@ class diskdf(df):
         if maxd is None:
             maxd = _MAXD_REJECTLOS
         out = self._sample_los_distances(l, n, maxd, target, key, xp)
-        return out if key is not None else as_numpy(out)
+        return out if self._sample_on_backend(key) else as_numpy(out)
 
     @float64_default_if_torch_args
     @potential_physical_input
@@ -964,7 +975,7 @@ class diskdf(df):
         out = self._sample_velocities(
             xp.reshape(xp.asarray(R), (-1,)), n, nsigma, target, key, xp
         )
-        return out if key is not None else as_numpy(out)
+        return out if self._sample_on_backend(key) else as_numpy(out)
 
     @float64_default_if_torch_args
     def sampleLOS(
@@ -2181,7 +2192,9 @@ class diskdf(df):
         concat = getattr(xp, "concat", None) or xp.concatenate
         out = concat(chunks, axis=0)[:target]
         if EL_only:
-            return [list(el) for el in as_numpy(out)] if key is None else out
+            if self._sample_on_backend(key):
+                return out
+            return [list(el) for el in as_numpy(out)]
         return self._sample_orbits(out, key, physical)
 
     def _sample_chunk(self, n, nphi, rrange, want_phi, EL_only, key, key_phi, xp):
@@ -3580,11 +3593,6 @@ def _logpotential(R):
         return numpylog(R)
 
 
-def _kappa(R, beta):
-    """Internal function to give kappa(r)"""
-    return numpy.sqrt(2.0 * (1.0 + beta)) * R ** (beta - 1)
-
-
 def _dlToRphi(d, l):
     """Convert d and l to R and phi, l is in radians"""
     if (
@@ -3610,36 +3618,6 @@ def _dlToRphi(d, l):
     else:
         theta = numpy.arcsin(d / R * numpy.sin(l))
     return (R, theta)
-
-
-def _vtmaxEq(vT, R, diskdf):
-    """Equation to solve to find the max vT at R"""
-    # Calculate a bunch of stuff that we need
-    if diskdf._beta == 0.0:
-        E = vT**2.0 / 2.0 + numpylog(R)
-        xE = numpy.exp(E - 0.5)
-        OE = xE**-1.0
-        LCE = xE
-        dxEdvT = xE * vT
-    else:  # non-flat rotation curve
-        E = vT**2.0 / 2.0 + 1.0 / 2.0 / diskdf._beta * R ** (2.0 * diskdf._beta)
-        xE = (2.0 * E / (1.0 + 1.0 / diskdf._beta)) ** (1.0 / 2.0 / diskdf._beta)
-        OE = xE ** (diskdf._beta - 1.0)
-        LCE = xE ** (diskdf._beta + 1.0)
-        dxEdvT = xE / 2.0 / diskdf._beta / E * vT
-    L = R * vT
-    sigma2xE = diskdf._ssp("sigma2", xE, log=False)
-    return (
-        OE * R / sigma2xE
-        + (
-            diskdf._ssp("surfacemassDerivative", xE, log=True)
-            - (1.0 + OE * (L - LCE) / sigma2xE)
-            * diskdf._ssp("sigma2Derivative", xE, log=True)
-            + (L - LCE) / sigma2xE * (diskdf._beta - 1.0) * xE ** (diskdf._beta - 2.0)
-            - OE * (diskdf._beta + 1.0) / sigma2xE * xE**diskdf._beta
-        )
-        * dxEdvT
-    )
 
 
 def _marginalizeVperpIntegrandSinAlphaLarge(
