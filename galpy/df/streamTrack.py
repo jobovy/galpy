@@ -851,7 +851,7 @@ def _fit_track_pspline(
     with ``tp_unit``: ``tp = grid * tp_unit``.
     """
     ref = xv_particles if is_backend_array(xv_particles) else prog_cart
-    xp = get_namespace(ref) if is_backend_array(ref) else numpy
+    xp = get_namespace(ref)
     dev = device_of(ref) if xp is not numpy else None
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
     prog_cart = asarray_on_device(xp, prog_cart, dev)

@@ -42,6 +42,7 @@ from ..backend._namespaces import (
 )
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
+from ..potential import vcirc as _vcirc
 from ..potential.Potential import (
     _check_c,
     _check_potential_list_and_deprecate,
@@ -181,7 +182,7 @@ class evolveddiskdf(df):
                         f"Input times to __call__ is a list; this is not supported in conjunction with {marg}"
                     )
                 out = self._call_marginalize_backend(
-                    xp, o, R, phi, marg == "marginalizeVlos", kwargs.get("nsigma")
+                    xp, R, vR, vT, phi, marg == "marginalizeVlos", kwargs.get("nsigma")
                 )
                 return xp.log(out) if log else out
         out = self._df_at_velocities_backend(
@@ -3428,26 +3429,29 @@ class evolveddiskdf(df):
         ts.sort(reverse=True)
         return numpy.array(ts)
 
-    def _call_marginalize_backend(self, xp, o, R, phi, los, nsigma):
+    def _call_marginalize_backend(self, xp, R, vR, vT, phi, los, nsigma):
         """_call_marginalizevperp (los=False) and _call_marginalizevlos (los=True)
         on a backend: the same velocity integral, by Gauss-Legendre quadrature
         over the batched evaluator (scipy.integrate.quad's keywords do not
         apply). Like numpy's, the integrand is the DF at t=0 with dopr54_c."""
         if nsigma is None:
             nsigma = _NSIGMA
-        obs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        l, vobs = coerce_coords(
-            xp,
-            o.ll(obs=obs[:3], ro=1.0) * _DEGTORAD,
-            (o.vll if los else o.vlos)(ro=1.0, vo=1.0, obs=obs),
+        # numpy's o.ll/o.vlos/o.vll for the observer at R=1, phi=0 at rest,
+        # in the backend's ops (Orbit's planar sky coordinates are numpy)
+        l = xp.atan2(R * xp.sin(phi), 1.0 - R * xp.cos(phi))
+        vobs = (
+            vR * xp.sin(phi + l) + vT * xp.cos(phi + l)
+            if los
+            else -vR * xp.cos(phi + l) + vT * xp.sin(phi + l)
         )
-        l, vobs = xp.reshape(l, (-1,))[0], xp.reshape(vobs, (-1,))[0]
         # local circular velocity; its projection on the observed direction is
         # vcirc sin(alpha), as in numpy's vcirclos = vcirc sin(phi+l) and
         # vcircperp = vcirc cos(phi+l)
-        vcirc = calcRotcurve(
-            planarCompositePotential([p for p in self._pot if not p.isNonAxi]), R
-        )[0]
+        vcirc = _vcirc(
+            planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
+            R,
+            use_physical=False,
+        )
         alpha = phi + l + (numpy.pi / 2.0 if los else 0.0)
         v = vobs - vcirc * xp.sin(alpha)
         lo, hi = -nsigma, nsigma
