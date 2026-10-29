@@ -145,6 +145,15 @@ def brentq(
     if not (
         is_backend_array(a) or is_backend_array(b) or any(map(is_backend_array, args))
     ):
+        if any(isinstance(v, numpy.ndarray) and v.ndim > 0 for v in (a, b, *args)):
+            # numpy ARRAY brackets (the disk-DF samplers' vectorised radial
+            # problems): scipy's brentq is scalar-only, so the shared
+            # fixed-schedule bisection runs on numpy; no polish, there is
+            # nothing to differentiate and the bracket ends below xtol
+            f = (lambda x: func(x, *args)) if args else func
+            return bisect_root(
+                f, a, b, numpy, xtol=xtol, maxiter=maxiter, width=bracket_width
+            )
         from scipy import optimize as _sopt
 
         kw = {} if rtol is None else {"rtol": rtol}

@@ -964,10 +964,10 @@ class actionAngleSpherical(actionAngle):
         from ..backend.quadrature import fixed_quad
 
         def integrand(sig):
-            s = lim[:, None] * sig[None, :]
+            s = lim[..., None] * sig[None, :]
             rd = rad(rofs(s))
             rd = xp.where(rd > 0.0, rd, xp.ones_like(rd))
-            return 2.0 * s / xp.sqrt(rd) * lim[:, None]
+            return 2.0 * s / xp.sqrt(rd) * lim[..., None]
 
         return fixed_quad(
             xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(lim)

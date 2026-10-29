@@ -550,3 +550,18 @@ def test_elementwise_root_under_jit_bisects():
         jnp.asarray(0.3), a, b
     )
     numpy.testing.assert_allclose(float(jitted), float(eager), rtol=4e-16)
+
+
+def test_numpy_array_bracket_vectorises():
+    # numpy ARRAY brackets (the disk-DF samplers' vectorised radial problems)
+    # take the shared bisection: scipy's brentq is scalar-only
+    c = numpy.array([2.0, 3.0, 5.0, 0.5])
+    got = brentq(
+        lambda x, c: x**2 - c, numpy.zeros(4), numpy.full(4, 3.0), args=(c,), xtol=1e-12
+    )
+    assert isinstance(got, numpy.ndarray) and got.shape == (4,)
+    ref = numpy.array(
+        [sopt.brentq(lambda x: x**2 - ci, 0.0, 3.0, xtol=1e-12) for ci in c]
+    )
+    assert numpy.all(numpy.abs(got - ref) < 2e-12), got - ref
+    assert numpy.all(numpy.abs(got - numpy.sqrt(c)) < 2e-12)

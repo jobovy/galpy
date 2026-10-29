@@ -575,31 +575,6 @@ def test_forced_plain_inputs_return_backend(backend, cls, monkeypatch):
     assert not used, "a forced-backend moment fell back to scipy's dblquad"
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-def test_numpy_only_consumers_stay_on_numpy_under_force(backend, monkeypatch):
-    # the scipy/numpy-RNG methods keep their plain inputs on numpy under a forced
-    # backend (otherwise every inner df()/sigma2() call is coerced in and out)
-    import galpy.backend._input as _bi
-    from galpy.df import dehnendf
-
-    df = dehnendf(beta=0.1, profileParams=(0.25, 1.0, 0.2))
-    numpy.random.seed(3)
-    ref = df.sampleVRVT(0.9, n=2, target=False)
-    real, entered = _bi.coerce_coords, []
-
-    def spy(xp, *coords, **kwargs):
-        entered.append(getattr(xp, "__name__", str(xp)))
-        return real(xp, *coords, **kwargs)
-
-    monkeypatch.setattr(_bi, "coerce_coords", spy)
-    numpy.random.seed(3)
-    with use(backend, force=True):
-        got = df.sampleVRVT(0.9, n=2, target=False)
-    assert not [n for n in entered if n != "numpy"]
-    assert not is_backend_array(got)
-    numpy.testing.assert_array_equal(got, ref)
-
-
 @pytest.mark.parametrize("forced", [False, True])
 @pytest.mark.parametrize("cls", _BETA_CLASSES)
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -890,3 +865,346 @@ def test_forced_private_profile_helpers_on_backend(backend, cls, beta, name, arg
         got = getattr(df, name)(*args)
     assert is_backend_array(got)
     numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-14)
+
+
+###############################################################################
+# Inverse-CDF samplers (2026-10-28): sample / sampleVRVT / sampleLOS /
+# sampledSurfacemassLOS on the backends. The chain of tables and inversions is a
+# deterministic function of the uniforms, so (a) a forced backend with key=None
+# (numpy's global stream) reproduces the numpy path's draws, (b) a key
+# reproduces its own draws and returns backend arrays, (c) the draws follow the
+# distribution (moments against the DF's own integrals), and (d) the samples
+# are differentiable in the DF's parameters: AD against central finite
+# differences on the continuous chain (the kappa/omega_R replication of
+# sample() is discrete, so its public gradient is checked for finiteness only;
+# the velocity and line-of-sight samplers are continuous end to end).
+###############################################################################
+from galpy.backend import random as grandom  # noqa: E402
+from galpy.backend._namespaces import namespace_for_name  # noqa: E402
+from galpy.backend.sampling import (  # noqa: E402
+    linear_inverse_cdf_sample,
+    trapezoid_cdf,
+    trapezoid_sum,
+)
+from galpy.orbit import Orbit  # noqa: E402
+
+# <vT>, sigma_R, sigma_T of _dehnen at R=0.7 on a 1601 x 3001 velocity mesh
+_VTRUTH = (0.88098, 0.25266, 0.19583)
+_LOS_L = numpy.pi / 4.0
+
+
+def _los_truth(df, target=True, nnodes=1001, maxd=4.0):
+    # mean and std of the distance along the line of sight, Riemann on a grid
+    d = numpy.linspace(0.0, maxd, nnodes)[1:]
+    p = numpy.array(
+        [
+            df.surfacemassLOS(x, _LOS_L, deg=False, target=target, use_physical=False)
+            for x in d
+        ]
+    )
+    m = numpy.sum(d * p) / numpy.sum(p)
+    return m, numpy.sqrt(numpy.sum(d**2 * p) / numpy.sum(p) - m**2)
+
+
+def _orbit_cols(o, cols=("R", "vR", "vT")):
+    if isinstance(o, Orbit):
+        return numpy.stack(
+            [as_numpy(getattr(o, c)(use_physical=False)) for c in cols], axis=1
+        )
+    return numpy.array(
+        [[float(getattr(x, c)(use_physical=False)) for c in cols] for x in o]
+    )
+
+
+def _with_hR(df, hR):
+    """The same DF with the surface scale length hR (a differentiated value)"""
+    p = df._surfaceSigmaProfile._params
+    return type(df)(beta=df._beta, profileParams=(hR, p[1], p[2]))
+
+
+def _chain(df, xp, u, hR=None):
+    """(R, vR, vT, omega_R) of the draws at the fixed uniforms u (3, n): the
+    continuous part of sample() (no kappa/omega_R replication)"""
+    if hR is not None:
+        df = _with_hR(df, hR)
+    xg, F = df._sample_x_table(xp)
+    x = linear_inverse_cdf_sample(xp, xg, F, xp.asarray(u[0]))
+    E, L = df._sample_EL(x, xp.asarray(u[1]), xp)
+    R, vR, vT, Or = df._sample_phase(E, L, x, xp.asarray(u[2]), xp)
+    return xp.stack([R, vR, vT, Or])
+
+
+def _grad_vs_fd(ad, fd):
+    """Elementwise AD-vs-FD check; the action-angle code's epicycle screen is a
+    branch, so a draw that switches branch inside the finite-difference step
+    is a genuine FD failure, not an AD one: a few per cent are allowed."""
+    assert numpy.all(numpy.isfinite(ad))
+    err = numpy.abs(ad - fd) / (numpy.abs(fd) + 1e-6)
+    assert numpy.median(err) < 1e-6, numpy.median(err)
+    assert numpy.mean(err > 1e-5) <= 0.1, (numpy.mean(err > 1e-5), err.max())
+    assert err.max() < 1e-3, err.max()
+
+
+# --- parity with the numpy path on the same uniforms ---------------------------
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name,df", _DFS)
+def test_sample_forced_backend_matches_numpy(backend, name, df):
+    numpy.random.seed(3)
+    ref = _orbit_cols(df.sample(n=30))
+    with use(backend, force=True):
+        numpy.random.seed(3)
+        got = _orbit_cols(df.sample(n=30))
+    assert ref.shape == got.shape
+    assert numpy.allclose(got, ref, rtol=1e-7, atol=1e-9), numpy.abs(got - ref).max()
+    numpy.random.seed(4)
+    ref = numpy.array(df.sample(n=12, returnROrbit=False, returnOrbit=False))
+    with use(backend, force=True):
+        numpy.random.seed(4)
+        got = numpy.array(df.sample(n=12, returnROrbit=False, returnOrbit=False))
+    assert numpy.allclose(got, ref, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_velocity_and_los_forced_backend_match_numpy(backend):
+    numpy.random.seed(5)
+    ref_v = _dehnen.sampleVRVT(0.7, n=40, use_physical=False)
+    ref_d = _dehnen.sampledSurfacemassLOS(_LOS_L, n=40, use_physical=False)
+    ref_o = _orbit_cols(
+        _dehnen.sampleLOS(_LOS_L, n=20, deg=False), ("R", "vR", "vT", "phi")
+    )
+    with use(backend, force=True):
+        numpy.random.seed(5)
+        got_v = _dehnen.sampleVRVT(0.7, n=40, use_physical=False)
+        got_d = _dehnen.sampledSurfacemassLOS(_LOS_L, n=40, use_physical=False)
+        got_o = _orbit_cols(
+            _dehnen.sampleLOS(_LOS_L, n=20, deg=False), ("R", "vR", "vT", "phi")
+        )
+    for got, ref in ((got_v, ref_v), (got_d, ref_d), (got_o, ref_o)):
+        assert isinstance(got, numpy.ndarray)  # key=None: numpy out
+        assert numpy.allclose(got, ref, rtol=1e-8, atol=1e-10), numpy.abs(
+            got - ref
+        ).max()
+
+
+# --- a key: backend arrays, reproducible, the options --------------------------
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name,df", _DFS)
+def test_sample_key(backend, name, df):
+    o = df.sample(n=40, key=grandom.key(1, backend))
+    assert isinstance(o, Orbit) and len(o) == 40
+    R = o.R(use_physical=False)
+    assert is_backend_array(R)
+    again = df.sample(n=40, key=grandom.key(1, backend)).R(use_physical=False)
+    assert numpy.array_equal(as_numpy(R), as_numpy(again))
+    # (another key: on the fixed-shape EL output, since eager jax compiles
+    # every op again for each new replicated output size)
+    EL1 = df.sample(
+        n=40, returnROrbit=False, returnOrbit=False, key=grandom.key(1, backend)
+    )
+    EL2 = df.sample(
+        n=40, returnROrbit=False, returnOrbit=False, key=grandom.key(2, backend)
+    )
+    assert not numpy.array_equal(as_numpy(EL1), as_numpy(EL2))
+    o = df.sample(n=40, returnOrbit=True, key=grandom.key(1, backend))
+    phi = as_numpy(o.phi(use_physical=False))
+    assert len(o) == 40 and phi.min() >= 0.0 and phi.max() <= 2.0 * numpy.pi
+    assert is_backend_array(EL1) and tuple(EL1.shape) == (40, 2)
+    assert len(df.sample(n=40, nphi=3, key=grandom.key(1, backend))) == 120
+    o = df.sample(n=40, rrange=[0.5, 1.5], key=grandom.key(1, backend))
+    R = as_numpy(o.R(use_physical=False))
+    assert len(o) == 40 and R.min() >= 0.5 and R.max() <= 1.5
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_key_physical(backend):
+    df = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2), ro=8.0, vo=220.0)
+    o = df.sample(n=10, key=grandom.key(1, backend))
+    assert o._roSet and o._voSet
+    assert numpy.allclose(as_numpy(o.R()), 8.0 * as_numpy(o.R(use_physical=False)))
+    o = df.sampleLOS(45.0, n=10, key=grandom.key(1, backend))
+    assert isinstance(o, Orbit) and o._roSet and len(o) == 10
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_velocity_and_los_key(backend):
+    vv = _dehnen.sampleVRVT(
+        0.7, n=20000, key=grandom.key(3, backend), use_physical=False
+    )
+    assert is_backend_array(vv) and tuple(vv.shape) == (20000, 2)
+    v = as_numpy(vv)
+    assert abs(v[:, 0].mean()) < 0.006  # 3 s.e.
+    assert abs(v[:, 1].mean() - _VTRUTH[0]) < 0.005
+    assert abs(v[:, 0].std() - _VTRUTH[1]) < 0.004
+    assert abs(v[:, 1].std() - _VTRUTH[2]) < 0.004
+    ds = _dehnen.sampledSurfacemassLOS(
+        _LOS_L, n=20000, key=grandom.key(3, backend), use_physical=False
+    )
+    assert is_backend_array(ds) and tuple(ds.shape) == (20000,)
+    m, s = _los_truth(_dehnen)
+    d = as_numpy(ds)
+    assert abs(d.mean() - m) < 0.01 and abs(d.std() - s) < 0.01  # 3 s.e.
+    o = _dehnen.sampleLOS(_LOS_L, n=200, deg=False, key=grandom.key(3, backend))
+    assert isinstance(o, Orbit) and len(o) == 200
+    R, phi = as_numpy(o.R(use_physical=False)), as_numpy(o.phi(use_physical=False))
+    assert numpy.all(R > 0.0) and numpy.all(numpy.abs(phi) < numpy.pi)
+    again = _dehnen.sampleLOS(_LOS_L, n=200, deg=False, key=grandom.key(3, backend))
+    assert numpy.array_equal(R, as_numpy(again.R(use_physical=False)))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_key_moments(backend):
+    # the DF's actual surface density (quadrature: <R> = 0.5115, its spread
+    # 0.367; the sampler reproduces them to 0.001 at n = 20000), <vR> = 0,
+    # and the DF's own velocity dispersions in the ring R in [0.6, 0.8]
+    o = _dehnen.sample(n=1000, key=grandom.key(5, backend))
+    R, vR, vT = _orbit_cols(o).T
+    assert abs(R.mean() - 0.5115) < 0.04 and abs(R.std() - 0.367) < 0.04
+    assert abs(vR.mean()) < 0.03
+    m = (R > 0.6) & (R < 0.8)
+    assert abs(vR[m].std() - numpy.sqrt(_dehnen.sigmaR2(0.7))) < 0.05
+    assert abs(vT[m].std() - numpy.sqrt(_dehnen.sigmaT2(0.7))) < 0.05
+
+
+# --- differentiability -----------------------------------------------------------
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("name,df", _DFS[:2])
+def test_sample_chain_grad_jax(name, df):
+    u = numpy.random.default_rng(11).random((3, 120))
+
+    def f(hR):
+        return _chain(df, jnp, u, hR=hR)
+
+    ad = numpy.asarray(jax.jacfwd(f)(0.25))
+    h = 1e-5
+    fd = numpy.asarray((f(0.25 + h) - f(0.25 - h)) / (2.0 * h))
+    _grad_vs_fd(ad, fd)
+    # the public sampler: finite gradients through the replicated points
+    g = jax.grad(
+        lambda hR: jnp.mean(
+            _with_hR(df, hR)
+            .sample(n=60, key=grandom.key(2, "jax"))
+            .R(use_physical=False)
+        )
+    )(0.25)
+    assert numpy.isfinite(float(g)) and float(g) != 0.0
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+@pytest.mark.parametrize("name,df", _DFS[:2])
+def test_sample_chain_grad_torch(name, df):
+    xp = namespace_for_name("torch")
+    u = numpy.random.default_rng(11).random((3, 16))
+
+    def f(hR):
+        return _chain(df, xp, u, hR=hR)
+
+    ad = torch.autograd.functional.jacobian(f, torch.tensor(0.25)).numpy()
+    h = 1e-5
+    fd = ((f(torch.tensor(0.25 + h)) - f(torch.tensor(0.25 - h))) / (2.0 * h)).numpy()
+    _grad_vs_fd(ad, fd)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_unkeyed_sample_with_a_differentiated_profile_parameter():
+    # no key and no forced backend: a backend profile parameter alone puts the
+    # sampler on its backend (numpy's random numbers), so the samples carry its
+    # gradient; the finite difference takes the same path at concrete tensors
+    def vT(sR):
+        numpy.random.seed(5)
+        df = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, sR))
+        return df.sampleVRVT(0.7, n=200, use_physical=False)[:, 1]
+
+    sR0, h = torch.tensor(0.2, dtype=torch.float64), 1e-5
+    out = vT(sR0.clone().requires_grad_(True))
+    assert is_backend_array(out) and out.requires_grad
+    ad = torch.autograd.functional.jacobian(vT, sR0).numpy()
+    fd = ((vT(sR0 + h) - vT(sR0 - h)) / (2.0 * h)).numpy()
+    _grad_vs_fd(ad, fd)
+    # at a plain float: numpy's draws for the same seed, and numpy objects
+    numpy.random.seed(5)
+    ref = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2)).sampleVRVT(
+        0.7, n=200, use_physical=False
+    )
+    assert isinstance(ref, numpy.ndarray)
+    numpy.testing.assert_allclose(out.detach().numpy(), ref[:, 1], rtol=1e-12)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_velocity_and_los_grad_jax():
+    # continuous end to end: the mean sampled vT w.r.t. the dispersion scale,
+    # the mean sampled distance w.r.t. the surface scale length
+    key = grandom.key(9, "jax")
+
+    def mean_vT(sR):
+        df = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, sR))
+        return jnp.mean(df.sampleVRVT(0.7, n=400, key=key, use_physical=False)[:, 1])
+
+    def mean_d(hR):
+        return jnp.mean(
+            _with_hR(_dehnen, hR).sampledSurfacemassLOS(
+                _LOS_L, n=400, key=key, use_physical=False
+            )
+        )
+
+    for fn, x0 in ((mean_vT, 0.2), (mean_d, 0.25)):
+        ad = float(jax.grad(fn)(x0))
+        h = 1e-4
+        fd = float((fn(x0 + h) - fn(x0 - h)) / (2.0 * h))
+        assert numpy.isfinite(ad) and abs(ad - fd) < 1e-3 * abs(fd) + 1e-6, (
+            fn.__name__,
+            ad,
+            fd,
+        )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_velocity_and_los_grad_torch():
+    key = grandom.key(9, "torch")
+
+    def mean_vT(sR):
+        df = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, sR))
+        return df.sampleVRVT(0.7, n=400, key=key, use_physical=False)[:, 1].mean()
+
+    def mean_d(hR):
+        return (
+            _with_hR(_dehnen, hR)
+            .sampledSurfacemassLOS(_LOS_L, n=400, key=key, use_physical=False)
+            .mean()
+        )
+
+    for fn, x0 in ((mean_vT, 0.2), (mean_d, 0.25)):
+        x = torch.tensor(x0, requires_grad=True)
+        (ad,) = torch.autograd.grad(fn(x), x)
+        h = 1e-4
+        fd = float((fn(torch.tensor(x0 + h)) - fn(torch.tensor(x0 - h))) / (2.0 * h))
+        assert (
+            numpy.isfinite(float(ad)) and abs(float(ad) - fd) < 1e-3 * abs(fd) + 1e-6
+        ), (fn.__name__, float(ad), fd)
+
+
+# --- the CDF helpers ------------------------------------------------------------
+def test_trapezoid_cdf_helpers():
+    g = numpy.linspace(0.0, 2.0, 41)
+    p = numpy.stack([numpy.exp(-g), g * 0.0, g**2])  # a tail, an empty slice, a rise
+    assert numpy.allclose(trapezoid_sum(numpy, p, g, 1), numpy.trapezoid(p, g, axis=1))
+    F = trapezoid_cdf(numpy, p, g, 1)
+    assert (
+        F.shape == p.shape
+        and numpy.allclose(F[:, 0], 0.0)
+        and numpy.allclose(F[:, -1], 1.0)
+    )
+    assert numpy.all(numpy.diff(F, axis=1) >= 0.0)
+    c = numpy.concatenate(
+        [[0.0], numpy.cumsum(0.5 * (p[0, 1:] + p[0, :-1]) * (g[1] - g[0]))]
+    )
+    assert numpy.allclose(F[0], c / c[-1])
+    assert numpy.allclose(F[1], numpy.linspace(0.0, 1.0, 41))  # the empty slice: a ramp
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_shudf_eval_vanishes_at_zero_angular_momentum(backend):
+    # the backend guard's stand-in xL = 1 made f(E, L=0) finite and wrong
+    E, L = _scalar(backend, 0.2), _scalar(backend, 0.0)
+    assert float(_shu._eval_backend(E, L, 0.0, 0.0)) == 0.0
+    assert float(_shu.eval(0.2, 0.0)) == 0.0
+    assert float(_shu._eval_backend(E, _scalar(backend, 1e-3), 0.0, 0.0)) > 0.0
