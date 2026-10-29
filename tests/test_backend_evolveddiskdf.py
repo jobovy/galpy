@@ -6,17 +6,18 @@
 # evolveddiskdf builds f(x,t) = initdf(orbit integrated back to t0) on a velocity
 # grid and reduces that grid to moments <vR^n vT^m Sigma>. Under a backend (or a
 # forced backend), _buildvgrid_backend builds the whole grid in ONE vectorized
-# multi-orbit integrate through the in-backend ODE solver, so grid.df is a backend
-# array and the moment is differentiable w.r.t. R (and potential parameters) THROUGH
-# the orbit evolution. The numpy path (_buildvgrid, per-gridpoint C loop) is
-# byte-identical (test_evolveddiskdf unchanged).
+# multi-orbit integrate -- in plain C for concrete input, through the C
+# state-transition matrix or the in-backend ODE solver for a differentiated one --
+# so grid.df is a backend array and the moment is differentiable w.r.t. R (and
+# potential parameters) THROUGH the orbit evolution. The numpy path (_buildvgrid,
+# per-gridpoint C loop) is byte-identical (test_evolveddiskdf unchanged).
 #
 # Checks:
 #   (a) moment value parity numpy<->backend for every moment method, on scalar-t
 #       and time-list grids, both integrated with the same accurate integrator
 #       (dop853_c / diffrax at rtol=atol=1e-12) so they agree tightly;
 #   (b) grad-vs-FD of a moment w.r.t. R -- differentiability THROUGH the evolution;
-#   (c) deriv= (the finite-difference moment derivative) is rejected on the backend;
+#   (c) deriv= grids match numpy's (rejected only for a differentiated moment);
 #   (d) the grid reduction (_vmomentsurfacemassGrid) is itself differentiable w.r.t.
 #       the grid df values (closed-form check).
 ###############################################################################
@@ -58,9 +59,8 @@ from galpy.potential import (
 
 _GP = 9  # small grid for speed
 _R, _PHI = 0.9, 0.2
-# dop853_c on numpy and diffrax/torchdiffeq at rtol=atol=1e-12 on the backend are
-# both ~1e-12-accurate, so the moments agree to ~1e-8 (the integrators are
-# different methods; a looser integrator would show its own truncation, not a bug).
+# dop853_c on both: a concrete backend orbit integrates with the same C
+# integrator as numpy, so the grid moments agree to rounding.
 _IM = "dop853_c"
 
 
@@ -107,13 +107,13 @@ _MOMENTS = {
 @pytest.mark.parametrize("moment", list(_MOMENTS))
 def test_moment_parity_native_backend_grid(backend, moment):
     # moment on a NATIVELY backend-built scalar-t grid (one vectorized multi-orbit
-    # integrate) vs numpy; both at high accuracy so they agree to integrator tol.
+    # integrate) vs numpy; the same C integrator, so they agree to rounding.
     edf = _make_edf()
     ref = numpy.asarray(_MOMENTS[moment](edf, _R))
     with use(backend, force=True):
         got = _MOMENTS[moment](edf, _scalar(backend, _R))
     assert is_backend_array(got)
-    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -138,7 +138,7 @@ def test_moment_parity_tlist_native_backend_grid(backend):
             integrate_method=_IM,
         )
     assert is_backend_array(got)
-    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -203,7 +203,7 @@ def test_nonaxi_vertexdev_native_backend(backend):
             use_physical=False,
         )
     assert is_backend_array(got)
-    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -233,26 +233,91 @@ def test_no_evolution_and_len1_branches(backend, tkw):
             **tkw,
         )
     assert is_backend_array(got)
-    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_grid_deriv_rejected_on_backend(backend):
-    # the finite-difference moment derivative (deriv=) is not supported on the
-    # backend -- autodiff replaces it; the grid build must raise a clear error.
+@pytest.mark.parametrize("deriv", ["R", "phi"])
+@pytest.mark.parametrize(
+    "gkw",
+    [
+        {"t": 0.0},
+        {"t": [0.0, -2.5, -5.0]},
+        {"t": 0.0, "hierarchgrid": True, "nlevels": 2},
+    ],
+    ids=["scalar-t", "tlist", "hierarchical"],
+)
+def test_grid_deriv_matches_numpy(backend, deriv, gkw):
+    # the deriv= grids (the Oort functions' input) on the backend: numpy's
+    # variational equations, batched over the gridpoints. The hierarchical grid
+    # used to drop deriv= on the backend and return the moment itself.
     edf = _make_edf()
+    kw = dict(phi=_PHI, grid=True, gridpoints=_GP, integrate_method=_IM, deriv=deriv)
+    ref = numpy.asarray(edf.vmomentsurfacemass(_R, 0, 0, **kw, **gkw))
+    with use(backend, force=True):
+        got = edf.vmomentsurfacemass(_scalar(backend, _R), 0, 0, **kw, **gkw)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_deriv_of_a_differentiated_moment_rejected(backend):
+    # deriv= of a moment that is itself being differentiated is not supported
+    # (autodiff replaces it): the grid build must raise a clear error.
+    edf = _make_edf()
+
+    def moment(R):
+        return edf.vmomentsurfacemass(
+            R,
+            0,
+            0,
+            phi=_PHI,
+            grid=True,
+            gridpoints=_GP,
+            integrate_method=_IM,
+            deriv="R",
+        )
+
     with use(backend, force=True):
         with pytest.raises(NotImplementedError):
-            edf.vmomentsurfacemass(
-                _scalar(backend, _R),
-                0,
-                0,
-                phi=_PHI,
-                grid=True,
-                gridpoints=_GP,
-                integrate_method=_IM,
-                deriv="R",
-            )
+            if backend == "jax":
+                jax.grad(lambda R: jnp.asarray(moment(R)).reshape(()))(jnp.asarray(_R))
+            else:
+                moment(torch.tensor(_R, requires_grad=True))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_concrete_orbits_integrate_in_c(backend, monkeypatch):
+    # a forced backend with concrete input integrates every gridpoint's orbit
+    # with the requested C integrator (plain C), not with the in-backend ODE or
+    # the C state-transition matrix, which only a gradient needs
+    from galpy.orbit import Orbits
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("a concrete orbit took a differentiable integrator")
+
+    monkeypatch.setattr(Orbits.Orbit, "_integrate_inbackend", refuse)
+    monkeypatch.setattr(Orbits.Orbit, "_integrate_cstm", refuse)
+    edf = _make_edf()
+    ref = edf.meanvT(
+        _R,
+        phi=_PHI,
+        grid=True,
+        gridpoints=_GP,
+        integrate_method=_IM,
+        use_physical=False,
+    )
+    with use(backend, force=True):
+        got = edf.meanvT(
+            _R,
+            phi=_PHI,
+            grid=True,
+            gridpoints=_GP,
+            integrate_method=_IM,
+            use_physical=False,
+        )
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(float(as_numpy(got)), float(ref), rtol=1e-13)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -373,8 +438,11 @@ def test_direct_moment_jit_matches_eager():
     with use("jax", force=True):
         # assert_jit_matches_eager also checks the jaxpr CONSUMES its argument: a
         # trace that folded it away returns a constant and would match eager
-        # vacuously, which a bare allclose cannot see.
-        assert_jit_matches_eager(call, jnp.asarray(_R), rtol=1e-12, atol=1e-14)
+        # vacuously, which a bare allclose cannot see. The traced orbits integrate
+        # through the C state-transition matrix, the eager ones with the plain C
+        # integrator: the two agree to the integrator's tolerance (2e-11 here),
+        # not to rounding.
+        assert_jit_matches_eager(call, jnp.asarray(_R), rtol=1e-10, atol=1e-14)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -541,21 +609,26 @@ def test_hierarchical_grid_time_list_matches_numpy_on_the_backend(backend, nleve
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6)
 
 
+# The direct route is a different quadrature on the backend (polar GL) from
+# numpy's (dblquad at its default epsrel=1e-2); the grid route is the same grid,
+# integrated with the same C integrator.
+_ROUTE_RTOL = {"direct": 1e-4, "grid": 1e-12}
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
-def test_merely_forced_backend_with_a_plain_potential_stays_numpy(backend, route):
-    # The exception to forcing running on the backend: evolveddiskdf's backend
-    # grids integrate every velocity orbit with the eager in-backend ODE, so a
-    # forced run counts only differentiated parameters (_edf_param_namespace).
-    # A DF set up under the forced backend (its normalize= amp is a backend
-    # array) keeps the numpy path, bit for bit.
+def test_merely_forced_backend_runs_on_the_backend(backend, route):
+    # a forced backend with a plain potential and a plain R runs the moment on
+    # the backend (its orbits integrate in C), at numpy's value
     ref = _grad_edf(_GRAD_A).vmomentsurfacemass(
         _R, 0, 0, phi=_PHI, nsigma=3.0, **_GRAD_ROUTES[route]
     )
     with use(backend, force=True):
         got = _grad_moment(_GRAD_A, route)  # plain float a -> no gradient anywhere
-    assert not is_backend_array(got), "a merely-forced backend flipped the numpy path"
-    numpy.testing.assert_allclose(float(got), float(ref), rtol=0.0, atol=0.0)
+    assert is_backend_array(got), "a forced backend fell back to numpy"
+    numpy.testing.assert_allclose(
+        float(as_numpy(got)), float(ref), rtol=_ROUTE_RTOL[route], atol=0.0
+    )
 
 
 # --- the gradient in the INITIAL DF, with R a plain float ------------------
@@ -593,16 +666,160 @@ def hr_moment():
 
 @pytest.mark.parametrize("route", sorted(_GRAD_ROUTES))
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_forced_backend_with_a_concrete_initdf_parameter_stays_numpy(
+def test_forced_backend_with_a_concrete_initdf_parameter_runs_on_the_backend(
     backend, route, hr_moment
 ):
-    # the forcing exception covers the initdf too: a concrete hR keeps the
-    # numpy route under a forced backend, at numpy's value
+    # a concrete backend hR under a forced backend runs on the backend, at
+    # numpy's value
     hr = jnp.asarray(_HR) if backend == "jax" else torch.tensor(_HR)
     got = hr_moment(hr, route, backend)
-    assert not is_backend_array(got)
+    assert is_backend_array(got)
     numpy.testing.assert_allclose(
-        float(got), float(hr_moment(_HR, route)), rtol=1e-15, atol=0.0
+        float(as_numpy(got)),
+        float(hr_moment(_HR, route)),
+        rtol=_ROUTE_RTOL[route],
+        atol=0.0,
+    )
+
+
+# --- __call__ and the marginalizations on a backend ------------------------
+# numpy's __call__ algorithm on the backend: the same integrators and output
+# times, so the same values; the marginalizations replace scipy's quad by GL.
+_CALL_CASES = {
+    "scalar": ((0.0,), {}),
+    "no-evolution": ((-10.0,), {}),
+    "tlist-log": (([0.0, -2.5, -5.0],), {"log": True}),
+    "tlist-len1": (([-2.5],), {}),
+    "deriv-R": ((0.0,), {"deriv": "R"}),
+    "deriv-phi-rk6c": ((0.0,), {"deriv": "phi", "integrate_method": "rk6_c"}),
+    "deriv-R-tlist": (([0.0, -2.5, -5.0],), {"deriv": "R"}),
+    "deriv-R-no-evolution": ((-10.0,), {"deriv": "R"}),
+    "odeint-log": ((0.0,), {"integrate_method": "odeint", "log": True}),
+    "odeint-deriv-tlist": (
+        ([0.0, -2.5, -5.0],),
+        {"integrate_method": "odeint", "deriv": "R"},
+    ),
+    "leapfrog_c": ((-2.5,), {"integrate_method": "leapfrog_c"}),
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("case", list(_CALL_CASES))
+def test_call_matches_numpy(backend, case):
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()  # to = -10.0
+    args, kw = _CALL_CASES[case]
+    ref = numpy.asarray(edf(Orbit([_R, 0.1, 1.05, _PHI]), *args, **kw))
+    with use(backend, force=True):
+        got = edf(Orbit([_R, 0.1, 1.05, _PHI]), *args, **kw)
+    assert is_backend_array(got), "__call__ fell back to numpy"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_input_errors(backend):
+    # numpy's errors: one orbit at a time, and no time list when marginalizing
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()
+    with use(backend, force=True):
+        with pytest.raises(RuntimeError, match="single-object"):
+            edf(Orbit([[_R, 0.1, 1.05, _PHI], [_R, 0.0, 1.0, _PHI]]))
+        for marg in ["marginalizeVperp", "marginalizeVlos"]:
+            with pytest.raises(RuntimeError, match="list"):
+                edf(Orbit([_R, 0.1, 1.05, _PHI]), [0.0, -1.0], **{marg: True})
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("integrate_method", ["dopr54_c", "leapfrog_c"])
+def test_call_without_c_matches_numpy(backend, integrate_method):
+    # a potential without C: numpy's fallback to odeint / leapfrog, on the host
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()
+    edf._pot.hasC = False
+    edf._pot.hasC_dxdv = False
+    kw = dict(integrate_method=integrate_method, log=True)
+    ref = numpy.asarray(edf(Orbit([_R, 0.1, 1.05, _PHI]), 0.0, **kw))
+    with use(backend, force=True):
+        got = edf(Orbit([_R, 0.1, 1.05, _PHI]), 0.0, **kw)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_grad_with_a_non_c_method(backend):
+    # a differentiated moment with a method that has no differentiable C route
+    # integrates with the backend's own solver; AD vs FD of that same route
+    edf = _make_edf()
+
+    def moment(R):
+        return edf.meanvT(
+            R,
+            phi=_PHI,
+            grid=True,
+            gridpoints=4,
+            integrate_method="leapfrog_c",
+            use_physical=False,
+        )
+
+    h = 1e-4
+    with use(backend, force=True):
+        if backend == "jax":
+            f = jax.jit(lambda R: jnp.reshape(jnp.asarray(moment(R)), ()))
+            g = float(jax.grad(lambda R: jnp.reshape(jnp.asarray(moment(R)), ()))(_R))
+            fd = (float(f(_R + h)) - float(f(_R - h))) / (2.0 * h)
+        else:
+            Rt = torch.tensor(_R, requires_grad=True)
+            out = moment(Rt)
+            assert is_backend_array(out) and out.requires_grad
+            (g,) = torch.autograd.grad(out.reshape(()), Rt)
+            g = float(g)
+            val = lambda x: float(moment(torch.tensor(x, requires_grad=True)).detach())
+            fd = (val(_R + h) - val(_R - h)) / (2.0 * h)
+    assert g != 0.0
+    # the adaptive in-backend solver's AD and its FD agree to ~1e-5 (as in
+    # test_moment_grad_through_evolution_vs_fd); 1.3e-5 here on both backends
+    numpy.testing.assert_allclose(g, fd, rtol=5e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_r_negative_and_vanishing_df(backend):
+    # a radial orbit through the centre and a far-out orbit with a vanishing
+    # DF: numpy's eps / -max conventions
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()
+    for vxvv, kw in [
+        ([1.0, -1.0, 0.0, 0.0], {}),
+        ([1.0, -1.0, 0.0, 0.0], {"log": True}),
+        ([3.0, 1.0, -1.0, 2.0], {"log": True}),
+    ]:
+        ref = numpy.asarray(edf(Orbit(vxvv), 0.0, **kw))
+        with use(backend, force=True):
+            got = edf(Orbit(vxvv), 0.0, **kw)
+        assert is_backend_array(got)
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("marg", ["marginalizeVperp", "marginalizeVlos"])
+@pytest.mark.parametrize("phi", [0.2, 1.5])  # both branches of |sin(alpha)|
+def test_call_marginalize_matches_numpy(backend, marg, phi):
+    from galpy.orbit import Orbit
+
+    edf = _make_edf()
+    o = lambda: Orbit([_R, 0.1, 1.05, phi])
+    ref = float(edf(o(), **{marg: True}))
+    with use(backend, force=True):
+        got = edf(o(), **{marg: True})
+        got_log = edf(o(), log=True, **{marg: True})
+    assert is_backend_array(got)
+    # GL against scipy's adaptive quad, both converged
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(
+        float(as_numpy(got_log)), numpy.log(ref), rtol=0.0, atol=1e-12
     )
 
 

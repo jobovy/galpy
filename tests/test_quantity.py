@@ -16494,7 +16494,7 @@ def test_evolveddiskdf_method_inputAsQuantity_special():
             edfwarm(o, ts * conversion.time_in_Gyr(vo, ro) * units.Gyr)
             .to(1 / units.kpc**2 / (units.km / units.s) ** 2)
             .value
-            - edfwarmnou(o, ts) / ro**2 / vo**2
+            - as_numpy(edfwarmnou(o, ts)) / ro**2 / vo**2
         )
         < 10.0**-8.0
     ), "evolveddiskdf method __call__ does not return correct Quantity when it should"
