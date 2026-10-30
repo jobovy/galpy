@@ -2068,9 +2068,11 @@ class diskdf(df):
             xE = numpy.exp(E - 0.5)
         else:  # non-flat rotation curve
             xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
+        # vR on _psp's backend and device (a host copy put the orbit on the CPU)
+        psp = self._psp(xE)
         _, _, rperi, rap = self._aA.EccZmaxRperiRap(
             xE,
-            numpy.sqrt(2.0 * (E - to_host(self._psp(xE))) - L**2.0 / xE**2.0),
+            get_namespace(psp).sqrt(2.0 * (E - psp) - L**2.0 / xE**2.0),
             L / xE,
             0.0,
             0.0,

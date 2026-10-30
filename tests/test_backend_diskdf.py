@@ -864,7 +864,15 @@ def test_forced_private_profile_helpers_on_backend(backend, cls, beta, name, arg
     with use(backend, force=True):
         got = getattr(df, name)(*args)
     assert is_backend_array(got)
-    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-14)
+    # a GPU's exp/log differ in the last digits (torch _dlnfdvT: 1.2e-13)
+    on_gpu = (
+        jax.default_backend() == "gpu"
+        if backend == "jax"
+        else backend == "torch" and torch.get_default_device().type == "cuda"
+    )
+    numpy.testing.assert_allclose(
+        float(as_numpy(got)), ref, rtol=3e-13 if on_gpu else 1e-14
+    )
 
 
 ###############################################################################
@@ -1098,9 +1106,9 @@ def test_sample_chain_grad_torch(name, df):
     def f(hR):
         return _chain(df, xp, u, hR=hR)
 
-    ad = torch.autograd.functional.jacobian(f, torch.tensor(0.25)).numpy()
+    ad = as_numpy(torch.autograd.functional.jacobian(f, torch.tensor(0.25)))
     h = 1e-5
-    fd = ((f(torch.tensor(0.25 + h)) - f(torch.tensor(0.25 - h))) / (2.0 * h)).numpy()
+    fd = as_numpy((f(torch.tensor(0.25 + h)) - f(torch.tensor(0.25 - h))) / (2.0 * h))
     _grad_vs_fd(ad, fd)
 
 
@@ -1117,8 +1125,8 @@ def test_unkeyed_sample_with_a_differentiated_profile_parameter():
     sR0, h = torch.tensor(0.2, dtype=torch.float64), 1e-5
     out = vT(sR0.clone().requires_grad_(True))
     assert is_backend_array(out) and out.requires_grad
-    ad = torch.autograd.functional.jacobian(vT, sR0).numpy()
-    fd = ((vT(sR0 + h) - vT(sR0 - h)) / (2.0 * h)).numpy()
+    ad = as_numpy(torch.autograd.functional.jacobian(vT, sR0))
+    fd = as_numpy((vT(sR0 + h) - vT(sR0 - h)) / (2.0 * h))
     _grad_vs_fd(ad, fd)
     # at a plain float: numpy's draws for the same seed, and numpy objects
     numpy.random.seed(5)
@@ -1126,7 +1134,7 @@ def test_unkeyed_sample_with_a_differentiated_profile_parameter():
         0.7, n=200, use_physical=False
     )
     assert isinstance(ref, numpy.ndarray)
-    numpy.testing.assert_allclose(out.detach().numpy(), ref[:, 1], rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(out), ref[:, 1], rtol=1e-12)
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")

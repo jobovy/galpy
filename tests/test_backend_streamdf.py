@@ -3437,6 +3437,10 @@ def test_forced_streamdf_runs_on_the_backend(backend_name):
         got = getattr(sdf, name)
         assert is_backend_array(got), f"{name} was built on numpy"
         rel = _rel(got, getattr(ref, name))
+        if name == "_dsigomeanProgDirection":
+            # an eigenvector's sign is arbitrary (GPU and CPU eigh differ);
+            # _sigMeanSign compensates downstream
+            rel = min(rel, _rel(-got, getattr(ref, name)))
         assert rel < floor, f"{name}: forced vs numpy {rel:.2e}"
     # no forcing from here: the stream's own backend moments/splines pick the
     # path -- the one a backend argument takes
@@ -3459,13 +3463,19 @@ def test_forced_streamdf_runs_on_the_backend(backend_name):
         assert _rel(got, ref.freqEigvalRatio(isotropic=iso)) < floor
     # key=None draws from the global numpy.random: the sample is computed on the
     # backend and comes back as numpy, the numpy stream's points to the FD-vs-AD
-    # floor (measured 1.3e-7)
+    # floor (measured 1.3e-7). The draws are rotated by dO's eigenvectors, whose
+    # signs a GPU's eigh may flip (the same distribution, mirrored draws): the
+    # sorted basis must agree up to those signs, and a flipped one compares dt only
+    basis = as_numpy(sdf._sigomatrixEig[1])[:, as_numpy(sdf._sigomatrixEigsortIndx)]
+    want = ref._sigomatrixEig[1][:, ref._sigomatrixEigsortIndx]
+    assert _rel(numpy.abs(basis), numpy.abs(want)) < 1e-4
+    flipped = _rel(basis, want) > 1e-4
     for kw in (dict(), dict(xy=True), dict(lb=True), dict(returnaAdt=True)):
         numpy.random.seed(4)
         got = sdf.sample(40, returndt=True, **kw)
         numpy.random.seed(4)
         want = ref.sample(40, returndt=True, **kw)
-        for g, w in zip(got, want):
+        for g, w in list(zip(got, want))[-1 if flipped else 0 :]:
             assert type(g) is numpy.ndarray
             assert _rel(g, w) < 5e-7, kw
     # the closest track point: a Python int, the numpy stream's
