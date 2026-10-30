@@ -8158,7 +8158,8 @@ class Orbit:
                 return xp.take(a, order, axis=axis)
 
         else:
-            descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
+            # floats: dynamo under a CUDA default device mis-traces numpy's <
+            descending = self_t.shape[0] > 1 and float(self_t[1]) < float(self_t[0])
             grid = numpy.array(self_t[::-1]) if descending else self_t
 
             def _ascending(a, axis):

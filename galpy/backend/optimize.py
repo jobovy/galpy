@@ -55,6 +55,7 @@ from ._namespaces import (
     name_of_namespace,
     namespace_from_arrays,
     prefer_backend_namespace,
+    to_host,
     under_jax_trace,
     under_trace,
 )
@@ -278,7 +279,12 @@ def n_bisect_steps(a, b, xtol, maxiter, width=None):
         width = float(width)
     else:
         try:
-            width = float(numpy.max(numpy.abs(numpy.asarray(b) - numpy.asarray(a))))
+            # to_host: a CUDA bracket's width is read as a CPU one's
+            width = float(
+                numpy.max(
+                    numpy.abs(numpy.asarray(to_host(b)) - numpy.asarray(to_host(a)))
+                )
+            )
         except Exception:
             # Traced (abstract) bracket under jit/grad: no concrete width.
             return min(maxiter, _MAXITER)

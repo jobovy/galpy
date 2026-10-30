@@ -3670,8 +3670,9 @@ class evolveddiskdfGrid:
         - 2011-06-27 - Written - Bovy (NYU)
 
         """
-        xrange = [self.vRgrid[0], self.vRgrid[len(self.vRgrid) - 1]]
-        yrange = [self.vTgrid[0], self.vTgrid[len(self.vTgrid) - 1]]
+        vRgrid, vTgrid = as_numpy(self.vRgrid), as_numpy(self.vTgrid)
+        xrange = [vRgrid[0], vRgrid[len(vRgrid) - 1]]
+        yrange = [vTgrid[0], vTgrid[len(vTgrid) - 1]]
         if len(self.df.shape) == 3:
             plotthis = as_numpy(self.df)[:, :, tt]
         else:
@@ -4018,11 +4019,12 @@ class evolveddiskdfHierarchicalGrid:
         """
         if vmax is None:
             vmax = self.max(tt=tt) * 2.0
+        vRgrid, vTgrid = as_numpy(self.vRgrid), as_numpy(self.vTgrid)
         # Figure out how big of a grid we need
-        dvR = self.vRgrid[1] - self.vRgrid[0]
-        dvT = self.vTgrid[1] - self.vTgrid[0]
-        nvR = len(self.vRgrid)
-        nvT = len(self.vTgrid)
+        dvR = vRgrid[1] - vRgrid[0]
+        dvT = vTgrid[1] - vTgrid[0]
+        nvR = len(vRgrid)
+        nvT = len(vTgrid)
         nUpperLevels = self.nlevelsTotal - self.nlevels
         nvRTot = nvR * 2**nUpperLevels
         nvTTot = nvT * 2**nUpperLevels
@@ -4050,12 +4052,12 @@ class evolveddiskdfHierarchicalGrid:
         # Plot
         if nUpperLevels == 0:
             xrange = [
-                self.vRgrid[0] + dvR / 2.0,
-                self.vRgrid[len(self.vRgrid) - 1] - dvR / 2.0,
+                vRgrid[0] + dvR / 2.0,
+                vRgrid[len(vRgrid) - 1] - dvR / 2.0,
             ]
             yrange = [
-                self.vTgrid[0] + dvT / 2.0,
-                self.vTgrid[len(self.vTgrid) - 1] - dvT / 2.0,
+                vTgrid[0] + dvT / 2.0,
+                vTgrid[len(vTgrid) - 1] - dvT / 2.0,
             ]
             aspect = (xrange[1] - xrange[0]) / (yrange[1] - yrange[0])
             extent = [xrange[0], xrange[1], yrange[0], yrange[1]]

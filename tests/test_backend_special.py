@@ -834,7 +834,7 @@ def _bessel_k_autodiff(impl, name, x):
     K = f(xt)
     (d1,) = torch.autograd.grad(K.sum(), xt, create_graph=True)
     (d2,) = torch.autograd.grad(d1.sum(), xt)
-    return K.detach().numpy(), d1.detach().numpy(), d2.numpy()
+    return as_numpy(K), as_numpy(d1), as_numpy(d2)
 
 
 @pytest.mark.parametrize(

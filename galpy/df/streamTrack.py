@@ -782,7 +782,8 @@ def _pspline_fit(xp, B, w, y, P, lam_rel, smoothing_factor):
     if lam_rel is None:
         sg = data(stop_gradient(B), stop_gradient(w), stop_gradient(y))
         grid = asarray_on_device(xp, _PSPLINE_LOG_LAMBDA, device_of(B))
-        dl = float(_PSPLINE_LOG_LAMBDA[1] - _PSPLINE_LOG_LAMBDA[0])
+        # floats: dynamo under a CUDA default device mis-traces numpy's -
+        dl = float(_PSPLINE_LOG_LAMBDA[1]) - float(_PSPLINE_LOG_LAMBDA[0])
         # coarse grid: the bracketing node of each coordinate, with the residuals
         # as quadratic forms in the coefficients (no N-sized work)
         lam_g = xp.broadcast_to(xp.exp(grid)[:, None] * sg[5], (grid.shape[0], 6))
