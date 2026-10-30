@@ -12,7 +12,7 @@ from scipy.interpolate import CubicSpline
 
 from galpy.util import conversion, coords
 
-from ..backend import coerce_coords, get_namespace, promote_scalars
+from ..backend import as_numpy, coerce_coords, get_namespace, promote_scalars
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.interpolate import Spline1D
 from .Potential import (
@@ -126,14 +126,21 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # in dVdv's R0/tan v, whose limit is finite)
             veval = numpy.copy(vgrid)
             veval[0] = 1e-9
-            uvals = [
-                numpy.array([float(func(x)) for x in ugrid])
-                for func in (self._U, self._dUdu, self._d2Udu2)
-            ]
-            vvals = [
-                numpy.array([float(func(x)) for x in veval])
-                for func in (self._V, self._dVdv, self._d2Vdv2)
-            ]
+            # numpy tabulates knot by knot (byte-identical tables); a backend
+            # makes one array call per table, not one eager dispatch chain per
+            # knot (minutes under jax at ntab=3000)
+            if (_pot_backend_namespace(self._pot) or get_namespace(ugrid)) is numpy:
+
+                def _tabulate(func, grid):
+                    return numpy.array([float(func(x)) for x in grid])
+
+            else:
+
+                def _tabulate(func, grid):
+                    return numpy.array(as_numpy(func(grid)), dtype=float)
+
+            uvals = [_tabulate(f, ugrid) for f in (self._U, self._dUdu, self._d2Udu2)]
+            vvals = [_tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
             # raw (grid, values) tables; the C side builds natural cubic
             # splines from these with the house GSL 1D machinery at parse time
             tab = [float(self._ntab)]
