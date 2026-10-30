@@ -176,6 +176,9 @@ jobs:
           - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 3 --durations-path tests/.test_orbit_durations
           - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 4 --durations-path tests/.test_orbit_durations
           - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 5 --durations-path tests/.test_orbit_durations
+          # build.yml runs these two in its orbit shard; here they get their own
+          # so the orbit groups' committed durations file stays balanced.
+          - tests/test_symplectic_dxdv.py tests/test_linear_dxdv.py
           - tests/test_evolveddiskdf.py
           - tests/test_jeans.py tests/test_dynamfric.py tests/test_FDMdynamfric.py
           - tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
