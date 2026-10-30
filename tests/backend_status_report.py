@@ -24,7 +24,7 @@ and a *sanitized shard id* derived from the matrix ``TEST_FILES`` string via
     backend-junit-torch-test_orbit_subset_main.xml
 
 This script independently computes the SAME sanitized ids from its own canonical
-copy of the 14 shards (``SHARDS`` below -- kept in sync with the workflow
+copy of the 15 shards (``SHARDS`` below -- kept in sync with the workflow
 matrix), so it can map each XML back to a (backend, shard) cell and, crucially,
 show a shard that produced NO xml as "-- (no result)" instead of crashing.
 
@@ -72,7 +72,7 @@ from dataclasses import dataclass
 # ledger accounting below lines up with them.
 BACKENDS = ["jax", "torch", "jax-jit", "torch-jit"]
 
-# Canonical list of the 14 TEST_FILES shards, in matrix order, each with a
+# Canonical list of the 15 TEST_FILES shards, in matrix order, each with a
 # short human-readable label for the table rows. MUST stay in sync with the
 # backend-suite matrix in .github/workflows/backend-tests.yml -- the raw string
 # is what the workflow feeds to shard_id() to name the junit file, and the label
@@ -111,6 +111,10 @@ SHARDS = [
         "-k 'not test_energy_jacobi_conservation'",
         "orbit + orbits (main)",
     ),
+    (
+        "tests/test_symplectic_dxdv.py tests/test_linear_dxdv.py",
+        "symplectic + linear dxdv",
+    ),
     ("tests/test_evolveddiskdf.py", "evolveddiskdf"),
     (
         "tests/test_jeans.py tests/test_dynamfric.py tests/test_FDMdynamfric.py",
@@ -136,7 +140,7 @@ SHARDS = [
 def shard_id(test_files: str) -> str:
     """Sanitize a TEST_FILES matrix string into a stable artifact-safe id.
 
-    Deterministic and collision-free across the 14 shards: take the basenames of
+    Deterministic and collision-free across the 15 shards: take the basenames of
     the .py files in order (dropping the ``tests/`` prefix and ``.py`` suffix),
     join the first few with ``_``, and append a short tag for any ``-k`` subset
     so the two test_orbit.py shards get distinct ids. The result contains only
