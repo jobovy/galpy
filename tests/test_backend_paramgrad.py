@@ -500,6 +500,21 @@ def test_parameter_cache_invalidated_by_normalize():
     )
 
 
+def test_parameter_cache_not_written_on_a_function():
+    # interpSphericalPotential(rforce=<function>) asks a plain function: no flag
+    # on it (torch < 2.15 cannot compile that write: kingdf under torch.compile)
+    from galpy.backend._input import PARAM_CACHE_ATTR, _grad_param
+
+    def rforce(r):
+        return -1.0 / r**2
+
+    assert _grad_param(rforce) is None
+    assert PARAM_CACHE_ATTR not in rforce.__dict__
+    pot = PlummerPotential(amp=1.0, b=0.7)
+    assert _grad_param(pot) is None
+    assert pot.__dict__[PARAM_CACHE_ATTR] is False
+
+
 def test_parameter_cache_is_not_part_of_the_jit_key():
     # the cache is derived from the attributes the jit static key already holds:
     # setting it must not change the key (that would retrace once per object)

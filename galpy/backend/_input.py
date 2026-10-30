@@ -34,6 +34,7 @@
 #   that break when their coordinates arrive as jax/torch arrays).
 ###############################################################################
 import inspect
+import types
 from contextlib import nullcontext
 from functools import wraps
 
@@ -105,7 +106,8 @@ def _grad_param(target):
         if d.get(PARAM_CACHE_ATTR) is False:
             return None
         p = param_grad_array(target, any_backend=True)
-        if p is None:
+        # not on a user's function (torch < 2.15 cannot compile that write)
+        if p is None and type(target) is not types.FunctionType:
             d[PARAM_CACHE_ATTR] = False
         return p
     if isinstance(target, (list, tuple)):

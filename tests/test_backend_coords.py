@@ -944,7 +944,7 @@ def test_align_to_orbit_grad_vs_fd(backend_name):
     if backend_name == "jax":
         jac = numpy.asarray(jax.jacfwd(f)(jnp.asarray(x0)))
     else:
-        jac = torch.autograd.functional.jacobian(f, torch.tensor(x0)).numpy()
+        jac = as_numpy(torch.autograd.functional.jacobian(f, torch.tensor(x0)))
     h = 1e-6
     for ii in range(6):
         e = numpy.zeros(6)

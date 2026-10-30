@@ -850,7 +850,7 @@ def test_call_marginalize_grad_vs_fd(backend, marg, phi):
             out = f(xt)
             assert is_backend_array(out) and out.requires_grad
             (g,) = torch.autograd.grad(out.reshape(()), xt)
-            g = g.numpy()
+            g = as_numpy(g)
             val = lambda x: float(f(torch.tensor(x)))
         h = 1e-5
         fd = numpy.array(

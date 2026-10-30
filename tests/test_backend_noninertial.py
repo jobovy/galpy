@@ -463,7 +463,12 @@ def test_numpy_integrator_with_backend_frequencies(backend_name):
         MWPotential2014 + NonInertialFrameForce(Omega=_scalar(backend_name, om)),
         "odeint",
     )
+    # a GPU's force arithmetic differs in the last digits (jax: 2.2e-14)
+    on_gpu = backend_name == "jax" and jax.default_backend() == "gpu"
     for a in ("R", "vR", "vT", "z", "vz", "phi"):
         numpy.testing.assert_allclose(
-            as_numpy(getattr(o, a)(ts)), getattr(ref, a)(ts), rtol=1e-14, atol=0.0
+            as_numpy(getattr(o, a)(ts)),
+            getattr(ref, a)(ts),
+            rtol=1e-13 if on_gpu else 1e-14,
+            atol=0.0,
         )
