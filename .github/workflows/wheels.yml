@@ -1,10 +1,12 @@
 name: Wheel builder and uploader
 
-# Update on every push and PR to main, and upon release creation
+# Update on every push and PR to main, every push to v2 (so the v2 wheels are
+# built and tested before a pre-release tag), and upon release creation
 on:
   push:
     branches:
       - main
+      - v2
     paths:
       - '**'
       - '!*'
@@ -36,7 +38,6 @@ jobs:
         - [macos-15, macosx, arm64]
         - [windows-2025, win, amd64]
         python:
-        - ["cp310","3.10"]
         - ["cp311","3.11"]
         - ["cp312","3.12"]
         - ["cp313","3.13"]
@@ -102,7 +103,6 @@ jobs:
             - [macos-15, macosx, arm64]
             - [windows-2025, win, amd64]
           python:
-            - ["cp310","3.10"]
             - ["cp311","3.11"]
             - ["cp312","3.12"]
             - ["cp313","3.13"]

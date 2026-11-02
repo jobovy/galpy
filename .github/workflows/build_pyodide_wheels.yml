@@ -101,7 +101,8 @@ jobs:
 # Upload to AWS S3
   deploy_s3:
     name: Upload to AWS S3
-    if: (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'created')
+    # Pre-releases (2.0.0bN/rcN from v2) must not overwrite the 'latest' pyodide wheels
+    if: (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'created' && !github.event.release.prerelease)
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:

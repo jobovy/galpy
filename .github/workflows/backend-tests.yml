@@ -9,15 +9,15 @@ name: All-backend tests
 # so the numpy CI is byte-for-byte untouched.
 #
 # Triggers / gating (deliberately NOT every push/PR in the repo):
-#   * push to feat/backends                -> FULL matrix (backend-suite)
-#   * schedule (weekly cron)               -> FULL matrix (backend-suite)
-#   * workflow_dispatch (regen toggle)     -> FULL matrix (backend-suite)
-#   * pull_request targeting feat/backends -> FULL matrix (backend-suite)
+#   * push to v2                 -> FULL matrix (backend-suite)
+#   * schedule (weekly cron)     -> FULL matrix (backend-suite)
+#   * workflow_dispatch (regen)  -> FULL matrix (backend-suite)
+#   * pull_request targeting v2  -> FULL matrix (backend-suite)
 #     so a sub-PR into the integration branch gets the COMPLETE per-file x
 #     backend table before merge (this is what populates the status report on a
 #     PR). The full matrix is gated with a job-level `if` so that even though the
 #     workflow fires on pull_request, the suite ONLY runs for PRs whose BASE is
-#     feat/backends (and only on push/schedule/dispatch otherwise).
+#     v2 (and only on push/schedule/dispatch otherwise).
 #
 # The `report` job (needs backend-suite, if: !cancelled()) downloads every shard's
 # JUnit XML artifact, renders a per-file x backend markdown status table via
@@ -35,19 +35,12 @@ on:
     # event, once as a pull_request event, both attaching their checks to that
     # PR). Same reasoning, and the same fix, as build.yml's push filter.
     branches:
-      - feat/backends
-      - feat/backends-develop
+      - v2
   pull_request:
     # Only sub-PRs that TARGET an integration branch, so they get the full
     # per-file backend table before merge -- NOT every PR in the repo.
-    # feat/backends-develop is where the backend work now accumulates before
-    # being reviewed and rebased onto feat/backends; without it here a PR based
-    # there would run the numpy matrix and all-clear but NOT this suite, i.e.
-    # the jax/torch dimension would go unverified on exactly the branch whose
-    # whole purpose is that dimension.
     branches:
-      - feat/backends
-      - feat/backends-develop
+      - v2
       # any backend working branch / stack (push runs the suite;
       # a sub-PR whose BASE is a backend/** stack branch runs it too)
       - backend/**
@@ -89,13 +82,12 @@ jobs:
   # now-passing tests -- is done by the scheduled regen run, which rewrites the
   # ledger from real (no-xfail) outcomes.
   #
-  # GATED to run on push-to-feat/backends, the weekly schedule, a manual
-  # workflow_dispatch, OR a pull_request whose BASE is feat/backends (so a sub-PR
+  # GATED to run on push-to-v2, the weekly schedule, a manual
+  # workflow_dispatch, OR a pull_request whose BASE is v2 (so a sub-PR
   # into the integration branch gets the full per-file table before merge).
-  # Because the whole workflow only fires for feat/backends and
-  # feat/backends-develop (push/PR branch filters above), it never runs on
-  # ordinary pushes/PRs elsewhere in the repo; the job-level `if` additionally
-  # pins the PR case to those two base branches.
+  # Because the whole workflow only fires for v2 and backend/** (push/PR
+  # branch filters above), it never runs on ordinary pushes/PRs elsewhere in
+  # the repo; the job-level `if` additionally pins the PR case to those bases.
   backend-suite:
     # The -jit suffix keeps the traced half of the matrix distinguishable from
     # the eager half in the checks list and in the status report.
@@ -111,11 +103,9 @@ jobs:
       github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push'
-          && (github.ref == 'refs/heads/feat/backends'
-              || github.ref == 'refs/heads/feat/backends-develop'))
+          && github.ref == 'refs/heads/v2')
       || (github.event_name == 'pull_request'
-          && (github.base_ref == 'feat/backends'
-              || github.base_ref == 'feat/backends-develop'
+          && (github.base_ref == 'v2'
               || startsWith(github.base_ref, 'backend/')
               || startsWith(github.head_ref, 'backend/')))
     strategy:
@@ -530,31 +520,11 @@ jobs:
         name: backend-status-report
         path: status.md
         if-no-files-found: warn
-    - name: Sticky PR comment (sub-PR targeting feat/backends)
+    - name: Sticky PR comment (sub-PR targeting v2)
       # Overwrites the previous comment on re-runs via the fixed header marker,
       # so a PR keeps exactly one always-current backend-status comment.
       if: ${{ github.event_name == 'pull_request' }}
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: backend-status
-        path: status.md
-    - name: Resolve the integration PR (feat/backends -> main)
-      # On a push to feat/backends the run has no PR context, so look up the
-      # open integration PR (head feat/backends, base main) to comment on it --
-      # WITHOUT adding a pull_request trigger for base main (that would make
-      # pushes to feat/backends run the suite twice).
-      id: intpr
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/backends' }}
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        num=$(gh pr list --repo "$GITHUB_REPOSITORY" --head feat/backends --base main \
-              --state open --json number --jq '.[0].number // empty')
-        echo "number=$num" >> "$GITHUB_OUTPUT"
-    - name: Sticky comment on the integration PR (push to feat/backends)
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/backends' && steps.intpr.outputs.number != '' }}
-      uses: marocchino/sticky-pull-request-comment@v2
-      with:
-        header: backend-status
-        number: ${{ steps.intpr.outputs.number }}
         path: status.md
