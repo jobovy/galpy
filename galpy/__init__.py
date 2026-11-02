@@ -1,4 +1,4 @@
-__version__ = "1.12.1"
+__version__ = "1.12.2.dev0"
 # Check whether a new version is available
 import datetime
 import http.client
