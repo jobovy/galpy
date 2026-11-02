@@ -17,7 +17,7 @@ TL;DR
 
             python -m pip install --only-binary galpy galpy
 
-        This should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        This should install a fully-working version of galpy for Python versions >=3.11. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Mac
 
@@ -29,7 +29,7 @@ TL;DR
 
             conda install -c conda-forge gsl galpy
 
-        These should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        These should install a fully-working version of galpy for Python versions >=3.11. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Windows
 
@@ -59,7 +59,7 @@ Optional dependencies are:
   * ``tqdm`` for displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once)
   * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
   * ``numba`` for speeding up the evaluation of certain functions when using C orbit integration,
-  * ``JAX`` or ``PyTorch``, together with ``array-api-compat`` (the backend-dispatch engine), for use of constant-anisotropy DFs in ``galpy.df.constantbetadf`` and galpy's other differentiable array backends — most easily installed with ``pip install galpy[jax]`` or ``pip install galpy[torch]``, which pull in both, and
+  * ``JAX`` or ``PyTorch``, together with ``array-api-compat`` (the backend-dispatch engine), for use of constant-anisotropy DFs in ``galpy.df.constantbetadf`` and galpy's other differentiable array backends — most easily installed with ``pip install --pre "galpy[jax]"`` or ``pip install --pre "galpy[torch]"`` (``--pre`` while galpy 2.0 is in beta), which pull in both, and
   * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 .. _detailed_installation:
@@ -128,6 +128,8 @@ If you are reading this, either the simple installation instructions at the top 
         relevant environment variables, and then install from source using::
 
             python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+
+        (append ``@v2`` to the URL, before ``#egg``, for the galpy 2.0 development branch).
 
         You can also download the source code or clone the repository, navigate to the
         top-level directory, and install using::
@@ -582,7 +584,7 @@ currently used:
 
           * To set options related to whether or not to check for new versions of galpy (``do-check= False`` turns all such checks off; ``check-non-interactive`` sets whether or not to do the version check in non-interactive (script) sessions; ``check-non-interactive`` sets the cadence of how often to check for version updates in non-interactive sessions [in days; interactive sessions always check]; ``last-non-interactive-check`` is an internal variable to store when the last check occurred)
 
-          * To set the default array backend (``default = numpy``, the standard numpy/scipy code path). ``galpy`` resolves the backend by following the data — passing JAX or PyTorch arrays makes ``galpy`` compute (and differentiate) with that backend automatically — so this default only applies when there is no array to dispatch on. It can be set to ``jax`` or ``torch`` to make those the default (this requires the corresponding optional dependency, installable with ``pip install galpy[jax]`` or ``pip install galpy[torch]``); at runtime it can be overridden with the ``galpy.backend.use(...)`` context manager. With ``default = numpy`` (the default) there is no change to the numpy behavior and no extra dependency is needed.
+          * To set the default array backend (``default = numpy``, the standard numpy/scipy code path). ``galpy`` resolves the backend by following the data — passing JAX or PyTorch arrays makes ``galpy`` compute (and differentiate) with that backend automatically — so this default only applies when there is no array to dispatch on. It can be set to ``jax`` or ``torch`` to make those the default (this requires the corresponding optional dependency, installable with ``pip install --pre "galpy[jax]"`` or ``pip install --pre "galpy[torch]"``); at runtime it can be overridden with the ``galpy.backend.use(...)`` context manager. With ``default = numpy`` (the default) there is no change to the numpy behavior and no extra dependency is needed.
 
 The current configuration file therefore looks like this::
 

@@ -1,3 +1,21 @@
+v2.0.0b1 (pre-release)
+======================
+
+Based on v1.12.1: includes every change through 1.12.1.
+
+- Python 3.10 is no longer supported (galpy 1.x keeps it); galpy 2.x
+  requires Python >= 3.11.
+
+- Array backends: galpy runs natively on JAX and PyTorch arrays
+  (``galpy.backend``), differentiable end to end (potentials, orbits,
+  action-angle, distribution functions), with jax.jit / torch.compile and GPU
+  support. Install with ``pip install --pre "galpy[jax]"`` or
+  ``pip install --pre "galpy[torch]"``. [Jo: expand]
+
+- ``TruncatedNFWPotential`` and ``TruncatedHernquistPotential`` run on the JAX
+  and PyTorch backends, differentiable with respect to ``a``, ``rc`` and the
+  tabulated ``rc(t)`` values.
+
 v1.12.1 (2026-11-02)
 ====================
 

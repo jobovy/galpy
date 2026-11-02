@@ -1,4 +1,4 @@
-__version__ = "1.12.1"
+__version__ = "2.0.0b1.dev0"
 # Check whether a new version is available
 import datetime
 import http.client
@@ -39,8 +39,12 @@ def latest_pypi_version(name):
         latest_version = latest_version[latest_version.find("(from versions:") + 15 :]
         latest_version = latest_version[: latest_version.find(")")]
         latest_version = latest_version.replace(" ", "").split(",")
-        # Remove any pre-releases
-        latest_version = [v for v in latest_version if not Version(v).is_prerelease]
+        # Remove any pre-releases, unless running one (2.0.0bN users hear of bN+1)
+        latest_version = [
+            v
+            for v in latest_version
+            if Version(__version__).is_prerelease or not Version(v).is_prerelease
+        ]
         # Latest is now the final one
         latest_version = latest_version[-1]
     except Exception:  # pragma: no cover
