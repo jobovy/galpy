@@ -122,7 +122,9 @@ If you are reading this, either the simple installation instructions at the top 
         to install the latest bleeding-edge version, you have two options. If the
         installation in the :ref:`tldr_installation` works for you, you can install using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy "galpy<2"
+
+        (``"galpy<2"``: without it, ``--pre`` picks the galpy 2.0 pre-release from PyPI.)
 
         If this doesn't work, follow the steps above to install the GSL, define the
         relevant environment variables, and then install from source using::
@@ -187,7 +189,9 @@ If you are reading this, either the simple installation instructions at the top 
         to install the latest bleeding-edge version, you have two options. If the
         installation in the :ref:`tldr_installation` works for you, you can install using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy "galpy<2"
+
+        (``"galpy<2"``: without it, ``--pre`` picks the galpy 2.0 pre-release from PyPI.)
 
         If this doesn't work, follow the steps above to install the GSL and OpenMP,
         define the relevant environment variables, and then install from source using::
@@ -242,7 +246,9 @@ If you are reading this, either the simple installation instructions at the top 
 
         With the GSL set up, you can then install a binary wheel of ``galpy`` using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy "galpy<2"
+
+        (``"galpy<2"``: without it, ``--pre`` picks the galpy 2.0 pre-release from PyPI.)
 
         You can also compile from source using::
 
