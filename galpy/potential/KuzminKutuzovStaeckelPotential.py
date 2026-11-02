@@ -8,8 +8,7 @@
 ###############################################################################
 import numpy
 
-from ..util import conversion  # for prolate spherical coordinate transforms
-from ..util import coords
+from ..util import conversion, coords  # for prolate spherical coordinate transforms
 from .Potential import Potential
 
 
