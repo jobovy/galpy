@@ -39,11 +39,13 @@ def latest_pypi_version(name):
         latest_version = latest_version[latest_version.find("(from versions:") + 15 :]
         latest_version = latest_version[: latest_version.find(")")]
         latest_version = latest_version.replace(" ", "").split(",")
-        # Remove any pre-releases, unless running one (2.0.0bN users hear of bN+1)
+        # Remove any pre-releases, unless running one (2.0.0bN users hear of bN+1);
+        # Version(v) first, so unparsable pip output raises into the except
+        running_prerelease = Version(__version__).is_prerelease
         latest_version = [
             v
             for v in latest_version
-            if Version(__version__).is_prerelease or not Version(v).is_prerelease
+            if not Version(v).is_prerelease or running_prerelease
         ]
         # Latest is now the final one
         latest_version = latest_version[-1]
