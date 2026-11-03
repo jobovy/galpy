@@ -168,10 +168,9 @@ class planarForce:
         - 2024-11-27 - Updated to return planarCompositePotential - Copilot
 
         """
-        from ..potential import flatten as flatten_pot
         from .planarCompositePotential import planarCompositePotential
 
-        if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
+        if not isinstance(b, (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Potential"""
                 """/planarPotential objects with """
@@ -187,16 +186,13 @@ class planarForce:
 
     # Define separately to catch errors
     def __radd__(self, b):
-        from ..potential import flatten as flatten_pot
-        from .planarCompositePotential import planarCompositePotential
-
-        if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
-            raise TypeError(
-                """Can only combine galpy Force objects with """
-                """other Force objects or combinations thereof"""
-            )
-
-        # Can't add anything that isn't handled elsewhere, so no further code here
+        # Only way to get here is in a situation that isn't supported: adding a
+        # planarForce to something that is not a Force or similar itself, which
+        # all implement __add__
+        raise TypeError(
+            """Can only combine galpy Force objects with """
+            """other Force objects or combinations thereof"""
+        )
 
     def turn_physical_off(self):
         """

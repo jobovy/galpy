@@ -619,15 +619,12 @@ def test_augmented_stm_batch_shape():
     numpy.testing.assert_allclose(M, Mr, rtol=1e-6, atol=1e-7)
 
 
-@pytest.mark.filterwarnings("ignore:Passing a list of potentials")
 def test_augmented_stm_dissipative():
     # dissipative (velocity-dependent) C-STM: the rect jac_x/jac_v blocks must be
     # applied to ALL six columns. Parity vs the loop + FD-of-flow with friction.
     from galpy.potential import ChandrasekharDynamicalFrictionForce
 
-    pot = list(MWPotential2014) + [
-        ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1)
-    ]
+    pot = MWPotential2014 + ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1)
     ic = numpy.array([1.2, 0.05, 0.9, 0.1, 0.05, 1.0])
     ts = numpy.linspace(0.0, 2.0, 30)
     xa, Ma = c_stm_forward(pot, ic, ts, "dop853_c", 1e-11, 1e-11)

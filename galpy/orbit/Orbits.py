@@ -58,6 +58,7 @@ from ..backend.special import logsumexp as _backend_logsumexp
 from ..potential import (
     _INF,
     CompositePotential,
+    Force,
     LcE,
     PotentialError,
     _isNonAxi,
@@ -65,7 +66,9 @@ from ..potential import (
     evaluateplanarPotentials,
     evaluatePotentials,
     linearCompositePotential,
+    linearPotential,
     planarCompositePotential,
+    planarForce,
     rE,
     rl,
     toPlanarPotential,
@@ -1847,7 +1850,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The gravitational potential(s).
         r_init : float
             Initial spherical radius.
@@ -1926,7 +1929,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The gravitational potential(s).
         N_tdyn : int, optional
             Number of dynamical times to integrate (can be negative for backward integration).
@@ -2039,8 +2042,7 @@ class Orbit:
         if method.lower() in ("diffrax", "torchdiffeq", "torchode") or (
             method.lower() in _INBACKEND_SYMPLECTIC
         ):
-            # the same list -> CompositePotential conversion (and deprecation
-            # warning) every other method gets below
+            # the same list check every other method gets below
             pot = _check_potential_list_and_deprecate(pot)
             if _APY_LOADED and isinstance(dt, units.Quantity):
                 dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
@@ -2927,7 +2929,8 @@ class Orbit:
     @integrate.register(list)
     def _(
         self,
-        pot,
+        t,
+        pot=None,
         method="symplec4_c",
         progressbar=True,
         dt=None,
@@ -2937,13 +2940,12 @@ class Orbit:
         atol=None,
         inbackend_kwargs=None,
     ):
-        """Handle deprecated list of potentials (auto-time with default 10 tdyn)."""
-        # Lists can only contain potentials (deprecated syntax)
-        # This will trigger deprecation warning in _integrate_impl via
-        # _check_potential_list_and_deprecate
-        t_array = self._generate_auto_time_array(pot, N_tdyn=10)
+        """A list of times, integrated as an array would be (a list of
+        potentials raises a TypeError)."""
+        if t and isinstance(t[0], (Force, planarForce, linearPotential, list)):
+            _check_potential_list_and_deprecate(t)
         return self._integrate_impl(
-            t_array,
+            t,
             pot,
             method,
             progressbar,

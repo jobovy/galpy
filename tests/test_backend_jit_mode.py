@@ -87,9 +87,7 @@ def test_jax_traces_with_an_unhashable_static():
     """A composite potential is a STATIC argument and is unhashable, which
     plain jax.jit rejects -- traced_call keys it structurally instead.
 
-    Built with ``+`` rather than as a list: both are unhashable, so either
-    exercises the same path, but passing a list is deprecated and the coverage
-    shard runs with -W error::DeprecationWarning.
+    Built with ``+`` (lists of potentials are no longer supported).
     """
     pot = MiyamotoNagaiPotential(normalize=1.0) + LogarithmicHaloPotential(
         normalize=1.0

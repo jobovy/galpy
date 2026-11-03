@@ -46,12 +46,7 @@ class parentWrapperPotential:
             # When we get here recursively, just create new object
             return object.__new__(cls)
         # Decide whether superclass is Wrapper or planarWrapper based on dim
-        pot = kwargs.get("pot", None)
-        if isinstance(pot, list):
-            # Upgrade deprecated list input to a CompositePotential
-            # (emits a DeprecationWarning)
-            pot = _check_potential_list_and_deprecate(pot)
-            kwargs["pot"] = pot
+        pot = _check_potential_list_and_deprecate(kwargs.get("pot", None))
         if _dim(pot) == 2:
             parentWrapperPotential = planarWrapperPotential
         elif _dim(pot) == 3:
@@ -115,12 +110,11 @@ class WrapperPotential(Potential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
-        # Upgrade deprecated list input to a CompositePotential (emits a
-        # DeprecationWarning); no-op for non-list input
+        # A list raises a TypeError (combine potentials with + instead)
         self._pot = _check_potential_list_and_deprecate(pot)
         # Check that we are not wrapping a non-potential Force object
         if (
-            isinstance(self._pot, (CompositePotential, list))
+            isinstance(self._pot, CompositePotential)
             and any(
                 [
                     isinstance(p, Force) and not isinstance(p, Potential)
@@ -147,15 +141,10 @@ class WrapperPotential(Potential):
 
     def __repr__(self):
         # Get base potential representation
-        if isinstance(self._pot, list):  # pragma: no cover
-            base_repr = "of list of potentials"
-        else:
-            base_repr_full = repr(self._pot)
-            # Remove physical output info from nested representation
-            base_repr_full = _strip_physical_output_info(base_repr_full)
-            base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in base_repr_full.split("\n")]
-            )
+        base_repr_full = repr(self._pot)
+        # Remove physical output info from nested representation
+        base_repr_full = _strip_physical_output_info(base_repr_full)
+        base_repr = "of " + "".join([f"\n\t{s}" for s in base_repr_full.split("\n")])
 
         # Build own parameter string (excluding pot, ro, vo, _init)
         # Factory-created wrapper instance classes carry a leading underscore
@@ -280,8 +269,7 @@ class planarWrapperPotential(planarPotential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
-        # Upgrade deprecated list input to a CompositePotential (emits a
-        # DeprecationWarning); no-op for non-list input
+        # A list raises a TypeError (combine potentials with + instead)
         self._pot = _check_potential_list_and_deprecate(pot)
         self.isNonAxi = _isNonAxi(self._pot)
         # Check whether units are consistent between the wrapper and the
@@ -299,15 +287,10 @@ class planarWrapperPotential(planarPotential):
 
     def __repr__(self):
         # Get base potential representation
-        if isinstance(self._pot, list):  # pragma: no cover
-            base_repr = "of list of potentials"
-        else:
-            base_repr_full = repr(self._pot)
-            # Remove physical output info from nested representation
-            base_repr_full = _strip_physical_output_info(base_repr_full)
-            base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in base_repr_full.split("\n")]
-            )
+        base_repr_full = repr(self._pot)
+        # Remove physical output info from nested representation
+        base_repr_full = _strip_physical_output_info(base_repr_full)
+        base_repr = "of " + "".join([f"\n\t{s}" for s in base_repr_full.split("\n")])
 
         # Build own parameter string (excluding pot, ro, vo, _init)
         # Factory-created wrapper instance classes carry a leading underscore

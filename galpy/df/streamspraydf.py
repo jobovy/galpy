@@ -46,7 +46,6 @@ class basestreamspraydf(df):
         rtpot=None,
         tdisrupt=None,
         stripping_pdf=None,
-        leading=None,
         tail=None,
         center=None,
         centerpot=None,
@@ -72,8 +71,6 @@ class basestreamspraydf(df):
             Time since start of disruption. Default is 5 Gyr.
         stripping_pdf : callable, optional
             Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]`` (``t=0`` is the present, ``t<0`` the past). Must accept a 1D array (or scalar) and return a 1D array (or scalar) of the same length. Both input and output may be astropy ``Quantity`` (input a time, output a 1/time); detection mirrors :class:`galpy.potential.AnyAxisymmetricRazorThinDiskPotential`. The PDF need not be normalized. Default is None (uniform stripping over ``[-tdisrupt, 0]``).
-        leading : bool, optional
-            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
             Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
@@ -105,20 +102,6 @@ class basestreamspraydf(df):
             if vo is None and progenitor._voSet:
                 vo = progenitor._vo
         super().__init__(ro=ro, vo=vo)
-        # Handle leading= deprecation
-        if leading is not None:
-            warnings.warn(
-                "The leading= keyword is deprecated since v1.12 and will be "
-                "removed in v1.14. Use tail= instead: tail='leading' or "
-                "tail='trailing'.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            if tail is not None:
-                raise ValueError(
-                    "Cannot specify both leading= and tail=. Use tail= only."
-                )
-            tail = "leading" if leading else "trailing"
         if tail is None:
             tail = "leading"
         if tail not in ("leading", "trailing", "both"):
@@ -1449,7 +1432,6 @@ class chen24spraydf(basestreamspraydf):
         rtpot=None,
         tdisrupt=None,
         stripping_pdf=None,
-        leading=None,
         tail=None,
         center=None,
         centerpot=None,
@@ -1478,8 +1460,6 @@ class chen24spraydf(basestreamspraydf):
             Time since start of disruption. Default is 5 Gyr.
         stripping_pdf : callable, optional
             Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
-        leading : bool, optional
-            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
             Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
@@ -1508,7 +1488,6 @@ class chen24spraydf(basestreamspraydf):
             rtpot=rtpot,
             tdisrupt=tdisrupt,
             stripping_pdf=stripping_pdf,
-            leading=leading,
             tail=tail,
             center=center,
             centerpot=centerpot,
@@ -1610,7 +1589,6 @@ class fardal15spraydf(basestreamspraydf):
         rtpot=None,
         tdisrupt=None,
         stripping_pdf=None,
-        leading=None,
         tail=None,
         center=None,
         centerpot=None,
@@ -1639,8 +1617,6 @@ class fardal15spraydf(basestreamspraydf):
             Time since start of disruption. Default is 5 Gyr.
         stripping_pdf : callable, optional
             Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
-        leading : bool, optional
-            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
             Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
@@ -1670,7 +1646,6 @@ class fardal15spraydf(basestreamspraydf):
             rtpot=rtpot,
             tdisrupt=tdisrupt,
             stripping_pdf=stripping_pdf,
-            leading=leading,
             tail=tail,
             center=center,
             centerpot=centerpot,

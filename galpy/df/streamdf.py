@@ -301,8 +301,6 @@ class streamdf(df):
         progIsTrack=False,
         ro=None,
         vo=None,
-        Vnorm=None,
-        Rnorm=None,
         R0=None,
         Zsun=None,
         vsun=None,
@@ -314,7 +312,6 @@ class streamdf(df):
         approxConstTrackFreq=False,
         useTMHessian=False,
         custom_sky_transform=None,
-        custom_transform=None,
     ):
         """
         Initialize the DF of a tidal stream
@@ -351,10 +348,6 @@ class streamdf(df):
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
             Velocity scale for translation into internal units (default from configuration file).
-        Vnorm : float or Quantity, optional
-            Deprecated. Use vo instead (default: None).
-        Rnorm : float or Quantity, optional
-            Deprecated. Use ro instead (default: None).
         R0 : float or Quantity, optional
             Galactocentric radius of the Sun (kpc) (can be different from ro) (default: 8.0).
         Zsun : float or Quantity, optional
@@ -377,8 +370,6 @@ class streamdf(df):
             If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
         custom_sky_transform : numpy.ndarray, optional
             3x3 rotation matrix from (ra,dec) to a custom (phi1,phi2) sky frame. Enables the `phi1`/`phi2`/`pmphi1`/`pmphi2` accessors on `streamTrack()` (introduced in PR #878) and the `customsky` cov basis (default: None).
-        custom_transform : numpy.ndarray, optional
-            Deprecated alias for `custom_sky_transform`. Deprecated since v1.12 and will be removed in v1.14.
 
         Notes
         -----
@@ -387,38 +378,6 @@ class streamdf(df):
 
         - The stream track can be set up in a differentiable, jax/torch-native way by passing the progenitor phase-space coordinates as a jax or torch array: the action-angle Jacobian (``calcaAJac``) is then computed with exact automatic differentiation instead of finite differences, and the whole track is differentiable with respect to the potential and progenitor parameters. A plain-numpy progenitor keeps the historical (byte-identical) finite-difference setup, except under a forced backend (``galpy.backend.use(..., force=True)``), which builds the whole stream on that backend.
         """
-        if custom_transform is not None:
-            warnings.warn(
-                "The custom_transform= keyword is deprecated since v1.12 "
-                "and will be removed in v1.14. Use custom_sky_transform= "
-                "instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            if custom_sky_transform is not None:
-                raise ValueError(
-                    "Cannot specify both custom_transform= and "
-                    "custom_sky_transform=. Use custom_sky_transform= only."
-                )
-            custom_sky_transform = custom_transform
-        if Rnorm is not None:
-            warnings.warn(
-                "The Rnorm= keyword is deprecated since v1.12 and will be "
-                "removed in v1.14. Use ro= instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            if ro is None:
-                ro = Rnorm
-        if Vnorm is not None:
-            warnings.warn(
-                "The Vnorm= keyword is deprecated since v1.12 and will be "
-                "removed in v1.14. Use vo= instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            if vo is None:
-                vo = Vnorm
         df.__init__(self, ro=ro, vo=vo)
         sigv = conversion.parse_velocity(sigv, vo=self._vo)
         self._sigv = sigv
@@ -2125,8 +2084,7 @@ class streamdf(df):
         self._allErrCovsLocalXY, self._interpolatedAllErrCovsLocalXY = (
             self._cart_and_interp_cov(allErrCovsLocal)
         )
-        # Also interpolate in l and b coordinates (legacy LB pipeline, used by
-        # the deprecated calc_stream_lb path).
+        # Also interpolate in l and b coordinates (legacy LB pipeline)
         self._determine_stream_spreadLB(simple=simple)
         return None
 
@@ -2710,49 +2668,8 @@ class streamdf(df):
             return x
         return as_backend_constant(namespace_from_arrays((trk,)), x, trk)
 
-    def calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):
-        """
-        Convert the stream track to observational coordinates and store
-
-        .. deprecated:: 1.12
-           Use :meth:`streamTrack` and the resulting ``track.ll(tp)``,
-           ``track.bb(tp)``, ``track.dist(tp)``, ``track.vlos(tp)``,
-           ``track.pmll(tp)``, ``track.pmbb(tp)`` accessors, or
-           ``track.cov(tp, basis="galsky")`` for sky-coordinate
-           covariances. Will be removed in v1.14.
-
-        Parameters
-        ----------
-        ro : float or Quantity, optional
-            Distance scale for translation into internal units (object-wide default.
-        vo : float or Quantity, optional
-            Velocity scale for translation into internal units (object-wide default.
-        R0 : float or Quantity, optional
-            Distance to the Galactic center  (object-wide default.
-        Zsun : float or Quantity, optional
-            Distance to the Galactic plane  (object-wide default.
-        vsun : float or Quantity, optional
-            Velocity of the Sun  (object-wide default.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        - 2013-12-02 - Written - Bovy (IAS)
-        """
-        warnings.warn(
-            "calc_stream_lb is deprecated since v1.12 and will be removed "
-            "in v1.14. Use streamdf.streamTrack() and the ll/bb/dist/vlos/"
-            "pmll/pmbb accessors (or cov(basis='galsky')) instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self._calc_stream_lb(vo=vo, ro=ro, R0=R0, Zsun=Zsun, vsun=vsun)
-
     def _calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):
-        """Internal, non-deprecated body of :meth:`calc_stream_lb`."""
+        """Convert the stream track to (l,b,d,vlos,pmll,pmbb) (Galactic sky coordinates)."""
         if vo is None:
             vo = self._vo
         if ro is None:

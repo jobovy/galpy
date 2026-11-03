@@ -73,15 +73,10 @@ class verticalPotential(linearPotential):
 
     def __repr__(self):
         # Get base potential representation
-        if isinstance(self._Pot, list):  # pragma: no cover
-            base_repr = "of list of potentials"
-        else:
-            base_repr_full = repr(self._Pot)
-            # Remove physical output info from nested representation
-            base_repr_full = _strip_physical_output_info(base_repr_full)
-            base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in base_repr_full.split("\n")]
-            )
+        base_repr_full = repr(self._Pot)
+        # Remove physical output info from nested representation
+        base_repr_full = _strip_physical_output_info(base_repr_full)
+        base_repr = "of " + "".join([f"\n\t{s}" for s in base_repr_full.split("\n")])
 
         # Build physical output status string
         physical_str = _build_physical_output_string(self)

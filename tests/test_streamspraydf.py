@@ -1,5 +1,4 @@
 import copy
-import warnings
 
 import numpy
 import pytest
@@ -824,62 +823,6 @@ def test_tail_both_consistency():
         assert numpy.allclose(RvR_both[:, :25], RvR_l25), (
             f"tail='both' leading half does not match tail='leading' for {spraydfclass.__name__}"
         )
-    return None
-
-
-def test_leading_deprecation():
-    # Test that using leading= raises a FutureWarning
-
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    obs = Orbit(
-        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
-    )
-    ro, vo = 8.0, 220.0
-    for spraydfclass in [fardal15spraydf, chen24spraydf]:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            spdf = spraydfclass(
-                2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-                progenitor=obs,
-                pot=lp,
-                tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-                leading=True,
-            )
-        futurewarnings = [x for x in w if issubclass(x.category, FutureWarning)]
-        assert len(futurewarnings) == 1, (
-            f"Expected exactly one FutureWarning for {spraydfclass.__name__}"
-        )
-        assert "leading= keyword is deprecated" in str(futurewarnings[0].message), (
-            f"FutureWarning message incorrect for {spraydfclass.__name__}"
-        )
-        # Should still work correctly
-        RvR = spdf.sample(n=10, return_orbit=False, integrate=False)
-        assert RvR.shape[1] == 10, (
-            f"Deprecated leading= should still produce correct output for {spraydfclass.__name__}"
-        )
-    return None
-
-
-def test_leading_and_tail_error():
-    # Test that specifying both leading= and tail= raises an error
-
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    obs = Orbit(
-        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
-    )
-    ro, vo = 8.0, 220.0
-    for spraydfclass in [fardal15spraydf, chen24spraydf]:
-        with warnings.catch_warnings():
-            warnings.simplefilter("always")
-            with pytest.raises(ValueError, match="Cannot specify both"):
-                spraydfclass(
-                    2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-                    progenitor=obs,
-                    pot=lp,
-                    tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-                    leading=True,
-                    tail="trailing",
-                )
     return None
 
 

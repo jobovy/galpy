@@ -67,7 +67,7 @@ def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
 
     Parameters
     ----------
-    pot : Potential (or list)
+    pot : Potential
     vxvv : numpy.ndarray, shape (d,) or (N, d) with d in {6, 4, 2}: Orbit order
         [R,vR,vT,z,vz,phi] (3D), [R,vR,vT,phi] (planar), or [x,vx] (1D).
     ts : numpy.ndarray, shape (nt,), output times (ts[0] is the initial time).
@@ -234,7 +234,7 @@ def integrate_stm(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
 
     Parameters
     ----------
-    pot : Potential (or list).
+    pot : Potential.
     vxvv : backend array, (d,) or (N, d) with d in {6, 4, 2}: Orbit order
         [R,vR,vT,z,vz,phi] (3D), [R,vR,vT,phi] (planar), or [x,vx] (1D). Its
         namespace (jax/torch) selects the autodiff wrapper.

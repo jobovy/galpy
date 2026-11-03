@@ -176,10 +176,9 @@ class linearPotential:
         - 2024-12-01 - Updated to return linearCompositePotential
 
         """
-        from ..potential import flatten as flatten_pot
         from .linearCompositePotential import linearCompositePotential
 
-        if not isinstance(flatten_pot([b])[0], linearPotential):
+        if not isinstance(b, linearPotential):
             raise TypeError(
                 """Can only combine galpy linearPotential"""
                 """ objects with """

@@ -597,15 +597,10 @@ class planarPotentialFromRZPotential(planarAxiPotential):
 
     def __repr__(self):
         # Get base potential representation
-        if isinstance(self._Pot, list):  # pragma: no cover
-            base_repr = "of list of potentials"
-        else:
-            base_repr_full = repr(self._Pot)
-            # Remove physical output info from nested representation
-            base_repr_full = _strip_physical_output_info(base_repr_full)
-            base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in base_repr_full.split("\n")]
-            )
+        base_repr_full = repr(self._Pot)
+        # Remove physical output info from nested representation
+        base_repr_full = _strip_physical_output_info(base_repr_full)
+        base_repr = "of " + "".join([f"\n\t{s}" for s in base_repr_full.split("\n")])
 
         # Build physical output status string
         physical_str = _build_physical_output_string(self)
@@ -724,7 +719,7 @@ def RZToplanarPotential(RZPot):
                 out.append(planarPotentialFromRZPotential(pot))
             else:
                 raise PotentialError(
-                    "Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances"
+                    "Input to 'RZToplanarPotential' is neither an RZPotential instance nor a combination of such instances"
                 )
         # If we get a CompositePotential, always return a planarCompositePotential,
         # even if only one component
@@ -735,7 +730,7 @@ def RZToplanarPotential(RZPot):
         return RZPot
     else:
         raise PotentialError(
-            "Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances"
+            "Input to 'RZToplanarPotential' is neither an RZPotential instance nor a combination of such instances"
         )
 
 
@@ -783,15 +778,10 @@ class planarPotentialFromFullPotential(planarPotential):
 
     def __repr__(self):
         # Get base potential representation
-        if isinstance(self._Pot, list):  # pragma: no cover
-            base_repr = "of list of potentials"
-        else:
-            base_repr_full = repr(self._Pot)
-            # Remove physical output info from nested representation
-            base_repr_full = _strip_physical_output_info(base_repr_full)
-            base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in base_repr_full.split("\n")]
-            )
+        base_repr_full = repr(self._Pot)
+        # Remove physical output info from nested representation
+        base_repr_full = _strip_physical_output_info(base_repr_full)
+        base_repr = "of " + "".join([f"\n\t{s}" for s in base_repr_full.split("\n")])
 
         # Build physical output status string
         physical_str = _build_physical_output_string(self)
@@ -1005,7 +995,7 @@ def toPlanarPotential(Pot):
                 # Can't get here, because there can't be something that's not a proper
                 # potential/force in a CompositePotential, but leaving it in case this ever changes
                 raise PotentialError(
-                    "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
+                    "Input to 'toPlanarPotential' is neither a Potential instance nor a combination of such instances"
                 )
         # If we get a CompositePotential, always return a planarCompositePotential,
         # even if only one component
@@ -1020,7 +1010,7 @@ def toPlanarPotential(Pot):
         return planarDissipativeForceFromFullDissipativeForce(Pot)
     else:
         raise PotentialError(
-            "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
+            "Input to 'toPlanarPotential' is neither a Potential instance nor a combination of such instances"
         )
 
 

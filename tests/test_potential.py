@@ -3921,13 +3921,11 @@ def test_RZToplanarPotential():
     # Check that giving an object that is not a list or Potential instance produces an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToplanarPotential("something else")
-    # Check that given a list of objects that are not a Potential instances gives an error
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.RZToplanarPotential([3, 4, 45])
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.RZToplanarPotential([lp, 3, 4, 45])
+    # Check that a list raises a TypeError (lists of potentials are no longer supported)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.RZToplanarPotential([3, 4, 45])
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.RZToplanarPotential([lp, 3, 4, 45])
     # Check that using a non-axisymmetric potential gives an error
     lpna = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9, b=0.8)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -3977,11 +3975,9 @@ def test_toPlanarPotential():
         raise AssertionError(
             "Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError"
         )
-    # Check that list of objects that are not potentials gives error
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.toPlanarPotential([3, 4, 45])
+    # Check that a list raises a TypeError (lists of potentials are no longer supported)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.toPlanarPotential([3, 4, 45])
     return None
 
 
@@ -4006,15 +4002,11 @@ def test_RZToverticalPotential():
     # Check that giving an object that is not a list or Potential instance produces an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToverticalPotential("something else", 1.2)
-    # Check that given a list of objects that are not a Potential instances gives an error
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.RZToverticalPotential([3, 4, 45], 1.2)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.RZToverticalPotential([lp, 3, 4, 45], 1.2)
+    # Check that a list raises a TypeError (lists of potentials are no longer supported)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.RZToverticalPotential([3, 4, 45], 1.2)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.RZToverticalPotential([lp, 3, 4, 45], 1.2)
     # Check that giving a planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToverticalPotential(lp.toPlanar(), 1.2)
@@ -4084,11 +4076,9 @@ def test_toVerticalPotential():
         plp = potential.toVerticalPotential(
             potential.planarCompositePotential([tnp.toPlanar()]), 1.2, phi=0.8
         )
-    # Check that giving a list of non-potentials gives error
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
-            plp = potential.toVerticalPotential([3, 4, 45], 1.2)
+    # Check that a list raises a TypeError (lists of potentials are no longer supported)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        plp = potential.toVerticalPotential([3, 4, 45], 1.2)
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp = potential.PlummerPotential(amp=1.12, b=2.0)
@@ -7863,25 +7853,10 @@ def test_WrapperPotential_dims():
     return None
 
 
-def test_Wrapper_list_of_potentials_deprecation():
-    # Test that passing a list of potentials to a wrapper (a) works, with
-    # values identical to passing the equivalent CompositePotential, and
-    # (b) emits a single DeprecationWarning, while non-list input emits none
-    # (see issue with RotateAndTiltWrapperPotential failing for pot=[pot1,pot2])
-    import warnings
-
-    from packaging.version import Version
-
-    import galpy
-
-    def list_deprecation_warnings(ws):
-        return [
-            wa
-            for wa in ws
-            if issubclass(wa.category, DeprecationWarning)
-            and "list of potentials" in str(wa.message)
-        ]
-
+def test_Wrapper_list_of_potentials_raises():
+    # Lists of potentials are no longer supported: passing one to a wrapper
+    # raises a TypeError (see issue with RotateAndTiltWrapperPotential failing
+    # for pot=[pot1,pot2] when lists were still supported)
     pot1 = potential.MiyamotoNagaiPotential(normalize=0.6)
     pot2 = potential.LogarithmicHaloPotential(normalize=0.4)
     wrappers = [
@@ -7901,61 +7876,12 @@ def test_Wrapper_list_of_potentials_deprecation():
             pot=pot, A=lambda t: 1.0
         ),
     ]
-    current_version = Version(galpy.__version__.split(".dev")[0])
     for wrapper in wrappers:
-        if current_version > Version("1.13.99"):  # pragma: no cover
-            # After 1.13.x, list input should raise TypeError
-            with pytest.raises(TypeError):
-                wrapper([pot1, pot2])
-        else:
-            # Before 1.13.x, list input should work with a single
-            # DeprecationWarning
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                wrap_list = wrapper([pot1, pot2])
-                val_list = wrap_list(1.1, 0.2, phi=0.3, use_physical=False)
-            assert len(list_deprecation_warnings(w)) == 1, (
-                "Passing a list of potentials to a wrapper did not raise a single DeprecationWarning"
-            )
-            # Non-list input should emit no DeprecationWarning
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                wrap_comp = wrapper(pot1 + pot2)
-                val_comp = wrap_comp(1.1, 0.2, phi=0.3, use_physical=False)
-            assert len(list_deprecation_warnings(w)) == 0, (
-                "Passing a non-list potential to a wrapper raised a DeprecationWarning"
-            )
-            assert val_list == val_comp, (
-                "Wrapper of a list of potentials does not agree with wrapper of the equivalent CompositePotential"
-            )
+        with pytest.raises(TypeError, match="Lists of potentials"):
+            wrapper([pot1, pot2])
     # Also test the planar path
-    if current_version > Version("1.13.99"):  # pragma: no cover
-        with pytest.raises(TypeError):
-            potential.DehnenSmoothWrapperPotential(
-                pot=[pot1.toPlanar(), pot2.toPlanar()]
-            )
-    else:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            wrap_list = potential.DehnenSmoothWrapperPotential(
-                pot=[pot1.toPlanar(), pot2.toPlanar()]
-            )
-            val_list = wrap_list(1.1, phi=0.3, use_physical=False)
-        assert len(list_deprecation_warnings(w)) == 1, (
-            "Passing a list of planar potentials to a wrapper did not raise a single DeprecationWarning"
-        )
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            wrap_comp = potential.DehnenSmoothWrapperPotential(
-                pot=pot1.toPlanar() + pot2.toPlanar()
-            )
-            val_comp = wrap_comp(1.1, phi=0.3, use_physical=False)
-        assert len(list_deprecation_warnings(w)) == 0, (
-            "Passing a non-list planar potential to a wrapper raised a DeprecationWarning"
-        )
-        assert val_list == val_comp, (
-            "Wrapper of a list of planar potentials does not agree with wrapper of the equivalent planarCompositePotential"
-        )
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        potential.DehnenSmoothWrapperPotential(pot=[pot1.toPlanar(), pot2.toPlanar()])
     return None
 
 
@@ -10284,31 +10210,12 @@ def test_CompositePotential_all_methods():
     return None
 
 
-def test_list_of_potentials_deprecation():
-    # Test that passing a list of potentials emits a DeprecationWarning
-    import warnings
-
-    from packaging.version import Version
-
-    import galpy
-
+def test_list_of_potentials_raises():
+    # Lists of potentials are no longer supported: passing one raises a TypeError
     pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
     pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
-    pot_list = [pot1, pot2]
-
-    current_version = Version(galpy.__version__.split(".dev")[0])
-    if current_version > Version("1.13.99"):
-        # After 1.13.x, this should raise TypeError
-        with pytest.raises(TypeError):
-            potential.evaluatePotentials(pot_list, 1.0, 0.1)
-    else:
-        # Before 1.13.x, this should emit DeprecationWarning
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            potential.evaluatePotentials(pot_list, 1.0, 0.1)
-            assert len(w) == 1
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        potential.evaluatePotentials([pot1, pot2], 1.0, 0.1)
     return None
 
 
@@ -11203,13 +11110,8 @@ def test_planarCompositePotential_vcirc_omegac():
     return None
 
 
-def test_planar_list_of_potentials_deprecation():
-    """Test that passing a list of planar potentials emits DeprecationWarning."""
-    import warnings
-
-    from packaging.version import Version
-
-    import galpy
+def test_planar_list_of_potentials_raises():
+    """Test that passing a list of planar potentials raises a TypeError."""
     from galpy.potential import (
         MiyamotoNagaiPotential,
         evaluateplanarphitorques,
@@ -11219,56 +11121,17 @@ def test_planar_list_of_potentials_deprecation():
         toPlanarPotential,
     )
 
-    # Create planar potentials
     pot1 = toPlanarPotential(MiyamotoNagaiPotential(normalize=0.5))
     pot2 = toPlanarPotential(MiyamotoNagaiPotential(normalize=0.5))
     pot_list = [pot1, pot2]
-
-    current_version = Version(galpy.__version__.split(".dev")[0])
-    if current_version > Version("1.13.99"):
-        # After 1.13.x, passing lists should raise TypeError
-        with pytest.raises(TypeError):
-            evaluateplanarPotentials(pot_list, 1.0)
-        with pytest.raises(TypeError):
-            evaluateplanarRforces(pot_list, 1.0)
-        with pytest.raises(TypeError):
-            evaluateplanarphitorques(pot_list, 1.0)
-        with pytest.raises(TypeError):
-            evaluateplanarR2derivs(pot_list, 1.0)
-    else:
-        # Before 1.13.x, this should emit DeprecationWarning
-        # Test evaluateplanarPotentials
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluateplanarPotentials(pot_list, 1.0)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
-        # Test evaluateplanarRforces
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluateplanarRforces(pot_list, 1.0)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
-        # Test evaluateplanarphitorques
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluateplanarphitorques(pot_list, 1.0)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
-        # Test evaluateplanarR2derivs
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluateplanarR2derivs(pot_list, 1.0)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
+    for func in [
+        evaluateplanarPotentials,
+        evaluateplanarRforces,
+        evaluateplanarphitorques,
+        evaluateplanarR2derivs,
+    ]:
+        with pytest.raises(TypeError, match="Lists of potentials"):
+            func(pot_list, 1.0)
     return None
 
 
@@ -11436,13 +11299,8 @@ def test_linearCompositePotential_slicing():
     return None
 
 
-def test_linear_list_of_potentials_deprecation():
-    """Test that passing a list of linear potentials emits DeprecationWarning."""
-    import warnings
-
-    from packaging.version import Version
-
-    import galpy
+def test_linear_list_of_potentials_raises():
+    """Test that passing a list of linear potentials raises a TypeError."""
     from galpy.potential import (
         IsothermalDiskPotential,
         KGPotential,
@@ -11450,30 +11308,10 @@ def test_linear_list_of_potentials_deprecation():
         evaluatelinearPotentials,
     )
 
-    # Create linear potentials
-    kg = KGPotential()
-    iso = IsothermalDiskPotential()
-    pot_list = [kg, iso]
-
-    # Skip test if galpy version > 1.13.99 since lists should raise TypeError
-    current_version = Version(galpy.__version__.split(".dev")[0])
-    if current_version <= Version("1.13.99"):
-        # Test evaluatelinearPotentials
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluatelinearPotentials(pot_list, 0.1)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
-        # Test evaluatelinearForces
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            evaluatelinearForces(pot_list, 0.1)
-            assert len(w) == 1, "Should emit exactly one warning"
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "deprecated" in str(w[0].message).lower()
-
+    pot_list = [KGPotential(), IsothermalDiskPotential()]
+    for func in [evaluatelinearPotentials, evaluatelinearForces]:
+        with pytest.raises(TypeError, match="Lists of potentials"):
+            func(pot_list, 0.1)
     return None
 
 
@@ -12341,7 +12179,7 @@ def test_plotting_xy_effective_error():
     with pytest.raises(RuntimeError) as excinfo:
         kp.plot(xy=True, effective=True)
     assert "xy and effective cannot be True at the same time" in excinfo.value.args[0]
-    # Then a list of potentials
+    # Then a combined potential
     with pytest.raises(RuntimeError) as excinfo:
         potential.plotPotentials(potential.MWPotential2014, xy=True, effective=True)
     assert "xy and effective cannot be True at the same time" in excinfo.value.args[0]
