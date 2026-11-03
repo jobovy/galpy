@@ -2,9 +2,10 @@ __version__ = "1.12.2.dev0"
 # Check whether a new version is available
 import datetime
 import http.client
+import json
 import platform
-import subprocess
 import sys
+import urllib.request
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -27,27 +28,24 @@ def latest_pypi_version(name):
 
     if not online():  # pragma: no cover
         return __version__
-    # Essentially from https://stackoverflow.com/a/58649262
     try:  # Wrap everything in try/except to avoid any issues with connections
-        latest_version = str(
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", f"{name}==random"],
-                capture_output=True,
-                text=True,
-            )
+        with urllib.request.urlopen(
+            f"https://pypi.org/pypi/{name}/json", timeout=5
+        ) as response:
+            releases = json.load(response)["releases"]
+        # Skip yanked releases and pre-releases, unless running a pre-release
+        # (2.0.0bN users hear of bN+1; a .devN version is not a pre-release here)
+        running_prerelease = Version(__version__).pre is not None
+        latest_version = max(
+            Version(v)
+            for v, files in releases.items()
+            if not all(f.get("yanked", False) for f in files)
+            and (running_prerelease or not Version(v).is_prerelease)
         )
-        latest_version = latest_version[latest_version.find("(from versions:") + 15 :]
-        latest_version = latest_version[: latest_version.find(")")]
-        latest_version = latest_version.replace(" ", "").split(",")
-        # Remove any pre-releases
-        latest_version = [v for v in latest_version if not Version(v).is_prerelease]
-        # Latest is now the final one
-        latest_version = latest_version[-1]
     except Exception:  # pragma: no cover
         return __version__
     else:
-        # Offline can return 'none', then just return __version__ to avoid warning
-        return __version__ if latest_version == "none" else latest_version
+        return str(latest_version)
 
 
 def check_pypi_version(name):
