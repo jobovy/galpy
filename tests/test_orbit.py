@@ -16653,19 +16653,22 @@ def test_integrate_list_of_potentials_raises():
     return None
 
 
-def test_integrate_list_of_times():
-    # A list of times integrates like the equivalent array
+def test_integrate_list_of_times_raises():
+    # Times must be an array: a list of times raises a TypeError, in
+    # integrate and integrate_dxdv
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
 
-    ts = [0.0, 0.5, 1.0, 1.5, 2.0]
-    o_list = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o_list.integrate(ts, MWPotential2014)
-    o_array = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o_array.integrate(numpy.array(ts), MWPotential2014)
-    assert numpy.all(
-        numpy.fabs(as_numpy(o_list.R(ts)) - as_numpy(o_array.R(ts))) < 1e-14
-    ), "Integrating with a list of times does not agree with integrating with an array"
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate([0.0, 0.5, 1.0], MWPotential2014)
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.5, 1.0],
+            MWPotential2014,
+            method="dopr54_c",
+        )
     return None
 
 

@@ -133,6 +133,9 @@ from .integratePlanarOrbit import (
 )
 
 ext_loaded = _ext_loaded
+_LIST_OF_TIMES_ERROR = (
+    "Times t must be an array (numpy array, Quantity, or JAX/PyTorch array), not a list"
+)
 if _APY_LOADED:
     from astropy import units
 # Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
@@ -2830,8 +2833,8 @@ class Orbit:
 
         Parameters
         ----------
-        t : list, numpy.ndarray, Quantity, or Potential
-            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration. The time array can also be per-orbit, with shape ``orbit.shape + (nt,)`` (each orbit integrated on its own grid); in this case continuation is not supported and the new integration always starts from the original initial conditions. Continuation is also disabled after a ``bruteSOS`` or ``SOS`` call, which rewrite ``self.t`` into a non-standard form.
+        t : numpy.ndarray, Quantity, or Potential
+            - If an array: equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration. The time array can also be per-orbit, with shape ``orbit.shape + (nt,)`` (each orbit integrated on its own grid); in this case continuation is not supported and the new integration always starts from the original initial conditions. Continuation is also disabled after a ``bruteSOS`` or ``SOS`` call, which rewrite ``self.t`` into a non-standard form.
             - If Potential: Integrate for 10 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
@@ -2927,35 +2930,12 @@ class Orbit:
         )
 
     @integrate.register(list)
-    def _(
-        self,
-        t,
-        pot=None,
-        method="symplec4_c",
-        progressbar=True,
-        dt=None,
-        numcores=_NUMCORES,
-        force_map=False,
-        rtol=None,
-        atol=None,
-        inbackend_kwargs=None,
-    ):
-        """A list of times, integrated as an array would be (a list of
-        potentials raises a TypeError)."""
+    def _(self, t, *args, **kwargs):
+        """Lists are not accepted: neither times (use an array) nor potentials
+        (combine them with +)."""
         if t and isinstance(t[0], (Force, planarForce, linearPotential, list)):
             _check_potential_list_and_deprecate(t)
-        return self._integrate_impl(
-            t,
-            pot,
-            method,
-            progressbar,
-            dt,
-            numcores,
-            force_map,
-            rtol,
-            atol,
-            inbackend_kwargs,
-        )
+        raise TypeError(_LIST_OF_TIMES_ERROR)
 
     @float64_default_if_torch_args
     def integrate_SOS(
@@ -3154,8 +3134,8 @@ class Orbit:
         ----------
         dxdv : numpy.ndarray
             Initial conditions for the phase-space deviation in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4) for planar (4D) orbits and (\*input_shape, 6) for 3D (6D) orbits.
-        t : list, numpy.ndarray or Quantity
-            List of equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
+        t : numpy.ndarray or Quantity
+            Equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         method : str, optional
@@ -3223,6 +3203,8 @@ class Orbit:
         - 2026-06-09 - Dissipative-force support in C (3D) - Bovy (UofT)
 
         """
+        if isinstance(t, list):
+            raise TypeError(_LIST_OF_TIMES_ERROR)
         if not (self.phasedim() == 2 or self.phasedim() == 4 or self.phasedim() == 6):
             raise AttributeError(
                 "integrate_dxdv is only implemented for 2D (linear), 4D (planar) and 6D (3D) orbits"
