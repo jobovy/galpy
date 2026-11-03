@@ -58,6 +58,13 @@ _TINY_U = 1e-4  # |lam-1| below which u - log1p(u) cancels; use its series
 _A_SMALL = 0.5
 _X_SMALL = 1.8  # measured crossover: series and CF both ~3e-15..8e-15 there
 _N_QSERIES = 40  # sum (-x)^n / (n! (a+n)): x^n/n! < 1e-37 at n=40, x=1.8
+# On a GPU the loops are staged ROLLED (lax.fori_loop, partially unrolled): the
+# unrolled series/CF put ~600 ops into the graph per call, and a program that
+# calls this at every quadrature node (the Staeckel transformation of
+# MWPotential2014) then takes minutes to compile for the GPU. XLA fuses less
+# across a rolled loop, which costs at large N on the CPU, where the loops stay
+# unrolled. The two forms perform the same operations in the same order.
+_GPU_UNROLL = 10
 # lgamma(1+a) = -gamma*a + sum_{k>=2} (-1)^k zeta(k)/k a^k, |a| <= 1/2
 _LGAM1P_COEFS = tuple((-1.0) ** k * float(_zeta(k, 1.0)) / k for k in range(2, 62))
 
@@ -104,33 +111,57 @@ def _prefix(xp, a, x):
     return xp.where(big, stirling, naive)
 
 
-def _series_P(xp, a, x, pref):
+def _series_P(xp, a, x, pref, rolled=False):
     """Ascending series for P(a,x), valid (and used) for x < a+1."""
-    ap = a
-    term = 1.0 / a
-    total = term
-    for _ in range(_N_SERIES):
+
+    def step(_, carry):
+        ap, term, total = carry
         ap = ap + 1.0
         term = term * (x / ap)
-        total = total + term
-    return total * pref
+        return ap, term, total + term
+
+    carry = (a, 1.0 / a, 1.0 / a)
+    if rolled:
+        import jax
+
+        carry = jax.lax.fori_loop(0, _N_SERIES, step, carry, unroll=_GPU_UNROLL)
+    else:
+        for i in range(_N_SERIES):
+            carry = step(i, carry)
+    return carry[2] * pref
 
 
-def _cf_Q(xp, a, x, pref):
+def _cf_Q(xp, a, x, pref, rolled=False):
     """Modified-Lentz continued fraction for Q(a,x), valid for x >= a+1."""
-    b = x + 1.0 - a
-    c = xp.full_like(b, 1.0 / _FPMIN)
-    d = 1.0 / xp.where(xp.abs(b) < _FPMIN, _FPMIN, b)
-    h = d
-    for i in range(1, _N_CF + 1):
+
+    def step(i, carry):
+        b, c, d, h = carry
         an = -i * (i - a)
         b = b + 2.0
         d = an * d + b
         d = xp.where(xp.abs(d) < _FPMIN, _FPMIN, d)
         c = b + an / xp.where(xp.abs(c) < _FPMIN, _FPMIN, c)
         d = 1.0 / d
-        h = h * (d * c)
-    return pref * h
+        return b, c, d, h * (d * c)
+
+    b = x + 1.0 - a
+    c = xp.full_like(b, 1.0 / _FPMIN)
+    d = 1.0 / xp.where(xp.abs(b) < _FPMIN, _FPMIN, b)
+    carry = (b, c, d, d)
+    if rolled:
+        import jax
+
+        carry = jax.lax.fori_loop(
+            1,
+            _N_CF + 1,
+            lambda i, cr: step(xp.astype(i, b.dtype), cr),
+            carry,
+            unroll=_GPU_UNROLL,
+        )
+    else:
+        for i in range(1, _N_CF + 1):
+            carry = step(float(i), carry)
+    return pref * carry[3]
 
 
 def _lgam1p_small(xp, a):
@@ -142,20 +173,37 @@ def _lgam1p_small(xp, a):
     return a * (numpy.euler_gamma * -1.0 + a * s)
 
 
-def _small_Q(xp, a, x):
+def _small_Q(xp, a, x, rolled=False):
     """Q(a,x) for small a and x (cephes igamc_series): no 1 - P cancellation."""
-    fac = 1.0
-    total = 0.0
-    for n in range(1, _N_QSERIES + 1):
+
+    def step(n, carry):
+        fac, total = carry
         fac = fac * (-x / n)
-        total = total + fac / (a + n)
+        return fac, total + fac / (a + n)
+
+    carry = (xp.ones_like(x), xp.zeros_like(x))
+    if rolled:
+        import jax
+
+        carry = jax.lax.fori_loop(
+            1,
+            _N_QSERIES + 1,
+            lambda n, cr: step(xp.astype(n, x.dtype), cr),
+            carry,
+            unroll=_GPU_UNROLL,
+        )
+    else:
+        for n in range(1, _N_QSERIES + 1):
+            carry = step(float(n), carry)
+    total = carry[1]
     e = a * xp.log(x) - _lgam1p_small(xp, a)
     # x^a / Gamma(a) = a exp(e), as Gamma(a) = Gamma(1+a) / a
     return -xp.expm1(e) - a * xp.exp(e) * total
 
 
-def _both(xp, a, x):
-    """Return (P, Q), each computed by whichever branch is valid there."""
+def _both(xp, a, x, rolled=False):
+    """Return (P, Q), each computed by whichever branch is valid there;
+    ``rolled``: the loops as lax.fori_loop (jax on a GPU, see _GPU_UNROLL)."""
     f64 = _backend_dtype(xp, numpy.float64)
     a = xp.astype(xp.asarray(a), f64)
     x = xp.astype(xp.asarray(x), f64)
@@ -174,13 +222,13 @@ def _both(xp, a, x):
     x_cf = xp.where(
         xp.logical_or(use_series, at_inf), a + 1.0, x
     )  # a+1 is the CF's boundary
-    p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser))
-    q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf))
+    p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser), rolled)
+    q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf), rolled)
     p_out = xp.where(use_series, p, 1.0 - q)
     q_out = xp.where(use_series, 1.0 - p, q)
     small = (a < _A_SMALL) & (x > 0.0) & (x < _X_SMALL)
     # dead branch -> a point inside the region (log(0) / the lgamma series' radius)
-    qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0))
+    qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0), rolled)
     q_out = xp.where(small, qs, q_out)
     p_out = xp.where(small & ~use_series, 1.0 - qs, p_out)
     return (
@@ -317,7 +365,9 @@ def _jax_incgamma(upper):
     def value(a, x):
         if _is_concrete(a) and _is_concrete(x):
             return native(a, x)
-        if x.size < _JAX_MIN_SIZE and not _jax_on_accelerator():
+        if _jax_on_accelerator():
+            return _both(jnp, a, x, rolled=True)[idx]
+        if x.size < _JAX_MIN_SIZE:
             return native(a, x)
         return _both(jnp, a, x)[idx]
 

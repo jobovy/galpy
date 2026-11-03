@@ -1503,9 +1503,9 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
     calls = []
     both = mod._both
 
-    def spy(xp, aa, xx):
-        calls.append(xx.shape)
-        return both(xp, aa, xx)
+    def spy(xp, aa, xx, rolled=False):
+        calls.append((xx.shape, rolled))
+        return both(xp, aa, xx, rolled)
 
     monkeypatch.setattr(mod, "_both", spy)
     monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: False)
@@ -1514,9 +1514,14 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
     monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: True)
     jax.clear_caches()  # jit caches the trace by function and shapes
     on_gpu = jax.jit(fn)(a, x)
-    assert calls == [x.shape], (
-        "a small staged array on an accelerator should use the series/CF"
+    assert calls == [(x.shape, True)], (
+        "a small staged array on an accelerator should use the rolled series/CF"
     )
+    # the rolled loops perform the unrolled loops' operations in their order
+    for upper_ in (False, True):
+        unrolled = jax.jit(lambda aa, xx: both(jnp, aa, xx)[int(upper_)])(a, x)
+        rolled = jax.jit(lambda aa, xx: both(jnp, aa, xx, True)[int(upper_)])(a, x)
+        numpy.testing.assert_array_equal(numpy.asarray(rolled), numpy.asarray(unrolled))
     # the two kernels agree to rounding (the series/CF is the one checked
     # against mpmath above; the native kernel differs from it by ~1e-14)
     numpy.testing.assert_allclose(
