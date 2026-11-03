@@ -64,6 +64,11 @@ _N_QSERIES = 40  # sum (-x)^n / (n! (a+n)): x^n/n! < 1e-37 at n=40, x=1.8
 # MWPotential2014) then takes minutes to compile for the GPU. XLA fuses less
 # across a rolled loop, which costs at large N on the CPU, where the loops stay
 # unrolled. The two forms perform the same operations in the same order.
+# A GPU pays per loop iteration, so the unroll factor trades compile time for
+# run time; on that Staeckel transformation on an H100, 10 runs 6x faster than
+# jax's native gammainc for 2.5x its compile time (5: 2x slower; 30: 4x longer
+# compile). 10 divides every trip count (120, 50, 40): jax unrolls a
+# remainder in full.
 _GPU_UNROLL = 10
 # lgamma(1+a) = -gamma*a + sum_{k>=2} (-1)^k zeta(k)/k a^k, |a| <= 1/2
 _LGAM1P_COEFS = tuple((-1.0) ** k * float(_zeta(k, 1.0)) / k for k in range(2, 62))
