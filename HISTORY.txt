@@ -4,6 +4,10 @@ v1.12.2 (expected around 2027-03-01)
 - Fixed the check for a new galpy version on PyPI, which silently stopped
   working with recent pip versions; it now uses PyPI's JSON API.
 
+- Orbit.integrate and Orbit.integrate_dxdv now raise a clear TypeError when
+  the times are given as a list (use an array); lists of times were documented
+  as supported, but had stopped working.
+
 v1.12.1 (2026-11-02)
 ====================
 

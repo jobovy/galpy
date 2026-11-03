@@ -16393,6 +16393,25 @@ def test_integrate_auto_deprecated_list():
     return None
 
 
+def test_integrate_list_of_times_raises():
+    # Times must be an array: a list of times raises a TypeError, in
+    # integrate and integrate_dxdv
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate([0.0, 0.5, 1.0], MWPotential2014)
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.5, 1.0],
+            MWPotential2014,
+            method="dopr54_c",
+        )
+    return None
+
+
 def test_integrate_auto_tdyn_filtering_consistency_3D():
     # Test that dynamical time is the same whether using MWPotential2014 alone
     # or MWPotential2014 + DehnenBarPotential (which doesn't support tdyn)
