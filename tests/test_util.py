@@ -179,3 +179,79 @@ def test_parallel_map_numcores_one_does_not_fork():
     assert numpy.array_equal(numpy.asarray(out), numpy.arange(8) ** 2), (
         "parallel_map(numcores=1) returned the wrong result"
     )
+
+
+def _fake_pypi(monkeypatch, releases, version):
+    # Point galpy's new-version check at a fake PyPI JSON response, with
+    # galpy.__version__ set to version
+    import http.client
+    import io
+    import json
+    import urllib.request
+
+    import galpy
+
+    class _Connection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def request(self, *args, **kwargs):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http.client, "HTTPSConnection", _Connection)
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(json.dumps({"releases": releases}).encode()),
+    )
+    monkeypatch.setattr(galpy, "__version__", version)
+    return galpy
+
+
+_FAKE_RELEASES = {
+    "1.11.2": [{"yanked": False}],
+    "1.12.1": [{"yanked": False}, {"yanked": False}],
+    "1.12.2": [{"yanked": True}],  # yanked
+    "1.13.0": [],  # no files
+    "2.0.0b1": [{"yanked": False}],
+    "2.0.0b2": [{"yanked": False}],
+}
+
+
+def test_latest_pypi_version_skips_prereleases_and_yanked(monkeypatch):
+    galpy = _fake_pypi(monkeypatch, _FAKE_RELEASES, "1.12.1")
+    assert galpy.latest_pypi_version("galpy") == "1.12.1", (
+        "latest_pypi_version should skip pre-releases, yanked releases and releases without files"
+    )
+    assert not galpy.check_pypi_version("galpy"), (
+        "check_pypi_version should not report a newer version when running the latest release"
+    )
+    # A .devN version is not a pre-release for this purpose
+    galpy = _fake_pypi(monkeypatch, _FAKE_RELEASES, "1.12.1.dev0")
+    assert galpy.latest_pypi_version("galpy") == "1.12.1", (
+        "latest_pypi_version should skip pre-releases when running a .devN version"
+    )
+    return None
+
+
+def test_latest_pypi_version_running_prerelease(monkeypatch):
+    galpy = _fake_pypi(monkeypatch, _FAKE_RELEASES, "2.0.0b1")
+    assert galpy.latest_pypi_version("galpy") == "2.0.0b2", (
+        "latest_pypi_version should include pre-releases when running a pre-release"
+    )
+    assert galpy.check_pypi_version("galpy"), (
+        "check_pypi_version should report a newer pre-release when running a pre-release"
+    )
+    return None
+
+
+def test_latest_pypi_version_bad_response(monkeypatch):
+    # Anything unexpected from PyPI falls back to the installed version
+    galpy = _fake_pypi(monkeypatch, {"not a version": [{"yanked": False}]}, "1.12.1")
+    assert galpy.latest_pypi_version("galpy") == "1.12.1", (
+        "latest_pypi_version should return the installed version when PyPI's response cannot be parsed"
+    )
+    return None
