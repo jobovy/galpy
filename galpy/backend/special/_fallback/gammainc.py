@@ -270,20 +270,33 @@ def _dx_closed_form(xp, a, x, sign):
 
 
 _JAX_FNS = {}
-# Below this many elements jax uses its native kernel even when staged: the
-# series/CF unrolls ~270 iterations into the graph (~1 s more per compile),
-# which only pays off for large arrays (native ~2 us/element on CPU, the
-# series/CF ~20 ns).
+# Below this many elements jax uses its native kernel even when staged ON THE
+# CPU: the series/CF unrolls ~270 iterations into the graph (~1 s more per
+# compile), which only pays off for large arrays there (native ~2 us/element,
+# the series/CF ~20 ns). On a GPU the native kernel's per-element while_loop is
+# slow at ANY size (it set a 0.7 s floor on the compiled Staeckel transformation
+# of MWPotential2014 below 4096 points), so a staged call on an accelerator
+# always takes the series/CF.
 _JAX_MIN_SIZE = 4096
 
 
+def _jax_on_accelerator():
+    """Whether jax stages programs for a GPU/TPU: a tracer carries no device,
+    so the default backend stands in for the device of a staged call."""
+    import jax
+
+    return jax.default_backend() != "cpu"
+
+
 def _jax_incgamma(upper):
-    """jax P or Q. Large STAGED arrays (jit / vmap, >= _JAX_MIN_SIZE): the
-    vectorized series/CF -- jax's native gammainc iterates per element in a
-    while_loop, ~100x slower on CPU (measured). Otherwise (eager values, incl.
-    eager grad, or small arrays) the native kernel: one dispatch, small graph.
-    Either way a closed-form d/dx (with the x = 0 / inf limits native lacks)
-    and d/da by forward mode, paid only when the order is differentiated."""
+    """jax P or Q. STAGED arrays (jit / vmap) take the vectorized series/CF
+    when large (>= _JAX_MIN_SIZE) or when jax runs on an accelerator -- jax's
+    native gammainc iterates per element in a while_loop, ~100x slower on CPU
+    for large arrays (measured) and slow on a GPU at every size. Otherwise
+    (eager values, incl. eager grad, or small arrays on the CPU) the native
+    kernel: one dispatch, small graph. Either way a closed-form d/dx (with the
+    x = 0 / inf limits native lacks) and d/da by forward mode, paid only when
+    the order is differentiated."""
     import jax
     import jax.numpy as jnp
     import jax.scipy.special as jss
@@ -302,7 +315,9 @@ def _jax_incgamma(upper):
         )
 
     def value(a, x):
-        if x.size < _JAX_MIN_SIZE or (_is_concrete(a) and _is_concrete(x)):
+        if _is_concrete(a) and _is_concrete(x):
+            return native(a, x)
+        if x.size < _JAX_MIN_SIZE and not _jax_on_accelerator():
             return native(a, x)
         return _both(jnp, a, x)[idx]
 

@@ -1487,6 +1487,51 @@ def test_gammainc_series_cf_hard_points_vs_mpmath():
         )
 
 
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("upper", [False, True])
+def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch, upper):
+    # A staged array below _JAX_MIN_SIZE takes jax's native kernel on the CPU
+    # (small graph) but the series/CF on a GPU, where the native per-element
+    # while_loop is slow at every size (a 0.7 s floor on the compiled Staeckel
+    # transformation); the two give the same values
+    from galpy.backend.special._fallback import gammainc as mod
+
+    fn = gsp.gammaincc if upper else gsp.gammainc
+    a = jnp.asarray([0.5, 1.5, 3.0, 20.0])
+    x = jnp.asarray([0.3, 1.2, 2.5, 18.0])
+    assert x.size < mod._JAX_MIN_SIZE
+    calls = []
+    both = mod._both
+
+    def spy(xp, aa, xx):
+        calls.append(xx.shape)
+        return both(xp, aa, xx)
+
+    monkeypatch.setattr(mod, "_both", spy)
+    monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: False)
+    on_cpu = jax.jit(fn)(a, x)
+    assert not calls, "a small staged array on the CPU should use the native kernel"
+    monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: True)
+    jax.clear_caches()  # jit caches the trace by function and shapes
+    on_gpu = jax.jit(fn)(a, x)
+    assert calls == [x.shape], (
+        "a small staged array on an accelerator should use the series/CF"
+    )
+    # the two kernels agree to rounding (the series/CF is the one checked
+    # against mpmath above; the native kernel differs from it by ~1e-14)
+    numpy.testing.assert_allclose(
+        numpy.asarray(on_gpu), numpy.asarray(on_cpu), rtol=5e-14, atol=0.0
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(on_gpu),
+        (scipy_special.gammaincc if upper else scipy_special.gammainc)(
+            numpy.asarray(a), numpy.asarray(x)
+        ),
+        rtol=5e-14,
+        atol=0.0,
+    )
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_gammaincc_grad_wrt_small_order_vs_mpmath(backend):
     # d/da runs the series/CF on both backends; small orders take the direct-Q
