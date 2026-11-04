@@ -5,6 +5,60 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v2.0
+++++
+
+galpy 2.0 adds `JAX <https://docs.jax.dev/>`__ and `PyTorch
+<https://pytorch.org/>`__ as array backends to galpy's NumPy and C
+implementation. The 2.0 releases are pre-releases (2.0.0b1, ...) for now: install
+them with ``pip install --pre "galpy[jax]"`` or ``pip install --pre
+"galpy[torch]"``, and see the :ref:`installation instructions <installation>`.
+galpy 2.x requires Python 3.11 or later; galpy 1.x continues to support Python
+3.10. Version 2.0.0b1 is based on v1.12.1 and includes every change through
+that release.
+
+* Potentials, orbit integration, action-angle coordinates, distribution
+  functions, and stream models **accept JAX arrays and PyTorch tensors**,
+  compute with that framework, and return arrays of the same kind. galpy
+  calculations can therefore be **differentiated** with automatic
+  differentiation (``jax.grad``, ``torch.autograd``), **compiled**
+  (``jax.jit``, ``torch.compile``), **vectorized** (``jax.vmap``), and **run on
+  a GPU**. With NumPy inputs, galpy behaves as before: the NumPy results are
+  byte-for-byte those of v1.12.1, up to a handful of deliberate changes listed
+  in ``HISTORY.txt``. The backend is chosen by the type of the arrays that are
+  passed in, by the ``galpy.backend.use`` context manager, or by the new
+  ``[backend]`` section of the configuration file. Start with the
+  :doc:`quick-start tutorial <tutorials/getting_started/backends>`.
+
+* **Orbits** can be integrated inside the backend with the differentiable
+  adaptive-step integrators ``diffrax`` (JAX), ``torchode`` and ``torchdiffeq``
+  (PyTorch), and with constant-step leapfrog and symplectic integrators for many
+  orbits at once; galpy's C integrators return the derivative with respect to
+  the initial condition from their variational equations. Orbits are
+  differentiable with respect to their initial conditions and the parameters of
+  the potential, in forward and reverse mode. See the :doc:`orbits tutorial
+  <tutorials/orbits/backends>`.
+
+* The **action-angle** transformations (Staeckel, adiabatic, spherical, and
+  isochrone approximations) and the inverse transformation of
+  ``actionAngleVerticalInverse`` are differentiable with respect to the
+  phase-space coordinates and the parameters of the potential (:doc:`tutorial
+  <tutorials/action_angle/backends>`).
+
+* **Distribution functions** (spherical, disk, and stream DFs) evaluate on
+  backend arrays, are differentiable with respect to their parameters and those
+  of the potential, and **sample with explicit random keys** through inverse
+  transformation, which makes the samples themselves differentiable
+  (:doc:`distribution functions <tutorials/distribution_functions/backends>`,
+  :doc:`streamdf <tutorials/streams/backends_streamdf>`, and
+  :doc:`streamspraydf <tutorials/streams/backends_streamspraydf>` tutorials).
+
+* The features deprecated for removal after v1.13 are removed: lists of
+  potentials (combine potentials with ``+``), the ``Rnorm=``, ``Vnorm=``, and
+  ``custom_transform=`` keywords and the ``calc_stream_lb`` method of
+  ``streamdf``, and the ``leading=`` keyword of the stream spray DFs (use
+  ``tail=``).
+
 v1.12
 +++++
 

@@ -1,16 +1,110 @@
-v2.0.0b1 (pre-release)
-======================
+v2.0.0b1 (2026-11-04)
+=====================
 
-Based on v1.12.1: includes every change through 1.12.1.
+galpy 2.0 is based on v1.12.1 and includes every change through 1.12.1. This
+is a pre-release (beta), so ``pip`` only installs it when given ``--pre``:
+``pip install --pre galpy``, or ``pip install --pre "galpy[jax]"`` /
+``pip install --pre "galpy[torch]"`` to also install the JAX or PyTorch
+backend. galpy 2.x requires Python >= 3.11 (galpy 1.x keeps Python 3.10).
 
-- Python 3.10 is no longer supported (galpy 1.x keeps it); galpy 2.x
-  requires Python >= 3.11.
+- Array backends: galpy now computes with JAX arrays and PyTorch tensors as
+  well as with NumPy arrays (``galpy.backend``). Potentials, orbit
+  integration, action-angle coordinates, distribution functions, and stream
+  models accept JAX or PyTorch inputs, compute with that framework, and
+  return arrays of the same kind, so galpy calculations can be differentiated
+  with automatic differentiation (``jax.grad``, ``torch.autograd``), compiled
+  (``jax.jit``, ``torch.compile``), vectorized (``jax.vmap``), and run on a
+  GPU. With NumPy inputs, galpy behaves as before. The backend is chosen by
+  the type of the arrays that are passed in (including an object's
+  parameters: a potential set up with a JAX parameter computes with JAX in
+  every call), by the ``with galpy.backend.use("jax"):`` (or ``"torch"``)
+  context manager when there is no array to dispatch on, or by the new
+  ``default`` option in the ``[backend]`` section of the configuration file.
+  See the "JAX and PyTorch Backends: Quick Start" tutorial and the backend
+  tutorial of each section of the documentation. In more detail:
 
-- Array backends: galpy runs natively on JAX and PyTorch arrays
-  (``galpy.backend``), differentiable end to end (potentials, orbits,
-  action-angle, distribution functions), with jax.jit / torch.compile and GPU
-  support. Install with ``pip install --pre "galpy[jax]"`` or
-  ``pip install --pre "galpy[torch]"``. [Jo: expand]
+  - Potentials, forces, and wrappers evaluate on backend arrays and are
+    differentiable with respect to the coordinates and to their parameters.
+
+  - Orbits can be integrated inside the backend with the differentiable
+    adaptive-step integrators ``method='diffrax'`` (JAX) and
+    ``method='torchode'`` or ``'torchdiffeq'`` (PyTorch), with constant-step
+    in-backend versions of the leapfrog and symplectic integrators
+    (``method='leapfrog_jax'``, ``'leapfrog_torch'``, ...) for many orbits at
+    once, and through galpy's C integrators, which return the derivative with
+    respect to the initial condition from their variational equations.
+    In-backend orbits are differentiable with respect to the initial
+    conditions and the parameters of the potential, in forward and reverse
+    mode, and batches of orbits can be integrated with ``jax.vmap``.
+
+  - The Staeckel (``c=False`` and ``c=True``), adiabatic, spherical, and
+    isochrone-approximation actions, frequencies, and angles, and the inverse
+    transformation of ``actionAngleVerticalInverse``, are differentiable with
+    respect to the phase-space coordinates and the parameters of the
+    potential.
+
+  - The spherical, disk (``quasiisothermaldf`` and the two-dimensional disk
+    DFs), and stream (``streamdf``, ``streamgapdf``, ``streamspraydf``)
+    distribution functions evaluate on backend arrays and are differentiable
+    with respect to their parameters and those of the potential, including
+    the stream track. The King model's DF and potential are differentiable
+    with respect to ``W0``.
+
+  - Sampling takes an explicit random key on the backends (``key=``, a JAX
+    key or its PyTorch equivalent) and draws by inverse transformation from a
+    tabulated cumulative distribution, which makes the samples
+    differentiable with respect to the parameters of the distribution.
+    ``key=None`` keeps the NumPy behavior.
+
+  - Precision: galpy computes in double precision. Switch on JAX's 64-bit
+    mode before creating JAX arrays. A single-precision PyTorch input returns
+    a single-precision result (galpy computes in double precision
+    internally), so create ``dtype=torch.float64`` tensors for the full
+    precision.
+
+- Changes to the NumPy results: the NumPy path is byte-for-byte identical to
+  v1.12.1, with these deliberate exceptions:
+
+  - The King model (``KingPotential``, ``kingdf``) now solves its Poisson
+    equation to a relative tolerance of 1e-10 rather than scipy's default of
+    1e-3, which changes its potential and DF at the 1e-5 to 1e-3 level.
+
+  - The velocity sampler of ``quasiisothermaldf``, the samplers of the
+    two-dimensional disk DFs (``dehnendf``, ``shudf``, ``schwarzschilddf``),
+    and the sampler of ``streamdf`` draw by inverse transformation rather
+    than by rejection. The particular draws change, but not their
+    distribution, except for the two-dimensional disk DFs, whose previous
+    draws had a mean azimuthal velocity that was biased by a few per cent
+    and whose new draws do not.
+
+  - The forces of ``EinastoPotential`` and ``PowerSphericalPotentialwCutoff``
+    were rewritten in forms that are accurate and differentiable at small
+    radii; their values differ from v1.12.1 by at most a few units in the
+    last place (5e-15 relative).
+
+- Removed the features that were deprecated for removal after v1.13:
+
+  - Lists of potentials are no longer accepted anywhere; combining potentials
+    with a list now raises a ``TypeError``. Combine potentials with the ``+``
+    operator instead (``pot1 + pot2``), which returns a
+    ``CompositePotential``.
+
+  - ``Orbit.integrate`` and ``Orbit.integrate_dxdv`` require the times to be
+    an array (a list of times now raises a ``TypeError``; it never worked).
+
+  - ``streamdf``: the ``Rnorm=``, ``Vnorm=``, and ``custom_transform=``
+    keywords and the ``calc_stream_lb`` method.
+
+  - ``fardal15spraydf`` and ``chen24spraydf``: the ``leading=`` keyword; use
+    ``tail=``.
+
+- Python >= 3.11 is required. The new ``jax`` and ``torch`` extras
+  (``pip install "galpy[jax]"``, ``"galpy[torch]"``) install the backend
+  dependencies (jax >= 0.10.1 with diffrax >= 0.7.2; torch >= 2.12 with
+  torchdiffeq >= 0.2.5 and torchode >= 1.0.1; array-api-compat >= 1.14).
+
+- The new-version check at import time now queries PyPI's JSON API and, when
+  running a pre-release, also reports newer pre-releases.
 
 - ``TruncatedNFWPotential`` and ``TruncatedHernquistPotential`` run on the JAX
   and PyTorch backends, differentiable with respect to ``a``, ``rc`` and the
