@@ -103,8 +103,7 @@ def test_progenitor_coordtransformparams():
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.util import conversion  # for unit conversions
-    from galpy.util import galpyWarning
+    from galpy.util import conversion, galpyWarning  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     # odeint to make sure that the C integration warning isn't thrown

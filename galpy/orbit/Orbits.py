@@ -898,7 +898,7 @@ class Orbit:
             dtype="object",
         )
         if len(args) > 1:
-            name = [n for n in args]
+            name = [*args]
         elif isinstance(args[0], list):
             name = args[0]
         else:
@@ -8146,7 +8146,7 @@ if ( typeof window.require == 'undefined' ) {{
                 setup_trace1=setup_trace1,
                 setup_trace2=setup_trace2,
                 setup_trace3=setup_trace3,
-                trace_num_list=[ii for ii in range(self.size * len(d1s))],
+                trace_num_list=[*range(self.size * len(d1s))],
             )
         )
 
@@ -8804,7 +8804,7 @@ if ( typeof window.require == 'undefined' ) {{
                 trace_num_20_list=trace_num_20_list,
                 setup_trace1=setup_trace1,
                 traces_cumul=traces_cumul,
-                trace_num_list=[ii for ii in range(self.size * len(d1s))],
+                trace_num_list=[*range(self.size * len(d1s))],
             )
         )
 
