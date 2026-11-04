@@ -388,7 +388,7 @@ class BuildExt(build_ext):
 setup(
     cmdclass=dict(build_ext=BuildExt),  # this to allow compiler check above
     name="galpy",
-    version="1.12.1",
+    version="2.0.0b1.dev0",
     description="Galactic Dynamics in python",
     author="Jo Bovy",
     author_email="bovy@astro.utoronto.ca",
@@ -403,7 +403,7 @@ setup(
         "": ["README.md", "README.dev", "LICENSE", "AUTHORS.rst"],
     },
     include_package_data=True,
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     install_requires=["packaging", "numpy>=1.7", "scipy", "matplotlib"],
     extras_require={
         "test": ["pytest", "coverage", "pytest-cov", "pytest-rerunfailures"],
@@ -411,8 +411,19 @@ setup(
         # dispatch engine and is pulled in by each backend extra; diffrax /
         # torchdiffeq / torchode provide the in-backend differentiable ODE orbit
         # integrators (torchode: the torch.compile-able one).
-        "jax": ["jax", "jaxlib", "array-api-compat", "diffrax"],
-        "torch": ["torch", "array-api-compat", "torchdiffeq", "torchode"],
+        # Floors: the oldest versions exercised (CI runs the latest).
+        "jax": [
+            "jax>=0.10.1",
+            "jaxlib>=0.10.1",
+            "array-api-compat>=1.14",
+            "diffrax>=0.7.2",
+        ],
+        "torch": [
+            "torch>=2.12",
+            "array-api-compat>=1.14",
+            "torchdiffeq>=0.2.5",
+            "torchode>=1.0.1",
+        ],
         "docs": [
             "sphinxext-opengraph",
             "sphinx-design",
@@ -428,7 +439,6 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",

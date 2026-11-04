@@ -75,7 +75,7 @@ def torch_compiles():
 
     dynamo trails the Python release and refuses to run on one it does not
     support yet, so `import torch` succeeding does not imply that compiling
-    works, and CI runs the backend shards on 3.10 through 3.14. Probing is only
+    works, and CI runs the backend shards on 3.11 through 3.14. Probing is only
     reliable this way. Deliberately a function, not a module-level constant, so
     importing this conftest never drags torch into a numpy-only session.
     """

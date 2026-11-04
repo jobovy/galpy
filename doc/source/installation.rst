@@ -3,6 +3,15 @@
 Installation
 ==============
 
+.. note::
+   This page describes how to install **galpy 2.0**, which adds the JAX and
+   PyTorch array backends and requires Python >= 3.11. galpy 2.0 is in beta:
+   its releases (2.0.0b1, ...) are pre-releases, so ``pip`` only installs them
+   when given ``--pre``, as in all of the commands below. galpy 2.0 is not yet
+   available on ``conda-forge`` (``conda install galpy`` installs galpy 1.x).
+   For the stable galpy 1.x, see the
+   `galpy 1.x installation instructions <https://docs.galpy.org/en/latest/installation.html>`__.
+
 .. _tldr_installation:
 
 TL;DR
@@ -15,29 +24,26 @@ TL;DR
 
         The recommended way to install is using ``pip``::
 
-            python -m pip install --only-binary galpy galpy
+            python -m pip install --pre --only-binary galpy galpy
 
-        This should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        This should install a fully-working version of galpy for Python versions >=3.11. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Mac
 
-        The recommended way to install in non-``conda`` environments (e.g., ``venv``) is using ``pip``::
+        The recommended way to install is using ``pip``, also in a ``conda`` environment (galpy 2.0 is not yet available on ``conda-forge``)::
 
-            python -m pip install --only-binary galpy galpy
+            python -m pip install --pre --only-binary galpy galpy
 
-        If you are using ``conda``, especially if you used it to install ``numpy``, the recommended way to install is using ``conda``::
-
-            conda install -c conda-forge gsl galpy
-
-        These should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        This should install a fully-working version of galpy for Python versions >=3.11. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Windows
 
-        The recommended way to install is using ``conda``::
+        The recommended way to install is to install the GNU Scientific Library (GSL) in a ``conda`` environment and ``galpy`` using ``pip``::
 
-            conda install -c conda-forge gsl galpy
+            conda install -c conda-forge gsl
+            python -m pip install --pre --only-binary galpy galpy
 
-        Note that on Windows it is necessary to explicitly install the GNU Scientific Library (GSL) in this way.
+        Note that on Windows it is necessary to explicitly install the GSL in this way.
 
 For more info on installation options, jump to the detailed instructions below: :ref:`detailed_installation`
 
@@ -59,7 +65,7 @@ Optional dependencies are:
   * ``tqdm`` for displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once)
   * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
   * ``numba`` for speeding up the evaluation of certain functions when using C orbit integration,
-  * ``JAX`` or ``PyTorch``, together with ``array-api-compat`` (the backend-dispatch engine), for use of constant-anisotropy DFs in ``galpy.df.constantbetadf`` and galpy's other differentiable array backends — most easily installed with ``pip install galpy[jax]`` or ``pip install galpy[torch]``, which pull in both, and
+  * ``JAX`` or ``PyTorch``, together with ``array-api-compat`` (the backend-dispatch engine), for use of constant-anisotropy DFs in ``galpy.df.constantbetadf`` and galpy's other differentiable array backends — most easily installed with ``pip install --pre "galpy[jax]"`` or ``pip install --pre "galpy[torch]"`` (``--pre`` while galpy 2.0 is in beta), which pull in both, and
   * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 .. _detailed_installation:
@@ -81,14 +87,10 @@ If you are reading this, either the simple installation instructions at the top 
     .. tab-item:: Linux
 
         As discussed in the :ref:`tldr_installation` section above, the simplest and
-        quickest way to install the latest ``galpy`` release on Linux is to use
+        quickest way to install the latest ``galpy`` 2.0 release on Linux is to use
         ``pip``::
 
-            python -m pip install --only-binary galpy galpy
-
-        Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
-
-            conda install -c conda-forge gsl galpy
+            python -m pip install --pre --only-binary galpy galpy
 
         To compile ``galpy`` from source, you will first need to install the GSL. The
         easiest way to do this is using your package manager. On Linux distributions
@@ -108,7 +110,7 @@ If you are reading this, either the simple installation instructions at the top 
 
         Once you have installed the GSL, compile ``galpy`` from source using::
 
-            python -m pip install --no-binary galpy galpy
+            python -m pip install --pre --no-binary galpy galpy
 
         Note that ``galpy``'s installation from source should automatically detect the
         relevant GSL paths, so you shouldn't have to set any environment variables. If
@@ -118,35 +120,30 @@ If you are reading this, either the simple installation instructions at the top 
             export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
 
-        The commands in this section so far all install the latest release. If you want
-        to install the latest bleeding-edge version, you have two options. If the
-        installation in the :ref:`tldr_installation` works for you, you can install using::
+        The commands in this section so far all install the latest release. To install
+        the latest bleeding-edge version of galpy 2.0 (the ``v2`` branch), follow the
+        steps above to install the GSL, define the relevant environment variables, and
+        then install from source using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install git+https://github.com/jobovy/galpy.git@v2#egg=galpy
 
-        If this doesn't work, follow the steps above to install the GSL, define the
-        relevant environment variables, and then install from source using::
-
-            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
-
-        You can also download the source code or clone the repository, navigate to the
-        top-level directory, and install using::
+        You can also download the source code or clone the repository, check out the
+        ``v2`` branch, navigate to the top-level directory, and install using::
 
             python -m pip install .
 
     .. tab-item:: Mac
 
         As discussed in the :ref:`tldr_installation` section above, the simplest and
-        quickest way to install the latest ``galpy`` release on a Mac is to use
+        quickest way to install the latest ``galpy`` 2.0 release on a Mac is to use
         ``pip``::
 
-            python -m pip install --only-binary galpy galpy
+            python -m pip install --pre --only-binary galpy galpy
 
-        However, if you are using ``conda`` and, particularly, if you used it to install
-        ``numpy``, issues can arise with multiple OpenMP runtimes and the best way to
-        avoid those is to install using ``conda``::
-
-            conda install -c conda-forge gsl galpy
+        galpy 2.0 is not yet available on ``conda-forge``, so use ``pip`` also in a
+        ``conda`` environment. If you used ``conda`` to install ``numpy``, issues can
+        arise with multiple OpenMP runtimes; compiling ``galpy`` from source against
+        ``conda``'s OpenMP (see below) should avoid those.
 
         To compile ``galpy`` from source, you will first need to install the GSL and OpenMP.
         The easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
@@ -172,7 +169,7 @@ If you are reading this, either the simple installation instructions at the top 
 
         Once you have installed the GSL and OpenMP, compile ``galpy`` from source using::
 
-            python -m pip install --no-binary galpy galpy
+            python -m pip install --pre --no-binary galpy galpy
 
         Note that ``galpy``'s installation from source should automatically detect the
         relevant GSL paths, so you shouldn't have to set any environment variables. If
@@ -183,32 +180,30 @@ If you are reading this, either the simple installation instructions at the top 
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
             export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:`gsl-config --prefix`/lib"
 
-        The commands in this section so far all install the latest release. If you want
-        to install the latest bleeding-edge version, you have two options. If the
-        installation in the :ref:`tldr_installation` works for you, you can install using::
+        The commands in this section so far all install the latest release. To install
+        the latest bleeding-edge version of galpy 2.0 (the ``v2`` branch), follow the
+        steps above to install the GSL and OpenMP, define the relevant environment
+        variables, and then install from source using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install git+https://github.com/jobovy/galpy.git@v2#egg=galpy
 
-        If this doesn't work, follow the steps above to install the GSL and OpenMP,
-        define the relevant environment variables, and then install from source using::
-
-            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
-
-        You can also download the source code or clone the repository, navigate to the
-        top-level directory, and install using::
+        You can also download the source code or clone the repository, check out the
+        ``v2`` branch, navigate to the top-level directory, and install using::
 
             python -m pip install .
 
     .. tab-item:: Windows
 
         As discussed in the :ref:`tldr_installation` section above, the simplest and
-        quickest way to install the latest ``galpy`` release on Windows is to use
-        ``conda``::
+        quickest way to install the latest ``galpy`` 2.0 release on Windows is to
+        install the GSL in a ``conda`` environment and ``galpy`` using ``pip``::
 
-            conda install -c conda-forge gsl galpy
+            conda install -c conda-forge gsl
+            python -m pip install --pre --only-binary galpy galpy
 
-        If you want to install the latest bleeding-edge version, you have to install
-        the GSL first as. In an existing ``conda`` environment, do::
+        If you want to install the latest bleeding-edge version of galpy 2.0 (the ``v2``
+        branch), you have to install the GSL first as well. In an existing ``conda``
+        environment, do::
 
             conda install -c conda-forge gsl
 
@@ -240,16 +235,12 @@ If you are reading this, either the simple installation instructions at the top 
 
         Then you can deactivate the conda environment (but you don't have to!).
 
-        With the GSL set up, you can then install a binary wheel of ``galpy`` using::
+        With the GSL set up, you can then compile from source using::
 
-            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
+            python -m pip install git+https://github.com/jobovy/galpy.git@v2#egg=galpy
 
-        You can also compile from source using::
-
-            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
-
-        or you can download the source code or clone the repository, navigate to the
-        top-level directory, and install using::
+        or you can download the source code or clone the repository, check out the
+        ``v2`` branch, navigate to the top-level directory, and install using::
 
             python -m pip install .
 
@@ -265,8 +256,10 @@ To install ``galpy`` for local development (i.e., you are changing the
 and then clone it to your local machine::
 
     git clone git@github.com:YOUR_GITHUB_USERNAME/galpy.git
+    cd galpy
+    git checkout v2
 
-Then, install the GSL and OpenMP as described in the relevant :ref:`detailed_installation`
+(galpy 2.0 is developed on the ``v2`` branch, galpy 1.x on ``main``). Then, install the GSL and OpenMP as described in the relevant :ref:`detailed_installation`
 section above. Then compile ``galpy`` from source::
 
     python -m pip install -e .
@@ -543,7 +536,7 @@ running the installation commands above::
 
 or when using pip as follows::
 
-    export GALPY_COMPILE_NO_OPENMP=1 && pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
+    export GALPY_COMPILE_NO_OPENMP=1 && pip install -U --no-deps git+https://github.com/jobovy/galpy.git@v2#egg=galpy
 
 This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
@@ -582,7 +575,7 @@ currently used:
 
           * To set options related to whether or not to check for new versions of galpy (``do-check= False`` turns all such checks off; ``check-non-interactive`` sets whether or not to do the version check in non-interactive (script) sessions; ``check-non-interactive`` sets the cadence of how often to check for version updates in non-interactive sessions [in days; interactive sessions always check]; ``last-non-interactive-check`` is an internal variable to store when the last check occurred)
 
-          * To set the default array backend (``default = numpy``, the standard numpy/scipy code path). ``galpy`` resolves the backend by following the data — passing JAX or PyTorch arrays makes ``galpy`` compute (and differentiate) with that backend automatically — so this default only applies when there is no array to dispatch on. It can be set to ``jax`` or ``torch`` to make those the default (this requires the corresponding optional dependency, installable with ``pip install galpy[jax]`` or ``pip install galpy[torch]``); at runtime it can be overridden with the ``galpy.backend.use(...)`` context manager. With ``default = numpy`` (the default) there is no change to the numpy behavior and no extra dependency is needed.
+          * To set the default array backend (``default = numpy``, the standard numpy/scipy code path). ``galpy`` resolves the backend by following the data — passing JAX or PyTorch arrays makes ``galpy`` compute (and differentiate) with that backend automatically — so this default only applies when there is no array to dispatch on. It can be set to ``jax`` or ``torch`` to make those the default (this requires the corresponding optional dependency, installable with ``pip install --pre "galpy[jax]"`` or ``pip install --pre "galpy[torch]"``); at runtime it can be overridden with the ``galpy.backend.use(...)`` context manager. With ``default = numpy`` (the default) there is no change to the numpy behavior and no extra dependency is needed.
 
 The current configuration file therefore looks like this::
 

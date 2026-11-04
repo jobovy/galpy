@@ -46,9 +46,9 @@ FAQ](http://docs.galpy.org/en/latest/installation.html#installation-faq).
 PYTHON VERSIONS AND DEPENDENCIES
 ================================
 
-`galpy` supports Python 3. Specifically, galpy supports Python 3.10, 3.11, 3.12,
-3.13, and 3.14. GitHub Actions CI builds regularly check support for
-Python 3.14 (and of 3.10, 3.11, 3.12, and 3.13 using a more limited, core set of tests)
+`galpy` supports Python 3. Specifically, galpy 2.x supports Python 3.11, 3.12,
+3.13, and 3.14 (galpy 1.x also supports Python 3.10). GitHub Actions CI builds regularly check support for
+Python 3.14 (and of 3.11, 3.12, and 3.13 using a more limited, core set of tests)
 on Linux and Windows (and 3.14 on Mac OS). Python 2.7 is no longer supported.
 
 This package requires [Numpy](https://numpy.org/),

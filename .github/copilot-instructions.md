@@ -6,7 +6,7 @@
 
 - **Repository Size**: ~44MB (7.1MB galpy/, 3.3MB tests/, 18MB doc/)
 - **Languages**: Python (142 files) and C (81 files for performance-critical extensions)
-- **Python Versions**: Supports 3.10, 3.11, 3.12, 3.13, and 3.14
+- **Python Versions**: Supports 3.11, 3.12, 3.13, and 3.14
 - **Key Dependencies**: numpy, scipy, matplotlib (required); GSL 1.14+ (optional, for C extensions)
 - **Optional Dependencies**: astropy, astroquery, tqdm, numexpr, numba, JAX, pynbody
 
@@ -186,7 +186,7 @@ doc/                      # Sphinx documentation
 
 **Main Build Workflow** (`.github/workflows/build.yml`):
 - Runs on: Ubuntu, macOS (Intel)
-- Python versions: 3.9, 3.10, 3.11, 3.12, 3.13
+- Python versions: 3.11, 3.12, 3.13, 3.14
 - **Test splitting**: Tests are split into ~15 jobs per Python version for parallel execution
 - **OpenMP disabled on Linux**: CI uses `GALPY_COMPILE_NO_OPENMP=1`
 - **Coverage enabled on Linux**: Uses `GALPY_COMPILE_COVERAGE=1` with lcov
