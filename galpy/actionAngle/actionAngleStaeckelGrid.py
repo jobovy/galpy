@@ -22,9 +22,12 @@ from ..backend import (
     asarray_on_device,
     device_of,
     get_namespace,
+    is_backend_array,
+    name_of_namespace,
+    promote_scalars,
+    use,
 )
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array, name_of_namespace, promote_scalars, use
 from ..backend._namespaces import requires_backend_grad, under_trace
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,

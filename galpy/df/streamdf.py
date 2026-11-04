@@ -30,9 +30,9 @@ from ..backend import (
     name_of_namespace,
     on_host,
     promote_scalars,
+    to_host,
 )
 from ..backend import special as _bspecial
-from ..backend import to_host
 from ..backend._namespaces import (
     inbackend_ode_method,
     namespace_from_arrays,

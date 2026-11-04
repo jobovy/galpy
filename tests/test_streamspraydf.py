@@ -16,8 +16,7 @@ from galpy.potential import (
     PlummerPotential,
     RotateAndTiltWrapperPotential,
 )
-from galpy.util import conversion  # for unit conversions
-from galpy.util import coords
+from galpy.util import conversion, coords  # for unit conversions
 
 ################################ Tests against streamdf ######################
 

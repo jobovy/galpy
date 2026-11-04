@@ -18,9 +18,10 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
     resolve_namespace,
+    to_host,
+    use,
 )
 from ..backend import special as _bspecial
-from ..backend import to_host, use
 from ..backend._namespaces import (
     concretely_true,
     has_concrete_truth_value,

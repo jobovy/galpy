@@ -41,9 +41,12 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     prefer_backend_namespace,
+    resolve_namespace,
+    scalar_like,
+    to_host,
+    use,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, scalar_like, to_host, use
 from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_for_name,

@@ -33,9 +33,12 @@ from ..backend import (
     like,
     on_host,
     prefer_backend_namespace,
+    resolve_namespace,
+    scalar_like,
+    to_host,
+    use,
 )
 from ..backend import quadrature as _bquad
-from ..backend import resolve_namespace, scalar_like, to_host, use
 from ..backend._input import params_changed
 from ..backend._namespaces import (
     has_concrete_truth_value,

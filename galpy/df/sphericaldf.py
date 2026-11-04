@@ -35,9 +35,9 @@ from ..backend import (
     float64_default_if_torch_args,
     get_namespace,
     is_backend_array,
+    resolve_namespace,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace
 from ..backend._input import _lift_param
 from ..backend._namespaces import (
     concretely_true,

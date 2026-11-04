@@ -32,9 +32,11 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    resolve_namespace,
+    to_host,
+    use,
 )
 from ..backend import quadrature as _bquad
-from ..backend import resolve_namespace, to_host, use
 from ..backend._namespaces import (
     inbackend_ode_method,
     requires_backend_grad,

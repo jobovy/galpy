@@ -12,10 +12,10 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     match_input_dtype,
+    use,
 )
 from ..backend import quadrature as _bquad
 from ..backend import special as _bspecial
-from ..backend import use
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import (
