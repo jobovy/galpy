@@ -198,11 +198,10 @@ class Force:
         - 2024-11-24 - Modified to return CompositePotential instead of list - Bovy (UofT)
 
         """
-        from ..potential import flatten as flatten_pot
         from ..potential import planarForce
         from .CompositePotential import CompositePotential
 
-        if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
+        if not isinstance(b, (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
                 """other Force objects or combinations thereof"""
@@ -222,10 +221,6 @@ class Force:
 
     # Define separately to keep order
     def __radd__(self, b):
-        from ..potential import flatten as flatten_pot
-        from ..potential import planarPotential
-        from .CompositePotential import CompositePotential
-
         # Only way to get here is in a situation that isn't supported: adding a Force
         # to something that is not a Force or similar itself, which all implement __add__
         raise TypeError(

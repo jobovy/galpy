@@ -16,11 +16,9 @@
 import os
 import os.path
 import pickle
-import warnings
 from functools import wraps
 
 import numpy
-from packaging.version import Version
 from scipy import integrate, optimize
 
 from ..backend import (
@@ -287,53 +285,16 @@ def _accepts_node_array(pot, *methods):
 
 def _check_potential_list_and_deprecate(Pot):
     if isinstance(Pot, list):
-        # Check if we're beyond version 1.13.x
-        from galpy import __version__ as galpy_version
-
-        current_version = Version(galpy_version.split(".dev")[0])
-        if current_version > Version("1.13.99"):  # pragma: no cover
-            raise TypeError(
-                "Lists of potentials/forces are no longer supported. "
-                f"Combine potentials with the + operator instead."
-            )
-
-        warnings.warn(
-            "Passing a list of potentials/forces is deprecated and will be "
-            "removed in versions after 1.13.x. Combine potentials with the + "
-            "operator (e.g., pot1 + pot2) instead.",
-            DeprecationWarning,
-            stacklevel=2,
+        raise TypeError(
+            "Lists of potentials/forces are no longer supported. "
+            "Combine potentials with the + operator instead."
         )
-
-        # Determine the dimensionality of the composite class to create,
-        # but only handle (a) all 3D, (b) all 1D, (c) mix of 3D and 2d
-        # All other cases are passed through to just error later
-        Pot = flatten(Pot)  # Shouldn't be necessary, but just in case
-        dims = [_dim(pot) for pot in Pot]
-        if all(d == 3 for d in dims):
-            from .CompositePotential import CompositePotential
-
-            Pot = CompositePotential(Pot)
-        elif all(d >= 2 for d in dims):
-            from .planarCompositePotential import planarCompositePotential
-
-            if any(d != 2 for d in dims):  # pragma: no cover
-                # Mixed 2D and 3D potentials: convert 3D to 2D
-                # not worrying about coverage, because this is behavior that isn't
-                # really recommended and will be deprecated
-                Pot = [p.toPlanar() if _dim(p) == 3 else p for p in Pot]
-
-            Pot = planarCompositePotential(Pot)
-        elif all(d == 1 for d in dims):
-            from .linearCompositePotential import linearCompositePotential
-
-            Pot = linearCompositePotential(Pot)
     return Pot
 
 
 def potential_list_of_potentials_input(func):
-    """Decorator that converts a list of potentials to a CompositePotential before
-    passing it to the function. Also emits a DeprecationWarning for lists."""
+    """Decorator that raises a TypeError when passed a list of potentials
+    (combine potentials with the + operator instead)."""
 
     @wraps(func)
     def wrapper(Pot, /, *args, **kwargs):

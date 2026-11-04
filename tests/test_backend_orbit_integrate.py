@@ -1397,17 +1397,13 @@ def test_integrate_inbackend_continuation_merges(backend, method, direction):
         ),
     ],
 )
-def test_integrate_inbackend_accepts_deprecated_potential_list(method):
+def test_integrate_inbackend_rejects_potential_list(method):
+    # the in-backend methods reject a list of potentials like every other method
     arr = jnp.asarray if method == "diffrax" else torch.as_tensor
     mn = MiyamotoNagaiPotential(normalize=0.6, a=0.5, b=0.05)
     nfw = NFWPotential(normalize=0.4, a=6.0)
-    o_list, o_sum = Orbit(arr(_IC)), Orbit(arr(_IC))
-    with pytest.warns(DeprecationWarning, match="list of potentials"):
-        o_list.integrate(arr(_TS), [mn, nfw], method=method)
-    o_sum.integrate(arr(_TS), mn + nfw, method=method)
-    numpy.testing.assert_array_equal(
-        as_numpy(o_list.getOrbit()), as_numpy(o_sum.getOrbit())
-    )
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        Orbit(arr(_IC)).integrate(arr(_TS), [mn, nfw], method=method)
 
 
 @pytest.mark.parametrize("flag", ["radec", "lb"])

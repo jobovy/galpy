@@ -7128,7 +7128,7 @@ def test_orbit_rguiding():
     assert numpy.fabs(as_numpy(o.rguiding(pot=lp)) - as_numpy(rl(lp, Lz))) < 1e-10, (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     assert (
@@ -7177,7 +7177,7 @@ def test_orbit_rguiding_planar():
     assert numpy.fabs(as_numpy(o.rguiding(pot=lp)) - as_numpy(rl(lp, Lz))) < 1e-10, (
         "Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     assert (
@@ -7227,7 +7227,7 @@ def test_orbit_rE():
     assert numpy.fabs(as_numpy(o.rE(pot=lp)) - as_numpy(rE(lp, E))) < 1e-10, (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=MWPotential2014)
@@ -7277,7 +7277,7 @@ def test_orbit_rE_planar():
     assert numpy.fabs(as_numpy(o.rE(pot=lp)) - as_numpy(rE(lp, E))) < 1e-10, (
         "rE returned by Orbit interface rE is different from that returned by potential interface rE"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=MWPotential2014)
@@ -7333,7 +7333,7 @@ def test_orbit_LcE():
     assert numpy.fabs(as_numpy(o.LcE(pot=lp)) - as_numpy(LcE(lp, E))) < 1e-10, (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0, 0.1, 0.0])
     E = o.E(pot=MWPotential2014)
@@ -7383,7 +7383,7 @@ def test_orbit_LcE_planar():
     assert numpy.fabs(as_numpy(o.LcE(pot=lp)) - as_numpy(LcE(lp, E))) < 1e-10, (
         "LcE returned by Orbit interface LcE is different from that returned by potential interface LcE"
     )
-    # For a list of potentials
+    # For a combined potential
     R, Lz = 1.4, 0.9
     o = Orbit([R, 0.4, Lz / R, 0.0])
     E = o.E(pot=MWPotential2014)
@@ -16147,7 +16147,7 @@ def test_orbit_continuation_potential_comparison_single_vs_list():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014
 
-    # MWPotential2014 is a list of potentials
+    # MWPotential2014 is a combined potential
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
@@ -16165,20 +16165,20 @@ def test_orbit_continuation_potential_comparison_single_vs_list():
     return None
 
 
-def test_orbit_continuation_potential_comparison_nested_list():
-    # Test potential comparison with nested lists
+def test_orbit_continuation_potential_comparison_nested_composite():
+    # Test potential comparison with (nested) combined potentials
     import warnings
 
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, flatten
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014
 
-    # Use a list of potentials
+    # Use a combined potential
     pot1 = MWPotential2014
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, pot1)
 
-    # Continue with same list - should NOT warn
+    # Continue with the same combined potential - should NOT warn
     t2 = numpy.linspace(10.0, 20.0, 101)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -16186,10 +16186,10 @@ def test_orbit_continuation_potential_comparison_nested_list():
         pot_warnings = [
             warning for warning in w if "different potential" in str(warning.message)
         ]
-        assert len(pot_warnings) == 0, "Should not warn with same list potential"
+        assert len(pot_warnings) == 0, "Should not warn with same combined potential"
 
-    # Continue with different list - should warn
-    pot2 = [LogarithmicHaloPotential(), LogarithmicHaloPotential(normalize=0.9)]
+    # Continue with a different combined potential - should warn
+    pot2 = LogarithmicHaloPotential() + LogarithmicHaloPotential(normalize=0.9)
     o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     o2.integrate(t1, pot1)
     with warnings.catch_warnings(record=True) as w:
@@ -16198,10 +16198,13 @@ def test_orbit_continuation_potential_comparison_nested_list():
         pot_warnings = [
             warning for warning in w if "different potential" in str(warning.message)
         ]
-        assert len(pot_warnings) > 0, "Should warn with different list potential"
+        assert len(pot_warnings) > 0, "Should warn with different combined potential"
 
-    # Test with actual nested list
-    pot3 = LogarithmicHaloPotential() + [LogarithmicHaloPotential(normalize=0.9)]
+    # Test with a nested combined potential
+    pot3 = LogarithmicHaloPotential() + (
+        LogarithmicHaloPotential(normalize=0.9)
+        + LogarithmicHaloPotential(normalize=0.5)
+    )
     o3 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     o3.integrate(t1, pot3)
     with warnings.catch_warnings(record=True) as w:
@@ -16210,7 +16213,9 @@ def test_orbit_continuation_potential_comparison_nested_list():
         pot_warnings = [
             warning for warning in w if "different potential" in str(warning.message)
         ]
-        assert len(pot_warnings) == 0, "Should not warn with same nested list potential"
+        assert len(pot_warnings) == 0, (
+            "Should not warn with same nested combined potential"
+        )
 
     return None
 
@@ -16255,20 +16260,20 @@ def test_orbit_continuation_potential_comparison_planar_wrapper():
     return None
 
 
-def test_orbit_continuation_potential_comparison_list_length():
-    # Test potential comparison when list lengths differ
+def test_orbit_continuation_potential_comparison_composite_length():
+    # Test potential comparison when the number of components differs
     import warnings
 
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014
 
-    # Start with a list of potentials
+    # Start with a combined potential of 3 components
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     t1 = numpy.linspace(0.0, 10.0, 101)
-    o.integrate(t1, MWPotential2014)  # This is a list of 3 potentials
+    o.integrate(t1, MWPotential2014)
 
-    # Continue with a list of different length - should warn
-    pot2 = [LogarithmicHaloPotential()]  # Only 1 potential
+    # Continue with a combined potential of 2 components - should warn
+    pot2 = LogarithmicHaloPotential() + LogarithmicHaloPotential(normalize=0.5)
     t2 = numpy.linspace(10.0, 20.0, 101)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -16276,7 +16281,9 @@ def test_orbit_continuation_potential_comparison_list_length():
         pot_warnings = [
             warning for warning in w if "different potential" in str(warning.message)
         ]
-        assert len(pot_warnings) > 0, "Should warn when list lengths differ"
+        assert len(pot_warnings) > 0, (
+            "Should warn when the number of components differs"
+        )
 
     return None
 
@@ -16631,26 +16638,37 @@ def test_integrate_auto_no_tdyn_no_vcirc_raises():
     return None
 
 
-def test_integrate_auto_deprecated_list():
-    # Test deprecated list of potentials interface (still needs to work for backward compatibility)
-    # Need to suppress DeprecationWarning since tests run with warnings as errors
-    import warnings
-
+def test_integrate_list_of_potentials_raises():
+    # Lists of potentials are no longer supported: integrate(list) raises a
+    # TypeError, also with an explicit time array
     from galpy.orbit import Orbit
     from galpy.potential import HernquistPotential, NFWPotential
 
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    # Create list of potentials (deprecated syntax)
     pot_list = [NFWPotential(amp=1.0, a=2.0), HernquistPotential(amp=2.0, a=1.3)]
-
-    # Suppress the deprecation warning for this test
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
+    with pytest.raises(TypeError, match="Lists of potentials"):
         o.integrate(pot_list)
+    with pytest.raises(TypeError, match="Lists of potentials"):
+        o.integrate(numpy.linspace(0.0, 1.0, 11), pot_list)
+    return None
 
-    # Check integration occurred with default 10 tdyn
-    assert hasattr(o, "t") and len(o.t) > 0
-    assert len(o.t) == 1011  # 101 × 10 + 1
+
+def test_integrate_list_of_times_raises():
+    # Times must be an array: a list of times raises a TypeError, in
+    # integrate and integrate_dxdv
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate([0.0, 0.5, 1.0], MWPotential2014)
+    with pytest.raises(TypeError, match="Times t must be an array"):
+        o.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.5, 1.0],
+            MWPotential2014,
+            method="dopr54_c",
+        )
     return None
 
 

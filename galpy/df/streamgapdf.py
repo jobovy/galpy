@@ -156,10 +156,6 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
             Velocity scale for translation into internal units (default from configuration file).
-        Vnorm : float or Quantity, optional
-            Deprecated. Use vo instead (default: None).
-        Rnorm : float or Quantity, optional
-            Deprecated. Use ro instead (default: None).
         R0 : float or Quantity, optional
             Galactocentric radius of the Sun (kpc) (can be different from ro) (default: 8.0).
         Zsun : float or Quantity, optional
@@ -182,8 +178,6 @@ class streamgapdf(streamdf.streamdf, SplinePickleMixin):
             If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
         custom_sky_transform : numpy.ndarray, optional
             3x3 rotation matrix from (ra,dec) to a custom (phi1,phi2) sky frame (default: None).
-        custom_transform : numpy.ndarray, optional
-            Deprecated alias for `custom_sky_transform`. Deprecated since v1.12 and will be removed in v1.14.
         impactb : float or Quantity, optional
             Impact parameter (can be Quantity) (default: 1.0).
         subhalovel : numpy.ndarray or Quantity, optional

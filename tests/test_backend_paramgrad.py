@@ -556,16 +556,15 @@ def test_forced_backend_caches_are_not_parameters(backend_name):
         assert param_grad_array([PlummerPotential(amp=1.0, b=b)]) is b
 
 
-@pytest.mark.filterwarnings("ignore:Passing a list of potentials")
 @pytest.mark.parametrize("method", METHOD_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_param_grad_list_of_potentials_at_float_coordinates(backend_name, method):
-    # a (deprecated) LIST of potentials, one carrying the differentiated
-    # parameter: the boundary finds it among the list's members
+def test_param_grad_combined_potential_at_float_coordinates(backend_name, method):
+    # a combined potential, one component carrying the differentiated
+    # parameter: the boundary finds it among the components
     from galpy.potential import NFWPotential
 
     def build(a):
-        return [_mn(amp=1.0, a=a, b=0.3), NFWPotential(amp=0.5, a=2.0)]
+        return _mn(amp=1.0, a=a, b=0.3) + NFWPotential(amp=0.5, a=2.0)
 
     fd = _float_fd(build, 0.5, method)
     if backend_name == "jax":

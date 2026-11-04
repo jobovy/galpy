@@ -32,7 +32,7 @@ def test_meanvR_adiabatic_gl():
 
 def test_meanvR_adiabatic_mc():
     numpy.random.seed(1)
-    # test nested list of potentials
+    # test a nested combined potential
     qdf = quasiisothermaldf(
         1.0 / 4.0,
         0.2,

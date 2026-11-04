@@ -51,7 +51,7 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
     # Test that dynamical friction with variable Lambda for small r ranges
     # gives ~ the same result as using a constant Lambda that is the mean of
     # the variable lambda
-    # Also tests that giving an axisymmetric list of potentials for the
+    # Also tests that giving an axisymmetric combined potential for the
     # density works
     from galpy.orbit import Orbit
     from galpy.util import conversion

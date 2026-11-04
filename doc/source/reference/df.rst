@@ -277,7 +277,6 @@ General instance routines
 
    __call__ <streamdfcall.rst>
    __init__ <streamdf.rst>
-   calc_stream_lb <streamdfcalcstreamlb.rst>
    callMarg <streamdfcallmarg.rst>
    density_par <streamdfdenspar.rst>
    estimateTdisrupt <streamdfestimatetdisrupt.rst>
