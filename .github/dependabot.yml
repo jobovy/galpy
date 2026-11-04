@@ -8,3 +8,15 @@ updates:
     actions:
       patterns:
         - '*'
+# The same for the v2 branch: Dependabot reads this file from the default branch
+# only, and this block checks the workflow files ON v2 and opens its pull
+# requests AGAINST v2 (security updates always target the default branch).
+- package-ecosystem: "github-actions"
+  directory: "/"
+  target-branch: "v2"
+  schedule:
+    interval: "weekly"
+  groups:
+    actions:
+      patterns:
+        - '*'
