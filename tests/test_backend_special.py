@@ -13,9 +13,8 @@ import pytest
 import scipy.special as scipy_special
 from conftest import torch_compiles
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 from galpy.backend import special as gsp
-from galpy.backend import use
 from galpy.backend.special._router import (
     _NATIVE_ALIASES,
     _NATIVE_MISSING,

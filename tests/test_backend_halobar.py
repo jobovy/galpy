@@ -85,7 +85,7 @@ def _make_pots():
         (
             LogarithmicHaloPotential(amp=1.3, q=0.8, core=0.1),
             3,
-            [m for m in THREED_METHODS],
+            [*THREED_METHODS],
         )
     )
     # triaxial (nonaxi) LogarithmicHalo exercises the phi-dependent branches
@@ -93,7 +93,7 @@ def _make_pots():
         (
             LogarithmicHaloPotential(amp=1.1, q=0.9, b=0.7, core=0.1),
             3,
-            [m for m in THREED_METHODS],
+            [*THREED_METHODS],
         )
     )
     # DehnenBar (fully grown so smooth==1); all 2nd derivs supported
@@ -141,16 +141,16 @@ def _make_pots():
                 H=0.2,
             ),
             3,
-            [m for m in THREED_METHODS],
+            [*THREED_METHODS],
         )
     )
     # --- planar potentials ---------------------------------------------------
-    pots.append((HenonHeilesPotential(amp=1.2), 2, [m for m in PLANAR_METHODS]))
+    pots.append((HenonHeilesPotential(amp=1.2), 2, [*PLANAR_METHODS]))
     pots.append(
         (
             CosmphiDiskPotential(amp=1.1, phib=0.3, p=1.0, phio=0.02, m=4, r1=1.0),
             2,
-            [m for m in PLANAR_METHODS],
+            [*PLANAR_METHODS],
         )
     )
     # CosmphiDisk with break radius rb (exercises the inside-rb where-branch)
@@ -160,21 +160,21 @@ def _make_pots():
                 amp=1.0, phib=0.3, p=1.0, phio=0.02, m=4, r1=1.0, rb=1.2
             ),
             2,
-            [m for m in PLANAR_METHODS],
+            [*PLANAR_METHODS],
         )
     )
     pots.append(
         (
             LopsidedDiskPotential(amp=1.0, phib=0.3, p=1.0, phio=0.02),
             2,
-            [m for m in PLANAR_METHODS],
+            [*PLANAR_METHODS],
         )
     )
     pots.append(
         (
             EllipticalDiskPotential(amp=1.0, phib=0.3, p=1.0, twophio=0.02),
             2,
-            [m for m in PLANAR_METHODS],
+            [*PLANAR_METHODS],
         )
     )
     pots.append(

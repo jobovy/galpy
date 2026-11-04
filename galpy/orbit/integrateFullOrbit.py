@@ -131,7 +131,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
             if hasattr(p, "_potGrid_splinecoeffs"):
-                pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order="C")])
+                pot_args.extend([*p._potGrid_splinecoeffs.flatten(order="C")])
             else:  # pragma: no cover
                 warnings.warn(
                     "You are attempting to use the C implementation of interpRZPotential, but have not interpolated the potential itself; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpPot=True",
@@ -139,9 +139,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
                 )
                 pot_args.extend(list(numpy.ones(len(p._rgrid) * len(p._zgrid))))
             if hasattr(p, "_rforceGrid_splinecoeffs"):
-                pot_args.extend(
-                    [x for x in p._rforceGrid_splinecoeffs.flatten(order="C")]
-                )
+                pot_args.extend([*p._rforceGrid_splinecoeffs.flatten(order="C")])
             else:  # pragma: no cover
                 warnings.warn(
                     "You are attempting to use the C implementation of interpRZPotential, but have not interpolated the Rforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpRforce=True",
@@ -149,9 +147,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
                 )
                 pot_args.extend(list(numpy.ones(len(p._rgrid) * len(p._zgrid))))
             if hasattr(p, "_zforceGrid_splinecoeffs"):
-                pot_args.extend(
-                    [x for x in p._zforceGrid_splinecoeffs.flatten(order="C")]
-                )
+                pot_args.extend([*p._zforceGrid_splinecoeffs.flatten(order="C")])
             else:  # pragma: no cover
                 warnings.warn(
                     "You are attempting to use the C implementation of interpRZPotential, but have not interpolated the zforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpzforce=True",
@@ -163,17 +159,11 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             # C side leaves the corresponding 2nd-derivative NULL and the 3D
             # variational C path is gated on hasC_dxdv3d (all three present)
             if hasattr(p, "_r2derivGrid_splinecoeffs"):
-                pot_args.extend(
-                    [x for x in p._r2derivGrid_splinecoeffs.flatten(order="C")]
-                )
+                pot_args.extend([*p._r2derivGrid_splinecoeffs.flatten(order="C")])
             if hasattr(p, "_z2derivGrid_splinecoeffs"):
-                pot_args.extend(
-                    [x for x in p._z2derivGrid_splinecoeffs.flatten(order="C")]
-                )
+                pot_args.extend([*p._z2derivGrid_splinecoeffs.flatten(order="C")])
             if hasattr(p, "_rzderivGrid_splinecoeffs"):
-                pot_args.extend(
-                    [x for x in p._rzderivGrid_splinecoeffs.flatten(order="C")]
-                )
+                pot_args.extend([*p._rzderivGrid_splinecoeffs.flatten(order="C")])
             pot_args.extend([p._amp, int(p._logR)])
         elif isinstance(p, potential.IsochronePotential):
             pot_type.append(14)

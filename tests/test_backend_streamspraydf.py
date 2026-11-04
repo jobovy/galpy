@@ -21,9 +21,8 @@ import numpy
 import pytest
 from scipy import interpolate
 
-from galpy.backend import as_numpy, get_namespace, is_backend_array
+from galpy.backend import as_numpy, get_namespace, is_backend_array, use
 from galpy.backend import random as grandom
-from galpy.backend import use
 from galpy.backend.interpolate import cubic_spline_coeffs, eval_cubic
 from galpy.backend.linalg import psd_project
 from galpy.df import chen24spraydf, fardal15spraydf

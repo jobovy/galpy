@@ -25,9 +25,12 @@ from ..backend import (
     match_input_dtype,
     name_of_namespace,
     promote_scalars,
+    resolve_namespace,
+    set_at,
+    to_host,
+    use,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace, set_at, to_host, use
 from ..backend._coerce import lazy_cond, mask_where
 from ..backend._namespaces import (
     has_concrete_truth_value,

@@ -444,9 +444,8 @@ def get_physical(obj: Any, include_set: bool = False) -> dict:
 
     """
     # Try flattening the object in case it's a nested list of Potentials
-    from ..potential import Force
+    from ..potential import Force, linearPotential, planarPotential
     from ..potential import flatten as flatten_pot
-    from ..potential import linearPotential, planarPotential
 
     try:
         new_obj = flatten_pot(obj)

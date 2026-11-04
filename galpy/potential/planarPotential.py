@@ -10,9 +10,10 @@ from ..backend import (
     data_zero,
     get_namespace,
     is_backend_compatible,
+    scalar_like,
+    to_host,
 )
 from ..backend import quadrature as _bquad
-from ..backend import scalar_like, to_host
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,

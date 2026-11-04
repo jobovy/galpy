@@ -54,9 +54,9 @@ from ..potential.Potential import (
     _isNonAxi,
     _pot_data_namespace,
 )
-from ..util import coords  # for prolate confocal transforms
-from ..util import (
+from ..util import (  # for prolate confocal transforms
     conversion,
+    coords,
     galpyWarning,
 )
 from ..util.conversion import physical_conversion, potential_physical_input

@@ -21,9 +21,9 @@ from ..backend import (
     is_backend_array,
     radial_limits,
     scalar_like,
+    to_host,
 )
 from ..backend import special as _bspecial
-from ..backend import to_host
 from ..backend._coerce import (
     exprel,
     fill_where,

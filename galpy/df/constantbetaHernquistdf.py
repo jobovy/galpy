@@ -4,9 +4,8 @@ import numpy
 import scipy.integrate
 import scipy.special
 
-from ..backend import concretely_true, is_backend_array, resolve_namespace
+from ..backend import concretely_true, is_backend_array, resolve_namespace, to_host
 from ..backend import special as bspecial
-from ..backend import to_host
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
 from .constantbetadf import _constantbetadf

@@ -33,9 +33,9 @@ from ..backend._namespaces import has_concrete_truth_value, stop_gradient
 from ..backend.interpolate import (
     cubic_hermite_coeffs,
     eval_ppoly,
+    spline_to_ppoly,
 )
 from ..backend.interpolate import map_coordinates as _backend_map_coordinates
-from ..backend.interpolate import spline_to_ppoly
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.linearPotential import _evaluatelinearx2derivs

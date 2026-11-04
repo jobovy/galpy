@@ -30,9 +30,10 @@ import pytest
 
 from galpy.potential import (
     HernquistPotential,
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
 )
 from galpy.potential import LcE as LcE_fn
-from galpy.potential import LogarithmicHaloPotential, MiyamotoNagaiPotential
 from galpy.potential import mass as mass_fn
 from galpy.potential import rE as rE_fn
 from galpy.potential import rl as rl_fn

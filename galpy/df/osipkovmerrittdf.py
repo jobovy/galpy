@@ -10,9 +10,9 @@ from ..backend import (
     device_of,
     float64_default_if_torch_args,
     get_namespace,
+    resolve_namespace,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace
 from ..backend._namespaces import has_concrete_truth_value, stop_gradient
 from ..backend.interpolate import Spline1D
 from ..backend.optimize import bisect_root, newton_polish

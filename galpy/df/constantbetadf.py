@@ -16,11 +16,11 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
+    resolve_namespace,
+    use,
 )
 from ..backend import random as grandom
-from ..backend import resolve_namespace
 from ..backend import special as _bspecial
-from ..backend import use
 from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_from_arrays,

@@ -17,9 +17,9 @@ from ..backend import (
     is_backend_array,
     lazy_cond,
     resolve_namespace,
+    to_host,
 )
 from ..backend import special as _backend_special
-from ..backend import to_host
 from ..backend._namespaces import (
     namespace_from_arrays,
     requires_backend_grad,
