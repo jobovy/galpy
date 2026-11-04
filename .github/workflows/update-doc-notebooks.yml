@@ -180,10 +180,29 @@ jobs:
         # just consume whatever it stored so the orbit/examples notebook
         # avoids the Vizier query, which has been observed to fail
         # intermittently in CI.
+        id: cache-dierickx
         uses: actions/cache/restore@v6
         with:
           path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
           key: dierickx-2010-thick-disk-v1
+      - name: Fall back to the release copy of the Dierickx 2010 catalog if Vizier is down
+        # Same fallback as in test-doc-notebooks.yml: on a cache miss, and only
+        # when Vizier does not answer, use the copy attached to the v1.12.1
+        # release so the orbit/examples notebook still runs. Nothing is cached
+        # here, so the fallback stays temporary.
+        if: steps.cache-dierickx.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if curl -sf --connect-timeout 15 -m 60 -o /dev/null \
+              'https://vizier.cds.unistra.fr/viz-bin/votable?-source=J/ApJ/725/L186/table2&-out.max=1'; then
+            echo "Vizier answers: the notebook queries it."
+          else
+            echo "Vizier does not answer: using the release copy."
+            gh release download v1.12.1 --repo "${{ github.repository }}" \
+              --pattern dierickx_2010_thick_disk.fits \
+              --dir doc/source/tutorials/orbits --clobber
+          fi
       - name: Execute tutorial notebooks in place
         id: execute-notebooks
         # Failures are tolerated: notebooks that error out (e.g. because of

@@ -115,14 +115,39 @@ jobs:
         run: |
           gh cache delete dierickx-2010-thick-disk-v1 --repo "${{ github.repository }}" \
             || echo "No prior Dierickx 2010 cache to delete."
-      - name: Cache Dierickx 2010 thick-disk catalog
+      - name: Restore Dierickx 2010 thick-disk cache
         # Speeds the orbit/examples notebook up and avoids transient Vizier
         # failures on routine runs. Refreshed by the scheduled workflow above
-        # (and on first run).
-        uses: actions/cache@v6
+        # (and on first run). Restore and save are separate steps so that the
+        # fallback below is never saved into the cache.
+        id: cache-dierickx
+        uses: actions/cache/restore@v6
         with:
           path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
           key: dierickx-2010-thick-disk-v1
+      - name: Fall back to the release copy of the Dierickx 2010 catalog if Vizier is down
+        # Only on a cache miss, and only when Vizier does not answer: the
+        # notebook then finds the file and skips its query. The copy is an
+        # asset of the v1.12.1 release (a dedicated release would fire the
+        # wheel workflows). The fallback is temporary by design: the save step
+        # at the end of the job skips it, so the cache is only ever filled by
+        # a real Vizier download.
+        id: dierickx-fallback
+        if: steps.cache-dierickx.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if curl -sf --connect-timeout 15 -m 60 -o /dev/null \
+              'https://vizier.cds.unistra.fr/viz-bin/votable?-source=J/ApJ/725/L186/table2&-out.max=1'; then
+            echo "Vizier answers: the notebook queries it and the result is cached."
+            echo "used=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Vizier does not answer: using the release copy (not cached)."
+            gh release download v1.12.1 --repo "${{ github.repository }}" \
+              --pattern dierickx_2010_thick_disk.fits \
+              --dir doc/source/tutorials/orbits --clobber
+            echo "used=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Strip notebook outputs
         run: |
           for nb in $(find doc/source/tutorials -name '*.ipynb'); do
@@ -153,3 +178,14 @@ jobs:
             done
             exit 1
           fi
+      - name: Save Dierickx 2010 thick-disk cache
+        # Only after the notebooks passed (implicit success()), only on a cache
+        # miss, and never when the release copy was used above: the cache holds
+        # Vizier's own answer or nothing.
+        if: >-
+          steps.cache-dierickx.outputs.cache-hit != 'true'
+          && steps.dierickx-fallback.outputs.used != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
+          key: dierickx-2010-thick-disk-v1
