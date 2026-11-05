@@ -2,7 +2,8 @@ name: Update documentation notebooks
 
 # Runs on main (its own schedule below) and on v2: GitHub only fires `schedule`
 # triggers from the default branch, so main's scheduled-v2.yml dispatches this
-# workflow on the v2 ref at the same monthly time. Everything that refers to the
+# workflow on the v2 ref monthly, 3 h after main's run (after v2's own notebook
+# run, which reuses main's freshly refreshed data caches). Everything that refers to the
 # branch (the preflight gate, the PR base and its text, the diff-analysis
 # prompt) uses BRANCH below, so the file is the same on both branches -- which
 # anthropics/claude-code-action requires anyway (see the pull_request caveat).

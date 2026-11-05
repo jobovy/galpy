@@ -7,6 +7,10 @@ name: Scheduled runs on v2
 # workflows on the v2 ref (each accepts workflow_dispatch there), so v2 gets the
 # same routine coverage: the weekly build matrices and backend tests, and the
 # monthly notebook execution followed by the notebook-update PR against v2.
+# The monthly v2 runs start 3 h after main's: main's scheduled notebook run
+# deletes the Gaia DR3 and Dierickx data caches and re-saves them from fresh
+# queries, and v2 (which can restore main's caches) then reuses those instead
+# of querying the archives itself and keeping a second copy.
 # wheels.yml is not dispatched: it already runs on every push to v2.
 #
 # This file lives on main only (it would be inert on v2).
@@ -14,10 +18,11 @@ on:
   schedule:
     # Weekly: build.yml, build_windows.yml, backend-tests.yml (same time as on main).
     - cron: '0 20 * * 2'
-    # Monthly: test-doc-notebooks.yml (same time as on main).
-    - cron: '0 0 15 * *'
-    # Monthly, 6 h later: update-doc-notebooks.yml (same time as on main).
-    - cron: '0 6 15 * *'
+    # Monthly: test-doc-notebooks.yml, 3 h after main's run (00:00), so that
+    # main's refreshed data caches exist (see above).
+    - cron: '0 3 15 * *'
+    # Monthly, 6 h later: update-doc-notebooks.yml (main's runs at 06:00).
+    - cron: '0 9 15 * *'
   workflow_dispatch:
     inputs:
       which:
@@ -49,8 +54,8 @@ jobs:
             echo "dispatched $wf on v2"
           done
       - name: Monthly notebook execution
-        if: github.event.schedule == '0 0 15 * *' || inputs.which == 'monthly-notebooks'
+        if: github.event.schedule == '0 3 15 * *' || inputs.which == 'monthly-notebooks'
         run: gh workflow run test-doc-notebooks.yml --ref v2
       - name: Monthly notebook-update PR
-        if: github.event.schedule == '0 6 15 * *' || inputs.which == 'notebook-update'
+        if: github.event.schedule == '0 9 15 * *' || inputs.which == 'notebook-update'
         run: gh workflow run update-doc-notebooks.yml --ref v2
