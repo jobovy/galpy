@@ -241,9 +241,9 @@ jobs:
       # up from here. Per-backend filename so the two backends never race.
       GALPY_BACKEND_XFAIL_OUT: ${{ github.workspace }}/backend_xfail_new_${{ matrix.BACKEND }}.txt
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: "3.14"
         allow-prereleases: true
@@ -450,14 +450,14 @@ jobs:
       # the report job can render this cell; a missing artifact -> "(no result)".
       # Name is unique per BACKEND x shard so the 26 uploads never collide.
       if: ${{ always() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: backend-junit-${{ env.BACKEND_TAG }}-${{ env.SHARD_ID }}
         path: ${{ env.JUNIT_PATH }}
         if-no-files-found: warn
     - name: Upload regenerated ledger (regen mode)
       if: ${{ always() && env.GALPY_BACKEND_XFAIL_REGEN == '1' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: backend-xfail-new-${{ matrix.BACKEND }}-${{ strategy.job-index }}
         path: backend_xfail_new_${{ matrix.BACKEND }}.txt
@@ -487,14 +487,14 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: "3.14"
         allow-prereleases: true
     - name: Download all shard JUnit XML artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         # Each shard uploaded backend-junit-<backend>-<sid>; unpack them all
         # into junit-artifacts/ (one sub-dir per artifact). Match on prefix so
@@ -518,7 +518,7 @@ jobs:
         } >> "$GITHUB_STEP_SUMMARY"
     - name: Upload status report
       if: ${{ always() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: backend-status-report
         path: status.md
@@ -527,7 +527,7 @@ jobs:
       # Overwrites the previous comment on re-runs via the fixed header marker,
       # so a PR keeps exactly one always-current backend-status comment.
       if: ${{ github.event_name == 'pull_request' }}
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: backend-status
         path: status.md
