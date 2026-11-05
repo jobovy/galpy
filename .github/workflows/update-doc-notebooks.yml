@@ -293,6 +293,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # main's scheduled-v2.yml dispatches this workflow on v2 with
+          # GITHUB_TOKEN, which makes github-actions[bot] the run's actor; the
+          # action refuses bot actors unless they are listed here.
+          allowed_bots: github-actions
           claude_args: |
             --model sonnet
             --allowed-tools "Bash,Read,Write"
