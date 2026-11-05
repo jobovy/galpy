@@ -9,7 +9,7 @@ name: All-backend tests
 # so the numpy CI is byte-for-byte untouched.
 #
 # Triggers / gating (deliberately NOT every push/PR in the repo):
-#   * push to v2                 -> FULL matrix (backend-suite)
+#   * push to v2 (code paths)    -> FULL matrix (backend-suite)
 #   * schedule (weekly cron)     -> FULL matrix (backend-suite)
 #   * workflow_dispatch (regen)  -> FULL matrix (backend-suite)
 #   * pull_request targeting v2  -> FULL matrix (backend-suite)
@@ -36,6 +36,14 @@ on:
     # PR). Same reasoning, and the same fix, as build.yml's push filter.
     branches:
       - v2
+    # build.yml's paths: a docs- or other-workflow-only push to v2 skips the suite.
+    paths:
+      - '**'
+      - '!*'
+      - '*.py'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/backend-tests.yml'
   pull_request:
     # Only sub-PRs that TARGET an integration branch, so they get the full
     # per-file backend table before merge -- NOT every PR in the repo.
