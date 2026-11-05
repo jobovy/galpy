@@ -1,10 +1,16 @@
 name: Update documentation notebooks
 
+# Runs on main (its own schedule below) and on v2: GitHub only fires `schedule`
+# triggers from the default branch, so main's scheduled-v2.yml dispatches this
+# workflow on the v2 ref at the same monthly time. Everything that refers to the
+# branch (the preflight gate, the PR base and its text, the diff-analysis
+# prompt) uses BRANCH below, so the file is the same on both branches -- which
+# anthropics/claude-code-action requires anyway (see the pull_request caveat).
 on:
   schedule:
     # 06:00 UTC on the 15th of every month — a few hours after test-doc-notebooks.yml's
-    # own scheduled monthly run, so its latest-main conclusion is available for
-    # the preflight gate below.
+    # own scheduled monthly run, so its latest conclusion on this branch is
+    # available for the preflight gate below.
     - cron: '0 6 15 * *'
   workflow_dispatch:
     inputs:
@@ -29,7 +35,8 @@ on:
     # file the action skips itself — and it exits with success, not failure.
     # Everything else (execution, change detection, pre-commit, artifact) is
     # still covered; to test the analysis step, merge first and then run
-    # workflow_dispatch with dry_run: true from main.
+    # workflow_dispatch with dry_run: true from main (or from v2 once the
+    # same file is on both: the action compares with the default branch).
     paths:
       - '.github/workflows/update-doc-notebooks.yml'
 
@@ -50,12 +57,17 @@ jobs:
         ''
       }}
     runs-on: ubuntu-latest
+    env:
+      # The branch whose notebooks are re-rendered and that the PR targets:
+      # the branch this run was scheduled or dispatched on (main, or v2 via
+      # scheduled-v2.yml); on the pull_request trigger, the PR's base.
+      BRANCH: ${{ github.base_ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
-      - name: Verify latest main runs of build.yml and test-doc-notebooks.yml passed
+      - name: Verify the latest runs of build.yml and test-doc-notebooks.yml on this branch passed
         # Fails the workflow (and emails the author of this file) if the most
-        # recent completed run of either workflow on the main branch did not
-        # succeed, so we don't update notebook outputs from a broken main.
+        # recent completed run of either workflow on this branch did not
+        # succeed, so we don't update notebook outputs from a broken branch.
         # Exception: test-doc-notebooks.yml is allowed to have failed if the
         # ONLY notebooks that failed are listed in TOLERATED_FLAKY_NOTEBOOKS —
         # notebooks known to hit transient upstream services (e.g. the Gaia
@@ -77,20 +89,20 @@ jobs:
           for wf in build.yml test-doc-notebooks.yml; do
             run=$(gh run list \
               --workflow "$wf" \
-              --branch main \
+              --branch "$BRANCH" \
               --status completed \
               --limit 1 \
               --json databaseId,conclusion \
               --jq '.[0]')
             if [ -z "$run" ] || [ "$run" = "null" ]; then
-              echo "::error::No completed main-branch run found for $wf"
+              echo "::error::No completed run of $wf found on $BRANCH"
               failed=1
               continue
             fi
             run_id=$(printf '%s' "$run" | jq -r '.databaseId')
             conclusion=$(printf '%s' "$run" | jq -r '.conclusion')
             if [ "$conclusion" = "success" ]; then
-              echo "$wf: latest main run (#$run_id) succeeded"
+              echo "$wf: latest $BRANCH run (#$run_id) succeeded"
               continue
             fi
             if [ "$wf" = "test-doc-notebooks.yml" ]; then
@@ -105,18 +117,18 @@ jobs:
                 fi
               done <<<"$failed_nbs"
               if [ -n "$failed_nbs" ] && [ -z "$untolerated" ]; then
-                echo "$wf: latest main run (#$run_id) failed, but only on tolerated flaky notebooks:"
+                echo "$wf: latest $BRANCH run (#$run_id) failed, but only on tolerated flaky notebooks:"
                 printf '%s\n' "$failed_nbs" | sed 's/^/  - /'
                 echo "  → proceeding; these are known to hit transient upstream services."
                 continue
               fi
-              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+              echo "::error::Latest completed $BRANCH run of $wf (#$run_id) ended with conclusion=$conclusion"
               if [ -n "$untolerated" ]; then
                 echo "::error::Non-tolerated failed notebooks:"
                 printf '%s' "$untolerated" | sed 's/^/  - /'
               fi
             else
-              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+              echo "::error::Latest completed $BRANCH run of $wf (#$run_id) ended with conclusion=$conclusion"
             fi
             failed=1
           done
@@ -286,8 +298,8 @@ jobs:
             --max-turns 40
           prompt: |
             You are reviewing an automated re-render of galpy's tutorial notebooks
-            against the upstream `main` branch. The current working tree contains
-            the new outputs; `HEAD` is the unchanged main. All edits live under
+            against the upstream `${{ env.BRANCH }}` branch. The current working tree contains
+            the new outputs; `HEAD` is the unchanged `${{ env.BRANCH }}`. All edits live under
             `doc/source/tutorials/**/*.ipynb`.
 
             **Deliverable**: write `/tmp/nb_analysis.md` — a brief markdown summary
@@ -646,7 +658,7 @@ jobs:
               echo "> [!WARNING]"
               echo "> **Partial update — ${failed_count} notebook(s) failed to execute and were NOT updated in this PR.**"
               echo ">"
-              echo "> Their committed outputs are unchanged from \`main\`; investigate separately before relying on them. Common cause: transient upstream service outages (e.g. the Gaia archive returning HTTP 5xx)."
+              echo "> Their committed outputs are unchanged from \`${BRANCH}\`; investigate separately before relying on them. Common cause: transient upstream service outages (e.g. the Gaia archive returning HTTP 5xx)."
               echo ""
               echo "**Failed notebooks:**"
               echo ""
@@ -660,7 +672,7 @@ jobs:
             : > pr_body.md
           fi
           {
-            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}."
+            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`${BRANCH}\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}."
             echo ""
           } >> pr_body.md
 
@@ -687,7 +699,7 @@ jobs:
           fi
 
           gh pr create \
-            --base main \
+            --base "$BRANCH" \
             --head "$branch" \
             --title "$title" \
             --body-file pr_body.md

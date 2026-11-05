@@ -19,6 +19,9 @@ on:
       - 'doc/**'
   schedule:
     - cron: '0 20 * * 2'
+  # Manual runs, and how main's scheduled-v2.yml runs this workflow on v2
+  # (GitHub fires `schedule` only from the default branch).
+  workflow_dispatch:
 
 jobs:
   build:

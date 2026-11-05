@@ -45,6 +45,9 @@ on:
       # a sub-PR whose BASE is a backend/** stack branch runs it too)
       - backend/**
   schedule:
+    # Never fires by itself: GitHub schedules workflows from the default branch
+    # only. main's scheduled-v2.yml dispatches this workflow on v2 at this time
+    # instead (a workflow_dispatch event, which takes the same full-matrix path).
     - cron: '0 20 * * 2'
   # Manual trigger: run the full all-backend suite on demand and (optionally)
   # regenerate the backend xfail-ledger from a real run (regen=true wires
