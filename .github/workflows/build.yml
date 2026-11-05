@@ -298,7 +298,8 @@ jobs:
     - name: Install the GSL
       if: matrix.os == 'ubuntu-latest'
       run: |
-         sudo apt-get install libgsl-dev
+         sudo apt-get update
+         sudo apt-get install -y libgsl-dev
     - name: Install the GSL and OpenMP
       if: ${{ contains(matrix.os, 'macos') }}
       run: |

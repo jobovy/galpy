@@ -245,7 +245,7 @@ jobs:
         python-version: "3.14"
         allow-prereleases: true
     - name: Install the GSL
-      run: sudo apt-get install libgsl-dev
+      run: sudo apt-get update && sudo apt-get install -y libgsl-dev
     - name: Install Python dependencies
       # pytest-timeout: kill any single test running >300 s (see the pytest step's
       # --timeout) so a hung backend trace (e.g. the SCFPotential jax XLA-graph

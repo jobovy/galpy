@@ -190,7 +190,7 @@ jobs:
           python-version: 3.x
       # Install the GSL (necessary to properly include the C files)
       - name: Install GSL
-        run: sudo apt-get install -y libgsl0-dev
+        run: sudo apt-get update && sudo apt-get install -y libgsl-dev
       - name: Build sdist
         run: |
           pip install build
@@ -209,7 +209,7 @@ jobs:
         with:
           python-version: 3.x
       - name: Install GSL
-        run: sudo apt-get install -y libgsl0-dev
+        run: sudo apt-get update && sudo apt-get install -y libgsl-dev
       - uses: actions/download-artifact@v8
         with:
           name: sdist
