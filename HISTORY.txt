@@ -1,11 +1,11 @@
-v2.0.0b1 (2026-11-04)
+v2.0.0b1 (2026-11-05)
 =====================
 
 galpy 2.0 is based on v1.12.1 and includes every change through 1.12.1. This
 is a pre-release (beta), so ``pip`` only installs it when given ``--pre``:
 ``pip install --pre galpy``, or ``pip install --pre "galpy[jax]"`` /
 ``pip install --pre "galpy[torch]"`` to also install the JAX or PyTorch
-backend. galpy 2.x requires Python >= 3.11 (galpy 1.x keeps Python 3.10).
+backend. galpy 2.x requires Python >= 3.11.
 
 - Array backends: galpy now computes with JAX arrays and PyTorch tensors as
   well as with NumPy arrays (``galpy.backend``). Potentials, orbit

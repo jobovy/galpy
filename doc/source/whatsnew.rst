@@ -13,9 +13,8 @@ galpy 2.0 adds `JAX <https://docs.jax.dev/>`__ and `PyTorch
 implementation. The 2.0 releases are pre-releases (2.0.0b1, ...) for now: install
 them with ``pip install --pre "galpy[jax]"`` or ``pip install --pre
 "galpy[torch]"``, and see the :ref:`installation instructions <installation>`.
-galpy 2.x requires Python 3.11 or later; galpy 1.x continues to support Python
-3.10. Version 2.0.0b1 is based on v1.12.1 and includes every change through
-that release.
+galpy 2.x requires Python 3.11 or later. Version 2.0.0b1 is based on v1.12.1
+and includes every change through that release.
 
 * Potentials, orbit integration, action-angle coordinates, distribution
   functions, and stream models **accept JAX arrays and PyTorch tensors**,
