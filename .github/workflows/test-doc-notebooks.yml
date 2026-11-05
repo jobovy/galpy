@@ -26,6 +26,9 @@ on:
     # 00:00 UTC on the 15th of every month, so the result is fresh input
     # for the update-doc-notebooks workflow that runs later the same day.
     - cron: '0 0 15 * *'
+  # Manual runs, and how main's scheduled-v2.yml runs this workflow on v2
+  # (GitHub fires `schedule` only from the default branch).
+  workflow_dispatch:
 
 permissions:
   # Needed so scheduled runs can delete the cached Gaia DR3 query result via
