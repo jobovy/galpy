@@ -1,0 +1,56 @@
+name: Scheduled runs on v2
+
+# GitHub fires `schedule` triggers from the default branch only, so the routine
+# runs that main gets from the cron entries in build.yml, build_windows.yml,
+# backend-tests.yml, test-doc-notebooks.yml and update-doc-notebooks.yml never
+# happen on v2. This workflow runs on main's clock and dispatches those
+# workflows on the v2 ref (each accepts workflow_dispatch there), so v2 gets the
+# same routine coverage: the weekly build matrices and backend tests, and the
+# monthly notebook execution followed by the notebook-update PR against v2.
+# wheels.yml is not dispatched: it already runs on every push to v2.
+#
+# This file lives on main only (it would be inert on v2).
+on:
+  schedule:
+    # Weekly: build.yml, build_windows.yml, backend-tests.yml (same time as on main).
+    - cron: '0 20 * * 2'
+    # Monthly: test-doc-notebooks.yml (same time as on main).
+    - cron: '0 0 15 * *'
+    # Monthly, 6 h later: update-doc-notebooks.yml (same time as on main).
+    - cron: '0 6 15 * *'
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'Which of the scheduled v2 runs to start now'
+        type: choice
+        required: true
+        default: weekly
+        options:
+          - weekly
+          - monthly-notebooks
+          - notebook-update
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    name: Dispatch on v2
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Weekly build matrices and backend tests
+        if: github.event.schedule == '0 20 * * 2' || inputs.which == 'weekly'
+        run: |
+          for wf in build.yml build_windows.yml backend-tests.yml; do
+            gh workflow run "$wf" --ref v2
+            echo "dispatched $wf on v2"
+          done
+      - name: Monthly notebook execution
+        if: github.event.schedule == '0 0 15 * *' || inputs.which == 'monthly-notebooks'
+        run: gh workflow run test-doc-notebooks.yml --ref v2
+      - name: Monthly notebook-update PR
+        if: github.event.schedule == '0 6 15 * *' || inputs.which == 'notebook-update'
+        run: gh workflow run update-doc-notebooks.yml --ref v2
