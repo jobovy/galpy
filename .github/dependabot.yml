@@ -1,7 +1,9 @@
 version: 2
 updates:
 - package-ecosystem: "github-actions"
-  directory: "/"
+  directories:
+    - "/"
+    - "/.github/actions/setup-conda"  # composite action: not covered by "/"
   schedule:
     interval: "weekly"
   groups:
@@ -12,7 +14,9 @@ updates:
 # only, and this block checks the workflow files ON v2 and opens its pull
 # requests AGAINST v2 (security updates always target the default branch).
 - package-ecosystem: "github-actions"
-  directory: "/"
+  directories:
+    - "/"
+    - "/.github/actions/setup-conda"  # composite action: not covered by "/"
   target-branch: "v2"
   schedule:
     interval: "weekly"
