@@ -84,7 +84,7 @@ runs:
 
     - if: inputs.cache-environment == 'true'
       id: cache
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ${{ steps.paths.outputs.env-prefix }}
         key: ${{ steps.cache-key.outputs.key }}
