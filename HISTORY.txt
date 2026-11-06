@@ -1,7 +1,8 @@
 v2.0.0b2 (pre-release)
 ======================
 
-- Nothing yet!
+- Fixed Orbit.animate, which raised ``ValueError: unexpected '{' in field
+  name`` in v2.0.0b1 (and v1.12.1).
 
 v2.0.0b1 (2026-11-05)
 =====================
