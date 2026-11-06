@@ -12,7 +12,7 @@ name: All-backend tests
 #   * push to v2 (code paths)    -> FULL matrix (backend-suite)
 #   * schedule (weekly cron)     -> FULL matrix (backend-suite)
 #   * workflow_dispatch (regen)  -> FULL matrix (backend-suite)
-#   * pull_request targeting v2  -> FULL matrix (backend-suite)
+#   * pull_request targeting v2  -> FULL matrix (backend-suite), unless docs-only
 #     so a sub-PR into the integration branch gets the COMPLETE per-file x
 #     backend table before merge (this is what populates the status report on a
 #     PR). The full matrix is gated with a job-level `if` so that even though the
@@ -52,6 +52,9 @@ on:
       # any backend working branch / stack (push runs the suite;
       # a sub-PR whose BASE is a backend/** stack branch runs it too)
       - backend/**
+    # As in build.yml: a docs-only PR (e.g. the monthly notebook update) skips the suite.
+    paths-ignore:
+      - 'doc/**'
   schedule:
     # Never fires by itself: GitHub schedules workflows from the default branch
     # only. main's scheduled-v2.yml dispatches this workflow on v2 at this time
