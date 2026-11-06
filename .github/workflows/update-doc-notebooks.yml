@@ -370,6 +370,16 @@ jobs:
                    `actionAngleTorus` C extensions are not bitwise-reproducible
                    across CI runners (compiler/libm differences), and we
                    accept this as routine.
+                 - In `orbits/phase_space_volumes_and_chaos.ipynb`: the
+                   printed Lyapunov exponent of the chaotic orbit (past
+                   renders have given values from 0.031 to 0.055) and the
+                   corresponding plot changes. A chaotic orbit amplifies
+                   roundoff differences between CI runners.
+                 - In `streams/streamdf.ipynb`: printed values (track
+                   coordinates, log PDFs, stream length, frequency ratios)
+                   drifting by up to ~3e-5 relative, and the corresponding
+                   plot changes. These vary across CI runners with
+                   unchanged code.
                  - Coordinated output shifts across cells in
                    `action_angle/staeckel.ipynb` (Gaia DR3 catalog) or
                    `orbits/examples.ipynb` (Dierickx 2010 thick-disk catalog)
