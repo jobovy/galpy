@@ -293,6 +293,16 @@ Action-Angle Coordinates
       Compute phase-space coordinates from given actions and angles
       in any spherical potential, through an exactly symplectic map.
 
+   .. grid-item-card:: Inverse Transformations (Staeckel)
+      :img-top: images/tutorials/action_angle_staeckel_inverse.png
+      :link: tutorials/action_angle/staeckel_inverse
+      :link-type: doc
+
+      Compute phase-space coordinates from given actions and angles
+      in axisymmetric Staeckel potentials, and in the Staeckel
+      approximation of any axisymmetric potential, through an exactly
+      symplectic map.
+
    .. grid-item-card:: Inverse Transformations (TorusMapping)
       :img-top: images/tutorials/action_angle_torus.png
       :link: tutorials/action_angle/torus
