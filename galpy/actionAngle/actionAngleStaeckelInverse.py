@@ -31,19 +31,17 @@ from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
-from .actionAngleSphericalInverse import (
+from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
+    _IsochroneAuxiliary,
     _offset_spec_coeffs,
+    _progress,
     _sine_galerkin,
     _sine_project,
     _sine_series,
     _spec_eval,
-    actionAngleSphericalInverse,
 )
 from .actionAngleStaeckel import _focal_length_of
-
-if _TQDM_LOADED:
-    import tqdm  # noqa: F401 (used through the spherical inverse's _progress)
 
 
 def _cumulative(f):
@@ -67,53 +65,13 @@ def _cumulative(f):
     return m, q, cq, _spec_eval(cq, 0.0)[0]
 
 
-class actionAngleStaeckelInverse(actionAngleInverse):
+class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
     """Inverse action-angle transformation for axisymmetric Staeckel
-    potentials through a momentum-matched canonical map.
-
-    A torus of a Staeckel potential is the product of two librations, in
-    the prolate spheroidal coordinates u and v of the potential's focal
-    length; both are sampled exactly in their anomalies (turning points and
-    momenta from the separated Hamilton-Jacobi equation) and mapped onto
-    the torus of equal (J_R, L = J_z + |L_z|, L_z) of a frozen isochrone
-    auxiliary, the u-libration onto the auxiliary's radial libration and
-    the v-libration onto its polar one, each by the point transformation
-    that matches cumulative actions, a sine series in the anomaly, lifted
-    to the momenta cotangent-consistently. Evaluation solves the two angle
-    relations for the anomalies, reconstructs the point from the two
-    librations, and takes the azimuth from the auxiliary's angle relations;
-    all three angles carry the closed-form compensation for the moving
-    turning points of both librations. Canonicity is manifest: it holds for
-    any stored table content, because every derivative the map needs is
-    that of the stored interpolant itself.
-
-    The potential must be of exact Staeckel form and supply its focal
-    length (an ``OblateStaeckelWrapperPotential``, which is also the route
-    for the Staeckel approximation of a general axisymmetric potential, or
-    an exact Staeckel potential such as ``KuzminKutuzovStaeckelPotential``),
-    or ``delta=`` (and optionally ``u0=``) is given to wrap a general
-    axisymmetric potential. A torus is labelled by (E, L_z, I_3), the third
-    integral in the convention p_u^2 = 2 delta^2 [E sinh^2 u - U(u) - I_3]
-    - L_z^2 / sinh^2 u with the gauge V(pi/2) = 0.
-
-    The auxiliary is the ``IsochronePotential`` in the ``auxiliary``
-    attribute: the one given at construction, or the one fitted to the
-    potential's rotation curve over the sampled radial range.
-    """
-
-    # the isochrone auxiliary's closed forms and the anomaly map are the
-    # spherical inverse's, shared rather than repeated
-    _auxiliary_E = actionAngleSphericalInverse._auxiliary_E
-    _auxiliary_Jr = actionAngleSphericalInverse._auxiliary_Jr
-    _auxiliary_orbital_params = actionAngleSphericalInverse._auxiliary_orbital_params
-    _auxiliary_orbital_param_chains = (
-        actionAngleSphericalInverse._auxiliary_orbital_param_chains
-    )
-    _auxiliary_profile = actionAngleSphericalInverse._auxiliary_profile
-    _auxiliary_radius_partials = actionAngleSphericalInverse._auxiliary_radius_partials
-    _auxiliary_flux_derivs = actionAngleSphericalInverse._auxiliary_flux_derivs
-    _auxiliary_cumulative = actionAngleSphericalInverse._auxiliary_cumulative
-    _progress = actionAngleSphericalInverse._progress
+    potentials through a momentum-matched canonical map onto an isochrone
+    auxiliary (the ``auxiliary`` attribute); a torus is labelled by
+    (E, L_z, I_3), the third integral in the convention
+    p_u^2 = 2 delta^2 [E sinh^2 u - U(u) - I_3] - L_z^2 / sinh^2 u with the
+    gauge V(pi/2) = 0"""
 
     def __init__(
         self,
@@ -136,7 +94,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
         Parameters
         ----------
-        pot : Potential or list thereof
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
             An axisymmetric potential of exact Staeckel form that supplies
             its focal length (an OblateStaeckelWrapperPotential or an exact
             Staeckel potential such as KuzminKutuzovStaeckelPotential); a
@@ -182,10 +140,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         delta : float or Quantity, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
-            approximation; conflicts with a potential that supplies its own.
+            approximation. A potential that supplies its own focal length
+            accepts a delta= that agrees with it (to 1e-14) and rejects one
+            that does not.
         u0 : float, optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential);
-            requires delta=.
+            requires delta= and cannot be given with a potential that supplies
+            its own focal length.
 
         Notes
         -----
@@ -256,12 +217,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         given focal length"""
         own = _focal_length_of(pot)
         if delta is not None:
-            if own is not None:
-                raise TypeError(
-                    "delta= and u0= conflict with a potential that already "
-                    "supplies its focal length; pass the potential without them"
-                )
             delta = conversion.parse_length(delta, ro=self._ro)
+            if own is not None:
+                # the potential's own focal length wins; a delta= that agrees
+                # with it is harmless, one that does not is a contradiction
+                if u0 is not None:
+                    raise TypeError(
+                        "u0= cannot be given with a potential that already "
+                        "supplies its focal length"
+                    )
+                if not numpy.fabs(delta - own) <= 1e-14 * numpy.fabs(own):
+                    raise TypeError(
+                        "delta= {:g} disagrees with the focal length {:g} that the "
+                        "potential supplies; pass the potential without delta= to "
+                        "use its own".format(delta, own)
+                    )
+                delta = None
+        if delta is not None:
             self._staeckelwrap = (
                 OblateStaeckelWrapperPotential(pot=pot, delta=delta)
                 if u0 is None
@@ -592,7 +564,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             else IsochronePotential(amp=self._GM, b=self._b)
         )
         self._lifts = []
-        for ii in self._progress(range(len(self._samples)), "lifting tori"):
+        for ii in _progress(
+            range(len(self._samples)), "lifting tori", self._progressbar
+        ):
             smp = self._samples[ii]
             L = smp["jz"] + numpy.fabs(smp["Lz"])
             lift_u = lift_v = None
@@ -949,7 +923,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._dDmus = numpy.zeros((ntori, self._npt, 3))
         self._dDmvs = numpy.zeros((ntori, self._nptv, 3))
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
-        for ii in self._progress(range(ntori), "node tables"):
+        for ii in _progress(range(ntori), "node tables", self._progressbar):
             node = self._node_tables(ii)
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
