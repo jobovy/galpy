@@ -13995,6 +13995,44 @@ def test_plotBruteSOS():
     return None
 
 
+# gh#1820: Orbit.animate raised a ValueError from its HTML template
+def test_animate(monkeypatch, tmp_path):
+    import types
+
+    from galpy.orbit import Orbit
+
+    # animate returns an IPython HTML object; IPython is not a test
+    # dependency, so stub it
+    class HTML:
+        def __init__(self, data):
+            self.data = data
+
+    display = types.ModuleType("IPython.display")
+    display.HTML = HTML
+    ipython = types.ModuleType("IPython")
+    ipython.display = display
+    monkeypatch.setitem(sys.modules, "IPython", ipython)
+    monkeypatch.setitem(sys.modules, "IPython.display", display)
+    o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.02, 0.0], [1.0, 0.2, 1.0, 0.1, 0.03, 1.0]])
+    o.integrate(numpy.linspace(0.0, 10.0, 101), potential.MWPotential2014)
+    for kwargs in [
+        {},
+        {"d1": ["x", "R"], "d2": ["y", "z"]},
+        {"d1": ["x", "R", "t"], "d2": ["y", "z", "vz"], "staticPlot": True},
+        {"json_filename": str(tmp_path / "orbit.json")},
+    ]:
+        html = o.animate(**kwargs).data
+        assert f"id='galpy-{o.divid}'" in html, "animate HTML lacks its div"
+        # All template fields are filled in and the JavaScript/CSS braces balance
+        assert "{{" not in html, "animate HTML has unformatted braces"
+        assert html.count("{") == html.count("}"), "animate HTML braces unbalanced"
+    html = o.animate3d().data
+    assert f"id='galpy-{o.divid3d}'" in html, "animate3d HTML lacks its div"
+    assert "{{" not in html, "animate3d HTML has unformatted braces"
+    assert html.count("{") == html.count("}"), "animate3d HTML braces unbalanced"
+    return None
+
+
 def test_from_name_values():
     from galpy.orbit import Orbit
 
