@@ -151,7 +151,15 @@ v1.12.2 (expected around 2027-03-01)
   cumulative actions are closed forms with their linear parts gathered, the
   maps' projections and evaluations on the anomaly grid are FFTs, and the
   slopes are solved by a Galerkin projection; ``progressbar=`` (default
-  True) shows tqdm bars over the tori.
+  True) shows tqdm bars over the tori. ``u0=`` accepts a callable
+  ``u0(E, Lz)`` or ``'fit'`` to give every (E, L_z) of a family its own
+  reference curve in the Staeckel approximation of a general potential
+  (``'fit'`` places it at the harmonic mean of the pericentre and apocentre
+  of the planar orbits at that (E, L_z)),
+  so that each torus is a torus of its own best-placed Staeckel model,
+  which matters for families spanning a wide radial range; the reference
+  curve is construction-only gauge (the map's (R, z) <-> (u, v) uses the
+  focal length alone), so this costs nothing at evaluation.
 
 v1.12.1 (2026-11-02)
 ====================
