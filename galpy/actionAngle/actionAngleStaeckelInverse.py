@@ -24,6 +24,7 @@ from ..potential import (
     OblateStaeckelWrapperPotential,
     epifreq,
     evaluatePotentials,
+    evaluateR2derivs,
     evaluateRforces,
     rl,
     vcirc,
@@ -66,6 +67,37 @@ def _cumulative(f):
     # gives the last coefficient the Nyquist weight
     cq = numpy.append(cq[: keep[-1] + 1], 0.0) if len(keep) > 0 else cq
     return m, q, cq, _spec_eval(cq, 0.0)[0]
+
+
+def _solve_increasing(f, fp, lo, hi):
+    """The root of an increasing function f with derivative fp, for arrays
+    of brackets [lo, hi] with f(lo) <= 0 <= f(hi): bisection until the
+    brackets are narrow, then Newton steps kept inside the brackets, to
+    round-off"""
+    for _ in range(8):
+        mid = 0.5 * (lo + hi)
+        neg = f(mid) < 0.0
+        lo, hi = numpy.where(neg, mid, lo), numpy.where(neg, hi, mid)
+    x = 0.5 * (lo + hi)
+    for _ in range(12):
+        fx = f(x)
+        neg = fx < 0.0
+        lo, hi = numpy.where(neg, x, lo), numpy.where(neg, hi, x)
+        xn = x - fx / fp(x)
+        # a step out of the bracket is replaced by its midpoint; a converged
+        # point sits on the bracket's edge and must not be thrown back
+        xn = numpy.where((xn < lo) | (xn > hi), 0.5 * (lo + hi), xn)
+        done = numpy.all(numpy.fabs(xn - x) <= 3e-15 * numpy.fabs(x))
+        x = xn
+        if done:
+            break
+    return x
+
+
+def _contract(smt, D):
+    """sum_m smt[:, m] D[m] for the coefficients D of one torus, (M,), or of
+    every point's own torus, (M, npoints)"""
+    return smt @ D if D.ndim == 1 else numpy.einsum("pm,mp->p", smt, D)
 
 
 def _parse_target(target):
@@ -845,10 +877,17 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
     @staticmethod
     def _map(tau, Dm, ms):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau) over the
-        harmonics ms, its derivative, and the sine matrix it is built from"""
+        harmonics ms, its derivative, and the sine matrix it is built from;
+        the coefficients are those of one torus, (M,), or of every point's
+        own torus, (M, npoints)"""
         mt = tau[:, None] * ms[None, :]
         smt = numpy.sin(mt)
-        return tau + smt @ Dm, 1.0 + numpy.cos(mt) @ (ms * Dm), smt
+        return (
+            tau + _contract(smt, Dm),
+            1.0
+            + _contract(numpy.cos(mt), ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
+            smt,
+        )
 
     def _match_anomaly(self, tau, ft, flux, cumulative, ms):
         """The momentum-matched map of one libration onto the auxiliary's:
@@ -1370,6 +1409,45 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             (1.0 - x) * Omc * (g / g0c) + x * (Lz / self._Rinf**2) * (g / g0m),
         )
 
+    def _E_of_xL_array(self, x, Lz):
+        """_E_of_xL for arrays of points, each with its own |L_z|: the
+        circular radius and the two apocentre edges from a vectorized
+        root-find on the potential's midplane, which the Staeckel wrapper
+        reproduces exactly, bracketed by the grid's extreme circular radii
+        and Rinf"""
+        wrap = self._chart_pot
+
+        def phi(R):
+            return evaluatePotentials(wrap, R, 0.0, use_physical=False)
+
+        def dphi(R):
+            return -evaluateRforces(wrap, R, 0.0, use_physical=False)
+
+        def d2phi(R):
+            return evaluateR2derivs(wrap, R, 0.0, use_physical=False)
+
+        Rlo = 0.9 * self._circular(self._Lzgrid[0])["Rc"] + 0.0 * Lz
+        Rhi = 1.1 * self._circular(self._Lzgrid[-1])["Rc"] + 0.0 * Lz
+        Rc = _solve_increasing(
+            lambda R: R**3 * dphi(R) - Lz**2,
+            lambda R: R**2 * (3.0 * dphi(R) + R * d2phi(R)),
+            Rlo,
+            Rhi,
+        )
+        Ec = phi(Rc) + Lz**2 / (2.0 * Rc**2)
+        Emax = self._Phiinf + Lz**2 / (2.0 * self._Rinf**2)
+        Rinf = self._Rinf + 0.0 * Lz
+        R0c = _solve_increasing(lambda R: phi(R) - Ec, dphi, Rc, Rinf)
+        R0m = _solve_increasing(lambda R: phi(R) - Emax, dphi, Rinf, 10.0 * Rinf)
+        g0c, g0m = R0c * dphi(R0c), R0m * dphi(R0m)
+        R = R0c * (R0m / R0c) ** x
+        g = R * dphi(R)
+        return (
+            phi(R),
+            g * numpy.log(R0m / R0c),
+            (1.0 - x) * (Lz / Rc**2) * (g / g0c) + x * (Lz / self._Rinf**2) * (g / g0m),
+        )
+
     def _setup_tori_interp(self):
         """The family's tables and their exact first partials at every
         node, in the variables in which each quantity is smooth up to the
@@ -1755,6 +1833,98 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             tab["Dm" + key], tab["dDm" + key] = T[1:], dT[1:]
         return tab
 
+    def _interp_coords_array(self, jr, jz, ell):
+        """The grid coordinates (x, y) of many tori at once (none of them on
+        a degenerate face): the Newton of _interp_coords vectorized over the
+        tori on the batched action interpolant, with the scalar inversion
+        as the fallback for any torus that does not converge"""
+        n = len(jr)
+        xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
+        ylo, yhi = self._ys[0], self._ys[-1]
+        jtot, frac = jr + jz, jz / (jr + jz)
+        x = numpy.full(n, 0.5 * (xlo + xhi))
+        y = numpy.clip(frac, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
+        active = numpy.arange(n)
+        for _ in range(60):
+            xa, ya, ea = x[active], y[active], ell[active]
+            v, vx, vy, _ = self._A_ip.batch_all(xa, ya, ea)
+            tot = v[:, 0] + v[:, 1]
+            G0, G1 = tot / jtot[active] - 1.0, v[:, 1] / tot - frac[active]
+            done = numpy.maximum(numpy.fabs(G0), numpy.fabs(G1)) < 1e-12
+            if numpy.all(done):
+                active = active[~done]
+                break
+            Gx0, Gx1 = (
+                (vx[:, 0] + vx[:, 1]) / jtot[active],
+                (vx[:, 1] * tot - v[:, 1] * (vx[:, 0] + vx[:, 1])) / tot**2,
+            )
+            Gy0, Gy1 = (
+                (vy[:, 0] + vy[:, 1]) / jtot[active],
+                (vy[:, 1] * tot - v[:, 1] * (vy[:, 0] + vy[:, 1])) / tot**2,
+            )
+            det = Gx0 * Gy1 - Gy0 * Gx1
+            dx = -(Gy1 * G0 - Gy0 * G1) / det
+            dy = -(-Gx1 * G0 + Gx0 * G1) / det
+            lim = numpy.minimum(
+                1.0,
+                0.3
+                / numpy.maximum(numpy.maximum(numpy.fabs(dx), numpy.fabs(dy)), 1e-300),
+            )
+            # the converged tori stay where they are
+            upd = active[~done]
+            x[upd] = numpy.clip((xa + lim * dx)[~done], xlo, xhi)
+            y[upd] = numpy.clip((ya + lim * dy)[~done], ylo, yhi)
+            active = upd
+        for ii in active:
+            x[ii], y[ii] = self._interp_coords(jr[ii], jz[ii], ell[ii])
+        return x, y
+
+    def _interp_tables_array(self, jr, jz, Lz):
+        """The family's tables of many (J_R, J_z, L_z) tori at once, none on
+        a degenerate face, as _interp_tables returns them for one torus but
+        with a leading point axis (the maps' coefficients as (M, npoints),
+        their chains as (M, npoints, 3))"""
+        ell, sgn = numpy.fabs(Lz), numpy.sign(Lz)
+        outside = (ell < self._Lzgrid[0]) | (ell > self._Lzgrid[-1])
+        if numpy.any(outside):
+            self._check_Lz(ell[numpy.argmax(outside)])
+        x, y = self._interp_coords_array(jr, jz, ell)
+        A, Ax, Ay, AL = self._A_ip.batch_all(x, y, ell)
+        det = Ax[:, 0] * Ay[:, 1] - Ay[:, 0] * Ax[:, 1]
+        N = numpy.zeros((len(jr), 3, 3))
+        N[:, 0, 0], N[:, 0, 1] = Ay[:, 1] / det, -Ay[:, 0] / det
+        N[:, 1, 0], N[:, 1, 1] = -Ax[:, 1] / det, Ax[:, 0] / det
+        N[:, 0, 2] = -(N[:, 0, 0] * AL[:, 0] + N[:, 0, 1] * AL[:, 1]) * sgn
+        N[:, 1, 2] = -(N[:, 1, 0] * AL[:, 0] + N[:, 1, 1] * AL[:, 1]) * sgn
+        N[:, 2, 2] = sgn
+        _, dE_dx, dE_dL = self._E_of_xL_array(x, ell)
+        tab = {
+            "Om": dE_dx[:, None] * N[:, 0] + dE_dL[:, None] * N[:, 2],
+            "uc": A[:, 2],
+            "duc": Ax[:, 2, None] * N[:, 0]
+            + Ay[:, 2, None] * N[:, 1]
+            + AL[:, 2, None] * N[:, 2],
+            "udeg": False,
+            "vdeg": False,
+        }
+        wE = numpy.sqrt(x)
+        for ip, sv, fs, key in (
+            (self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u"),
+            (self._V_ip, numpy.sqrt(y), 1.0, "v"),
+        ):
+            T, TwE, Ts, TL = ip.batch_all(wE, sv, ell)
+            dT = (
+                TwE[:, :, None] * N[:, None, 0, :] / (2.0 * wE)[:, None, None]
+                + Ts[:, :, None] * N[:, None, 1, :] * fs / (2.0 * sv)[:, None, None]
+                + TL[:, :, None] * N[:, None, 2, :]
+            )
+            tab["w" + key], tab["dw" + key] = T[:, 0], dT[:, 0]
+            tab["Dm" + key], tab["dDm" + key] = (
+                T[:, 1:].T,
+                numpy.moveaxis(dT[:, 1:], 0, 1),
+            )
+        return tab
+
     def _explicit_tables(self, ii):
         """An explicit torus is a one-node family: its own values and exact
         slopes stand in for the interpolants', the slopes in (E, I_3, L_z)
@@ -1820,7 +1990,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         pu = pA * gA * sratio * deta / wu
         drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
         comps = [
-            pA * (drA_da * da + drA_de * de + gA * se * (smt @ dDm))
+            pA * (drA_da * da + drA_de * de + gA * se * _contract(smt, dDm))
             - pu * (duc - dwu * ct)
             for da, de, duc, dwu, dDm in chains
         ]
@@ -1845,7 +2015,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         )
         pv = L * c * sz * sratio * dzeta / (sinth2 * wv)
         comps = [
-            -0.5 * L * sz * cz / sinth2 * dc + fluxA * (smt @ dDm) + pv * dwv * ct
+            -0.5 * L * sz * cz / sinth2 * dc
+            + fluxA * _contract(smt, dDm)
+            + pv * dwv * ct
             for dc, dwv, dDm in chains
         ]
         return zeta, dzeta, v, pv, comps
@@ -1900,15 +2072,16 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             "comps": [cu + cv for cu, cv in zip(comps_u, comps_v)],
         }
 
-    def _solve_angles(self, thR, thz, aux, chains_u, chains_v):
+    def _newton_angles(self, thR, thz, aux, chains_u, chains_v):
         """Newton solve of the two angle relations theta_R(tau_u, tau_v) and
         theta_z(tau_u, tau_v) -- the auxiliary's angles plus the
         compensations along the J_R and J_z chains -- for the anomaly pair
         of each requested angle pair, on the derivatives of the auxiliary
         angles alone (the compensations are small corrections; the system
         is triangular, the auxiliary's radial angle depending on tau_u
-        only), vectorized over the angles, with a bracketed scalar fallback
-        for any pair that does not converge within maxiter iterations"""
+        only), vectorized over the angles; returns the anomalies and the
+        indices of the pairs that did not converge within maxiter
+        iterations"""
 
         def wrap(f):
             return (f + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -1932,20 +2105,30 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 max(numpy.max(numpy.fabs(FR)), numpy.max(numpy.fabs(Fz)))
                 < self._angle_tol
             ):
-                break
+                return x, y, numpy.array([], dtype="int")
             dx = numpy.clip(-FR / T["dthetaAr"], -0.5, 0.5)
             dy = numpy.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
             x += dx
             y += dy
-        else:
+        FR, Fz, _ = residuals(x, y)
+        return (
+            x,
+            y,
+            numpy.flatnonzero(
+                numpy.maximum(numpy.fabs(FR), numpy.fabs(Fz)) >= self._angle_tol
+            ),
+        )
+
+    def _solve_angles(self, thR, thz, aux, chains_u, chains_v):
+        """The anomaly pair of each requested angle pair on one torus: the
+        Newton solve, with a bracketed scalar fallback for any pair that
+        does not converge"""
+        x, y, bad = self._newton_angles(thR, thz, aux, chains_u, chains_v)
+        if len(bad) > 0:
             # theta_R - tau_u and theta_z - tau_v are periodic and bounded,
             # so [theta - s, theta + s] with s beyond their extremes are
             # guaranteed brackets: the vertical relation is solved at each
             # trial tau_u inside the solve of the radial one
-            FR, Fz, _ = residuals(x, y)
-            bad = numpy.flatnonzero(
-                numpy.maximum(numpy.fabs(FR), numpy.fabs(Fz)) >= self._angle_tol
-            )
             g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
             GU, GV = (q.flatten() for q in numpy.meshgrid(g, g))
             Ts = self._torus_at(GU, GV, aux, chains_u, chains_v)
@@ -2128,6 +2311,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z), and
         take the azimuth from the auxiliary's angle relations at the
         compensated azimuthal angle"""
+        if numpy.ndim(jr) > 0 or numpy.ndim(jphi) > 0 or numpy.ndim(jz) > 0:
+            return self._xvFreqs_array(jr, jphi, jz, angler, anglephi, anglez)
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         if jr < 0.0 or jz < 0.0:
             raise ValueError("J_R and J_z have to be non-negative")
@@ -2232,11 +2417,142 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             Om[1],
         )
 
+    def _xvFreqs_array(self, jr, jphi, jz, angler, anglephi, anglez):
+        """(J, theta) -> (x, v) for many tori at once, each with its own
+        angles: the actions and the angles broadcast to one shape, and the
+        tori of a family are evaluated in one vectorized pass -- the
+        batched label inversion and tables, the kernels with per-point
+        coefficients, the Newton solve of the angle relations -- with the
+        one-torus path for the tori on a degenerate face, for any angle
+        pair whose Newton does not converge, and for explicit tori"""
+        jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
+            *(
+                numpy.atleast_1d(q).astype(float)
+                for q in (jr, jphi, jz, angler, anglephi, anglez)
+            )
+        )
+        shape = jr.shape
+        jr, jphi, jz, angler, anglephi, anglez = (
+            q.ravel() for q in (jr, jphi, jz, angler, anglephi, anglez)
+        )
+        if numpy.any(jr < 0.0) or numpy.any(jz < 0.0):
+            raise ValueError("J_R and J_z have to be non-negative")
+        if numpy.any(jphi == 0.0):
+            raise ValueError("L_z = 0 is not supported")
+        out = numpy.empty((9, len(jr)))
+
+        def one_by_one(idx):
+            for ii in idx:
+                out[:, ii] = [
+                    numpy.atleast_1d(q)[0]
+                    for q in self._xvFreqs(
+                        jr[ii], jphi[ii], jz[ii], angler[ii], anglephi[ii], anglez[ii]
+                    )
+                ]
+
+        deg = (jr == 0.0) | (jz == 0.0)
+        if not self._interp:
+            deg[:] = True
+        one_by_one(numpy.flatnonzero(deg))
+        idx = numpy.flatnonzero(~deg)
+        if len(idx) > 0:
+            self._evaluate_array(idx, jr, jphi, jz, angler, anglephi, anglez, out)
+            bad = idx[~numpy.isfinite(out[0, idx])]
+            one_by_one(bad)
+        return tuple(q.reshape(shape) for q in out)
+
+    def _evaluate_array(self, idx, jr, jphi, jz, angler, anglephi, anglez, out):
+        """The vectorized pass of _xvFreqs_array over the tori idx, writing
+        the nine outputs into out; a torus whose angle solve does not
+        converge gets NaN outputs, for the caller to redo one by one"""
+        jr, Lz, jz = jr[idx], jphi[idx], jz[idx]
+        sgn, ell = numpy.sign(Lz), numpy.fabs(Lz)
+        thR, thz = angler[idx] % (2.0 * numpy.pi), anglez[idx] % (2.0 * numpy.pi)
+        tab = self._interp_tables_array(jr, jz, Lz)
+        L = jz + ell
+        a, e = self._auxiliary_orbital_params(jr, L)
+        c = 1.0 - Lz**2 / L**2
+        sq = numpy.sqrt(L**2 + 4.0 * self._GM * self._b)
+        aux = {
+            "a": a,
+            "e": e,
+            "L": L,
+            "c": c,
+            "ratio": 0.5 * (1.0 + L / sq),
+            "uc": tab["uc"],
+            "wu": tab["wu"],
+            "Dmu": tab["Dmu"],
+            "wv": tab["wv"],
+            "Dmv": tab["Dmv"],
+            "udeg": False,
+            "vdeg": False,
+        }
+        zero, one = numpy.zeros(len(jr)), numpy.ones(len(jr))
+        dL = numpy.stack([zero, one, sgn], axis=1)
+        dc = 2.0 * Lz[:, None] ** 2 / L[:, None] ** 3 * dL - (2.0 * Lz / L**2)[
+            :, None
+        ] * numpy.stack([zero, zero, one], axis=1)
+        chains_u, chains_v = [], []
+        for i in range(3):
+            _, _, da, de = self._auxiliary_orbital_param_chains(
+                jr, L, 1.0 if i == 0 else 0.0, dL[:, i]
+            )
+            chains_u.append(
+                (da, de, tab["duc"][:, i], tab["dwu"][:, i], tab["dDmu"][:, :, i])
+            )
+            chains_v.append((dc[:, i], tab["dwv"][:, i], tab["dDmv"][:, :, i]))
+        tu, tv, bad = self._newton_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
+        T = self._torus_at(tu, tv, aux, chains_u, chains_v)
+        thetaAphi = anglephi[idx] - T["comps"][2]
+        zeta = T["zeta"]
+        phi = (
+            thetaAphi
+            - sgn * T["thetaAz"]
+            + numpy.arctan2(Lz / L * numpy.cos(zeta), -numpy.sin(zeta))
+        )
+        u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
+        sh, ch = numpy.sinh(u), numpy.cosh(u)
+        sn, cs = numpy.sin(v), numpy.cos(v)
+        den = self._delta * (sh**2 + sn**2)
+        R = self._delta * sh * sn
+        Om = tab["Om"]
+        out[:, idx] = [
+            R,
+            (pu * ch * sn + pv * sh * cs) / den,
+            Lz / R,
+            self._delta * ch * cs,
+            (pu * sh * cs - pv * ch * sn) / den,
+            phi % (2.0 * numpy.pi),
+            Om[:, 0],
+            Om[:, 2],
+            Om[:, 1],
+        ]
+        out[0, idx[bad]] = numpy.nan
+        return None
+
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """Frequencies of the (J_R, J_z, L_z) torus: in interpolation mode
         the stored action interpolants' own partials through the label
         chain (the integrator contract); for explicit tori the torus's own
-        period matrix"""
+        period matrix; arrays of actions give the frequencies of many tori
+        at once"""
+        if numpy.ndim(jr) > 0 or numpy.ndim(jphi) > 0 or numpy.ndim(jz) > 0:
+            jr, jphi, jz = numpy.broadcast_arrays(
+                *(numpy.atleast_1d(q).astype(float) for q in (jr, jphi, jz))
+            )
+            shape = jr.shape
+            jr, jphi, jz = (q.ravel() for q in (jr, jphi, jz))
+            out = numpy.empty((3, len(jr)))
+            deg = (jr == 0.0) | (jz == 0.0)
+            if not self._interp:
+                deg[:] = True
+            for ii in numpy.flatnonzero(deg):
+                out[:, ii] = self._Freqs(jr[ii], jphi[ii], jz[ii])
+            idx = numpy.flatnonzero(~deg)
+            if len(idx) > 0:
+                Om = self._interp_tables_array(jr[idx], jz[idx], jphi[idx])["Om"]
+                out[:, idx] = [Om[:, 0], Om[:, 2], Om[:, 1]]
+            return tuple(q.reshape(shape) for q in out)
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         Lz = jphi
         if jr == 0.0 and jz == 0.0:

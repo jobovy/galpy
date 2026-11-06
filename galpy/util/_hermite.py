@@ -180,6 +180,101 @@ class HermiteFamily3D:
         h = nodes[i + 1] - nodes[i]
         return i, h, (val - nodes[i]) / h
 
+    def batch_all(self, x, y, z):
+        """The interpolant and its three first partials at many points at
+        once, as four (npoints, k) arrays: the points' cell data are
+        gathered in one indexing pass and contracted with the four sets of
+        Hermite weights, in chunks that keep the gathered tensors to a few
+        tens of megabytes"""
+        x, y, z = (numpy.asarray(q, dtype="float").ravel() for q in (x, y, z))
+        k = self._nodes.shape[-1]
+        out = [numpy.empty((len(x), k)) for _ in range(4)]
+        step = max(1, 2_000_000 // (96 * k))
+        for lo in range(0, len(x), step):
+            sl = slice(lo, lo + step)
+            for o, r in zip(out, self._batch_all(x[sl], y[sl], z[sl])):
+                o[sl] = r
+        return out
+
+    # the gather pattern of a cell's data tensor F[a, b, c]: which of the
+    # twelve node quantities (f, f_x, f_xx) x (as is, d/dy, d/dz, d^2/dy dz)
+    # sits there, at which corner of the cell, and the powers of the cell
+    # widths that scale it
+    _rows = (
+        numpy.arange(6)[:, None, None]
+        + 0 * numpy.arange(4)[None, :, None]
+        + 0 * numpy.arange(4)[None, None, :]
+    )
+    _cols = (
+        0 * numpy.arange(6)[:, None, None]
+        + numpy.arange(4)[None, :, None]
+        + 0 * numpy.arange(4)[None, None, :]
+    )
+    _deps = (
+        0 * numpy.arange(6)[:, None, None]
+        + 0 * numpy.arange(4)[None, :, None]
+        + numpy.arange(4)[None, None, :]
+    )
+    _gq = _rows % 3 + 3 * (_cols // 2) + 6 * (_deps // 2)
+    _gi, _gj, _gl = _rows // 3, _cols % 2, _deps % 2
+    _px, _py, _pz = _rows % 3, _cols // 2, _deps // 2
+
+    def _batch_all(self, x, y, z):
+        def cells(nodes, vals):
+            i = numpy.clip(
+                numpy.searchsorted(nodes, vals, side="right") - 1, 0, len(nodes) - 2
+            )
+            h = nodes[i + 1] - nodes[i]
+            return i, h, (vals - nodes[i]) / h
+
+        i, hx, s = cells(self._x, x)
+        j, hy, t = cells(self._y, y)
+        l, hz, w = cells(self._z, z)
+        # the cells' data tensors, (6, 4, 4, n, k), in one gather
+        F = (
+            self._nodes[
+                self._gq[..., None],
+                i[None, None, None, :] + self._gi[..., None],
+                j[None, None, None, :] + self._gj[..., None],
+                l[None, None, None, :] + self._gl[..., None],
+            ]
+            * (
+                hx[None, None, None, :] ** self._px[..., None]
+                * hy[None, None, None, :] ** self._py[..., None]
+                * hz[None, None, None, :] ** self._pz[..., None]
+            )[..., None]
+        )
+        a6, a4 = numpy.arange(6), numpy.arange(4)
+        ps, dps = (
+            s[:, None] ** a6,
+            a6 * s[:, None] ** numpy.maximum(a6 - 1, 0) / hx[:, None],
+        )
+        pt, dpt = (
+            t[:, None] ** a4,
+            a4 * t[:, None] ** numpy.maximum(a4 - 1, 0) / hy[:, None],
+        )
+        pw, dpw = (
+            w[:, None] ** a4,
+            a4 * w[:, None] ** numpy.maximum(a4 - 1, 0) / hz[:, None],
+        )
+        wa, dwa = ps @ self._Mq, dps @ self._Mq
+        wb, dwb = pt @ self._Mc, dpt @ self._Mc
+        wc, dwc = pw @ self._Mc, dpw @ self._Mc
+        Fc = numpy.einsum("abcnK,nc->abnK", F, wc)
+        Fcb = numpy.einsum("abnK,nb->anK", Fc, wb)
+        return (
+            numpy.einsum("anK,na->nK", Fcb, wa),
+            numpy.einsum("anK,na->nK", Fcb, dwa),
+            numpy.einsum("anK,na->nK", numpy.einsum("abnK,nb->anK", Fc, dwb), wa),
+            numpy.einsum(
+                "anK,na->nK",
+                numpy.einsum(
+                    "abnK,nb->anK", numpy.einsum("abcnK,nc->abnK", F, dwc), wb
+                ),
+                wa,
+            ),
+        )
+
     def __call__(self, x, y, z, dx=0, dy=0, dz=0):
         i, hx, s = self._cell(self._x, x)
         j, hy, t = self._cell(self._y, y)

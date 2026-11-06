@@ -128,7 +128,10 @@ v1.12.2 (expected around 2027-03-01)
   then the points' own range, padded by ``target_pad`` times its spread
   and at least ``target_minwidth`` of the default span wide, so that the
   same number of nodes resolves a target orbit or stream far better than
-  the default box does.
+  the default box does. Arrays of actions, one torus per angle, evaluate
+  many distinct tori of a family in one vectorized pass (the batched label
+  inversion and tables, the kernels with per-point coefficients), as do
+  ``Freqs``; this is what an ensemble of orbits or a stream needs.
 
 v1.12.1 (2026-11-02)
 ====================
