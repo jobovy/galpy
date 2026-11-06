@@ -8,6 +8,9 @@ v1.12.2 (expected around 2027-03-01)
   the times are given as a list (use an array); lists of times were documented
   as supported, but had stopped working.
 
+- Fixed Orbit.animate, which raised ``ValueError: unexpected '{' in field
+  name`` in v1.12.1.
+
 v1.12.1 (2026-11-02)
 ====================
 

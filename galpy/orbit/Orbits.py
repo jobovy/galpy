@@ -7971,11 +7971,11 @@ class Orbit:
         return HTML(
             """
 <script>
-if (!document.getElementById("galpy-orbit-animations-style")) {
+if (!document.getElementById("galpy-orbit-animations-style")) {{
     const style = document.createElement("style");
     style.id = "galpy-orbit-animations-style";
     style.textContent = `
-        .galpybutton {
+        .galpybutton {{
             background-color:#ffffff;
             -moz-border-radius:16px;
             -webkit-border-radius:16px;
@@ -7989,21 +7989,20 @@ if (!document.getElementById("galpy-orbit-animations-style")) {
             padding:8px 10px;
             text-decoration:none;
             text-shadow:0px 1px 0px #2f6627;
-        }
-        .galpybutton:hover {
+        }}
+        .galpybutton:hover {{
             background-color:#ffffff;
-        }
-    }
-        .galpybutton:active {
+        }}
+        .galpybutton:active {{
             position:relative;
             top:1px;
-        }
-        .galpybutton:focus{
+        }}
+        .galpybutton:focus{{
             outline:0;
-        };
+        }}
     `;
     document.head.appendChild(style);
-}
+}}
 </script>
 
 <div id='galpy-{divid}' style='width:{width}px;height:{height}px;'></div>
