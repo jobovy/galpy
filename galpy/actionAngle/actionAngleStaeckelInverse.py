@@ -1138,7 +1138,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             numpy.zeros((nE, nI, nL, 1 + self._nptv)) for _ in range(4)
         )
         perr_u, perr_v = numpy.zeros((nE, nI, nL)), numpy.zeros((nE, nI, nL))
-        for ii in self._progress(range(nE * nI * nL), "node tables"):
+        for ii in _progress(range(nE * nI * nL), "node tables", self._progressbar):
             iE, rest = divmod(ii, nI * nL)
             iI, iL = divmod(rest, nL)
             wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
