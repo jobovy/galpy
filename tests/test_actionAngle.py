@@ -11375,16 +11375,29 @@ def test_actionAngleStaeckelInverse_errors(staeckel_inverse_explicit):
         actionAngleStaeckelInverse()
     with pytest.raises(OSError, match="supplies its focal length"):
         actionAngleStaeckelInverse(pot=MWPotential2014, Es=[E], Lzs=[Lz], I3s=[I3])
-    with pytest.raises(TypeError, match="conflict"):
-        actionAngleStaeckelInverse(pot=pot, delta=1.3, Es=[E], Lzs=[Lz], I3s=[I3])
-    with pytest.raises(TypeError, match="conflict"):
+    # a potential that supplies its focal length rejects a delta= that
+    # disagrees with it and a u0=, and accepts a delta= that agrees
+    with pytest.raises(TypeError, match="disagrees"):
+        actionAngleStaeckelInverse(pot=pot, delta=1.4, Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(TypeError, match="disagrees"):
         actionAngleStaeckelInverse(
             pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3),
-            delta=1.3,
+            delta=1.4,
             Es=[E],
             Lzs=[Lz],
             I3s=[I3],
         )
+    with pytest.raises(TypeError, match="u0= cannot be given"):
+        actionAngleStaeckelInverse(
+            pot=pot, delta=1.3, u0=1.0, Es=[E], Lzs=[Lz], I3s=[I3]
+        )
+    assert actionAngleStaeckelInverse(
+        pot=pot, delta=1.3, Es=[E], Lzs=[Lz], I3s=[I3]
+    ).JR(E, Lz, I3) == actionAngleStaeckelInverse(
+        pot=pot, Es=[E], Lzs=[Lz], I3s=[I3]
+    ).JR(E, Lz, I3), (
+        "A delta= that agrees with the potential's own focal length changes the torus"
+    )
     with pytest.raises(TypeError, match="u0= requires delta="):
         actionAngleStaeckelInverse(pot=pot, u0=1.0, Es=[E], Lzs=[Lz], I3s=[I3])
     with pytest.raises(TypeError, match="IsochronePotential"):
