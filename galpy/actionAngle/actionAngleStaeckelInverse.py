@@ -14,6 +14,7 @@
 #   of canonical.tex in the fast-orbits repository.)
 ###############################################################################
 import warnings
+from contextlib import contextmanager
 
 import numpy
 from scipy.optimize import brentq, minimize
@@ -182,10 +183,21 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             approximation. A potential that supplies its own focal length
             accepts a delta= that agrees with it (to 1e-14) and rejects one
             that does not.
-        u0 : float, optional
-            Reference u of the wrapping (see OblateStaeckelWrapperPotential);
-            requires delta= and cannot be given with a potential that supplies
-            its own focal length.
+        u0 : float, callable, or 'fit', optional
+            Reference u of the wrapping (see OblateStaeckelWrapperPotential),
+            whose curve R_0 = delta sinh(u0) is where the Staeckel
+            approximation of a general potential is most accurate. A number
+            requires delta= and cannot be given with a potential that
+            supplies its own focal length. A callable u0(E, Lz) (internal
+            units, with L_z > 0) or 'fit' gives every (E, L_z) of an interpolated family
+            its own reference curve, so that each torus is a torus of its
+            own best-placed Staeckel model: 'fit' places the curve at the
+            harmonic mean of the pericentre and apocentre of the planar
+            orbits at (E, L_z), which weights the pericentre, where a
+            disc's vertical structure is sharpest.
+            The reference curve is construction-only gauge (the map's
+            (R, z) <-> (u, v) uses the focal length alone), so this costs
+            nothing at evaluation; requires setup_interp=True.
 
         Notes
         -----
@@ -198,6 +210,11 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
+        if self._adaptive and not setup_interp:
+            raise TypeError(
+                "an adaptive reference curve (a callable u0(E, Lz) or u0='fit') "
+                "builds an interpolated family and requires setup_interp=True"
+            )
         if mm_nta is None:
             mm_nta = 8 * mm_npt
         if mm_nta % 2 == 1:
@@ -264,7 +281,17 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
     def _setup_staeckel(self, pot, delta, u0):
         """The Staeckel model the tori live in: the potential itself when it
         supplies its focal length, or its Staeckel approximation at the
-        given focal length"""
+        given focal length; with an adaptive reference curve, that model
+        is the reference one, and every (E, L_z) of the family gets its
+        own (_chart)"""
+        if isinstance(u0, str) and u0 != "fit":
+            raise ValueError("the only string value u0= accepts is 'fit'")
+        self._adaptive = callable(u0) or u0 == "fit"
+        self._u0_func = u0 if callable(u0) else self._u0_fit
+        self._chart_cache = {}
+        if self._adaptive:
+            # the reference wrapper keeps the default reference curve
+            u0 = None
         own = _focal_length_of(pot)
         if delta is not None:
             delta = conversion.parse_length(delta, ro=self._ro)
@@ -305,7 +332,73 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             )
         self._pot = pot
         self._delta = self._staeckelwrap._delta
+        # the potential the per-(E, L_z) charts of an adaptive family wrap:
+        # always the raw one (wrapping a wrapper would approximate the
+        # approximation)
+        self._chart_pot = self._staeckelwrap._pot
         return None
+
+    def _chart(self, E, Lz):
+        """The Staeckel model of the (E, L_z) tori: the family's single
+        wrapper or, with an adaptive reference curve, the wrapper at this
+        (E, |L_z|)'s own u0, cached"""
+        if not self._adaptive:
+            return self._staeckelwrap
+        key = (float(E), float(numpy.fabs(Lz)))
+        if key not in self._chart_cache:
+            self._chart_cache[key] = OblateStaeckelWrapperPotential(
+                pot=self._chart_pot,
+                delta=self._delta,
+                u0=float(self._u0_func(key[0], key[1])),
+            )
+        return self._chart_cache[key]
+
+    @contextmanager
+    def _in_chart(self, E, Lz):
+        """Run the chart-dependent construction of the (E, L_z) tori (their
+        sampling, turning points and edge relations) in their own Staeckel
+        model"""
+        save = self._staeckelwrap
+        self._staeckelwrap = self._chart(E, Lz)
+        try:
+            yield
+        finally:
+            self._staeckelwrap = save
+
+    def _u0_fit(self, E, Lz):
+        """The reference curve of u0='fit': at the harmonic mean of the
+        pericentre and apocentre of the planar orbits at (E, L_z), delta
+        sinh(u0) = 2 / (1/R_p + 1/R_a), from the potential's midplane, which
+        every wrapper reproduces; the circular radius at the circular
+        energy. The harmonic mean weights the pericentre, where a disc's
+        vertical structure is sharpest: measured on MWPotential2014 against
+        the arithmetic midpoint (which moves the curve far out on the
+        energetic rows, whose v maps then do not resolve, and is worse than
+        the default curve near R = 1), the geometric mean and the
+        guiding-centre radius, it resolves every map and gives the smallest
+        energy spread on seven of eight test tori"""
+        ell = numpy.fabs(Lz)
+        pot = self._chart_pot
+
+        def phieff(R):
+            return evaluatePotentials(pot, R, 0.0, use_physical=False) + ell**2 / (
+                2.0 * R**2
+            )
+
+        Rc = rl(pot, ell, use_physical=False)
+        Ec = phieff(Rc)
+        Emax = phieff(self._Rinf)
+        if E <= Ec + 1e-12 * (1.0 + numpy.fabs(Ec)):
+            return numpy.arcsinh(Rc / self._delta)
+        # the centrifugal term brackets the pericentre from below; the
+        # grid's top energy is that of the planar orbit with apocentre Rinf
+        Rp = brentq(lambda R: phieff(R) - E, 1e-4 * Rc, Rc, xtol=1e-12)
+        Ra = (
+            self._Rinf
+            if E >= Emax - 1e-12 * (1.0 + numpy.fabs(Emax))
+            else brentq(lambda R: phieff(R) - E, Rc, self._Rinf, xtol=1e-12)
+        )
+        return numpy.arcsinh(2.0 / (1.0 / Rp + 1.0 / Ra) / self._delta)
 
     # ---------- the separated Hamilton-Jacobi equation
     def _U(self, u):
@@ -401,12 +494,13 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             Ec = evaluatePotentials(
                 self._staeckelwrap, Rc, 0.0, use_physical=False
             ) + ell**2 / (2.0 * Rc**2)
+            wrap = self._chart(Ec, ell)
             self._circ_cache[ell] = {
                 "Rc": Rc,
                 "Ec": Ec,
                 "uc": numpy.arcsinh(Rc / self._delta),
-                "kappa": epifreq(self._staeckelwrap, Rc, use_physical=False),
-                "nu": verticalfreq(self._staeckelwrap, Rc, use_physical=False),
+                "kappa": epifreq(wrap, Rc, use_physical=False),
+                "nu": verticalfreq(wrap, Rc, use_physical=False),
                 "Omc": ell / Rc**2,
             }
         return self._circ_cache[ell]
@@ -552,10 +646,10 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         return smp
 
     def _sample_all(self):
-        self._samples = [
-            self._sample_torus(E, Lz, I3)
-            for E, Lz, I3 in zip(self._Es, self._Lzs, self._I3s)
-        ]
+        self._samples = []
+        for E, Lz, I3 in zip(self._Es, self._Lzs, self._I3s):
+            with self._in_chart(E, Lz):
+                self._samples.append(self._sample_torus(E, Lz, I3))
         return None
 
     # ---------- the auxiliary: one isochrone for the whole family
@@ -978,7 +1072,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._dDmvs = numpy.zeros((ntori, self._nptv, 3))
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
         for ii in _progress(range(ntori), "node tables", self._progressbar):
-            node = self._node_tables(ii)
+            with self._in_chart(self._Es[ii], self._Lzs[ii]):
+                node = self._node_tables(ii)
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
             self._ucs[ii], self._wus[ii], self._wvs[ii] = (
@@ -1050,8 +1145,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                     ush = circ["uc"]
                     Ipl = Ish = self._I3_planar(Ec, Lz)
                 else:
-                    ush = self._ushell(E, Lz)
-                    Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+                    with self._in_chart(E, Lz):
+                        ush = self._ushell(E, Lz)
+                        Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
                 self._E_tab[iE, iL] = E
                 self._ush_tab[iE, iL] = ush
                 self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL] = Ipl, Ish
@@ -1142,7 +1238,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             iE, rest = divmod(ii, nI * nL)
             iI, iL = divmod(rest, nL)
             wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
-            if True:
+            with self._in_chart(self._E_tab[iE, iL], Lz):
                 y = self._ys[iI]
                 su, sv = numpy.cos(0.5 * numpy.pi * wI), numpy.sin(0.5 * numpy.pi * wI)
                 if True:
@@ -1766,8 +1862,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         R0c, _, R0m, _ = self._R0_edges(ell)
         R0 = self._R0(min(E, Emax), R0c, R0m)
         x = min(numpy.log(R0 / R0c) / numpy.log(R0m / R0c), 1.0)
-        ush = self._ushell(E, ell)
-        Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
+        with self._in_chart(E, ell):
+            ush = self._ushell(E, ell)
+            Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
         y = (I3 - Ipl) / (Ish - Ipl)
         if y < -1e-10 or y > 1.0 + 1e-10:
             raise ValueError(

@@ -12008,6 +12008,118 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid_family():
     return None
 
 
+def test_actionAngleStaeckelInverse_u0_adaptive():
+    # An adaptive reference curve (a callable u0(E, L_z) or u0='fit') gives
+    # every (E, L_z) of a family its own Staeckel model. The curve is
+    # construction-only gauge: on an exact Staeckel potential, whose
+    # approximation is itself whatever the curve, the family reproduces the
+    # one with the fixed curve, and on a general potential, where the charts
+    # genuinely differ across the family, the map stays exactly canonical
+    from galpy.actionAngle import (
+        actionAngleIsochroneInverse,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import (
+        IsochronePotential,
+        LogarithmicHaloPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    pot = _staeckel_inverse_potential()
+    grid = dict(
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=48,
+        progressbar=False,
+    )
+    base = actionAngleStaeckelInverse(pot=pot, **grid)
+    angler = numpy.linspace(0.05, 6.2, 11)
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    for u0 in (lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E, "fit"):
+        aAI = actionAngleStaeckelInverse(pot=pot, u0=u0, **grid)
+        for jr, Lzq, jz in ((0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.02, 0.8, 0.2)):
+            x = numpy.array(aAI(jr, Lzq, jz, angler, 1.0, 2.0))
+            xb = numpy.array(base(jr, Lzq, jz, angler, 1.0, 2.0))
+            assert numpy.amax(numpy.fabs(x - xb)) < 1e-9, (
+                "An adaptive reference curve changes the family of an exact "
+                "Staeckel potential"
+            )
+            Om = numpy.array(aAI.Freqs(jr, Lzq, jz))
+            Omb = numpy.array(base.Freqs(jr, Lzq, jz))
+            assert numpy.amax(numpy.fabs(Om / Omb - 1.0)) < 1e-10, (
+                "An adaptive reference curve changes the frequencies of an exact "
+                "Staeckel potential"
+            )
+        assert (
+            numpy.fabs(aAI.JR(E, Lz, I3) - base.JR(E, Lz, I3)) < 1e-10
+            and numpy.fabs(aAI.Jz(E, Lz, I3) - base.Jz(E, Lz, I3)) < 1e-10
+        ), "The integrals entry point does not run in the local chart"
+    # the charts of a wrapped potential wrap the raw one: the same family
+    aAW = actionAngleStaeckelInverse(
+        pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3), u0="fit", **grid
+    )
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(aAW(0.06, 0.93, 0.10, angler, 1.0, 2.0))
+                - numpy.array(aAI(0.06, 0.93, 0.10, angler, 1.0, 2.0))
+            )
+        )
+        < 1e-12
+    ), "The adaptive charts of a wrapped potential differ from the raw potential's"
+    # a general potential on a wide grid: the reference curve moves the
+    # family (the charts differ), and the map is exactly canonical all the
+    # same, the curve being construction-only gauge
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    wide = dict(
+        setup_interp=True,
+        Rmin=0.5,
+        Rmax=2.0,
+        Rinf=6.0,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=48,
+        progressbar=False,
+    )
+    aAF = actionAngleStaeckelInverse(pot=lp, delta=0.8, u0="fit", **wide)
+    aAD = actionAngleStaeckelInverse(pot=lp, delta=0.8, **wide)
+    xF = numpy.array(aAF(0.3, 1.9, 0.1, angler, 1.0, 2.0))
+    xD = numpy.array(aAD(0.3, 1.9, 0.1, angler, 1.0, 2.0))
+    assert numpy.amax(numpy.fabs(xF - xD)) > 1e-4, (
+        "The adaptive reference curve did not move the family of a general potential"
+    )
+    floor = _spherical_inverse_symplectic_defect(
+        actionAngleIsochroneInverse(ip=IsochronePotential(amp=4.0, b=0.5)),
+        0.06,
+        0.9,
+        0.1,
+        0.7,
+        1.0,
+        2.0,
+    )
+    defect = _spherical_inverse_symplectic_defect(aAF, 0.3, 1.9, 0.1, 0.7, 1.0, 2.0)
+    assert defect < 20.0 * floor + 1e-9, (
+        "The symplectic defect of a family with an adaptive reference curve is "
+        "above the floor: %g vs %g" % (defect, floor)
+    )
+    # guards: an adaptive curve needs the family, and the only string is 'fit'
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(pot=pot, u0="fit", Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(
+            pot=pot, u0=lambda E, Lz: 1.0, Es=[E], Lzs=[Lz], I3s=[I3]
+        )
+    with pytest.raises(ValueError, match="only string value"):
+        actionAngleStaeckelInverse(pot=pot, u0="midplane", **grid)
+    return None
+
+
 def test_actionAngleStaeckelInverse_degenerate_tori():
     # A planar orbit (J_z = 0) and a shell orbit (J_R = 0) are tori with one
     # degenerate libration: they are set up from their labels (the planar
