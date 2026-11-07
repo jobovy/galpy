@@ -208,12 +208,12 @@ class HermiteFamily2D:
         x, y = xp.broadcast_arrays(x, y)
         nx, ny = xg.shape[0], yg.shape[0]
         i = xp.clip(
-            xp.searchsorted(stop_gradient(xg), stop_gradient(x), side="right") - 1,
+            xp.searchsorted(stop_gradient(xg), _dense(x), side="right") - 1,
             0,
             nx - 2,
         )
         j = xp.clip(
-            xp.searchsorted(stop_gradient(yg), stop_gradient(y), side="right") - 1,
+            xp.searchsorted(stop_gradient(yg), _dense(y), side="right") - 1,
             0,
             ny - 2,
         )
@@ -238,7 +238,7 @@ class HermiteFamily2D:
         x, y = xp.broadcast_arrays(x, y)
         i, j = (
             xp.clip(
-                xp.searchsorted(stop_gradient(g), stop_gradient(t), side="right") - 1,
+                xp.searchsorted(stop_gradient(g), _dense(t), side="right") - 1,
                 0,
                 g.shape[0] - 2,
             )
@@ -283,6 +283,12 @@ class HermiteFamily2D:
             pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
         v = numpy.einsum("a,abk,b->k", ps, self._c[i, j], pt)
         return v.reshape(1, 1) if self._scalar else v[None, None, :]
+
+
+def _dense(t):
+    """t without a derivative and in contiguous memory: a broadcast view
+    makes torch's searchsorted copy it, with a warning"""
+    return stop_gradient(t) * 1.0
 
 
 def _ns(*args):
