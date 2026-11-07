@@ -746,6 +746,33 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         A = L * (c * zeta / (1.0 + s) - s * psi)
         return A, A / L, L * (0.5 * (zeta + psi) / s - 0.5 * t / (s**2 + t**2))
 
+    def _aux_vflux_derivs(self, L, c, zeta):
+        """The auxiliary's polar action flux (_aux_vflux) with its partials
+        in zeta, L and c, closed forms: with D = 1 - c cos^2 zeta, f = L c
+        sin^2 zeta / D, df/dzeta = 2 L c (1 - c) sin zeta cos zeta / D^2,
+        df/dL = f / L and df/dc = L sin^2 zeta / D^2"""
+        sz, cz = numpy.sin(zeta), numpy.cos(zeta)
+        D = 1.0 - c * cz**2
+        f = L * c * sz**2 / D
+        return f, 2.0 * L * c * (1.0 - c) * sz * cz / D**2, f / L, L * sz**2 / D**2
+
+    def _aux_vcumulative2(self, L, c, zeta):
+        """The auxiliary's cumulative polar action (_aux_vcumulative) with
+        its first and second partials in (L, c) at fixed zeta: A is linear
+        in L, so A_L = A/L, A_LL = 0 and A_Lc = A_c/L; and with Theta = zeta
+        + varpi, s = sqrt(1 - c) and t = tan zeta, from dTheta/dc = t/[2 s
+        (s^2 + t^2)] and ds/dc = -1/(2s), A_c = L [Theta/(2s) - t/(2 (s^2 +
+        t^2))] and A_cc = L [Theta/(4 s^3) + t/(4 s^2 (s^2 + t^2)) - t/(2
+        (s^2 + t^2)^2)]. Verified against a forty-digit evaluation of the
+        plain form to 1e-13."""
+        A, A_L, A_c = self._aux_vcumulative(L, c, zeta)
+        s = numpy.sqrt(1.0 - c)
+        t = numpy.tan(zeta)
+        Theta = zeta + numpy.arctan(c * t / ((1.0 + s) * (s + t**2)))
+        q = s**2 + t**2
+        A_cc = L * (Theta / (4.0 * s**3) + t / (4.0 * s**2 * q) - 0.5 * t / q**2)
+        return A, A_L, A_c, 0.0 * A, A_c / L, A_cc
+
     def _setup_auxiliary(self, auxiliary):
         """Fix the frozen isochrone auxiliary of the whole family and lift
         every torus onto it, libration by libration.
@@ -800,7 +827,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                         "with it, mm_nta), or raise Rmin or lower Rinf"
                     )
             if smp["v"] is not None:
-                lift_v = self._lift_v(smp, L, 1.0 - smp["Lz"] ** 2 / L**2)
+                lift_v = self._lift_v(
+                    smp, L, smp["jz"] * (smp["jz"] + 2.0 * numpy.fabs(smp["Lz"])) / L**2
+                )
             self._lifts.append((lift_u, lift_v))
         return None
 
@@ -1049,7 +1078,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         # d(E, I_3, L_z)/d(J_R, J_z, J_phi), from J_phi = L_z
         N = numpy.linalg.inv(numpy.vstack((M, [0.0, 0.0, 1.0])))
         L = jz + numpy.fabs(Lz)
-        c = 1.0 - Lz**2 / L**2
+        c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
         dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
         lift_u, lift_v = self._lifts[ii]
         node = {
@@ -1095,6 +1124,300 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             node["dDmv"] = self._map_slopes_v(smp, L, c, lift_v["zeta"], dL, dsup[2])
         return node
 
+    def _second_order_tables(self, ii, node):
+        """The second-order tables of the ii-th explicit torus, from the
+        torus alone, which make its one-node family quadratic: over the
+        six pairs of (E, I_3, L_z), the second derivatives of the u
+        libration's midpoint and half-width and of the v half-width (the
+        level-set rule differentiated once more), of the two actions (the
+        period matrix's derivatives, from the same regular quadratures as
+        the matrix itself), and of the two maps' coefficients (the second
+        variation of each matching condition at fixed anomaly, solved by
+        the same Galerkin projection as the slopes; the u map's auxiliary
+        chains run through (a, e)(J_R, L) and the v map's through (L, c),
+        with L = J_z + |L_z| itself varying to second order through the
+        period matrix). Every target-side integrand is regular at the
+        turning points: the numerators N_a = S_a + S_q dq/da|_tau and N_ab
+        vanish there to second order in tau while p vanishes to first.
+        Returns None for a torus with a degenerate libration, whose tables
+        stay zero. The chain to the actions is _quadratic_node."""
+        smp = self._samples[ii]
+        if smp["u"] is None or smp["v"] is None:
+            return None
+        lift_u, lift_v = self._lifts[ii]
+        tau, E, Lz = smp["tau"], smp["E"], smp["Lz"]
+        jr, jz, M, dsup = smp["jr"], smp["jz"], node["M"], node["dsup"]
+        L = jz + numpy.fabs(Lz)
+        c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
+        d2 = self._delta**2
+        st, ct = numpy.sin(tau), numpy.cos(tau)
+        pairs = ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))
+
+        def tp2(S_q, S_qq, S_qa, S_LL, q1):
+            # a turning point's second derivatives by the level-set rule
+            # differentiated once more, S_q q_ab = -[S_qq q_a q_b + S_qa q_b
+            # + S_qb q_a + S_ab], with S_ab = S_LL for (L_z, L_z) and zero
+            # for every other pair
+            return numpy.array(
+                [
+                    -(
+                        S_qq * q1[i] * q1[j]
+                        + S_qa[i] * q1[j]
+                        + S_qa[j] * q1[i]
+                        + (S_LL if i == j == 2 else 0.0)
+                    )
+                    / S_q
+                    for i, j in pairs
+                ]
+            )
+
+        def libration(q, p, w, q1, w1, q2, w2, S_q, S_qq, S_a, S_qa, S_LL):
+            # at fixed anomaly: the second derivatives of the action (the
+            # period-matrix row) and of the cumulative action, from the
+            # coordinate's derivatives q1[a] = dq/da|_tau and q2[ab], the
+            # half-width's w1, w2, and the momentum function's partials
+            qtau = w * st
+            N1 = [S_a[i] + S_q * q1[i] for i in range(3)]
+            M2, A2 = numpy.empty(6), numpy.empty((self._ntau, 6))
+            for kk, (i, j) in enumerate(pairs):
+                S_ab = S_LL if i == j == 2 else 0.0 * q
+                N2 = (
+                    S_ab
+                    + S_qa[i] * q1[j]
+                    + S_qa[j] * q1[i]
+                    + S_qq * q1[i] * q1[j]
+                    + S_q * q2[kk]
+                )
+                M2[kk] = numpy.mean(
+                    (S_ab + S_qa[i] * q1[j]) * qtau / (2.0 * p)
+                    + S_a[i] * (w1[j] * st / (2.0 * p) - qtau * N1[j] / (4.0 * p**3))
+                )
+                mt, qt, _, qt0 = _cumulative(
+                    (N2 * qtau + N1[i] * w1[j] * st + N1[j] * w1[i] * st) / (2.0 * p)
+                    - N1[i] * N1[j] * qtau / (4.0 * p**3)
+                    + p * w2[kk] * st
+                )
+                A2[:, kk] = mt * tau + qt - qt0
+            return M2, A2
+
+        # the u libration: both turning points, then the midpoint and the
+        # half-width
+        u, pu, wu, uc = smp["u"], smp["pu"], smp["wu"], smp["uc"]
+        d2tp = []
+        for ut, dut in ((uc - wu, dsup[0] - dsup[1]), (uc + wu, dsup[0] + dsup[1])):
+            sh2 = numpy.sinh(ut) ** 2
+            d2tp.append(
+                tp2(
+                    float(self._dWu(ut, E, Lz)),
+                    float(self._d2Wu(ut, E, Lz)),
+                    (
+                        2.0 * d2 * numpy.sinh(2.0 * ut),
+                        0.0,
+                        4.0 * Lz * numpy.cosh(ut) / numpy.sinh(ut) ** 3,
+                    ),
+                    -2.0 / sh2,
+                    dut,
+                )
+            )
+        uc2, wu2 = 0.5 * (d2tp[0] + d2tp[1]), 0.5 * (d2tp[1] - d2tp[0])
+        sh2 = numpy.sinh(u) ** 2
+        M2u, A2u = libration(
+            u,
+            pu,
+            wu,
+            [dsup[0, k] - dsup[1, k] * ct for k in range(3)],
+            dsup[1],
+            [uc2[kk] - wu2[kk] * ct for kk in range(6)],
+            wu2,
+            self._dWu(u, E, Lz),
+            self._d2Wu(u, E, Lz),
+            (2.0 * d2 * sh2, -2.0 * d2 + 0.0 * u, -2.0 * Lz / sh2),
+            (
+                2.0 * d2 * numpy.sinh(2.0 * u),
+                0.0 * u,
+                4.0 * Lz * numpy.cosh(u) / numpy.sinh(u) ** 3,
+            ),
+            -2.0 / sh2,
+        )
+        # the v libration: its turning point, then the half-width
+        v, pv, wv = smp["v"], smp["pv"], smp["wv"]
+        vt = 0.5 * numpy.pi - wv
+        sn2 = numpy.sin(vt) ** 2
+        wv2 = -tp2(
+            float(self._dWv(vt, E, Lz)),
+            float(self._d2Wv(vt, E, Lz)),
+            (
+                2.0 * d2 * numpy.sin(2.0 * vt),
+                0.0,
+                4.0 * Lz * numpy.cos(vt) / numpy.sin(vt) ** 3,
+            ),
+            -2.0 / sn2,
+            -dsup[2],
+        )
+        sn2 = numpy.sin(v) ** 2
+        M2v, A2v = libration(
+            v,
+            pv,
+            wv,
+            [-dsup[2, k] * ct for k in range(3)],
+            dsup[2],
+            [-wv2[kk] * ct for kk in range(6)],
+            wv2,
+            self._dWv(v, E, Lz),
+            self._d2Wv(v, E, Lz),
+            (2.0 * d2 * sn2, 2.0 * d2 + 0.0 * v, -2.0 * Lz / sn2),
+            (
+                2.0 * d2 * numpy.sin(2.0 * v),
+                0.0 * v,
+                4.0 * Lz * numpy.cos(v) / numpy.sin(v) ** 3,
+            ),
+            -2.0 / sn2,
+        )
+        # the auxiliary torus's parameters along the integrals: J_R and L =
+        # J_z + |L_z| to second order from the period matrix and its
+        # derivatives, (a, e) through their closed-form partials in (J_R, L)
+        J1, J2 = M[0], M2u
+        L1 = M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
+        L2 = M2v
+
+        def chain2(d):
+            dJ, dL, dJJ, dJL, dLL = d
+            first = [dJ * J1[i] + dL * L1[i] for i in range(3)]
+            second = [
+                dJJ * J1[i] * J1[j]
+                + dJL * (J1[i] * L1[j] + J1[j] * L1[i])
+                + dLL * L1[i] * L1[j]
+                + dJ * J2[kk]
+                + dL * L2[kk]
+                for kk, (i, j) in enumerate(pairs)
+            ]
+            return first, second
+
+        _, _, da, de = self._auxiliary_orbital_params2(jr, L)
+        a1, a2 = chain2(da)
+        e1, e2 = chain2(de)
+        a, e, eta = lift_u["a"], lift_u["e"], lift_u["eta"]
+        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._auxiliary_cumulative2(a, e, eta)
+        fA, fA_eta = self._auxiliary_flux_eta(a, e, eta)
+        _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, eta)
+        eta1 = [
+            _sine_series(self._ntau, node["dDmu"][:, k], self._nforDm)[0]
+            for k in range(3)
+        ]
+        rhs = numpy.empty((self._ntau, 6))
+        for kk, (i, j) in enumerate(pairs):
+            rhs[:, kk] = (
+                A2u[:, kk]
+                - (
+                    fA_eta * eta1[i] * eta1[j]
+                    + fA_a * (a1[j] * eta1[i] + a1[i] * eta1[j])
+                    + fA_e * (e1[j] * eta1[i] + e1[i] * eta1[j])
+                )
+                - (
+                    AA_aa * a1[i] * a1[j]
+                    + AA_ae * (a1[i] * e1[j] + a1[j] * e1[i])
+                    + AA_ee * e1[i] * e1[j]
+                )
+                - AA_a * a2[kk]
+                - AA_e * e2[kk]
+            )
+        D2u = _sine_galerkin(fA, rhs, self._nforDm)
+        # the v map: the auxiliary's polar libration through (L, c), with
+        # c = 1 - L_z^2/L^2 to second order
+        dLz = numpy.array([0.0, 0.0, 1.0])
+        c1 = 2.0 * Lz**2 / L**3 * L1 - 2.0 * Lz / L**2 * dLz
+        c2 = numpy.array(
+            [
+                2.0 * Lz**2 / L**3 * L2[kk]
+                - 6.0 * Lz**2 / L**4 * L1[i] * L1[j]
+                + 4.0 * Lz / L**3 * (dLz[i] * L1[j] + dLz[j] * L1[i])
+                - 2.0 / L**2 * dLz[i] * dLz[j]
+                for kk, (i, j) in enumerate(pairs)
+            ]
+        )
+        zeta = lift_v["zeta"]
+        fv, fv_z, fv_L, fv_c = self._aux_vflux_derivs(L, c, zeta)
+        _, Av_L, Av_c, Av_LL, Av_Lc, Av_cc = self._aux_vcumulative2(L, c, zeta)
+        zeta1 = [
+            _sine_series(self._ntau, node["dDmv"][:, k], self._nforDmv)[0]
+            for k in range(3)
+        ]
+        for kk, (i, j) in enumerate(pairs):
+            rhs[:, kk] = (
+                A2v[:, kk]
+                - (
+                    fv_z * zeta1[i] * zeta1[j]
+                    + fv_L * (L1[j] * zeta1[i] + L1[i] * zeta1[j])
+                    + fv_c * (c1[j] * zeta1[i] + c1[i] * zeta1[j])
+                )
+                - (
+                    Av_LL * L1[i] * L1[j]
+                    + Av_Lc * (L1[i] * c1[j] + L1[j] * c1[i])
+                    + Av_cc * c1[i] * c1[j]
+                )
+                - Av_L * L2[kk]
+                - Av_c * c2[kk]
+            )
+        D2v = _sine_galerkin(fv, rhs, self._nforDmv)
+        return {
+            "d2sup": numpy.vstack((uc2, wu2, wv2)),
+            "d2M": numpy.vstack((M2u, M2v)),
+            "d2Dmu": D2u,
+            "d2Dmv": D2v,
+        }
+
+    def _quadratic_node(self, ii):
+        """The ii-th explicit torus's one-node family to second order in
+        the actions (J_R, J_z, J_phi): with N = d(E, I_3, L_z)/dJ the
+        inverse period matrix, the integrals' second derivatives in the
+        actions follow from the inverse-function rule, alpha_{gamma,ij} =
+        -sum_k N_{gamma k} [N^T J_{k,..} N]_{ij} over the two actions'
+        second derivatives (the E row is the frequencies' derivatives), and
+        every table X(E, I_3, L_z) chains as X_{J_i} = sum_a X_a N_{ai} and
+        X_{J_i J_j} = [N^T X_{..} N]_{ij} + sum_a X_a alpha_{a,ij}; a
+        degenerate libration's half-width and map have no derivatives, as
+        in _explicit_tables"""
+        N = self._Ns[ii]
+        idx = numpy.array([[0, 1, 2], [1, 3, 4], [2, 4, 5]])
+
+        def sym(x6):
+            # the six pairs as a symmetric matrix (along the last axis)
+            return numpy.asarray(x6)[..., idx]
+
+        JJ = numpy.zeros((3, 3, 3))
+        JJ[:2] = sym(self._d2Ms[ii])
+        d2alpha = -numpy.einsum("gk,ai,kab,bj->gij", N, N, JJ, N)
+
+        def chain(x1, x6, zero=False):
+            x1, x6 = numpy.asarray(x1), numpy.asarray(x6)
+            if zero:
+                return numpy.zeros(x1.shape), numpy.zeros(x1.shape + (3,))
+            return x1 @ N, numpy.einsum(
+                "ai,...ab,bj->...ij", N, sym(x6), N
+            ) + numpy.einsum("...a,aij->...ij", x1, d2alpha)
+
+        udeg, vdeg = self._wus[ii] == 0.0, self._wvs[ii] == 0.0
+        dsup, d2sup = self._dsups[ii], self._d2sups[ii]
+        out = {
+            "jr": self._jrs[ii],
+            "jz": self._jzs[ii],
+            "Lz": self._Lzs[ii],
+            "Om": N[0],
+            "d2E": d2alpha[0],
+            "d2alpha": d2alpha,
+            "uc": self._ucs[ii],
+            "wu": self._wus[ii],
+            "wv": self._wvs[ii],
+            "Dmu": self._Dmus[ii],
+            "Dmv": self._Dmvs[ii],
+        }
+        out["duc"], out["d2uc"] = chain(dsup[0], d2sup[0])
+        out["dwu"], out["d2wu"] = chain(dsup[1], d2sup[1], zero=udeg)
+        out["dwv"], out["d2wv"] = chain(dsup[2], d2sup[2], zero=vdeg)
+        out["dDmu"], out["d2Dmu"] = chain(self._dDmus[ii], self._d2Dmus[ii])
+        out["dDmv"], out["d2Dmv"] = chain(self._dDmvs[ii], self._d2Dmvs[ii])
+        return out
+
     def _warn_unresolved(self, perr, Es, Lzs, I3s, which):
         """Warn when a truncated map leaves the auxiliary's action varying
         along a lifted libration by more than round-off allows"""
@@ -1132,10 +1455,21 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._Dmvs = numpy.empty((ntori, self._nptv))
         self._dDmus = numpy.zeros((ntori, self._npt, 3))
         self._dDmvs = numpy.zeros((ntori, self._nptv, 3))
+        self._d2sups = numpy.zeros((ntori, 3, 6))
+        self._d2Ms = numpy.zeros((ntori, 2, 6))
+        self._d2Dmus = numpy.zeros((ntori, self._npt, 6))
+        self._d2Dmvs = numpy.zeros((ntori, self._nptv, 6))
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
         for ii in _progress(range(ntori), "node tables", self._progressbar):
             with self._in_chart(self._Es[ii], self._Lzs[ii]):
                 node = self._node_tables(ii)
+                # the second-order tables make the one-node family
+                # quadratic: an explicit torus then carries the true
+                # derivatives of the map in the actions at its node
+                so = self._second_order_tables(ii, node)
+            if so is not None:
+                self._d2sups[ii], self._d2Ms[ii] = so["d2sup"], so["d2M"]
+                self._d2Dmus[ii], self._d2Dmvs[ii] = so["d2Dmu"], so["d2Dmv"]
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
             self._ucs[ii], self._wus[ii], self._wvs[ii] = (
@@ -2169,7 +2503,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         tab = self._tables(jr, jz, Lz)
         L = jz + numpy.fabs(Lz)
         a, e = self._auxiliary_orbital_params(jr, L)
-        c = 1.0 - Lz**2 / L**2
+        # c = sin^2 i = 1 - L_z^2/L^2 in the product form, exact for a thin
+        # vertical libration where the difference would cancel
+        c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
         sq = numpy.sqrt(L**2 + 4.0 * self._GM * self._b)
         aux = {
             "a": a,
