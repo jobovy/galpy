@@ -365,7 +365,7 @@ class NonInertialFrameForce(DissipativeForce):
         _ckey = (
             getattr(xp, "__name__", "numpy"),
             getattr(ref, "dtype", None),
-            getattr(ref, "device", None),
+            device_of(ref),
         )
         tracing = under_trace(ref)
         _cache = self._const_anchor_cache.get(_ckey)

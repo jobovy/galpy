@@ -11604,9 +11604,12 @@ def _staeckel_inverse_roundtrip(
 
     pot = _staeckel_inverse_potential() if pot is None else pot
     aAS = _staeckel_inverse_forward() if aAS is None else aAS
-    R, vR, vT, z, vz, phi = aAI(jr, jphi, jz, angler, anglephi, anglez)
-    f = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-    Om = aAI.Freqs(jr, jphi, jz)
+    jr, jphi, jz = (float(as_numpy(t)) for t in (jr, jphi, jz))
+    R, vR, vT, z, vz, phi = (
+        as_numpy(t) for t in aAI(jr, jphi, jz, angler, anglephi, anglez)
+    )
+    f = [as_numpy(t) for t in aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)]
+    Om = [float(as_numpy(o)) for o in aAI.Freqs(jr, jphi, jz)]
     wrap = lambda d: numpy.amax(
         numpy.fabs((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
     )
@@ -11619,7 +11622,7 @@ def _staeckel_inverse_roundtrip(
         numpy.amax(numpy.fabs(f[4] / Om[1] - 1.0)),
         numpy.amax(numpy.fabs(f[5] / Om[2] - 1.0)),
     )
-    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(pot, R, z))
     return dJ, dth, dOm, numpy.ptp(H) / numpy.fabs(numpy.mean(H))
 
 
@@ -11689,13 +11692,16 @@ def test_actionAngleStaeckelInverse_orbit(staeckel_inverse_explicit):
     wrap = lambda d: (d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
     for key in ("benign", "eccentric"):
         E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
-        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
-        Om = aAI.Freqs(jr, Lz, jz)
+        jr, jz = (float(as_numpy(a(E, Lz, I3))) for a in (aAI.JR, aAI.Jz))
+        Om = [float(as_numpy(o)) for o in aAI.Freqs(jr, Lz, jz)]
         ts = numpy.linspace(0.0, 10.0 * 2.0 * numpy.pi / Om[0], 1001)
-        R, vR, vT, z, vz, phi = aAI(
-            jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+        R, vR, vT, z, vz, phi = (
+            as_numpy(t)
+            for t in aAI(
+                jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+            )
         )
-        H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+        H = 0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(pot, R, z))
         assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-11, (
             "Energy is not conserved along an actionAngleStaeckelInverse torus at a node: %g"
             % (numpy.std(H) / numpy.fabs(numpy.mean(H)))
@@ -11703,12 +11709,12 @@ def test_actionAngleStaeckelInverse_orbit(staeckel_inverse_explicit):
         orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
         orb.integrate(ts, pot, method="dop853_c")
         for name, torus, orbit in (
-            ("R", R, orb.R(ts)),
-            ("z", z, orb.z(ts)),
-            ("vR", vR, orb.vR(ts)),
-            ("vT", vT, orb.vT(ts)),
-            ("vz", vz, orb.vz(ts)),
-            ("phi", phi, phi + wrap(orb.phi(ts) - phi)),
+            ("R", R, as_numpy(orb.R(ts))),
+            ("z", z, as_numpy(orb.z(ts))),
+            ("vR", vR, as_numpy(orb.vR(ts))),
+            ("vT", vT, as_numpy(orb.vT(ts))),
+            ("vz", vz, as_numpy(orb.vz(ts))),
+            ("phi", phi, phi + wrap(as_numpy(orb.phi(ts)) - phi)),
         ):
             assert numpy.amax(numpy.fabs(orbit - torus)) < 1e-7, (
                 "%s along an actionAngleStaeckelInverse torus at a node does not agree with the integrated orbit: %g"
@@ -11771,36 +11777,45 @@ def test_actionAngleStaeckelInverse_turning_point_derivatives(
     # on the separated momenta, which the family's Hermite constraints use)
     # and of the shell u agree with finite differences of the turning points
     # themselves across neighbouring tori
+    from galpy.backend import use
+
     aAI = staeckel_inverse_explicit
     h = 1e-6
-    for key in ("benign", "eccentric"):
-        E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
-        uc, wu, wv, ush, _, _ = aAI._turning_points(E, Lz, I3)
-        dinner = aAI._tp_derivs_u(uc - wu, E, Lz)
-        douter = aAI._tp_derivs_u(uc + wu, E, Lz)
-        dvm = aAI._tp_derivs_v(0.5 * numpy.pi - wv, E, Lz)
-        dush = aAI._dushell(ush, E, Lz)
-        for k, (dE, dI, dL) in enumerate(((h, 0.0, 0.0), (0.0, h, 0.0), (0.0, 0.0, h))):
-            up = aAI._turning_points(E + dE, Lz + dL, I3 + dI)
-            dn = aAI._turning_points(E - dE, Lz - dL, I3 - dI)
-            fd = [
-                ((up[0] - up[1]) - (dn[0] - dn[1])) / (2.0 * h),
-                ((up[0] + up[1]) - (dn[0] + dn[1])) / (2.0 * h),
-                ((0.5 * numpy.pi - up[2]) - (0.5 * numpy.pi - dn[2])) / (2.0 * h),
-            ]
-            for name, ana, num in (
-                ("inner u", dinner[k], fd[0]),
-                ("outer u", douter[k], fd[1]),
-                ("v", dvm[k], fd[2]),
+    # the closed forms are the numpy path's (a family built on a backend has
+    # its own, checked in test_backend_actionAngleStaeckelInverse.py)
+    with use("numpy", force=True):
+        for key in ("benign", "eccentric"):
+            E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
+            uc, wu, wv, ush, _, _ = aAI._turning_points(E, Lz, I3)
+            dinner = aAI._tp_derivs_u(uc - wu, E, Lz)
+            douter = aAI._tp_derivs_u(uc + wu, E, Lz)
+            dvm = aAI._tp_derivs_v(0.5 * numpy.pi - wv, E, Lz)
+            dush = aAI._dushell(ush, E, Lz)
+            for k, (dE, dI, dL) in enumerate(
+                ((h, 0.0, 0.0), (0.0, h, 0.0), (0.0, 0.0, h))
             ):
-                assert numpy.fabs(ana - num) < 1e-6 * (1.0 + numpy.fabs(num)), (
-                    "The %s turning point's derivative is not the level-set rule's"
-                    % name
-                )
-            if k != 1:
-                assert numpy.fabs(dush[k // 2] - (up[3] - dn[3]) / (2.0 * h)) < 1e-6 * (
-                    1.0 + numpy.fabs(dush[k // 2])
-                ), "The shell u's derivative is not the level-set rule's"
+                up = aAI._turning_points(E + dE, Lz + dL, I3 + dI)
+                dn = aAI._turning_points(E - dE, Lz - dL, I3 - dI)
+                fd = [
+                    ((up[0] - up[1]) - (dn[0] - dn[1])) / (2.0 * h),
+                    ((up[0] + up[1]) - (dn[0] + dn[1])) / (2.0 * h),
+                    ((0.5 * numpy.pi - up[2]) - (0.5 * numpy.pi - dn[2])) / (2.0 * h),
+                ]
+                for name, ana, num in (
+                    ("inner u", dinner[k], fd[0]),
+                    ("outer u", douter[k], fd[1]),
+                    ("v", dvm[k], fd[2]),
+                ):
+                    assert numpy.fabs(ana - num) < 1e-6 * (1.0 + numpy.fabs(num)), (
+                        "The %s turning point's derivative is not the level-set rule's"
+                        % name
+                    )
+                if k != 1:
+                    assert numpy.fabs(
+                        dush[k // 2] - (up[3] - dn[3]) / (2.0 * h)
+                    ) < 1e-6 * (1.0 + numpy.fabs(dush[k // 2])), (
+                        "The shell u's derivative is not the level-set rule's"
+                    )
     return None
 
 
@@ -12066,8 +12081,8 @@ def test_actionAngleStaeckelInverse_small_action(staeckel_inverse_interp):
         )
     angler = numpy.linspace(0.05, 6.2, 11)
     for jr, jz in ((0.0, 0.05), (0.05, 0.0)):
-        R, vR, vT, z, vz, phi = aAI(jr, Lz, jz, angler, 1.0, 2.0)
-        f = aAS(R, vR, vT, z, vz, phi)
+        R, vR, vT, z, vz, phi = (as_numpy(t) for t in aAI(jr, Lz, jz, angler, 1.0, 2.0))
+        f = [as_numpy(t) for t in aAS(R, vR, vT, z, vz, phi)]
         assert (
             numpy.amax(numpy.fabs(f[0] - jr)) < 1e-5
             and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-5
@@ -12110,21 +12125,24 @@ def test_actionAngleStaeckelInverse_extremes():
         )
         Om = aAI.Freqs(jr, Lz, jz)
         ts = numpy.linspace(0.0, 5.0 * 2.0 * numpy.pi / Om[0], 501)
-        R, vR, vT, z, vz, phi = aAI(
-            jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+        R, vR, vT, z, vz, phi = (
+            as_numpy(t)
+            for t in aAI(
+                jr, Lz, jz, 0.4 + Om[0] * ts, 1.1 + Om[1] * ts, 2.3 + Om[2] * ts
+            )
         )
-        H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+        H = 0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(pot, R, z))
         assert numpy.std(H) / numpy.fabs(numpy.mean(H)) < 1e-11, (
             "Energy is not conserved along the %s torus" % key
         )
         orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
         orb.integrate(ts, pot, method="dop853_c")
         for name, torus, orbit in (
-            ("R", R, orb.R(ts)),
-            ("z", z, orb.z(ts)),
-            ("vR", vR, orb.vR(ts)),
-            ("vz", vz, orb.vz(ts)),
-            ("phi", phi, phi + wrap(orb.phi(ts) - phi)),
+            ("R", R, as_numpy(orb.R(ts))),
+            ("z", z, as_numpy(orb.z(ts))),
+            ("vR", vR, as_numpy(orb.vR(ts))),
+            ("vz", vz, as_numpy(orb.vz(ts))),
+            ("phi", phi, phi + wrap(as_numpy(orb.phi(ts)) - phi)),
         ):
             assert numpy.amax(numpy.fabs(orbit - torus)) < 1e-7, (
                 "%s along the %s torus does not agree with the integrated orbit: %g"
@@ -12299,8 +12317,10 @@ def test_actionAngleStaeckelInverse_circular(staeckel_inverse_interp):
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
 
     def invariants(aAI, Lz):
-        Rc = rl(pot, numpy.fabs(Lz), use_physical=False)
-        R, vR, vT, z, vz, phi = aAI(0.0, Lz, 0.0, angler, anglephi, anglez)
+        Rc = float(as_numpy(rl(pot, numpy.fabs(Lz), use_physical=False)))
+        R, vR, vT, z, vz, phi = (
+            as_numpy(t) for t in aAI(0.0, Lz, 0.0, angler, anglephi, anglez)
+        )
         return max(
             numpy.amax(numpy.fabs(R / Rc - 1.0)),
             numpy.amax(numpy.fabs(vR)),
@@ -12449,7 +12469,10 @@ def test_actionAngleStaeckelInverse_potentials():
         numpy.fabs(aAR.JR(E, -Lz, I3) - jr) < 1e-12
         and numpy.fabs(aAR.Jz(E, -Lz, I3) - jz) < 1e-12
     )
-    OmP, OmR = numpy.array(aAK.Freqs(jr, Lz, jz)), numpy.array(aAR.Freqs(jr, -Lz, jz))
+    OmP, OmR = (
+        numpy.array([as_numpy(o) for o in a.Freqs(jr, l, jz)])
+        for a, l in ((aAK, Lz), (aAR, -Lz))
+    )
     assert numpy.amax(numpy.fabs(OmR - OmP * [1.0, -1.0, 1.0])) < 1e-12, (
         "The retrograde torus's frequencies are not the prograde one's mirrored"
     )
@@ -12466,17 +12489,20 @@ def test_actionAngleStaeckelInverse_potentials():
         pot=MWPotential2014, delta=0.45, Es=[E], Lzs=[Lz], I3s=[I3]
     )
     aAWG = actionAngleStaeckelInverse(pot=swp, Es=[E], Lzs=[Lz], I3s=[I3])
-    jr, jz = aAG.JR(E, Lz, I3), aAG.Jz(E, Lz, I3)
+    jr, jz = (float(as_numpy(a(E, Lz, I3))) for a in (aAG.JR, aAG.Jz))
     assert (
         numpy.fabs(aAWG.JR(E, Lz, I3) - jr) < 1e-12
         and numpy.fabs(aAWG.Jz(E, Lz, I3) - jz) < 1e-12
     ), "delta= does not give the same tori as the explicitly wrapped potential"
     # the torus lives in the wrapped model: the forward transformation of
     # that model recovers it
-    R, vR, vT, z, vz, phi = aAG(jr, Lz, jz, angler, 1.0, 2.0)
-    f = actionAngleStaeckel(pot=swp, delta=0.45, c=False, order=200).actionsFreqsAngles(
-        R, vR, vT, z, vz, phi
-    )
+    R, vR, vT, z, vz, phi = (as_numpy(t) for t in aAG(jr, Lz, jz, angler, 1.0, 2.0))
+    f = [
+        as_numpy(t)
+        for t in actionAngleStaeckel(
+            pot=swp, delta=0.45, c=False, order=200
+        ).actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    ]
     assert (
         numpy.amax(numpy.fabs(f[0] - jr)) < 1e-8
         and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-8
@@ -12810,9 +12836,11 @@ def test_actionAngleStaeckelInverse_target():
         actionAngleStaeckelInverse(
             target=numpy.vstack((rows, rows2)), target_pad=50.0, **kw
         )
-    assert numpy.all(numpy.isfinite(big(0.0, lz, 0.0, 0.3, 1.0, 2.0)[0])) and (
-        numpy.all(numpy.isfinite(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0]))
-    ), "A generously padded target box does not reach the faces"
+    assert numpy.all(
+        numpy.isfinite(as_numpy(big(0.0, lz, 0.0, 0.3, 1.0, 2.0)[0]))
+    ) and (numpy.all(numpy.isfinite(as_numpy(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0])))), (
+        "A generously padded target box does not reach the faces"
+    )
     # composes with an adaptive reference curve
     fit = actionAngleStaeckelInverse(target=o(ts), u0="fit", **kw)
     assert max(miss(fit, row, lab) for row, lab in zip(rows, labels)) < 1e-6, (
@@ -12849,6 +12877,7 @@ def test_actionAngleStaeckelInverse_degenerate_tori():
     # reaches high latitudes brackets its v turning point beyond the
     # default scan
     from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
     from galpy.potential import evaluatePotentials
 
     pot = _staeckel_inverse_potential()
@@ -12860,28 +12889,33 @@ def test_actionAngleStaeckelInverse_degenerate_tori():
     E, Lz, I3 = _staeckel_inverse_labels([1.1, 0.4, 0.9, 0.0, 0.0, 0.0])
     aAP = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
     assert aAP.Jz(E, Lz, I3) == 0.0, "The planar orbit's vertical action is not zero"
-    jr = aAP.JR(E, Lz, I3)
-    R, vR, vT, z, vz, phi = aAP(jr, Lz, 0.0, angler, anglephi, anglez)
+    jr = float(as_numpy(aAP.JR(E, Lz, I3)))
+    R, vR, vT, z, vz, phi = (
+        as_numpy(t) for t in aAP(jr, Lz, 0.0, angler, anglephi, anglez)
+    )
     assert numpy.amax(numpy.fabs(z)) < 1e-15 and numpy.amax(numpy.fabs(vz)) < 1e-15, (
         "The planar orbit does not stay in the plane"
     )
-    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(pot, R, z))
     assert numpy.ptp(H) / numpy.fabs(E) < 1e-12, "The planar orbit is not at one energy"
-    f = aAS(R, vR, vT, z, vz, phi)
+    f = [as_numpy(t) for t in aAS(R, vR, vT, z, vz, phi)]
     assert (
         numpy.amax(numpy.fabs(f[0] - jr)) < 1e-9
         and numpy.amax(numpy.fabs(f[2])) < 1e-12
     ), "The planar orbit's radial action is not the forward transformation's"
     # shell
     E, Lz, _ = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
-    Ish = aAP._I3_shell(E, Lz, aAP._ushell(E, Lz))
+    with use("numpy", force=True):  # the numpy path's edge relation
+        Ish = float(aAP._I3_shell(E, Lz, aAP._ushell(E, Lz)))
     aASh = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[Ish])
     assert aASh.JR(E, Lz, Ish) == 0.0, "The shell orbit's radial action is not zero"
-    jz = aASh.Jz(E, Lz, Ish)
-    R, vR, vT, z, vz, phi = aASh(0.0, Lz, jz, angler, anglephi, anglez)
-    H = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(pot, R, z)
+    jz = float(as_numpy(aASh.Jz(E, Lz, Ish)))
+    R, vR, vT, z, vz, phi = (
+        as_numpy(t) for t in aASh(0.0, Lz, jz, angler, anglephi, anglez)
+    )
+    H = 0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(pot, R, z))
     assert numpy.ptp(H) / numpy.fabs(E) < 1e-12, "The shell orbit is not at one energy"
-    f = aAS(R, vR, vT, z, vz, phi)
+    f = [as_numpy(t) for t in aAS(R, vR, vT, z, vz, phi)]
     assert (
         numpy.amax(numpy.fabs(f[0])) < 1e-7 and numpy.amax(numpy.fabs(f[2] - jz)) < 1e-7
     ), (
@@ -12890,9 +12924,9 @@ def test_actionAngleStaeckelInverse_degenerate_tori():
             numpy.amax(numpy.fabs(f[2] - jz)),
         )
     )
-    assert numpy.all(numpy.fabs(numpy.array(aASh.Freqs(0.0, Lz, jz))) > 0.0), (
-        "The shell orbit's frequencies are not all finite and non-zero"
-    )
+    assert numpy.all(
+        numpy.fabs(numpy.array([as_numpy(o) for o in aASh.Freqs(0.0, Lz, jz)])) > 0.0
+    ), "The shell orbit's frequencies are not all finite and non-zero"
     # high latitudes
     E, Lz, I3 = _staeckel_inverse_labels([1.0, 0.1, 0.3, 0.0, 1.2, 0.0])
     aAH = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=64)

@@ -916,7 +916,7 @@ def asarray_on_device(xp, a, device, dtype=None):
     if (
         is_backend_array(a)
         and (dtype is None or getattr(a, "dtype", None) == dtype)
-        and (device is None or getattr(a, "device", None) == device)
+        and (device is None or device_of(a) == device)
     ):
         return a
     if device is None:
