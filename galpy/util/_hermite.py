@@ -337,13 +337,17 @@ class HermiteFamily3D:
         )
         self._xp, self._x, self._y, self._z = xp, x, y, z
 
-        def d(tab, axis, nodes):
-            return _spline_knot_slopes(xp, nodes, tab, axis)
+        def d(tabs, axis, nodes):
+            # the tables' splines along one axis in one solve (stacked on
+            # the last axis, the stack's)
+            k = tabs[0].shape[-1]
+            cat = getattr(xp, "concat", None) or xp.concatenate
+            out = _spline_knot_slopes(xp, nodes, cat(tabs, axis=-1), axis)
+            return [out[..., i * k : (i + 1) * k] for i in range(len(tabs))]
 
-        fxy, fxz, fyz = d(fx, 1, y), d(fx, 2, z), d(fy, 2, z)
-        fxyz = d(fxy, 2, z)
-        fxx, fxxy, fxxz = d(fx, 0, x), d(fxy, 0, x), d(fxz, 0, x)
-        fxxyz = d(fxyz, 0, x)
+        (fxy,) = d([fx], 1, y)
+        fxz, fyz, fxyz = d([fx, fy, fxy], 2, z)
+        fxx, fxxy, fxxz, fxxyz = d([fx, fxy, fxz, fxyz], 0, x)
         self._nodes = xp.stack(
             [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz]
         )
