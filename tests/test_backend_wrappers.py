@@ -945,6 +945,88 @@ def test_oblatestaeckel_ntab_tables_built_on_every_backend(backend_name, monkeyp
     return None
 
 
+# OblateStaeckelWrapperPotential's U(u) derivatives along its reference curve use
+# the exact dR/du = delta cosh u sin v0 and dz/du = delta sinh u cos v0, the
+# same chain rule autodiff applies to U itself: the guard of the former
+# R / (tanh u + 1e-12) put the analytic dU/du a part in 1e12 / tanh u off it
+# (1e-9 at u = 1e-3), and the in-plane force as far off the potential's.
+_OSW_US = (1e-3, 0.1, 1.0, 3.0)
+
+
+def _osw_cases():
+    from galpy.potential import HernquistPotential, MWPotential2014
+
+    return (
+        (MWPotential2014, 0.45),
+        (HernquistPotential(amp=1.0, a=0.6), 0.5),
+        (MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4),
+    )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_oblatestaeckel_reference_curve_derivatives_on_every_backend(backend_name):
+    from galpy.backend import as_numpy, is_backend_array, use
+    from galpy.potential import evaluateRforces
+
+    us = numpy.array((0.0,) + _OSW_US)
+    for pot, delta in _osw_cases():
+        w = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+        ref = [w._dUdu(us), w._d2Udu2(us)]
+        # in the plane the wrapper is the potential, to round-off away from the
+        # axis (near it Rz_to_uv's arccosh bounds the agreement)
+        Rs = ((1e-2, 1e-12), (0.1, 1e-14), (1.0, 1e-14), (5.0, 1e-14))
+        fps = [evaluateRforces(pot, R, 0.0, use_physical=False) for R, _ in Rs]
+        with use(backend_name, force=True):
+            got = [
+                w._dUdu(_toscalar(backend_name, us)),
+                w._d2Udu2(_toscalar(backend_name, us)),
+            ]
+            fws = [
+                w.Rforce(_toscalar(backend_name, R), 0.0, use_physical=False)
+                for R, _ in Rs
+            ]
+        for (R, tol), fw, fp in zip(Rs, fws, fps):
+            assert backend_name == "numpy" or is_backend_array(fw)
+            assert numpy.fabs(float(as_numpy(fw)) / fp - 1.0) < tol, (
+                f"{backend_name}: the wrapper's in-plane force is not the "
+                f"potential's at R = {R}"
+            )
+        for g, r in zip(got, ref):
+            assert backend_name == "numpy" or is_backend_array(g)
+            numpy.testing.assert_allclose(
+                as_numpy(g), r, rtol=1e-14, atol=1e-14 * numpy.amax(numpy.fabs(r))
+            )
+    return None
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_oblatestaeckel_reference_curve_derivatives_are_autodiff(backend_name):
+    # the analytic dU/du and d2U/du2 are autodiff's derivatives of U and dU/du
+    # (off the axis, where d2U/du2 keeps the finite part); measured <= 6e-14
+    # (the potential's analytic R2deriv against autodiff of its Rforce), the
+    # guarded R / (tanh u + 1e-12) was 2.6e-10 to 2.5e-7 off
+    from galpy.backend import use
+
+    def deriv(f, u):
+        if backend_name == "jax":
+            return float(jax.grad(f)(jnp.asarray(u, dtype=jnp.float64)))
+        x = torch.tensor(u, dtype=torch.float64, requires_grad=True)
+        f(x).backward()
+        return float(x.grad)
+
+    for pot, delta in _osw_cases():
+        w = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+        for u in _OSW_US:
+            with use(backend_name, force=True):
+                for f, df in ((w._U, w._dUdu), (w._dUdu, w._d2Udu2)):
+                    ad, an = deriv(f, u), float(df(u))
+                    assert numpy.fabs(ad / an - 1.0) < 1e-12, (
+                        f"{backend_name}: {df.__name__} at u = {u} is not the "
+                        f"autodiff derivative: {ad / an - 1.0:g}"
+                    )
+    return None
+
+
 # --- a differentiated parameter of the WRAPPED potential -----------------------
 # The OblateStaeckel/CylindricallySeparable constructors evaluate the wrapped
 # potential at Python-float reference points; with a traced parameter that hit

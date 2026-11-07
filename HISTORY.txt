@@ -1,6 +1,14 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- OblateStaeckelWrapperPotential's derivatives along its U reference curve
+  (dU/du and d2U/du2, Python and C) now use the exact dR/du = delta cosh u
+  sin v0 and dz/du = delta sinh u cos v0 in place of a guarded R/tanh(u),
+  whose guard biased the wrapper's force by a part in 1e12 / tanh(u): a part
+  in 1e12 at R ~ delta, a part in 1e9 at R = 1e-3 delta. In the plane the
+  wrapper's force now equals the wrapped potential's to round-off, and its
+  dU/du and d2U/du2 are the autodiff derivatives of U and dU/du on a backend.
+
 - Fixed Orbit.animate, which raised ``ValueError: unexpected '{' in field
   name`` in v2.0.0b1 (and v1.12.1).
 
