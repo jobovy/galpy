@@ -1664,6 +1664,28 @@ add_aa(
     coords={"J": 0.1, "ang": 0.7},
 )
 add_aa(
+    "actionAngleSphericalInverse",
+    # a given auxiliary: a fitted one is frozen on a backend, and refitting
+    # moves an interpolated family at its interpolation error (1e-5)
+    lambda P: aa.actionAngleSphericalInverse(
+        pot=gp.HernquistPotential(amp=P["amp"], a=P["a"]),
+        setup_interp=True,
+        Rmin=0.5,
+        Rmax=1.5,
+        Rinf=8.0,
+        nE=4,
+        nL=4,
+        mm_npt=24,
+        mm_nta=128,
+        auxiliary=gp.IsochronePotential(amp=2.0, b=0.8),
+        progressbar=False,
+    ),
+    {"amp": 2.0, "a": 0.8},
+    iinv,
+    coords={"jr": 0.02, "lz": 0.35, "jz": 0.15, "ar": 0.4, "ap": 0.5, "az": 0.6},
+    diff_coords=["jr", "ar"],
+)
+add_aa(
     "estimateDeltaStaeckel",
     lambda P: MNa(P),
     dict(MNp),

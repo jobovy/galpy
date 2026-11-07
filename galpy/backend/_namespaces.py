@@ -657,6 +657,11 @@ def device_of(*coords):
     """
     for coord in coords:
         if is_backend_array(coord):
+            # a jax tracer (jit, grad, vmap) has no device, and asking raises
+            # an AttributeError whose message, the trace's provenance, costs
+            # ~20 ms per call in a deep trace
+            if under_jax_trace(coord):
+                continue
             device = getattr(coord, "device", None)
             if device is not None:
                 return device
