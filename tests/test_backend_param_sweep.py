@@ -100,6 +100,7 @@ ROTATED = {
     "actionAngleSpherical[LogHalo]",
     "actionAngleSphericalInverse",
     "actionAngleStaeckelGrid",
+    "actionAngleStaeckelInverse",
     "actionAngleStaeckel[c=False]",
     "actionAngleStaeckel[c=True]",
     "actionAngleVerticalInverse",

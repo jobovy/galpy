@@ -43,6 +43,94 @@ v2.0.0b2 (pre-release)
   torus evaluates as a quadratic one-node family, so that its derivatives in
   the actions are the family's.
 
+- New ``actionAngleStaeckelInverse``: the inverse action-angle transformation
+  for axisymmetric Staeckel potentials, through the same momentum-matched
+  canonical map as the spherical case, applied to each of a torus's two
+  librations: the u and v librations in the prolate spheroidal coordinates
+  of the potential's focal length are sampled exactly in their anomalies
+  (turning points and momenta from the separated Hamilton-Jacobi equation)
+  and mapped onto the torus of equal (J_R, L = J_z + |L_z|, L_z) of a frozen
+  isochrone auxiliary, u onto the auxiliary's radial libration and v onto
+  its polar one, each by the point transformation that matches cumulative
+  actions (a sine series in the anomaly of ``mm_npt`` harmonics fitted to
+  ``mm_nta`` samples; the v map's odd harmonics vanish by the symmetry
+  about the midplane), lifted to the momenta cotangent-consistently. The
+  three angles carry the closed-form compensation for the moving turning
+  points of both librations; the map is exactly symplectic for any stored
+  tables because every derivative it needs is that of the stored
+  interpolant itself. The potential must supply its focal length (an
+  ``OblateStaeckelWrapperPotential`` or an exact Staeckel potential such as
+  ``KuzminKutuzovStaeckelPotential``), or ``delta=`` wraps a general
+  axisymmetric potential in the Staeckel approximation. Tori are given as
+  explicit (E, L_z, I_3) triples (the third integral in the convention of
+  the separated momenta with the gauge V(pi/2) = 0) or as a grid with
+  ``setup_interp=True`` (angular momenta of the circular orbits between
+  ``Rmin`` and ``Rmax``, energies from the circular orbit's to that of the
+  planar orbit with apocentre ``Rinf``, uniform in the logarithm of the
+  apocentre of the planar orbit without angular momentum -- the energy
+  itself for a logarithmic potential, and a spacing compressed toward the
+  top where an escape energy makes every apocentre diverge -- third
+  integrals from the planar orbit's to the shell orbit's, quadratically
+  spaced at every degenerate edge), with ``JR(E, Lz, I3)`` and ``Jz(E,
+  Lz, I3)`` giving a torus's
+  actions; ``Freqs`` returns the frequencies of the returned orbits; the
+  isochrone auxiliary is fitted to the potential's rotation curve unless
+  given (``auxiliary=``), and is the ``auxiliary`` attribute either way.
+  The family's tables are Hermite interpolants in three variables (quintic
+  along the energy variable, cubic along the other two) whose first
+  partials are exact at every node: the actions' from the node's period
+  matrix, the turning points' from the level-set rule, and the anomaly
+  maps' from the variation of the matching condition on each torus alone,
+  chained through the grid's analytic (E, I_3)(w_E, w_I, L_z) relation;
+  the degenerate faces (circular, shell, and planar orbits) carry their
+  harmonic limits, so the family reaches vanishing actions continuously,
+  and the circular orbit itself evaluates in closed form with the epicycle,
+  circular, and vertical frequencies. Evaluation solves the two angle
+  relations for the anomaly pair by a triangular Newton iteration on the
+  auxiliary's angles, reconstructs the point from the two librations, and
+  takes the azimuth from the auxiliary's angle relations. A warning is
+  raised when a map does not resolve a torus (the u map needs harmonics of
+  the order of a torus's ratio of outer to inner radius in the plane, the
+  v map of the order of L / |L_z| as the torus approaches a polar orbit),
+  and a torus that reaches beyond the depth of the fitted auxiliary raises
+  with the same advice. As for the spherical inverse, the auxiliary's
+  cumulative actions are closed forms with their linear parts gathered, the
+  maps' projections and evaluations on the anomaly grid are FFTs, and the
+  slopes are solved by a Galerkin projection; ``progressbar=`` (default
+  True) shows tqdm bars over the tori. ``u0=`` accepts a callable
+  ``u0(E, Lz)`` or ``'fit'`` to give every (E, L_z) of a family its own
+  reference curve in the Staeckel approximation of a general potential
+  (``'fit'`` places it at the harmonic mean of the pericentre and apocentre
+  of the planar orbits at that (E, L_z)),
+  so that each torus is a torus of its own best-placed Staeckel model,
+  which matters for families spanning a wide radial range; the reference
+  curve is construction-only gauge (the map's (R, z) <-> (u, v) uses the
+  focal length alone), so this costs nothing at evaluation. ``target=``
+  localizes a family's grid on the tori of a set of phase-space points (an
+  Orbit or rows (R, vR, vT, z, vz)): the grid's box in (L_z, w_E, w_I) is
+  then the points' own range, padded by ``target_pad`` times its spread
+  and at least ``target_minwidth`` of the default span wide, so that the
+  same number of nodes resolves a target orbit or stream far better than
+  the default box does. An explicit torus carries the second-order tables
+  of its one-node family (the second derivatives of its turning points and
+  of both anomaly maps' coefficients and the period matrix's derivatives
+  in (E, I_3, L_z), all from the torus alone), so that the map's
+  derivatives in the actions at the torus are the true family's. On the jax
+  and PyTorch backends, the construction and the evaluation run natively
+  (under a forced backend, or for a potential with backend parameters), so
+  the tori are differentiable with respect to the actions, the angles, and
+  the potential's parameters, also under ``jax.jit`` and ``jax.vmap``; a
+  degenerate torus (circular, shell, or planar) is recognized on concrete
+  actions and selected among all branches under a trace, the fitted
+  auxiliary, the adaptive reference curves, and a target's box are held
+  fixed in the derivatives (any choice gives a canonical map), and
+  ``target=`` needs concrete potential parameters (it decides which
+  degenerate faces the grid reaches).
+
+- Ellipsoidal potentials (TriaxialNFWPotential, PerfectEllipsoidPotential,
+  ...) failed to evaluate their forces and second derivatives, and with them
+  epifreq, at an array of R with a scalar z.
+
 - Fixed ``actionAngleIsochroneInverse`` on the jax and PyTorch backends at a
   radial angle of exactly zero, where the returned position could be off by
   about half an orbit in phase.

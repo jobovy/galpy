@@ -1686,6 +1686,27 @@ add_aa(
     diff_coords=["jr", "ar"],
 )
 add_aa(
+    "actionAngleStaeckelInverse",
+    # a given auxiliary, as for actionAngleSphericalInverse
+    lambda P: aa.actionAngleStaeckelInverse(
+        pot=gp.KuzminKutuzovStaeckelPotential(amp=P["amp"], ac=P["ac"], Delta=1.3),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=48,
+        auxiliary=gp.IsochronePotential(amp=6.0, b=1.1),
+        progressbar=False,
+    ),
+    {"amp": 4.0, "ac": 5.0},
+    iinv,
+    coords={"jr": 0.06, "lz": 0.93, "jz": 0.10, "ar": 0.4, "ap": 0.5, "az": 0.6},
+    diff_coords=["jr", "ar"],
+)
+add_aa(
     "estimateDeltaStaeckel",
     lambda P: MNa(P),
     dict(MNp),
