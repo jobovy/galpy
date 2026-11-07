@@ -8165,7 +8165,10 @@ def test_OblateStaeckelWrapperPotential_exact_reference_curve_derivatives_c():
     from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
 
     wrap = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
-    ts = numpy.linspace(0.0, 2.0, 101)
+    # a quarter of main's 2: the Python integrator steps eagerly under a forced
+    # jax (~60 s locally for this span, 600 s for main's); it already spans
+    # R = 0.014 to 0.062 (0.013 over the full 2) and both signs of z
+    ts = numpy.linspace(0.0, 0.25, 26)
     oc = Orbit([0.05, 0.3, 0.2, 0.02, 0.1, 0.0])
     op = Orbit([0.05, 0.3, 0.2, 0.02, 0.1, 0.0])
     oc.integrate(ts, wrap, method="dop853_c")
