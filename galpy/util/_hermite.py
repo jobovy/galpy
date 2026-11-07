@@ -223,6 +223,39 @@ class HermiteFamily2D:
         v = xp.einsum("...a,...abk,...b->...k", ps, c[i, j], pt)
         return v[..., 0] if self._scalar else v
 
+    def ev3(self, x, y):
+        """The interpolant and its first partials in x and y at (x, y), as
+        three ev calls would give them, in one pass (one cell lookup and one
+        coefficient gather)"""
+        xp = _ns(x, y)
+        dev = device_of(x, y) if xp is not numpy else device_of(self._c)
+        xp = xp if xp is not numpy else self._xp
+        xg, yg, c = self._coeffs(xp, dev)
+        x, y = (
+            t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
+            for t in (x, y)
+        )
+        x, y = xp.broadcast_arrays(x, y)
+        i, j = (
+            xp.clip(
+                xp.searchsorted(stop_gradient(g), stop_gradient(t), side="right") - 1,
+                0,
+                g.shape[0] - 2,
+            )
+            for g, t in ((xg, x), (yg, y))
+        )
+        hx, hy = xg[i + 1] - xg[i], yg[j + 1] - yg[j]
+        sv, tv = (x - xg[i]) / hx, (y - yg[j]) / hy
+        cij = c[i, j]
+        ps, pt = _power_basis(xp, sv, 6, 0, hx), _power_basis(xp, tv, 4, 0, hy)
+        dps, dpt = _power_basis(xp, sv, 6, 1, hx), _power_basis(xp, tv, 4, 1, hy)
+        out = (
+            xp.einsum("...a,...abk,...b->...k", ps, cij, pt),
+            xp.einsum("...a,...abk,...b->...k", dps, cij, pt),
+            xp.einsum("...a,...abk,...b->...k", ps, cij, dpt),
+        )
+        return tuple(v[..., 0] for v in out) if self._scalar else out
+
     def __call__(self, x, y, dx=0, dy=0):
         if self._xp is not numpy or _ns(x, y) is not numpy:
             v = self.ev(x, y, dx=dx, dy=dy)

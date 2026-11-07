@@ -31,7 +31,7 @@ from ..backend import (
 )
 from ..backend._namespaces import stop_gradient, under_jax_trace
 from ..backend.optimize import brentq as _backend_brentq
-from ..backend.optimize import iterate_bracket
+from ..backend.optimize import iterate_bracket, iterate_to_fixed_point
 from ..potential import (
     IsochronePotential,
     epifreq,
@@ -123,21 +123,22 @@ def _fit_isochrone_host(packed):
     return out
 
 
-def _bk_matching(xp, resid, slope, eta0, mt, maxiter=50):
+def _bk_matching(xp, resid, slope, resid_sg, slope_sg, eta0, mt, maxiter=200):
     """The pointwise momentum matching of _momentum_matched_lift in jax/torch:
     Newton on resid(eta) = 0 with clipped steps and the floored slope, from
     eta0 (the anomaly itself: both cumulative actions are monotone, so the
     root is the same as from numpy's interpolated start), without a
-    derivative until every sample has converged (or for maxiter steps under a
-    trace), then one step that carries the implicit-function derivative of
-    the matched anomaly"""
-    tol = 1e-13 * stop_gradient(xp.clip(mt, 1e-10, None))[:, None]
+    derivative until every sample has converged (at most maxiter steps, as
+    numpy), then one step that carries the implicit-function derivative of
+    the matched anomaly (resid_sg and slope_sg: the same on derivative-free
+    copies of the tables, for the iteration)"""
+    tol = 1e-13 * xp.clip(mt, 1e-10, None)[:, None]
 
     def step(eta):
-        f, fp = stop_gradient(resid(eta)), stop_gradient(slope(eta))
+        f, fp = resid_sg(eta), slope_sg(eta)
         return xp.where(xp.abs(f) < tol, eta, eta + xp.clip(-f / fp, -0.5, 0.5))
 
-    eta = stop_gradient(iterate_bracket(step, stop_gradient(eta0), maxiter))
+    eta = iterate_to_fixed_point(step, eta0, maxiter)
     return eta - resid(eta) / slope(eta)
 
 
@@ -1435,6 +1436,31 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
     def _bk_rc(self, L):
         return rl(self._pot, L, use_physical=False)
 
+    def _bk_rc_eval(self, L):
+        """The circular radius at the angular momentum L (0-d) for an
+        evaluation: in an interpolated family the circular condition r^3
+        Phi'(r) = L^2 solved by the sectioned backend brentq within the grid's
+        own range of circular radii (rl's bracket search would be most of an
+        eager evaluation); for explicit tori rl"""
+        xp = get_namespace(L)
+        if not self._interp:
+            return xp.reshape(self._bk_rc(xp.reshape(L, (1,))), ())
+        if self._bk is not None:
+            rg = stop_gradient(self._bk["rcs"])
+        else:
+            if getattr(self, "_rcs_grid", None) is None:
+                self._rcs_grid = numpy.array([self._rc(Lg) for Lg in self._Lgrid])
+            rg = self._rcs_grid
+        one = xp.reshape(0.0 * L + 1.0, (1,))
+        return _backend_brentq(
+            lambda r, LL: r**3 * self._bk_dPhi(r) - LL**2,
+            one * (0.99 * rg[0]),
+            one * (1.01 * rg[-1]),
+            args=(xp.reshape(L, (1,)),),
+            xtol=1e-14,
+            elementwise=True,
+        )[0]
+
     def _init_backend(self, xp, Rmin, Rmax, Rinf, nE, nL, auxiliary):
         """The construction (as _setup_grid, _sample_all, _setup_auxiliary and
         _setup_tori do it) natively in xp, every torus at once; the circular
@@ -1597,14 +1623,26 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             / (2.0 * numpy.pi)
         )
         sc = scale[:, None]
+
+        def resid(x, args=(ac, ec, sc, At)):
+            a_, e_, s_, A_ = args
+            return s_ * self._auxiliary_cumulative(a_, e_, x)[0] - A_
+
+        def slope(x, args=(ac, ec, sc, Jrq)):
+            a_, e_, s_, J_ = args
+            return xp.maximum(
+                s_ * self._auxiliary_flux_derivs(a_, e_, x)[0], 1e-10 * J_[:, None]
+            )
+
+        sg = tuple(stop_gradient(t) for t in (ac, ec, sc, At, Jrq))
         eta = _bk_matching(
             xp,
-            lambda x: sc * self._auxiliary_cumulative(ac, ec, x)[0] - At,
-            lambda x: xp.maximum(
-                sc * self._auxiliary_flux_derivs(ac, ec, x)[0], 1e-10 * Jrq[:, None]
-            ),
-            tau + 0.0 * At,
-            Jrq,
+            resid,
+            slope,
+            lambda x: resid(x, sg[:4]),
+            lambda x: slope(x, (*sg[:3], sg[4])),
+            stop_gradient(tau + 0.0 * At),
+            sg[4],
         )
         Dm = _sine_project_xp(xp, eta - tau, ms)
         shift, dshift = _sine_series_xp(xp, ntau, Dm, ms)
@@ -1784,7 +1822,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
                 Dm_du[1:],
             ]
         )
-        self._bk = {"xp": xp, "dev": dev, "Emax": Emax}
+        self._bk = {"xp": xp, "dev": dev, "Emax": Emax, "rcs": rcs}
         self._Rinf = Rinf
         self._us = us
         self._Lgrid_bk = Lgrid
@@ -2041,7 +2079,11 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         numpy ones copied over"""
         if self._bk is not None:
             return self._bk
-        return {
+        key = (getattr(xp, "__name__", ""), str(dev))
+        cache = self.__dict__.setdefault("_bk_tables_on", {})
+        if key in cache:
+            return cache[key]
+        out = {
             k: asarray_on_device(xp, getattr(self, "_" + k), dev)
             for k in (
                 "jrs",
@@ -2061,11 +2103,14 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
                 "dOmpsis",
             )
         }
+        if not under_jax_trace(*out.values()):  # a trace's constants die with it
+            cache[key] = out
+        return out
 
     def _bk_E_of_uL(self, u, L):
         """_E_of_uL in jax/torch, with r_0(E_c(L)) solved afresh (as _r0c)"""
         xp = get_namespace(u, L)
-        rc = self._bk_rc(xp.reshape(L, (1,)))[0]
+        rc = self._bk_rc_eval(L)
         Ec = self._bk_Phi(xp.reshape(rc, (1,)))[0] + L**2 / (2.0 * rc**2)
         r0c = _backend_brentq(
             lambda r, E: self._bk_Phi(r) - E,
@@ -2119,18 +2164,13 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             elementwise=True,
         )[0]
         x = u * u
-        jr_dx = self._jr_ip.ev(x, L, dx=1)
+        _, jr_dx, djr_dL = self._jr_ip.ev3(x, L)
         djr_du = 2.0 * u * jr_dx
-        djr_dL = self._jr_ip.ev(x, L, dy=1)
         _, dE_dx, dE_dL = self._bk_E_of_uL(u, L)
         OmR = dE_dx / jr_dx
         OmL = dE_dL - OmR * djr_dL
-        sup, dsup_du, dsup_dL = (
-            self._sup_ip.ev(u, L, dx=dx, dy=dy) for dx, dy in ((0, 0), (1, 0), (0, 1))
-        )
-        Dm, dDm_du, dDm_dL = (
-            self._Dm_ip.ev(u, L, dx=dx, dy=dy) for dx, dy in ((0, 0), (1, 0), (0, 1))
-        )
+        sup, dsup_du, dsup_dL = self._sup_ip.ev3(u, L)
+        Dm, dDm_du, dDm_dL = self._Dm_ip.ev3(u, L)
         return (
             OmR,
             OmL,
@@ -2259,46 +2299,49 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         Newton steps finish any unconverged angle and whose final step
         carries the implicit-function derivative"""
 
-        def _theta(x):
+        def _theta(x, args=(a, e, Dm, rp, ra, chainJ)):
             _, thetaA, dthetaA, _, _, (compJ,) = self._bk_kernel(
-                xp, x, a, e, Dm, rp, ra, (chainJ,)
+                xp, x, *args[:5], (args[5],)
             )
             return thetaA + compJ, dthetaA
 
+        # the iteration on derivative-free copies of the tables (a jax
+        # while_loop must carry no derivative), stopped at convergence
+        sg_args = (
+            *(stop_gradient(t) for t in (a, e, Dm, rp, ra)),
+            tuple(stop_gradient(t) for t in chainJ),
+        )
+        thr_sg = stop_gradient(thr)
+
         def step(x):
-            f, fp = (stop_gradient(t) for t in _theta(x))
-            f = f - stop_gradient(thr)
+            f, fp = _theta(x, sg_args)
+            f = f - thr_sg
             return xp.where(
                 xp.abs(f) < self._angle_tol, x, x + xp.clip(-f / fp, -0.5, 0.5)
             )
 
-        x = stop_gradient(thr)
-        if under_jax_trace(x):
-            x = iterate_bracket(step, x, self._maxiter)
-        else:
-            # stop once converged, under torch.compile too (dynamo reads the
-            # test off the example values): unrolling maxiter kernels into
-            # the trace costs minutes
-            for _ in range(self._maxiter):
-                x1 = step(x)
-                if concretely_true(xp.all(x1 == x)):
-                    break
-                x = x1
-        xscan = asarray_on_device(
-            xp, numpy.linspace(0.0, 2.0 * numpy.pi, 256, endpoint=False), device_of(thr)
-        )
-        sc = stop_gradient(xp.max(xp.abs(_theta(xscan)[0] - xscan))) + 0.1
+        x = iterate_to_fixed_point(step, thr_sg, self._maxiter)
         done = concretely_true(
-            xp.all(xp.abs(stop_gradient(_theta(x)[0] - thr)) < self._angle_tol)
+            xp.all(xp.abs(_theta(x, sg_args)[0] - thr_sg) < self._angle_tol)
         )
+        if done:  # the root is within ~angle_tol of x
+            lo, hi = x - 1e-3, x + 1e-3
+        else:
+            xscan = asarray_on_device(
+                xp,
+                numpy.linspace(0.0, 2.0 * numpy.pi, 256, endpoint=False),
+                device_of(thr),
+            )
+            sc = xp.max(xp.abs(_theta(xscan, sg_args)[0] - xscan)) + 0.1
+            lo, hi = thr_sg - sc, thr_sg + sc
         return _backend_brentq(
             lambda xx, tt: _theta(xx)[0] - tt,
-            thr - sc,
-            thr + sc,
+            lo,
+            hi,
             args=(thr,),
             guess=x,
-            # a trace has run maxiter steps already
-            newton_steps=1 if done else (24 if has_concrete_truth_value(x[0]) else 8),
+            # under a trace the iteration has run to convergence already
+            newton_steps=1 if done else (24 if has_concrete_truth_value(x[0]) else 2),
         )
 
     def _bk_inputs(self, xp, *args):
@@ -2373,9 +2416,10 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             self._bk_match_node(
                 xp, self._bk_node_tables(xp, device_of(L)), explicit_jr, L
             )
-        rc = self._bk_rc(xp.reshape(L, (1,)))
-        kappa = xp.reshape(epifreq(self._pot, rc, use_physical=False), ())
-        rc = xp.reshape(rc, ())
+        rc = self._bk_rc_eval(L)
+        kappa = xp.reshape(
+            epifreq(self._pot, xp.reshape(rc, (1,)), use_physical=False), ()
+        )
         out = self._unlift(
             self._aAIinv._xvFreqs(0.1 * L, jphi, jz, 0.0 * thr, anglephi, anglez)[:6],
             rc + 0.0 * thr,
@@ -2424,9 +2468,11 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         def _circ():
             if self._interp:
                 self._bk_check_L(L)
-            rc = self._bk_rc(xp.reshape(L, (1,)))
-            kappa = xp.reshape(epifreq(self._pot, rc, use_physical=False), ())
-            return kappa, L / xp.reshape(rc, ()) ** 2
+            rc = self._bk_rc_eval(L)
+            kappa = xp.reshape(
+                epifreq(self._pot, xp.reshape(rc, (1,)), use_physical=False), ()
+            )
+            return kappa, L / rc**2
 
         def _lib():
             if self._interp:
@@ -2478,7 +2524,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             )
             return match_input_dtype(out, *ins)
         self._bk_check_L(L)
-        rc = self._bk_rc(xp.reshape(L, (1,)))[0]
+        rc = self._bk_rc_eval(L)
         Ec = self._bk_Phi(xp.reshape(rc, (1,)))[0] + L**2 / (2.0 * rc**2)
         Emax = self._bk["Emax"] if self._bk is not None else self._Emax
         if has_concrete_truth_value(E) and concretely_true(
@@ -2499,7 +2545,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             xtol=1e-14,
             elementwise=True,
         )[0]
-        Es = xp.where(circ, Ec + 0.5 * (Emax - Ec), xp.where(E > Emax, Emax, E))
+        Es = xp.where(E >= Ec, xp.where(E > Emax, Emax, E), Ec)
         r0 = _backend_brentq(
             lambda r, EE: self._bk_Phi(r) - EE,
             xp.reshape(r0c, (1,)),
@@ -2509,5 +2555,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             elementwise=True,
         )[0]
         x = xp.log(r0 / r0c) / xp.log(self._Rinf / r0c)
-        x = xp.where(circ, 0.0, xp.where(x > 1.0, 1.0, x))
+        # the circular orbit, to round-off, is the bottom of the grid (as on
+        # numpy), with the one-sided derivative of the grid's bottom row
+        x = xp.where(circ, x - stop_gradient(x), xp.where(x > 1.0, 1.0, x))
         return match_input_dtype(self._jr_ip.ev(x, L), *ins)

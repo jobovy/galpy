@@ -587,6 +587,23 @@ def test_circular_orbit(backend, interp):
     assert float(as_numpy(aB.Jr(_arr(backend, Ec), _arr(backend, L)))) == 0.0
     J = _jacobian(backend, interp, numpy.array([0.4, 1.0, 2.0, 0.0, 0.55, 0.3]))
     assert numpy.all(numpy.isfinite(J[:, [0, 1, 2, 4, 5]]))
+    # J_r(E, L) of the interpolated family is 0 at the circular orbit, with
+    # the one-sided derivative dJ_r/dE = 1/kappa there (L = 1 is a grid row)
+    from galpy.potential import epifreq
+
+    L1 = 1.0
+    rc1 = rl(pot, L1)
+    Ec1 = evaluatePotentials(pot, rc1, 0.0) + L1**2 / (2.0 * rc1**2)
+    if backend == "jax":
+        Jr, dJr = jax.value_and_grad(lambda E: interp.Jr(E, L1))(jnp.asarray(Ec1))
+    else:
+        Et = torch.tensor(Ec1, requires_grad=True)
+        Jr = interp.Jr(Et, L1)
+        (dJr,) = torch.autograd.grad(Jr, Et)
+    assert float(as_numpy(Jr)) == 0.0
+    numpy.testing.assert_allclose(
+        float(as_numpy(dJr)), 1.0 / epifreq(pot, rc1), rtol=1e-8, atol=0.0
+    )
 
 
 # ---------- the construction's contract and checks
