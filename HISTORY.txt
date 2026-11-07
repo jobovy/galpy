@@ -4,6 +4,13 @@ v2.0.0b2 (pre-release)
 - Fixed Orbit.animate, which raised ``ValueError: unexpected '{' in field
   name`` in v2.0.0b1 (and v1.12.1).
 
+- Faster tracing under ``jax.jit``: galpy no longer asks a JAX tracer for its
+  device (an error whose message JAX builds from the whole trace, which made
+  tracing code with many potential evaluations, such as orbit integrations
+  with a ``NonInertialFrameForce``, slow), and ``rl`` (and everything that
+  finds a circular radius) traces its bracket search as a single loop,
+  making its traced program about 30 times smaller.
+
 v2.0.0b1 (2026-11-05)
 =====================
 
