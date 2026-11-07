@@ -466,48 +466,58 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         return numpy.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
 
+    def _dRzdu(self, u):
+        """d(R, z)/du along the U reference curve v = v0, the closed forms
+        (delta cosh u sin v0, delta sinh u cos v0); the former R/tanh(u) and
+        z tanh(u) are the same quantities, but the first needed a guard at
+        the axis that biased the force by 1e-12/tanh(u)"""
+        return (
+            self._delta * numpy.cosh(u) * numpy.sin(self._v0),
+            self._delta * numpy.sinh(u) * numpy.cos(self._v0),
+        )
+
     def _dUdu(self, u):
         if self._splines is not None:
             return self._evalUspline(u, 1)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
-        # 1e-12 bc force should win the 0/0 battle
+        dRdu, dzdu = self._dRzdu(u)
         return 2.0 * numpy.cosh(u) * numpy.sinh(u) * _evaluatePotentials(
             self._pot, Rz0[0], Rz0[1]
         ) - numpy.cosh(u) ** 2.0 * (
-            _evaluateRforces(self._pot, Rz0[0], Rz0[1])
-            * Rz0[0]
-            / (numpy.tanh(u) + 1e-12)
-            + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * Rz0[1] * numpy.tanh(u)
+            _evaluateRforces(self._pot, Rz0[0], Rz0[1]) * dRdu
+            + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * dzdu
         )
 
     def _d2Udu2(self, u):
         if self._splines is not None:
             return self._evalUspline(u, 2)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
+        dRdu, dzdu = self._dRzdu(u)
         tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
         tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
+        # on the axis the in-plane second derivative of a cusped potential
+        # diverges (and the formulas evaluate its on-axis limit), so the
+        # axis node of an ntab= table keeps the finite part, as it always has
+        R2term = numpy.where(
+            u > 0.0,
+            evaluateR2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False) * dRdu**2.0,
+            0.0,
+        )
+        if numpy.ndim(R2term) == 0:
+            R2term = float(R2term)
         return (
             2.0 * numpy.cosh(2 * u) * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
-            - 4.0
-            * numpy.cosh(u)
-            * numpy.sinh(u)
-            * (
-                tRforce * Rz0[0] / (numpy.tanh(u) + 1e-12)
-                + tzforce * Rz0[1] * numpy.tanh(u)
-            )
+            - 4.0 * numpy.cosh(u) * numpy.sinh(u) * (tRforce * dRdu + tzforce * dzdu)
             - numpy.cosh(u) ** 2.0
             * (
-                -evaluateR2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
-                * Rz0[0] ** 2.0
-                / (numpy.tanh(u) + 1e-12) ** 2.0
+                -R2term
                 - 2.0
                 * evaluateRzderivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
-                * Rz0[0]
-                * Rz0[1]
+                * dRdu
+                * dzdu
                 + tRforce * Rz0[0]
                 - evaluatez2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
-                * Rz0[1] ** 2.0
-                * numpy.tanh(u) ** 2.0
+                * dzdu**2.0
                 + tzforce * Rz0[1]
             )
         )
