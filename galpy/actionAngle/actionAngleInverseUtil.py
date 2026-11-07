@@ -194,6 +194,128 @@ class _IsochroneAuxiliary:
         dfA_de = c * a * s2 * (2.0 * e * g - e**2 * dg_dy * numpy.cos(eta))
         return fA, dfA_da, dfA_de
 
+    def _auxiliary_orbital_params2(self, Jr, L):
+        """The auxiliary torus's (a, e) with their first and second partials
+        in (J_r, L), closed forms: a + b = (J_r + C_A)^2/GM with C_A = (L +
+        s)/2, s = sqrt(L^2 + 4 GM b), and e^2 = 1 - L^2 F(a) with F = (a +
+        b)/(GM a^2), differentiated through a; e itself is the product form
+        of _auxiliary_orbital_params, so that the chain to e's partials
+        divides by an e that is exact down to the circular edge"""
+        GM, b = self._GM, self._b
+        s = numpy.sqrt(L**2 + 4.0 * GM * b)
+        C = 0.5 * (L + s)
+        C_L, C_LL = 0.5 * (1.0 + L / s), 2.0 * GM * b / s**3
+        a, e = self._auxiliary_orbital_params(Jr, L)
+        a_J, a_L = 2.0 * (Jr + C) / GM, 2.0 * (Jr + C) * C_L / GM
+        a_JJ, a_JL = 2.0 / GM, 2.0 * C_L / GM
+        a_LL = (2.0 * C_L**2 + 2.0 * (Jr + C) * C_LL) / GM
+        F = (a + b) / (GM * a**2)
+        F_a, F_aa = -(a + 2.0 * b) / (GM * a**3), (2.0 * a + 6.0 * b) / (GM * a**4)
+        E2_J = -(L**2) * F_a * a_J
+        E2_L = -2.0 * L * F - L**2 * F_a * a_L
+        E2_JJ = -(L**2) * (F_aa * a_J**2 + F_a * a_JJ)
+        E2_JL = -2.0 * L * F_a * a_J - L**2 * (F_aa * a_J * a_L + F_a * a_JL)
+        E2_LL = -2.0 * F - 4.0 * L * F_a * a_L - L**2 * (F_aa * a_L**2 + F_a * a_LL)
+        e_J, e_L = E2_J / (2.0 * e), E2_L / (2.0 * e)
+        e_JJ = E2_JJ / (2.0 * e) - E2_J**2 / (4.0 * e**3)
+        e_JL = E2_JL / (2.0 * e) - E2_J * E2_L / (4.0 * e**3)
+        e_LL = E2_LL / (2.0 * e) - E2_L**2 / (4.0 * e**3)
+        return a, e, (a_J, a_L, a_JJ, a_JL, a_LL), (e_J, e_L, e_JJ, e_JL, e_LL)
+
+    def _auxiliary_flux_eta(self, a, e, eta):
+        """The auxiliary's radial action flux f^A at eccentric anomaly eta
+        and its derivative with respect to eta: with beta = b/a, y = 1 - e
+        cos(eta), c = sqrt(GM/(a+b)) and g(y) = (y + beta)/[y (y + 2 beta)],
+        f^A = c a e^2 sin^2(eta) g and df^A/deta = c a e^2 sin(eta) [2
+        cos(eta) g + e sin^2(eta) g'(y)]"""
+        b = self._b
+        beta = b / a
+        y = 1.0 - e * numpy.cos(eta)
+        c = numpy.sqrt(self._GM / (a + b))
+        g = (y + beta) / (y * (y + 2.0 * beta))
+        dg_dy = -(y**2 + 2.0 * beta * y + 2.0 * beta**2) / (y * (y + 2.0 * beta)) ** 2
+        se, ce = numpy.sin(eta), numpy.cos(eta)
+        return c * a * e**2 * se**2 * g, c * a * e**2 * se * (
+            2.0 * ce * g + e * se**2 * dg_dy
+        )
+
+    def _auxiliary_cumulative2(self, a, e, eta):
+        """The auxiliary's cumulative radial action A^A(eta) with its first
+        and second partials with respect to the torus parameters (a, e) at
+        fixed eta, the gathered closed form of _auxiliary_cumulative
+        differentiated once more: A^A = (c a) B with B = e sin(eta) +
+        lambda eta - sum_A s_A phi_A, where s_A = sqrt(A^2 - e^2), phi_A =
+        arctan(k_A t) - arctan(t) with t = tan(eta/2) and k_A = sqrt((A +
+        e)/(A - e)), lambda = sum_A (A - s_A)/2, A = 1 and A = 1 + 2 b/a;
+        the a-dependence enters through c a, the second A, and nothing
+        else, and every partial of phi_A goes through dphi_A/dk_A = t/(1 +
+        k_A^2 t^2) and its k-derivative. Verified against mpmath to 5e-13."""
+        b = self._b
+        eta = numpy.asarray(eta, dtype="float")
+        c = numpy.sqrt(self._GM / (a + b))
+        ca = c * a
+        ca_a = c * (a + 2.0 * b) / (2.0 * (a + b))
+        ca_aa = -c * (a + 4.0 * b) / (4.0 * (a + b) ** 2)
+        t = numpy.tan(0.5 * eta)
+        A2 = 1.0 + 2.0 * b / a
+        A2_a, A2_aa = -2.0 * b / a**2, 4.0 * b / a**3
+        B, B_e, B_a = e * numpy.sin(eta), numpy.sin(eta), 0.0 * eta
+        B_ee, B_ae, B_aa = 0.0 * eta, 0.0 * eta, 0.0 * eta
+        lam = lam_e = lam_ee = lam_a = lam_ae = lam_aa = 0.0
+        for A, dA, d2A in ((1.0, 0.0, 0.0), (A2, A2_a, A2_aa)):
+            s = numpy.sqrt(A**2 - e**2)
+            s_e, s_ee = -e / s, -1.0 / s - e**2 / s**3
+            s_A, s_AA, s_eA = A / s, -(e**2) / s**3, A * e / s**3
+            lam += 0.5 * (A - s)
+            lam_e += 0.5 * e / s
+            lam_ee += 0.5 * (1.0 / s + e**2 / s**3)
+            lam_a += 0.5 * dA * (1.0 - A / s)
+            lam_ae += -0.5 * dA * A * e / s**3
+            lam_aa += 0.5 * (d2A * (1.0 - A / s) + dA**2 * e**2 / s**3)
+            q = (A + e) / (A - e)
+            k = numpy.sqrt(q)
+            q_e, q_A = 2.0 * A / (A - e) ** 2, -2.0 * e / (A - e) ** 2
+            q_ee = 4.0 * A / (A - e) ** 3
+            q_eA = -2.0 * (A + e) / (A - e) ** 3
+            q_AA = 4.0 * e / (A - e) ** 3
+            k_e, k_A = q_e / (2.0 * k), q_A / (2.0 * k)
+            k_ee = q_ee / (2.0 * k) - q_e**2 / (4.0 * k**3)
+            k_eA = q_eA / (2.0 * k) - q_e * q_A / (4.0 * k**3)
+            k_AA = q_AA / (2.0 * k) - q_A**2 / (4.0 * k**3)
+            km1 = 2.0 * e / ((A - e) * (k + 1.0))
+            phi = numpy.arctan(km1 * t / (1.0 + k * t**2))
+            phi_k = t / (1.0 + k**2 * t**2)
+            phi_kk = -2.0 * k * t**3 / (1.0 + k**2 * t**2) ** 2
+            phi_e, phi_A = phi_k * k_e, phi_k * k_A
+            phi_ee = phi_kk * k_e**2 + phi_k * k_ee
+            phi_eA = phi_kk * k_e * k_A + phi_k * k_eA
+            phi_AA = phi_kk * k_A**2 + phi_k * k_AA
+            T = s * phi
+            T_e, T_A = s_e * phi + s * phi_e, s_A * phi + s * phi_A
+            T_ee = s_ee * phi + 2.0 * s_e * phi_e + s * phi_ee
+            T_eA = s_eA * phi + s_e * phi_A + s_A * phi_e + s * phi_eA
+            T_AA = s_AA * phi + 2.0 * s_A * phi_A + s * phi_AA
+            B = B - T
+            B_e = B_e - T_e
+            B_a = B_a - T_A * dA
+            B_ee = B_ee - T_ee
+            B_ae = B_ae - T_eA * dA
+            B_aa = B_aa - (T_AA * dA**2 + T_A * d2A)
+        B = B + lam * eta
+        B_e = B_e + lam_e * eta
+        B_a = B_a + lam_a * eta
+        B_ee = B_ee + lam_ee * eta
+        B_ae = B_ae + lam_ae * eta
+        B_aa = B_aa + lam_aa * eta
+        return (
+            ca * B,
+            ca_a * B + ca * B_a,
+            ca * B_e,
+            ca_aa * B + 2.0 * ca_a * B_a + ca * B_aa,
+            ca_a * B_e + ca * B_ae,
+            ca * B_ee,
+        )
+
     def _auxiliary_cumulative(self, a, e, eta):
         """The auxiliary's cumulative radial action from pericentre,
         A^A(eta) = int_0^eta f^A, and its partials with respect to the torus
