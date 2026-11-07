@@ -12817,10 +12817,19 @@ def test_actionAngleStaeckelInverse_target():
     six = actionAngleStaeckelInverse(
         target=numpy.hstack((rows, 0.3 * numpy.ones((len(rows), 1)))), **kw
     )
-    assert numpy.array_equal(
-        numpy.array(six(jr, lz, jz, 0.3, 1.0, 2.0)),
-        numpy.array(loc(jr, lz, jz, 0.3, 1.0, 2.0)),
-    ), "Rows with a phi column are not the same target as the Orbit"
+    # the same target and so the same box (exactly), and the same family (to
+    # round-off: two builds under jax differ in the last bits, because XLA's
+    # multithreaded FFT on the CPU is not reproducible from call to call)
+    assert numpy.array_equal(six._target, loc._target) and six._box == loc._box, (
+        "Rows with a phi column are not the same target as the Orbit"
+    )
+    numpy.testing.assert_allclose(
+        numpy.array([as_numpy(t) for t in six(jr, lz, jz, 0.3, 1.0, 2.0)]),
+        numpy.array([as_numpy(t) for t in loc(jr, lz, jz, 0.3, 1.0, 2.0)]),
+        rtol=0.0,
+        atol=1e-13,
+        err_msg="Rows with a phi column do not give the Orbit's family",
+    )
     # a padding so generous that the box reaches every face: the faces are
     # then in the family, like the default box's (a target of two distinct
     # tori, since a single torus has no spread for the padding to scale)
