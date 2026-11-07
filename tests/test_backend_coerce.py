@@ -202,3 +202,55 @@ def test_lazy_cond_takes_one_arm(backend_name):
             lambda r: lazy_cond(txp, txp.any(r > 1.5), lambda: 2.0 * r, lambda: -r)
         )(y)
         numpy.testing.assert_array_equal(as_numpy(out), [[2.0, 4.0], [-1.0, -1.0]])
+
+
+# --- tracing never reads a jax tracer's .device -------------------------------
+# A jax tracer has no device, and asking for one raises an AttributeError whose
+# message, the trace's provenance, jax builds by walking the trace: ~0.4 s per
+# call deep in a large trace (the backend construction of an inverse
+# action-angle family spent 461 of its 467 s of tracing in these messages).
+# There is no device to anchor on under a trace, so the helpers skip tracers.
+@pytest.mark.skipif("jax" not in _NS, reason="jax not installed")
+def test_tracing_never_reads_a_tracer_device(monkeypatch):
+    import jax.numpy as jnp
+    from jax._src import core as jax_core
+
+    from galpy.backend import asarray_on_device
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        NonInertialFrameForce,
+        evaluateRforces,
+        rl,
+    )
+
+    def read(self):
+        raise RuntimeError("read the device of a jax tracer")
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    nif = NonInertialFrameForce(Omega=0.3)
+    dev = jax.devices()[0]
+    monkeypatch.setattr(jax_core.Tracer, "device", property(read))
+    for f in (
+        lambda x: promote_scalars(jnp, x, 3.0)[1],
+        lambda x: asarray_on_device(jnp, x * 1.0, dev),
+        lambda x: evaluateRforces(lp + nif, x, 0.1, phi=0.3, v=[0.1, 1.0, 0.2]),
+        lambda x: rl(lp, x, use_physical=False),
+    ):
+        jax.make_jaxpr(f)(jnp.asarray(1.1))
+
+
+@pytest.mark.skipif("jax" not in _NS, reason="jax not installed")
+def test_rl_bracket_search_is_one_loop_under_a_trace():
+    # rl's bracket search is a lax loop under a jax trace: its residual is in
+    # the traced program once, not once per step of its fixed schedule (2972
+    # equations for a logarithmic halo, against 98), with the eager root
+    import jax.numpy as jnp
+
+    from galpy.potential import LogarithmicHaloPotential, rl
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    f = lambda lz: rl(lp, lz, use_physical=False)  # noqa: E731
+    assert len(jax.make_jaxpr(f)(jnp.asarray(1.0)).jaxpr.eqns) < 200
+    numpy.testing.assert_allclose(
+        float(jax.jit(f)(jnp.asarray(1.3))), rl(lp, 1.3), rtol=1e-12, atol=0.0
+    )

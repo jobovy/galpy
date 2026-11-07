@@ -158,7 +158,7 @@ def promote_scalars(xp, *vals):
         # tolerates raw scalars but the coerced values are identical under x64.
         return coerce_coords(xp, *vals)
     dtype = getattr(ref, "dtype", None)
-    device = getattr(ref, "device", None)
+    device = device_of(ref)
 
     def _promote(v):
         if is_backend_array(v):
