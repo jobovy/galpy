@@ -690,3 +690,59 @@ def test_cuda_potential_parameters_cpu_default_device():
         rtol=0.0,
         atol=1e-10,
     )
+
+
+# ---------- the building blocks
+def test_fit_isochrone_host():
+    # the host fit of the auxiliary that a traced construction calls back
+    # into: the numpy fit, row by row over any leading (vmap) axes, with the
+    # (GM, b) in the first two slots
+    import importlib
+
+    M = importlib.import_module("galpy.actionAngle.actionAngleSphericalInverse")
+    from galpy.potential import vcirc
+
+    rf = numpy.geomspace(0.5, 3.0, 25)
+    lnvc2 = numpy.log(vcirc(_pot(), rf) ** 2)
+    row = numpy.concatenate([[0.9, 0.9, 0.7], rf, lnvc2])
+    ref = M._fit_isochrone(0.9, 0.9, 0.7, rf, lnvc2)
+    out = M._fit_isochrone_host(numpy.stack([row, row]))
+    assert out.shape == (2, len(row))
+    numpy.testing.assert_array_equal(out[:, :2], numpy.array([ref, ref]))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hermite_family_2d(backend):
+    # HermiteFamily2D built on a backend (differentiable in its tables and its
+    # grid) agrees with the numpy one, called like a RectBivariateSpline and
+    # through its vectorized ev, for one table and for a stack
+    from galpy.util._hermite import HermiteFamily2D
+
+    x, y = numpy.linspace(0.0, 1.0, 7) ** 2, numpy.linspace(0.5, 2.0, 6)
+    X, Y = numpy.meshgrid(x, y, indexing="ij")
+    scale = numpy.array([1.0, 2.0])
+    f = (numpy.sin(3.0 * X) * numpy.cos(Y))[..., None] * scale
+    fx = (3.0 * numpy.cos(3.0 * X) * numpy.cos(Y))[..., None] * scale
+    fy = (-numpy.sin(3.0 * X) * numpy.sin(Y))[..., None] * scale
+    for tabs in ((f, fx, fy), (f[..., 0], fx[..., 0], fy[..., 0])):
+        ipn = HermiteFamily2D(x, y, *tabs)
+        ipb = HermiteFamily2D(x, _arr(backend, y), *(_arr(backend, t) for t in tabs))
+        for a, b in ((0.3, 0.7), (x[2], y[3]), (0.999, 1.99)):
+            for dx, dy in ((0, 0), (1, 0), (0, 1)):
+                ref = ipn(a, b, dx=dx, dy=dy)[0, 0]
+                for ip in (
+                    ipb,
+                    ipn,
+                ):  # backend-built, and numpy-built on backend points
+                    got = ip(_arr(backend, a), _arr(backend, b), dx=dx, dy=dy)[0, 0]
+                    assert _is_backend(backend, got)
+                    numpy.testing.assert_allclose(
+                        as_numpy(got), ref, rtol=0.0, atol=1e-12
+                    )
+        got = ipb.ev(
+            _arr(backend, numpy.array([0.3, 0.5])),
+            _arr(backend, numpy.array([0.7, 1.5])),
+        )
+        numpy.testing.assert_allclose(
+            as_numpy(got)[1], ipn(0.5, 1.5)[0, 0], rtol=0.0, atol=1e-12
+        )
