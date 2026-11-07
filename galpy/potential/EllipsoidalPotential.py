@@ -164,7 +164,7 @@ class EllipsoidalPotential(Potential):
 
     def _compute_forces(self, x, y, z):
         """Compute and cache all three force components in the aligned frame"""
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        new_hash = hashlib.md5(numpy.array(numpy.broadcast_arrays(x, y, z))).hexdigest()
         if new_hash != self._force_hash:
             if self._aligned:
                 xp, yp, zp = x, y, z
@@ -228,7 +228,7 @@ class EllipsoidalPotential(Potential):
     def _compute_2ndderivs(self, x, y, z):
         """Compute and cache all six unique 2nd-derivative components in the
         aligned frame"""
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        new_hash = hashlib.md5(numpy.array(numpy.broadcast_arrays(x, y, z))).hexdigest()
         if new_hash != self._2ndderiv_hash:
             prefac = 4.0 * numpy.pi * self._b * self._c
             xx, xy, xz, yy, yz, zz = _2ndDerivInt_all(

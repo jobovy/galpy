@@ -1,6 +1,10 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- Ellipsoidal potentials (TriaxialNFWPotential, PerfectEllipsoidPotential,
+  ...) failed to evaluate their forces and second derivatives, and with them
+  epifreq, at an array of R with a scalar z.
+
 - Fixed the check for a new galpy version on PyPI, which silently stopped
   working with recent pip versions; it now uses PyPI's JSON API.
 
