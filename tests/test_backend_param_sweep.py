@@ -99,6 +99,7 @@ ROTATED = {
     "actionAngleIsochroneApprox",
     "actionAngleSpherical",
     "actionAngleSpherical[LogHalo]",
+    "actionAngleSphericalInverse",
     "actionAngleStaeckelGrid",
     "actionAngleStaeckel[c=False]",
     "actionAngleStaeckel[c=True]",

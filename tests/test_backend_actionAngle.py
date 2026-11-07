@@ -518,6 +518,41 @@ def test_isochrone_inverse_parity(backend, b):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_inverse_parity_turning_points(backend):
+    # radial angles at and next to the pericentre (0) and the apocentre (pi):
+    # the backend root of Kepler's equation at angler = 0 can land a hair
+    # below eta = 0, which the arctangent's branch once turned into a phase
+    # error of ~pi; and the derivative there, against finite differences
+    from galpy.potential import IsochronePotential
+
+    aAIi = actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.7, b=0.8))
+    J = (0.5, -0.4, 0.3)  # retrograde: this torus's root at 0 lands below
+    ar = numpy.array(
+        [0.0, 1e-17, 1e-9, numpy.pi, numpy.pi - 1e-12, 2.0 * numpy.pi - 1e-9]
+    )
+    ref = aAIi._xvFreqs(*J, ar, 0.2 + ar, 0.7 - ar)
+    got = aAIi._xvFreqs(
+        *[_arr(backend, numpy.asarray(j)) for j in J],
+        *[_arr(backend, a) for a in (ar, 0.2 + ar, 0.7 - ar)],
+    )
+    for r, g in zip(ref, got):
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
+        )
+
+    def R0(a, xp_arr):
+        return aAIi._xvFreqs(*[xp_arr(j) for j in J], a, xp_arr(0.2), xp_arr(0.7))[0][0]
+
+    fd = _fd(lambda a: numpy.asarray(R0(numpy.atleast_1d(a), numpy.asarray)), 0.0)
+    g = _grad(
+        backend,
+        lambda at: R0(at.reshape(1), lambda v: _arr(backend, numpy.asarray(v, float))),
+        0.0,
+    )
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_isochrone_inverse_roundtrip(backend):
     # forward ∘ inverse == identity, fully in-backend (the inverse Kepler solve runs
     # via the shared backend root-finder), recovering actions and angles.
