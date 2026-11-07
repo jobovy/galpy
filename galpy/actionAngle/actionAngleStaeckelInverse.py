@@ -23,16 +23,19 @@ from ..backend import (
     as_numpy,
     asarray_on_device,
     at_least_float64,
+    backend,
     concretely_true,
     device_of,
     get_namespace,
     has_concrete_truth_value,
+    host_eval,
     is_backend_array,
     match_input_dtype,
+    to_host,
 )
 from ..backend._namespaces import stop_gradient, under_jax_trace
 from ..backend.optimize import brentq as _backend_brentq
-from ..backend.optimize import iterate_to_fixed_point
+from ..backend.optimize import iterate_bracket, iterate_to_fixed_point
 from ..potential import (
     IsochronePotential,
     OblateStaeckelWrapperPotential,
@@ -47,6 +50,7 @@ from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
     _evaluateRforces,
+    _pot_grad_namespace,
 )
 from ..util import conversion, coords, galpyWarning
 from ..util._hermite import HermiteFamily3D, slope_at_zero
@@ -54,14 +58,21 @@ from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
+    _antiderivative_xp,
+    _bk_matching,
     _IsochroneAuxiliary,
     _ns,
     _offset_spec_coeffs,
+    _offset_spec_coeffs_xp,
     _progress,
     _sine_galerkin,
+    _sine_galerkin_xp,
     _sine_project,
+    _sine_project_xp,
     _sine_series,
+    _sine_series_xp,
     _spec_eval,
+    _spec_eval_xp,
 )
 from .actionAngleStaeckel import _focal_length_of
 
@@ -85,6 +96,32 @@ def _cumulative(f):
     # gives the last coefficient the Nyquist weight
     cq = numpy.append(cq[: keep[-1] + 1], 0.0) if len(keep) > 0 else cq
     return m, q, cq, _spec_eval(cq, 0.0)[0]
+
+
+def _fit_vc2(rf, lnvc2, x0):
+    """The isochrone (GM, b) whose rotation curve fits ln v_c^2 at the radii
+    rf (zero-point free, log residuals), by Nelder-Mead from ln(GM, b) = x0"""
+
+    def _vc2cost(x):
+        GMf, bf = numpy.exp(x)
+        sf = numpy.sqrt(bf**2 + rf**2)
+        return numpy.sum((numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2)
+
+    res = minimize(_vc2cost, x0, method="Nelder-Mead")
+    return tuple(numpy.exp(res.x))
+
+
+def _fit_vc2_host(packed):
+    """_fit_vc2 on the host for a backend family: packed holds the start
+    ln(GM, b), the radii and ln v_c^2 along its last axis (any leading axes
+    are a vmap's), and the fitted (GM, b) come back in its first two slots"""
+    packed = numpy.asarray(packed, dtype="float")
+    out = numpy.zeros_like(packed)
+    flat, fout = packed.reshape(-1, packed.shape[-1]), out.reshape(-1, packed.shape[-1])
+    nr = (packed.shape[-1] - 2) // 2
+    for row, orow in zip(flat, fout):
+        orow[:2] = _fit_vc2(row[2 : 2 + nr], row[2 + nr :], row[:2])
+    return out
 
 
 def _parse_target(target):
@@ -323,15 +360,22 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
+        # A forced backend, or a potential with jax/torch parameters, builds
+        # the family natively, differentiable in those parameters
+        if backend() != "numpy":
+            xp_bk = get_namespace()
+        else:
+            xp_bk = _pot_grad_namespace(self._pot, any_backend=True)
+        self._bk = None
         if not setup_interp:
             self._Es = conversion._parse_grid_quantity(
-                Es, conversion.parse_energy, vo=self._vo
+                to_host(Es), conversion.parse_energy, vo=self._vo
             ).astype("float")
             self._Lzs = conversion._parse_grid_quantity(
-                Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
+                to_host(Lzs), conversion.parse_angmom, ro=self._ro, vo=self._vo
             ).astype("float")
             self._I3s = conversion._parse_grid_quantity(
-                I3s, conversion.parse_energy, vo=self._vo
+                to_host(I3s), conversion.parse_energy, vo=self._vo
             ).astype("float")
             if not len(self._Es) == len(self._Lzs) == len(self._I3s):
                 raise ValueError("Es, Lzs, and I3s have to have the same length")
@@ -339,7 +383,21 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 raise ValueError(
                     "L_z = 0 is not supported: the v libration of a polar orbit reaches the axis"
                 )
-        else:
+        if xp_bk is not None:
+            self._init_backend(
+                xp_bk,
+                *(
+                    float(as_numpy(conversion.parse_length(R, ro=self._ro)))
+                    for R in (Rmin, Rmax, Rinf)
+                ),
+                nE,
+                nLz,
+                nI3,
+                auxiliary,
+            )
+            self._check_consistent_units()
+            return None
+        if setup_interp:
             self._setup_grid(
                 conversion.parse_length(Rmin, ro=self._ro),
                 conversion.parse_length(Rmax, ro=self._ro),
@@ -773,7 +831,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         in zeta, L and c, closed forms: with D = 1 - c cos^2 zeta, f = L c
         sin^2 zeta / D, df/dzeta = 2 L c (1 - c) sin zeta cos zeta / D^2,
         df/dL = f / L and df/dc = L sin^2 zeta / D^2"""
-        sz, cz = numpy.sin(zeta), numpy.cos(zeta)
+        xp = _ns(L, c, zeta)
+        sz, cz = xp.sin(zeta), xp.cos(zeta)
         D = 1.0 - c * cz**2
         f = L * c * sz**2 / D
         return f, 2.0 * L * c * (1.0 - c) * sz * cz / D**2, f / L, L * sz**2 / D**2
@@ -788,9 +847,10 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         (s^2 + t^2)^2)]. Verified against a forty-digit evaluation of the
         plain form to 1e-13."""
         A, A_L, A_c = self._aux_vcumulative(L, c, zeta)
-        s = numpy.sqrt(1.0 - c)
-        t = numpy.tan(zeta)
-        Theta = zeta + numpy.arctan(c * t / ((1.0 + s) * (s + t**2)))
+        xp = _ns(L, c, zeta)
+        s = xp.sqrt(1.0 - c)
+        t = xp.tan(zeta)
+        Theta = zeta + xp.arctan(c * t / ((1.0 + s) * (s + t**2)))
         q = s**2 + t**2
         A_cc = L * (Theta / (4.0 * s**3) + t / (4.0 * s**2 * q) - 0.5 * t / q**2)
         return A, A_L, A_c, 0.0 * A, A_c / L, A_cc
@@ -872,25 +932,16 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         rlo = max(rlo, 1e-3 * rhi)
         rf = numpy.geomspace(rlo, rhi, 25)
         lnvc2 = numpy.log(vcirc(self._staeckelwrap, rf, use_physical=False) ** 2)
-
-        def _vc2cost(x):
-            GMf, bf = numpy.exp(x)
-            sf = numpy.sqrt(bf**2 + rf**2)
-            return numpy.sum(
-                (numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2
-            )
-
-        res = minimize(
-            _vc2cost,
+        return _fit_vc2(
+            rf,
+            lnvc2,
             numpy.log(
                 [
                     rhi * vcirc(self._staeckelwrap, rhi, use_physical=False) ** 2,
                     0.1 * numpy.sqrt(rlo * rhi),
                 ]
             ),
-            method="Nelder-Mead",
         )
-        return tuple(numpy.exp(res.x))
 
     # ---------- the momentum-matched maps and their lifts
     @staticmethod
@@ -1636,31 +1687,36 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 y = min(max((I3 - Ipl) / (Ish - Ipl), 0.0), 1.0)
                 wIs[i] = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(y))
 
-        def padded(vals, lo0, hi0, snap):
-            lo, hi = float(numpy.min(vals)), float(numpy.max(vals))
-            lo, hi = (
-                lo - self._target_pad * (hi - lo),
-                hi + self._target_pad * (hi - lo),
-            )
-            minw = self._target_minwidth * (hi0 - lo0)
-            if hi - lo < minw:
-                mid = 0.5 * (lo + hi)
-                lo, hi = mid - 0.5 * minw, mid + 0.5 * minw
-            if snap:
-                # an end that reaches a face is the face
-                return (lo0 if lo <= lo0 else lo, hi0 if hi >= hi0 else hi)
-            # the L_z ends are anchors, not faces: the box may exceed them,
-            # and only the lower end is guarded, against L_z <= 0
-            return (max(lo, 0.5 * float(numpy.min(vals))), hi)
-
-        Lzbox = padded(Lzs, Lmin, Lmax, False)
+        Lzbox = self._pad_box(Lzs, Lmin, Lmax, False)
         if rl(self._staeckelwrap, Lzbox[1], use_physical=False) >= self._Rinf:
             raise ValueError(
                 "the target's padded L_z range reaches circular orbits beyond "
                 "Rinf, which must lie beyond every circular orbit of the grid; "
                 "increase Rinf or reduce target_pad"
             )
-        return (Lzbox, padded(wEs, 0.0, 1.0, True), padded(wIs, 0.0, 1.0, True))
+        return (
+            Lzbox,
+            self._pad_box(wEs, 0.0, 1.0, True),
+            self._pad_box(wIs, 0.0, 1.0, True),
+        )
+
+    def _pad_box(self, vals, lo0, hi0, snap):
+        """One axis of the target's padded box (see _target_box)"""
+        lo, hi = float(numpy.min(vals)), float(numpy.max(vals))
+        lo, hi = (
+            lo - self._target_pad * (hi - lo),
+            hi + self._target_pad * (hi - lo),
+        )
+        minw = self._target_minwidth * (hi0 - lo0)
+        if hi - lo < minw:
+            mid = 0.5 * (lo + hi)
+            lo, hi = mid - 0.5 * minw, mid + 0.5 * minw
+        if snap:
+            # an end that reaches a face is the face
+            return (lo0 if lo <= lo0 else lo, hi0 if hi >= hi0 else hi)
+        # the L_z ends are anchors, not faces: the box may exceed them,
+        # and only the lower end is guarded, against L_z <= 0
+        return (max(lo, 0.5 * float(numpy.min(vals))), hi)
 
     def _check_circular(self):
         """Raise for the circular orbit of a family whose grid does not reach
@@ -2614,6 +2670,1331 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         Om = self._tables(jr, jz, Lz)["Om"]
         return (Om[0], Om[2], Om[1])
 
+    # ---------- the family on a backend (jax/torch): the construction
+    # The construction above for all tori at once, in the namespace of a
+    # forced backend or of the potential's jax/torch parameters, so that the
+    # tables -- and through them the map -- are differentiable in those
+    # parameters. A degenerate libration goes through on a stand-in torus
+    # whose values its degenerate ones then replace: the circular orbit's two
+    # at a higher energy, the shell orbit's u and the planar orbit's v at the
+    # middle of the third integral's range (well-conditioned librations, whose
+    # matchings converge with the others'). The auxiliary is
+    # fitted on the host and frozen, as are an adaptive family's reference
+    # curves and a target's box (gauges: any choice gives a canonical map).
+    # The root-finds go through the backend brentq, whose final Newton step
+    # carries the implicit-function derivative; the checks and the warnings
+    # run when the values are concrete.
+    def _bk_U(self, u, k=0):
+        """U(u) and its first two derivatives (k = 1, 2) on backend arrays of
+        any shape (the same for every reference curve)"""
+        xp = get_namespace(u)
+        w = self._staeckelwrap
+        f = (w._U, w._dUdu, w._d2Udu2)[k]
+        return xp.reshape(f(xp.reshape(u, (-1,))), u.shape)
+
+    def _bk_Vfun(self, u0):
+        """V(v) and its first two derivatives (k = 1, 2) on the v of n tori
+        (shape (n,) or (n, m)): in the family's wrapper, or, with an adaptive
+        reference curve, in each torus's own (u0 of shape (n,))"""
+        w = self._staeckelwrap
+        if u0 is None:
+
+            def V(v, k=0):
+                xp = get_namespace(v)
+                f = (w._V, w._dVdv, w._d2Vdv2)[k]
+                return xp.reshape(f(xp.reshape(v, (-1,))), v.shape)
+
+            return V
+        ws = {
+            1: OblateStaeckelWrapperPotential(
+                pot=self._chart_pot, delta=self._delta, u0=u0
+            ),
+            2: OblateStaeckelWrapperPotential(
+                pot=self._chart_pot, delta=self._delta, u0=u0[:, None]
+            ),
+        }
+
+        def V(v, k=0):
+            wv = ws[v.ndim]
+            return (wv._V, wv._dVdv, wv._d2Vdv2)[k](v)
+
+        return V
+
+    def _bk_u0(self, E, ell):
+        """The adaptive reference curve u0(E, |L_z|) on backend arrays, frozen
+        (a gauge): u0='fit' natively (as _u0_fit), a callable on the host"""
+        xp = get_namespace(E, ell)
+        shp = tuple(E.shape)
+        E, ell = (xp.reshape(stop_gradient(t), (-1,)) for t in (E, ell))
+        if self._u0_func != self._u0_fit:
+            func = self._u0_func
+
+            def host(packed):
+                packed = numpy.asarray(packed, dtype="float")
+                out = numpy.zeros_like(packed)
+                for row, orow in zip(packed.reshape(-1, 2), out.reshape(-1, 2)):
+                    orow[0] = float(func(row[0], row[1]))
+                return out
+
+            return xp.reshape(host_eval(host, xp.stack([E, ell], axis=-1))[:, 0], shp)
+        pot = self._chart_pot
+        Rinf = self._Rinf
+
+        def phieff(R, L):
+            return _evaluatePotentials(pot, R, 0.0 * R) + L**2 / (2.0 * R**2)
+
+        Rc = stop_gradient(rl(pot, ell, use_physical=False))
+        Ec, Emax = phieff(Rc, ell), phieff(Rinf + 0.0 * Rc, ell)
+        circ = E <= Ec + 1e-12 * (1.0 + xp.abs(Ec))
+        top = E >= Emax - 1e-12 * (1.0 + xp.abs(Emax))
+        # the dead branches' brackets read an energy inside the grid
+        Ein = xp.where(circ | top, Ec + 0.5 * (Emax - Ec), E)
+        Rp = _backend_brentq(
+            lambda R, EE, L: phieff(R, L) - EE,
+            1e-4 * Rc,
+            Rc,
+            args=(xp.where(circ, Ein, E), ell),
+            xtol=1e-12,
+        )
+        Ra = _backend_brentq(
+            lambda R, EE, L: phieff(R, L) - EE,
+            Rc,
+            Rinf + 0.0 * Rc,
+            args=(Ein, ell),
+            xtol=1e-12,
+        )
+        Ra = xp.where(top, Rinf + 0.0 * Ra, Ra)
+        return xp.reshape(
+            stop_gradient(
+                xp.where(
+                    circ,
+                    xp.asinh(Rc / self._delta),
+                    xp.asinh(2.0 / (1.0 / Rp + 1.0 / Ra) / self._delta),
+                )
+            ),
+            shp,
+        )
+
+    def _bk_ushell(self, xp, f64, concrete, E, Lz):
+        """_ushell for the (E, L_z) of n tori: the scan (on derivative-free
+        values: it only brackets) and the backend brentq on d p_u^2 / du, with
+        the mask of the unbound ones"""
+        d2 = self._delta**2
+        us = f64(numpy.geomspace(1e-4, 20.0, 400))
+        sh2 = xp.sinh(us) ** 2
+        W = stop_gradient(
+            2.0 * d2 * (E[:, None] * sh2 - self._bk_U(us)[None, :])
+            - Lz[:, None] ** 2 / sh2
+        )
+        fin = xp.isfinite(W)
+        j = xp.argmax(xp.where(fin, W, -numpy.inf), axis=-1)
+        # the scan's first and last finite samples
+        fini = xp.astype(fin, xp.int64)
+        jlo = xp.argmax(fini, axis=-1)
+        jhi = 399 - xp.argmax(xp.flip(fini, axis=-1), axis=-1)
+        unbound = (j == jlo) | (j == jhi)
+        if concrete and concretely_true(xp.any(unbound)):
+            i = int(numpy.flatnonzero(as_numpy(stop_gradient(unbound)))[0])
+            Ef, Lf = (float(as_numpy(stop_gradient(t[i]))) for t in (E, Lz))
+            raise ValueError(
+                f"No bound u libration exists at (E, L_z) = ({Ef}, {Lf}): "
+                "the torus is unbound"
+            )
+        j = xp.clip(j, 1, 398)
+        ush = _backend_brentq(
+            lambda u, EE, LL: (
+                2.0 * d2 * (EE * xp.sinh(2.0 * u) - self._bk_U(u, 1))
+                + 2.0 * LL**2 * xp.cosh(u) / xp.sinh(u) ** 3
+            ),
+            xp.take(us, j - 1),
+            xp.take(us, j + 1),
+            args=(E, Lz),
+            xtol=1e-14,
+        )
+        return ush, unbound
+
+    def _bk_match(self, xp, tau, ft, cumulative, flux, args, ms):
+        """_match_anomaly for n tori at once (ft of shape (n, ntau)), with the
+        auxiliary's closed-form cumulative action and flux taking the
+        per-torus args (of shape (n, 1)): returns the map's coefficients and
+        the truncated map's values and derivative on the grid"""
+        mt = xp.mean(ft, axis=-1)
+        qt = _antiderivative_xp(xp, ft)
+        At = (
+            mt[:, None] * tau
+            + qt
+            - _spec_eval_xp(xp, _offset_spec_coeffs_xp(xp, qt), 0.0 * tau[:1])
+        )
+        scale = mt[:, None] / (
+            cumulative(2.0 * numpy.pi + 0.0 * mt[:, None], *args) / (2.0 * numpy.pi)
+        )
+
+        def resid(x, a=args, s=scale, A=At):
+            return s * cumulative(x, *a) - A
+
+        def slope(x, a=args, s=scale, m=mt):
+            return xp.maximum(s * flux(x, *a), 1e-10 * m[:, None])
+
+        sg = tuple(stop_gradient(t) for t in args)
+        ssg, Asg, msg = stop_gradient(scale), stop_gradient(At), stop_gradient(mt)
+        eta = _bk_matching(
+            xp,
+            resid,
+            slope,
+            lambda x: resid(x, sg, ssg, Asg),
+            lambda x: slope(x, sg, ssg, msg),
+            stop_gradient(tau + 0.0 * At),
+            msg,
+        )
+        Dm = _sine_project_xp(xp, eta - tau, ms)
+        shift, dshift = _sine_series_xp(xp, tau.shape[-1], Dm, ms)
+        return Dm, tau + shift, 1.0 + dshift
+
+    def _bk_cumulative(self, xp, tau, f):
+        """The integral from tau = 0 of f (n, ntau) on the offset grid (as
+        _cumulative's mt tau + q - q(0))"""
+        q = _antiderivative_xp(xp, f)
+        return (
+            xp.mean(f, axis=-1, keepdims=True) * tau
+            + q
+            - _spec_eval_xp(xp, _offset_spec_coeffs_xp(xp, q), 0.0 * tau[:1])
+        )
+
+    def _init_backend(self, xp, Rmin, Rmax, Rinf, nE, nLz, nI3, auxiliary):
+        """The construction (as _setup_grid, _sample_all, _setup_auxiliary and
+        _setup_tori do it) natively in xp, every torus at once"""
+        from ..backend._input import _grad_param
+
+        par = _grad_param(self._pot)
+        probe = self._bk_Phi(
+            asarray_on_device(
+                xp, numpy.ones(1), None if par is None else device_of(par)
+            )
+        )
+        dev = device_of(probe)
+        concrete = has_concrete_truth_value(probe[0])
+
+        def f64(a):
+            return asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev)
+
+        def tonp(t):
+            return numpy.array(as_numpy(stop_gradient(t)))
+
+        def first(mask):
+            return int(numpy.flatnonzero(as_numpy(stop_gradient(mask)))[0])
+
+        d2 = self._delta**2
+        U = self._bk_U
+        self._bk = None
+        grid = None
+        if not self._interp:
+            Es, Lzs, I3s = f64(self._Es), f64(self._Lzs), f64(self._I3s)
+            ell = xp.abs(Lzs)
+            Rc = rl(self._staeckelwrap, ell, use_physical=False)
+            Ec = self._bk_Phi(Rc) + ell**2 / (2.0 * Rc**2)
+            tolE = 1e-12 * (1.0 + xp.abs(Ec))
+            if concrete and concretely_true(xp.any(Es < Ec - tolE)):
+                i = first(Es < Ec - tolE)
+                raise ValueError(
+                    f"No orbit exists at E = {self._Es[i]}, L_z = {self._Lzs[i]}: "
+                    "the energy lies below the circular orbit's"
+                )
+            circ = Es < Ec + tolE
+            u0s = None
+        else:
+            grid = self._bk_setup_grid(
+                xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3
+            )
+            Es, Lzs, I3s, Ec, Rc = (grid[k] for k in ("Es", "Lzs", "I3s", "Ec", "Rc"))
+            circ, udeg, vdeg = (f64(grid[k]) > 0.5 for k in ("circ", "udeg", "vdeg"))
+            ell = xp.abs(Lzs)
+            u0s = grid["u0s"]
+        n = Es.shape[0]
+        V = self._bk_Vfun(u0s)
+
+        def Wu(u, E, L, I):
+            sh2 = xp.sinh(u) ** 2
+            return 2.0 * d2 * (E * sh2 - U(u) - I) - L**2 / sh2
+
+        def Wv(v, E, L, I):
+            sn2 = xp.sin(v) ** 2
+            return 2.0 * d2 * (E * sn2 + V(v) + I) - L**2 / sn2
+
+        def dWu(u, E, L):
+            return (
+                2.0 * d2 * (E * xp.sinh(2.0 * u) - U(u, 1))
+                + 2.0 * L**2 * xp.cosh(u) / xp.sinh(u) ** 3
+            )
+
+        def dWv(v, E, L):
+            return (
+                2.0 * d2 * (E * xp.sin(2.0 * v) + V(v, 1))
+                + 2.0 * L**2 * xp.cos(v) / xp.sin(v) ** 3
+            )
+
+        def d2Wu(u, E, L):
+            sh2 = xp.sinh(u) ** 2
+            return (
+                2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - U(u, 2))
+                - L**2 * (6.0 + 4.0 * sh2) / sh2**2
+            )
+
+        def d2Wv(v, E, L):
+            sn2 = xp.sin(v) ** 2
+            return (
+                2.0 * d2 * (2.0 * E * xp.cos(2.0 * v) + V(v, 2))
+                - 2.0 * L**2 * (3.0 - 2.0 * sn2) / sn2**2
+            )
+
+        # ----- the turning points (as _turning_points), on the stand-ins
+        Es_s = xp.where(circ, Ec + 0.02 * (ell / Rc) ** 2, Es)
+        ush_s, unbound = self._bk_ushell(xp, f64, concrete, Es_s, Lzs)
+        unbound = unbound & ~circ
+        sh2 = xp.sinh(ush_s) ** 2
+        Ipl_s = Lzs**2 / (2.0 * d2) - Es_s
+        Ish_s = Es_s * sh2 - U(ush_s) - Lzs**2 / (2.0 * d2 * sh2)
+        if not self._interp:
+            tolI = 1e-12 * (1.0 + xp.abs(Ipl_s) + xp.abs(Ish_s))
+            for bad, which, lim in (
+                (~circ & (I3s > Ish_s + tolI), "above the shell", Ish_s),
+                (~circ & (I3s < Ipl_s - tolI), "below the planar", Ipl_s),
+            ):
+                if concrete and concretely_true(xp.any(bad)):
+                    i = first(bad)
+                    raise ValueError(
+                        f"No orbit exists at (E, L_z, I_3) = ({self._Es[i]}, "
+                        f"{self._Lzs[i]}, {self._I3s[i]}): I_3 lies {which} "
+                        f"orbit's, {float(tonp(lim[i]))}"
+                    )
+            udeg = circ | (I3s >= Ish_s - tolI)
+            vdeg = circ | (I3s <= Ipl_s + tolI)
+        I3mid = 0.5 * (Ipl_s + Ish_s)
+        I3u = xp.where(udeg, I3mid, I3s)
+        I3v = xp.where(vdeg, I3mid, I3s)
+        ush = xp.where(circ, xp.asinh(Rc / self._delta), ush_s)
+        ulo = iterate_bracket(
+            lambda u: xp.where(Wu(u, Es_s, Lzs, I3u) > 0.0, 0.7 * u, u), ush_s, 200
+        )
+        uhi = iterate_bracket(
+            lambda u: xp.where(Wu(u, Es_s, Lzs, I3u) > 0.0, 1.3 * u, u), ush_s, 200
+        )
+        umin = _backend_brentq(Wu, ulo, ush_s, args=(Es_s, Lzs, I3u), xtol=1e-14)
+        umax = _backend_brentq(Wu, ush_s, uhi, args=(Es_s, Lzs, I3u), xtol=1e-14)
+        vlo = iterate_bracket(
+            lambda v: xp.where(Wv(v, Es_s, Lzs, I3v) > 0.0, 0.7 * v, v),
+            0.35 * numpy.pi + 0.0 * Es,
+            200,
+        )
+        vmin = _backend_brentq(
+            Wv, vlo, 0.5 * numpy.pi + 0.0 * Es, args=(Es_s, Lzs, I3v), xtol=1e-14
+        )
+        uc_s, wu_s = 0.5 * (umin + umax), 0.5 * (umax - umin)
+        wv_s = 0.5 * numpy.pi - vmin
+        uc = xp.where(udeg, ush, uc_s)
+        wu = xp.where(udeg, 0.0, wu_s)
+        wv = xp.where(vdeg, 0.0, wv_s)
+        # ----- the samples (as _sample_torus)
+        tau_np = 2.0 * numpy.pi * (numpy.arange(self._ntau) + 0.5) / self._ntau
+        tau, st, ct = f64(tau_np), f64(numpy.sin(tau_np)), f64(numpy.cos(tau_np))
+        sgn = f64(numpy.where(tau_np < numpy.pi, 1.0, -1.0))
+
+        def mom(W):
+            pos = W > 0.0
+            return sgn * xp.where(pos, xp.sqrt(xp.where(pos, W, 1.0)), 0.0)
+
+        col = lambda t: t[:, None]  # noqa: E731
+        u = col(uc_s) - col(wu_s) * ct
+        pu = mom(Wu(u, col(Es_s), col(Lzs), col(I3u)))
+        jr_s = xp.mean(pu * col(wu_s) * st, axis=-1)
+        v = 0.5 * numpy.pi - col(wv_s) * ct
+        pv = mom(Wv(v, col(Es_s), col(Lzs), col(I3v)))
+        jz_s = xp.mean(pv * col(wv_s) * st, axis=-1)
+        jr = xp.where(udeg, 0.0, jr_s)
+        jz = xp.where(vdeg, 0.0, jz_s)
+        # ----- the auxiliary (as _setup_auxiliary and _fit_auxiliary)
+        if auxiliary is not None:
+            if not isinstance(auxiliary, IsochronePotential):
+                raise TypeError("auxiliary= has to be an IsochronePotential")
+            self._GM, self._b = auxiliary._amp, auxiliary.b
+        else:
+            self._GM, self._b = self._bk_fit_auxiliary(xp, f64, concrete, uc, wu, wv)
+        self.auxiliary = (
+            auxiliary
+            if auxiliary is not None
+            else IsochronePotential(amp=self._GM, b=self._b)
+        )
+        # ----- the lifts (as _lift_u and _lift_v)
+        L_u = jz + ell
+        a, e = self._auxiliary_orbital_params(jr_s, L_u)
+        ac, ec = col(a), col(e)
+        ftu = pu * col(wu_s) * st
+        Dmu_s, etau, detau = self._bk_match(
+            xp,
+            tau,
+            ftu,
+            lambda x, a_, e_: self._auxiliary_cumulative(a_, e_, x)[0],
+            lambda x, a_, e_: self._auxiliary_flux_derivs(a_, e_, x)[0],
+            (ac, ec),
+            self._nforDm,
+        )
+        rA, _, gA = self._auxiliary_profile(ac, ec, etau)
+        pA = ftu / (gA * xp.sin(etau) * detau)
+        EA = 0.5 * (pA**2 + col(L_u) ** 2 / rA**2) - self._GM / (
+            self._b + xp.sqrt(self._b**2 + rA**2)
+        )
+        unbound_lift = ~udeg & (
+            xp.max(EA, axis=-1) >= _BOUND_MARGIN * self._auxiliary_E(jr_s, L_u)
+        )
+        if concrete and concretely_true(xp.any(unbound_lift)):
+            i = first(unbound_lift)
+            Ef, Lf, If, ucf, wuf = (
+                float(tonp(t[i])) for t in (Es, Lzs, I3s, uc_s, wu_s)
+            )
+            Rinner = self._delta * numpy.sinh(ucf - wuf)
+            Router = self._delta * numpy.sinh(ucf + wuf)
+            raise RuntimeError(
+                "The momentum-matched lift of the (E, L_z, I_3) = "
+                f"({Ef:g}, {Lf:g}, {If:g}) torus is not bound in the fitted "
+                "auxiliary: the u anomaly map is under-resolved for it. Its u "
+                f"libration spans the radii {Rinner:g} to {Router:g} in the "
+                f"plane, a ratio of {Router / Rinner:.0f}, and the map needs a "
+                "number of harmonics of the order of that ratio, against the "
+                f"mm_npt = {self._npt} given; the most eccentric torus of a "
+                "grid is the one at its smallest angular momentum (Rmin) and "
+                "highest energy (Rinf). Raise mm_npt (and, with it, mm_nta), "
+                "or raise Rmin or lower Rinf"
+            )
+        L_v = jz_s + ell
+        c_v = jz_s * (jz_s + 2.0 * ell) / L_v**2
+        Lc, cc = col(L_v), col(c_v)
+        ftv = pv * col(wv_s) * st
+        Dmv_s, zeta, dzeta = self._bk_match(
+            xp,
+            tau,
+            ftv,
+            lambda x, L_, c_: self._aux_vcumulative(L_, c_, x)[0],
+            lambda x, L_, c_: self._aux_vflux(L_, c_, x),
+            (Lc, cc),
+            self._nforDmv,
+        )
+        sinth = xp.sqrt(1.0 - cc * xp.cos(zeta) ** 2)
+        pAv = ftv * sinth / (xp.sqrt(cc) * xp.sin(zeta) * dzeta)
+        # ----- the node tables (as _node_tables): the period matrix by regular
+        # quadrature, the harmonic limits of a degenerate libration, the
+        # turning points' derivatives by the level-set rule
+        ratio_u = col(wu_s) * st / pu
+        sh2u = xp.sinh(u) ** 2
+        M0_s = xp.stack(
+            [
+                xp.mean(d2 * sh2u * ratio_u, axis=-1),
+                -d2 * xp.mean(ratio_u, axis=-1),
+                -Lzs * xp.mean(ratio_u / sh2u, axis=-1),
+            ],
+            axis=-1,
+        )
+        shs2 = xp.sinh(ush) ** 2
+        d2Wush = d2Wu(ush, Es, Lzs)
+        sqbu = xp.sqrt(xp.where(udeg, -0.5 * d2Wush, 1.0))
+        M0_h = xp.stack([d2 * shs2, -d2 + 0.0 * shs2, -Lzs / shs2], axis=-1) / col(sqbu)
+        M0 = xp.where(col(udeg), M0_h, M0_s)
+        ratio_v = col(wv_s) * st / pv
+        sn2v = xp.sin(v) ** 2
+        M1_s = xp.stack(
+            [
+                xp.mean(d2 * sn2v * ratio_v, axis=-1),
+                d2 * xp.mean(ratio_v, axis=-1),
+                -Lzs * xp.mean(ratio_v / sn2v, axis=-1),
+            ],
+            axis=-1,
+        )
+        half_pi = 0.5 * numpy.pi + 0.0 * Es
+        sqbv = xp.sqrt(xp.where(vdeg, -0.5 * d2Wv(half_pi, Es, Lzs), 1.0))
+        M1_h = xp.stack([d2 + 0.0 * Lzs, d2 + 0.0 * Lzs, -Lzs], axis=-1) / col(sqbv)
+        M1 = xp.where(col(vdeg), M1_h, M1_s)
+
+        def tp_u(uu, E):
+            s2 = xp.sinh(uu) ** 2
+            return -xp.stack(
+                [2.0 * d2 * s2, -2.0 * d2 + 0.0 * s2, -2.0 * Lzs / s2], axis=-1
+            ) / col(dWu(uu, E, Lzs))
+
+        def tp_v(vv, E):
+            s2 = xp.sin(vv) ** 2
+            return -xp.stack(
+                [2.0 * d2 * s2, 2.0 * d2 + 0.0 * s2, -2.0 * Lzs / s2], axis=-1
+            ) / col(dWv(vv, E, Lzs))
+
+        d_in, d_out = tp_u(umin, Es_s), tp_u(umax, Es_s)
+        dsup0_s, dsup1_s = 0.5 * (d_in + d_out), 0.5 * (d_out - d_in)
+        dsup2_s = -tp_v(vmin, Es_s)
+        dush = xp.stack(
+            [
+                -2.0 * d2 * xp.sinh(2.0 * ush) / d2Wush,
+                0.0 * ush,
+                -4.0 * Lzs * xp.cosh(ush) / xp.sinh(ush) ** 3 / d2Wush,
+            ],
+            axis=-1,
+        )
+        nan = f64(numpy.nan)
+        dsup = xp.stack(
+            [
+                xp.where(col(udeg), dush, dsup0_s),
+                xp.where(col(udeg), nan, dsup1_s),
+                xp.where(col(vdeg), nan, dsup2_s),
+            ],
+            axis=1,
+        )
+        e3 = f64([0.0, 0.0, 1.0])
+        N = xp.linalg.inv(xp.stack([M0, M1, e3 + 0.0 * M0], axis=1))
+        sgnL = xp.stack([0.0 * Lzs, 0.0 * Lzs, xp.sign(Lzs)], axis=-1)
+        # the u map's slopes (as _map_slopes_u)
+        dWdu = dWu(u, col(Es_s), col(Lzs))
+        dWda = (2.0 * d2 * sh2u, -2.0 * d2 + 0.0 * u, -2.0 * col(Lzs) / sh2u)
+        _, FAa, FAe = self._auxiliary_cumulative(ac, ec, etau)
+        fAeta = self._auxiliary_flux_derivs(ac, ec, etau)[0]
+        dL_u = M1 + sgnL
+        rhs = []
+        for k in range(3):
+            du = dsup0_s[:, k : k + 1] - dsup1_s[:, k : k + 1] * ct
+            dft = (dWda[k] + dWdu * du) / (2.0 * pu) * (col(wu_s) * st) + pu * dsup1_s[
+                :, k : k + 1
+            ] * st
+            _, _, da, de = self._auxiliary_orbital_param_chains(
+                jr_s, L_u, M0_s[:, k], dL_u[:, k]
+            )
+            rhs.append(
+                self._bk_cumulative(xp, tau, dft) - FAa * col(da) - FAe * col(de)
+            )
+        dDmu_s = _sine_galerkin_xp(xp, fAeta, xp.stack(rhs, axis=-1), self._nforDm)
+        # the v map's slopes (as _map_slopes_v)
+        dWdv = dWv(v, col(Es_s), col(Lzs))
+        dWda = (2.0 * d2 * sn2v, 2.0 * d2 + 0.0 * v, -2.0 * col(Lzs) / sn2v)
+        _, FL, Fc = self._aux_vcumulative(Lc, cc, zeta)
+        fAzeta = self._aux_vflux(Lc, cc, zeta)
+        dL_v = M1_s + sgnL
+        dc = 2.0 * col(Lzs**2 / L_v**3) * dL_v - 2.0 * col(Lzs / L_v**2) * e3
+        rhs = []
+        for k in range(3):
+            dv = -dsup2_s[:, k : k + 1] * ct
+            dft = (dWda[k] + dWdv * dv) / (2.0 * pv) * (col(wv_s) * st) + pv * dsup2_s[
+                :, k : k + 1
+            ] * st
+            rhs.append(
+                self._bk_cumulative(xp, tau, dft)
+                - FL * col(dL_v[:, k])
+                - Fc * col(dc[:, k])
+            )
+        dDmv_s = _sine_galerkin_xp(xp, fAzeta, xp.stack(rhs, axis=-1), self._nforDmv)
+        # the degenerate librations, and NaN for a torus that does not exist
+        poison = xp.where(unbound | unbound_lift, numpy.nan, 0.0)
+        jr = jr + poison
+        Dmu = xp.where(col(udeg), 0.0, Dmu_s)
+        dDmu = xp.where(col(col(udeg)), 0.0, dDmu_s)
+        Dmv = xp.where(col(vdeg), 0.0, Dmv_s)
+        dDmv = xp.where(col(col(vdeg)), 0.0, dDmv_s)
+        perr_u = perr_v = None
+        if concrete:
+            # the truncated maps' variation of the auxiliary's actions along
+            # the lifted librations (as _node_tables)
+            perr_u = tonp(
+                xp.where(
+                    udeg,
+                    0.0,
+                    xp.max(
+                        xp.abs(self._auxiliary_Jr(EA, col(L_u)) - col(jr_s)), axis=-1
+                    )
+                    / xp.where(udeg, 1.0, jr_s),
+                )
+            )
+            LA = xp.sqrt(pAv**2 + col(Lzs) ** 2 / sinth**2)
+            perr_v = tonp(
+                xp.where(
+                    vdeg,
+                    0.0,
+                    xp.max(xp.abs(LA - col(ell) - col(jz_s)), axis=-1)
+                    / xp.where(vdeg, 1.0, jz_s),
+                )
+            )
+        lib = {
+            "tau": tau,
+            "st": st,
+            "ct": ct,
+            "u": u,
+            "pu": pu,
+            "v": v,
+            "pv": pv,
+            "umin": umin,
+            "umax": umax,
+            "vmin": vmin,
+            "uc": uc_s,
+            "wu": wu_s,
+            "wv": wv_s,
+            "E": Es_s,
+            "Lz": Lzs,
+            "jr": jr_s,
+            "jz": jz_s,
+            "M0": M0_s,
+            "M1": M1_s,
+            "dsup0": dsup0_s,
+            "dsup1": dsup1_s,
+            "dsup2": dsup2_s,
+            "a": ac,
+            "e": ec,
+            "eta": etau,
+            "zeta": zeta,
+            "dDmu": dDmu_s,
+            "dDmv": dDmv_s,
+            "dWu": dWu,
+            "dWv": dWv,
+            "d2Wu": d2Wu,
+            "d2Wv": d2Wv,
+        }
+        if not self._interp:
+            so = self._bk_second_order_tables(xp, lib)
+            deg = col(udeg | vdeg)
+            d2sups, d2Ms, d2Dmus, d2Dmvs = (
+                xp.where(xp.reshape(deg, (n,) + (1,) * (t.ndim - 1)), 0.0, t)
+                for t in so
+            )
+            self._bk = {
+                "xp": xp,
+                "dev": dev,
+                "Es": Es,
+                "Lzs": Lzs,
+                "I3s": I3s,
+                "jrs": jr,
+                "jzs": jz,
+                "Ns": N,
+                "ucs": uc,
+                "wus": wu,
+                "wvs": wv,
+                "dsups": dsup,
+                "Dmus": Dmu,
+                "Dmvs": Dmv,
+                "dDmus": dDmu,
+                "dDmvs": dDmv,
+                "d2sups": d2sups,
+                "d2Ms": d2Ms,
+                "d2Dmus": d2Dmus,
+                "d2Dmvs": d2Dmvs,
+            }
+            if concrete:
+                self._warn_unresolved(perr_u, self._Es, self._Lzs, self._I3s, "u")
+                self._warn_unresolved(perr_v, self._Es, self._Lzs, self._I3s, "v")
+                for k, t in self._bk.items():
+                    if k not in ("xp", "dev", "Es", "Lzs", "I3s"):
+                        setattr(self, "_" + k, tonp(t))
+            return None
+        # ----- the interpolation tables (as _setup_tori_interp)
+        self._bk_build_interp(
+            xp,
+            f64,
+            grid,
+            dict(
+                jr=jr,
+                jz=jz,
+                uc=uc,
+                wu=wu,
+                wv=wv,
+                Dmu=Dmu,
+                Dmv=Dmv,
+                M0=M0_s,
+                M1=M1_s,
+                sqbu=sqbu,
+                sqbv=sqbv,
+                dsup0=xp.where(col(udeg), dush, dsup0_s),
+                dsup1=dsup1_s,
+                dsup2=dsup2_s,
+                dDmu=dDmu_s,
+                dDmv=dDmv_s,
+                Lzs=Lzs,
+                circ=circ,
+                udeg=udeg,
+                vdeg=vdeg,
+                d2Wu=d2Wu,
+                d2Wv=d2Wv,
+            ),
+        )
+        self._bk.update({"xp": xp, "dev": dev})
+        if concrete:
+            Esn, Lzn, I3n = tonp(Es), tonp(Lzs), tonp(I3s)
+            self._warn_unresolved(perr_u, Esn, Lzn, I3n, "u")
+            self._warn_unresolved(perr_v, Esn, Lzn, I3n, "v")
+            self._Es, self._Lzs, self._I3s = Esn, Lzn, I3n
+            self._perr_u_tab = perr_u.reshape(grid["shape"])
+            self._perr_v_tab = perr_v.reshape(grid["shape"])
+        return None
+
+    def _bk_fit_auxiliary(self, xp, f64, concrete, uc, wu, wv):
+        """The auxiliary as _fit_auxiliary chooses it, fitted on the host
+        (_fit_vc2) to the rotation curve over the tori's radial range; frozen:
+        no derivative flows through it"""
+        cat = getattr(xp, "concat", None) or xp.concatenate
+        rlo = xp.min(self._delta * xp.sinh(uc - wu))
+        rhi = xp.max(self._delta * xp.sqrt(xp.sinh(uc + wu) ** 2 + xp.sin(wv) ** 2))
+        rlo = xp.maximum(rlo, 1e-3 * rhi)
+        lnr = xp.log(rlo) + (xp.log(rhi) - xp.log(rlo)) * f64(
+            numpy.linspace(0.0, 1.0, 25)
+        )
+        rf = cat([xp.reshape(rlo, (1,)), xp.exp(lnr[1:-1]), xp.reshape(rhi, (1,))])
+        vc2 = vcirc(self._staeckelwrap, rf, use_physical=False) ** 2
+        x0 = xp.log(xp.stack([rhi * vc2[-1], 0.1 * xp.sqrt(rlo * rhi)]))
+        packed = stop_gradient(cat([x0, rf, xp.log(vc2)]))
+        if concrete:
+            pk = numpy.array(as_numpy(packed))
+            return tuple(float(t) for t in _fit_vc2(pk[2:27], pk[27:], pk[:2]))
+        fit = host_eval(_fit_vc2_host, packed)
+        return fit[0], fit[1]
+
+    def _bk_setup_grid(self, xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3):
+        """_setup_grid on a backend: the grid's relations at every (E, L_z)
+        node, and its tori in (iE, iI, iL) order with the (structural) masks
+        of the degenerate faces"""
+        if nE < 4 or nLz < 4 or nI3 < 4:
+            raise ValueError("setup_interp=True requires nE, nLz, and nI3 >= 4")
+        if Rinf <= Rmax:
+            raise ValueError(
+                "Rinf has to exceed Rmax: it is the apocentre in the plane of "
+                "the grid's most energetic orbits, beyond every circular orbit "
+                "of the grid"
+            )
+        cat = getattr(xp, "concat", None) or xp.concatenate
+        wrap, d2 = self._staeckelwrap, self._delta**2
+        self._Rinf = Rinf
+        RR = f64([Rmin, Rmax])
+        LL = RR * vcirc(wrap, RR, use_physical=False)
+        Phiinf = self._bk_Phi(f64([Rinf]))[0]
+        if self._target is not None:
+            box = self._bk_target_box(xp, f64, concrete, LL, Phiinf)
+            Lmin, Lmax = f64(box[0][0]), f64(box[0][1])
+        else:
+            box = ((LL[0], LL[1]), (0.0, 1.0), (0.0, 1.0))
+            Lmin, Lmax = LL[0], LL[1]
+        # as numpy.linspace
+        Lzgrid = cat(
+            [
+                f64(numpy.arange(nLz - 1)) * ((Lmax - Lmin) / (nLz - 1)) + Lmin,
+                xp.reshape(Lmax, (1,)),
+            ]
+        )
+        wEs = numpy.linspace(box[1][0], box[1][1], nE)
+        wIs = numpy.linspace(box[2][0], box[2][1], nI3)
+        ys = numpy.sin(0.5 * numpy.pi * wIs) ** 2
+        self._wEs, self._wIs, self._ys = wEs, wIs, ys
+        # the circular orbits and the edges' apocentres (as _R0_edges), and
+        # the energies (as _E_of_xL)
+        Rc = rl(wrap, Lzgrid, use_physical=False)
+        Ec = self._bk_Phi(Rc) + Lzgrid**2 / (2.0 * Rc**2)
+        Emax = Phiinf + Lzgrid**2 / (2.0 * Rinf**2)
+        R0c = _backend_brentq(
+            lambda R, EE: self._bk_Phi(R) - EE,
+            Rc,
+            Rinf + 0.0 * Rc,
+            args=(Ec,),
+            xtol=1e-14,
+        )
+        R0m = _backend_brentq(
+            lambda R, EE: self._bk_Phi(R) - EE,
+            Rinf + 0.0 * Rc,
+            10.0 * Rinf + 0.0 * Rc,
+            args=(Emax,),
+            xtol=1e-14,
+        )
+        g0c, g0m = R0c * self._bk_dPhi(R0c), R0m * self._bk_dPhi(R0m)
+        x = f64(wEs**2)[:, None]
+        R = R0c * (R0m / R0c) ** x
+        g = R * self._bk_dPhi(R)
+        Etab = self._bk_Phi(R)
+        dE_dx = g * xp.log(R0m / R0c)
+        dE_dL = (1.0 - x) * (Lzgrid / Rc**2) * (g / g0c) + x * (Lzgrid / Rinf**2) * (
+            g / g0m
+        )
+        # the shell u and the faces' third integrals at every (E, L_z) node;
+        # the circular row's from the circular orbit
+        row0 = f64((numpy.arange(nE) == 0) & (wEs[0] == 0.0))[:, None] > 0.5
+        Lg = Lzgrid[None, :] + 0.0 * Etab
+        Ecg = Ec[None, :] + 0.0 * Etab
+        Esg = xp.where(row0, Ecg + 0.02 * (Lg / Rc[None, :]) ** 2, Etab)
+        ush, _ = self._bk_ushell(
+            xp, f64, concrete, xp.reshape(Esg, (-1,)), xp.reshape(Lg, (-1,))
+        )
+        ush = xp.where(
+            row0, xp.asinh(Rc / self._delta)[None, :], xp.reshape(ush, Etab.shape)
+        )
+        sh2 = xp.sinh(ush) ** 2
+        Ipl = Lg**2 / (2.0 * d2) - xp.where(row0, Ecg, Etab)
+        Ish = xp.where(
+            row0, Ipl, Etab * sh2 - self._bk_U(ush) - Lg**2 / (2.0 * d2 * sh2)
+        )
+        I3g = Ipl[:, None, :] + f64(ys)[None, :, None] * (Ish - Ipl)[:, None, :]
+        shp = (nE, nI3, nLz)
+
+        def per_torus(t):  # an (nE, nLz) table to the tori
+            return xp.reshape(t[:, None, :] + 0.0 * I3g, (-1,))
+
+        iE, iI = numpy.meshgrid(numpy.arange(nE), numpy.arange(nI3), indexing="ij")
+        circ = (iE == 0) & (wEs[0] == 0.0)
+        udeg = circ | ((iI == nI3 - 1) & (wIs[-1] == 1.0))
+        vdeg = circ | ((iI == 0) & (wIs[0] == 0.0))
+        rep = lambda m: numpy.repeat(m[:, :, None], nLz, axis=2).flatten()  # noqa: E731
+        out = {
+            "shape": shp,
+            "Es": per_torus(Etab),
+            "Lzs": per_torus(Lg),
+            "I3s": xp.reshape(I3g, (-1,)),
+            "Ec": per_torus(Ecg),
+            "Rc": per_torus(Rc[None, :] + 0.0 * Etab),
+            "circ": rep(circ),
+            "udeg": rep(udeg),
+            "vdeg": rep(vdeg),
+            "u0s": (per_torus(self._bk_u0(Etab, Lg)) if self._adaptive else None),
+            "Lzgrid": Lzgrid,
+            "Rcg": Rc,
+            "kappa": epifreq(wrap, Rc, use_physical=False),
+            "Phiinf": Phiinf,
+            "dE_dx": dE_dx,
+            "dE_dL": dE_dL,
+            "ush": ush,
+            "Ipl": Ipl,
+            "Ish": Ish,
+        }
+        if concrete:
+            tonp = lambda t: numpy.array(as_numpy(stop_gradient(t)))  # noqa: E731
+            self._box = tuple(tuple(float(tonp(v)) for v in ax) for ax in box)
+            self._Lzgrid, self._Phiinf = tonp(Lzgrid), float(tonp(Phiinf))
+            self._E_tab, self._ush_tab = tonp(Etab), tonp(ush)
+            self._Ipl_tab, self._Ish_tab = tonp(Ipl), tonp(Ish)
+            self._R0_cache = {}
+        else:
+            self._box = box
+            self._Lzgrid = None
+        return out
+
+    def _bk_target_box(self, xp, f64, concrete, LL, Phiinf):
+        """_target_box on a backend: the target's labels natively, without a
+        derivative (the box is a gauge); its ends snap to the faces it reaches,
+        a static choice that needs concrete values"""
+        if not concrete:
+            raise NotImplementedError(
+                "target= with a traced construction (jax.jit): the target's box "
+                "decides which degenerate faces the grid reaches, a static "
+                "choice; set up the family outside the trace (its derivatives "
+                "are unaffected, because the box is frozen)"
+            )
+        d2, Rinf = self._delta**2, self._Rinf
+        R, vR, vT, z, vz = (f64(t) for t in self._target)
+        Lz = R * xp.abs(vT)
+        kin = 0.5 * (vR**2 + vT**2 + vz**2)
+        wrap = self._staeckelwrap
+        if self._adaptive:
+            # the point's chart, placed with the raw potential's energy
+            Eraw = kin + _evaluatePotentials(self._chart_pot, R, z)
+            wrap = OblateStaeckelWrapperPotential(
+                pot=self._chart_pot, delta=self._delta, u0=self._bk_u0(Eraw, Lz)
+            )
+        E = stop_gradient(kin + _evaluatePotentials(wrap, R, z))
+        Rc = rl(self._staeckelwrap, Lz, use_physical=False)
+        Ec = self._bk_Phi(Rc) + Lz**2 / (2.0 * Rc**2)
+        Emax = Phiinf + Lz**2 / (2.0 * Rinf**2)
+        if concretely_true(xp.any(E > Emax)):
+            raise ValueError(
+                "a target point's energy lies above the energies the grid "
+                "can cover; increase Rinf"
+            )
+        circ = E <= Ec + 1e-12 * (1.0 + xp.abs(Ec))
+        Es = xp.where(circ, Ec + 0.5 * (Emax - Ec), E)
+        R0s = [
+            _backend_brentq(
+                lambda RR, EE: self._bk_Phi(RR) - EE, lo, hi, args=(EE,), xtol=1e-14
+            )
+            for lo, hi, EE in (
+                (Rc, Rinf + 0.0 * Rc, Ec),
+                (Rinf + 0.0 * Rc, 10.0 * Rinf + 0.0 * Rc, Emax),
+            )
+        ]
+        R0 = _backend_brentq(
+            lambda RR, EE: self._bk_Phi(RR) - EE, R0s[0], R0s[1], args=(Es,), xtol=1e-14
+        )
+        xE = xp.log(R0 / R0s[0]) / xp.log(R0s[1] / R0s[0])
+        wE = xp.where(circ, 0.0, xp.sqrt(xp.clip(xE, 0.0, 1.0)))
+        # the third integral from the u equation of the separated
+        # Hamilton-Jacobi relation
+        u, v = coords.Rz_to_uv(R, z, delta=self._delta)
+        sh = xp.sinh(u)
+        pu = self._delta * (vR * xp.cosh(u) * xp.sin(v) + vz * sh * xp.cos(v))
+        I3 = E * sh**2 - self._bk_U(u) - (pu**2 + Lz**2 / sh**2) / (2.0 * d2)
+        ush, _ = self._bk_ushell(xp, f64, concrete, Es, Lz)
+        sh2 = xp.sinh(ush) ** 2
+        Ipl = Lz**2 / (2.0 * d2) - E
+        Ish = E * sh2 - self._bk_U(ush) - Lz**2 / (2.0 * d2 * sh2)
+        y = xp.clip((I3 - Ipl) / xp.where(circ, 1.0, Ish - Ipl), 0.0, 1.0)
+        wI = xp.where(circ, 0.5, 2.0 / numpy.pi * xp.asin(xp.sqrt(y)))
+        Lzs, wEs, wIs = (numpy.array(as_numpy(stop_gradient(t))) for t in (Lz, wE, wI))
+        Lmin, Lmax = (float(as_numpy(stop_gradient(t))) for t in (LL[0], LL[1]))
+        Lzbox = self._pad_box(Lzs, Lmin, Lmax, False)
+        Rtop = rl(self._staeckelwrap, f64([Lzbox[1]]), use_physical=False)
+        if float(as_numpy(stop_gradient(Rtop))[0]) >= Rinf:
+            raise ValueError(
+                "the target's padded L_z range reaches circular orbits beyond "
+                "Rinf, which must lie beyond every circular orbit of the grid; "
+                "increase Rinf or reduce target_pad"
+            )
+        return (
+            Lzbox,
+            self._pad_box(wEs, 0.0, 1.0, True),
+            self._pad_box(wIs, 0.0, 1.0, True),
+        )
+
+    def _bk_build_interp(self, xp, f64, grid, t):
+        """The interpolation tables and their partials (as _setup_tori_interp)
+        from the node tables t of every torus, and the interpolants"""
+        cat = getattr(xp, "concat", None) or xp.concatenate
+        shp = grid["shape"]
+        nE, nI, nL = shp
+        d2 = self._delta**2
+        wEs, wIs, ys = self._wEs, self._wIs, self._ys
+
+        def rs(a):
+            return xp.reshape(a, shp + tuple(a.shape[1:]))
+
+        def b(a, extra):  # trailing axes for the tables' stacks
+            return xp.reshape(a, tuple(a.shape) + (1,) * extra)
+
+        y = f64(ys)[None, :, None]
+        sus = numpy.cos(0.5 * numpy.pi * wIs)
+        svs = numpy.sin(0.5 * numpy.pi * wIs)
+        su, sv = f64(sus)[None, :, None], f64(svs)[None, :, None]
+        wE = f64(wEs)[:, None, None]
+        dEx, dEL = grid["dE_dx"][:, None, :], grid["dE_dL"][:, None, :]
+        Lzg = grid["Lzgrid"][None, None, :]
+        sh2 = xp.sinh(grid["ush"][:, None, :]) ** 2
+        dI_dE = y * (1.0 + sh2) - 1.0
+        dI_dy = (grid["Ish"] - grid["Ipl"])[:, None, :] + 0.0 * y
+        dI_dL = Lzg / d2 * (1.0 - y * (1.0 + 1.0 / sh2))
+
+        def chain(q):
+            # (dq/dE, dq/dI_3, dq/dL_z) -> (dq/dx, dq/dy, dq/dL_z) at fixed grid
+            # coordinates, for the tori's (n, ..., 3)
+            q = rs(q)
+            ex = q.ndim - 4
+            qE, qI, qL = q[..., 0], q[..., 1], q[..., 2]
+            qx = (qE + qI * b(dI_dE, ex)) * b(dEx, ex)
+            return (
+                qx,
+                qI * b(dI_dy, ex),
+                qL + qI * b(dI_dL, ex) + qx / b(dEx, ex) * b(dEL, ex),
+            )
+
+        circ, udeg, vdeg = (rs(t[k]) for k in ("circ", "udeg", "vdeg"))
+        shell, planar = udeg & ~circ, vdeg & ~circ
+        zero = 0.0 * dI_dE
+        A = [list(chain(t["M0"])), list(chain(t["M1"])), list(chain(t["dsup0"]))]
+        Ux, Uy, UL = chain(cat([t["dsup1"][:, None, :], t["dDmu"]], axis=1))
+        Vx, Vy, VL = chain(cat([t["dsup2"][:, None, :], t["dDmv"]], axis=1))
+        U_d = [2.0 * wE[..., None] * Ux, -2.0 * su[..., None] * Uy, UL]
+        V_d = [2.0 * wE[..., None] * Vx, 2.0 * sv[..., None] * Vy, VL]
+        # the shell face: the u libration harmonic at the shell u, its action
+        # and half-width vanishing linearly in (1 - y) and in s_u; the planar
+        # face likewise for the v libration about the midplane
+        sqbu, sqbv = rs(t["sqbu"]), rs(t["sqbv"])
+        for comp, face, sq, sgn, tabs in (
+            (0, shell, sqbu, -1.0, U_d),
+            (1, planar, sqbv, 1.0, V_d),
+        ):
+            A[comp] = [
+                xp.where(face, zero, A[comp][0]),
+                xp.where(face, sgn * d2 * dI_dy / sq, A[comp][1]),
+                xp.where(face, zero, A[comp][2]),
+            ]
+            first = xp.sqrt(2.0 * d2 * xp.where(face, dI_dy, 1.0)) / sq
+            npos = tabs[0].shape[-1]
+            onehot = f64(numpy.arange(npos) == 0)
+            tabs[0] = xp.where(face[..., None], 0.0, tabs[0])
+            tabs[1] = xp.where(face[..., None], first[..., None] * onehot, tabs[1])
+            tabs[2] = xp.where(face[..., None], 0.0, tabs[2])
+        # the circular face: both librations harmonic, with J = (E - E_c)
+        # times the fraction the third integral assigns to each, over its
+        # frequency; the half-widths grow linearly in w_E out of the edge
+        Ec, Lz = rs(grid["Ec"]), rs(t["Lzs"])
+        Rcg = grid["Rcg"][None, None, :]
+        ucc = xp.asinh(Rcg / self._delta) + zero
+        ch2 = xp.cosh(ucc) ** 2
+        flat = lambda a: xp.reshape(a, (-1,))  # noqa: E731
+        sqbu_c = rs(
+            xp.sqrt(
+                xp.where(
+                    t["circ"], -0.5 * t["d2Wu"](flat(ucc), flat(Ec), flat(Lz)), 1.0
+                )
+            )
+        )
+        sqbv_c = rs(
+            xp.sqrt(
+                xp.where(
+                    t["circ"],
+                    -0.5
+                    * t["d2Wv"](0.5 * numpy.pi + 0.0 * flat(Ec), flat(Ec), flat(Lz)),
+                    1.0,
+                )
+            )
+        )
+        kap = grid["kappa"][None, None, :]
+        A = [
+            [
+                xp.where(circ, dEx * (1.0 - y) * d2 * ch2 / sqbu_c, A[0][0]),
+                xp.where(circ, zero, A[0][1]),
+                xp.where(circ, zero, A[0][2]),
+            ],
+            [
+                xp.where(circ, dEx * y * d2 * ch2 / sqbv_c, A[1][0]),
+                xp.where(circ, zero, A[1][1]),
+                xp.where(circ, zero, A[1][2]),
+            ],
+            [
+                xp.where(circ, zero, A[2][0]),
+                xp.where(circ, zero, A[2][1]),
+                xp.where(
+                    circ,
+                    2.0 * Lzg / (Rcg**3 * kap**2) / (self._delta * xp.cosh(ucc)),
+                    A[2][2],
+                ),
+            ],
+        ]
+        root = xp.sqrt(2.0 * d2 * ch2 * xp.where(circ, dEx, 1.0))
+        for tabs, sq, s in ((U_d, sqbu_c, su), (V_d, sqbv_c, sv)):
+            onehot = f64(numpy.arange(tabs[0].shape[-1]) == 0)
+            tabs[0] = xp.where(
+                circ[..., None], (root / sq * s)[..., None] * onehot, tabs[0]
+            )
+            tabs[1] = xp.where(circ[..., None], 0.0, tabs[1])
+            tabs[2] = xp.where(circ[..., None], 0.0, tabs[2])
+        A_tab = xp.stack([rs(t["jr"]), rs(t["jz"]), rs(t["uc"])], axis=-1)
+        U_tab = cat([rs(t["wu"])[..., None], rs(t["Dmu"])], axis=-1)
+        V_tab = cat([rs(t["wv"])[..., None], rs(t["Dmv"])], axis=-1)
+        # the maps' coefficients' slopes at the circular edge in w_E, the u
+        # map's at the shell face in s_u and the v map's at the planar face
+        # in s_v, and the u midpoint's at the circular and shell faces: the
+        # quartics' through zero and the next two rows (as numpy)
+        xs = wEs**2
+        if wEs[0] == 0.0:
+            A[2][0] = cat(
+                [
+                    slope_at_zero(
+                        xs[1:3],
+                        A_tab[1:3, :, :, 2] - A_tab[0, :, :, 2],
+                        A[2][0][1:3],
+                        xp=xp,
+                    )[None],
+                    A[2][0][1:],
+                ]
+            )
+            for tab, tabs in ((U_tab, U_d), (V_tab, V_d)):
+                fill = slope_at_zero(
+                    wEs[1:3], tab[1:3, ..., 1:], tabs[0][1:3, ..., 1:], xp=xp
+                )
+                tabs[0] = cat(
+                    [cat([tabs[0][:1, ..., :1], fill[None]], axis=-1), tabs[0][1:]]
+                )
+        mv = lambda a, idx: xp.moveaxis(a[:, idx], 1, 0)  # noqa: E731
+        if wIs[-1] == 1.0:
+            fill = slope_at_zero(
+                ys[[-2, -3]] - 1.0,
+                mv(A_tab[..., 2], [-2, -3]) - A_tab[:, -1, :, 2][None],
+                mv(A[2][1], [-2, -3]),
+                xp=xp,
+            )
+            A[2][1] = cat([A[2][1][:, :-1], fill[:, None]], axis=1)
+            fill = slope_at_zero(
+                sus[[-2, -3]],
+                mv(U_tab[..., 1:], [-2, -3]),
+                mv(U_d[1][..., 1:], [-2, -3]),
+                xp=xp,
+            )
+            U_d[1] = cat(
+                [
+                    U_d[1][:, :-1],
+                    cat([U_d[1][:, -1:, ..., :1], fill[:, None]], axis=-1),
+                ],
+                axis=1,
+            )
+        if wIs[0] == 0.0:
+            fill = slope_at_zero(
+                svs[[1, 2]],
+                mv(V_tab[..., 1:], [1, 2]),
+                mv(V_d[1][..., 1:], [1, 2]),
+                xp=xp,
+            )
+            V_d[1] = cat(
+                [cat([V_d[1][:, :1, ..., :1], fill[:, None]], axis=-1), V_d[1][:, 1:]],
+                axis=1,
+            )
+        A_dx, A_dy, A_dL = (
+            xp.stack([A[k][j] for k in range(3)], axis=-1) for j in range(3)
+        )
+        self._bk = {
+            "Rcs": grid["Rcg"],
+            "Lzgrid": grid["Lzgrid"],
+            "Phiinf": grid["Phiinf"],
+        }
+        Lzn = grid["Lzgrid"]
+        self._A_ip = HermiteFamily3D(f64(xs), f64(ys), Lzn, A_tab, A_dx, A_dy, A_dL)
+        flip = lambda a: xp.flip(a, axis=1)  # noqa: E731
+        self._U_ip = HermiteFamily3D(
+            f64(wEs), f64(sus[::-1].copy()), Lzn, *(flip(a) for a in (U_tab, *U_d))
+        )
+        self._V_ip = HermiteFamily3D(f64(wEs), f64(svs), Lzn, V_tab, *V_d)
+        if has_concrete_truth_value(A_tab[0, 0, 0, 0]):
+            tonp = lambda a: numpy.array(as_numpy(stop_gradient(a)))  # noqa: E731
+            self._A_tab, self._A_dx, self._A_dy, self._A_dL = (
+                tonp(a) for a in (A_tab, A_dx, A_dy, A_dL)
+            )
+            self._U_tab, self._U_dwE, self._U_dsu, self._U_dL = (
+                tonp(a) for a in (U_tab, *U_d)
+            )
+            self._V_tab, self._V_dwE, self._V_dsv, self._V_dL = (
+                tonp(a) for a in (V_tab, *V_d)
+            )
+        return None
+
+    def _bk_second_order_tables(self, xp, lib):
+        """_second_order_tables for every torus at once (on the stand-ins of a
+        degenerate libration, whose tables the caller zeroes): d2sups (n, 3,
+        6), d2Ms (n, 2, 6), d2Dmus (n, npt, 6) and d2Dmvs (n, nptv, 6)"""
+        d2 = self._delta**2
+        tau, st, ct = lib["tau"], lib["st"], lib["ct"]
+        E, Lz, jr, jz = lib["E"], lib["Lz"], lib["jr"], lib["jz"]
+        M0, M1 = lib["M0"], lib["M1"]
+        ds0, ds1, ds2 = lib["dsup0"], lib["dsup1"], lib["dsup2"]
+        dWu, dWv, d2Wu, d2Wv = (lib[k] for k in ("dWu", "dWv", "d2Wu", "d2Wv"))
+        ell = xp.abs(Lz)
+        L = jz + ell
+        c = jz * (jz + 2.0 * ell) / L**2
+        pairs = ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))
+
+        def col(a):
+            return a[:, None]
+
+        def tp2(S_q, S_qq, S_qa, S_LL, q1):
+            # the level-set rule differentiated once more (n tori)
+            return xp.stack(
+                [
+                    -(
+                        S_qq * q1[:, i] * q1[:, j]
+                        + S_qa[i] * q1[:, j]
+                        + S_qa[j] * q1[:, i]
+                        + (S_LL if i == j == 2 else 0.0)
+                    )
+                    / S_q
+                    for i, j in pairs
+                ],
+                axis=-1,
+            )
+
+        def libration(q, p, w, q1, w1, q2, w2, S_q, S_qq, S_a, S_qa, S_LL):
+            qtau = col(w) * st
+            N1 = [S_a[i] + S_q * q1[i] for i in range(3)]
+            M2, A2 = [], []
+            for kk, (i, j) in enumerate(pairs):
+                S_ab = S_LL if i == j == 2 else 0.0 * q
+                N2 = (
+                    S_ab
+                    + S_qa[i] * q1[j]
+                    + S_qa[j] * q1[i]
+                    + S_qq * q1[i] * q1[j]
+                    + S_q * q2[kk]
+                )
+                M2.append(
+                    xp.mean(
+                        (S_ab + S_qa[i] * q1[j]) * qtau / (2.0 * p)
+                        + S_a[i]
+                        * (
+                            col(w1[:, j]) * st / (2.0 * p) - qtau * N1[j] / (4.0 * p**3)
+                        ),
+                        axis=-1,
+                    )
+                )
+                A2.append(
+                    self._bk_cumulative(
+                        xp,
+                        tau,
+                        (
+                            N2 * qtau
+                            + (N1[i] * col(w1[:, j]) + N1[j] * col(w1[:, i])) * st
+                        )
+                        / (2.0 * p)
+                        - N1[i] * N1[j] * qtau / (4.0 * p**3)
+                        + p * col(w2[:, kk]) * st,
+                    )
+                )
+            return xp.stack(M2, axis=-1), xp.stack(A2, axis=-1)
+
+        # the u libration: both turning points, then the midpoint and the
+        # half-width
+        uc, wu, wv = lib["uc"], lib["wu"], lib["wv"]
+        d2tp = []
+        for ut, dut in ((uc - wu, ds0 - ds1), (uc + wu, ds0 + ds1)):
+            d2tp.append(
+                tp2(
+                    dWu(ut, E, Lz),
+                    d2Wu(ut, E, Lz),
+                    (
+                        2.0 * d2 * xp.sinh(2.0 * ut),
+                        0.0 * ut,
+                        4.0 * Lz * xp.cosh(ut) / xp.sinh(ut) ** 3,
+                    ),
+                    -2.0 / xp.sinh(ut) ** 2,
+                    dut,
+                )
+            )
+        uc2, wu2 = 0.5 * (d2tp[0] + d2tp[1]), 0.5 * (d2tp[1] - d2tp[0])
+        u, pu = lib["u"], lib["pu"]
+        sh2 = xp.sinh(u) ** 2
+        cE, cL = col(E), col(Lz)
+        M2u, A2u = libration(
+            u,
+            pu,
+            wu,
+            [col(ds0[:, k]) - col(ds1[:, k]) * ct for k in range(3)],
+            ds1,
+            [col(uc2[:, kk]) - col(wu2[:, kk]) * ct for kk in range(6)],
+            wu2,
+            dWu(u, cE, cL),
+            d2Wu(u, cE, cL),
+            (2.0 * d2 * sh2, -2.0 * d2 + 0.0 * u, -2.0 * cL / sh2),
+            (
+                2.0 * d2 * xp.sinh(2.0 * u),
+                0.0 * u,
+                4.0 * cL * xp.cosh(u) / xp.sinh(u) ** 3,
+            ),
+            -2.0 / sh2,
+        )
+        # the v libration: its turning point, then the half-width
+        vt = 0.5 * numpy.pi - wv
+        wv2 = -tp2(
+            dWv(vt, E, Lz),
+            d2Wv(vt, E, Lz),
+            (
+                2.0 * d2 * xp.sin(2.0 * vt),
+                0.0 * vt,
+                4.0 * Lz * xp.cos(vt) / xp.sin(vt) ** 3,
+            ),
+            -2.0 / xp.sin(vt) ** 2,
+            -ds2,
+        )
+        v, pv = lib["v"], lib["pv"]
+        sn2 = xp.sin(v) ** 2
+        M2v, A2v = libration(
+            v,
+            pv,
+            wv,
+            [-col(ds2[:, k]) * ct for k in range(3)],
+            ds2,
+            [-col(wv2[:, kk]) * ct for kk in range(6)],
+            wv2,
+            dWv(v, cE, cL),
+            d2Wv(v, cE, cL),
+            (2.0 * d2 * sn2, 2.0 * d2 + 0.0 * v, -2.0 * cL / sn2),
+            (
+                2.0 * d2 * xp.sin(2.0 * v),
+                0.0 * v,
+                4.0 * cL * xp.cos(v) / xp.sin(v) ** 3,
+            ),
+            -2.0 / sn2,
+        )
+        # the auxiliary torus's parameters along the integrals: J_R and L to
+        # second order from the period matrix and its derivatives, (a, e)
+        # through their closed-form partials in (J_R, L)
+        J1, J2 = M0, M2u
+        L1 = M1 + xp.stack([0.0 * Lz, 0.0 * Lz, xp.sign(Lz)], axis=-1)
+        L2 = M2v
+
+        def chain2(d):
+            dJ, dL, dJJ, dJL, dLL = (col(q + 0.0 * jr) for q in d)
+            first = dJ * J1 + dL * L1
+            second = xp.stack(
+                [
+                    dJJ[:, 0] * J1[:, i] * J1[:, j]
+                    + dJL[:, 0] * (J1[:, i] * L1[:, j] + J1[:, j] * L1[:, i])
+                    + dLL[:, 0] * L1[:, i] * L1[:, j]
+                    + dJ[:, 0] * J2[:, kk]
+                    + dL[:, 0] * L2[:, kk]
+                    for kk, (i, j) in enumerate(pairs)
+                ],
+                axis=-1,
+            )
+            return first, second
+
+        _, _, da, de = self._auxiliary_orbital_params2(jr, L)
+        a1, a2 = chain2(da)
+        e1, e2 = chain2(de)
+        a, e, eta = lib["a"], lib["e"], lib["eta"]
+        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._auxiliary_cumulative2(a, e, eta)
+        fA, fA_eta = self._auxiliary_flux_eta(a, e, eta)
+        _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, eta)
+        ntau = tau.shape[-1]
+        eta1 = [
+            _sine_series_xp(xp, ntau, lib["dDmu"][..., k], self._nforDm)[0]
+            for k in range(3)
+        ]
+        rhs = []
+        for kk, (i, j) in enumerate(pairs):
+            ai, aj, ei, ej = col(a1[:, i]), col(a1[:, j]), col(e1[:, i]), col(e1[:, j])
+            rhs.append(
+                A2u[..., kk]
+                - (
+                    fA_eta * eta1[i] * eta1[j]
+                    + fA_a * (aj * eta1[i] + ai * eta1[j])
+                    + fA_e * (ej * eta1[i] + ei * eta1[j])
+                )
+                - (AA_aa * ai * aj + AA_ae * (ai * ej + aj * ei) + AA_ee * ei * ej)
+                - AA_a * col(a2[:, kk])
+                - AA_e * col(e2[:, kk])
+            )
+        D2u = _sine_galerkin_xp(xp, fA, xp.stack(rhs, axis=-1), self._nforDm)
+        # the v map: the auxiliary's polar libration through (L, c), with
+        # c = 1 - L_z^2/L^2 to second order
+        dLz = (0.0, 0.0, 1.0)
+        e3 = xp.stack([0.0 * Lz, 0.0 * Lz, 1.0 + 0.0 * Lz], axis=-1)
+        c1 = col(2.0 * Lz**2 / L**3) * L1 - col(2.0 * Lz / L**2) * e3
+        c2 = xp.stack(
+            [
+                2.0 * Lz**2 / L**3 * L2[:, kk]
+                - 6.0 * Lz**2 / L**4 * L1[:, i] * L1[:, j]
+                + 4.0 * Lz / L**3 * (dLz[i] * L1[:, j] + dLz[j] * L1[:, i])
+                - 2.0 / L**2 * dLz[i] * dLz[j]
+                for kk, (i, j) in enumerate(pairs)
+            ],
+            axis=-1,
+        )
+        zeta = lib["zeta"]
+        Lcol, ccol = col(L), col(c)
+        fv, fv_z, fv_L, fv_c = self._aux_vflux_derivs(Lcol, ccol, zeta)
+        _, Av_L, Av_c, Av_LL, Av_Lc, Av_cc = self._aux_vcumulative2(Lcol, ccol, zeta)
+        zeta1 = [
+            _sine_series_xp(xp, ntau, lib["dDmv"][..., k], self._nforDmv)[0]
+            for k in range(3)
+        ]
+        rhs = []
+        for kk, (i, j) in enumerate(pairs):
+            Li, Lj, ci, cj = col(L1[:, i]), col(L1[:, j]), col(c1[:, i]), col(c1[:, j])
+            rhs.append(
+                A2v[..., kk]
+                - (
+                    fv_z * zeta1[i] * zeta1[j]
+                    + fv_L * (Lj * zeta1[i] + Li * zeta1[j])
+                    + fv_c * (cj * zeta1[i] + ci * zeta1[j])
+                )
+                - (Av_LL * Li * Lj + Av_Lc * (Li * cj + Lj * ci) + Av_cc * ci * cj)
+                - Av_L * col(L2[:, kk])
+                - Av_c * col(c2[:, kk])
+            )
+        D2v = _sine_galerkin_xp(xp, fv, xp.stack(rhs, axis=-1), self._nforDmv)
+        return (
+            xp.stack([uc2, wu2, wv2], axis=1),
+            xp.stack([M2u, M2v], axis=1),
+            D2u,
+            D2v,
+        )
+
     # ---------- evaluation on a backend (jax/torch)
     # The evaluation above natively in jax/torch, differentiable in the actions
     # and the angles (and, for a family built on a backend, in the potential's
@@ -2703,10 +4084,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         (E, |L_z|)'s own u0 (a gauge: no derivative flows through it)"""
         if not self._adaptive:
             return self._staeckelwrap
-        if has_concrete_truth_value(E) and has_concrete_truth_value(ell):
-            Ef, ellf = (float(as_numpy(stop_gradient(t))) for t in (E, ell))
-            return self._chart(Ef, ellf)
-        u0 = stop_gradient(self._u0_func(E, ell))
+        xp = get_namespace(E, ell)
+        u0 = self._bk_u0(xp.reshape(E, (1,)), xp.reshape(ell, (1,)))[0]
         return OblateStaeckelWrapperPotential(
             pot=self._chart_pot, delta=self._delta, u0=u0
         )
@@ -2758,7 +4137,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         )
 
     def _bk_check_Lz(self, ell):
-        if has_concrete_truth_value(ell):
+        # a family built under a trace has no concrete grid to check against
+        if has_concrete_truth_value(ell) and self._Lzgrid is not None:
             self._check_Lz(float(as_numpy(stop_gradient(ell))))
         return None
 
@@ -2780,7 +4160,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             jother = jz if face == "u" else jr
             if (yhi if f == 1.0 else ylo) != f:
                 raise ValueError(
-                    f"(J_R, J_z) lies on a degenerate face that the family's grid does not reach"
+                    "(J_R, J_z) lies on a degenerate face that the family's grid does not reach"
                 )
             top = A(xhi + 0.0 * ell, f + 0.0 * ell)[0][k]
             bottom = A(xlo + 0.0 * ell, f + 0.0 * ell)[0][k]
@@ -3363,7 +4743,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         # dead branch reads a stand-in radial action
         jr_s = self._bk_sel(xp, udeg, 0.1 * L, jr) if not isinstance(udeg, bool) else jr
         a_s, e_s = (a, e) if jr_s is jr else self._auxiliary_orbital_params(jr_s, L)
-        c = 1.0 - Lz**2 / L**2
+        c = jz * (jz + 2.0 * ell) / L**2  # sin^2 i, float32-safe
         sq = xp.sqrt(L**2 + 4.0 * self._GM * self._b)
         wu_s = (
             self._bk_sel(xp, udeg, 1.0 + 0.0 * L, tab["wu"])
