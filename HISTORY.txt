@@ -131,6 +131,10 @@ v2.0.0b2 (pre-release)
   ...) failed to evaluate their forces and second derivatives, and with them
   epifreq, at an array of R with a scalar z.
 
+- Fixed ``torch.compile`` of galpy functions given a numpy scalar (e.g., a
+  ``numpy.float64``) among their coordinates, which failed with PyTorch >=
+  2.14.
+
 - Fixed ``actionAngleIsochroneInverse`` on the jax and PyTorch backends at a
   radial angle of exactly zero, where the returned position could be off by
   about half an orbit in phase.
