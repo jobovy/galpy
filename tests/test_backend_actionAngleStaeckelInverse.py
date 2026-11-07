@@ -822,3 +822,38 @@ def test_maxiter_fallback(interp, explicit):
             rtol=0.0,
             atol=1e-9,
         )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hermite_family_3d(backend):
+    # HermiteFamily3D built on a backend agrees with the numpy one, called
+    # like ip(x, y, z, dx=, dy=, dz=), and so does the numpy one at backend
+    # points
+    from galpy.util._hermite import HermiteFamily3D
+
+    x, y, z = (
+        numpy.linspace(0.0, 1.0, 6) ** 2,
+        numpy.linspace(0.5, 2.0, 5),
+        numpy.linspace(-1.0, 1.0, 5),
+    )
+    X, Y, Z = numpy.meshgrid(x, y, z, indexing="ij")
+    g, e = numpy.sin(3.0 * X) * numpy.cos(Y), numpy.exp(0.5 * Z)
+    tabs = [
+        (t * e)[..., None] * numpy.array([1.0, 2.0])
+        for t in (
+            g,
+            3.0 * numpy.cos(3.0 * X) * numpy.cos(Y),
+            -numpy.sin(3.0 * X) * numpy.sin(Y),
+            0.5 * g,
+        )
+    ]
+    ipn = HermiteFamily3D(x, y, z, *tabs)
+    ipb = HermiteFamily3D(x, _arr(backend, y), z, *(_arr(backend, t) for t in tabs))
+    for pt in ((0.3, 0.7, 0.2), (x[2], y[3], z[1]), (0.999, 1.99, -0.95)):
+        for d in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)):
+            kw = dict(zip(("dx", "dy", "dz"), d))
+            ref = ipn(*pt, **kw)[0, 0]
+            for ip in (ipb, ipn):
+                got = ip(*(_arr(backend, v) for v in pt), **kw)[0, 0]
+                assert _is_backend(backend, got)
+                numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=1e-12)
