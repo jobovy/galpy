@@ -10524,6 +10524,78 @@ def test_actionAngleSphericalInverse_turning_point_derivatives():
     return None
 
 
+def test_actionAngleSphericalInverse_second_order_tables():
+    # An explicit torus's one-node family is quadratic: the second
+    # derivatives of its turning points and anomaly-map coefficients in
+    # (E, L), and the derivatives of its frequencies, all computed from the
+    # torus alone, agree with finite differences of the first-order tables
+    # across explicit tori built at E +- h and L +- h with the auxiliary
+    # held fixed (a one-node family fits its own isochrone, which would
+    # otherwise move between the tori)
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import IsochronePotential
+
+    pot = _spherical_inverse_potential()
+    h = 1e-4
+    for E, L in ((0.9, 0.9), (1.1, 0.7)):
+        base = actionAngleSphericalInverse(
+            pot=pot, Es=[E], Ls=[L], mm_npt=48, progressbar=False
+        )
+        aux = IsochronePotential(amp=base._GM, b=base._b)
+
+        def tables(dE, dL):
+            inst = actionAngleSphericalInverse(
+                pot=pot,
+                Es=[E + dE],
+                Ls=[L + dL],
+                mm_npt=48,
+                progressbar=False,
+                auxiliary=aux,
+            )
+            return numpy.concatenate(
+                [
+                    inst._turning_point_derivs(inst._rps[0], E + dE, L + dL),
+                    inst._turning_point_derivs(inst._ras[0], E + dE, L + dL),
+                    [inst._OmRs[0], inst._Ompsis[0]],
+                    inst._dDm_dEs[0],
+                    inst._dDm_dLs[0],
+                ]
+            )
+
+        fdE = (tables(h, 0.0) - tables(-h, 0.0)) / (2.0 * h)
+        fdL = (tables(0.0, h) - tables(0.0, -h)) / (2.0 * h)
+        d2rp, d2ra, D2 = base._d2rps[0], base._d2ras[0], base._d2Dms[0]
+        dOmR, dOmpsi = base._dOmRs[0], base._dOmpsis[0]
+        anaE = numpy.concatenate(
+            [
+                [d2rp[0], d2rp[1], d2ra[0], d2ra[1], dOmR[0], dOmpsi[0]],
+                D2[:, 0],
+                D2[:, 1],
+            ]
+        )
+        anaL = numpy.concatenate(
+            [
+                [d2rp[1], d2rp[2], d2ra[1], d2ra[2], dOmR[1], dOmpsi[1]],
+                D2[:, 1],
+                D2[:, 2],
+            ]
+        )
+        for fd, ana, name in ((fdE, anaE, "E"), (fdL, anaL, "L")):
+            scale = numpy.maximum(numpy.fabs(ana), numpy.amax(numpy.fabs(ana)) * 1e-2)
+            assert numpy.amax(numpy.fabs(fd - ana) / scale) < 1e-5, (
+                "The second-order tables' %s-derivatives are not the finite "
+                "differences of the first-order ones: %g"
+                % (name, numpy.amax(numpy.fabs(fd - ana) / scale))
+            )
+        # the chain to the actions is consistent with the frequencies
+        q = base._quadratic_node(0)
+        assert (
+            numpy.fabs(q["Om"][0] - base._OmRs[0]) < 1e-14
+            and numpy.fabs(q["d2E"][0] - dOmR[0] * base._OmRs[0]) < 1e-14
+        ), "The quadratic one-node family's chain to the actions is inconsistent"
+    return None
+
+
 def test_actionAngleSphericalInverse_symplectic(spherical_inverse_interp):
     # Manifest canonicity: the symplectic defect of the public map is at the
     # finite-difference floor -- measured on the analytic isochrone inverse

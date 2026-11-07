@@ -58,7 +58,13 @@ v1.12.2 (expected around 2027-03-01)
   (J_r = 0) evaluates in closed form with the epicycle and circular
   frequencies, in a grid or as an explicit torus. A warning is raised when the anomaly map does not
   resolve a torus, and a torus that reaches beyond the depth of the fitted
-  auxiliary raises.
+  auxiliary raises. An explicit
+  torus carries the second-order tables of its one-node family (the
+  turning points' and the anomaly map's second derivatives from the
+  level-set rule and the second variation of the matching condition, and
+  the frequencies' derivatives from the period quadratures, all from the
+  torus alone), so that the map's derivatives in the actions at the torus
+  are the true family's.
 
 - New ``actionAngleStaeckelInverse``: the inverse action-angle transformation
   for axisymmetric Staeckel potentials, through the same momentum-matched

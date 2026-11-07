@@ -19,6 +19,7 @@ from ..potential import (
     IsochronePotential,
     epifreq,
     evaluatePotentials,
+    evaluateR2derivs,
     evaluateRforces,
     rl,
     vcirc,
@@ -541,6 +542,170 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             "Ompsi": Ompsi,
         }
 
+    def _second_order_tables(self, ii, dDm_dE, dDm_dL, OmR, Ompsi):
+        """The second-order tables of the ii-th explicit torus, from the
+        torus alone, which make its one-node family quadratic: the second
+        derivatives in (E, L) of the turning points (the level-set rule
+        differentiated once more), of the map's coefficients (the second
+        variation of the matching condition at fixed anomaly, solved by
+        the same Galerkin projection as the slopes), and the derivatives
+        of the frequencies (those of the period quadratures, regular in
+        the anomaly like the slopes' integrands). Every target-side
+        integrand is regular at the turning points: the numerators N_a =
+        S_a + S_r dr/da|_tau and N_ab vanish there to second order in tau
+        while p_r vanishes to first. Returns a dict in (E, L); the chain
+        to (J_r, L) is _quadratic_node."""
+        tau, r, pr, rp, ra, E, L = self._samples[ii]
+        Jrq, a, e, Dm, etat, _, _, _ = self._lifts[ii]
+        k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
+
+        def _cum(f):
+            m = numpy.mean(f)
+            fh = numpy.fft.fft(f - m)
+            ah = numpy.zeros_like(fh)
+            ah[1:] = fh[1:] / (1j * k[1:])
+            q = numpy.real(numpy.fft.ifft(ah))
+            return m * tau + q - _spec_eval(_offset_spec_coeffs(q), 0.0)[0]
+
+        pairs = ((0, 0), (0, 1), (1, 1))
+        d1p = numpy.array(self._turning_point_derivs(rp, E, L))
+        d1a = numpy.array(self._turning_point_derivs(ra, E, L))
+        d2p = numpy.array(self._turning_point_derivs2(rp, E, L))
+        d2a = numpy.array(self._turning_point_derivs2(ra, E, L))
+        cost, sint = numpy.cos(tau), numpy.sin(tau)
+        rtau = 0.5 * (ra - rp) * sint
+        rc1, w1 = 0.5 * (d1p + d1a), 0.5 * (d1a - d1p)
+        rc2, w2 = 0.5 * (d2p + d2a), 0.5 * (d2a - d2p)
+        r1 = [rc1[i] - w1[i] * cost for i in range(2)]
+        r2 = [rc2[kk] - w2[kk] * cost for kk in range(3)]
+        P1 = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
+        P2 = evaluateR2derivs(self._pot, r, 0.0, use_physical=False) + 3.0 * L**2 / r**4
+        S_r, S_rr = -2.0 * P1, -2.0 * P2
+        S_a = [2.0 + 0.0 * r, -2.0 * L / r**2]
+        S_ra = [0.0 * r, 4.0 * L / r**3]
+        S_ab = [0.0 * r, 0.0 * r, -2.0 / r**2]
+        N1 = [S_a[i] + S_r * r1[i] for i in range(2)]
+        A2 = []
+        for kk, (i, j) in enumerate(pairs):
+            N2 = (
+                S_ab[kk]
+                + S_ra[i] * r1[j]
+                + S_ra[j] * r1[i]
+                + S_rr * r1[i] * r1[j]
+                + S_r * r2[kk]
+            )
+            A2.append(
+                _cum(
+                    (N2 * rtau + N1[i] * w1[j] * sint + N1[j] * w1[i] * sint)
+                    / (2.0 * pr)
+                    - N1[i] * N1[j] * rtau / (4.0 * pr**3)
+                    + pr * w2[kk] * sint
+                )
+            )
+        # the period quadratures P = <dt/dtau> and Q = <(L/r^2) dt/dtau> and
+        # their derivatives; J_r(E, L) has J_E = P, J_L = -Q
+        dtdtau = rtau / pr
+        P, Q = numpy.mean(dtdtau), numpy.mean(L / r**2 * dtdtau)
+        dP, dQ = [], []
+        for i in range(2):
+            dtd = w1[i] * sint / pr - rtau * N1[i] / (2.0 * pr**3)
+            dP.append(numpy.mean(dtd))
+            dQ.append(
+                numpy.mean(
+                    ((1.0 if i == 1 else 0.0) / r**2 - 2.0 * L * r1[i] / r**3) * dtdtau
+                    + L / r**2 * dtd
+                )
+            )
+        Jal, Lal = [P, -Q], [0.0, 1.0]
+        J2 = [dP[0], dP[1], -dQ[1]]
+        _, _, da, de = self._auxiliary_orbital_params2(Jrq, L)
+
+        def chain2(d):
+            dJ, dL, dJJ, dJL, dLL = d
+            first = [dJ * Jal[i] + dL * Lal[i] for i in range(2)]
+            second = [
+                dJJ * Jal[i] * Jal[j]
+                + dJL * (Jal[i] * Lal[j] + Jal[j] * Lal[i])
+                + dLL * Lal[i] * Lal[j]
+                + dJ * J2[kk]
+                for kk, (i, j) in enumerate(pairs)
+            ]
+            return first, second
+
+        a1, a2 = chain2(da)
+        e1, e2 = chain2(de)
+        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._auxiliary_cumulative2(a, e, etat)
+        fA, fA_eta = self._auxiliary_flux_eta(a, e, etat)
+        _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, etat)
+        eta1 = [_sine_series(self._ntau, d, self._nforDm)[0] for d in (dDm_dE, dDm_dL)]
+        rhs = numpy.empty((self._ntau, 3))
+        for kk, (i, j) in enumerate(pairs):
+            rhs[:, kk] = (
+                A2[kk]
+                - (
+                    fA_eta * eta1[i] * eta1[j]
+                    + fA_a * (a1[j] * eta1[i] + a1[i] * eta1[j])
+                    + fA_e * (e1[j] * eta1[i] + e1[i] * eta1[j])
+                )
+                - (
+                    AA_aa * a1[i] * a1[j]
+                    + AA_ae * (a1[i] * e1[j] + a1[j] * e1[i])
+                    + AA_ee * e1[i] * e1[j]
+                )
+                - AA_a * a2[kk]
+                - AA_e * e2[kk]
+            )
+        D2 = _sine_galerkin(fA, rhs, self._nforDm)
+        return {
+            "d2rp": d2p,
+            "d2ra": d2a,
+            "d2Dm": D2,
+            "dOmR": numpy.array([-dP[0] / P**2, -dP[1] / P**2]),
+            "dOmpsi": numpy.array(
+                [(dQ[0] * P - Q * dP[0]) / P**2, (dQ[1] * P - Q * dP[1]) / P**2]
+            ),
+        }
+
+    def _quadratic_node(self, ii):
+        """The ii-th explicit torus's one-node family to second order in
+        the actions: the values, first and second derivatives in (J_r, L)
+        of the turning points and the map's coefficients, and the
+        frequencies with their derivatives (the second derivatives of E(J_r,
+        L)), chained from the stored (E, L) tables through the torus's own
+        frequencies, dE = Omega_r dJ_r + Omega_psi dL, and their derivatives"""
+        OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
+        rp, ra = self._rps[ii], self._ras[ii]
+        E, L = self._Es[ii], self._Ls[ii]
+        # E(J_r, L): first derivatives are the frequencies, second
+        # derivatives from the frequencies' (E, L) derivatives
+        dOmR, dOmL = self._dOmRs[ii], self._dOmpsis[ii]
+        E_JJ = dOmR[0] * OmR
+        E_JL = dOmR[0] * OmL + dOmR[1]
+        E_LL = dOmL[0] * OmL + dOmL[1]
+
+        def chain(x1E, x1L, x2):
+            # x(E, L) with partials (x_E, x_L) and (x_EE, x_EL, x_LL) to
+            # (J_r, L) at fixed L and at fixed J_r
+            xEE, xEL, xLL = x2
+            return (
+                (x1E * OmR, x1E * OmL + x1L),
+                (
+                    xEE * OmR**2 + x1E * E_JJ,
+                    xEE * OmR * OmL + xEL * OmR + x1E * E_JL,
+                    xEE * OmL**2 + 2.0 * xEL * OmL + xLL + x1E * E_LL,
+                ),
+            )
+
+        drp = self._turning_point_derivs(rp, E, L)
+        dra = self._turning_point_derivs(ra, E, L)
+        out = {"jr": self._jrs[ii], "L": L, "rp": rp, "ra": ra, "Dm": self._Dms[ii]}
+        out["drp"], out["d2rp"] = chain(drp[0], drp[1], self._d2rps[ii])
+        out["dra"], out["d2ra"] = chain(dra[0], dra[1], self._d2ras[ii])
+        dDE, dDL, D2 = self._dDm_dEs[ii], self._dDm_dLs[ii], self._d2Dms[ii]
+        out["dDm"], out["d2Dm"] = chain(dDE, dDL, (D2[:, 0], D2[:, 1], D2[:, 2]))
+        out["Om"], out["d2E"] = (OmR, OmL), (E_JJ, E_JL, E_LL)
+        return out
+
     def _warn_unresolved(self, perr, Es, Ls):
         """Warn when the truncated map leaves the auxiliary action varying
         along a lifted torus by more than round-off allows"""
@@ -571,8 +736,21 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._OmRs = numpy.empty(ntori)
         self._Ompsis = numpy.empty(ntori)
         perr = numpy.empty(ntori)
+        self._d2rps, self._d2ras = numpy.zeros((ntori, 3)), numpy.zeros((ntori, 3))
+        self._d2Dms = numpy.zeros((ntori, self._npt, 3))
+        self._dOmRs, self._dOmpsis = numpy.zeros((ntori, 2)), numpy.zeros((ntori, 2))
         for ii in _progress(range(ntori), "node tables", self._progressbar):
             node = self._node_tables(ii)
+            if node["dDm_dE"] is not None:
+                # the second-order tables make the one-node family
+                # quadratic: an explicit torus then carries the true
+                # derivatives of the map in the actions at its node
+                so = self._second_order_tables(
+                    ii, node["dDm_dE"], node["dDm_dL"], node["OmR"], node["Ompsi"]
+                )
+                self._d2rps[ii], self._d2ras[ii] = so["d2rp"], so["d2ra"]
+                self._d2Dms[ii] = so["d2Dm"]
+                self._dOmRs[ii], self._dOmpsis[ii] = so["dOmR"], so["dOmpsi"]
             self._jrs[ii] = node["jr"]
             self._rps[ii] = node["rp"]
             self._ras[ii] = node["ra"]
@@ -694,6 +872,20 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         fixed E, by the level-set rule"""
         dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
         return 1.0 / dPhieff, -(L / r**2) / dPhieff
+
+    def _turning_point_derivs2(self, r, E, L):
+        """Closed-form second derivatives (EE, EL, LL) of a radial turning
+        point, the level-set rule differentiated once more: with S = 2(E -
+        Phi) - L^2/r^2 vanishing identically along the family, S_r r_ab +
+        S_rr r_a r_b + S_ra r_b + S_rb r_a + S_ab = 0"""
+        P1 = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
+        P2 = evaluateR2derivs(self._pot, r, 0.0, use_physical=False) + 3.0 * L**2 / r**4
+        rE, rL = 1.0 / P1, -(L / r**2) / P1
+        return (
+            -P2 * rE**2 / P1,
+            (-P2 * rE * rL + (2.0 * L / r**3) * rE) / P1,
+            (-P2 * rL**2 + (4.0 * L / r**3) * rL - 1.0 / r**2) / P1,
+        )
 
     def _setup_tori_interp(self):
         nu, nLg = len(self._us), len(self._Lgrid)
