@@ -100,6 +100,7 @@ ROTATED = {
     "actionAngleSpherical[LogHalo]",
     "actionAngleSphericalInverse",
     "actionAngleStaeckelGrid",
+    "actionAngleStaeckelInverse",
     "actionAngleStaeckel[c=False]",
     "actionAngleStaeckel[c=True]",
     "actionAngleVerticalInverse",
@@ -127,8 +128,6 @@ ROTATED = {
 # Specs not swept: one case takes minutes (an orbit integration or a stream
 # built inside the jit) or > 14 GB. Each has dedicated gradient tests.
 NOT_SWEPT = {
-    # jax.jit of its reverse-mode derivative compiles for minutes in 8-17 GB
-    "actionAngleStaeckelInverse": "test_backend_actionAngleStaeckelInverse.py",
     "streamdf": "test_backend_streamdf.py",
     "streamdf[Cint]": "test_backend_streamdf.py",
     "streamgapdf": "test_backend_streamgapdf.py",
@@ -474,6 +473,7 @@ def test_no_slow_skips():
 # ---------------------------------------------------------------------------
 VALUE_MODES = ("data", "floatcoords", "forced")
 VALUE_ROTATED = {
+    "actionAngleStaeckelInverse",
     "constantbetadf",
     "evolveddiskdf",
     "impulse_deltav_general_fullplummerintegration",
