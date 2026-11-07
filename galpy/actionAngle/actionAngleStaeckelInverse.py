@@ -2418,6 +2418,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         E = conversion.parse_energy(E, vo=self._vo)
         Lz = conversion.parse_angmom(Lz, ro=self._ro, vo=self._vo)
         I3 = conversion.parse_energy(I3, vo=self._vo)
+        xp = self._namespace(get_namespace(E, Lz, I3))
+        if xp is not numpy:
+            return self._bk_actions_from_integrals(xp, E, Lz, I3)
         if not self._interp:
             dev = (
                 numpy.fabs(self._Es - E)
@@ -4927,3 +4930,103 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 on_c = (jr == 0.0) & (jz == 0.0)
                 res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
         return tuple(match_input_dtype(t, *ins) for t in res)
+
+    def _bk_actions_from_integrals(self, xp, E, Lz, I3):
+        """_actions_from_integrals in jax/torch"""
+        ins, (E, Lz, I3) = self._bk_inputs(xp, E, Lz, I3)
+        E, Lz, I3 = (xp.reshape(t, ()) for t in (E, Lz, I3))
+
+        def floats(*ts):
+            return (float(as_numpy(stop_gradient(0.0 * E + t))) for t in ts)
+
+        if not self._interp:
+            tabs = self._bk_node_tables(xp, device_of(E))
+            dev = (
+                xp.abs(tabs["Es"] - E)
+                + xp.abs(tabs["Lzs"] - Lz)
+                + xp.abs(tabs["I3s"] - I3)
+            )
+            ii = xp.argmin(stop_gradient(dev))
+            if concretely_true(
+                dev[ii] > 1e-10 * (1.0 + xp.abs(E) + xp.abs(Lz) + xp.abs(I3))
+            ):
+                Ef, Lf, If = floats(E, Lz, I3)
+                raise ValueError(
+                    f"(E, L_z, I_3) = ({Ef}, {Lf}, {If}) is not one of the set-up "
+                    "tori; to use interpolation, initialize with setup_interp=True"
+                )
+            # the stored actions, to second order about the node in the
+            # integrals (E, I_3, L_z): their first derivatives are the period
+            # matrix, their second the second-order tables
+            d = xp.stack(
+                [E - tabs["Es"][ii], I3 - tabs["I3s"][ii], Lz - tabs["Lzs"][ii]]
+            )
+            d = d - stop_gradient(d)
+            M = xp.linalg.inv(tabs["Ns"][ii])[:2]
+            idx = asarray_on_device(
+                xp, numpy.array([0, 1, 2, 1, 3, 4, 2, 4, 5]), device_of(M)
+            )
+            H = xp.reshape(xp.take(tabs["d2Ms"][ii], idx, axis=-1), (2, 3, 3))
+            J = xp.stack([tabs["jrs"][ii], tabs["jzs"][ii]]) + M @ d + 0.5 * (H @ d) @ d
+            return tuple(match_input_dtype(t, *ins) for t in (J[0], J[1]))
+        ell = xp.abs(Lz)
+        self._bk_check_Lz(ell)
+        circ = self._bk_circular(ell)
+        Ec = circ["Ec"]
+        Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
+        tol = 1e-12 * (Emax - Ec)
+        concrete = has_concrete_truth_value(E)
+        if concrete and concretely_true((E < Ec - tol) | (E > Emax + tol)):
+            Ef, ellf, Ecf, Emf = floats(E, ell, Ec, Emax)
+            raise ValueError(
+                f"E = {Ef} outside the interpolation grid at |L_z| = {ellf}: "
+                f"[{Ecf}, {Emf}]"
+            )
+        on_c = E < Ec + tol
+        if concrete and concretely_true(on_c):
+            # the circular orbit, to the tolerance of the torus construction
+            self._check_circular()
+            zero = match_input_dtype(0.0 * E, *ins)
+            return zero, zero
+        xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
+        ylo, yhi = self._ys[0], self._ys[-1]
+        # the normalized energy from the apocentre of the planar orbit without
+        # angular momentum at E (a traced circular orbit's dead branch reads an
+        # energy inside the grid)
+        Es = xp.where(on_c, 0.5 * (Ec + Emax), xp.where(E > Emax, Emax, E))
+        R0c = self._bk_R0(Ec, circ["Rc"], self._Rinf + 0.0 * ell)
+        R0m = self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell)
+        R0 = self._bk_R0(Es, R0c, R0m)
+        x = xp.log(R0 / R0c) / xp.log(R0m / R0c)
+        x = xp.where(x > 1.0, 1.0, x)
+        if concrete and concretely_true((x < xlo - 1e-10) | (x > xhi + 1e-10)):
+            Ef, ellf, xf = floats(E, ell, x)
+            raise ValueError(
+                f"E = {Ef} outside the interpolation grid at |L_z| = {ellf}: its "
+                f"energy variable {xf:g} lies outside [{xlo:g}, {xhi:g}]"
+            )
+        dev = device_of(E)
+        ush, _ = self._bk_ushell(
+            xp,
+            lambda a: asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev),
+            concrete,
+            xp.reshape(Es, (1,)),
+            xp.reshape(ell, (1,)),
+        )
+        ush = ush[0]
+        d2 = self._delta**2
+        sh2 = xp.sinh(ush) ** 2
+        Ipl = ell**2 / (2.0 * d2) - Es
+        Ish = Es * sh2 - self._bk_U(ush) - ell**2 / (2.0 * d2 * sh2)
+        y = (I3 - Ipl) / (Ish - Ipl)
+        if concrete and concretely_true((y < ylo - 1e-10) | (y > yhi + 1e-10)):
+            If, Ef, ellf, lo, hi = floats(
+                I3, E, ell, Ipl + ylo * (Ish - Ipl), Ipl + yhi * (Ish - Ipl)
+            )
+            raise ValueError(
+                f"I_3 = {If} outside the interpolation grid at (E, |L_z|) = "
+                f"({Ef}, {ellf}): [{lo}, {hi}]"
+            )
+        A = self._A_ip.ev4(xp.clip(x, xlo, xhi), xp.clip(y, ylo, yhi), ell)[0]
+        J = (xp.where(on_c, 0.0, A[0]), xp.where(on_c, 0.0, A[1]))
+        return tuple(match_input_dtype(t, *ins) for t in J)
