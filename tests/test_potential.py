@@ -8096,6 +8096,87 @@ def test_OblateStaeckelWrapperPotential_default_u0():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_exact_reference_curve_derivatives():
+    # The U reference curve's derivatives dU/du and d2U/du2 are exact closed
+    # forms, with dR/du = delta cosh u sin v0 and dz/du = delta sinh u cos v0
+    # in place of a guarded R/tanh u: in the plane the wrapper's force equals
+    # the wrapped potential's to round-off at every radius (the guard biased
+    # it by 1e-12 / tanh u, a part in 1e9 at R = 1e-3 delta), and both
+    # derivatives agree with Richardson-extrapolated differences of U
+    from galpy.potential import (
+        HernquistPotential,
+        MiyamotoNagaiPotential,
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+        evaluateRforces,
+    )
+
+    def richardson(f, u, h):
+        c1 = (f(u + h) - f(u - h)) / (2.0 * h)
+        c2 = (f(u + 2.0 * h) - f(u - 2.0 * h)) / (4.0 * h)
+        return (4.0 * c1 - c2) / 3.0
+
+    for pot, delta in (
+        (MWPotential2014, 0.45),
+        (HernquistPotential(amp=1.0, a=0.6), 0.5),
+        (MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4),
+    ):
+        wrap = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+        # near the axis the cylindrical-to-spheroidal transform itself loses
+        # precision (u = arccosh of a cosh close to one), which bounds the
+        # agreement there; the old guard's bias was 4.5e-10 at R = 1e-3 and
+        # 4.5e-11 at R = 1e-2
+        for R, tol in (
+            (1e-3, 1e-10),
+            (1e-2, 1e-12),
+            (0.1, 1e-14),
+            (1.0, 1e-14),
+            (5.0, 1e-14),
+        ):
+            fw = wrap.Rforce(R, 0.0, use_physical=False)
+            fp = evaluateRforces(pot, R, 0.0, use_physical=False)
+            assert numpy.fabs(fw / fp - 1.0) < tol, (
+                "The Staeckel wrapper's in-plane force is not the potential's at R = %g: %g"
+                % (R, fw / fp - 1.0)
+            )
+        # the differences' own floor is 3e-8, at the second derivative near
+        # the axis of the cusped MWPotential2014, where it scales as u^-1.8
+        for u in (1e-3, 0.1, 1.0, 3.0):
+            h = 1e-3 * max(u, 1e-2)
+            for f, df in ((wrap._U, wrap._dUdu), (wrap._dUdu, wrap._d2Udu2)):
+                num, ana = richardson(f, u, h), df(u)
+                assert numpy.fabs(num - ana) < 1e-7 * numpy.fabs(ana), (
+                    "The Staeckel wrapper's reference-curve derivative does not match finite differences at u = %g: %g"
+                    % (u, numpy.fabs(num - ana) / numpy.fabs(ana))
+                )
+        # the axis itself: no division anywhere, and the axis node of a table
+        # stays finite for a cusped potential too
+        assert numpy.isfinite(wrap._dUdu(0.0)) and numpy.isfinite(wrap._d2Udu2(0.0)), (
+            "The Staeckel wrapper's reference-curve derivatives are not finite on the axis"
+        )
+    return None
+
+
+def test_OblateStaeckelWrapperPotential_exact_reference_curve_derivatives_c():
+    # The C wrapper agrees with the Python one to round-off in the plane and
+    # off it, through the forces the orbit integrator evaluates: a short
+    # integration in C and in Python from a point near the axis
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    wrap = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
+    ts = numpy.linspace(0.0, 2.0, 101)
+    oc = Orbit([0.05, 0.3, 0.2, 0.02, 0.1, 0.0])
+    op = Orbit([0.05, 0.3, 0.2, 0.02, 0.1, 0.0])
+    oc.integrate(ts, wrap, method="dop853_c")
+    op.integrate(ts, wrap, method="dop853")
+    assert (
+        numpy.amax(numpy.fabs(as_numpy(oc.R(ts)) - as_numpy(op.R(ts)))) < 1e-9
+        and numpy.amax(numpy.fabs(as_numpy(oc.z(ts)) - as_numpy(op.z(ts)))) < 1e-9
+    ), "The C and Python Staeckel wrappers integrate a near-axis orbit differently"
+    return None
+
+
 def test_OblateStaeckelWrapperPotential_againstKuzmin():
     # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
     # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
