@@ -11804,6 +11804,114 @@ def test_actionAngleStaeckelInverse_turning_point_derivatives(
     return None
 
 
+def test_actionAngleStaeckelInverse_second_order_tables():
+    # An explicit torus's one-node family is quadratic: the second
+    # derivatives of its turning points, of its two actions (the period
+    # matrix's derivatives) and of both maps' coefficients in (E, I_3, L_z),
+    # all computed from the torus alone, agree with finite differences of the
+    # first-order tables across explicit tori built at each integral +- h
+    # with the auxiliary held fixed (a one-node family fits its own
+    # isochrone, which would otherwise move between the tori), and the
+    # frequencies' derivatives in the actions, chained through the inverse
+    # period matrix, agree with finite differences of the frequencies
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import IsochronePotential
+
+    pot = _staeckel_inverse_potential()
+    h = 1e-3
+    pairs = ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))
+    for key in ("benign", "eccentric"):
+        E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
+        base = actionAngleStaeckelInverse(
+            pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], progressbar=False
+        )
+        aux = IsochronePotential(amp=base._GM, b=base._b)
+
+        def tables(da):
+            inst = actionAngleStaeckelInverse(
+                pot=pot,
+                Es=[E + da[0]],
+                Lzs=[Lz + da[2]],
+                I3s=[I3 + da[1]],
+                progressbar=False,
+                auxiliary=aux,
+            )
+            return {
+                "sup": inst._dsups[0],
+                "M": numpy.linalg.inv(inst._Ns[0])[:2],
+                "Om": inst._Ns[0][0],
+                "Dmu": inst._dDmus[0],
+                "Dmv": inst._dDmvs[0],
+            }
+
+        # Richardson-extrapolated central differences, which leave the
+        # first-order tables' own round-off as the floor
+        fd = []
+        for b in range(3):
+            da = numpy.zeros(3)
+            da[b] = h
+            t1, t2 = (tables(f * da) for f in (1.0, 2.0))
+            m1, m2 = (tables(-f * da) for f in (1.0, 2.0))
+            fd.append(
+                {
+                    k: (4.0 * (t1[k] - m1[k]) / (2.0 * h) - (t2[k] - m2[k]) / (4.0 * h))
+                    / 3.0
+                    for k in t1
+                }
+            )
+        for name, ana, tol in (
+            ("sup", base._d2sups[0], 1e-5),
+            ("M", base._d2Ms[0], 1e-5),
+            ("Dmu", base._d2Dmus[0], 1e-5),
+            # the v slopes carry the round-off of the thin libration's
+            # matching, which the differences amplify
+            ("Dmv", base._d2Dmvs[0], 2e-4),
+        ):
+            scale = numpy.maximum(numpy.fabs(ana), 1e-2 * numpy.amax(numpy.fabs(ana)))
+            worst = max(
+                numpy.amax(numpy.fabs(fd[j][name][:, i] - ana[:, kk]) / scale[:, kk])
+                for kk, (i, j) in enumerate(pairs)
+            )
+            assert worst < tol, (
+                "The second-order %s tables are not the finite differences of "
+                "the first-order ones on the %s torus: %g" % (name, key, worst)
+            )
+        # the frequencies' derivatives in the actions, through the chain:
+        # dOmega_i/dalpha_b = sum_j E_ij dJ_j/dalpha_b
+        q = base._quadratic_node(0)
+        pred = q["d2E"] @ numpy.linalg.inv(base._Ns[0])
+        num = numpy.array([fd[b]["Om"] for b in range(3)]).T
+        scale = numpy.maximum(numpy.fabs(pred), 1e-2 * numpy.amax(numpy.fabs(pred)))
+        assert numpy.amax(numpy.fabs(num - pred) / scale) < 1e-5, (
+            "The quadratic one-node family's frequency derivatives are not the "
+            "finite differences of the frequencies on the %s torus: %g"
+            % (key, numpy.amax(numpy.fabs(num - pred) / scale))
+        )
+        assert numpy.amax(
+            numpy.fabs(q["d2E"] - q["d2E"].T)
+        ) < 1e-12 and numpy.array_equal(q["Om"], base._Ns[0][0]), (
+            "The quadratic one-node family's chain to the actions is inconsistent"
+        )
+    # a torus with a degenerate libration keeps zero second-order tables and
+    # chains to vanishing derivatives of the degenerate half-width
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    aAI = actionAngleStaeckelInverse(
+        pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], progressbar=False
+    )
+    with aAI._in_chart(E, Lz):
+        Ipl = aAI._I3_planar(E, Lz)
+    aAP = actionAngleStaeckelInverse(
+        pot=pot, Es=[E], Lzs=[Lz], I3s=[Ipl], progressbar=False
+    )
+    q = aAP._quadratic_node(0)
+    assert (
+        not numpy.any(aAP._d2Dmvs[0])
+        and not numpy.any(q["dwv"])
+        and not numpy.any(q["d2wv"])
+    ), "A planar orbit's one-node family has derivatives of its v half-width"
+    return None
+
+
 def test_actionAngleStaeckelInverse_symplectic(staeckel_inverse_interp):
     # Manifest canonicity: the symplectic defect of the public map is at the
     # finite-difference floor -- measured on the analytic isochrone inverse
