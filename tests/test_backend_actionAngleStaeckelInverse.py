@@ -435,7 +435,8 @@ def test_jax_parameter_derivatives_match_torch():
     gj = jax.jacfwd(lambda p: _param_out(_param_family(p, "explicit"), "explicit"))(
         jnp.asarray(4.0)
     )
-    numpy.testing.assert_allclose(numpy.asarray(gj), g, rtol=0.0, atol=1e-11)
+    # two backends' round-off through the construction: 1.8e-11 on CI
+    numpy.testing.assert_allclose(numpy.asarray(gj), g, rtol=0.0, atol=5e-11)
 
 
 # ---------- jit, vmap, compile, float32
@@ -645,13 +646,18 @@ def test_adaptive_and_target():
         ),
         (
             dict(u0=lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E),
-            [(0.06, 0.93, 0.10), (0.15, 1.21, 0.03)],
+            [(0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.0, 1.1, 0.0)],
         ),
         (
             dict(target=o(ts), Rmin=0.75, Rmax=1.25, Rinf=3.0),
             [(0.0385, 1.1025, 0.01266)],
         ),
+        (
+            dict(target=o(ts), u0="fit", Rmin=0.75, Rmax=1.25, Rinf=3.0),
+            [(0.0385, 1.1025, 0.01266)],
+        ),
     ]
+    fams = []
     for kw, tori in cases:
         aN = _interp(**kw)
         with gb.use("torch", force=True):
@@ -673,6 +679,39 @@ def test_adaptive_and_target():
                 rtol=0.0,
                 atol=3e-11,
             )
+        fams.append(aB)
+    # the target's checks: its box excludes the faces and the circular orbit
+    loc, (jr, lz, jz) = fams[2], (0.0385, 1.1025, 0.01266)
+    with pytest.raises(ValueError, match="does not reach"):
+        loc(0.0, lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="does not reach"):
+        loc(jr, lz, 0.0, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="circular face"):
+        loc.Freqs(0.0, lz, 0.0)
+    # the target orbit's (E, L_z, I_3), with E inside [E_c, E_max] but outside
+    # the box
+    E, Lz, I3 = -1.465095655583749, 1.1025, 1.8591431356904407
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        loc.JR(E + 0.1, Lz, I3)
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        loc.JR(E, Lz, I3 + 0.5)
+    numpy.testing.assert_allclose(
+        float(as_numpy(loc.JR(E, Lz, I3))), jr, rtol=0.0, atol=1e-4
+    )
+    # a padding that reaches beyond Rinf (two tori: one has no spread to pad)
+    o2 = Orbit([0.9, -0.1, 1.15, -0.05, 0.1, 0.0])
+    o2.integrate(ts, _pot())
+    rows = numpy.vstack(
+        [
+            numpy.array([p(ts).R(), p(ts).vR(), p(ts).vT(), p(ts).z(), p(ts).vz()]).T
+            for p in (o, o2)
+        ]
+    )
+    with gb.use("torch", force=True):
+        with pytest.raises(ValueError, match="beyond Rinf"):
+            _interp(target=rows, target_pad=50.0, Rmin=0.75, Rmax=1.25, Rinf=3.0)
+        with pytest.raises(ValueError, match="increase Rinf"):
+            _interp(target=[1.0, 0.9, 1.0, 0.3, 0.9], Rmin=0.75, Rmax=1.25, Rinf=1.3)
     if jax is not None:
 
         def traced(p):
@@ -726,3 +765,60 @@ def test_backend_construction_checks(backend):
             _explicit(auxiliary=_pot())
         with pytest.warns(galpyWarning, match="not converged for the"):
             _explicit(mm_npt=4, mm_nta=40)
+        # test_actionAngle.py's deep radial orbit, whose lift with two
+        # harmonics is unbound
+        deep = (-0.25500291609372505, 0.15, 0.2685635457298501)
+        with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+            _explicit(labels=[deep], mm_npt=2, mm_nta=16)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_evaluation_checks(backend, interp, explicit):
+    # the evaluation's checks on backend inputs, as on numpy
+    def a(*xs):
+        return tuple(_arr(backend, x) for x in xs)
+
+    E, Lz, I3 = _LABELS[0]
+    ang = a(0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="could not be matched.*increase Rinf"):
+        interp(*a(50.0, 0.93, 0.1), *ang)  # J_R outside the family
+    with pytest.raises(ValueError, match="above the covered"):
+        interp(*a(0.0, 0.93, 50.0), *ang)  # J_z outside, on the shell face
+    with pytest.raises(ValueError, match="non-negative"):
+        interp(*a(-0.1, 0.93, 0.1), *ang)
+    with pytest.raises(ValueError, match="L_z = 0"):
+        interp(*a(0.1, 0.0, 0.1), *ang)
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        interp.JR(*a(-10.0, 0.93, I3))  # below the circular orbit's energy
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        interp.Jz(*a(E, 0.93, I3 + 10.0))  # above the shell orbit's I_3
+    Ec = interp._circular(0.93)["Ec"]
+    assert float(as_numpy(interp.JR(*a(Ec, 0.93, I3)))) == 0.0
+    assert float(as_numpy(interp.Jz(*a(Ec, 0.93, I3)))) == 0.0
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        explicit.Freqs(*a(0.123, 0.4, 0.2))
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        explicit(*a(0.123, 0.4, 0.2), *ang)
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        explicit.Freqs(*a(0.0, 0.4, 0.0))  # a circular request that is not a node
+    with pytest.raises(ValueError, match="not one of the set-up tori"):
+        explicit.JR(*a(E + 0.1, Lz, I3))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_maxiter_fallback(interp, explicit):
+    # with maxiter=0 the angle solve takes the safeguarded steps and agrees
+    # with Newton (torch: under eager jax these steps take minutes; the
+    # forced-jax run of test_actionAngle.py's maxiter test covers jax)
+    angler = torch.tensor(numpy.linspace(0.05, 6.2, 11))
+    jr, jz = (float(as_numpy(t)) for t in (explicit._jrs[0], explicit._jzs[0]))
+    for aA, J in ((interp, (0.06, 0.93, 0.10)), (explicit, (jr, _LABELS[0][1], jz))):
+        fb = copy.copy(aA)
+        fb._maxiter = 0
+        J = tuple(torch.tensor(j) for j in J)
+        numpy.testing.assert_allclose(
+            _flat(fb(*J, angler, 1.0, 2.0)),
+            _flat(aA(*J, angler, 1.0, 2.0)),
+            rtol=0.0,
+            atol=1e-9,
+        )

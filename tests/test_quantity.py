@@ -14045,7 +14045,9 @@ def test_actionAngleStaeckelInverse_units():
         x = numpy.atleast_1d(x)[0]
         return x.to(unit).value if isinstance(x, units.Quantity) else x
 
-    jr, jz = aASC_int.JR(E, Lz, I3), aASC_int.Jz(E, Lz, I3)
+    # host values: a jax array times a Quantity drops the units
+    jr = numpy.atleast_1d(as_numpy(aASC_int.JR(E, Lz, I3)))[0]
+    jz = numpy.atleast_1d(as_numpy(aASC_int.Jz(E, Lz, I3)))[0]
     for name, val in (("JR", jr), ("Jz", jz)):
         assert (
             numpy.fabs(
