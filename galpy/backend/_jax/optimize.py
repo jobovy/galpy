@@ -113,6 +113,23 @@ def _bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
     return 0.5 * (lo + hi)
 
 
+def iterate_to_fixed_point(step, x0, n):
+    """jax half of optimize.iterate_to_fixed_point: a lax.while_loop that stops
+    once a step leaves x unchanged (or after n steps)."""
+    import jax
+    import jax.numpy as jnp
+
+    def body(c):
+        i, x, _ = c
+        x1 = step(x)
+        return i + 1, x1, jnp.all(x1 == x)
+
+    _, x, _ = jax.lax.while_loop(
+        lambda c: (c[0] < n) & ~c[2], body, (0, x0, jnp.asarray(False))
+    )
+    return x
+
+
 def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
     """jax half of optimize.fixed_point: del2 on stop_gradient'd args (a
     lax.while_loop when tracing), then the implicit-function step."""
