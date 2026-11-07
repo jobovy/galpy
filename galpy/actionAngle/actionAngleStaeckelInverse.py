@@ -60,6 +60,7 @@ from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _antiderivative_xp,
     _bk_matching,
+    _const,
     _IsochroneAuxiliary,
     _ns,
     _offset_spec_coeffs,
@@ -2893,7 +2894,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         if not self._interp:
             Es, Lzs, I3s = f64(self._Es), f64(self._Lzs), f64(self._I3s)
             ell = xp.abs(Lzs)
-            Rc = rl(self._staeckelwrap, ell, use_physical=False)
+            Rc = rl(self._bk_plane_pot(), ell, use_physical=False)
             Ec = self._bk_Phi(Rc) + ell**2 / (2.0 * Rc**2)
             tolE = 1e-12 * (1.0 + xp.abs(Ec))
             if concrete and concretely_true(xp.any(Es < Ec - tolE)):
@@ -2923,29 +2924,32 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             sn2 = xp.sin(v) ** 2
             return 2.0 * d2 * (E * sn2 + V(v) + I) - L**2 / sn2
 
-        def dWu(u, E, L):
+        # the momenta's slopes and curvatures, given U', U'' (V', V'') at the
+        # point: those are evaluated once below for every point the tables
+        # use (a reverse-mode trace differentiates each evaluation)
+        def dWu(u, E, L, U1):
             return (
-                2.0 * d2 * (E * xp.sinh(2.0 * u) - U(u, 1))
+                2.0 * d2 * (E * xp.sinh(2.0 * u) - U1)
                 + 2.0 * L**2 * xp.cosh(u) / xp.sinh(u) ** 3
             )
 
-        def dWv(v, E, L):
+        def dWv(v, E, L, V1):
             return (
-                2.0 * d2 * (E * xp.sin(2.0 * v) + V(v, 1))
+                2.0 * d2 * (E * xp.sin(2.0 * v) + V1)
                 + 2.0 * L**2 * xp.cos(v) / xp.sin(v) ** 3
             )
 
-        def d2Wu(u, E, L):
+        def d2Wu(u, E, L, U2):
             sh2 = xp.sinh(u) ** 2
             return (
-                2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - U(u, 2))
+                2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - U2)
                 - L**2 * (6.0 + 4.0 * sh2) / sh2**2
             )
 
-        def d2Wv(v, E, L):
+        def d2Wv(v, E, L, V2):
             sn2 = xp.sin(v) ** 2
             return (
-                2.0 * d2 * (2.0 * E * xp.cos(2.0 * v) + V(v, 2))
+                2.0 * d2 * (2.0 * E * xp.cos(2.0 * v) + V2)
                 - 2.0 * L**2 * (3.0 - 2.0 * sn2) / sn2**2
             )
 
@@ -3014,6 +3018,20 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         jz_s = xp.mean(pv * col(wv_s) * st, axis=-1)
         jr = xp.where(udeg, 0.0, jr_s)
         jz = xp.where(vdeg, 0.0, jz_s)
+        # U', U'' at the shell, the turning points (also as the midpoint and
+        # half-width give them back) and the samples; V', V'' at the midplane,
+        # the turning point (likewise) and the samples
+        cat = getattr(xp, "concat", None) or xp.concatenate
+        half_pi = 0.5 * numpy.pi + 0.0 * Es
+        upts = cat(
+            [col(t) for t in (ush, umin, umax, uc_s - wu_s, uc_s + wu_s)] + [u],
+            axis=-1,
+        )
+        vpts = cat(
+            [col(t) for t in (half_pi, vmin, 0.5 * numpy.pi - wv_s)] + [v], axis=-1
+        )
+        U1s, U2s = U(upts, 1), U(upts, 2)
+        V1s, V2s = V(vpts, 1), V(vpts, 2)
         # ----- the auxiliary (as _setup_auxiliary and _fit_auxiliary)
         if auxiliary is not None:
             if not isinstance(auxiliary, IsochronePotential):
@@ -3096,7 +3114,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             axis=-1,
         )
         shs2 = xp.sinh(ush) ** 2
-        d2Wush = d2Wu(ush, Es, Lzs)
+        d2Wush = d2Wu(ush, Es, Lzs, U2s[:, 0])
         sqbu = xp.sqrt(xp.where(udeg, -0.5 * d2Wush, 1.0))
         M0_h = xp.stack([d2 * shs2, -d2 + 0.0 * shs2, -Lzs / shs2], axis=-1) / col(sqbu)
         M0 = xp.where(col(udeg), M0_h, M0_s)
@@ -3110,26 +3128,25 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             ],
             axis=-1,
         )
-        half_pi = 0.5 * numpy.pi + 0.0 * Es
-        sqbv = xp.sqrt(xp.where(vdeg, -0.5 * d2Wv(half_pi, Es, Lzs), 1.0))
+        sqbv = xp.sqrt(xp.where(vdeg, -0.5 * d2Wv(half_pi, Es, Lzs, V2s[:, 0]), 1.0))
         M1_h = xp.stack([d2 + 0.0 * Lzs, d2 + 0.0 * Lzs, -Lzs], axis=-1) / col(sqbv)
         M1 = xp.where(col(vdeg), M1_h, M1_s)
 
-        def tp_u(uu, E):
+        def tp_u(uu, E, U1):
             s2 = xp.sinh(uu) ** 2
             return -xp.stack(
                 [2.0 * d2 * s2, -2.0 * d2 + 0.0 * s2, -2.0 * Lzs / s2], axis=-1
-            ) / col(dWu(uu, E, Lzs))
+            ) / col(dWu(uu, E, Lzs, U1))
 
-        def tp_v(vv, E):
+        def tp_v(vv, E, V1):
             s2 = xp.sin(vv) ** 2
             return -xp.stack(
                 [2.0 * d2 * s2, 2.0 * d2 + 0.0 * s2, -2.0 * Lzs / s2], axis=-1
-            ) / col(dWv(vv, E, Lzs))
+            ) / col(dWv(vv, E, Lzs, V1))
 
-        d_in, d_out = tp_u(umin, Es_s), tp_u(umax, Es_s)
+        d_in, d_out = tp_u(umin, Es_s, U1s[:, 1]), tp_u(umax, Es_s, U1s[:, 2])
         dsup0_s, dsup1_s = 0.5 * (d_in + d_out), 0.5 * (d_out - d_in)
-        dsup2_s = -tp_v(vmin, Es_s)
+        dsup2_s = -tp_v(vmin, Es_s, V1s[:, 1])
         dush = xp.stack(
             [
                 -2.0 * d2 * xp.sinh(2.0 * ush) / d2Wush,
@@ -3151,43 +3168,45 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         N = xp.linalg.inv(xp.stack([M0, M1, e3 + 0.0 * M0], axis=1))
         sgnL = xp.stack([0.0 * Lzs, 0.0 * Lzs, xp.sign(Lzs)], axis=-1)
         # the u map's slopes (as _map_slopes_u)
-        dWdu = dWu(u, col(Es_s), col(Lzs))
+        dWdu = dWu(u, col(Es_s), col(Lzs), U1s[:, 5:])
         dWda = (2.0 * d2 * sh2u, -2.0 * d2 + 0.0 * u, -2.0 * col(Lzs) / sh2u)
         _, FAa, FAe = self._auxiliary_cumulative(ac, ec, etau)
         fAeta = self._auxiliary_flux_derivs(ac, ec, etau)[0]
         dL_u = M1 + sgnL
-        rhs = []
-        for k in range(3):
-            du = dsup0_s[:, k : k + 1] - dsup1_s[:, k : k + 1] * ct
-            dft = (dWda[k] + dWdu * du) / (2.0 * pu) * (col(wu_s) * st) + pu * dsup1_s[
-                :, k : k + 1
-            ] * st
-            _, _, da, de = self._auxiliary_orbital_param_chains(
-                jr_s, L_u, M0_s[:, k], dL_u[:, k]
-            )
-            rhs.append(
-                self._bk_cumulative(xp, tau, dft) - FAa * col(da) - FAe * col(de)
-            )
-        dDmu_s = _sine_galerkin_xp(xp, fAeta, xp.stack(rhs, axis=-1), self._nforDm)
+
+        def lead(a):  # (n, 3) -> (3, n, 1): the three chains along an axis
+            return xp.permute_dims(a, (1, 0))[..., None]
+
+        du = lead(dsup0_s) - lead(dsup1_s) * ct
+        dft = (xp.stack(dWda) + dWdu * du) / (2.0 * pu) * (col(wu_s) * st) + pu * lead(
+            dsup1_s
+        ) * st
+        _, _, da, de = self._auxiliary_orbital_param_chains(
+            jr_s, L_u, lead(M0_s)[..., 0], lead(dL_u)[..., 0]
+        )
+        rhs = (
+            self._bk_cumulative(xp, tau, dft)
+            - FAa * da[..., None]
+            - FAe * de[..., None]
+        )
+        dDmu_s = _sine_galerkin_xp(
+            xp, fAeta, xp.permute_dims(rhs, (1, 2, 0)), self._nforDm
+        )
         # the v map's slopes (as _map_slopes_v)
-        dWdv = dWv(v, col(Es_s), col(Lzs))
+        dWdv = dWv(v, col(Es_s), col(Lzs), V1s[:, 3:])
         dWda = (2.0 * d2 * sn2v, 2.0 * d2 + 0.0 * v, -2.0 * col(Lzs) / sn2v)
         _, FL, Fc = self._aux_vcumulative(Lc, cc, zeta)
         fAzeta = self._aux_vflux(Lc, cc, zeta)
         dL_v = M1_s + sgnL
         dc = 2.0 * col(Lzs**2 / L_v**3) * dL_v - 2.0 * col(Lzs / L_v**2) * e3
-        rhs = []
-        for k in range(3):
-            dv = -dsup2_s[:, k : k + 1] * ct
-            dft = (dWda[k] + dWdv * dv) / (2.0 * pv) * (col(wv_s) * st) + pv * dsup2_s[
-                :, k : k + 1
-            ] * st
-            rhs.append(
-                self._bk_cumulative(xp, tau, dft)
-                - FL * col(dL_v[:, k])
-                - Fc * col(dc[:, k])
-            )
-        dDmv_s = _sine_galerkin_xp(xp, fAzeta, xp.stack(rhs, axis=-1), self._nforDmv)
+        dv = -lead(dsup2_s) * ct
+        dft = (xp.stack(dWda) + dWdv * dv) / (2.0 * pv) * (col(wv_s) * st) + pv * lead(
+            dsup2_s
+        ) * st
+        rhs = self._bk_cumulative(xp, tau, dft) - FL * lead(dL_v) - Fc * lead(dc)
+        dDmv_s = _sine_galerkin_xp(
+            xp, fAzeta, xp.permute_dims(rhs, (1, 2, 0)), self._nforDmv
+        )
         # the degenerate librations, and NaN for a torus that does not exist
         poison = xp.where(unbound | unbound_lift, numpy.nan, 0.0)
         jr = jr + poison
@@ -3251,6 +3270,10 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             "dWv": dWv,
             "d2Wu": d2Wu,
             "d2Wv": d2Wv,
+            "U1": U1s,
+            "U2": U2s,
+            "V1": V1s,
+            "V2": V2s,
         }
         if not self._interp:
             so = self._bk_second_order_tables(xp, lib)
@@ -3316,6 +3339,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 vdeg=vdeg,
                 d2Wu=d2Wu,
                 d2Wv=d2Wv,
+                U2sh=U2s[:, 0],
+                V2mid=V2s[:, 0],
             ),
         )
         self._bk.update({"xp": xp, "dev": dev})
@@ -3340,7 +3365,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             numpy.linspace(0.0, 1.0, 25)
         )
         rf = cat([xp.reshape(rlo, (1,)), xp.exp(lnr[1:-1]), xp.reshape(rhi, (1,))])
-        vc2 = vcirc(self._staeckelwrap, rf, use_physical=False) ** 2
+        vc2 = vcirc(self._bk_plane_pot(), rf, use_physical=False) ** 2
         x0 = xp.log(xp.stack([rhi * vc2[-1], 0.1 * xp.sqrt(rlo * rhi)]))
         packed = stop_gradient(cat([x0, rf, xp.log(vc2)]))
         if concrete:
@@ -3362,10 +3387,10 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 "of the grid"
             )
         cat = getattr(xp, "concat", None) or xp.concatenate
-        wrap, d2 = self._staeckelwrap, self._delta**2
+        plane, d2 = self._bk_plane_pot(), self._delta**2
         self._Rinf = Rinf
         RR = f64([Rmin, Rmax])
-        LL = RR * vcirc(wrap, RR, use_physical=False)
+        LL = RR * vcirc(plane, RR, use_physical=False)
         Phiinf = self._bk_Phi(f64([Rinf]))[0]
         if self._target is not None:
             box = self._bk_target_box(xp, f64, concrete, LL, Phiinf)
@@ -3386,7 +3411,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._wEs, self._wIs, self._ys = wEs, wIs, ys
         # the circular orbits and the edges' apocentres (as _R0_edges), and
         # the energies (as _E_of_xL)
-        Rc = rl(wrap, Lzgrid, use_physical=False)
+        Rc = rl(plane, Lzgrid, use_physical=False)
         Ec = self._bk_Phi(Rc) + Lzgrid**2 / (2.0 * Rc**2)
         Emax = Phiinf + Lzgrid**2 / (2.0 * Rinf**2)
         R0c = _backend_brentq(
@@ -3453,7 +3478,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             "u0s": (per_torus(self._bk_u0(Etab, Lg)) if self._adaptive else None),
             "Lzgrid": Lzgrid,
             "Rcg": Rc,
-            "kappa": epifreq(wrap, Rc, use_physical=False),
+            "kappa": epifreq(plane, Rc, use_physical=False),
             "Phiinf": Phiinf,
             "dE_dx": dE_dx,
             "dE_dL": dE_dL,
@@ -3496,7 +3521,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 pot=self._chart_pot, delta=self._delta, u0=self._bk_u0(Eraw, Lz)
             )
         E = stop_gradient(kin + _evaluatePotentials(wrap, R, z))
-        Rc = rl(self._staeckelwrap, Lz, use_physical=False)
+        Rc = rl(self._bk_plane_pot(), Lz, use_physical=False)
         Ec = self._bk_Phi(Rc) + Lz**2 / (2.0 * Rc**2)
         Emax = Phiinf + Lz**2 / (2.0 * Rinf**2)
         if concretely_true(xp.any(E > Emax)):
@@ -3535,7 +3560,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         Lzs, wEs, wIs = (numpy.array(as_numpy(stop_gradient(t))) for t in (Lz, wE, wI))
         Lmin, Lmax = (float(as_numpy(stop_gradient(t))) for t in (LL[0], LL[1]))
         Lzbox = self._pad_box(Lzs, Lmin, Lmax, False)
-        Rtop = rl(self._staeckelwrap, f64([Lzbox[1]]), use_physical=False)
+        Rtop = rl(self._bk_plane_pot(), f64([Lzbox[1]]), use_physical=False)
         if float(as_numpy(stop_gradient(Rtop))[0]) >= Rinf:
             raise ValueError(
                 "the target's padded L_z range reaches circular orbits beyond "
@@ -3626,7 +3651,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         sqbu_c = rs(
             xp.sqrt(
                 xp.where(
-                    t["circ"], -0.5 * t["d2Wu"](flat(ucc), flat(Ec), flat(Lz)), 1.0
+                    t["circ"],
+                    -0.5 * t["d2Wu"](flat(ucc), flat(Ec), flat(Lz), t["U2sh"]),
+                    1.0,
                 )
             )
         )
@@ -3635,7 +3662,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 xp.where(
                     t["circ"],
                     -0.5
-                    * t["d2Wv"](0.5 * numpy.pi + 0.0 * flat(Ec), flat(Ec), flat(Lz)),
+                    * t["d2Wv"](
+                        0.5 * numpy.pi + 0.0 * flat(Ec), flat(Ec), flat(Lz), t["V2mid"]
+                    ),
                     1.0,
                 )
             )
@@ -3768,77 +3797,76 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         M0, M1 = lib["M0"], lib["M1"]
         ds0, ds1, ds2 = lib["dsup0"], lib["dsup1"], lib["dsup2"]
         dWu, dWv, d2Wu, d2Wv = (lib[k] for k in ("dWu", "dWv", "d2Wu", "d2Wv"))
+        U1, U2, V1, V2 = (lib[k] for k in ("U1", "U2", "V1", "V2"))
         ell = xp.abs(Lz)
         L = jz + ell
         c = jz * (jz + 2.0 * ell) / L**2
         pairs = ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2))
+        # the six pairs along an axis, each array once rather than once per
+        # pair: their first and second indices, and the (2, 2) one's mask
+        I_, J_ = (_const(xp, numpy.array(t), tau) for t in zip(*pairs))
+        LL = _const(xp, numpy.array([float(i == j == 2) for i, j in pairs]), tau)
 
         def col(a):
             return a[:, None]
 
+        def lead(a):  # (n, k) -> (k, n, 1): the pairs or the chains first
+            return xp.permute_dims(a, (1, 0))[..., None]
+
         def tp2(S_q, S_qq, S_qa, S_LL, q1):
             # the level-set rule differentiated once more (n tori)
-            return xp.stack(
-                [
-                    -(
-                        S_qq * q1[:, i] * q1[:, j]
-                        + S_qa[i] * q1[:, j]
-                        + S_qa[j] * q1[:, i]
-                        + (S_LL if i == j == 2 else 0.0)
-                    )
-                    / S_q
-                    for i, j in pairs
-                ],
+            Sqa = xp.stack(S_qa, axis=-1)
+            qi, qj = xp.take(q1, I_, axis=-1), xp.take(q1, J_, axis=-1)
+            return -(
+                col(S_qq) * qi * qj
+                + xp.take(Sqa, I_, axis=-1) * qj
+                + xp.take(Sqa, J_, axis=-1) * qi
+                + col(S_LL) * LL
+            ) / col(S_q)
+
+        def libration(p, w, Q1, W1, Q2, W2, S_q, S_qq, S_a, S_qa, S_LL):
+            # the first-order chains Q1 (3, n, ntau) and W1 (3, n, 1), the
+            # second-order Q2 (6, n, ntau) and W2 (6, n, 1): M2 (n, 6) and
+            # A2 (6, n, ntau)
+            qtau = col(w) * st
+            Sa, Sqa = xp.stack(S_a), xp.stack(S_qa)
+            N1 = Sa + S_q * Q1
+            q1i, q1j = xp.take(Q1, I_, axis=0), xp.take(Q1, J_, axis=0)
+            N1i, N1j = xp.take(N1, I_, axis=0), xp.take(N1, J_, axis=0)
+            w1i, w1j = xp.take(W1, I_, axis=0), xp.take(W1, J_, axis=0)
+            S_ab = LL[:, None, None] * S_LL
+            Sqai = xp.take(Sqa, I_, axis=0)
+            N2 = (
+                S_ab
+                + Sqai * q1j
+                + xp.take(Sqa, J_, axis=0) * q1i
+                + S_qq * q1i * q1j
+                + S_q * Q2
+            )
+            M2 = xp.mean(
+                (S_ab + Sqai * q1j) * qtau / (2.0 * p)
+                + xp.take(Sa, I_, axis=0)
+                * (w1j * st / (2.0 * p) - qtau * N1j / (4.0 * p**3)),
                 axis=-1,
             )
-
-        def libration(q, p, w, q1, w1, q2, w2, S_q, S_qq, S_a, S_qa, S_LL):
-            qtau = col(w) * st
-            N1 = [S_a[i] + S_q * q1[i] for i in range(3)]
-            M2, A2 = [], []
-            for kk, (i, j) in enumerate(pairs):
-                S_ab = S_LL if i == j == 2 else 0.0 * q
-                N2 = (
-                    S_ab
-                    + S_qa[i] * q1[j]
-                    + S_qa[j] * q1[i]
-                    + S_qq * q1[i] * q1[j]
-                    + S_q * q2[kk]
-                )
-                M2.append(
-                    xp.mean(
-                        (S_ab + S_qa[i] * q1[j]) * qtau / (2.0 * p)
-                        + S_a[i]
-                        * (
-                            col(w1[:, j]) * st / (2.0 * p) - qtau * N1[j] / (4.0 * p**3)
-                        ),
-                        axis=-1,
-                    )
-                )
-                A2.append(
-                    self._bk_cumulative(
-                        xp,
-                        tau,
-                        (
-                            N2 * qtau
-                            + (N1[i] * col(w1[:, j]) + N1[j] * col(w1[:, i])) * st
-                        )
-                        / (2.0 * p)
-                        - N1[i] * N1[j] * qtau / (4.0 * p**3)
-                        + p * col(w2[:, kk]) * st,
-                    )
-                )
-            return xp.stack(M2, axis=-1), xp.stack(A2, axis=-1)
+            A2 = self._bk_cumulative(
+                xp,
+                tau,
+                (N2 * qtau + (N1i * w1j + N1j * w1i) * st) / (2.0 * p)
+                - N1i * N1j * qtau / (4.0 * p**3)
+                + p * W2 * st,
+            )
+            return xp.permute_dims(M2, (1, 0)), A2
 
         # the u libration: both turning points, then the midpoint and the
         # half-width
         uc, wu, wv = lib["uc"], lib["wu"], lib["wv"]
         d2tp = []
-        for ut, dut in ((uc - wu, ds0 - ds1), (uc + wu, ds0 + ds1)):
+        for k, ut, dut in ((3, uc - wu, ds0 - ds1), (4, uc + wu, ds0 + ds1)):
             d2tp.append(
                 tp2(
-                    dWu(ut, E, Lz),
-                    d2Wu(ut, E, Lz),
+                    dWu(ut, E, Lz, U1[:, k]),
+                    d2Wu(ut, E, Lz, U2[:, k]),
                     (
                         2.0 * d2 * xp.sinh(2.0 * ut),
                         0.0 * ut,
@@ -3853,15 +3881,14 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         sh2 = xp.sinh(u) ** 2
         cE, cL = col(E), col(Lz)
         M2u, A2u = libration(
-            u,
             pu,
             wu,
-            [col(ds0[:, k]) - col(ds1[:, k]) * ct for k in range(3)],
-            ds1,
-            [col(uc2[:, kk]) - col(wu2[:, kk]) * ct for kk in range(6)],
-            wu2,
-            dWu(u, cE, cL),
-            d2Wu(u, cE, cL),
+            lead(ds0) - lead(ds1) * ct,
+            lead(ds1),
+            lead(uc2) - lead(wu2) * ct,
+            lead(wu2),
+            dWu(u, cE, cL, U1[:, 5:]),
+            d2Wu(u, cE, cL, U2[:, 5:]),
             (2.0 * d2 * sh2, -2.0 * d2 + 0.0 * u, -2.0 * cL / sh2),
             (
                 2.0 * d2 * xp.sinh(2.0 * u),
@@ -3873,8 +3900,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         # the v libration: its turning point, then the half-width
         vt = 0.5 * numpy.pi - wv
         wv2 = -tp2(
-            dWv(vt, E, Lz),
-            d2Wv(vt, E, Lz),
+            dWv(vt, E, Lz, V1[:, 2]),
+            d2Wv(vt, E, Lz, V2[:, 2]),
             (
                 2.0 * d2 * xp.sin(2.0 * vt),
                 0.0 * vt,
@@ -3886,15 +3913,14 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         v, pv = lib["v"], lib["pv"]
         sn2 = xp.sin(v) ** 2
         M2v, A2v = libration(
-            v,
             pv,
             wv,
-            [-col(ds2[:, k]) * ct for k in range(3)],
-            ds2,
-            [-col(wv2[:, kk]) * ct for kk in range(6)],
-            wv2,
-            dWv(v, cE, cL),
-            d2Wv(v, cE, cL),
+            -lead(ds2) * ct,
+            lead(ds2),
+            -lead(wv2) * ct,
+            lead(wv2),
+            dWv(v, cE, cL, V1[:, 3:]),
+            d2Wv(v, cE, cL, V2[:, 3:]),
             (2.0 * d2 * sn2, 2.0 * d2 + 0.0 * v, -2.0 * cL / sn2),
             (
                 2.0 * d2 * xp.sin(2.0 * v),
@@ -3909,20 +3935,18 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         J1, J2 = M0, M2u
         L1 = M1 + xp.stack([0.0 * Lz, 0.0 * Lz, xp.sign(Lz)], axis=-1)
         L2 = M2v
+        J1i, J1j = xp.take(J1, I_, axis=-1), xp.take(J1, J_, axis=-1)
+        L1i, L1j = xp.take(L1, I_, axis=-1), xp.take(L1, J_, axis=-1)
 
         def chain2(d):
             dJ, dL, dJJ, dJL, dLL = (col(q + 0.0 * jr) for q in d)
             first = dJ * J1 + dL * L1
-            second = xp.stack(
-                [
-                    dJJ[:, 0] * J1[:, i] * J1[:, j]
-                    + dJL[:, 0] * (J1[:, i] * L1[:, j] + J1[:, j] * L1[:, i])
-                    + dLL[:, 0] * L1[:, i] * L1[:, j]
-                    + dJ[:, 0] * J2[:, kk]
-                    + dL[:, 0] * L2[:, kk]
-                    for kk, (i, j) in enumerate(pairs)
-                ],
-                axis=-1,
+            second = (
+                dJJ * J1i * J1j
+                + dJL * (J1i * L1j + J1j * L1i)
+                + dLL * L1i * L1j
+                + dJ * J2
+                + dL * L2
             )
             return first, second
 
@@ -3934,63 +3958,56 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         fA, fA_eta = self._auxiliary_flux_eta(a, e, eta)
         _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, eta)
         ntau = tau.shape[-1]
-        eta1 = [
-            _sine_series_xp(xp, ntau, lib["dDmu"][..., k], self._nforDm)[0]
-            for k in range(3)
-        ]
-        rhs = []
-        for kk, (i, j) in enumerate(pairs):
-            ai, aj, ei, ej = col(a1[:, i]), col(a1[:, j]), col(e1[:, i]), col(e1[:, j])
-            rhs.append(
-                A2u[..., kk]
-                - (
-                    fA_eta * eta1[i] * eta1[j]
-                    + fA_a * (aj * eta1[i] + ai * eta1[j])
-                    + fA_e * (ej * eta1[i] + ei * eta1[j])
-                )
-                - (AA_aa * ai * aj + AA_ae * (ai * ej + aj * ei) + AA_ee * ei * ej)
-                - AA_a * col(a2[:, kk])
-                - AA_e * col(e2[:, kk])
+        eta1 = _sine_series_xp(
+            xp, ntau, xp.permute_dims(lib["dDmu"], (2, 0, 1)), self._nforDm
+        )[0]
+        eti, etj = xp.take(eta1, I_, axis=0), xp.take(eta1, J_, axis=0)
+        ai, aj = xp.take(lead(a1), I_, axis=0), xp.take(lead(a1), J_, axis=0)
+        ei, ej = xp.take(lead(e1), I_, axis=0), xp.take(lead(e1), J_, axis=0)
+        rhs = (
+            A2u
+            - (
+                fA_eta * eti * etj
+                + fA_a * (aj * eti + ai * etj)
+                + fA_e * (ej * eti + ei * etj)
             )
-        D2u = _sine_galerkin_xp(xp, fA, xp.stack(rhs, axis=-1), self._nforDm)
+            - (AA_aa * ai * aj + AA_ae * (ai * ej + aj * ei) + AA_ee * ei * ej)
+            - AA_a * lead(a2)
+            - AA_e * lead(e2)
+        )
+        D2u = _sine_galerkin_xp(xp, fA, xp.permute_dims(rhs, (1, 2, 0)), self._nforDm)
         # the v map: the auxiliary's polar libration through (L, c), with
         # c = 1 - L_z^2/L^2 to second order
-        dLz = (0.0, 0.0, 1.0)
+        dLzI, dLzJ = (
+            _const(xp, numpy.array([float(k == 2) for k in t]), tau)
+            for t in zip(*pairs)
+        )
         e3 = xp.stack([0.0 * Lz, 0.0 * Lz, 1.0 + 0.0 * Lz], axis=-1)
         c1 = col(2.0 * Lz**2 / L**3) * L1 - col(2.0 * Lz / L**2) * e3
-        c2 = xp.stack(
-            [
-                2.0 * Lz**2 / L**3 * L2[:, kk]
-                - 6.0 * Lz**2 / L**4 * L1[:, i] * L1[:, j]
-                + 4.0 * Lz / L**3 * (dLz[i] * L1[:, j] + dLz[j] * L1[:, i])
-                - 2.0 / L**2 * dLz[i] * dLz[j]
-                for kk, (i, j) in enumerate(pairs)
-            ],
-            axis=-1,
+        c2 = (
+            col(2.0 * Lz**2 / L**3) * L2
+            - col(6.0 * Lz**2 / L**4) * L1i * L1j
+            + col(4.0 * Lz / L**3) * (dLzI * L1j + dLzJ * L1i)
+            - col(2.0 / L**2) * dLzI * dLzJ
         )
         zeta = lib["zeta"]
         Lcol, ccol = col(L), col(c)
         fv, fv_z, fv_L, fv_c = self._aux_vflux_derivs(Lcol, ccol, zeta)
         _, Av_L, Av_c, Av_LL, Av_Lc, Av_cc = self._aux_vcumulative2(Lcol, ccol, zeta)
-        zeta1 = [
-            _sine_series_xp(xp, ntau, lib["dDmv"][..., k], self._nforDmv)[0]
-            for k in range(3)
-        ]
-        rhs = []
-        for kk, (i, j) in enumerate(pairs):
-            Li, Lj, ci, cj = col(L1[:, i]), col(L1[:, j]), col(c1[:, i]), col(c1[:, j])
-            rhs.append(
-                A2v[..., kk]
-                - (
-                    fv_z * zeta1[i] * zeta1[j]
-                    + fv_L * (Lj * zeta1[i] + Li * zeta1[j])
-                    + fv_c * (cj * zeta1[i] + ci * zeta1[j])
-                )
-                - (Av_LL * Li * Lj + Av_Lc * (Li * cj + Lj * ci) + Av_cc * ci * cj)
-                - Av_L * col(L2[:, kk])
-                - Av_c * col(c2[:, kk])
-            )
-        D2v = _sine_galerkin_xp(xp, fv, xp.stack(rhs, axis=-1), self._nforDmv)
+        zeta1 = _sine_series_xp(
+            xp, ntau, xp.permute_dims(lib["dDmv"], (2, 0, 1)), self._nforDmv
+        )[0]
+        zi, zj = xp.take(zeta1, I_, axis=0), xp.take(zeta1, J_, axis=0)
+        Li, Lj = xp.take(lead(L1), I_, axis=0), xp.take(lead(L1), J_, axis=0)
+        ci, cj = xp.take(lead(c1), I_, axis=0), xp.take(lead(c1), J_, axis=0)
+        rhs = (
+            A2v
+            - (fv_z * zi * zj + fv_L * (Lj * zi + Li * zj) + fv_c * (cj * zi + ci * zj))
+            - (Av_LL * Li * Lj + Av_Lc * (Li * cj + Lj * ci) + Av_cc * ci * cj)
+            - Av_L * lead(L2)
+            - Av_c * lead(c2)
+        )
+        D2v = _sine_galerkin_xp(xp, fv, xp.permute_dims(rhs, (1, 2, 0)), self._nforDmv)
         return (
             xp.stack([uc2, wu2, wv2], axis=1),
             xp.stack([M2u, M2v], axis=1),
@@ -4029,12 +4046,19 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         )
         return ins, at_least_float64(*ins)
 
+    def _bk_plane_pot(self):
+        """The Staeckel model in the plane: the potential it approximates,
+        which it equals there (V(pi/2) = 0) at a fraction of the cost of its
+        own evaluation; a tabulated model's splines are its own"""
+        w = self._staeckelwrap
+        return w if w._splines is not None else w._pot
+
     def _bk_Phi(self, R):
         """The (reference) Staeckel model's potential in the plane at R"""
         xp = get_namespace(R)
         flat = xp.reshape(R, (-1,))
         return xp.reshape(
-            _evaluatePotentials(self._staeckelwrap, flat, 0.0 * flat), R.shape
+            _evaluatePotentials(self._bk_plane_pot(), flat, 0.0 * flat), R.shape
         )
 
     def _bk_dPhi(self, R):
@@ -4042,7 +4066,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         xp = get_namespace(R)
         flat = xp.reshape(R, (-1,))
         return -xp.reshape(
-            _evaluateRforces(self._staeckelwrap, flat, 0.0 * flat), R.shape
+            _evaluateRforces(self._bk_plane_pot(), flat, 0.0 * flat), R.shape
         )
 
     def _bk_rc(self, ell):
@@ -4052,7 +4076,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         xp = get_namespace(ell)
         if not self._interp:
             return xp.reshape(
-                rl(self._staeckelwrap, xp.reshape(ell, (1,)), use_physical=False), ()
+                rl(self._bk_plane_pot(), xp.reshape(ell, (1,)), use_physical=False), ()
             )
         rg = self._bk_grid("Rcs")
         one = xp.reshape(0.0 * ell + 1.0, (1,))
@@ -4099,9 +4123,21 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         Ec = self._bk_Phi(Rc1)[0] + ell**2 / (2.0 * Rc**2)
         out = {"Rc": Rc, "Ec": Ec, "uc": xp.asinh(Rc / self._delta), "Omc": ell / Rc**2}
         if freqs:
-            wrap = self._bk_chart(Ec, ell)
-            out["kappa"] = xp.reshape(epifreq(wrap, Rc1, use_physical=False), ())
-            out["nu"] = xp.reshape(verticalfreq(wrap, Rc1, use_physical=False), ())
+            out["kappa"] = xp.reshape(
+                epifreq(self._bk_plane_pot(), Rc1, use_physical=False), ()
+            )
+            # the model's vertical frequency there from U and U' at u_c and
+            # V'' at the midplane, where the general second derivative of
+            # the wrapper evaluates every one of U, V and their derivatives
+            w = self._bk_chart(Ec, ell)
+            u = xp.reshape(out["uc"], (1,))
+            ch2, sh2 = xp.cosh(u) ** 2, xp.sinh(u) ** 2
+            V2 = w._d2Vdv2(0.5 * numpy.pi + 0.0 * u)
+            nu2 = (
+                (w._dUdu(u) * xp.tanh(u) - V2) / ch2
+                - 2.0 * w._U(u) * (sh2 - 1.0) / ch2**2
+            ) / (self._delta**2 * ch2)
+            out["nu"] = xp.reshape(xp.sqrt(nu2), ())
         return out
 
     def _bk_R0(self, E, Rlo, Rhi):

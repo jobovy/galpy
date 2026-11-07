@@ -42,6 +42,10 @@ _OMEGA = numpy.block(
     [[numpy.zeros((3, 3)), numpy.eye(3)], [-numpy.eye(3), numpy.zeros((3, 3))]]
 )
 _ANGLES = numpy.array([0.0, 0.4, 1.5, numpy.pi, 4.0, 6.0])
+# in the plane (a circular orbit, the target's box) a backend evaluates the
+# Staeckel model through the potential it approximates, which it equals there;
+# numpy through the model's own force, ~1e-12 off by its tanh(u) + 1e-12
+_PLANE_ATOL = 2e-12
 # (E, L_z, I_3) of the benign and the eccentric torus of test_actionAngle.py's
 # Staeckel inverse tests (from the phase-space points [1.1, 0.3, 0.9, 0.25,
 # 0.2, 0] and [1.1, 0.9, 0.35, 0.15, 0.1, 0] by the separated Hamilton-Jacobi
@@ -193,7 +197,7 @@ def test_values_match_numpy(backend, mode, explicit, interp):
         ins = [_arr(backend, v) for v in (jr, jphi, jz, *a)]
         on_bk = aN.xvFreqs(*ins)
         assert all(_is_backend(backend, o) for o in on_bk)
-        numpy.testing.assert_allclose(_flat(on_bk), ref, rtol=0.0, atol=1e-12)
+        numpy.testing.assert_allclose(_flat(on_bk), ref, rtol=0.0, atol=_PLANE_ATOL)
         numpy.testing.assert_allclose(
             _flat(aB.xvFreqs(*ins)), ref, rtol=0.0, atol=3e-11
         )
@@ -201,7 +205,7 @@ def test_values_match_numpy(backend, mode, explicit, interp):
         assert _is_backend(backend, aB(jr, jphi, jz, 0.3, 1.0, 2.0)[0])
         reff = _flat(aN.Freqs(jr, jphi, jz))
         numpy.testing.assert_allclose(
-            _flat(aN.Freqs(*ins[:3])), reff, rtol=0.0, atol=1e-12
+            _flat(aN.Freqs(*ins[:3])), reff, rtol=0.0, atol=_PLANE_ATOL
         )
         numpy.testing.assert_allclose(
             _flat(aB.Freqs(*ins[:3])), reff, rtol=0.0, atol=3e-11
@@ -421,9 +425,7 @@ def test_jax_jit_construction(mode):
 @pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
 def test_jax_parameter_derivatives_match_torch():
     # jax's derivatives in the potential's parameters through the construction
-    # of explicit tori (eager forward mode: jax.jit of a reverse-mode
-    # derivative of the whole construction compiles for minutes in 8-17 GB, so
-    # the parameter sweep leaves this class to this file) equal torch's
+    # of explicit tori, jitted reverse mode, equal torch's
     pt = torch.tensor(4.0, requires_grad=True)
     y = _param_out(_param_family(pt, "explicit"), "explicit")
     g = numpy.array(
@@ -432,9 +434,9 @@ def test_jax_parameter_derivatives_match_torch():
             for k in range(len(y))
         ]
     )
-    gj = jax.jacfwd(lambda p: _param_out(_param_family(p, "explicit"), "explicit"))(
-        jnp.asarray(4.0)
-    )
+    gj = jax.jit(
+        jax.jacrev(lambda p: _param_out(_param_family(p, "explicit"), "explicit"))
+    )(jnp.asarray(4.0))
     # two backends' round-off through the construction: 1.8e-11 on CI
     numpy.testing.assert_allclose(numpy.asarray(gj), g, rtol=0.0, atol=5e-11)
 
@@ -474,13 +476,13 @@ def test_jax_jit_and_vmap(interp, explicit):
                 numpy.asarray(f(jnp.asarray(J), jnp.asarray(_ANGLES))),
                 _flat(aA.xvFreqs(*J, _ANGLES, 1.0, 2.0)),
                 rtol=0.0,
-                atol=1e-12,
+                atol=_PLANE_ATOL,
             )
             numpy.testing.assert_allclose(
                 numpy.asarray(g(jnp.asarray(J))),
                 _flat(aA.Freqs(*J)),
                 rtol=0.0,
-                atol=1e-12,
+                atol=_PLANE_ATOL,
             )
         numpy.testing.assert_allclose(
             numpy.asarray(h(*(jnp.asarray(v) for v in (E, Lz, I3)))),
@@ -613,7 +615,7 @@ def test_degenerate_explicit_tori(backend):
             )
         if backend == "jax":
             numpy.testing.assert_allclose(
-                numpy.asarray(traced(jnp.asarray(J))), ref, rtol=0.0, atol=1e-12
+                numpy.asarray(traced(jnp.asarray(J))), ref, rtol=0.0, atol=_PLANE_ATOL
             )
 
 
@@ -666,7 +668,7 @@ def test_adaptive_and_target():
             numpy.array(aB._box, dtype=float),
             numpy.array(aN._box, dtype=float),
             rtol=0.0,
-            atol=1e-13,
+            atol=_PLANE_ATOL,
         )
         for tab in ("A_tab", "U_tab", "V_tab"):
             numpy.testing.assert_allclose(
@@ -857,3 +859,22 @@ def test_hermite_family_3d(backend):
                 got = ip(*(_arr(backend, v) for v in pt), **kw)[0, 0]
                 assert _is_backend(backend, got)
                 numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=1e-12)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tabulated_staeckel_model():
+    # a tabulated Staeckel model (ntab=; ~2e-7 off the potential in the plane
+    # here) is its own in the plane too: a family built on a backend agrees
+    # with numpy's, at the circular orbit as elsewhere
+    from galpy import backend as gb
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    pot = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, ntab=100)
+    aN = _interp(pot=pot)
+    with gb.use("torch", force=True):
+        aB = _interp(pot=pot)
+    for J in ((0.06, 0.93, 0.10), (0.0, 1.1, 0.0)):
+        got = aB.xvFreqs(*(_arr("torch", v) for v in (*J, _ANGLES)), 1.0, 2.0)
+        numpy.testing.assert_allclose(
+            _flat(got), _flat(aN.xvFreqs(*J, _ANGLES, 1.0, 2.0)), rtol=0.0, atol=1e-11
+        )
