@@ -5687,16 +5687,16 @@ def test_EllipsoidalPotential_array_R_scalar_z():
     tp = potential.PerfectEllipsoidPotential(normalize=1.0, b=1.0, c=0.5)
     Rs = numpy.array([0.8, 1.2, 1.7])
     for func in (potential.evaluateRforces, potential.evaluateR2derivs):
-        arr = func(tp, Rs, 0.1)
-        one = numpy.array([func(tp, R, 0.1) for R in Rs])
+        arr = as_numpy(func(tp, Rs, 0.1))
+        one = numpy.array([as_numpy(func(tp, R, 0.1)) for R in Rs])
         assert numpy.all(numpy.fabs(arr - one) < 1e-14), (
             f"{func.__name__} at an array of R with a scalar z disagrees with its "
             "values at each R"
         )
     assert numpy.all(
         numpy.fabs(
-            potential.epifreq(tp, Rs)
-            - numpy.array([potential.epifreq(tp, R) for R in Rs])
+            as_numpy(potential.epifreq(tp, Rs))
+            - numpy.array([as_numpy(potential.epifreq(tp, R)) for R in Rs])
         )
         < 1e-14
     ), "epifreq at an array of R disagrees with its values at each R"

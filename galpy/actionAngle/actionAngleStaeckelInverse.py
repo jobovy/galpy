@@ -4029,9 +4029,6 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         )
         return ins, at_least_float64(*ins)
 
-    def _bk_const(self, xp, a, ref):
-        return a if is_backend_array(a) else asarray_on_device(xp, a, device_of(ref))
-
     def _bk_Phi(self, R):
         """The (reference) Staeckel model's potential in the plane at R"""
         xp = get_namespace(R)
