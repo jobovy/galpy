@@ -723,6 +723,8 @@
 "tests/test_backend_actionAngleStaeckelInverse.py::test_explicit_action_derivatives[torch]": 0.23,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_float32_in_float32_out[jax]": 2.44,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_float32_in_float32_out[torch]": 0.28,
+"tests/test_backend_actionAngleStaeckelInverse.py::test_hermite_family_3d[jax]": 5.19,
+"tests/test_backend_actionAngleStaeckelInverse.py::test_hermite_family_3d[torch]": 0.05,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_jax_jit_and_vmap": 53.26,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_jax_jit_construction[explicit]": 20.18,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_jax_jit_construction[interp]": 34.53,
