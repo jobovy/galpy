@@ -763,3 +763,19 @@ def test_hermite_family_2d(backend):
         numpy.testing.assert_allclose(
             as_numpy(got)[1], ipn(0.5, 1.5)[0, 0], rtol=0.0, atol=1e-12
         )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_unconverged_anomaly_solve(backend, explicit):
+    # with maxiter too small for the anomaly's Newton iteration to converge,
+    # the backend root-finder's safeguarded steps in the full bracket finish
+    # the solve: the same torus as with the default maxiter
+    aA = _explicit(maxiter=1)
+    jr = explicit._jrs[0]
+    ins = [
+        _arr(backend, v)
+        for v in (jr, 0.5, 0.4, _ANGLES, 1.0 + 0.0 * _ANGLES, 2.0 + 0.0 * _ANGLES)
+    ]
+    numpy.testing.assert_allclose(
+        _flat(aA.xvFreqs(*ins)), _flat(explicit.xvFreqs(*ins)), rtol=0.0, atol=1e-10
+    )
