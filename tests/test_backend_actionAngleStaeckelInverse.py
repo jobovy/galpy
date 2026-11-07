@@ -418,6 +418,26 @@ def test_jax_jit_construction(mode):
     )
 
 
+@pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
+def test_jax_parameter_derivatives_match_torch():
+    # jax's derivatives in the potential's parameters through the construction
+    # of explicit tori (eager forward mode: jax.jit of a reverse-mode
+    # derivative of the whole construction compiles for minutes in 8-17 GB, so
+    # the parameter sweep leaves this class to this file) equal torch's
+    pt = torch.tensor(4.0, requires_grad=True)
+    y = _param_out(_param_family(pt, "explicit"), "explicit")
+    g = numpy.array(
+        [
+            float(torch.autograd.grad(y[k], pt, retain_graph=True)[0])
+            for k in range(len(y))
+        ]
+    )
+    gj = jax.jacfwd(lambda p: _param_out(_param_family(p, "explicit"), "explicit"))(
+        jnp.asarray(4.0)
+    )
+    numpy.testing.assert_allclose(numpy.asarray(gj), g, rtol=0.0, atol=1e-11)
+
+
 # ---------- jit, vmap, compile, float32
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_jax_jit_and_vmap(interp, explicit):
