@@ -4093,21 +4093,19 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             pot=self._chart_pot, delta=self._delta, u0=u0
         )
 
-    def _bk_circular(self, ell):
-        """_circular on a backend"""
+    def _bk_circular(self, ell, freqs=True):
+        """_circular on a backend; the epicycle and vertical frequencies (second
+        derivatives of the potential, most of a trace) only when asked"""
         xp = get_namespace(ell)
         Rc = self._bk_rc(ell)
         Rc1 = xp.reshape(Rc, (1,))
         Ec = self._bk_Phi(Rc1)[0] + ell**2 / (2.0 * Rc**2)
-        wrap = self._bk_chart(Ec, ell)
-        return {
-            "Rc": Rc,
-            "Ec": Ec,
-            "uc": xp.asinh(Rc / self._delta),
-            "kappa": xp.reshape(epifreq(wrap, Rc1, use_physical=False), ()),
-            "nu": xp.reshape(verticalfreq(wrap, Rc1, use_physical=False), ()),
-            "Omc": ell / Rc**2,
-        }
+        out = {"Rc": Rc, "Ec": Ec, "uc": xp.asinh(Rc / self._delta), "Omc": ell / Rc**2}
+        if freqs:
+            wrap = self._bk_chart(Ec, ell)
+            out["kappa"] = xp.reshape(epifreq(wrap, Rc1, use_physical=False), ())
+            out["nu"] = xp.reshape(verticalfreq(wrap, Rc1, use_physical=False), ())
+        return out
 
     def _bk_R0(self, E, Rlo, Rhi):
         """_R0 on a backend (0-d)"""
@@ -4125,7 +4123,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
     def _bk_E_of_xL(self, x, ell, circ=None):
         """_E_of_xL on a backend, with the edges' apocentres solved afresh"""
         xp = get_namespace(x, ell)
-        circ = self._bk_circular(ell) if circ is None else circ
+        circ = self._bk_circular(ell, freqs=False) if circ is None else circ
         Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
         R0c = self._bk_R0(circ["Ec"], circ["Rc"], self._Rinf + 0.0 * ell)
         R0m = self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell)
@@ -4358,7 +4356,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 xp.stack([zero, zero, sgn + zero]),
             ]
         )
-        circ = self._bk_circular(ell)
+        circ = self._bk_circular(ell, freqs=False)
         _, dE_dx, dE_dL = self._bk_E_of_xL(x, ell, circ)
         tab = {
             "Om": dE_dx * N[0] + dE_dL * N[2],
@@ -4971,7 +4969,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             return tuple(match_input_dtype(t, *ins) for t in (J[0], J[1]))
         ell = xp.abs(Lz)
         self._bk_check_Lz(ell)
-        circ = self._bk_circular(ell)
+        circ = self._bk_circular(ell, freqs=False)
         Ec = circ["Ec"]
         Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
         tol = 1e-12 * (Emax - Ec)
